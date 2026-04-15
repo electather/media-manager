@@ -1,5 +1,5 @@
-import { betterAuth } from 'better-auth'
-import { env } from '../env'
+import { betterAuth } from "better-auth";
+import { env } from "../env";
 
 // TODO: Add MCP plugin and database adapter once DB client is wired.
 export const auth = betterAuth({
@@ -8,6 +8,6 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-})
+});
 
-export type Auth = typeof auth
+export type Auth = typeof auth;

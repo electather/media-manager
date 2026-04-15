@@ -1,8 +1,6 @@
-import { ofetch } from 'ofetch'
-
-interface TvdbClientConfig {
-  apiKey: string
-  baseUrl?: string
+export interface TvdbClientConfig {
+  apiKey: string;
+  baseUrl?: string;
 }
 
 /**
@@ -10,17 +8,10 @@ interface TvdbClientConfig {
  * Not bound to a provider interface yet — used directly by MediaService for ID mapping.
  */
 export class TvdbClient {
-  private readonly fetch: ReturnType<typeof ofetch.create>
-
-  constructor(config: TvdbClientConfig) {
-    this.fetch = ofetch.create({
-      baseURL: config.baseUrl ?? 'https://api4.thetvdb.com/v4',
-    })
-    void config.apiKey // TODO: implement token-based auth flow
-  }
+  constructor(_config: TvdbClientConfig) {}
 
   /** Returns the TVDB series ID for a given TMDB ID. */
   async getTvdbIdFromTmdb(_tmdbId: string): Promise<number | null> {
-    throw new Error('Not implemented')
+    throw new Error("Not implemented");
   }
 }

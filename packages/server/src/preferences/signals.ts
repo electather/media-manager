@@ -1,4 +1,4 @@
-import type { FeedbackSignals } from './types'
+import type { FeedbackSignals } from "./types";
 
 /** Extracts preference signals from a free-text feedback note. */
 export function extractSignals(_note: string): FeedbackSignals {
@@ -9,5 +9,5 @@ export function extractSignals(_note: string): FeedbackSignals {
     directors: [],
     actors: [],
     themes: [],
-  }
+  };
 }

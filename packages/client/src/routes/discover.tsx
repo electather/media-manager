@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/discover')({
+export const Route = createFileRoute("/discover")({
   component: DiscoverPage,
-})
+});
 
 function DiscoverPage() {
   return (
@@ -10,5 +10,5 @@ function DiscoverPage() {
       <h1 className="text-2xl font-bold mb-2">Discover</h1>
       <p className="text-muted-foreground">Search and browse movies & TV shows</p>
     </div>
-  )
+  );
 }

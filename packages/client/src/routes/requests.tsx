@@ -1,8 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/requests')({
+export const Route = createFileRoute("/requests")({
   component: RequestsPage,
-})
+});
 
 function RequestsPage() {
   return (
@@ -10,5 +10,5 @@ function RequestsPage() {
       <h1 className="text-2xl font-bold mb-2">Requests</h1>
       <p className="text-muted-foreground">Download requests and their status</p>
     </div>
-  )
+  );
 }

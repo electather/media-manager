@@ -1,12 +1,12 @@
-import { Link, Outlet } from '@tanstack/react-router'
+import { Link, Outlet } from "@tanstack/react-router";
 
 const navLinks = [
-  { to: '/', label: 'Home' },
-  { to: '/discover', label: 'Discover' },
-  { to: '/activity', label: 'Activity' },
-  { to: '/requests', label: 'Requests' },
-  { to: '/settings', label: 'Settings' },
-] as const
+  { to: "/", label: "Home" },
+  { to: "/discover", label: "Discover" },
+  { to: "/activity", label: "Activity" },
+  { to: "/requests", label: "Requests" },
+  { to: "/settings", label: "Settings" },
+] as const;
 
 /** Root app shell with sidebar navigation and main content area. */
 export default function Layout() {
@@ -19,7 +19,7 @@ export default function Layout() {
             key={link.to}
             to={link.to}
             className="rounded px-3 py-2 text-sm hover:bg-accent"
-            activeProps={{ className: 'bg-accent font-medium' }}
+            activeProps={{ className: "bg-accent font-medium" }}
           >
             {link.label}
           </Link>
@@ -29,5 +29,5 @@ export default function Layout() {
         <Outlet />
       </main>
     </div>
-  )
+  );
 }

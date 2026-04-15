@@ -1,11 +1,27 @@
 {
   "name": "ent-mcp",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev:server": "bun run --cwd packages/server src/index.ts",
     "dev:client": "bun run --cwd packages/client dev",
     "build:client": "bun run --cwd packages/client build",
-    "typecheck": "bun run --cwd packages/server tsc --noEmit && bun run --cwd packages/client tsc --noEmit"
+    "typecheck": "bun run --cwd packages/server tsc --noEmit && bun run --cwd packages/client tsc --noEmit",
+    "prepare": "vp config"
+  },
+  "devDependencies": {
+    "vite-plus": "catalog:"
+  },
+  "overrides": {
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "packageManager": "bun@1.3.12",
+  "catalog": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
+    "vite-plus": "latest"
   }
 }
