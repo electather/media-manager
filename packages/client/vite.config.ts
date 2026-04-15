@@ -12,6 +12,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  envDir: "../../",
   resolve: {
     alias: {
       "@": new URL("./src", import.meta.url).pathname,

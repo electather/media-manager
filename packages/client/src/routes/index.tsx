@@ -1,14 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  component: HomePage,
+  beforeLoad: () => {
+    throw redirect({ to: "/dashboard" });
+  },
+  component: () => null,
 });
-
-function HomePage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-2">ent-mcp</h1>
-      <p className="text-muted-foreground">Entertainment management dashboard</p>
-    </div>
-  );
-}

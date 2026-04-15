@@ -1,27 +1,22 @@
-import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { drizzle as drizzleSqlite } from "drizzle-orm/libsql";
-import postgres from "postgres";
+import { drizzle } from "drizzle-orm/libsql";
 import { createClient } from "@libsql/client";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { env } from "../env";
 import * as schema from "./schema/index";
 
-type DrizzlePostgresDb = ReturnType<typeof drizzlePostgres>;
-type DrizzleSqliteDb = ReturnType<typeof drizzleSqlite>;
-export type Db = DrizzlePostgresDb | DrizzleSqliteDb;
+export type Db = ReturnType<typeof drizzle>;
 
 let instance: Db | undefined;
 
-/** Returns a singleton Drizzle instance based on DB_PROVIDER. */
+/** Returns a singleton Drizzle instance backed by libSQL/SQLite. */
 export function getDb(): Db {
   if (instance) return instance;
 
-  if (env.DB_PROVIDER === "postgres") {
-    const client = postgres(env.DATABASE_URL!);
-    instance = drizzlePostgres(client, { schema });
-  } else {
-    const client = createClient({ url: env.SQLITE_PATH ?? "./data/ent-mcp.db" });
-    instance = drizzleSqlite(client, { schema });
-  }
+  const url = env.SQLITE_PATH ?? "file:./data/ent-mcp.db";
+  // Ensure the parent directory exists before libSQL tries to open the file.
+  mkdirSync(dirname(url.replace(/^file:/, "")), { recursive: true });
+  instance = drizzle(createClient({ url }), { schema });
 
   return instance;
 }

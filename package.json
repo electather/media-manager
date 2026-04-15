@@ -5,7 +5,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:server": "bun run --cwd packages/server src/index.ts",
+    "dev": "trap 'kill 0' SIGINT; bun run dev:server & bun run dev:client; wait",
+    "dev:server": "bun --env-file=$(pwd)/.env --cwd packages/server --watch src/index.ts",
     "dev:client": "bun run --cwd packages/client dev",
     "build:client": "bun run --cwd packages/client build",
     "typecheck": "bun run --cwd packages/server tsc --noEmit && bun run --cwd packages/client tsc --noEmit",

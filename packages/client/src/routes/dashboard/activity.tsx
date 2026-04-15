@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/activity")({
+export const Route = createFileRoute("/dashboard/activity")({
   component: ActivityPage,
 });
 

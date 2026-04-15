@@ -23,7 +23,7 @@ function buildMediaService(): MediaService {
   const activity = new TraktClient({ clientId: env.TRAKT_CLIENT_ID ?? "" });
   const downloads = new SerrClient({
     baseUrl: env.SEERR_URL ?? "http://localhost:5055",
-    apiKey: env.SEERR_API_KEY ?? "",
+    apiKey: "fixme later",
   });
 
   return new MediaService(metadata, activity, downloads, cache, preferences);
