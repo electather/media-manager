@@ -4,6 +4,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import "./globals.css";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 const router = createRouter({ routeTree });
 
@@ -21,7 +22,9 @@ if (!rootEl) throw new Error("Root element not found");
 createRoot(rootEl).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

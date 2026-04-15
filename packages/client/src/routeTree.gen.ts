@@ -8,265 +8,263 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
-import { Route as AuthRouteRouteImport } from './routes/auth/route'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as DashboardSettingsRouteImport } from './routes/dashboard/settings'
-import { Route as DashboardRequestsRouteImport } from './routes/dashboard/requests'
-import { Route as DashboardDiscoverRouteImport } from './routes/dashboard/discover'
-import { Route as DashboardActivityRouteImport } from './routes/dashboard/activity'
-import { Route as AuthRegisterRouteImport } from './routes/auth/register'
-import { Route as AuthLoginRouteImport } from './routes/auth/login'
-import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as DashboardRouteRouteImport } from "./routes/dashboard/route";
+import { Route as AuthRouteRouteImport } from "./routes/auth/route";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as DashboardIndexRouteImport } from "./routes/dashboard/index";
+import { Route as DashboardSettingsRouteImport } from "./routes/dashboard/settings";
+import { Route as DashboardRequestsRouteImport } from "./routes/dashboard/requests";
+import { Route as DashboardDiscoverRouteImport } from "./routes/dashboard/discover";
+import { Route as DashboardActivityRouteImport } from "./routes/dashboard/activity";
+import { Route as AuthRegisterRouteImport } from "./routes/auth/register";
+import { Route as AuthLoginRouteImport } from "./routes/auth/login";
+import { Route as AuthForgotPasswordRouteImport } from "./routes/auth/forgot-password";
 
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+  id: "/dashboard",
+  path: "/dashboard",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AuthRouteRoute = AuthRouteRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+  id: "/auth",
+  path: "/auth",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => DashboardRouteRoute,
-} as any)
+} as any);
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+  id: "/settings",
+  path: "/settings",
   getParentRoute: () => DashboardRouteRoute,
-} as any)
+} as any);
 const DashboardRequestsRoute = DashboardRequestsRouteImport.update({
-  id: '/requests',
-  path: '/requests',
+  id: "/requests",
+  path: "/requests",
   getParentRoute: () => DashboardRouteRoute,
-} as any)
+} as any);
 const DashboardDiscoverRoute = DashboardDiscoverRouteImport.update({
-  id: '/discover',
-  path: '/discover',
+  id: "/discover",
+  path: "/discover",
   getParentRoute: () => DashboardRouteRoute,
-} as any)
+} as any);
 const DashboardActivityRoute = DashboardActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
+  id: "/activity",
+  path: "/activity",
   getParentRoute: () => DashboardRouteRoute,
-} as any)
+} as any);
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+  id: "/register",
+  path: "/register",
   getParentRoute: () => AuthRouteRoute,
-} as any)
+} as any);
 const AuthLoginRoute = AuthLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+  id: "/login",
+  path: "/login",
   getParentRoute: () => AuthRouteRoute,
-} as any)
+} as any);
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
+  id: "/forgot-password",
+  path: "/forgot-password",
   getParentRoute: () => AuthRouteRoute,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/auth': typeof AuthRouteRouteWithChildren
-  '/dashboard': typeof DashboardRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/auth/login': typeof AuthLoginRoute
-  '/auth/register': typeof AuthRegisterRoute
-  '/dashboard/activity': typeof DashboardActivityRoute
-  '/dashboard/discover': typeof DashboardDiscoverRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/': typeof DashboardIndexRoute
+  "/": typeof IndexRoute;
+  "/auth": typeof AuthRouteRouteWithChildren;
+  "/dashboard": typeof DashboardRouteRouteWithChildren;
+  "/auth/forgot-password": typeof AuthForgotPasswordRoute;
+  "/auth/login": typeof AuthLoginRoute;
+  "/auth/register": typeof AuthRegisterRoute;
+  "/dashboard/activity": typeof DashboardActivityRoute;
+  "/dashboard/discover": typeof DashboardDiscoverRoute;
+  "/dashboard/requests": typeof DashboardRequestsRoute;
+  "/dashboard/settings": typeof DashboardSettingsRoute;
+  "/dashboard/": typeof DashboardIndexRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/auth': typeof AuthRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/auth/login': typeof AuthLoginRoute
-  '/auth/register': typeof AuthRegisterRoute
-  '/dashboard/activity': typeof DashboardActivityRoute
-  '/dashboard/discover': typeof DashboardDiscoverRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard': typeof DashboardIndexRoute
+  "/": typeof IndexRoute;
+  "/auth": typeof AuthRouteRouteWithChildren;
+  "/auth/forgot-password": typeof AuthForgotPasswordRoute;
+  "/auth/login": typeof AuthLoginRoute;
+  "/auth/register": typeof AuthRegisterRoute;
+  "/dashboard/activity": typeof DashboardActivityRoute;
+  "/dashboard/discover": typeof DashboardDiscoverRoute;
+  "/dashboard/requests": typeof DashboardRequestsRoute;
+  "/dashboard/settings": typeof DashboardSettingsRoute;
+  "/dashboard": typeof DashboardIndexRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/auth': typeof AuthRouteRouteWithChildren
-  '/dashboard': typeof DashboardRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
-  '/auth/login': typeof AuthLoginRoute
-  '/auth/register': typeof AuthRegisterRoute
-  '/dashboard/activity': typeof DashboardActivityRoute
-  '/dashboard/discover': typeof DashboardDiscoverRoute
-  '/dashboard/requests': typeof DashboardRequestsRoute
-  '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/': typeof DashboardIndexRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/auth": typeof AuthRouteRouteWithChildren;
+  "/dashboard": typeof DashboardRouteRouteWithChildren;
+  "/auth/forgot-password": typeof AuthForgotPasswordRoute;
+  "/auth/login": typeof AuthLoginRoute;
+  "/auth/register": typeof AuthRegisterRoute;
+  "/dashboard/activity": typeof DashboardActivityRoute;
+  "/dashboard/discover": typeof DashboardDiscoverRoute;
+  "/dashboard/requests": typeof DashboardRequestsRoute;
+  "/dashboard/settings": typeof DashboardSettingsRoute;
+  "/dashboard/": typeof DashboardIndexRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
-    | '/'
-    | '/auth'
-    | '/dashboard'
-    | '/auth/forgot-password'
-    | '/auth/login'
-    | '/auth/register'
-    | '/dashboard/activity'
-    | '/dashboard/discover'
-    | '/dashboard/requests'
-    | '/dashboard/settings'
-    | '/dashboard/'
-  fileRoutesByTo: FileRoutesByTo
+    | "/"
+    | "/auth"
+    | "/dashboard"
+    | "/auth/forgot-password"
+    | "/auth/login"
+    | "/auth/register"
+    | "/dashboard/activity"
+    | "/dashboard/discover"
+    | "/dashboard/requests"
+    | "/dashboard/settings"
+    | "/dashboard/";
+  fileRoutesByTo: FileRoutesByTo;
   to:
-    | '/'
-    | '/auth'
-    | '/auth/forgot-password'
-    | '/auth/login'
-    | '/auth/register'
-    | '/dashboard/activity'
-    | '/dashboard/discover'
-    | '/dashboard/requests'
-    | '/dashboard/settings'
-    | '/dashboard'
+    | "/"
+    | "/auth"
+    | "/auth/forgot-password"
+    | "/auth/login"
+    | "/auth/register"
+    | "/dashboard/activity"
+    | "/dashboard/discover"
+    | "/dashboard/requests"
+    | "/dashboard/settings"
+    | "/dashboard";
   id:
-    | '__root__'
-    | '/'
-    | '/auth'
-    | '/dashboard'
-    | '/auth/forgot-password'
-    | '/auth/login'
-    | '/auth/register'
-    | '/dashboard/activity'
-    | '/dashboard/discover'
-    | '/dashboard/requests'
-    | '/dashboard/settings'
-    | '/dashboard/'
-  fileRoutesById: FileRoutesById
+    | "__root__"
+    | "/"
+    | "/auth"
+    | "/dashboard"
+    | "/auth/forgot-password"
+    | "/auth/login"
+    | "/auth/register"
+    | "/dashboard/activity"
+    | "/dashboard/discover"
+    | "/dashboard/requests"
+    | "/dashboard/settings"
+    | "/dashboard/";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AuthRouteRoute: typeof AuthRouteRouteWithChildren
-  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
+  IndexRoute: typeof IndexRoute;
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren;
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard/': {
-      id: '/dashboard/'
-      path: '/'
-      fullPath: '/dashboard/'
-      preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/settings': {
-      id: '/dashboard/settings'
-      path: '/settings'
-      fullPath: '/dashboard/settings'
-      preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/requests': {
-      id: '/dashboard/requests'
-      path: '/requests'
-      fullPath: '/dashboard/requests'
-      preLoaderRoute: typeof DashboardRequestsRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/discover': {
-      id: '/dashboard/discover'
-      path: '/discover'
-      fullPath: '/dashboard/discover'
-      preLoaderRoute: typeof DashboardDiscoverRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/activity': {
-      id: '/dashboard/activity'
-      path: '/activity'
-      fullPath: '/dashboard/activity'
-      preLoaderRoute: typeof DashboardActivityRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/auth/register': {
-      id: '/auth/register'
-      path: '/register'
-      fullPath: '/auth/register'
-      preLoaderRoute: typeof AuthRegisterRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/login': {
-      id: '/auth/login'
-      path: '/login'
-      fullPath: '/auth/login'
-      preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/auth/forgot-password': {
-      id: '/auth/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/auth/forgot-password'
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
+    "/dashboard": {
+      id: "/dashboard";
+      path: "/dashboard";
+      fullPath: "/dashboard";
+      preLoaderRoute: typeof DashboardRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/auth": {
+      id: "/auth";
+      path: "/auth";
+      fullPath: "/auth";
+      preLoaderRoute: typeof AuthRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/dashboard/": {
+      id: "/dashboard/";
+      path: "/";
+      fullPath: "/dashboard/";
+      preLoaderRoute: typeof DashboardIndexRouteImport;
+      parentRoute: typeof DashboardRouteRoute;
+    };
+    "/dashboard/settings": {
+      id: "/dashboard/settings";
+      path: "/settings";
+      fullPath: "/dashboard/settings";
+      preLoaderRoute: typeof DashboardSettingsRouteImport;
+      parentRoute: typeof DashboardRouteRoute;
+    };
+    "/dashboard/requests": {
+      id: "/dashboard/requests";
+      path: "/requests";
+      fullPath: "/dashboard/requests";
+      preLoaderRoute: typeof DashboardRequestsRouteImport;
+      parentRoute: typeof DashboardRouteRoute;
+    };
+    "/dashboard/discover": {
+      id: "/dashboard/discover";
+      path: "/discover";
+      fullPath: "/dashboard/discover";
+      preLoaderRoute: typeof DashboardDiscoverRouteImport;
+      parentRoute: typeof DashboardRouteRoute;
+    };
+    "/dashboard/activity": {
+      id: "/dashboard/activity";
+      path: "/activity";
+      fullPath: "/dashboard/activity";
+      preLoaderRoute: typeof DashboardActivityRouteImport;
+      parentRoute: typeof DashboardRouteRoute;
+    };
+    "/auth/register": {
+      id: "/auth/register";
+      path: "/register";
+      fullPath: "/auth/register";
+      preLoaderRoute: typeof AuthRegisterRouteImport;
+      parentRoute: typeof AuthRouteRoute;
+    };
+    "/auth/login": {
+      id: "/auth/login";
+      path: "/login";
+      fullPath: "/auth/login";
+      preLoaderRoute: typeof AuthLoginRouteImport;
+      parentRoute: typeof AuthRouteRoute;
+    };
+    "/auth/forgot-password": {
+      id: "/auth/forgot-password";
+      path: "/forgot-password";
+      fullPath: "/auth/forgot-password";
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport;
+      parentRoute: typeof AuthRouteRoute;
+    };
   }
 }
 
 interface AuthRouteRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
-  AuthLoginRoute: typeof AuthLoginRoute
-  AuthRegisterRoute: typeof AuthRegisterRoute
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute;
+  AuthLoginRoute: typeof AuthLoginRoute;
+  AuthRegisterRoute: typeof AuthRegisterRoute;
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
-}
+};
 
-const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
-  AuthRouteRouteChildren,
-)
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(AuthRouteRouteChildren);
 
 interface DashboardRouteRouteChildren {
-  DashboardActivityRoute: typeof DashboardActivityRoute
-  DashboardDiscoverRoute: typeof DashboardDiscoverRoute
-  DashboardRequestsRoute: typeof DashboardRequestsRoute
-  DashboardSettingsRoute: typeof DashboardSettingsRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardActivityRoute: typeof DashboardActivityRoute;
+  DashboardDiscoverRoute: typeof DashboardDiscoverRoute;
+  DashboardRequestsRoute: typeof DashboardRequestsRoute;
+  DashboardSettingsRoute: typeof DashboardSettingsRoute;
+  DashboardIndexRoute: typeof DashboardIndexRoute;
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
@@ -275,17 +273,17 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardRequestsRoute: DashboardRequestsRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
-}
+};
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
   DashboardRouteRouteChildren,
-)
+);
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();
