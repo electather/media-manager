@@ -6,3 +6,4 @@ export * from "./credentials";
 export * from "./feedback";
 export * from "./preferences";
 export * from "./id-map";
+export * from "./roles";
