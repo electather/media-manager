@@ -1,0 +1,40 @@
+{
+  "name": "@ent-mcp/server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./api/router": "./src/api/router.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.3",
+    "@libsql/client": "^0.14.0",
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@t3-oss/env-core": "^0.13.8",
+    "better-auth": "^1.2.8",
+    "consola": "^3.4.2",
+    "croner": "^9.0.0",
+    "drizzle-orm": "^0.41.0",
+    "drizzle-zod": "^0.7.0",
+    "hono": "^4.7.9",
+    "ioredis": "^5.6.1",
+    "lru-cache": "^11.1.0",
+    "ofetch": "^1.4.1",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.30.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}
