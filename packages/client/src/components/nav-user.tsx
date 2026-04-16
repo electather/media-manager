@@ -1,3 +1,5 @@
+import { useRouter } from "@tanstack/react-router";
+import { authClient } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -32,6 +34,12 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    void router.navigate({ to: "/auth/login" });
+  }
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -85,7 +93,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void handleSignOut()}>
               <LogOutIcon />
               Log out
             </DropdownMenuItem>

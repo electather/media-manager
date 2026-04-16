@@ -128,3 +128,9 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  :root {
+    --header-height: calc(var(--spacing) * 14);
+  }
+}
