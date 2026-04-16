@@ -26,7 +26,7 @@ function LoginPage() {
       const { error } = await authClient.signIn.email({ email, password });
       if (error) throw new Error(error.message ?? "Login failed.");
     },
-    onSuccess: () => navigate({ to: "/dashboard" }),
+    onSuccess: () => navigate({ to: "/" }),
   });
 
   const socialMutation = useMutation({

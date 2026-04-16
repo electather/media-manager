@@ -4,6 +4,9 @@ export default defineConfig({
   staged: {
     "*": "bunx vp check --fix",
   },
-  fmt: {},
-  lint: { options: { typeAware: true, typeCheck: true } },
+  fmt: {
+    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}"],
+    options: { typeAware: true, typeCheck: true },
+  },
+  lint: { ignorePatterns: ["dist/**"], options: { typeAware: true, typeCheck: true } },
 });

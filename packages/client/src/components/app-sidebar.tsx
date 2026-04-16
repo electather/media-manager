@@ -1,6 +1,5 @@
 import * as React from "react";
-
-import { NavDocuments } from "@/components/nav-documents";
+import { Link } from "@tanstack/react-router";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
@@ -14,138 +13,41 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboardIcon,
-  ListIcon,
-  ChartBarIcon,
-  FolderIcon,
-  UsersIcon,
-  CameraIcon,
-  FileTextIcon,
+  HomeIcon,
+  PlugIcon,
+  ClockIcon,
+  DownloadIcon,
+  SparklesIcon,
   Settings2Icon,
-  CircleHelpIcon,
-  SearchIcon,
-  DatabaseIcon,
-  FileChartColumnIcon,
-  FileIcon,
-  CommandIcon,
+  UsersIcon,
+  ShieldIcon,
+  ServerIcon,
+  TvIcon,
 } from "lucide-react";
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "#",
-      icon: <LayoutDashboardIcon />,
-    },
-    {
-      title: "Lifecycle",
-      url: "#",
-      icon: <ListIcon />,
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: <ChartBarIcon />,
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: <FolderIcon />,
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: <UsersIcon />,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: <CameraIcon />,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: <FileTextIcon />,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: <Settings2Icon />,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: <CircleHelpIcon />,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: <SearchIcon />,
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: <DatabaseIcon />,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: <FileChartColumnIcon />,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: <FileIcon />,
-    },
-  ],
+const navMain = [
+  { title: "Home", to: "/", icon: <HomeIcon />, matchPrefix: false },
+  { title: "Connections", to: "/connections", icon: <PlugIcon />, matchPrefix: true },
+  { title: "Activity", to: "/activity", icon: <ClockIcon />, matchPrefix: true },
+  { title: "Requests", to: "/requests", icon: <DownloadIcon />, matchPrefix: true },
+  { title: "Taste Profile", to: "/profile", icon: <SparklesIcon />, matchPrefix: true },
+];
+
+const navAdmin = [
+  { title: "Users", to: "/admin/users", icon: <UsersIcon />, matchPrefix: true },
+  { title: "Roles", to: "/admin/roles", icon: <ShieldIcon />, matchPrefix: true },
+  { title: "Server", to: "/admin/server", icon: <ServerIcon />, matchPrefix: true },
+];
+
+const navSecondary = [{ title: "Settings", to: "/settings", icon: <Settings2Icon /> }];
+
+/** Placeholder user — replace with session data once auth is wired. */
+const placeholderUser = {
+  name: "User",
+  email: "",
+  avatar: "",
 };
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -154,21 +56,22 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<a href="#" />}
+              render={<Link to="/" />}
             >
-              <CommandIcon className="size-5!" />
-              <span className="text-base font-semibold">Acme Inc.</span>
+              <TvIcon className="size-5!" />
+              <span className="text-base font-semibold">Media Manager</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navMain} />
+        {/* Admin section — rendered for all users for now; gate on admin:* permission once RBAC is in place. */}
+        <NavMain label="Admin" items={navAdmin} />
+        <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={placeholderUser} />
       </SidebarFooter>
     </Sidebar>
   );

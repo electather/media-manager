@@ -1,12 +1,10 @@
-import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
+import { createFileRoute, isRedirect, Outlet, redirect } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth";
-
-import { Outlet } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
     try {
       const { data: session } = await authClient.getSession();
@@ -26,7 +24,7 @@ export const Route = createFileRoute("/dashboard")({
   component: Layout,
 });
 
-/** App shell with sidebar navigation used by all dashboard routes. */
+/** App shell with sidebar navigation used by all authenticated routes. */
 function Layout() {
   return (
     <SidebarProvider>

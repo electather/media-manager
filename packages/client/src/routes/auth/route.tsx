@@ -7,7 +7,7 @@ export const Route = createFileRoute("/auth")({
     try {
       const { data: session } = await authClient.getSession();
       if (session) {
-        throw redirect({ to: "/dashboard" });
+        throw redirect({ to: "/" });
       }
     } catch (err) {
       // Re-throw TanStack Router redirects; swallow network/parse errors so
