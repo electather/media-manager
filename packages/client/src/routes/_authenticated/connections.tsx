@@ -7,6 +7,9 @@ import {
   EyeOffIcon,
   Link2Icon,
   MoreHorizontalIcon,
+  PencilIcon,
+  PowerIcon,
+  StarIcon,
   XIcon,
 } from "lucide-react";
 
@@ -36,7 +39,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FieldDescription, FieldTitle } from "@/components/ui/field";
+import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -171,21 +174,25 @@ const MOCK_CONNECTIONS: Connection[] = [
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
 function statusBadge(status: ConnectionStatus) {
-  if (status === "error") return <Badge variant="destructive">Error</Badge>;
+  if (status === "error")
+    return (
+      <Badge variant="destructive">
+        <AlertTriangleIcon />
+        Error
+      </Badge>
+    );
+  if (status === "expired")
+    return (
+      <Badge variant="outline">
+        <AlertTriangleIcon />
+        Expired
+      </Badge>
+    );
   if (status === "disabled") return <Badge variant="secondary">Disabled</Badge>;
-  const isExpired = status === "expired";
   return (
-    <Badge
-      className={cn(
-        "gap-1.5",
-        isExpired
-          ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-          : "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400",
-      )}
-      variant="outline"
-    >
-      <span className="size-1.5 rounded-full bg-current" />
-      {isExpired ? "Expired" : "Connected"}
+    <Badge variant="secondary">
+      <CheckIcon />
+      Connected
     </Badge>
   );
 }
@@ -205,31 +212,6 @@ function SecretInput({ placeholder, mono }: { placeholder: string; mono?: boolea
         </InputGroupButton>
       </InputGroupAddon>
     </InputGroup>
-  );
-}
-
-function FormField({
-  label,
-  optional,
-  hint,
-  children,
-}: {
-  label: string;
-  optional?: boolean;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <FieldTitle>
-        {label}
-        {optional && (
-          <span className="ml-1.5 text-xs font-normal text-muted-foreground">optional</span>
-        )}
-      </FieldTitle>
-      {children}
-      {hint && <FieldDescription>{hint}</FieldDescription>}
-    </div>
   );
 }
 
@@ -254,7 +236,7 @@ function AddCard({ service, onClick }: { service: Service; onClick: () => void }
   return (
     <button
       onClick={onClick}
-      className="flex min-h-27.5 items-center justify-center gap-2 rounded-4xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground hover:bg-accent hover:text-foreground"
+      className="flex cursor-pointer min-h-27.5 items-center justify-center gap-2 rounded-4xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground hover:bg-accent hover:text-foreground"
     >
       <Link2Icon className="size-3.5" />
       Add {service.name} connection
@@ -361,11 +343,17 @@ function ConnectionCard({
               <DropdownMenuItem onClick={runTest}>
                 <CheckIcon /> Test connection
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleEdit}>
+                <PencilIcon /> Edit
+              </DropdownMenuItem>
               {showDefault && !conn.isDefault && !isDisabled && (
-                <DropdownMenuItem>Set as default</DropdownMenuItem>
+                <DropdownMenuItem>
+                  <StarIcon /> Set as default
+                </DropdownMenuItem>
               )}
-              <DropdownMenuItem>{isDisabled ? "Enable" : "Disable"}</DropdownMenuItem>
+              <DropdownMenuItem>
+                <PowerIcon /> {isDisabled ? "Enable" : "Disable"}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => onRemove(conn, service)}>
                 <XIcon /> Remove
@@ -470,9 +458,13 @@ function TraktModal({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 px-6 pb-4">
-          <FormField label="Display name" optional>
+          <Field>
+            <FieldTitle>
+              Display name
+              <span className="text-xs font-normal text-muted-foreground">optional</span>
+            </FieldTitle>
             <Input placeholder="My Trakt Account" defaultValue={editing ? "Trakt" : ""} />
-          </FormField>
+          </Field>
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-muted px-4 py-6 text-center">
             <Button>Connect with Trakt</Button>
             <FieldDescription className="max-w-[34ch]">
@@ -523,25 +515,31 @@ function SeerrModal({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 px-6 pb-4">
-          <FormField label="Display name" optional>
+          <Field>
+            <FieldTitle>
+              Display name
+              <span className="text-xs font-normal text-muted-foreground">optional</span>
+            </FieldTitle>
             <Input placeholder="Home Server" defaultValue={editing ? "Home Server" : ""} />
-          </FormField>
-          <FormField
-            label="Instance URL"
-            hint="The base URL where your Overseerr/Jellyseerr is reachable."
-          >
+          </Field>
+          <Field>
+            <FieldTitle>Instance URL</FieldTitle>
             <Input
               className="font-mono text-xs"
               placeholder="https://seerr.example.com"
               defaultValue={editing ? "https://seerr.home.local:5055" : ""}
             />
-          </FormField>
-          <FormField
-            label="API key"
-            hint="Found under Settings → General → API Key in your Seerr instance."
-          >
+            <FieldDescription>
+              The base URL where your Overseerr/Jellyseerr is reachable.
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldTitle>API key</FieldTitle>
             <SecretInput placeholder="••••••••••••••••••••••••••••" mono />
-          </FormField>
+            <FieldDescription>
+              Found under Settings → General → API Key in your Seerr instance.
+            </FieldDescription>
+          </Field>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={runTest}>
               {tested === "loading" ? "Testing…" : "Test connection"}
@@ -596,15 +594,20 @@ function ApiKeyModal({
               personal API quota.
             </p>
           )}
-          <FormField label="Display name" optional>
+          <Field>
+            <FieldTitle>
+              Display name
+              <span className="text-xs font-normal text-muted-foreground">optional</span>
+            </FieldTitle>
             <Input placeholder={service.name} defaultValue={editing ? service.name : ""} />
-          </FormField>
-          <FormField
-            label="API key"
-            hint={`Get a free key at ${service.id === "tmdb" ? "themoviedb.org/settings/api" : "thetvdb.com/api-information"}.`}
-          >
+          </Field>
+          <Field>
+            <FieldTitle>API key</FieldTitle>
             <SecretInput placeholder="••••••••••••••••••••••••••••" mono />
-          </FormField>
+            <FieldDescription>
+              {`Get a free key at ${service.id === "tmdb" ? "themoviedb.org/settings/api" : "thetvdb.com/api-information"}.`}
+            </FieldDescription>
+          </Field>
           <div>
             <Button variant="outline" size="sm">
               Test connection
