@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckIcon,
   ClockIcon,
@@ -25,7 +25,6 @@ import { api } from "@/lib/api";
 import {
   type JSONSchema,
   SchemaForm,
-  type SchemaFormHandle,
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
@@ -93,7 +92,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
   const [topError, setTopError] = useState<string | null>(null);
   const [device, setDevice] = useState<DeviceState>({ kind: "idle" });
   const [now, setNow] = useState(() => Date.now());
-  const schemaRef = useRef<SchemaFormHandle>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -103,6 +102,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     setSaving(false);
     setTopError(null);
     setDevice({ kind: "idle" });
+    setSubmitAttempted(false);
     if (authKind === "form" && userConfigSchema) {
       const base = defaultsFromSchema(userConfigSchema);
       if (isEdit && existing?.userConfig && typeof existing.userConfig === "object") {
@@ -166,9 +166,9 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
   const runTest = async () => {
     if (!plugin) return;
     if (userConfigSchema) {
-      const clientErrors =
-        schemaRef.current?.validate() ?? validateSchema(userConfigSchema, values);
+      const clientErrors = validateSchema(userConfigSchema, values);
       if (Object.keys(clientErrors).length > 0) {
+        setSubmitAttempted(true);
         setTest({ kind: "err", message: "Fix the highlighted fields before testing." });
         return;
       }
@@ -187,8 +187,11 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
 
   const handleSaveForm = async () => {
     if (!plugin || !userConfigSchema) return;
-    const errors = schemaRef.current?.validate() ?? validateSchema(userConfigSchema, values);
-    if (Object.keys(errors).length > 0) return;
+    const errors = validateSchema(userConfigSchema, values);
+    if (Object.keys(errors).length > 0) {
+      setSubmitAttempted(true);
+      return;
+    }
     setSaving(true);
     setTopError(null);
     try {
@@ -349,7 +352,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
             values,
             setValues,
             serverErrors,
-            schemaRef,
+            submitAttempted,
             plugin,
             test,
             device,
@@ -392,7 +395,7 @@ interface BodyArgs {
   values: Record<string, unknown>;
   setValues: (next: Record<string, unknown>) => void;
   serverErrors: Record<string, string>;
-  schemaRef: React.RefObject<SchemaFormHandle | null>;
+  submitAttempted: boolean;
   plugin: PluginSummary;
   test: TestState;
   device: DeviceState;
@@ -409,7 +412,7 @@ function renderBody(args: BodyArgs) {
     values,
     setValues,
     serverErrors,
-    schemaRef,
+    submitAttempted,
     plugin,
     test,
     device,
@@ -428,12 +431,12 @@ function renderBody(args: BodyArgs) {
     return (
       <>
         <SchemaForm
-          ref={schemaRef}
           schema={userConfigSchema}
           value={values}
           onChange={setValues}
           serverErrors={serverErrors}
           mode={isEdit ? "edit" : "create"}
+          submitAttempted={submitAttempted}
         />
         {test.kind === "err" ? <p className="text-sm text-destructive">{test.message}</p> : null}
       </>
@@ -479,12 +482,12 @@ function renderBody(args: BodyArgs) {
     if (hasUserConfigFields && userConfigSchema) {
       return (
         <SchemaForm
-          ref={schemaRef}
           schema={userConfigSchema}
           value={values}
           onChange={setValues}
           serverErrors={serverErrors}
           mode={isEdit ? "edit" : "create"}
+          submitAttempted={submitAttempted}
         />
       );
     }

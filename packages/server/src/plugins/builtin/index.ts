@@ -2,6 +2,7 @@ import { registerBuiltin } from "../../plugin-runtime/loader";
 import traktPlugin from "./trakt/plugin";
 import tmdbPlugin from "./tmdb/plugin";
 import tvdbPlugin from "./tvdb/plugin";
+import seerrPlugin from "./seerr/plugin";
 
 /**
  * Registers all built-in plugin modules with the loader. Called once during server boot
@@ -26,5 +27,10 @@ export function registerBuiltinPlugins(): void {
     id: tvdbPlugin.manifest.id,
     module: tvdbPlugin,
     bytes: `builtin:${tvdbPlugin.manifest.id}@${tvdbPlugin.manifest.version}`,
+  });
+  registerBuiltin({
+    id: seerrPlugin.manifest.id,
+    module: seerrPlugin,
+    bytes: `builtin:${seerrPlugin.manifest.id}@${seerrPlugin.manifest.version}`,
   });
 }

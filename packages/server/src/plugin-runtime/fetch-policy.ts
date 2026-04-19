@@ -2,11 +2,12 @@ import { consola } from "consola";
 import { PluginError } from "./types";
 import type { PluginLogger } from "./types";
 
-/** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards. */
+/** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards and bare "*" for allow-all. */
 export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
   const lower = hostname.toLowerCase();
   for (const entry of allowedHosts) {
     const e = entry.toLowerCase();
+    if (e === "*") return true;
     if (e === lower) return true;
     if (e.startsWith("*.")) {
       const suffix = e.slice(1);

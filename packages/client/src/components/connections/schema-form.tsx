@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 
 import { Checkbox } from "@/components/ui/checkbox";
@@ -142,35 +142,23 @@ interface SchemaFormProps {
   serverErrors?: Record<string, string>;
   mode?: "create" | "edit";
   disabled?: boolean;
+  submitAttempted?: boolean;
 }
 
-export interface SchemaFormHandle {
-  /** Marks all fields as touched and returns any errors. Use before submit. */
-  validate(): Record<string, string>;
-}
-
-export const SchemaForm = forwardRef<SchemaFormHandle, SchemaFormProps>(function SchemaForm(
-  { schema, value, onChange, serverErrors = {}, mode = "create", disabled },
-  ref,
-) {
+export function SchemaForm({
+  schema,
+  value,
+  onChange,
+  serverErrors = {},
+  mode = "create",
+  disabled,
+  submitAttempted = false,
+}: SchemaFormProps) {
   const fields = useMemo(() => parseFields(schema), [schema]);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [secretShown, setSecretShown] = useState<Record<string, boolean>>({});
 
   const clientErrors = useMemo(() => validateSchema(schema, value), [schema, value]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      validate() {
-        const allTouched: Record<string, boolean> = {};
-        for (const f of fields) allTouched[f.name] = true;
-        setTouched(allTouched);
-        return { ...clientErrors, ...serverErrors };
-      },
-    }),
-    [fields, clientErrors, serverErrors],
-  );
 
   const setValue = (name: string, next: unknown) => {
     onChange({ ...value, [name]: next });
@@ -184,9 +172,10 @@ export const SchemaForm = forwardRef<SchemaFormHandle, SchemaFormProps>(function
     <div className="flex flex-col gap-4">
       {fields.map((field) => {
         const raw = value[field.name];
-        const err = touched[field.name]
-          ? (serverErrors[field.name] ?? clientErrors[field.name])
-          : undefined;
+        const err =
+          touched[field.name] || submitAttempted
+            ? (serverErrors[field.name] ?? clientErrors[field.name])
+            : undefined;
         const invalid = Boolean(err);
 
         return (
@@ -218,7 +207,7 @@ export const SchemaForm = forwardRef<SchemaFormHandle, SchemaFormProps>(function
       })}
     </div>
   );
-});
+}
 
 interface ControlOpts {
   mode: "create" | "edit";

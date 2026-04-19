@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -38,7 +38,6 @@ import { cn } from "@/lib/utils";
 import {
   type JSONSchema,
   SchemaForm,
-  type SchemaFormHandle,
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
@@ -282,13 +281,14 @@ function ConfigureDialog({
   const [saving, setSaving] = useState(false);
   const [topError, setTopError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const formRef = useRef<SchemaFormHandle>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   useEffect(() => {
     if (!open || !plugin || !schema) return;
     setLoaded(false);
     setTopError(null);
     setSaving(false);
+    setSubmitAttempted(false);
     setValues(defaultsFromSchema(schema));
     void (async () => {
       try {
@@ -309,8 +309,11 @@ function ConfigureDialog({
   if (!plugin || !schema) return null;
 
   const onSave = async () => {
-    const errors = formRef.current?.validate() ?? validateSchema(schema, values);
-    if (Object.keys(errors).length > 0) return;
+    const errors = validateSchema(schema, values);
+    if (Object.keys(errors).length > 0) {
+      setSubmitAttempted(true);
+      return;
+    }
     setSaving(true);
     setTopError(null);
     try {
@@ -344,11 +347,11 @@ function ConfigureDialog({
             <Skeleton className="h-24" />
           ) : (
             <SchemaForm
-              ref={formRef}
               schema={schema}
               value={values}
               onChange={setValues}
               mode="edit"
+              submitAttempted={submitAttempted}
             />
           )}
           {topError ? (
