@@ -262,9 +262,32 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     }
   };
 
+  const handleStartRedirect = async () => {
+    if (!plugin) return;
+    setSaving(true);
+    setTopError(null);
+    try {
+      const res = await api.connections.oauth.redirect.start.$post({
+        json: { pluginId: plugin.id },
+      });
+      if (!res.ok) throw new Error((await safeError(res)) ?? "Failed to start authorization.");
+      const body = (await res.json()) as { redirectUrl: string; nonce: string };
+      // Stash the nonce + plugin name so the callback route can resume the flow and show a clean
+      // return-destination toast. sessionStorage is safe here — the callback runs in the same tab.
+      sessionStorage.setItem(
+        "connections.oauthPending",
+        JSON.stringify({ nonce: body.nonce, pluginId: plugin.id, pluginName: plugin.name }),
+      );
+      window.location.assign(body.redirectUrl);
+    } catch (err) {
+      setSaving(false);
+      setTopError(err instanceof Error ? err.message : "Failed to start authorization.");
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-[480px]" showCloseButton={canInteract}>
+      <DialogContent className="gap-0 p-0 sm:max-w-120" showCloseButton={canInteract}>
         <DialogHeader className="border-b border-border px-6 pt-5 pb-4">
           <div className="flex items-start gap-3">
             {plugin.logoUrl ? (
@@ -354,6 +377,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
           onSaveForm: handleSaveForm,
           onSaveOauthEdit: handleSaveOauthEdit,
           onStartDevice: handleStartDevice,
+          onStartRedirect: handleStartRedirect,
         })}
       </DialogContent>
     </Dialog>
@@ -447,8 +471,6 @@ function renderBody(args: BodyArgs) {
       <OauthIntro
         plugin={plugin}
         body={`Clicking Connect redirects you to ${plugin.name} to approve access. You'll return here automatically.`}
-        disabled
-        disabledNote="OAuth redirect flow isn't enabled on this server yet."
       />
     );
   }
@@ -472,24 +494,13 @@ function renderBody(args: BodyArgs) {
   return null;
 }
 
-function OauthIntro({
-  plugin,
-  body,
-  disabled,
-  disabledNote,
-}: {
-  plugin: PluginSummary;
-  body: string;
-  disabled?: boolean;
-  disabledNote?: string;
-}) {
+function OauthIntro({ plugin, body }: { plugin: PluginSummary; body: string }) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 px-4 py-4 text-sm">
       <p className="text-foreground">
         <strong className="font-medium">Connect with {plugin.name}</strong>
       </p>
       <p className="text-muted-foreground">{body}</p>
-      {disabled && disabledNote ? <p className="text-xs text-destructive">{disabledNote}</p> : null}
     </div>
   );
 }
@@ -581,6 +592,7 @@ interface FooterArgs {
   onSaveForm: () => void;
   onSaveOauthEdit: () => void;
   onStartDevice: () => void;
+  onStartRedirect: () => void;
 }
 
 function renderFooter(args: FooterArgs) {
@@ -595,6 +607,7 @@ function renderFooter(args: FooterArgs) {
     onSaveForm,
     onSaveOauthEdit,
     onStartDevice,
+    onStartRedirect,
     hasUserConfigFields,
   } = args;
 
@@ -686,10 +699,13 @@ function renderFooter(args: FooterArgs) {
     }
     return (
       <DialogFooter className="border-t border-border px-6 py-4">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button disabled>Connect</Button>
+        <Button onClick={onStartRedirect} disabled={saving}>
+          {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
+          Connect
+        </Button>
       </DialogFooter>
     );
   }

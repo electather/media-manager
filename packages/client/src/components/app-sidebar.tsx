@@ -23,6 +23,7 @@ import {
   ShieldIcon,
   ServerIcon,
   TvIcon,
+  BoxIcon,
 } from "lucide-react";
 
 const navMain = [
@@ -36,6 +37,7 @@ const navMain = [
 const navAdmin = [
   { title: "Users", to: "/admin/users", icon: <UsersIcon />, matchPrefix: true },
   { title: "Roles", to: "/admin/roles", icon: <ShieldIcon />, matchPrefix: true },
+  { title: "Plugins", to: "/admin/plugins", icon: <BoxIcon />, matchPrefix: true },
   { title: "Server", to: "/admin/server", icon: <ServerIcon />, matchPrefix: true },
 ];
 

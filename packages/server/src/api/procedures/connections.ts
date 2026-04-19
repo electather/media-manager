@@ -26,6 +26,11 @@ const userConfigSchema = z.object({ userConfig: z.unknown() });
 const enabledSchema = z.object({ enabled: z.boolean() });
 const deviceStartSchema = z.object({ pluginId: z.string() });
 const devicePollSchema = z.object({ nonce: z.string() });
+const redirectStartSchema = z.object({ pluginId: z.string() });
+const redirectCompleteSchema = z.object({
+  nonce: z.string(),
+  queryParams: z.record(z.string(), z.string()),
+});
 
 export const connectionsApp = new Hono()
   .use("*", requireSession)
@@ -96,6 +101,22 @@ export const connectionsApp = new Hono()
       connectionId: c.req.param("id"),
     });
     return c.json({ ok: true });
+  })
+  .post("/oauth/redirect/start", zValidator("json", redirectStartSchema), async (c) => {
+    const result = await connectionsService.initiateRedirectAuth({
+      userId: userId(c),
+      pluginId: c.req.valid("json").pluginId,
+    });
+    return c.json(result);
+  })
+  .post("/oauth/redirect/complete", zValidator("json", redirectCompleteSchema), async (c) => {
+    const body = c.req.valid("json");
+    const result = await connectionsService.completeRedirectAuth({
+      userId: userId(c),
+      nonce: body.nonce,
+      queryParams: body.queryParams,
+    });
+    return c.json(result);
   })
   .post("/oauth/device/start", zValidator("json", deviceStartSchema), async (c) => {
     const result = await connectionsService.initiateDeviceAuth({

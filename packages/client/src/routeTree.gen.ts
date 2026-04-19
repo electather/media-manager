@@ -19,12 +19,14 @@ import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRequestsRouteImport } from './routes/_authenticated/requests'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedOauthCallbackRouteImport } from './routes/_authenticated/oauth-callback'
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedActivityRouteImport } from './routes/_authenticated/activity'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
 import { Route as AuthenticatedAdminServerRouteImport } from './routes/_authenticated/admin/server'
 import { Route as AuthenticatedAdminRolesRouteImport } from './routes/_authenticated/admin/roles'
+import { Route as AuthenticatedAdminPluginsRouteImport } from './routes/_authenticated/admin/plugins'
 
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/auth',
@@ -75,6 +77,12 @@ const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOauthCallbackRoute =
+  AuthenticatedOauthCallbackRouteImport.update({
+    id: '/oauth-callback',
+    path: '/oauth-callback',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConnectionsRoute =
   AuthenticatedConnectionsRouteImport.update({
     id: '/connections',
@@ -107,12 +115,19 @@ const AuthenticatedAdminRolesRoute = AuthenticatedAdminRolesRouteImport.update({
   path: '/admin/roles',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminPluginsRoute =
+  AuthenticatedAdminPluginsRouteImport.update({
+    id: '/admin/plugins',
+    path: '/admin/plugins',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/activity': typeof AuthenticatedActivityRoute
   '/connections': typeof AuthenticatedConnectionsRoute
+  '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/requests': typeof AuthenticatedRequestsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -120,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -129,6 +145,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRouteRouteWithChildren
   '/activity': typeof AuthenticatedActivityRoute
   '/connections': typeof AuthenticatedConnectionsRoute
+  '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/requests': typeof AuthenticatedRequestsRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -137,6 +154,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -148,6 +166,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRouteRouteWithChildren
   '/_authenticated/activity': typeof AuthenticatedActivityRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
+  '/_authenticated/oauth-callback': typeof AuthenticatedOauthCallbackRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/requests': typeof AuthenticatedRequestsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -156,6 +175,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/_authenticated/admin/roles': typeof AuthenticatedAdminRolesRoute
   '/_authenticated/admin/server': typeof AuthenticatedAdminServerRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
@@ -168,6 +188,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/activity'
     | '/connections'
+    | '/oauth-callback'
     | '/profile'
     | '/requests'
     | '/settings'
@@ -175,6 +196,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/admin/plugins'
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
@@ -184,6 +206,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/activity'
     | '/connections'
+    | '/oauth-callback'
     | '/profile'
     | '/requests'
     | '/settings'
@@ -192,6 +215,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/'
+    | '/admin/plugins'
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
@@ -202,6 +226,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/activity'
     | '/_authenticated/connections'
+    | '/_authenticated/oauth-callback'
     | '/_authenticated/profile'
     | '/_authenticated/requests'
     | '/_authenticated/settings'
@@ -210,6 +235,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/_authenticated/'
+    | '/_authenticated/admin/plugins'
     | '/_authenticated/admin/roles'
     | '/_authenticated/admin/server'
     | '/_authenticated/admin/users'
@@ -293,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/oauth-callback': {
+      id: '/_authenticated/oauth-callback'
+      path: '/oauth-callback'
+      fullPath: '/oauth-callback'
+      preLoaderRoute: typeof AuthenticatedOauthCallbackRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/connections': {
       id: '/_authenticated/connections'
       path: '/connections'
@@ -335,17 +368,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRolesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/plugins': {
+      id: '/_authenticated/admin/plugins'
+      path: '/admin/plugins'
+      fullPath: '/admin/plugins'
+      preLoaderRoute: typeof AuthenticatedAdminPluginsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedActivityRoute: typeof AuthenticatedActivityRoute
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
+  AuthenticatedOauthCallbackRoute: typeof AuthenticatedOauthCallbackRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRequestsRoute: typeof AuthenticatedRequestsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminPluginsRoute: typeof AuthenticatedAdminPluginsRoute
   AuthenticatedAdminRolesRoute: typeof AuthenticatedAdminRolesRoute
   AuthenticatedAdminServerRoute: typeof AuthenticatedAdminServerRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
@@ -354,11 +396,13 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActivityRoute: AuthenticatedActivityRoute,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
+  AuthenticatedOauthCallbackRoute: AuthenticatedOauthCallbackRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRequestsRoute: AuthenticatedRequestsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminPluginsRoute: AuthenticatedAdminPluginsRoute,
   AuthenticatedAdminRolesRoute: AuthenticatedAdminRolesRoute,
   AuthenticatedAdminServerRoute: AuthenticatedAdminServerRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,

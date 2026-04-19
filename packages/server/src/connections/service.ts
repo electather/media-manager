@@ -218,6 +218,78 @@ export const connectionsService = {
     return { id };
   },
 
+  async initiateRedirectAuth(args: { userId: string; pluginId: string }): Promise<{
+    redirectUrl: string;
+    nonce: string;
+  }> {
+    const db = getDb();
+    const result = (await pluginRuntime.runAuth(
+      args.pluginId,
+      "startAuth",
+      args.userId,
+      null,
+    )) as AuthResult;
+    if (result.status !== "redirect") {
+      const message =
+        result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+      throw new Error(`redirect auth init failed: ${message}`);
+    }
+    const nonce = randomUUID();
+    const now = Date.now();
+    const enc = await encryptJson(result.state);
+    await db.insert(pendingAuth).values({
+      nonce,
+      userId: args.userId,
+      pluginId: args.pluginId,
+      state: enc.data,
+      stateIv: enc.iv,
+      createdAt: now,
+      expiresAt: now + 15 * 60 * 1000,
+    });
+    return { redirectUrl: result.url, nonce };
+  },
+
+  async completeRedirectAuth(args: {
+    userId: string;
+    nonce: string;
+    queryParams: Record<string, string>;
+  }): Promise<{ connectionId: string }> {
+    const db = getDb();
+    const row = await db
+      .select()
+      .from(pendingAuth)
+      .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)))
+      .get();
+    if (!row) throw new Error("no pending auth");
+    if (row.expiresAt < Date.now()) {
+      await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+      throw new Error("authorization request expired");
+    }
+    const state = await decryptJson(row.stateIv, row.state);
+    const result = (await pluginRuntime.runAuth(
+      row.pluginId,
+      "completeAuth",
+      args.userId,
+      args.queryParams,
+      state,
+    )) as AuthResult;
+    if (result.status !== "completed") {
+      if (result.status === "error") {
+        await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+        throw new Error(result.message);
+      }
+      throw new Error(`unexpected status: ${result.status}`);
+    }
+    const id = await writeConnection({
+      userId: args.userId,
+      pluginId: row.pluginId,
+      credentials: result.credentials,
+      userConfig: null,
+    });
+    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+    return { connectionId: id };
+  },
+
   async initiateDeviceAuth(args: { userId: string; pluginId: string }): Promise<{
     userCode: string;
     verifyUrl: string;

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  ArrowRightIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -190,14 +191,23 @@ function ConnectionsPage() {
 
   return (
     <div className="flex flex-col gap-8 px-4 py-4 md:py-6 lg:px-6">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Connections</h1>
-        <p className="mt-1.5 max-w-[64ch] text-sm text-muted-foreground">
-          Connect your media services to enable tracking, requesting, and personalized
-          recommendations through your AI assistant.
-        </p>
-        {/* TODO: surface a "Manage plugins →" link to /admin/plugins gated by admin:plugins once
-            both the client permission hook and that route exist. */}
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Connections</h1>
+          <p className="mt-1.5 max-w-[64ch] text-sm text-muted-foreground">
+            Connect your media services to enable tracking, requesting, and personalized
+            recommendations through your AI assistant.
+          </p>
+        </div>
+        {/* Non-admin users get a 403 from /plugins which is fine — the link is harmless. Hide
+            behind a client-side permissions hook once one exists. */}
+        <Link
+          to="/admin/plugins"
+          className="hidden shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
+        >
+          Manage plugins
+          <ArrowRightIcon className="size-3.5" />
+        </Link>
       </header>
 
       {isLoading ? (
@@ -216,7 +226,7 @@ function ConnectionsPage() {
               variant={expiredOnly ? "default" : "destructive"}
               className={
                 expiredOnly
-                  ? "border-amber-500/40 bg-amber-500/[0.08] text-amber-900 dark:text-amber-200"
+                  ? "border-amber-500/40 bg-amber-500/8 text-amber-900 dark:text-amber-200"
                   : undefined
               }
             >
@@ -636,7 +646,7 @@ function AddAnotherCard({ plugin, onClick }: { plugin: PluginSummary; onClick: (
   return (
     <button
       onClick={onClick}
-      className="flex min-h-[7rem] cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground ring-1 ring-transparent transition-all hover:border-foreground hover:bg-accent hover:text-foreground"
+      className="flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground ring-1 ring-transparent transition-all hover:border-foreground hover:bg-accent hover:text-foreground"
     >
       <PlugIcon className="size-4" />
       Add another {plugin.name} connection
@@ -853,7 +863,7 @@ function RemoveDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !pending && onOpenChange(v)}>
-      <DialogContent className="gap-0 p-0 sm:max-w-[440px]" showCloseButton={!pending}>
+      <DialogContent className="gap-0 p-0 sm:max-w-110" showCloseButton={!pending}>
         <DialogHeader className="p-6 pb-4">
           <DialogTitle className="text-destructive">
             Remove {connection.plugin.name} connection?
