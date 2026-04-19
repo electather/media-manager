@@ -100,13 +100,6 @@ function mapShow(s: TraktShow) {
   };
 }
 
-function readTraktId(item: {
-  ids?: { trakt_id?: string };
-  externalIds?: { trakt?: string };
-}): string | undefined {
-  return item.ids?.trakt_id ?? item.externalIds?.trakt;
-}
-
 export default definePlugin({
   manifest: {
     id: "trakt",
@@ -311,14 +304,13 @@ export default definePlugin({
         const items = input as Array<{
           type: "movie" | "tv";
           ids?: { trakt_id?: string };
-          externalIds?: { trakt?: string };
         }>;
         const movies = items
-          .filter((i) => i.type === "movie" && readTraktId(i))
-          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
+          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
         const shows = items
-          .filter((i) => i.type === "tv" && readTraktId(i))
-          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
+          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
         const res = await traktFetch(ctx as Ctx, "/sync/history", {
           method: "POST",
           body: JSON.stringify({ movies, shows }),
@@ -356,14 +348,13 @@ export default definePlugin({
         const items = input as Array<{
           type: "movie" | "tv";
           ids?: { trakt_id?: string };
-          externalIds?: { trakt?: string };
         }>;
         const movies = items
-          .filter((i) => i.type === "movie" && readTraktId(i))
-          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
+          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
         const shows = items
-          .filter((i) => i.type === "tv" && readTraktId(i))
-          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
+          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
         const res = await traktFetch(ctx as Ctx, "/sync/watchlist", {
           method: "POST",
           body: JSON.stringify({ movies, shows }),
@@ -377,14 +368,13 @@ export default definePlugin({
         const items = input as Array<{
           type: "movie" | "tv";
           ids?: { trakt_id?: string };
-          externalIds?: { trakt?: string };
         }>;
         const movies = items
-          .filter((i) => i.type === "movie" && readTraktId(i))
-          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
+          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
         const shows = items
-          .filter((i) => i.type === "tv" && readTraktId(i))
-          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
+          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
         const res = await traktFetch(ctx as Ctx, "/sync/watchlist/remove", {
           method: "POST",
           body: JSON.stringify({ movies, shows }),
@@ -424,11 +414,10 @@ export default definePlugin({
           item: {
             type: "movie" | "tv";
             ids?: { trakt_id?: string };
-            externalIds?: { trakt?: string };
           };
           rating: number;
         };
-        const traktId = readTraktId(item);
+        const traktId = item.ids?.trakt_id;
         if (!traktId) {
           throw pluginError("plugin.input_invalid", "item.ids.trakt_id required");
         }

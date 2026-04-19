@@ -126,26 +126,22 @@ export async function getIdBundle(tmdbId: string, mediaType: MediaType): Promise
 }
 
 /**
- * Extracts an id bundle from a plugin-produced MediaItem. Accepts both the canonical
- * `ids` shape and the legacy `externalIds` shape so older plugins keep working.
+ * Extracts an id bundle from a plugin-produced MediaItem.
  */
 export function extractIds(item: unknown): IdBundle | null {
   if (!item || typeof item !== "object") return null;
   const rec = item as Record<string, unknown>;
   const ids = rec["ids"] as Record<string, unknown> | undefined;
-  const legacy = rec["externalIds"] as Record<string, unknown> | undefined;
-  const get = (key: string, legacyKey: string): string | undefined => {
-    const modern = ids?.[key];
-    if (typeof modern === "string" && modern.length > 0) return modern;
-    const old = legacy?.[legacyKey];
-    if (typeof old === "string" && old.length > 0) return old;
+  const get = (key: string): string | undefined => {
+    const val = ids?.[key];
+    if (typeof val === "string" && val.length > 0) return val;
     return undefined;
   };
-  const tmdb = get("tmdb_id", "tmdb");
-  const imdb = get("imdb_id", "imdb");
-  const tvdb = get("tvdb_id", "tvdb");
-  const trakt = get("trakt_id", "trakt");
-  const traktSlug = get("trakt_slug", "trakt_slug");
+  const tmdb = get("tmdb_id");
+  const imdb = get("imdb_id");
+  const tvdb = get("tvdb_id");
+  const trakt = get("trakt_id");
+  const traktSlug = get("trakt_slug");
   if (!tmdb && !imdb && !tvdb && !trakt) return null;
   return {
     tmdb_id: tmdb,
@@ -174,7 +170,7 @@ export async function harvestIds(
     }
     if (typeof node !== "object") return;
     const rec = node as Record<string, unknown>;
-    if ("ids" in rec || "externalIds" in rec) items.push(rec);
+    if ("ids" in rec) items.push(rec);
     // Search results look like { item: MediaItem, score }, so descend into `item`.
     if (rec["item"]) walk(rec["item"]);
   };

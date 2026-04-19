@@ -1,5 +1,4 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { randomUUID } from "node:crypto";
 
 export interface RequestContextValue {
   requestId: string;
@@ -26,5 +25,5 @@ export function currentRequestContext(): RequestContextValue | null {
 
 /** Returns a fresh UUIDv4 used to correlate errors across surfaces. */
 export function newRequestId(): string {
-  return randomUUID();
+  return crypto.randomUUID();
 }

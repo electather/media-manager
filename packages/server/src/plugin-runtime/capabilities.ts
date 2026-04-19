@@ -22,20 +22,7 @@ const mediaItem = z.object({
   rating: z.number().nullable(),
   overview: z.string().default(""),
   posterUrl: z.string().nullable(),
-  /** Canonical cross-service identifier bundle. Replaces the legacy `externalIds` shape. */
   ids: idBundle,
-  /**
-   * @deprecated Use `ids` instead. Retained so older plugins continue to parse
-   * while the host harvests from either field. Removed once all builtin plugins migrate.
-   */
-  externalIds: z
-    .object({
-      tmdb: z.string().optional(),
-      tvdb: z.string().optional(),
-      trakt: z.string().optional(),
-      imdb: z.string().optional(),
-    })
-    .optional(),
 });
 
 export type MediaItemShape = z.infer<typeof mediaItem>;

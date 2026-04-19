@@ -29,15 +29,8 @@ async function getSharedCredentials(pluginId: string): Promise<unknown | null> {
   const db = getDb();
   const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
   if (!row) return null;
-  const manifest = JSON.parse(row.manifest) as { allowsSharedCredentials?: boolean };
-  // Fall back to legacy behavior: some existing plugins stored shared credentials inside
-  // globalConfig (e.g. TMDB's `apiKey`). We try the dedicated column first, then globalConfig
-  // when the manifest allows sharing — keeps existing installs working until they migrate.
   if (row.sharedCredentials && row.sharedCredentialsIv) {
     return decryptField(row.sharedCredentialsIv, row.sharedCredentials);
-  }
-  if (manifest.allowsSharedCredentials && row.globalConfig && row.globalConfigIv) {
-    return decryptField(row.globalConfigIv, row.globalConfig);
   }
   return null;
 }

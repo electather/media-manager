@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { consola } from "consola";
 import { currentRequestContext, newRequestId } from "./request-context";
 import { serializeContext } from "./scrubber";
@@ -55,7 +54,7 @@ function stackFrom(err: unknown): string | null {
 export async function captureError(err: unknown, meta: CaptureMeta): Promise<string> {
   const ctx = currentRequestContext();
   const record: ErrorRecord = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     requestId: meta.requestId ?? ctx?.requestId ?? newRequestId(),
     severity: meta.severity,
     source: meta.source,
