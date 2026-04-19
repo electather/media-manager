@@ -1,16 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  TriangleAlertIcon,
-  CircleAlertIcon,
-  ClipboardCopyIcon,
-  ExternalLinkIcon,
-} from "lucide-react";
+import { TriangleAlertIcon, CircleAlertIcon, ExternalLinkIcon } from "lucide-react";
 import { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -22,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CopyButton } from "@/components/ui/copy-button";
 import { api } from "@/lib/api";
 import { shortRequestId } from "@/lib/errors/request-id";
 import { cn } from "@/lib/utils";
@@ -42,8 +37,8 @@ const searchSchema = z.object({
 
 type SearchParams = z.infer<typeof searchSchema>;
 
-export const Route = createFileRoute("/_authenticated/admin/errors")({
-  component: AdminErrorsPage,
+export const Route = createFileRoute("/_authenticated/admin/logs")({
+  component: AdminLogsPage,
   validateSearch: (search) => searchSchema.parse(search),
 });
 
@@ -73,7 +68,7 @@ interface Summary {
   hourlyBuckets: number[];
 }
 
-function AdminErrorsPage() {
+function AdminLogsPage() {
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
 
@@ -84,11 +79,14 @@ function AdminErrorsPage() {
   const source = useMemo(() => (search.source ? search.source.split(",") : []), [search.source]);
 
   const updateSearch = (patch: Partial<SearchParams>) => {
-    void navigate({ search: (prev) => ({ ...(prev as SearchParams), ...patch }), replace: true });
+    void navigate({
+      search: (prev) => ({ ...(prev as SearchParams), ...patch }),
+      replace: true,
+    });
   };
 
   const summary = useQuery({
-    queryKey: ["admin", "errors", "summary"],
+    queryKey: ["admin", "logs", "summary"],
     queryFn: async (): Promise<Summary> => {
       const res = await api.admin.errors.summary.$get();
       if (!res.ok) throw new Error("failed");
@@ -106,7 +104,7 @@ function AdminErrorsPage() {
   const list = useQuery({
     queryKey: [
       "admin",
-      "errors",
+      "logs",
       "list",
       severity.join(","),
       source.join(","),
@@ -125,7 +123,7 @@ function AdminErrorsPage() {
       const since = sinceFor(search.range);
       if (since) query.since = String(since);
       const res = await api.admin.errors.$get({ query });
-      if (!res.ok) throw new Error("failed to load errors");
+      if (!res.ok) throw new Error("failed to load logs");
       return (await res.json()) as { records: ListRecord[]; total: number };
     },
   });
@@ -133,9 +131,11 @@ function AdminErrorsPage() {
   const selectedId = search.selected ?? null;
   const detail = useQuery({
     enabled: !!selectedId,
-    queryKey: ["admin", "errors", "detail", selectedId],
+    queryKey: ["admin", "logs", "detail", selectedId],
     queryFn: async (): Promise<DetailRecord> => {
-      const res = await api.admin.errors[":id"].$get({ param: { id: selectedId! } });
+      const res = await api.admin.errors[":id"].$get({
+        param: { id: selectedId! },
+      });
       if (!res.ok) throw new Error("failed to load detail");
       const body = (await res.json()) as { record: DetailRecord };
       return body.record;
@@ -145,9 +145,9 @@ function AdminErrorsPage() {
   return (
     <div className="flex flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Errors</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Logs</h1>
         <p className="max-w-[64ch] text-sm text-muted-foreground">
-          Errors captured from the frontend, backend, and plugins.
+          Logs captured from the frontend, backend, and plugins.
         </p>
       </header>
 
@@ -160,10 +160,14 @@ function AdminErrorsPage() {
         searchValue={search.search ?? ""}
         requestIdValue={search.requestId ?? ""}
         onSeverity={(next) =>
-          updateSearch({ severity: next.length === 0 ? undefined : next.join(",") })
+          updateSearch({
+            severity: next.length === 0 ? undefined : next.join(","),
+          })
         }
         onSource={(next) =>
-          updateSearch({ source: next.length === 0 ? undefined : next.join(",") })
+          updateSearch({
+            source: next.length === 0 ? undefined : next.join(","),
+          })
         }
         onRange={(next) => updateSearch({ range: next })}
         onSearch={(next) => updateSearch({ search: next || undefined })}
@@ -183,21 +187,23 @@ function AdminErrorsPage() {
           if (!open) updateSearch({ selected: undefined });
         }}
       >
-        <SheetContent className="w-full max-w-2xl overflow-y-auto">
+        <SheetContent>
           <SheetHeader>
-            <SheetTitle>Error detail</SheetTitle>
+            <SheetTitle>Log detail</SheetTitle>
           </SheetHeader>
-          {detail.isLoading ? (
-            <div className="mt-4 flex flex-col gap-3">
-              <Skeleton className="h-6" />
-              <Skeleton className="h-40" />
-            </div>
-          ) : detail.data ? (
-            <DetailPanel
-              record={detail.data}
-              onFollowRequestId={(rid) => updateSearch({ requestId: rid, selected: undefined })}
-            />
-          ) : null}
+          <div className="px-4 flex-1">
+            {detail.isLoading ? (
+              <div className="mt-4 flex flex-col gap-3">
+                <Skeleton className="h-6" />
+                <Skeleton className="h-40" />
+              </div>
+            ) : detail.data ? (
+              <DetailPanel
+                record={detail.data}
+                onFollowRequestId={(rid) => updateSearch({ requestId: rid, selected: undefined })}
+              />
+            ) : null}
+          </div>
         </SheetContent>
       </Sheet>
     </div>
@@ -222,7 +228,10 @@ function SummaryWidget({ summary }: { summary: Summary | undefined }) {
           <div
             key={idx}
             className="w-1.5 rounded-sm bg-destructive/60"
-            style={{ height: `${(n / max) * 100}%`, minHeight: n > 0 ? "2px" : "1px" }}
+            style={{
+              height: `${(n / max) * 100}%`,
+              minHeight: n > 0 ? "2px" : "1px",
+            }}
             title={`${n} errors`}
           />
         ))}
@@ -365,7 +374,7 @@ function ResultsTable({
   if (records.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
-        No errors match these filters.
+        No logs match these filters.
       </div>
     );
   }
@@ -406,7 +415,7 @@ function ResultsTable({
                 </Badge>
               </TableCell>
               <TableCell className="font-mono text-xs">{r.code ?? "—"}</TableCell>
-              <TableCell className="max-w-[480px] truncate text-sm">{r.devMessage}</TableCell>
+              <TableCell className="max-w-120 truncate text-sm">{r.devMessage}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -427,17 +436,6 @@ function DetailPanel({
   record: DetailRecord;
   onFollowRequestId: (rid: string) => void;
 }) {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(label);
-      setTimeout(() => setCopied(null), 1500);
-    } catch {
-      /* no-op */
-    }
-  };
-
   let prettyContext: string | null = null;
   if (record.context) {
     try {
@@ -448,80 +446,114 @@ function DetailPanel({
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-4">
-      <p className="text-sm">{record.devMessage}</p>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-        <Field label="Severity" value={record.severity} />
-        <Field label="Source" value={record.source} />
-        <Field label="Code" value={record.code ?? "—"} mono />
-        <Field label="HTTP" value={record.httpStatus ? String(record.httpStatus) : "—"} />
-        <Field label="Time" value={new Date(record.createdAt).toLocaleString()} />
-        <Field label="Route" value={record.route ?? "—"} mono />
-        <div className="col-span-2">
-          <p className="text-muted-foreground">Request ID</p>
-          <div className="mt-0.5 flex items-center gap-2">
+    <div className="mt-6 flex flex-col gap-6">
+      <div className="flex items-start gap-2">
+        {record.severity === "error" ? (
+          <Badge variant="destructive" className="gap-1 text-xs">
+            <CircleAlertIcon className="size-3" />
+            error
+          </Badge>
+        ) : (
+          <Badge className="gap-1 border border-yellow-500/30 bg-yellow-500/10 text-yellow-600 hover:bg-yellow-500/15 text-xs">
+            <TriangleAlertIcon className="size-3" />
+            warning
+          </Badge>
+        )}
+        <Badge variant="secondary" className="text-xs font-normal capitalize">
+          {record.source}
+        </Badge>
+      </div>
+
+      <p className="text-sm leading-relaxed">{record.devMessage}</p>
+
+      <div className="overflow-hidden rounded-lg border border-border text-xs">
+        <MetaRow label="Time" value={new Date(record.createdAt).toLocaleString()} />
+        <MetaRow label="Code" value={record.code ?? "—"} mono />
+        <MetaRow label="HTTP status" value={record.httpStatus ? String(record.httpStatus) : "—"} />
+        <MetaRow label="Route" value={record.route ?? "—"} mono />
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-0">
+          <span className="w-28 shrink-0 text-muted-foreground">Request ID</span>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
               type="button"
-              className="font-mono text-xs underline-offset-2 hover:underline"
+              className="min-w-0 truncate font-mono underline-offset-2 hover:underline"
               onClick={() => onFollowRequestId(record.requestId)}
-              title="Show all errors with this request id"
+              title="Filter by this request ID"
             >
               {shortRequestId(record.requestId)} ({record.requestId.slice(0, 12)}…)
             </button>
-            <ExternalLinkIcon className="size-3 text-muted-foreground" />
+            <button
+              type="button"
+              title="Filter all logs with this request ID"
+              onClick={() => onFollowRequestId(record.requestId)}
+              className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ExternalLinkIcon className="size-3" />
+            </button>
+            <CopyButton
+              value={record.requestId}
+              title="Copy request ID"
+              size="icon-xs"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            />
           </div>
         </div>
-        {record.userId ? <Field label="User" value={record.userId} mono /> : null}
-        {record.pluginId ? <Field label="Plugin" value={record.pluginId} mono /> : null}
-        {record.connectionId ? <Field label="Connection" value={record.connectionId} mono /> : null}
+        {record.userId ? <MetaRow label="User ID" value={record.userId} mono /> : null}
+        {record.pluginId ? <MetaRow label="Plugin" value={record.pluginId} mono /> : null}
+        {record.connectionId ? (
+          <MetaRow label="Connection" value={record.connectionId} mono />
+        ) : null}
       </div>
+
       {record.stack ? (
-        <section className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Stack</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copy(record.stack!, "stack")}
-              className="h-7 text-xs"
-            >
-              <ClipboardCopyIcon className="mr-1 size-3" />
-              {copied === "stack" ? "Copied" : "Copy"}
-            </Button>
-          </div>
-          <pre className="max-h-80 overflow-auto rounded-md bg-muted p-3 font-mono text-[11px] leading-5">
-            {record.stack}
-          </pre>
-        </section>
+        <CodeSection label="Stack trace" value={record.stack} maxHeight="max-h-72" />
       ) : null}
+
       {prettyContext ? (
-        <section className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Context</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => copy(prettyContext!, "context")}
-              className="h-7 text-xs"
-            >
-              <ClipboardCopyIcon className="mr-1 size-3" />
-              {copied === "context" ? "Copied" : "Copy"}
-            </Button>
-          </div>
-          <pre className="max-h-60 overflow-auto rounded-md bg-muted p-3 font-mono text-[11px] leading-5">
-            {prettyContext}
-          </pre>
-        </section>
+        <CodeSection label="Context" value={prettyContext} maxHeight="max-h-60" />
       ) : null}
     </div>
   );
 }
 
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p className={mono ? "mt-0.5 font-mono text-xs" : "mt-0.5 text-xs"}>{value}</p>
+    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
+      <span className="w-28 shrink-0 text-muted-foreground">{label}</span>
+      <span className={cn("min-w-0 flex-1 truncate", mono && "font-mono")}>{value}</span>
     </div>
+  );
+}
+
+function CodeSection({
+  label,
+  value,
+  maxHeight,
+}: {
+  label: string;
+  value: string;
+  maxHeight: string;
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <CopyButton
+          value={value}
+          label="Copy"
+          size="sm"
+          className="h-6 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+          iconClassName="size-3"
+        />
+      </div>
+      <pre
+        className={cn(
+          "overflow-auto rounded-md border border-border bg-muted/50 p-3 font-mono text-[11px] leading-5",
+          maxHeight,
+        )}
+      >
+        {value}
+      </pre>
+    </section>
   );
 }

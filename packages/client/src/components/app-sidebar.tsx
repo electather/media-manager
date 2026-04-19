@@ -42,8 +42,8 @@ const navAdmin = [
   { title: "Roles", to: "/admin/roles", icon: <ShieldIcon />, matchPrefix: true },
   { title: "Plugins", to: "/admin/plugins", icon: <BoxIcon />, matchPrefix: true },
   {
-    title: "Errors",
-    to: "/admin/errors",
+    title: "Logs",
+    to: "/admin/logs",
     icon: <TriangleAlertIcon />,
     matchPrefix: true,
     badge: <ErrorBadge />,

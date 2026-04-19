@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import {
   CheckIcon,
   ClockIcon,
-  CopyIcon,
   ExternalLinkIcon,
   LoaderCircleIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import {
   Dialog,
   DialogContent,
@@ -524,7 +524,6 @@ function DeviceCodePanel({
   device: Extract<DeviceState, { kind: "waiting" }>;
   now: number;
 }) {
-  const [copied, setCopied] = useState(false);
   const remaining = Math.max(0, Math.floor((device.expiresAt - now) / 1000));
   const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
   const ss = String(remaining % 60).padStart(2, "0");
@@ -540,22 +539,7 @@ function DeviceCodePanel({
           >
             {device.userCode}
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(device.userCode);
-                setCopied(true);
-                window.setTimeout(() => setCopied(false), 1500);
-              } catch {
-                // Clipboard unavailable; ignore silently.
-              }
-            }}
-          >
-            {copied ? <CheckIcon /> : <CopyIcon />}
-            {copied ? "Copied" : "Copy"}
-          </Button>
+          <CopyButton value={device.userCode} label="Copy" variant="outline" size="sm" />
         </div>
       </div>
       <div className="flex flex-col items-center gap-1 text-sm">
