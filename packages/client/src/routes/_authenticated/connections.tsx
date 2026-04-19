@@ -273,7 +273,10 @@ function ConnectionsPage() {
                       },
                     });
                   } else {
-                    setModal({ kind: "create", plugin: connectedToPluginSummary(connection) });
+                    setModal({
+                      kind: "create",
+                      plugin: connectedToPluginSummary(connection),
+                    });
                   }
                 }}
                 onRefetch={refetch}
@@ -284,7 +287,12 @@ function ConnectionsPage() {
           {unconnected.length > 0 ? (
             <AvailableSection
               plugins={unconnected}
-              onConnect={(p) => setModal({ kind: "create", plugin: availableToPluginSummary(p) })}
+              onConnect={(p) =>
+                setModal({
+                  kind: "create",
+                  plugin: availableToPluginSummary(p),
+                })
+              }
             />
           ) : null}
         </>
@@ -448,9 +456,11 @@ function ConnectionCard({
 
   const testMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.connections[":id"].test.$post({ param: { id: connection.id } });
+      const res = await api.connections[":id"].test.$post({
+        param: { id: connection.id },
+      });
       if (!res.ok) throw new Error("Test failed.");
-      return (await res.json()) as { ok: boolean; message?: string };
+      return await res.json();
     },
   });
   const setEnabledMutation = useMutation({
@@ -465,7 +475,9 @@ function ConnectionCard({
   });
   const setDefaultMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.connections[":id"].default.$post({ param: { id: connection.id } });
+      const res = await api.connections[":id"].default.$post({
+        param: { id: connection.id },
+      });
       if (!res.ok) throw new Error("Failed to set default.");
     },
     onSuccess: onRefetch,
@@ -734,14 +746,14 @@ function AvailablePluginCard({
             {plugin.capabilities.slice(0, 4).map((cap) => {
               const { label, icon: Icon } = capabilityDisplay(cap);
               return (
-                <Badge key={cap} variant="secondary" className="gap-1 text-[10.5px] font-normal">
+                <Badge key={cap} variant="secondary" className="gap-1 text-sm font-normal">
                   <Icon className="size-2.5 opacity-60" aria-hidden="true" />
                   {label}
                 </Badge>
               );
             })}
             {plugin.capabilities.length > 4 ? (
-              <span className="text-[10.5px] text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 +{plugin.capabilities.length - 4}
               </span>
             ) : null}
@@ -852,7 +864,9 @@ function RemoveDialog({
   const onConfirm = async () => {
     setPending(true);
     try {
-      const res = await api.connections[":id"].$delete({ param: { id: connection.id } });
+      const res = await api.connections[":id"].$delete({
+        param: { id: connection.id },
+      });
       if (!res.ok) throw new Error("Failed to remove connection.");
       onRemoved();
       onOpenChange(false);
@@ -869,8 +883,8 @@ function RemoveDialog({
             Remove {connection.plugin.name} connection?
           </DialogTitle>
           <DialogDescription>
-            This will remove your {connection.plugin.name} connection &ldquo;{name}&rdquo;. Your
-            data on {connection.plugin.name} is not affected.
+            This will remove your {connection.plugin.name} connection &ldquo;
+            {name}&rdquo;. Your data on {connection.plugin.name} is not affected.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="border-t border-border px-6 py-4">

@@ -21,6 +21,11 @@ const createSchema = z.object({
   displayName: z.string().optional(),
 });
 
+const verifyConfigSchema = z.object({
+  pluginId: z.string(),
+  userConfig: z.unknown(),
+});
+
 const displayNameSchema = z.object({ displayName: z.string().min(1) });
 const userConfigSchema = z.object({ userConfig: z.unknown() });
 const enabledSchema = z.object({ enabled: z.boolean() });
@@ -46,6 +51,15 @@ export const connectionsApp = new Hono()
   .get("/:id/user-config", async (c) => {
     const config = await connectionsService.getUserConfig(userId(c), c.req.param("id"));
     return c.json({ config });
+  })
+  .post("/verify-config", zValidator("json", verifyConfigSchema), async (c) => {
+    const body = c.req.valid("json");
+    const result = await connectionsService.verifyConfig({
+      userId: userId(c),
+      pluginId: body.pluginId,
+      userConfig: body.userConfig,
+    });
+    return c.json(result);
   })
   .post("/", zValidator("json", createSchema), async (c) => {
     const body = c.req.valid("json");

@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import "./globals.css";
 import { TooltipProvider } from "./components/ui/tooltip";
-
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {
@@ -25,6 +25,7 @@ createRoot(rootEl).render(
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   </StrictMode>,
 );

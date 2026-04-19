@@ -165,21 +165,21 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
 
   const runTest = async () => {
     if (!plugin) return;
-    setTest({ kind: "testing" });
-    setServerErrors({});
     if (userConfigSchema) {
-      const client = schemaRef.current?.validate() ?? validateSchema(userConfigSchema, values);
-      if (Object.keys(client).length > 0) {
+      const clientErrors =
+        schemaRef.current?.validate() ?? validateSchema(userConfigSchema, values);
+      if (Object.keys(clientErrors).length > 0) {
         setTest({ kind: "err", message: "Fix the highlighted fields before testing." });
         return;
       }
     }
+    setTest({ kind: "testing" });
     try {
-      // v1: forms submit the same pluginId+userConfig to the create endpoint which runs
-      // the plugin's startAuth. A test-only dry run endpoint can be added later; for now
-      // validation happens on save. So client-side test shows a "looks good" green light
-      // and defers the real test to Save.
-      setTest({ kind: "ok" });
+      const res = await api.connections["verify-config"].$post({
+        json: { pluginId: plugin.id, userConfig: values },
+      });
+      const body = (await res.json()) as { ok: boolean; message?: string };
+      setTest(body.ok ? { kind: "ok" } : { kind: "err", message: body.message ?? "Test failed." });
     } catch (err) {
       setTest({ kind: "err", message: err instanceof Error ? err.message : "Test failed." });
     }
@@ -612,7 +612,6 @@ function renderFooter(args: FooterArgs) {
   } = args;
 
   if (authKind === "form") {
-    const saveEnabled = test.kind === "ok" && !saving;
     return (
       <DialogFooter className="flex-wrap items-center gap-2 border-t border-border px-6 py-4">
         <div className="mr-auto flex items-center gap-2 text-xs">
@@ -634,12 +633,14 @@ function renderFooter(args: FooterArgs) {
                 ? "Tested"
                 : "Test connection"}
           </Button>
-          {test.kind === "ok" ? <span className="text-muted-foreground">Ready to save</span> : null}
+          {test.kind === "ok" ? (
+            <span className="text-green-700 dark:text-green-400">Connection verified</span>
+          ) : null}
         </div>
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={onSaveForm} disabled={!saveEnabled}>
+        <Button onClick={onSaveForm} disabled={saving}>
           {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
           {isEdit ? "Save changes" : "Save connection"}
         </Button>

@@ -61,7 +61,7 @@ export default definePlugin({
   manifest: {
     id: "tvdb",
     name: "TheTVDB",
-    version: "1.0.0",
+    version: "1.0.1",
     description: "Supplemental TV metadata and cross-service ID resolution via TheTVDB.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
@@ -73,11 +73,22 @@ export default definePlugin({
       },
       required: ["apiKey"],
     },
-    userConfigSchema: { type: "object", properties: {}, additionalProperties: false },
+    userConfigSchema: {
+      type: "object",
+      properties: {
+        apiKey: {
+          type: "string",
+          title: "Your personal TVDB API key (v4)",
+          "x-secret": true,
+        },
+      },
+      required: ["apiKey"],
+      additionalProperties: false,
+    },
     credentialsSchema: {
       type: "object",
       properties: {
-        apiKey: { type: "string", title: "Your personal TVDB API key (v4)" },
+        apiKey: { type: "string" },
       },
       required: ["apiKey"],
     },

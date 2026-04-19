@@ -23,14 +23,27 @@ function resolveKey(ctx: Ctx): string {
   return key;
 }
 
+function isBearer(key: string): boolean {
+  return key.startsWith("eyJ");
+}
+
+function applyAuth(url: URL, key: string): RequestInit {
+  if (isBearer(key)) {
+    return { headers: { Authorization: `Bearer ${key}` } };
+  }
+  url.searchParams.set("api_key", key);
+  return {};
+}
+
 async function tmdbGet(ctx: Ctx, path: string, params: Record<string, unknown> = {}) {
   const url = new URL(`${BASE}${path}`);
-  url.searchParams.set("api_key", resolveKey(ctx));
+  const key = resolveKey(ctx);
+  const init = applyAuth(url, key);
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === null) continue;
     url.searchParams.set(k, String(v));
   }
-  const res = await ctx.fetch(url.toString());
+  const res = await ctx.fetch(url.toString(), init);
   if (!res.ok) {
     if (res.status === 401) throw new PluginError("AUTH_INVALID", "TMDB rejected api key");
     throw new PluginError("UPSTREAM_ERROR", `TMDB ${res.status}: ${await res.text()}`);
@@ -92,7 +105,7 @@ export default definePlugin({
   manifest: {
     id: "tmdb",
     name: "The Movie Database",
-    version: "1.0.0",
+    version: "1.0.2",
     description:
       "Metadata provider powered by TMDB (themoviedb.org). Supports a shared admin-set key or per-user keys.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -109,13 +122,22 @@ export default definePlugin({
       },
       required: ["apiKey"],
     },
-    userConfigSchema: { type: "object", properties: {}, additionalProperties: false },
+    userConfigSchema: {
+      type: "object",
+      properties: {
+        apiKey: {
+          type: "string",
+          title: "Your personal TMDB API key (v3)",
+          "x-secret": true,
+        },
+      },
+      additionalProperties: false,
+    },
     credentialsSchema: {
       type: "object",
       properties: {
-        apiKey: { type: "string", title: "Your personal TMDB API key (v3)" },
+        apiKey: { type: "string" },
       },
-      required: ["apiKey"],
     },
     auth: { kind: "form" },
     capabilities: {
@@ -127,12 +149,20 @@ export default definePlugin({
   async startAuth(ctx, input) {
     const parsed = input as { apiKey?: string } | null;
     if (!parsed?.apiKey) {
-      return { status: "error", code: "AUTH_INVALID", message: "apiKey required" };
+      const globalKey = resolveKey(ctx as Ctx);
+      if (!globalKey) {
+        return {
+          status: "error",
+          code: "AUTH_INVALID",
+          message: "apiKey required (no global key configured)",
+        };
+      }
+      return { status: "completed", credentials: {} };
     }
-    // Cheap verification via /configuration — returns 401 for a bad key.
+    // Verify via /configuration — returns 401 for an invalid key or token.
     const url = new URL(`${BASE}/configuration`);
-    url.searchParams.set("api_key", parsed.apiKey);
-    const res = await ctx.fetch(url.toString());
+    const init = applyAuth(url, parsed.apiKey);
+    const res = await ctx.fetch(url.toString(), init);
     if (!res.ok) {
       return { status: "error", code: "AUTH_INVALID", message: `TMDB ${res.status}` };
     }
@@ -141,9 +171,12 @@ export default definePlugin({
 
   async testConnection(ctx) {
     try {
+      const key = resolveKey(ctx as Ctx);
       const url = new URL(`${BASE}/configuration`);
-      url.searchParams.set("api_key", resolveKey(ctx as Ctx));
-      const res = await ctx.fetch(url.toString());
+      const init = applyAuth(url, key);
+      ctx.log.debug(`Testing TMDB connection with URL: ${url.toString()}`);
+      const res = await ctx.fetch(url.toString(), init);
+      ctx.log.debug(`TMDB test connection response: ${res.status}`);
       if (!res.ok) return { ok: false, message: `TMDB ${res.status}` };
       return { ok: true };
     } catch (err) {

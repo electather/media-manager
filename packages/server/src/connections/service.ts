@@ -29,6 +29,22 @@ async function decryptJson(iv: string | null, data: string | null): Promise<unkn
   }
 }
 
+/**
+ * Removes properties marked `"x-secret": true` in the schema from a userConfig payload.
+ * Used so encrypted secrets never travel back to the client over connection list/get.
+ */
+function stripSecretFields(schema: unknown, value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  if (!schema || typeof schema !== "object") return value;
+  const props = (schema as { properties?: Record<string, Record<string, unknown>> }).properties;
+  if (!props) return value;
+  const out: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+  for (const [name, def] of Object.entries(props)) {
+    if (def && def["x-secret"] === true) delete out[name];
+  }
+  return out;
+}
+
 /** Promotes the given connection id to default within its plugin; demotes the rest. */
 async function promoteToDefault(userId: string, pluginId: string, connectionId: string) {
   const db = getDb();
@@ -128,6 +144,27 @@ export interface ConnectionListItem {
 }
 
 export const connectionsService = {
+  async verifyConfig(args: {
+    userId: string;
+    pluginId: string;
+    userConfig: unknown;
+  }): Promise<{ ok: boolean; message?: string }> {
+    try {
+      const result = (await pluginRuntime.runAuth(
+        args.pluginId,
+        "startAuth",
+        args.userId,
+        args.userConfig,
+      )) as AuthResult;
+      if (result.status === "completed") return { ok: true };
+      const message =
+        result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+      return { ok: false, message };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : "verification failed" };
+    }
+  },
+
   async listForUser(userId: string): Promise<ConnectionListItem[]> {
     const db = getDb();
     const rows = await db
@@ -151,6 +188,7 @@ export const connectionsService = {
         userConfigSchema?: unknown;
       };
       const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
+      const safeUserConfig = stripSecretFields(manifest.userConfigSchema, userConfig);
       result.push({
         id: row.id,
         pluginId: row.pluginId,
@@ -163,7 +201,7 @@ export const connectionsService = {
         errorMessage: row.errorMessage,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        userConfig,
+        userConfig: safeUserConfig,
         plugin: {
           id: pluginRow.id,
           name: manifest.name,
@@ -188,7 +226,12 @@ export const connectionsService = {
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .get();
     if (!row) throw new Error("connection not found");
-    return decryptJson(row.userConfigIv, row.encryptedUserConfig);
+    const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
+    const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
+    const schema = pluginRow
+      ? (JSON.parse(pluginRow.manifest) as { userConfigSchema?: unknown }).userConfigSchema
+      : null;
+    return stripSecretFields(schema, userConfig);
   },
 
   async createFormConnection(args: {
@@ -442,15 +485,53 @@ export const connectionsService = {
       )
       .get();
     if (!row) throw new Error("connection not found");
+    const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
+    if (!pluginRow) throw new Error("plugin not installed");
+    const manifest = JSON.parse(pluginRow.manifest) as { auth: { kind: string } };
+
+    // Merge prior userConfig under the incoming payload so omitted secret fields
+    // (stripped client-side via stripEmptySecrets) preserve their stored values.
+    const prior = (await decryptJson(row.userConfigIv, row.encryptedUserConfig)) ?? {};
+    const merged = {
+      ...(prior as Record<string, unknown>),
+      ...((args.userConfig ?? {}) as Record<string, unknown>),
+    };
+
+    if (manifest.auth.kind === "form") {
+      // Re-run startAuth so credentials stay synced with userConfig changes
+      // (e.g. apiKey rotation). startAuth validates upstream and returns the
+      // fresh credentials blob to persist alongside.
+      const result = (await pluginRuntime.runAuth(
+        row.pluginId,
+        "startAuth",
+        args.userId,
+        merged,
+      )) as AuthResult;
+      if (result.status !== "completed") {
+        const message =
+          result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+        throw new Error(`config did not verify: ${message}`);
+      }
+      const userEnc = await encryptJson(merged);
+      const credEnc = await encryptJson(result.credentials);
+      await db
+        .update(serviceConnections)
+        .set({
+          encryptedUserConfig: userEnc.data,
+          userConfigIv: userEnc.iv,
+          encryptedCredentials: credEnc.data,
+          credentialsIv: credEnc.iv,
+          lastVerifiedAt: Date.now(),
+          updatedAt: Date.now(),
+        })
+        .where(eq(serviceConnections.id, args.connectionId));
+      return;
+    }
+
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
-    const test = await pluginRuntime.testConnection(
-      row.pluginId,
-      args.userId,
-      credentials,
-      args.userConfig,
-    );
+    const test = await pluginRuntime.testConnection(row.pluginId, args.userId, credentials, merged);
     if (!test.ok) throw new Error(`config did not verify: ${test.message ?? "unknown"}`);
-    const enc = await encryptJson(args.userConfig);
+    const enc = await encryptJson(merged);
     await db
       .update(serviceConnections)
       .set({
