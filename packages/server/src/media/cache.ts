@@ -20,8 +20,8 @@ export function canonicalize(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalize(v)}`).join(",")}}`;
 }
 
-export function argsHash(input: unknown): string {
-  return sha256(canonicalize(input)).slice(0, 16);
+export async function argsHash(input: unknown): Promise<string> {
+  return (await sha256(canonicalize(input))).slice(0, 16);
 }
 
 export interface CacheKeyArgs {
@@ -33,9 +33,9 @@ export interface CacheKeyArgs {
   input: unknown;
 }
 
-export function cacheKey(args: CacheKeyArgs): string {
+export async function cacheKey(args: CacheKeyArgs): Promise<string> {
   const scope = args.userScoped ? `user:${args.userId}` : "global";
-  return `mv:${args.capability}:${args.version}:${args.method}:${scope}:${argsHash(args.input)}`;
+  return `mv:${args.capability}:${args.version}:${args.method}:${scope}:${await argsHash(args.input)}`;
 }
 
 export function userScopedPrefix(userId: string): string {

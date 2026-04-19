@@ -216,7 +216,7 @@ async function harvestFromOutcomes(
   }
 }
 
-function cacheKeyFor(req: DispatchRequest, capability: CapabilityDefinition): string {
+function cacheKeyFor(req: DispatchRequest, capability: CapabilityDefinition): Promise<string> {
   return cacheKey({
     capability: req.capability,
     version: req.version,
@@ -232,7 +232,7 @@ async function readCache<T>(
   capability: CapabilityDefinition,
 ): Promise<T | undefined> {
   if (req.skipCache) return undefined;
-  const key = cacheKeyFor(req, capability);
+  const key = await cacheKeyFor(req, capability);
   // Values are wrapped in { v } so a negatively-cached `null` is distinguishable
   // from a cache miss (both would otherwise serialize to `null`).
   const cached = await getCacheProvider().get<{ v: T }>(key);
@@ -246,7 +246,7 @@ async function writeCache<T>(
   value: T,
 ): Promise<void> {
   if (req.skipCache) return;
-  const key = cacheKeyFor(req, capability);
+  const key = await cacheKeyFor(req, capability);
   const ttl = ttlMsFor(capability, value);
   await getCacheProvider().set(key, { v: value }, ttl);
 }

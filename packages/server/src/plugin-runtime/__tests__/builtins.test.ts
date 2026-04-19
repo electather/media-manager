@@ -10,20 +10,20 @@ import tvdbPlugin from "../../plugins/builtin/tvdb/plugin";
  * the server boots.
  */
 describe("built-in plugins pass loader validation", () => {
-  it("trakt", () => {
-    expect(() =>
+  it("trakt", async () => {
+    await expect(
       validatePluginModule(traktPlugin, `builtin:${traktPlugin.manifest.id}`),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
-  it("tmdb", () => {
-    expect(() =>
+  it("tmdb", async () => {
+    await expect(
       validatePluginModule(tmdbPlugin, `builtin:${tmdbPlugin.manifest.id}`),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
-  it("tvdb", () => {
-    expect(() =>
+  it("tvdb", async () => {
+    await expect(
       validatePluginModule(tvdbPlugin, `builtin:${tvdbPlugin.manifest.id}`),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
 });
 

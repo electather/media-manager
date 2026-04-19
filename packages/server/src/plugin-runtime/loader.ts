@@ -38,7 +38,10 @@ export interface LoadedPlugin {
 }
 
 /** Full validation pipeline. Throws PluginError on any failure. */
-export function validatePluginModule(module: PluginModule, bytes: string): LoadedPlugin {
+export async function validatePluginModule(
+  module: PluginModule,
+  bytes: string,
+): Promise<LoadedPlugin> {
   const parsed = pluginManifestSchema.safeParse(module.manifest);
   if (!parsed.success) {
     throw new PluginError("plugin.output_invalid", parsed.error.message);
@@ -94,7 +97,7 @@ export function validatePluginModule(module: PluginModule, bytes: string): Loade
 
   return {
     module,
-    checksum: sha256(bytes),
+    checksum: await sha256(bytes),
     manifestJson: JSON.stringify(parsed.data),
   };
 }

@@ -28,19 +28,19 @@ describe("canonicalize", () => {
 });
 
 describe("argsHash", () => {
-  it("returns 16 hex chars", () => {
-    const h = argsHash({ query: "matrix" });
+  it("returns 16 hex chars", async () => {
+    const h = await argsHash({ query: "matrix" });
     expect(h).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it("is stable across key order", () => {
-    expect(argsHash({ a: 1, b: 2 })).toBe(argsHash({ b: 2, a: 1 }));
+  it("is stable across key order", async () => {
+    expect(await argsHash({ a: 1, b: 2 })).toBe(await argsHash({ b: 2, a: 1 }));
   });
 });
 
 describe("cacheKey", () => {
-  it("uses a global scope when capability is not user-scoped", () => {
-    const key = cacheKey({
+  it("uses a global scope when capability is not user-scoped", async () => {
+    const key = await cacheKey({
       capability: "metadata",
       version: "v1",
       method: "search",
@@ -51,8 +51,8 @@ describe("cacheKey", () => {
     expect(key).toMatch(/^mv:metadata:v1:search:global:[0-9a-f]{16}$/);
   });
 
-  it("includes the user id when the capability is user-scoped", () => {
-    const key = cacheKey({
+  it("includes the user id when the capability is user-scoped", async () => {
+    const key = await cacheKey({
       capability: "watchHistory",
       version: "v1",
       method: "getHistory",
@@ -63,7 +63,7 @@ describe("cacheKey", () => {
     expect(key).toMatch(/^mv:watchHistory:v1:getHistory:user:alice:[0-9a-f]{16}$/);
   });
 
-  it("produces distinct keys for distinct inputs", () => {
+  it("produces distinct keys for distinct inputs", async () => {
     const base = {
       capability: "metadata",
       version: "v1",
@@ -71,8 +71,8 @@ describe("cacheKey", () => {
       userId: "u1",
       userScoped: false,
     };
-    const k1 = cacheKey({ ...base, input: { query: "a" } });
-    const k2 = cacheKey({ ...base, input: { query: "b" } });
+    const k1 = await cacheKey({ ...base, input: { query: "a" } });
+    const k2 = await cacheKey({ ...base, input: { query: "b" } });
     expect(k1).not.toBe(k2);
   });
 });

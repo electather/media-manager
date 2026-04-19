@@ -22,50 +22,50 @@ function minimalManifest(
 }
 
 describe("validatePluginModule", () => {
-  it("accepts a minimal valid plugin", () => {
+  it("accepts a minimal valid plugin", async () => {
     const mod: PluginModule = { manifest: minimalManifest(), capabilities: {} };
-    const loaded = validatePluginModule(mod, "source");
+    const loaded = await validatePluginModule(mod, "source");
     expect(loaded.checksum).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("rejects manifest with invalid id", () => {
+  it("rejects manifest with invalid id", async () => {
     const mod: PluginModule = {
       manifest: minimalManifest({ id: "BAD_ID" }),
       capabilities: {},
     };
-    expect(() => validatePluginModule(mod, "source")).toThrow(PluginError);
+    await expect(validatePluginModule(mod, "source")).rejects.toThrow(PluginError);
   });
 
-  it("rejects plugins that declare unknown capabilities", () => {
+  it("rejects plugins that declare unknown capabilities", async () => {
     const mod: PluginModule = {
       manifest: minimalManifest({ capabilities: { notARealCapability: "v1" } }),
       capabilities: { notARealCapability: { foo: async () => null } },
     };
-    expect(() => validatePluginModule(mod, "source")).toThrow(/unknown capability/);
+    await expect(validatePluginModule(mod, "source")).rejects.toThrow(/unknown capability/);
   });
 
-  it("rejects plugins that claim a capability but miss a method", () => {
+  it("rejects plugins that claim a capability but miss a method", async () => {
     const mod: PluginModule = {
       manifest: minimalManifest({ capabilities: { metadata: "v1" } }),
       capabilities: {
         metadata: {
-          // only implements search — missing getDetails, getSimilar, etc.
+          // Only implements search — missing getDetails, getSimilar, etc.
           search: async () => [],
         },
       },
     };
-    expect(() => validatePluginModule(mod, "source")).toThrow(/not implemented/);
+    await expect(validatePluginModule(mod, "source")).rejects.toThrow(/not implemented/);
   });
 
-  it("requires testConnection when auth.kind != none", () => {
+  it("requires testConnection when auth.kind != none", async () => {
     const mod: PluginModule = {
       manifest: minimalManifest({ auth: { kind: "form" } }),
       capabilities: {},
     };
-    expect(() => validatePluginModule(mod, "source")).toThrow(/testConnection/);
+    await expect(validatePluginModule(mod, "source")).rejects.toThrow(/testConnection/);
   });
 
-  it("requires a job handler when manifest.jobs declares one", () => {
+  it("requires a job handler when manifest.jobs declares one", async () => {
     const mod: PluginModule = {
       manifest: minimalManifest({
         jobs: [{ id: "refresh", schedule: "*/5 * * * *", handler: "doRefresh" }],
@@ -73,6 +73,6 @@ describe("validatePluginModule", () => {
       capabilities: {},
       jobs: {},
     };
-    expect(() => validatePluginModule(mod, "source")).toThrow(/handler/);
+    await expect(validatePluginModule(mod, "source")).rejects.toThrow(/handler/);
   });
 });

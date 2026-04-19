@@ -40,7 +40,7 @@ export class PluginRuntime {
     const db = getDb();
     const now = Date.now();
     for (const builtin of listBuiltins()) {
-      const loaded = validatePluginModule(builtin.module, builtin.bytes);
+      const loaded = await validatePluginModule(builtin.module, builtin.bytes);
       const existing = await db.select().from(plugins).where(eq(plugins.id, builtin.id)).get();
       if (!existing) {
         await db.insert(plugins).values({

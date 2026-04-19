@@ -57,6 +57,10 @@ vi.mock("../../crypto/vault", () => ({
   encrypt: async (plain: string) => `iv:${plain}`,
 }));
 
+vi.mock("../../crypto/hash", () => ({
+  sha256: async (s: string) => s.slice(0, 32).padEnd(32, "0"),
+}));
+
 // Import after mocks so the module binds to mocked exports.
 const { dispatchSingle, dispatchAggregate, dispatchPrimary, invalidateUserCache } =
   await import("../dispatcher");

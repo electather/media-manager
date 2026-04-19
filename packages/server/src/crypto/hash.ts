@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-
-export function sha256(s: string): string {
-  return createHash("sha256").update(s).digest("hex");
+export async function sha256(s: string): Promise<string> {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
 }
