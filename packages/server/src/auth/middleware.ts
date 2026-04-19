@@ -5,12 +5,13 @@ import { getDb } from "../db/client";
 import { userRoles, roles, rolePermissions } from "../db/schema/roles";
 import type { Permission } from "./permissions";
 import { currentRequestContext } from "../errors/request-context";
+import { forbidden, unauthorized } from "../errors/http-errors";
 
 /** Hono middleware that validates the Better Auth session. */
-export async function requireSession(c: Context, next: Next): Promise<Response | void> {
+export async function requireSession(c: Context, next: Next): Promise<void> {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) {
-    return c.json({ error: "Unauthorized" }, 401);
+    throw unauthorized();
   }
   c.set("session", session);
   // Attach the user id to the ambient request context so captureError can correlate errors
@@ -28,10 +29,10 @@ export async function requireSession(c: Context, next: Next): Promise<Response |
  * not by rows in role_permissions.
  */
 export function requirePermission(permission: Permission) {
-  return async (c: Context, next: Next): Promise<Response | void> => {
+  return async (c: Context, next: Next): Promise<void> => {
     const session = c.get("session") as { user: { id: string } } | undefined;
     if (!session) {
-      return c.json({ error: "Unauthorized" }, 401);
+      throw unauthorized();
     }
 
     const db = getDb();
@@ -45,7 +46,7 @@ export function requirePermission(permission: Permission) {
       .get();
 
     if (!userRole) {
-      return c.json({ error: "Forbidden" }, 403);
+      throw forbidden();
     }
 
     // The system Admin role always has all permissions.
@@ -73,7 +74,7 @@ export function requirePermission(permission: Permission) {
       .get();
 
     if (!allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      throw forbidden();
     }
 
     await next();

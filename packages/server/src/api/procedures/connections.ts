@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { requireSession, requirePermission } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { connectionsService } from "../../connections/service";
+import { zValidator } from "../../errors/validator";
+import { unauthorized } from "../../errors/http-errors";
 
 interface SessionCtx {
   user: { id: string };
@@ -11,7 +12,7 @@ interface SessionCtx {
 
 function userId(c: { get: (key: "session") => SessionCtx | undefined }): string {
   const session = c.get("session");
-  if (!session) throw new Error("no session");
+  if (!session) throw unauthorized();
   return session.user.id;
 }
 

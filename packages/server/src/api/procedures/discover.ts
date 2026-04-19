@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { zValidator } from "../../errors/validator";
 
 const searchSchema = z.object({
   query: z.string().min(1),

@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { and, desc, eq, gte, inArray, like, or, sql, type SQL } from "drizzle-orm";
 import { requireSession, requirePermission } from "../../auth/middleware";
@@ -9,6 +8,8 @@ import { errorRecords } from "../../db/schema/errors";
 import { captureError } from "../../errors/capture";
 import { getAppConfig, setErrorRetentionDays } from "../../errors/retention";
 import type { ErrorSeverity, ErrorSource } from "../../errors/types";
+import { zValidator } from "../../errors/validator";
+import { notFound } from "../../errors/http-errors";
 
 interface SessionCtx {
   user: { id: string };
@@ -202,6 +203,6 @@ export const adminErrorsApp = new Hono()
       .from(errorRecords)
       .where(eq(errorRecords.id, c.req.param("id")))
       .get();
-    if (!row) return c.json({ error: "not found" }, 404);
+    if (!row) throw notFound("http.not_found", "error record not found");
     return c.json({ record: row });
   });

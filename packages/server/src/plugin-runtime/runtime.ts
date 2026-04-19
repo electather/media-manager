@@ -12,6 +12,7 @@ import { PluginError } from "./types";
 import type { AuthResult, CapabilitySpec, PluginContext, PluginModule } from "./types";
 import { captureError } from "../errors/capture";
 import { pluginCode } from "../errors/codes";
+import { internal } from "../errors/http-errors";
 
 export interface InvokeArgs {
   pluginId: string;
@@ -43,7 +44,9 @@ function ciphertextOf(
 /** Splits the stored `iv:data` composite into the separate columns. */
 function splitCiphertext(combined: string): { iv: string; data: string } {
   const [iv, ...rest] = combined.split(":");
-  if (!iv || rest.length === 0) throw new Error("invalid ciphertext");
+  if (!iv || rest.length === 0) {
+    throw internal("http.internal_error", "invalid ciphertext");
+  }
   return { iv, data: rest.join(":") };
 }
 

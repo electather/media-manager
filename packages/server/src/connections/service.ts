@@ -7,10 +7,11 @@ import { encrypt, decrypt } from "../crypto/vault";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import type { AuthResult } from "../plugin-runtime/types";
+import { badRequest, internal, notFound, unprocessable } from "../errors/http-errors";
 
 function split(combined: string): { iv: string; data: string } {
   const [iv, ...rest] = combined.split(":");
-  if (!iv || rest.length === 0) throw new Error("invalid ciphertext");
+  if (!iv || rest.length === 0) throw internal("http.internal_error", "invalid ciphertext");
   return { iv, data: rest.join(":") };
 }
 
@@ -225,7 +226,7 @@ export const connectionsService = {
       .from(serviceConnections)
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .get();
-    if (!row) throw new Error("connection not found");
+    if (!row) throw notFound("connection.not_found", "connection not found");
     const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
     const schema = pluginRow
@@ -249,7 +250,7 @@ export const connectionsService = {
     if (result.status !== "completed") {
       const message =
         result.status === "error" ? result.message : `unexpected status: ${result.status}`;
-      throw new Error(`auth failed: ${message}`);
+      throw unprocessable("connection.verify_failed", `auth failed: ${message}`, { message });
     }
     const id = await writeConnection({
       userId: args.userId,
@@ -275,7 +276,9 @@ export const connectionsService = {
     if (result.status !== "redirect") {
       const message =
         result.status === "error" ? result.message : `unexpected status: ${result.status}`;
-      throw new Error(`redirect auth init failed: ${message}`);
+      throw unprocessable("oauth.init_failed", `redirect auth init failed: ${message}`, {
+        message,
+      });
     }
     const nonce = randomUUID();
     const now = Date.now();
@@ -303,10 +306,10 @@ export const connectionsService = {
       .from(pendingAuth)
       .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)))
       .get();
-    if (!row) throw new Error("no pending auth");
+    if (!row) throw notFound("oauth.pending_not_found", "no pending auth");
     if (row.expiresAt < Date.now()) {
       await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-      throw new Error("authorization request expired");
+      throw unprocessable("oauth.state_expired", "authorization request expired");
     }
     const state = await decryptJson(row.stateIv, row.state);
     const result = (await pluginRuntime.runAuth(
@@ -319,9 +322,13 @@ export const connectionsService = {
     if (result.status !== "completed") {
       if (result.status === "error") {
         await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-        throw new Error(result.message);
+        throw unprocessable("connection.verify_failed", result.message, {
+          message: result.message,
+        });
       }
-      throw new Error(`unexpected status: ${result.status}`);
+      throw unprocessable("oauth.unexpected_status", `unexpected status: ${result.status}`, {
+        status: result.status,
+      });
     }
     const id = await writeConnection({
       userId: args.userId,
@@ -350,7 +357,9 @@ export const connectionsService = {
     if (result.status !== "display_code") {
       const message =
         result.status === "error" ? result.message : `unexpected status: ${result.status}`;
-      throw new Error(`device auth init failed: ${message}`);
+      throw unprocessable("oauth.init_failed", `device auth init failed: ${message}`, {
+        message,
+      });
     }
     const nonce = randomUUID();
     const now = Date.now();
@@ -430,7 +439,7 @@ export const connectionsService = {
         ),
       )
       .get();
-    if (!row) throw new Error("connection not found");
+    if (!row) throw notFound("connection.not_found", "connection not found");
     await promoteToDefault(args.userId, row.pluginId, args.connectionId);
   },
 
@@ -484,9 +493,9 @@ export const connectionsService = {
         ),
       )
       .get();
-    if (!row) throw new Error("connection not found");
+    if (!row) throw notFound("connection.not_found", "connection not found");
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
-    if (!pluginRow) throw new Error("plugin not installed");
+    if (!pluginRow) throw badRequest("connection.plugin_missing", "plugin not installed");
     const manifest = JSON.parse(pluginRow.manifest) as { auth: { kind: string } };
 
     // Merge prior userConfig under the incoming payload so omitted secret fields
@@ -510,7 +519,9 @@ export const connectionsService = {
       if (result.status !== "completed") {
         const message =
           result.status === "error" ? result.message : `unexpected status: ${result.status}`;
-        throw new Error(`config did not verify: ${message}`);
+        throw unprocessable("connection.verify_failed", `config did not verify: ${message}`, {
+          message,
+        });
       }
       const userEnc = await encryptJson(merged);
       const credEnc = await encryptJson(result.credentials);
@@ -530,7 +541,13 @@ export const connectionsService = {
 
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
     const test = await pluginRuntime.testConnection(row.pluginId, args.userId, credentials, merged);
-    if (!test.ok) throw new Error(`config did not verify: ${test.message ?? "unknown"}`);
+    if (!test.ok) {
+      throw unprocessable(
+        "connection.verify_failed",
+        `config did not verify: ${test.message ?? "unknown"}`,
+        { message: test.message ?? "unknown" },
+      );
+    }
     const enc = await encryptJson(merged);
     await db
       .update(serviceConnections)

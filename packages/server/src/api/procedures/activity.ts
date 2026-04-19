@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { zValidator } from "../../errors/validator";
 
 const historySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),

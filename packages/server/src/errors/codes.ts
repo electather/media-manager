@@ -4,6 +4,7 @@ export const HOST_ERROR_CODES = [
   "connection.test_failed",
   "connection.not_found",
   "connection.verify_failed",
+  "connection.plugin_missing",
   "plugin.timeout",
   "plugin.output_invalid",
   "plugin.input_invalid",
@@ -13,14 +14,19 @@ export const HOST_ERROR_CODES = [
   "plugin.missing_method",
   "plugin.missing_refresh",
   "plugin.missing_auth_fn",
+  "plugin.builtin_uninstall",
   "oauth.state_expired",
   "oauth.polling_timeout",
   "oauth.init_failed",
+  "oauth.pending_not_found",
+  "oauth.unexpected_status",
   "cron.job_failed",
   "http.internal_error",
   "http.not_found",
   "http.forbidden",
   "http.unauthorized",
+  "http.invalid_input",
+  "http.method_not_allowed",
 ] as const;
 
 export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];

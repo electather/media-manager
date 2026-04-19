@@ -5,6 +5,7 @@ import { env } from "../env";
 import { decrypt } from "../crypto/vault";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { pluginRuntime } from "../plugin-runtime/runtime";
+import { notFound } from "../errors/http-errors";
 
 export interface ResolvedConnection {
   id: string;
@@ -93,7 +94,9 @@ export const mediaService = {
     const conn = await getDefaultConnection(args.userId, args.pluginId);
     const fallbackAllowed = conn === null && (await hasGlobalConfig(args.pluginId));
     if (!conn && !fallbackAllowed) {
-      throw new Error(`no connection for plugin ${args.pluginId}`);
+      throw notFound("connection.not_found", `no connection for plugin ${args.pluginId}`, {
+        pluginId: args.pluginId,
+      });
     }
     return pluginRuntime.invoke<T>({
       pluginId: args.pluginId,

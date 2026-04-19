@@ -6,12 +6,15 @@ import { settingsApp } from "./procedures/settings";
 import { pluginsApp } from "./procedures/plugins";
 import { connectionsApp } from "./procedures/connections";
 import { errorsApp, adminErrorsApp } from "./procedures/errors";
-import { requestContextMiddleware, errorCaptureMiddleware } from "../errors/middleware";
+import { requestContextMiddleware, errorHandler } from "../errors/middleware";
 
-/** Hono sub-app that handles all /api/* RPC calls. Re-exported type for client. */
+/** Hono sub-app that handles all /api/* RPC calls. Re-exported type for client.
+ *  `requestContextMiddleware` sets up the per-request correlation id and ALS
+ *  frame; `onError` is where every thrown error lands (HttpError and
+ *  unexpected throws alike) — Hono catches handler throws internally and
+ *  dispatches them to this single boundary. */
 export const appRouter = new Hono()
   .use("*", requestContextMiddleware())
-  .use("*", errorCaptureMiddleware())
   .route("/discover", discoverApp)
   .route("/activity", activityApp)
   .route("/requests", requestsApp)
@@ -19,6 +22,7 @@ export const appRouter = new Hono()
   .route("/plugins", pluginsApp)
   .route("/connections", connectionsApp)
   .route("/errors", errorsApp)
-  .route("/admin/errors", adminErrorsApp);
+  .route("/admin/errors", adminErrorsApp)
+  .onError(errorHandler);
 
 export type AppType = typeof appRouter;

@@ -11,6 +11,7 @@ import { registerBuiltinPlugins } from "./plugins/builtin";
 import { pluginRuntime } from "./plugin-runtime/runtime";
 import { registerErrorSink } from "./errors/capture";
 import { DatabaseSink } from "./errors/database-sink";
+import { errorHandler } from "./errors/middleware";
 
 async function bootstrap(): Promise<void> {
   getDb();
@@ -36,6 +37,10 @@ app.get("*", async (c) => {
       .catch(() => "<h1>Client not built</h1>"),
   );
 });
+
+// Last-resort handler for errors on routes outside /api (auth, mcp, static).
+// Re-uses the unified response shape so every surface looks the same.
+app.onError(errorHandler);
 
 consola.success(`ent-mcp server starting on http://${env.HOST}:${env.PORT}`);
 

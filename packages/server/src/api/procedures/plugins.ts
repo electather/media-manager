@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { getDb } from "../../db/client";
 import { plugins } from "../../db/schema";
@@ -7,6 +6,8 @@ import { requireSession, requirePermission } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { pluginRuntime } from "../../plugin-runtime/runtime";
 import { getBuiltin } from "../../plugin-runtime/loader";
+import { zValidator } from "../../errors/validator";
+import { badRequest } from "../../errors/http-errors";
 
 const setEnabledSchema = z.object({ enabled: z.boolean() });
 const setGlobalConfigSchema = z.object({ config: z.unknown() });
@@ -51,7 +52,7 @@ export const pluginsApp = new Hono()
   .delete("/:id", async (c) => {
     const id = c.req.param("id");
     if (getBuiltin(id)) {
-      return c.json({ error: "built-in plugins cannot be uninstalled" }, 400);
+      throw badRequest("plugin.builtin_uninstall", "built-in plugins cannot be uninstalled");
     }
     await pluginRuntime.uninstall(id);
     return c.json({ ok: true });
