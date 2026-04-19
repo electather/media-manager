@@ -112,11 +112,18 @@ export interface ConnectionListItem {
   errorMessage: string | null;
   createdAt: number;
   updatedAt: number;
+  /** Non-secret user-supplied config (e.g. Seerr's baseUrl). Null when none was stored. */
+  userConfig: unknown;
   plugin: {
     id: string;
     name: string;
+    version: string;
+    description: string;
     auth: string;
     enabled: boolean;
+    logoUrl?: string;
+    capabilities: string[];
+    userConfigSchema: unknown;
   };
 }
 
@@ -136,8 +143,14 @@ export const connectionsService = {
       if (!pluginRow) continue;
       const manifest = JSON.parse(pluginRow.manifest) as {
         name: string;
+        version: string;
+        description?: string;
+        logoUrl?: string;
         auth: { kind: string };
+        capabilities?: Record<string, string>;
+        userConfigSchema?: unknown;
       };
+      const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
       result.push({
         id: row.id,
         pluginId: row.pluginId,
@@ -150,11 +163,17 @@ export const connectionsService = {
         errorMessage: row.errorMessage,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+        userConfig,
         plugin: {
           id: pluginRow.id,
           name: manifest.name,
+          version: manifest.version,
+          description: manifest.description ?? "",
           auth: manifest.auth.kind,
           enabled: pluginRow.enabled === 1,
+          logoUrl: manifest.logoUrl,
+          capabilities: Object.keys(manifest.capabilities ?? {}),
+          userConfigSchema: manifest.userConfigSchema ?? null,
         },
       });
     }
@@ -448,8 +467,12 @@ export const connectionsService = {
     Array<{
       id: string;
       name: string;
+      version: string;
+      description: string;
+      logoUrl?: string;
       auth: string;
       hasSharedConfig: boolean;
+      capabilities: string[];
       userConfigSchema: unknown;
       credentialsSchema: unknown;
     }>
@@ -461,15 +484,23 @@ export const connectionsService = {
       .map((r) => {
         const manifest = JSON.parse(r.manifest) as {
           name: string;
+          version: string;
+          description?: string;
+          logoUrl?: string;
           auth: { kind: string };
+          capabilities?: Record<string, string>;
           userConfigSchema?: unknown;
           credentialsSchema?: unknown;
         };
         return {
           id: r.id,
           name: manifest.name,
+          version: manifest.version,
+          description: manifest.description ?? "",
+          logoUrl: manifest.logoUrl,
           auth: manifest.auth.kind,
           hasSharedConfig: !!(r.globalConfig && r.globalConfigIv),
+          capabilities: Object.keys(manifest.capabilities ?? {}),
           userConfigSchema: manifest.userConfigSchema ?? null,
           credentialsSchema: manifest.credentialsSchema ?? null,
         };

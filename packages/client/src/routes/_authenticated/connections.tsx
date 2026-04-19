@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangleIcon,
   CheckIcon,
-  EyeIcon,
-  EyeOffIcon,
-  Link2Icon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  KeyIcon,
+  LoaderCircleIcon,
   MoreHorizontalIcon,
   PencilIcon,
+  PlugIcon,
   PowerIcon,
+  RotateCwIcon,
   StarIcon,
+  TriangleAlertIcon,
+  UnplugIcon,
   XIcon,
 } from "lucide-react";
 
@@ -39,323 +44,496 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupInput,
-} from "@/components/ui/input-group";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
+import { capabilityDisplay } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import {
+  ConnectionModal,
+  type ExistingConnection,
+  type PluginSummary,
+} from "@/components/connections/connection-modal";
+import { type JSONSchema, nonSecretFields } from "@/components/connections/schema-form";
 
-type ServiceId = "trakt" | "seerr" | "tmdb" | "tvdb";
-type ConnectionStatus = "connected" | "expired" | "error" | "disabled";
+export const Route = createFileRoute("/_authenticated/connections")({
+  component: ConnectionsPage,
+});
 
-interface Service {
-  id: ServiceId;
-  name: string;
-  description: string;
-  connectionType: "oauth" | "manual" | "apikey";
-  capabilities: string[];
-  allowMultiple: boolean;
-  sharedKey: boolean;
-}
+// ─── API shapes (derived from the server response types) ──────────────────────
 
-interface Connection {
+interface ConnectionItem {
   id: string;
-  service: ServiceId;
-  name: string;
-  status: ConnectionStatus;
-  verified: string;
-  url?: string;
-  error?: string;
-  isDefault?: boolean;
-  usingShared?: boolean;
+  pluginId: string;
+  status: string;
+  enabled: boolean;
+  isDefault: boolean;
+  displayName: string | null;
+  tokenExpiresAt: number | null;
+  lastVerifiedAt: number | null;
+  errorMessage: string | null;
+  createdAt: number;
+  updatedAt: number;
+  userConfig: unknown;
+  plugin: {
+    id: string;
+    name: string;
+    version: string;
+    description: string;
+    auth: string;
+    enabled: boolean;
+    logoUrl?: string;
+    capabilities: string[];
+    userConfigSchema: unknown;
+  };
 }
+
+interface AvailablePlugin {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  logoUrl?: string;
+  auth: string;
+  hasSharedConfig: boolean;
+  capabilities: string[];
+  userConfigSchema: unknown;
+  credentialsSchema: unknown;
+}
+
+// ─── Queries ──────────────────────────────────────────────────────────────────
+
+function useConnectionsQuery() {
+  return useQuery({
+    queryKey: ["connections", "list"],
+    queryFn: async (): Promise<ConnectionItem[]> => {
+      const res = await api.connections.$get();
+      if (!res.ok) throw new Error("Failed to load connections.");
+      const body = (await res.json()) as { connections: ConnectionItem[] };
+      return body.connections;
+    },
+  });
+}
+
+function useAvailablePluginsQuery() {
+  return useQuery({
+    queryKey: ["connections", "available"],
+    queryFn: async (): Promise<AvailablePlugin[]> => {
+      const res = await api.connections.available.$get();
+      if (!res.ok) throw new Error("Failed to load available plugins.");
+      const body = (await res.json()) as { plugins: AvailablePlugin[] };
+      return body.plugins;
+    },
+  });
+}
+
+// ─── Modal state ──────────────────────────────────────────────────────────────
 
 type ModalState =
-  | { type: "trakt"; editing?: Connection }
-  | { type: "seerr"; editing?: Connection }
-  | { type: "api"; service: Service; editing?: Connection }
-  | { type: "confirm"; conn: Connection; service: Service }
-  | null;
+  | { kind: "none" }
+  | { kind: "create"; plugin: PluginSummary }
+  | { kind: "edit"; plugin: PluginSummary; existing: ExistingConnection }
+  | { kind: "remove"; connection: ConnectionItem };
 
-// ─── Static data ──────────────────────────────────────────────────────────────
-
-const SERVICES: Record<ServiceId, Service> = {
-  trakt: {
-    id: "trakt",
-    name: "Trakt",
-    description:
-      "Scrobble what you watch. The richest single integration — most users connect this first.",
-    connectionType: "oauth",
-    capabilities: ["Watch History", "Watchlist", "Ratings", "Recommendations", "Calendar"],
-    allowMultiple: false,
-    sharedKey: false,
-  },
-  seerr: {
-    id: "seerr",
-    name: "Seerr",
-    description: "Overseerr or Jellyseerr. Media requesting, availability, and watchlist.",
-    connectionType: "manual",
-    capabilities: ["Media Requesting", "Availability Status", "Watchlist"],
-    allowMultiple: true,
-    sharedKey: false,
-  },
-  tmdb: {
-    id: "tmdb",
-    name: "TMDB",
-    description: "The Movie Database. Metadata, posters, search, similar titles.",
-    connectionType: "apikey",
-    capabilities: ["Metadata", "Posters", "Search", "Similar Titles"],
-    allowMultiple: false,
-    sharedKey: true,
-  },
-  tvdb: {
-    id: "tvdb",
-    name: "TVDB",
-    description: "Secondary TV metadata source. Episode data, airing schedules.",
-    connectionType: "apikey",
-    capabilities: ["TV Metadata", "Episode Data"],
-    allowMultiple: false,
-    sharedKey: true,
-  },
-};
-
-const SERVICE_ORDER: ServiceId[] = ["trakt", "seerr", "tmdb", "tvdb"];
-
-const MOCK_CONNECTIONS: Connection[] = [
-  {
-    id: "c1",
-    service: "trakt",
-    name: "Trakt",
-    status: "connected",
-    verified: "5m ago",
-  },
-  {
-    id: "c2",
-    service: "seerr",
-    name: "Home Server",
-    url: "https://seerr.home.local:5055",
-    status: "connected",
-    verified: "14m ago",
-    isDefault: true,
-  },
-  {
-    id: "c3",
-    service: "seerr",
-    name: "Sarah's Jellyseerr",
-    url: "https://jellyseerr.sarahs.net",
-    status: "connected",
-    verified: "1h ago",
-    isDefault: false,
-  },
-  {
-    id: "c4",
-    service: "tmdb",
-    name: "TMDB",
-    status: "connected",
-    verified: "2h ago",
-    usingShared: false,
-  },
-  {
-    id: "c5",
-    service: "tvdb",
-    name: "TVDB (server key)",
-    status: "connected",
-    verified: "2h ago",
-    usingShared: true,
-  },
-];
-
-// ─── Primitives ───────────────────────────────────────────────────────────────
-
-function statusBadge(status: ConnectionStatus) {
-  if (status === "error")
-    return (
-      <Badge variant="destructive">
-        <AlertTriangleIcon />
-        Error
-      </Badge>
-    );
-  if (status === "expired")
-    return (
-      <Badge variant="outline">
-        <AlertTriangleIcon />
-        Expired
-      </Badge>
-    );
-  if (status === "disabled") return <Badge variant="secondary">Disabled</Badge>;
-  return (
-    <Badge variant="secondary">
-      <CheckIcon />
-      Connected
-    </Badge>
-  );
+function availableToPluginSummary(p: AvailablePlugin): PluginSummary {
+  return {
+    id: p.id,
+    name: p.name,
+    version: p.version,
+    description: p.description,
+    logoUrl: p.logoUrl,
+    auth: p.auth,
+    capabilities: p.capabilities,
+    userConfigSchema: (p.userConfigSchema as JSONSchema | null) ?? null,
+    hasSharedConfig: p.hasSharedConfig,
+  };
 }
 
-function SecretInput({ placeholder, mono }: { placeholder: string; mono?: boolean }) {
-  const [show, setShow] = useState(false);
-  return (
-    <InputGroup>
-      <InputGroupInput
-        type={show ? "text" : "password"}
-        placeholder={placeholder}
-        className={cn(mono && "font-mono text-xs")}
-      />
-      <InputGroupAddon align="inline-end">
-        <InputGroupButton onClick={() => setShow((s) => !s)} aria-label={show ? "Hide" : "Show"}>
-          {show ? <EyeOffIcon /> : <EyeIcon />}
-        </InputGroupButton>
-      </InputGroupAddon>
-    </InputGroup>
-  );
+function connectedToPluginSummary(c: ConnectionItem): PluginSummary {
+  return {
+    id: c.plugin.id,
+    name: c.plugin.name,
+    version: c.plugin.version,
+    description: c.plugin.description,
+    logoUrl: c.plugin.logoUrl,
+    auth: c.plugin.auth,
+    capabilities: c.plugin.capabilities,
+    userConfigSchema: (c.plugin.userConfigSchema as JSONSchema | null) ?? null,
+  };
 }
 
-// ─── Section components ───────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-function SectionHead({ service }: { service: Service }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3 pb-1">
-      <h3 className="text-lg font-semibold tracking-tight">{service.name}</h3>
-      <div className="flex flex-wrap gap-1.5">
-        {service.capabilities.map((c) => (
-          <Badge key={c} variant="secondary" className="text-sm font-normal">
-            {c}
-          </Badge>
-        ))}
-      </div>
-    </div>
+function ConnectionsPage() {
+  const connections = useConnectionsQuery();
+  const available = useAvailablePluginsQuery();
+  const qc = useQueryClient();
+  const [modal, setModal] = useState<ModalState>({ kind: "none" });
+
+  const refetch = () => {
+    void qc.invalidateQueries({ queryKey: ["connections", "list"] });
+    void qc.invalidateQueries({ queryKey: ["connections", "available"] });
+  };
+
+  const byPlugin = useMemo(() => groupByPlugin(connections.data ?? []), [connections.data]);
+  const connectedPluginIds = useMemo(() => new Set(byPlugin.map((g) => g.pluginId)), [byPlugin]);
+  const unconnected = useMemo(
+    () => (available.data ?? []).filter((p) => !connectedPluginIds.has(p.id)),
+    [available.data, connectedPluginIds],
   );
-}
+  const brokenCount = (connections.data ?? []).filter(isBroken).length;
+  const expiredOnly = (connections.data ?? []).every((c) => !isBroken(c) || c.status === "expired");
+  const hasAnyConnections = (connections.data ?? []).length > 0;
+  const hasAnyPlugins = (available.data ?? []).length > 0 || hasAnyConnections;
 
-function AddCard({ service, onClick }: { service: Service; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex cursor-pointer min-h-27.5 items-center justify-center gap-2 rounded-4xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-foreground hover:bg-accent hover:text-foreground"
-    >
-      <Link2Icon className="size-3.5" />
-      Add {service.name} connection
-    </button>
-  );
-}
+  const isLoading = connections.isLoading || available.isLoading;
 
-function SharedKeyNote({ service, onAddOwn }: { service: Service; onAddOwn: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-4xl border border-border bg-muted px-6 py-4">
-      <div>
-        <p className="text-sm">
-          Using <strong className="font-medium">server's shared {service.name} key</strong>
+    <div className="flex flex-col gap-8 px-4 py-4 md:py-6 lg:px-6">
+      <header>
+        <h1 className="text-3xl font-semibold tracking-tight">Connections</h1>
+        <p className="mt-1.5 max-w-[64ch] text-sm text-muted-foreground">
+          Connect your media services to enable tracking, requesting, and personalized
+          recommendations through your AI assistant.
         </p>
-        <FieldDescription className="mt-0.5">
-          No action needed — {service.name} is working. Add your own key if you'd rather use a
-          personal quota.
-        </FieldDescription>
-      </div>
-      <Button variant="outline" size="sm" onClick={onAddOwn}>
-        Add your own key
-      </Button>
+        {/* TODO: surface a "Manage plugins →" link to /admin/plugins gated by admin:plugins once
+            both the client permission hook and that route exist. */}
+      </header>
+
+      {isLoading ? (
+        <LoadingSkeleton />
+      ) : !hasAnyPlugins ? (
+        <NoPluginsState />
+      ) : !hasAnyConnections ? (
+        <EmptyConnectionsState
+          plugins={available.data ?? []}
+          onConnect={(p) => setModal({ kind: "create", plugin: availableToPluginSummary(p) })}
+        />
+      ) : (
+        <>
+          {brokenCount > 0 ? (
+            <Alert
+              variant={expiredOnly ? "default" : "destructive"}
+              className={
+                expiredOnly
+                  ? "border-amber-500/40 bg-amber-500/[0.08] text-amber-900 dark:text-amber-200"
+                  : undefined
+              }
+            >
+              <TriangleAlertIcon />
+              <AlertTitle>
+                {brokenCount} connection{brokenCount === 1 ? "" : "s"} need
+                {brokenCount === 1 ? "s" : ""} attention
+              </AlertTitle>
+              <AlertDescription>
+                {expiredOnly
+                  ? "Some services need re-authentication. Use Reconnect on the affected card."
+                  : "Features that rely on these services won't work until they're fixed."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <section className="flex flex-col gap-10">
+            {byPlugin.map((group) => (
+              <PluginGroup
+                key={group.pluginId}
+                group={group}
+                onAddAnother={(summary) => setModal({ kind: "create", plugin: summary })}
+                onEdit={(connection) =>
+                  setModal({
+                    kind: "edit",
+                    plugin: connectedToPluginSummary(connection),
+                    existing: {
+                      id: connection.id,
+                      displayName: connection.displayName,
+                      userConfig: connection.userConfig,
+                    },
+                  })
+                }
+                onRemove={(connection) => setModal({ kind: "remove", connection })}
+                onReconnect={(connection) => {
+                  if (connection.plugin.auth === "form") {
+                    setModal({
+                      kind: "edit",
+                      plugin: connectedToPluginSummary(connection),
+                      existing: {
+                        id: connection.id,
+                        displayName: connection.displayName,
+                        userConfig: connection.userConfig,
+                      },
+                    });
+                  } else {
+                    setModal({ kind: "create", plugin: connectedToPluginSummary(connection) });
+                  }
+                }}
+                onRefetch={refetch}
+              />
+            ))}
+          </section>
+
+          {unconnected.length > 0 ? (
+            <AvailableSection
+              plugins={unconnected}
+              onConnect={(p) => setModal({ kind: "create", plugin: availableToPluginSummary(p) })}
+            />
+          ) : null}
+        </>
+      )}
+
+      <ConnectionModal
+        open={modal.kind === "create" || modal.kind === "edit"}
+        plugin={modal.kind === "create" || modal.kind === "edit" ? modal.plugin : null}
+        existing={modal.kind === "edit" ? modal.existing : null}
+        onOpenChange={(open) => {
+          if (!open) setModal({ kind: "none" });
+        }}
+        onSuccess={refetch}
+      />
+
+      <RemoveDialog
+        open={modal.kind === "remove"}
+        connection={modal.kind === "remove" ? modal.connection : null}
+        onOpenChange={(open) => {
+          if (!open) setModal({ kind: "none" });
+        }}
+        onRemoved={refetch}
+      />
     </div>
+  );
+}
+
+// ─── Grouping ─────────────────────────────────────────────────────────────────
+
+interface PluginGroupData {
+  pluginId: string;
+  plugin: ConnectionItem["plugin"];
+  connections: ConnectionItem[];
+  /** True when any connection in the group is broken; such groups float to the top. */
+  hasBroken: boolean;
+}
+
+function groupByPlugin(items: ConnectionItem[]): PluginGroupData[] {
+  const groups = new Map<string, PluginGroupData>();
+  for (const c of items) {
+    const existing = groups.get(c.pluginId);
+    if (existing) {
+      existing.connections.push(c);
+      if (isBroken(c)) existing.hasBroken = true;
+    } else {
+      groups.set(c.pluginId, {
+        pluginId: c.pluginId,
+        plugin: c.plugin,
+        connections: [c],
+        hasBroken: isBroken(c),
+      });
+    }
+  }
+  // Broken groups float to the top; otherwise alphabetical by plugin name.
+  return [...groups.values()].sort((a, b) => {
+    if (a.hasBroken !== b.hasBroken) return a.hasBroken ? -1 : 1;
+    return a.plugin.name.localeCompare(b.plugin.name);
+  });
+}
+
+function isBroken(c: ConnectionItem): boolean {
+  return c.status === "error" || c.status === "expired";
+}
+
+// ─── Plugin group section ─────────────────────────────────────────────────────
+
+interface PluginGroupProps {
+  group: PluginGroupData;
+  onAddAnother: (summary: PluginSummary) => void;
+  onEdit: (connection: ConnectionItem) => void;
+  onRemove: (connection: ConnectionItem) => void;
+  onReconnect: (connection: ConnectionItem) => void;
+  onRefetch: () => void;
+}
+
+function PluginGroup({
+  group,
+  onAddAnother,
+  onEdit,
+  onRemove,
+  onReconnect,
+  onRefetch,
+}: PluginGroupProps) {
+  const summary: PluginSummary = {
+    id: group.plugin.id,
+    name: group.plugin.name,
+    version: group.plugin.version,
+    description: group.plugin.description,
+    logoUrl: group.plugin.logoUrl,
+    auth: group.plugin.auth,
+    capabilities: group.plugin.capabilities,
+    userConfigSchema: (group.plugin.userConfigSchema as JSONSchema | null) ?? null,
+  };
+  const showDefault = group.connections.length > 1;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-1">
+        <div className="flex items-center gap-2">
+          {group.plugin.logoUrl ? (
+            <img src={group.plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
+          ) : null}
+          <h3 className="text-lg font-semibold tracking-tight">{group.plugin.name}</h3>
+        </div>
+        {group.plugin.capabilities.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {group.plugin.capabilities.map((cap) => {
+              const { label, icon: Icon } = capabilityDisplay(cap);
+              return (
+                <Badge key={cap} variant="secondary" className="gap-1 text-xs font-normal">
+                  <Icon className="size-3 opacity-60" aria-hidden="true" />
+                  {label}
+                </Badge>
+              );
+            })}
+          </div>
+        ) : null}
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {group.connections.map((conn) => (
+          <ConnectionCard
+            key={conn.id}
+            connection={conn}
+            showDefault={showDefault}
+            onEdit={onEdit}
+            onRemove={onRemove}
+            onReconnect={onReconnect}
+            onRefetch={onRefetch}
+          />
+        ))}
+        <AddAnotherCard plugin={summary} onClick={() => onAddAnother(summary)} />
+      </div>
+    </section>
   );
 }
 
 // ─── Connection card ──────────────────────────────────────────────────────────
 
-function ConnectionCard({
-  conn,
-  service,
-  showDefault,
-  onRemove,
-  onOpenTraktEdit,
-  onOpenSeerrEdit,
-  onOpenApiEdit,
-}: {
-  conn: Connection;
-  service: Service;
+interface ConnectionCardProps {
+  connection: ConnectionItem;
   showDefault: boolean;
-  onRemove: (conn: Connection, service: Service) => void;
-  onOpenTraktEdit: (conn: Connection) => void;
-  onOpenSeerrEdit: (conn: Connection) => void;
-  onOpenApiEdit: (conn: Connection, service: Service) => void;
-}) {
-  const [testing, setTesting] = useState<null | "loading" | "ok">(null);
-  const isDisabled = conn.status === "disabled";
-  const isBroken = conn.status === "error" || conn.status === "expired";
+  onEdit: (c: ConnectionItem) => void;
+  onRemove: (c: ConnectionItem) => void;
+  onReconnect: (c: ConnectionItem) => void;
+  onRefetch: () => void;
+}
 
-  const runTest = () => {
-    setTesting("loading");
-    setTimeout(() => setTesting("ok"), 1100);
-    setTimeout(() => setTesting(null), 4500);
-  };
+function ConnectionCard({
+  connection,
+  showDefault,
+  onEdit,
+  onRemove,
+  onReconnect,
+  onRefetch,
+}: ConnectionCardProps) {
+  const { plugin } = connection;
+  const disabled = !connection.enabled;
+  const broken = isBroken(connection);
+  const displayName = connection.displayName ?? plugin.name;
 
-  const handleEdit = () => {
-    if (service.id === "trakt") onOpenTraktEdit(conn);
-    else if (service.id === "seerr") onOpenSeerrEdit(conn);
-    else onOpenApiEdit(conn, service);
-  };
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.connections[":id"].test.$post({ param: { id: connection.id } });
+      if (!res.ok) throw new Error("Test failed.");
+      return (await res.json()) as { ok: boolean; message?: string };
+    },
+  });
+  const setEnabledMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await api.connections[":id"].enabled.$patch({
+        param: { id: connection.id },
+        json: { enabled },
+      });
+      if (!res.ok) throw new Error("Failed to update.");
+    },
+    onSuccess: onRefetch,
+  });
+  const setDefaultMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.connections[":id"].default.$post({ param: { id: connection.id } });
+      if (!res.ok) throw new Error("Failed to set default.");
+    },
+    onSuccess: onRefetch,
+  });
 
-  const handleReconnect = () => {
-    if (service.connectionType === "oauth") {
-      alert(`Would redirect to ${service.name} OAuth…`);
-    } else {
-      handleEdit();
-    }
-  };
+  // Auto-dismiss the test result after 3 seconds.
+  const [showTestResult, setShowTestResult] = useState(false);
+  useEffect(() => {
+    if (!testMutation.isSuccess && !testMutation.isError) return;
+    setShowTestResult(true);
+    const id = window.setTimeout(() => setShowTestResult(false), 3000);
+    return () => window.clearTimeout(id);
+  }, [testMutation.isSuccess, testMutation.isError, testMutation.data]);
+
+  useEffect(() => {
+    if (testMutation.isSuccess) onRefetch();
+  }, [testMutation.isSuccess, onRefetch]);
+
+  const displayPairs = useMemo(() => {
+    if (!plugin.userConfigSchema || !connection.userConfig) return [];
+    const schema = plugin.userConfigSchema as JSONSchema;
+    const cfg = connection.userConfig as Record<string, unknown>;
+    return nonSecretFields(schema)
+      .map((f) => ({ ...f, value: cfg[f.name] }))
+      .filter((p) => p.value !== undefined && p.value !== null && p.value !== "");
+  }, [plugin.userConfigSchema, connection.userConfig]);
 
   return (
     <Card
       size="sm"
       className={cn(
-        "gap-3 transition-opacity",
-        isDisabled && "opacity-55",
-        conn.status === "error" && "ring-destructive/40",
-        conn.status === "expired" && "ring-amber-500/50",
+        "transition-opacity",
+        disabled && "opacity-55",
+        connection.status === "error" && "ring-destructive/40",
+        connection.status === "expired" && "ring-amber-500/50",
       )}
     >
-      <CardHeader className="">
-        <CardTitle className="flex flex-wrap items-center gap-2 font-semibold">
-          {conn.name}
-          {statusBadge(conn.status)}
-          {showDefault && conn.isDefault && (
-            <Badge variant="outline" className="text-xs">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <span className="truncate">{displayName}</span>
+          <StatusBadge connection={connection} />
+          {showDefault && connection.isDefault ? (
+            <Badge variant="outline" className="text-xs font-normal">
               Default
             </Badge>
-          )}
-          {conn.usingShared && (
-            <Badge variant="secondary" className="text-xs font-normal">
-              Server key
-            </Badge>
-          )}
+          ) : null}
         </CardTitle>
         <CardAction>
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="More actions"
+              className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <MoreHorizontalIcon className="size-4" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={runTest}>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem
+                onClick={() => testMutation.mutate()}
+                disabled={testMutation.isPending || disabled}
+              >
                 <CheckIcon /> Test connection
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleEdit}>
+              <DropdownMenuItem onClick={() => onEdit(connection)}>
                 <PencilIcon /> Edit
               </DropdownMenuItem>
-              {showDefault && !conn.isDefault && !isDisabled && (
-                <DropdownMenuItem>
+              {showDefault && !connection.isDefault && !disabled ? (
+                <DropdownMenuItem onClick={() => setDefaultMutation.mutate()}>
                   <StarIcon /> Set as default
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem>
-                <PowerIcon /> {isDisabled ? "Enable" : "Disable"}
+              ) : null}
+              <DropdownMenuItem
+                onClick={() => setEnabledMutation.mutate(!connection.enabled)}
+                disabled={setEnabledMutation.isPending}
+              >
+                <PowerIcon /> {disabled ? "Enable" : "Disable"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => onRemove(conn, service)}>
+              <DropdownMenuItem variant="destructive" onClick={() => onRemove(connection)}>
                 <XIcon /> Remove
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -363,31 +541,216 @@ function ConnectionCard({
         </CardAction>
       </CardHeader>
 
-      <CardContent className="flex flex-col gap-0.5">
-        {conn.url && (
-          <span className="font-mono text-[11.5px] text-muted-foreground">{conn.url}</span>
-        )}
-        <span className="text-[12.5px] text-muted-foreground">
-          {isDisabled ? "Last verified " : "Verified "}
-          {conn.verified}
+      <CardContent className="flex flex-col gap-2 text-sm">
+        {displayPairs.length > 0 ? (
+          <dl className="flex flex-col gap-1">
+            {displayPairs.map((p) => (
+              <div key={p.name} className="flex items-baseline gap-2">
+                <dt className="shrink-0 text-xs text-muted-foreground">{p.label}</dt>
+                <dd
+                  className={cn(
+                    "flex-1 truncate text-xs",
+                    p.isUri && "font-mono text-[11px] text-muted-foreground",
+                  )}
+                >
+                  {renderPrimitive(p.value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+        <span className="text-xs text-muted-foreground">
+          {broken ? "Last verified " : "Verified "}
+          {formatRelative(connection.lastVerifiedAt)}
         </span>
-        {conn.error && (
-          <span className="mt-0.5 text-[12.5px] leading-snug text-destructive">{conn.error}</span>
-        )}
+        {broken && connection.errorMessage ? (
+          <span className="text-xs leading-snug text-destructive">{connection.errorMessage}</span>
+        ) : null}
       </CardContent>
 
-      <CardFooter className="">
-        {isBroken ? (
-          <Button size="sm" onClick={handleReconnect}>
-            <Link2Icon /> Reconnect
+      <CardFooter className="flex items-center gap-2">
+        {broken ? (
+          <Button size="sm" onClick={() => onReconnect(connection)}>
+            <RotateCwIcon /> Reconnect
           </Button>
         ) : (
-          <Button variant="outline" size="sm" onClick={runTest}>
-            {testing === "loading"
-              ? "Testing…"
-              : testing === "ok"
-                ? "✓ Connection healthy"
-                : "Test connection"}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => testMutation.mutate()}
+            disabled={testMutation.isPending || disabled}
+          >
+            {testMutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
+            {testMutation.isPending ? "Testing…" : "Test connection"}
+          </Button>
+        )}
+        {showTestResult && testMutation.isSuccess && testMutation.data?.ok ? (
+          <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+            <CheckIcon className="size-3" /> Verified
+          </span>
+        ) : null}
+        {showTestResult && testMutation.data && !testMutation.data.ok ? (
+          <span className="inline-flex items-center gap-1 text-xs text-destructive">
+            <XIcon className="size-3" /> {testMutation.data.message ?? "Test failed"}
+          </span>
+        ) : null}
+        {showTestResult && testMutation.isError ? (
+          <span className="inline-flex items-center gap-1 text-xs text-destructive">
+            <XIcon className="size-3" /> {(testMutation.error as Error).message}
+          </span>
+        ) : null}
+      </CardFooter>
+    </Card>
+  );
+}
+
+function StatusBadge({ connection }: { connection: ConnectionItem }) {
+  const { status, enabled } = connection;
+  if (!enabled) {
+    return <Badge variant="secondary">Disabled</Badge>;
+  }
+  if (status === "error") {
+    return (
+      <Badge variant="destructive">
+        <TriangleAlertIcon /> Error
+      </Badge>
+    );
+  }
+  if (status === "expired") {
+    return (
+      <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300">
+        <TriangleAlertIcon /> Expired
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary">
+      <CheckIcon /> Connected
+    </Badge>
+  );
+}
+
+// ─── Add another + Available cards ────────────────────────────────────────────
+
+function AddAnotherCard({ plugin, onClick }: { plugin: PluginSummary; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex min-h-[7rem] cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground ring-1 ring-transparent transition-all hover:border-foreground hover:bg-accent hover:text-foreground"
+    >
+      <PlugIcon className="size-4" />
+      Add another {plugin.name} connection
+    </button>
+  );
+}
+
+interface AvailableSectionProps {
+  plugins: AvailablePlugin[];
+  onConnect: (p: AvailablePlugin) => void;
+}
+
+function AvailableSection({ plugins, onConnect }: AvailableSectionProps) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem("connections.availableCollapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggle = () => {
+    setCollapsed((next) => {
+      const v = !next;
+      try {
+        window.localStorage.setItem("connections.availableCollapsed", v ? "true" : "false");
+      } catch {
+        // localStorage unavailable; ignore.
+      }
+      return v;
+    });
+  };
+
+  return (
+    <section className="flex flex-col gap-3">
+      <button
+        onClick={toggle}
+        className="-mx-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? (
+          <ChevronRightIcon className="size-4" />
+        ) : (
+          <ChevronDownIcon className="size-4" />
+        )}
+        Available to connect
+        <span className="text-xs text-muted-foreground/70">· {plugins.length}</span>
+      </button>
+      {!collapsed ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {plugins.map((p) => (
+            <AvailablePluginCard key={p.id} plugin={p} onConnect={() => onConnect(p)} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AvailablePluginCard({
+  plugin,
+  onConnect,
+}: {
+  plugin: AvailablePlugin;
+  onConnect: () => void;
+}) {
+  return (
+    <Card size="sm" className="gap-3">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {plugin.logoUrl ? (
+            <img src={plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
+          ) : null}
+          <span className="truncate">{plugin.name}</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {plugin.description ? (
+          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+            {plugin.description}
+          </p>
+        ) : null}
+        {plugin.capabilities.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {plugin.capabilities.slice(0, 4).map((cap) => {
+              const { label, icon: Icon } = capabilityDisplay(cap);
+              return (
+                <Badge key={cap} variant="secondary" className="gap-1 text-[10.5px] font-normal">
+                  <Icon className="size-2.5 opacity-60" aria-hidden="true" />
+                  {label}
+                </Badge>
+              );
+            })}
+            {plugin.capabilities.length > 4 ? (
+              <span className="text-[10.5px] text-muted-foreground">
+                +{plugin.capabilities.length - 4}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+      <CardFooter className="flex items-center justify-between gap-2">
+        {plugin.hasSharedConfig ? (
+          <>
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <KeyIcon className="size-3" /> Using server key
+            </span>
+            <Button variant="outline" size="sm" onClick={onConnect}>
+              Add your own
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" onClick={onConnect}>
+            <UnplugIcon /> Connect
           </Button>
         )}
       </CardFooter>
@@ -395,264 +758,117 @@ function ConnectionCard({
   );
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
+// ─── Empty states ─────────────────────────────────────────────────────────────
 
-function EmptyState({ onAdd }: { onAdd: (service: Service) => void }) {
+function EmptyConnectionsState({
+  plugins,
+  onConnect,
+}: {
+  plugins: AvailablePlugin[];
+  onConnect: (p: AvailablePlugin) => void;
+}) {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center px-5 py-10">
-      <div className="flex max-w-155 flex-col items-center gap-4 text-center">
-        <div className="flex size-16 items-center justify-center rounded-2xl border border-border bg-card">
-          <Link2Icon className="size-6 text-muted-foreground" />
+    <div className="flex min-h-[55vh] items-center justify-center px-5 py-10">
+      <div className="flex w-full max-w-xl flex-col items-center gap-5 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card">
+          <UnplugIcon className="size-6 text-muted-foreground" />
         </div>
         <div className="flex flex-col gap-2">
-          <h2 className="text-3xl font-semibold tracking-tight">No services connected</h2>
-          <p className="max-w-[42ch] text-base leading-relaxed text-muted-foreground">
+          <h2 className="text-2xl font-semibold tracking-tight">No services connected</h2>
+          <p className="max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
             Connect your media services to start tracking what you watch, requesting downloads, and
             getting personalized recommendations.
           </p>
         </div>
-        <div className="mt-2 grid w-full max-w-140 grid-cols-2 gap-3">
-          {SERVICE_ORDER.map((id) => {
-            const s = SERVICES[id];
-            return (
-              <button
-                key={id}
-                onClick={() => onAdd(s)}
-                className="flex flex-col gap-2 rounded-4xl border border-border bg-card px-4 py-3.5 text-left transition-colors hover:border-foreground hover:bg-accent"
-              >
-                <span className="text-sm font-semibold">{s.name}</span>
-                <div className="flex flex-wrap gap-1">
-                  {s.capabilities.slice(0, 4).map((c) => (
-                    <Badge key={c} variant="secondary" className="text-[10.5px] font-normal">
-                      {c}
-                    </Badge>
-                  ))}
-                </div>
-              </button>
-            );
-          })}
+        <div className="mt-1 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+          {plugins.map((p) => (
+            <AvailablePluginCard key={p.id} plugin={p} onConnect={() => onConnect(p)} />
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Modals ───────────────────────────────────────────────────────────────────
-
-function TraktModal({
-  open,
-  onClose,
-  editing,
-}: {
-  open: boolean;
-  onClose: () => void;
-  editing?: Connection;
-}) {
+function NoPluginsState() {
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="gap-0 p-0" showCloseButton={false}>
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle>{editing ? "Edit" : "Add"} Trakt Connection</DialogTitle>
-          <DialogDescription>
-            Trakt powers watch history, ratings, watchlist, and calendar.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 px-6 pb-4">
-          <Field>
-            <FieldTitle>
-              Display name
-              <span className="text-xs font-normal text-muted-foreground">optional</span>
-            </FieldTitle>
-            <Input placeholder="My Trakt Account" defaultValue={editing ? "Trakt" : ""} />
-          </Field>
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-muted px-4 py-6 text-center">
-            <Button>Connect with Trakt</Button>
-            <FieldDescription className="max-w-[34ch]">
-              You'll be redirected to Trakt to authorize access. We request read/write access to
-              your watch history, ratings, and watchlist.
-            </FieldDescription>
-          </div>
+    <div className="flex min-h-[45vh] items-center justify-center px-5 py-10">
+      <div className="flex max-w-md flex-col items-center gap-4 text-center">
+        <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card">
+          <PlugIcon className="size-6 text-muted-foreground" />
         </div>
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <h2 className="text-2xl font-semibold tracking-tight">No plugins installed</h2>
+        <p className="max-w-[42ch] text-sm text-muted-foreground">
+          Ask your administrator to install plugins to connect external services.
+        </p>
+      </div>
+    </div>
   );
 }
 
-function SeerrModal({
+function LoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-10">
+      {[0, 1].map((i) => (
+        <div key={i} className="flex flex-col gap-4">
+          <Skeleton className="h-6 w-32" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Skeleton className="h-36" />
+            <Skeleton className="h-36" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Remove dialog ────────────────────────────────────────────────────────────
+
+function RemoveDialog({
   open,
-  onClose,
-  editing,
+  connection,
+  onOpenChange,
+  onRemoved,
 }: {
   open: boolean;
-  onClose: () => void;
-  editing?: Connection;
+  connection: ConnectionItem | null;
+  onOpenChange: (next: boolean) => void;
+  onRemoved: () => void;
 }) {
-  const [tested, setTested] = useState<null | "loading" | "ok" | "err">(null);
-  const runTest = () => {
-    setTested("loading");
-    setTimeout(() => setTested("ok"), 1200);
+  const [pending, setPending] = useState(false);
+  if (!connection) return null;
+
+  const name = connection.displayName ?? connection.plugin.name;
+  const onConfirm = async () => {
+    setPending(true);
+    try {
+      const res = await api.connections[":id"].$delete({ param: { id: connection.id } });
+      if (!res.ok) throw new Error("Failed to remove connection.");
+      onRemoved();
+      onOpenChange(false);
+    } finally {
+      setPending(false);
+    }
   };
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) {
-          onClose();
-          setTested(null);
-        }
-      }}
-    >
-      <DialogContent className="gap-0 p-0" showCloseButton={false}>
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle>{editing ? "Edit" : "Add"} Seerr Connection</DialogTitle>
-          <DialogDescription>
-            Overseerr or Jellyseerr — self-hosted request manager.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 px-6 pb-4">
-          <Field>
-            <FieldTitle>
-              Display name
-              <span className="text-xs font-normal text-muted-foreground">optional</span>
-            </FieldTitle>
-            <Input placeholder="Home Server" defaultValue={editing ? "Home Server" : ""} />
-          </Field>
-          <Field>
-            <FieldTitle>Instance URL</FieldTitle>
-            <Input
-              className="font-mono text-xs"
-              placeholder="https://seerr.example.com"
-              defaultValue={editing ? "https://seerr.home.local:5055" : ""}
-            />
-            <FieldDescription>
-              The base URL where your Overseerr/Jellyseerr is reachable.
-            </FieldDescription>
-          </Field>
-          <Field>
-            <FieldTitle>API key</FieldTitle>
-            <SecretInput placeholder="••••••••••••••••••••••••••••" mono />
-            <FieldDescription>
-              Found under Settings → General → API Key in your Seerr instance.
-            </FieldDescription>
-          </Field>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={runTest}>
-              {tested === "loading" ? "Testing…" : "Test connection"}
-            </Button>
-            {tested === "ok" && (
-              <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-                <CheckIcon className="size-3" /> Connected — 2 instances reachable
-              </span>
-            )}
-            {tested === "err" && (
-              <span className="flex items-center gap-1.5 text-xs text-destructive">
-                <XIcon className="size-3" /> Could not reach host
-              </span>
-            )}
-          </div>
-        </div>
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={onClose}>Save connection</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
-function ApiKeyModal({
-  open,
-  onClose,
-  service,
-  editing,
-}: {
-  open: boolean;
-  onClose: () => void;
-  service: Service;
-  editing?: Connection;
-}) {
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="gap-0 p-0" showCloseButton={false}>
+    <Dialog open={open} onOpenChange={(v) => !pending && onOpenChange(v)}>
+      <DialogContent className="gap-0 p-0 sm:max-w-[440px]" showCloseButton={!pending}>
         <DialogHeader className="p-6 pb-4">
-          <DialogTitle>
-            {editing ? "Edit" : "Add"} {service.name} Connection
+          <DialogTitle className="text-destructive">
+            Remove {connection.plugin.name} connection?
           </DialogTitle>
-          <DialogDescription>{service.description}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 px-6 pb-4">
-          {service.sharedKey && !editing && (
-            <p className="rounded-2xl bg-muted px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-              A shared server key is available. You only need your own key if you want to use a
-              personal API quota.
-            </p>
-          )}
-          <Field>
-            <FieldTitle>
-              Display name
-              <span className="text-xs font-normal text-muted-foreground">optional</span>
-            </FieldTitle>
-            <Input placeholder={service.name} defaultValue={editing ? service.name : ""} />
-          </Field>
-          <Field>
-            <FieldTitle>API key</FieldTitle>
-            <SecretInput placeholder="••••••••••••••••••••••••••••" mono />
-            <FieldDescription>
-              {`Get a free key at ${service.id === "tmdb" ? "themoviedb.org/settings/api" : "thetvdb.com/api-information"}.`}
-            </FieldDescription>
-          </Field>
-          <div>
-            <Button variant="outline" size="sm">
-              Test connection
-            </Button>
-          </div>
-        </div>
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={onClose}>Save connection</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ConfirmDialog({
-  open,
-  onClose,
-  onConfirm,
-  conn,
-  service,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  conn: Connection;
-  service: Service;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="gap-0 p-0 sm:max-w-[420px]" showCloseButton={false}>
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle className="text-destructive">Remove {service.name} connection?</DialogTitle>
           <DialogDescription>
-            This will remove the connection "{conn.name}". Your data on {service.name} is not
-            affected.
+            This will remove your {connection.plugin.name} connection &ldquo;{name}&rdquo;. Your
+            data on {connection.plugin.name} is not affected.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
+            {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
             Remove connection
           </Button>
         </DialogFooter>
@@ -661,133 +877,26 @@ function ConfirmDialog({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export const Route = createFileRoute("/_authenticated/connections")({
-  component: ConnectionsPage,
-});
+function renderPrimitive(v: unknown): string {
+  if (v === undefined || v === null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return "";
+}
 
-function ConnectionsPage() {
-  const [modal, setModal] = useState<ModalState>(null);
-  const connections = MOCK_CONNECTIONS;
-
-  const brokenCount = connections.filter(
-    (c) => c.status === "error" || c.status === "expired",
-  ).length;
-  const hasError = connections.some((c) => c.status === "error");
-
-  const openAdd = (service: Service) => {
-    if (service.id === "trakt") setModal({ type: "trakt" });
-    else if (service.id === "seerr") setModal({ type: "seerr" });
-    else setModal({ type: "api", service });
-  };
-
-  const byService = {} as Record<ServiceId, Connection[]>;
-  SERVICE_ORDER.forEach((id) => {
-    byService[id] = connections.filter((c) => c.service === id);
-  });
-
-  return (
-    <div className="flex flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Connections</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Connect your media services to enable tracking, requesting, and personalized
-          recommendations through your AI assistant.
-        </p>
-      </div>
-
-      {connections.length === 0 ? (
-        <EmptyState onAdd={openAdd} />
-      ) : (
-        <>
-          {brokenCount > 0 && (
-            <Alert
-              variant={hasError ? "destructive" : "default"}
-              className={
-                !hasError
-                  ? "border-amber-500/40 bg-amber-500/[0.08] text-amber-700 dark:text-amber-400"
-                  : undefined
-              }
-            >
-              <AlertTriangleIcon />
-              <AlertTitle>
-                {brokenCount} connection{brokenCount > 1 ? "s" : ""} need attention
-              </AlertTitle>
-              <AlertDescription>
-                Some services aren't syncing. Features that rely on them — like requests or watch
-                history — won't work until these are reconnected.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex flex-col gap-10">
-            {SERVICE_ORDER.map((id) => {
-              const service = SERVICES[id];
-              const items = byService[id];
-              const showDefault = service.allowMultiple && items.length > 1;
-              const showSharedNote = service.sharedKey && items.length === 0;
-
-              return (
-                <section key={id} className="flex flex-col gap-3.5">
-                  <SectionHead service={service} />
-                  {items.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {items.map((conn) => (
-                        <ConnectionCard
-                          key={conn.id}
-                          conn={conn}
-                          service={service}
-                          showDefault={showDefault}
-                          onRemove={(c, s) => setModal({ type: "confirm", conn: c, service: s })}
-                          onOpenTraktEdit={(c) => setModal({ type: "trakt", editing: c })}
-                          onOpenSeerrEdit={(c) => setModal({ type: "seerr", editing: c })}
-                          onOpenApiEdit={(c, s) =>
-                            setModal({ type: "api", service: s, editing: c })
-                          }
-                        />
-                      ))}
-                      <AddCard service={service} onClick={() => openAdd(service)} />
-                    </div>
-                  ) : showSharedNote ? (
-                    <SharedKeyNote service={service} onAddOwn={() => openAdd(service)} />
-                  ) : (
-                    <AddCard service={service} onClick={() => openAdd(service)} />
-                  )}
-                </section>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      <TraktModal
-        open={modal?.type === "trakt"}
-        onClose={() => setModal(null)}
-        editing={modal?.type === "trakt" ? modal.editing : undefined}
-      />
-      <SeerrModal
-        open={modal?.type === "seerr"}
-        onClose={() => setModal(null)}
-        editing={modal?.type === "seerr" ? modal.editing : undefined}
-      />
-      {modal?.type === "api" && (
-        <ApiKeyModal
-          open
-          onClose={() => setModal(null)}
-          service={modal.service}
-          editing={modal.editing}
-        />
-      )}
-      {modal?.type === "confirm" && (
-        <ConfirmDialog
-          open
-          onClose={() => setModal(null)}
-          onConfirm={() => setModal(null)}
-          conn={modal.conn}
-          service={modal.service}
-        />
-      )}
-    </div>
-  );
+function formatRelative(ts: number | null): string {
+  if (!ts) return "never";
+  const diff = Date.now() - ts;
+  if (diff < 0) return "just now";
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const d = Math.floor(hr / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  return `${mo}mo ago`;
 }
