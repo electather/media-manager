@@ -1,6 +1,8 @@
 import { definePlugin } from "../../../plugin-runtime/define";
-import { PluginError } from "../../../plugin-runtime/types";
 import type { PluginContext } from "../../../plugin-runtime/types";
+import { pluginError, toErrorMessage } from "../../utils/plugin-error";
+import { handleHttpStatus } from "../../utils/http-status";
+import { resolveCredential } from "../../utils/credentials";
 
 interface TvdbCreds {
   apiKey?: string;
@@ -17,9 +19,11 @@ const TOKEN_KEY = "jwt";
 const TOKEN_TTL_SEC = 60 * 60 * 23; // TVDB tokens live ~24h, refresh slightly early.
 
 function resolveKey(ctx: Ctx): string {
-  const key = ctx.credentials?.apiKey || ctx.config.global?.apiKey;
-  if (!key) throw new PluginError("AUTH_INVALID", "no TVDB api key available (user or global)");
-  return key;
+  return resolveCredential(
+    ctx.credentials?.apiKey,
+    ctx.config.global?.apiKey,
+    "no TVDB api key available (user or global)",
+  );
 }
 
 async function getToken(ctx: Ctx): Promise<string> {
@@ -30,10 +34,10 @@ async function getToken(ctx: Ctx): Promise<string> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ apikey: resolveKey(ctx) }),
   });
-  if (!res.ok) throw new PluginError("AUTH_INVALID", `TVDB login ${res.status}`);
+  if (!res.ok) throw pluginError("plugin.bad_credentials", `TVDB login ${res.status}`);
   const body = (await res.json()) as { data?: { token?: string } };
   const token = body.data?.token;
-  if (!token) throw new PluginError("AUTH_INVALID", "TVDB login returned no token");
+  if (!token) throw pluginError("plugin.bad_credentials", "TVDB login returned no token");
   await ctx.store.set(TOKEN_KEY, token, { scope: "global", ttlSec: TOKEN_TTL_SEC });
   return token;
 }
@@ -50,10 +54,12 @@ async function tvdbGet(ctx: Ctx, path: string): Promise<unknown> {
     const retry = await ctx.fetch(`${BASE}${path}`, {
       headers: { Authorization: `Bearer ${retryToken}` },
     });
-    if (!retry.ok) throw new PluginError("UPSTREAM_ERROR", `TVDB ${retry.status}`);
+    handleHttpStatus(retry, "TVDB");
+    if (!retry.ok) throw pluginError("plugin.upstream_error", `TVDB ${retry.status}`);
     return retry.json();
   }
-  if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `TVDB ${res.status}`);
+  handleHttpStatus(res, "TVDB");
+  if (!res.ok) throw pluginError("plugin.upstream_error", `TVDB ${res.status}`);
   return res.json();
 }
 
@@ -61,18 +67,11 @@ export default definePlugin({
   manifest: {
     id: "tvdb",
     name: "TheTVDB",
-    version: "1.0.1",
+    version: "1.2.0",
     description: "Supplemental TV metadata and cross-service ID resolution via TheTVDB.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api4.thetvdb.com"],
-    globalConfigSchema: {
-      type: "object",
-      properties: {
-        apiKey: { type: "string", title: "TVDB API key (v4)" },
-      },
-      required: ["apiKey"],
-    },
     userConfigSchema: {
       type: "object",
       properties: {
@@ -82,7 +81,6 @@ export default definePlugin({
           "x-secret": true,
         },
       },
-      required: ["apiKey"],
       additionalProperties: false,
     },
     credentialsSchema: {
@@ -92,6 +90,7 @@ export default definePlugin({
       },
       required: ["apiKey"],
     },
+    allowsSharedCredentials: true,
     auth: { kind: "form" },
     capabilities: {
       idResolve: "v1",
@@ -101,14 +100,24 @@ export default definePlugin({
   async startAuth(ctx, input) {
     const parsed = input as { apiKey?: string } | null;
     if (!parsed?.apiKey) {
-      return { status: "error", code: "AUTH_INVALID", message: "apiKey required" };
+      try {
+        resolveKey(ctx as Ctx);
+        return { status: "completed", credentials: {} };
+      } catch {
+        return {
+          status: "error",
+          code: "plugin.bad_credentials",
+          devMessage: "apiKey required (no shared key configured)",
+        };
+      }
     }
     const res = await ctx.fetch(`${BASE}/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ apikey: parsed.apiKey }),
     });
-    if (!res.ok) return { status: "error", code: "AUTH_INVALID", message: `TVDB ${res.status}` };
+    if (!res.ok)
+      return { status: "error", code: "plugin.bad_credentials", devMessage: `TVDB ${res.status}` };
     return { status: "completed", credentials: { apiKey: parsed.apiKey } };
   },
 
@@ -117,7 +126,7 @@ export default definePlugin({
       await getToken(ctx as Ctx);
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+      return { ok: false, message: toErrorMessage(err) };
     }
   },
 

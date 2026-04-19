@@ -1,6 +1,7 @@
 import { definePlugin } from "../../../plugin-runtime/define";
-import { PluginError } from "../../../plugin-runtime/types";
 import type { AuthResult, PluginContext } from "../../../plugin-runtime/types";
+import { pluginError, toErrorMessage } from "../../utils/plugin-error";
+import { handleHttpStatus } from "../../utils/http-status";
 
 interface TraktCreds {
   accessToken: string;
@@ -20,7 +21,9 @@ const BASE = "https://api.trakt.tv";
 
 function traktHeaders(ctx: Ctx): Record<string, string> {
   const clientId = ctx.config.global?.clientId;
-  if (!clientId) throw new PluginError("AUTH_INVALID", "Trakt clientId missing from global config");
+  if (!clientId) {
+    throw pluginError("plugin.bad_credentials", "Trakt clientId missing from global config");
+  }
   const h: Record<string, string> = {
     "content-type": "application/json",
     "trakt-api-version": "2",
@@ -39,8 +42,9 @@ async function traktFetch(ctx: Ctx, path: string, init: RequestInit = {}): Promi
 
 async function traktJson<T>(ctx: Ctx, path: string, init: RequestInit = {}): Promise<T> {
   const res = await traktFetch(ctx, path, init);
-  if (res.status === 401) throw new PluginError("AUTH_EXPIRED", "Trakt token expired or invalid");
-  if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `Trakt ${res.status}: ${await res.text()}`);
+  handleHttpStatus(res, "Trakt", { on401: "plugin.token_expired" });
+  if (!res.ok)
+    throw pluginError("plugin.upstream_error", `Trakt ${res.status}: ${await res.text()}`);
   return (await res.json()) as T;
 }
 
@@ -67,10 +71,11 @@ function mapMovie(m: TraktMovie) {
     rating: null,
     overview: m.overview ?? "",
     posterUrl: null,
-    externalIds: {
-      trakt: String(m.ids.trakt),
-      tmdb: m.ids.tmdb ? String(m.ids.tmdb) : undefined,
-      imdb: m.ids.imdb,
+    ids: {
+      tmdb_id: m.ids.tmdb ? String(m.ids.tmdb) : undefined,
+      trakt_id: String(m.ids.trakt),
+      trakt_slug: m.ids.slug,
+      imdb_id: m.ids.imdb,
     },
   };
 }
@@ -85,20 +90,28 @@ function mapShow(s: TraktShow) {
     rating: null,
     overview: s.overview ?? "",
     posterUrl: null,
-    externalIds: {
-      trakt: String(s.ids.trakt),
-      tmdb: s.ids.tmdb ? String(s.ids.tmdb) : undefined,
-      tvdb: s.ids.tvdb ? String(s.ids.tvdb) : undefined,
-      imdb: s.ids.imdb,
+    ids: {
+      tmdb_id: s.ids.tmdb ? String(s.ids.tmdb) : undefined,
+      trakt_id: String(s.ids.trakt),
+      trakt_slug: s.ids.slug,
+      tvdb_id: s.ids.tvdb ? String(s.ids.tvdb) : undefined,
+      imdb_id: s.ids.imdb,
     },
   };
+}
+
+function readTraktId(item: {
+  ids?: { trakt_id?: string };
+  externalIds?: { trakt?: string };
+}): string | undefined {
+  return item.ids?.trakt_id ?? item.externalIds?.trakt;
 }
 
 export default definePlugin({
   manifest: {
     id: "trakt",
     name: "Trakt",
-    version: "1.0.0",
+    version: "1.1.0",
     description: "Watch history, watchlist, ratings, recommendations, and calendar via Trakt.tv.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
@@ -145,7 +158,11 @@ export default definePlugin({
     const global = ctx.config.global as TraktGlobalCfg | null;
     const clientId = global?.clientId;
     if (!clientId) {
-      return { status: "error", code: "AUTH_INVALID", message: "Trakt clientId not configured" };
+      return {
+        status: "error",
+        code: "plugin.bad_credentials",
+        devMessage: "Trakt clientId not configured",
+      };
     }
     const res = await ctx.fetch(`${BASE}/oauth/device/code`, {
       method: "POST",
@@ -153,7 +170,7 @@ export default definePlugin({
       body: JSON.stringify({ client_id: clientId }),
     });
     if (!res.ok) {
-      return { status: "error", code: "UPSTREAM_ERROR", message: `Trakt ${res.status}` };
+      return { status: "error", code: "plugin.upstream_error", devMessage: `Trakt ${res.status}` };
     }
     const body = (await res.json()) as {
       device_code: string;
@@ -178,7 +195,11 @@ export default definePlugin({
     const clientId = global?.clientId;
     const clientSecret = global?.clientSecret;
     if (!clientId || !clientSecret) {
-      return { status: "error", code: "AUTH_INVALID", message: "Trakt client not configured" };
+      return {
+        status: "error",
+        code: "plugin.bad_credentials",
+        devMessage: "Trakt client not configured",
+      };
     }
     const res = await ctx.fetch(`${BASE}/oauth/device/token`, {
       method: "POST",
@@ -192,9 +213,15 @@ export default definePlugin({
     if (res.status === 400) return { status: "pending" };
     if (res.status === 429) return { status: "pending" };
     if (res.status === 404 || res.status === 410 || res.status === 418) {
-      return { status: "error", code: "AUTH_EXPIRED", message: "device code expired or denied" };
+      return {
+        status: "error",
+        code: "plugin.token_expired",
+        devMessage: "device code expired or denied",
+      };
     }
-    if (!res.ok) return { status: "error", code: "UPSTREAM_ERROR", message: `Trakt ${res.status}` };
+    if (!res.ok) {
+      return { status: "error", code: "plugin.upstream_error", devMessage: `Trakt ${res.status}` };
+    }
     const body = (await res.json()) as {
       access_token: string;
       refresh_token: string;
@@ -218,7 +245,7 @@ export default definePlugin({
     const clientId = global?.clientId;
     const clientSecret = global?.clientSecret;
     if (!clientId || !clientSecret) {
-      throw new PluginError("AUTH_INVALID", "Trakt client not configured");
+      throw pluginError("plugin.bad_credentials", "Trakt client not configured");
     }
     const res = await ctx.fetch(`${BASE}/oauth/token`, {
       method: "POST",
@@ -231,7 +258,7 @@ export default definePlugin({
         redirect_uri: "urn:ietf:wg:oauth:2.0:oob",
       }),
     });
-    if (!res.ok) throw new PluginError("AUTH_EXPIRED", `Trakt refresh ${res.status}`);
+    if (!res.ok) throw pluginError("plugin.token_expired", `Trakt refresh ${res.status}`);
     const body = (await res.json()) as {
       access_token: string;
       refresh_token: string;
@@ -253,7 +280,7 @@ export default definePlugin({
       if (!res.ok) return { ok: false, message: `Trakt ${res.status}` };
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+      return { ok: false, message: toErrorMessage(err) };
     }
   },
 
@@ -281,18 +308,22 @@ export default definePlugin({
       },
 
       async addToHistory(ctx, input) {
-        const items = input as Array<{ type: "movie" | "tv"; externalIds: { trakt?: string } }>;
+        const items = input as Array<{
+          type: "movie" | "tv";
+          ids?: { trakt_id?: string };
+          externalIds?: { trakt?: string };
+        }>;
         const movies = items
-          .filter((i) => i.type === "movie" && i.externalIds.trakt)
-          .map((i) => ({ ids: { trakt: Number(i.externalIds.trakt) } }));
+          .filter((i) => i.type === "movie" && readTraktId(i))
+          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
         const shows = items
-          .filter((i) => i.type === "tv" && i.externalIds.trakt)
-          .map((i) => ({ ids: { trakt: Number(i.externalIds.trakt) } }));
+          .filter((i) => i.type === "tv" && readTraktId(i))
+          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
         const res = await traktFetch(ctx as Ctx, "/sync/history", {
           method: "POST",
           body: JSON.stringify({ movies, shows }),
         });
-        if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `Trakt ${res.status}`);
+        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
         const body = (await res.json()) as { added?: { movies?: number; episodes?: number } };
         return { added: (body.added?.movies ?? 0) + (body.added?.episodes ?? 0) };
       },
@@ -322,35 +353,43 @@ export default definePlugin({
       },
 
       async addToWatchlist(ctx, input) {
-        const items = input as Array<{ type: "movie" | "tv"; externalIds: { trakt?: string } }>;
+        const items = input as Array<{
+          type: "movie" | "tv";
+          ids?: { trakt_id?: string };
+          externalIds?: { trakt?: string };
+        }>;
         const movies = items
-          .filter((i) => i.type === "movie" && i.externalIds.trakt)
-          .map((i) => ({ ids: { trakt: Number(i.externalIds.trakt) } }));
+          .filter((i) => i.type === "movie" && readTraktId(i))
+          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
         const shows = items
-          .filter((i) => i.type === "tv" && i.externalIds.trakt)
-          .map((i) => ({ ids: { trakt: Number(i.externalIds.trakt) } }));
+          .filter((i) => i.type === "tv" && readTraktId(i))
+          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
         const res = await traktFetch(ctx as Ctx, "/sync/watchlist", {
           method: "POST",
           body: JSON.stringify({ movies, shows }),
         });
-        if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `Trakt ${res.status}`);
+        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
         const body = (await res.json()) as { added?: { movies?: number; shows?: number } };
         return { added: (body.added?.movies ?? 0) + (body.added?.shows ?? 0) };
       },
 
       async removeFromWatchlist(ctx, input) {
-        const items = input as Array<{ type: "movie" | "tv"; externalIds: { trakt?: string } }>;
+        const items = input as Array<{
+          type: "movie" | "tv";
+          ids?: { trakt_id?: string };
+          externalIds?: { trakt?: string };
+        }>;
         const movies = items
-          .filter((i) => i.type === "movie" && i.externalIds.trakt)
-          .map((i) => ({ ids: { trakt: Number(i.externalIds.trakt) } }));
+          .filter((i) => i.type === "movie" && readTraktId(i))
+          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
         const shows = items
-          .filter((i) => i.type === "tv" && i.externalIds.trakt)
-          .map((i) => ({ ids: { trakt: Number(i.externalIds.trakt) } }));
+          .filter((i) => i.type === "tv" && readTraktId(i))
+          .map((i) => ({ ids: { trakt: Number(readTraktId(i)) } }));
         const res = await traktFetch(ctx as Ctx, "/sync/watchlist/remove", {
           method: "POST",
           body: JSON.stringify({ movies, shows }),
         });
-        if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `Trakt ${res.status}`);
+        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
         const body = (await res.json()) as { deleted?: { movies?: number; shows?: number } };
         return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.shows ?? 0) };
       },
@@ -382,16 +421,21 @@ export default definePlugin({
 
       async setRating(ctx, input) {
         const { item, rating } = input as {
-          item: { type: "movie" | "tv"; externalIds: { trakt?: string } };
+          item: {
+            type: "movie" | "tv";
+            ids?: { trakt_id?: string };
+            externalIds?: { trakt?: string };
+          };
           rating: number;
         };
-        if (!item.externalIds.trakt) {
-          throw new PluginError("INVALID_INPUT", "item.externalIds.trakt required");
+        const traktId = readTraktId(item);
+        if (!traktId) {
+          throw pluginError("plugin.input_invalid", "item.ids.trakt_id required");
         }
         const body =
           item.type === "movie"
-            ? { movies: [{ rating, ids: { trakt: Number(item.externalIds.trakt) } }] }
-            : { shows: [{ rating, ids: { trakt: Number(item.externalIds.trakt) } }] };
+            ? { movies: [{ rating, ids: { trakt: Number(traktId) } }] }
+            : { shows: [{ rating, ids: { trakt: Number(traktId) } }] };
         const res = await traktFetch(ctx as Ctx, "/sync/ratings", {
           method: "POST",
           body: JSON.stringify(body),
@@ -468,8 +512,8 @@ export default definePlugin({
 
   jobs: {
     async refreshTokens(ctx) {
-      // Host iterates per-connection; each call should refresh the passed credentials
-      // and return the new credential payload, which the host re-encrypts.
+      // Host iterates per-connection; each call refreshes the passed credentials
+      // and returns the new credential payload, which the host re-encrypts.
       const creds = ctx.credentials as TraktCreds | null;
       if (!creds) return null;
       const aboutToExpire = creds.createdAt + creds.expiresIn * 1000 - Date.now() < 60 * 60 * 1000;
@@ -489,7 +533,7 @@ export default definePlugin({
           redirect_uri: "urn:ietf:wg:oauth:2.0:oob",
         }),
       });
-      if (!res.ok) throw new PluginError("AUTH_EXPIRED", `Trakt refresh ${res.status}`);
+      if (!res.ok) throw pluginError("plugin.token_expired", `Trakt refresh ${res.status}`);
       const body = (await res.json()) as {
         access_token: string;
         refresh_token: string;

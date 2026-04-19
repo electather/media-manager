@@ -11,6 +11,7 @@ import { badRequest } from "../../errors/http-errors";
 
 const setEnabledSchema = z.object({ enabled: z.boolean() });
 const setGlobalConfigSchema = z.object({ config: z.unknown() });
+const setSharedCredentialsSchema = z.object({ credentials: z.unknown() });
 
 export const pluginsApp = new Hono()
   .use("*", requireSession)
@@ -19,17 +20,25 @@ export const pluginsApp = new Hono()
     const db = getDb();
     const rows = await db.select().from(plugins).all();
     return c.json({
-      plugins: rows.map((r) => ({
-        id: r.id,
-        version: r.version,
-        sourceType: r.sourceType,
-        enabled: r.enabled === 1,
-        hasGlobalConfig: !!(r.globalConfig && r.globalConfigIv),
-        manifest: JSON.parse(r.manifest),
-        installedAt: r.installedAt,
-        updatedAt: r.updatedAt,
-        isBuiltin: !!getBuiltin(r.id),
-      })),
+      plugins: rows.map((r) => {
+        const manifest = JSON.parse(r.manifest) as {
+          credentialsSchema?: unknown;
+          allowsSharedCredentials?: boolean;
+          [key: string]: unknown;
+        };
+        return {
+          id: r.id,
+          version: r.version,
+          sourceType: r.sourceType,
+          enabled: r.enabled === 1,
+          hasGlobalConfig: !!(r.globalConfig && r.globalConfigIv),
+          hasSharedCredentials: !!(r.sharedCredentials && r.sharedCredentialsIv),
+          manifest,
+          installedAt: r.installedAt,
+          updatedAt: r.updatedAt,
+          isBuiltin: !!getBuiltin(r.id),
+        };
+      }),
     });
   })
   .patch("/:id/enabled", zValidator("json", setEnabledSchema), async (c) => {
@@ -47,6 +56,17 @@ export const pluginsApp = new Hono()
     const id = c.req.param("id");
     const { config } = c.req.valid("json");
     await pluginRuntime.setGlobalConfig(id, config);
+    return c.json({ ok: true });
+  })
+  .get("/:id/shared-credentials", async (c) => {
+    const id = c.req.param("id");
+    const credentials = await pluginRuntime.getSharedCredentials(id);
+    return c.json({ credentials });
+  })
+  .put("/:id/shared-credentials", zValidator("json", setSharedCredentialsSchema), async (c) => {
+    const id = c.req.param("id");
+    const { credentials } = c.req.valid("json");
+    await pluginRuntime.setSharedCredentials(id, credentials);
     return c.json({ ok: true });
   })
   .delete("/:id", async (c) => {

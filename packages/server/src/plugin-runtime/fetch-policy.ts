@@ -44,12 +44,12 @@ export class TokenBucket {
 const buckets = new Map<string, TokenBucket>();
 
 export function getBucket(pluginId: string, capacity = 30, refillPerSecond = 5): TokenBucket {
-  let b = buckets.get(pluginId);
-  if (!b) {
-    b = new TokenBucket(capacity, refillPerSecond);
-    buckets.set(pluginId, b);
+  let bucket = buckets.get(pluginId);
+  if (!bucket) {
+    bucket = new TokenBucket(capacity, refillPerSecond);
+    buckets.set(pluginId, bucket);
   }
-  return b;
+  return bucket;
 }
 
 /** Builds a fetch function bound to a plugin's allowlist and rate limiter. */
@@ -60,16 +60,16 @@ export function buildFetch(pluginId: string, allowedHosts: string[]) {
     try {
       parsed = new URL(url);
     } catch {
-      throw new PluginError("INVALID_URL", `[${pluginId}] invalid URL: ${url}`);
+      throw new PluginError("plugin.input_invalid", `[${pluginId}] invalid URL: ${url}`);
     }
     if (!isHostAllowed(parsed.hostname, allowedHosts)) {
       throw new PluginError(
-        "DISABLED_HOST",
+        "plugin.upstream_error",
         `[${pluginId}] host not in allowlist: ${parsed.hostname}`,
       );
     }
     if (!bucket.take()) {
-      throw new PluginError("RATE_LIMITED", `[${pluginId}] rate limit exceeded`);
+      throw new PluginError("plugin.rate_limited", `[${pluginId}] rate limit exceeded`);
     }
     return fetch(url, init);
   };

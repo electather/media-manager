@@ -52,8 +52,8 @@ describe("tmdb manifest", () => {
 });
 
 describe("tvdb manifest", () => {
-  it("uses form auth and accepts a shared global key", () => {
+  it("uses form auth and allows shared credentials", () => {
     expect(tvdbPlugin.manifest.auth.kind).toBe("form");
-    expect(tvdbPlugin.manifest.globalConfigSchema).toBeDefined();
+    expect(tvdbPlugin.manifest.allowsSharedCredentials).toBe(true);
   });
 });

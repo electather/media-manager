@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "../crypto/hash";
 import { pluginManifestSchema, isSdkCompatible } from "./manifest";
 import { getCapability } from "./capabilities";
 import { PluginError } from "./types";
@@ -31,10 +31,6 @@ export function getBuiltin(id: string): BuiltinSource | undefined {
   return builtins.get(id);
 }
 
-export function sha256(s: string): string {
-  return createHash("sha256").update(s).digest("hex");
-}
-
 export interface LoadedPlugin {
   module: PluginModule;
   checksum: string;
@@ -45,11 +41,11 @@ export interface LoadedPlugin {
 export function validatePluginModule(module: PluginModule, bytes: string): LoadedPlugin {
   const parsed = pluginManifestSchema.safeParse(module.manifest);
   if (!parsed.success) {
-    throw new PluginError("INVALID_MANIFEST", parsed.error.message);
+    throw new PluginError("plugin.output_invalid", parsed.error.message);
   }
   if (!isSdkCompatible(parsed.data.sdkVersion)) {
     throw new PluginError(
-      "INCOMPATIBLE_SDK",
+      "plugin.output_invalid",
       `plugin targets sdkVersion ${parsed.data.sdkVersion} incompatible with host`,
     );
   }
@@ -59,21 +55,21 @@ export function validatePluginModule(module: PluginModule, bytes: string): Loade
     const spec = getCapability(capId, capVersion);
     if (!spec) {
       throw new PluginError(
-        "UNKNOWN_CAPABILITY",
+        "plugin.missing_method",
         `plugin declares unknown capability ${capId}@${capVersion}`,
       );
     }
     const impl = module.capabilities[capId];
     if (!impl) {
       throw new PluginError(
-        "MISSING_CAPABILITY_IMPL",
+        "plugin.missing_method",
         `plugin manifest claims ${capId} but exports no implementation`,
       );
     }
     for (const methodName of Object.keys(spec.methods)) {
       if (typeof impl[methodName] !== "function") {
         throw new PluginError(
-          "MISSING_CAPABILITY_METHOD",
+          "plugin.missing_method",
           `${capId}@${capVersion}.${methodName} not implemented`,
         );
       }
@@ -85,7 +81,7 @@ export function validatePluginModule(module: PluginModule, bytes: string): Loade
     const handler = module.jobs?.[job.handler];
     if (typeof handler !== "function") {
       throw new PluginError(
-        "MISSING_JOB_HANDLER",
+        "plugin.missing_method",
         `job ${job.id} references handler "${job.handler}" which is not exported`,
       );
     }
@@ -93,7 +89,7 @@ export function validatePluginModule(module: PluginModule, bytes: string): Loade
 
   // Auth discipline: plugins with auth.kind != "none" must provide testConnection.
   if (parsed.data.auth.kind !== "none" && typeof module.testConnection !== "function") {
-    throw new PluginError("MISSING_TEST_CONNECTION", "plugins with auth require testConnection");
+    throw new PluginError("plugin.missing_auth_fn", "plugins with auth require testConnection");
   }
 
   return {

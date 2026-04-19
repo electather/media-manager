@@ -1,6 +1,8 @@
 import { definePlugin } from "../../../plugin-runtime/define";
-import { PluginError } from "../../../plugin-runtime/types";
 import type { AuthResult, PluginContext } from "../../../plugin-runtime/types";
+import { isPluginError } from "../../../plugin-runtime/types";
+import { pluginError, toErrorMessage } from "../../utils/plugin-error";
+import { handleHttpStatus } from "../../utils/http-status";
 
 interface SeerrCreds {
   apiKey: string;
@@ -20,22 +22,27 @@ type Ctx = PluginContext<SeerrCreds, SeerrUserCfg, SeerrGlobalCfg>;
 
 function getBaseUrl(ctx: Ctx): string {
   const url = ctx.config.global?.baseUrl;
-  if (!url) throw new PluginError("AUTH_INVALID", "Seerr baseUrl not configured by admin");
+  if (!url) throw pluginError("plugin.bad_credentials", "Seerr baseUrl not configured by admin");
   return url.replace(/\/$/, "");
 }
 
 function getApiKey(ctx: Ctx): string {
   const key = ctx.credentials?.apiKey;
-  if (!key) throw new PluginError("AUTH_EXPIRED", "Seerr API key missing — please reconnect");
+  if (!key) throw pluginError("plugin.token_expired", "Seerr API key missing — please reconnect");
   return key;
+}
+
+function handleStatus(res: Response): void {
+  handleHttpStatus(res, "Seerr", { on401: "plugin.token_expired" });
 }
 
 async function seerrGet<T>(ctx: Ctx, path: string): Promise<T> {
   const res = await ctx.fetch(`${getBaseUrl(ctx)}/api/v1${path}`, {
     headers: { "X-Api-Key": getApiKey(ctx) },
   });
-  if (res.status === 401) throw new PluginError("AUTH_EXPIRED", "Seerr API key invalid or expired");
-  if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `Seerr ${res.status}: ${await res.text()}`);
+  handleStatus(res);
+  if (!res.ok)
+    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${await res.text()}`);
   return res.json() as Promise<T>;
 }
 
@@ -48,8 +55,9 @@ async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promise<T> {
     },
     body: JSON.stringify(body),
   });
-  if (res.status === 401) throw new PluginError("AUTH_EXPIRED", "Seerr API key invalid or expired");
-  if (!res.ok) throw new PluginError("UPSTREAM_ERROR", `Seerr ${res.status}: ${await res.text()}`);
+  handleStatus(res);
+  if (!res.ok)
+    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${await res.text()}`);
   return res.json() as Promise<T>;
 }
 
@@ -95,7 +103,7 @@ export default definePlugin({
   manifest: {
     id: "seerr",
     name: "Seerr",
-    version: "1.0.0",
+    version: "1.1.0",
     description:
       "Media request management via Seerr. Admins set the server URL; users authenticate with their account credentials.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -149,8 +157,8 @@ export default definePlugin({
     if (!base) {
       return {
         status: "error",
-        code: "AUTH_INVALID",
-        message: "Seerr baseUrl not configured by admin",
+        code: "plugin.bad_credentials",
+        devMessage: "Seerr baseUrl not configured by admin",
       };
     }
     const trimmed = base.replace(/\/$/, "");
@@ -160,8 +168,8 @@ export default definePlugin({
     if (!email || !password) {
       return {
         status: "error",
-        code: "AUTH_INVALID",
-        message: "username and password are required",
+        code: "plugin.input_invalid",
+        devMessage: "username and password are required",
       };
     }
 
@@ -172,13 +180,17 @@ export default definePlugin({
     });
 
     if (authRes.status === 401 || authRes.status === 403) {
-      return { status: "error", code: "AUTH_INVALID", message: "invalid email or password" };
+      return {
+        status: "error",
+        code: "plugin.bad_credentials",
+        devMessage: "invalid email or password",
+      };
     }
     if (!authRes.ok) {
       return {
         status: "error",
-        code: "UPSTREAM_ERROR",
-        message: `Seerr auth failed with status ${authRes.status}`,
+        code: "plugin.upstream_error",
+        devMessage: `Seerr auth failed with status ${authRes.status}`,
       };
     }
 
@@ -193,8 +205,8 @@ export default definePlugin({
     if (!resolvedApiKey) {
       return {
         status: "error",
-        code: "UPSTREAM_ERROR",
-        message: "Seerr did not return an API key — ensure your account has API access enabled",
+        code: "plugin.upstream_error",
+        devMessage: "Seerr did not return an API key — ensure your account has API access enabled",
       };
     }
 
@@ -216,7 +228,7 @@ export default definePlugin({
       if (!res.ok) return { ok: false, message: `Seerr ${res.status}` };
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+      return { ok: false, message: toErrorMessage(err) };
     }
   },
 
@@ -230,7 +242,12 @@ export default definePlugin({
           if (!data.mediaInfo) return { status: "unavailable" };
           return { status: mapMediaStatus(data.mediaInfo.status) };
         } catch (err) {
-          if (err instanceof PluginError && err.code === "UPSTREAM_ERROR") {
+          if (
+            isPluginError(err) &&
+            (err.code === "internal" ||
+              err.code === "transient_network" ||
+              err.code === "not_found")
+          ) {
             return { status: "unknown" };
           }
           throw err;
@@ -257,7 +274,7 @@ export default definePlugin({
           const data = await seerrPost<{ id: number }>(ctx as Ctx, "/request", body);
           return { success: true, requestId: String(data.id) };
         } catch (err) {
-          if (err instanceof PluginError) return { success: false, message: err.message };
+          if (isPluginError(err)) return { success: false, message: err.message };
           return { success: false, message: String(err) };
         }
       },

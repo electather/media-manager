@@ -1,26 +1,34 @@
 import { definePlugin } from "../../../plugin-runtime/define";
-import { PluginError } from "../../../plugin-runtime/types";
 import type { PluginContext } from "../../../plugin-runtime/types";
+import { pluginError, toErrorMessage } from "../../utils/plugin-error";
+import { handleHttpStatus } from "../../utils/http-status";
+import { resolveCredential } from "../../utils/credentials";
 
 interface TmdbCreds {
   apiKey?: string;
 }
 interface TmdbUserCfg {}
 interface TmdbGlobalCfg {
+  imageBaseUrl?: string;
   apiKey?: string;
 }
 
 type Ctx = PluginContext<TmdbCreds, TmdbUserCfg, TmdbGlobalCfg>;
 
 const BASE = "https://api.themoviedb.org/3";
-const POSTER_BASE = "https://image.tmdb.org/t/p/w500";
+const DEFAULT_POSTER_BASE = "https://image.tmdb.org/t/p/w500";
+
+function imageBase(ctx: Ctx): string {
+  const override = ctx.config.global?.imageBaseUrl;
+  return override ? `${override.replace(/\/$/, "")}/w500` : DEFAULT_POSTER_BASE;
+}
 
 function resolveKey(ctx: Ctx): string {
-  const key = ctx.credentials?.apiKey || ctx.config.global?.apiKey;
-  if (!key) {
-    throw new PluginError("AUTH_INVALID", "no TMDB api key available (user or global)");
-  }
-  return key;
+  return resolveCredential(
+    ctx.credentials?.apiKey,
+    ctx.config.global?.apiKey,
+    "no TMDB api key available (user or shared)",
+  );
 }
 
 function isBearer(key: string): boolean {
@@ -44,18 +52,21 @@ async function tmdbGet(ctx: Ctx, path: string, params: Record<string, unknown> =
     url.searchParams.set(k, String(v));
   }
   const res = await ctx.fetch(url.toString(), init);
+  handleHttpStatus(res, "TMDB", {
+    on401: "plugin.bad_credentials",
+    on403: "plugin.bad_credentials",
+  });
   if (!res.ok) {
-    if (res.status === 401) throw new PluginError("AUTH_INVALID", "TMDB rejected api key");
-    throw new PluginError("UPSTREAM_ERROR", `TMDB ${res.status}: ${await res.text()}`);
+    throw pluginError("plugin.upstream_error", `TMDB ${res.status}: ${await res.text()}`);
   }
   return res.json();
 }
 
-function poster(path: string | null): string | null {
-  return path ? `${POSTER_BASE}${path}` : null;
+function poster(ctx: Ctx, path: string | null): string | null {
+  return path ? `${imageBase(ctx)}${path}` : null;
 }
 
-function mapMovie(m: {
+interface MovieRaw {
   id: number;
   title?: string;
   original_title?: string;
@@ -64,21 +75,11 @@ function mapMovie(m: {
   vote_average?: number | null;
   overview?: string;
   poster_path?: string | null;
-}): unknown {
-  return {
-    id: `movie:${m.id}`,
-    title: m.title || m.original_title || "",
-    year: m.release_date ? Number(m.release_date.slice(0, 4)) : null,
-    type: "movie",
-    genres: [],
-    rating: m.vote_average ?? null,
-    overview: m.overview ?? "",
-    posterUrl: poster(m.poster_path ?? null),
-    externalIds: { tmdb: String(m.id) },
-  };
+  external_ids?: { imdb_id?: string | null; tvdb_id?: number | null };
+  imdb_id?: string | null;
 }
 
-function mapShow(s: {
+interface TvRaw {
   id: number;
   name?: string;
   original_name?: string;
@@ -87,7 +88,32 @@ function mapShow(s: {
   vote_average?: number | null;
   overview?: string;
   poster_path?: string | null;
-}): unknown {
+  external_ids?: { imdb_id?: string | null; tvdb_id?: number | null };
+}
+
+function mapMovie(ctx: Ctx, m: MovieRaw): unknown {
+  const imdb = m.external_ids?.imdb_id ?? m.imdb_id ?? undefined;
+  const tvdb = m.external_ids?.tvdb_id ? String(m.external_ids.tvdb_id) : undefined;
+  return {
+    id: `movie:${m.id}`,
+    title: m.title || m.original_title || "",
+    year: m.release_date ? Number(m.release_date.slice(0, 4)) : null,
+    type: "movie",
+    genres: [],
+    rating: m.vote_average ?? null,
+    overview: m.overview ?? "",
+    posterUrl: poster(ctx, m.poster_path ?? null),
+    ids: {
+      tmdb_id: String(m.id),
+      imdb_id: imdb || undefined,
+      tvdb_id: tvdb,
+    },
+  };
+}
+
+function mapShow(ctx: Ctx, s: TvRaw): unknown {
+  const imdb = s.external_ids?.imdb_id ?? undefined;
+  const tvdb = s.external_ids?.tvdb_id ? String(s.external_ids.tvdb_id) : undefined;
   return {
     id: `tv:${s.id}`,
     title: s.name || s.original_name || "",
@@ -96,8 +122,12 @@ function mapShow(s: {
     genres: [],
     rating: s.vote_average ?? null,
     overview: s.overview ?? "",
-    posterUrl: poster(s.poster_path ?? null),
-    externalIds: { tmdb: String(s.id) },
+    posterUrl: poster(ctx, s.poster_path ?? null),
+    ids: {
+      tmdb_id: String(s.id),
+      imdb_id: imdb || undefined,
+      tvdb_id: tvdb,
+    },
   };
 }
 
@@ -105,22 +135,24 @@ export default definePlugin({
   manifest: {
     id: "tmdb",
     name: "The Movie Database",
-    version: "1.0.2",
+    version: "1.1.0",
     description:
-      "Metadata provider powered by TMDB (themoviedb.org). Supports a shared admin-set key or per-user keys.",
+      "Metadata provider powered by TMDB (themoviedb.org). Admin can set a shared API key; users may override with a personal key.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api.themoviedb.org", "image.tmdb.org"],
     globalConfigSchema: {
       type: "object",
       properties: {
-        apiKey: {
+        imageBaseUrl: {
           type: "string",
-          title: "TMDB API key (v3)",
-          description: "Shared key used when no user key is set.",
+          format: "uri",
+          title: "Image base URL",
+          description: "Override the default TMDB image CDN if needed.",
+          default: "https://image.tmdb.org/t/p/",
         },
       },
-      required: ["apiKey"],
+      required: [],
     },
     userConfigSchema: {
       type: "object",
@@ -138,7 +170,9 @@ export default definePlugin({
       properties: {
         apiKey: { type: "string" },
       },
+      required: ["apiKey"],
     },
+    allowsSharedCredentials: true,
     auth: { kind: "form" },
     capabilities: {
       metadata: "v1",
@@ -149,22 +183,22 @@ export default definePlugin({
   async startAuth(ctx, input) {
     const parsed = input as { apiKey?: string } | null;
     if (!parsed?.apiKey) {
-      const globalKey = resolveKey(ctx as Ctx);
-      if (!globalKey) {
+      try {
+        resolveKey(ctx as Ctx);
+        return { status: "completed", credentials: {} };
+      } catch {
         return {
           status: "error",
-          code: "AUTH_INVALID",
-          message: "apiKey required (no global key configured)",
+          code: "plugin.bad_credentials",
+          devMessage: "apiKey required (no shared key configured)",
         };
       }
-      return { status: "completed", credentials: {} };
     }
-    // Verify via /configuration — returns 401 for an invalid key or token.
     const url = new URL(`${BASE}/configuration`);
     const init = applyAuth(url, parsed.apiKey);
     const res = await ctx.fetch(url.toString(), init);
     if (!res.ok) {
-      return { status: "error", code: "AUTH_INVALID", message: `TMDB ${res.status}` };
+      return { status: "error", code: "plugin.bad_credentials", devMessage: `TMDB ${res.status}` };
     }
     return { status: "completed", credentials: { apiKey: parsed.apiKey } };
   },
@@ -174,85 +208,73 @@ export default definePlugin({
       const key = resolveKey(ctx as Ctx);
       const url = new URL(`${BASE}/configuration`);
       const init = applyAuth(url, key);
-      ctx.log.debug(`Testing TMDB connection with URL: ${url.toString()}`);
       const res = await ctx.fetch(url.toString(), init);
-      ctx.log.debug(`TMDB test connection response: ${res.status}`);
       if (!res.ok) return { ok: false, message: `TMDB ${res.status}` };
       return { ok: true };
     } catch (err) {
-      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+      return { ok: false, message: toErrorMessage(err) };
     }
   },
 
   capabilities: {
     metadata: {
       async search(ctx, input) {
+        const c = ctx as Ctx;
         const {
           query,
           type,
           limit = 20,
-        } = input as {
-          query: string;
-          type?: "movie" | "tv";
-          limit?: number;
-        };
+        } = input as { query: string; type?: "movie" | "tv"; limit?: number };
         if (type === "movie") {
-          const data = (await tmdbGet(ctx as Ctx, "/search/movie", { query })) as {
-            results: Parameters<typeof mapMovie>[0][];
-          };
-          return data.results.slice(0, limit).map((r) => ({ item: mapMovie(r), score: 1 }));
+          const data = (await tmdbGet(c, "/search/movie", { query })) as { results: MovieRaw[] };
+          return data.results.slice(0, limit).map((r) => ({ item: mapMovie(c, r), score: 1 }));
         }
         if (type === "tv") {
-          const data = (await tmdbGet(ctx as Ctx, "/search/tv", { query })) as {
-            results: Parameters<typeof mapShow>[0][];
-          };
-          return data.results.slice(0, limit).map((r) => ({ item: mapShow(r), score: 1 }));
+          const data = (await tmdbGet(c, "/search/tv", { query })) as { results: TvRaw[] };
+          return data.results.slice(0, limit).map((r) => ({ item: mapShow(c, r), score: 1 }));
         }
-        const data = (await tmdbGet(ctx as Ctx, "/search/multi", { query })) as {
-          results: Array<
-            { media_type: string } & Parameters<typeof mapMovie>[0] & Parameters<typeof mapShow>[0]
-          >;
+        const data = (await tmdbGet(c, "/search/multi", { query })) as {
+          results: Array<{ media_type: string } & MovieRaw & TvRaw>;
         };
         return data.results
           .filter((r) => r.media_type === "movie" || r.media_type === "tv")
           .slice(0, limit)
           .map((r) => ({
-            item: r.media_type === "movie" ? mapMovie(r) : mapShow(r),
+            item: r.media_type === "movie" ? mapMovie(c, r) : mapShow(c, r),
             score: 1,
           }));
       },
 
       async getDetails(ctx, input) {
+        const c = ctx as Ctx;
         const { id, type } = input as { id: string; type: "movie" | "tv" };
-        const data = await tmdbGet(ctx as Ctx, `/${type}/${id}`);
-        return type === "movie"
-          ? mapMovie(data as Parameters<typeof mapMovie>[0])
-          : mapShow(data as Parameters<typeof mapShow>[0]);
+        const data = await tmdbGet(c, `/${type}/${id}`, { append_to_response: "external_ids" });
+        return type === "movie" ? mapMovie(c, data as MovieRaw) : mapShow(c, data as TvRaw);
       },
 
       async getSimilar(ctx, input) {
+        const c = ctx as Ctx;
         const { id, type } = input as { id: string; type: "movie" | "tv" };
-        const data = (await tmdbGet(ctx as Ctx, `/${type}/${id}/similar`)) as {
-          results: unknown[];
-        };
-        return (data.results as Parameters<typeof mapMovie>[0][]).map((r) =>
-          type === "movie" ? mapMovie(r) : mapShow(r as Parameters<typeof mapShow>[0]),
+        const data = (await tmdbGet(c, `/${type}/${id}/similar`)) as { results: unknown[] };
+        return (data.results as Array<MovieRaw & TvRaw>).map((r) =>
+          type === "movie" ? mapMovie(c, r) : mapShow(c, r),
         );
       },
 
       async getTrending(ctx, input) {
-        const { type = "movie", limit = 20 } = input as { type?: "movie" | "tv"; limit?: number };
-        const data = (await tmdbGet(ctx as Ctx, `/trending/${type}/day`)) as {
-          results: unknown[];
+        const c = ctx as Ctx;
+        const { type = "movie", limit = 20 } = input as {
+          type?: "movie" | "tv";
+          limit?: number;
         };
-        return (data.results as Parameters<typeof mapMovie>[0][])
+        const data = (await tmdbGet(c, `/trending/${type}/day`)) as { results: unknown[] };
+        return (data.results as Array<MovieRaw & TvRaw>)
           .slice(0, limit)
-          .map((r) =>
-            type === "movie" ? mapMovie(r) : mapShow(r as Parameters<typeof mapShow>[0]),
-          );
+          .map((r) => (type === "movie" ? mapMovie(c, r) : mapShow(c, r)));
       },
 
       async discover(ctx, input) {
+        const c = ctx as Ctx;
         const params: Record<string, unknown> = {};
         const {
           genres,
@@ -271,15 +293,14 @@ export default definePlugin({
         if (yearMin) params["primary_release_date.gte"] = `${yearMin}-01-01`;
         if (yearMax) params["primary_release_date.lte"] = `${yearMax}-12-31`;
         if (ratingMin) params["vote_average.gte"] = ratingMin;
-        const data = (await tmdbGet(ctx as Ctx, "/discover/movie", params)) as {
-          results: unknown[];
-        };
-        return (data.results as Parameters<typeof mapMovie>[0][]).slice(0, limit).map(mapMovie);
+        const data = (await tmdbGet(c, "/discover/movie", params)) as { results: unknown[] };
+        return (data.results as MovieRaw[]).slice(0, limit).map((r) => mapMovie(c, r));
       },
     },
 
     idResolve: {
       async resolve(ctx, input) {
+        const c = ctx as Ctx;
         const { from, id, type } = input as {
           from: "tmdb" | "tvdb" | "trakt" | "imdb";
           id: string;
@@ -287,13 +308,13 @@ export default definePlugin({
         };
         if (from === "tmdb") return { tmdb: id };
         if (from === "imdb") {
-          const data = (await tmdbGet(ctx as Ctx, `/find/${id}`, {
-            external_source: "imdb_id",
-          })) as { movie_results: Array<{ id: number }>; tv_results: Array<{ id: number }> };
+          const data = (await tmdbGet(c, `/find/${id}`, { external_source: "imdb_id" })) as {
+            movie_results: Array<{ id: number }>;
+            tv_results: Array<{ id: number }>;
+          };
           const match = type === "movie" ? data.movie_results[0] : data.tv_results[0];
           return match ? { tmdb: String(match.id), imdb: id } : { imdb: id };
         }
-        // tvdb / trakt lookups go through TVDB or Trakt plugins.
         return {};
       },
     },

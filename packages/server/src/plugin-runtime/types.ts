@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { HostErrorCode } from "../errors/codes";
 
 /** JSON Schema subset used for plugin-supplied config shapes. Kept deliberately permissive. */
 export type JSONSchema = Record<string, unknown>;
@@ -18,6 +19,12 @@ export interface PluginManifest {
   globalConfigSchema?: JSONSchema;
   userConfigSchema?: JSONSchema;
   credentialsSchema: JSONSchema;
+  /**
+   * When true, the admin may set shared credentials (from `credentialsSchema`) on the
+   * plugin itself. Users without their own connection fall back to the shared credential.
+   * Distinct from `globalConfigSchema`, which is for admin-only non-credential settings.
+   */
+  allowsSharedCredentials?: boolean;
   auth: { kind: AuthKind };
   capabilities: Record<string, string>;
   jobs?: Array<{
@@ -70,7 +77,7 @@ export type AuthResult =
       expiresAt: number;
     }
   | { status: "pending" }
-  | { status: "error"; code: string; message: string };
+  | { status: "error"; code: HostErrorCode; devMessage: string };
 
 export type CapabilityMethod<I = unknown, O = unknown> = (
   ctx: PluginContext,
@@ -98,25 +105,35 @@ export interface PluginModule {
   jobs?: Record<string, PluginJobHandler>;
 }
 
-/** Reserved error codes used to classify plugin failures at the host boundary. */
-export const PLUGIN_ERROR_CODES = {
-  AUTH_EXPIRED: "AUTH_EXPIRED",
-  AUTH_INVALID: "AUTH_INVALID",
-  RATE_LIMITED: "RATE_LIMITED",
-  UPSTREAM_ERROR: "UPSTREAM_ERROR",
-  DISABLED_HOST: "DISABLED_HOST",
-} as const;
-
-export type PluginErrorCode = (typeof PLUGIN_ERROR_CODES)[keyof typeof PLUGIN_ERROR_CODES];
-
 export class PluginError extends Error {
   constructor(
-    public code: PluginErrorCode | string,
+    public code: HostErrorCode,
     message: string,
   ) {
     super(message);
     this.name = "PluginError";
   }
+}
+
+/** The structural shape that the host recognizes as a plugin error. */
+export interface PluginErrorShape {
+  name: "PluginError";
+  code: string;
+  message: string;
+}
+
+/**
+ * Duck-type guard for plugin errors. Intentionally does not use `instanceof` so
+ * plugins loaded in a separate bundle (or without importing this class) still work
+ * as long as they set `err.name = "PluginError"` and `err.code`.
+ */
+export function isPluginError(err: unknown): err is PluginErrorShape {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as Error).name === "PluginError" &&
+    typeof (err as PluginErrorShape).code === "string"
+  );
 }
 
 export interface CapabilitySpec<
@@ -127,8 +144,32 @@ export interface CapabilitySpec<
   output: O;
 }
 
+/** Capability method definition including optional per-method metadata. */
+export interface CapabilityMethodSpec<
+  I extends z.ZodTypeAny = z.ZodTypeAny,
+  O extends z.ZodTypeAny = z.ZodTypeAny,
+> extends CapabilitySpec<I, O> {
+  /**
+   * Cache prefixes (e.g. `"watchHistory@v1"`) to invalidate on a successful call.
+   * Only meaningful for mutating methods.
+   */
+  invalidates?: string[];
+}
+
+/** Dispatch strategy. See `docs/media-service.md` §capability-strategies. */
+export type CapabilityStrategy = "single" | "aggregate" | "primary_with_enrichment";
+
 export interface CapabilityDefinition {
   id: string;
   version: string;
-  methods: Record<string, CapabilitySpec>;
+  strategy: CapabilityStrategy;
+  /** `true` when output depends on the caller's identity (cache key includes userId). */
+  userScoped: boolean;
+  /** Default positive-cache TTL applied when a call returns non-null. */
+  defaultCacheTtlSec: number;
+  /** TTL for null/empty results. Shorter to avoid pinning misses long-term. */
+  negativeCacheTtlSec: number;
+  /** Per-call timeout; treated as `transient_network` for retry/status. */
+  defaultTimeoutMs: number;
+  methods: Record<string, CapabilityMethodSpec>;
 }

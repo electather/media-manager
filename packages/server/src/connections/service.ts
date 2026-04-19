@@ -7,6 +7,7 @@ import { encrypt, decrypt } from "../crypto/vault";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import type { AuthResult } from "../plugin-runtime/types";
+import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, internal, notFound, unprocessable } from "../errors/http-errors";
 
 function split(combined: string): { iv: string; data: string } {
@@ -114,6 +115,7 @@ async function writeConnection(args: {
     updatedAt: now,
   });
   await ensureDefaultIfFirst(args.userId, args.pluginId, id);
+  await invalidateUserCache(args.userId);
   return id;
 }
 
@@ -159,7 +161,7 @@ export const connectionsService = {
       )) as AuthResult;
       if (result.status === "completed") return { ok: true };
       const message =
-        result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+        result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
       return { ok: false, message };
     } catch (err) {
       return { ok: false, message: err instanceof Error ? err.message : "verification failed" };
@@ -249,7 +251,7 @@ export const connectionsService = {
     )) as AuthResult;
     if (result.status !== "completed") {
       const message =
-        result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+        result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
       throw unprocessable("connection.verify_failed", `auth failed: ${message}`, { message });
     }
     const id = await writeConnection({
@@ -275,7 +277,7 @@ export const connectionsService = {
     )) as AuthResult;
     if (result.status !== "redirect") {
       const message =
-        result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+        result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
       throw unprocessable("oauth.init_failed", `redirect auth init failed: ${message}`, {
         message,
       });
@@ -322,8 +324,8 @@ export const connectionsService = {
     if (result.status !== "completed") {
       if (result.status === "error") {
         await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-        throw unprocessable("connection.verify_failed", result.message, {
-          message: result.message,
+        throw unprocessable("connection.verify_failed", result.devMessage, {
+          message: result.devMessage,
         });
       }
       throw unprocessable("oauth.unexpected_status", `unexpected status: ${result.status}`, {
@@ -356,7 +358,7 @@ export const connectionsService = {
     )) as AuthResult;
     if (result.status !== "display_code") {
       const message =
-        result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+        result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
       throw unprocessable("oauth.init_failed", `device auth init failed: ${message}`, {
         message,
       });
@@ -422,7 +424,7 @@ export const connectionsService = {
     }
     if (result.status === "error") {
       await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-      return { status: "error", message: result.message };
+      return { status: "error", message: result.devMessage };
     }
     return { status: "error", message: `unexpected status: ${result.status}` };
   },
@@ -441,6 +443,7 @@ export const connectionsService = {
       .get();
     if (!row) throw notFound("connection.not_found", "connection not found");
     await promoteToDefault(args.userId, row.pluginId, args.connectionId);
+    await invalidateUserCache(args.userId);
   },
 
   async setEnabled(args: {
@@ -458,6 +461,7 @@ export const connectionsService = {
           eq(serviceConnections.userId, args.userId),
         ),
       );
+    await invalidateUserCache(args.userId);
   },
 
   async updateDisplayName(args: {
@@ -518,7 +522,7 @@ export const connectionsService = {
       )) as AuthResult;
       if (result.status !== "completed") {
         const message =
-          result.status === "error" ? result.message : `unexpected status: ${result.status}`;
+          result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
         throw unprocessable("connection.verify_failed", `config did not verify: ${message}`, {
           message,
         });
@@ -536,6 +540,7 @@ export const connectionsService = {
           updatedAt: Date.now(),
         })
         .where(eq(serviceConnections.id, args.connectionId));
+      await invalidateUserCache(args.userId);
       return;
     }
 
@@ -558,6 +563,7 @@ export const connectionsService = {
         updatedAt: Date.now(),
       })
       .where(eq(serviceConnections.id, args.connectionId));
+    await invalidateUserCache(args.userId);
   },
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
@@ -574,6 +580,7 @@ export const connectionsService = {
       .get();
     if (!row) return;
     await db.delete(serviceConnections).where(eq(serviceConnections.id, args.connectionId));
+    await invalidateUserCache(args.userId);
     if (row.isDefault === 1) {
       // Promote another enabled connection to default if any remain.
       const next = await db
@@ -669,7 +676,7 @@ export const connectionsService = {
           description: manifest.description ?? "",
           logoUrl: manifest.logoUrl,
           auth: manifest.auth.kind,
-          hasSharedConfig: !!(r.globalConfig && r.globalConfigIv),
+          hasSharedConfig: !!(r.sharedCredentials && r.sharedCredentialsIv),
           capabilities: Object.keys(manifest.capabilities ?? {}),
           userConfigSchema: manifest.userConfigSchema ?? null,
           credentialsSchema: manifest.credentialsSchema ?? null,

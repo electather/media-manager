@@ -3,6 +3,16 @@ import { defineCapability, method } from "./define";
 
 const mediaType = z.enum(["movie", "tv"]);
 
+const idBundle = z
+  .object({
+    tmdb_id: z.string().optional(),
+    imdb_id: z.string().optional(),
+    tvdb_id: z.string().optional(),
+    trakt_id: z.string().optional(),
+    trakt_slug: z.string().optional(),
+  })
+  .default({});
+
 const mediaItem = z.object({
   id: z.string(),
   title: z.string(),
@@ -12,6 +22,12 @@ const mediaItem = z.object({
   rating: z.number().nullable(),
   overview: z.string().default(""),
   posterUrl: z.string().nullable(),
+  /** Canonical cross-service identifier bundle. Replaces the legacy `externalIds` shape. */
+  ids: idBundle,
+  /**
+   * @deprecated Use `ids` instead. Retained so older plugins continue to parse
+   * while the host harvests from either field. Removed once all builtin plugins migrate.
+   */
   externalIds: z
     .object({
       tmdb: z.string().optional(),
@@ -19,8 +35,10 @@ const mediaItem = z.object({
       trakt: z.string().optional(),
       imdb: z.string().optional(),
     })
-    .default({}),
+    .optional(),
 });
+
+export type MediaItemShape = z.infer<typeof mediaItem>;
 
 const historyEntry = z.object({
   item: mediaItem,
@@ -76,9 +94,22 @@ const idResolveOutput = z.object({
   imdb: z.string().optional(),
 });
 
+const MIN = 60;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+
+/**
+ * metadata@v1 — primary_with_enrichment. User picks a primary per media type;
+ * other plugins fill fields where the primary returned null/missing.
+ */
 export const MetadataV1 = defineCapability({
   id: "metadata",
   version: "v1",
+  strategy: "primary_with_enrichment",
+  userScoped: false,
+  defaultCacheTtlSec: DAY,
+  negativeCacheTtlSec: 5 * MIN,
+  defaultTimeoutMs: 15_000,
   methods: {
     search: method(
       z.object({ query: z.string(), type: mediaType.optional(), limit: z.number().optional() }),
@@ -97,33 +128,55 @@ export const MetadataV1 = defineCapability({
 export const WatchHistoryV1 = defineCapability({
   id: "watchHistory",
   version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 5 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
   methods: {
     getHistory: method(
       z.object({ limit: z.number().optional(), since: z.string().optional() }),
       z.array(historyEntry),
     ),
-    addToHistory: method(z.array(mediaItem), z.object({ added: z.number() })),
+    addToHistory: method(z.array(mediaItem), z.object({ added: z.number() }), {
+      invalidates: ["watchHistory@v1"],
+    }),
   },
 });
 
 export const WatchlistV1 = defineCapability({
   id: "watchlist",
   version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 5 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
   methods: {
     getWatchlist: method(z.object({ type: mediaType.optional() }), z.array(watchlistEntry)),
-    addToWatchlist: method(z.array(mediaItem), z.object({ added: z.number() })),
-    removeFromWatchlist: method(z.array(mediaItem), z.object({ removed: z.number() })),
+    addToWatchlist: method(z.array(mediaItem), z.object({ added: z.number() }), {
+      invalidates: ["watchlist@v1"],
+    }),
+    removeFromWatchlist: method(z.array(mediaItem), z.object({ removed: z.number() }), {
+      invalidates: ["watchlist@v1"],
+    }),
   },
 });
 
 export const RatingsV1 = defineCapability({
   id: "ratings",
   version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 15 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
   methods: {
     getRatings: method(z.object({ type: mediaType.optional() }), z.array(ratingEntry)),
     setRating: method(
       z.object({ item: mediaItem, rating: z.number().min(0).max(10) }),
       z.object({ ok: z.boolean() }),
+      { invalidates: ["ratings@v1"] },
     ),
   },
 });
@@ -131,6 +184,11 @@ export const RatingsV1 = defineCapability({
 export const RecommendationsV1 = defineCapability({
   id: "recommendations",
   version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 6 * HOUR,
+  negativeCacheTtlSec: 5 * MIN,
+  defaultTimeoutMs: 15_000,
   methods: {
     getRecommendations: method(
       z.object({ type: mediaType.optional(), limit: z.number().optional() }),
@@ -142,6 +200,11 @@ export const RecommendationsV1 = defineCapability({
 export const CalendarV1 = defineCapability({
   id: "calendar",
   version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: HOUR,
+  negativeCacheTtlSec: 5 * MIN,
+  defaultTimeoutMs: 15_000,
   methods: {
     getUpcoming: method(z.object({ days: z.number().optional() }), z.array(upcoming)),
   },
@@ -150,6 +213,11 @@ export const CalendarV1 = defineCapability({
 export const MediaRequestV1 = defineCapability({
   id: "mediaRequest",
   version: "v1",
+  strategy: "single",
+  userScoped: true,
+  defaultCacheTtlSec: 1 * MIN,
+  negativeCacheTtlSec: 30,
+  defaultTimeoutMs: 15_000,
   methods: {
     checkAvailability: method(
       z.object({ tmdbId: z.string(), type: mediaType }),
@@ -164,6 +232,7 @@ export const MediaRequestV1 = defineCapability({
         requestId: z.string().optional(),
         message: z.string().optional(),
       }),
+      { invalidates: ["mediaRequest@v1"] },
     ),
     listRequests: method(
       z.object({}),
@@ -181,17 +250,22 @@ export const MediaRequestV1 = defineCapability({
   },
 });
 
+/** Internal-only capability: not invoked directly by callers — only by MediaService id_map gap-fill. */
 export const IdResolveV1 = defineCapability({
   id: "idResolve",
   version: "v1",
+  strategy: "single",
+  userScoped: false,
+  defaultCacheTtlSec: 7 * DAY,
+  negativeCacheTtlSec: HOUR,
+  defaultTimeoutMs: 10_000,
   methods: {
     resolve: method(idResolveInput, idResolveOutput),
   },
 });
 
 /**
- * Host-side registry of known capabilities. The registry is indexed by
- * `${id}@${version}` — plugins declare the versioned id in their manifest.
+ * Host-side registry of known capabilities. Indexed by `${id}@${version}`.
  */
 export const CAPABILITY_CATALOG = {
   "metadata@v1": MetadataV1,

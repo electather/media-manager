@@ -38,6 +38,7 @@ export const pluginManifestSchema = z.object({
   globalConfigSchema: z.record(z.unknown()).optional(),
   userConfigSchema: z.record(z.unknown()).optional(),
   credentialsSchema: z.record(z.unknown()),
+  allowsSharedCredentials: z.boolean().optional(),
   auth: z.object({ kind: authKind }),
   capabilities: z.record(z.string()),
   jobs: z.array(jobEntry).optional(),

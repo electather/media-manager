@@ -2,17 +2,15 @@ import { eq } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "../db/client";
 import { plugins } from "../db/schema/plugins";
-import { env } from "../env";
-import { encrypt, decrypt } from "../crypto/vault";
+import { encryptJson, decryptJson } from "../crypto/helpers";
 import { buildContext } from "./context";
 import { getCapability } from "./capabilities";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
 import { capabilityRegistry } from "./registry";
-import { PluginError } from "./types";
+import { isPluginError, PluginError } from "./types";
 import type { AuthResult, CapabilitySpec, PluginContext, PluginModule } from "./types";
 import { captureError } from "../errors/capture";
 import { pluginCode } from "../errors/codes";
-import { internal } from "../errors/http-errors";
 
 export interface InvokeArgs {
   pluginId: string;
@@ -31,35 +29,6 @@ export interface PluginRowLite {
   enabled: number;
   globalConfig: string | null;
   globalConfigIv: string | null;
-}
-
-function ciphertextOf(
-  iv: string | null | undefined,
-  data: string | null | undefined,
-): string | null {
-  if (!iv || !data) return null;
-  return `${iv}:${data}`;
-}
-
-/** Splits the stored `iv:data` composite into the separate columns. */
-function splitCiphertext(combined: string): { iv: string; data: string } {
-  const [iv, ...rest] = combined.split(":");
-  if (!iv || rest.length === 0) {
-    throw internal("http.internal_error", "invalid ciphertext");
-  }
-  return { iv, data: rest.join(":") };
-}
-
-async function decryptMaybe(iv: string | null, data: string | null): Promise<unknown> {
-  const combined = ciphertextOf(iv, data);
-  if (!combined) return null;
-  const plain = await decrypt(combined, env.ENCRYPTION_KEY);
-  return JSON.parse(plain);
-}
-
-async function encryptJson(value: unknown): Promise<{ iv: string; data: string }> {
-  const combined = await encrypt(JSON.stringify(value), env.ENCRYPTION_KEY);
-  return splitCiphertext(combined);
 }
 
 /**
@@ -120,7 +89,7 @@ export class PluginRuntime {
   async uninstall(pluginId: string): Promise<void> {
     const db = getDb();
     if (getBuiltin(pluginId)) {
-      throw new PluginError("BUILTIN_UNINSTALL", "built-in plugins cannot be uninstalled");
+      throw new PluginError("plugin.builtin_uninstall", "built-in plugins cannot be uninstalled");
     }
     await db.delete(plugins).where(eq(plugins.id, pluginId));
     capabilityRegistry.unregister(pluginId);
@@ -146,13 +115,36 @@ export class PluginRuntime {
     const db = getDb();
     const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
     if (!row) return null;
-    return decryptMaybe(row.globalConfigIv, row.globalConfig);
+    return decryptJson(row.globalConfigIv, row.globalConfig);
+  }
+
+  async setSharedCredentials(pluginId: string, credentials: unknown): Promise<void> {
+    const db = getDb();
+    if (credentials === null || credentials === undefined) {
+      await db
+        .update(plugins)
+        .set({ sharedCredentials: null, sharedCredentialsIv: null, updatedAt: Date.now() })
+        .where(eq(plugins.id, pluginId));
+      return;
+    }
+    const { iv, data } = await encryptJson(credentials);
+    await db
+      .update(plugins)
+      .set({ sharedCredentials: data, sharedCredentialsIv: iv, updatedAt: Date.now() })
+      .where(eq(plugins.id, pluginId));
+  }
+
+  async getSharedCredentials(pluginId: string): Promise<unknown> {
+    const db = getDb();
+    const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
+    if (!row) return null;
+    return decryptJson(row.sharedCredentialsIv, row.sharedCredentials);
   }
 
   async getModule(pluginId: string): Promise<PluginModule> {
     const entry = capabilityRegistry.get(pluginId);
-    if (!entry) throw new PluginError("PLUGIN_NOT_FOUND", `plugin ${pluginId} not installed`);
-    if (!entry.enabled) throw new PluginError("PLUGIN_DISABLED", `plugin ${pluginId} is disabled`);
+    if (!entry) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
+    if (!entry.enabled) throw new PluginError("plugin.disabled", `plugin ${pluginId} is disabled`);
     return entry.module;
   }
 
@@ -182,7 +174,7 @@ export class PluginRuntime {
     const spec = getCapability(args.capability, args.version);
     if (!spec) {
       throw new PluginError(
-        "UNKNOWN_CAPABILITY",
+        "plugin.missing_method",
         `unknown capability ${args.capability}@${args.version}`,
       );
     }
@@ -190,7 +182,7 @@ export class PluginRuntime {
     const methodSpec = methods[args.method];
     if (!methodSpec) {
       throw new PluginError(
-        "UNKNOWN_METHOD",
+        "plugin.missing_method",
         `${args.capability}@${args.version}.${args.method} does not exist`,
       );
     }
@@ -200,14 +192,14 @@ export class PluginRuntime {
     const fn = impl?.[args.method];
     if (typeof fn !== "function") {
       throw new PluginError(
-        "MISSING_METHOD",
+        "plugin.missing_method",
         `plugin ${args.pluginId} does not implement ${args.method}`,
       );
     }
 
     const inputParsed = methodSpec.input.safeParse(args.input);
     if (!inputParsed.success) {
-      throw new PluginError("INVALID_INPUT", inputParsed.error.message);
+      throw new PluginError("plugin.input_invalid", inputParsed.error.message);
     }
 
     const ctx = await this.buildContextForInvocation(
@@ -221,7 +213,7 @@ export class PluginRuntime {
     try {
       result = await fn(ctx, inputParsed.data);
     } catch (err) {
-      if (err instanceof PluginError) throw err;
+      if (isPluginError(err)) throw err;
       const message = err instanceof Error ? err.message : String(err);
       consola.error(`[plugin:${args.pluginId}] ${args.method} threw:`, err);
       await captureError(err, {
@@ -232,7 +224,7 @@ export class PluginRuntime {
         userId: args.userId,
         context: { capability: args.capability, method: args.method, version: args.version },
       });
-      throw new PluginError("UPSTREAM_ERROR", message);
+      throw new PluginError("plugin.upstream_error", message);
     }
 
     const outputParsed = methodSpec.output.safeParse(result);
@@ -249,7 +241,7 @@ export class PluginRuntime {
         context: { capability: args.capability, method: args.method, version: args.version },
       });
       throw new PluginError(
-        "INVALID_OUTPUT",
+        "plugin.output_invalid",
         `plugin ${args.pluginId} returned invalid output: ${outputParsed.error.message}`,
       );
     }
@@ -267,7 +259,10 @@ export class PluginRuntime {
     const module = await this.getModule(pluginId);
     const fn = module[fnName];
     if (typeof fn !== "function") {
-      throw new PluginError("MISSING_AUTH_FN", `plugin ${pluginId} does not export ${fnName}`);
+      throw new PluginError(
+        "plugin.missing_auth_fn",
+        `plugin ${pluginId} does not export ${fnName}`,
+      );
     }
     const ctx = await this.buildContextForInvocation(pluginId, userId);
     try {
@@ -292,7 +287,7 @@ export class PluginRuntime {
         userId,
         context: { fnName },
       });
-      return { status: "error", code: "UPSTREAM_ERROR", message };
+      return { status: "error", code: "plugin.upstream_error", devMessage: message };
     }
   }
 
@@ -327,7 +322,7 @@ export class PluginRuntime {
   async refreshAuth(pluginId: string, userId: string, credentials: unknown): Promise<unknown> {
     const module = await this.getModule(pluginId);
     if (typeof module.refreshAuth !== "function") {
-      throw new PluginError("MISSING_REFRESH", `plugin ${pluginId} cannot refresh`);
+      throw new PluginError("plugin.missing_refresh", `plugin ${pluginId} cannot refresh`);
     }
     const ctx = await this.buildContextForInvocation(pluginId, userId, credentials);
     return module.refreshAuth(ctx, credentials);
@@ -335,10 +330,3 @@ export class PluginRuntime {
 }
 
 export const pluginRuntime = new PluginRuntime();
-
-/** Convenience helpers for callers that work with raw encrypted columns. */
-export const cryptoHelpers = {
-  encryptJson,
-  decryptJson: decryptMaybe,
-  splitCiphertext,
-};
