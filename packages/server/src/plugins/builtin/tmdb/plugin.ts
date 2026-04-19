@@ -10,7 +10,6 @@ interface TmdbCreds {
 interface TmdbUserCfg {}
 interface TmdbGlobalCfg {
   imageBaseUrl?: string;
-  apiKey?: string;
 }
 
 type Ctx = PluginContext<TmdbCreds, TmdbUserCfg, TmdbGlobalCfg>;
@@ -26,7 +25,7 @@ function imageBase(ctx: Ctx): string {
 function resolveKey(ctx: Ctx): string {
   return resolveCredential(
     ctx.credentials?.apiKey,
-    ctx.config.global?.apiKey,
+    ctx.sharedCredentials?.apiKey,
     "no TMDB api key available (user or shared)",
   );
 }

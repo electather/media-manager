@@ -51,7 +51,7 @@ export async function runPluginJob(pluginId: string, jobHandler: string): Promis
     for (const row of rows) {
       try {
         const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
-        const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
+        const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
         const ctx = await pluginRuntime.buildContextForInvocation(
           pluginId,
           row.userId,

@@ -97,10 +97,6 @@ export async function writeConnection(args: {
   const id = crypto.randomUUID();
   const now = Date.now();
   const credEnc = await encryptJson(args.credentials);
-  const userCfgEnc =
-    args.userConfig !== undefined && args.userConfig !== null
-      ? await encryptJson(args.userConfig)
-      : null;
   await db.insert(serviceConnections).values({
     id,
     userId: args.userId,
@@ -111,8 +107,10 @@ export async function writeConnection(args: {
     displayName: args.displayName ?? null,
     encryptedCredentials: credEnc.data,
     credentialsIv: credEnc.iv,
-    encryptedUserConfig: userCfgEnc?.data ?? null,
-    userConfigIv: userCfgEnc?.iv ?? null,
+    userConfig:
+      args.userConfig !== undefined && args.userConfig !== null
+        ? JSON.stringify(args.userConfig)
+        : null,
     tokenExpiresAt: args.tokenExpiresAt ?? null,
     lastVerifiedAt: now,
     createdAt: now,

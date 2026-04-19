@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1776279164345,
-      "tag": "0000_zippy_sage",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1776280359657,
-      "tag": "0001_sweet_vivisector",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1776577553250,
-      "tag": "0002_wide_alex_wilder",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1776598145285,
-      "tag": "0003_cynical_quentin_quire",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1776600000000,
-      "tag": "0004_media_service",
+      "when": 1776625586941,
+      "tag": "0000_concerned_mordo",
       "breakpoints": true
     }
   ]

@@ -49,7 +49,7 @@ export const connectionsService = {
         capabilities?: Record<string, string>;
         userConfigSchema?: unknown;
       };
-      const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
+      const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
       const safeUserConfig = stripSecretFields(manifest.userConfigSchema, userConfig);
       result.push({
         id: row.id,
@@ -88,7 +88,7 @@ export const connectionsService = {
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .get();
     if (!row) throw notFound("connection.not_found", "connection not found");
-    const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
+    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
     const schema = pluginRow
       ? (JSON.parse(pluginRow.manifest) as { userConfigSchema?: unknown }).userConfigSchema
@@ -171,7 +171,8 @@ export const connectionsService = {
 
     // Merge prior userConfig under the incoming payload so omitted secret fields
     // (stripped client-side via stripEmptySecrets) preserve their stored values.
-    const prior = (await decryptJson(row.userConfigIv, row.encryptedUserConfig)) ?? {};
+    const prior =
+      (row.userConfig ? (JSON.parse(row.userConfig) as Record<string, unknown>) : null) ?? {};
     const merged = {
       ...(prior as Record<string, unknown>),
       ...((args.userConfig ?? {}) as Record<string, unknown>),
@@ -194,13 +195,11 @@ export const connectionsService = {
           message,
         });
       }
-      const userEnc = await encryptJson(merged);
       const credEnc = await encryptJson(result.credentials);
       await db
         .update(serviceConnections)
         .set({
-          encryptedUserConfig: userEnc.data,
-          userConfigIv: userEnc.iv,
+          userConfig: JSON.stringify(merged),
           encryptedCredentials: credEnc.data,
           credentialsIv: credEnc.iv,
           lastVerifiedAt: Date.now(),
@@ -220,12 +219,10 @@ export const connectionsService = {
         { message: test.message ?? "unknown" },
       );
     }
-    const enc = await encryptJson(merged);
     await db
       .update(serviceConnections)
       .set({
-        encryptedUserConfig: enc.data,
-        userConfigIv: enc.iv,
+        userConfig: JSON.stringify(merged),
         lastVerifiedAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -288,7 +285,7 @@ export const connectionsService = {
       .get();
     if (!row) return { ok: false, message: "connection not found" };
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
-    const userConfig = await decryptJson(row.userConfigIv, row.encryptedUserConfig);
+    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const result = await pluginRuntime.testConnection(
       row.pluginId,
       args.userId,

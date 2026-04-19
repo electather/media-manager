@@ -28,7 +28,6 @@ export interface PluginRowLite {
   version: string;
   enabled: number;
   globalConfig: string | null;
-  globalConfigIv: string | null;
 }
 
 /**
@@ -97,25 +96,20 @@ export class PluginRuntime {
 
   async setGlobalConfig(pluginId: string, config: unknown): Promise<void> {
     const db = getDb();
-    if (config === null || config === undefined) {
-      await db
-        .update(plugins)
-        .set({ globalConfig: null, globalConfigIv: null, updatedAt: Date.now() })
-        .where(eq(plugins.id, pluginId));
-      return;
-    }
-    const { iv, data } = await encryptJson(config);
     await db
       .update(plugins)
-      .set({ globalConfig: data, globalConfigIv: iv, updatedAt: Date.now() })
+      .set({
+        globalConfig: config !== null && config !== undefined ? JSON.stringify(config) : null,
+        updatedAt: Date.now(),
+      })
       .where(eq(plugins.id, pluginId));
   }
 
   async getGlobalConfig(pluginId: string): Promise<unknown> {
     const db = getDb();
     const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
-    if (!row) return null;
-    return decryptJson(row.globalConfigIv, row.globalConfig);
+    if (!row || !row.globalConfig) return null;
+    return JSON.parse(row.globalConfig);
   }
 
   async setSharedCredentials(pluginId: string, credentials: unknown): Promise<void> {
@@ -155,12 +149,16 @@ export class PluginRuntime {
     userConfig?: unknown,
   ): Promise<PluginContext> {
     const module = await this.getModule(pluginId);
-    const globalConfig = await this.getGlobalConfig(pluginId);
+    const [globalConfig, sharedCredentials] = await Promise.all([
+      this.getGlobalConfig(pluginId),
+      this.getSharedCredentials(pluginId),
+    ]);
     return buildContext({
       pluginId,
       allowedHosts: module.manifest.allowedHosts,
       userId,
       credentials,
+      sharedCredentials: sharedCredentials ?? undefined,
       userConfig,
       globalConfig,
     });

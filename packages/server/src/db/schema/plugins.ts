@@ -14,7 +14,6 @@ export const plugins = sqliteTable("plugins", {
   manifest: text("manifest").notNull(),
   enabled: integer("enabled").notNull().default(1),
   globalConfig: text("global_config"),
-  globalConfigIv: text("global_config_iv"),
   sharedCredentials: text("shared_credentials"),
   sharedCredentialsIv: text("shared_credentials_iv"),
   installedBy: text("installed_by").references(() => user.id, { onDelete: "set null" }),

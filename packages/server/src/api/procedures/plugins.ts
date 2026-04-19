@@ -31,7 +31,7 @@ export const pluginsApp = new Hono()
           version: r.version,
           sourceType: r.sourceType,
           enabled: r.enabled === 1,
-          hasGlobalConfig: !!(r.globalConfig && r.globalConfigIv),
+          hasGlobalConfig: !!r.globalConfig,
           hasSharedCredentials: !!(r.sharedCredentials && r.sharedCredentialsIv),
           manifest,
           installedAt: r.installedAt,

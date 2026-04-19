@@ -7,6 +7,7 @@ export interface BuildContextArgs {
   allowedHosts: string[];
   userId: string | null;
   credentials?: unknown;
+  sharedCredentials?: unknown;
   userConfig?: unknown;
   globalConfig?: unknown;
 }
@@ -17,6 +18,7 @@ export function buildContext(args: BuildContextArgs): PluginContext {
     fetch: buildFetch(args.pluginId, args.allowedHosts),
     log: buildLogger(args.pluginId),
     credentials: args.credentials ?? null,
+    sharedCredentials: args.sharedCredentials ?? null,
     config: {
       global: args.globalConfig ?? null,
       user: args.userConfig ?? null,

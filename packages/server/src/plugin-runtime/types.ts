@@ -60,6 +60,8 @@ export interface PluginContext<TCred = unknown, TUserCfg = unknown, TGlobalCfg =
   fetch(url: string, init?: RequestInit): Promise<Response>;
   log: PluginLogger;
   credentials: TCred;
+  /** Admin-configured shared credentials, available to all users of this plugin. */
+  sharedCredentials: TCred | null;
   config: { global: TGlobalCfg; user: TUserCfg };
   store: PluginStoreApi;
 }

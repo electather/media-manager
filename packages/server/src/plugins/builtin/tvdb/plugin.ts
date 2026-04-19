@@ -8,9 +8,7 @@ interface TvdbCreds {
   apiKey?: string;
 }
 interface TvdbUserCfg {}
-interface TvdbGlobalCfg {
-  apiKey?: string;
-}
+interface TvdbGlobalCfg {}
 
 type Ctx = PluginContext<TvdbCreds, TvdbUserCfg, TvdbGlobalCfg>;
 
@@ -21,8 +19,8 @@ const TOKEN_TTL_SEC = 60 * 60 * 23; // TVDB tokens live ~24h, refresh slightly e
 function resolveKey(ctx: Ctx): string {
   return resolveCredential(
     ctx.credentials?.apiKey,
-    ctx.config.global?.apiKey,
-    "no TVDB api key available (user or global)",
+    ctx.sharedCredentials?.apiKey,
+    "no TVDB api key available (user or shared)",
   );
 }
 
