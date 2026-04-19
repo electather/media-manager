@@ -1,0 +1,85 @@
+import { consola } from "consola";
+import { PluginError } from "./types";
+import type { PluginLogger } from "./types";
+
+/** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards. */
+export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
+  const lower = hostname.toLowerCase();
+  for (const entry of allowedHosts) {
+    const e = entry.toLowerCase();
+    if (e === lower) return true;
+    if (e.startsWith("*.")) {
+      const suffix = e.slice(1);
+      if (lower.endsWith(suffix) && lower.length > suffix.length) return true;
+    }
+  }
+  return false;
+}
+
+/** Simple token-bucket rate limiter shared per plugin id. */
+export class TokenBucket {
+  private tokens: number;
+  private lastRefill: number;
+  constructor(
+    public readonly capacity: number,
+    public readonly refillPerSecond: number,
+  ) {
+    this.tokens = capacity;
+    this.lastRefill = Date.now();
+  }
+  take(n = 1): boolean {
+    const now = Date.now();
+    const elapsed = (now - this.lastRefill) / 1000;
+    this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillPerSecond);
+    this.lastRefill = now;
+    if (this.tokens >= n) {
+      this.tokens -= n;
+      return true;
+    }
+    return false;
+  }
+}
+
+const buckets = new Map<string, TokenBucket>();
+
+export function getBucket(pluginId: string, capacity = 30, refillPerSecond = 5): TokenBucket {
+  let b = buckets.get(pluginId);
+  if (!b) {
+    b = new TokenBucket(capacity, refillPerSecond);
+    buckets.set(pluginId, b);
+  }
+  return b;
+}
+
+/** Builds a fetch function bound to a plugin's allowlist and rate limiter. */
+export function buildFetch(pluginId: string, allowedHosts: string[]) {
+  const bucket = getBucket(pluginId);
+  return async (url: string, init?: RequestInit): Promise<Response> => {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new PluginError("INVALID_URL", `[${pluginId}] invalid URL: ${url}`);
+    }
+    if (!isHostAllowed(parsed.hostname, allowedHosts)) {
+      throw new PluginError(
+        "DISABLED_HOST",
+        `[${pluginId}] host not in allowlist: ${parsed.hostname}`,
+      );
+    }
+    if (!bucket.take()) {
+      throw new PluginError("RATE_LIMITED", `[${pluginId}] rate limit exceeded`);
+    }
+    return fetch(url, init);
+  };
+}
+
+export function buildLogger(pluginId: string): PluginLogger {
+  const tag = `[plugin:${pluginId}]`;
+  return {
+    debug: (...args) => consola.debug(tag, ...args),
+    info: (...args) => consola.info(tag, ...args),
+    warn: (...args) => consola.warn(tag, ...args),
+    error: (...args) => consola.error(tag, ...args),
+  };
+}

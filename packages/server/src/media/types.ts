@@ -1,4 +1,9 @@
-import type { AvailabilityStatus } from "../integrations/types";
+export type AvailabilityStatus =
+  | "available"
+  | "requested"
+  | "processing"
+  | "unavailable"
+  | "unknown";
 
 export interface MediaItem {
   /** Format: "movie:550" or "tv:1396". */

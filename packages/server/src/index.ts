@@ -7,28 +7,25 @@ import { appRouter } from "./api/router";
 import { createMcpHandler } from "./mcp/server";
 import { getDb } from "./db/client";
 import { scheduler } from "./jobs/scheduler";
+import { registerBuiltinPlugins } from "./plugins/builtin";
+import { pluginRuntime } from "./plugin-runtime/runtime";
 
-// Initialize database connection.
-getDb();
+async function bootstrap(): Promise<void> {
+  getDb();
+  registerBuiltinPlugins();
+  await pluginRuntime.bootstrapBuiltins();
+  await scheduler.start();
+}
 
-// Start background jobs.
-scheduler.start();
+await bootstrap();
 
 const app = new Hono();
 
-// Mount Better Auth at /api/auth/*.
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
-
-// Mount Hono RPC router at /api/*.
 app.route("/api", appRouter);
-
-// Mount MCP Streamable HTTP transport at /mcp.
 app.all("/mcp", createMcpHandler());
-
-// Serve static SPA build.
 app.use("/*", serveStatic({ root: "../client/dist" }));
 
-// SPA fallback: serve index.html for any non-API GET that hits a 404.
 app.get("*", async (c) => {
   return c.html(
     await Bun.file("../client/dist/index.html")

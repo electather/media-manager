@@ -3,11 +3,6 @@ import type { ZodRawShape } from "zod";
 import type { Context } from "hono";
 import { MediaService } from "../media/service";
 import { PreferenceEngine } from "../preferences/engine";
-import { TmdbClient } from "../integrations/tmdb/client";
-import { TraktClient } from "../integrations/trakt/client";
-import { SerrClient } from "../integrations/seerr/client";
-import { MemoryCache } from "../cache/memory";
-import { env } from "../env";
 import { discoverTool } from "./tools/discover";
 import { detailsTool } from "./tools/details";
 import { requestTool } from "./tools/request";
@@ -15,22 +10,12 @@ import { activityTool } from "./tools/activity";
 import { feedbackTool } from "./tools/feedback";
 import { accountTool } from "./tools/account";
 
-function buildMediaService(): MediaService {
-  const cache = new MemoryCache();
-  const preferences = new PreferenceEngine();
-
-  const metadata = new TmdbClient({ apiKey: env.TMDB_API_KEY ?? "" });
-  const activity = new TraktClient({ clientId: env.TRAKT_CLIENT_ID ?? "" });
-  const downloads = new SerrClient({
-    baseUrl: env.SEERR_URL ?? "http://localhost:5055",
-    apiKey: "fixme later",
-  });
-
-  return new MediaService(metadata, activity, downloads, cache, preferences);
-}
-
-export function buildMcpServer(): McpServer {
-  const mediaService = buildMediaService();
+/**
+ * Builds a per-user MCP server bound to the plugin-backed MediaService. The userId
+ * must come from the authenticated session; the HTTP handler resolves it per request.
+ */
+export function buildMcpServer(userId: string): McpServer {
+  const mediaService = new MediaService(userId);
   const preferences = new PreferenceEngine();
 
   const server = new McpServer({ name: "ent-mcp", version: "0.0.1" });
@@ -68,8 +53,6 @@ export function buildMcpServer(): McpServer {
  */
 export function createMcpHandler() {
   return async (c: Context) => {
-    // Bootstrap stub — returns a valid JSON-RPC error indicating the transport
-    // is not yet fully configured. This satisfies curl /mcp returning a protocol response.
     if (c.req.method === "GET") {
       return c.json({
         server: "ent-mcp",

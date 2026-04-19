@@ -14,6 +14,7 @@ export const PERMISSIONS = {
   ADMIN_ROLES: "admin:roles",
   ADMIN_SERVER: "admin:server",
   ADMIN_REQUESTS: "admin:requests",
+  ADMIN_PLUGINS: "admin:plugins",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -43,6 +44,7 @@ export const PERMISSION_GROUPS: Array<{ label: string; permissions: Permission[]
       PERMISSIONS.ADMIN_ROLES,
       PERMISSIONS.ADMIN_SERVER,
       PERMISSIONS.ADMIN_REQUESTS,
+      PERMISSIONS.ADMIN_PLUGINS,
     ],
   },
 ];

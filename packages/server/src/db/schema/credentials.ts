@@ -1,10 +1,14 @@
-import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { user } from "./auth";
+import { plugins } from "./plugins";
 
-const serviceEnum = ["trakt", "tmdb", "seerr", "tvdb"] as const;
 const statusEnum = ["connected", "expired", "error", "disconnected"] as const;
 
+/**
+ * One row per user-plugin connection instance. Multiple rows are allowed
+ * per (user, plugin); exactly one may be marked default.
+ */
 export const serviceConnections = sqliteTable(
   "service_connections",
   {
@@ -12,20 +16,24 @@ export const serviceConnections = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    service: text("service", { enum: serviceEnum }).notNull(),
+    pluginId: text("plugin_id")
+      .notNull()
+      .references(() => plugins.id, { onDelete: "cascade" }),
     status: text("status", { enum: statusEnum }).notNull(),
+    enabled: integer("enabled").notNull().default(1),
+    isDefault: integer("is_default").notNull().default(0),
     displayName: text("display_name"),
-    encryptedConfig: text("encrypted_config").notNull(),
-    configIv: text("config_iv").notNull(),
+    encryptedUserConfig: text("encrypted_user_config"),
+    userConfigIv: text("user_config_iv"),
+    encryptedCredentials: text("encrypted_credentials"),
+    credentialsIv: text("credentials_iv"),
     tokenExpiresAt: integer("token_expires_at"),
     lastVerifiedAt: integer("last_verified_at"),
     errorMessage: text("error_message"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (table) => [
-    uniqueIndex("service_connections_user_service_unique").on(table.userId, table.service),
-  ],
+  (table) => [index("service_connections_user_plugin_idx").on(table.userId, table.pluginId)],
 );
 
 export const insertServiceConnectionSchema = createInsertSchema(serviceConnections);

@@ -1,0 +1,26 @@
+import { buildFetch, buildLogger } from "./fetch-policy";
+import { buildStore } from "./host-bridge";
+import type { PluginContext } from "./types";
+
+export interface BuildContextArgs {
+  pluginId: string;
+  allowedHosts: string[];
+  userId: string | null;
+  credentials?: unknown;
+  userConfig?: unknown;
+  globalConfig?: unknown;
+}
+
+/** Builds a fresh PluginContext per invocation. Nothing here is plugin-mutable. */
+export function buildContext(args: BuildContextArgs): PluginContext {
+  return {
+    fetch: buildFetch(args.pluginId, args.allowedHosts),
+    log: buildLogger(args.pluginId),
+    credentials: args.credentials ?? null,
+    config: {
+      global: args.globalConfig ?? null,
+      user: args.userConfig ?? null,
+    },
+    store: buildStore(args.pluginId, args.userId),
+  };
+}
