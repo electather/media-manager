@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  BadgeCheck,
   CogIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
@@ -189,7 +190,13 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
             variant={plugin.isBuiltin ? "secondary" : "outline"}
             className="text-xs font-normal"
           >
-            {plugin.isBuiltin ? "Built-in" : sourceLabel(plugin.sourceType)}
+            {plugin.isBuiltin ? (
+              <>
+                <BadgeCheck /> Built-in
+              </>
+            ) : (
+              sourceLabel(plugin.sourceType)
+            )}
           </Badge>
           {disabled ? (
             <Badge variant="secondary" className="text-xs font-normal">
@@ -316,10 +323,14 @@ function ConfigureDialog({
       try {
         const [configRes, credsRes] = await Promise.all([
           configSchema
-            ? api.plugins[":id"]["global-config"].$get({ param: { id: plugin.id } })
+            ? api.plugins[":id"]["global-config"].$get({
+                param: { id: plugin.id },
+              })
             : null,
           credsSchema
-            ? api.plugins[":id"]["shared-credentials"].$get({ param: { id: plugin.id } })
+            ? api.plugins[":id"]["shared-credentials"].$get({
+                param: { id: plugin.id },
+              })
             : null,
         ]);
         if (configRes) {
@@ -528,7 +539,9 @@ function UninstallDialog({
     setPending(true);
     setTopError(null);
     try {
-      const res = await api.plugins[":id"].$delete({ param: { id: plugin.id } });
+      const res = await api.plugins[":id"].$delete({
+        param: { id: plugin.id },
+      });
       if (!res.ok) {
         const body = (await safeJson(res)) as { error?: string } | null;
         throw new Error(body?.error ?? "Failed to uninstall.");
