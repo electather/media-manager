@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminServerRouteImport } from './routes/_authenticated/admin/server'
 import { Route as AuthenticatedAdminRolesRouteImport } from './routes/_authenticated/admin/roles'
 import { Route as AuthenticatedAdminPluginsRouteImport } from './routes/_authenticated/admin/plugins'
+import { Route as AuthenticatedAdminErrorsRouteImport } from './routes/_authenticated/admin/errors'
 
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/auth',
@@ -121,6 +122,12 @@ const AuthenticatedAdminPluginsRoute =
     path: '/admin/plugins',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminErrorsRoute =
+  AuthenticatedAdminErrorsRouteImport.update({
+    id: '/admin/errors',
+    path: '/admin/errors',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/admin/errors': typeof AuthenticatedAdminErrorsRoute
   '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminServerRoute
@@ -154,6 +162,7 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/errors': typeof AuthenticatedAdminErrorsRoute
   '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminServerRoute
@@ -175,6 +184,7 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/errors': typeof AuthenticatedAdminErrorsRoute
   '/_authenticated/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/_authenticated/admin/roles': typeof AuthenticatedAdminRolesRoute
   '/_authenticated/admin/server': typeof AuthenticatedAdminServerRoute
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/admin/errors'
     | '/admin/plugins'
     | '/admin/roles'
     | '/admin/server'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/'
+    | '/admin/errors'
     | '/admin/plugins'
     | '/admin/roles'
     | '/admin/server'
@@ -235,6 +247,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/_authenticated/'
+    | '/_authenticated/admin/errors'
     | '/_authenticated/admin/plugins'
     | '/_authenticated/admin/roles'
     | '/_authenticated/admin/server'
@@ -375,6 +388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminPluginsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/errors': {
+      id: '/_authenticated/admin/errors'
+      path: '/admin/errors'
+      fullPath: '/admin/errors'
+      preLoaderRoute: typeof AuthenticatedAdminErrorsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -387,6 +407,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminErrorsRoute: typeof AuthenticatedAdminErrorsRoute
   AuthenticatedAdminPluginsRoute: typeof AuthenticatedAdminPluginsRoute
   AuthenticatedAdminRolesRoute: typeof AuthenticatedAdminRolesRoute
   AuthenticatedAdminServerRoute: typeof AuthenticatedAdminServerRoute
@@ -402,6 +423,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminErrorsRoute: AuthenticatedAdminErrorsRoute,
   AuthenticatedAdminPluginsRoute: AuthenticatedAdminPluginsRoute,
   AuthenticatedAdminRolesRoute: AuthenticatedAdminRolesRoute,
   AuthenticatedAdminServerRoute: AuthenticatedAdminServerRoute,

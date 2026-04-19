@@ -4,12 +4,33 @@ import { cacheCleanupJob } from "./cache-cleanup";
 import { listAllPluginJobs, runPluginJob } from "./plugin-jobs";
 import { sweepExpiredStore } from "../plugin-runtime/host-bridge";
 import { sweepPendingAuth } from "../connections/service";
+import { sweepExpiredErrors } from "../errors/retention";
+import { captureError } from "../errors/capture";
+import { runWithRequestContext, newRequestId } from "../errors/request-context";
 
 const jobs: Cron[] = [];
 
 function registerJob(expression: string, name: string, fn: () => Promise<void>): void {
-  const job = new Cron(expression, { name }, () => {
-    fn().catch((err: unknown) => consola.error(`Job ${name} failed`, err));
+  const job = new Cron(expression, { name }, async () => {
+    // Each job tick gets its own request context so any errors captured downstream
+    // chain back to this specific run. Unhandled throws are recorded as "cron" errors.
+    await runWithRequestContext(
+      { requestId: newRequestId(), userId: null, route: `cron:${name}` },
+      async () => {
+        try {
+          await fn();
+        } catch (err) {
+          consola.error(`Job ${name} failed`, err);
+          await captureError(err, {
+            severity: "error",
+            source: "cron",
+            code: "cron.job_failed",
+            route: `cron:${name}`,
+            context: { jobName: name },
+          });
+        }
+      },
+    );
   });
   jobs.push(job);
   consola.debug(`Registered job "${name}" with schedule "${expression}"`);
@@ -35,6 +56,10 @@ export const scheduler = {
     registerJob("*/5 * * * *", "pending-auth-sweep", async () => {
       const n = await sweepPendingAuth();
       if (n > 0) consola.debug(`pending-auth-sweep removed ${n} rows`);
+    });
+    registerJob("0 3 * * *", "error-retention-sweep", async () => {
+      const n = await sweepExpiredErrors();
+      if (n > 0) consola.debug(`error-retention-sweep removed ${n} rows`);
     });
     await registerPluginJobs();
     consola.info(`Scheduler started with ${jobs.length} jobs`);

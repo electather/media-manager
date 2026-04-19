@@ -8,3 +8,4 @@ export * from "./feedback";
 export * from "./preferences";
 export * from "./id-map";
 export * from "./roles";
+export * from "./errors";

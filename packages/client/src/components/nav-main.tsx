@@ -18,6 +18,7 @@ export function NavMain({
     icon: React.ReactNode;
     /** Match any sub-path in addition to the exact route. */
     matchPrefix?: boolean;
+    badge?: React.ReactNode;
   }[];
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -37,6 +38,7 @@ export function NavMain({
               >
                 {item.icon}
                 <span>{item.title}</span>
+                {item.badge}
               </SidebarMenuButton>
             </SidebarMenuItem>
           );

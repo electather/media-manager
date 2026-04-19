@@ -10,6 +10,8 @@ import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
 import { capabilityRegistry } from "./registry";
 import { PluginError } from "./types";
 import type { AuthResult, CapabilitySpec, PluginContext, PluginModule } from "./types";
+import { captureError } from "../errors/capture";
+import { pluginCode } from "../errors/codes";
 
 export interface InvokeArgs {
   pluginId: string;
@@ -219,11 +221,30 @@ export class PluginRuntime {
       if (err instanceof PluginError) throw err;
       const message = err instanceof Error ? err.message : String(err);
       consola.error(`[plugin:${args.pluginId}] ${args.method} threw:`, err);
+      await captureError(err, {
+        severity: "error",
+        source: "plugin",
+        code: pluginCode(args.pluginId, "upstream_error"),
+        pluginId: args.pluginId,
+        userId: args.userId,
+        context: { capability: args.capability, method: args.method, version: args.version },
+      });
       throw new PluginError("UPSTREAM_ERROR", message);
     }
 
     const outputParsed = methodSpec.output.safeParse(result);
     if (!outputParsed.success) {
+      // Plugin returned something that doesn't match its own declared schema. Not fatal
+      // to the caller — we still throw — but the mismatch itself is a "warning" because
+      // it's a plugin bug surfaced at runtime.
+      await captureError(outputParsed.error, {
+        severity: "warning",
+        source: "plugin",
+        code: "plugin.output_invalid",
+        pluginId: args.pluginId,
+        userId: args.userId,
+        context: { capability: args.capability, method: args.method, version: args.version },
+      });
       throw new PluginError(
         "INVALID_OUTPUT",
         `plugin ${args.pluginId} returned invalid output: ${outputParsed.error.message}`,
@@ -260,6 +281,14 @@ export class PluginRuntime {
       return await (fn as NonNullable<PluginModule["startAuth"]>)(ctx, input);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      await captureError(err, {
+        severity: "error",
+        source: "plugin",
+        code: pluginCode(pluginId, "auth_failed"),
+        pluginId,
+        userId,
+        context: { fnName },
+      });
       return { status: "error", code: "UPSTREAM_ERROR", message };
     }
   }
@@ -280,6 +309,13 @@ export class PluginRuntime {
       return await module.testConnection(ctx);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      await captureError(err, {
+        severity: "error",
+        source: "plugin",
+        code: pluginCode(pluginId, "test_failed"),
+        pluginId,
+        userId,
+      });
       return { ok: false, message };
     }
   }

@@ -24,7 +24,10 @@ import {
   ServerIcon,
   TvIcon,
   BoxIcon,
+  TriangleAlertIcon,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 const navMain = [
   { title: "Home", to: "/", icon: <HomeIcon />, matchPrefix: false },
@@ -38,8 +41,36 @@ const navAdmin = [
   { title: "Users", to: "/admin/users", icon: <UsersIcon />, matchPrefix: true },
   { title: "Roles", to: "/admin/roles", icon: <ShieldIcon />, matchPrefix: true },
   { title: "Plugins", to: "/admin/plugins", icon: <BoxIcon />, matchPrefix: true },
+  {
+    title: "Errors",
+    to: "/admin/errors",
+    icon: <TriangleAlertIcon />,
+    matchPrefix: true,
+    badge: <ErrorBadge />,
+  },
   { title: "Server", to: "/admin/server", icon: <ServerIcon />, matchPrefix: true },
 ];
+
+/** Small count badge rendered next to the Errors nav link. Pulls the last-hour count
+ *  from /api/admin/errors/summary; stays quiet when zero to avoid nav noise. */
+function ErrorBadge() {
+  const q = useQuery({
+    queryKey: ["admin", "errors", "summary"],
+    queryFn: async () => {
+      const res = await api.admin.errors.summary.$get();
+      if (!res.ok) return { lastHour: 0 };
+      return (await res.json()) as { lastHour: number };
+    },
+    refetchInterval: 60_000,
+  });
+  const count = q.data?.lastHour ?? 0;
+  if (count === 0) return null;
+  return (
+    <span className="ml-auto inline-flex items-center justify-center rounded-full bg-destructive/15 px-1.5 text-xs font-medium text-destructive">
+      {count}
+    </span>
+  );
+}
 
 const navSecondary = [{ title: "Settings", to: "/settings", icon: <Settings2Icon /> }];
 

@@ -9,9 +9,12 @@ import { getDb } from "./db/client";
 import { scheduler } from "./jobs/scheduler";
 import { registerBuiltinPlugins } from "./plugins/builtin";
 import { pluginRuntime } from "./plugin-runtime/runtime";
+import { registerErrorSink } from "./errors/capture";
+import { DatabaseSink } from "./errors/database-sink";
 
 async function bootstrap(): Promise<void> {
   getDb();
+  registerErrorSink(new DatabaseSink());
   registerBuiltinPlugins();
   await pluginRuntime.bootstrapBuiltins();
   await scheduler.start();

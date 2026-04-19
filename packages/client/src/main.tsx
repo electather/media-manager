@@ -6,6 +6,11 @@ import { routeTree } from "./routeTree.gen";
 import "./globals.css";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { ErrorBoundary } from "./components/error-boundary";
+import { installGlobalErrorHandlers } from "./lib/errors/global-handlers";
+
+installGlobalErrorHandlers();
+
 const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {
@@ -21,11 +26,13 @@ if (!rootEl) throw new Error("Root element not found");
 
 createRoot(rootEl).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <RouterProvider router={router} />
-      </TooltipProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <RouterProvider router={router} />
+        </TooltipProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

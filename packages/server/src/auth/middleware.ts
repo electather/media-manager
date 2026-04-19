@@ -4,16 +4,19 @@ import { auth } from "./config";
 import { getDb } from "../db/client";
 import { userRoles, roles, rolePermissions } from "../db/schema/roles";
 import type { Permission } from "./permissions";
+import { currentRequestContext } from "../errors/request-context";
 
 /** Hono middleware that validates the Better Auth session. */
-export async function requireSession(c: Context, next: Next): Promise<void> {
+export async function requireSession(c: Context, next: Next): Promise<Response | void> {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!session) {
-    c.status(401);
-    c.json({ error: "Unauthorized" });
-    return;
+    return c.json({ error: "Unauthorized" }, 401);
   }
   c.set("session", session);
+  // Attach the user id to the ambient request context so captureError can correlate errors
+  // back to the authenticated user without every caller passing it explicitly.
+  const ctx = currentRequestContext();
+  if (ctx) ctx.userId = session.user.id;
   await next();
 }
 
@@ -25,12 +28,10 @@ export async function requireSession(c: Context, next: Next): Promise<void> {
  * not by rows in role_permissions.
  */
 export function requirePermission(permission: Permission) {
-  return async (c: Context, next: Next): Promise<void> => {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     const session = c.get("session") as { user: { id: string } } | undefined;
     if (!session) {
-      c.status(401);
-      c.json({ error: "Unauthorized" });
-      return;
+      return c.json({ error: "Unauthorized" }, 401);
     }
 
     const db = getDb();
@@ -44,9 +45,7 @@ export function requirePermission(permission: Permission) {
       .get();
 
     if (!userRole) {
-      c.status(403);
-      c.json({ error: "Forbidden" });
-      return;
+      return c.json({ error: "Forbidden" }, 403);
     }
 
     // The system Admin role always has all permissions.
@@ -74,9 +73,7 @@ export function requirePermission(permission: Permission) {
       .get();
 
     if (!allowed) {
-      c.status(403);
-      c.json({ error: "Forbidden" });
-      return;
+      return c.json({ error: "Forbidden" }, 403);
     }
 
     await next();
