@@ -48,7 +48,7 @@ async function tmdbGet(ctx: Ctx, path: string, params: Record<string, unknown> =
   const init = applyAuth(url, key);
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === null) continue;
-    url.searchParams.set(k, String(v));
+    url.searchParams.set(k, String(v as string | number | boolean | bigint));
   }
   const res = await ctx.fetch(url.toString(), init);
   handleHttpStatus(res, "TMDB", {

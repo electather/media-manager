@@ -4,7 +4,12 @@ import { consola } from "consola";
 import { env } from "./env";
 import { auth } from "./auth/config";
 import { appRouter } from "./api/router";
-import { createMcpHandler } from "./mcp/server";
+import {
+  createMcpHandler,
+  oauthAuthorizationServerHandler,
+  oauthProtectedResourceHandler,
+} from "./mcp/server";
+import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { scheduler } from "./jobs/scheduler";
 import { registerBuiltinPlugins } from "./plugins/builtin";
@@ -17,6 +22,7 @@ async function bootstrap(): Promise<void> {
   getDb();
   registerErrorSink(new DatabaseSink());
   registerBuiltinPlugins();
+  bootstrapMcpHostTools();
   await pluginRuntime.bootstrapBuiltins();
   await scheduler.start();
 }
@@ -27,6 +33,10 @@ const app = new Hono();
 
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api", appRouter);
+app.get("/.well-known/oauth-authorization-server", (c) =>
+  oauthAuthorizationServerHandler(c.req.raw),
+);
+app.get("/.well-known/oauth-protected-resource", (c) => oauthProtectedResourceHandler(c.req.raw));
 app.all("/mcp", createMcpHandler());
 app.use("/*", serveStatic({ root: "../client/dist" }));
 

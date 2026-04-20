@@ -12,6 +12,7 @@ import {
   getPrimaryConnection,
   setPrimaryConnection,
 } from "./primary-preference";
+import { callExtension } from "../mcp/extension-dispatch";
 
 /**
  * Functional facade exposing capability-driven dispatch. Most callers should use
@@ -218,5 +219,26 @@ export class MediaService {
       input: { type, limit },
     });
     return result.data ?? [];
+  }
+
+  /**
+   * Invokes a plugin-contributed `ext_*` MCP tool. Resolves the user's
+   * connection for the given plugin, decrypts credentials, and runs the
+   * plugin's `mcpTools[handlerKey]` under its sandbox. Used by the MCP
+   * extension-dispatch wrapper.
+   */
+  async callExtension<T = unknown>(args: {
+    pluginId: string;
+    handlerKey: string;
+    input: unknown;
+    connectionId?: string;
+  }): Promise<T> {
+    return callExtension<T>({
+      userId: this.userId,
+      pluginId: args.pluginId,
+      handlerKey: args.handlerKey,
+      input: args.input,
+      connectionId: args.connectionId,
+    });
   }
 }

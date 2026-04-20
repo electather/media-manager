@@ -50,7 +50,10 @@ function OAuthCallbackPage() {
       pending = JSON.parse(raw) as StoredPending;
     } catch {
       sessionStorage.removeItem("connections.oauthPending");
-      setState({ kind: "error", message: "Pending authorization data was corrupted." });
+      setState({
+        kind: "error",
+        message: "Pending authorization data was corrupted.",
+      });
       return;
     }
     sessionStorage.removeItem("connections.oauthPending");
@@ -61,7 +64,10 @@ function OAuthCallbackPage() {
           json: { nonce: pending.nonce, queryParams },
         });
         if (!res.ok) {
-          const body = (await safeJson(res)) as { error?: string; message?: string } | null;
+          const body = (await safeJson(res)) as {
+            error?: string;
+            message?: string;
+          } | null;
           throw new Error(body?.error ?? body?.message ?? "Authorization failed.");
         }
         setState({ kind: "ok", pluginName: pending.pluginName });

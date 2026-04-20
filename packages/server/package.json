@@ -12,29 +12,31 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env x drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env x drizzle-kit migrate",
-    "test": "vp test"
+    "test": "vp test",
+    "inspect": "cd ../.. && bunx @modelcontextprotocol/inspector bun --cwd packages/server --env-file=$(pwd)/.env src/mcp/stdio.ts"
   },
   "dependencies": {
-    "@hono/zod-validator": "^0.4.3",
-    "@libsql/client": "^0.14.0",
-    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@hono/zod-validator": "^0.7.6",
+    "@libsql/client": "^0.17.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@t3-oss/env-core": "^0.13.8",
-    "better-auth": "^1.2.8",
+    "ajv": "^8.18.0",
+    "better-auth": "^1.6.5",
     "consola": "^3.4.2",
-    "croner": "^9.0.0",
-    "drizzle-orm": "^0.41.0",
-    "drizzle-zod": "^0.7.0",
-    "hono": "^4.7.9",
-    "ioredis": "^5.6.1",
-    "lru-cache": "^11.1.0",
-    "ofetch": "^1.4.1",
+    "croner": "^10.0.1",
+    "drizzle-orm": "^0.45.2",
+    "drizzle-zod": "^0.8.3",
+    "hono": "^4.12.14",
+    "ioredis": "^5.10.1",
+    "lru-cache": "^11.3.5",
+    "ofetch": "^1.5.1",
     "postgres": "^3.4.5",
-    "zod": "^3.24.3"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "drizzle-kit": "^0.30.5",
-    "typescript": "^5.8.3",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "^6.0.3",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   }

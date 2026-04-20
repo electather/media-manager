@@ -1,6 +1,6 @@
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth";
-import { Outlet } from "@tanstack/react-router";
+import { AuthLayout } from "@/components/auth-layout";
 
 export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {
@@ -17,14 +17,3 @@ export const Route = createFileRoute("/auth")({
   },
   component: AuthLayout,
 });
-
-/** Centered page shell used by all authentication routes. */
-function AuthLayout() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm">
-        <Outlet />
-      </div>
-    </div>
-  );
-}

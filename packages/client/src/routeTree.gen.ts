@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OauthRouteRouteImport } from './routes/oauth/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
@@ -29,6 +31,11 @@ import { Route as AuthenticatedAdminRolesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminPluginsRouteImport } from './routes/_authenticated/admin/plugins'
 import { Route as AuthenticatedAdminLogsRouteImport } from './routes/_authenticated/admin/logs'
 
+const OauthRouteRoute = OauthRouteRouteImport.update({
+  id: '/oauth',
+  path: '/oauth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -42,6 +49,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/consent',
+  path: '/consent',
+  getParentRoute: () => OauthRouteRoute,
 } as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/register',
@@ -131,6 +143,7 @@ const AuthenticatedAdminLogsRoute = AuthenticatedAdminLogsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
+  '/oauth': typeof OauthRouteRouteWithChildren
   '/activity': typeof AuthenticatedActivityRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
@@ -141,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/admin/logs': typeof AuthenticatedAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -150,6 +164,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRouteRouteWithChildren
+  '/oauth': typeof OauthRouteRouteWithChildren
   '/activity': typeof AuthenticatedActivityRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
@@ -160,6 +175,7 @@ export interface FileRoutesByTo {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/': typeof AuthenticatedIndexRoute
   '/admin/logs': typeof AuthenticatedAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
@@ -172,6 +188,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
+  '/oauth': typeof OauthRouteRouteWithChildren
   '/_authenticated/activity': typeof AuthenticatedActivityRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/oauth-callback': typeof AuthenticatedOauthCallbackRoute
@@ -182,6 +199,7 @@ export interface FileRoutesById {
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/logs': typeof AuthenticatedAdminLogsRoute
   '/_authenticated/admin/plugins': typeof AuthenticatedAdminPluginsRoute
@@ -195,6 +213,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/oauth'
     | '/activity'
     | '/connections'
     | '/oauth-callback'
@@ -205,6 +224,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/oauth/consent'
     | '/admin/logs'
     | '/admin/plugins'
     | '/admin/roles'
@@ -214,6 +234,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/oauth'
     | '/activity'
     | '/connections'
     | '/oauth-callback'
@@ -224,6 +245,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/oauth/consent'
     | '/'
     | '/admin/logs'
     | '/admin/plugins'
@@ -235,6 +257,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/auth'
+    | '/oauth'
     | '/_authenticated/activity'
     | '/_authenticated/connections'
     | '/_authenticated/oauth-callback'
@@ -245,6 +268,7 @@ export interface FileRouteTypes {
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/oauth/consent'
     | '/_authenticated/'
     | '/_authenticated/admin/logs'
     | '/_authenticated/admin/plugins'
@@ -257,10 +281,18 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  OauthRouteRoute: typeof OauthRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/oauth': {
+      id: '/oauth'
+      path: '/oauth'
+      fullPath: '/oauth'
+      preLoaderRoute: typeof OauthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -281,6 +313,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof OauthRouteRoute
     }
     '/auth/register': {
       id: '/auth/register'
@@ -450,9 +489,22 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
+interface OauthRouteRouteChildren {
+  OauthConsentRoute: typeof OauthConsentRoute
+}
+
+const OauthRouteRouteChildren: OauthRouteRouteChildren = {
+  OauthConsentRoute: OauthConsentRoute,
+}
+
+const OauthRouteRouteWithChildren = OauthRouteRoute._addFileChildren(
+  OauthRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  OauthRouteRoute: OauthRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

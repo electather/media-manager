@@ -19,6 +19,23 @@ const jobEntry = z.object({
   perConnection: z.boolean().optional(),
 });
 
+const mcpToolAnnotations = z
+  .object({
+    destructiveHint: z.boolean().optional(),
+    idempotentHint: z.boolean().optional(),
+    readOnlyHint: z.boolean().optional(),
+  })
+  .optional();
+
+const mcpToolDefinition = z.object({
+  name: z.string().regex(/^[a-z][a-z0-9_]*$/, "tool name must be lower snake_case"),
+  description: z.string().max(400, "description must be ≤ 400 chars"),
+  inputSchema: z.record(z.string(), z.unknown()),
+  outputSchema: z.record(z.string(), z.unknown()),
+  handler: z.string().min(1),
+  annotations: mcpToolAnnotations,
+});
+
 export const pluginManifestSchema = z.object({
   id: z
     .string()
@@ -35,13 +52,14 @@ export const pluginManifestSchema = z.object({
   homepage: z.string().url().optional(),
   sdkVersion: semverRange,
   allowedHosts: z.array(z.string().min(1)).default([]),
-  globalConfigSchema: z.record(z.unknown()).optional(),
-  userConfigSchema: z.record(z.unknown()).optional(),
-  credentialsSchema: z.record(z.unknown()),
+  globalConfigSchema: z.record(z.string(), z.unknown()).optional(),
+  userConfigSchema: z.record(z.string(), z.unknown()).optional(),
+  credentialsSchema: z.record(z.string(), z.unknown()),
   allowsSharedCredentials: z.boolean().optional(),
   auth: z.object({ kind: authKind }),
-  capabilities: z.record(z.string()),
+  capabilities: z.record(z.string(), z.string()),
   jobs: z.array(jobEntry).optional(),
+  mcpTools: z.array(mcpToolDefinition).max(5, "at most 5 mcpTools per plugin").optional(),
 });
 
 export type ValidatedManifest = z.infer<typeof pluginManifestSchema>;

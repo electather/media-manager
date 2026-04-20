@@ -6,6 +6,27 @@ export type JSONSchema = Record<string, unknown>;
 
 export type AuthKind = "form" | "oauth_redirect" | "oauth_device" | "none";
 
+export interface MCPToolAnnotations {
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  readOnlyHint?: boolean;
+}
+
+/**
+ * Declarative MCP tool record declared by either a capability definition or a
+ * plugin manifest. The host prefixes plugin-declared tools with
+ * `ext_<plugin_id>_` before registration.
+ */
+export interface McpToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: JSONSchema;
+  outputSchema: JSONSchema;
+  /** Name of the handler export on the plugin module's `mcpTools` object. */
+  handler: string;
+  annotations?: MCPToolAnnotations;
+}
+
 export interface PluginManifest {
   id: string;
   name: string;
@@ -33,6 +54,11 @@ export interface PluginManifest {
     handler: string;
     perConnection?: boolean;
   }>;
+  /**
+   * Optional plugin-contributed MCP tools. Registered as `ext_<plugin_id>_<name>`.
+   * Capped at 5 per plugin; names and schemas validated at manifest load time.
+   */
+  mcpTools?: McpToolDefinition[];
 }
 
 export interface StoreScopeOpts {
@@ -92,6 +118,13 @@ export interface PluginJobHandler {
   (ctx: PluginContext): Promise<unknown>;
 }
 
+/**
+ * Plugin-contributed MCP tool handler. Receives the same `PluginContext` that
+ * capability methods receive, so the plugin can use `ctx.fetch`, `ctx.store`,
+ * and `ctx.credentials` just like anywhere else.
+ */
+export type McpToolHandler<I = unknown, O = unknown> = (ctx: PluginContext, input: I) => Promise<O>;
+
 export interface PluginModule {
   manifest: PluginManifest;
   startAuth?: (ctx: PluginContext, input: unknown) => Promise<AuthResult>;
@@ -105,6 +138,8 @@ export interface PluginModule {
   testConnection?: (ctx: PluginContext) => Promise<{ ok: boolean; message?: string }>;
   capabilities: Record<string, CapabilityImpl>;
   jobs?: Record<string, PluginJobHandler>;
+  /** Map of handler name → implementation, keyed by `manifest.mcpTools[].handler`. */
+  mcpTools?: Record<string, McpToolHandler>;
 }
 
 export class PluginError extends Error {
@@ -161,6 +196,19 @@ export interface CapabilityMethodSpec<
 /** Dispatch strategy. See `docs/media-service.md` §capability-strategies. */
 export type CapabilityStrategy = "single" | "aggregate" | "primary_with_enrichment";
 
+/** Capability-owned MCP tool — handler is a host-side function. */
+export interface CapabilityMcpTool {
+  /** Tool name as exposed to MCP clients. Must not start with `ext_`. */
+  name: string;
+  description: string;
+  inputSchema: JSONSchema;
+  outputSchema: JSONSchema;
+  requiredScopes: string[];
+  annotations?: MCPToolAnnotations;
+  /** Identifier resolved at registration time to a host module handler. */
+  handlerKey: string;
+}
+
 export interface CapabilityDefinition {
   id: string;
   version: string;
@@ -174,4 +222,6 @@ export interface CapabilityDefinition {
   /** Per-call timeout; treated as `transient_network` for retry/status. */
   defaultTimeoutMs: number;
   methods: Record<string, CapabilityMethodSpec>;
+  /** Optional capability-owned MCP tools registered at host startup. */
+  mcpTools?: CapabilityMcpTool[];
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/user-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +44,7 @@ const MOCK_USER = {
   color: "#8B5CF6",
 };
 
-const MOCK_MCP_ENDPOINT = "https://home-media.lan/mcp/u/alex";
+const MCP_ENDPOINT = `${window.location.origin}/mcp`;
 
 const MOCK_AUTH_APPS: AuthApp[] = [
   {
@@ -89,13 +89,6 @@ function ProfileSection() {
 
   const dirty = name !== MOCK_USER.name || email !== MOCK_USER.email;
 
-  const initials = name
-    .split(/\s+/)
-    .map((s) => s[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -112,11 +105,7 @@ function ProfileSection() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Avatar size="lg">
-          <AvatarFallback style={{ background: MOCK_USER.color, color: "#fff" }}>
-            {initials}
-          </AvatarFallback>
-        </Avatar>
+        <UserAvatar name={name} email={email} size="lg" />
         <div>
           <p className="text-sm font-medium">{name}</p>
           <p className="text-xs text-muted-foreground">Avatar generated from your name.</p>
@@ -215,7 +204,7 @@ function AuthorizedAppsSection() {
         <Field>
           <FieldTitle>Your MCP endpoint</FieldTitle>
           <InputGroup>
-            <InputGroupInput readOnly value={MOCK_MCP_ENDPOINT} className="font-mono text-xs" />
+            <InputGroupInput readOnly value={MCP_ENDPOINT} className="font-mono text-xs" />
             <InputGroupAddon align="inline-end">
               <InputGroupButton onClick={handleCopy} aria-label="Copy endpoint">
                 {copied ? <CheckIcon /> : <CopyIcon />}

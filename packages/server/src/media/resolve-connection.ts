@@ -25,7 +25,7 @@ export type ResolvedConnection =
       userConfig: null;
     };
 
-async function getSharedCredentials(pluginId: string): Promise<unknown | null> {
+async function getSharedCredentials(pluginId: string): Promise<unknown> {
   const db = getDb();
   const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
   if (!row) return null;

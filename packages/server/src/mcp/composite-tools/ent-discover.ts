@@ -1,0 +1,304 @@
+import { dispatchAggregate, dispatchPrimary } from "../../media/dispatcher";
+import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { compactList, type AvailabilityStatus, type CompactMediaResult } from "../response-shapes";
+import { badInput, notConnected } from "../errors";
+import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
+import { formatMediaId } from "../media-id";
+
+type DiscoverMode = "search" | "recommend" | "similar" | "trending" | "discover";
+
+interface EntDiscoverInput {
+  mode: DiscoverMode;
+  query?: string;
+  media_type?: "movie" | "tv" | "any";
+  genres?: string;
+  year_min?: number;
+  year_max?: number;
+  rating_min?: number;
+  limit?: number;
+}
+
+interface DiscoverResponse {
+  results: CompactMediaResult[];
+  total: number;
+  has_more: boolean;
+}
+
+interface StatusEntry {
+  status?: AvailabilityStatus;
+  tmdbId?: string;
+  type?: "movie" | "tv";
+}
+
+interface RatingEntry {
+  item?: { id?: string; ids?: { tmdb_id?: string } };
+  rating?: number;
+}
+
+function resolveMediaType(raw: EntDiscoverInput["media_type"]): "movie" | "tv" | undefined {
+  if (!raw || raw === "any") return undefined;
+  return raw;
+}
+
+function parseGenres(raw: string | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  const items = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return items.length ? items : undefined;
+}
+
+async function buildAvailabilityMap(
+  userId: string,
+  items: CompactMediaResult[],
+): Promise<Map<string, AvailabilityStatus>> {
+  const providers = capabilityRegistry.listProviders("mediaRequest", "v1");
+  if (providers.length === 0 || items.length === 0) return new Map();
+  const map = new Map<string, AvailabilityStatus>();
+  const pairs = items
+    .map((item) => {
+      const [type, tmdbId] = item.id.split(":");
+      if (!type || !tmdbId) return null;
+      return { id: item.id, tmdbId, type: type as "movie" | "tv" };
+    })
+    .filter((v): v is { id: string; tmdbId: string; type: "movie" | "tv" } => v !== null);
+
+  await Promise.all(
+    pairs.map(async (pair) => {
+      try {
+        const result = await dispatchAggregate<StatusEntry[]>({
+          userId,
+          capability: "mediaRequest",
+          version: "v1",
+          method: "checkAvailability",
+          input: { tmdbId: pair.tmdbId, type: pair.type },
+        });
+        const first = (result.data ?? []).find((row) => row && row.status);
+        if (first?.status) map.set(pair.id, first.status);
+      } catch {
+        // Availability is best-effort; ignore per-item failures.
+      }
+    }),
+  );
+  return map;
+}
+
+async function buildUserRatingMap(
+  userId: string,
+  type: "movie" | "tv" | undefined,
+): Promise<Map<string, number>> {
+  const providers = capabilityRegistry.listProviders("ratings", "v1");
+  if (providers.length === 0) return new Map();
+  try {
+    const result = await dispatchAggregate<RatingEntry[]>({
+      userId,
+      capability: "ratings",
+      version: "v1",
+      method: "getRatings",
+      input: type ? { type } : {},
+    });
+    const map = new Map<string, number>();
+    for (const row of result.data ?? []) {
+      if (typeof row.rating !== "number") continue;
+      const id = row.item?.id;
+      if (id) map.set(id, row.rating);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function decorateResults(
+  results: CompactMediaResult[],
+  availability: Map<string, AvailabilityStatus>,
+  userRatings: Map<string, number>,
+): CompactMediaResult[] {
+  return results.map((item) => {
+    const out: CompactMediaResult = { ...item };
+    const status = availability.get(item.id);
+    if (status && status !== "unknown") out.status = status;
+    const rated = userRatings.get(item.id);
+    if (typeof rated === "number" && rated > 0) out.user_rated = rated;
+    return out;
+  });
+}
+
+async function runSearch(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
+  if (!input.query) throw badInput("ent_discover", "query is required when mode=search");
+  const type = resolveMediaType(input.media_type);
+  const result = await dispatchPrimary<Array<{ item: unknown; score?: number }>>({
+    userId,
+    capability: "metadata",
+    version: "v1",
+    method: "search",
+    input: { query: input.query, type, limit: input.limit ?? 10 },
+    mediaType: type,
+  });
+  if (!result.data) throw notConnected("metadata@v1");
+  return compactList(result.data, () => ({}), input.limit);
+}
+
+async function runTrending(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
+  const type = resolveMediaType(input.media_type);
+  const result = await dispatchAggregate<unknown[]>({
+    userId,
+    capability: "recommendations",
+    version: "v1",
+    method: "getTrending",
+    input: { type, limit: input.limit ?? 10 },
+  });
+  return compactList(result.data ?? [], () => ({}), input.limit);
+}
+
+async function runRecommend(
+  userId: string,
+  input: EntDiscoverInput,
+): Promise<CompactMediaResult[]> {
+  const type = resolveMediaType(input.media_type);
+  const result = await dispatchAggregate<unknown[]>({
+    userId,
+    capability: "recommendations",
+    version: "v1",
+    method: "getRecommendations",
+    input: { type, limit: input.limit ?? 10 },
+  });
+  if ((result.data ?? []).length === 0 && result.errors.length > 0) {
+    // Providers returned errors and no data — the caller has nothing connected
+    // productively.
+    throw notConnected("recommendations@v1");
+  }
+  return compactList(result.data ?? [], () => ({}), input.limit);
+}
+
+async function runSimilar(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
+  if (!input.query) throw badInput("ent_discover", "query is required when mode=similar");
+  const type = resolveMediaType(input.media_type);
+  let tmdbId = input.query;
+  let resolvedType: "movie" | "tv" = type ?? "movie";
+  if (input.query.includes(":")) {
+    const [t, id] = input.query.split(":");
+    if ((t === "movie" || t === "tv") && id) {
+      resolvedType = t;
+      tmdbId = id;
+    }
+  } else if (!/^[0-9]+$/.test(input.query)) {
+    // Resolve title to a tmdb id via search.
+    const searchResult = await dispatchPrimary<
+      Array<{ item: { id: string; type: "movie" | "tv" } }>
+    >({
+      userId,
+      capability: "metadata",
+      version: "v1",
+      method: "search",
+      input: { query: input.query, type, limit: 1 },
+      mediaType: type,
+    });
+    const first = (searchResult.data ?? [])[0]?.item;
+    if (!first) throw badInput("ent_discover", `no title matched "${input.query}"`);
+    tmdbId = first.id;
+    resolvedType = first.type;
+  }
+  const result = await dispatchPrimary<unknown[]>({
+    userId,
+    capability: "metadata",
+    version: "v1",
+    method: "getSimilar",
+    input: { id: tmdbId, type: resolvedType },
+    mediaType: resolvedType,
+  });
+  if (!result.data) throw notConnected("metadata@v1");
+  const compact = compactList(result.data, () => ({}), input.limit);
+  return compact.map((item) => ({ ...item, id: item.id || formatMediaId(resolvedType, tmdbId) }));
+}
+
+async function runDiscover(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
+  const genres = parseGenres(input.genres);
+  const result = await dispatchPrimary<unknown[]>({
+    userId,
+    capability: "metadata",
+    version: "v1",
+    method: "discover",
+    input: {
+      ...(genres ? { genres } : {}),
+      ...(typeof input.year_min === "number" ? { yearMin: input.year_min } : {}),
+      ...(typeof input.year_max === "number" ? { yearMax: input.year_max } : {}),
+      ...(typeof input.rating_min === "number" ? { ratingMin: input.rating_min } : {}),
+      limit: input.limit ?? 10,
+    },
+  });
+  if (!result.data) throw notConnected("metadata@v1");
+  return compactList(result.data, () => ({}), input.limit);
+}
+
+async function runMode(
+  ctx: ToolCallContext,
+  input: EntDiscoverInput,
+): Promise<CompactMediaResult[]> {
+  switch (input.mode) {
+    case "search":
+      return runSearch(ctx.userId, input);
+    case "trending":
+      return runTrending(ctx.userId, input);
+    case "recommend":
+      return runRecommend(ctx.userId, input);
+    case "similar":
+      return runSimilar(ctx.userId, input);
+    case "discover":
+      return runDiscover(ctx.userId, input);
+    default: {
+      throw badInput("ent_discover", `unknown mode ${String(input.mode)}`);
+    }
+  }
+}
+
+export const entDiscoverHandler: ToolHandler = async (ctx, rawInput) => {
+  const input = rawInput as EntDiscoverInput;
+  const results = await runMode(ctx, input);
+  const limit = input.limit ?? 10;
+  const mediaType = resolveMediaType(input.media_type);
+  const [availability, userRatings] = await Promise.all([
+    buildAvailabilityMap(ctx.userId, results),
+    buildUserRatingMap(ctx.userId, mediaType),
+  ]);
+  const decorated = decorateResults(results, availability, userRatings);
+  const response: DiscoverResponse = {
+    results: decorated.slice(0, limit),
+    total: decorated.length,
+    has_more: decorated.length > limit,
+  };
+  return response;
+};
+
+export const entDiscoverRegistration: Omit<ToolRegistration, "source"> & { id: string } = {
+  id: "ent_discover",
+  name: "ent_discover",
+  description:
+    "Search, browse, or get personalized recommendations for movies and TV. mode=search for text search, recommend for personalized picks, similar for items like a specific title, trending for popular now, discover for filtered browse.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      mode: { type: "string", enum: ["search", "recommend", "similar", "trending", "discover"] },
+      query: {
+        type: "string",
+        description: "Search text for search mode, or a title/id for similar mode",
+      },
+      media_type: { type: "string", enum: ["movie", "tv", "any"], default: "any" },
+      genres: { type: "string", description: "Comma-separated genre names" },
+      year_min: { type: "integer" },
+      year_max: { type: "integer" },
+      rating_min: { type: "number" },
+      limit: { type: "integer", default: 10, maximum: 25 },
+    },
+    required: ["mode"],
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    additionalProperties: true,
+  },
+  requiredScopes: ["mcp.read"],
+  annotations: { readOnlyHint: true },
+  handler: entDiscoverHandler,
+};

@@ -4,7 +4,7 @@ import { zValidator } from "../../errors/validator";
 
 const updateSettingsSchema = z.object({
   // TODO: expand with actual settings fields.
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
 });
 
 export const settingsApp = new Hono()

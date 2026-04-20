@@ -95,6 +95,36 @@ export async function validatePluginModule(
     throw new PluginError("plugin.missing_auth_fn", "plugins with auth require testConnection");
   }
 
+  // Declared MCP tools must have an exported handler, not start with "ext_" themselves,
+  // and must fit within the 64-char prefixed-name cap.
+  const seenNames = new Set<string>();
+  for (const tool of parsed.data.mcpTools ?? []) {
+    if (tool.name.startsWith("ext_")) {
+      throw new PluginError(
+        "plugin.input_invalid",
+        `plugin tool name "${tool.name}" must not start with "ext_" (the host adds the prefix)`,
+      );
+    }
+    if (seenNames.has(tool.name)) {
+      throw new PluginError("plugin.input_invalid", `duplicate mcpTool name "${tool.name}"`);
+    }
+    seenNames.add(tool.name);
+    const prefixed = `ext_${parsed.data.id}_${tool.name}`;
+    if (prefixed.length > 64) {
+      throw new PluginError(
+        "plugin.input_invalid",
+        `prefixed tool name "${prefixed}" exceeds 64 characters`,
+      );
+    }
+    const handler = module.mcpTools?.[tool.handler];
+    if (typeof handler !== "function") {
+      throw new PluginError(
+        "plugin.missing_method",
+        `mcpTool "${tool.name}" references handler "${tool.handler}" which is not exported`,
+      );
+    }
+  }
+
   return {
     module,
     checksum: await sha256(bytes),

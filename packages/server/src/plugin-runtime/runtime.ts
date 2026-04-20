@@ -12,6 +12,22 @@ import type { AuthResult, CapabilitySpec, PluginContext, PluginModule } from "./
 import { captureError } from "../errors/capture";
 import { pluginCode } from "../errors/codes";
 
+/**
+ * Injected at bootstrap time so `plugin-runtime` does not import the MCP
+ * package directly (the MCP bootstrap calls `callExtension` which imports
+ * `pluginRuntime`, creating an import cycle).
+ */
+interface McpLifecycleHooks {
+  onPluginEnabled(pluginId: string, module: PluginModule): void;
+  onPluginDisabled(pluginId: string): void;
+}
+
+let mcpLifecycleHooks: McpLifecycleHooks | null = null;
+
+export function setMcpLifecycleHooks(hooks: McpLifecycleHooks): void {
+  mcpLifecycleHooks = hooks;
+}
+
 export interface InvokeArgs {
   pluginId: string;
   capability: string;
@@ -67,11 +83,13 @@ export class PluginRuntime {
           })
           .where(eq(plugins.id, builtin.id));
       }
+      const enabled = (existing?.enabled ?? 1) === 1;
       capabilityRegistry.register({
         pluginId: builtin.id,
         module: builtin.module,
-        enabled: (existing?.enabled ?? 1) === 1,
+        enabled,
       });
+      if (enabled) mcpLifecycleHooks?.onPluginEnabled(builtin.id, builtin.module);
     }
     consola.info(`Plugin runtime loaded ${listBuiltins().length} built-in plugins`);
   }
@@ -83,6 +101,12 @@ export class PluginRuntime {
       .set({ enabled: enabled ? 1 : 0, updatedAt: Date.now() })
       .where(eq(plugins.id, pluginId));
     capabilityRegistry.setEnabled(pluginId, enabled);
+    if (!enabled) {
+      mcpLifecycleHooks?.onPluginDisabled(pluginId);
+      return;
+    }
+    const entry = capabilityRegistry.get(pluginId);
+    if (entry) mcpLifecycleHooks?.onPluginEnabled(pluginId, entry.module);
   }
 
   async uninstall(pluginId: string): Promise<void> {
@@ -92,6 +116,7 @@ export class PluginRuntime {
     }
     await db.delete(plugins).where(eq(plugins.id, pluginId));
     capabilityRegistry.unregister(pluginId);
+    mcpLifecycleHooks?.onPluginDisabled(pluginId);
   }
 
   async setGlobalConfig(pluginId: string, config: unknown): Promise<void> {
@@ -313,6 +338,51 @@ export class PluginRuntime {
         userId,
       });
       return { ok: false, message };
+    }
+  }
+
+  /**
+   * Invokes a plugin-declared MCP tool. Looks up the handler on
+   * `module.mcpTools`, builds a PluginContext with the caller's credentials,
+   * and surfaces errors via `PluginError`. Input/output schema validation is
+   * the MCP dispatcher's responsibility; this method only runs the handler.
+   */
+  async invokeMcpTool<T = unknown>(args: {
+    pluginId: string;
+    handlerKey: string;
+    input: unknown;
+    userId: string | null;
+    credentials?: unknown;
+    userConfig?: unknown;
+  }): Promise<T> {
+    const module = await this.getModule(args.pluginId);
+    const fn = module.mcpTools?.[args.handlerKey];
+    if (typeof fn !== "function") {
+      throw new PluginError(
+        "plugin.missing_method",
+        `plugin ${args.pluginId} does not export mcp tool ${args.handlerKey}`,
+      );
+    }
+    const ctx = await this.buildContextForInvocation(
+      args.pluginId,
+      args.userId,
+      args.credentials,
+      args.userConfig,
+    );
+    try {
+      return (await fn(ctx, args.input)) as T;
+    } catch (err) {
+      if (isPluginError(err)) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      await captureError(err, {
+        severity: "error",
+        source: "plugin",
+        code: pluginCode(args.pluginId, "upstream_error"),
+        pluginId: args.pluginId,
+        userId: args.userId,
+        context: { mcpTool: args.handlerKey },
+      });
+      throw new PluginError("plugin.upstream_error", message);
     }
   }
 

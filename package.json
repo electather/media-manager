@@ -10,6 +10,7 @@
     "dev:client": "bun run --cwd packages/client dev",
     "build:client": "bun run --cwd packages/client build",
     "typecheck": "bun run --cwd packages/server tsc --noEmit && bun run --cwd packages/client tsc --noEmit",
+    "inspect": "bunx @modelcontextprotocol/inspector bun --cwd packages/server --env-file=$(pwd)/.env src/mcp/stdio.ts",
     "prepare": "vp config"
   },
   "devDependencies": {

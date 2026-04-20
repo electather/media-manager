@@ -34,6 +34,15 @@ export const HOST_ERROR_CODES = [
   "http.unauthorized",
   "http.invalid_input",
   "http.method_not_allowed",
+  "mcp.ambiguous_target",
+  "mcp.target_not_found",
+  "mcp.forbidden",
+  "mcp.invalid_id",
+  "mcp.not_connected",
+  "mcp.rate_limited",
+  "mcp.tool_not_found",
+  "mcp.output_invalid",
+  "mcp.bad_input",
 ] as const;
 
 export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];
@@ -46,6 +55,8 @@ export interface UserFacingError {
   devMessage: string;
   cause?: unknown;
   requestId?: string;
+  /** Code-specific structured payload. e.g. `candidates` for `mcp.ambiguous_target`. */
+  details?: Record<string, unknown>;
 }
 
 /** Builds a `plugin.<pluginId>.<code>` namespaced identifier for plugin-emitted errors. */

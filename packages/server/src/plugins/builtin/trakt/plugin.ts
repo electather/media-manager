@@ -448,6 +448,18 @@ export default definePlugin({
           type === "movie" ? mapMovie(row as TraktMovie) : mapShow(row as TraktShow),
         );
       },
+
+      async getTrending(ctx, input) {
+        const { type = "movie", limit = 20 } = input as {
+          type?: "movie" | "tv";
+          limit?: number;
+        };
+        const path = type === "movie" ? "/movies/trending" : "/shows/trending";
+        const data = await traktJson<
+          Array<{ watchers: number; movie?: TraktMovie; show?: TraktShow }>
+        >(ctx as Ctx, `${path}?limit=${limit}`);
+        return data.map((row) => (type === "movie" ? mapMovie(row.movie!) : mapShow(row.show!)));
+      },
     },
 
     calendar: {
@@ -492,7 +504,7 @@ export default definePlugin({
         return {
           trakt: ids.trakt ? String(ids.trakt) : undefined,
           tmdb: ids.tmdb ? String(ids.tmdb) : undefined,
-          tvdb: "tvdb" in ids && ids.tvdb ? String(ids.tvdb) : undefined,
+          tvdb: "tvdb" in ids && ids.tvdb ? String(ids.tvdb as number) : undefined,
           imdb: ids.imdb,
         };
       },

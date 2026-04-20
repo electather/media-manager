@@ -110,6 +110,31 @@ export const MetadataV1 = defineCapability({
     ),
     discover: method(discoverFilters, z.array(mediaItem)),
   },
+  mcpTools: [
+    {
+      name: "ent_details",
+      description:
+        "Get enriched details for a specific movie or TV show including metadata, cast, ratings, availability, and your watch status.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: {
+            type: "string",
+            description: "TMDB ID prefixed with type, e.g. 'movie:550' or 'tv:1396'",
+          },
+        },
+        required: ["id"],
+        additionalProperties: false,
+      },
+      outputSchema: {
+        type: "object",
+        additionalProperties: true,
+      },
+      requiredScopes: ["mcp.read"],
+      annotations: { readOnlyHint: true },
+      handlerKey: "ent_details",
+    },
+  ],
 });
 
 export const WatchHistoryV1 = defineCapability({
@@ -181,6 +206,10 @@ export const RecommendationsV1 = defineCapability({
       z.object({ type: mediaType.optional(), limit: z.number().optional() }),
       z.array(mediaItem),
     ),
+    getTrending: method(
+      z.object({ type: mediaType.optional(), limit: z.number().optional() }),
+      z.array(mediaItem),
+    ),
   },
 });
 
@@ -235,6 +264,44 @@ export const MediaRequestV1 = defineCapability({
       ),
     ),
   },
+  mcpTools: [
+    {
+      name: "ent_request",
+      description: "Request a movie or TV show download, or check status of existing requests.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["create", "status"],
+            default: "status",
+          },
+          id: {
+            type: "string",
+            description:
+              "TMDB ID prefixed with type, e.g. 'movie:550'. Required when action=create.",
+          },
+          seasons: {
+            type: "string",
+            description: "For TV: 'all', 'latest', or comma-separated like '1,2,3'",
+          },
+          target: {
+            type: "string",
+            description:
+              "Connection ID when you have multiple request providers. Omit to use default.",
+          },
+        },
+        additionalProperties: false,
+      },
+      outputSchema: {
+        type: "object",
+        additionalProperties: true,
+      },
+      requiredScopes: ["mcp.write.request"],
+      annotations: { destructiveHint: false, idempotentHint: false },
+      handlerKey: "ent_request",
+    },
+  ],
 });
 
 /** Internal-only capability: not invoked directly by callers — only by MediaService id_map gap-fill. */

@@ -10,7 +10,7 @@ export type MediaType = "movie" | "tv";
  * Per-id ownership: which plugin id's contribution is trusted. `"first_writer"`
  * means the first non-null contribution wins. tmdb_id is implicit (it's the key).
  */
-export const ID_OWNERSHIP: Record<IdField, string | "first_writer"> = {
+export const ID_OWNERSHIP: Record<IdField, string> = {
   tvdb_id: "tvdb",
   trakt_id: "trakt",
   trakt_slug: "trakt",
