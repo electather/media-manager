@@ -4,6 +4,8 @@ import { compactList, type AvailabilityStatus, type CompactMediaResult } from ".
 import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
 import { formatMediaId } from "../media-id";
+import { getPreferenceEngine } from "../../preferences";
+import type { MediaItem } from "../../media/types";
 
 type DiscoverMode = "search" | "recommend" | "similar" | "trending" | "discover";
 
@@ -152,24 +154,89 @@ async function runTrending(userId: string, input: EntDiscoverInput): Promise<Com
   return compactList(result.data ?? [], () => ({}), input.limit);
 }
 
+const RECOMMEND_OVERFETCH_MULTIPLIER = 3;
+
 async function runRecommend(
   userId: string,
   input: EntDiscoverInput,
 ): Promise<CompactMediaResult[]> {
   const type = resolveMediaType(input.media_type);
+  const limit = input.limit ?? 10;
   const result = await dispatchAggregate<unknown[]>({
     userId,
     capability: "recommendations",
     version: "v1",
     method: "getRecommendations",
-    input: { type, limit: input.limit ?? 10 },
+    input: { type, limit: limit * RECOMMEND_OVERFETCH_MULTIPLIER },
   });
   if ((result.data ?? []).length === 0 && result.errors.length > 0) {
     // Providers returned errors and no data — the caller has nothing connected
     // productively.
     throw notConnected("recommendations@v1");
   }
-  return compactList(result.data ?? [], () => ({}), input.limit);
+  const compact = compactList(result.data ?? [], () => ({}));
+  return rerankCompactResults(userId, compact, type, limit);
+}
+
+/**
+ * Re-ranks the upstream candidate list through the preference engine. On
+ * first-run users (no profile) the ordering is preserved and no match reasons
+ * are attached — same shape as the pre-engine response.
+ */
+async function rerankCompactResults(
+  userId: string,
+  candidates: CompactMediaResult[],
+  mediaType: "movie" | "tv" | undefined,
+  limit: number,
+): Promise<CompactMediaResult[]> {
+  if (candidates.length === 0) return [];
+  const engine = getPreferenceEngine();
+  const items = candidates.map(compactToMediaItem);
+  const ranked = await engine.rankCandidates(userId, items, {
+    mediaType: mediaType ?? "any",
+  });
+  const byId = new Map(candidates.map((c) => [c.id, c]));
+  const ordered = ranked.map(
+    (entry) => byId.get(entry.item.id) ?? compactFromMediaItem(entry.item),
+  );
+  const top = ordered.slice(0, limit);
+  return Promise.all(
+    top.map(async (item, index) => {
+      const rankedEntry = ranked[index];
+      if (!rankedEntry || rankedEntry.confidence === "low") return item;
+      const reason = engine.renderMatchReason(rankedEntry);
+      return reason ? { ...item, match_reason: reason } : item;
+    }),
+  );
+}
+
+function compactToMediaItem(compact: CompactMediaResult): MediaItem {
+  return {
+    id: compact.id,
+    title: compact.title,
+    year: compact.year ?? 0,
+    type: compact.type,
+    genres: compact.genres ?? [],
+    rating: typeof compact.rating === "number" ? compact.rating : null,
+    overview: compact.overview ?? "",
+    posterUrl: compact.poster ?? null,
+    status: compact.status ?? "unknown",
+    userRating: typeof compact.user_rated === "number" ? compact.user_rated : null,
+    matchReason: compact.match_reason ?? null,
+  };
+}
+
+function compactFromMediaItem(item: MediaItem): CompactMediaResult {
+  return {
+    id: item.id,
+    title: item.title,
+    type: item.type,
+    ...(item.year ? { year: item.year } : {}),
+    ...(item.genres.length > 0 ? { genres: item.genres } : {}),
+    ...(typeof item.rating === "number" ? { rating: Math.round(item.rating * 10) / 10 } : {}),
+    ...(item.overview ? { overview: item.overview } : {}),
+    ...(item.posterUrl ? { poster: item.posterUrl } : {}),
+  };
 }
 
 async function runSimilar(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {

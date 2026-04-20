@@ -1,23 +1,27 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, blob, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { user } from "./auth";
 
-export const preferenceProfiles = sqliteTable("preference_profiles", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .unique()
-    .references(() => user.id, { onDelete: "cascade" }),
-  genreScores: text("genre_scores").notNull(),
-  themeScores: text("theme_scores").notNull(),
-  keywordScores: text("keyword_scores").notNull(),
-  directorScores: text("director_scores").notNull(),
-  actorScores: text("actor_scores").notNull(),
-  ratingStats: text("rating_stats").notNull(),
-  lastComputedAt: integer("last_computed_at").notNull(),
-  createdAt: integer("created_at").notNull(),
-  updatedAt: integer("updated_at").notNull(),
-});
+const profileMediaTypeEnum = ["movie", "tv", "combined"] as const;
+const confidenceEnum = ["low", "medium", "high"] as const;
+
+export const preferenceProfiles = sqliteTable(
+  "preference_profiles",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    mediaType: text("media_type", { enum: profileMediaTypeEnum }).notNull(),
+    features: text("features").notNull(),
+    sampleSize: integer("sample_size").notNull(),
+    confidence: text("confidence", { enum: confidenceEnum }).notNull(),
+    lastRebuiltAt: integer("last_rebuilt_at").notNull(),
+    lastUpdatedAt: integer("last_updated_at").notNull(),
+    embedding: blob("embedding"),
+    embeddingModel: text("embedding_model"),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.mediaType] })],
+);
 
 export const insertPreferenceProfileSchema = createInsertSchema(preferenceProfiles);
 export const selectPreferenceProfileSchema = createSelectSchema(preferenceProfiles);

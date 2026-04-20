@@ -10,7 +10,7 @@ export interface RegisterCoalescedOptions {
   debounceMs: number;
   maxWaitMs?: number;
   scopeKey: (input: unknown) => string;
-  handler: (ctx: JobRunContext, triggerCount: number) => Promise<void>;
+  handler: (ctx: JobRunContext, triggerCount: number, scopeKey: string) => Promise<void>;
   timeoutSec?: number;
   capture?: CaptureMeta;
 }
@@ -87,7 +87,7 @@ export function registerCoalesced(opts: RegisterCoalescedOptions): CoalescedJobH
       timeoutSec: opts.timeoutSec,
       capture: opts.capture,
       coalescedCount: snapshot.triggerCount,
-      handler: (ctx) => opts.handler(ctx, snapshot.triggerCount),
+      handler: (ctx) => opts.handler(ctx, snapshot.triggerCount, scopeKey),
     });
     burst.flushing = flushing.then(() => undefined);
     try {

@@ -1,8 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
-import { getDb } from "../../db/client";
-import { feedback } from "../../db/schema";
 import { dispatchPrimary, dispatchAggregate } from "../../media/dispatcher";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { getPreferenceEngine } from "../../preferences";
 import type { ToolCallContext, ToolHandler } from "../registry";
 import { compactMediaItem, truncate } from "../response-shapes";
 import { parseMediaId } from "../media-id";
@@ -40,16 +38,16 @@ interface RatingEntry {
 async function readOwnFeedback(
   userId: string,
   tmdbId: string,
-): Promise<{ rating: number | null; lastAction: string | null }> {
-  const db = getDb();
-  const row = await db
-    .select()
-    .from(feedback)
-    .where(and(eq(feedback.userId, userId), eq(feedback.tmdbId, tmdbId)))
-    .orderBy(desc(feedback.createdAt))
-    .get();
-  if (!row) return { rating: null, lastAction: null };
-  return { rating: row.rating ?? null, lastAction: row.action };
+  mediaType: "movie" | "tv",
+): Promise<{ rating: number | null; liked?: boolean; noted?: boolean }> {
+  const own = await getPreferenceEngine().getUserFeedbackFor(userId, tmdbId, mediaType);
+  if (!own) return { rating: null };
+  const out: { rating: number | null; liked?: boolean; noted?: boolean } = {
+    rating: typeof own.rated === "number" ? own.rated : null,
+  };
+  if (own.liked !== undefined) out.liked = own.liked;
+  if (own.noted) out.noted = true;
+  return out;
 }
 
 async function readAvailability(
@@ -140,7 +138,7 @@ export const entDetailsHandler: ToolHandler = async (ctx: ToolCallContext, input
   const [availability, aggregatedRatings, ownFeedback] = await Promise.all([
     readAvailability(ctx.userId, parsed.tmdbId, parsed.type),
     readAggregatedRatings(ctx.userId, parsed.tmdbId, parsed.type),
-    readOwnFeedback(ctx.userId, parsed.tmdbId),
+    readOwnFeedback(ctx.userId, parsed.tmdbId, parsed.type),
   ]);
 
   const compact = compactMediaItem(metadata, {

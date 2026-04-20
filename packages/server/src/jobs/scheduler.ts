@@ -2,6 +2,7 @@ import { consola } from "consola";
 import { sweepExpiredStore } from "../plugin-runtime/host-bridge";
 import { sweepPendingAuth } from "../connections/service";
 import { sweepExpiredErrors } from "../errors/retention";
+import { registerPreferenceJobs } from "../preferences/jobs";
 import { cacheCleanupJob } from "./cache-cleanup";
 import { registerAllPluginJobs } from "./plugin-jobs";
 import { registerScheduled } from "./scheduled";
@@ -45,6 +46,8 @@ export const scheduler = {
         if (removed > 0) consola.debug(`error-retention-sweep removed ${removed} rows`);
       },
     });
+
+    registerPreferenceJobs();
 
     const pluginCount = await registerAllPluginJobs();
     const total = (await list()).length;

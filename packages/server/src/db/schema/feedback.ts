@@ -4,6 +4,7 @@ import { user } from "./auth";
 
 const mediaTypeEnum = ["movie", "tv"] as const;
 const actionEnum = ["like", "dislike", "rate", "note"] as const;
+const sentimentEnum = ["positive", "negative", "neutral"] as const;
 
 export const feedback = sqliteTable(
   "feedback",
@@ -17,12 +18,13 @@ export const feedback = sqliteTable(
     action: text("action", { enum: actionEnum }).notNull(),
     rating: integer("rating"),
     note: text("note"),
-    extractedSignals: text("extracted_signals"),
+    noteSentiment: text("note_sentiment", { enum: sentimentEnum }),
+    noteKeywords: text("note_keywords"),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [
-    index("feedback_user_tmdb_idx").on(table.userId, table.tmdbId),
     index("feedback_user_created_at_idx").on(table.userId, table.createdAt),
+    index("feedback_user_item_idx").on(table.userId, table.tmdbId, table.mediaType),
   ],
 );
 

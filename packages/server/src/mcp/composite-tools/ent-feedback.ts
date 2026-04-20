@@ -1,17 +1,17 @@
-import { randomUUID } from "node:crypto";
 import { consola } from "consola";
-import { getDb } from "../../db/client";
-import { feedback } from "../../db/schema";
 import {
   dispatchToConnection,
   listEligibleConnections,
   type EligibleConnection,
 } from "../../media/connection-targeted";
 import { dispatchPrimary } from "../../media/dispatcher";
-import { extractSignals } from "../../preferences/signals";
+import { getPreferenceEngine, feedbackLog } from "../../preferences";
+import * as jobs from "../../jobs";
+import { PREFERENCE_INCREMENTAL_JOB_ID } from "../../preferences/jobs";
 import type { ToolHandler, ToolRegistration } from "../registry";
 import { parseMediaId } from "../media-id";
 import { badInput, targetNotFound } from "../errors";
+import type { MediaItem } from "../../media/types";
 
 type FeedbackAction = "like" | "dislike" | "rate" | "note";
 
@@ -26,7 +26,25 @@ interface EntFeedbackInput {
 interface FeedbackResponse {
   recorded: boolean;
   synced_to: string[];
+  profile_update?: string;
   sync_errors?: Array<{ connection_id: string; message: string }>;
+}
+
+interface MetadataPayload {
+  id?: string;
+  title?: string;
+  year?: number | null;
+  type?: "movie" | "tv";
+  genres?: string[];
+  keywords?: string[];
+  cast?: string[];
+  director?: string | null;
+  runtime?: number | null;
+  originalLanguage?: string | null;
+  posterUrl?: string | null;
+  rating?: number | null;
+  overview?: string;
+  ids?: { tmdb_id?: string };
 }
 
 function pickTargets(
@@ -39,35 +57,13 @@ function pickTargets(
   return [match];
 }
 
-async function writeFeedbackLog(
-  userId: string,
-  input: EntFeedbackInput,
-  tmdbId: string,
-  mediaType: "movie" | "tv",
-): Promise<void> {
-  const signals = input.note ? extractSignals(input.note) : null;
-  await getDb()
-    .insert(feedback)
-    .values({
-      id: randomUUID(),
-      userId,
-      tmdbId,
-      mediaType,
-      action: input.action,
-      rating: input.action === "rate" && typeof input.rating === "number" ? input.rating : null,
-      note: typeof input.note === "string" && input.note.length > 0 ? input.note : null,
-      extractedSignals: signals ? JSON.stringify(signals) : null,
-      createdAt: Date.now(),
-    });
-}
-
-async function loadMediaItemForRating(
+async function loadMetadata(
   userId: string,
   tmdbId: string,
   mediaType: "movie" | "tv",
-): Promise<Record<string, unknown>> {
+): Promise<MetadataPayload | null> {
   try {
-    const details = await dispatchPrimary<Record<string, unknown>>({
+    const details = await dispatchPrimary<MetadataPayload>({
       userId,
       capability: "metadata",
       version: "v1",
@@ -75,22 +71,30 @@ async function loadMediaItemForRating(
       input: { id: tmdbId, type: mediaType },
       mediaType,
     });
-    if (details.data) return details.data;
+    return details.data ?? null;
   } catch (err) {
     consola.debug("[ent_feedback] metadata lookup failed", err);
+    return null;
   }
-  // Minimal MediaItem shape accepted by ratings@v1.setRating. Plugins only use
-  // `id`, `type`, and the id bundle to route the write.
+}
+
+function toMediaItemShape(
+  metadata: MetadataPayload | null,
+  tmdbId: string,
+  mediaType: "movie" | "tv",
+): MediaItem {
   return {
     id: `${mediaType}:${tmdbId}`,
-    title: "",
-    year: null,
+    title: metadata?.title ?? "",
+    year: typeof metadata?.year === "number" ? metadata.year : 0,
     type: mediaType,
-    genres: [],
-    rating: null,
-    overview: "",
-    posterUrl: null,
-    ids: { tmdb_id: tmdbId },
+    genres: metadata?.genres ?? [],
+    rating: typeof metadata?.rating === "number" ? metadata.rating : null,
+    overview: metadata?.overview ?? "",
+    posterUrl: metadata?.posterUrl ?? null,
+    status: "unknown",
+    userRating: null,
+    matchReason: null,
   };
 }
 
@@ -131,6 +135,17 @@ async function fanOutRating(
   return { synced, errors: errors.length ? errors : undefined };
 }
 
+function triggerIncremental(userId: string): void {
+  const entry = jobs.find(PREFERENCE_INCREMENTAL_JOB_ID);
+  if (!entry || entry.kind !== "coalesced") return;
+  const trigger = (
+    entry as unknown as {
+      trigger?: (input: { scopeKey: string } & Record<string, unknown>) => void;
+    }
+  ).trigger;
+  if (typeof trigger === "function") trigger({ scopeKey: userId, userId });
+}
+
 export const entFeedbackHandler: ToolHandler = async (ctx, rawInput) => {
   const input = (rawInput ?? {}) as EntFeedbackInput;
   if (!input.id || !input.action) {
@@ -147,16 +162,46 @@ export const entFeedbackHandler: ToolHandler = async (ctx, rawInput) => {
   }
 
   const parsed = parseMediaId(input.id);
-  await writeFeedbackLog(ctx.userId, input, parsed.tmdbId, parsed.type);
+  const metadata = await loadMetadata(ctx.userId, parsed.tmdbId, parsed.type);
+
+  await feedbackLog.record({
+    userId: ctx.userId,
+    tmdbId: parsed.tmdbId,
+    mediaType: parsed.type,
+    action: input.action,
+    rating: input.rating,
+    note: input.note,
+    itemKeywords: metadata?.keywords ?? [],
+  });
+
+  const mediaItem = toMediaItemShape(metadata, parsed.tmdbId, parsed.type);
+  const engine = getPreferenceEngine();
+  const profileUpdate = await engine.previewFeedbackEffect(ctx.userId, mediaItem, input.action, {
+    rating: input.rating,
+    note: input.note,
+  });
+
+  triggerIncremental(ctx.userId);
 
   const response: FeedbackResponse = { recorded: true, synced_to: [] };
+  if (profileUpdate) response.profile_update = profileUpdate;
 
   if (input.action === "rate") {
     const eligible = await listEligibleConnections(ctx.userId, "ratings", "v1");
     if (eligible.length > 0) {
       const targets = pickTargets(eligible, input.target);
-      const item = await loadMediaItemForRating(ctx.userId, parsed.tmdbId, parsed.type);
-      const fanout = await fanOutRating(ctx.userId, targets, item, input.rating!);
+      const ratingPayload = {
+        id: mediaItem.id,
+        title: mediaItem.title,
+        type: mediaItem.type,
+        year: mediaItem.year,
+        genres: mediaItem.genres,
+        rating: mediaItem.rating,
+        overview: mediaItem.overview,
+        posterUrl: mediaItem.posterUrl,
+        ids: { tmdb_id: parsed.tmdbId },
+      };
+      const fanout = await fanOutRating(ctx.userId, targets, ratingPayload, input.rating!);
       response.synced_to = fanout.synced;
       if (fanout.errors) response.sync_errors = fanout.errors;
     }
@@ -196,6 +241,7 @@ export const entFeedbackRegistration: Omit<ToolRegistration, "source"> & { id: s
     properties: {
       recorded: { type: "boolean" },
       synced_to: { type: "array", items: { type: "string" } },
+      profile_update: { type: "string" },
       sync_errors: {
         type: "array",
         items: {

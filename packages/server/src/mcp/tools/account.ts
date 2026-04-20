@@ -15,7 +15,7 @@ export function accountTool(preferences: PreferenceEngine) {
       switch (input.action) {
         case "get_profile":
         case "get_preferences": {
-          const profile = await preferences.getProfile(input.userId);
+          const profile = await preferences.getProfile(input.userId, "combined");
           return { profile };
         }
       }
