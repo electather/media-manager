@@ -30,6 +30,7 @@ import { Route as AuthenticatedAdminServerRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminRolesRouteImport } from './routes/_authenticated/admin/roles'
 import { Route as AuthenticatedAdminPluginsRouteImport } from './routes/_authenticated/admin/plugins'
 import { Route as AuthenticatedAdminLogsRouteImport } from './routes/_authenticated/admin/logs'
+import { Route as AuthenticatedAdminJobsRouteImport } from './routes/_authenticated/admin/jobs'
 
 const OauthRouteRoute = OauthRouteRouteImport.update({
   id: '/oauth',
@@ -139,6 +140,11 @@ const AuthenticatedAdminLogsRoute = AuthenticatedAdminLogsRouteImport.update({
   path: '/admin/logs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminJobsRoute = AuthenticatedAdminJobsRouteImport.update({
+  id: '/admin/jobs',
+  path: '/admin/jobs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/admin/jobs': typeof AuthenticatedAdminJobsRoute
   '/admin/logs': typeof AuthenticatedAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/': typeof AuthenticatedIndexRoute
+  '/admin/jobs': typeof AuthenticatedAdminJobsRoute
   '/admin/logs': typeof AuthenticatedAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/admin/jobs': typeof AuthenticatedAdminJobsRoute
   '/_authenticated/admin/logs': typeof AuthenticatedAdminLogsRoute
   '/_authenticated/admin/plugins': typeof AuthenticatedAdminPluginsRoute
   '/_authenticated/admin/roles': typeof AuthenticatedAdminRolesRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
+    | '/admin/jobs'
     | '/admin/logs'
     | '/admin/plugins'
     | '/admin/roles'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/'
+    | '/admin/jobs'
     | '/admin/logs'
     | '/admin/plugins'
     | '/admin/roles'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/_authenticated/'
+    | '/_authenticated/admin/jobs'
     | '/_authenticated/admin/logs'
     | '/_authenticated/admin/plugins'
     | '/_authenticated/admin/roles'
@@ -433,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminLogsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/jobs': {
+      id: '/_authenticated/admin/jobs'
+      path: '/admin/jobs'
+      fullPath: '/admin/jobs'
+      preLoaderRoute: typeof AuthenticatedAdminJobsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -445,6 +464,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedAdminJobsRoute: typeof AuthenticatedAdminJobsRoute
   AuthenticatedAdminLogsRoute: typeof AuthenticatedAdminLogsRoute
   AuthenticatedAdminPluginsRoute: typeof AuthenticatedAdminPluginsRoute
   AuthenticatedAdminRolesRoute: typeof AuthenticatedAdminRolesRoute
@@ -461,6 +481,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedAdminJobsRoute: AuthenticatedAdminJobsRoute,
   AuthenticatedAdminLogsRoute: AuthenticatedAdminLogsRoute,
   AuthenticatedAdminPluginsRoute: AuthenticatedAdminPluginsRoute,
   AuthenticatedAdminRolesRoute: AuthenticatedAdminRolesRoute,

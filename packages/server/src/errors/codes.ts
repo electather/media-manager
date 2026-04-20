@@ -43,6 +43,12 @@ export const HOST_ERROR_CODES = [
   "mcp.tool_not_found",
   "mcp.output_invalid",
   "mcp.bad_input",
+  "job.not_found",
+  "job.already_running",
+  "job.disabled",
+  "job.bad_input",
+  "job.wrong_kind",
+  "job.forbidden",
 ] as const;
 
 export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];

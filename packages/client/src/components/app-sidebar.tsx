@@ -25,6 +25,7 @@ import {
   TvIcon,
   BoxIcon,
   TriangleAlertIcon,
+  CalendarClockIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -48,6 +49,7 @@ const navAdmin = [
     matchPrefix: true,
     badge: <ErrorBadge />,
   },
+  { title: "Jobs", to: "/admin/jobs", icon: <CalendarClockIcon />, matchPrefix: true },
   { title: "Server", to: "/admin/server", icon: <ServerIcon />, matchPrefix: true },
 ];
 
