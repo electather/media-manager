@@ -19,9 +19,11 @@ export default defineConfig({
     },
   },
   server: {
+    allowedHosts: ["ended-fisher-cream-saved.trycloudflare.com"],
     proxy: {
       "/api": "http://localhost:3000",
       "/mcp": "http://localhost:3000",
+      "/.well-known": "http://localhost:3000",
     },
   },
 });

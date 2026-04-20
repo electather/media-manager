@@ -117,7 +117,42 @@ export const entAccountRegistration: Omit<ToolRegistration, "source"> & { id: st
   },
   outputSchema: {
     type: "object",
-    additionalProperties: true,
+    properties: {
+      connections: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            plugin_id: { type: "string" },
+            plugin_name: { type: ["string", "null"] },
+            display_name: { type: ["string", "null"] },
+            status: {
+              type: "string",
+              enum: ["connected", "expired", "error", "disconnected"],
+            },
+            enabled: { type: "boolean" },
+            capabilities: { type: "array", items: { type: "string" } },
+            is_default_for_capability: { type: "array", items: { type: "string" } },
+            error_message: { type: "string" },
+          },
+          required: [
+            "id",
+            "plugin_id",
+            "plugin_name",
+            "display_name",
+            "status",
+            "enabled",
+            "capabilities",
+            "is_default_for_capability",
+          ],
+          additionalProperties: false,
+        },
+      },
+      missing_capabilities: { type: "array", items: { type: "string" } },
+    },
+    required: ["connections", "missing_capabilities"],
+    additionalProperties: false,
   },
   requiredScopes: ["mcp.read"],
   annotations: { readOnlyHint: true },

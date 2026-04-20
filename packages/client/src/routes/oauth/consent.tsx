@@ -71,17 +71,19 @@ const HIDDEN_SCOPES = new Set(["openid"]);
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 const searchSchema = z.object({
-  consent_code: z.string().min(1),
   client_id: z.string().min(1),
   scope: z.string().min(1),
 });
 
 export const Route = createFileRoute("/oauth/consent")({
   validateSearch: (search) => searchSchema.parse(search),
-  beforeLoad: async () => {
+  beforeLoad: async ({ location }) => {
     const { data: session } = await authClient.getSession();
     if (!session) {
-      throw redirect({ to: "/auth/login" });
+      throw redirect({
+        to: "/auth/login",
+        search: { redirect: location.href },
+      });
     }
     return { session };
   },
@@ -121,7 +123,7 @@ function InvalidRequestPage() {
 // ─── Consent page ─────────────────────────────────────────────────────────────
 
 function ConsentPage() {
-  const { consent_code, client_id, scope } = Route.useSearch();
+  const { client_id, scope } = Route.useSearch();
   const { session } = Route.useRouteContext();
 
   const scopes = scope.split(/\s+/).filter(Boolean);
@@ -130,18 +132,9 @@ function ConsentPage() {
 
   const mutation = useMutation({
     mutationFn: async (accept: boolean) => {
-      const res = await fetch("/api/auth/oauth2/consent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ accept, consent_code }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? "Consent request failed.");
-      }
-      const { redirectURI } = (await res.json()) as { redirectURI: string };
-      return redirectURI;
+      const { data, error } = await authClient.oauth2.consent({ accept });
+      if (error) throw new Error(error.message ?? "Consent request failed.");
+      return data?.url ?? "/";
     },
     onSuccess: (redirectURI) => {
       window.location.href = redirectURI;

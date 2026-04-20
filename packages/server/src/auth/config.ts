@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { mcp } from "better-auth/plugins";
+import { jwt } from "better-auth/plugins";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { getDb } from "../db/client";
 import { env } from "../env";
 import { MCP_SCOPES } from "../mcp/scopes";
@@ -15,26 +16,32 @@ export const auth = betterAuth({
   database: drizzleAdapter(getDb(), {
     provider: "sqlite",
     schema: {
-      user: schema.user,
-      session: schema.session,
-      account: schema.account,
-      verification: schema.verification,
+      ...schema,
     },
   }),
   emailAndPassword: {
     enabled: true,
   },
   plugins: [
-    mcp({
+    jwt(),
+    oauthProvider({
       loginPage: "/auth/login",
-      resource: env.BETTER_AUTH_URL,
-      oidcConfig: {
-        loginPage: "/auth/login",
-        consentPage: "/oauth/consent",
-        scopes: [...MCP_SCOPES],
+      consentPage: "/oauth/consent",
+      scopes: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      // Accept both trailing-slash and non-trailing-slash forms of the base URL,
+      // since MCP clients derive the resource indicator from discovery metadata
+      // and may append a trailing slash.
+      validAudiences: [env.BETTER_AUTH_URL],
+      advertisedMetadata: {
+        scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       },
     }),
   ],
+  experimental: {
+    joins: true,
+  },
 });
 
 export type Auth = typeof auth;

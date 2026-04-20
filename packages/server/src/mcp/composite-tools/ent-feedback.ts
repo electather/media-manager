@@ -193,7 +193,24 @@ export const entFeedbackRegistration: Omit<ToolRegistration, "source"> & { id: s
   },
   outputSchema: {
     type: "object",
-    additionalProperties: true,
+    properties: {
+      recorded: { type: "boolean" },
+      synced_to: { type: "array", items: { type: "string" } },
+      sync_errors: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            connection_id: { type: "string" },
+            message: { type: "string" },
+          },
+          required: ["connection_id", "message"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["recorded", "synced_to"],
+    additionalProperties: false,
   },
   requiredScopes: ["mcp.write.feedback"],
   annotations: { destructiveHint: false, idempotentHint: false },

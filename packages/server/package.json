@@ -7,15 +7,15 @@
     "./api/router": "./src/api/router.ts"
   },
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env x drizzle-kit generate",
-    "db:migrate": "bun --env-file=../../.env x drizzle-kit migrate",
-    "test": "vp test",
-    "inspect": "cd ../.. && bunx @modelcontextprotocol/inspector bun --cwd packages/server --env-file=$(pwd)/.env src/mcp/stdio.ts"
+    "db:migrate": "bun --env-file=../../.env src/db/migrate.ts",
+    "test": "vp test"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "^1.6.5",
     "@hono/zod-validator": "^0.7.6",
     "@libsql/client": "^0.17.2",
     "@modelcontextprotocol/sdk": "^1.29.0",

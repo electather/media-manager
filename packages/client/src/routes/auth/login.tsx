@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "@tanstack/react-form";
 import { authClient } from "@/lib/auth";
@@ -15,18 +16,26 @@ import {
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/auth/login")({
+  validateSearch: z.object({ redirect: z.string().optional() }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
 
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       const { error } = await authClient.signIn.email({ email, password });
       if (error) throw new Error(error.message ?? "Login failed.");
     },
-    onSuccess: () => navigate({ to: "/" }),
+    onSuccess: () => {
+      if (redirect) {
+        window.location.href = redirect;
+      } else {
+        void navigate({ to: "/" });
+      }
+    },
   });
 
   const socialMutation = useMutation({

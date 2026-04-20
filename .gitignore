@@ -9,3 +9,4 @@ data/
 *.db-wal
 bun.lockb
 packages/client/dist/
+.DS_Store
