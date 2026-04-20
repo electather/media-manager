@@ -147,11 +147,17 @@ export async function dispatchForMcpHandler(
   toolName: string,
   caller: DispatchCaller,
   input: unknown,
-): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
+): Promise<{
+  content: Array<{ type: "text"; text: string }>;
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+}> {
   const result = await dispatchTool(toolName, caller, input);
   if (result.ok) {
+    const value = (result.value ?? {}) as Record<string, unknown>;
     return {
-      content: [{ type: "text", text: JSON.stringify(result.value ?? {}, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+      structuredContent: value,
     };
   }
   return {
