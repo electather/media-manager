@@ -5,7 +5,7 @@ import { pluginError, toErrorMessage } from "../../utils/plugin-error";
 import { handleHttpStatus } from "../../utils/http-status";
 
 interface SeerrCreds {
-  apiKey: string;
+  sessionCookie: string;
   userId: number;
 }
 
@@ -20,16 +20,38 @@ interface SeerrGlobalCfg {
 
 type Ctx = PluginContext<SeerrCreds, SeerrUserCfg, SeerrGlobalCfg>;
 
+const SESSION_COOKIE_NAME = "connect.sid";
+
 function getBaseUrl(ctx: Ctx): string {
   const url = ctx.config.global?.baseUrl;
   if (!url) throw pluginError("plugin.bad_credentials", "Seerr baseUrl not configured by admin");
   return url.replace(/\/$/, "");
 }
 
-function getApiKey(ctx: Ctx): string {
-  const key = ctx.credentials?.apiKey;
-  if (!key) throw pluginError("plugin.token_expired", "Seerr API key missing — please reconnect");
-  return key;
+function getSessionCookie(ctx: Ctx): string {
+  const cookie = ctx.credentials?.sessionCookie;
+  if (!cookie)
+    throw pluginError("plugin.token_expired", "Seerr session missing — please reconnect");
+  return cookie;
+}
+
+// Extracts the `connect.sid=<value>` pair from the Set-Cookie headers returned
+// by Seerr's auth endpoint. Seerr sessions are opaque to the host; we store
+// the pair verbatim and replay it on every request.
+function extractSessionCookie(res: Response): string | null {
+  const list = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : null;
+  const candidates =
+    list ?? (res.headers.get("set-cookie") ? [res.headers.get("set-cookie")!] : []);
+  for (const raw of candidates) {
+    for (const part of raw.split(/,(?=\s*[^;,\s]+=)/)) {
+      const trimmed = part.trim();
+      if (trimmed.toLowerCase().startsWith(`${SESSION_COOKIE_NAME.toLowerCase()}=`)) {
+        const end = trimmed.indexOf(";");
+        return end === -1 ? trimmed : trimmed.slice(0, end);
+      }
+    }
+  }
+  return null;
 }
 
 function handleStatus(res: Response): void {
@@ -38,7 +60,7 @@ function handleStatus(res: Response): void {
 
 async function seerrGet<T>(ctx: Ctx, path: string): Promise<T> {
   const res = await ctx.fetch(`${getBaseUrl(ctx)}/api/v1${path}`, {
-    headers: { "X-Api-Key": getApiKey(ctx) },
+    headers: { Cookie: getSessionCookie(ctx) },
   });
   handleStatus(res);
   if (!res.ok)
@@ -51,7 +73,7 @@ async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promise<T> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "X-Api-Key": getApiKey(ctx),
+      Cookie: getSessionCookie(ctx),
     },
     body: JSON.stringify(body),
   });
@@ -103,9 +125,9 @@ export default definePlugin({
   manifest: {
     id: "seerr",
     name: "Seerr",
-    version: "1.1.0",
+    version: "1.2.0",
     description:
-      "Media request management via Seerr. Admins set the server URL; users authenticate with their account credentials.",
+      "Media request management via Seerr. Admins set the server URL; users sign in with their Seerr email and password and the plugin keeps a session cookie per user.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     // Allow-all because the host is admin-configurable at runtime.
@@ -140,10 +162,10 @@ export default definePlugin({
     credentialsSchema: {
       type: "object",
       properties: {
-        apiKey: { type: "string" },
+        sessionCookie: { type: "string" },
         userId: { type: "number" },
       },
-      required: ["apiKey", "userId"],
+      required: ["sessionCookie", "userId"],
     },
     auth: { kind: "form" },
     capabilities: {
@@ -194,26 +216,21 @@ export default definePlugin({
       };
     }
 
-    // Both Seerr return the full user object from /auth/local.
-    const user = (await authRes.json()) as {
-      id: number;
-      apiKey?: string;
-      userApiKey?: string;
-    };
-
-    const resolvedApiKey = user.apiKey ?? user.userApiKey;
-    if (!resolvedApiKey) {
+    const sessionCookie = extractSessionCookie(authRes);
+    if (!sessionCookie) {
       return {
         status: "error",
         code: "plugin.upstream_error",
-        devMessage: "Seerr did not return an API key — ensure your account has API access enabled",
+        devMessage: "Seerr did not return a session cookie",
       };
     }
+
+    const user = (await authRes.json()) as { id: number };
 
     return {
       status: "completed",
       credentials: {
-        apiKey: resolvedApiKey,
+        sessionCookie,
         userId: user.id,
       },
     };
@@ -222,9 +239,9 @@ export default definePlugin({
   async testConnection(ctx) {
     try {
       const res = await ctx.fetch(`${getBaseUrl(ctx as Ctx)}/api/v1/auth/me`, {
-        headers: { "X-Api-Key": getApiKey(ctx as Ctx) },
+        headers: { Cookie: getSessionCookie(ctx as Ctx) },
       });
-      if (res.status === 401) return { ok: false, message: "API key invalid or expired" };
+      if (res.status === 401) return { ok: false, message: "session invalid or expired" };
       if (!res.ok) return { ok: false, message: `Seerr ${res.status}` };
       return { ok: true };
     } catch (err) {
