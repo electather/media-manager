@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ["ended-fisher-cream-saved.trycloudflare.com"],
+    allowedHosts: ["belts-despite-valve-organization.trycloudflare.com"],
     proxy: {
       "/api": "http://localhost:3000",
       "/mcp": "http://localhost:3000",
