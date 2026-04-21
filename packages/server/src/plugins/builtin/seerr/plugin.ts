@@ -297,16 +297,26 @@ export default definePlugin({
       },
 
       async listRequests(ctx, _input) {
-        const data = await seerrGet<{
-          results: Array<{
-            id: number;
-            type: "movie" | "tv";
-            status: number;
-            createdAt: string;
-            media: { tmdbId: number; title?: string; originalTitle?: string };
-          }>;
-        }>(ctx as Ctx, "/request?take=100&skip=0");
-        return data.results.map((r) => ({
+        type RequestItem = {
+          id: number;
+          type: "movie" | "tv";
+          status: number;
+          createdAt: string;
+          media: { tmdbId: number; title?: string; originalTitle?: string };
+        };
+        const PAGE_SIZE = 100;
+        const all: RequestItem[] = [];
+        let skip = 0;
+        while (true) {
+          const data = await seerrGet<{ results: RequestItem[] }>(
+            ctx as Ctx,
+            `/request?take=${PAGE_SIZE}&skip=${skip}`,
+          );
+          all.push(...data.results);
+          if (data.results.length < PAGE_SIZE) break;
+          skip += PAGE_SIZE;
+        }
+        return all.map((r) => ({
           id: String(r.id),
           tmdbId: String(r.media.tmdbId),
           type: r.type,

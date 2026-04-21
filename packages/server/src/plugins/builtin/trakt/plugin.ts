@@ -48,6 +48,30 @@ async function traktJson<T>(ctx: Ctx, path: string, init: RequestInit = {}): Pro
   return (await res.json()) as T;
 }
 
+// Fetches every page of a paginated Trakt endpoint and returns all items.
+// Uses X-Pagination-Page-Count from the first response to determine how many
+// additional pages exist, then fetches them concurrently.
+async function traktPaginate<T>(ctx: Ctx, basePath: string): Promise<T[]> {
+  const PAGE_SIZE = 1000;
+  const sep = basePath.includes("?") ? "&" : "?";
+  const firstRes = await traktFetch(ctx, `${basePath}${sep}page=1&limit=${PAGE_SIZE}`);
+  handleHttpStatus(firstRes, "Trakt", { on401: "plugin.token_expired" });
+  if (!firstRes.ok)
+    throw pluginError(
+      "plugin.upstream_error",
+      `Trakt ${firstRes.status}: ${await firstRes.text()}`,
+    );
+  const pageCount = Number(firstRes.headers.get("X-Pagination-Page-Count") ?? "1");
+  const firstPage = (await firstRes.json()) as T[];
+  if (pageCount <= 1) return firstPage;
+  const rest = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, i) =>
+      traktJson<T[]>(ctx, `${basePath}${sep}page=${i + 2}&limit=${PAGE_SIZE}`),
+    ),
+  );
+  return ([] as T[]).concat(firstPage, ...rest);
+}
+
 interface TraktMovie {
   ids: { trakt: number; slug: string; imdb?: string; tmdb?: number };
   title: string;
@@ -281,19 +305,18 @@ export default definePlugin({
   capabilities: {
     watchHistory: {
       async getHistory(ctx, input) {
-        const { limit = 50, since } = input as { limit?: number; since?: string };
+        const { since } = input as { since?: string };
         const params = new URLSearchParams();
-        params.set("limit", String(limit));
         if (since) params.set("start_at", since);
-        const data = await traktJson<
-          Array<{
-            id: number;
-            watched_at: string;
-            type: "movie" | "episode";
-            movie?: TraktMovie;
-            show?: TraktShow;
-          }>
-        >(ctx as Ctx, `/sync/history?${params.toString()}`);
+        const query = params.toString();
+        const path = query ? `/sync/history?${query}` : "/sync/history";
+        const data = await traktPaginate<{
+          id: number;
+          watched_at: string;
+          type: "movie" | "episode";
+          movie?: TraktMovie;
+          show?: TraktShow;
+        }>(ctx as Ctx, path);
         return data.map((row) => ({
           item: row.type === "movie" && row.movie ? mapMovie(row.movie) : mapShow(row.show!),
           watchedAt: row.watched_at,
@@ -485,16 +508,13 @@ export default definePlugin({
     },
 
     userComments: {
-      async getComments(ctx, input) {
-        const { limit = 100 } = input as { limit?: number };
-        const data = await traktJson<
-          Array<{
-            type: "movie" | "show";
-            comment: { text: string; created_at: string };
-            movie?: TraktMovie;
-            show?: TraktShow;
-          }>
-        >(ctx as Ctx, `/users/me/comments?limit=${limit}`);
+      async getComments(ctx, _input) {
+        const data = await traktPaginate<{
+          type: "movie" | "show";
+          comment: { text: string; created_at: string };
+          movie?: TraktMovie;
+          show?: TraktShow;
+        }>(ctx as Ctx, "/users/me/comments");
         return data
           .filter((row) => row.movie ?? row.show)
           .map((row) => ({
