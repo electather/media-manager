@@ -22,6 +22,14 @@ export const feedbackLog = {
     const note = typeof input.note === "string" && input.note.length > 0 ? input.note : null;
     const noteSentiment = note ? classifySentiment(note) : null;
     const noteKeywords = note ? extractNoteKeywords(note, input.itemKeywords ?? []) : null;
+    if (note && note.length > 20 && (!noteKeywords || noteKeywords.length === 0)) {
+      console.warn("[feedback-log] non-trivial note produced no keywords", {
+        userId: input.userId,
+        tmdbId: input.tmdbId,
+        noteLength: note.length,
+        itemKeywordCount: (input.itemKeywords ?? []).length,
+      });
+    }
     const row = {
       id: randomUUID(),
       userId: input.userId,

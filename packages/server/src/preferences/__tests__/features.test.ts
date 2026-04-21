@@ -41,6 +41,29 @@ describe("keywords extractor", () => {
       "unreliable narrator": 1,
     });
   });
+
+  it("filters out structural tags", () => {
+    const result = keywordsScorer.extract!(
+      fixture({ keywords: ["aftercreditsstinger", "sequel", "Neo-Noir", "Reboot"] }),
+    );
+    expect(result).toEqual({ "neo-noir": 1 });
+  });
+
+  it("filters out tone descriptors", () => {
+    const result = keywordsScorer.extract!(
+      fixture({ keywords: ["whimsical", "intense", "Unreliable Narrator", "dramatic"] }),
+    );
+    expect(result).toEqual({ "unreliable narrator": 1 });
+  });
+
+  it("passes content keywords alongside filtered ones", () => {
+    const result = keywordsScorer.extract!(
+      fixture({
+        keywords: ["aftercreditsstinger", "heist", "whimsical", "neo-noir", "spin off", "complex"],
+      }),
+    );
+    expect(result).toEqual({ heist: 1, "neo-noir": 1 });
+  });
 });
 
 describe("people extractor", () => {
