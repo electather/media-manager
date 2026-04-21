@@ -57,10 +57,21 @@ export async function rebuildProfile(
   mediaType: ProfileMediaType,
   now: number = Date.now(),
 ): Promise<RebuildResult> {
+  console.log("[preferences:rebuild] start", { userId, mediaType, now });
+
   deps.abortSignal?.throwIfAborted();
   const contributions = await collectContributions(deps, userId, mediaType);
+
   const features = aggregate(contributions, now);
   const pruned = topKPrune(features);
+  console.log("[preferences:rebuild] pruned", {
+    userId,
+    mediaType,
+    counts: Object.fromEntries(
+      Object.entries(pruned).map(([cat, dict]) => [cat, Object.keys(dict).length]),
+    ),
+  });
+
   const normalized = normalizeProfile(pruned);
 
   const profile: PreferenceProfile = {
@@ -73,6 +84,19 @@ export async function rebuildProfile(
     lastUpdatedAt: now,
   };
   await profileStorage.write(profile);
+  const topEntries = (dict: Record<string, number>, n: number) =>
+    Object.entries(dict)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n)
+      .map(([k]) => k);
+  console.log("[preferences:rebuild] done", {
+    userId,
+    mediaType,
+    sampleSize: profile.sampleSize,
+    confidence: profile.confidence,
+    topGenres: topEntries(normalized.genres, 3),
+    topKeywords: topEntries(normalized.keywords, 5),
+  });
   return {
     userId,
     mediaType,
@@ -106,6 +130,15 @@ async function collectContributions(
     deps.provider.getWatchlist(userId),
     deps.provider.getComments(userId),
   ]);
+  console.log("[preferences:rebuild] sources", {
+    userId,
+    mediaType,
+    feedbackRows: feedbackRows.length,
+    history: history.length,
+    ratings: ratings.length,
+    watchlist: watchlist.length,
+    comments: comments.length,
+  });
 
   const perItem = new Map<string, PerItemSignals>();
   for (const record of feedbackRows) {
@@ -129,7 +162,34 @@ async function collectContributions(
     mergeComment(perItem, entry);
   }
 
+  const signalCounts = {
+    rateHigh: 0,
+    rateMid: 0,
+    rateLow: 0,
+    like: 0,
+    dislike: 0,
+    note: 0,
+    completed: 0,
+    watchlist: 0,
+    comment: 0,
+  };
+  for (const s of perItem.values()) {
+    if (s.rate) {
+      const w = rateBucketWeight(s.rate.rating);
+      if (w > 0) signalCounts.rateHigh++;
+      else if (w < 0) signalCounts.rateLow++;
+      else signalCounts.rateMid++;
+    }
+    if (s.like) signalCounts.like++;
+    if (s.dislike) signalCounts.dislike++;
+    if (s.note) signalCounts.note++;
+    if (s.completed) signalCounts.completed++;
+    if (s.watchlisted) signalCounts.watchlist++;
+    if (s.comment) signalCounts.comment++;
+  }
+
   const candidates = [...perItem.entries()].filter(([, s]) => resolveItemWeight(s) !== 0);
+  const zeroWeightDropped = perItem.size - candidates.length;
 
   const CONCURRENCY = 10;
   const output = new Map<string, ItemContribution>();
@@ -157,6 +217,15 @@ async function collectContributions(
       });
     }
   }
+
+  console.log("[preferences:rebuild] contributions", {
+    userId,
+    mediaType,
+    signals: signalCounts,
+    zeroWeightDropped,
+    noFeaturesDropped: candidates.length - output.size,
+    total: output.size,
+  });
   return output;
 }
 
