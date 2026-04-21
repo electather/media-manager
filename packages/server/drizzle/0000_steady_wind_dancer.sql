@@ -213,29 +213,28 @@ CREATE TABLE `feedback` (
 	`action` text NOT NULL,
 	`rating` integer,
 	`note` text,
-	`extracted_signals` text,
+	`note_sentiment` text,
+	`note_keywords` text,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE INDEX `feedback_user_tmdb_idx` ON `feedback` (`user_id`,`tmdb_id`);--> statement-breakpoint
 CREATE INDEX `feedback_user_created_at_idx` ON `feedback` (`user_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `feedback_user_item_idx` ON `feedback` (`user_id`,`tmdb_id`,`media_type`);--> statement-breakpoint
 CREATE TABLE `preference_profiles` (
-	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
-	`genre_scores` text NOT NULL,
-	`theme_scores` text NOT NULL,
-	`keyword_scores` text NOT NULL,
-	`director_scores` text NOT NULL,
-	`actor_scores` text NOT NULL,
-	`rating_stats` text NOT NULL,
-	`last_computed_at` integer NOT NULL,
-	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
+	`media_type` text NOT NULL,
+	`features` text NOT NULL,
+	`sample_size` integer NOT NULL,
+	`confidence` text NOT NULL,
+	`last_rebuilt_at` integer NOT NULL,
+	`last_updated_at` integer NOT NULL,
+	`embedding` blob,
+	`embedding_model` text,
+	PRIMARY KEY(`user_id`, `media_type`),
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `preference_profiles_user_id_unique` ON `preference_profiles` (`user_id`);--> statement-breakpoint
 CREATE TABLE `id_map` (
 	`tmdb_id` text NOT NULL,
 	`media_type` text NOT NULL,
@@ -316,3 +315,38 @@ CREATE TABLE `primary_connections` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`connection_id`) REFERENCES `service_connections`(`id`) ON UPDATE no action ON DELETE cascade
 );
+--> statement-breakpoint
+CREATE TABLE `job_config` (
+	`job_id` text PRIMARY KEY NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	`schedule_override` text,
+	`updated_by` text,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`updated_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE TABLE `job_runs` (
+	`id` text PRIMARY KEY NOT NULL,
+	`job_id` text NOT NULL,
+	`scope_key` text,
+	`status` text NOT NULL,
+	`triggered_by` text NOT NULL,
+	`triggered_by_user_id` text,
+	`started_at` integer NOT NULL,
+	`finished_at` integer,
+	`duration_ms` integer,
+	`request_id` text NOT NULL,
+	`rows_total` integer,
+	`rows_succeeded` integer,
+	`rows_failed` integer,
+	`error_record_id` text,
+	`result` text,
+	`coalesced_count` integer,
+	FOREIGN KEY (`triggered_by_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`error_record_id`) REFERENCES `error_records`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `job_runs_job_started_idx` ON `job_runs` (`job_id`,`started_at`);--> statement-breakpoint
+CREATE INDEX `job_runs_started_idx` ON `job_runs` (`started_at`);--> statement-breakpoint
+CREATE INDEX `job_runs_status_started_idx` ON `job_runs` (`status`,`started_at`);--> statement-breakpoint
+CREATE INDEX `job_runs_request_idx` ON `job_runs` (`request_id`);

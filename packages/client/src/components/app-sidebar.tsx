@@ -35,7 +35,7 @@ const navMain = [
   { title: "Connections", to: "/connections", icon: <PlugIcon />, matchPrefix: true },
   { title: "Activity", to: "/activity", icon: <ClockIcon />, matchPrefix: true },
   { title: "Requests", to: "/requests", icon: <DownloadIcon />, matchPrefix: true },
-  { title: "Taste Profile", to: "/profile", icon: <SparklesIcon />, matchPrefix: true },
+  { title: "Taste profile", to: "/taste", icon: <SparklesIcon />, matchPrefix: true },
 ];
 
 const navAdmin = [

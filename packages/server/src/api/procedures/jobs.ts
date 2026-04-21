@@ -80,13 +80,18 @@ export const adminJobsApp = new Hono()
     });
     return c.json(out);
   })
-  .post("/:id/cancel", async (c) => {
-    const id = c.req.param("id");
-    const entry = requireEntry(id);
-    const cancelled = entry.cancel ? entry.cancel() : false;
-    if (!cancelled) throw jobErrors.wrongKind(id, "no active run to cancel");
-    return c.json({ ok: true });
-  })
+  .post(
+    "/:id/cancel",
+    zValidator("json", z.object({ scopeKey: z.string().optional() }).optional()),
+    async (c) => {
+      const id = c.req.param("id");
+      const entry = requireEntry(id);
+      const scopeKey = c.req.valid("json")?.scopeKey;
+      const cancelled = entry.cancel ? entry.cancel(scopeKey) : false;
+      if (!cancelled) throw jobErrors.wrongKind(id, "no active run to cancel");
+      return c.json({ ok: true });
+    },
+  )
   .post("/:id/config", zValidator("json", configBodySchema), async (c) => {
     const id = c.req.param("id");
     const body = c.req.valid("json");

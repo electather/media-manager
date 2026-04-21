@@ -27,11 +27,11 @@ export function registerPreferenceJobs(): void {
     id: PREFERENCE_DAILY_JOB_ID,
     schedule: "0 2 * * *",
     rowSource: listUsersNeedingRebuild,
-    handler: async (_ctx, row) => {
+    handler: async (ctx, row) => {
       const engine = getPreferenceEngine();
-      await engine.rebuildProfile(row.userId, "movie");
-      await engine.rebuildProfile(row.userId, "tv");
-      await engine.rebuildProfile(row.userId, "combined");
+      await engine.rebuildProfile(row.userId, "movie", ctx.abortSignal);
+      await engine.rebuildProfile(row.userId, "tv", ctx.abortSignal);
+      await engine.rebuildProfile(row.userId, "combined", ctx.abortSignal);
     },
     perRowTimeoutSec: 120,
     runTimeoutSec: 60 * 60,
@@ -52,12 +52,12 @@ export function registerPreferenceJobs(): void {
 
   registerTriggerable<{ userId: string }, { rebuiltAt: number }>({
     id: PREFERENCE_MANUAL_REBUILD_JOB_ID,
-    handler: async (_ctx, input) => {
+    handler: async (ctx, input) => {
       if (!input?.userId) throw new Error("userId is required");
       const engine = getPreferenceEngine();
-      await engine.rebuildProfile(input.userId, "movie");
-      await engine.rebuildProfile(input.userId, "tv");
-      await engine.rebuildProfile(input.userId, "combined");
+      await engine.rebuildProfile(input.userId, "movie", ctx.abortSignal);
+      await engine.rebuildProfile(input.userId, "tv", ctx.abortSignal);
+      await engine.rebuildProfile(input.userId, "combined", ctx.abortSignal);
       return { rebuiltAt: Date.now() };
     },
     scopeKey: (input) => input.userId,
@@ -74,7 +74,7 @@ export function registerPreferenceJobs(): void {
       required: ["userId"],
       additionalProperties: false,
     },
-    timeoutSec: 120,
+    timeoutSec: 600,
   });
 
   consola.debug("[preference] registered daily, incremental, and manual-rebuild jobs");

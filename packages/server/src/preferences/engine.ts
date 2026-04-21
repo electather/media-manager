@@ -69,8 +69,12 @@ export class PreferenceEngine {
     });
   }
 
-  rebuildProfile(userId: string, mediaType: ProfileMediaType): Promise<RebuildResult> {
-    return rebuildProfile({ provider: this.deps.provider }, userId, mediaType);
+  rebuildProfile(
+    userId: string,
+    mediaType: ProfileMediaType,
+    abortSignal?: AbortSignal,
+  ): Promise<RebuildResult> {
+    return rebuildProfile({ provider: this.deps.provider, abortSignal }, userId, mediaType);
   }
 
   applyIncrementalUpdate(userId: string): Promise<UpdateResult> {

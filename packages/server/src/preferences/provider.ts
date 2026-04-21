@@ -15,6 +15,10 @@ export interface PreferenceDataProvider {
   getHistory(userId: string): Promise<HistorySignal[]>;
 
   getAllRatings(userId: string): Promise<RatingSignal[]>;
+
+  getWatchlist(userId: string): Promise<WatchlistSignal[]>;
+
+  getComments(userId: string): Promise<CommentSignal[]>;
 }
 
 export interface HistorySignal {
@@ -29,6 +33,19 @@ export interface RatingSignal {
   mediaType: "movie" | "tv";
   rating: number;
   ratedAt: number;
+}
+
+export interface WatchlistSignal {
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  addedAt: number;
+}
+
+export interface CommentSignal {
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  text: string;
+  createdAt: number;
 }
 
 export interface RawMediaItem {

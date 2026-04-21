@@ -47,6 +47,8 @@ export interface JobHandle {
   id: string;
   kind: JobKind;
   enabled: boolean;
+  /** True only for triggerable/coalesced jobs whose requiredPermission is "admin:jobs". */
+  adminTriggerable: boolean;
   schedule?: string;
   scheduleOverride?: string | null;
   effectiveSchedule?: string;

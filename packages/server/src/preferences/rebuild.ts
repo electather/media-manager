@@ -3,6 +3,7 @@ import { SCORERS, isDictScorer } from "./features";
 import { profileStorage } from "./storage";
 import { normalizeProfile } from "./scoring";
 import type { PreferenceDataProvider } from "./provider";
+import { classifySentiment } from "./sentiment";
 import {
   deriveConfidence,
   emptyFeatures,
@@ -29,6 +30,9 @@ const SIGNAL_WEIGHTS = {
   noteNeutral: 0,
   completed: 0.5,
   watchlist: 0.3,
+  commentPositive: 0.5,
+  commentNegative: -0.5,
+  commentNeutral: 0,
 } as const;
 
 const TOP_K: Record<FeatureCategory, number> = {
@@ -44,6 +48,7 @@ const NOTE_KEYWORD_BOOST = 0.3;
 
 export interface RebuildDeps {
   provider: PreferenceDataProvider;
+  abortSignal?: AbortSignal;
 }
 
 export async function rebuildProfile(
@@ -52,6 +57,7 @@ export async function rebuildProfile(
   mediaType: ProfileMediaType,
   now: number = Date.now(),
 ): Promise<RebuildResult> {
+  deps.abortSignal?.throwIfAborted();
   const contributions = await collectContributions(deps, userId, mediaType);
   const features = aggregate(contributions, now);
   const pruned = topKPrune(features);
@@ -93,10 +99,12 @@ async function collectContributions(
   userId: string,
   mediaType: ProfileMediaType,
 ): Promise<Map<string, ItemContribution>> {
-  const [feedbackRows, history, ratings] = await Promise.all([
+  const [feedbackRows, history, ratings, watchlist, comments] = await Promise.all([
     feedbackLog.readAllForUser(userId),
     deps.provider.getHistory(userId),
     deps.provider.getAllRatings(userId),
+    deps.provider.getWatchlist(userId),
+    deps.provider.getComments(userId),
   ]);
 
   const perItem = new Map<string, PerItemSignals>();
@@ -112,23 +120,42 @@ async function collectContributions(
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeHistory(perItem, entry);
   }
+  for (const entry of watchlist) {
+    if (!includesMediaType(entry.mediaType, mediaType)) continue;
+    mergeWatchlist(perItem, entry);
+  }
+  for (const entry of comments) {
+    if (!includesMediaType(entry.mediaType, mediaType)) continue;
+    mergeComment(perItem, entry);
+  }
 
+  const candidates = [...perItem.entries()].filter(([, s]) => resolveItemWeight(s) !== 0);
+
+  const CONCURRENCY = 10;
   const output = new Map<string, ItemContribution>();
-  for (const [key, signals] of perItem) {
-    const weight = resolveItemWeight(signals);
-    if (weight === 0) continue;
-    const candidate = await deps.provider.getItemFeatures(
-      userId,
-      signals.tmdbId,
-      signals.mediaType,
+  for (let i = 0; i < candidates.length; i += CONCURRENCY) {
+    deps.abortSignal?.throwIfAborted();
+    const batch = candidates.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async ([key, signals]) => {
+        const weight = resolveItemWeight(signals);
+        const candidate = await deps.provider.getItemFeatures(
+          userId,
+          signals.tmdbId,
+          signals.mediaType,
+        );
+        return { key, signals, weight, candidate };
+      }),
     );
-    if (!candidate) continue;
-    output.set(key, {
-      candidate,
-      weight,
-      timestamp: signals.latestAt,
-      noteKeywords: signals.noteKeywords,
-    });
+    for (const { key, signals, weight, candidate } of results) {
+      if (!candidate) continue;
+      output.set(key, {
+        candidate,
+        weight,
+        timestamp: signals.latestAt,
+        noteKeywords: signals.noteKeywords,
+      });
+    }
   }
   return output;
 }
@@ -142,6 +169,8 @@ interface PerItemSignals {
   dislike?: { at: number };
   note?: { sentiment: "positive" | "negative" | "neutral"; at: number };
   completed?: { at: number };
+  watchlisted?: { at: number };
+  comment?: { sentiment: "positive" | "negative" | "neutral"; at: number };
   noteKeywords: string[];
 }
 
@@ -215,6 +244,27 @@ function mergeHistory(
   }
 }
 
+function mergeWatchlist(
+  perItem: Map<string, PerItemSignals>,
+  entry: { tmdbId: string; mediaType: "movie" | "tv"; addedAt: number },
+): void {
+  const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.addedAt);
+  if (!signals.watchlisted || entry.addedAt > signals.watchlisted.at) {
+    signals.watchlisted = { at: entry.addedAt };
+  }
+}
+
+function mergeComment(
+  perItem: Map<string, PerItemSignals>,
+  entry: { tmdbId: string; mediaType: "movie" | "tv"; text: string; createdAt: number },
+): void {
+  const sentiment = classifySentiment(entry.text);
+  const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.createdAt);
+  if (!signals.comment || entry.createdAt > signals.comment.at) {
+    signals.comment = { sentiment, at: entry.createdAt };
+  }
+}
+
 /** Combines the per-source weights into a single signed weight per item. */
 function resolveItemWeight(signals: PerItemSignals): number {
   let total = 0;
@@ -223,6 +273,8 @@ function resolveItemWeight(signals: PerItemSignals): number {
   if (signals.dislike) total += SIGNAL_WEIGHTS.dislike;
   if (signals.note) total += noteWeight(signals.note.sentiment);
   if (signals.completed) total += SIGNAL_WEIGHTS.completed;
+  if (signals.watchlisted) total += SIGNAL_WEIGHTS.watchlist;
+  if (signals.comment) total += commentWeight(signals.comment.sentiment);
   return total;
 }
 
@@ -236,6 +288,12 @@ function noteWeight(sentiment: "positive" | "negative" | "neutral"): number {
   if (sentiment === "positive") return SIGNAL_WEIGHTS.notePositive;
   if (sentiment === "negative") return SIGNAL_WEIGHTS.noteNegative;
   return SIGNAL_WEIGHTS.noteNeutral;
+}
+
+function commentWeight(sentiment: "positive" | "negative" | "neutral"): number {
+  if (sentiment === "positive") return SIGNAL_WEIGHTS.commentPositive;
+  if (sentiment === "negative") return SIGNAL_WEIGHTS.commentNegative;
+  return SIGNAL_WEIGHTS.commentNeutral;
 }
 
 function includesMediaType(itemType: "movie" | "tv", partition: ProfileMediaType): boolean {

@@ -136,6 +136,7 @@ export default definePlugin({
       recommendations: "v1",
       calendar: "v1",
       idResolve: "v1",
+      userComments: "v1",
     },
     jobs: [
       {
@@ -480,6 +481,27 @@ export default definePlugin({
           episodeTitle: row.episode.title,
           airsAt: row.first_aired,
         }));
+      },
+    },
+
+    userComments: {
+      async getComments(ctx, input) {
+        const { limit = 100 } = input as { limit?: number };
+        const data = await traktJson<
+          Array<{
+            type: "movie" | "show";
+            comment: { text: string; created_at: string };
+            movie?: TraktMovie;
+            show?: TraktShow;
+          }>
+        >(ctx as Ctx, `/users/me/comments?limit=${limit}`);
+        return data
+          .filter((row) => row.movie ?? row.show)
+          .map((row) => ({
+            item: row.movie ? mapMovie(row.movie) : mapShow(row.show!),
+            text: row.comment.text,
+            createdAt: row.comment.created_at,
+          }));
       },
     },
 

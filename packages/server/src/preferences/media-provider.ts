@@ -1,6 +1,13 @@
 import { consola } from "consola";
 import { dispatchAggregate, dispatchPrimary } from "../media/dispatcher";
-import type { HistorySignal, PreferenceDataProvider, RatingSignal, RawMediaItem } from "./provider";
+import type {
+  CommentSignal,
+  HistorySignal,
+  PreferenceDataProvider,
+  RatingSignal,
+  RawMediaItem,
+  WatchlistSignal,
+} from "./provider";
 import { toCandidateFeatures } from "./provider";
 import type { CandidateFeatures } from "./types";
 
@@ -22,6 +29,25 @@ interface RatingItem {
   };
   rating?: number;
   ratedAt?: string;
+}
+
+interface WatchlistItem {
+  item?: {
+    ids?: { tmdb_id?: string };
+    id?: string;
+    type?: "movie" | "tv";
+  };
+  addedAt?: string;
+}
+
+interface CommentItem {
+  item?: {
+    ids?: { tmdb_id?: string };
+    id?: string;
+    type?: "movie" | "tv";
+  };
+  text?: string;
+  createdAt?: string;
 }
 
 interface MetadataPayload extends RawMediaItem {
@@ -47,6 +73,7 @@ export class MediaServicePreferenceProvider implements PreferenceDataProvider {
         method: "getDetails",
         input: { id: tmdbId, type: mediaType },
         mediaType,
+        skipCache: true,
       });
       if (!result.data) return null;
       return toCandidateFeatures({ ...result.data, type: mediaType, ids: { tmdb_id: tmdbId } });
@@ -82,6 +109,37 @@ export class MediaServicePreferenceProvider implements PreferenceDataProvider {
       });
       return (result.data ?? []).flatMap(toRatingSignal);
     } catch {
+      return [];
+    }
+  }
+
+  async getWatchlist(userId: string): Promise<WatchlistSignal[]> {
+    try {
+      const result = await dispatchAggregate<WatchlistItem[]>({
+        userId,
+        capability: "watchlist",
+        version: "v1",
+        method: "getWatchlist",
+        input: {},
+      });
+      return (result.data ?? []).flatMap(toWatchlistSignal);
+    } catch {
+      return [];
+    }
+  }
+
+  async getComments(userId: string): Promise<CommentSignal[]> {
+    try {
+      const result = await dispatchAggregate<CommentItem[]>({
+        userId,
+        capability: "userComments",
+        version: "v1",
+        method: "getComments",
+        input: {},
+      });
+      return (result.data ?? []).flatMap(toCommentSignal);
+    } catch (err) {
+      consola.debug("[preference] getComments failed", err);
       return [];
     }
   }
@@ -131,6 +189,20 @@ function splitCombined(id: string | undefined): { type: "movie" | "tv"; id: stri
   const [type, value] = id.split(":");
   if ((type !== "movie" && type !== "tv") || !value) return null;
   return { type, id: value };
+}
+
+function toWatchlistSignal(entry: WatchlistItem): WatchlistSignal[] {
+  const identity = identify(entry.item);
+  if (!identity) return [];
+  const addedAt = parseDate(entry.addedAt) ?? Date.now();
+  return [{ tmdbId: identity.tmdbId, mediaType: identity.type, addedAt }];
+}
+
+function toCommentSignal(entry: CommentItem): CommentSignal[] {
+  const identity = identify(entry.item);
+  if (!identity || !entry.text) return [];
+  const createdAt = parseDate(entry.createdAt) ?? Date.now();
+  return [{ tmdbId: identity.tmdbId, mediaType: identity.type, text: entry.text, createdAt }];
 }
 
 function parseDate(raw: string | undefined): number | null {

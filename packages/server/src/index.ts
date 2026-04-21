@@ -13,6 +13,7 @@ import {
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { scheduler } from "./jobs/scheduler";
+import { markOrphanedRunsFailed } from "./jobs/history";
 import { registerBuiltinPlugins } from "./plugins/builtin";
 import { pluginRuntime } from "./plugin-runtime/runtime";
 import { registerErrorSink } from "./errors/capture";
@@ -22,6 +23,8 @@ import { errorHandler } from "./errors/middleware";
 async function bootstrap(): Promise<void> {
   getDb();
   registerErrorSink(new DatabaseSink());
+  const orphaned = await markOrphanedRunsFailed();
+  if (orphaned > 0) consola.warn(`[jobs] marked ${orphaned} orphaned run(s) as failed on startup`);
   registerBuiltinPlugins();
   bootstrapMcpHostTools();
   await pluginRuntime.bootstrapBuiltins();

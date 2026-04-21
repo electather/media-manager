@@ -65,17 +65,47 @@ function poster(ctx: Ctx, path: string | null): string | null {
   return path ? `${imageBase(ctx)}${path}` : null;
 }
 
+interface Genre {
+  id: number;
+  name: string;
+}
+
+interface CastMember {
+  name: string;
+  order: number;
+}
+
+interface CrewMember {
+  name: string;
+  job: string;
+  department: string;
+}
+
+interface Credits {
+  cast?: CastMember[];
+  crew?: CrewMember[];
+}
+
+interface Keyword {
+  name: string;
+}
+
 interface MovieRaw {
   id: number;
   title?: string;
   original_title?: string;
   release_date?: string;
   genre_ids?: number[];
+  genres?: Genre[];
+  runtime?: number | null;
+  original_language?: string | null;
   vote_average?: number | null;
   overview?: string;
   poster_path?: string | null;
   external_ids?: { imdb_id?: string | null; tvdb_id?: number | null };
   imdb_id?: string | null;
+  credits?: Credits;
+  keywords?: { keywords?: Keyword[] };
 }
 
 interface TvRaw {
@@ -84,10 +114,42 @@ interface TvRaw {
   original_name?: string;
   first_air_date?: string;
   genre_ids?: number[];
+  genres?: Genre[];
+  episode_run_time?: number[];
+  original_language?: string | null;
   vote_average?: number | null;
   overview?: string;
   poster_path?: string | null;
   external_ids?: { imdb_id?: string | null; tvdb_id?: number | null };
+  created_by?: Array<{ name: string }>;
+  credits?: Credits;
+  keywords?: { results?: Keyword[] };
+}
+
+function mapGenres(genres: Genre[] | undefined, genreIds: number[] | undefined): string[] {
+  if (genres && genres.length > 0) return genres.map((g) => g.name);
+  // Search endpoints return genre_ids only; details endpoints return full genre objects.
+  return genreIds ? genreIds.map(String) : [];
+}
+
+function mapCast(credits: Credits | undefined): string[] {
+  return (credits?.cast ?? []).map((m) => m.name);
+}
+
+function mapDirector(credits: Credits | undefined): string | null {
+  return credits?.crew?.find((m) => m.job === "Director")?.name ?? null;
+}
+
+function mapWriters(credits: Credits | undefined): string[] {
+  return (credits?.crew ?? []).filter((m) => m.department === "Writing").map((m) => m.name);
+}
+
+function mapMovieKeywords(kw: MovieRaw["keywords"]): string[] {
+  return (kw?.keywords ?? []).map((k) => k.name);
+}
+
+function mapTvKeywords(kw: TvRaw["keywords"]): string[] {
+  return (kw?.results ?? []).map((k) => k.name);
 }
 
 function mapMovie(ctx: Ctx, m: MovieRaw): unknown {
@@ -98,7 +160,13 @@ function mapMovie(ctx: Ctx, m: MovieRaw): unknown {
     title: m.title || m.original_title || "",
     year: m.release_date ? Number(m.release_date.slice(0, 4)) : null,
     type: "movie",
-    genres: [],
+    genres: mapGenres(m.genres, m.genre_ids),
+    runtime: m.runtime ?? null,
+    originalLanguage: m.original_language ?? null,
+    cast: mapCast(m.credits),
+    director: mapDirector(m.credits),
+    writers: mapWriters(m.credits),
+    keywords: mapMovieKeywords(m.keywords),
     rating: m.vote_average ?? null,
     overview: m.overview ?? "",
     posterUrl: poster(ctx, m.poster_path ?? null),
@@ -118,7 +186,12 @@ function mapShow(ctx: Ctx, s: TvRaw): unknown {
     title: s.name || s.original_name || "",
     year: s.first_air_date ? Number(s.first_air_date.slice(0, 4)) : null,
     type: "tv",
-    genres: [],
+    genres: mapGenres(s.genres, s.genre_ids),
+    runtime: s.episode_run_time?.[0] ?? null,
+    originalLanguage: s.original_language ?? null,
+    cast: mapCast(s.credits),
+    creators: (s.created_by ?? []).map((c) => c.name),
+    keywords: mapTvKeywords(s.keywords),
     rating: s.vote_average ?? null,
     overview: s.overview ?? "",
     posterUrl: poster(ctx, s.poster_path ?? null),
@@ -247,7 +320,9 @@ export default definePlugin({
       async getDetails(ctx, input) {
         const c = ctx as Ctx;
         const { id, type } = input as { id: string; type: "movie" | "tv" };
-        const data = await tmdbGet(c, `/${type}/${id}`, { append_to_response: "external_ids" });
+        const data = await tmdbGet(c, `/${type}/${id}`, {
+          append_to_response: "external_ids,credits,keywords",
+        });
         return type === "movie" ? mapMovie(c, data as MovieRaw) : mapShow(c, data as TvRaw);
       },
 

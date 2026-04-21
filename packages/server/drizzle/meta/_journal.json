@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1776690378414,
-      "tag": "0000_gigantic_zombie",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1776705041407,
-      "tag": "0001_adorable_cardiac",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1777080000000,
-      "tag": "0002_preference_engine",
+      "when": 1776760083491,
+      "tag": "0000_steady_wind_dancer",
       "breakpoints": true
     }
   ]

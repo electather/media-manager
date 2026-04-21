@@ -161,6 +161,20 @@ export async function recentRuns(jobId: string, limit: number): Promise<JobRunSu
   return rows.map(toSummary);
 }
 
+/**
+ * Marks every row still in `running` state as `failed`. Called once at server
+ * startup to clean up records that were never finished because the previous
+ * process was killed or restarted mid-run.
+ */
+export async function markOrphanedRunsFailed(now: number = Date.now()): Promise<number> {
+  const result = await getDb()
+    .update(jobRuns)
+    .set({ status: "failed", finishedAt: now, durationMs: null })
+    .where(eq(jobRuns.status, "running"))
+    .returning({ id: jobRuns.id });
+  return result.length;
+}
+
 /** Returns whether any run for (jobId, scopeKey) is currently in `running` state. */
 export async function hasRunningRow(jobId: string, scopeKey: string | null): Promise<boolean> {
   const filters = [eq(jobRuns.jobId, jobId), eq(jobRuns.status, "running")];

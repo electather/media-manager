@@ -23,6 +23,13 @@ const mediaItem = z.object({
   overview: z.string().default(""),
   posterUrl: z.string().nullable(),
   ids: idBundle,
+  runtime: z.number().nullable().optional(),
+  originalLanguage: z.string().nullable().optional(),
+  cast: z.array(z.string()).optional(),
+  director: z.string().nullable().optional(),
+  writers: z.array(z.string()).optional(),
+  creators: z.array(z.string()).optional(),
+  keywords: z.array(z.string()).optional(),
 });
 
 export type MediaItemShape = z.infer<typeof mediaItem>;
@@ -37,6 +44,12 @@ const historyEntry = z.object({
 const watchlistEntry = z.object({
   item: mediaItem,
   addedAt: z.string(),
+});
+
+const commentEntry = z.object({
+  item: mediaItem,
+  text: z.string(),
+  createdAt: z.string(),
 });
 
 const ratingEntry = z.object({
@@ -377,6 +390,19 @@ export const IdResolveV1 = defineCapability({
   },
 });
 
+export const UserCommentsV1 = defineCapability({
+  id: "userComments",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 15 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
+  methods: {
+    getComments: method(z.object({ limit: z.number().optional() }), z.array(commentEntry)),
+  },
+});
+
 /**
  * Host-side registry of known capabilities. Indexed by `${id}@${version}`.
  */
@@ -389,6 +415,7 @@ export const CAPABILITY_CATALOG = {
   "calendar@v1": CalendarV1,
   "mediaRequest@v1": MediaRequestV1,
   "idResolve@v1": IdResolveV1,
+  "userComments@v1": UserCommentsV1,
 } as const;
 
 export type CapabilityKey = keyof typeof CAPABILITY_CATALOG;

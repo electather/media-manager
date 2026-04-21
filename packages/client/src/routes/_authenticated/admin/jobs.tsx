@@ -92,6 +92,7 @@ interface JobHandle {
   id: string;
   kind: JobKind;
   enabled: boolean;
+  adminTriggerable: boolean;
   schedule?: string;
   scheduleOverride?: string | null;
   effectiveSchedule?: string;
@@ -288,8 +289,10 @@ function JobRow({
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
+      const scopeKey = job.lastRun?.scopeKey ?? undefined;
       const res = await api.admin.jobs[":id"].cancel.$post({
         param: { id: job.id },
+        json: scopeKey ? { scopeKey } : undefined,
       });
       if (!res.ok) throw new Error("cancel failed");
       return res.json();
@@ -298,7 +301,7 @@ function JobRow({
   });
 
   const isRunning = job.lastRun?.status === "running";
-  const isTriggerable = job.kind === "triggerable" || job.kind === "coalesced";
+  const isTriggerable = job.adminTriggerable;
 
   return (
     <TableRow className="group cursor-pointer" onClick={onSelect}>

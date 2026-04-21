@@ -81,6 +81,7 @@ async function toHandle(entry: registry.RegistryEntry): Promise<JobHandle> {
     id: entry.id,
     kind: entry.kind,
     enabled: cfg.enabled,
+    adminTriggerable: entry.requiredPermission === "admin:jobs",
     schedule: entry.schedule,
     scheduleOverride: cfg.scheduleOverride,
     effectiveSchedule: effective,

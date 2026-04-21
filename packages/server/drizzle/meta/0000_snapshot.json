@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "39cd4f0b-31a1-4db4-ab5f-0beefdb61fdc",
+  "id": "c231942d-781e-436c-8ad1-f47eb3c0d686",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -1409,8 +1409,15 @@
           "notNull": false,
           "autoincrement": false
         },
-        "extracted_signals": {
-          "name": "extracted_signals",
+        "note_sentiment": {
+          "name": "note_sentiment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note_keywords": {
+          "name": "note_keywords",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -1425,14 +1432,14 @@
         }
       },
       "indexes": {
-        "feedback_user_tmdb_idx": {
-          "name": "feedback_user_tmdb_idx",
-          "columns": ["user_id", "tmdb_id"],
-          "isUnique": false
-        },
         "feedback_user_created_at_idx": {
           "name": "feedback_user_created_at_idx",
           "columns": ["user_id", "created_at"],
+          "isUnique": false
+        },
+        "feedback_user_item_idx": {
+          "name": "feedback_user_item_idx",
+          "columns": ["user_id", "tmdb_id", "media_type"],
           "isUnique": false
         }
       },
@@ -1454,13 +1461,6 @@
     "preference_profiles": {
       "name": "preference_profiles",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
         "user_id": {
           "name": "user_id",
           "type": "text",
@@ -1468,77 +1468,64 @@
           "notNull": true,
           "autoincrement": false
         },
-        "genre_scores": {
-          "name": "genre_scores",
+        "media_type": {
+          "name": "media_type",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "theme_scores": {
-          "name": "theme_scores",
+        "features": {
+          "name": "features",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "keyword_scores": {
-          "name": "keyword_scores",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "director_scores": {
-          "name": "director_scores",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "actor_scores": {
-          "name": "actor_scores",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rating_stats": {
-          "name": "rating_stats",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_computed_at": {
-          "name": "last_computed_at",
+        "sample_size": {
+          "name": "sample_size",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
+        "confidence": {
+          "name": "confidence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_rebuilt_at": {
+          "name": "last_rebuilt_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "updated_at": {
-          "name": "updated_at",
+        "last_updated_at": {
+          "name": "last_updated_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "embedding_model": {
+          "name": "embedding_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },
-      "indexes": {
-        "preference_profiles_user_id_unique": {
-          "name": "preference_profiles_user_id_unique",
-          "columns": ["user_id"],
-          "isUnique": true
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "preference_profiles_user_id_user_id_fk": {
           "name": "preference_profiles_user_id_user_id_fk",
@@ -1550,7 +1537,12 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "preference_profiles_user_id_media_type_pk": {
+          "columns": ["user_id", "media_type"],
+          "name": "preference_profiles_user_id_media_type_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -2044,6 +2036,224 @@
           "name": "primary_connections_user_id_capability_key_media_type_pk"
         }
       },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "job_config": {
+      "name": "job_config",
+      "columns": {
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "schedule_override": {
+          "name": "schedule_override",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "job_config_updated_by_user_id_fk": {
+          "name": "job_config_updated_by_user_id_fk",
+          "tableFrom": "job_config",
+          "tableTo": "user",
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "job_runs": {
+      "name": "job_runs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "triggered_by": {
+          "name": "triggered_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "triggered_by_user_id": {
+          "name": "triggered_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rows_total": {
+          "name": "rows_total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rows_succeeded": {
+          "name": "rows_succeeded",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rows_failed": {
+          "name": "rows_failed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "error_record_id": {
+          "name": "error_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "coalesced_count": {
+          "name": "coalesced_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "job_runs_job_started_idx": {
+          "name": "job_runs_job_started_idx",
+          "columns": ["job_id", "started_at"],
+          "isUnique": false
+        },
+        "job_runs_started_idx": {
+          "name": "job_runs_started_idx",
+          "columns": ["started_at"],
+          "isUnique": false
+        },
+        "job_runs_status_started_idx": {
+          "name": "job_runs_status_started_idx",
+          "columns": ["status", "started_at"],
+          "isUnique": false
+        },
+        "job_runs_request_idx": {
+          "name": "job_runs_request_idx",
+          "columns": ["request_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "job_runs_triggered_by_user_id_user_id_fk": {
+          "name": "job_runs_triggered_by_user_id_user_id_fk",
+          "tableFrom": "job_runs",
+          "tableTo": "user",
+          "columnsFrom": ["triggered_by_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "job_runs_error_record_id_error_records_id_fk": {
+          "name": "job_runs_error_record_id_error_records_id_fk",
+          "tableFrom": "job_runs",
+          "tableTo": "error_records",
+          "columnsFrom": ["error_record_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     }

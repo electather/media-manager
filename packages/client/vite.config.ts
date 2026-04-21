@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ["belts-despite-valve-organization.trycloudflare.com"],
+    allowedHosts: ["complicated-enlargement-buildings-tube.trycloudflare.com"],
     proxy: {
       "/api": "http://localhost:3000",
       "/mcp": "http://localhost:3000",

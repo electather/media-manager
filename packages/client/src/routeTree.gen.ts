@@ -17,6 +17,7 @@ import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
+import { Route as AuthenticatedTasteRouteImport } from './routes/_authenticated/taste'
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRequestsRouteImport } from './routes/_authenticated/requests'
@@ -70,6 +71,11 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthenticatedTasteRoute = AuthenticatedTasteRouteImport.update({
+  id: '/taste',
+  path: '/taste',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
   id: '/setup',
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/requests': typeof AuthenticatedRequestsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/setup': typeof AuthenticatedSetupRoute
+  '/taste': typeof AuthenticatedTasteRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/requests': typeof AuthenticatedRequestsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/setup': typeof AuthenticatedSetupRoute
+  '/taste': typeof AuthenticatedTasteRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/_authenticated/requests': typeof AuthenticatedRequestsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
+  '/_authenticated/taste': typeof AuthenticatedTasteRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/requests'
     | '/settings'
     | '/setup'
+    | '/taste'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/requests'
     | '/settings'
     | '/setup'
+    | '/taste'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/requests'
     | '/_authenticated/settings'
     | '/_authenticated/setup'
+    | '/_authenticated/taste'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
@@ -353,6 +365,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/forgot-password'
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/_authenticated/taste': {
+      id: '/_authenticated/taste'
+      path: '/taste'
+      fullPath: '/taste'
+      preLoaderRoute: typeof AuthenticatedTasteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/setup': {
       id: '/_authenticated/setup'
@@ -463,6 +482,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRequestsRoute: typeof AuthenticatedRequestsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
+  AuthenticatedTasteRoute: typeof AuthenticatedTasteRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedAdminJobsRoute: typeof AuthenticatedAdminJobsRoute
   AuthenticatedAdminLogsRoute: typeof AuthenticatedAdminLogsRoute
@@ -480,6 +500,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRequestsRoute: AuthenticatedRequestsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
+  AuthenticatedTasteRoute: AuthenticatedTasteRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedAdminJobsRoute: AuthenticatedAdminJobsRoute,
   AuthenticatedAdminLogsRoute: AuthenticatedAdminLogsRoute,
