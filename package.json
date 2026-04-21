@@ -14,7 +14,7 @@
     "prepare": "vp config"
   },
   "devDependencies": {
-    "vite-plus": "catalog:"
+    "vite-plus": "^0.1.18"
   },
   "overrides": {
     "vite": "catalog:",
@@ -24,6 +24,11 @@
   "catalog": {
     "vite": "npm:@voidzero-dev/vite-plus-core@latest",
     "vitest": "npm:@voidzero-dev/vite-plus-test@latest",
-    "vite-plus": "latest"
+    "vite-plus": "latest",
+    "@better-auth/oauth-provider": "^1.6.5",
+    "better-auth": "^1.6.5",
+    "hono": "^4.12.14",
+    "typescript": "^6.0.0",
+    "zod": "^4.3.6"
   }
 }

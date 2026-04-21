@@ -15,28 +15,28 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@better-auth/oauth-provider": "^1.6.5",
+    "@better-auth/oauth-provider": "catalog:",
     "@hono/zod-validator": "^0.7.6",
     "@libsql/client": "^0.17.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@t3-oss/env-core": "^0.13.8",
+    "@t3-oss/env-core": "^0.13.11",
     "ajv": "^8.18.0",
-    "better-auth": "^1.6.5",
+    "better-auth": "catalog:",
     "consola": "^3.4.2",
     "croner": "^10.0.1",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
-    "hono": "^4.12.14",
+    "hono": "catalog:",
     "ioredis": "^5.10.1",
     "lru-cache": "^11.3.5",
     "ofetch": "^1.5.1",
-    "postgres": "^3.4.5",
-    "zod": "^4.3.6"
+    "postgres": "^3.4.9",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.3",
+    "typescript": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   }
