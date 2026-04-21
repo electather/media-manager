@@ -7,17 +7,20 @@ import { zValidator } from "../../errors/validator";
 import * as jobs from "../../jobs";
 import { jobErrors } from "../../jobs/errors";
 import type { RegistryEntry } from "../../jobs/registry";
-import { recentRuns } from "../../jobs/history";
+import { recentRunsFiltered, getRunDetail } from "../../jobs/history";
 
 const triggerBodySchema = z.unknown().optional();
 
 const configBodySchema = z.object({
   enabled: z.boolean().optional(),
   scheduleOverride: z.string().nullable().optional(),
+  logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
 });
 
 const runsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
+  scopeKey: z.string().optional(),
+  status: z.string().optional(),
 });
 
 function requireEntry(jobId: string): RegistryEntry {
@@ -26,14 +29,10 @@ function requireEntry(jobId: string): RegistryEntry {
   return entry;
 }
 
-function requireTriggerable(entry: RegistryEntry): void {
-  if (entry.kind !== "triggerable") {
-    throw jobErrors.wrongKind(entry.id, `job ${entry.id} is not triggerable`);
+function requireAdminTriggerable(entry: RegistryEntry): void {
+  if (!entry.triggerFromApi) {
+    throw jobErrors.wrongKind(entry.id, `job ${entry.id} is not admin-triggerable`);
   }
-}
-
-async function loadRuns(jobId: string, limit: number) {
-  return recentRuns(jobId, limit);
 }
 
 // ─── Admin endpoints (admin:jobs) ─────────────────────────────────────────────
@@ -49,16 +48,36 @@ export const adminJobsApp = new Hono()
     const id = c.req.param("id");
     const handle = await jobs.describe(id);
     if (!handle) throw jobErrors.notFound(id);
-    const runs = await loadRuns(id, c.req.valid("query").limit);
+    const { limit, scopeKey, status } = c.req.valid("query");
+    const runs = await recentRunsFiltered(id, limit, scopeKey, status);
     return c.json({ job: handle, runs });
+  })
+  .get("/:id/runs/:runId", async (c) => {
+    const id = c.req.param("id");
+    const runId = c.req.param("runId");
+    requireEntry(id);
+    const run = await getRunDetail(runId);
+    if (!run || run.jobId !== id) throw jobErrors.notFound(id);
+    return c.json({ run });
   })
   .post("/:id/trigger", zValidator("json", triggerBodySchema), async (c) => {
     const id = c.req.param("id");
     const entry = requireEntry(id);
-    requireTriggerable(entry);
-    if (entry.requiredPermission !== "admin:jobs") {
-      throw jobErrors.wrongKind(id, "job is not reachable from admin trigger");
+
+    // Admin can trigger:
+    // 1. adminTriggerable scheduled / scheduled_per_row jobs (no input)
+    // 2. admin:jobs-required triggerable jobs (with input)
+    // 3. feature-scoped triggerable jobs (bypasses feature check, admin auth suffices)
+    if (entry.kind === "triggerable") {
+      // Triggerable jobs always have triggerFromApi wired
+      if (!entry.triggerFromApi) {
+        throw jobErrors.wrongKind(id, `job ${id} is not triggerable`);
+      }
+    } else {
+      // Scheduled / scheduled_per_row — only if adminTriggerable
+      requireAdminTriggerable(entry);
     }
+
     const userId = sessionUserId(c);
     const requestId = currentRequestContext()?.requestId;
     const input = c.req.valid("json") ?? null;
@@ -88,6 +107,7 @@ export const adminJobsApp = new Hono()
       const handle = await jobs.applyConfigChange(id, {
         enabled: body.enabled,
         scheduleOverride: body.scheduleOverride,
+        logLevel: body.logLevel,
         updatedBy: sessionUserId(c),
       });
       if (!handle) throw jobErrors.notFound(id);
@@ -107,12 +127,14 @@ export const userJobsApp = new Hono()
   .post("/:id/trigger-user", zValidator("json", triggerBodySchema), async (c) => {
     const id = c.req.param("id");
     const entry = requireEntry(id);
-    requireTriggerable(entry);
+    if (entry.kind !== "triggerable") {
+      throw jobErrors.wrongKind(id, "job is not reachable from user trigger");
+    }
     if (
       typeof entry.requiredPermission !== "object" ||
       entry.requiredPermission.kind !== "feature"
     ) {
-      throw jobErrors.wrongKind(id, "job is not reachable from user trigger");
+      throw jobErrors.forbidden();
     }
     const userId = sessionUserId(c);
     const input = c.req.valid("json") ?? null;

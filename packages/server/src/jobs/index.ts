@@ -17,9 +17,10 @@ export type {
   JobKind,
   JobRunStatus,
   JobTriggeredBy,
+  LogLevel,
 } from "./types";
 export { jobErrors } from "./errors";
-export { recentRuns } from "./history";
+export { recentRuns, recentRunsFiltered, getRunDetail } from "./history";
 
 /** Removes a registered job. Cron entry is stopped; in-flight runs finish naturally. */
 export function unregister(jobId: string): void {
@@ -77,11 +78,19 @@ async function toHandle(entry: registry.RegistryEntry): Promise<JobHandle> {
   const cfg = await getConfig(entry.id);
   const effective = effectiveSchedule(entry.schedule, cfg.scheduleOverride);
   const lastRun = await latestRun(entry.id);
+
+  const isFeatureScoped =
+    typeof entry.requiredPermission === "object" && entry.requiredPermission.kind === "feature";
+
   return {
     id: entry.id,
+    name: entry.name,
+    description: entry.description,
     kind: entry.kind,
     enabled: cfg.enabled,
-    adminTriggerable: entry.requiredPermission === "admin:jobs",
+    adminTriggerable: entry.requiredPermission === "admin:jobs" || !!entry.triggerFromApi,
+    userTriggerable: isFeatureScoped,
+    inputSchema: entry.inputSchema,
     schedule: entry.schedule,
     scheduleOverride: cfg.scheduleOverride,
     effectiveSchedule: effective,

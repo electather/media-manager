@@ -25,7 +25,10 @@ export interface RebuildRow {
 export function registerPreferenceJobs(): void {
   registerScheduledPerRow<RebuildRow>({
     id: PREFERENCE_DAILY_JOB_ID,
+    name: "Daily preference rebuild",
+    description: "Rebuilds preference profiles for users with stale or missing profiles.",
     schedule: "0 2 * * *",
+    adminTriggerable: true,
     rowSource: listUsersNeedingRebuild,
     handler: async (ctx, row) => {
       const engine = getPreferenceEngine();
@@ -40,6 +43,8 @@ export function registerPreferenceJobs(): void {
 
   registerCoalesced({
     id: PREFERENCE_INCREMENTAL_JOB_ID,
+    name: "Incremental preference update",
+    description: "Debounced incremental update triggered by user feedback.",
     debounceMs: 30_000,
     maxWaitMs: 5 * 60_000,
     scopeKey: (input) => String((input as { userId?: string }).userId ?? ""),
@@ -52,6 +57,8 @@ export function registerPreferenceJobs(): void {
 
   registerTriggerable<{ userId: string }, { rebuiltAt: number }>({
     id: PREFERENCE_MANUAL_REBUILD_JOB_ID,
+    name: "Rebuild preference profile",
+    description: "Full rebuild of a user's preference profile on demand.",
     handler: async (ctx, input) => {
       if (!input?.userId) throw new Error("userId is required");
       const engine = getPreferenceEngine();
@@ -70,7 +77,7 @@ export function registerPreferenceJobs(): void {
     },
     inputSchema: {
       type: "object",
-      properties: { userId: { type: "string" } },
+      properties: { userId: { type: "string", "x-picker": "user" } },
       required: ["userId"],
       additionalProperties: false,
     },

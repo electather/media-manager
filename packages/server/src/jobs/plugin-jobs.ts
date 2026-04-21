@@ -10,6 +10,7 @@ import { registerScheduledPerRow } from "./scheduled-per-row";
 
 interface DeclaredPluginJob {
   pluginId: string;
+  pluginName: string;
   id: string;
   schedule: string;
   handler: string;
@@ -23,11 +24,14 @@ export async function listAllPluginJobs(): Promise<DeclaredPluginJob[]> {
   const out: DeclaredPluginJob[] = [];
   for (const row of rows) {
     const manifest = JSON.parse(row.manifest) as {
+      name?: string;
       jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
     };
+    const pluginName = manifest.name ?? row.id;
     for (const job of manifest.jobs ?? []) {
       out.push({
         pluginId: row.id,
+        pluginName,
         id: job.id,
         schedule: job.schedule,
         handler: job.handler,
@@ -54,6 +58,7 @@ export async function registerAllPluginJobs(): Promise<number> {
 function registerGlobalPluginJob(job: DeclaredPluginJob): void {
   registerScheduled({
     id: `plugin.${job.pluginId}.${job.id}`,
+    name: `${job.pluginName} — ${job.id}`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
     handler: async () => {
@@ -79,6 +84,7 @@ interface ConnectionRow {
 function registerPerConnectionJob(job: DeclaredPluginJob): void {
   registerScheduledPerRow<ConnectionRow>({
     id: `plugin.${job.pluginId}.${job.id}`,
+    name: `${job.pluginName} — ${job.id} (per connection)`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
     rowSource: async () => {

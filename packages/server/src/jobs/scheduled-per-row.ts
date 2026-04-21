@@ -5,6 +5,7 @@ import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from 
 import { getConfig, effectiveSchedule } from "./config";
 import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
+import { setCurrentRow } from "./run-logger";
 import { isRunning, run } from "./runner";
 import type { CaptureMeta, JobHandle, JobRunContext, JobRunStatus } from "./types";
 
@@ -13,12 +14,15 @@ const DEFAULT_RUN_TIMEOUT_SEC = 30 * 60;
 
 export interface RegisterScheduledPerRowOptions<TRow> {
   id: string;
+  name: string;
+  description?: string;
   schedule: string;
   rowSource: () => Promise<TRow[]>;
   handler: (ctx: JobRunContext, row: TRow) => Promise<void>;
   perRowTimeoutSec?: number;
   runTimeoutSec?: number;
   continueOnRowError?: boolean;
+  adminTriggerable?: boolean;
   capture?: CaptureMeta;
 }
 
@@ -37,15 +41,44 @@ export function registerScheduledPerRow<TRow>(
   const continueOnRowError = opts.continueOnRowError ?? true;
   const perRowTimeoutSec = opts.perRowTimeoutSec ?? DEFAULT_PER_ROW_TIMEOUT_SEC;
   const runTimeoutSec = opts.runTimeoutSec ?? DEFAULT_RUN_TIMEOUT_SEC;
+  const adminTriggerable = opts.adminTriggerable ?? false;
 
   const entry: RegistryEntry = {
     id: opts.id,
+    name: opts.name,
+    description: opts.description,
     kind: "scheduled_per_row",
     schedule: opts.schedule,
     capture: opts.capture,
     dispose() {
       unscheduleCron(opts.id);
     },
+    triggerFromApi: adminTriggerable
+      ? async (_input, source) => {
+          if (isRunning(opts.id)) {
+            const { jobErrors } = await import("./errors");
+            throw jobErrors.alreadyRunning(opts.id);
+          }
+          const aggregate: RowAggregate = {
+            total: 0,
+            succeeded: 0,
+            failed: 0,
+            firstErrorRecordId: null,
+          };
+          const outcome = await run({
+            jobId: opts.id,
+            kind: "scheduled_per_row",
+            triggeredBy: source.triggeredBy,
+            triggeredByUserId: source.triggeredByUserId ?? null,
+            requestId: source.requestId,
+            timeoutSec: runTimeoutSec,
+            capture: opts.capture,
+            handler: (ctx) => iterateRows(ctx, aggregate),
+            statusOverride: buildStatusOverride(aggregate),
+          });
+          return { runId: outcome.runId, result: undefined };
+        }
+      : undefined,
     onScheduleChange(schedule) {
       scheduleCron(opts.id, schedule, () => void onTick());
     },
@@ -79,23 +112,7 @@ export function registerScheduledPerRow<TRow>(
       timeoutSec: runTimeoutSec,
       capture: opts.capture,
       handler: (ctx) => iterateRows(ctx, aggregate),
-      statusOverride: ({ thrown, timedOut, cancelled }) => {
-        if (cancelled) return undefined;
-        if (timedOut) {
-          return {
-            status: "timed_out",
-            rowsTotal: aggregate.total,
-            rowsSucceeded: aggregate.succeeded,
-            rowsFailed: aggregate.failed,
-          };
-        }
-        return {
-          status: resolvePerRowStatus(aggregate, thrown),
-          rowsTotal: aggregate.total,
-          rowsSucceeded: aggregate.succeeded,
-          rowsFailed: aggregate.failed,
-        };
-      },
+      statusOverride: buildStatusOverride(aggregate),
     });
   }
 
@@ -105,6 +122,8 @@ export function registerScheduledPerRow<TRow>(
 
     for (const row of rows) {
       if (ctx.abortSignal.aborted) return;
+      const rowLabel = bestEffortRowId(row);
+      setCurrentRow(rowLabel);
       try {
         await runRowWithTimeout(ctx, row, perRowTimeoutSec);
         aggregate.succeeded += 1;
@@ -113,6 +132,8 @@ export function registerScheduledPerRow<TRow>(
         const errorRecordId = await captureRowFailure(err, ctx);
         if (!aggregate.firstErrorRecordId) aggregate.firstErrorRecordId = errorRecordId;
         if (!continueOnRowError) throw err;
+      } finally {
+        setCurrentRow(undefined);
       }
     }
   }
@@ -169,11 +190,42 @@ export function registerScheduledPerRow<TRow>(
 
   return {
     id: opts.id,
+    name: opts.name,
+    description: opts.description,
     kind: "scheduled_per_row",
     enabled: true,
-    adminTriggerable: false,
+    adminTriggerable,
+    userTriggerable: false,
     schedule: opts.schedule,
     nextRun: nextFireTime(opts.id) ?? undefined,
+  };
+}
+
+function buildStatusOverride(aggregate: RowAggregate) {
+  return ({
+    thrown,
+    timedOut,
+    cancelled,
+  }: {
+    thrown: unknown;
+    timedOut: boolean;
+    cancelled: boolean;
+  }) => {
+    if (cancelled) return undefined;
+    if (timedOut) {
+      return {
+        status: "timed_out" as const,
+        rowsTotal: aggregate.total,
+        rowsSucceeded: aggregate.succeeded,
+        rowsFailed: aggregate.failed,
+      };
+    }
+    return {
+      status: resolvePerRowStatus(aggregate, thrown),
+      rowsTotal: aggregate.total,
+      rowsSucceeded: aggregate.succeeded,
+      rowsFailed: aggregate.failed,
+    };
   };
 }
 
@@ -183,4 +235,14 @@ function resolvePerRowStatus(aggregate: RowAggregate, thrown: unknown): JobRunSt
   if (aggregate.failed > 0 && aggregate.succeeded > 0) return "partial_failure";
   if (aggregate.failed > 0) return "failed";
   return "succeeded";
+}
+
+/** Best-effort row identifier for log tagging. Uses primary key if present. */
+function bestEffortRowId(row: unknown): string | undefined {
+  if (row === null || row === undefined) return undefined;
+  if (typeof row !== "object") return String(row as string | number | boolean);
+  const obj = row as Record<string, unknown>;
+  if (typeof obj.id === "string" || typeof obj.id === "number") return String(obj.id);
+  if (typeof obj.userId === "string") return obj.userId;
+  return undefined;
 }

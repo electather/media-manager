@@ -32,6 +32,8 @@ interface FinishRunInput {
   durationMs: number;
   errorRecordId?: string | null;
   result?: unknown;
+  logs?: string | null;
+  logsTruncated?: number | null;
   rowsTotal?: number | null;
   rowsSucceeded?: number | null;
   rowsFailed?: number | null;
@@ -71,6 +73,8 @@ export async function finishRun(input: FinishRunInput): Promise<void> {
       durationMs: input.durationMs,
       errorRecordId: input.errorRecordId ?? null,
       result: serializeResult(input.result),
+      logs: input.logs ?? null,
+      logsTruncated: input.logsTruncated ?? 0,
       rowsTotal: input.rowsTotal ?? null,
       rowsSucceeded: input.rowsSucceeded ?? null,
       rowsFailed: input.rowsFailed ?? null,
@@ -163,6 +167,32 @@ export async function recentRuns(jobId: string, limit: number): Promise<JobRunSu
   return rows.map(toSummary);
 }
 
+/** Returns recent runs with optional scopeKey and status filters. */
+export async function recentRunsFiltered(
+  jobId: string,
+  limit: number,
+  scopeKey?: string,
+  status?: string,
+): Promise<JobRunSummary[]> {
+  const filters = [eq(jobRuns.jobId, jobId)];
+  if (scopeKey !== undefined) filters.push(eq(jobRuns.scopeKey, scopeKey));
+  if (status !== undefined) filters.push(eq(jobRuns.status, status as JobRunStatus));
+  const rows = await getDb()
+    .select()
+    .from(jobRuns)
+    .where(and(...filters))
+    .orderBy(desc(jobRuns.startedAt))
+    .limit(limit)
+    .all();
+  return rows.map(toSummary);
+}
+
+/** Returns a single run by id, including logs. */
+export async function getRunDetail(runId: string): Promise<JobRunSummary | null> {
+  const row = await getDb().select().from(jobRuns).where(eq(jobRuns.id, runId)).get();
+  return row ? toSummary(row) : null;
+}
+
 /**
  * Marks every row still in `running` state as `failed`. Called once at server
  * startup to clean up records that were never finished because the previous
@@ -223,6 +253,8 @@ function toSummary(row: typeof jobRuns.$inferSelect): JobRunSummary {
     rowsFailed: row.rowsFailed,
     errorRecordId: row.errorRecordId,
     result: row.result,
+    logs: row.logs ?? null,
+    logsTruncated: row.logsTruncated ?? 0,
     coalescedCount: row.coalescedCount,
   };
 }

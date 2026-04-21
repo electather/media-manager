@@ -1,7 +1,8 @@
-import { consola, type ConsolaInstance } from "consola";
 import { captureError } from "../errors/capture";
 import { runWithRequestContext, newRequestId } from "../errors/request-context";
+import { getConfig } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
+import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
 import type { CaptureMeta, JobKind, JobRunContext, JobRunStatus, JobTriggeredBy } from "./types";
 
 const DEFAULT_TIMEOUT_SEC = 300;
@@ -60,14 +61,12 @@ export function requestCancel(jobId: string, scopeKey?: string | null): boolean 
 
 /**
  * Core execution wrapper. Handles concurrency gating, request context,
- * timeout/cancel, error capture, and history writes. Callers provide the
- * handler and the dispatch-specific policy (e.g. per-row status resolution).
+ * timeout/cancel, error capture, log capture, and history writes. Callers
+ * provide the handler and the dispatch-specific policy (e.g. per-row status
+ * resolution).
  */
 export async function run(req: RunRequest): Promise<RunOutcome> {
   if (isRunning(req.jobId, req.scopeKey)) {
-    // Policy: `run` itself assumes the caller has already decided to record a
-    // skip when appropriate. This guard prevents the rare race where two paths
-    // attempt to start the same scope at once; the second gets a failed outcome.
     return {
       runId: "",
       status: "failed",
@@ -84,7 +83,9 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
   const requestId = req.requestId ?? newRequestId();
   const startedAt = Date.now();
   const route = `job:${req.jobId}`;
-  const logger = buildLogger(req.jobId, runId, requestId);
+
+  const cfg = await getConfig(req.jobId);
+  const logger = createRunLogger(req.jobId, runId, requestId);
 
   await startRun({
     id: runId,
@@ -100,6 +101,8 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
   let result: unknown = undefined;
   let thrown: unknown = undefined;
   let timedOut = false;
+  let logs: string | null = null;
+  let logsTruncated = 0;
 
   const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
   const timeoutHandle = setTimeout(() => {
@@ -112,6 +115,7 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
       runId,
       triggeredBy: req.triggeredBy,
       triggeredByUserId: req.triggeredByUserId ?? undefined,
+      scopeKey: req.scopeKey ?? undefined,
       requestId,
       logger,
       abortSignal: controller.signal,
@@ -122,13 +126,16 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
         userId: req.triggeredByUserId ?? null,
         route,
       },
-      () => req.handler(ctx),
+      () => runWithLogCapture(cfg.logLevel, () => req.handler(ctx)),
     );
   } catch (err) {
     thrown = err;
   } finally {
     clearTimeout(timeoutHandle);
     active.delete(activeKey(req.jobId, req.scopeKey));
+    const captured = serializeRunLogs();
+    logs = captured.logs;
+    logsTruncated = captured.logsTruncated;
   }
 
   const finishedAt = Date.now();
@@ -151,6 +158,8 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
     durationMs,
     errorRecordId,
     result: status === "succeeded" ? result : undefined,
+    logs,
+    logsTruncated,
     rowsTotal: override?.rowsTotal ?? null,
     rowsSucceeded: override?.rowsSucceeded ?? null,
     rowsFailed: override?.rowsFailed ?? null,
@@ -196,10 +205,4 @@ async function captureFailure(
       scopeKey: req.scopeKey ?? null,
     },
   });
-}
-
-function buildLogger(jobId: string, runId: string, requestId: string): ConsolaInstance {
-  // Keep the tag short enough to read in logs. Nested-tag style is unsupported
-  // by consola, so we prefix the message as a compromise.
-  return consola.withTag(`job:${jobId}:${runId.slice(0, 8)}:${requestId.slice(0, 8)}`);
 }

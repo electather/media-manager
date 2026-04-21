@@ -3,6 +3,8 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { user } from "./auth";
 import { errorRecords } from "./errors";
 
+const logLevelEnum = ["debug", "info", "warn", "error"] as const;
+
 const runStatusEnum = [
   "running",
   "succeeded",
@@ -41,6 +43,8 @@ export const jobRuns = sqliteTable(
       onDelete: "set null",
     }),
     result: text("result"),
+    logs: text("logs"),
+    logsTruncated: integer("logs_truncated").default(0),
     coalescedCount: integer("coalesced_count"),
   },
   (table) => [
@@ -48,6 +52,7 @@ export const jobRuns = sqliteTable(
     index("job_runs_started_idx").on(table.startedAt),
     index("job_runs_status_started_idx").on(table.status, table.startedAt),
     index("job_runs_request_idx").on(table.requestId),
+    index("job_runs_scope_key_idx").on(table.scopeKey),
   ],
 );
 
@@ -56,6 +61,7 @@ export const jobConfig = sqliteTable("job_config", {
   jobId: text("job_id").primaryKey(),
   enabled: integer("enabled").notNull().default(1),
   scheduleOverride: text("schedule_override"),
+  logLevel: text("log_level", { enum: logLevelEnum }).notNull().default("info"),
   updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -67,3 +73,4 @@ export const selectJobConfigSchema = createSelectSchema(jobConfig);
 
 export type JobRunStatus = (typeof runStatusEnum)[number];
 export type JobTriggeredBy = (typeof triggeredByEnum)[number];
+export type LogLevel = (typeof logLevelEnum)[number];

@@ -8,9 +8,12 @@ import type { AdminOrFeaturePermission, JobKind, TriggerSource } from "./types";
  */
 export interface RegistryEntry {
   id: string;
+  name: string;
+  description?: string;
   kind: JobKind;
   schedule?: string;
   capture?: { source?: "cron" | "plugin"; pluginId?: string };
+  inputSchema?: Record<string, unknown>;
 
   requiredPermission?: AdminOrFeaturePermission;
 

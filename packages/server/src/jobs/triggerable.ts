@@ -19,6 +19,8 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 
 export interface RegisterTriggerableOptions<TInput, TResult> {
   id: string;
+  name: string;
+  description?: string;
   schedule?: string;
   handler: (ctx: JobRunContext, input: TInput | null) => Promise<TResult>;
   scopeKey?: (input: TInput) => string;
@@ -34,12 +36,19 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
   if (opts.schedule) assertValidSchedule(opts.schedule);
   const validate = opts.inputSchema ? ajv.compile(opts.inputSchema) : null;
 
+  const isAdminOnly = opts.requiredPermission === "admin:jobs";
+  const isFeatureScoped =
+    typeof opts.requiredPermission === "object" && opts.requiredPermission.kind === "feature";
+
   const entry: RegistryEntry = {
     id: opts.id,
+    name: opts.name,
+    description: opts.description,
     kind: "triggerable",
     schedule: opts.schedule,
     capture: opts.capture,
     requiredPermission: opts.requiredPermission,
+    inputSchema: opts.inputSchema,
     dispose() {
       unscheduleCron(opts.id);
     },
@@ -140,9 +149,13 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
 
   return {
     id: opts.id,
+    name: opts.name,
+    description: opts.description,
     kind: "triggerable",
     enabled: true,
-    adminTriggerable: opts.requiredPermission === "admin:jobs",
+    adminTriggerable: isAdminOnly,
+    userTriggerable: isFeatureScoped,
+    inputSchema: opts.inputSchema,
     schedule: opts.schedule,
     nextRun: opts.schedule ? (nextFireTime(opts.id) ?? undefined) : undefined,
     trigger,

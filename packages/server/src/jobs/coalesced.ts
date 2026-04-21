@@ -7,6 +7,8 @@ const DEFAULT_MAX_WAIT_MS = 60_000;
 
 export interface RegisterCoalescedOptions {
   id: string;
+  name: string;
+  description?: string;
   debounceMs: number;
   maxWaitMs?: number;
   scopeKey: (input: unknown) => string;
@@ -29,6 +31,8 @@ export function registerCoalesced(opts: RegisterCoalescedOptions): CoalescedJobH
 
   const entry: RegistryEntry = {
     id: opts.id,
+    name: opts.name,
+    description: opts.description,
     kind: "coalesced",
     capture: opts.capture,
     dispose() {
@@ -106,9 +110,12 @@ export function registerCoalesced(opts: RegisterCoalescedOptions): CoalescedJobH
 
   return {
     id: opts.id,
+    name: opts.name,
+    description: opts.description,
     kind: "coalesced",
     enabled: true,
     adminTriggerable: false,
+    userTriggerable: false,
     trigger,
   };
 }

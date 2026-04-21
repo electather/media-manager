@@ -17,6 +17,8 @@ export const scheduler = {
   async start(): Promise<void> {
     registerScheduled({
       id: "host.cache.cleanup",
+      name: "Cache cleanup",
+      description: "Removes expired entries from the active cache provider.",
       schedule: "0 * * * *",
       handler: async () => {
         await cacheCleanupJob();
@@ -24,7 +26,10 @@ export const scheduler = {
     });
     registerScheduled({
       id: "host.plugin_store.expired_sweep",
+      name: "Plugin store cleanup",
+      description: "Sweeps expired rows from the plugin key-value store.",
       schedule: "*/10 * * * *",
+      adminTriggerable: true,
       handler: async () => {
         const removed = await sweepExpiredStore();
         if (removed > 0) consola.debug(`plugin-store-sweep removed ${removed} rows`);
@@ -32,7 +37,10 @@ export const scheduler = {
     });
     registerScheduled({
       id: "host.auth.pending_auth_sweep",
+      name: "Pending auth cleanup",
+      description: "Removes expired pending authentication requests.",
       schedule: "*/5 * * * *",
+      adminTriggerable: true,
       handler: async () => {
         const removed = await sweepPendingAuth();
         if (removed > 0) consola.debug(`pending-auth-sweep removed ${removed} rows`);
@@ -40,7 +48,10 @@ export const scheduler = {
     });
     registerScheduled({
       id: "host.errors.retention_sweep",
+      name: "Error record retention",
+      description: "Deletes error records older than the configured retention window.",
       schedule: "0 3 * * *",
+      adminTriggerable: true,
       handler: async () => {
         const removed = await sweepExpiredErrors();
         if (removed > 0) consola.debug(`error-retention-sweep removed ${removed} rows`);

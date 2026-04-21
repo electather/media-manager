@@ -11,8 +11,16 @@ vi.mock("../history", () => ({
 }));
 
 vi.mock("../config", () => ({
-  getConfig: async (jobId: string) => ({ jobId, enabled: true, scheduleOverride: null }),
-  updateConfig: async () => ({ jobId: "x", enabled: true, scheduleOverride: null }),
+  getConfig: async (jobId: string) => ({
+    jobId,
+    enabled: true,
+    scheduleOverride: null,
+  }),
+  updateConfig: async () => ({
+    jobId: "x",
+    enabled: true,
+    scheduleOverride: null,
+  }),
   effectiveSchedule: (d: string | undefined) => d,
 }));
 
@@ -28,6 +36,7 @@ describe("registerTriggerable", () => {
   it("runs the handler and returns the handler's result", async () => {
     const handle = registerTriggerable<{ x: number }, { y: number }>({
       id: "feature.test.double",
+      name: "Test Job",
       requiredPermission: "admin:jobs",
       handler: async (_ctx, input) => ({ y: (input?.x ?? 0) * 2 }),
     });
@@ -38,6 +47,7 @@ describe("registerTriggerable", () => {
   it("rejects bad input before invoking the handler", async () => {
     const handle = registerTriggerable<{ name: string }>({
       id: "feature.test.validated",
+      name: "Test Job",
       requiredPermission: "admin:jobs",
       inputSchema: {
         type: "object",
@@ -54,6 +64,7 @@ describe("registerTriggerable", () => {
   it("returns job.already_running when scopeless and already running", async () => {
     const handle = registerTriggerable({
       id: "feature.test.slow",
+      name: "Test Job",
       requiredPermission: "admin:jobs",
       handler: async () => {
         await new Promise<void>((resolve) => {
@@ -73,6 +84,7 @@ describe("registerTriggerable", () => {
     let maxActive = 0;
     const handle = registerTriggerable<{ id: string }>({
       id: "feature.test.scoped",
+      name: "Test Job",
       requiredPermission: "admin:jobs",
       scopeKey: (input) => input.id,
       handler: async () => {

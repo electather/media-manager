@@ -11,8 +11,16 @@ vi.mock("../history", () => ({
 }));
 
 vi.mock("../config", () => ({
-  getConfig: async (jobId: string) => ({ jobId, enabled: true, scheduleOverride: null }),
-  updateConfig: async () => ({ jobId: "x", enabled: true, scheduleOverride: null }),
+  getConfig: async (jobId: string) => ({
+    jobId,
+    enabled: true,
+    scheduleOverride: null,
+  }),
+  updateConfig: async () => ({
+    jobId: "x",
+    enabled: true,
+    scheduleOverride: null,
+  }),
   effectiveSchedule: (d: string | undefined) => d,
 }));
 
@@ -30,6 +38,8 @@ describe("registerCoalesced", () => {
     let seenCount = 0;
     const handle = registerCoalesced({
       id: "feature.test.coalesce",
+      name: "Test Job",
+
       debounceMs: 20,
       scopeKey: (input) => (input as { scopeKey: string }).scopeKey,
       handler: async (_ctx, triggerCount) => {
@@ -51,6 +61,8 @@ describe("registerCoalesced", () => {
     const seen = new Map<string, number>();
     const handle = registerCoalesced({
       id: "feature.test.coalesce.scoped",
+      name: "Test Job",
+
       debounceMs: 15,
       scopeKey: (input) => (input as { scopeKey: string }).scopeKey,
       handler: async (ctx, triggerCount) => {

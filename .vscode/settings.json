@@ -6,5 +6,5 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "explicit"
   },
-  "cSpell.words": ["imdb", "SEERR", "tmdb", "tvdb"]
+  "cSpell.words": ["imdb", "SEERR", "tmdb", "Triggerable", "tvdb"]
 }

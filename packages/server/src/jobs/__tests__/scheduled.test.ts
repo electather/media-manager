@@ -21,8 +21,16 @@ vi.mock("../history", () => ({
 }));
 
 vi.mock("../config", () => ({
-  getConfig: async (jobId: string) => ({ jobId, enabled: true, scheduleOverride: null }),
-  updateConfig: async () => ({ jobId: "x", enabled: true, scheduleOverride: null }),
+  getConfig: async (jobId: string) => ({
+    jobId,
+    enabled: true,
+    scheduleOverride: null,
+  }),
+  updateConfig: async () => ({
+    jobId: "x",
+    enabled: true,
+    scheduleOverride: null,
+  }),
   effectiveSchedule: (d: string | undefined) => d,
 }));
 
@@ -112,12 +120,14 @@ describe("registerScheduled", () => {
   it("registers a unique job id and rejects duplicates", () => {
     registerScheduled({
       id: "host.test.dup",
+      name: "Test Job",
       schedule: "*/1 * * * *",
       handler: async () => undefined,
     });
     expect(() =>
       registerScheduled({
         id: "host.test.dup",
+        name: "Test Job",
         schedule: "*/1 * * * *",
         handler: async () => undefined,
       }),

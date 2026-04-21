@@ -1,7 +1,7 @@
 import type { ConsolaInstance } from "consola";
-import type { JobRunStatus, JobTriggeredBy } from "../db/schema/jobs";
+import type { JobRunStatus, JobTriggeredBy, LogLevel } from "../db/schema/jobs";
 
-export type { JobRunStatus, JobTriggeredBy };
+export type { JobRunStatus, JobTriggeredBy, LogLevel };
 
 export type JobKind = "scheduled" | "scheduled_per_row" | "triggerable" | "coalesced";
 
@@ -17,6 +17,7 @@ export interface JobRunContext {
   runId: string;
   triggeredBy: JobTriggeredBy;
   triggeredByUserId?: string;
+  scopeKey?: string;
   requestId: string;
   logger: ConsolaInstance;
   abortSignal: AbortSignal;
@@ -39,16 +40,21 @@ export interface JobRunSummary {
   rowsFailed: number | null;
   errorRecordId: string | null;
   result: string | null;
+  logs: string | null;
+  logsTruncated: number | null;
   coalescedCount: number | null;
 }
 
 /** Baseline handle every registered job exposes. Specific kinds extend this. */
 export interface JobHandle {
   id: string;
+  name: string;
+  description?: string;
   kind: JobKind;
   enabled: boolean;
-  /** True only for triggerable/coalesced jobs whose requiredPermission is "admin:jobs". */
   adminTriggerable: boolean;
+  userTriggerable: boolean;
+  inputSchema?: Record<string, unknown>;
   schedule?: string;
   scheduleOverride?: string | null;
   effectiveSchedule?: string;
