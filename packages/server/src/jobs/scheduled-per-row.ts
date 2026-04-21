@@ -171,6 +171,7 @@ export function registerScheduledPerRow<TRow>(
     id: opts.id,
     kind: "scheduled_per_row",
     enabled: true,
+    adminTriggerable: false,
     schedule: opts.schedule,
     nextRun: nextFireTime(opts.id) ?? undefined,
   };

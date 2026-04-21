@@ -1,8 +1,7 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { z } from "zod";
-import { requireSession, requirePermission } from "../../auth/middleware";
+import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
-import { badRequest } from "../../errors/http-errors";
 import { currentRequestContext } from "../../errors/request-context";
 import { zValidator } from "../../errors/validator";
 import * as jobs from "../../jobs";
@@ -20,16 +19,6 @@ const configBodySchema = z.object({
 const runsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
 });
-
-interface SessionCtx {
-  user: { id: string };
-}
-
-function sessionUserId(c: Context): string {
-  const session = c.get("session") as SessionCtx | undefined;
-  if (!session) throw badRequest("http.unauthorized", "unauthorized");
-  return session.user.id;
-}
 
 function requireEntry(jobId: string): RegistryEntry {
   const entry = jobs.find(jobId);

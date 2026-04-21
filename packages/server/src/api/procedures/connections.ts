@@ -1,20 +1,9 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireSession, requirePermission } from "../../auth/middleware";
+import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../errors/validator";
-import { unauthorized } from "../../errors/http-errors";
-
-interface SessionCtx {
-  user: { id: string };
-}
-
-function userId(c: { get: (key: "session") => SessionCtx | undefined }): string {
-  const session = c.get("session");
-  if (!session) throw unauthorized();
-  return session.user.id;
-}
 
 const createSchema = z.object({
   pluginId: z.string(),
@@ -42,7 +31,7 @@ export const connectionsApp = new Hono()
   .use("*", requireSession)
   .use("*", requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS))
   .get("/", async (c) => {
-    const list = await connectionsService.listForUser(userId(c));
+    const list = await connectionsService.listForUser(sessionUserId(c));
     return c.json({ connections: list });
   })
   .get("/available", async (c) => {
@@ -50,13 +39,13 @@ export const connectionsApp = new Hono()
     return c.json({ plugins: list });
   })
   .get("/:id/user-config", async (c) => {
-    const config = await connectionsService.getUserConfig(userId(c), c.req.param("id"));
+    const config = await connectionsService.getUserConfig(sessionUserId(c), c.req.param("id"));
     return c.json({ config });
   })
   .post("/verify-config", zValidator("json", verifyConfigSchema), async (c) => {
     const body = c.req.valid("json");
     const result = await connectionsService.verifyConfig({
-      userId: userId(c),
+      userId: sessionUserId(c),
       pluginId: body.pluginId,
       userConfig: body.userConfig,
     });
@@ -65,7 +54,7 @@ export const connectionsApp = new Hono()
   .post("/", zValidator("json", createSchema), async (c) => {
     const body = c.req.valid("json");
     const result = await connectionsService.createFormConnection({
-      userId: userId(c),
+      userId: sessionUserId(c),
       pluginId: body.pluginId,
       userConfig: body.userConfig,
       displayName: body.displayName,
@@ -74,7 +63,7 @@ export const connectionsApp = new Hono()
   })
   .patch("/:id/display-name", zValidator("json", displayNameSchema), async (c) => {
     await connectionsService.updateDisplayName({
-      userId: userId(c),
+      userId: sessionUserId(c),
       connectionId: c.req.param("id"),
       displayName: c.req.valid("json").displayName,
     });
@@ -82,7 +71,7 @@ export const connectionsApp = new Hono()
   })
   .patch("/:id/user-config", zValidator("json", userConfigSchema), async (c) => {
     await connectionsService.updateUserConfig({
-      userId: userId(c),
+      userId: sessionUserId(c),
       connectionId: c.req.param("id"),
       userConfig: c.req.valid("json").userConfig,
     });
@@ -90,7 +79,7 @@ export const connectionsApp = new Hono()
   })
   .patch("/:id/enabled", zValidator("json", enabledSchema), async (c) => {
     await connectionsService.setEnabled({
-      userId: userId(c),
+      userId: sessionUserId(c),
       connectionId: c.req.param("id"),
       enabled: c.req.valid("json").enabled,
     });
@@ -98,28 +87,28 @@ export const connectionsApp = new Hono()
   })
   .post("/:id/default", async (c) => {
     await connectionsService.setDefault({
-      userId: userId(c),
+      userId: sessionUserId(c),
       connectionId: c.req.param("id"),
     });
     return c.json({ ok: true });
   })
   .post("/:id/test", async (c) => {
     const result = await connectionsService.test({
-      userId: userId(c),
+      userId: sessionUserId(c),
       connectionId: c.req.param("id"),
     });
     return c.json(result);
   })
   .delete("/:id", async (c) => {
     await connectionsService.delete({
-      userId: userId(c),
+      userId: sessionUserId(c),
       connectionId: c.req.param("id"),
     });
     return c.json({ ok: true });
   })
   .post("/oauth/redirect/start", zValidator("json", redirectStartSchema), async (c) => {
     const result = await connectionsService.initiateRedirectAuth({
-      userId: userId(c),
+      userId: sessionUserId(c),
       pluginId: c.req.valid("json").pluginId,
     });
     return c.json(result);
@@ -127,7 +116,7 @@ export const connectionsApp = new Hono()
   .post("/oauth/redirect/complete", zValidator("json", redirectCompleteSchema), async (c) => {
     const body = c.req.valid("json");
     const result = await connectionsService.completeRedirectAuth({
-      userId: userId(c),
+      userId: sessionUserId(c),
       nonce: body.nonce,
       queryParams: body.queryParams,
     });
@@ -135,14 +124,14 @@ export const connectionsApp = new Hono()
   })
   .post("/oauth/device/start", zValidator("json", deviceStartSchema), async (c) => {
     const result = await connectionsService.initiateDeviceAuth({
-      userId: userId(c),
+      userId: sessionUserId(c),
       pluginId: c.req.valid("json").pluginId,
     });
     return c.json(result);
   })
   .post("/oauth/device/poll", zValidator("json", devicePollSchema), async (c) => {
     const result = await connectionsService.pollDeviceAuth({
-      userId: userId(c),
+      userId: sessionUserId(c),
       nonce: c.req.valid("json").nonce,
     });
     return c.json(result);

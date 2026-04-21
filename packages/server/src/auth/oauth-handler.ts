@@ -23,7 +23,10 @@ export async function authRouteHandler(req: Request): Promise<Response> {
         if (json && typeof json === "object") {
           for (const [k, v] of Object.entries(json)) {
             if (v !== null && v !== undefined)
-              params[k] = typeof v === "object" ? JSON.stringify(v) : String(v);
+              params[k] =
+                typeof v === "object"
+                  ? JSON.stringify(v)
+                  : String(v as string | number | boolean | bigint);
           }
         }
       } catch {

@@ -108,6 +108,7 @@ export function registerCoalesced(opts: RegisterCoalescedOptions): CoalescedJobH
     id: opts.id,
     kind: "coalesced",
     enabled: true,
+    adminTriggerable: false,
     trigger,
   };
 }

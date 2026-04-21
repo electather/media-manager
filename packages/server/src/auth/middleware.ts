@@ -7,6 +7,13 @@ import type { Permission } from "./permissions";
 import { currentRequestContext } from "../errors/request-context";
 import { forbidden, unauthorized } from "../errors/http-errors";
 
+/** Returns the authenticated user's id from the Hono context. */
+export function sessionUserId(c: Context): string {
+  const session = c.get("session") as { user: { id: string } } | undefined;
+  if (!session) throw unauthorized();
+  return session.user.id;
+}
+
 /** Hono middleware that validates the Better Auth session. */
 export async function requireSession(c: Context, next: Next): Promise<void> {
   const session = await auth.api.getSession({ headers: c.req.raw.headers });

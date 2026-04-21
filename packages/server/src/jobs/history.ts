@@ -137,12 +137,14 @@ export async function pruneSuccessfulRuns(jobId: string): Promise<number> {
   return deleted.length;
 }
 
-/** Returns the most recent run for a job, or null. */
-export async function latestRun(jobId: string): Promise<JobRunSummary | null> {
+/** Returns the most recent run for a job, optionally filtered to a scope key. */
+export async function latestRun(jobId: string, scopeKey?: string): Promise<JobRunSummary | null> {
+  const filters = [eq(jobRuns.jobId, jobId)];
+  if (scopeKey !== undefined) filters.push(eq(jobRuns.scopeKey, scopeKey));
   const row = await getDb()
     .select()
     .from(jobRuns)
-    .where(eq(jobRuns.jobId, jobId))
+    .where(and(...filters))
     .orderBy(desc(jobRuns.startedAt))
     .limit(1)
     .get();

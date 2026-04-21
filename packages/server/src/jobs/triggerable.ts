@@ -142,6 +142,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
     id: opts.id,
     kind: "triggerable",
     enabled: true,
+    adminTriggerable: opts.requiredPermission === "admin:jobs",
     schedule: opts.schedule,
     nextRun: opts.schedule ? (nextFireTime(opts.id) ?? undefined) : undefined,
     trigger,

@@ -1,28 +1,17 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { z } from "zod";
-import { requireSession } from "../../auth/middleware";
-import { badRequest } from "../../errors/http-errors";
+import { requireSession, sessionUserId } from "../../auth/middleware";
 import { currentRequestContext } from "../../errors/request-context";
 import { zValidator } from "../../errors/validator";
 import * as jobs from "../../jobs";
 import { jobErrors } from "../../jobs/errors";
-import { recentRuns } from "../../jobs/history";
+import { latestRun } from "../../jobs/history";
 import { getPreferenceEngine } from "../../preferences";
 import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences/jobs";
 
 const profileQuerySchema = z.object({
   mediaType: z.enum(["movie", "tv", "combined"]).default("combined"),
 });
-
-interface SessionCtx {
-  user: { id: string };
-}
-
-function sessionUserId(c: Context): string {
-  const session = c.get("session") as SessionCtx | undefined;
-  if (!session) throw badRequest("http.unauthorized", "unauthorized");
-  return session.user.id;
-}
 
 export const preferencesApp = new Hono()
   .use("*", requireSession)
@@ -45,12 +34,10 @@ export const preferencesApp = new Hono()
   })
   .get("/rebuild/status", async (c) => {
     const userId = sessionUserId(c);
-    const runs = await recentRuns(PREFERENCE_MANUAL_REBUILD_JOB_ID, 5);
-    const latest = runs.find((r) => r.scopeKey === userId);
-    if (!latest) return c.json({ status: "idle" as const });
-    const mapped: { status: string; lastRunAt?: number } = {
-      status: latest.status === "running" ? "running" : latest.status,
-    };
-    if (latest.finishedAt) mapped.lastRunAt = latest.finishedAt;
-    return c.json(mapped);
+    const run = await latestRun(PREFERENCE_MANUAL_REBUILD_JOB_ID, userId);
+    if (!run) return c.json({ status: "idle" as const });
+    return c.json({
+      status: run.status,
+      ...(run.finishedAt !== null ? { lastRunAt: run.finishedAt } : {}),
+    });
   });

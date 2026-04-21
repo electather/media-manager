@@ -88,6 +88,7 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
     id: opts.id,
     kind: "scheduled",
     enabled: true,
+    adminTriggerable: false,
     schedule: opts.schedule,
     nextRun: nextFireTime(opts.id) ?? undefined,
   };
