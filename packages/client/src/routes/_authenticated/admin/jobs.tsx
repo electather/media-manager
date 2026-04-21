@@ -17,7 +17,11 @@ import {
   TimerOffIcon,
   TriangleAlertIcon,
   ZapIcon,
+  FilterIcon,
 } from "lucide-react";
+
+import { DynamicTriggerDialog } from "../../../components/jobs/trigger-dialog";
+import { RunDetailDrawer } from "../../../components/jobs/run-detail-drawer";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +45,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -52,53 +63,11 @@ import { CronSchedule } from "@/components/cron-schedule";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+import { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "../../../components/jobs/types";
+
 export const Route = createFileRoute("/_authenticated/admin/jobs")({
   component: AdminJobsPage,
 });
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type JobRunStatus =
-  | "running"
-  | "succeeded"
-  | "partial_failure"
-  | "failed"
-  | "skipped"
-  | "timed_out"
-  | "cancelled";
-
-type JobTriggeredBy = "cron" | "admin" | "user" | "feature";
-type JobKind = "scheduled" | "scheduled_per_row" | "triggerable" | "coalesced";
-
-interface JobRunSummary {
-  id: string;
-  jobId: string;
-  scopeKey: string | null;
-  status: JobRunStatus;
-  triggeredBy: JobTriggeredBy;
-  triggeredByUserId: string | null;
-  startedAt: number;
-  finishedAt: number | null;
-  durationMs: number | null;
-  requestId: string;
-  rowsTotal: number | null;
-  rowsSucceeded: number | null;
-  rowsFailed: number | null;
-  result: string | null;
-  coalescedCount: number | null;
-}
-
-interface JobHandle {
-  id: string;
-  kind: JobKind;
-  enabled: boolean;
-  adminTriggerable: boolean;
-  schedule?: string;
-  scheduleOverride?: string | null;
-  effectiveSchedule?: string;
-  lastRun?: JobRunSummary;
-  nextRun?: string;
-}
 
 type ModalState =
   | { kind: "none" }
@@ -110,6 +79,8 @@ type ModalState =
 function AdminJobsPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<string>("all");
 
   const jobsList = useQuery({
     queryKey: ["admin", "jobs", "list"],
@@ -121,7 +92,14 @@ function AdminJobsPage() {
     refetchInterval: 10_000,
   });
 
-  const jobs = jobsList.data?.jobs ?? [];
+  let jobs = jobsList.data?.jobs ?? [];
+
+  if (search) {
+    jobs = jobs.filter((j) => j.id.toLowerCase().includes(search.toLowerCase()));
+  }
+  if (kindFilter !== "all") {
+    jobs = jobs.filter((j) => j.kind === kindFilter);
+  }
 
   const closeModal = () => setModal({ kind: "none" });
 
@@ -137,7 +115,31 @@ function AdminJobsPage() {
         <RefreshButton onRefresh={() => void jobsList.refetch()} loading={jobsList.isFetching} />
       </header>
 
-      <StatsBar jobs={jobs} loading={jobsList.isLoading} />
+      <StatsBar jobs={jobsList.data?.jobs ?? []} loading={jobsList.isLoading} />
+
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <FilterIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            placeholder="Filter by ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64 pl-9"
+          />
+        </div>
+        <Select value={kindFilter} onValueChange={(val) => setKindFilter(val || "all")}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Kind" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All kinds</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="scheduled_per_row">Scheduled Per Row</SelectItem>
+            <SelectItem value="triggerable">Triggerable</SelectItem>
+            <SelectItem value="coalesced">Coalesced</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <JobsTable
         jobs={jobs}
@@ -149,7 +151,7 @@ function AdminJobsPage() {
 
       <JobDetailSheet jobId={selectedJobId} onClose={() => setSelectedJobId(null)} />
 
-      <TriggerDialog
+      <DynamicTriggerDialog
         open={modal.kind === "trigger"}
         job={modal.kind === "trigger" ? modal.job : null}
         onClose={closeModal}
@@ -311,8 +313,23 @@ function JobRow({
 
       <TableCell>
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-sm font-medium">{job.id}</span>
-          {!job.enabled && <span className="text-xs text-muted-foreground">disabled</span>}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{job.name}</span>
+            {!job.enabled && (
+              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 uppercase">
+                Disabled
+              </Badge>
+            )}
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground truncate">{job.id}</span>
+          {job.description && (
+            <span
+              className="text-xs text-muted-foreground truncate max-w-[300px]"
+              title={job.description}
+            >
+              {job.description}
+            </span>
+          )}
         </div>
       </TableCell>
 
@@ -379,50 +396,59 @@ function JobRow({
 // ─── Job detail sheet ─────────────────────────────────────────────────────────
 
 function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+
   const detail = useQuery({
     enabled: !!jobId,
     queryKey: ["admin", "jobs", "detail", jobId],
-    queryFn: async (): Promise<{ job: JobHandle; runs: JobRunSummary[] }> => {
+    queryFn: async () => {
       const res = await api.admin.jobs[":id"].$get({
         param: { id: jobId! },
         query: { limit: "30" },
       });
       if (!res.ok) throw new Error("failed to load job");
-      return (await res.json()) as { job: JobHandle; runs: JobRunSummary[] };
+      return await res.json();
     },
     refetchInterval: jobId ? 5_000 : false,
   });
 
   const job = detail.data?.job;
   const runs = detail.data?.runs ?? [];
+  const selectedRun = runs.find((r) => r.id === selectedRunId) || null;
 
   return (
-    <Sheet open={!!jobId} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-130 sm:max-w-130 flex flex-col gap-0 p-0">
-        <SheetHeader className="border-b border-border px-6 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-1 min-w-0">
-              <SheetTitle className="font-mono text-base truncate">{jobId}</SheetTitle>
-              {job && <KindBadge kind={job.kind} />}
+    <>
+      <Sheet open={!!jobId} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent className="w-130 sm:max-w-130 flex flex-col gap-0 p-0">
+          <SheetHeader className="border-b border-border px-6 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-1 min-w-0">
+                <SheetTitle className="text-base truncate">{job?.name || jobId}</SheetTitle>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">{jobId}</span>
+                  {job && <KindBadge kind={job.kind} />}
+                </div>
+              </div>
             </div>
-          </div>
-        </SheetHeader>
+          </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto">
-          {detail.isLoading ? (
-            <div className="flex flex-col gap-3 p-6">
-              <Skeleton className="h-24 rounded-lg" />
-              <Skeleton className="h-48 rounded-lg" />
-            </div>
-          ) : job ? (
-            <div className="flex flex-col gap-6 p-6">
-              <JobMetaSection job={job} />
-              <RunHistorySection runs={runs} />
-            </div>
-          ) : null}
-        </div>
-      </SheetContent>
-    </Sheet>
+          <div className="flex-1 overflow-y-auto">
+            {detail.isLoading ? (
+              <div className="flex flex-col gap-3 p-6">
+                <Skeleton className="h-24 rounded-lg" />
+                <Skeleton className="h-48 rounded-lg" />
+              </div>
+            ) : job ? (
+              <div className="flex flex-col gap-6 p-6">
+                <JobMetaSection job={job} />
+                <RunHistorySection runs={runs} onSelectRun={setSelectedRunId} />
+              </div>
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
+      <RunDetailDrawer run={selectedRun} job={job || null} onClose={() => setSelectedRunId(null)} />
+    </>
   );
 }
 
@@ -432,6 +458,7 @@ function JobMetaSection({ job }: { job: JobHandle }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {job.description && <p className="text-sm text-muted-foreground">{job.description}</p>}
       <div className="overflow-hidden rounded-lg border border-border text-xs">
         <MetaRow label="Status" value={job.enabled ? "Enabled" : "Disabled"} />
         {job.lastRun && (
@@ -452,7 +479,13 @@ function JobMetaSection({ job }: { job: JobHandle }) {
   );
 }
 
-function RunHistorySection({ runs }: { runs: JobRunSummary[] }) {
+function RunHistorySection({
+  runs,
+  onSelectRun,
+}: {
+  runs: JobRunSummary[];
+  onSelectRun: (id: string) => void;
+}) {
   if (runs.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
@@ -468,16 +501,19 @@ function RunHistorySection({ runs }: { runs: JobRunSummary[] }) {
       </h3>
       <div className="divide-y divide-border rounded-lg border border-border">
         {runs.map((run) => (
-          <RunRow key={run.id} run={run} />
+          <RunRow key={run.id} run={run} onSelectRun={() => onSelectRun(run.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function RunRow({ run }: { run: JobRunSummary }) {
+function RunRow({ run, onSelectRun }: { run: JobRunSummary; onSelectRun: () => void }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 text-xs">
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 text-xs hover:bg-muted/50 cursor-pointer transition-colors"
+      onClick={onSelectRun}
+    >
       <RunStatusIcon status={run.status} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2">
@@ -510,101 +546,6 @@ function RunRow({ run }: { run: JobRunSummary }) {
         </div>
       </div>
     </div>
-  );
-}
-
-// ─── Trigger dialog ───────────────────────────────────────────────────────────
-
-function TriggerDialog({
-  open,
-  job,
-  onClose,
-}: {
-  open: boolean;
-  job: JobHandle | null;
-  onClose: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const [runId, setRunId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) setRunId(null);
-  }, [open]);
-
-  const triggerMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.admin.jobs[":id"].trigger.$post({
-        param: { id: job!.id },
-        json: null,
-      });
-      if (!res.ok) throw new Error("trigger failed");
-      return res.json() as Promise<{ runId?: string }>;
-    },
-    onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] });
-      if (data && "runId" in data && data.runId) {
-        setRunId(data.runId);
-      } else {
-        onClose();
-      }
-    },
-  });
-
-  const hasResult = !!runId;
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{hasResult ? "Job started" : "Run job"}</DialogTitle>
-          <DialogDescription className="font-mono text-xs">{job?.id}</DialogDescription>
-        </DialogHeader>
-
-        {hasResult ? (
-          <div className="flex flex-col gap-3 py-2">
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-              <CircleCheckIcon className="size-4 shrink-0 text-emerald-500" />
-              <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                Job dispatched successfully.
-              </span>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-border text-xs">
-              <MetaRow label="Run ID" value={runId!} mono />
-            </div>
-          </div>
-        ) : (
-          <div className="py-2 text-sm text-muted-foreground">
-            This will immediately start a new run of{" "}
-            <span className="font-mono text-foreground">{job?.id}</span>, bypassing its schedule.
-          </div>
-        )}
-
-        <DialogFooter>
-          {hasResult ? (
-            <Button onClick={onClose}>Done</Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button onClick={() => triggerMutation.mutate()} disabled={triggerMutation.isPending}>
-                {triggerMutation.isPending ? (
-                  <>
-                    <RefreshCwIcon className="size-3.5 animate-spin" />
-                    Starting…
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="size-3.5" />
-                    Run now
-                  </>
-                )}
-              </Button>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

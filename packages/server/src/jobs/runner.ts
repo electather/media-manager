@@ -126,16 +126,22 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
         userId: req.triggeredByUserId ?? null,
         route,
       },
-      () => runWithLogCapture(cfg.logLevel, () => req.handler(ctx)),
+      () =>
+        runWithLogCapture(cfg.logLevel, async () => {
+          try {
+            return await req.handler(ctx);
+          } finally {
+            const captured = serializeRunLogs();
+            logs = captured.logs;
+            logsTruncated = captured.logsTruncated;
+          }
+        }),
     );
   } catch (err) {
     thrown = err;
   } finally {
     clearTimeout(timeoutHandle);
     active.delete(activeKey(req.jobId, req.scopeKey));
-    const captured = serializeRunLogs();
-    logs = captured.logs;
-    logsTruncated = captured.logsTruncated;
   }
 
   const finishedAt = Date.now();

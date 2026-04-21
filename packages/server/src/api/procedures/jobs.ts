@@ -50,7 +50,7 @@ export const adminJobsApp = new Hono()
     if (!handle) throw jobErrors.notFound(id);
     const { limit, scopeKey, status } = c.req.valid("query");
     const runs = await recentRunsFiltered(id, limit, scopeKey, status);
-    return c.json({ job: handle, runs });
+    return c.json({ job: handle, runs } as const);
   })
   .get("/:id/runs/:runId", async (c) => {
     const id = c.req.param("id");

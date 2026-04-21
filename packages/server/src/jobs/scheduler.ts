@@ -20,8 +20,9 @@ export const scheduler = {
       name: "Cache cleanup",
       description: "Removes expired entries from the active cache provider.",
       schedule: "0 * * * *",
-      handler: async () => {
-        await cacheCleanupJob();
+      adminTriggerable: true,
+      handler: async (ctx) => {
+        await cacheCleanupJob(ctx);
       },
     });
     registerScheduled({
