@@ -1,7 +1,7 @@
 # Preference Engine
 
 **Status:** Draft for review
-**Date:** 2026-04-20
+**Date:** 2026-04-20 (revised 2026-04-21 post-pilot; see _Changes since initial implementation_)
 **Author:** Omid Astaraki
 **Depends on:** `2026-04-19-plugin-architecture-design.md`, `2026-04-19-media-service-design.md`, `2026-04-19-error-management-design.md`, `2026-04-19-frontend-connections-design.md`, `2026-04-20-job-service-design.md`, `mcp-server.md`
 
@@ -182,7 +182,7 @@ Six categories, each a dictionary of `value → weight`:
 | Category  | Source                                             | Notes                                          |
 | --------- | -------------------------------------------------- | ---------------------------------------------- |
 | Genres    | TMDB genres                                        | Strong, dense, always populated                |
-| Keywords  | TMDB keywords                                      | Best signal for specificity and reasons        |
+| Keywords  | TMDB keywords (filtered, see below)                | Best signal for specificity and reasons        |
 | People    | Director + top-billed cast + writers (TV creators) | Prefixed: `"Director:..."`, `"Actor:..."`      |
 | Decades   | Release year bucketed                              | `"1990s"`, `"2010s"`, etc.                     |
 | Runtime   | Movie runtime or TV episode runtime, bucketed      | `"short"`, `"medium"`, `"long"`, `"very_long"` |
@@ -193,6 +193,16 @@ Deliberately out of v1:
 - **Production company / network.** Low per-item value; users rarely track this consciously.
 - **Mood, tone, pacing.** Not available from structured metadata. Embedding territory.
 - **Seasonality / time-of-day.** Attribution is ambiguous and UX is a separate project.
+
+### Keyword filtering
+
+TMDB's keyword corpus mixes content descriptors ("unreliable narrator", "neo-noir", "heist") with structural metadata ("sequel", "aftercreditsstinger") and mood descriptors ("whimsical", "intense"). Only content descriptors are useful for the profile. Two hand-curated filter lists run in `keywords.ts` before aggregation:
+
+- **Structural tags.** TMDB keywords describing franchise or meta-attributes rather than content: `aftercreditsstinger`, `duringcreditsstinger`, `beforecreditsstinger`, `sequel`, `reboot`, `spin off`, `live action remake`, and universe tags (`marvel cinematic universe (mcu)`, `dc extended universe (dceu)`). These correlate with what the user watched, not what they prefer. Without filtering, observed output included `aftercreditsstinger` ranking 4th in the normalized keyword profile (~1.6%) — and `match_reason` strings like "You tend to like films with aftercreditsstinger."
+
+- **Tone / mood descriptors.** TMDB keywords describing emotional register: `excited`, `intense`, `sentimental`, `whimsical`, `wistful`, `complex`, `dramatic`, `suspicious`, `blunt`, and similar. Per the non-goals, mood-based scoring is deferred. Leaving these in the keyword pool dilutes content signal — in observed data a single TV show contributed 37 tone keywords at equal weight, consuming ~24% of the 200-keyword budget. If mood scoring is added later it belongs in a dedicated `moods` category with its own category weight, not silently mixed into keywords.
+
+Both lists are constants in `keywords.ts`. TMDB's corpus evolves, so these are reviewed periodically — the maintenance cost is accepted; the alternative (unfiltered) produces visibly bad output.
 
 ### Weight derivation
 
@@ -214,7 +224,7 @@ For each item with a per-item weight, the item's extracted features each receive
 
 **Recency decay.** A feedback signal from N months ago gets multiplied by `0.5 ^ (months / 24)` — a half-life of two years. Applied to genres and keywords; not applied to people (a user who loved early Fincher still loves early Fincher) or languages (language preference is stable). Applied at rebuild time only; incremental updates cannot retroactively re-decay old signals, which is one source of the drift the daily rebuild corrects.
 
-**Top-K pruning per category.** At rebuild completion: keep top 50 genres (effectively all of them), 200 keywords, 100 people, 10 decades, 4 runtimes, 20 languages. Bounds profile size and keeps scoring fast.
+**Top-K pruning per category.** At rebuild completion, retain the top-K entries by absolute weight per category: 50 genres (effectively all of them), 200 keywords, 100 people, 10 decades, 4 runtimes, 20 languages. Sorting by `|weight|` preserves strong negative signals (things the user dislikes) alongside strong positives; a strong negative is more informative for ranking than a weak positive. Bounds profile size and keeps scoring fast.
 
 ### Profile shape
 
@@ -426,11 +436,11 @@ registerScheduledPerRow({
 
 - They have no profile yet, but have at least some activity (feedback, watch history, or ratings).
 - `now - last_rebuilt_at > 7 days` — staleness cap; profiles rebuild weekly even without new feedback, since upstream metadata can shift.
-- They have ≥ 20 new `feedback_log` rows since `last_rebuilt_at` — enough incremental signal accrued that a full rebuild is warranted.
+- They have ≥ 20 new `feedback_log` rows since `last_rebuilt_at` — enough incremental signal accrued that a full rebuild is warranted. Counts events, not distinct items: because `feedback_log` is event-sourced, a user iterating ratings on 7 films can hit this threshold. Intentional — the threshold is a proxy for "this user has been active," regardless of whether activity is spread across many items or concentrated on fewer.
 
 Users with no activity at all are skipped.
 
-**Three profiles per user per run.** One pass over the user's history produces all three. Loading the history is the expensive part; the aggregation passes are cheap. Sequential per user, not per (user, media_type).
+**Three profiles per user per run.** The daily handler calls `rebuildProfile` three times (movie, tv, combined). In v1 these are three independent `collectContributions` passes over the user's history. An optimization to share a single data load across all three profiles is deferred — at current user volumes the triple-read is not load-bearing, but the shared-load refactor belongs in the rebuild layer (not the job handler) when it becomes worth doing. Sequential per user, not per (user, media_type).
 
 ### Incremental update
 
@@ -511,6 +521,7 @@ All captured through the job service's error-management integration:
 - **Sentiment classifier fails on a note.** Note is recorded; `note_sentiment` is NULL. Rebuild treats NULL sentiment as neutral. No user-visible impact.
 - **Incremental update runs against a user with no existing profile.** Bail out; the daily rebuild will create the baseline. Not an error.
 - **Two coalesced updates for the same user overlap.** Job service's scope-key handling prevents this — same scopeKey while running extends the debounce rather than starting a second run.
+- **Note keyword extraction silently returns empty.** The write-time extractor in `feedback_log.record` may return an empty array either because the note contains no TMDB-matching keywords (benign) or because extraction failed (silent bug). Rebuild cannot distinguish the two at read time. To make the failure case detectable, `feedback_log.record` logs a warning when the note is non-trivial (> 20 chars) but `note_keywords` ends up empty. A future admin view can aggregate this by comparing note count against non-empty `note_keywords` count in `feedback_log`.
 
 ## Integration points
 
@@ -582,13 +593,15 @@ The MCP doc has `ent_details` read per-item feedback. The engine exposes `getUse
 
 ### `MediaService` integration
 
-The engine calls three methods on `MediaService`:
+The engine calls five methods on `MediaService`:
 
 - `getHistory(userId, opts)` — aggregate across `watchHistory@v1` plugins.
 - `getAllRatings(userId)` — aggregate across `ratings@v1` plugins.
+- `getWatchlist(userId)` — items the user has queued but not watched, contributing at the watchlist weight (+0.3).
+- `getComments(userId)` — user-written comments surfaced by plugins that expose them (e.g. Trakt); distinct from `ent_feedback` notes, which live in `feedback_log`. Sentiment-classified at scoring time via the same classifier used for notes.
 - `getMetadata(userId, id)` — per-item metadata, cached at 24h TTL.
 
-All three exist or are trivially derivable from methods already specified in the media-service doc. No new capability. No new `MediaService` method. The engine is a pure consumer.
+All exist or are trivially derivable from methods already specified in the media-service doc. No new capability. No new `MediaService` method. The engine is a pure consumer.
 
 One implicit requirement: rebuild issues many `getMetadata` calls for items in history. The 24h cache makes this cheap for popular items; for obscure items it's a first-miss-then-cache pattern. No bulk-fetch needed.
 
@@ -719,10 +732,24 @@ Fixture user + fixture plugins exercising `recommendations@v1`. Call the recomme
 
 Job scheduling and lifecycle are tested by the job service's own suite (per the job-service doc). Tests in this spec cover only the handlers — what the engine does when called — not cron registration or scope-key semantics.
 
+## Changes since initial implementation
+
+An initial implementation of this spec ran against real user data before shipping. The pilot surfaced issues that produced the following revisions on 2026-04-21:
+
+- **Keyword filtering.** TMDB keyword pollution from structural tags (e.g. `aftercreditsstinger`) and tone descriptors (e.g. `whimsical`) was severe enough to corrupt both scoring and `match_reason` output. Two hand-curated filter lists now run in `keywords.ts` before aggregation. See _Keyword filtering_ under Profiles.
+- **Top-K sort order.** Made explicit that pruning sorts by `|weight|` to preserve strong negative signals. Spec was ambiguous; implementation was already correct.
+- **Daily rebuild pass count.** The original claim that one pass over history produces all three profiles was aspirational — the implementation does three passes. Spec amended to match reality, shared-load optimization deferred.
+- **Rebuild threshold semantics.** Clarified that the ≥20 threshold counts events, not distinct items.
+- **Note keyword silent failures.** Added a write-time log warning in `feedback_log.record` to make empty-extraction-on-non-empty-note detectable.
+- **MediaService integration.** Added `getWatchlist` and `getComments` to the list of consumed methods (previously omitted from the integration section).
+
+This section will be removed once a subsequent revision lands and this delta is no longer the freshest context.
+
 ## Open questions / deferred
 
 - **Embedding-based scoring via `embedding@v1` capability.** Reserved in the profile schema and scorer registry. Shipped when there's demand.
 - **Learned category weights.** V1 uses hand-tuned weights. Learning them requires a feedback loop on recommendation quality that doesn't exist yet. Revisit once enough `ent_feedback` signal exists to train against.
+- **Top-K budget tuning post-filter.** With structural-tag and tone-descriptor filtering now removing a meaningful fraction of the raw keyword pool, the existing 200-keyword cap may be over- or under-sized. Revisit once filtered profiles have accumulated — the choice should be data-driven, not inherited from the pre-filter design.
 - **Contextual / mood profiles.** Named contexts ("with the kids," "background while cooking") are expressive but require user curation and feedback attribution. Out of v1.
 - **Synchronous first-run rebuild.** If new-user experience in `ent_discover recommend` feels too thin before the daily job runs, a trigger from `connection.create` is a small addition. Deferred.
 - **Note extractor beyond sentiment + keyword matching.** The v1 approach is crude. An LLM-based or embedding-based text-feature extractor slots in behind the existing `sentiment.ts` interface if needed.
