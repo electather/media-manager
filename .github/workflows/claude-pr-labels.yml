@@ -8,7 +8,7 @@ on:
 
 jobs:
   label:
-    runs-on: ubuntu-latest
+    runs-on: [media-manager, sandboxed]
     timeout-minutes: 5
     permissions:
       contents: read
