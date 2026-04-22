@@ -14,22 +14,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
-          bun-version: latest
-
-      - name: Install Dependencies
-        run: bun install --frozen-lockfile
+          cache: true
 
       - name: Check Code Quality (Lint, Format, Types)
-        run: bunx vp check
+        run: vp check
 
       - name: Run Tests
-        run: bunx vp test
+        run: vp test
 
       - name: Check for Changesets
         if: github.event_name == 'pull_request'
         run: |
           git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
-          bunx changeset status --since=origin/${{ github.base_ref }}
+          vp dlx changeset status --since=origin/${{ github.base_ref }}
