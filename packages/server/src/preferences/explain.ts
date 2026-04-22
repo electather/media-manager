@@ -1,13 +1,12 @@
+import type {
+  FeatureCategory,
+  FeedbackAction,
+  PreferenceProfile,
+} from "@ent-mcp/shared/preferences";
 import { SCORERS, isDictScorer } from "./features";
 import { decadeFor } from "./features/decades";
 import { runtimeBucketFor } from "./features/runtime";
-import {
-  type CandidateFeatures,
-  type FeatureCategory,
-  type FeatureContribution,
-  type FeedbackAction,
-  type PreferenceProfile,
-} from "./types";
+import type { CandidateFeatures, FeatureContribution } from "./types";
 import { scoreCandidate } from "./scoring";
 
 const MIN_CONTRIBUTION_FRACTION = 0.1;

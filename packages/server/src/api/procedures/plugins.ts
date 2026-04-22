@@ -1,6 +1,12 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { eq } from "drizzle-orm";
+import {
+  pluginSetEnabledSchema as setEnabledSchema,
+  pluginGlobalConfigSchema as setGlobalConfigSchema,
+  pluginAddSharedCredentialSchema as addSharedCredentialSchema,
+  pluginUpdateSharedCredentialSchema as updateSharedCredentialSchema,
+  pluginPersonalKeyFallbackSchema as personalKeyFallbackSchema,
+} from "@ent-mcp/shared/plugins";
 import { getDb } from "../../db/client";
 import { plugins } from "../../db/schema";
 import { requireSession, requirePermission } from "../../auth/middleware";
@@ -8,25 +14,11 @@ import { PERMISSIONS } from "../../auth/permissions";
 import { pluginRuntime } from "../../plugin-runtime/runtime";
 import { getBuiltin } from "../../plugin-runtime/loader";
 import { sharedCredentialsService } from "../../plugin-runtime/shared-credentials";
-import { classifyScopes, type ValidatedManifest } from "../../plugin-runtime/manifest";
+import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
+import { classifyScopes } from "../../plugin-runtime/manifest";
 import { zValidator } from "../../errors/validator";
 import { badRequest } from "../../errors/http-errors";
 import { PluginError } from "../../plugin-runtime/types";
-
-const setEnabledSchema = z.object({ enabled: z.boolean() });
-const setGlobalConfigSchema = z.object({ config: z.unknown() });
-const addSharedCredentialSchema = z.object({
-  label: z.string().min(1),
-  value: z.unknown(),
-});
-const updateSharedCredentialSchema = z.object({
-  label: z.string().min(1).optional(),
-  value: z.unknown().optional(),
-  enabled: z.boolean().optional(),
-});
-const personalKeyFallbackSchema = z.object({
-  policy: z.enum(["off", "admin-first", "personal-first"]),
-});
 
 function parseManifest(raw: string): ValidatedManifest {
   return JSON.parse(raw) as ValidatedManifest;

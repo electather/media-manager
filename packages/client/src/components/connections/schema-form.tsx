@@ -19,8 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-
-export type JSONSchema = Record<string, unknown>;
+import type { JSONSchema } from "@ent-mcp/shared";
 
 interface FieldSchema {
   name: string;

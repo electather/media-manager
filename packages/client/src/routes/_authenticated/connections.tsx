@@ -55,7 +55,8 @@ import {
   type ExistingConnection,
   type PluginSummary,
 } from "@/components/connections/connection-modal";
-import { type JSONSchema, nonSecretFields } from "@/components/connections/schema-form";
+import type { JSONSchema } from "@ent-mcp/shared";
+import { nonSecretFields } from "@/components/connections/schema-form";
 
 export const Route = createFileRoute("/_authenticated/connections")({
   component: ConnectionsPage,
@@ -96,8 +97,10 @@ interface AvailablePlugin {
   description: string;
   logoUrl?: string;
   auth: string;
-  hasSharedConfig: boolean;
-  capabilities: string[];
+  poolable: boolean;
+  adminSharedAvailable: boolean;
+  userScopedCapabilities: Array<{ id: string; version: string }>;
+  globalScopedCapabilities: Array<{ id: string; version: string }>;
   userConfigSchema: unknown;
   credentialsSchema: unknown;
 }
@@ -144,9 +147,12 @@ function availableToPluginSummary(p: AvailablePlugin): PluginSummary {
     description: p.description,
     logoUrl: p.logoUrl,
     auth: p.auth,
-    capabilities: p.capabilities,
+    capabilities: [
+      ...p.userScopedCapabilities.map((c) => c.id),
+      ...p.globalScopedCapabilities.map((c) => c.id),
+    ],
     userConfigSchema: (p.userConfigSchema as JSONSchema | null) ?? null,
-    hasSharedConfig: p.hasSharedConfig,
+    hasSharedConfig: p.adminSharedAvailable,
   };
 }
 
@@ -725,6 +731,10 @@ function AvailablePluginCard({
   plugin: AvailablePlugin;
   onConnect: () => void;
 }) {
+  const capabilityIds = [
+    ...plugin.userScopedCapabilities.map((c) => c.id),
+    ...plugin.globalScopedCapabilities.map((c) => c.id),
+  ];
   return (
     <Card size="sm" className="gap-3">
       <CardHeader>
@@ -741,9 +751,9 @@ function AvailablePluginCard({
             {plugin.description}
           </p>
         ) : null}
-        {plugin.capabilities.length > 0 ? (
+        {capabilityIds.length > 0 ? (
           <div className="flex flex-wrap gap-1">
-            {plugin.capabilities.slice(0, 4).map((cap) => {
+            {capabilityIds.slice(0, 4).map((cap) => {
               const { label, icon: Icon } = capabilityDisplay(cap);
               return (
                 <Badge key={cap} variant="secondary" className="gap-1 text-sm font-normal">
@@ -752,16 +762,14 @@ function AvailablePluginCard({
                 </Badge>
               );
             })}
-            {plugin.capabilities.length > 4 ? (
-              <span className="text-sm text-muted-foreground">
-                +{plugin.capabilities.length - 4}
-              </span>
+            {capabilityIds.length > 4 ? (
+              <span className="text-sm text-muted-foreground">+{capabilityIds.length - 4}</span>
             ) : null}
           </div>
         ) : null}
       </CardContent>
       <CardFooter className="flex items-center justify-between gap-2">
-        {plugin.hasSharedConfig ? (
+        {plugin.adminSharedAvailable ? (
           <>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <KeyIcon className="size-3" /> Using server key

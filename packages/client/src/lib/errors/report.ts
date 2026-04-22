@@ -1,18 +1,7 @@
+import type { ErrorReportPayload, ErrorSeverity } from "@ent-mcp/shared/errors";
 import { REQUEST_ID_HEADER } from "./request-id";
 
-export type Severity = "error" | "warning";
-
-export interface ReportPayload {
-  severity: Severity;
-  name?: string;
-  message: string;
-  stack?: string;
-  route?: string;
-  code?: string;
-  context?: Record<string, unknown>;
-}
-
-function serialize(err: unknown): Pick<ReportPayload, "name" | "message" | "stack"> {
+function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | "stack"> {
   if (err instanceof Error) {
     return { name: err.name, message: err.message, stack: err.stack };
   }
@@ -35,12 +24,12 @@ function serialize(err: unknown): Pick<ReportPayload, "name" | "message" | "stac
  *  we never want "error capture failed" to surface in the UI. */
 export async function reportError(
   err: unknown,
-  severity: Severity,
+  severity: ErrorSeverity,
   context?: Record<string, unknown>,
   code?: string,
 ): Promise<void> {
   try {
-    const payload: ReportPayload = {
+    const payload: ErrorReportPayload = {
       severity,
       code,
       route: typeof window !== "undefined" ? window.location.pathname : undefined,

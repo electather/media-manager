@@ -1,87 +1,8 @@
 import type { z } from "zod";
+import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@ent-mcp/shared";
 import type { HostErrorCode } from "../errors/codes";
 
-/** JSON Schema subset used for plugin-supplied config shapes. Kept deliberately permissive. */
-export type JSONSchema = Record<string, unknown>;
-
-export type AuthKind = "form" | "oauth_redirect" | "oauth_device" | "none";
-
-/** Scope a capability operates under. See docs/2026-04-19-plugin-architecture-design.md. */
-export type CapabilityScope = "global" | "user";
-
-/** One entry in `manifest.capabilities`. Scope governs credential routing. */
-export interface ManifestCapability {
-  version: string;
-  scope: CapabilityScope;
-}
-
-export interface MCPToolAnnotations {
-  destructiveHint?: boolean;
-  idempotentHint?: boolean;
-  readOnlyHint?: boolean;
-}
-
-/**
- * Declarative MCP tool record declared by either a capability definition or a
- * plugin manifest. The host prefixes plugin-declared tools with
- * `ext_<plugin_id>_` before registration.
- */
-export interface McpToolDefinition {
-  name: string;
-  description: string;
-  inputSchema: JSONSchema;
-  outputSchema: JSONSchema;
-  /** Name of the handler export on the plugin module's `mcpTools` object. */
-  handler: string;
-  annotations?: MCPToolAnnotations;
-}
-
-export interface PluginManifest {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  logoUrl?: string;
-  author: { name: string; url?: string };
-  homepage?: string;
-  sdkVersion: string;
-  allowedHosts: string[];
-
-  /** Plaintext admin config (e.g. display settings, base URLs). */
-  globalConfigSchema?: JSONSchema;
-  /** Encrypted admin secrets — one schema, many pool entries for `poolable` plugins. */
-  sharedCredentialsSchema?: JSONSchema;
-  /** Plaintext user config. Rendered on connection forms. */
-  userConfigSchema?: JSONSchema;
-  /**
-   * Encrypted user secrets. Required when any capability has `scope: "user"`
-   * (validated at manifest install; see derived rules in the design doc).
-   */
-  credentialsSchema?: JSONSchema;
-
-  auth: { kind: AuthKind };
-  capabilities: Record<string, ManifestCapability>;
-
-  /**
-   * When true, the admin may configure multiple `shared_credentials` entries
-   * and the host rotates across them on rate-limit. Non-poolable plugins
-   * accept exactly one shared-credential entry.
-   */
-  poolable?: boolean;
-
-  jobs?: Array<{
-    id: string;
-    schedule: string;
-    handler: string;
-    perConnection?: boolean;
-  }>;
-
-  /**
-   * Optional plugin-contributed MCP tools. Registered as `ext_<plugin_id>_<name>`.
-   * Capped at 5 per plugin; names and schemas validated at manifest load time.
-   */
-  mcpTools?: McpToolDefinition[];
-}
+// ─── Server-only plugin runtime interfaces ────────────────────────────────────
 
 export interface StoreScopeOpts {
   scope?: "user" | "global";
@@ -255,7 +176,7 @@ export interface CapabilityMcpTool {
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   requiredScopes: string[];
-  annotations?: MCPToolAnnotations;
+  annotations?: McpToolAnnotations;
   /** Identifier resolved at registration time to a host module handler. */
   handlerKey: string;
 }

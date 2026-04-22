@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from "vite-plus/test";
 import { captureError, registerErrorSink, resetErrorSinks } from "../capture";
 import { runWithRequestContext } from "../request-context";
-import type { ErrorRecord, ErrorSink } from "../types";
+import type { ErrorRecord } from "@ent-mcp/shared/errors";
+import type { ErrorSink } from "../types";
 
 class CollectingSink implements ErrorSink {
   records: ErrorRecord[] = [];

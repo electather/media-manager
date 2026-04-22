@@ -11,7 +11,7 @@ import { PREFERENCE_INCREMENTAL_JOB_ID } from "../../preferences/jobs";
 import type { ToolHandler, ToolRegistration } from "../registry";
 import { parseMediaId } from "../media-id";
 import { badInput, targetNotFound } from "../errors";
-import type { MediaItem } from "../../media/types";
+import type { MediaItem } from "@ent-mcp/shared/media";
 
 type FeedbackAction = "like" | "dislike" | "rate" | "note";
 

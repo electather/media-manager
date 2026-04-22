@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { consola } from "consola";
-import type { MCPToolAnnotations } from "../plugin-runtime/types";
+import type { McpToolAnnotations } from "@ent-mcp/shared";
 import { dispatchForMcpHandler, dispatchTool } from "./dispatch";
 import { mcpToolRegistry } from "./registry";
 import { withOAuthAuth } from "./auth";
@@ -17,7 +17,7 @@ interface ToolsListEntry {
   description: string;
   inputSchema: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
-  annotations?: MCPToolAnnotations;
+  annotations?: McpToolAnnotations;
 }
 
 const PROTOCOL_VERSION = "2025-03-26";

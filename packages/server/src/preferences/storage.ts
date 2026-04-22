@@ -1,13 +1,12 @@
 import { and, eq } from "drizzle-orm";
+import type {
+  PreferenceProfile,
+  ProfileFeatures,
+  ProfileMediaType,
+} from "@ent-mcp/shared/preferences";
 import { getDb } from "../db/client";
 import { preferenceProfiles } from "../db/schema";
-import {
-  deriveConfidence,
-  emptyFeatures,
-  type PreferenceProfile,
-  type ProfileFeatures,
-  type ProfileMediaType,
-} from "./types";
+import { deriveConfidence, emptyFeatures } from "./types";
 
 export const profileStorage = {
   async read(userId: string, mediaType: ProfileMediaType): Promise<PreferenceProfile | null> {

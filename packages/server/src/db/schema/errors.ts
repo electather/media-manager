@@ -1,11 +1,9 @@
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { ERROR_SEVERITIES, ERROR_SOURCES } from "@ent-mcp/shared/errors";
 import { user } from "./auth";
 import { plugins } from "./plugins";
 import { serviceConnections } from "./credentials";
-
-const severityEnum = ["error", "warning"] as const;
-const sourceEnum = ["frontend", "backend", "plugin", "cron"] as const;
 
 /** Persistent store of captured errors surfaced by the admin viewer at /admin/errors. */
 export const errorRecords = sqliteTable(
@@ -13,8 +11,8 @@ export const errorRecords = sqliteTable(
   {
     id: text("id").primaryKey(),
     requestId: text("request_id").notNull(),
-    severity: text("severity", { enum: severityEnum }).notNull(),
-    source: text("source", { enum: sourceEnum }).notNull(),
+    severity: text("severity", { enum: ERROR_SEVERITIES }).notNull(),
+    source: text("source", { enum: ERROR_SOURCES }).notNull(),
     code: text("code"),
     devMessage: text("dev_message").notNull(),
     stack: text("stack"),

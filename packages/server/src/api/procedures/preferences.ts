@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import { profileQuerySchema } from "@ent-mcp/shared/preferences";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { currentRequestContext } from "../../errors/request-context";
 import { zValidator } from "../../errors/validator";
@@ -8,10 +8,6 @@ import { jobErrors } from "../../jobs/errors";
 import { latestRun } from "../../jobs/history";
 import { getPreferenceEngine } from "../../preferences";
 import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences/jobs";
-
-const profileQuerySchema = z.object({
-  mediaType: z.enum(["movie", "tv", "combined"]).default("combined"),
-});
 
 export const preferencesApp = new Hono()
   .use("*", requireSession)

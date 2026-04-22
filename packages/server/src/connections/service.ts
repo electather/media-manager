@@ -4,12 +4,9 @@ import { serviceConnections, pendingAuth, plugins } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
-import type {
-  AuthResult,
-  CapabilityScope,
-  ManifestCapability,
-  PluginManifest,
-} from "../plugin-runtime/types";
+import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
+import type { ConnectionListItem } from "@ent-mcp/shared/connections";
+import type { AuthResult } from "../plugin-runtime/types";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import { decryptJson, encryptJson, promoteToDefault, stripSecretFields } from "./helpers";
@@ -21,9 +18,6 @@ import {
   initiateDeviceAuth,
   pollDeviceAuth,
 } from "./auth";
-import type { ConnectionListItem } from "./types";
-
-export type { ConnectionListItem };
 
 type StoredManifest = Pick<
   PluginManifest,

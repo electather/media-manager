@@ -1,15 +1,15 @@
+import type {
+  FeedbackRecord,
+  PreferenceProfile,
+  ProfileMediaType,
+  UpdateResult,
+} from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
 import { rebuildProfile } from "./rebuild";
 import { profileStorage } from "./storage";
 import type { PreferenceDataProvider } from "./provider";
-import {
-  deriveConfidence,
-  type FeedbackRecord,
-  type PreferenceProfile,
-  type ProfileMediaType,
-  type UpdateResult,
-} from "./types";
+import { deriveConfidence } from "./types";
 
 const SIGNAL_WEIGHTS = {
   rateHigh: 1.0,

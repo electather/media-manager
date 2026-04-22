@@ -1,8 +1,7 @@
 export * from "./types";
 export * from "./define";
 export * from "./capabilities";
-export { pluginManifestSchema, HOST_SDK_VERSION, classifyScopes } from "./manifest";
-export type { ValidatedManifest } from "./manifest";
+export { HOST_SDK_VERSION, classifyScopes } from "./manifest";
 export { capabilityRegistry } from "./registry";
 export { pluginRuntime } from "./runtime";
 export { registerBuiltin, listBuiltins, getBuiltin, validatePluginModule } from "./loader";

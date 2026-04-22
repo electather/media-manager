@@ -37,8 +37,9 @@ import { capabilityDisplay } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { JSONSchema } from "@ent-mcp/shared";
+import type { PersonalKeyFallbackPolicy, PluginManifest } from "@ent-mcp/shared/plugins";
 import {
-  type JSONSchema,
   SchemaForm,
   defaultsFromSchema,
   stripEmptySecrets,
@@ -55,22 +56,25 @@ interface PluginRow {
   sourceType: string;
   enabled: boolean;
   hasGlobalConfig: boolean;
-  hasSharedCredentials: boolean;
-  manifest: {
-    id: string;
-    name: string;
-    version: string;
-    description?: string;
-    logoUrl?: string;
-    capabilities?: Record<string, string>;
-    globalConfigSchema?: JSONSchema;
-    credentialsSchema?: JSONSchema;
-    allowsSharedCredentials?: boolean;
-    auth: { kind: string };
-  };
+  sharedCredentialsCount: number;
+  personalKeyFallback: PersonalKeyFallbackPolicy;
+  poolable: boolean;
+  capabilities: Array<{ id: string; version: string; scope: "global" | "user" }>;
+  manifest: PluginManifest;
+  isPureGlobal: boolean;
   installedAt: number;
   updatedAt: number;
   isBuiltin: boolean;
+}
+
+interface SharedCredentialEntry {
+  id: string;
+  label: string;
+  enabled: boolean;
+  lastExhaustedAt: number | null;
+  retryAfter: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 type ModalState =
@@ -166,8 +170,8 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
   });
 
   const hasGlobalConfig = Boolean(plugin.manifest.globalConfigSchema);
-  const hasSharedCredentials = Boolean(plugin.manifest.allowsSharedCredentials);
-  const isConfigurable = hasGlobalConfig || hasSharedCredentials;
+  const hasSharedCredentialsSchema = Boolean(plugin.manifest.sharedCredentialsSchema);
+  const isConfigurable = hasGlobalConfig || hasSharedCredentialsSchema;
   const capabilities = Object.keys(plugin.manifest.capabilities ?? {});
   const disabled = !plugin.enabled;
 
@@ -268,11 +272,15 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
               </span>
             </span>
           ) : null}
-          {hasSharedCredentials ? (
+          {hasSharedCredentialsSchema ? (
             <span>
               Shared credentials:{" "}
               <span className="font-medium text-foreground">
-                {plugin.hasSharedCredentials ? "set" : "not set"}
+                {plugin.sharedCredentialsCount > 0
+                  ? plugin.poolable
+                    ? `${plugin.sharedCredentialsCount} in pool`
+                    : "set"
+                  : "not set"}
               </span>
             </span>
           ) : null}
@@ -297,114 +305,23 @@ function ConfigureDialog({
   const open = state.kind === "configure";
   const plugin = state.kind === "configure" ? state.plugin : null;
   const configSchema = (plugin?.manifest.globalConfigSchema ?? null) as JSONSchema | null;
-  const credsSchema = (
-    plugin?.manifest.allowsSharedCredentials ? plugin.manifest.credentialsSchema : null
-  ) as JSONSchema | null;
-  const hasBoth = Boolean(configSchema && credsSchema);
+  const credsSchema = (plugin?.manifest.sharedCredentialsSchema ?? null) as JSONSchema | null;
+  const hasConfig = Boolean(configSchema);
+  const hasCreds = Boolean(credsSchema);
+  const hasBoth = hasConfig && hasCreds;
 
-  const [tab, setTab] = useState<"config" | "credentials">(configSchema ? "config" : "credentials");
-  const [configValues, setConfigValues] = useState<Record<string, unknown>>({});
-  const [credsValues, setCredsValues] = useState<Record<string, unknown>>({});
-  const [saving, setSaving] = useState(false);
-  const [topError, setTopError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [tab, setTab] = useState<"config" | "credentials">(hasConfig ? "config" : "credentials");
 
   useEffect(() => {
-    if (!open || !plugin) return;
-    setLoaded(false);
-    setTopError(null);
-    setSaving(false);
-    setSubmitAttempted(false);
-    setTab(configSchema ? "config" : "credentials");
-    if (configSchema) setConfigValues(defaultsFromSchema(configSchema));
-    if (credsSchema) setCredsValues(defaultsFromSchema(credsSchema));
-    void (async () => {
-      try {
-        const [configRes, credsRes] = await Promise.all([
-          configSchema
-            ? api.plugins[":id"]["global-config"].$get({
-                param: { id: plugin.id },
-              })
-            : null,
-          credsSchema
-            ? api.plugins[":id"]["shared-credentials"].$get({
-                param: { id: plugin.id },
-              })
-            : null,
-        ]);
-        if (configRes) {
-          if (!configRes.ok) throw new Error("Failed to load config.");
-          const body = (await configRes.json()) as { config: unknown };
-          if (body.config && typeof body.config === "object") {
-            setConfigValues({
-              ...defaultsFromSchema(configSchema!),
-              ...(body.config as Record<string, unknown>),
-            });
-          }
-        }
-        if (credsRes) {
-          if (!credsRes.ok) throw new Error("Failed to load shared credentials.");
-          const body = (await credsRes.json()) as { credentials: unknown };
-          if (body.credentials && typeof body.credentials === "object") {
-            setCredsValues({
-              ...defaultsFromSchema(credsSchema!),
-              ...(body.credentials as Record<string, unknown>),
-            });
-          }
-        }
-      } catch (err) {
-        setTopError(err instanceof Error ? err.message : "Failed to load configuration.");
-      } finally {
-        setLoaded(true);
-      }
-    })();
-  }, [open, plugin?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!open) return;
+    setTab(hasConfig ? "config" : "credentials");
+  }, [open, hasConfig]);
 
-  if (!plugin || (!configSchema && !credsSchema)) return null;
-
-  const onSave = async () => {
-    const activeSchema = tab === "config" ? configSchema : credsSchema;
-    const activeValues = tab === "config" ? configValues : credsValues;
-    if (!activeSchema) return;
-    const errors = validateSchema(activeSchema, activeValues);
-    if (Object.keys(errors).length > 0) {
-      setSubmitAttempted(true);
-      return;
-    }
-    setSaving(true);
-    setTopError(null);
-    try {
-      const submission = stripEmptySecrets(activeSchema, activeValues);
-      if (tab === "config") {
-        const res = await api.plugins[":id"]["global-config"].$put({
-          param: { id: plugin.id },
-          json: { config: submission },
-        });
-        if (!res.ok) throw new Error("Failed to save config.");
-      } else {
-        const res = await api.plugins[":id"]["shared-credentials"].$put({
-          param: { id: plugin.id },
-          json: { credentials: submission },
-        });
-        if (!res.ok) throw new Error("Failed to save shared credentials.");
-      }
-      onSaved();
-      onOpenChange(false);
-    } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const activeSchema = tab === "config" ? configSchema : credsSchema;
-  const activeValues = tab === "config" ? configValues : credsValues;
-  const setActiveValues = tab === "config" ? setConfigValues : setCredsValues;
+  if (!plugin || (!hasConfig && !hasCreds)) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="gap-0 p-0 sm:max-w-120">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-0 p-0 sm:max-w-140">
         <DialogHeader className="border-b border-border px-6 pt-5 pb-4">
           <DialogTitle>Configure {plugin.manifest.name}</DialogTitle>
           <DialogDescription>
@@ -413,97 +330,481 @@ function ConfigureDialog({
           </DialogDescription>
         </DialogHeader>
         {hasBoth ? (
-          <Tabs
-            value={tab}
-            onValueChange={(v) => {
-              setTab(v as "config" | "credentials");
-              setSubmitAttempted(false);
-              setTopError(null);
-            }}
-          >
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "config" | "credentials")}>
             <TabsList className="mx-6 mt-5 w-auto">
               <TabsTrigger value="config">Global config</TabsTrigger>
               <TabsTrigger value="credentials">Shared credentials</TabsTrigger>
             </TabsList>
             <TabsContent value="config" className="mt-0">
-              <ConfigFormBody
+              <GlobalConfigTab
+                plugin={plugin}
                 schema={configSchema!}
-                values={configValues}
-                onChange={setConfigValues}
-                loaded={loaded}
-                topError={tab === "config" ? topError : null}
-                submitAttempted={submitAttempted}
+                onClose={() => onOpenChange(false)}
+                onSaved={onSaved}
               />
             </TabsContent>
             <TabsContent value="credentials" className="mt-0">
-              <ConfigFormBody
-                schema={credsSchema!}
-                values={credsValues}
-                onChange={setCredsValues}
-                loaded={loaded}
-                topError={tab === "credentials" ? topError : null}
-                submitAttempted={submitAttempted}
-              />
+              <SharedCredentialsPool plugin={plugin} schema={credsSchema!} onChanged={onSaved} />
             </TabsContent>
           </Tabs>
-        ) : (
-          <ConfigFormBody
-            schema={activeSchema!}
-            values={activeValues}
-            onChange={setActiveValues}
-            loaded={loaded}
-            topError={topError}
-            submitAttempted={submitAttempted}
+        ) : hasConfig ? (
+          <GlobalConfigTab
+            plugin={plugin}
+            schema={configSchema!}
+            onClose={() => onOpenChange(false)}
+            onSaved={onSaved}
           />
+        ) : (
+          <SharedCredentialsPool plugin={plugin} schema={credsSchema!} onChanged={onSaved} />
         )}
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={onSave} disabled={saving || !loaded}>
-            {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Save
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function ConfigFormBody({
+function GlobalConfigTab({
+  plugin,
   schema,
-  values,
-  onChange,
-  loaded,
-  topError,
-  submitAttempted,
+  onClose,
+  onSaved,
 }: {
+  plugin: PluginRow;
   schema: JSONSchema;
-  values: Record<string, unknown>;
-  onChange: (v: Record<string, unknown>) => void;
-  loaded: boolean;
-  topError: string | null;
-  submitAttempted: boolean;
+  onClose: () => void;
+  onSaved: () => void;
 }) {
+  const [values, setValues] = useState<Record<string, unknown>>(() => defaultsFromSchema(schema));
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [topError, setTopError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded(false);
+    setTopError(null);
+    setValues(defaultsFromSchema(schema));
+    void (async () => {
+      try {
+        const res = await api.plugins[":id"]["global-config"].$get({ param: { id: plugin.id } });
+        if (!res.ok) throw new Error("Failed to load config.");
+        const body = (await res.json()) as { config: unknown };
+        if (cancelled) return;
+        if (body.config && typeof body.config === "object") {
+          setValues({
+            ...defaultsFromSchema(schema),
+            ...(body.config as Record<string, unknown>),
+          });
+        }
+      } catch (err) {
+        if (!cancelled) setTopError(err instanceof Error ? err.message : "Failed to load config.");
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [plugin.id, schema]);
+
+  const onSave = async () => {
+    const errors = validateSchema(schema, values);
+    if (Object.keys(errors).length > 0) {
+      setSubmitAttempted(true);
+      return;
+    }
+    setSaving(true);
+    setTopError(null);
+    try {
+      const submission = stripEmptySecrets(schema, values);
+      const res = await api.plugins[":id"]["global-config"].$put({
+        param: { id: plugin.id },
+        json: { config: submission },
+      });
+      if (!res.ok) throw new Error("Failed to save config.");
+      onSaved();
+      onClose();
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-4 px-6 py-5">
-      {!loaded ? (
-        <Skeleton className="h-24" />
-      ) : (
+    <>
+      <div className="flex flex-col gap-4 px-6 py-5">
+        {!loaded ? (
+          <Skeleton className="h-24" />
+        ) : (
+          <SchemaForm
+            schema={schema}
+            value={values}
+            onChange={setValues}
+            mode="edit"
+            submitAttempted={submitAttempted}
+          />
+        )}
+        {topError ? <InlineError message={topError} /> : null}
+      </div>
+      <DialogFooter className="border-t border-border px-6 py-4">
+        <Button variant="outline" onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={onSave} disabled={saving || !loaded}>
+          {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
+          Save
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+// ─── Shared credentials pool ──────────────────────────────────────────────────
+
+function SharedCredentialsPool({
+  plugin,
+  schema,
+  onChanged,
+}: {
+  plugin: PluginRow;
+  schema: JSONSchema;
+  onChanged: () => void;
+}) {
+  const qc = useQueryClient();
+  const entries = useQuery({
+    queryKey: ["admin", "plugins", plugin.id, "shared-credentials"],
+    queryFn: async (): Promise<SharedCredentialEntry[]> => {
+      const res = await api.plugins[":id"]["shared-credentials"].$get({ param: { id: plugin.id } });
+      if (!res.ok) throw new Error("Failed to load shared credentials.");
+      const body = (await res.json()) as { entries: SharedCredentialEntry[] };
+      return body.entries;
+    },
+  });
+
+  const refetch = () => {
+    void qc.invalidateQueries({
+      queryKey: ["admin", "plugins", plugin.id, "shared-credentials"],
+    });
+    onChanged();
+  };
+
+  const [mode, setMode] = useState<
+    { kind: "list" } | { kind: "add" } | { kind: "edit"; entry: SharedCredentialEntry }
+  >({
+    kind: "list",
+  });
+
+  // Reset to list whenever the plugin changes.
+  useEffect(() => {
+    setMode({ kind: "list" });
+  }, [plugin.id]);
+
+  const list = entries.data ?? [];
+  const atCapacity = !plugin.poolable && list.length >= 1;
+
+  if (mode.kind === "add") {
+    return (
+      <SharedCredentialForm
+        plugin={plugin}
+        schema={schema}
+        mode="add"
+        onCancel={() => setMode({ kind: "list" })}
+        onSaved={() => {
+          setMode({ kind: "list" });
+          refetch();
+        }}
+      />
+    );
+  }
+  if (mode.kind === "edit") {
+    return (
+      <SharedCredentialForm
+        plugin={plugin}
+        schema={schema}
+        mode="edit"
+        entry={mode.entry}
+        onCancel={() => setMode({ kind: "list" })}
+        onSaved={() => {
+          setMode({ kind: "list" });
+          refetch();
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-3 px-6 py-5">
+        {entries.isLoading ? (
+          <Skeleton className="h-24" />
+        ) : entries.error ? (
+          <InlineError message={(entries.error as Error).message} />
+        ) : list.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No shared credentials configured. Add one so {plugin.manifest.name} can make
+            {plugin.poolable ? " pooled " : " "}
+            global calls on behalf of users without their own connection.
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+            {list.map((entry) => (
+              <SharedCredentialRow
+                key={entry.id}
+                plugin={plugin}
+                entry={entry}
+                onEdit={() => setMode({ kind: "edit", entry })}
+                onChanged={refetch}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+      <DialogFooter className="flex items-center justify-between gap-2 border-t border-border px-6 py-4">
+        <span className="text-xs text-muted-foreground">
+          {plugin.poolable
+            ? "Multiple credentials can be pooled and rotated on rate-limit."
+            : "This plugin accepts a single shared credential."}
+        </span>
+        <Button onClick={() => setMode({ kind: "add" })} disabled={atCapacity}>
+          Add credential
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+function SharedCredentialRow({
+  plugin,
+  entry,
+  onEdit,
+  onChanged,
+}: {
+  plugin: PluginRow;
+  entry: SharedCredentialEntry;
+  onEdit: () => void;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState<"toggle" | "test" | "delete" | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message?: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleEnabled = async (next: boolean) => {
+    setBusy("toggle");
+    setError(null);
+    try {
+      const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
+        param: { id: plugin.id, credId: entry.id },
+        json: { enabled: next },
+      });
+      if (!res.ok) throw new Error("Failed to update.");
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const test = async () => {
+    setBusy("test");
+    setError(null);
+    setTestResult(null);
+    try {
+      const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
+        param: { id: plugin.id, credId: entry.id },
+      });
+      if (!res.ok) throw new Error("Test failed.");
+      const body = (await res.json()) as { ok: boolean; message?: string };
+      setTestResult(body);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Test failed.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm(`Delete shared credential "${entry.label}"?`)) return;
+    setBusy("delete");
+    setError(null);
+    try {
+      const res = await api.plugins[":id"]["shared-credentials"][":credId"].$delete({
+        param: { id: plugin.id, credId: entry.id },
+      });
+      if (!res.ok) throw new Error("Failed to delete.");
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <li className="flex flex-col gap-2 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{entry.label}</div>
+          <div className="text-xs text-muted-foreground">
+            {entry.lastExhaustedAt
+              ? `Rate-limited ${formatDate(entry.lastExhaustedAt)}`
+              : `Added ${formatDate(entry.createdAt)}`}
+          </div>
+        </div>
+        <Switch
+          checked={entry.enabled}
+          onCheckedChange={toggleEnabled}
+          disabled={busy !== null}
+          aria-label={entry.enabled ? "Disable credential" : "Enable credential"}
+        />
+        <Button variant="outline" size="sm" onClick={test} disabled={busy !== null}>
+          {busy === "test" ? <LoaderCircleIcon className="animate-spin" /> : null}
+          Test
+        </Button>
+        <Button variant="outline" size="sm" onClick={onEdit} disabled={busy !== null}>
+          Edit
+        </Button>
+        <Button variant="ghost" size="sm" onClick={remove} disabled={busy !== null}>
+          {busy === "delete" ? (
+            <LoaderCircleIcon className="animate-spin" />
+          ) : (
+            <TrashIcon className="text-destructive" />
+          )}
+        </Button>
+      </div>
+      {testResult ? (
+        <div
+          className={cn(
+            "rounded-md border px-3 py-2 text-xs",
+            testResult.ok
+              ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
+              : "border-destructive/40 bg-destructive/5 text-destructive",
+          )}
+        >
+          {testResult.ok ? "OK" : (testResult.message ?? "Test failed.")}
+        </div>
+      ) : null}
+      {error ? <InlineError message={error} /> : null}
+    </li>
+  );
+}
+
+function SharedCredentialForm({
+  plugin,
+  schema,
+  mode,
+  entry,
+  onCancel,
+  onSaved,
+}: {
+  plugin: PluginRow;
+  schema: JSONSchema;
+  mode: "add" | "edit";
+  entry?: SharedCredentialEntry;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [label, setLabel] = useState(entry?.label ?? "");
+  // On edit, value fields start empty — the server doesn't return the decrypted
+  // secret. An empty submission preserves the existing value; filled submission
+  // replaces it.
+  const [values, setValues] = useState<Record<string, unknown>>(() => defaultsFromSchema(schema));
+  const [saving, setSaving] = useState(false);
+  const [topError, setTopError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const onSave = async () => {
+    if (label.trim() === "") {
+      setSubmitAttempted(true);
+      setTopError("Label is required.");
+      return;
+    }
+    // On add, the value must validate. On edit, only validate if the admin
+    // actually filled in new secret values.
+    const hasFilledValues = Object.values(values).some((v) => v !== "" && v !== undefined);
+    if (mode === "add" || hasFilledValues) {
+      const errors = validateSchema(schema, values);
+      if (Object.keys(errors).length > 0) {
+        setSubmitAttempted(true);
+        return;
+      }
+    }
+    setSaving(true);
+    setTopError(null);
+    try {
+      if (mode === "add") {
+        const submission = stripEmptySecrets(schema, values);
+        const res = await api.plugins[":id"]["shared-credentials"].$post({
+          param: { id: plugin.id },
+          json: { label: label.trim(), value: submission },
+        });
+        if (!res.ok) throw new Error("Failed to add credential.");
+      } else if (entry) {
+        const patch: { label?: string; value?: unknown } = {};
+        if (label.trim() !== entry.label) patch.label = label.trim();
+        if (hasFilledValues) patch.value = stripEmptySecrets(schema, values);
+        const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
+          param: { id: plugin.id, credId: entry.id },
+          json: patch,
+        });
+        if (!res.ok) throw new Error("Failed to update credential.");
+      }
+      onSaved();
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex flex-col gap-4 px-6 py-5">
+        <Field>
+          <FieldTitle>Label</FieldTitle>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Primary TMDB key"
+            disabled={saving}
+          />
+          <FieldDescription>
+            A short name for this entry. Helps you identify it in the pool.
+          </FieldDescription>
+        </Field>
         <SchemaForm
           schema={schema}
           value={values}
-          onChange={onChange}
-          mode="edit"
+          onChange={setValues}
+          mode={mode === "add" ? "create" : "edit"}
           submitAttempted={submitAttempted}
         />
-      )}
-      {topError ? (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          <TriangleAlertIcon className="mt-0.5 size-4" aria-hidden="true" />
-          <span>{topError}</span>
-        </div>
-      ) : null}
+        {mode === "edit" ? (
+          <p className="text-xs text-muted-foreground">
+            Leave secret fields empty to keep the existing value.
+          </p>
+        ) : null}
+        {topError ? <InlineError message={topError} /> : null}
+      </div>
+      <DialogFooter className="border-t border-border px-6 py-4">
+        <Button variant="outline" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={onSave} disabled={saving}>
+          {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
+          {mode === "add" ? "Add" : "Save"}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+function InlineError({ message }: { message: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+      <TriangleAlertIcon className="mt-0.5 size-4" aria-hidden="true" />
+      <span>{message}</span>
     </div>
   );
 }

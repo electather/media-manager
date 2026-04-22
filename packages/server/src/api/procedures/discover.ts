@@ -1,25 +1,10 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import {
+  discoverFilterQuerySchema as discoverSchema,
+  discoverSearchQuerySchema as searchSchema,
+  discoverTrendingQuerySchema as trendingSchema,
+} from "@ent-mcp/shared/media";
 import { zValidator } from "../../errors/validator";
-
-const searchSchema = z.object({
-  query: z.string().min(1),
-  mediaType: z.enum(["movie", "tv"]).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(10),
-});
-
-const trendingSchema = z.object({
-  mediaType: z.enum(["movie", "tv"]).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-});
-
-const discoverSchema = z.object({
-  genres: z.string().optional(),
-  yearMin: z.coerce.number().int().optional(),
-  yearMax: z.coerce.number().int().optional(),
-  ratingMin: z.coerce.number().optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-});
 
 export const discoverApp = new Hono()
   .get("/search", zValidator("query", searchSchema), async (c) => {

@@ -5,7 +5,7 @@ import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
 import { formatMediaId } from "../media-id";
 import { getPreferenceEngine } from "../../preferences";
-import type { MediaItem } from "../../media/types";
+import type { MediaItem } from "@ent-mcp/shared/media";
 
 type DiscoverMode = "search" | "recommend" | "similar" | "trending" | "discover";
 

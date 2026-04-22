@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
+import type { PluginManifest } from "@ent-mcp/shared/plugins";
 import { validatePluginModule } from "../loader";
-import type { PluginManifest } from "../types";
 import traktPlugin from "../../plugins/builtin/trakt/plugin";
 import tmdbPlugin from "../../plugins/builtin/tmdb/plugin";
 import tvdbPlugin from "../../plugins/builtin/tvdb/plugin";

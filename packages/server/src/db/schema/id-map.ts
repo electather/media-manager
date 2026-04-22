@@ -1,13 +1,12 @@
 import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-
-const mediaTypeEnum = ["movie", "tv"] as const;
+import { MEDIA_TYPES } from "@ent-mcp/shared/media";
 
 export const idMap = sqliteTable(
   "id_map",
   {
     tmdbId: text("tmdb_id").notNull(),
-    mediaType: text("media_type", { enum: mediaTypeEnum }).notNull(),
+    mediaType: text("media_type", { enum: MEDIA_TYPES }).notNull(),
     imdbId: text("imdb_id"),
     tvdbId: text("tvdb_id"),
     traktId: text("trakt_id"),

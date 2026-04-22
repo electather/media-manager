@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
+import type { LogLevel } from "@ent-mcp/shared/jobs";
 import { getDb } from "../db/client";
 import { jobConfig } from "../db/schema/jobs";
-import type { LogLevel } from "../db/schema/jobs";
 
 export interface JobConfigRow {
   jobId: string;

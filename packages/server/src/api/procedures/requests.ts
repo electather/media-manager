@@ -1,11 +1,6 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import { createMediaRequestSchema as createRequestSchema } from "@ent-mcp/shared/media";
 import { zValidator } from "../../errors/validator";
-
-const createRequestSchema = z.object({
-  id: z.string(),
-  seasons: z.string().optional(),
-});
 
 export const requestsApp = new Hono()
   .get("/", async (c) => {

@@ -1,5 +1,6 @@
+import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
 import { sha256 } from "../crypto/hash";
-import { pluginManifestSchema, isSdkCompatible } from "./manifest";
+import { isSdkCompatible } from "./manifest";
 import { getCapability } from "./capabilities";
 import { PluginError } from "./types";
 import type { PluginModule } from "./types";

@@ -3,7 +3,8 @@ import { runWithRequestContext, newRequestId } from "../errors/request-context";
 import { getConfig } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
-import type { CaptureMeta, JobKind, JobRunContext, JobRunStatus, JobTriggeredBy } from "./types";
+import type { JobKind, JobRunStatus, JobTriggeredBy } from "@ent-mcp/shared/jobs";
+import type { CaptureMeta, JobRunContext } from "./types";
 
 const DEFAULT_TIMEOUT_SEC = 300;
 

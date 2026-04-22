@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
+import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
 import { getDb } from "../db/client";
 import { pluginSharedCredentials } from "../db/schema/plugin-shared-credentials";
 import { plugins } from "../db/schema/plugins";
 import { decryptJson, encryptJson } from "../crypto/helpers";
 import { PluginError } from "./types";
-import type { ValidatedManifest } from "./manifest";
 
 function randomId(): string {
   return crypto.randomUUID();

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { FieldGroup, Field, FieldLabel, FieldContent } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { UserPicker, ConnectionPicker } from "@/components/pickers";
-import { JobHandle } from "./types";
+import type { JobHandle } from "@ent-mcp/shared/jobs";
 
 function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (

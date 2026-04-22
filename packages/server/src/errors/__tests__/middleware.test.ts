@@ -5,7 +5,8 @@ import { errorHandler, requestContextMiddleware } from "../middleware";
 import { HttpError, badRequest, internal, notFound, unauthorized } from "../http-errors";
 import { zValidator } from "../validator";
 import { z } from "zod";
-import type { ErrorRecord, ErrorSink } from "../types";
+import type { ErrorRecord } from "@ent-mcp/shared/errors";
+import type { ErrorSink } from "../types";
 
 class CollectingSink implements ErrorSink {
   records: ErrorRecord[] = [];

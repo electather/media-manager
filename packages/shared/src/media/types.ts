@@ -1,16 +1,11 @@
-export type AvailabilityStatus =
-  | "available"
-  | "requested"
-  | "processing"
-  | "unavailable"
-  | "unknown";
+import type { AvailabilityStatus, MediaType } from "./enums";
 
 export interface MediaItem {
   /** Format: "movie:550" or "tv:1396". */
   id: string;
   title: string;
   year: number;
-  type: "movie" | "tv";
+  type: MediaType;
   genres: string[];
   rating: number | null;
   overview: string;
@@ -18,6 +13,15 @@ export interface MediaItem {
   status: AvailabilityStatus;
   userRating: number | null;
   matchReason: string | null;
+}
+
+export interface WatchProgress {
+  /** Human-readable completed range, e.g. "S1-S3". */
+  completed: string;
+  /** Next episode identifier, e.g. "S4E01". Null if fully up to date. */
+  next: string | null;
+  airedTotal: number;
+  watchedTotal: number;
 }
 
 export interface MediaDetails extends MediaItem {
@@ -37,15 +41,6 @@ export interface MediaDetails extends MediaItem {
   keywords: string[];
 }
 
-export interface WatchProgress {
-  /** Human-readable completed range, e.g. "S1-S3". */
-  completed: string;
-  /** Next episode identifier, e.g. "S4E01". Null if fully up to date. */
-  next: string | null;
-  airedTotal: number;
-  watchedTotal: number;
-}
-
 export interface WatchHistoryEntry {
   id: string;
   mediaItem: MediaItem;
@@ -59,11 +54,11 @@ export interface WatchlistEntry {
   addedAt: string;
 }
 
-export interface ShowProgress {
-  showId: string;
+export interface EpisodeRef {
+  season: number;
+  episode: number;
   title: string;
-  seasons: SeasonProgress[];
-  nextEpisode: EpisodeRef | null;
+  airedAt: string | null;
 }
 
 export interface SeasonProgress {
@@ -72,11 +67,11 @@ export interface SeasonProgress {
   completed: number;
 }
 
-export interface EpisodeRef {
-  season: number;
-  episode: number;
+export interface ShowProgress {
+  showId: string;
   title: string;
-  airedAt: string | null;
+  seasons: SeasonProgress[];
+  nextEpisode: EpisodeRef | null;
 }
 
 export interface UpcomingEpisode {

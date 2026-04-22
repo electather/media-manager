@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
+import { assignRoleSchema, createUserSchema, updateUserSchema } from "@ent-mcp/shared/users";
 import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { getDb } from "../../db/client";
@@ -9,24 +9,6 @@ import { userRoles, roles } from "../../db/schema/roles";
 import { zValidator } from "../../errors/validator";
 import { notFound, badRequest, forbidden } from "../../errors/http-errors";
 import { auth } from "../../auth/config";
-
-// ─── Validation schemas ───────────────────────────────────────────────────────
-
-const createUserSchema = z.object({
-  name: z.string().min(1),
-  email: z.email(),
-  password: z.string().min(8),
-  roleId: z.string().optional(),
-});
-
-const updateUserSchema = z.object({
-  name: z.string().min(1).optional(),
-  email: z.email().optional(),
-});
-
-const assignRoleSchema = z.object({
-  roleId: z.string().min(1),
-});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

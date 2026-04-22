@@ -1,5 +1,10 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import {
+  jobCancelBodySchema,
+  jobConfigBodySchema as configBodySchema,
+  jobRunsQuerySchema as runsQuerySchema,
+  triggerBodySchema,
+} from "@ent-mcp/shared/jobs";
 import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { currentRequestContext } from "../../errors/request-context";
@@ -8,20 +13,6 @@ import * as jobs from "../../jobs";
 import { jobErrors } from "../../jobs/errors";
 import type { RegistryEntry } from "../../jobs/registry";
 import { recentRunsFiltered, getRunDetail } from "../../jobs/history";
-
-const triggerBodySchema = z.unknown().optional();
-
-const configBodySchema = z.object({
-  enabled: z.boolean().optional(),
-  scheduleOverride: z.string().nullable().optional(),
-  logLevel: z.enum(["debug", "info", "warn", "error"]).optional(),
-});
-
-const runsQuerySchema = z.object({
-  limit: z.coerce.number().min(1).max(100).default(20),
-  scopeKey: z.string().optional(),
-  status: z.string().optional(),
-});
 
 function requireEntry(jobId: string): RegistryEntry {
   const entry = jobs.find(jobId);
@@ -88,18 +79,14 @@ export const adminJobsApp = new Hono()
     });
     return c.json(out);
   })
-  .post(
-    "/:id/cancel",
-    zValidator("json", z.object({ scopeKey: z.string().optional() }).optional()),
-    async (c) => {
-      const id = c.req.param("id");
-      const entry = requireEntry(id);
-      const scopeKey = c.req.valid("json")?.scopeKey;
-      const cancelled = entry.cancel ? entry.cancel(scopeKey) : false;
-      if (!cancelled) throw jobErrors.wrongKind(id, "no active run to cancel");
-      return c.json({ ok: true });
-    },
-  )
+  .post("/:id/cancel", zValidator("json", jobCancelBodySchema), async (c) => {
+    const id = c.req.param("id");
+    const entry = requireEntry(id);
+    const scopeKey = c.req.valid("json")?.scopeKey;
+    const cancelled = entry.cancel ? entry.cancel(scopeKey) : false;
+    if (!cancelled) throw jobErrors.wrongKind(id, "no active run to cancel");
+    return c.json({ ok: true });
+  })
   .post("/:id/config", zValidator("json", configBodySchema), async (c) => {
     const id = c.req.param("id");
     const body = c.req.valid("json");

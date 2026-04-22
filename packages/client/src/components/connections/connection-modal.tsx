@@ -22,13 +22,8 @@ import { Input } from "@/components/ui/input";
 import { capabilityDisplay } from "@/lib/capabilities";
 import { api } from "@/lib/api";
 
-import {
-  type JSONSchema,
-  SchemaForm,
-  defaultsFromSchema,
-  stripEmptySecrets,
-  validateSchema,
-} from "./schema-form";
+import type { JSONSchema } from "@ent-mcp/shared";
+import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "./schema-form";
 
 export interface PluginSummary {
   id: string;

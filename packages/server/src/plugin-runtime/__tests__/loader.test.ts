@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vite-plus/test";
+import type { ManifestCapability } from "@ent-mcp/shared/plugins";
 import { validatePluginModule } from "../loader";
 import { PluginError } from "../types";
-import type { ManifestCapability, PluginModule } from "../types";
+import type { PluginModule } from "../types";
 
 function cap(version = "v1", scope: "global" | "user" = "global"): ManifestCapability {
   return { version, scope };

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gt } from "drizzle-orm";
+import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
 import { getDb } from "../db/client";
 import { feedback } from "../db/schema";
 import { classifySentiment, extractNoteKeywords } from "./sentiment";
-import type { FeedbackAction, FeedbackRecord, UserItemFeedback } from "./types";
+import type { UserItemFeedback } from "./types";
 
 export interface RecordFeedbackInput {
   userId: string;

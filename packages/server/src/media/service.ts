@@ -5,8 +5,8 @@ import {
   dispatchSingle,
   invalidateUserCache,
 } from "./dispatcher";
+import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import { capabilityRegistry } from "../plugin-runtime/registry";
-import type { CapabilityScope } from "../plugin-runtime/types";
 import { PluginCallError } from "./errors";
 import {
   clearPrimaryConnection,

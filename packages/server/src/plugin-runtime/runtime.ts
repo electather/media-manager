@@ -1,15 +1,16 @@
 import { eq } from "drizzle-orm";
 import { consola } from "consola";
+import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 import { getDb } from "../db/client";
-import { plugins, type PersonalKeyFallbackPolicy } from "../db/schema/plugins";
+import { plugins } from "../db/schema/plugins";
 import { buildContext } from "./context";
 import { getCapability } from "./capabilities";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
 import { capabilityRegistry } from "./registry";
+import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import { isPluginError, PluginError } from "./types";
 import type {
   AuthResult,
-  CapabilityScope,
   CapabilitySpec,
   PluginContext,
   PluginModule,

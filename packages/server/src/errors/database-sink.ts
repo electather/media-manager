@@ -1,6 +1,7 @@
+import type { ErrorRecord } from "@ent-mcp/shared/errors";
 import { getDb } from "../db/client";
 import { errorRecords } from "../db/schema/errors";
-import type { ErrorRecord, ErrorSink } from "./types";
+import type { ErrorSink } from "./types";
 
 /** Built-in sink that persists records to the `error_records` table. */
 export class DatabaseSink implements ErrorSink {

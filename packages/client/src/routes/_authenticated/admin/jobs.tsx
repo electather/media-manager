@@ -63,7 +63,7 @@ import { CronSchedule } from "@/components/cron-schedule";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-import { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "../../../components/jobs/types";
+import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
 
 export const Route = createFileRoute("/_authenticated/admin/jobs")({
   component: AdminJobsPage,
