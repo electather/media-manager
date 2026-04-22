@@ -49,10 +49,12 @@ async function traktJson<T>(ctx: Ctx, path: string, init: RequestInit = {}): Pro
   return (await res.json()) as T;
 }
 
-// Same status discipline as traktJson for write endpoints: translates 401 to
-// plugin.token_expired so the host layer can trigger re-auth, 429 to
-// plugin.rate_limited, and non-2xx to plugin.upstream_error. Returns the
-// parsed JSON body (Trakt mutation endpoints always reply with a summary).
+// Identical body to traktJson today, but kept as a separate symbol so the
+// call sites read as "this endpoint mutates state, expect a JSON summary
+// back" — useful when scanning the plugin for surfaces that need the write
+// discipline (401 → token_expired, 429 → rate_limited, non-2xx → upstream).
+// Merging the two would obscure that intent and make future write-only
+// changes (e.g. structured audit hooks) harder to apply in one place.
 async function traktJsonWrite<T>(ctx: Ctx, path: string, init: RequestInit = {}): Promise<T> {
   const res = await traktFetch(ctx, path, init);
   handleHttpStatus(res, "Trakt", { on401: "plugin.token_expired" });
@@ -616,8 +618,18 @@ export default definePlugin({
         const res = await traktFetch(ctx as Ctx, `/sync/playback/${playbackId}`, {
           method: "DELETE",
         });
-        // Trakt returns 204 on successful delete and 404 when the playback
-        // row has already been cleared — treat both as idempotent success.
+        // This endpoint can't route through traktJsonWrite because
+        // handleHttpStatus turns 404 into a thrown error, but Trakt returns
+        // 404 when the playback row is already cleared — callers should see
+        // that as idempotent success. Translate 401/429/5xx explicitly so the
+        // host still gets the signals it needs (token refresh, backoff),
+        // while 204 and 404 both map to { ok: true }.
+        if (res.status === 401)
+          throw pluginError("plugin.token_expired", "Trakt auth rejected (401)");
+        if (res.status === 429)
+          throw pluginError("plugin.rate_limited", "Trakt rate limited (429)");
+        if (res.status >= 500)
+          throw pluginError("plugin.upstream_error", `Trakt server error (${res.status})`);
         return { ok: res.ok || res.status === 404 };
       },
     },

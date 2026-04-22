@@ -253,6 +253,98 @@ describe("trakt playback.removePosition", () => {
     };
     expect(r.ok).toBe(true);
   });
+
+  it("throws plugin.token_expired on 401 (regression: 401 must not be swallowed)", async () => {
+    const ctx = makeCtx([statusRes(401, "unauth")], {
+      credentials: userCreds,
+      sharedCredentials: sharedCreds,
+    });
+    let caught: unknown;
+    try {
+      await traktPlayback.removePosition!(ctx, { playbackId: "99" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.token_expired");
+  });
+
+  it("throws plugin.rate_limited on 429", async () => {
+    const ctx = makeCtx([statusRes(429, "slow down")], {
+      credentials: userCreds,
+      sharedCredentials: sharedCreds,
+    });
+    let caught: unknown;
+    try {
+      await traktPlayback.removePosition!(ctx, { playbackId: "99" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+  });
+
+  it("throws plugin.upstream_error on 5xx", async () => {
+    const ctx = makeCtx([statusRes(503, "down")], {
+      credentials: userCreds,
+      sharedCredentials: sharedCreds,
+    });
+    let caught: unknown;
+    try {
+      await traktPlayback.removePosition!(ctx, { playbackId: "99" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.upstream_error");
+  });
+});
+
+describe("trakt collection.getCollection merge path", () => {
+  const traktCollection = traktPlugin.capabilities.collection!;
+  const sharedCreds = { clientId: "cid", clientSecret: "sec" };
+  const userCreds = {
+    accessToken: "at",
+    refreshToken: "rt",
+    createdAt: Date.now(),
+    expiresIn: 3600,
+  };
+
+  it("merges movies and shows when no type filter is provided", async () => {
+    // Without `type`, the plugin fires two requests in parallel and merges
+    // the results. Both endpoints must resolve before the caller gets the
+    // combined array — this asserts the movie + show rows both land in the
+    // output and retain their respective addedAt fields.
+    const ctx = makeCtx(
+      [
+        jsonRes([
+          {
+            collected_at: "2026-01-01T00:00:00Z",
+            movie: { ids: { trakt: 1, slug: "a" }, title: "A", year: 2026 },
+          },
+        ]),
+        jsonRes([
+          {
+            last_collected_at: "2026-02-01T00:00:00Z",
+            show: { ids: { trakt: 2, slug: "b" }, title: "B", year: 2025 },
+          },
+        ]),
+      ],
+      { credentials: userCreds, sharedCredentials: sharedCreds },
+    );
+    const r = (await traktCollection.getCollection!(ctx, {})) as Array<{
+      item: { type: string; title: string };
+      addedAt: string;
+    }>;
+    expect(r).toHaveLength(2);
+    expect(r.find((x) => x.item.type === "movie")?.addedAt).toBe("2026-01-01T00:00:00Z");
+    expect(r.find((x) => x.item.type === "tv")?.addedAt).toBe("2026-02-01T00:00:00Z");
+    // Requests: one to /sync/collection/movies, one to /sync/collection/shows.
+    expect(ctx.calls.map((c) => c.url).sort()).toEqual([
+      "https://api.trakt.tv/sync/collection/movies",
+      "https://api.trakt.tv/sync/collection/shows",
+    ]);
+  });
 });
 
 describe("trakt getAnticipated robustness", () => {
