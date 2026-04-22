@@ -55,17 +55,105 @@ export function registerPreferenceJobs(): void {
     timeoutSec: 60,
   });
 
-  registerTriggerable<{ userId: string }, { rebuiltAt: number }>({
+  registerTriggerable<
+    { userId: string },
+    {
+      rebuiltAt: number;
+      durationMs: number;
+      results: Record<string, unknown>;
+      warnings: string[];
+    }
+  >({
     id: PREFERENCE_MANUAL_REBUILD_JOB_ID,
     name: "Rebuild preference profile",
     description: "Full rebuild of a user's preference profile on demand.",
     handler: async (ctx, input) => {
-      if (!input?.userId) throw new Error("userId is required");
+      if (!input?.userId) {
+        consola.warn("[job:feature.preference.rebuild] Aborted: userId is required in input");
+        throw new Error("userId is required");
+      }
+
+      const startTime = performance.now();
+      const startTimestamp = new Date().toISOString();
+      const userId = input.userId;
+
+      consola.info(`[job:feature.preference.rebuild] Starting manual rebuild`, {
+        jobId: PREFERENCE_MANUAL_REBUILD_JOB_ID,
+        userId,
+        timestamp: startTimestamp,
+        input,
+      });
+
       const engine = getPreferenceEngine();
-      await engine.rebuildProfile(input.userId, "movie", ctx.abortSignal);
-      await engine.rebuildProfile(input.userId, "tv", ctx.abortSignal);
-      await engine.rebuildProfile(input.userId, "combined", ctx.abortSignal);
-      return { rebuiltAt: Date.now() };
+      const results: Record<string, unknown> = {};
+      const warnings: string[] = [];
+
+      try {
+        const mediaTypes = ["movie", "tv", "combined"] as const;
+        for (const mediaType of mediaTypes) {
+          const typeStartTime = performance.now();
+          const result = await engine.rebuildProfile(userId, mediaType, ctx.abortSignal);
+          const typeDurationMs = Math.round(performance.now() - typeStartTime);
+
+          results[mediaType] = result;
+
+          if (result.sampleSize === 0) {
+            warnings.push(`Profile for ${mediaType} was rebuilt with 0 sample size`);
+          }
+          if (result.confidence === "low") {
+            warnings.push(`Profile for ${mediaType} has low confidence (insufficient data points)`);
+          }
+
+          consola.debug(`[job:feature.preference.rebuild] Processed media type: ${mediaType}`, {
+            userId,
+            mediaType,
+            durationMs: typeDurationMs,
+            sampleSize: result.sampleSize,
+            confidence: result.confidence,
+          });
+        }
+
+        const endTime = performance.now();
+        const durationMs = Math.round(endTime - startTime);
+
+        if (warnings.length > 0) {
+          consola.warn(
+            `[job:feature.preference.rebuild] Completed with warnings for user ${userId}`,
+            {
+              userId,
+              durationMs,
+              warnings,
+              results,
+            },
+          );
+        } else {
+          consola.success(
+            `[job:feature.preference.rebuild] Completed successfully for user ${userId}`,
+            {
+              userId,
+              durationMs,
+              results,
+            },
+          );
+        }
+
+        return {
+          rebuiltAt: Date.now(),
+          durationMs,
+          results,
+          warnings,
+        };
+      } catch (error) {
+        const endTime = performance.now();
+        const durationMs = Math.round(endTime - startTime);
+        consola.error(`[job:feature.preference.rebuild] Failed for user ${userId}`, {
+          userId,
+          durationMs,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw error;
+      }
     },
     scopeKey: (input) => input.userId,
     requiredPermission: {
