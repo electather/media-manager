@@ -8,7 +8,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
-import { authClient } from "@/lib/auth";
+
 import { api } from "@/lib/api";
 
 interface PickerProps {
@@ -20,11 +20,10 @@ export function UserPicker({ value, onChange }: PickerProps) {
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "users", "list"],
     queryFn: async () => {
-      const res = await authClient.admin.listUsers({
-        query: { limit: 100 },
-      });
-      if (res.error) throw res.error;
-      return res.data?.users ?? [];
+      const res = await api.admin.users.$get();
+      if (!res.ok) throw new Error("Failed to fetch users");
+      const json = await res.json();
+      return json.users;
     },
   });
 
@@ -34,7 +33,7 @@ export function UserPicker({ value, onChange }: PickerProps) {
   return (
     <Combobox
       items={users}
-      itemToStringValue={(user) => user.name || user.email}
+      itemToStringLabel={(user) => user.name || user.email}
       value={selectedUser ?? null}
       onValueChange={(user) => {
         if (user) onChange(user.id);
@@ -77,7 +76,7 @@ export function ConnectionPicker({ value, onChange }: PickerProps) {
   return (
     <Combobox
       items={connections}
-      itemToStringValue={(conn) => conn.displayName || conn.pluginId}
+      itemToStringLabel={(conn) => conn.displayName || conn.pluginId}
       value={selectedConnection ?? null}
       onValueChange={(conn) => {
         if (conn) onChange(conn.id);

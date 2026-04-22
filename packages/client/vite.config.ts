@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ["jpg-childhood-resolutions-doc.trycloudflare.com"],
+    allowedHosts: ["example-businesses-rated-stayed.trycloudflare.com"],
     proxy: {
       "/api": "http://localhost:3000",
       "/mcp": "http://localhost:3000",
