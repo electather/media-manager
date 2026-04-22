@@ -2,7 +2,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   staged: {
-    "*": "bunx vp check --fix",
+    "*": "vp check --fix",
   },
   fmt: {
     ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}"],
