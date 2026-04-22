@@ -1,0 +1,45 @@
+name: Claude PR Labels
+
+on:
+  pull_request:
+    types: [opened, converted_to_draft, ready_for_review, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Apply PR status labels
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Manage status labels for PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+            Steps:
+            1. Get PR details: gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json isDraft,reviewDecision,state,labels
+            2. List available labels: gh label list --repo ${{ github.repository }}
+            3. Remove any current "status: *" labels from the PR using: gh pr edit ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --remove-label "LABEL"
+            4. Apply exactly one status label based on the PR state:
+               - isDraft == true → "status: draft"
+               - isDraft == false and reviewDecision is null or empty → "status: ready for review"
+               - reviewDecision == "CHANGES_REQUESTED" → "status: changes requested"
+               - reviewDecision == "APPROVED" → "status: approved"
+
+            Rules:
+            - Only apply a label if it already exists in the repository
+            - Do not add comments or make any other changes to the PR
+          claude_args: '--allowedTools "Bash"'

@@ -1,0 +1,49 @@
+name: Claude Issue Deduplication
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  deduplicate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Check for duplicate issues
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_non_write_users: "*"
+          prompt: |
+            Analyze issue #${{ github.event.issue.number }} in ${{ github.repository }} and determine if it is a duplicate.
+
+            Steps:
+            1. View the issue details: gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }}
+            2. Search for similar issues: gh issue list --repo ${{ github.repository }} --state all --limit 100
+            3. Compare the new issue with existing ones
+
+            An issue is a duplicate if:
+            - The same bug or error is already reported
+            - The same feature is already requested (even if worded differently)
+            - The same question or problem already exists in another issue
+
+            If a duplicate is found:
+            - Comment on the new issue with a polite message linking to the original: gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."
+            - Add the "duplicate" label: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "duplicate"
+            - Suggest the reporter follows the original issue for updates
+
+            If NOT a duplicate:
+            - Do not add any comments
+            - Optionally apply relevant topic labels if they are clearly applicable and already exist in the repo
+          claude_args: '--allowedTools "Bash"'
