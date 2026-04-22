@@ -27,18 +27,10 @@ jobs:
       - name: Run Tests
         run: vp test
 
-      - name: Check for Changesets
-        if: github.event_name == 'pull_request'
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          version: "true"
-          createGithubReleases: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Require at least one changeset
-        if: github.event_name == 'pull_request' && steps.changesets.outputs.hasChangesets != 'true'
+        if: github.event_name == 'pull_request'
         run: |
-          echo "::error::No changeset found. Run 'bunx changeset add' for package changes or 'bunx changeset add --empty' for CI/docs-only changes."
-          exit 1
+          if ! vp dlx changeset status --since=origin/${{ github.base_ref }}; then
+            echo "::error::No changeset found. Run 'bunx changeset add' for package changes or 'bunx changeset add --empty' for CI/docs-only changes."
+            exit 1
+          fi
