@@ -26,7 +26,9 @@ export async function listEligibleConnections(
   capability: string,
   version: string,
 ): Promise<EligibleConnection[]> {
-  const providers = capabilityRegistry.listProviders(capability, version);
+  // Connection-targeted dispatch is exclusively for user-scoped writes; only
+  // plugins that implement the capability at `scope: "user"` are eligible.
+  const providers = capabilityRegistry.listProviders(capability, version, "user");
   if (providers.length === 0) return [];
 
   const db = getDb();
@@ -106,7 +108,7 @@ export async function dispatchToConnection<T>(req: TargetedDispatchRequest): Pro
       req.connectionId,
     );
   }
-  const providers = capabilityRegistry.listProviders(req.capability, req.version);
+  const providers = capabilityRegistry.listProviders(req.capability, req.version, "user");
   if (!providers.includes(conn.pluginId)) {
     throw new PluginCallError(
       "mcp.target_not_found",
@@ -117,7 +119,7 @@ export async function dispatchToConnection<T>(req: TargetedDispatchRequest): Pro
   }
   try {
     return (
-      (await pluginRuntime.invoke<T>({
+      (await pluginRuntime.invokeWithCredentials<T>({
         pluginId: conn.pluginId,
         capability: req.capability,
         version: req.version,

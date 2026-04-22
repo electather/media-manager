@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c231942d-781e-436c-8ad1-f47eb3c0d686",
+  "id": "fca459fb-d673-4285-a925-cf3757d7ac8d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "account": {
@@ -1163,19 +1163,13 @@
           "notNull": false,
           "autoincrement": false
         },
-        "shared_credentials": {
-          "name": "shared_credentials",
+        "personal_key_fallback": {
+          "name": "personal_key_fallback",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "shared_credentials_iv": {
-          "name": "shared_credentials_iv",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'off'"
         },
         "installed_by": {
           "name": "installed_by",
@@ -1208,6 +1202,103 @@
           "columnsFrom": ["installed_by"],
           "columnsTo": ["id"],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "plugin_shared_credentials": {
+      "name": "plugin_shared_credentials",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "plugin_id": {
+          "name": "plugin_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "encrypted_value": {
+          "name": "encrypted_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "iv": {
+          "name": "iv",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "last_exhausted_at": {
+          "name": "last_exhausted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retry_after": {
+          "name": "retry_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "psc_plugin_enabled_idx": {
+          "name": "psc_plugin_enabled_idx",
+          "columns": ["plugin_id", "enabled"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "plugin_shared_credentials_plugin_id_plugins_id_fk": {
+          "name": "plugin_shared_credentials_plugin_id_plugins_id_fk",
+          "tableFrom": "plugin_shared_credentials",
+          "tableTo": "plugins",
+          "columnsFrom": ["plugin_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -1299,6 +1390,20 @@
         },
         "last_verified_at": {
           "name": "last_verified_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_exhausted_at": {
+          "name": "last_exhausted_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "retry_after": {
+          "name": "retry_after",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -2064,6 +2169,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "log_level": {
+          "name": "log_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'info'"
+        },
         "updated_by": {
           "name": "updated_by",
           "type": "text",
@@ -2203,6 +2316,21 @@
           "notNull": false,
           "autoincrement": false
         },
+        "logs": {
+          "name": "logs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "logs_truncated": {
+          "name": "logs_truncated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
         "coalesced_count": {
           "name": "coalesced_count",
           "type": "integer",
@@ -2230,6 +2358,11 @@
         "job_runs_request_idx": {
           "name": "job_runs_request_idx",
           "columns": ["request_id"],
+          "isUnique": false
+        },
+        "job_runs_scope_key_idx": {
+          "name": "job_runs_scope_key_idx",
+          "columns": ["scope_key"],
           "isUnique": false
         }
       },

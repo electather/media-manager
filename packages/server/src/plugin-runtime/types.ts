@@ -6,6 +6,15 @@ export type JSONSchema = Record<string, unknown>;
 
 export type AuthKind = "form" | "oauth_redirect" | "oauth_device" | "none";
 
+/** Scope a capability operates under. See docs/2026-04-19-plugin-architecture-design.md. */
+export type CapabilityScope = "global" | "user";
+
+/** One entry in `manifest.capabilities`. Scope governs credential routing. */
+export interface ManifestCapability {
+  version: string;
+  scope: CapabilityScope;
+}
+
 export interface MCPToolAnnotations {
   destructiveHint?: boolean;
   idempotentHint?: boolean;
@@ -37,23 +46,36 @@ export interface PluginManifest {
   homepage?: string;
   sdkVersion: string;
   allowedHosts: string[];
+
+  /** Plaintext admin config (e.g. display settings, base URLs). */
   globalConfigSchema?: JSONSchema;
+  /** Encrypted admin secrets — one schema, many pool entries for `poolable` plugins. */
+  sharedCredentialsSchema?: JSONSchema;
+  /** Plaintext user config. Rendered on connection forms. */
   userConfigSchema?: JSONSchema;
-  credentialsSchema: JSONSchema;
   /**
-   * When true, the admin may set shared credentials (from `credentialsSchema`) on the
-   * plugin itself. Users without their own connection fall back to the shared credential.
-   * Distinct from `globalConfigSchema`, which is for admin-only non-credential settings.
+   * Encrypted user secrets. Required when any capability has `scope: "user"`
+   * (validated at manifest install; see derived rules in the design doc).
    */
-  allowsSharedCredentials?: boolean;
+  credentialsSchema?: JSONSchema;
+
   auth: { kind: AuthKind };
-  capabilities: Record<string, string>;
+  capabilities: Record<string, ManifestCapability>;
+
+  /**
+   * When true, the admin may configure multiple `shared_credentials` entries
+   * and the host rotates across them on rate-limit. Non-poolable plugins
+   * accept exactly one shared-credential entry.
+   */
+  poolable?: boolean;
+
   jobs?: Array<{
     id: string;
     schedule: string;
     handler: string;
     perConnection?: boolean;
   }>;
+
   /**
    * Optional plugin-contributed MCP tools. Registered as `ext_<plugin_id>_<name>`.
    * Capped at 5 per plugin; names and schemas validated at manifest load time.
@@ -82,14 +104,37 @@ export interface PluginStoreApi {
   delete(key: string, opts?: StoreScopeOpts): Promise<void>;
 }
 
-export interface PluginContext<TCred = unknown, TUserCfg = unknown, TGlobalCfg = unknown> {
+export interface PoolSignalingApi {
+  /**
+   * Signals that the currently-injected credential (shared or user) is
+   * rate-limited or temporarily unusable. Purely advisory: the host uses this
+   * to update bookkeeping and rotate on the next retry attempt of the same
+   * invocation.
+   */
+  markExhausted(opts?: { retryAfterSec?: number }): void;
+}
+
+export interface PluginContext<
+  TCred = unknown,
+  TSharedCred = unknown,
+  TUserCfg = unknown,
+  TGlobalCfg = unknown,
+> {
   fetch(url: string, init?: RequestInit): Promise<Response>;
   log: PluginLogger;
-  credentials: TCred;
-  /** Admin-configured shared credentials, available to all users of this plugin. */
-  sharedCredentials: TCred | null;
+  /**
+   * User secrets injected for user-scoped calls. `null` for global-scoped
+   * calls (the plugin should fall back to `sharedCredentials` in that case).
+   */
+  credentials: TCred | null;
+  /**
+   * Admin-owned secrets. The host's current pick from the shared credentials
+   * pool — may be `null` if the admin has configured none.
+   */
+  sharedCredentials: TSharedCred | null;
   config: { global: TGlobalCfg; user: TUserCfg };
   store: PluginStoreApi;
+  pool: PoolSignalingApi;
 }
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */
@@ -136,6 +181,12 @@ export interface PluginModule {
   pollAuth?: (ctx: PluginContext, pollState: unknown) => Promise<AuthResult>;
   refreshAuth?: (ctx: PluginContext, credentials: unknown) => Promise<unknown>;
   testConnection?: (ctx: PluginContext) => Promise<{ ok: boolean; message?: string }>;
+  /**
+   * Optional probe for pure-global plugins (auth.kind: "none") to verify a
+   * specific shared-credential entry from the admin UI. Must not require a
+   * user connection — only `ctx.sharedCredentials` is populated.
+   */
+  verifyShared?: (ctx: PluginContext) => Promise<{ ok: boolean; message?: string }>;
   capabilities: Record<string, CapabilityImpl>;
   jobs?: Record<string, PluginJobHandler>;
   /** Map of handler name → implementation, keyed by `manifest.mcpTools[].handler`. */

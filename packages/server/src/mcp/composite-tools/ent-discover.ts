@@ -55,7 +55,7 @@ async function buildAvailabilityMap(
   userId: string,
   items: CompactMediaResult[],
 ): Promise<Map<string, AvailabilityStatus>> {
-  const providers = capabilityRegistry.listProviders("mediaRequest", "v1");
+  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
   if (providers.length === 0 || items.length === 0) return new Map();
   const map = new Map<string, AvailabilityStatus>();
   const pairs = items
@@ -90,7 +90,7 @@ async function buildUserRatingMap(
   userId: string,
   type: "movie" | "tv" | undefined,
 ): Promise<Map<string, number>> {
-  const providers = capabilityRegistry.listProviders("ratings", "v1");
+  const providers = capabilityRegistry.listProviders("ratings", "v1", "user");
   if (providers.length === 0) return new Map();
   try {
     const result = await dispatchAggregate<RatingEntry[]>({

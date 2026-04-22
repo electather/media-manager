@@ -54,12 +54,12 @@ export async function validatePluginModule(
   }
 
   // Every declared capability must exist in the host catalog at the declared version.
-  for (const [capId, capVersion] of Object.entries(parsed.data.capabilities)) {
-    const spec = getCapability(capId, capVersion);
+  for (const [capId, cap] of Object.entries(parsed.data.capabilities)) {
+    const spec = getCapability(capId, cap.version);
     if (!spec) {
       throw new PluginError(
         "plugin.missing_method",
-        `plugin declares unknown capability ${capId}@${capVersion}`,
+        `plugin declares unknown capability ${capId}@${cap.version}`,
       );
     }
     const impl = module.capabilities[capId];
@@ -73,7 +73,7 @@ export async function validatePluginModule(
       if (typeof impl[methodName] !== "function") {
         throw new PluginError(
           "plugin.missing_method",
-          `${capId}@${capVersion}.${methodName} not implemented`,
+          `${capId}@${cap.version}.${methodName} not implemented`,
         );
       }
     }

@@ -6,7 +6,7 @@ import { capabilityRegistry } from "../plugin-runtime/registry";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { getCapability } from "../plugin-runtime/capabilities";
 import { encryptJson } from "../crypto/helpers";
-import type { CapabilityDefinition } from "../plugin-runtime/types";
+import type { CapabilityDefinition, CapabilityScope } from "../plugin-runtime/types";
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
 import { getPrimaryConnection } from "./primary-preference";
 import { harvestIds } from "./id-resolver";
@@ -70,7 +70,7 @@ async function invokeWithTimeout<T>(req: InvokeRequest, conn: ResolvedConnection
   });
   try {
     return (await Promise.race([
-      pluginRuntime.invoke<T>({
+      pluginRuntime.invokeWithCredentials<T>({
         pluginId: req.pluginId,
         capability: req.capability,
         version: req.version,
@@ -85,6 +85,19 @@ async function invokeWithTimeout<T>(req: InvokeRequest, conn: ResolvedConnection
   } finally {
     if (timer) clearTimeout(timer);
   }
+}
+
+/**
+ * Dispatch routes by the capability's canonical scope (the `userScoped` flag
+ * on the host-side definition). The plugin manifest allows a provider to
+ * declare the opposite scope (e.g. `metadata` from a personal library as
+ * `scope: "user"`); those providers are not discovered by the current
+ * dispatcher. If we want to support cross-scope fan-out we also need to decide
+ * how results from global and user providers should be merged, which is out of
+ * scope for v1.
+ */
+function scopeFor(capability: CapabilityDefinition): CapabilityScope {
+  return capability.userScoped ? "user" : "global";
 }
 
 /**
@@ -295,7 +308,11 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
   const cached = await readCache<T | null>(req, capability);
   if (cached !== undefined) return cached;
 
-  const providers = capabilityRegistry.listProviders(req.capability, req.version);
+  const providers = capabilityRegistry.listProviders(
+    req.capability,
+    req.version,
+    scopeFor(capability),
+  );
   if (providers.length === 0) {
     throw new PluginCallError(
       "plugin.call_failed",
@@ -355,7 +372,11 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
   const cached = await readCache<AggregateResult<T>>(req, capability);
   if (cached !== undefined) return cached;
 
-  const providers = capabilityRegistry.listProviders(req.capability, req.version);
+  const providers = capabilityRegistry.listProviders(
+    req.capability,
+    req.version,
+    scopeFor(capability),
+  );
   const candidates: Array<{ pluginId: string; conn: ResolvedConnection }> = [];
   for (const pluginId of providers) {
     const connections = await resolveConnections(req.userId, pluginId);
@@ -440,7 +461,11 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const cached = await readCache<AggregateResult<T>>(req, capability);
   if (cached !== undefined) return cached;
 
-  const providers = capabilityRegistry.listProviders(req.capability, req.version);
+  const providers = capabilityRegistry.listProviders(
+    req.capability,
+    req.version,
+    scopeFor(capability),
+  );
   if (providers.length === 0) {
     return { data: null as T, errors: [] };
   }

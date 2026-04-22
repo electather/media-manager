@@ -55,7 +55,7 @@ async function readAvailability(
   tmdbId: string,
   type: "movie" | "tv",
 ): Promise<DetailsResponse["status"] | undefined> {
-  const providers = capabilityRegistry.listProviders("mediaRequest", "v1");
+  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
   if (providers.length === 0) return undefined;
   try {
     const result = await dispatchAggregate<Array<{ status?: DetailsResponse["status"] }>>({
@@ -77,7 +77,7 @@ async function readAggregatedRatings(
   tmdbId: string,
   type: "movie" | "tv",
 ): Promise<Record<string, number>> {
-  const providers = capabilityRegistry.listProviders("ratings", "v1");
+  const providers = capabilityRegistry.listProviders("ratings", "v1", "user");
   if (providers.length === 0) return {};
   try {
     const result = await dispatchAggregate<RatingEntry[]>({

@@ -11,6 +11,12 @@ const semverRange = z
   .refine((s) => /[\d*^~=<>]/.test(s), "expected a semver range expression");
 
 const authKind = z.enum(["form", "oauth_redirect", "oauth_device", "none"]);
+const capabilityScope = z.enum(["global", "user"]);
+
+const manifestCapability = z.object({
+  version: z.string().min(1),
+  scope: capabilityScope,
+});
 
 const jobEntry = z.object({
   id: z.string().min(1),
@@ -36,7 +42,7 @@ const mcpToolDefinition = z.object({
   annotations: mcpToolAnnotations,
 });
 
-export const pluginManifestSchema = z.object({
+const manifestShape = z.object({
   id: z
     .string()
     .min(1)
@@ -53,18 +59,97 @@ export const pluginManifestSchema = z.object({
   sdkVersion: semverRange,
   allowedHosts: z.array(z.string().min(1)).default([]),
   globalConfigSchema: z.record(z.string(), z.unknown()).optional(),
+  sharedCredentialsSchema: z.record(z.string(), z.unknown()).optional(),
   userConfigSchema: z.record(z.string(), z.unknown()).optional(),
-  credentialsSchema: z.record(z.string(), z.unknown()),
-  allowsSharedCredentials: z.boolean().optional(),
+  credentialsSchema: z.record(z.string(), z.unknown()).optional(),
   auth: z.object({ kind: authKind }),
-  capabilities: z.record(z.string(), z.string()),
+  capabilities: z.record(z.string().min(1), manifestCapability),
+  poolable: z.boolean().optional(),
   jobs: z.array(jobEntry).optional(),
   mcpTools: z.array(mcpToolDefinition).max(5, "at most 5 mcpTools per plugin").optional(),
 });
 
-export type ValidatedManifest = z.infer<typeof pluginManifestSchema>;
+/**
+ * Enforces the table of derived rules from the design doc: plugin shape is
+ * determined by the set of capability scopes, and the other manifest fields
+ * must line up with that shape.
+ */
+export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) => {
+  const scopes = new Set(Object.values(manifest.capabilities).map((c) => c.scope));
+  const hasUserScoped = scopes.has("user");
+  const hasGlobalScoped = scopes.has("global");
+  const isPureGlobal = hasGlobalScoped && !hasUserScoped;
+  const hasAnyCapability = scopes.size > 0;
+
+  if (!hasAnyCapability) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "plugin must declare at least one capability",
+      path: ["capabilities"],
+    });
+    return;
+  }
+
+  if (isPureGlobal) {
+    if (manifest.auth.kind !== "none") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'pure-global plugins must declare auth.kind: "none"',
+        path: ["auth", "kind"],
+      });
+    }
+    if (manifest.credentialsSchema !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "pure-global plugins must not declare credentialsSchema",
+        path: ["credentialsSchema"],
+      });
+    }
+    if (manifest.userConfigSchema !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "pure-global plugins must not declare userConfigSchema",
+        path: ["userConfigSchema"],
+      });
+    }
+    return;
+  }
+
+  if (manifest.auth.kind === "none") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'plugins with any user-scoped capability must not declare auth.kind: "none"',
+      path: ["auth", "kind"],
+    });
+  }
+  if (manifest.credentialsSchema === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "plugins with any user-scoped capability must declare credentialsSchema",
+      path: ["credentialsSchema"],
+    });
+  }
+});
+
+export type ValidatedManifest = z.infer<typeof manifestShape>;
 
 /** Loose semver-range check — v1 accepts any declared range. A future revision can require strict matching. */
 export function isSdkCompatible(_range: string): boolean {
   return true;
+}
+
+/**
+ * Scope summary derived from a manifest's capability set. Useful for
+ * answering "does this plugin need user connections?" without rescanning the
+ * capability map.
+ */
+export function classifyScopes(manifest: ValidatedManifest): {
+  hasUserScoped: boolean;
+  hasGlobalScoped: boolean;
+  isPureGlobal: boolean;
+} {
+  const scopes = new Set(Object.values(manifest.capabilities).map((c) => c.scope));
+  const hasUserScoped = scopes.has("user");
+  const hasGlobalScoped = scopes.has("global");
+  return { hasUserScoped, hasGlobalScoped, isPureGlobal: hasGlobalScoped && !hasUserScoped };
 }

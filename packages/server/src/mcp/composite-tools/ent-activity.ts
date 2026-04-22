@@ -39,7 +39,7 @@ async function decorateAvailability(
   userId: string,
   results: CompactMediaResult[],
 ): Promise<Map<string, AvailabilityStatus>> {
-  const providers = capabilityRegistry.listProviders("mediaRequest", "v1");
+  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
   if (providers.length === 0 || results.length === 0) return new Map();
   const map = new Map<string, AvailabilityStatus>();
   await Promise.all(
@@ -68,7 +68,7 @@ async function runWatchlist(
   ctx: ToolCallContext,
   input: EntActivityInput,
 ): Promise<ActivityResponse["results"]> {
-  const providers = capabilityRegistry.listProviders("watchlist", "v1");
+  const providers = capabilityRegistry.listProviders("watchlist", "v1", "user");
   if (providers.length === 0) throw notConnected("watchlist@v1");
   const type = resolveMediaType(input.media_type);
   const result = await dispatchAggregate<Array<{ item: unknown; addedAt?: string }>>({
@@ -89,7 +89,7 @@ async function runHistory(
   ctx: ToolCallContext,
   input: EntActivityInput,
 ): Promise<ActivityResponse["results"]> {
-  const providers = capabilityRegistry.listProviders("watchHistory", "v1");
+  const providers = capabilityRegistry.listProviders("watchHistory", "v1", "user");
   if (providers.length === 0) throw notConnected("watchHistory@v1");
   const type = resolveMediaType(input.media_type);
   const result = await dispatchAggregate<
@@ -116,7 +116,7 @@ async function runUpcoming(
   ctx: ToolCallContext,
   input: EntActivityInput,
 ): Promise<ActivityResponse["results"]> {
-  const providers = capabilityRegistry.listProviders("calendar", "v1");
+  const providers = capabilityRegistry.listProviders("calendar", "v1", "user");
   if (providers.length === 0) throw notConnected("calendar@v1");
   const result = await dispatchAggregate<
     Array<{ item: { type?: "movie" | "tv" }; airsAt?: string }>
@@ -143,7 +143,7 @@ async function runProgress(
   ctx: ToolCallContext,
   input: EntActivityInput,
 ): Promise<ActivityResponse["results"]> {
-  const providers = capabilityRegistry.listProviders("watchHistory", "v1");
+  const providers = capabilityRegistry.listProviders("watchHistory", "v1", "user");
   if (providers.length === 0) throw notConnected("watchHistory@v1");
   // Progress is a host-side aggregation over watchHistory — surface the most
   // recent TV rows as "in progress" when they reported partial progress.

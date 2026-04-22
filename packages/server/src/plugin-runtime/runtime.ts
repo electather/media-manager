@@ -1,16 +1,24 @@
 import { eq } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "../db/client";
-import { plugins } from "../db/schema/plugins";
-import { encryptJson, decryptJson } from "../crypto/helpers";
+import { plugins, type PersonalKeyFallbackPolicy } from "../db/schema/plugins";
 import { buildContext } from "./context";
 import { getCapability } from "./capabilities";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
 import { capabilityRegistry } from "./registry";
 import { isPluginError, PluginError } from "./types";
-import type { AuthResult, CapabilitySpec, PluginContext, PluginModule } from "./types";
+import type {
+  AuthResult,
+  CapabilityScope,
+  CapabilitySpec,
+  PluginContext,
+  PluginModule,
+  PoolSignalingApi,
+} from "./types";
 import { captureError } from "../errors/capture";
 import { pluginCode } from "../errors/codes";
+import { sharedCredentialsService } from "./shared-credentials";
+import { listReadyUserConnections, markUserConnectionExhausted } from "./user-pool";
 
 /**
  * Injected at bootstrap time so `plugin-runtime` does not import the MCP
@@ -34,16 +42,38 @@ export interface InvokeArgs {
   version: string;
   method: string;
   input: unknown;
+  scope: CapabilityScope;
+  userId: string | null;
+}
+
+export interface InvokeWithCredentialsArgs {
+  pluginId: string;
+  capability: string;
+  version: string;
+  method: string;
+  input: unknown;
   userId: string | null;
   credentials?: unknown;
   userConfig?: unknown;
 }
 
-export interface PluginRowLite {
+type CredentialSide = "admin" | "user";
+
+interface PickedCredential {
+  side: CredentialSide;
+  /** Pool-entry id for admin picks, service_connections.id for user picks. */
+  entryId: string;
+  value: unknown;
+  userConfig: unknown;
+}
+
+interface PluginRow {
   id: string;
   version: string;
   enabled: number;
   globalConfig: string | null;
+  personalKeyFallback: PersonalKeyFallbackPolicy;
+  manifest: string;
 }
 
 /**
@@ -137,27 +167,12 @@ export class PluginRuntime {
     return JSON.parse(row.globalConfig);
   }
 
-  async setSharedCredentials(pluginId: string, credentials: unknown): Promise<void> {
+  async setPersonalKeyFallback(pluginId: string, policy: PersonalKeyFallbackPolicy): Promise<void> {
     const db = getDb();
-    if (credentials === null || credentials === undefined) {
-      await db
-        .update(plugins)
-        .set({ sharedCredentials: null, sharedCredentialsIv: null, updatedAt: Date.now() })
-        .where(eq(plugins.id, pluginId));
-      return;
-    }
-    const { iv, data } = await encryptJson(credentials);
     await db
       .update(plugins)
-      .set({ sharedCredentials: data, sharedCredentialsIv: iv, updatedAt: Date.now() })
+      .set({ personalKeyFallback: policy, updatedAt: Date.now() })
       .where(eq(plugins.id, pluginId));
-  }
-
-  async getSharedCredentials(pluginId: string): Promise<unknown> {
-    const db = getDb();
-    const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
-    if (!row) return null;
-    return decryptJson(row.sharedCredentialsIv, row.sharedCredentials);
   }
 
   async getModule(pluginId: string): Promise<PluginModule> {
@@ -167,49 +182,24 @@ export class PluginRuntime {
     return entry.module;
   }
 
-  async buildContextForInvocation(
-    pluginId: string,
-    userId: string | null,
-    credentials?: unknown,
-    userConfig?: unknown,
-  ): Promise<PluginContext> {
-    const module = await this.getModule(pluginId);
-    const [globalConfig, sharedCredentials] = await Promise.all([
-      this.getGlobalConfig(pluginId),
-      this.getSharedCredentials(pluginId),
-    ]);
-    return buildContext({
-      pluginId,
-      allowedHosts: module.manifest.allowedHosts,
-      userId,
-      credentials,
-      sharedCredentials: sharedCredentials ?? undefined,
-      userConfig,
-      globalConfig,
-    });
+  private async getPluginRow(pluginId: string): Promise<PluginRow> {
+    const db = getDb();
+    const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
+    if (!row) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
+    return row as PluginRow;
   }
 
   /**
-   * Invokes a capability method on a plugin. Validates input and output against the
-   * host-side Zod schemas. Throws PluginError on any failure.
+   * Scope-aware entry point. The runtime owns credential resolution: it picks
+   * an entry from the relevant pool, injects it into a fresh `PluginContext`,
+   * and rotates on `ctx.pool.markExhausted` until the method succeeds or every
+   * pool is exhausted.
+   *
+   * Callers that already hold decrypted credentials (e.g. connection-targeted
+   * dispatch) should use `invokeWithCredentials` instead.
    */
   async invoke<T = unknown>(args: InvokeArgs): Promise<T> {
-    const spec = getCapability(args.capability, args.version);
-    if (!spec) {
-      throw new PluginError(
-        "plugin.missing_method",
-        `unknown capability ${args.capability}@${args.version}`,
-      );
-    }
-    const methods = spec.methods as unknown as Record<string, CapabilitySpec>;
-    const methodSpec = methods[args.method];
-    if (!methodSpec) {
-      throw new PluginError(
-        "plugin.missing_method",
-        `${args.capability}@${args.version}.${args.method} does not exist`,
-      );
-    }
-
+    const methodSpec = this.requireMethodSpec(args);
     const module = await this.getModule(args.pluginId);
     const impl = module.capabilities[args.capability];
     const fn = impl?.[args.method];
@@ -220,17 +210,137 @@ export class PluginRuntime {
       );
     }
 
+    const row = await this.getPluginRow(args.pluginId);
+    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const plan = await this.buildCredentialPlan(args, row);
+    if (plan.length === 0) {
+      throw new PluginError(
+        "plugin.capability_unavailable",
+        `no usable credentials for ${args.pluginId}:${args.capability}@${args.version} (scope=${args.scope})`,
+      );
+    }
+
+    // Plugins like Trakt need the admin's OAuth client id alongside the user's
+    // access token on every user-scoped call. `ctx.sharedCredentials` must be
+    // populated whenever any admin entry exists, independent of rotation or
+    // `personalKeyFallback`.
+    const adminFallback = plan.some((p) => p.side === "admin")
+      ? null
+      : await this.peekAdminCredential(args.pluginId);
+
     const inputParsed = methodSpec.input.safeParse(args.input);
     if (!inputParsed.success) {
       throw new PluginError("plugin.input_invalid", inputParsed.error.message);
     }
 
-    const ctx = await this.buildContextForInvocation(
-      args.pluginId,
-      args.userId,
-      args.credentials,
-      args.userConfig,
+    let nextRetryAfterSec: number | undefined;
+    for (const pick of plan) {
+      const adminPick = pick.side === "admin" ? pick : plan.find((p) => p.side === "admin");
+      let exhaustedReport: { retryAfterSec?: number } | null = null;
+      const poolApi: PoolSignalingApi = {
+        markExhausted: (opts) => {
+          exhaustedReport = { retryAfterSec: opts?.retryAfterSec };
+        },
+      };
+      const ctx = buildContext({
+        pluginId: args.pluginId,
+        allowedHosts: module.manifest.allowedHosts,
+        userId: args.userId,
+        credentials: pick.side === "user" ? pick.value : null,
+        sharedCredentials: pick.side === "admin" ? pick.value : (adminPick?.value ?? adminFallback),
+        userConfig: pick.userConfig,
+        globalConfig,
+        pool: poolApi,
+      });
+
+      try {
+        const result = await fn(ctx, inputParsed.data);
+        const outputParsed = methodSpec.output.safeParse(result);
+        if (!outputParsed.success) {
+          await captureError(outputParsed.error, {
+            severity: "warning",
+            source: "plugin",
+            code: "plugin.output_invalid",
+            pluginId: args.pluginId,
+            userId: args.userId,
+            context: { capability: args.capability, method: args.method, version: args.version },
+          });
+          throw new PluginError(
+            "plugin.output_invalid",
+            `plugin ${args.pluginId} returned invalid output: ${outputParsed.error.message}`,
+          );
+        }
+        return outputParsed.data as T;
+      } catch (err) {
+        const shouldRotate =
+          !!exhaustedReport || (isPluginError(err) && err.code === "plugin.rate_limited");
+        if (shouldRotate) {
+          const retryAfterSec = (exhaustedReport as { retryAfterSec?: number } | null)
+            ?.retryAfterSec;
+          await this.markPickExhausted(args.pluginId, pick, retryAfterSec);
+          nextRetryAfterSec = retryAfterSec;
+          continue;
+        }
+        if (isPluginError(err)) throw err;
+        const message = err instanceof Error ? err.message : String(err);
+        consola.error(`[plugin:${args.pluginId}] ${args.method} threw:`, err);
+        await captureError(err, {
+          severity: "error",
+          source: "plugin",
+          code: pluginCode(args.pluginId, "upstream_error"),
+          pluginId: args.pluginId,
+          userId: args.userId,
+          context: { capability: args.capability, method: args.method, version: args.version },
+        });
+        throw new PluginError("plugin.upstream_error", message);
+      }
+    }
+
+    throw new PluginError(
+      "plugin.pool_exhausted",
+      `all credentials exhausted for ${args.pluginId}:${args.capability}@${args.version}` +
+        (nextRetryAfterSec ? ` (retry after ${nextRetryAfterSec}s)` : ""),
     );
+  }
+
+  /**
+   * Invocation with externally-provided credentials. Used by the dispatcher's
+   * connection-targeted path (writes against a specific connection) and by
+   * auth/refresh flows where credentials are in flight.
+   *
+   * This path intentionally does not rotate and installs the inert pool API —
+   * the caller has chosen a specific credential, so `ctx.pool.markExhausted`
+   * is a no-op here. Plugins still participate in pool bookkeeping through
+   * `invoke()`, which is the rotation-aware entry point.
+   */
+  async invokeWithCredentials<T = unknown>(args: InvokeWithCredentialsArgs): Promise<T> {
+    const methodSpec = this.requireMethodSpec(args);
+    const module = await this.getModule(args.pluginId);
+    const impl = module.capabilities[args.capability];
+    const fn = impl?.[args.method];
+    if (typeof fn !== "function") {
+      throw new PluginError(
+        "plugin.missing_method",
+        `plugin ${args.pluginId} does not implement ${args.method}`,
+      );
+    }
+    const row = await this.getPluginRow(args.pluginId);
+    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+
+    const inputParsed = methodSpec.input.safeParse(args.input);
+    if (!inputParsed.success) {
+      throw new PluginError("plugin.input_invalid", inputParsed.error.message);
+    }
+
+    const ctx = buildContext({
+      pluginId: args.pluginId,
+      allowedHosts: module.manifest.allowedHosts,
+      userId: args.userId,
+      credentials: args.credentials,
+      sharedCredentials: await this.peekAdminCredential(args.pluginId),
+      userConfig: args.userConfig,
+      globalConfig,
+    });
 
     let result: unknown;
     try {
@@ -252,9 +362,6 @@ export class PluginRuntime {
 
     const outputParsed = methodSpec.output.safeParse(result);
     if (!outputParsed.success) {
-      // Plugin returned something that doesn't match its own declared schema. Not fatal
-      // to the caller — we still throw — but the mismatch itself is a "warning" because
-      // it's a plugin bug surfaced at runtime.
       await captureError(outputParsed.error, {
         severity: "warning",
         source: "plugin",
@@ -287,7 +394,7 @@ export class PluginRuntime {
         `plugin ${pluginId} does not export ${fnName}`,
       );
     }
-    const ctx = await this.buildContextForInvocation(pluginId, userId);
+    const ctx = await this.buildAuxContext(pluginId, userId);
     try {
       if (fnName === "completeAuth") {
         return await (fn as NonNullable<PluginModule["completeAuth"]>)(
@@ -325,7 +432,7 @@ export class PluginRuntime {
     if (typeof module.testConnection !== "function") {
       return { ok: true, message: "plugin has no testConnection" };
     }
-    const ctx = await this.buildContextForInvocation(pluginId, userId, credentials, userConfig);
+    const ctx = await this.buildAuxContext(pluginId, userId, credentials, userConfig);
     try {
       return await module.testConnection(ctx);
     } catch (err) {
@@ -337,6 +444,30 @@ export class PluginRuntime {
         pluginId,
         userId,
       });
+      return { ok: false, message };
+    }
+  }
+
+  /**
+   * Verifies a specific shared-credentials pool entry. Uses `verifyShared` for
+   * pure-global plugins (auth.kind === "none"); otherwise falls back to
+   * `testConnection` with the picked entry injected as the sole credential.
+   */
+  async testSharedCredential(
+    pluginId: string,
+    credentialId: string,
+  ): Promise<{ ok: boolean; message?: string }> {
+    const module = await this.getModule(pluginId);
+    const pick = await sharedCredentialsService.getDecrypted({ pluginId, credentialId });
+    const ctx = await this.buildAuxContext(pluginId, null, null, null, pick.value);
+    const probe = module.verifyShared ?? module.testConnection;
+    if (typeof probe !== "function") {
+      return { ok: true, message: "plugin has no testConnection/verifyShared" };
+    }
+    try {
+      return await probe(ctx);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       return { ok: false, message };
     }
   }
@@ -363,7 +494,7 @@ export class PluginRuntime {
         `plugin ${args.pluginId} does not export mcp tool ${args.handlerKey}`,
       );
     }
-    const ctx = await this.buildContextForInvocation(
+    const ctx = await this.buildAuxContext(
       args.pluginId,
       args.userId,
       args.credentials,
@@ -386,14 +517,130 @@ export class PluginRuntime {
     }
   }
 
+  /**
+   * Builds a PluginContext for a job handler. Jobs run on the host's schedule,
+   * not inside a capability invocation, so there is no pool signalling — the
+   * returned context uses the inert pool stub.
+   */
+  async buildJobContext(
+    pluginId: string,
+    userId: string | null,
+    credentials: unknown = null,
+    userConfig: unknown = null,
+  ): Promise<PluginContext> {
+    return this.buildAuxContext(pluginId, userId, credentials, userConfig);
+  }
+
   /** Runs refreshAuth for a plugin, returning new credentials. */
   async refreshAuth(pluginId: string, userId: string, credentials: unknown): Promise<unknown> {
     const module = await this.getModule(pluginId);
     if (typeof module.refreshAuth !== "function") {
       throw new PluginError("plugin.missing_refresh", `plugin ${pluginId} cannot refresh`);
     }
-    const ctx = await this.buildContextForInvocation(pluginId, userId, credentials);
+    const ctx = await this.buildAuxContext(pluginId, userId, credentials);
     return module.refreshAuth(ctx, credentials);
+  }
+
+  private async buildAuxContext(
+    pluginId: string,
+    userId: string | null,
+    credentials?: unknown,
+    userConfig?: unknown,
+    sharedCredentialsOverride?: unknown,
+  ): Promise<PluginContext> {
+    const module = await this.getModule(pluginId);
+    const row = await this.getPluginRow(pluginId);
+    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const sharedCredentials =
+      sharedCredentialsOverride !== undefined
+        ? sharedCredentialsOverride
+        : await this.peekAdminCredential(pluginId);
+    return buildContext({
+      pluginId,
+      allowedHosts: module.manifest.allowedHosts,
+      userId,
+      credentials,
+      sharedCredentials,
+      userConfig,
+      globalConfig,
+    });
+  }
+
+  private async peekAdminCredential(pluginId: string): Promise<unknown> {
+    const picks = await sharedCredentialsService.listDecryptedActive(pluginId);
+    return picks[0]?.value ?? null;
+  }
+
+  private requireMethodSpec(args: { capability: string; version: string; method: string }): {
+    input: CapabilitySpec["input"];
+    output: CapabilitySpec["output"];
+  } {
+    const spec = getCapability(args.capability, args.version);
+    if (!spec) {
+      throw new PluginError(
+        "plugin.missing_method",
+        `unknown capability ${args.capability}@${args.version}`,
+      );
+    }
+    const methods = spec.methods as unknown as Record<string, CapabilitySpec>;
+    const methodSpec = methods[args.method];
+    if (!methodSpec) {
+      throw new PluginError(
+        "plugin.missing_method",
+        `${args.capability}@${args.version}.${args.method} does not exist`,
+      );
+    }
+    return methodSpec;
+  }
+
+  /**
+   * Produces an ordered list of credential candidates for the call, implementing
+   * the scope + `personalKeyFallback` policy described in the design doc. Each
+   * entry is tried in order until one succeeds or every entry is exhausted.
+   */
+  private async buildCredentialPlan(args: InvokeArgs, row: PluginRow): Promise<PickedCredential[]> {
+    const adminPicks = await sharedCredentialsService.listDecryptedActive(args.pluginId);
+    const userPicks = args.userId ? await listReadyUserConnections(args.userId, args.pluginId) : [];
+
+    const adminOrdered: PickedCredential[] = adminPicks.map((p) => ({
+      side: "admin",
+      entryId: p.id,
+      value: p.value,
+      userConfig: null,
+    }));
+    const userOrdered: PickedCredential[] = userPicks.map((p) => ({
+      side: "user",
+      entryId: p.connectionId,
+      value: p.credentials,
+      userConfig: p.userConfig,
+    }));
+
+    if (args.scope === "global") return adminOrdered;
+
+    switch (row.personalKeyFallback) {
+      case "admin-first":
+        return [...adminOrdered, ...userOrdered];
+      case "personal-first":
+        return [...userOrdered, ...adminOrdered];
+      default:
+        return userOrdered;
+    }
+  }
+
+  private async markPickExhausted(
+    pluginId: string,
+    pick: PickedCredential,
+    retryAfterSec: number | undefined,
+  ): Promise<void> {
+    if (pick.side === "admin") {
+      await sharedCredentialsService.markExhausted({
+        pluginId,
+        credentialId: pick.entryId,
+        retryAfterSec,
+      });
+      return;
+    }
+    await markUserConnectionExhausted(pick.entryId, retryAfterSec ?? 60);
   }
 }
 

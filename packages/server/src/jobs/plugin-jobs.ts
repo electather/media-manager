@@ -66,7 +66,7 @@ function registerGlobalPluginJob(job: DeclaredPluginJob): void {
       if (!entry || !entry.enabled) return;
       const fn = entry.module.jobs?.[job.handler];
       if (typeof fn !== "function") return;
-      const ctx = await pluginRuntime.buildContextForInvocation(job.pluginId, null, null, null);
+      const ctx = await pluginRuntime.buildJobContext(job.pluginId, null, null, null);
       await fn(ctx);
     },
   });
@@ -123,7 +123,7 @@ async function invokePerConnectionHandler(args: {
   try {
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
     const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
-    const ctx = await pluginRuntime.buildContextForInvocation(
+    const ctx = await pluginRuntime.buildJobContext(
       job.pluginId,
       row.userId,
       credentials,

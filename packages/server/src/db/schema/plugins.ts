@@ -3,6 +3,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { user } from "./auth";
 
 const sourceTypeEnum = ["builtin", "url"] as const;
+const personalKeyFallbackEnum = ["off", "admin-first", "personal-first"] as const;
 
 /** Registry of installed plugins. One row per plugin id. */
 export const plugins = sqliteTable("plugins", {
@@ -14,12 +15,15 @@ export const plugins = sqliteTable("plugins", {
   manifest: text("manifest").notNull(),
   enabled: integer("enabled").notNull().default(1),
   globalConfig: text("global_config"),
-  sharedCredentials: text("shared_credentials"),
-  sharedCredentialsIv: text("shared_credentials_iv"),
+  personalKeyFallback: text("personal_key_fallback", { enum: personalKeyFallbackEnum })
+    .notNull()
+    .default("off"),
   installedBy: text("installed_by").references(() => user.id, { onDelete: "set null" }),
   installedAt: integer("installed_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
+
+export type PersonalKeyFallbackPolicy = (typeof personalKeyFallbackEnum)[number];
 
 /** Plugin-scoped KV store backing ctx.store. Namespaced by (plugin_id, user_id, key). */
 export const pluginStore = sqliteTable(

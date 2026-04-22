@@ -28,6 +28,8 @@ export const serviceConnections = sqliteTable(
     credentialsIv: text("credentials_iv"),
     tokenExpiresAt: integer("token_expires_at"),
     lastVerifiedAt: integer("last_verified_at"),
+    lastExhaustedAt: integer("last_exhausted_at"),
+    retryAfter: integer("retry_after"),
     errorMessage: text("error_message"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),

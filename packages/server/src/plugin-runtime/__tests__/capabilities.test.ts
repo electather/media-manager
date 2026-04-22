@@ -23,6 +23,7 @@ describe("capability catalog", () => {
         "metadata@v1",
         "ratings@v1",
         "recommendations@v1",
+        "userComments@v1",
         "watchHistory@v1",
         "watchlist@v1",
       ].sort(),

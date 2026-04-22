@@ -3,6 +3,7 @@
 export * from "./auth";
 export * from "./users";
 export * from "./plugins";
+export * from "./plugin-shared-credentials";
 export * from "./credentials";
 export * from "./feedback";
 export * from "./preferences";

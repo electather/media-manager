@@ -6,6 +6,7 @@ import {
   invalidateUserCache,
 } from "./dispatcher";
 import { capabilityRegistry } from "../plugin-runtime/registry";
+import type { CapabilityScope } from "../plugin-runtime/types";
 import { PluginCallError } from "./errors";
 import {
   clearPrimaryConnection,
@@ -20,8 +21,12 @@ import { callExtension } from "../mcp/extension-dispatch";
  * delegates to internally and what tests/jobs can call without a user binding.
  */
 export const mediaService = {
-  async listProviders(capability: string, version: string): Promise<string[]> {
-    return capabilityRegistry.listProviders(capability, version);
+  async listProviders(
+    capability: string,
+    version: string,
+    scope: CapabilityScope,
+  ): Promise<string[]> {
+    return capabilityRegistry.listProviders(capability, version, scope);
   },
   dispatch,
   dispatchSingle,
