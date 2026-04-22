@@ -1,31 +1,24 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { and, desc, eq, gte, inArray, like, or, sql, type SQL } from "drizzle-orm";
+import {
+  errorListQuerySchema as listSchema,
+  errorReportSchema as reportSchema,
+  errorRetentionSchema as retentionSchema,
+  type ErrorSeverity,
+  type ErrorSource,
+} from "@ent-mcp/shared/errors";
 import { requireSession, requirePermission } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { getDb } from "../../db/client";
 import { errorRecords } from "../../db/schema/errors";
 import { captureError } from "../../errors/capture";
 import { getAppConfig, setErrorRetentionDays } from "../../errors/retention";
-import type { ErrorSeverity, ErrorSource } from "../../errors/types";
 import { zValidator } from "../../errors/validator";
 import { notFound } from "../../errors/http-errors";
 
 interface SessionCtx {
   user: { id: string };
 }
-
-// ─── Frontend report endpoint ─────────────────────────────────────────────────
-
-const reportSchema = z.object({
-  severity: z.enum(["error", "warning"]),
-  name: z.string().optional(),
-  message: z.string(),
-  stack: z.string().optional(),
-  route: z.string().optional(),
-  code: z.string().optional(),
-  context: z.record(z.string(), z.unknown()).optional(),
-});
 
 /** POST /api/errors — frontend pushes serialized errors here. Scrubbed + written with
  *  source="frontend". Silently accepts even malformed bodies so we never surface
@@ -58,40 +51,6 @@ export const errorsApp = new Hono()
   });
 
 // ─── Admin viewer endpoints ───────────────────────────────────────────────────
-
-const severityValues = ["error", "warning"] as const;
-const sourceValues = ["frontend", "backend", "plugin", "cron"] as const;
-
-// Accepts comma-separated values (?severity=error,warning) for admin viewer URL sharing.
-const commaList = <T extends readonly [string, ...string[]]>(values: T) =>
-  z
-    .string()
-    .optional()
-    .transform((raw) => {
-      if (!raw) return undefined;
-      const parts = raw
-        .split(",")
-        .map((p) => p.trim())
-        .filter(Boolean);
-      const allowed = new Set<string>(values as readonly string[]);
-      return parts.filter((p): p is T[number] => allowed.has(p));
-    });
-
-const listSchema = z.object({
-  severity: commaList(severityValues),
-  source: commaList(sourceValues),
-  pluginId: z.string().optional(),
-  since: z.coerce.number().optional(),
-  until: z.coerce.number().optional(),
-  requestId: z.string().optional(),
-  search: z.string().optional(),
-  limit: z.coerce.number().min(1).max(200).default(50),
-  offset: z.coerce.number().min(0).default(0),
-});
-
-const retentionSchema = z.object({
-  errorRetentionDays: z.coerce.number().min(7).max(365),
-});
 
 export const adminErrorsApp = new Hono()
   .use("*", requireSession)

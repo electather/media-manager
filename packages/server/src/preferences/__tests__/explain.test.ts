@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
+import type { PreferenceProfile } from "@ent-mcp/shared/preferences";
 import { renderMatchReason, renderProfileUpdate } from "../explain";
-import type { CandidateFeatures, PreferenceProfile } from "../types";
+import type { CandidateFeatures } from "../types";
 import { emptyFeatures } from "../types";
 
 function candidate(overrides: Partial<CandidateFeatures> = {}): CandidateFeatures {

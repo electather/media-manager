@@ -3,6 +3,9 @@ import { getDb } from "../db/client";
 import { serviceConnections, pendingAuth, plugins } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
+import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
+import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
+import type { ConnectionListItem } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "../plugin-runtime/types";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
@@ -15,9 +18,37 @@ import {
   initiateDeviceAuth,
   pollDeviceAuth,
 } from "./auth";
-import type { ConnectionListItem } from "./types";
 
-export type { ConnectionListItem };
+type StoredManifest = Pick<
+  PluginManifest,
+  | "name"
+  | "version"
+  | "description"
+  | "logoUrl"
+  | "auth"
+  | "capabilities"
+  | "userConfigSchema"
+  | "credentialsSchema"
+  | "poolable"
+>;
+
+function parseManifest(raw: string): StoredManifest {
+  return JSON.parse(raw) as StoredManifest;
+}
+
+function capabilitiesAtScope(
+  manifest: StoredManifest,
+  scope: CapabilityScope,
+): Array<{ id: string; version: string }> {
+  const entries: Array<[string, ManifestCapability]> = Object.entries(manifest.capabilities);
+  return entries
+    .filter(([, cap]) => cap.scope === scope)
+    .map(([id, cap]) => ({ id, version: cap.version }));
+}
+
+function capabilityKeys(manifest: StoredManifest): string[] {
+  return Object.entries(manifest.capabilities).map(([id, cap]) => `${id}@${cap.version}`);
+}
 
 export const connectionsService = {
   verifyConfig,
@@ -40,15 +71,7 @@ export const connectionsService = {
     for (const row of rows) {
       const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
       if (!pluginRow) continue;
-      const manifest = JSON.parse(pluginRow.manifest) as {
-        name: string;
-        version: string;
-        description?: string;
-        logoUrl?: string;
-        auth: { kind: string };
-        capabilities?: Record<string, string>;
-        userConfigSchema?: unknown;
-      };
+      const manifest = parseManifest(pluginRow.manifest);
       const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
       const safeUserConfig = stripSecretFields(manifest.userConfigSchema, userConfig);
       result.push({
@@ -72,7 +95,7 @@ export const connectionsService = {
           auth: manifest.auth.kind,
           enabled: pluginRow.enabled === 1,
           logoUrl: manifest.logoUrl,
-          capabilities: Object.keys(manifest.capabilities ?? {}),
+          capabilities: capabilityKeys(manifest),
           userConfigSchema: manifest.userConfigSchema ?? null,
         },
       });
@@ -90,9 +113,7 @@ export const connectionsService = {
     if (!row) throw notFound("connection.not_found", "connection not found");
     const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
-    const schema = pluginRow
-      ? (JSON.parse(pluginRow.manifest) as { userConfigSchema?: unknown }).userConfigSchema
-      : null;
+    const schema = pluginRow ? parseManifest(pluginRow.manifest).userConfigSchema : null;
     return stripSecretFields(schema, userConfig);
   },
 
@@ -167,7 +188,7 @@ export const connectionsService = {
     if (!row) throw notFound("connection.not_found", "connection not found");
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
     if (!pluginRow) throw badRequest("connection.plugin_missing", "plugin not installed");
-    const manifest = JSON.parse(pluginRow.manifest) as { auth: { kind: string } };
+    const manifest = parseManifest(pluginRow.manifest);
 
     // Merge prior userConfig under the incoming payload so omitted secret fields
     // (stripped client-side via stripEmptySecrets) preserve their stored values.
@@ -304,6 +325,11 @@ export const connectionsService = {
     return result;
   },
 
+  /**
+   * Plugins a user can create a connection for. Filters to plugins that expose
+   * at least one user-scoped capability — pure-global plugins (TMDB v2, TVDB
+   * v2) have no user-side surface and are excluded.
+   */
   async listAvailablePlugins(): Promise<
     Array<{
       id: string;
@@ -312,40 +338,39 @@ export const connectionsService = {
       description: string;
       logoUrl?: string;
       auth: string;
-      hasSharedConfig: boolean;
-      capabilities: string[];
+      poolable: boolean;
+      adminSharedAvailable: boolean;
+      userScopedCapabilities: Array<{ id: string; version: string }>;
+      globalScopedCapabilities: Array<{ id: string; version: string }>;
       userConfigSchema: unknown;
       credentialsSchema: unknown;
     }>
   > {
     const db = getDb();
     const rows = await db.select().from(plugins).where(eq(plugins.enabled, 1)).all();
-    return rows
-      .filter((r) => capabilityRegistry.get(r.id))
-      .map((r) => {
-        const manifest = JSON.parse(r.manifest) as {
-          name: string;
-          version: string;
-          description?: string;
-          logoUrl?: string;
-          auth: { kind: string };
-          capabilities?: Record<string, string>;
-          userConfigSchema?: unknown;
-          credentialsSchema?: unknown;
-        };
-        return {
-          id: r.id,
-          name: manifest.name,
-          version: manifest.version,
-          description: manifest.description ?? "",
-          logoUrl: manifest.logoUrl,
-          auth: manifest.auth.kind,
-          hasSharedConfig: !!(r.sharedCredentials && r.sharedCredentialsIv),
-          capabilities: Object.keys(manifest.capabilities ?? {}),
-          userConfigSchema: manifest.userConfigSchema ?? null,
-          credentialsSchema: manifest.credentialsSchema ?? null,
-        };
+    const out: Awaited<ReturnType<typeof connectionsService.listAvailablePlugins>> = [];
+    for (const row of rows) {
+      if (!capabilityRegistry.get(row.id)) continue;
+      const manifest = parseManifest(row.manifest);
+      const userScoped = capabilitiesAtScope(manifest, "user");
+      if (userScoped.length === 0) continue;
+      const adminSharedAvailable = (await sharedCredentialsService.countEnabled(row.id)) > 0;
+      out.push({
+        id: row.id,
+        name: manifest.name,
+        version: manifest.version,
+        description: manifest.description ?? "",
+        logoUrl: manifest.logoUrl,
+        auth: manifest.auth.kind,
+        poolable: manifest.poolable ?? false,
+        adminSharedAvailable,
+        userScopedCapabilities: userScoped,
+        globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
+        userConfigSchema: manifest.userConfigSchema ?? null,
+        credentialsSchema: manifest.credentialsSchema ?? null,
       });
+    }
+    return out;
   },
 };
 

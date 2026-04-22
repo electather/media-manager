@@ -2,9 +2,11 @@ import { definePlugin } from "../../../plugin-runtime/define";
 import type { PluginContext } from "../../../plugin-runtime/types";
 import { pluginError, toErrorMessage } from "../../utils/plugin-error";
 import { handleHttpStatus } from "../../utils/http-status";
-import { resolveCredential } from "../../utils/credentials";
 
-interface TmdbCreds {
+interface TmdbSharedCreds {
+  apiKey?: string;
+}
+interface TmdbUserCreds {
   apiKey?: string;
 }
 interface TmdbUserCfg {}
@@ -12,7 +14,7 @@ interface TmdbGlobalCfg {
   imageBaseUrl?: string;
 }
 
-type Ctx = PluginContext<TmdbCreds, TmdbUserCfg, TmdbGlobalCfg>;
+type Ctx = PluginContext<TmdbUserCreds, TmdbSharedCreds, TmdbUserCfg, TmdbGlobalCfg>;
 
 const BASE = "https://api.themoviedb.org/3";
 const DEFAULT_POSTER_BASE = "https://image.tmdb.org/t/p/w500";
@@ -23,11 +25,11 @@ function imageBase(ctx: Ctx): string {
 }
 
 function resolveKey(ctx: Ctx): string {
-  return resolveCredential(
-    ctx.credentials?.apiKey,
-    ctx.sharedCredentials?.apiKey,
-    "no TMDB api key available (user or shared)",
-  );
+  const value = ctx.credentials?.apiKey ?? ctx.sharedCredentials?.apiKey;
+  if (!value) {
+    throw pluginError("plugin.bad_credentials", "no TMDB api key available (user or shared)");
+  }
+  return value;
 }
 
 function isBearer(key: string): boolean {
@@ -51,6 +53,11 @@ async function tmdbGet(ctx: Ctx, path: string, params: Record<string, unknown> =
     url.searchParams.set(k, String(v as string | number | boolean | bigint));
   }
   const res = await ctx.fetch(url.toString(), init);
+  if (res.status === 429) {
+    const retryAfterSec = Number(res.headers.get("Retry-After") ?? 0) || undefined;
+    ctx.pool.markExhausted({ retryAfterSec });
+    throw pluginError("plugin.rate_limited", `TMDB rate-limited (429)`);
+  }
   handleHttpStatus(res, "TMDB", {
     on401: "plugin.bad_credentials",
     on403: "plugin.bad_credentials",
@@ -207,9 +214,9 @@ export default definePlugin({
   manifest: {
     id: "tmdb",
     name: "The Movie Database",
-    version: "1.1.0",
+    version: "2.0.0",
     description:
-      "Metadata provider powered by TMDB (themoviedb.org). Admin can set a shared API key; users may override with a personal key.",
+      "Metadata and id-resolution provider powered by TMDB (themoviedb.org). Admin configures one or more API keys; the host rotates across them on rate-limit.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api.themoviedb.org", "image.tmdb.org"],
@@ -226,56 +233,26 @@ export default definePlugin({
       },
       required: [],
     },
-    userConfigSchema: {
+    sharedCredentialsSchema: {
       type: "object",
       properties: {
         apiKey: {
           type: "string",
-          title: "Your personal TMDB API key (v3)",
+          title: "TMDB API key (v3 or v4 bearer)",
           "x-secret": true,
         },
       },
-      additionalProperties: false,
-    },
-    credentialsSchema: {
-      type: "object",
-      properties: {
-        apiKey: { type: "string" },
-      },
       required: ["apiKey"],
     },
-    allowsSharedCredentials: true,
-    auth: { kind: "form" },
+    auth: { kind: "none" },
     capabilities: {
-      metadata: "v1",
-      idResolve: "v1",
+      metadata: { version: "v1", scope: "global" },
+      idResolve: { version: "v1", scope: "global" },
     },
+    poolable: true,
   },
 
-  async startAuth(ctx, input) {
-    const parsed = input as { apiKey?: string } | null;
-    if (!parsed?.apiKey) {
-      try {
-        resolveKey(ctx as Ctx);
-        return { status: "completed", credentials: {} };
-      } catch {
-        return {
-          status: "error",
-          code: "plugin.bad_credentials",
-          devMessage: "apiKey required (no shared key configured)",
-        };
-      }
-    }
-    const url = new URL(`${BASE}/configuration`);
-    const init = applyAuth(url, parsed.apiKey);
-    const res = await ctx.fetch(url.toString(), init);
-    if (!res.ok) {
-      return { status: "error", code: "plugin.bad_credentials", devMessage: `TMDB ${res.status}` };
-    }
-    return { status: "completed", credentials: { apiKey: parsed.apiKey } };
-  },
-
-  async testConnection(ctx) {
+  async verifyShared(ctx) {
     try {
       const key = resolveKey(ctx as Ctx);
       const url = new URL(`${BASE}/configuration`);

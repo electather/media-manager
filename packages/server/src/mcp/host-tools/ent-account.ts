@@ -26,7 +26,7 @@ function capabilitiesForPlugin(pluginId: string): string[] {
   const entry = capabilityRegistry.get(pluginId);
   if (!entry) return [];
   return Object.entries(entry.module.manifest.capabilities).map(
-    ([id, version]) => `${id}@${version}`,
+    ([id, cap]) => `${id}@${cap.version}`,
   );
 }
 

@@ -1,16 +1,7 @@
-export type JobRunStatus =
-  | "running"
-  | "succeeded"
-  | "partial_failure"
-  | "failed"
-  | "skipped"
-  | "timed_out"
-  | "cancelled";
+import type { JSONSchema } from "../common";
+import type { JobKind, JobRunStatus, JobTriggeredBy } from "./enums";
 
-export type JobTriggeredBy = "cron" | "admin" | "user" | "feature";
-export type JobKind = "scheduled" | "scheduled_per_row" | "triggerable" | "coalesced";
-
-// Already defined in the server, best to create a new package in monorepo for shared types and validation
+/** Summary of a single past run surfaced through the admin API. */
 export interface JobRunSummary {
   id: string;
   jobId: string;
@@ -32,6 +23,7 @@ export interface JobRunSummary {
   coalescedCount: number | null;
 }
 
+/** Baseline handle every registered job exposes. Specific kinds extend this. */
 export interface JobHandle {
   id: string;
   name: string;
@@ -40,10 +32,11 @@ export interface JobHandle {
   enabled: boolean;
   adminTriggerable: boolean;
   userTriggerable: boolean;
-  inputSchema?: any; // JSONSchema type
+  inputSchema?: JSONSchema;
   schedule?: string;
   scheduleOverride?: string | null;
   effectiveSchedule?: string;
   lastRun?: JobRunSummary;
-  nextRun?: string;
+  /** Serialized as ISO string over the wire; Date on server. */
+  nextRun?: string | Date;
 }

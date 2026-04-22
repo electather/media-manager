@@ -1,14 +1,9 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import {
+  activityHistoryQuerySchema as historySchema,
+  activityWatchlistQuerySchema as watchlistSchema,
+} from "@ent-mcp/shared/media";
 import { zValidator } from "../../errors/validator";
-
-const historySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-});
-
-const watchlistSchema = z.object({
-  mediaType: z.enum(["movie", "tv"]).optional(),
-});
 
 export const activityApp = new Hono()
   .get("/history", zValidator("query", historySchema), async (c) => {

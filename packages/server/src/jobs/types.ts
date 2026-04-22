@@ -1,9 +1,7 @@
 import type { ConsolaInstance } from "consola";
-import type { JobRunStatus, JobTriggeredBy, LogLevel } from "../db/schema/jobs";
+import type { JobHandle, JobTriggeredBy } from "@ent-mcp/shared/jobs";
 
-export type { JobRunStatus, JobTriggeredBy, LogLevel };
-
-export type JobKind = "scheduled" | "scheduled_per_row" | "triggerable" | "coalesced";
+// ─── Server-only execution types ──────────────────────────────────────────────
 
 export type CaptureSource = "cron" | "plugin";
 
@@ -21,45 +19,6 @@ export interface JobRunContext {
   requestId: string;
   logger: ConsolaInstance;
   abortSignal: AbortSignal;
-}
-
-/** Summary of a single past run surfaced through the admin API. */
-export interface JobRunSummary {
-  id: string;
-  jobId: string;
-  scopeKey: string | null;
-  status: JobRunStatus;
-  triggeredBy: JobTriggeredBy;
-  triggeredByUserId: string | null;
-  startedAt: number;
-  finishedAt: number | null;
-  durationMs: number | null;
-  requestId: string;
-  rowsTotal: number | null;
-  rowsSucceeded: number | null;
-  rowsFailed: number | null;
-  errorRecordId: string | null;
-  result: string | null;
-  logs: string | null;
-  logsTruncated: number | null;
-  coalescedCount: number | null;
-}
-
-/** Baseline handle every registered job exposes. Specific kinds extend this. */
-export interface JobHandle {
-  id: string;
-  name: string;
-  description?: string;
-  kind: JobKind;
-  enabled: boolean;
-  adminTriggerable: boolean;
-  userTriggerable: boolean;
-  inputSchema?: Record<string, unknown>;
-  schedule?: string;
-  scheduleOverride?: string | null;
-  effectiveSchedule?: string;
-  lastRun?: JobRunSummary;
-  nextRun?: Date;
 }
 
 export interface TriggerableJobHandle<TInput = unknown, TResult = unknown> extends JobHandle {

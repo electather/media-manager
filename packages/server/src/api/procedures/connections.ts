@@ -1,31 +1,19 @@
 import { Hono } from "hono";
-import { z } from "zod";
+import {
+  connectionCreateSchema as createSchema,
+  connectionVerifyConfigSchema as verifyConfigSchema,
+  connectionDisplayNameSchema as displayNameSchema,
+  connectionUserConfigSchema as userConfigSchema,
+  connectionEnabledSchema as enabledSchema,
+  oauthDeviceStartSchema as deviceStartSchema,
+  oauthDevicePollSchema as devicePollSchema,
+  oauthRedirectStartSchema as redirectStartSchema,
+  oauthRedirectCompleteSchema as redirectCompleteSchema,
+} from "@ent-mcp/shared/connections";
 import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../errors/validator";
-
-const createSchema = z.object({
-  pluginId: z.string(),
-  userConfig: z.unknown(),
-  displayName: z.string().optional(),
-});
-
-const verifyConfigSchema = z.object({
-  pluginId: z.string(),
-  userConfig: z.unknown(),
-});
-
-const displayNameSchema = z.object({ displayName: z.string().min(1) });
-const userConfigSchema = z.object({ userConfig: z.unknown() });
-const enabledSchema = z.object({ enabled: z.boolean() });
-const deviceStartSchema = z.object({ pluginId: z.string() });
-const devicePollSchema = z.object({ nonce: z.string() });
-const redirectStartSchema = z.object({ pluginId: z.string() });
-const redirectCompleteSchema = z.object({
-  nonce: z.string(),
-  queryParams: z.record(z.string(), z.string()),
-});
 
 export const connectionsApp = new Hono()
   .use("*", requireSession)

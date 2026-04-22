@@ -25,7 +25,7 @@ export async function ensureIds(args: {
   };
   if (bundleHas(existing, args.want)) return existing;
 
-  const providers = capabilityRegistry.listProviders("idResolve", "v1");
+  const providers = capabilityRegistry.listProviders("idResolve", "v1", "global");
   if (providers.length === 0) return existing;
 
   const installed = new Set(providers);

@@ -1,65 +1,8 @@
 import type { z } from "zod";
+import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@ent-mcp/shared";
 import type { HostErrorCode } from "../errors/codes";
 
-/** JSON Schema subset used for plugin-supplied config shapes. Kept deliberately permissive. */
-export type JSONSchema = Record<string, unknown>;
-
-export type AuthKind = "form" | "oauth_redirect" | "oauth_device" | "none";
-
-export interface MCPToolAnnotations {
-  destructiveHint?: boolean;
-  idempotentHint?: boolean;
-  readOnlyHint?: boolean;
-}
-
-/**
- * Declarative MCP tool record declared by either a capability definition or a
- * plugin manifest. The host prefixes plugin-declared tools with
- * `ext_<plugin_id>_` before registration.
- */
-export interface McpToolDefinition {
-  name: string;
-  description: string;
-  inputSchema: JSONSchema;
-  outputSchema: JSONSchema;
-  /** Name of the handler export on the plugin module's `mcpTools` object. */
-  handler: string;
-  annotations?: MCPToolAnnotations;
-}
-
-export interface PluginManifest {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  logoUrl?: string;
-  author: { name: string; url?: string };
-  homepage?: string;
-  sdkVersion: string;
-  allowedHosts: string[];
-  globalConfigSchema?: JSONSchema;
-  userConfigSchema?: JSONSchema;
-  credentialsSchema: JSONSchema;
-  /**
-   * When true, the admin may set shared credentials (from `credentialsSchema`) on the
-   * plugin itself. Users without their own connection fall back to the shared credential.
-   * Distinct from `globalConfigSchema`, which is for admin-only non-credential settings.
-   */
-  allowsSharedCredentials?: boolean;
-  auth: { kind: AuthKind };
-  capabilities: Record<string, string>;
-  jobs?: Array<{
-    id: string;
-    schedule: string;
-    handler: string;
-    perConnection?: boolean;
-  }>;
-  /**
-   * Optional plugin-contributed MCP tools. Registered as `ext_<plugin_id>_<name>`.
-   * Capped at 5 per plugin; names and schemas validated at manifest load time.
-   */
-  mcpTools?: McpToolDefinition[];
-}
+// ─── Server-only plugin runtime interfaces ────────────────────────────────────
 
 export interface StoreScopeOpts {
   scope?: "user" | "global";
@@ -82,14 +25,37 @@ export interface PluginStoreApi {
   delete(key: string, opts?: StoreScopeOpts): Promise<void>;
 }
 
-export interface PluginContext<TCred = unknown, TUserCfg = unknown, TGlobalCfg = unknown> {
+export interface PoolSignalingApi {
+  /**
+   * Signals that the currently-injected credential (shared or user) is
+   * rate-limited or temporarily unusable. Purely advisory: the host uses this
+   * to update bookkeeping and rotate on the next retry attempt of the same
+   * invocation.
+   */
+  markExhausted(opts?: { retryAfterSec?: number }): void;
+}
+
+export interface PluginContext<
+  TCred = unknown,
+  TSharedCred = unknown,
+  TUserCfg = unknown,
+  TGlobalCfg = unknown,
+> {
   fetch(url: string, init?: RequestInit): Promise<Response>;
   log: PluginLogger;
-  credentials: TCred;
-  /** Admin-configured shared credentials, available to all users of this plugin. */
-  sharedCredentials: TCred | null;
+  /**
+   * User secrets injected for user-scoped calls. `null` for global-scoped
+   * calls (the plugin should fall back to `sharedCredentials` in that case).
+   */
+  credentials: TCred | null;
+  /**
+   * Admin-owned secrets. The host's current pick from the shared credentials
+   * pool — may be `null` if the admin has configured none.
+   */
+  sharedCredentials: TSharedCred | null;
   config: { global: TGlobalCfg; user: TUserCfg };
   store: PluginStoreApi;
+  pool: PoolSignalingApi;
 }
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */
@@ -136,6 +102,12 @@ export interface PluginModule {
   pollAuth?: (ctx: PluginContext, pollState: unknown) => Promise<AuthResult>;
   refreshAuth?: (ctx: PluginContext, credentials: unknown) => Promise<unknown>;
   testConnection?: (ctx: PluginContext) => Promise<{ ok: boolean; message?: string }>;
+  /**
+   * Optional probe for pure-global plugins (auth.kind: "none") to verify a
+   * specific shared-credential entry from the admin UI. Must not require a
+   * user connection — only `ctx.sharedCredentials` is populated.
+   */
+  verifyShared?: (ctx: PluginContext) => Promise<{ ok: boolean; message?: string }>;
   capabilities: Record<string, CapabilityImpl>;
   jobs?: Record<string, PluginJobHandler>;
   /** Map of handler name → implementation, keyed by `manifest.mcpTools[].handler`. */
@@ -204,7 +176,7 @@ export interface CapabilityMcpTool {
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   requiredScopes: string[];
-  annotations?: MCPToolAnnotations;
+  annotations?: McpToolAnnotations;
   /** Identifier resolved at registration time to a host module handler. */
   handlerKey: string;
 }

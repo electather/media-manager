@@ -1,4 +1,5 @@
-import type { AdminOrFeaturePermission, JobKind, TriggerSource } from "./types";
+import type { JobKind } from "@ent-mcp/shared/jobs";
+import type { AdminOrFeaturePermission, TriggerSource } from "./types";
 
 /**
  * An entry is the internal, runtime-owned view of a registered job. The public

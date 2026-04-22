@@ -81,8 +81,47 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 - run: vp test
 ```
 
+## Pull Requests and Versioning
+
+This project uses [Changesets](https://github.com/changesets/changesets) for versioning and changelog management. A changeset file is REQUIRED for the CI pipeline to pass on PRs.
+
+**Instructions for AI Agents:**
+Since `bunx changeset add` is an interactive command, you MUST provide changesets using one of the following non-interactive methods:
+
+1. **If a version bump is required** (features, fixes, breaking changes):
+   Create a new Markdown file in the `.changeset/` directory with a unique, descriptive name (e.g., `.changeset/add-new-feature.md`). The file must contain YAML frontmatter specifying the package(s) and bump type (`major`, `minor`, or `patch`), followed by the changelog message.
+
+   Example `.changeset/add-new-feature.md`:
+
+   ```md
+   ---
+   "@ent-mcp/client": minor
+   "@ent-mcp/server": patch
+   ---
+
+   Added a new dashboard feature to the client and fixed an API parsing bug in the server.
+   ```
+
+2. **If NO version bump is required** (e.g., purely internal refactoring, tests, docs, or CI changes):
+   Run the following command to automatically generate an empty changeset:
+   ```bash
+   bunx changeset add --empty
+   ```
+
 ## Review Checklist for Agents
 
 - [ ] Run `vp install` after pulling remote changes and before getting started.
 - [ ] Run `vp check` and `vp test` to validate changes.
 <!--VITE PLUS END-->
+
+## Shared Package (`@ent-mcp/shared`)
+
+Anything used by both client and server lives in `packages/shared/` — domain enum tuples, public types, and zod schemas. Workspaces: `packages/{shared,server,client}`. The `@ent-mcp/shared` workspace ref is wired through the root bun catalog, so consumers depend on it as `"@ent-mcp/shared": "catalog:"`.
+
+### Rules
+
+- **Import directly from the shared package.** Use `@ent-mcp/shared/jobs`, `@ent-mcp/shared/plugins`, etc. — never re-export shared symbols through a local shim file. If a server/client module only needs to re-export, delete it and point callers at shared.
+- **Shared holds what crosses the boundary.** Drizzle tables, drizzle-zod schemas, and server-internal interfaces (`PluginContext`, `ErrorSink`, `JobRunContext`, etc.) stay on the server. UI-local types stay on the client.
+- **Enums are `as const` tuples.** Export values like `export const JOB_RUN_STATUSES = [...] as const;` plus a derived type. Drizzle consumes the tuple via `text("x", { enum: CONST })` and Zod via `z.enum(CONST)` — one source, both sides.
+- **When adding a new domain**, create `packages/shared/src/<domain>/{enums,types,schemas,index}.ts` and wire a subpath export in `packages/shared/package.json`.
+- **Shared has no runtime deps besides zod** (catalog). Don't add `drizzle-orm`, `hono`, or framework deps — keep it isomorphic.

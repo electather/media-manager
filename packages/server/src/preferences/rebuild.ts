@@ -1,20 +1,18 @@
+import type {
+  FeatureCategory,
+  FeedbackRecord,
+  PreferenceProfile,
+  ProfileFeatures,
+  ProfileMediaType,
+  RebuildResult,
+} from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
 import { profileStorage } from "./storage";
 import { normalizeProfile } from "./scoring";
 import type { PreferenceDataProvider } from "./provider";
 import { classifySentiment } from "./sentiment";
-import {
-  deriveConfidence,
-  emptyFeatures,
-  type CandidateFeatures,
-  type FeatureCategory,
-  type FeedbackRecord,
-  type PreferenceProfile,
-  type ProfileFeatures,
-  type ProfileMediaType,
-  type RebuildResult,
-} from "./types";
+import { deriveConfidence, emptyFeatures, type CandidateFeatures } from "./types";
 
 const HALF_LIFE_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 const DECAY_CATEGORIES = new Set<FeatureCategory>(["genres", "keywords"]);

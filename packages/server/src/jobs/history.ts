@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, notInArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { jobRuns } from "../db/schema/jobs";
-import type { JobRunStatus, JobRunSummary, JobTriggeredBy } from "./types";
+import type { JobRunStatus, JobRunSummary, JobTriggeredBy } from "@ent-mcp/shared/jobs";
 
 const RESULT_MAX_BYTES = 4096;
 const SUCCESS_RETENTION_PER_JOB = 50;

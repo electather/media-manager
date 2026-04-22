@@ -1,0 +1,26 @@
+{
+  "name": "@ent-mcp/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs/index.ts",
+    "./errors": "./src/errors/index.ts",
+    "./connections": "./src/connections/index.ts",
+    "./plugins": "./src/plugins/index.ts",
+    "./media": "./src/media/index.ts",
+    "./preferences": "./src/preferences/index.ts",
+    "./users": "./src/users/index.ts",
+    "./common": "./src/common/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

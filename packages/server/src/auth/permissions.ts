@@ -21,32 +21,3 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as Permission[];
-
-/** Permission groups used by the dashboard to render toggles per role. */
-export const PERMISSION_GROUPS: Array<{ label: string; permissions: Permission[] }> = [
-  {
-    label: "Media",
-    permissions: [
-      PERMISSIONS.MEDIA_DISCOVER,
-      PERMISSIONS.MEDIA_DETAILS,
-      PERMISSIONS.MEDIA_REQUEST,
-      PERMISSIONS.MEDIA_ACTIVITY,
-      PERMISSIONS.MEDIA_FEEDBACK,
-    ],
-  },
-  {
-    label: "Account",
-    permissions: [PERMISSIONS.ACCOUNT_CONNECTIONS, PERMISSIONS.ACCOUNT_PROFILE],
-  },
-  {
-    label: "Admin",
-    permissions: [
-      PERMISSIONS.ADMIN_USERS,
-      PERMISSIONS.ADMIN_ROLES,
-      PERMISSIONS.ADMIN_SERVER,
-      PERMISSIONS.ADMIN_REQUESTS,
-      PERMISSIONS.ADMIN_PLUGINS,
-      PERMISSIONS.ADMIN_JOBS,
-    ],
-  },
-];

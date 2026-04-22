@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { MediaItem } from "../../media/types";
+import type { MediaItem } from "@ent-mcp/shared/media";
 import {
   effectiveAlpha,
   normalizeProfile,
@@ -7,7 +7,8 @@ import {
   resolveEffectiveProfile,
   scoreCandidate,
 } from "../scoring";
-import type { CandidateFeatures, PreferenceProfile } from "../types";
+import type { PreferenceProfile } from "@ent-mcp/shared/preferences";
+import type { CandidateFeatures } from "../types";
 import { emptyFeatures } from "../types";
 
 function mediaItem(overrides: Partial<MediaItem> = {}): MediaItem {

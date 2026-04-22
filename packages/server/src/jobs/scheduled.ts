@@ -5,7 +5,8 @@ import { getConfig, effectiveSchedule } from "./config";
 import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
 import { isRunning, run } from "./runner";
-import type { CaptureMeta, JobHandle, JobRunContext } from "./types";
+import type { JobHandle } from "@ent-mcp/shared/jobs";
+import type { CaptureMeta, JobRunContext } from "./types";
 
 export interface RegisterScheduledOptions {
   id: string;

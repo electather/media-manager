@@ -9,6 +9,8 @@ interface SeerrCreds {
   userId: number;
 }
 
+interface SeerrSharedCreds {}
+
 interface SeerrUserCfg {
   username: string;
   password: string;
@@ -18,7 +20,7 @@ interface SeerrGlobalCfg {
   baseUrl: string;
 }
 
-type Ctx = PluginContext<SeerrCreds, SeerrUserCfg, SeerrGlobalCfg>;
+type Ctx = PluginContext<SeerrCreds, SeerrSharedCreds, SeerrUserCfg, SeerrGlobalCfg>;
 
 const SESSION_COOKIE_NAME = "connect.sid";
 
@@ -169,8 +171,9 @@ export default definePlugin({
     },
     auth: { kind: "form" },
     capabilities: {
-      mediaRequest: "v1",
+      mediaRequest: { version: "v1", scope: "user" },
     },
+    poolable: false,
   },
 
   async startAuth(ctx, input): Promise<AuthResult> {

@@ -1,70 +1,25 @@
-import { z } from "zod";
+import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
 
 /** Host SDK version. Plugins declare a semver range they support. */
 export const HOST_SDK_VERSION = "1.0.0";
 
-const semver = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, "invalid semver");
-
-const semverRange = z
-  .string()
-  .min(1)
-  .refine((s) => /[\d*^~=<>]/.test(s), "expected a semver range expression");
-
-const authKind = z.enum(["form", "oauth_redirect", "oauth_device", "none"]);
-
-const jobEntry = z.object({
-  id: z.string().min(1),
-  schedule: z.string().min(1),
-  handler: z.string().min(1),
-  perConnection: z.boolean().optional(),
-});
-
-const mcpToolAnnotations = z
-  .object({
-    destructiveHint: z.boolean().optional(),
-    idempotentHint: z.boolean().optional(),
-    readOnlyHint: z.boolean().optional(),
-  })
-  .optional();
-
-const mcpToolDefinition = z.object({
-  name: z.string().regex(/^[a-z][a-z0-9_]*$/, "tool name must be lower snake_case"),
-  description: z.string().max(400, "description must be ≤ 400 chars"),
-  inputSchema: z.record(z.string(), z.unknown()),
-  outputSchema: z.record(z.string(), z.unknown()),
-  handler: z.string().min(1),
-  annotations: mcpToolAnnotations,
-});
-
-export const pluginManifestSchema = z.object({
-  id: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9][a-z0-9-]*$/, "id must be lowercase alphanumeric with dashes"),
-  name: z.string().min(1),
-  version: semver,
-  description: z.string().default(""),
-  logoUrl: z.string().url().optional(),
-  author: z.object({
-    name: z.string().min(1),
-    url: z.string().url().optional(),
-  }),
-  homepage: z.string().url().optional(),
-  sdkVersion: semverRange,
-  allowedHosts: z.array(z.string().min(1)).default([]),
-  globalConfigSchema: z.record(z.string(), z.unknown()).optional(),
-  userConfigSchema: z.record(z.string(), z.unknown()).optional(),
-  credentialsSchema: z.record(z.string(), z.unknown()),
-  allowsSharedCredentials: z.boolean().optional(),
-  auth: z.object({ kind: authKind }),
-  capabilities: z.record(z.string(), z.string()),
-  jobs: z.array(jobEntry).optional(),
-  mcpTools: z.array(mcpToolDefinition).max(5, "at most 5 mcpTools per plugin").optional(),
-});
-
-export type ValidatedManifest = z.infer<typeof pluginManifestSchema>;
-
 /** Loose semver-range check — v1 accepts any declared range. A future revision can require strict matching. */
 export function isSdkCompatible(_range: string): boolean {
   return true;
+}
+
+/**
+ * Scope summary derived from a manifest's capability set. Useful for
+ * answering "does this plugin need user connections?" without rescanning the
+ * capability map.
+ */
+export function classifyScopes(manifest: ValidatedManifest): {
+  hasUserScoped: boolean;
+  hasGlobalScoped: boolean;
+  isPureGlobal: boolean;
+} {
+  const scopes = new Set(Object.values(manifest.capabilities).map((c) => c.scope));
+  const hasUserScoped = scopes.has("user");
+  const hasGlobalScoped = scopes.has("global");
+  return { hasUserScoped, hasGlobalScoped, isPureGlobal: hasGlobalScoped && !hasUserScoped };
 }

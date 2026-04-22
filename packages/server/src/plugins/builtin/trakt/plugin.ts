@@ -9,20 +9,21 @@ interface TraktCreds {
   createdAt: number;
   expiresIn: number;
 }
-interface TraktUserCfg {}
-interface TraktGlobalCfg {
+interface TraktSharedCreds {
   clientId: string;
   clientSecret: string;
 }
+interface TraktUserCfg {}
+interface TraktGlobalCfg {}
 
-type Ctx = PluginContext<TraktCreds, TraktUserCfg, TraktGlobalCfg>;
+type Ctx = PluginContext<TraktCreds, TraktSharedCreds, TraktUserCfg, TraktGlobalCfg>;
 
 const BASE = "https://api.trakt.tv";
 
 function traktHeaders(ctx: Ctx): Record<string, string> {
-  const clientId = ctx.config.global?.clientId;
+  const clientId = ctx.sharedCredentials?.clientId;
   if (!clientId) {
-    throw pluginError("plugin.bad_credentials", "Trakt clientId missing from global config");
+    throw pluginError("plugin.bad_credentials", "Trakt clientId not configured by admin");
   }
   const h: Record<string, string> = {
     "content-type": "application/json",
@@ -133,15 +134,14 @@ export default definePlugin({
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
     allowedHosts: ["api.trakt.tv"],
-    globalConfigSchema: {
+    sharedCredentialsSchema: {
       type: "object",
       properties: {
-        clientId: { type: "string", title: "Trakt client id" },
-        clientSecret: { type: "string", title: "Trakt client secret" },
+        clientId: { type: "string", title: "Trakt client id", "x-secret": true },
+        clientSecret: { type: "string", title: "Trakt client secret", "x-secret": true },
       },
       required: ["clientId", "clientSecret"],
     },
-    userConfigSchema: { type: "object", properties: {}, additionalProperties: false },
     credentialsSchema: {
       type: "object",
       properties: {
@@ -154,14 +154,15 @@ export default definePlugin({
     },
     auth: { kind: "oauth_device" },
     capabilities: {
-      watchHistory: "v1",
-      watchlist: "v1",
-      ratings: "v1",
-      recommendations: "v1",
-      calendar: "v1",
-      idResolve: "v1",
-      userComments: "v1",
+      watchHistory: { version: "v1", scope: "user" },
+      watchlist: { version: "v1", scope: "user" },
+      ratings: { version: "v1", scope: "user" },
+      recommendations: { version: "v1", scope: "user" },
+      calendar: { version: "v1", scope: "user" },
+      idResolve: { version: "v1", scope: "global" },
+      userComments: { version: "v1", scope: "user" },
     },
+    poolable: false,
     jobs: [
       {
         id: "refresh-tokens",
@@ -173,8 +174,8 @@ export default definePlugin({
   },
 
   async startAuth(ctx) {
-    const global = ctx.config.global as TraktGlobalCfg | null;
-    const clientId = global?.clientId;
+    const shared = ctx.sharedCredentials as TraktSharedCreds | null;
+    const clientId = shared?.clientId;
     if (!clientId) {
       return {
         status: "error",
@@ -209,9 +210,9 @@ export default definePlugin({
 
   async pollAuth(ctx, pollState): Promise<AuthResult> {
     const state = pollState as { device_code: string };
-    const global = ctx.config.global as TraktGlobalCfg | null;
-    const clientId = global?.clientId;
-    const clientSecret = global?.clientSecret;
+    const shared = ctx.sharedCredentials as TraktSharedCreds | null;
+    const clientId = shared?.clientId;
+    const clientSecret = shared?.clientSecret;
     if (!clientId || !clientSecret) {
       return {
         status: "error",
@@ -259,9 +260,9 @@ export default definePlugin({
 
   async refreshAuth(ctx, credentials) {
     const creds = credentials as TraktCreds;
-    const global = ctx.config.global as TraktGlobalCfg | null;
-    const clientId = global?.clientId;
-    const clientSecret = global?.clientSecret;
+    const shared = ctx.sharedCredentials as TraktSharedCreds | null;
+    const clientId = shared?.clientId;
+    const clientSecret = shared?.clientSecret;
     if (!clientId || !clientSecret) {
       throw pluginError("plugin.bad_credentials", "Trakt client not configured");
     }
@@ -561,9 +562,9 @@ export default definePlugin({
       if (!creds) return null;
       const aboutToExpire = creds.createdAt + creds.expiresIn * 1000 - Date.now() < 60 * 60 * 1000;
       if (!aboutToExpire) return null;
-      const global = ctx.config.global as TraktGlobalCfg | null;
-      const clientId = global?.clientId;
-      const clientSecret = global?.clientSecret;
+      const shared = ctx.sharedCredentials as TraktSharedCreds | null;
+      const clientId = shared?.clientId;
+      const clientSecret = shared?.clientSecret;
       if (!clientId || !clientSecret) return null;
       const res = await ctx.fetch(`${BASE}/oauth/token`, {
         method: "POST",

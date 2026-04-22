@@ -176,14 +176,28 @@ CREATE TABLE `plugins` (
 	`manifest` text NOT NULL,
 	`enabled` integer DEFAULT 1 NOT NULL,
 	`global_config` text,
-	`shared_credentials` text,
-	`shared_credentials_iv` text,
+	`personal_key_fallback` text DEFAULT 'off' NOT NULL,
 	`installed_by` text,
 	`installed_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`installed_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
+CREATE TABLE `plugin_shared_credentials` (
+	`id` text PRIMARY KEY NOT NULL,
+	`plugin_id` text NOT NULL,
+	`label` text NOT NULL,
+	`encrypted_value` text NOT NULL,
+	`iv` text NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	`last_exhausted_at` integer,
+	`retry_after` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`plugin_id`) REFERENCES `plugins`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `psc_plugin_enabled_idx` ON `plugin_shared_credentials` (`plugin_id`,`enabled`);--> statement-breakpoint
 CREATE TABLE `service_connections` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -197,6 +211,8 @@ CREATE TABLE `service_connections` (
 	`credentials_iv` text,
 	`token_expires_at` integer,
 	`last_verified_at` integer,
+	`last_exhausted_at` integer,
+	`retry_after` integer,
 	`error_message` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
@@ -320,6 +336,7 @@ CREATE TABLE `job_config` (
 	`job_id` text PRIMARY KEY NOT NULL,
 	`enabled` integer DEFAULT 1 NOT NULL,
 	`schedule_override` text,
+	`log_level` text DEFAULT 'info' NOT NULL,
 	`updated_by` text,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`updated_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
@@ -341,6 +358,8 @@ CREATE TABLE `job_runs` (
 	`rows_failed` integer,
 	`error_record_id` text,
 	`result` text,
+	`logs` text,
+	`logs_truncated` integer DEFAULT 0,
 	`coalesced_count` integer,
 	FOREIGN KEY (`triggered_by_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null,
 	FOREIGN KEY (`error_record_id`) REFERENCES `error_records`(`id`) ON UPDATE no action ON DELETE set null
@@ -349,4 +368,5 @@ CREATE TABLE `job_runs` (
 CREATE INDEX `job_runs_job_started_idx` ON `job_runs` (`job_id`,`started_at`);--> statement-breakpoint
 CREATE INDEX `job_runs_started_idx` ON `job_runs` (`started_at`);--> statement-breakpoint
 CREATE INDEX `job_runs_status_started_idx` ON `job_runs` (`status`,`started_at`);--> statement-breakpoint
-CREATE INDEX `job_runs_request_idx` ON `job_runs` (`request_id`);
+CREATE INDEX `job_runs_request_idx` ON `job_runs` (`request_id`);--> statement-breakpoint
+CREATE INDEX `job_runs_scope_key_idx` ON `job_runs` (`scope_key`);

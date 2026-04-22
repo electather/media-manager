@@ -1,11 +1,13 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { plugins, serviceConnections } from "../db/schema";
+import { serviceConnections } from "../db/schema";
 import { decryptField } from "../crypto/helpers";
+import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
 
 /**
  * A connection materialized for dispatch. Either comes from a user-owned
- * `service_connections` row or from the plugin-level shared credentials blob.
+ * `service_connections` row or from an admin-configured shared-credentials
+ * pool entry.
  */
 export type ResolvedConnection =
   | {
@@ -25,20 +27,11 @@ export type ResolvedConnection =
       userConfig: null;
     };
 
-async function getSharedCredentials(pluginId: string): Promise<unknown> {
-  const db = getDb();
-  const row = await db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
-  if (!row) return null;
-  if (row.sharedCredentials && row.sharedCredentialsIv) {
-    return decryptField(row.sharedCredentialsIv, row.sharedCredentials);
-  }
-  return null;
-}
-
 /**
  * Resolves every connection a user can use for a given plugin, in dispatch order:
  *   1. Enabled user connections (default first, then others by createdAt desc).
- *   2. Shared credentials, if the plugin allows them AND the user has no personal connection.
+ *   2. Any admin shared-credential entry, used only when the user has no
+ *      personal connection.
  */
 export async function resolveConnections(
   userId: string,
@@ -71,19 +64,17 @@ export async function resolveConnections(
   }
   if (userConnections.length > 0) return userConnections;
 
-  const shared = await getSharedCredentials(pluginId);
-  if (shared !== null && shared !== undefined) {
-    return [
-      {
-        kind: "shared",
-        pluginId,
-        connectionId: null,
-        credentials: shared,
-        userConfig: null,
-      },
-    ];
-  }
-  return [];
+  const shared = await sharedCredentialsService.listDecryptedActive(pluginId);
+  if (shared.length === 0) return [];
+  return [
+    {
+      kind: "shared",
+      pluginId,
+      connectionId: null,
+      credentials: shared[0]!.value,
+      userConfig: null,
+    },
+  ];
 }
 
 /** Resolves just the default/single connection, preferring personal → shared. */

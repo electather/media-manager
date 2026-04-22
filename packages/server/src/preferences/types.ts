@@ -1,38 +1,7 @@
-import type { MediaItem } from "../media/types";
+import type { Confidence, FeatureCategory, ProfileFeatures } from "@ent-mcp/shared/preferences";
+import type { MediaItem } from "@ent-mcp/shared/media";
 
-export type ProfileMediaType = "movie" | "tv" | "combined";
-export type FeedbackAction = "like" | "dislike" | "rate" | "note";
-export type Confidence = "low" | "medium" | "high";
-
-export type FeatureCategory =
-  | "genres"
-  | "keywords"
-  | "people"
-  | "decades"
-  | "runtimes"
-  | "languages";
-
-export type WeightMap = Record<string, number>;
-
-export interface ProfileFeatures {
-  genres: WeightMap;
-  keywords: WeightMap;
-  people: WeightMap;
-  decades: WeightMap;
-  runtimes: WeightMap;
-  languages: WeightMap;
-}
-
-export interface PreferenceProfile {
-  userId: string;
-  mediaType: ProfileMediaType;
-  features: ProfileFeatures;
-  sampleSize: number;
-  confidence: Confidence;
-  lastRebuiltAt: number;
-  lastUpdatedAt: number;
-  embedding?: number[];
-}
+// ─── Server-only scoring and feature-extraction types ─────────────────────────
 
 export interface FeatureContribution {
   category: FeatureCategory;
@@ -46,18 +15,6 @@ export interface RankedCandidate {
   profileScore: number;
   confidence: Confidence;
   topContributors: FeatureContribution[];
-}
-
-export interface RebuildResult {
-  userId: string;
-  mediaType: ProfileMediaType;
-  sampleSize: number;
-  confidence: Confidence;
-}
-
-export interface UpdateResult {
-  userId: string;
-  applied: number;
 }
 
 export interface UserItemFeedback {
@@ -85,19 +42,6 @@ export interface CandidateFeatures {
   writers?: string[];
   creators?: string[];
   originalLanguage?: string | null;
-}
-
-export interface FeedbackRecord {
-  id: string;
-  userId: string;
-  tmdbId: string;
-  mediaType: "movie" | "tv";
-  action: FeedbackAction;
-  rating: number | null;
-  note: string | null;
-  noteSentiment: "positive" | "negative" | "neutral" | null;
-  noteKeywords: string[] | null;
-  createdAt: number;
 }
 
 /** Score dictionary projection for the six categories. */

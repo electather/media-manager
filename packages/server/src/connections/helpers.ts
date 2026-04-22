@@ -85,6 +85,17 @@ async function ensureDefaultIfFirst(
   }
 }
 
+/**
+ * Rejects empty credential payloads. Plugins that declare a `credentialsSchema`
+ * must produce a non-empty credentials object on successful auth; an empty one
+ * is a "parked" connection under the new rules (see design doc).
+ */
+function hasRealCredentials(credentials: unknown): boolean {
+  if (credentials === null || credentials === undefined) return false;
+  if (typeof credentials !== "object") return true;
+  return Object.keys(credentials as Record<string, unknown>).length > 0;
+}
+
 export async function writeConnection(args: {
   userId: string;
   pluginId: string;
@@ -93,6 +104,12 @@ export async function writeConnection(args: {
   userConfig: unknown;
   tokenExpiresAt?: number;
 }): Promise<string> {
+  if (!hasRealCredentials(args.credentials)) {
+    throw internal(
+      "connection.verify_failed",
+      "cannot create connection with empty credentials — the plugin must return a populated credentials payload",
+    );
+  }
   const db = getDb();
   const id = crypto.randomUUID();
   const now = Date.now();

@@ -7,7 +7,8 @@ import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
 import { setCurrentRow } from "./run-logger";
 import { isRunning, run } from "./runner";
-import type { CaptureMeta, JobHandle, JobRunContext, JobRunStatus } from "./types";
+import type { JobHandle, JobRunStatus } from "@ent-mcp/shared/jobs";
+import type { CaptureMeta, JobRunContext } from "./types";
 
 const DEFAULT_PER_ROW_TIMEOUT_SEC = 60;
 const DEFAULT_RUN_TIMEOUT_SEC = 30 * 60;

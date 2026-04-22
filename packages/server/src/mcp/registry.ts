@@ -1,8 +1,8 @@
 import { consola } from "consola";
 import Ajv from "ajv";
 import type { ValidateFunction } from "ajv";
-import type { CapabilityDefinition, MCPToolAnnotations } from "../plugin-runtime/types";
-import type { JSONSchema } from "../plugin-runtime/types";
+import type { JSONSchema, McpToolAnnotations } from "@ent-mcp/shared";
+import type { CapabilityDefinition } from "../plugin-runtime/types";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
@@ -37,7 +37,7 @@ export interface RegisteredTool {
   description: string;
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
-  annotations?: MCPToolAnnotations;
+  annotations?: McpToolAnnotations;
   requiredScopes: string[];
   handler: ToolHandler;
   validateInput: ValidateFunction;
@@ -59,7 +59,7 @@ export interface ToolRegistration {
   inputSchema: JSONSchema;
   outputSchema: JSONSchema;
   requiredScopes: string[];
-  annotations?: MCPToolAnnotations;
+  annotations?: McpToolAnnotations;
   handler: ToolHandler;
 }
 

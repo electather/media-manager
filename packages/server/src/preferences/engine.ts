@@ -1,4 +1,11 @@
-import type { MediaItem } from "../media/types";
+import type { MediaItem } from "@ent-mcp/shared/media";
+import type {
+  FeedbackAction,
+  PreferenceProfile,
+  ProfileMediaType,
+  RebuildResult,
+  UpdateResult,
+} from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { renderMatchReason, renderProfileUpdate, explainAgainstProfile } from "./explain";
 import { applyIncrementalUpdate } from "./incremental";
@@ -7,16 +14,7 @@ import { profileStorage } from "./storage";
 import { rankCandidatesAgainst, resolveEffectiveProfile } from "./scoring";
 import type { PreferenceDataProvider } from "./provider";
 import { toCandidateFeatures, type RawMediaItem } from "./provider";
-import type {
-  CandidateFeatures,
-  FeedbackAction,
-  PreferenceProfile,
-  ProfileMediaType,
-  RankedCandidate,
-  RebuildResult,
-  UpdateResult,
-  UserItemFeedback,
-} from "./types";
+import type { CandidateFeatures, RankedCandidate, UserItemFeedback } from "./types";
 
 export interface PreferenceEngineDeps {
   provider: PreferenceDataProvider;

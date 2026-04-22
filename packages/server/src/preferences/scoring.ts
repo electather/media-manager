@@ -1,14 +1,16 @@
-import type { MediaItem } from "../media/types";
+import type { MediaItem } from "@ent-mcp/shared/media";
+import type {
+  Confidence,
+  FeatureCategory,
+  PreferenceProfile,
+  ProfileFeatures,
+} from "@ent-mcp/shared/preferences";
 import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
 import {
   CATEGORY_WEIGHTS,
   CONFIDENCE_THRESHOLDS,
   type CandidateFeatures,
-  type Confidence,
-  type FeatureCategory,
   type FeatureContribution,
-  type PreferenceProfile,
-  type ProfileFeatures,
   type RankedCandidate,
 } from "./types";
 

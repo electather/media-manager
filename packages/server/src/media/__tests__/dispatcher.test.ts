@@ -19,6 +19,7 @@ const registryAllMock = vi.fn();
 vi.mock("../../plugin-runtime/runtime", () => ({
   pluginRuntime: {
     invoke: (...args: unknown[]) => invokeMock(...args),
+    invokeWithCredentials: (...args: unknown[]) => invokeMock(...args),
     refreshAuth: (...args: unknown[]) => refreshAuthMock(...args),
   },
 }));

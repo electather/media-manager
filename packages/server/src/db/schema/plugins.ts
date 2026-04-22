@@ -1,21 +1,21 @@
 import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { PERSONAL_KEY_FALLBACK_POLICIES, PLUGIN_SOURCE_TYPES } from "@ent-mcp/shared/plugins";
 import { user } from "./auth";
-
-const sourceTypeEnum = ["builtin", "url"] as const;
 
 /** Registry of installed plugins. One row per plugin id. */
 export const plugins = sqliteTable("plugins", {
   id: text("id").primaryKey(),
   version: text("version").notNull(),
   sourceUrl: text("source_url").notNull(),
-  sourceType: text("source_type", { enum: sourceTypeEnum }).notNull(),
+  sourceType: text("source_type", { enum: PLUGIN_SOURCE_TYPES }).notNull(),
   checksum: text("checksum").notNull(),
   manifest: text("manifest").notNull(),
   enabled: integer("enabled").notNull().default(1),
   globalConfig: text("global_config"),
-  sharedCredentials: text("shared_credentials"),
-  sharedCredentialsIv: text("shared_credentials_iv"),
+  personalKeyFallback: text("personal_key_fallback", { enum: PERSONAL_KEY_FALLBACK_POLICIES })
+    .notNull()
+    .default("off"),
   installedBy: text("installed_by").references(() => user.id, { onDelete: "set null" }),
   installedAt: integer("installed_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
