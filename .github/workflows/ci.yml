@@ -31,4 +31,11 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
-          vp dlx changeset status --since=origin/${{ github.base_ref }}
+          CHANGESETS=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- '.changeset/*.md' | grep -v 'README.md' || true)
+          if [ -z "$CHANGESETS" ]; then
+            echo "::error::No changeset found. Run 'bunx changeset add' for package changes, or 'bunx changeset add --empty' for CI/docs-only changes."
+            exit 1
+          fi
+          echo "Found changeset(s):"
+          echo "$CHANGESETS"
+          vp dlx changeset status --since="origin/${{ github.base_ref }}"
