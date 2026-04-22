@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or general discussion
+    url: https://github.com/electather/media-manager/discussions
+    about: For usage questions, ideas, and open-ended conversations, please start a discussion instead of opening an issue.

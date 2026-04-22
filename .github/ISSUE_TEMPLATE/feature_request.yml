@@ -1,0 +1,67 @@
+name: Feature request
+description: Suggest a new capability or improvement.
+title: "feat: <short description>"
+labels: ["type: feature", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature. Please focus on the problem you are trying to solve before jumping to a specific solution.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and discussions for similar requests.
+          required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which package would this affect?
+      multiple: true
+      options:
+        - "@ent-mcp/client"
+        - "@ent-mcp/server"
+        - "@ent-mcp/shared"
+        - Tooling / CI
+        - Docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the user-facing problem or use case. Avoid proposing a solution here.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: If you have one in mind, describe it. API sketches, mockups, and examples welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider, and why did you rule them out?
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: Breaking change?
+      options:
+        - label: This proposal would require a breaking change.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Links, screenshots, or prior art.

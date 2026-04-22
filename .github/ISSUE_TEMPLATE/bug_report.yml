@@ -1,0 +1,90 @@
+name: Bug report
+description: Report something that is broken or behaving unexpectedly.
+title: "bug: <short description>"
+labels: ["type: bug", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill out the sections below so we can reproduce and diagnose the issue quickly.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight checks
+      options:
+        - label: I searched existing issues and this has not been reported.
+          required: true
+        - label: I am on a recent version of the project (main or latest release).
+          required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which package is affected?
+      multiple: true
+      options:
+        - "@ent-mcp/client"
+        - "@ent-mcp/server"
+        - "@ent-mcp/shared"
+        - Tooling / CI
+        - Docs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear, concise description of the bug.
+      placeholder: When I do X, Y happens instead of Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal, reliable steps. A link to a repo or failing test is ideal.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include full error messages, stack traces, or relevant logs (inside ``` fences).
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Run `vp --version`, `bun --version`, and note your OS/browser if relevant.
+      value: |
+        - OS:
+        - Browser (if client bug):
+        - Bun version:
+        - vp version:
+        - Commit / release:
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, recordings, or anything else that might help.
