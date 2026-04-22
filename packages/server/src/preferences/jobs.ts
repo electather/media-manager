@@ -1,4 +1,8 @@
-import type { RebuildResult } from "@ent-mcp/shared";
+import {
+  PROFILE_MEDIA_TYPES,
+  type ProfileMediaType,
+  type RebuildResult,
+} from "@ent-mcp/shared/preferences";
 import { consola } from "consola";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
@@ -62,7 +66,7 @@ export function registerPreferenceJobs(): void {
       startedAt: string;
       rebuiltAt: number;
       durationMs: number;
-      results: Record<string, RebuildResult>;
+      results: Partial<Record<ProfileMediaType, RebuildResult>>;
       warnings: string[];
     }
   >({
@@ -86,12 +90,11 @@ export function registerPreferenceJobs(): void {
       });
 
       const engine = getPreferenceEngine();
-      const results: Record<string, RebuildResult> = {};
+      const results: Partial<Record<ProfileMediaType, RebuildResult>> = {};
       const warnings: string[] = [];
 
       try {
-        const mediaTypes = ["movie", "tv", "combined"] as const;
-        for (const mediaType of mediaTypes) {
+        for (const mediaType of PROFILE_MEDIA_TYPES) {
           const typeStartTime = performance.now();
           const result = await engine.rebuildProfile(userId, mediaType, ctx.abortSignal);
           const typeDurationMs = Math.round(performance.now() - typeStartTime);

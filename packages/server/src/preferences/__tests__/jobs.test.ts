@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { consola } from "consola";
-import { registerPreferenceJobs, PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../jobs";
-import { registerTriggerable } from "../../jobs/triggerable";
-import { getPreferenceEngine } from "../index";
+
+vi.mock("../../env", () => ({
+  env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
+}));
 
 vi.mock("../../jobs/triggerable", () => ({
   registerTriggerable: vi.fn(),
@@ -29,6 +30,10 @@ vi.mock("consola", () => ({
     debug: vi.fn(),
   },
 }));
+
+const { registerPreferenceJobs, PREFERENCE_MANUAL_REBUILD_JOB_ID } = await import("../jobs");
+const { registerTriggerable } = await import("../../jobs/triggerable");
+const { getPreferenceEngine } = await import("../index");
 
 describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   let triggerableHandler: any;
@@ -62,20 +67,23 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   });
 
   it("adds warning if sampleSize is 0", async () => {
-    mockEngine.rebuildProfile.mockResolvedValue({
-      userId: "u1",
-      mediaType: "movie",
+    mockEngine.rebuildProfile.mockImplementation(async (userId: string, mediaType: string) => ({
+      userId,
+      mediaType,
       sampleSize: 0,
       confidence: "low",
-    });
+    }));
 
     const result = await triggerableHandler({ abortSignal: mockAbortSignal }, { userId: "u1" });
 
     expect(result.warnings).toContain("Profile for movie was rebuilt with 0 sample size");
-    // Should use else if, so only the first warning is triggered for sampleSize 0
+    // The else-if branch means only the sampleSize warning fires when sampleSize is 0.
     expect(result.warnings).not.toContain(
       "Profile for movie has low confidence (insufficient data points)",
     );
+    expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "movie", mockAbortSignal);
+    expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "tv", mockAbortSignal);
+    expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "combined", mockAbortSignal);
     expect(consola.warn).toHaveBeenCalledWith(
       expect.stringContaining("Completed with warnings for user u1"),
       expect.any(Object),
