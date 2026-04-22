@@ -1,3 +1,4 @@
+import type { RebuildResult } from "@ent-mcp/shared";
 import { consola } from "consola";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
@@ -58,9 +59,10 @@ export function registerPreferenceJobs(): void {
   registerTriggerable<
     { userId: string },
     {
+      startedAt: string;
       rebuiltAt: number;
       durationMs: number;
-      results: Record<string, unknown>;
+      results: Record<string, RebuildResult>;
       warnings: string[];
     }
   >({
@@ -74,18 +76,17 @@ export function registerPreferenceJobs(): void {
       }
 
       const startTime = performance.now();
-      const startTimestamp = new Date().toISOString();
+      const startedAt = new Date().toISOString();
       const userId = input.userId;
 
       consola.info(`[job:feature.preference.rebuild] Starting manual rebuild`, {
         jobId: PREFERENCE_MANUAL_REBUILD_JOB_ID,
         userId,
-        timestamp: startTimestamp,
-        input,
+        timestamp: startedAt,
       });
 
       const engine = getPreferenceEngine();
-      const results: Record<string, unknown> = {};
+      const results: Record<string, RebuildResult> = {};
       const warnings: string[] = [];
 
       try {
@@ -99,8 +100,7 @@ export function registerPreferenceJobs(): void {
 
           if (result.sampleSize === 0) {
             warnings.push(`Profile for ${mediaType} was rebuilt with 0 sample size`);
-          }
-          if (result.confidence === "low") {
+          } else if (result.confidence === "low") {
             warnings.push(`Profile for ${mediaType} has low confidence (insufficient data points)`);
           }
 
@@ -138,6 +138,7 @@ export function registerPreferenceJobs(): void {
         }
 
         return {
+          startedAt,
           rebuiltAt: Date.now(),
           durationMs,
           results,
