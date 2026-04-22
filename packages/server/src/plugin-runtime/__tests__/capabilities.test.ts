@@ -18,14 +18,18 @@ describe("capability catalog", () => {
     expect(keys).toEqual(
       [
         "calendar@v1",
+        "collection@v1",
         "idResolve@v1",
         "mediaRequest@v1",
         "metadata@v1",
+        "playback@v1",
         "ratings@v1",
         "recommendations@v1",
+        "trailers@v1",
         "userComments@v1",
         "watchHistory@v1",
         "watchlist@v1",
+        "watchProviders@v1",
       ].sort(),
     );
   });

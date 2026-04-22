@@ -129,7 +129,7 @@ export default definePlugin({
   manifest: {
     id: "trakt",
     name: "Trakt",
-    version: "1.1.0",
+    version: "1.2.0",
     description: "Watch history, watchlist, ratings, recommendations, and calendar via Trakt.tv.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
@@ -161,6 +161,8 @@ export default definePlugin({
       calendar: { version: "v1", scope: "user" },
       idResolve: { version: "v1", scope: "global" },
       userComments: { version: "v1", scope: "user" },
+      playback: { version: "v1", scope: "user" },
+      collection: { version: "v1", scope: "user" },
     },
     poolable: false,
     jobs: [
@@ -344,6 +346,26 @@ export default definePlugin({
         const body = (await res.json()) as { added?: { movies?: number; episodes?: number } };
         return { added: (body.added?.movies ?? 0) + (body.added?.episodes ?? 0) };
       },
+
+      async removeFromHistory(ctx, input) {
+        const items = input as Array<{
+          type: "movie" | "tv";
+          ids?: { trakt_id?: string };
+        }>;
+        const movies = items
+          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
+        const shows = items
+          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
+        const res = await traktFetch(ctx as Ctx, "/sync/history/remove", {
+          method: "POST",
+          body: JSON.stringify({ movies, shows }),
+        });
+        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
+        const body = (await res.json()) as { deleted?: { movies?: number; episodes?: number } };
+        return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.episodes ?? 0) };
+      },
     },
 
     watchlist: {
@@ -456,6 +478,28 @@ export default definePlugin({
         });
         return { ok: res.ok };
       },
+
+      async removeRating(ctx, input) {
+        const { item } = input as {
+          item: {
+            type: "movie" | "tv";
+            ids?: { trakt_id?: string };
+          };
+        };
+        const traktId = item.ids?.trakt_id;
+        if (!traktId) {
+          throw pluginError("plugin.input_invalid", "item.ids.trakt_id required");
+        }
+        const body =
+          item.type === "movie"
+            ? { movies: [{ ids: { trakt: Number(traktId) } }] }
+            : { shows: [{ ids: { trakt: Number(traktId) } }] };
+        const res = await traktFetch(ctx as Ctx, "/sync/ratings/remove", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        return { ok: res.ok };
+      },
     },
 
     recommendations: {
@@ -485,6 +529,18 @@ export default definePlugin({
         >(ctx as Ctx, `${path}?limit=${limit}`);
         return data.map((row) => (type === "movie" ? mapMovie(row.movie!) : mapShow(row.show!)));
       },
+
+      async getAnticipated(ctx, input) {
+        const { type = "movie", limit = 20 } = input as {
+          type?: "movie" | "tv";
+          limit?: number;
+        };
+        const path = type === "movie" ? "/movies/anticipated" : "/shows/anticipated";
+        const data = await traktJson<
+          Array<{ list_count: number; movie?: TraktMovie; show?: TraktShow }>
+        >(ctx as Ctx, `${path}?limit=${limit}`);
+        return data.map((row) => (type === "movie" ? mapMovie(row.movie!) : mapShow(row.show!)));
+      },
     },
 
     calendar: {
@@ -505,6 +561,135 @@ export default definePlugin({
           episodeTitle: row.episode.title,
           airsAt: row.first_aired,
         }));
+      },
+
+      async getUpcomingMovies(ctx, input) {
+        const { days = 30 } = input as { days?: number };
+        const start = new Date().toISOString().slice(0, 10);
+        const data = await traktJson<Array<{ released: string; movie: TraktMovie }>>(
+          ctx as Ctx,
+          `/calendars/my/movies/${start}/${days}`,
+        );
+        return data.map((row) => ({
+          item: mapMovie(row.movie),
+          airsAt: row.released,
+        }));
+      },
+    },
+
+    playback: {
+      async getPositions(ctx, input) {
+        const { type } = input as { type?: "movie" | "tv" };
+        const path =
+          type === "movie"
+            ? "/sync/playback/movies"
+            : type === "tv"
+              ? "/sync/playback/episodes"
+              : "/sync/playback";
+        const data = await traktJson<
+          Array<{
+            id: number;
+            progress: number;
+            paused_at: string;
+            type: "movie" | "episode";
+            movie?: TraktMovie;
+            show?: TraktShow;
+            episode?: { season: number; number: number };
+          }>
+        >(ctx as Ctx, path);
+        return data.map((row) => ({
+          item: row.type === "movie" && row.movie ? mapMovie(row.movie) : mapShow(row.show!),
+          progress: row.progress,
+          pausedAt: row.paused_at,
+          season: row.episode?.season,
+          episode: row.episode?.number,
+          playbackId: String(row.id),
+        }));
+      },
+
+      async removePosition(ctx, input) {
+        const { playbackId } = input as { playbackId: string };
+        const res = await traktFetch(ctx as Ctx, `/sync/playback/${playbackId}`, {
+          method: "DELETE",
+        });
+        // Trakt returns 204 on successful delete and 404 when the playback
+        // row has already been cleared — treat both as idempotent success.
+        return { ok: res.ok || res.status === 404 };
+      },
+    },
+
+    collection: {
+      async getCollection(ctx, input) {
+        const { type } = input as { type?: "movie" | "tv" };
+        if (type === "movie") {
+          const data = await traktJson<Array<{ collected_at: string; movie: TraktMovie }>>(
+            ctx as Ctx,
+            "/sync/collection/movies",
+          );
+          return data.map((row) => ({ item: mapMovie(row.movie), addedAt: row.collected_at }));
+        }
+        if (type === "tv") {
+          const data = await traktJson<Array<{ last_collected_at: string; show: TraktShow }>>(
+            ctx as Ctx,
+            "/sync/collection/shows",
+          );
+          return data.map((row) => ({ item: mapShow(row.show), addedAt: row.last_collected_at }));
+        }
+        // No type filter — fetch both and merge.
+        const [movies, shows] = await Promise.all([
+          traktJson<Array<{ collected_at: string; movie: TraktMovie }>>(
+            ctx as Ctx,
+            "/sync/collection/movies",
+          ),
+          traktJson<Array<{ last_collected_at: string; show: TraktShow }>>(
+            ctx as Ctx,
+            "/sync/collection/shows",
+          ),
+        ]);
+        return [
+          ...movies.map((row) => ({ item: mapMovie(row.movie), addedAt: row.collected_at })),
+          ...shows.map((row) => ({ item: mapShow(row.show), addedAt: row.last_collected_at })),
+        ];
+      },
+
+      async addToCollection(ctx, input) {
+        const items = input as Array<{
+          type: "movie" | "tv";
+          ids?: { trakt_id?: string };
+        }>;
+        const movies = items
+          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
+        const shows = items
+          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
+        const res = await traktFetch(ctx as Ctx, "/sync/collection", {
+          method: "POST",
+          body: JSON.stringify({ movies, shows }),
+        });
+        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
+        const body = (await res.json()) as { added?: { movies?: number; episodes?: number } };
+        return { added: (body.added?.movies ?? 0) + (body.added?.episodes ?? 0) };
+      },
+
+      async removeFromCollection(ctx, input) {
+        const items = input as Array<{
+          type: "movie" | "tv";
+          ids?: { trakt_id?: string };
+        }>;
+        const movies = items
+          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
+        const shows = items
+          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
+          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
+        const res = await traktFetch(ctx as Ctx, "/sync/collection/remove", {
+          method: "POST",
+          body: JSON.stringify({ movies, shows }),
+        });
+        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
+        const body = (await res.json()) as { deleted?: { movies?: number; episodes?: number } };
+        return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.episodes ?? 0) };
       },
     },
 

@@ -66,6 +66,34 @@ const upcoming = z.object({
   airsAt: z.string(),
 });
 
+const collectionEntry = z.object({
+  item: mediaItem,
+  addedAt: z.string(),
+});
+
+const playbackPosition = z.object({
+  item: mediaItem,
+  progress: z.number().min(0).max(100),
+  pausedAt: z.string(),
+  season: z.number().optional(),
+  episode: z.number().optional(),
+  playbackId: z.string(),
+});
+
+const videoEntry = z.object({
+  kind: z.enum(["trailer", "teaser", "clip", "featurette", "other"]),
+  site: z.string(),
+  key: z.string(),
+  url: z.string(),
+  official: z.boolean().optional(),
+});
+
+const watchProviders = z.object({
+  streaming: z.array(z.string()).default([]),
+  rent: z.array(z.string()).default([]),
+  buy: z.array(z.string()).default([]),
+});
+
 const searchResult = z.object({
   item: mediaItem,
   score: z.number().optional(),
@@ -189,6 +217,9 @@ export const WatchHistoryV1 = defineCapability({
     addToHistory: method(z.array(mediaItem), z.object({ added: z.number() }), {
       invalidates: ["watchHistory@v1"],
     }),
+    removeFromHistory: method(z.array(mediaItem), z.object({ removed: z.number() }), {
+      invalidates: ["watchHistory@v1"],
+    }),
   },
 });
 
@@ -226,6 +257,9 @@ export const RatingsV1 = defineCapability({
       z.object({ ok: z.boolean() }),
       { invalidates: ["ratings@v1"] },
     ),
+    removeRating: method(z.object({ item: mediaItem }), z.object({ ok: z.boolean() }), {
+      invalidates: ["ratings@v1"],
+    }),
   },
 });
 
@@ -246,6 +280,10 @@ export const RecommendationsV1 = defineCapability({
       z.object({ type: mediaType.optional(), limit: z.number().optional() }),
       z.array(mediaItem),
     ),
+    getAnticipated: method(
+      z.object({ type: mediaType.optional(), limit: z.number().optional() }),
+      z.array(mediaItem),
+    ),
   },
 });
 
@@ -259,6 +297,7 @@ export const CalendarV1 = defineCapability({
   defaultTimeoutMs: 15_000,
   methods: {
     getUpcoming: method(z.object({ days: z.number().optional() }), z.array(upcoming)),
+    getUpcomingMovies: method(z.object({ days: z.number().optional() }), z.array(upcoming)),
   },
 });
 
@@ -298,6 +337,11 @@ export const MediaRequestV1 = defineCapability({
           createdAt: z.string(),
         }),
       ),
+    ),
+    cancelRequest: method(
+      z.object({ requestId: z.string() }),
+      z.object({ ok: z.boolean(), message: z.string().optional() }),
+      { invalidates: ["mediaRequest@v1"] },
     ),
   },
   mcpTools: [
@@ -404,6 +448,77 @@ export const UserCommentsV1 = defineCapability({
 });
 
 /**
+ * watchProviders@v1 — streaming/rent/buy availability per media item per region.
+ * Provider-name arrays only; does not carry deep links.
+ */
+export const WatchProvidersV1 = defineCapability({
+  id: "watchProviders",
+  version: "v1",
+  strategy: "single",
+  userScoped: false,
+  defaultCacheTtlSec: DAY,
+  negativeCacheTtlSec: HOUR,
+  defaultTimeoutMs: 10_000,
+  methods: {
+    getProviders: method(
+      z.object({ id: z.string(), type: mediaType, region: z.string().optional() }),
+      watchProviders,
+    ),
+  },
+});
+
+/** trailers@v1 — trailer/teaser/clip videos per media item. */
+export const TrailersV1 = defineCapability({
+  id: "trailers",
+  version: "v1",
+  strategy: "single",
+  userScoped: false,
+  defaultCacheTtlSec: DAY,
+  negativeCacheTtlSec: HOUR,
+  defaultTimeoutMs: 10_000,
+  methods: {
+    getVideos: method(z.object({ id: z.string(), type: mediaType }), z.array(videoEntry)),
+  },
+});
+
+/** playback@v1 — cross-device resume positions. */
+export const PlaybackV1 = defineCapability({
+  id: "playback",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 1 * MIN,
+  negativeCacheTtlSec: 30,
+  defaultTimeoutMs: 15_000,
+  methods: {
+    getPositions: method(z.object({ type: mediaType.optional() }), z.array(playbackPosition)),
+    removePosition: method(z.object({ playbackId: z.string() }), z.object({ ok: z.boolean() }), {
+      invalidates: ["playback@v1"],
+    }),
+  },
+});
+
+/** collection@v1 — user's owned/collected library. */
+export const CollectionV1 = defineCapability({
+  id: "collection",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 15 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
+  methods: {
+    getCollection: method(z.object({ type: mediaType.optional() }), z.array(collectionEntry)),
+    addToCollection: method(z.array(mediaItem), z.object({ added: z.number() }), {
+      invalidates: ["collection@v1"],
+    }),
+    removeFromCollection: method(z.array(mediaItem), z.object({ removed: z.number() }), {
+      invalidates: ["collection@v1"],
+    }),
+  },
+});
+
+/**
  * Host-side registry of known capabilities. Indexed by `${id}@${version}`.
  */
 export const CAPABILITY_CATALOG = {
@@ -416,6 +531,10 @@ export const CAPABILITY_CATALOG = {
   "mediaRequest@v1": MediaRequestV1,
   "idResolve@v1": IdResolveV1,
   "userComments@v1": UserCommentsV1,
+  "watchProviders@v1": WatchProvidersV1,
+  "trailers@v1": TrailersV1,
+  "playback@v1": PlaybackV1,
+  "collection@v1": CollectionV1,
 } as const;
 
 export type CapabilityKey = keyof typeof CAPABILITY_CATALOG;

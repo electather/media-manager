@@ -85,6 +85,15 @@ async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function seerrDelete(ctx: Ctx, path: string): Promise<Response> {
+  const res = await ctx.fetch(`${getBaseUrl(ctx)}/api/v1${path}`, {
+    method: "DELETE",
+    headers: { Cookie: getSessionCookie(ctx) },
+  });
+  handleStatus(res);
+  return res;
+}
+
 // Seerr media status: 1=unknown, 2=pending, 3=processing, 4=partial, 5=available.
 function mapMediaStatus(
   status: number,
@@ -127,7 +136,7 @@ export default definePlugin({
   manifest: {
     id: "seerr",
     name: "Seerr",
-    version: "1.2.0",
+    version: "1.3.0",
     description:
       "Media request management via Seerr. Admins set the server URL; users sign in with their Seerr email and password and the plugin keeps a session cookie per user.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -296,6 +305,21 @@ export default definePlugin({
         } catch (err) {
           if (isPluginError(err)) return { success: false, message: err.message };
           return { success: false, message: String(err) };
+        }
+      },
+
+      async cancelRequest(ctx, input) {
+        const { requestId } = input as { requestId: string };
+        try {
+          const res = await seerrDelete(ctx as Ctx, `/request/${requestId}`);
+          // Seerr returns 204 on success and 404 if the row has already been
+          // removed. We treat 404 as an idempotent success so clients don't
+          // need to distinguish between "just cancelled" and "already gone".
+          if (res.ok || res.status === 404) return { ok: true };
+          return { ok: false, message: `Seerr ${res.status}` };
+        } catch (err) {
+          if (isPluginError(err)) return { ok: false, message: err.message };
+          return { ok: false, message: String(err) };
         }
       },
 
