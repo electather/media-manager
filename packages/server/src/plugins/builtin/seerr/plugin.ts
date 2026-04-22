@@ -85,12 +85,23 @@ async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function seerrDelete(ctx: Ctx, path: string): Promise<Response> {
+// DELETE helper that does NOT throw on 404 — callers that treat 404 as
+// idempotent success (e.g. cancelRequest) need to inspect the status themselves.
+// 401 still translates to plugin.token_expired so auth refresh triggers.
+async function seerrDeleteRaw(ctx: Ctx, path: string): Promise<Response> {
   const res = await ctx.fetch(`${getBaseUrl(ctx)}/api/v1${path}`, {
     method: "DELETE",
     headers: { Cookie: getSessionCookie(ctx) },
   });
-  handleStatus(res);
+  if (res.status === 401) {
+    throw pluginError("plugin.token_expired", "Seerr auth rejected (401)");
+  }
+  if (res.status === 429) {
+    throw pluginError("plugin.rate_limited", "Seerr rate limited (429)");
+  }
+  if (res.status >= 500) {
+    throw pluginError("plugin.upstream_error", `Seerr server error (${res.status})`);
+  }
   return res;
 }
 
@@ -311,10 +322,11 @@ export default definePlugin({
       async cancelRequest(ctx, input) {
         const { requestId } = input as { requestId: string };
         try {
-          const res = await seerrDelete(ctx as Ctx, `/request/${requestId}`);
-          // Seerr returns 204 on success and 404 if the row has already been
-          // removed. We treat 404 as an idempotent success so clients don't
-          // need to distinguish between "just cancelled" and "already gone".
+          // Use seerrDeleteRaw so 404 is not converted into a thrown error —
+          // Seerr returns 204 on success and 404 when the row has already
+          // been removed. Both are idempotent success from the caller's
+          // perspective. 401/429/5xx still throw via the helper.
+          const res = await seerrDeleteRaw(ctx as Ctx, `/request/${requestId}`);
           if (res.ok || res.status === 404) return { ok: true };
           return { ok: false, message: `Seerr ${res.status}` };
         } catch (err) {

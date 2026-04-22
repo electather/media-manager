@@ -84,7 +84,9 @@ const videoEntry = z.object({
   kind: z.enum(["trailer", "teaser", "clip", "featurette", "other"]),
   site: z.string(),
   key: z.string(),
-  url: z.string(),
+  // Null for sites we don't know how to build a URL for — the raw `key` and
+  // `site` are still available for callers that recognise other providers.
+  url: z.string().nullable(),
   official: z.boolean().optional(),
 });
 
@@ -450,6 +452,10 @@ export const UserCommentsV1 = defineCapability({
 /**
  * watchProviders@v1 — streaming/rent/buy availability per media item per region.
  * Provider-name arrays only; does not carry deep links.
+ *
+ * `region` is an ISO 3166-1 alpha-2 country code. When omitted, plugins fall
+ * back to "US" — callers that need different geography should pass the code
+ * explicitly.
  */
 export const WatchProvidersV1 = defineCapability({
   id: "watchProviders",
@@ -461,7 +467,12 @@ export const WatchProvidersV1 = defineCapability({
   defaultTimeoutMs: 10_000,
   methods: {
     getProviders: method(
-      z.object({ id: z.string(), type: mediaType, region: z.string().optional() }),
+      z.object({
+        id: z.string(),
+        type: mediaType,
+        // ISO 3166-1 alpha-2; plugins default to "US" when omitted.
+        region: z.string().optional(),
+      }),
       watchProviders,
     ),
   },

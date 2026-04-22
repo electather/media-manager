@@ -18,6 +18,7 @@ type Ctx = PluginContext<TmdbUserCreds, TmdbSharedCreds, TmdbUserCfg, TmdbGlobal
 
 const BASE = "https://api.themoviedb.org/3";
 const DEFAULT_POSTER_BASE = "https://image.tmdb.org/t/p/w500";
+const DEFAULT_REGION = "US";
 
 function imageBase(ctx: Ctx): string {
   const override = ctx.config.global?.imageBaseUrl;
@@ -390,7 +391,9 @@ export default definePlugin({
             }
           >;
         };
-        const pick = (data.results ?? {})[region ?? "US"];
+        // Capability contract documents "US" as the default region when none
+        // is supplied by the caller.
+        const pick = (data.results ?? {})[region ?? DEFAULT_REGION];
         return {
           streaming: (pick?.flatrate ?? []).map((p) => p.provider_name),
           rent: (pick?.rent ?? []).map((p) => p.provider_name),
@@ -438,13 +441,16 @@ function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette
   }
 }
 
-function buildVideoUrl(site: string, key: string): string {
+function buildVideoUrl(site: string, key: string): string | null {
   switch (site) {
     case "YouTube":
       return `https://www.youtube.com/watch?v=${key}`;
     case "Vimeo":
       return `https://vimeo.com/${key}`;
+    // Return null for unknown sites rather than the bare key — the `url`
+    // schema field is nullable and consumers will treat a non-null value as a
+    // real URL. The original `site` and `key` remain on the entry.
     default:
-      return key;
+      return null;
   }
 }
