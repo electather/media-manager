@@ -1,3 +1,8 @@
+import {
+  PROFILE_MEDIA_TYPES,
+  type ProfileMediaType,
+  type RebuildResult,
+} from "@ent-mcp/shared/preferences";
 import { consola } from "consola";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
@@ -55,17 +60,102 @@ export function registerPreferenceJobs(): void {
     timeoutSec: 60,
   });
 
-  registerTriggerable<{ userId: string }, { rebuiltAt: number }>({
+  registerTriggerable<
+    { userId: string },
+    {
+      startedAt: string;
+      rebuiltAt: string;
+      durationMs: number;
+      results: Partial<Record<ProfileMediaType, RebuildResult>>;
+      warnings: string[];
+    }
+  >({
     id: PREFERENCE_MANUAL_REBUILD_JOB_ID,
     name: "Rebuild preference profile",
     description: "Full rebuild of a user's preference profile on demand.",
     handler: async (ctx, input) => {
-      if (!input?.userId) throw new Error("userId is required");
+      if (!input?.userId) {
+        consola.warn("[job:feature.preference.rebuild] Aborted: userId is required in input");
+        throw new Error("userId is required");
+      }
+
+      const startTime = performance.now();
+      const startedAt = new Date().toISOString();
+      const userId = input.userId;
+
+      consola.info(`[job:feature.preference.rebuild] Starting manual rebuild`, {
+        jobId: PREFERENCE_MANUAL_REBUILD_JOB_ID,
+        userId,
+        timestamp: startedAt,
+      });
+
       const engine = getPreferenceEngine();
-      await engine.rebuildProfile(input.userId, "movie", ctx.abortSignal);
-      await engine.rebuildProfile(input.userId, "tv", ctx.abortSignal);
-      await engine.rebuildProfile(input.userId, "combined", ctx.abortSignal);
-      return { rebuiltAt: Date.now() };
+      const results: Partial<Record<ProfileMediaType, RebuildResult>> = {};
+      const warnings: string[] = [];
+
+      try {
+        for (const mediaType of PROFILE_MEDIA_TYPES) {
+          const typeStartTime = performance.now();
+          const result = await engine.rebuildProfile(userId, mediaType, ctx.abortSignal);
+          const typeDurationMs = Math.round(performance.now() - typeStartTime);
+
+          results[mediaType] = result;
+
+          if (result.sampleSize === 0) {
+            warnings.push(`Profile for ${mediaType} was rebuilt with 0 sample size`);
+          } else if (result.confidence === "low") {
+            warnings.push(`Profile for ${mediaType} has low confidence (insufficient data points)`);
+          }
+
+          consola.debug(`[job:feature.preference.rebuild] Processed media type: ${mediaType}`, {
+            userId,
+            mediaType,
+            durationMs: typeDurationMs,
+            sampleSize: result.sampleSize,
+            confidence: result.confidence,
+          });
+        }
+
+        const durationMs = Math.round(performance.now() - startTime);
+
+        if (warnings.length > 0) {
+          consola.warn(
+            `[job:feature.preference.rebuild] Completed with warnings for user ${userId}`,
+            {
+              userId,
+              durationMs,
+              warnings,
+              results,
+            },
+          );
+        } else {
+          consola.success(
+            `[job:feature.preference.rebuild] Completed successfully for user ${userId}`,
+            {
+              userId,
+              durationMs,
+              results,
+            },
+          );
+        }
+
+        return {
+          startedAt,
+          rebuiltAt: new Date().toISOString(),
+          durationMs,
+          results,
+          warnings,
+        };
+      } catch (error) {
+        const durationMs = Math.round(performance.now() - startTime);
+        consola.error(`[job:feature.preference.rebuild] Failed for user ${userId}`, {
+          userId,
+          durationMs,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw error;
+      }
     },
     scopeKey: (input) => input.userId,
     requiredPermission: {
