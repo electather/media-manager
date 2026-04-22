@@ -9,7 +9,7 @@ on:
 jobs:
   quality-and-test:
     name: Quality Checks & Tests
-    runs-on: ubuntu-latest
+    runs-on: [media-manager, sandboxed]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
