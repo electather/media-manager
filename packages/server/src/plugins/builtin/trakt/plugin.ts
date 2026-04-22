@@ -64,13 +64,12 @@ async function traktJsonWrite<T>(ctx: Ctx, path: string, init: RequestInit = {})
 }
 
 // Parses a Trakt numeric id from its stringified form. Returns `null` when the
-// value is missing or not an integer so callers can filter it out before
-// sending a payload — Trakt rejects `{ trakt: null }` and `Number("abc")`
-// produces NaN, which serialises to `null` in JSON.
+// value is missing or not a pure-digit integer so callers can filter it out
+// before sending a payload — Trakt rejects `{ trakt: null }`, and
+// `parseInt("42abc", 10)` would silently succeed with 42 under a looser check.
 function parseTraktId(id: string | undefined): number | null {
-  if (!id) return null;
-  const n = parseInt(id, 10);
-  return Number.isFinite(n) ? n : null;
+  if (!id || !/^\d+$/.test(id)) return null;
+  return parseInt(id, 10);
 }
 
 interface TraktMediaItemRef {
@@ -367,11 +366,24 @@ export default definePlugin({
           movie?: TraktMovie;
           show?: TraktShow;
         }>(ctx as Ctx, path);
-        return data.map((row) => ({
-          item: row.type === "movie" && row.movie ? mapMovie(row.movie) : mapShow(row.show!),
-          watchedAt: row.watched_at,
-          progress: 100,
-        }));
+        // Trakt history rows can theoretically omit the nested media object;
+        // skip them instead of throwing through a non-null assertion.
+        const results: Array<{
+          item: ReturnType<typeof mapMovie> | ReturnType<typeof mapShow>;
+          watchedAt: string;
+          progress: number;
+        }> = [];
+        for (const row of data) {
+          const item =
+            row.type === "movie" && row.movie
+              ? mapMovie(row.movie)
+              : row.show
+                ? mapShow(row.show)
+                : null;
+          if (!item) continue;
+          results.push({ item, watchedAt: row.watched_at, progress: 100 });
+        }
+        return results;
       },
 
       async addToHistory(ctx, input) {
@@ -526,7 +538,14 @@ export default definePlugin({
         const data = await traktJson<
           Array<{ watchers: number; movie?: TraktMovie; show?: TraktShow }>
         >(ctx as Ctx, `${path}?limit=${limit}`);
-        return data.map((row) => (type === "movie" ? mapMovie(row.movie!) : mapShow(row.show!)));
+        // Filter out malformed rows missing the requested nested object rather
+        // than throwing through a non-null assertion.
+        const results = [];
+        for (const row of data) {
+          if (type === "movie" && row.movie) results.push(mapMovie(row.movie));
+          else if (type === "tv" && row.show) results.push(mapShow(row.show));
+        }
+        return results;
       },
 
       async getAnticipated(ctx, input) {
@@ -603,14 +622,34 @@ export default definePlugin({
             episode?: { season: number; number: number };
           }>
         >(ctx as Ctx, path);
-        return data.map((row) => ({
-          item: row.type === "movie" && row.movie ? mapMovie(row.movie) : mapShow(row.show!),
-          progress: row.progress,
-          pausedAt: row.paused_at,
-          season: row.episode?.season,
-          episode: row.episode?.number,
-          playbackId: String(row.id),
-        }));
+        // Playback rows without a media object are dropped rather than crashed
+        // through a non-null assertion.
+        const results: Array<{
+          item: ReturnType<typeof mapMovie> | ReturnType<typeof mapShow>;
+          progress: number;
+          pausedAt: string;
+          season?: number;
+          episode?: number;
+          playbackId: string;
+        }> = [];
+        for (const row of data) {
+          const item =
+            row.type === "movie" && row.movie
+              ? mapMovie(row.movie)
+              : row.show
+                ? mapShow(row.show)
+                : null;
+          if (!item) continue;
+          results.push({
+            item,
+            progress: row.progress,
+            pausedAt: row.paused_at,
+            season: row.episode?.season,
+            episode: row.episode?.number,
+            playbackId: String(row.id),
+          });
+        }
+        return results;
       },
 
       async removePosition(ctx, input) {

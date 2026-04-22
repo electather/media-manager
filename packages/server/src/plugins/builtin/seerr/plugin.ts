@@ -4,6 +4,19 @@ import { isPluginError } from "../../../plugin-runtime/types";
 import { pluginError, toErrorMessage } from "../../utils/plugin-error";
 import { handleHttpStatus } from "../../utils/http-status";
 
+// Error codes the host layer reacts to (token refresh, backoff, credential
+// reconfig). Plugin methods that otherwise absorb errors into a graceful
+// { ok: false } contract must still let these escape so the host can act.
+const HOST_ACTIONABLE_CODES = new Set([
+  "plugin.token_expired",
+  "plugin.bad_credentials",
+  "plugin.rate_limited",
+]);
+
+function isHostActionable(err: unknown): boolean {
+  return isPluginError(err) && HOST_ACTIONABLE_CODES.has(err.code);
+}
+
 interface SeerrCreds {
   sessionCookie: string;
   userId: number;
@@ -314,6 +327,9 @@ export default definePlugin({
           const data = await seerrPost<{ id: number }>(ctx as Ctx, "/request", body);
           return { success: true, requestId: String(data.id) };
         } catch (err) {
+          // Token expiry and rate limits must escape so the host can refresh
+          // credentials or back off — swallowing them strands the session.
+          if (isHostActionable(err)) throw err;
           if (isPluginError(err)) return { success: false, message: err.message };
           return { success: false, message: String(err) };
         }
@@ -330,6 +346,7 @@ export default definePlugin({
           if (res.ok || res.status === 404) return { ok: true };
           return { ok: false, message: `Seerr ${res.status}` };
         } catch (err) {
+          if (isHostActionable(err)) throw err;
           if (isPluginError(err)) return { ok: false, message: err.message };
           return { ok: false, message: String(err) };
         }

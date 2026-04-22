@@ -84,18 +84,38 @@ describe("seerr cancelRequest", () => {
     expect(r.ok).toBe(true);
   });
 
-  it("translates 401 to a plugin.token_expired message", async () => {
+  it("throws plugin.token_expired on 401 (regression: used to swallow into message)", async () => {
+    // Host-actionable errors must escape the graceful { ok: false } contract
+    // so the token-refresh signal fires.
     const ctx = makeCtx([statusRes(401)], {
       credentials: { sessionCookie: "x", userId: 1 },
       sharedCredentials: null,
       config: { global: { baseUrl: "https://seerr.example" }, user: null },
     });
-    const r = (await seerrCap.cancelRequest!(ctx, { requestId: "42" })) as {
-      ok: boolean;
-      message?: string;
-    };
-    expect(r.ok).toBe(false);
-    expect(r.message).toContain("401");
+    let caught: unknown;
+    try {
+      await seerrCap.cancelRequest!(ctx, { requestId: "42" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.token_expired");
+  });
+
+  it("throws plugin.rate_limited on 429", async () => {
+    const ctx = makeCtx([statusRes(429)], {
+      credentials: { sessionCookie: "x", userId: 1 },
+      sharedCredentials: null,
+      config: { global: { baseUrl: "https://seerr.example" }, user: null },
+    });
+    let caught: unknown;
+    try {
+      await seerrCap.cancelRequest!(ctx, { requestId: "42" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
   });
 
   it("returns ok:false on other non-2xx statuses", async () => {
@@ -108,6 +128,40 @@ describe("seerr cancelRequest", () => {
       ok: boolean;
     };
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("seerr createRequest auth propagation", () => {
+  const seerrCap = seerrPlugin.capabilities.mediaRequest!;
+
+  it("throws plugin.token_expired on 401 rather than absorbing it into success:false", async () => {
+    const ctx = makeCtx([statusRes(401)], {
+      credentials: { sessionCookie: "x", userId: 1 },
+      sharedCredentials: null,
+      config: { global: { baseUrl: "https://seerr.example" }, user: null },
+    });
+    let caught: unknown;
+    try {
+      await seerrCap.createRequest!(ctx, { tmdbId: "99", type: "movie" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.token_expired");
+  });
+
+  it("still absorbs upstream errors into { success: false, message }", async () => {
+    const ctx = makeCtx([statusRes(500, "boom")], {
+      credentials: { sessionCookie: "x", userId: 1 },
+      sharedCredentials: null,
+      config: { global: { baseUrl: "https://seerr.example" }, user: null },
+    });
+    const r = (await seerrCap.createRequest!(ctx, { tmdbId: "99", type: "movie" })) as {
+      success: boolean;
+      message?: string;
+    };
+    expect(r.success).toBe(false);
+    expect(r.message).toContain("500");
   });
 });
 
@@ -363,6 +417,99 @@ describe("trakt getAnticipated robustness", () => {
     );
     const r = (await traktRecs.getAnticipated!(ctx, { type: "movie" })) as Array<unknown>;
     expect(r).toHaveLength(1);
+  });
+});
+
+describe("trakt row-mapping robustness", () => {
+  const traktHistory = traktPlugin.capabilities.watchHistory!;
+  const traktRecs = traktPlugin.capabilities.recommendations!;
+  const traktPlayback = traktPlugin.capabilities.playback!;
+  const sharedCreds = { clientId: "cid", clientSecret: "sec" };
+  const userCreds = {
+    accessToken: "at",
+    refreshToken: "rt",
+    createdAt: Date.now(),
+    expiresIn: 3600,
+  };
+
+  it("getHistory drops rows missing both movie and show", async () => {
+    // traktPaginate defaults page-count to 1 when the header is absent, so a
+    // single response is enough to exercise the mapper.
+    const ctx = makeCtx(
+      [
+        jsonRes([
+          {
+            id: 1,
+            watched_at: "2026-01-01T00:00:00Z",
+            type: "movie",
+            movie: { ids: { trakt: 1, slug: "a" }, title: "A", year: 2026 },
+          },
+          { id: 2, watched_at: "2026-01-02T00:00:00Z", type: "episode" }, // malformed
+        ]),
+      ],
+      { credentials: userCreds, sharedCredentials: sharedCreds },
+    );
+    const r = (await traktHistory.getHistory!(ctx, {})) as Array<unknown>;
+    expect(r).toHaveLength(1);
+  });
+
+  it("getTrending skips rows missing the requested media object", async () => {
+    const ctx = makeCtx(
+      [
+        jsonRes([
+          { watchers: 100, movie: { ids: { trakt: 1, slug: "a" }, title: "A", year: 2026 } },
+          { watchers: 50 }, // malformed: no movie
+        ]),
+      ],
+      { credentials: userCreds, sharedCredentials: sharedCreds },
+    );
+    const r = (await traktRecs.getTrending!(ctx, { type: "movie" })) as Array<unknown>;
+    expect(r).toHaveLength(1);
+  });
+
+  it("getPositions drops rows missing both movie and show", async () => {
+    const ctx = makeCtx(
+      [
+        jsonRes([
+          {
+            id: 10,
+            progress: 40,
+            paused_at: "2026-01-01T00:00:00Z",
+            type: "movie",
+            movie: { ids: { trakt: 1, slug: "a" }, title: "A", year: 2026 },
+          },
+          { id: 11, progress: 60, paused_at: "2026-01-02T00:00:00Z", type: "episode" }, // malformed
+        ]),
+      ],
+      { credentials: userCreds, sharedCredentials: sharedCreds },
+    );
+    const r = (await traktPlayback.getPositions!(ctx, {})) as Array<unknown>;
+    expect(r).toHaveLength(1);
+  });
+});
+
+describe("parseTraktId strict digit validation (via removeRating)", () => {
+  const traktRatings = traktPlugin.capabilities.ratings!;
+  const sharedCreds = { clientId: "cid", clientSecret: "sec" };
+  const userCreds = {
+    accessToken: "at",
+    refreshToken: "rt",
+    createdAt: Date.now(),
+    expiresIn: 3600,
+  };
+
+  it("rejects prefix-matched digits like '42abc' (regression: parseInt accepted them)", async () => {
+    const ctx = makeCtx([], { credentials: userCreds, sharedCredentials: sharedCreds });
+    let caught: unknown;
+    try {
+      await traktRatings.removeRating!(ctx, {
+        item: { type: "movie", ids: { trakt_id: "42abc" } },
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.input_invalid");
   });
 });
 
