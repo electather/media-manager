@@ -113,12 +113,12 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   });
 
   it("returns empty warnings array on success", async () => {
-    mockEngine.rebuildProfile.mockResolvedValue({
-      userId: "u1",
-      mediaType: "movie",
+    mockEngine.rebuildProfile.mockImplementation(async (userId: string, mediaType: string) => ({
+      userId,
+      mediaType,
       sampleSize: 100,
       confidence: "high",
-    });
+    }));
 
     const result = await triggerableHandler({ abortSignal: mockAbortSignal }, { userId: "u1" });
 

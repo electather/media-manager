@@ -64,7 +64,7 @@ export function registerPreferenceJobs(): void {
     { userId: string },
     {
       startedAt: string;
-      rebuiltAt: number;
+      rebuiltAt: string;
       durationMs: number;
       results: Partial<Record<ProfileMediaType, RebuildResult>>;
       warnings: string[];
@@ -116,8 +116,7 @@ export function registerPreferenceJobs(): void {
           });
         }
 
-        const endTime = performance.now();
-        const durationMs = Math.round(endTime - startTime);
+        const durationMs = Math.round(performance.now() - startTime);
 
         if (warnings.length > 0) {
           consola.warn(
@@ -142,14 +141,13 @@ export function registerPreferenceJobs(): void {
 
         return {
           startedAt,
-          rebuiltAt: Date.now(),
+          rebuiltAt: new Date().toISOString(),
           durationMs,
           results,
           warnings,
         };
       } catch (error) {
-        const endTime = performance.now();
-        const durationMs = Math.round(endTime - startTime);
+        const durationMs = Math.round(performance.now() - startTime);
         consola.error(`[job:feature.preference.rebuild] Failed for user ${userId}`, {
           userId,
           durationMs,
