@@ -1,0 +1,45 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Triage issue
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_non_write_users: "*"
+          prompt: |
+            Triage issue #${{ github.event.issue.number }} in ${{ github.repository }} by applying appropriate labels.
+
+            Steps:
+            1. View the issue: gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }}
+            2. List all available labels: gh label list --repo ${{ github.repository }}
+            3. Apply 1–3 labels that best describe the issue: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "label1,label2"
+
+            Label selection guidelines:
+            - Type labels: bug, enhancement, feature, question, documentation
+            - Priority labels: only apply if clearly evident from the issue content
+            - Area labels: any component or domain-specific labels available in the repository
+
+            Rules:
+            - Only apply labels that already exist in the repository; do not create new ones
+            - Do not add comments unless clarification from the reporter is genuinely needed
+            - Skip labeling if the issue is clearly spam or off-topic
+          claude_args: '--allowedTools "Bash"'

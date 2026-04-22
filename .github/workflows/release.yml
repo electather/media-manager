@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  version:
+  release:
     name: Create Version PR or Release
     runs-on: ubuntu-latest
     steps:
@@ -24,14 +24,14 @@ jobs:
         with:
           cache: true
 
-      - name: Create Release Pull Request or Publish
+      - name: Create Version PR or Tag Releases
         id: changesets
         uses: changesets/action@v1
         with:
-          # Automatically commits and pushes versions
           version: vp dlx changeset version
-          # Command to run for publishing packages (can be customized if publishing to NPM/GitHub Packages)
-          publish: vp dlx changeset publish
+          publish: vp dlx changeset tag
+          commit: "chore: version packages"
+          title: "chore: version packages"
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # Needed if publishing to npm registry
