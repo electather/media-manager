@@ -7,7 +7,9 @@
 
 ## Summary
 
-The connections subsystem is being redesigned so that every service integration (Trakt, Seerr, TMDB, TVDB, and any future third-party service) is implemented as a plugin. Built-in services ship as bundled plugins in the same format as third-party ones. Plugins are single JavaScript files executed in a QuickJS WASM sandbox, with a narrow host-exposed context API for networking, logging, storage, credentials, and config. Capabilities are versioned, schema-validated, and discoverable at runtime, so the host can fan out feature calls (watch history, recommendations, media requests, etc.) to whichever plugins implement them.
+The connections subsystem is being redesigned so that every service integration (Trakt, Seerr, TMDB, TVDB, and any future third-party service) is implemented as a plugin. Built-in services ship as bundled plugins in the same format as third-party ones. Capabilities are versioned, schema-validated, and discoverable at runtime, so the host can fan out feature calls (watch history, recommendations, media requests, etc.) to whichever plugins implement them.
+
+> **v1 scope note:** Built-in plugins currently run as trusted TypeScript modules within the host process — there is no sandbox boundary between them and the host. The QuickJS WASM sandbox (and the third-party plugin install/update/rollback endpoints that depend on it) are deferred to a future revision. See the "Deferred to future revisions" section.
 
 Capabilities declare a **scope** — `global` or `user` — so a single plugin can legitimately expose both a server-wide data source (e.g. TMDB metadata) and per-user integrations (e.g. TMDB watchlist). Admins can configure an **admin-owned pool** of shared credentials for pool-safe plugins so quota-limited services like TMDB can fail over across multiple keys. Users with user-scoped capabilities authenticate normally and may have multiple distinct connections of their own; a per-plugin `personalKeyFallback` policy optionally links the two pools for per-user requests without ever sharing keys across users.
 
@@ -116,7 +118,7 @@ interface PluginManifest {
 }
 ```
 
-**Why JSON Schema, not Zod, for config shapes.** Plugins run in QuickJS. Requiring them to bundle Zod is overkill. JSON Schema is inert data, renders on the frontend with a generic renderer (e.g. `@rjsf/core`), and validates server-side with `ajv`. The host's own internal schemas stay Zod — they are host code.
+**Why JSON Schema, not Zod, for config shapes.** JSON Schema is inert data that renders on the frontend with a generic renderer (e.g. `@rjsf/core`) and validates server-side with `ajv`. It is also the only viable choice once third-party plugins run in a QuickJS sandbox, where bundling Zod would be overkill. The host's own internal schemas stay Zod — they are host code.
 
 **`x-secret` extension.** Properties marked `"x-secret": true` are treated as secrets by the host and frontend. The frontend renders them as masked inputs and never displays their values on connection cards. The host strips them from `connection.list` and `connection.getUserConfig` responses. On `updateUserConfig`, omitted secret fields are preserved by merging with the prior stored value rather than blanked out. `sharedCredentialsSchema` is implicitly a secret schema — the host never returns decrypted values to any API response.
 
@@ -137,31 +139,51 @@ A plugin whose declared scope changes between versions (e.g. moving a capability
 ### Concrete plugin mappings
 
 ```ts
-// TMDB — mixed, poolable
+// TMDB — pure-global, poolable
 globalConfigSchema:      { imageBaseUrl }                // plaintext
-sharedCredentialsSchema: { apiKey, oauthClientId? }      // encrypted admin pool
+sharedCredentialsSchema: { apiKey }                      // encrypted admin pool
 userConfigSchema:        (none)
-credentialsSchema:       { accessToken }                 // OAuth token
-auth: { kind: "oauth_redirect" }
+credentialsSchema:       (none)
+auth: { kind: "none" }
 poolable: true
 capabilities: {
-  metadata:  { version: "v1", scope: "global" },
-  idResolve: { version: "v1", scope: "global" },
-  watchlist: { version: "v1", scope: "user"   },         // later
-  ratings:   { version: "v1", scope: "user"   },         // later
+  metadata:        { version: "v1", scope: "global" },
+  idResolve:       { version: "v1", scope: "global" },
+  watchProviders:  { version: "v1", scope: "global" },
+  trailers:        { version: "v1", scope: "global" },
 }
+// A future TMDB revision may add user-scoped watchlist/ratings; that would
+// promote the plugin to "mixed" shape (credentialsSchema required,
+// auth.kind: "oauth_redirect") and constitutes a major version bump.
 
-// Trakt — all user-scoped, not poolable (each connection is a distinct account)
+// Trakt — mostly user-scoped, not poolable (each connection is a distinct account)
 auth: { kind: "oauth_device" }
 poolable: false
 capabilities: {
-  watchHistory: { version: "v1", scope: "user" },
-  watchlist:    { version: "v1", scope: "user" },
-  ratings:      { version: "v1", scope: "user" },
+  watchHistory:    { version: "v1", scope: "user"   },
+  watchlist:       { version: "v1", scope: "user"   },
+  ratings:         { version: "v1", scope: "user"   },
+  recommendations: { version: "v1", scope: "user"   },
+  calendar:        { version: "v1", scope: "user"   },
+  userComments:    { version: "v1", scope: "user"   },
+  playback:        { version: "v1", scope: "user"   },
+  collection:      { version: "v1", scope: "user"   },
+  idResolve:       { version: "v1", scope: "global" },
 }
 
 // Seerr — all user-scoped, not poolable (each connection is a distinct server)
-// A hypothetical pure-global plugin — no credentialsSchema, no userConfigSchema, auth.kind: "none"
+auth: { kind: "form" }
+poolable: false
+capabilities: {
+  mediaRequest: { version: "v1", scope: "user" },
+}
+
+// TVDB — pure-global, poolable (id resolver only in v1)
+auth: { kind: "none" }
+poolable: true
+capabilities: {
+  idResolve: { version: "v1", scope: "global" },
+}
 ```
 
 ## Plugin entry point
@@ -253,7 +275,7 @@ export const WatchHistoryV1 = defineCapability({
 
 Enforcement by the runtime on every invocation:
 
-- Validate input against the capability's Zod input schema before calling the sandbox.
+- Validate input against the capability's Zod input schema before calling the plugin.
 - Validate output against the Zod output schema after the call returns. Bad output throws before reaching `MediaService`.
 - Version pinning. A caller asking for `watchHistory@v1` is not matched by a plugin declaring `watchHistory: "v2"`.
 - Scope routing. The registry is indexed by `(capability_id, version, scope)`; `MediaService` asks for "who provides X at scope Y" and never mixes the two.
@@ -262,16 +284,120 @@ Enforcement by the runtime on every invocation:
 
 **Initial capability set (with canonical scope; plugins may still declare the opposite where it makes sense, e.g. a plugin that exposes `metadata` from a personal library):**
 
-- `metadata@v1` — search, get by id, similar titles, poster URLs. Typically `global`.
-- `watchHistory@v1` — get/add history. Output carries `watchedAt`, optional `progress`, optional `rewatchCount`. Typically `user`.
+- `metadata@v1` — search, get by id, similar titles, discover, trending. Typically `global`.
+- `watchHistory@v1` — get/add/remove history. Output carries `watchedAt`, optional `progress`, optional `rewatchCount`. Typically `user`.
 - `watchlist@v1` — get/add/remove watchlist. Typically `user`.
-- `ratings@v1` — get/set ratings. Typically `user`.
-- `recommendations@v1` — get recommendations. Typically `user` (may accept a `global` variant for anonymous trending).
-- `calendar@v1` — upcoming episodes/releases. Typically `user`.
-- `mediaRequest@v1` — request media, check availability. Typically `user`.
+- `ratings@v1` — get/set/remove ratings. Typically `user`.
+- `recommendations@v1` — personal recommendations, trending, anticipated. Typically `user` (may accept a `global` variant for anonymous trending).
+- `calendar@v1` — upcoming TV episodes and movie releases. Typically `user`.
+- `mediaRequest@v1` — request media, check availability, cancel requests. Typically `user`.
 - `idResolve@v1` — resolve one id type to others; feeds `id_map`. Typically `global`.
+- `userComments@v1` — get user's own comments. Typically `user`.
+- `watchProviders@v1` — streaming/rent/buy availability per media item per region. Typically `global`.
+- `trailers@v1` — trailer/teaser/clip videos per media item. Typically `global`.
+- `playback@v1` — cross-device resume positions. Typically `user`.
+- `collection@v1` — user's owned/collected library. Typically `user`.
+
+**Capability discipline.** A plugin that declares a capability must implement _every_ method declared on it — the loader rejects plugins with missing method implementations. If a service does not natively support a method in a capability, the plugin should either (a) not declare that capability at all, or (b) degrade gracefully (empty array / `{ ok: false }`) rather than silently ignoring the call. This keeps the routing matrix boolean — callers can assume "this plugin claims watchHistory" means every watchHistory method works on it.
 
 New capabilities are added over time as features land.
+
+### Capability method reference
+
+The sections below enumerate every method on every capability. Entries marked _added_ were introduced alongside this revision; the rest were in the initial capability set.
+
+**`metadata@v1`** (global)
+
+- `search({ query, type?, limit? })` → `Array<{ item, score? }>`
+- `getDetails({ id, type })` → `MediaItem`
+- `getSimilar({ id, type })` → `MediaItem[]`
+- `getTrending({ type?, limit? })` → `MediaItem[]`
+- `discover({ genres?, yearMin?, yearMax?, ratingMin?, limit? })` → `MediaItem[]`
+
+**`watchHistory@v1`** (user)
+
+- `getHistory({ limit?, since? })` → `HistoryEntry[]`
+- `addToHistory(items)` → `{ added }`
+- _added_ `removeFromHistory(items)` → `{ removed }` — closes the symmetry gap with `addToHistory`. Backed by Trakt `POST /sync/history/remove`.
+
+**`watchlist@v1`** (user)
+
+- `getWatchlist({ type? })` → `WatchlistEntry[]`
+- `addToWatchlist(items)` → `{ added }`
+- `removeFromWatchlist(items)` → `{ removed }`
+
+**`ratings@v1`** (user)
+
+- `getRatings({ type? })` → `RatingEntry[]`
+- `setRating({ item, rating })` → `{ ok }`
+- _added_ `removeRating({ item })` → `{ ok }` — backed by Trakt `POST /sync/ratings/remove`.
+
+**`recommendations@v1`** (user)
+
+- `getRecommendations({ type?, limit? })` → `MediaItem[]`
+- `getTrending({ type?, limit? })` → `MediaItem[]`
+- _added_ `getAnticipated({ type?, limit? })` → `MediaItem[]` — distinct from trending (future vs. now). Backed by Trakt `/movies/anticipated`, `/shows/anticipated`.
+
+**`calendar@v1`** (user)
+
+- `getUpcoming({ days? })` → `UpcomingEntry[]` — TV episodes.
+- _added_ `getUpcomingMovies({ days? })` → `UpcomingEntry[]` — movie releases. Backed by Trakt `/calendars/my/movies/{start}/{days}`. Returned entries have `season`/`episode` unset.
+
+**`mediaRequest@v1`** (user)
+
+- `checkAvailability({ tmdbId, type })` → `{ status }`
+- `createRequest({ tmdbId, type, seasons? })` → `{ success, requestId?, message? }`
+- `listRequests({})` → `RequestRow[]`
+- _added_ `cancelRequest({ requestId })` → `{ ok }` — backed by Seerr `DELETE /request/:id`.
+
+**`idResolve@v1`** (global)
+
+- `resolve({ from, id, type })` → partial id bundle.
+
+**`userComments@v1`** (user)
+
+- `getComments({ limit? })` → `CommentEntry[]`
+
+**`watchProviders@v1`** (global, _new capability_)
+
+- `getProviders({ id, type, region? })` → `{ streaming: string[], rent: string[], buy: string[] }` — provider names. `region` defaults to the host's configured region (fall back to `"US"`). Backed by TMDB `/{type}/{id}/watch/providers`. Feeds the `streaming` field on the `ent_details` MCP tool output that is otherwise dead.
+
+**`trailers@v1`** (global, _new capability_)
+
+- `getVideos({ id, type })` → `Array<{ kind: "trailer" | "teaser" | "clip" | "featurette" | "other", site, key, url, official? }>`. Backed by TMDB `/{type}/{id}/videos`. Feeds the `trailer` field on the `ent_details` MCP tool output.
+
+**`playback@v1`** (user, _new capability_)
+
+- `getPositions({ type? })` → `Array<{ item, progress (0–100), pausedAt, season?, episode?, playbackId }>`
+- `removePosition({ playbackId })` → `{ ok }`
+
+Backed by Trakt `/sync/playback` and `DELETE /sync/playback/:id`. Feeds the `watch_progress` field on the `ent_details` MCP tool output.
+
+**`collection@v1`** (user, _new capability_)
+
+- `getCollection({ type? })` → `Array<{ item, addedAt }>` — same shape as `watchlist` entries.
+- `addToCollection(items)` → `{ added }`
+- `removeFromCollection(items)` → `{ removed }`
+
+Backed by Trakt `/sync/collection/*`. Answers "does the user already own this locally" as a signal distinct from `watchHistory` (seen), `watchlist` (planned), and `mediaRequest` (asked a download manager for it).
+
+### Built-in plugin coverage after this revision
+
+| Capability           | TMDB     | Trakt    | Seerr  | TVDB     |
+| -------------------- | -------- | -------- | ------ | -------- |
+| `metadata@v1`        | ✓ global |          |        |          |
+| `idResolve@v1`       | ✓ global | ✓ global |        | ✓ global |
+| `watchHistory@v1`    |          | ✓ user   |        |          |
+| `watchlist@v1`       |          | ✓ user   |        |          |
+| `ratings@v1`         |          | ✓ user   |        |          |
+| `recommendations@v1` |          | ✓ user   |        |          |
+| `calendar@v1`        |          | ✓ user   |        |          |
+| `mediaRequest@v1`    |          |          | ✓ user |          |
+| `userComments@v1`    |          | ✓ user   |        |          |
+| `watchProviders@v1`  | ✓ global |          |        |          |
+| `trailers@v1`        | ✓ global |          |        |          |
+| `playback@v1`        |          | ✓ user   |        |          |
+| `collection@v1`      |          | ✓ user   |        |          |
 
 ## Plugin context
 
@@ -334,25 +460,22 @@ What is deliberately not exposed:
 
 ## Plugin runtime
 
-Host-owned. Nothing else in the app touches QuickJS directly.
+Host-owned. Nothing else in the app touches the plugin runtime directly.
 
-**Layout:**
+**v1 layout (trusted TypeScript modules, no sandbox):**
 
 ```
 server/plugin-runtime/
 ├── runtime.ts       PluginRuntime — lifecycle, invocation
-├── sandbox.ts       QuickJS instance wrapper (quickjs-emscripten)
 ├── context.ts       PluginContext builder
-├── host-bridge.ts   Implementations of ctx methods
-├── loader.ts        Download, validate, store on install
+├── loader.ts        Validate and register built-in modules
 ├── registry.ts      Capability registry
 └── types.ts
 ```
 
-**Instance model:** one long-lived QuickJS instance per plugin. Booted on host startup (for enabled plugins), rebooted on install/update. User-scoped data is passed through `ctx` every call; plugins must not stash user state in module scope. Per-instance limits:
+> **Future revision — QuickJS sandbox:** When third-party plugin support is introduced, `sandbox.ts` (QuickJS instance wrapper via `quickjs-emscripten`) and `host-bridge.ts` (implementations of `ctx` methods crossing the sandbox boundary) will be added. The layout above will expand accordingly, and the per-instance memory cap (64 MB) and call timeout (30 s via QuickJS interrupt handler) will be enforced at that point. Until then, built-in plugins run as trusted TypeScript modules with no memory or timeout isolation.
 
-- Memory cap (default 64MB, configurable per-plugin in admin).
-- Call timeout of 30 seconds via QuickJS interrupt handler.
+**Instance model (v1):** one module reference per plugin, registered at host startup. User-scoped data is passed through `ctx` every call; plugins must not stash user state in module scope.
 
 **Invocation path:**
 
@@ -362,7 +485,7 @@ server/plugin-runtime/
    - **Global-scoped call:** pick a `shared_credentials` entry from the admin pool. For `poolable: true` plugins, rotate across enabled entries whose `retry_after` is past (round-robin). For non-poolable plugins, use the single entry or fail with `CAPABILITY_UNAVAILABLE` if none.
    - **User-scoped call:** resolve the user's enabled connections for this plugin. For `poolable: true` plugins, rotate across them; otherwise pick the default. If the plugin's `personalKeyFallback` is `"admin-first"` or `"personal-first"`, the call also has a secondary pool on the other side (always scoped to this user's request — user A's key is never used for user B).
 4. Host decrypts the selected credential, builds `PluginContext` with `config.global`, `config.user` (user-scoped only), `credentials`, and/or `sharedCredentials` according to the plan.
-5. Host invokes the plugin method in the QuickJS instance.
+5. Host invokes the plugin method.
 6. If the plugin calls `ctx.pool.markExhausted({ retryAfterSec })` and throws: host updates the current pool entry's `retry_after`, picks the next entry in the current pool (or falls over to the secondary pool per `personalKeyFallback`), rebuilds `ctx`, and retries the same invocation. Retry count is bounded by the total pool size to prevent loops; exhausting everything surfaces as `POOL_EXHAUSTED`.
 7. Runtime validates output against the output schema.
 8. Result returned to `MediaService` for fan-out handling.
@@ -379,11 +502,11 @@ Only meaningful for plugins with `poolable: true` and at least one user-scoped c
 
 **Error handling:**
 
-- Plugin throws inside sandbox: host catches, logs with plugin id and stack, updates the relevant connection or pool entry (`status = "error"` on a connection, or `retry_after` on a pool entry) with message, returns a typed error to the caller. Host never crashes.
+- Plugin throws: host catches, logs with plugin id and stack, updates the relevant connection or pool entry (`status = "error"` on a connection, or `retry_after` on a pool entry) with message, returns a typed error to the caller. Host never crashes.
 - Auth-specific errors (expired token, bad credentials) surface via reserved error codes so the host can trigger refresh or mark the connection / shared-credential entry as errored.
 - `POOL_EXHAUSTED`: every entry in every relevant pool for this call is in cooldown. Carries the nearest `retryAfterSec`.
 - `CAPABILITY_UNAVAILABLE`: no plugin provides `(capability, scope)`, or the only providers have no usable config (e.g. pure-global plugin with no admin shared credentials set).
-- Sandbox OOM or timeout: runtime reboots the instance on next use; affected connection is marked error until recovery.
+- _(Future — QuickJS sandbox)_ Sandbox OOM or timeout: runtime reboots the instance on next use; affected connection is marked error until recovery.
 
 **Security enforcement points:**
 
@@ -561,11 +684,11 @@ Permission: `admin:plugins`.
 **Core lifecycle:**
 
 - `plugin.list` — all installed plugins with manifest, version, enabled, install date, `personalKeyFallback` policy, `poolable`, `sharedCredentialsCount` (enabled entries), and `capabilities: Array<{ id, version, scope }>`. Never includes decrypted secrets.
-- `plugin.install` — `{ sourceUrl, expectedChecksum? }` → new plugin row.
-- `plugin.update` — `{ pluginId, sourceUrl, expectedChecksum? }` → updated row.
-- `plugin.uninstall` — `{ pluginId }` → full cascade (drops shared credentials, connections, store entries).
+- `plugin.install` — `{ sourceUrl, expectedChecksum? }` → new plugin row. _(Deferred — requires QuickJS sandbox; see "Deferred to future revisions".)_
+- `plugin.update` — `{ pluginId, sourceUrl, expectedChecksum? }` → updated row. _(Deferred — same prerequisite.)_
+- `plugin.uninstall` — `{ pluginId }` → full cascade (drops shared credentials, connections, store entries). Built-in plugins cannot be uninstalled.
 - `plugin.setEnabled` — `{ pluginId, enabled }`.
-- `plugin.rollback` — `{ pluginId, toVersion }`, only versions still on disk.
+- `plugin.rollback` — `{ pluginId, toVersion }`, only versions still on disk. _(Deferred — same prerequisite.)_
 
 **Plaintext global config (admin):**
 
@@ -607,7 +730,9 @@ Permission: `account:connections`. Scoped to the authenticated user.
 **Writes — OAuth redirect:**
 
 - `connection.initiateOAuth` — `{ pluginId }` → `{ redirectUrl, nonce }`.
-- Callback route (regular HTTP handler, not oRPC) at `/api/oauth/callback/:pluginId` — completes the flow.
+- Completing the redirect flow. Two approaches are supported; both are valid and can coexist:
+  - **SPA / frontend-driven (current implementation):** The OAuth provider redirects back to the frontend. The frontend extracts `code` and `state` from the query string, then calls `connection.completeOAuth` — `{ nonce, queryParams }` → `{ connection }`. This avoids a server-side session cookie requirement and works naturally in a SPA context.
+  - **Server-side callback (future, for non-SPA clients):** A regular HTTP handler at `GET /api/oauth/callback/:pluginId` receives the provider redirect directly. The host looks up `state` in `pending_auth`, calls `completeAuth(ctx, queryParams, state)`, encrypts credentials, and redirects the client to a confirmation page. Required for native apps, server-rendered clients, or any context where the frontend cannot intercept the redirect.
 
 **Writes — OAuth device:**
 
@@ -643,9 +768,9 @@ Unchanged from the initial design. Cache keys remain `user:{user_id}:{resource}`
 ## Testing
 
 - Every host capability has unit tests with a fake plugin returning fixture data. Covers input/output validation, fan-out, and error paths.
-- Every built-in plugin has a contract test: boots in a real QuickJS instance, calls each declared capability with a mocked `ctx`, verifies shape and behavior.
-- Plugin runtime has integration tests for the sandbox boundary: fetch allowlist enforcement, memory cap, call timeout, store namespacing.
-- Lifecycle tests cover install rollback on each validation failure.
+- Every built-in plugin has a contract test: calls each declared capability with a mocked `ctx`, verifies shape and behavior.
+- _(Future — QuickJS sandbox)_ Plugin runtime integration tests for the sandbox boundary: fetch allowlist enforcement, memory cap, call timeout, store namespacing.
+- _(Future — third-party install)_ Lifecycle tests covering install rollback on each validation failure.
 
 ## Migration from the current implementation
 
@@ -679,6 +804,47 @@ Current TMDB behavior creates `service_connections` rows with empty `credentials
 - All built-in manifests updated to the new capability shape with explicit `scope`.
 - TMDB and TVDB: `poolable: true`. Trakt and Seerr: `poolable: false`.
 - References to `ctx.sharedCredentials` stay valid; the injection contract moves from `allowsSharedCredentials` to scope-based selection.
+
+## Deferred to future revisions
+
+The following are explicitly out of scope for v1 and tracked here so they are not forgotten.
+
+### QuickJS WASM sandbox
+
+**What:** Replace the current trusted-TypeScript-module model with a proper QuickJS WASM sandbox (`quickjs-emscripten`) so that third-party plugin code runs isolated from the host process.
+
+**Why deferred:** All current plugins are built-ins that are part of the same codebase and already go through the same review process as host code. The sandboxing complexity is only justified when untrusted third-party code is involved.
+
+**Prerequisites before implementing:**
+
+- `sandbox.ts` — QuickJS instance wrapper; one long-lived instance per plugin, booted on host startup and rebooted on install/update.
+- `host-bridge.ts` — implementations of all `ctx.*` methods crossing the sandbox boundary (fetch, log, store, pool).
+- Per-instance memory cap enforcement (default 64 MB, configurable per-plugin).
+- Per-call timeout (30 s) enforced via QuickJS interrupt handler.
+- Sandbox OOM/timeout recovery: runtime reboots the instance on next use; affected connection marked error until recovery.
+- All built-in plugins must be compiled to plain JS bundles so they can be loaded into QuickJS identically to third-party plugins.
+
+### Third-party plugin install, update, and rollback
+
+**What:** Admin-initiated lifecycle for plugins sourced from a URL rather than bundled in the codebase.
+
+**Endpoints (deferred):**
+
+- `plugin.install` — `POST /api/plugins` — `{ sourceUrl, expectedChecksum? }`. Fetches JS, computes sha256, boots throwaway QuickJS instance to call `getManifest()`, validates against host schema, writes to `data/plugins/<id>/<version>/plugin.js`, inserts `plugins` row.
+- `plugin.update` — `PATCH /api/plugins/:id/source` — `{ sourceUrl, expectedChecksum? }`. Runs full install flow against new version; on success tears down old instance, stops old cron jobs, retains old version directory on disk, boots new instance.
+- `plugin.rollback` — `POST /api/plugins/:id/rollback` — `{ toVersion }`. Only versions still on disk (last 3 retained). Swaps back to a prior version directory.
+
+**Why deferred:** All three operations require the QuickJS sandbox to be in place first — they load untrusted JS into a throwaway instance to extract the manifest, and the long-lived runtime instance is a QuickJS instance.
+
+### Server-side OAuth redirect callback
+
+**What:** `GET /api/oauth/callback/:pluginId` — a regular HTTP handler that receives the provider redirect directly (for native apps, server-rendered clients, or any context where the frontend cannot intercept the redirect).
+
+**Current approach:** SPA-driven — the frontend catches the provider redirect, extracts `code` and `state`, and calls `POST /api/connections/oauth/redirect/complete` with `{ nonce, queryParams }`. Both approaches share the same underlying `completeAuth` plugin call and `pending_auth` state resolution; only the transport differs.
+
+**Why deferred:** The SPA path covers all current client use cases. The server-side callback adds complexity (CSRF handling, post-redirect client-notification strategy) that is not justified until a non-SPA client exists.
+
+---
 
 ## Open questions / deferred
 

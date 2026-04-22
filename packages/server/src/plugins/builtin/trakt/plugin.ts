@@ -49,6 +49,52 @@ async function traktJson<T>(ctx: Ctx, path: string, init: RequestInit = {}): Pro
   return (await res.json()) as T;
 }
 
+// Identical body to traktJson today, but kept as a separate symbol so the
+// call sites read as "this endpoint mutates state, expect a JSON summary
+// back" — useful when scanning the plugin for surfaces that need the write
+// discipline (401 → token_expired, 429 → rate_limited, non-2xx → upstream).
+// Merging the two would obscure that intent and make future write-only
+// changes (e.g. structured audit hooks) harder to apply in one place.
+async function traktJsonWrite<T>(ctx: Ctx, path: string, init: RequestInit = {}): Promise<T> {
+  const res = await traktFetch(ctx, path, init);
+  handleHttpStatus(res, "Trakt", { on401: "plugin.token_expired" });
+  if (!res.ok)
+    throw pluginError("plugin.upstream_error", `Trakt ${res.status}: ${await res.text()}`);
+  return (await res.json()) as T;
+}
+
+// Parses a Trakt numeric id from its stringified form. Returns `null` when the
+// value is missing or not a pure-digit integer so callers can filter it out
+// before sending a payload — Trakt rejects `{ trakt: null }`, and
+// `parseInt("42abc", 10)` would silently succeed with 42 under a looser check.
+function parseTraktId(id: string | undefined): number | null {
+  if (!id || !/^\d+$/.test(id)) return null;
+  return parseInt(id, 10);
+}
+
+interface TraktMediaItemRef {
+  type: "movie" | "tv";
+  ids?: { trakt_id?: string };
+}
+
+// Splits a mixed movie/tv array into the Trakt request-body shape. Items with
+// missing or non-numeric trakt ids are dropped — Trakt payloads with null ids
+// produce 4xx errors.
+function splitByType(items: TraktMediaItemRef[]): {
+  movies: Array<{ ids: { trakt: number } }>;
+  shows: Array<{ ids: { trakt: number } }>;
+} {
+  const movies: Array<{ ids: { trakt: number } }> = [];
+  const shows: Array<{ ids: { trakt: number } }> = [];
+  for (const i of items) {
+    const n = parseTraktId(i.ids?.trakt_id);
+    if (n === null) continue;
+    if (i.type === "movie") movies.push({ ids: { trakt: n } });
+    else if (i.type === "tv") shows.push({ ids: { trakt: n } });
+  }
+  return { movies, shows };
+}
+
 // Fetches every page of a paginated Trakt endpoint and returns all items.
 // Uses X-Pagination-Page-Count from the first response to determine how many
 // additional pages exist, then fetches them concurrently.
@@ -129,7 +175,7 @@ export default definePlugin({
   manifest: {
     id: "trakt",
     name: "Trakt",
-    version: "1.1.0",
+    version: "1.2.0",
     description: "Watch history, watchlist, ratings, recommendations, and calendar via Trakt.tv.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
@@ -161,6 +207,8 @@ export default definePlugin({
       calendar: { version: "v1", scope: "user" },
       idResolve: { version: "v1", scope: "global" },
       userComments: { version: "v1", scope: "user" },
+      playback: { version: "v1", scope: "user" },
+      collection: { version: "v1", scope: "user" },
     },
     poolable: false,
     jobs: [
@@ -318,31 +366,44 @@ export default definePlugin({
           movie?: TraktMovie;
           show?: TraktShow;
         }>(ctx as Ctx, path);
-        return data.map((row) => ({
-          item: row.type === "movie" && row.movie ? mapMovie(row.movie) : mapShow(row.show!),
-          watchedAt: row.watched_at,
-          progress: 100,
-        }));
+        // Trakt history rows can theoretically omit the nested media object;
+        // skip them instead of throwing through a non-null assertion.
+        const results: Array<{
+          item: ReturnType<typeof mapMovie> | ReturnType<typeof mapShow>;
+          watchedAt: string;
+          progress: number;
+        }> = [];
+        for (const row of data) {
+          const item =
+            row.type === "movie" && row.movie
+              ? mapMovie(row.movie)
+              : row.show
+                ? mapShow(row.show)
+                : null;
+          if (!item) continue;
+          results.push({ item, watchedAt: row.watched_at, progress: 100 });
+        }
+        return results;
       },
 
       async addToHistory(ctx, input) {
-        const items = input as Array<{
-          type: "movie" | "tv";
-          ids?: { trakt_id?: string };
-        }>;
-        const movies = items
-          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
-          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
-        const shows = items
-          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
-          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
-        const res = await traktFetch(ctx as Ctx, "/sync/history", {
-          method: "POST",
-          body: JSON.stringify({ movies, shows }),
-        });
-        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
-        const body = (await res.json()) as { added?: { movies?: number; episodes?: number } };
+        const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
+        const body = await traktJsonWrite<{ added?: { movies?: number; episodes?: number } }>(
+          ctx as Ctx,
+          "/sync/history",
+          { method: "POST", body: JSON.stringify({ movies, shows }) },
+        );
         return { added: (body.added?.movies ?? 0) + (body.added?.episodes ?? 0) };
+      },
+
+      async removeFromHistory(ctx, input) {
+        const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
+        const body = await traktJsonWrite<{ deleted?: { movies?: number; episodes?: number } }>(
+          ctx as Ctx,
+          "/sync/history/remove",
+          { method: "POST", body: JSON.stringify({ movies, shows }) },
+        );
+        return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.episodes ?? 0) };
       },
     },
 
@@ -370,42 +431,22 @@ export default definePlugin({
       },
 
       async addToWatchlist(ctx, input) {
-        const items = input as Array<{
-          type: "movie" | "tv";
-          ids?: { trakt_id?: string };
-        }>;
-        const movies = items
-          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
-          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
-        const shows = items
-          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
-          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
-        const res = await traktFetch(ctx as Ctx, "/sync/watchlist", {
-          method: "POST",
-          body: JSON.stringify({ movies, shows }),
-        });
-        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
-        const body = (await res.json()) as { added?: { movies?: number; shows?: number } };
+        const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
+        const body = await traktJsonWrite<{ added?: { movies?: number; shows?: number } }>(
+          ctx as Ctx,
+          "/sync/watchlist",
+          { method: "POST", body: JSON.stringify({ movies, shows }) },
+        );
         return { added: (body.added?.movies ?? 0) + (body.added?.shows ?? 0) };
       },
 
       async removeFromWatchlist(ctx, input) {
-        const items = input as Array<{
-          type: "movie" | "tv";
-          ids?: { trakt_id?: string };
-        }>;
-        const movies = items
-          .filter((i) => i.type === "movie" && i.ids?.trakt_id)
-          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
-        const shows = items
-          .filter((i) => i.type === "tv" && i.ids?.trakt_id)
-          .map((i) => ({ ids: { trakt: Number(i.ids?.trakt_id) } }));
-        const res = await traktFetch(ctx as Ctx, "/sync/watchlist/remove", {
-          method: "POST",
-          body: JSON.stringify({ movies, shows }),
-        });
-        if (!res.ok) throw pluginError("plugin.upstream_error", `Trakt ${res.status}`);
-        const body = (await res.json()) as { deleted?: { movies?: number; shows?: number } };
+        const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
+        const body = await traktJsonWrite<{ deleted?: { movies?: number; shows?: number } }>(
+          ctx as Ctx,
+          "/sync/watchlist/remove",
+          { method: "POST", body: JSON.stringify({ movies, shows }) },
+        );
         return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.shows ?? 0) };
       },
     },
@@ -436,25 +477,39 @@ export default definePlugin({
 
       async setRating(ctx, input) {
         const { item, rating } = input as {
-          item: {
-            type: "movie" | "tv";
-            ids?: { trakt_id?: string };
-          };
+          item: TraktMediaItemRef;
           rating: number;
         };
-        const traktId = item.ids?.trakt_id;
-        if (!traktId) {
-          throw pluginError("plugin.input_invalid", "item.ids.trakt_id required");
+        const traktId = parseTraktId(item.ids?.trakt_id);
+        if (traktId === null) {
+          throw pluginError("plugin.input_invalid", "item.ids.trakt_id required (numeric)");
         }
         const body =
           item.type === "movie"
-            ? { movies: [{ rating, ids: { trakt: Number(traktId) } }] }
-            : { shows: [{ rating, ids: { trakt: Number(traktId) } }] };
-        const res = await traktFetch(ctx as Ctx, "/sync/ratings", {
+            ? { movies: [{ rating, ids: { trakt: traktId } }] }
+            : { shows: [{ rating, ids: { trakt: traktId } }] };
+        await traktJsonWrite(ctx as Ctx, "/sync/ratings", {
           method: "POST",
           body: JSON.stringify(body),
         });
-        return { ok: res.ok };
+        return { ok: true };
+      },
+
+      async removeRating(ctx, input) {
+        const { item } = input as { item: TraktMediaItemRef };
+        const traktId = parseTraktId(item.ids?.trakt_id);
+        if (traktId === null) {
+          throw pluginError("plugin.input_invalid", "item.ids.trakt_id required (numeric)");
+        }
+        const body =
+          item.type === "movie"
+            ? { movies: [{ ids: { trakt: traktId } }] }
+            : { shows: [{ ids: { trakt: traktId } }] };
+        await traktJsonWrite(ctx as Ctx, "/sync/ratings/remove", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        return { ok: true };
       },
     },
 
@@ -483,7 +538,33 @@ export default definePlugin({
         const data = await traktJson<
           Array<{ watchers: number; movie?: TraktMovie; show?: TraktShow }>
         >(ctx as Ctx, `${path}?limit=${limit}`);
-        return data.map((row) => (type === "movie" ? mapMovie(row.movie!) : mapShow(row.show!)));
+        // Filter out malformed rows missing the requested nested object rather
+        // than throwing through a non-null assertion.
+        const results = [];
+        for (const row of data) {
+          if (type === "movie" && row.movie) results.push(mapMovie(row.movie));
+          else if (type === "tv" && row.show) results.push(mapShow(row.show));
+        }
+        return results;
+      },
+
+      async getAnticipated(ctx, input) {
+        const { type = "movie", limit = 20 } = input as {
+          type?: "movie" | "tv";
+          limit?: number;
+        };
+        const path = type === "movie" ? "/movies/anticipated" : "/shows/anticipated";
+        const data = await traktJson<
+          Array<{ list_count: number; movie?: TraktMovie; show?: TraktShow }>
+        >(ctx as Ctx, `${path}?limit=${limit}`);
+        // Trakt sometimes returns rows missing the expected nested object;
+        // skip them rather than throw on a non-null assertion.
+        const results = [];
+        for (const row of data) {
+          if (type === "movie" && row.movie) results.push(mapMovie(row.movie));
+          else if (type === "tv" && row.show) results.push(mapShow(row.show));
+        }
+        return results;
       },
     },
 
@@ -505,6 +586,145 @@ export default definePlugin({
           episodeTitle: row.episode.title,
           airsAt: row.first_aired,
         }));
+      },
+
+      async getUpcomingMovies(ctx, input) {
+        const { days = 30 } = input as { days?: number };
+        const start = new Date().toISOString().slice(0, 10);
+        const data = await traktJson<Array<{ released: string; movie: TraktMovie }>>(
+          ctx as Ctx,
+          `/calendars/my/movies/${start}/${days}`,
+        );
+        return data.map((row) => ({
+          item: mapMovie(row.movie),
+          airsAt: row.released,
+        }));
+      },
+    },
+
+    playback: {
+      async getPositions(ctx, input) {
+        const { type } = input as { type?: "movie" | "tv" };
+        const path =
+          type === "movie"
+            ? "/sync/playback/movies"
+            : type === "tv"
+              ? "/sync/playback/episodes"
+              : "/sync/playback";
+        const data = await traktJson<
+          Array<{
+            id: number;
+            progress: number;
+            paused_at: string;
+            type: "movie" | "episode";
+            movie?: TraktMovie;
+            show?: TraktShow;
+            episode?: { season: number; number: number };
+          }>
+        >(ctx as Ctx, path);
+        // Playback rows without a media object are dropped rather than crashed
+        // through a non-null assertion.
+        const results: Array<{
+          item: ReturnType<typeof mapMovie> | ReturnType<typeof mapShow>;
+          progress: number;
+          pausedAt: string;
+          season?: number;
+          episode?: number;
+          playbackId: string;
+        }> = [];
+        for (const row of data) {
+          const item =
+            row.type === "movie" && row.movie
+              ? mapMovie(row.movie)
+              : row.show
+                ? mapShow(row.show)
+                : null;
+          if (!item) continue;
+          results.push({
+            item,
+            progress: row.progress,
+            pausedAt: row.paused_at,
+            season: row.episode?.season,
+            episode: row.episode?.number,
+            playbackId: String(row.id),
+          });
+        }
+        return results;
+      },
+
+      async removePosition(ctx, input) {
+        const { playbackId } = input as { playbackId: string };
+        const res = await traktFetch(ctx as Ctx, `/sync/playback/${playbackId}`, {
+          method: "DELETE",
+        });
+        // This endpoint can't route through traktJsonWrite because
+        // handleHttpStatus turns 404 into a thrown error, but Trakt returns
+        // 404 when the playback row is already cleared — callers should see
+        // that as idempotent success. Translate 401/429/5xx explicitly so the
+        // host still gets the signals it needs (token refresh, backoff),
+        // while 204 and 404 both map to { ok: true }.
+        if (res.status === 401)
+          throw pluginError("plugin.token_expired", "Trakt auth rejected (401)");
+        if (res.status === 429)
+          throw pluginError("plugin.rate_limited", "Trakt rate limited (429)");
+        if (res.status >= 500)
+          throw pluginError("plugin.upstream_error", `Trakt server error (${res.status})`);
+        return { ok: res.ok || res.status === 404 };
+      },
+    },
+
+    collection: {
+      async getCollection(ctx, input) {
+        const { type } = input as { type?: "movie" | "tv" };
+        if (type === "movie") {
+          const data = await traktJson<Array<{ collected_at: string; movie: TraktMovie }>>(
+            ctx as Ctx,
+            "/sync/collection/movies",
+          );
+          return data.map((row) => ({ item: mapMovie(row.movie), addedAt: row.collected_at }));
+        }
+        if (type === "tv") {
+          const data = await traktJson<Array<{ last_collected_at: string; show: TraktShow }>>(
+            ctx as Ctx,
+            "/sync/collection/shows",
+          );
+          return data.map((row) => ({ item: mapShow(row.show), addedAt: row.last_collected_at }));
+        }
+        // No type filter — fetch both and merge.
+        const [movies, shows] = await Promise.all([
+          traktJson<Array<{ collected_at: string; movie: TraktMovie }>>(
+            ctx as Ctx,
+            "/sync/collection/movies",
+          ),
+          traktJson<Array<{ last_collected_at: string; show: TraktShow }>>(
+            ctx as Ctx,
+            "/sync/collection/shows",
+          ),
+        ]);
+        return [
+          ...movies.map((row) => ({ item: mapMovie(row.movie), addedAt: row.collected_at })),
+          ...shows.map((row) => ({ item: mapShow(row.show), addedAt: row.last_collected_at })),
+        ];
+      },
+
+      async addToCollection(ctx, input) {
+        const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
+        const body = await traktJsonWrite<{ added?: { movies?: number; episodes?: number } }>(
+          ctx as Ctx,
+          "/sync/collection",
+          { method: "POST", body: JSON.stringify({ movies, shows }) },
+        );
+        return { added: (body.added?.movies ?? 0) + (body.added?.episodes ?? 0) };
+      },
+
+      async removeFromCollection(ctx, input) {
+        const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
+        const body = await traktJsonWrite<{ deleted?: { movies?: number; episodes?: number } }>(
+          ctx as Ctx,
+          "/sync/collection/remove",
+          { method: "POST", body: JSON.stringify({ movies, shows }) },
+        );
+        return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.episodes ?? 0) };
       },
     },
 

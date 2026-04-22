@@ -4,6 +4,19 @@ import { isPluginError } from "../../../plugin-runtime/types";
 import { pluginError, toErrorMessage } from "../../utils/plugin-error";
 import { handleHttpStatus } from "../../utils/http-status";
 
+// Error codes the host layer reacts to (token refresh, backoff, credential
+// reconfig). Plugin methods that otherwise absorb errors into a graceful
+// { ok: false } contract must still let these escape so the host can act.
+const HOST_ACTIONABLE_CODES = new Set([
+  "plugin.token_expired",
+  "plugin.bad_credentials",
+  "plugin.rate_limited",
+]);
+
+function isHostActionable(err: unknown): boolean {
+  return isPluginError(err) && HOST_ACTIONABLE_CODES.has(err.code);
+}
+
 interface SeerrCreds {
   sessionCookie: string;
   userId: number;
@@ -85,6 +98,26 @@ async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// DELETE helper that does NOT throw on 404 — callers that treat 404 as
+// idempotent success (e.g. cancelRequest) need to inspect the status themselves.
+// 401 still translates to plugin.token_expired so auth refresh triggers.
+async function seerrDeleteRaw(ctx: Ctx, path: string): Promise<Response> {
+  const res = await ctx.fetch(`${getBaseUrl(ctx)}/api/v1${path}`, {
+    method: "DELETE",
+    headers: { Cookie: getSessionCookie(ctx) },
+  });
+  if (res.status === 401) {
+    throw pluginError("plugin.token_expired", "Seerr auth rejected (401)");
+  }
+  if (res.status === 429) {
+    throw pluginError("plugin.rate_limited", "Seerr rate limited (429)");
+  }
+  if (res.status >= 500) {
+    throw pluginError("plugin.upstream_error", `Seerr server error (${res.status})`);
+  }
+  return res;
+}
+
 // Seerr media status: 1=unknown, 2=pending, 3=processing, 4=partial, 5=available.
 function mapMediaStatus(
   status: number,
@@ -127,7 +160,7 @@ export default definePlugin({
   manifest: {
     id: "seerr",
     name: "Seerr",
-    version: "1.2.0",
+    version: "1.3.0",
     description:
       "Media request management via Seerr. Admins set the server URL; users sign in with their Seerr email and password and the plugin keeps a session cookie per user.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -294,8 +327,28 @@ export default definePlugin({
           const data = await seerrPost<{ id: number }>(ctx as Ctx, "/request", body);
           return { success: true, requestId: String(data.id) };
         } catch (err) {
+          // Token expiry and rate limits must escape so the host can refresh
+          // credentials or back off — swallowing them strands the session.
+          if (isHostActionable(err)) throw err;
           if (isPluginError(err)) return { success: false, message: err.message };
           return { success: false, message: String(err) };
+        }
+      },
+
+      async cancelRequest(ctx, input) {
+        const { requestId } = input as { requestId: string };
+        try {
+          // Use seerrDeleteRaw so 404 is not converted into a thrown error —
+          // Seerr returns 204 on success and 404 when the row has already
+          // been removed. Both are idempotent success from the caller's
+          // perspective. 401/429/5xx still throw via the helper.
+          const res = await seerrDeleteRaw(ctx as Ctx, `/request/${requestId}`);
+          if (res.ok || res.status === 404) return { ok: true };
+          return { ok: false, message: `Seerr ${res.status}` };
+        } catch (err) {
+          if (isHostActionable(err)) throw err;
+          if (isPluginError(err)) return { ok: false, message: err.message };
+          return { ok: false, message: String(err) };
         }
       },
 

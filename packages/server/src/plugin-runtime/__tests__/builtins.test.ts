@@ -42,7 +42,9 @@ describe("trakt manifest", () => {
     expect(caps).toEqual(
       [
         "calendar",
+        "collection",
         "idResolve",
+        "playback",
         "ratings",
         "recommendations",
         "userComments",

@@ -87,6 +87,7 @@ describe("validatePluginModule", () => {
         watchHistory: {
           getHistory: async () => [],
           addToHistory: async () => ({ added: 0 }),
+          removeFromHistory: async () => ({ removed: 0 }),
         },
       },
     };
