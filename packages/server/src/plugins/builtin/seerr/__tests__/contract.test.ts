@@ -123,7 +123,7 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.cancelRequest.output.safeParse(out).success).toBe(true);
   });
 
-  it("mediaRequest.listRequests: paginates /request and stops below PAGE_SIZE", async () => {
+  it("mediaRequest.listRequests: stops on a partial first page (early-exit)", async () => {
     const ctx = makeCtx([
       jsonRes({
         results: [
@@ -138,7 +138,34 @@ describe("seerr capability contract", () => {
       }),
     ]);
     const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(ctx.calls.length).toBe(1);
     expect(ctx.calls[0]?.url).toContain("/api/v1/request?take=100&skip=0");
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listRequests: paginates when a full page comes back, accumulating across pages", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      id: i + 1,
+      type: "movie" as const,
+      status: 4,
+      createdAt: "2026-04-01T00:00:00.000Z",
+      media: { tmdbId: 500 + i, title: `Movie ${i + 1}` },
+    }));
+    const tailPage = [
+      {
+        id: 101,
+        type: "tv" as const,
+        status: 2,
+        createdAt: "2026-04-02T00:00:00.000Z",
+        media: { tmdbId: 999, title: "Show" },
+      },
+    ];
+    const ctx = makeCtx([jsonRes({ results: fullPage }), jsonRes({ results: tailPage })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(ctx.calls.length).toBe(2);
+    expect(ctx.calls[0]?.url).toContain("skip=0");
+    expect(ctx.calls[1]?.url).toContain("skip=100");
+    expect((out as unknown[]).length).toBe(101);
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 });

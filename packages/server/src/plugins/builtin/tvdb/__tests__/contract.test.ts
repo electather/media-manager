@@ -92,5 +92,20 @@ describe("tvdb capability contract", () => {
     expect(ctx.calls[0]?.init?.method).toBe("POST");
     expect(ctx.calls[1]?.url).toContain("/search/remoteid/550");
     expect(IdResolveV1.methods.resolve.output.safeParse(out).success).toBe(true);
+    expect((out as { tvdb?: string }).tvdb).toBe("999");
+  });
+
+  it("idResolve.resolve: movie branch picks row.movie.id over row.series.id", async () => {
+    const ctx = makeCtx([
+      jsonRes({ data: { token: "jwt-1" } }),
+      jsonRes({ data: [{ movie: { id: 42 }, series: { id: 999 } }] }),
+    ]);
+    const out = await tvdbPlugin.capabilities.idResolve!.resolve!(ctx, {
+      from: "tmdb",
+      id: "550",
+      type: "movie",
+    });
+    expect(IdResolveV1.methods.resolve.output.safeParse(out).success).toBe(true);
+    expect((out as { tvdb?: string }).tvdb).toBe("42");
   });
 });

@@ -149,7 +149,7 @@ describe("tmdb capability contract", () => {
       type: "movie",
     });
     expect(ctx.calls[0]?.url).toContain("/movie/550");
-    expect(ctx.calls[0]?.url).toContain("append_to_response=external_ids");
+    expect(ctx.calls[0]?.url).toContain("append_to_response=external_ids%2Ccredits%2Ckeywords");
     expect(MetadataV1.methods.getDetails.output.safeParse(out).success).toBe(true);
   });
 

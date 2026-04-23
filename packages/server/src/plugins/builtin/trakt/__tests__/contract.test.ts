@@ -116,6 +116,15 @@ describe("trakt capability contract", () => {
     expect(WatchHistoryV1.methods.getHistory.output.safeParse(out).success).toBe(true);
   });
 
+  it("watchHistory.getHistory: appends start_at when since is provided", async () => {
+    const ctx = makeCtx([paginatedPage([])]);
+    await traktPlugin.capabilities.watchHistory!.getHistory!(ctx, {
+      since: "2026-01-01T00:00:00Z",
+    });
+    expect(ctx.calls[0]?.url).toContain("/sync/history?start_at=");
+    expect(ctx.calls[0]?.url).toContain("2026-01-01");
+  });
+
   it("watchHistory.addToHistory: POST /sync/history with split movies/shows", async () => {
     const ctx = makeCtx([jsonRes({ added: { movies: 1, episodes: 0 } })]);
     const out = await traktPlugin.capabilities.watchHistory!.addToHistory!(ctx, [
@@ -238,13 +247,25 @@ describe("trakt capability contract", () => {
   });
 
   // --- playback ---
-  it("playback.getPositions: hits /sync/playback (no type)", async () => {
+  it("playback.getPositions: hits /sync/playback (no type filter)", async () => {
     const ctx = makeCtx([
       jsonRes([{ id: 1, progress: 50, paused_at: "2026-04-01", type: "movie", movie: MOVIE }]),
     ]);
     const out = await traktPlugin.capabilities.playback!.getPositions!(ctx, {});
-    expect(ctx.calls[0]?.url).toContain("/sync/playback");
+    expect(ctx.calls[0]?.url).toMatch(/\/sync\/playback$/);
     expect(PlaybackV1.methods.getPositions.output.safeParse(out).success).toBe(true);
+  });
+
+  it("playback.getPositions (movie): hits /sync/playback/movies", async () => {
+    const ctx = makeCtx([jsonRes([])]);
+    await traktPlugin.capabilities.playback!.getPositions!(ctx, { type: "movie" });
+    expect(ctx.calls[0]?.url).toContain("/sync/playback/movies");
+  });
+
+  it("playback.getPositions (tv): hits /sync/playback/episodes", async () => {
+    const ctx = makeCtx([jsonRes([])]);
+    await traktPlugin.capabilities.playback!.getPositions!(ctx, { type: "tv" });
+    expect(ctx.calls[0]?.url).toContain("/sync/playback/episodes");
   });
 
   it("playback.removePosition: DELETE /sync/playback/{id}", async () => {
@@ -281,7 +302,7 @@ describe("trakt capability contract", () => {
     const out = await traktPlugin.capabilities.collection!.addToCollection!(ctx, [
       { type: "movie", ids: { trakt_id: "1" } },
     ]);
-    expect(ctx.calls[0]?.url).toContain("/sync/collection");
+    expect(ctx.calls[0]?.url).toMatch(/\/sync\/collection$/);
     expect(CollectionV1.methods.addToCollection.output.safeParse(out).success).toBe(true);
   });
 
