@@ -27,6 +27,11 @@ jobs:
       - name: Check Code Quality (Lint, Format, Types)
         run: vp check
 
+      - name: Lint Annotations
+        if: failure()
+        run: vp lint --format=github
+        continue-on-error: true
+
       - name: Run Tests
         run: vp test
 
