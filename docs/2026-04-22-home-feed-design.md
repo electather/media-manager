@@ -258,6 +258,7 @@ interface LayoutSignals {
 
   // Seed signal — indexed feedback_log / watchHistory query
   recentSeed: {
+    id: string; // composite media id "${mediaType}:${tmdbId}" — the single form passed to fetchers
     tmdbId: string;
     mediaType: "movie" | "tv";
     title: string; // resolved from metadata cache
@@ -271,13 +272,13 @@ interface LayoutSignals {
 | Signal                  | Source                                                                                                                                                                                                                                                              | Cost         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | `hasXPlugin`            | `service_connections` JOIN capability registry; per-user cached                                                                                                                                                                                                     | cache read   |
-| `inProgressCount`       | `MediaService.getInProgressCount(userId)` — thin read-through over watchHistory cache                                                                                                                                                                               | cache read   |
+| `inProgressCount`       | `loader.getInProgressSet().size` — signal computation goes through the request-scoped dataloader so `becauseYouWatched` hits warm memoization on page 1 (§7)                                                                                                        | cache read   |
 | `watchlistCount`        | `MediaService.getWatchlistCount(userId)` — same pattern                                                                                                                                                                                                             | cache read   |
 | `calendarProgressCount` | Derived from in-progress set + at-least-one-future-episode check (see "Calendar cold-cache" below)                                                                                                                                                                  | cache read   |
 | `profileConfidence`     | `preference_profiles.confidence` for media_type="combined"; `"none"` if row missing                                                                                                                                                                                 | indexed read |
 | `recentSeed`            | `feedback_log` `ORDER BY created_at DESC LIMIT 1` WHERE `action IN ("like", "rate") AND (action != "rate" OR rating >= 8) AND created_at > now-30d`, indexed; fallback to most-recent-completed-within-60d from watchHistory (see "Recency window asymmetry" below) | indexed read |
 
-The three new `MediaService` count methods (`getInProgressCount`, `getWatchlistCount`, `getCalendarProgressCount`) are thin read-through wrappers over data already cached at the capability layer. One method each, no new capability. Detailed in §8.
+Two new `MediaService` count methods (`getWatchlistCount`, `getCalendarProgressCount`) are thin read-through wrappers over data already cached at the capability layer. One method each, no new capability. `inProgressCount` does not get a dedicated count method — signal computation reads `loader.getInProgressSet()` and takes `.size`, sharing the memoization with `becauseYouWatched`'s cross-row exclusion (§7). Detailed in §8.
 
 **Recency window asymmetry.** The primary path uses a 30d window; the fallback uses 60d. Intentional. A `like` or high `rate` is an active, volitional signal — recent feedback is strong, older feedback is stale fast, so the window is tight. A completed watch is a passive signal — much weaker per-event, so the window is wider to accumulate enough evidence that an item is worth seeding off. Narrowing the fallback to match the primary would leave users without recent explicit feedback with no seed at all, which defeats the point of the fallback.
 
@@ -390,8 +391,9 @@ async function runFetch(fetcher: RowFetcher, ctx, opts): Promise<FetchedRow> {
         : "ok_items";
     return { ...map(fetcher, result), outcome, partial: result.partial };
   } catch (err) {
-    // Aggregate fetchers surface AllPluginsFailedError from MediaService when every
-    // contributing plugin errored; anything else is an orchestrator-level fault.
+    // AllPluginsFailedError is defined in media-service-design.md and thrown by
+    // aggregate MediaService methods when every contributing plugin errored;
+    // anything else caught here is an orchestrator-level fault.
     if (err instanceof AllPluginsFailedError) {
       return { ...empty(fetcher), outcome: "all_failed" };
     }
@@ -569,7 +571,7 @@ Four methods deserve special handling:
 
 - **`getMetadata`** — straight memoization. Two rows needing the same title share one underlying call.
 - **`getStatusBatch`** — microtask-level coalescing. Each row calls `loader.getStatusBatch(rowItems)` during its fetch; the loader collects all calls that arrive in the _same microtask_ and flushes on the next one (specifically via `queueMicrotask()`, same primitive the `dataloader` npm package uses). It unions the id set, fires one `mediaRequest@v1.getStatusBatch`, and splits the response back out per caller. Flushing on microtask (rather than `setImmediate` / `setTimeout(0)`) keeps coalescing latency inside sub-millisecond territory and avoids introducing a deferral large enough to be observable in row timings.
-- **`getInProgressSet`** — memoized read-through over `mediaService.getInProgress(this.userId)` that returns a `Set<MediaId>`. Consumer is `becauseYouWatched` for cross-row exclusion on every page (both `getLayout` and `getRowContent`); signal computation also calls this method during `getLayout` to populate `inProgressCount` and `calendarProgressCount`, so page 1 hits a warm memoization when the fetcher calls through the loader. Single source of truth for the per-request in-progress set.
+- **`getInProgressSet`** — memoized read-through over `mediaService.getInProgress(this.userId)` that returns a `Set<MediaId>`. Single source of truth for the per-request in-progress set. Called by signal computation during `getLayout` to populate `inProgressCount` (`.size` of the set) and by `becauseYouWatched` for cross-row exclusion on every page. Signal computation runs first, so the `becauseYouWatched` fetcher hits warm memoization on page 1 — zero additional plugin work. `calendarProgressCount` does not share this memoization; it comes from `MediaService.getCalendarProgressCount` which does its own cross-reference against calendar data. Bounded by whatever the underlying `watchHistory@v1` plugins return for an in-progress list — assumed on the order of tens to low hundreds in realistic use; `mediaService.getInProgress` enforces the per-plugin timeout that backstops pathological cases.
 - **`hasPlugin(capability)`** — memoized lookup over `service_connections ∩ capability registry` for `this.userId`. Consumed by every `RowFetcher.isEligible` that needs to verify a plugin is still connected mid-session (six of seven rows; §8). The same table backs signal computation's `hasXPlugin` booleans, so the lookup hits the per-user plugin-presence cache rather than firing new DB queries. Memoization means two rows that both need the same capability only pay for one read.
 
 **Status call timeout budget.** The coalesced `getStatusBatch` call has its own 1s cap (tighter than the 3s per-row cap, since status is an enrichment and rows should not sacrifice their entire budget to it). On timeout or full failure, all items in the caller rows have `status` omitted. `partial: true` is _not_ set for this case — status is not core row content, and the feed already tolerates `status === undefined` via the "unknown" fallback path in the frontend. Genuine aggregate partial failures from the underlying `mediaRequest@v1.getStatusBatch` (some plugins erroring while others return data) still surface status for items where at least one plugin responded.
@@ -710,7 +712,7 @@ When the user enables, disables, or removes a connection via `/connections`, sub
 
 - `continueWatching` — `loader.hasPlugin("watchHistory@v1")`.
 - `yourWatchlist` — `loader.hasPlugin("watchlist@v1")`.
-- `upcomingForYou` — `loader.hasPlugin("calendar@v1")`.
+- `upcomingForYou` — `loader.hasPlugin("calendar@v1")`. The `calendarProgressCount > 0` gate from `candidateRows` is intentionally _not_ mirrored here: mid-session the user may have just caught up on their last in-progress show, which legitimately drops the count to zero but should still render the row with `outcome: ok_empty` ("you're caught up") rather than `home.row_unavailable`. The plugin-presence check is what actually governs eligibility; the count gate is a layout-time optimization to skip the fetch entirely when we already know it will be empty.
 - `recommendedForYou`, `trendingNow` — `loader.hasPlugin("recommendations@v1")`. `candidateRows` gates RFY strictly on plugin presence (profile-only fallback is out of scope for v1 per §6), so `isEligible` mirrors that — no profile-exists escape hatch.
 - `becauseYouWatched` — verify the seed media id carried in the cursor's `s` field still resolves via `metadata@v1.getById`. Uses the cursor-pinned seed, not the live `signals.recentSeed` — pagination must be consistent with page 1 even when the user's recent seed has shifted.
 - `newReleases` — always eligible; returns `true` unconditionally. `metadata@v1` is assumed present; if it's somehow not, the row fetch itself empties and the call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
@@ -743,7 +745,6 @@ All additions are backward-compatible. Plugins that don't implement a new capabi
 
 Thin read-throughs; no new capability.
 
-- `getInProgressCount(userId): Promise<number>` — count of items returned by `watchHistory@v1.getInProgress`, served from the capability cache.
 - `getWatchlistCount(userId): Promise<number>` — count of items returned by `watchlist@v1.list`, served from the capability cache.
 - `getCalendarProgressCount(userId): Promise<number>` — count of in-progress shows with at least one future episode, derived from the watchHistory in-progress set cross-referenced with calendar data.
 
