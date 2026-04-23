@@ -7,8 +7,10 @@ import {
   ContinueWatchingV1,
   getCapability,
   IdResolveV1,
+  LibraryAdminV1,
   LibraryAvailabilityV1,
   MetadataV1,
+  PlaybackSessionsV1,
   WatchHistoryV1,
 } from "../capabilities";
 import { CapabilityRegistry } from "../registry";
@@ -27,10 +29,12 @@ describe("capability catalog", () => {
         "collection@v1",
         "continueWatching@v1",
         "idResolve@v1",
+        "libraryAdmin@v1",
         "libraryAvailability@v1",
         "mediaRequest@v1",
         "metadata@v1",
         "playback@v1",
+        "playbackSessions@v1",
         "ratings@v1",
         "recommendations@v1",
         "trailers@v1",
@@ -392,5 +396,232 @@ describe("ContinueWatchingV1", () => {
       { progressMs: 1000 },
     ]);
     expect(r.success).toBe(false);
+  });
+});
+
+describe("PlaybackSessionsV1", () => {
+  // A minimal valid SessionEntry fixture — reused across the session tests.
+  const sessionFixture = {
+    sessionId: "s-1",
+    deviceName: "Living Room Apple TV",
+    user: { id: "u-42", name: "Alice" },
+    item: libraryItemFixture,
+    progressMs: 120_000,
+    durationMs: 5_400_000,
+    state: "playing" as const,
+    startedAt: "2026-04-23T09:00:00.000Z",
+  };
+
+  it("registers as a user-scoped capability at v1", () => {
+    expect(PlaybackSessionsV1.version).toBe("v1");
+    expect(PlaybackSessionsV1.userScoped).toBe(true);
+    expect(getCapability("playbackSessions", "v1")).toBe(PlaybackSessionsV1);
+  });
+
+  it("exposes getSessions and stopSession", () => {
+    expect(Object.keys(PlaybackSessionsV1.methods).sort()).toEqual(
+      ["getSessions", "stopSession"].sort(),
+    );
+  });
+
+  describe("getSessions output", () => {
+    it("accepts an empty array", () => {
+      const r = PlaybackSessionsV1.methods.getSessions.output.safeParse([]);
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts a minimal session entry", () => {
+      const r = PlaybackSessionsV1.methods.getSessions.output.safeParse([sessionFixture]);
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts transcoding details", () => {
+      const r = PlaybackSessionsV1.methods.getSessions.output.safeParse([
+        {
+          ...sessionFixture,
+          state: "buffering",
+          transcoding: {
+            videoDecision: "transcode",
+            audioDecision: "copy",
+            targetBitrate: 12_000,
+            reason: "Client does not support HEVC",
+          },
+        },
+      ]);
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects an unknown state", () => {
+      const r = PlaybackSessionsV1.methods.getSessions.output.safeParse([
+        { ...sessionFixture, state: "stopped" },
+      ]);
+      expect(r.success).toBe(false);
+    });
+
+    it("rejects a session without user id", () => {
+      const r = PlaybackSessionsV1.methods.getSessions.output.safeParse([
+        { ...sessionFixture, user: { name: "Alice" } },
+      ]);
+      expect(r.success).toBe(false);
+    });
+
+    it("rejects unknown transcoding decisions", () => {
+      const r = PlaybackSessionsV1.methods.getSessions.output.safeParse([
+        {
+          ...sessionFixture,
+          transcoding: { videoDecision: "reencode", audioDecision: "copy" },
+        },
+      ]);
+      expect(r.success).toBe(false);
+    });
+  });
+
+  describe("stopSession", () => {
+    it("accepts a sessionId alone", () => {
+      const r = PlaybackSessionsV1.methods.stopSession.input.safeParse({ sessionId: "s-1" });
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts an optional reason", () => {
+      const r = PlaybackSessionsV1.methods.stopSession.input.safeParse({
+        sessionId: "s-1",
+        reason: "Exceeded stream quota",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects an empty sessionId", () => {
+      const r = PlaybackSessionsV1.methods.stopSession.input.safeParse({ sessionId: "" });
+      expect(r.success).toBe(false);
+    });
+
+    it("returns forced or requested semantics", () => {
+      const forced = PlaybackSessionsV1.methods.stopSession.output.safeParse({
+        ok: true,
+        semantics: "forced",
+      });
+      const requested = PlaybackSessionsV1.methods.stopSession.output.safeParse({
+        ok: true,
+        semantics: "requested",
+      });
+      expect(forced.success).toBe(true);
+      expect(requested.success).toBe(true);
+    });
+
+    it("rejects unknown semantics", () => {
+      const r = PlaybackSessionsV1.methods.stopSession.output.safeParse({
+        ok: true,
+        semantics: "maybe",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("invalidates playbackSessions@v1 after stopping", () => {
+      expect(PlaybackSessionsV1.methods.stopSession.invalidates).toEqual(["playbackSessions@v1"]);
+    });
+  });
+});
+
+describe("LibraryAdminV1", () => {
+  it("registers as a user-scoped capability at v1", () => {
+    expect(LibraryAdminV1.version).toBe("v1");
+    expect(LibraryAdminV1.userScoped).toBe(true);
+    expect(getCapability("libraryAdmin", "v1")).toBe(LibraryAdminV1);
+  });
+
+  it("exposes refreshLibrary and refreshItem", () => {
+    expect(Object.keys(LibraryAdminV1.methods).sort()).toEqual(
+      ["refreshItem", "refreshLibrary"].sort(),
+    );
+  });
+
+  describe("refreshLibrary", () => {
+    it("accepts no input", () => {
+      const r = LibraryAdminV1.methods.refreshLibrary.input.safeParse({});
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts an optional librarySectionId", () => {
+      const r = LibraryAdminV1.methods.refreshLibrary.input.safeParse({
+        librarySectionId: "section-3",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("returns { ok }", () => {
+      const r = LibraryAdminV1.methods.refreshLibrary.output.safeParse({ ok: true });
+      expect(r.success).toBe(true);
+    });
+
+    it("does not invalidate other capabilities (fire-and-forget)", () => {
+      expect(LibraryAdminV1.methods.refreshLibrary.invalidates).toBeUndefined();
+    });
+  });
+
+  describe("refreshItem", () => {
+    it("requires a serverItemId", () => {
+      const r = LibraryAdminV1.methods.refreshItem.input.safeParse({});
+      expect(r.success).toBe(false);
+    });
+
+    it("rejects an empty serverItemId", () => {
+      const r = LibraryAdminV1.methods.refreshItem.input.safeParse({ serverItemId: "" });
+      expect(r.success).toBe(false);
+    });
+
+    it("accepts a valid serverItemId", () => {
+      const r = LibraryAdminV1.methods.refreshItem.input.safeParse({ serverItemId: "12345" });
+      expect(r.success).toBe(true);
+    });
+
+    it("does not invalidate other capabilities (fire-and-forget)", () => {
+      expect(LibraryAdminV1.methods.refreshItem.invalidates).toBeUndefined();
+    });
+  });
+});
+
+// User-scoped registration smoke tests: ensure both new capabilities register
+// correctly when a plugin declares them with scope: "user", mirroring how the
+// existing library-capability tests do it. Catches regressions where a new
+// capability is added to the catalog but the registry dispatch wiring misses
+// the scope arg.
+describe("playbackSessions@v1 + libraryAdmin@v1 registry wiring", () => {
+  function fakeUserScopedMediaServerPlugin(id: string): PluginModule {
+    const playback: ManifestCapability = { version: "v1", scope: "user" };
+    const admin: ManifestCapability = { version: "v1", scope: "user" };
+    return {
+      manifest: {
+        id,
+        name: id,
+        version: "1.0.0",
+        description: "",
+        author: { name: "test" },
+        sdkVersion: "^1.0.0",
+        allowedHosts: [],
+        credentialsSchema: { type: "object" },
+        auth: { kind: "form" },
+        capabilities: { playbackSessions: playback, libraryAdmin: admin },
+      },
+      capabilities: {},
+    };
+  }
+
+  it("registers both capabilities under the user scope", () => {
+    const reg = new CapabilityRegistry();
+    reg.register({
+      pluginId: "plex",
+      module: fakeUserScopedMediaServerPlugin("plex"),
+      enabled: true,
+    });
+    expect(reg.listProviders("playbackSessions", "v1", "user")).toEqual(["plex"]);
+    expect(reg.listProviders("libraryAdmin", "v1", "user")).toEqual(["plex"]);
+    expect(reg.listProviders("playbackSessions", "v1", "global")).toEqual([]);
+    expect(reg.listProviders("libraryAdmin", "v1", "global")).toEqual([]);
+  });
+
+  it("fake plugin manifest passes the shared manifest schema", () => {
+    const manifest = fakeUserScopedMediaServerPlugin("plex").manifest;
+    const parsed = pluginManifestSchema.safeParse(manifest);
+    expect(parsed.success).toBe(true);
   });
 });
