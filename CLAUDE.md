@@ -116,7 +116,7 @@ Since `bunx changeset add` is an interactive command, you MUST provide changeset
 
 ## Shared Package (`@ent-mcp/shared`)
 
-Anything used by both client and server lives in `packages/shared/` — domain enum tuples, public types, and zod schemas. Workspaces: `packages/{shared,server,client}`. The `@ent-mcp/shared` workspace ref is wired through the root bun catalog, so consumers depend on it as `"@ent-mcp/shared": "catalog:"`.
+Anything used by both client and server lives in `packages/shared/` — domain enum tuples, public types, and zod schemas. Workspaces: `packages/{shared,server,client}`. Consumers depend on it directly as `"@ent-mcp/shared": "workspace:*"` in their own `package.json`; there is no `catalog:` indirection for this package.
 
 ### Rules
 

@@ -45,25 +45,25 @@ The visual language from the previous iteration (shadcn/ui, two-block layout on 
 
 ## What changes vs. current code
 
-| Area                                     | Old                                                                                                           | New                                                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Capability listing on plugin list        | Already landed: `capabilities: Array<{id, version, scope}>`                                                   | No change — stays as-is                                                                          |
-| Capability listing on connection list    | `connection.plugin.capabilities: string[]` (e.g. `"watchHistory@v1"`)                                         | Full `PluginSummary` shape with scoped arrays; server migration folded into this PR              |
-| `GET /api/plugins/` row shape            | Nested `manifest` + flat top-level meta; admin UI reads `plugin.manifest.name` etc.                           | Unchanged (doc initially proposed flattening; reverted after reconciliation)                     |
-| `sharedCredentialsCount` semantics       | Currently means **enabled** entries (server calls `countEnabled`)                                             | Widened to **total** entries; new `sharedCredentialsEnabledCount` takes over the enabled count    |
-| Global capabilities                      | Not distinguished                                                                                             | Rendered separately with muted "available out of the box" framing                                |
-| Available-plugins filter                 | Already landed: `listAvailablePlugins` drops plugins whose `userScopedCapabilities` is empty                  | No change — refactor just documents and depends on the existing filter; no new server code           |
-| Shared key hint on available card        | `hasSharedConfig` (reused `global_config` flag)                                                               | `adminSharedAvailable` (any enabled `plugin_shared_credentials` row)                             |
-| Admin shared creds UI                    | Table already exists inside the Configure dialog's "Shared credentials" tab                                   | Same table lifted out of the dialog and onto the plugin card, visible without a click            |
-| Admin manifest fields read               | `manifest.allowsSharedCredentials`, `manifest.credentialsSchema` used for shared-creds form                   | `manifest.sharedCredentialsSchema`, `manifest.poolable` (legacy flag already gone server-side)   |
-| `personalKeyFallback`                    | Present on `PluginRow` but unrendered; no UI                                                                  | New admin control on the card — segmented switch, disabled for pure-global plugins               |
+| Area                                     | Old                                                                                                           | New                                                                                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capability listing on plugin list        | Already landed: `capabilities: Array<{id, version, scope}>`                                                   | No change — stays as-is                                                                                                                                       |
+| Capability listing on connection list    | `connection.plugin.capabilities: string[]` (e.g. `"watchHistory@v1"`)                                         | Full `PluginSummary` shape with scoped arrays; server migration folded into this PR                                                                           |
+| `GET /api/plugins/` row shape            | Nested `manifest` + flat top-level meta; admin UI reads `plugin.manifest.name` etc.                           | Unchanged (doc initially proposed flattening; reverted after reconciliation)                                                                                  |
+| `sharedCredentialsCount` semantics       | Currently means **enabled** entries (server calls `countEnabled`)                                             | Widened to **total** entries; new `sharedCredentialsEnabledCount` takes over the enabled count                                                                |
+| Global capabilities                      | Not distinguished                                                                                             | Rendered separately with muted "available out of the box" framing                                                                                             |
+| Available-plugins filter                 | Already landed: `listAvailablePlugins` drops plugins whose `userScopedCapabilities` is empty                  | No change — refactor just documents and depends on the existing filter; no new server code                                                                    |
+| Shared key hint on available card        | `hasSharedConfig` (reused `global_config` flag)                                                               | `adminSharedAvailable` (any enabled `plugin_shared_credentials` row)                                                                                          |
+| Admin shared creds UI                    | Table already exists inside the Configure dialog's "Shared credentials" tab                                   | Same table lifted out of the dialog and onto the plugin card, visible without a click                                                                         |
+| Admin manifest fields read               | `manifest.allowsSharedCredentials`, `manifest.credentialsSchema` used for shared-creds form                   | `manifest.sharedCredentialsSchema`, `manifest.poolable` (legacy flag already gone server-side)                                                                |
+| `personalKeyFallback`                    | Present on `PluginRow` but unrendered; no UI                                                                  | New admin control on the card — segmented switch, disabled for pure-global plugins                                                                            |
 | Pool-state meta line                     | No way to compute `enabled/total` without a second query                                                      | New `sharedCredentialsEnabledCount` added **and** existing `sharedCredentialsCount` widened to mean total (see row above) — together they drive the meta line |
-| Card display fields                      | Frontend parses `userConfigSchema` and merges with decrypted `user_config`                                    | Backend returns `displayFields: Array<{ label, value, mono? }>` directly                         |
-| "Connected" card for pure-global plugins | Empty card can be created with no credentials                                                                 | Pure-global plugins are filtered server-side out of `/connections`; their surface is admin-only  |
-| Empty-credentials rows                   | Allowed (TMDB created them on empty submit)                                                                   | Rejected by backend with typed `plugin.credentials_empty`; frontend surfaces it as a field error |
-| Duplicate shared-credential label        | No explicit constraint                                                                                        | Rejected by backend with typed `plugin.duplicate_label`; surfaced inline on the label field      |
-| Ephemeral credential test                | Only stored entries can be tested; `Test & save` in admin dialog would have to save-then-test                 | New `POST /api/plugins/:id/shared-credentials/test-ephemeral` validates an unsaved value         |
-| Client response typing                   | Hand-written per-page types (`PluginRow`, `AvailablePlugin`, `ConnectionItem`, `SharedCredentialEntry`, etc.) | Inferred from the Hono client via `InferResponseType<typeof api.x.$get>`                         |
+| Card display fields                      | Frontend parses `userConfigSchema` and merges with decrypted `user_config`                                    | Backend returns `displayFields: Array<{ label, value, mono? }>` directly                                                                                      |
+| "Connected" card for pure-global plugins | Empty card can be created with no credentials                                                                 | Pure-global plugins are filtered server-side out of `/connections`; their surface is admin-only                                                               |
+| Empty-credentials rows                   | Allowed (TMDB created them on empty submit)                                                                   | Rejected by backend with typed `plugin.credentials_empty`; frontend surfaces it as a field error                                                              |
+| Duplicate shared-credential label        | No explicit constraint                                                                                        | Rejected by backend with typed `plugin.duplicate_label`; surfaced inline on the label field                                                                   |
+| Ephemeral credential test                | Only stored entries can be tested; `Test & save` in admin dialog would have to save-then-test                 | New `POST /api/plugins/:id/shared-credentials/test-ephemeral` validates an unsaved value                                                                      |
+| Client response typing                   | Hand-written per-page types (`PluginRow`, `AvailablePlugin`, `ConnectionItem`, `SharedCredentialEntry`, etc.) | Inferred from the Hono client via `InferResponseType<typeof api.x.$get>`                                                                                      |
 
 ## Revised data model consumed by the frontend
 
@@ -89,9 +89,16 @@ export type PluginSummary = {
   logoUrl?: string;
   authKind: "form" | "oauth_redirect" | "oauth_device" | "none";
   poolable: boolean;
-  // Split for display. Never merged — UI decides where each goes.
-  userScopedCapabilities: CapabilityEntry[];
-  globalScopedCapabilities: CapabilityEntry[];
+  // Split for display. Never merged — UI decides where each goes. These
+  // scoped arrays deliberately **omit `scope`** (it's implicit from which
+  // array the entry lives in); use `Array<Omit<CapabilityEntry, "scope">>`
+  // — i.e. `{ id: string; version: string }[]`, which matches what
+  // `listAvailablePlugins` already returns at `service.ts:363-364`. The flat
+  // `PluginRow.capabilities` array below keeps `scope` because it isn't
+  // partitioned. Implementers: do not re-stamp `scope` when splitting on the
+  // server.
+  userScopedCapabilities: Array<Omit<CapabilityEntry, "scope">>;
+  globalScopedCapabilities: Array<Omit<CapabilityEntry, "scope">>;
   userConfigSchema?: JSONSchema;
   // Needed by the connection modal for form-auth plugins to render the
   // credentials form. Already returned by `/connections/available` today;
@@ -173,7 +180,7 @@ export type PluginRow = {
 
 Shapes are consumed by the same oRPC endpoints already in use; the bundled server change in this PR extends the payloads without renaming existing fields. Two fields disappear on the frontend side after the refactor: `hasSharedConfig` (ambiguous; replaced with `adminSharedAvailable` + `hasGlobalConfig`) and `capabilities: string[]` (replaced with the two scoped arrays).
 
-The client stops hand-writing these interfaces and starts deriving them via `InferResponseType<typeof api.x.$get>` from the existing Hono client. See the *Type inference* sub-section of Migration below.
+The client stops hand-writing these interfaces and starts deriving them via `InferResponseType<typeof api.x.$get>` from the existing Hono client. See the _Type inference_ sub-section of Migration below.
 
 ### `displayFields` extraction (server-side rules)
 
@@ -242,9 +249,9 @@ Layout and actions unchanged. Internal changes:
 
 - Remove the `useMemo` that parses `plugin.userConfigSchema` and merges with `connection.userConfig`. Render `connection.displayFields` directly.
 - Status badge logic unchanged.
-- `Reconnect` flow unchanged: `form` → edit modal; `oauth_*` → create modal with existing connection in edit mode (or a direct reauth if we choose to skip the modal — kept as a modal for consistency with today's code).
+- `Reconnect` flow unchanged: `form` → edit modal; `oauth_*` → create modal with existing connection in edit mode (or a direct reauth if we choose to skip the modal — kept as a modal for consistency with today's code). The form prefill still reads from `GET /api/connections/:id/user-config` (unchanged); `connection.displayFields` is card-only and intentionally redacts `x-private` fields, so it cannot be used to populate the form. `displayFields` replaces the card's `useMemo` schema-walk, not the modal's prefill query.
 - `Remove` dialog copy unchanged.
-- Dropdown: remove the legacy "Set as default" visibility rule tied to plugin-id and rely on `plugin.poolable` instead. `Set as default` only appears when `plugin.poolable === true` **and** more than one instance exists. Non-poolable plugins can still carry multiple instances in the DB, but since rotation doesn't apply, the "default" concept is still meaningful — so the condition is simply `plugin.poolable || group.connections.length > 1`. In practice all current plugins either are poolable or have one instance, so the behaviour doesn't regress.
+- Dropdown: remove the legacy "Set as default" visibility rule tied to plugin-id and rely on `plugin.poolable` instead. The new visibility condition is `plugin.poolable || group.connections.length > 1`: poolable plugins always surface the control (rotation assumes a default even with a single entry), and non-poolable plugins surface it once the user has multiple instances (no rotation, but the "default" concept is still meaningful for disambiguating which one is authoritative). In practice all current plugins either are poolable or have one instance, so the behaviour doesn't regress.
 
 ### Empty states
 
@@ -505,23 +512,23 @@ The current `admin/plugins.tsx` is ~948 lines. Lifting the shared-credentials ta
 
 Existing key conventions in the client (verify before writing): admin surfaces use `["admin", "plugins", ...]`; user surfaces use `["connections", ...]` / `["connections", "available"]`. Below uses these conventions; any new mutation keys follow the same shape so prefix invalidation works correctly.
 
-| Mutation | Invalidates |
-| --- | --- |
-| `POST /api/plugins/:id/shared-credentials` | `["admin", "plugins"]` (refreshes `sharedCredentialsCount` + `sharedCredentialsEnabledCount` meta line) **and** `["admin", "plugins", id, "shared-credentials"]` (refreshes the section rows). |
-| `PATCH /api/plugins/:id/shared-credentials/:credId` | `["admin", "plugins", id, "shared-credentials"]` only. If the patch toggles `enabled`, also invalidate `["admin", "plugins"]` so the meta line re-renders. |
-| `DELETE /api/plugins/:id/shared-credentials/:credId` | Both `["admin", "plugins"]` and `["admin", "plugins", id, "shared-credentials"]`. |
-| `POST /api/plugins/:id/shared-credentials/:credId/test` | None — result is surfaced inline from the mutation response; no server state changed. |
-| `POST /api/plugins/:id/shared-credentials/test-ephemeral` | None — explicitly does not persist. |
-| `PATCH /api/plugins/:id/personal-key-fallback` | `["admin", "plugins"]`. |
-| `PUT /api/plugins/:id/global-config` | `["admin", "plugins"]`. |
-| `POST /api/connections/` | `["connections"]` and `["connections", "available"]`. |
-| `PATCH /api/connections/:id/*` | `["connections"]`. If the patch is `enabled` or `default`, also invalidate `["connections", "available"]` in case the filter results shift. |
-| `DELETE /api/connections/:id` | Both `["connections"]` and `["connections", "available"]`. |
+| Mutation                                                  | Invalidates                                                                                                                                                                                    |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/plugins/:id/shared-credentials`                | `["admin", "plugins"]` (refreshes `sharedCredentialsCount` + `sharedCredentialsEnabledCount` meta line) **and** `["admin", "plugins", id, "shared-credentials"]` (refreshes the section rows). |
+| `PATCH /api/plugins/:id/shared-credentials/:credId`       | `["admin", "plugins", id, "shared-credentials"]` only. If the patch toggles `enabled`, also invalidate `["admin", "plugins"]` so the meta line re-renders.                                     |
+| `DELETE /api/plugins/:id/shared-credentials/:credId`      | Both `["admin", "plugins"]` and `["admin", "plugins", id, "shared-credentials"]`.                                                                                                              |
+| `POST /api/plugins/:id/shared-credentials/:credId/test`   | None — result is surfaced inline from the mutation response; no server state changed.                                                                                                          |
+| `POST /api/plugins/:id/shared-credentials/test-ephemeral` | None — explicitly does not persist.                                                                                                                                                            |
+| `PATCH /api/plugins/:id/personal-key-fallback`            | `["admin", "plugins"]`.                                                                                                                                                                        |
+| `PUT /api/plugins/:id/global-config`                      | `["admin", "plugins"]`.                                                                                                                                                                        |
+| `POST /api/connections/`                                  | `["connections"]` and `["connections", "available"]`.                                                                                                                                          |
+| `PATCH /api/connections/:id/*`                            | `["connections"]`. If the patch is `enabled` or `default`, also invalidate `["connections", "available"]` in case the filter results shift.                                                    |
+| `DELETE /api/connections/:id`                             | Both `["connections"]` and `["connections", "available"]`.                                                                                                                                     |
 
 ### Countdowns
 
 - Shared-credential cooldown countdowns are computed from `retryAfter` against a local `now` that ticks every second.
-- A single `useNow(1000)` hook is added to `packages/client/src/hooks/use-now.ts`. The hook's `setInterval` only mounts when the consumer subscribes — i.e. `<SharedCredentialsSection>` calls `useNow(1000)` only when at least one row has `retryAfter` set and in the future. Otherwise the hook returns a stable timestamp and does not schedule a timer, avoiding per-second re-renders on the admin page when nothing is rate-limited.
+- A single `useNow(1000)` hook is added to `packages/client/src/hooks/use-now.ts`. `<SharedCredentialsSection>` calls `useNow(1000)` unconditionally on every render (Rules of Hooks); the hook itself inspects its caller-supplied "active" predicate and only schedules `setInterval` when at least one row has a future `retryAfter`. Otherwise it returns a stable timestamp and skips the timer entirely, avoiding per-second re-renders on the admin page when nothing is rate-limited. The signature is roughly `useNow(intervalMs: number, options?: { active?: boolean }): number` — the consumer passes `active: rows.some(r => r.retryAfter && r.retryAfter > Date.now() / 1000)`.
 
 ### Toasts vs inline errors
 
@@ -564,7 +571,7 @@ This is a single PR. The client and server move together — field renames are b
 
 1. **Server additions** (all land first within the PR, before client code changes compile):
    - `GET /api/connections/` (`listForUser` in `packages/server/src/connections/service.ts`):
-     - Add `displayFields: Array<{label, value, mono?}>` per connection. Extraction rules are spelled out in the *`displayFields` extraction (server-side rules)* subsection earlier in this doc.
+     - Add `displayFields: Array<{label, value, mono?}>` per connection. Extraction rules are spelled out in the _`displayFields` extraction (server-side rules)_ subsection earlier in this doc.
      - Widen the embedded `plugin` object from its current 9-field shape (`{id, name, version, description, auth, enabled, logoUrl, capabilities: string[], userConfigSchema}`) to match `PluginSummary`. Concrete field additions: `authKind` (rename of the current `auth`), `poolable`, `userScopedCapabilities` + `globalScopedCapabilities` (replacing `capabilities: string[]` — the legacy string array is removed), `adminSharedAvailable`, `credentialsSchema`. Drop the current `enabled` field on the embedded plugin since `/connections/` already filters to enabled plugins.
    - `GET /api/connections/available` (`listAvailablePlugins`):
      - Rename the field `auth` to `authKind` (same payload, new name) so the endpoint and `/connections/`'s embedded plugin converge on the `PluginSummary` shape. No behaviour change. Pure-global filter already in place (existing `userScopedCapabilities.length === 0` check).
@@ -592,7 +599,7 @@ Every file touched by this refactor moves from hand-written response types to `I
 Concretely, every hand-written `interface` / `type` currently declared at the top of each refactored file for an API response shape is deleted and replaced with an inferred alias. Every endpoint in this codebase wraps its list response in an envelope (`{ plugins: [...] }`, `{ connections: [...] }`, `{ entries: [...] }`), so the alias must index through the envelope key before reaching `[number]`. Target shapes:
 
 - `PluginRow` interface in `admin/plugins.tsx` → `type PluginRow = InferResponseType<typeof api.plugins.$get>["plugins"][number]`.
-- `SharedCredentialEntry` interface in `admin/plugins.tsx` → `type SharedCredentialEntry = InferResponseType<typeof api.plugins[":id"]["shared-credentials"].$get>["entries"][number]`.
+- `SharedCredentialEntry` interface in `admin/plugins.tsx` → `type SharedCredentialEntry = InferResponseType<typeof api.plugins[":id"]["shared-credentials"].$get>["entries"][number]`. Note: Hono's generated types expose path params as their **literal string key** (here `":id"`, including the colon) — this is a type-level index, not a runtime call. Do not reach for `api.plugins.id[...]` or `api.plugins[":id"](id)[...]`; the colon-prefixed string is correct.
 - `ConnectionItem` interface in `connections.tsx` → `type ConnectionItem = InferResponseType<typeof api.connections.$get>["connections"][number]`.
 - `AvailablePlugin` interface in `connections.tsx` → `type AvailablePlugin = InferResponseType<typeof api.connections.available.$get>["plugins"][number]`.
 - Any equivalent hand-written types in `connection-modal.tsx` follow the same envelope-indexed pattern against whichever endpoint they represent.
