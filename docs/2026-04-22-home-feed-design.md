@@ -72,6 +72,16 @@ The design follows the discipline of the MCP spec: a thin translation layer over
 ### `RowFetcher` interface
 
 ```ts
+type PluginRequirement = `${string}@v${number}`; // e.g. "watchHistory@v1"
+
+interface RowFetchContext {
+  userId: string;
+  mediaService: MediaService;
+  preferenceEngine: PreferenceEngine;
+  dataloader: RequestScopedLoader;
+  logger: Logger;
+}
+
 interface RowFetcher {
   rowId: RowKind;
   title: string;
@@ -80,10 +90,15 @@ interface RowFetcher {
     ctx: RowFetchContext,
     opts: { cursor: string | null; limit: number },
   ): Promise<{ items: CompactMediaItem[]; cursor: string | null; partial?: true }>;
+  isEligible(userId: string, loader: RequestScopedLoader): Promise<boolean>;
 }
 ```
 
-`RowFetchContext` exposes `userId`, `mediaService`, `preferenceEngine`, the request-scoped `dataloader`, and `logger`. Nothing below `MediaService` is accessible to a fetcher — plugin runtime, credentials, and DB are all out of reach.
+`RowFetchContext` is the sole surface a row fetcher sees. Nothing below `MediaService` is accessible to a fetcher — plugin runtime, credentials, and DB are all out of reach.
+
+`isEligible` is called only from `getRowContent` (not `getLayout`, which uses the signal snapshot) and must be cheap — the per-row checks specified in §8 all resolve off already-cached data and target sub-5ms. Declaring it as a required interface member (rather than optional) means every new row must state its eligibility rule explicitly, and TypeScript will refuse a fetcher that forgot to implement it. A row that really is always eligible (see `newReleases` in §8) returns `true` unconditionally.
+
+The `requires` field is declarative — intended for future auto-documentation and generic registry use. The authoritative runtime gate for whether a row appears in a layout is `candidateRows` in `rules.ts` (§5). If a new row is added, both must be kept in sync: `requires` lists its capability dependencies for humans and tooling, `candidateRows` contains the live check that actually filters it. When they disagree, `candidateRows` wins at runtime; a lint/test checking that every `RowFetcher.requires` entry corresponds to a gate in `candidateRows` is a small retrofit if drift proves real.
 
 The layout handler reuses `RowFetcher.fetch` for _both_ the inlined first page (inside `getLayout`) and scroll pagination (inside `getRowContent`). This is the entire reason the layout-plus-content split exists: one fetch implementation per row, called with a null cursor for initial and a real cursor for scroll.
 
@@ -353,6 +368,32 @@ function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
 
 `FetchedRow` is the layout orchestrator's internal shape, assembled from each `RowFetcher.fetch` return plus the orchestrator's own knowledge of what happened (did the call complete within the timeout, did all plugins fail, etc.). The orchestrator then strips `outcome` when mapping to the wire-level `HomeRow` — clients only see `items`, `cursor`, and `partial`. `outcome` is a host-internal discriminant used for drop-empty logic and for observability/logging.
 
+**`FetchOutcome` assignment.** `RowFetcher.fetch` returns `{ items, cursor, partial? }` or throws; it does not know whether it has timed out, been cancelled, or had all its upstream plugins fail. The orchestrator wraps every fetch dispatch and maps it to an outcome:
+
+```ts
+async function runFetch(fetcher: RowFetcher, ctx, opts): Promise<FetchedRow> {
+  try {
+    const result = await Promise.race([
+      fetcher.fetch(ctx, opts),
+      timeout(3000).then(() => TIMEOUT_SENTINEL),
+    ]);
+    if (result === TIMEOUT_SENTINEL) return { ...empty(fetcher), outcome: "timeout" };
+    const outcome: FetchOutcome =
+      result.items.length === 0 ? "ok_empty" : result.partial ? "partial" : "ok_items";
+    return { ...map(fetcher, result), outcome, partial: result.partial };
+  } catch (err) {
+    // Aggregate fetchers surface AllPluginsFailedError from MediaService when every
+    // contributing plugin errored; anything else is an orchestrator-level fault.
+    if (err instanceof AllPluginsFailedError) {
+      return { ...empty(fetcher), outcome: "all_failed" };
+    }
+    throw err; // bubbles to home.internal
+  }
+}
+```
+
+In short: `ok_items` / `ok_empty` / `partial` come from the shape of the successful return; `timeout` comes from the 3s `Promise.race`; `all_failed` comes from a specific `MediaService` aggregate error distinguishable from other throws. This is the only place `FetchOutcome` values are assigned — row fetchers themselves never see or set the field.
+
 `upcomingForYou` is exempt **only when the fetch succeeded and genuinely returned zero items** (`outcome === "ok_empty"`) — "No upcoming episodes for your shows" is meaningful information the user was looking for. When the row timed out or all calendar plugins errored, we drop the row like any other: an empty timeout-row carries a different semantic ("no data available right now") than a genuine empty ("you're caught up"), and rendering the "caught up" copy for a plugin outage is wrong.
 
 ### A/B hook
@@ -391,7 +432,7 @@ Each row is one file under `server/home/rows/` implementing `RowFetcher`. Summar
 | `recommendedForYou` | `recommendations@v1.get` → PreferenceEngine re-rank     | aggregate         | page+exclude | 20         | 60        | `matchReason`, `status` |
 | `trendingNow`       | `recommendations@v1.getTrending`                        | aggregate         | page         | 20         | 60        | `status`                |
 | `newReleases`       | `metadata@v1.discover` (recent-release filter)          | primary_with_enr. | page         | 20         | 60        | `status`                |
-| `becauseYouWatched` | `metadata@v1.getSimilar` (seed from signals.recentSeed) | primary_with_enr. | page         | 20         | 40        | `matchReason`, `status` |
+| `becauseYouWatched` | `metadata@v1.getSimilar` (seed from signals.recentSeed) | primary_with_enr. | page+seed    | 20         | 40        | `matchReason`, `status` |
 | `upcomingForYou`    | `calendar@v1.getUpcoming` (in-progress shows only)      | aggregate         | afterTmdbId  | 20         | 60        | `episode`               |
 | `yourWatchlist`     | `watchlist@v1.list`                                     | aggregate         | offset       | 20         | 200       | `status`                |
 
@@ -737,7 +778,7 @@ Row-specific additions:
 
 - `continueWatching`: `progress` populated when `duration_ms > 0`; items with missing/zero/negative `duration_ms` are **included** with the `progress` field absent (matches §6 contract); item with `duration_ms = 0` → returned, `progress` key absent on the item; sorted most-recent-watched-at first.
 - `recommendedForYou`: candidate over-fetch = limit × 3; `rankCandidates` called once; `explainMatch` called only for returned top-N; thin profile → `matchReason` omitted, row still renders.
-- `becauseYouWatched`: subtitle contains seed title; seed resolution failure → row drops cleanly.
+- `becauseYouWatched`: subtitle contains seed title; seed resolution failure on `getLayout` → row drops cleanly; `isEligible` called with a cursor whose pinned `s` no longer resolves via `metadata@v1.getById` → returns `false` (orchestrator then emits `home.row_unavailable`); `isEligible` with a still-resolvable `s` → returns `true` even when `signals.recentSeed` has shifted to a different title since page 1 (pagination stays pinned to the original seed).
 - `recommendedForYou` exclusion: page 2 cursor carries ~20 IDs from page 1; page 2 excludes them; exclusion list capped at `maxItems`.
 
 ### Dataloader (`dataloader.test.ts`)
