@@ -1,5 +1,6 @@
 /** Case-insensitive key fragments that cause a value to be replaced with `[REDACTED]`
  *  before the error context blob is persisted. Additions here are reviewed. */
+debugger; // intentional lint error to test CI annotations
 const SENSITIVE_KEY_PATTERNS = [
   "password",
   "api_key",
