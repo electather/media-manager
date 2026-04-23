@@ -28,19 +28,57 @@ export async function decryptJson(iv: string | null, data: string | null): Promi
 }
 
 /**
- * Removes properties marked `"x-secret": true` in the schema from a userConfig payload.
- * Used so encrypted secrets never travel back to the client over connection list/get.
+ * Extension keys on a JSON Schema property that mark a field as
+ * "do not return to the client" for one reason or another:
+ *  - `x-secret` — encrypted at rest, never returned (credentials-like).
+ *  - `x-private` — stored plaintext, never returned (internal-only).
+ * A field may carry both; stripping is idempotent.
  */
-export function stripSecretFields(schema: unknown, value: unknown): unknown {
+export const RESPONSE_STRIPPED_EXTENSIONS = ["x-secret", "x-private"] as const;
+export type ResponseStrippedExtension = (typeof RESPONSE_STRIPPED_EXTENSIONS)[number];
+
+/**
+ * Removes properties on `value` whose schema definition carries any of the
+ * given extension flags set to `true`. Used so sensitive or internal-only
+ * fields never travel back to clients via connection list/get responses.
+ */
+export function stripExtensionFields(
+  schema: unknown,
+  value: unknown,
+  extensions: readonly string[] = RESPONSE_STRIPPED_EXTENSIONS,
+): unknown {
   if (!value || typeof value !== "object") return value;
   if (!schema || typeof schema !== "object") return value;
   const props = (schema as { properties?: Record<string, Record<string, unknown>> }).properties;
   if (!props) return value;
   const out: Record<string, unknown> = { ...(value as Record<string, unknown>) };
   for (const [name, def] of Object.entries(props)) {
-    if (def && def["x-secret"] === true) delete out[name];
+    if (!def) continue;
+    for (const ext of extensions) {
+      if (def[ext] === true) {
+        delete out[name];
+        break;
+      }
+    }
   }
   return out;
+}
+
+/**
+ * Backward-compatible shim for callers that only want to strip `x-secret`
+ * fields. New callers should prefer {@link stripExtensionFields}, which
+ * strips both `x-secret` and `x-private` by default.
+ */
+export function stripSecretFields(schema: unknown, value: unknown): unknown {
+  return stripExtensionFields(schema, value, ["x-secret"]);
+}
+
+/**
+ * Strips every field that must never round-trip back to the client:
+ * `x-secret` (encrypted at rest) and `x-private` (plaintext but hidden).
+ */
+export function stripResponseFields(schema: unknown, value: unknown): unknown {
+  return stripExtensionFields(schema, value, RESPONSE_STRIPPED_EXTENSIONS);
 }
 
 /** Promotes the given connection id to default within its plugin; demotes the rest. */
