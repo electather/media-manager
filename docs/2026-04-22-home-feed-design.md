@@ -378,8 +378,14 @@ async function runFetch(fetcher: RowFetcher, ctx, opts): Promise<FetchedRow> {
       timeout(3000).then(() => TIMEOUT_SENTINEL),
     ]);
     if (result === TIMEOUT_SENTINEL) return { ...empty(fetcher), outcome: "timeout" };
-    const outcome: FetchOutcome =
-      result.items.length === 0 ? "ok_empty" : result.partial ? "partial" : "ok_items";
+    // Order matters: "partial" wins over "ok_empty" when items is empty but some
+    // plugins errored — otherwise upcomingForYou's drop-empty exemption would
+    // render "you're caught up" copy during a calendar plugin outage.
+    const outcome: FetchOutcome = result.partial
+      ? "partial"
+      : result.items.length === 0
+        ? "ok_empty"
+        : "ok_items";
     return { ...map(fetcher, result), outcome, partial: result.partial };
   } catch (err) {
     // Aggregate fetchers surface AllPluginsFailedError from MediaService when every
@@ -471,7 +477,7 @@ Every row batches `status` via a single `mediaRequest@v1.getStatusBatch` call pe
 - Seed can go stale between two `getLayout` calls (user rates something higher five minutes later). Next `getLayout` picks up the new seed.
 - Within a single scroll session, the seed is **pinned** in the cursor's `s` field (§7). `getRowContent` reads `s` and calls `metadata@v1.getSimilar(seed, { page })` against that specific seed, ignoring any live `signals.recentSeed` drift. Prevents page 2 from silently returning "similar to a different movie" than page 1.
 - TMDB `/similar` is paginated by `page`; trivial cursor.
-- Cross-row exclusion: the fetcher excludes any item whose `(tmdbId, mediaType)` is in the user's current in-progress set. On page 1 (inside `getLayout`) the signal snapshot already carries this set; on scroll pages (`getRowContent`) signals aren't passed to the fetcher, so the fetcher obtains the set via `ctx.dataloader.getInProgressSet(userId)` — a dataloader-memoized read-through over `mediaService.getInProgress(userId)` that returns a `Set<MediaId>` and hits the same warm watchHistory cache the signal used (sub-5ms when warm; <100ms cold). The exclusion applies on every page so scroll behavior matches page 1. Recommending something the user is actively watching is jarring — "Because you watched Inception: Inception" is the degenerate case, but "Because you watched Inception: The Matrix (which you're also 40% through)" is the real one this rule catches. Trending + New Releases overlap is deliberately not filtered — same content in different editorial contexts is acceptable; in-progress-in-a-discovery-row is not.
+- Cross-row exclusion: the fetcher excludes any item whose `(tmdbId, mediaType)` is in the user's current in-progress set. `RowFetchContext` does not expose the signal snapshot to fetchers, so both page 1 (inside `getLayout`) and scroll pages (`getRowContent`) obtain the set via `ctx.dataloader.getInProgressSet()` — a dataloader-memoized read-through over `mediaService.getInProgress(userId)` that returns a `Set<MediaId>`. On page 1 this hits warm memoization because signal computation already called the same method during `LayoutSignals`; on scroll pages it hits the same watchHistory cache the signal used (sub-5ms when warm; <100ms cold). The exclusion applies on every page so scroll behavior matches page 1. Recommending something the user is actively watching is jarring — "Because you watched Inception: Inception" is the degenerate case, but "Because you watched Inception: The Matrix (which you're also 40% through)" is the real one this rule catches. Trending + New Releases overlap is deliberately not filtered — same content in different editorial contexts is acceptable; in-progress-in-a-discovery-row is not.
 
 **`upcomingForYou`**
 
@@ -539,8 +545,11 @@ class RequestScopedLoader {
   getStatusBatch(ids: MediaId[]) {
     /* coalesce + batch */
   }
-  getInProgressSet(userId: string) {
-    /* memoize: MediaService.getInProgress → Set<MediaId> */
+  getInProgressSet(): Promise<Set<MediaId>> {
+    /* memoize: MediaService.getInProgress(this.userId) → Set<MediaId> */
+  }
+  hasPlugin(capability: PluginRequirement): Promise<boolean> {
+    /* memoize: service_connections ∩ capability registry lookup for this.userId */
   }
   private memoize<T>(method: string, args: unknown, fn: () => Promise<T>): Promise<T> {
     const key = `${method}:${hash(args)}`;
@@ -553,11 +562,12 @@ class RequestScopedLoader {
 }
 ```
 
-Three methods deserve special handling:
+Four methods deserve special handling:
 
 - **`getMetadata`** — straight memoization. Two rows needing the same title share one underlying call.
 - **`getStatusBatch`** — microtask-level coalescing. Each row calls `loader.getStatusBatch(rowItems)` during its fetch; the loader collects all calls that arrive in the _same microtask_ and flushes on the next one (specifically via `queueMicrotask()`, same primitive the `dataloader` npm package uses). It unions the id set, fires one `mediaRequest@v1.getStatusBatch`, and splits the response back out per caller. Flushing on microtask (rather than `setImmediate` / `setTimeout(0)`) keeps coalescing latency inside sub-millisecond territory and avoids introducing a deferral large enough to be observable in row timings.
-- **`getInProgressSet`** — memoized read-through over `mediaService.getInProgress(userId)` that returns a `Set<MediaId>`. Primary consumer is `becauseYouWatched` for cross-row exclusion on scroll pages (`getLayout` uses the signal snapshot's in-progress set directly). Memoization means pagination requests that also happen to fetch `continueWatching` items don't pay for the set twice.
+- **`getInProgressSet`** — memoized read-through over `mediaService.getInProgress(this.userId)` that returns a `Set<MediaId>`. Consumer is `becauseYouWatched` for cross-row exclusion on every page (both `getLayout` and `getRowContent`); signal computation also calls this method during `getLayout` to populate `inProgressCount` and `calendarProgressCount`, so page 1 hits a warm memoization when the fetcher calls through the loader. Single source of truth for the per-request in-progress set.
+- **`hasPlugin(capability)`** — memoized lookup over `service_connections ∩ capability registry` for `this.userId`. Consumed by every `RowFetcher.isEligible` that needs to verify a plugin is still connected mid-session (six of seven rows; §8). The same table backs signal computation's `hasXPlugin` booleans, so the lookup hits the per-user plugin-presence cache rather than firing new DB queries. Memoization means two rows that both need the same capability only pay for one read.
 
 **Status call timeout budget.** The coalesced `getStatusBatch` call has its own 1s cap (tighter than the 3s per-row cap, since status is an enrichment and rows should not sacrifice their entire budget to it). On timeout or full failure, all items in the caller rows have `status` omitted. `partial: true` is _not_ set for this case — status is not core row content, and the feed already tolerates `status === undefined` via the "unknown" fallback path in the frontend. Genuine aggregate partial failures from the underlying `mediaRequest@v1.getStatusBatch` (some plugins erroring while others return data) still surface status for items where at least one plugin responded.
 
@@ -692,14 +702,14 @@ When the user enables, disables, or removes a connection via `/connections`, sub
 
 **Eligibility re-check on `getRowContent`.** We do **not** re-run the full `LayoutSignals` snapshot on every pagination call — a ~50ms snapshot on a horizontal-scroll request is wasted work. Instead, each `RowFetcher` declares a cheap `isEligible(userId, loader)` check using only what that row needs:
 
-- `continueWatching` — verify the user still has at least one plugin implementing `watchHistory@v1`.
-- `yourWatchlist` — verify `watchlist@v1` plugin present.
-- `upcomingForYou` — verify `calendar@v1` plugin present.
-- `recommendedForYou`, `trendingNow` — verify `recommendations@v1` plugin present (or, for RFY, profile exists).
+- `continueWatching` — `loader.hasPlugin("watchHistory@v1")`.
+- `yourWatchlist` — `loader.hasPlugin("watchlist@v1")`.
+- `upcomingForYou` — `loader.hasPlugin("calendar@v1")`.
+- `recommendedForYou`, `trendingNow` — `loader.hasPlugin("recommendations@v1")`. `candidateRows` gates RFY strictly on plugin presence (profile-only fallback is out of scope for v1 per §6), so `isEligible` mirrors that — no profile-exists escape hatch.
 - `becauseYouWatched` — verify the seed media id carried in the cursor's `s` field still resolves via `metadata@v1.getById`. Uses the cursor-pinned seed, not the live `signals.recentSeed` — pagination must be consistent with page 1 even when the user's recent seed has shifted.
-- `newReleases` — always eligible; `metadata@v1` is assumed present. If not, the row fetch itself empties and the call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
+- `newReleases` — always eligible; returns `true` unconditionally. `metadata@v1` is assumed present; if it's somehow not, the row fetch itself empties and the call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
 
-Plugin presence checks hit the already-cached `service_connections` ∩ capability registry table used by signals — cheap, sub-5ms. The `isEligible` contract is one method per row; implementations sit in each row fetcher file.
+All `hasPlugin` calls go through `RequestScopedLoader.hasPlugin` (§7), which reads the same `service_connections` ∩ capability registry table signals use and memoizes per request — sub-5ms, and two rows checking the same capability only pay once. The `isEligible` contract is one method per row; implementations sit in each row fetcher file.
 
 A failed eligibility check produces `home.row_unavailable` immediately, without touching the plugin runtime. A cursor that decodes but points past data (normal end-of-pagination) still returns `{ items: [], cursor: null }` — eligibility is about "is this row still legal for this user," not "is there more content."
 
@@ -786,7 +796,8 @@ Row-specific additions:
 - Same `getMetadata(id)` called twice within one request → one underlying call.
 - `getStatusBatch` coalescing: three rows each call with disjoint ID sets → one combined upstream call → correct per-caller split.
 - `getStatusBatch` return: keys match input `MediaId` strings verbatim (e.g. `"movie:550"`, not `"550"`).
-- `getInProgressSet` memoization: two callers in one request → one underlying `getInProgress` call; returns a `Set<MediaId>`.
+- `getInProgressSet` memoization: two callers in one request → one underlying `getInProgress` call; returns a `Set<MediaId>`; no `userId` parameter — uses the loader's constructor-scoped user.
+- `hasPlugin` memoization: two rows checking the same capability in one request → one underlying `service_connections` lookup; distinct capabilities → distinct lookups; returns `boolean`.
 - Error propagation: underlying call fails → all awaiting callers receive the same error.
 - Non-dataloader methods are not memoized.
 
@@ -814,10 +825,10 @@ One test per user-state fixture:
 - **TMDB + Trakt:** full eligible set with correct ordering per profile confidence.
 - **Full install mid-rebuild:** reads current profile; ranking reflects stale-but-valid profile; no error.
 - **Calendar cold-cache:** `calendarProgressCount` returns 0 when calendar data is cold; `upcomingForYou` dropped; no error.
-- **`upcomingForYou` timeout vs. ok-empty:** timeout → row dropped; genuine empty fetch → row retained with `items: []`.
+- **`upcomingForYou` timeout vs. ok-empty vs. partial-empty:** timeout → row dropped; genuine empty fetch (all plugins succeeded with zero items) → row retained with `items: []`; some calendar plugins fail and successful ones return zero items → row dropped (outcome is `partial`, not `ok_empty`, so the exemption does not apply).
 - **`getRowContent` eligibility re-check:** plugin removed between `getLayout` and `getRowContent` → `home.row_unavailable`; plugin still present, cursor past end → `{ items: [], cursor: null }`.
 - **`getRowContent` timeout:** slow underlying fetch exceeds 3s → response is `{ items: [], cursor: null }` (no thrown error).
-- **Cross-row exclusion:** in-progress item does not appear in `becauseYouWatched` results on page 1 (signal-snapshot path) and on scroll page 2 (`dataloader.getInProgressSet` path).
+- **Cross-row exclusion:** in-progress item does not appear in `becauseYouWatched` results on page 1 or on scroll page 2; both pages call `ctx.dataloader.getInProgressSet()`, and the test asserts a single underlying `mediaService.getInProgress(userId)` call across signal computation + fetcher invocation (memoization holds).
 
 Each fixture asserts the row set, order, and which rows carry `matchReason` / `progress` / `partial`.
 
@@ -833,6 +844,7 @@ Each fixture asserts the row set, order, and which rows carry `matchReason` / `p
 - All plugins for a capability fail → row dropped (exception: `upcomingForYou` only when outcome is `ok_empty`, not on timeout/all-failed).
 - `upcomingForYou` with genuine empty fetch → row retained with `items: []`.
 - `upcomingForYou` timing out → row dropped (not retained as empty).
+- `upcomingForYou` partial-empty (mixed plugin failure with zero items from survivors) → row dropped; outcome resolves to `partial`, so the `ok_empty` exemption does not fire.
 - `getRowContent` for a row that became unavailable between layout calls → `home.row_unavailable`.
 - Cursor past end of data → `{ items: [], cursor: null }`, not an error.
 - `getStatusBatch` exceeds 1s budget → `status` omitted on affected items; row still returned; `partial` not set for this.
