@@ -119,6 +119,8 @@ No new capability files. No new database migrations. The only `MediaService` add
 
 Two oRPC procedures under `server/api/routes/home.ts`, both authenticated-user-only (scope: `ctx.user.id`). No admin variants. Errors use `UserFacingError` from the error-management doc.
 
+**Shared types live in `@ent-mcp/shared/home`.** Per the repo's shared-package rules (`CLAUDE.md`), any type that crosses the server/client boundary must live in `packages/shared/src/home/` and be exported via the subpath export in `packages/shared/package.json`. The types that qualify: `RowKind` (const tuple + derived type, per shared package conventions), `HomeRow`, `HomeLayoutResponse`, `RowContentResponse`, and `CompactMediaItem`. The `FetchedRow` / `FetchOutcome` types (§5) are host-internal and stay in `server/home/`. Zod schemas for cursor validation also stay server-internal (cursors are opaque on the wire; the client never decodes them).
+
 ### `home.getLayout`
 
 ```ts
@@ -249,16 +251,18 @@ interface LayoutSignals {
 
 **Per-signal sources:**
 
-| Signal                  | Source                                                                                                                                                                                                                       | Cost         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| `hasXPlugin`            | `service_connections` JOIN capability registry; per-user cached                                                                                                                                                              | cache read   |
-| `inProgressCount`       | `MediaService.getInProgressCount(userId)` — thin read-through over watchHistory cache                                                                                                                                        | cache read   |
-| `watchlistCount`        | `MediaService.getWatchlistCount(userId)` — same pattern                                                                                                                                                                      | cache read   |
-| `calendarProgressCount` | Derived from in-progress set + at-least-one-future-episode check (see "Calendar cold-cache" below)                                                                                                                           | cache read   |
-| `profileConfidence`     | `preference_profiles.confidence` for media_type="combined"; `"none"` if row missing                                                                                                                                          | indexed read |
-| `recentSeed`            | `feedback_log` `ORDER BY created_at DESC LIMIT 1` WHERE `action IN ("like", "rate") AND (action != "rate" OR rating >= 8) AND created_at > now-30d`, indexed; fallback to most-recent-completed-within-60d from watchHistory | indexed read |
+| Signal                  | Source                                                                                                                                                                                                                                                              | Cost         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `hasXPlugin`            | `service_connections` JOIN capability registry; per-user cached                                                                                                                                                                                                     | cache read   |
+| `inProgressCount`       | `MediaService.getInProgressCount(userId)` — thin read-through over watchHistory cache                                                                                                                                                                               | cache read   |
+| `watchlistCount`        | `MediaService.getWatchlistCount(userId)` — same pattern                                                                                                                                                                                                             | cache read   |
+| `calendarProgressCount` | Derived from in-progress set + at-least-one-future-episode check (see "Calendar cold-cache" below)                                                                                                                                                                  | cache read   |
+| `profileConfidence`     | `preference_profiles.confidence` for media_type="combined"; `"none"` if row missing                                                                                                                                                                                 | indexed read |
+| `recentSeed`            | `feedback_log` `ORDER BY created_at DESC LIMIT 1` WHERE `action IN ("like", "rate") AND (action != "rate" OR rating >= 8) AND created_at > now-30d`, indexed; fallback to most-recent-completed-within-60d from watchHistory (see "Recency window asymmetry" below) | indexed read |
 
 The three new `MediaService` count methods (`getInProgressCount`, `getWatchlistCount`, `getCalendarProgressCount`) are thin read-through wrappers over data already cached at the capability layer. One method each, no new capability. Detailed in §8.
+
+**Recency window asymmetry.** The primary path uses a 30d window; the fallback uses 60d. Intentional. A `like` or high `rate` is an active, volitional signal — recent feedback is strong, older feedback is stale fast, so the window is tight. A completed watch is a passive signal — much weaker per-event, so the window is wider to accumulate enough evidence that an item is worth seeding off. Narrowing the fallback to match the primary would leave users without recent explicit feedback with no seed at all, which defeats the point of the fallback.
 
 **Calendar cold-cache.** `calendarProgressCount` is "cache read" only when the calendar data is warm. Calendar's TTL is 1h versus watchHistory's 5min, so the calendar cache is the more likely cold one. If `getCalendarProgressCount` would have to trigger a live aggregate fetch to satisfy the derivation, the signal returns `0` instead and logs. This drops `upcomingForYou` from the current layout; it reappears on the next `getLayout` once the calendar cache warms (via either the normal calendar refresh cycle or another row's fetch). Preserves the <50ms signal-snapshot budget at the cost of one potentially-missed row on the very first cold call after a calendar TTL expiry.
 
@@ -328,6 +332,18 @@ function orderRows(candidates: RowKind[], signals: LayoutSignals): RowKind[] {
 After per-row fetches complete, drop any row whose `items` came back empty. Handles signal drift — cache said non-empty, fetch returned zero. One deliberate exception:
 
 ```ts
+type FetchOutcome = "ok_items" | "ok_empty" | "partial" | "timeout" | "all_failed";
+
+interface FetchedRow {
+  rowId: RowKind;
+  title: string;
+  subtitle?: string;
+  items: CompactMediaItem[];
+  cursor: string | null;
+  outcome: FetchOutcome;
+  partial?: true; // redundant with outcome === "partial" but kept on the wire per §4
+}
+
 function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
   return rows.filter(
     (r) => r.items.length > 0 || (r.rowId === "upcomingForYou" && r.outcome === "ok_empty"),
@@ -335,7 +351,9 @@ function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
 }
 ```
 
-`upcomingForYou` is exempt **only when the fetch succeeded and genuinely returned zero items** — "No upcoming episodes for your shows" is meaningful information the user was looking for. When the row timed out or all calendar plugins errored, we drop the row like any other: an empty timeout-row carries a different semantic ("no data available right now") than a genuine empty ("you're caught up"), and rendering the "caught up" copy for a plugin outage is wrong. The `outcome` field on the per-row fetch result distinguishes `ok_empty` from `timeout` / `all_failed`.
+`FetchedRow` is the layout orchestrator's internal shape, assembled from each `RowFetcher.fetch` return plus the orchestrator's own knowledge of what happened (did the call complete within the timeout, did all plugins fail, etc.). The orchestrator then strips `outcome` when mapping to the wire-level `HomeRow` — clients only see `items`, `cursor`, and `partial`. `outcome` is a host-internal discriminant used for drop-empty logic and for observability/logging.
+
+`upcomingForYou` is exempt **only when the fetch succeeded and genuinely returned zero items** (`outcome === "ok_empty"`) — "No upcoming episodes for your shows" is meaningful information the user was looking for. When the row timed out or all calendar plugins errored, we drop the row like any other: an empty timeout-row carries a different semantic ("no data available right now") than a genuine empty ("you're caught up"), and rendering the "caught up" copy for a plugin outage is wrong.
 
 ### A/B hook
 
@@ -387,7 +405,7 @@ Every row batches `status` via a single `mediaRequest@v1.getStatusBatch` call pe
 - Within-row dedupe by `(tmdbId, mediaType)`; most-recent-progress wins when two plugins report overlapping items.
 - No PreferenceEngine re-rank. The in-progress list is not a discovery surface.
 - Ordering: most-recently-watched first.
-- `progress` field handling: the fetcher omits `progress` entirely on items where `duration_ms` is missing, zero, or negative. Protects the client from divide-by-zero on live content, specials, or shorts where the plugin couldn't supply a runtime. Items without `progress` are still included in the row.
+- `progress` field handling: the fetcher omits `progress` entirely on items where `duration_ms` is missing, zero, or negative. Protects the client from divide-by-zero on live content, specials, or shorts where the plugin couldn't supply a runtime. Items without `progress` are still included in the row — they're genuinely in-progress from the plugin's perspective; we just don't have a renderable percentage. Server-client contract: absent `progress` means "in-progress item, progress unmeasurable." Rendering (progress bar vs. generic play affordance) is the frontend spec's concern; this spec only guarantees the field is absent rather than `{ watched: 0, total: 0 }` or NaN.
 
 **`recommendedForYou`**
 
@@ -409,7 +427,8 @@ Every row batches `status` via a single `mediaRequest@v1.getStatusBatch` call pe
 
 - Subtitle is dynamic: `"Because you watched ${signal.recentSeed.title}"`. The only row with a dynamic subtitle.
 - Seed selection lives in `signals.ts`, not in this row's fetcher, because the same signal is consumed by candidate filtering in the layout layer.
-- Seed can go stale mid-session (user rates something higher five minutes later). Acceptable — next `getLayout` picks up the new seed.
+- Seed can go stale between two `getLayout` calls (user rates something higher five minutes later). Next `getLayout` picks up the new seed.
+- Within a single scroll session, the seed is **pinned** in the cursor's `s` field (§7). `getRowContent` reads `s` and calls `metadata@v1.getSimilar(seed, { page })` against that specific seed, ignoring any live `signals.recentSeed` drift. Prevents page 2 from silently returning "similar to a different movie" than page 1.
 - TMDB `/similar` is paginated by `page`; trivial cursor.
 - Cross-row exclusion: the fetcher excludes any item whose `(tmdbId, mediaType)` is in the user's current in-progress set (the same set `continueWatching` is built from, already available as a signal). Recommending something the user is actively watching is jarring — "Because you watched Inception: Inception" is the degenerate case, but "Because you watched Inception: The Matrix (which you're also 40% through)" is the real one this rule catches. Trending + New Releases overlap is deliberately not filtered — same content in different editorial contexts is acceptable; in-progress-in-a-discovery-row is not.
 
@@ -501,10 +520,10 @@ Other `MediaService` methods are not wrapped by the dataloader — they have nar
 
 ### Cursor format
 
-Opaque base64-encoded JSON, versioned. Three variants plus a combined page+exclusion variant for `recommendedForYou`.
+Opaque base64-encoded JSON, versioned. Four variants — page-based, offset-based, afterTmdbId-based, and two specialized page variants for `recommendedForYou` (with exclusion list) and `becauseYouWatched` (with pinned seed).
 
 ```ts
-// page-based (trendingNow, newReleases, becauseYouWatched)
+// page-based (trendingNow, newReleases)
 { v: 1, r: "trendingNow", p: 2 }
 
 // offset-based (continueWatching, yourWatchlist)
@@ -513,11 +532,16 @@ Opaque base64-encoded JSON, versioned. Three variants plus a combined page+exclu
 // afterTmdbId-based (upcomingForYou)
 { v: 1, r: "upcomingForYou", a: "tv:1396", ts: 1713820000000 }
 
+// page + seed (becauseYouWatched only)
+{ v: 1, r: "becauseYouWatched", p: 2, s: "movie:550" }
+
 // page + exclusion list (recommendedForYou only)
 { v: 1, r: "recommendedForYou", p: 2, x: ["movie:550", "tv:1396", ...] }
 ```
 
 **`upcomingForYou` `ts` field.** An item in `upcomingForYou` represents one upcoming _episode_ of an in-progress show. Multiple upcoming episodes of the same show share `tmdbId` but differ in `airsAt`. `ts` carries the `airsAt` of the last returned item in the previous page; server pagination uses `(tmdbId, airsAt) > (cursor.a, cursor.ts)` as the composite ordering key for the next page. Without `ts`, a show with four upcoming episodes would either return duplicates across pages or skip episodes.
+
+**`becauseYouWatched` `s` field.** The row is seed-dependent: page 1 was generated against `signals.recentSeed.tmdbId` at the time of `getLayout`. The seed can shift mid-session (user rates something higher between page 1 and a scroll-to-page-2), so pagination must pin the seed to whatever was used on page 1 — otherwise `getRowContent` would silently return "similar to a different movie" with no error, and the user sees a broken scroll. The cursor carries `s` as the media id (`"movie:550"` or `"tv:1396"`) of the seed. `getRowContent` reads `s`, decodes it to `(tmdbId, mediaType)`, and calls `metadata@v1.getSimilar(seed, { page })` with that specific seed — even if `signals.recentSeed` has since moved on. The row subtitle on the client stays stable for the scroll session; the new seed surfaces on the next `getLayout`. The same `s` is what `isEligible` resolves against in §8 ("does this specific seed still fetch" rather than "does the user still have any recent seed").
 
 ### Cursor validation
 
@@ -525,7 +549,7 @@ Cursors are untrusted client input. Every decode runs a Zod schema _before any b
 
 - `v === 1`.
 - `r` is one of the `RowKind` enum values.
-- Variant-appropriate fields present and typed: `p` is a non-negative integer capped at `maxItems / pageSize`; `o` is a non-negative integer capped at `maxItems`; `a` matches the `movie:NNN` / `tv:NNN` pattern; `ts` is a positive integer ms epoch; `x` is a string array with `items <= maxItems` (60) and each entry matching the media-id pattern.
+- Variant-appropriate fields present and typed: `p` is a non-negative integer capped at `maxItems / pageSize`; `o` is a non-negative integer capped at `maxItems`; `a` and `s` match the `movie:NNN` / `tv:NNN` media-id pattern; `ts` is a positive integer ms epoch; `x` is a string array with `items <= maxItems` (60) and each entry matching the media-id pattern.
 - No extra keys (strict parsing).
 
 Decode outcomes:
@@ -627,7 +651,7 @@ When the user enables, disables, or removes a connection via `/connections`, sub
 - `yourWatchlist` — verify `watchlist@v1` plugin present.
 - `upcomingForYou` — verify `calendar@v1` plugin present.
 - `recommendedForYou`, `trendingNow` — verify `recommendations@v1` plugin present (or, for RFY, profile exists).
-- `becauseYouWatched` — verify the seed tmdbId still resolves via `metadata@v1.getById`.
+- `becauseYouWatched` — verify the seed media id carried in the cursor's `s` field still resolves via `metadata@v1.getById`. Uses the cursor-pinned seed, not the live `signals.recentSeed` — pagination must be consistent with page 1 even when the user's recent seed has shifted.
 - `newReleases` — always eligible; `metadata@v1` is assumed present. If not, the row fetch itself empties and the call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
 
 Plugin presence checks hit the already-cached `service_connections` ∩ capability registry table used by signals — cheap, sub-5ms. The `isEligible` contract is one method per row; implementations sit in each row fetcher file.
@@ -721,7 +745,7 @@ Row-specific additions:
 
 ### Cursor (`cursor.test.ts`)
 
-- Encode/decode roundtrip for each variant (page, offset, afterTmdbId, page+exclusion).
+- Encode/decode roundtrip for each variant (page, offset, afterTmdbId, page+seed, page+exclusion).
 - Malformed base64 → `home.bad_input`.
 - Version mismatch → `home.bad_input`.
 - `rowId` mismatch → `home.bad_input`.
@@ -729,6 +753,9 @@ Row-specific additions:
 - Exclusion-list size cap enforced on **decode** (crafted cursor with 10k entries in `x[]` → `home.bad_input`).
 - Exclusion list size cap enforced on encode.
 - `upcomingForYou` decode without `ts` → `home.bad_input`.
+- `becauseYouWatched` decode without `s` → `home.bad_input`.
+- `becauseYouWatched` `s` field with malformed media id (not `movie:NNN` / `tv:NNN`) → `home.bad_input`.
+- `becauseYouWatched` pagination continuity: cursor `s` carries forward unchanged across pages even when `signals.recentSeed` would change mid-session.
 
 ### `HomeFeedService` integration tests (`home-feed-service.test.ts`)
 
