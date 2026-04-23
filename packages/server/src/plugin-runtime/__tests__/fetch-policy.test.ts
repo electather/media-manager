@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import { buildFetch } from "../fetch-policy";
 import { resolveAllowedHostsFromSchema } from "../allowed-hosts";
-import { isPluginError } from "../types";
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -116,13 +115,9 @@ describe("resolveAllowedHostsFromSchema", () => {
       type: "object",
       properties: { baseUrl: { type: "string", "x-allowed-host": true } },
     };
-    try {
-      resolveAllowedHostsFromSchema("p", schema, { baseUrl: "not-a-url" });
-      throw new Error("expected throw");
-    } catch (err) {
-      expect(isPluginError(err)).toBe(true);
-      expect((err as { code: string }).code).toBe("plugin.input_invalid");
-    }
+    expect(() => resolveAllowedHostsFromSchema("p", schema, { baseUrl: "not-a-url" })).toThrow(
+      expect.objectContaining({ code: "plugin.input_invalid" }),
+    );
   });
 
   it("skips empty-string values without throwing", () => {
@@ -131,5 +126,51 @@ describe("resolveAllowedHostsFromSchema", () => {
       properties: { baseUrl: { type: "string", "x-allowed-host": true } },
     };
     expect(resolveAllowedHostsFromSchema("p", schema, { baseUrl: "" })).toEqual(new Set());
+  });
+
+  it("descends into tuple-style items (array-of-schemas)", () => {
+    // Plugins that declare tuple-shaped arrays (different schema per index)
+    // must still surface x-allowed-host entries. The earlier `asRecord` path
+    // silently skipped tuples because `items` is an array, not an object.
+    const schema = {
+      type: "object",
+      properties: {
+        endpoints: {
+          type: "array",
+          items: [
+            { type: "string", "x-allowed-host": true },
+            { type: "string", "x-allowed-host": true },
+          ],
+        },
+      },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, {
+        endpoints: ["https://primary.example.com", "https://backup.example.com"],
+      }),
+    ).toEqual(new Set(["primary.example.com", "backup.example.com"]));
+  });
+
+  it("tuple items silently skip indexes with no corresponding value", () => {
+    // Fewer values than tuple entries — unmatched indexes are simply unvisited
+    // rather than thrown. Extra values beyond the tuple schema are also ignored
+    // (the schema-walk is driven by the tuple length).
+    const schema = {
+      type: "object",
+      properties: {
+        endpoints: {
+          type: "array",
+          items: [
+            { type: "string", "x-allowed-host": true },
+            { type: "string", "x-allowed-host": true },
+          ],
+        },
+      },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, {
+        endpoints: ["https://primary.example.com"],
+      }),
+    ).toEqual(new Set(["primary.example.com"]));
   });
 });

@@ -6,7 +6,14 @@ import type { PluginModule } from "../types";
 // allowlist, alongside manifest.allowedHosts (unioned).
 
 vi.mock("../../env", () => ({
-  env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
+  env: {
+    ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef",
+    // Stubbed so ctx.appBaseUrl is not undefined inside ctx construction —
+    // the tests don't assert on it, but the mock now mirrors what runtime
+    // sees at production time, which prevents a future regression where a
+    // missing env var silently falls through.
+    APP_EXTERNAL_URL: "https://app.example.com",
+  },
 }));
 
 const pluginRows = new Map<
@@ -253,5 +260,77 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(caught[0]?.code).toBe("plugin.upstream_error");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // A global-scope plugin whose upstream is declared on the admin's shared
+  // credentials. Mirrors plugins like a self-hosted registry mirror where the
+  // operator sets the backing URL once. The runtime resolves x-allowed-host
+  // against `sharedCredentialsSchema` (not `userConfigSchema`) for admin picks.
+  it("resolves x-allowed-host from sharedCredentialsSchema for admin-scoped calls", async () => {
+    pluginRows.set("ops-tool", {
+      id: "ops-tool",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      {
+        id: "admin-cred-1",
+        value: { baseUrl: "https://ops.internal.example.com", apiKey: "k" },
+      },
+    ]);
+
+    let observedJson: unknown;
+    capabilityRegistry.register({
+      pluginId: "ops-tool",
+      module: {
+        manifest: {
+          id: "ops-tool",
+          name: "Ops",
+          version: "1.0.0",
+          description: "",
+          author: { name: "t" },
+          sdkVersion: "^1.0.0",
+          allowedHosts: [],
+          sharedCredentialsSchema: {
+            type: "object",
+            properties: {
+              baseUrl: { type: "string", "x-allowed-host": true },
+              apiKey: { type: "string", "x-secret": true },
+            },
+          },
+          credentialsSchema: { type: "object" },
+          auth: { kind: "form" },
+          capabilities: { library: { version: "v1", scope: "global" } },
+          poolable: true,
+        },
+        capabilities: {
+          library: {
+            list: async (ctx) => {
+              const c = ctx as {
+                fetch: (url: string, init?: RequestInit) => Promise<Response>;
+              };
+              const res = await c.fetch("https://ops.internal.example.com/status");
+              observedJson = await res.json();
+              return { items: [] };
+            },
+          },
+        },
+      },
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.invoke<{ items: unknown[] }>({
+      pluginId: "ops-tool",
+      capability: "library",
+      version: "v1",
+      method: "list",
+      input: {},
+      scope: "global",
+      userId: null,
+    });
+    expect(result).toEqual({ items: [] });
+    expect(observedJson).toEqual({ ok: true });
+    expect(fetchSpy).toHaveBeenCalledWith("https://ops.internal.example.com/status", undefined);
   });
 });

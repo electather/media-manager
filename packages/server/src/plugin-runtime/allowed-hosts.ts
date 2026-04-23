@@ -6,6 +6,17 @@ import { PluginError } from "./types";
  * URL-valued `userConfigSchema` or `sharedCredentialsSchema` properties — the
  * resolved hostname is unioned into the per-invocation `ctx.fetch` allowlist
  * alongside the plugin's static `manifest.allowedHosts`.
+ *
+ * ⚠ Trust boundary: this is explicitly user-controlled. Any field marked
+ * `x-allowed-host` allows the authenticated user to make `ctx.fetch` reach
+ * the hostname they supplied — internal networks, RFC1918 ranges, anything
+ * the upstream DNS resolves. Plugin authors must only apply the flag to
+ * fields that represent the plugin's *own intended upstream* (the user's
+ * Plex/Jellyfin server, a self-hosted mirror, etc.), never to generic proxy
+ * targets or free-form URL inputs. The runtime applies a narrow blocklist
+ * to the resolved address (cloud metadata, localhost, IPv4-mapped IPv6
+ * loopback — see the "SSRF mitigation" section of the design doc), but the
+ * host boundary and intent check live with the plugin author.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -83,12 +94,28 @@ function walk(
     }
   }
 
-  const items = asRecord(schemaObj.items);
-  if (items && Array.isArray(value)) {
-    value.forEach((item, index) => {
-      walk(pluginId, items, item, `${path}[${index}]`, out);
+  // `items` may be either a schema (uniform arrays) or an array of schemas
+  // (tuple-style). Handle both so plugins that reach for either form still
+  // get their `x-allowed-host` fields resolved instead of silently skipped.
+  const itemsRaw = schemaObj.items;
+  if (Array.isArray(itemsRaw) && Array.isArray(value)) {
+    itemsRaw.forEach((tupleSchema, index) => {
+      walk(pluginId, tupleSchema, (value as unknown[])[index], `${path}[${index}]`, out);
     });
+  } else {
+    const items = asRecord(itemsRaw);
+    if (items && Array.isArray(value)) {
+      value.forEach((item, index) => {
+        walk(pluginId, items, item, `${path}[${index}]`, out);
+      });
+    }
   }
+
+  // Intentionally does not walk `allOf` / `oneOf` / `anyOf` — schema
+  // composition is rare on credentials/config shapes and the extra recursion
+  // is not worth the complexity. A plugin using composition keywords to
+  // declare an `x-allowed-host` field would silently lose the allowlist
+  // entry; authors that need it should hoist the flag to the outer schema.
 }
 
 /**
