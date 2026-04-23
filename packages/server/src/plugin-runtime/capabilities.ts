@@ -673,6 +673,143 @@ export const ContinueWatchingV1 = defineCapability({
   },
 });
 
+// ─── playbackSessions@v1 shared shapes ───────────────────────────────────────
+
+const sessionTranscodingDecision = z.enum(["direct-play", "copy", "transcode"]);
+
+const sessionState = z.enum(["playing", "paused", "buffering"]);
+
+const sessionTranscoding = z.object({
+  videoDecision: sessionTranscodingDecision,
+  audioDecision: sessionTranscodingDecision,
+  /** Target bitrate in kbps when the server is transcoding. */
+  targetBitrate: z.number().optional(),
+  /** Server-reported reason for the transcode (e.g. "audio codec mismatch"). */
+  reason: z.string().optional(),
+});
+
+// Server-local user identity. Distinct from the media-manager user running the
+// query — a Plex home-user or a Jellyfin managed user may be the one actually
+// playing, even though the connection is authed as the owning account. Plugins
+// MUST only return sessions for users the connection is allowed to see and
+// MUST drop sessions from other accounts even when the underlying token could
+// see them (see design doc for per-server filtering rules).
+const sessionUser = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+const sessionEntry = z.object({
+  sessionId: z.string().min(1),
+  deviceName: z.string(),
+  /** e.g. "Plex for iOS", "Jellyfin Web"; absent when the server does not expose it. */
+  clientName: z.string().optional(),
+  user: sessionUser,
+  item: libraryItemSchema,
+  progressMs: z.number(),
+  durationMs: z.number(),
+  state: sessionState,
+  transcoding: sessionTranscoding.optional(),
+  /** ISO timestamp playback started on this session. */
+  startedAt: z.string(),
+});
+
+export type SessionEntry = z.infer<typeof sessionEntry>;
+
+const getSessionsInput = z.object({});
+
+const stopSessionInput = z.object({
+  sessionId: z.string().min(1),
+  /** Optional human-readable reason surfaced to the player (Jellyfin only). */
+  reason: z.string().optional(),
+});
+
+// "forced" — Plex terminates server-side and the session disappears on next
+// getSessions. "requested" — Jellyfin sends a remote-control command that the
+// client may ignore if offline/unresponsive. UIs should phrase the
+// confirmation accordingly instead of assuming an immediate hard stop.
+const stopSessionSemantics = z.enum(["forced", "requested"]);
+
+const stopSessionOutput = z.object({
+  ok: z.boolean(),
+  semantics: stopSessionSemantics,
+});
+
+/**
+ * playbackSessions@v1 — currently-playing sessions across the user's media
+ * servers, plus a per-session stop action. Transcoding details ride inline on
+ * each session so a dedicated `transcoding@v1` capability is unnecessary.
+ *
+ * Distinct from `playback@v1`, which returns historical resume positions from
+ * sync APIs (Trakt). Sessions here are live, server-observed, and short-lived.
+ *
+ * No `mcpTools` in this revision — they land with the Plex/Jellyfin plugin
+ * implementations (#22, #23).
+ */
+export const PlaybackSessionsV1 = defineCapability({
+  id: "playbackSessions",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 30,
+  negativeCacheTtlSec: 15,
+  defaultTimeoutMs: 15_000,
+  methods: {
+    getSessions: method(getSessionsInput, z.array(sessionEntry)),
+    stopSession: method(stopSessionInput, stopSessionOutput, {
+      invalidates: ["playbackSessions@v1"],
+    }),
+  },
+});
+
+// ─── libraryAdmin@v1 shared shapes ───────────────────────────────────────────
+
+const refreshLibraryInput = z.object({
+  /**
+   * Server-local section id. When omitted, the plugin refreshes all sections
+   * it can see (Plex: iterates sections with force=1; Jellyfin: hits the
+   * server-wide `/Library/Refresh`).
+   */
+  librarySectionId: z.string().optional(),
+});
+
+const refreshItemInput = z.object({
+  /** Server-local item id (Plex ratingKey, Jellyfin itemId). */
+  serverItemId: z.string().min(1),
+});
+
+// Both operations are fire-and-forget: the backing endpoints return empty
+// bodies with no scan id or progress handle, so the contract is only "the
+// server accepted the request". Intentionally no `invalidates` — invalidating
+// libraryAvailability@v1 here would surface stale re-fetches until the scan
+// actually completes server-side, which can take seconds to minutes. Hosts
+// that need to force a fresh read after a refresh should do so explicitly.
+const refreshOutput = z.object({ ok: z.boolean() });
+
+/**
+ * libraryAdmin@v1 — trigger server-side rescan / metadata refresh on demand.
+ * Intended caller is the host itself, invoked after a successful
+ * `mediaRequest@v1` fulfilment so the new file lands in the library without
+ * waiting on the periodic scan. That host wiring is tracked as a follow-up
+ * (see issue #21) — this packet only declares the capability contract.
+ *
+ * No `mcpTools` in this revision — they land with the Plex/Jellyfin plugin
+ * implementations (#22, #23).
+ */
+export const LibraryAdminV1 = defineCapability({
+  id: "libraryAdmin",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 30,
+  negativeCacheTtlSec: 15,
+  defaultTimeoutMs: 30_000,
+  methods: {
+    refreshLibrary: method(refreshLibraryInput, refreshOutput),
+    refreshItem: method(refreshItemInput, refreshOutput),
+  },
+});
+
 /** collection@v1 — user's owned/collected library. */
 export const CollectionV1 = defineCapability({
   id: "collection",
@@ -712,6 +849,8 @@ export const CAPABILITY_CATALOG = {
   "collection@v1": CollectionV1,
   "libraryAvailability@v1": LibraryAvailabilityV1,
   "continueWatching@v1": ContinueWatchingV1,
+  "playbackSessions@v1": PlaybackSessionsV1,
+  "libraryAdmin@v1": LibraryAdminV1,
 } as const;
 
 export type CapabilityKey = keyof typeof CAPABILITY_CATALOG;
