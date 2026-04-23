@@ -4,6 +4,7 @@ import tmdbPlugin from "./tmdb/plugin";
 import tvdbPlugin from "./tvdb/plugin";
 import seerrPlugin from "./seerr/plugin";
 import jellyfinPlugin from "./jellyfin/plugin";
+import plexPlugin from "./plex/plugin";
 
 /**
  * Registers all built-in plugin modules with the loader. Called once during server boot
@@ -38,5 +39,10 @@ export function registerBuiltinPlugins(): void {
     id: jellyfinPlugin.manifest.id,
     module: jellyfinPlugin,
     bytes: `builtin:${jellyfinPlugin.manifest.id}@${jellyfinPlugin.manifest.version}`,
+  });
+  registerBuiltin({
+    id: plexPlugin.manifest.id,
+    module: plexPlugin,
+    bytes: `builtin:${plexPlugin.manifest.id}@${plexPlugin.manifest.version}`,
   });
 }

@@ -6,6 +6,7 @@ import tmdbPlugin from "../../plugins/builtin/tmdb/plugin";
 import tvdbPlugin from "../../plugins/builtin/tvdb/plugin";
 import seerrPlugin from "../../plugins/builtin/seerr/plugin";
 import jellyfinPlugin from "../../plugins/builtin/jellyfin/plugin";
+import plexPlugin from "../../plugins/builtin/plex/plugin";
 
 const tmdbManifest: PluginManifest = tmdbPlugin.manifest;
 
@@ -38,6 +39,11 @@ describe("built-in plugins pass loader validation", () => {
   it("jellyfin", async () => {
     await expect(
       validatePluginModule(jellyfinPlugin, `builtin:${jellyfinPlugin.manifest.id}`),
+    ).resolves.toBeDefined();
+  });
+  it("plex", async () => {
+    await expect(
+      validatePluginModule(plexPlugin, `builtin:${plexPlugin.manifest.id}`),
     ).resolves.toBeDefined();
   });
 });
@@ -98,5 +104,29 @@ describe("tvdb manifest", () => {
 describe("seerr manifest", () => {
   it("exposes mediaRequest as a user-scoped capability", () => {
     expect(seerrPlugin.manifest.capabilities.mediaRequest?.scope).toBe("user");
+  });
+});
+
+describe("plex manifest", () => {
+  it("uses oauth_device auth and is not poolable", () => {
+    expect(plexPlugin.manifest.auth.kind).toBe("oauth_device");
+    expect(plexPlugin.manifest.poolable).toBe(false);
+  });
+
+  it("declares only a plex.tv static allow-floor; per-connection URLs arrive via x-allowed-host", () => {
+    expect(plexPlugin.manifest.allowedHosts).toEqual(["plex.tv"]);
+    const props = (plexPlugin.manifest.userConfigSchema as { properties: Record<string, unknown> })
+      .properties;
+    const ext = props["externalServerUrl"] as Record<string, unknown>;
+    const int = props["internalServerUrl"] as Record<string, unknown>;
+    expect(ext["x-allowed-host"]).toBe(true);
+    expect(int["x-allowed-host"]).toBe(true);
+    expect(int["x-private"]).toBe(true);
+  });
+
+  it("declares every capability as user-scoped, including idResolve", () => {
+    for (const [name, cap] of Object.entries(plexPlugin.manifest.capabilities)) {
+      expect([name, cap.scope]).toEqual([name, "user"]);
+    }
   });
 });
