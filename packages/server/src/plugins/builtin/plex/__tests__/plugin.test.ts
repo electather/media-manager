@@ -749,6 +749,38 @@ describe("plex libraryAdmin", () => {
     expect(ctx.calls[0]?.url).not.toContain("force=1");
   });
 
+  it("refreshLibrary without a section id signals the pool when any section returns 429", async () => {
+    // `Promise.allSettled` over `plexServerFetch` swallows 429 into a
+    // `fulfilled` result (the fetch never throws), so the post-settle
+    // scan must notice it and call `ctx.pool.markExhausted`. `ok` still
+    // reflects the aggregate success/failure of the refresh.
+    let exhausted = 0;
+    const ctx = makeCtx(
+      [
+        jsonRes({
+          MediaContainer: {
+            Directory: [
+              { key: "1", title: "Movies", type: "movie" },
+              { key: "2", title: "TV", type: "show" },
+            ],
+          },
+        }),
+        statusRes(200),
+        statusRes(429),
+      ],
+      {
+        pool: {
+          markExhausted() {
+            exhausted += 1;
+          },
+        },
+      },
+    );
+    const r = (await cap.refreshLibrary!(ctx, {})) as { ok: boolean };
+    expect(r.ok).toBe(false);
+    expect(exhausted).toBe(1);
+  });
+
   it("refreshItem uses PUT /library/metadata/{id}/refresh", async () => {
     const ctx = makeCtx([statusRes(200)]);
     const r = (await cap.refreshItem!(ctx, { serverItemId: "555" })) as { ok: boolean };

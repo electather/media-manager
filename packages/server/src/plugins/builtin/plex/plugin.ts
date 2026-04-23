@@ -944,6 +944,16 @@ export default definePlugin({
             ),
           ),
         );
+        // Consistency with the single-section path: if any refresh came back
+        // 429, the pool must hear about it so subsequent calls back off,
+        // even though `Promise.allSettled` swallows the 429 into a
+        // `fulfilled` result. `ok` still reflects the aggregate success.
+        const rateLimited = results.find((r) => r.status === "fulfilled" && r.value.status === 429);
+        if (rateLimited && rateLimited.status === "fulfilled") {
+          const retryAfterSec =
+            Number(rateLimited.value.headers.get("Retry-After") ?? 0) || undefined;
+          ctx.pool.markExhausted({ retryAfterSec });
+        }
         return { ok: results.every((r) => r.status === "fulfilled" && r.value.ok) };
       },
 
