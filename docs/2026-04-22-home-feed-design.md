@@ -132,10 +132,9 @@ interface HomeLayoutResponse {
 }
 
 interface HomeRow {
-  rowId: RowKind;
+  rowId: RowKind; // serves as both the getRowContent identifier and the client-side rendering discriminant
   title: string; // "Continue Watching"
   subtitle?: string; // e.g. "Because you watched Inception" on seed rows
-  kind: RowKind; // discriminator for client rendering
   items: CompactMediaItem[]; // first page, inlined
   cursor: string | null; // null when there is no next page
   partial?: true; // aggregate dispatch had one or more plugin errors
@@ -250,16 +249,18 @@ interface LayoutSignals {
 
 **Per-signal sources:**
 
-| Signal                  | Source                                                                                                                                                                                       | Cost         |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| `hasXPlugin`            | `service_connections` JOIN capability registry; per-user cached                                                                                                                              | cache read   |
-| `inProgressCount`       | `MediaService.getInProgressCount(userId)` — thin read-through over watchHistory cache                                                                                                        | cache read   |
-| `watchlistCount`        | `MediaService.getWatchlistCount(userId)` — same pattern                                                                                                                                      | cache read   |
-| `calendarProgressCount` | Derived from in-progress set + at-least-one-future-episode check                                                                                                                             | cache read   |
-| `profileConfidence`     | `preference_profiles.confidence` for media_type="combined"; `"none"` if row missing                                                                                                          | indexed read |
-| `recentSeed`            | `feedback_log` LIMIT 1 WHERE `action IN ("like", "rate") AND (action != "rate" OR rating >= 8) AND created_at > now-30d`, indexed; fallback to most-recent-completed from watchHistory cache | indexed read |
+| Signal                  | Source                                                                                                                                                                                                                       | Cost         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `hasXPlugin`            | `service_connections` JOIN capability registry; per-user cached                                                                                                                                                              | cache read   |
+| `inProgressCount`       | `MediaService.getInProgressCount(userId)` — thin read-through over watchHistory cache                                                                                                                                        | cache read   |
+| `watchlistCount`        | `MediaService.getWatchlistCount(userId)` — same pattern                                                                                                                                                                      | cache read   |
+| `calendarProgressCount` | Derived from in-progress set + at-least-one-future-episode check (see "Calendar cold-cache" below)                                                                                                                           | cache read   |
+| `profileConfidence`     | `preference_profiles.confidence` for media_type="combined"; `"none"` if row missing                                                                                                                                          | indexed read |
+| `recentSeed`            | `feedback_log` `ORDER BY created_at DESC LIMIT 1` WHERE `action IN ("like", "rate") AND (action != "rate" OR rating >= 8) AND created_at > now-30d`, indexed; fallback to most-recent-completed-within-60d from watchHistory | indexed read |
 
 The three new `MediaService` count methods (`getInProgressCount`, `getWatchlistCount`, `getCalendarProgressCount`) are thin read-through wrappers over data already cached at the capability layer. One method each, no new capability. Detailed in §8.
+
+**Calendar cold-cache.** `calendarProgressCount` is "cache read" only when the calendar data is warm. Calendar's TTL is 1h versus watchHistory's 5min, so the calendar cache is the more likely cold one. If `getCalendarProgressCount` would have to trigger a live aggregate fetch to satisfy the derivation, the signal returns `0` instead and logs. This drops `upcomingForYou` from the current layout; it reappears on the next `getLayout` once the calendar cache warms (via either the normal calendar refresh cycle or another row's fetch). Preserves the <50ms signal-snapshot budget at the cost of one potentially-missed row on the very first cold call after a calendar TTL expiry.
 
 ### Candidate row set
 
@@ -328,11 +329,13 @@ After per-row fetches complete, drop any row whose `items` came back empty. Hand
 
 ```ts
 function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
-  return rows.filter((r) => r.items.length > 0 || r.rowId === "upcomingForYou");
+  return rows.filter(
+    (r) => r.items.length > 0 || (r.rowId === "upcomingForYou" && r.outcome === "ok_empty"),
+  );
 }
 ```
 
-`upcomingForYou` is exempt because "No upcoming episodes for your shows" is meaningful information a user was looking for; removing the row entirely would be more confusing than showing it empty.
+`upcomingForYou` is exempt **only when the fetch succeeded and genuinely returned zero items** — "No upcoming episodes for your shows" is meaningful information the user was looking for. When the row timed out or all calendar plugins errored, we drop the row like any other: an empty timeout-row carries a different semantic ("no data available right now") than a genuine empty ("you're caught up"), and rendering the "caught up" copy for a plugin outage is wrong. The `outcome` field on the per-row fetch result distinguishes `ok_empty` from `timeout` / `all_failed`.
 
 ### A/B hook
 
@@ -384,6 +387,7 @@ Every row batches `status` via a single `mediaRequest@v1.getStatusBatch` call pe
 - Within-row dedupe by `(tmdbId, mediaType)`; most-recent-progress wins when two plugins report overlapping items.
 - No PreferenceEngine re-rank. The in-progress list is not a discovery surface.
 - Ordering: most-recently-watched first.
+- `progress` field handling: the fetcher omits `progress` entirely on items where `duration_ms` is missing, zero, or negative. Protects the client from divide-by-zero on live content, specials, or shorts where the plugin couldn't supply a runtime. Items without `progress` are still included in the row.
 
 **`recommendedForYou`**
 
@@ -407,6 +411,7 @@ Every row batches `status` via a single `mediaRequest@v1.getStatusBatch` call pe
 - Seed selection lives in `signals.ts`, not in this row's fetcher, because the same signal is consumed by candidate filtering in the layout layer.
 - Seed can go stale mid-session (user rates something higher five minutes later). Acceptable — next `getLayout` picks up the new seed.
 - TMDB `/similar` is paginated by `page`; trivial cursor.
+- Cross-row exclusion: the fetcher excludes any item whose `(tmdbId, mediaType)` is in the user's current in-progress set (the same set `continueWatching` is built from, already available as a signal). Recommending something the user is actively watching is jarring — "Because you watched Inception: Inception" is the degenerate case, but "Because you watched Inception: The Matrix (which you're also 40% through)" is the real one this rule catches. Trending + New Releases overlap is deliberately not filtered — same content in different editorial contexts is acceptable; in-progress-in-a-discovery-row is not.
 
 **`upcomingForYou`**
 
@@ -488,7 +493,9 @@ class RequestScopedLoader {
 Two methods deserve special handling:
 
 - **`getMetadata`** — straight memoization. Two rows needing the same title share one underlying call.
-- **`getStatusBatch`** — microtask-level coalescing. Each row calls `loader.getStatusBatch(rowItems)` during its fetch; the loader collects all calls in the same microtask, unions the id set, fires one `mediaRequest@v1.getStatusBatch`, splits the response back out per caller.
+- **`getStatusBatch`** — microtask-level coalescing. Each row calls `loader.getStatusBatch(rowItems)` during its fetch; the loader collects all calls that arrive in the _same microtask_ and flushes on the next one (specifically via `queueMicrotask()`, same primitive the `dataloader` npm package uses). It unions the id set, fires one `mediaRequest@v1.getStatusBatch`, and splits the response back out per caller. Flushing on microtask (rather than `setImmediate` / `setTimeout(0)`) keeps coalescing latency inside sub-millisecond territory and avoids introducing a deferral large enough to be observable in row timings.
+
+**Status call timeout budget.** The coalesced `getStatusBatch` call has its own 1s cap (tighter than the 3s per-row cap, since status is an enrichment and rows should not sacrifice their entire budget to it). On timeout or full failure, all items in the caller rows have `status` omitted. `partial: true` is _not_ set for this case — status is not core row content, and the feed already tolerates `status === undefined` via the "unknown" fallback path in the frontend. Genuine aggregate partial failures from the underlying `mediaRequest@v1.getStatusBatch` (some plugins erroring while others return data) still surface status for items where at least one plugin responded.
 
 Other `MediaService` methods are not wrapped by the dataloader — they have narrower cross-row overlap, and the `MediaService` LRU handles repeats at request granularity well enough.
 
@@ -510,21 +517,44 @@ Opaque base64-encoded JSON, versioned. Three variants plus a combined page+exclu
 { v: 1, r: "recommendedForYou", p: 2, x: ["movie:550", "tv:1396", ...] }
 ```
 
-Validation on `getRowContent`:
+**`upcomingForYou` `ts` field.** An item in `upcomingForYou` represents one upcoming _episode_ of an in-progress show. Multiple upcoming episodes of the same show share `tmdbId` but differ in `airsAt`. `ts` carries the `airsAt` of the last returned item in the previous page; server pagination uses `(tmdbId, airsAt) > (cursor.a, cursor.ts)` as the composite ordering key for the next page. Without `ts`, a show with four upcoming episodes would either return duplicates across pages or skip episodes.
 
-- `v !== 1` → `home.bad_input`.
-- Cursor's `r` doesn't match input `rowId` → `home.bad_input`.
-- Required fields for the row's variant missing → `home.bad_input`.
-- Cursor decodes to an offset/page beyond `maxItems` → `{ items: [], cursor: null }` (graceful stop, not an error).
-- Cursor past end of underlying data → same graceful stop.
+### Cursor validation
 
-Cursors do not expire. If underlying data shifts between pages (new watchlist items added, rankings refresh), the user may see slight inconsistencies on scroll. Acceptable for a home feed; this discipline is deliberately row-local and not applied elsewhere in the system.
+Cursors are untrusted client input. Every decode runs a Zod schema _before any business logic touches the payload_. The schema enforces:
+
+- `v === 1`.
+- `r` is one of the `RowKind` enum values.
+- Variant-appropriate fields present and typed: `p` is a non-negative integer capped at `maxItems / pageSize`; `o` is a non-negative integer capped at `maxItems`; `a` matches the `movie:NNN` / `tv:NNN` pattern; `ts` is a positive integer ms epoch; `x` is a string array with `items <= maxItems` (60) and each entry matching the media-id pattern.
+- No extra keys (strict parsing).
+
+Decode outcomes:
+
+| Outcome                                                     | Result                                                      |
+| ----------------------------------------------------------- | ----------------------------------------------------------- |
+| Malformed base64 / non-JSON / fails Zod validation          | `home.bad_input`                                            |
+| Cursor's `r` doesn't match the `rowId` in the request input | `home.bad_input`                                            |
+| Decoded page/offset lies beyond `maxItems`                  | `{ items: [], cursor: null }` — graceful stop, not an error |
+| Decoded position is past the end of underlying data         | same graceful stop                                          |
+
+The decode-side cap on `x[]` and `p`/`o` is load-bearing: a crafted cursor with 10k entries in `x` would otherwise push the row fetcher into an O(candidates × 10k) filter. Zod rejects the payload before any allocation or dispatch happens.
+
+Cursors do not expire and are **not HMAC-signed**. The risk analysis behind that choice:
+
+- The oRPC endpoint authenticates the request via session; `userId` comes from `ctx.user.id`, never from the cursor. A client cannot paginate against another user's data by replaying a captured cursor — they'd need that user's session token, at which point the cursor is the least of the concerns.
+- What a client _can_ do is craft arbitrary valid cursors for their own account. The worst this achieves within the validated payload shape is "skip to page 3 without fetching page 1" or "exclude titles I never saw" — both of which only affect the user's own view and give no access they don't already have via normal pagination.
+- The real threat from untrusted cursor input is decode-time DoS (crash on malformed input, memory pressure from oversized payloads). Zod validation + hard length caps handle that directly.
+- HMAC signing would add secret management, rotation, and per-request CPU cost to solve an attack the session-auth boundary already prevents. It's been considered and deliberately not adopted.
+
+If the threat model changes later (e.g. cursor gets used as a capability token in a different surface), signing is a mechanical retrofit — encode becomes `base64(payload || hmac(secret, payload))`, decode verifies first. No cursor-shape change.
+
+Cursor semantics note: cursors are best-effort across data shifts. If the watchlist changes between pages, the user may see slight inconsistencies on scroll. Acceptable for a home feed; this discipline is deliberately row-local and not applied elsewhere in the system.
 
 ### `recommendedForYou` exclusion list
 
 Re-ranking on every page creates a risk of duplicates across scroll pages: an item ranked 15 on page 1 may rank 21 on page 2 if the profile updated in between. The cursor carries the IDs returned on prior pages and the server excludes them before responding.
 
-Bounds: exclusion list capped at `maxItems` (60). Cursor stays under ~2KB encoded. Only `recommendedForYou` uses this variant.
+Bounds: exclusion list capped at `maxItems` (60), enforced on **both encode and decode** per the cursor-validation schema above. Cursor stays under ~2KB encoded. Only `recommendedForYou` uses this variant.
 
 ### Timeouts
 
@@ -562,21 +592,22 @@ The client is responsible for the empty-state UX. It already knows the user's co
 
 ### Degradation matrix
 
-| Failure mode                                         | Row behavior                                                         |
-| ---------------------------------------------------- | -------------------------------------------------------------------- |
-| Required capability has zero connected plugins       | Row filtered out in candidate selection (pre-fetch)                  |
-| Cheap-signal count is zero                           | Row filtered out in candidate selection                              |
-| Aggregate with partial plugin failure                | Row renders with returned data + `partial: true`                     |
-| Aggregate with all plugins failing                   | Row empty; drop-empty removes it (exception: `upcomingForYou`)       |
-| Primary-with-enrichment primary fails                | Row empty; dropped                                                   |
-| `becauseYouWatched` seed doesn't resolve in metadata | Row dropped; signal clears seed for subsequent calls                 |
-| Per-row 3s timeout exceeded                          | Row treated as empty; dropped                                        |
-| `PreferenceEngine.explainMatch` fails for an item    | `matchReason` omitted on that item; row otherwise unaffected         |
-| `PreferenceEngine.rankCandidates` fails              | Fall back to upstream aggregate order; log; row still renders        |
-| Signal computation partial failure                   | Failing signal defaults (0 / `"none"`); log; layout proceeds         |
-| Signal computation total failure (DB down)           | `getLayout` throws `home.internal` (captured)                        |
-| `mediaRequest@v1.getStatusBatch` fails               | `status` omitted on items; rows otherwise unaffected                 |
-| `PreferenceEngine` entirely unavailable              | `recommendedForYou` renders via upstream order; `matchReason` absent |
+| Failure mode                                           | Row behavior                                                                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Required capability has zero connected plugins         | Row filtered out in candidate selection (pre-fetch)                                                                             |
+| Cheap-signal count is zero                             | Row filtered out in candidate selection                                                                                         |
+| Aggregate with partial plugin failure                  | Row renders with returned data + `partial: true`                                                                                |
+| Aggregate with all plugins failing                     | Row empty; drop-empty removes it (including `upcomingForYou` — see below)                                                       |
+| Aggregate returning zero items (all plugins succeeded) | Row dropped by drop-empty, **except** `upcomingForYou` which is retained with `items: []` (meaningful "you're caught up" state) |
+| Primary-with-enrichment primary fails                  | Row empty; dropped                                                                                                              |
+| `becauseYouWatched` seed doesn't resolve in metadata   | Row dropped; signal clears seed for subsequent calls                                                                            |
+| Per-row 3s timeout exceeded                            | Row treated as empty; dropped                                                                                                   |
+| `PreferenceEngine.explainMatch` fails for an item      | `matchReason` omitted on that item; row otherwise unaffected                                                                    |
+| `PreferenceEngine.rankCandidates` fails                | Fall back to upstream aggregate order; log; row still renders                                                                   |
+| Signal computation partial failure                     | Failing signal defaults (0 / `"none"`); log; layout proceeds                                                                    |
+| Signal computation total failure (DB down)             | `getLayout` throws `home.internal` (captured)                                                                                   |
+| `mediaRequest@v1.getStatusBatch` fails                 | `status` omitted on items; rows otherwise unaffected                                                                            |
+| `PreferenceEngine` entirely unavailable                | `recommendedForYou` renders via upstream order; `matchReason` absent                                                            |
 
 Principle throughout: **degrade silently at the row level, fail loudly at the infra level.** A plugin being down is product behavior; the DB being down is an incident.
 
@@ -589,6 +620,19 @@ Not promoted to a top-level response field; keeping the signal on the row preser
 ### Plugin-connection changes during a session
 
 When the user enables, disables, or removes a connection via `/connections`, subsequent `getLayout` calls reflect the new state (signals recompute, rows filter accordingly). Stale `getRowContent` cursors for a row that has since been dropped produce `home.row_unavailable`, which the client treats as "stop paginating, the row is gone." Consistent with the connection-change cache-invalidation hook from the `MediaService` doc.
+
+**Eligibility re-check on `getRowContent`.** We do **not** re-run the full `LayoutSignals` snapshot on every pagination call — a ~50ms snapshot on a horizontal-scroll request is wasted work. Instead, each `RowFetcher` declares a cheap `isEligible(userId, loader)` check using only what that row needs:
+
+- `continueWatching` — verify the user still has at least one plugin implementing `watchHistory@v1`.
+- `yourWatchlist` — verify `watchlist@v1` plugin present.
+- `upcomingForYou` — verify `calendar@v1` plugin present.
+- `recommendedForYou`, `trendingNow` — verify `recommendations@v1` plugin present (or, for RFY, profile exists).
+- `becauseYouWatched` — verify the seed tmdbId still resolves via `metadata@v1.getById`.
+- `newReleases` — always eligible; `metadata@v1` is assumed present. If not, the row fetch itself empties and the call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
+
+Plugin presence checks hit the already-cached `service_connections` ∩ capability registry table used by signals — cheap, sub-5ms. The `isEligible` contract is one method per row; implementations sit in each row fetcher file.
+
+A failed eligibility check produces `home.row_unavailable` immediately, without touching the plugin runtime. A cursor that decodes but points past data (normal end-of-pagination) still returns `{ items: [], cursor: null }` — eligibility is about "is this row still legal for this user," not "is there more content."
 
 ### Feedback events during a session
 
@@ -681,9 +725,12 @@ Row-specific additions:
 - Malformed base64 → `home.bad_input`.
 - Version mismatch → `home.bad_input`.
 - `rowId` mismatch → `home.bad_input`.
+- Zod rejects cursor with extra keys (strict parsing).
+- Exclusion-list size cap enforced on **decode** (crafted cursor with 10k entries in `x[]` → `home.bad_input`).
 - Exclusion list size cap enforced on encode.
+- `upcomingForYou` decode without `ts` → `home.bad_input`.
 
-### `HomeFeedService` integration tests
+### `HomeFeedService` integration tests (`home-feed-service.test.ts`)
 
 One test per user-state fixture:
 
@@ -692,6 +739,10 @@ One test per user-state fixture:
 - **TMDB + feedback signal, no trackers:** `newReleases` + `becauseYouWatched` + `recommendedForYou` (thin).
 - **TMDB + Trakt:** full eligible set with correct ordering per profile confidence.
 - **Full install mid-rebuild:** reads current profile; ranking reflects stale-but-valid profile; no error.
+- **Calendar cold-cache:** `calendarProgressCount` returns 0 when calendar data is cold; `upcomingForYou` dropped; no error.
+- **`upcomingForYou` timeout vs. ok-empty:** timeout → row dropped; genuine empty fetch → row retained with `items: []`.
+- **`getRowContent` eligibility re-check:** plugin removed between `getLayout` and `getRowContent` → `home.row_unavailable`; plugin still present, cursor past end → `{ items: [], cursor: null }`.
+- **Cross-row exclusion:** in-progress item does not appear in `becauseYouWatched` results.
 
 Each fixture asserts the row set, order, and which rows carry `matchReason` / `progress` / `partial`.
 
@@ -704,10 +755,12 @@ Each fixture asserts the row set, order, and which rows carry `matchReason` / `p
 ### Degradation integration
 
 - Each capability's aggregate with one plugin failing → `partial: true` on corresponding row.
-- All plugins for a capability fail → row dropped (except `upcomingForYou`).
-- `upcomingForYou` empty → row retained with `items: []`.
+- All plugins for a capability fail → row dropped (exception: `upcomingForYou` only when outcome is `ok_empty`, not on timeout/all-failed).
+- `upcomingForYou` with genuine empty fetch → row retained with `items: []`.
+- `upcomingForYou` timing out → row dropped (not retained as empty).
 - `getRowContent` for a row that became unavailable between layout calls → `home.row_unavailable`.
 - Cursor past end of data → `{ items: [], cursor: null }`, not an error.
+- `getStatusBatch` exceeds 1s budget → `status` omitted on affected items; row still returned; `partial` not set for this.
 
 ### Not tested here
 
