@@ -104,7 +104,6 @@
   },
   "catalog": {
     "@better-auth/oauth-provider": "^1.6.5",
-    "@ent-mcp/shared": "workspace:*",
     "better-auth": "^1.6.5",
     "hono": "^4.12.14",
     "typescript": "^6.0.0",
