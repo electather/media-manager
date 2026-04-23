@@ -207,12 +207,44 @@ export interface CapabilityMcpTool {
   handlerKey: string;
 }
 
+/**
+ * The scope a dispatched call is routed at.
+ *
+ * - `"global"`: one shared result across all callers; cache key is not
+ *   userId-qualified; providers register under the global scope.
+ * - `"user"`: result depends on the caller; cache key is userId-qualified;
+ *   providers register under the user scope.
+ * - `"mixed"`: the capability accepts either — providers can register under
+ *   either scope and the dispatcher chooses per-request from the input via
+ *   `scopeForInput`. Required for capabilities like `idResolve@v1` where a
+ *   `from: "tmdb"` input is global but a `from: "plex:ratingKey"` input
+ *   must resolve against a user's own Plex server.
+ */
+export type CapabilityScopeMode = "global" | "user" | "mixed";
+
+/** The resolved scope a single dispatch request is executed under. */
+export type ResolvedCapabilityScope = "global" | "user";
+
 export interface CapabilityDefinition {
   id: string;
   version: string;
   strategy: CapabilityStrategy;
-  /** `true` when output depends on the caller's identity (cache key includes userId). */
-  userScoped: boolean;
+  /**
+   * Declares how the capability is routed. `"mixed"` requires `scopeForInput`
+   * so the dispatcher can pick "global" or "user" per request.
+   */
+  scope: CapabilityScopeMode;
+  /**
+   * Required when `scope === "mixed"`. Classifies an individual input into
+   * the scope that should handle it — this drives both provider lookup
+   * (`listProviders` is indexed by scope) and cache keying (the key only
+   * gets userId-qualified when the resolved scope is "user"), so a
+   * user-scoped result can never be served from a global cache entry.
+   *
+   * Must be pure and side-effect free: it's called once per request before
+   * the cache lookup.
+   */
+  scopeForInput?: (input: unknown) => ResolvedCapabilityScope;
   /** Default positive-cache TTL applied when a call returns non-null. */
   defaultCacheTtlSec: number;
   /** TTL for null/empty results. Shorter to avoid pinning misses long-term. */

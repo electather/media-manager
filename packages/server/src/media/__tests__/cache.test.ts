@@ -39,25 +39,25 @@ describe("argsHash", () => {
 });
 
 describe("cacheKey", () => {
-  it("uses a global scope when capability is not user-scoped", async () => {
+  it("uses a global scope segment when scope is 'global'", async () => {
     const key = await cacheKey({
       capability: "metadata",
       version: "v1",
       method: "search",
       userId: "u1",
-      userScoped: false,
+      scope: "global",
       input: { query: "x" },
     });
     expect(key).toMatch(/^mv:metadata:v1:search:global:[0-9a-f]{16}$/);
   });
 
-  it("includes the user id when the capability is user-scoped", async () => {
+  it("includes the user id when scope is 'user'", async () => {
     const key = await cacheKey({
       capability: "watchHistory",
       version: "v1",
       method: "getHistory",
       userId: "alice",
-      userScoped: true,
+      scope: "user",
       input: {},
     });
     expect(key).toMatch(/^mv:watchHistory:v1:getHistory:user:alice:[0-9a-f]{16}$/);
@@ -69,11 +69,30 @@ describe("cacheKey", () => {
       version: "v1",
       method: "search",
       userId: "u1",
-      userScoped: false,
+      scope: "global" as const,
     };
     const k1 = await cacheKey({ ...base, input: { query: "a" } });
     const k2 = await cacheKey({ ...base, input: { query: "b" } });
     expect(k1).not.toBe(k2);
+  });
+
+  it("isolates two users' keys when scope is 'user' — same inputs do not collide", async () => {
+    // Regression for #29: a user-scoped result for user A must not be served
+    // to user B. Because the resolved scope is threaded into the cache key,
+    // two otherwise-identical requests differing only by userId produce
+    // different keys.
+    const base = {
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      scope: "user" as const,
+      input: { from: "plex:ratingKey", id: "12345", type: "movie" },
+    };
+    const keyA = await cacheKey({ ...base, userId: "alice" });
+    const keyB = await cacheKey({ ...base, userId: "bob" });
+    expect(keyA).not.toBe(keyB);
+    expect(keyA).toContain("user:alice");
+    expect(keyB).toContain("user:bob");
   });
 });
 

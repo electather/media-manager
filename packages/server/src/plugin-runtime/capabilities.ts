@@ -155,7 +155,7 @@ export const MetadataV1 = defineCapability({
   id: "metadata",
   version: "v1",
   strategy: "primary_with_enrichment",
-  userScoped: false,
+  scope: "global",
   defaultCacheTtlSec: DAY,
   negativeCacheTtlSec: 5 * MIN,
   defaultTimeoutMs: 15_000,
@@ -226,7 +226,7 @@ export const WatchHistoryV1 = defineCapability({
   id: "watchHistory",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,
@@ -248,7 +248,7 @@ export const WatchlistV1 = defineCapability({
   id: "watchlist",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,
@@ -267,7 +267,7 @@ export const RatingsV1 = defineCapability({
   id: "ratings",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 15 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,
@@ -288,7 +288,7 @@ export const RecommendationsV1 = defineCapability({
   id: "recommendations",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 6 * HOUR,
   negativeCacheTtlSec: 5 * MIN,
   defaultTimeoutMs: 15_000,
@@ -312,7 +312,7 @@ export const CalendarV1 = defineCapability({
   id: "calendar",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: HOUR,
   negativeCacheTtlSec: 5 * MIN,
   defaultTimeoutMs: 15_000,
@@ -326,7 +326,7 @@ export const MediaRequestV1 = defineCapability({
   id: "mediaRequest",
   version: "v1",
   strategy: "single",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 1 * MIN,
   negativeCacheTtlSec: 30,
   defaultTimeoutMs: 15_000,
@@ -445,27 +445,28 @@ export const MediaRequestV1 = defineCapability({
  * Internal-only capability: not invoked directly by callers — only by
  * MediaService id_map gap-fill.
  *
- * ⚠ **Mixed-scope, but `userScoped: false` on the host definition.** Global
- * plugins (Trakt/TMDB/TVDB) own cross-service id resolution; user-scoped
- * plugins (Plex/Jellyfin) own server-local ids (`plex:ratingKey`,
- * `jellyfin:itemId`). The capability schema accepts both scopes at the plugin
- * side, but this flag dictates dispatch routing (see `media/dispatcher.ts`)
- * and cache key scoping (see `media/cache.ts`). Keeping it `false` preserves
- * routing to global providers; flipping it would exclude them.
- *
- * Consequences until #29 lands:
- * - User-scoped `idResolve` providers are registered but unreachable via the
- *   dispatcher.
- * - The cache key for `idResolve@v1` is keyed by `(from, id, type)` only. A
- *   hypothetical server-local resolution written through this cache would be
- *   shared across users; the dispatcher gap prevents that today, and #29 must
- *   land before user-scoped `idResolve` results can be routed safely.
+ * **Mixed-scope.** Global plugins (Trakt/TMDB/TVDB) own cross-service id
+ * resolution; user-scoped plugins (Plex/Jellyfin) own server-local ids
+ * (`plex:ratingKey`, `jellyfin:itemId`). `scopeForInput` classifies the
+ * request by the `from` field: values containing `:` are server-local and
+ * route to user-scoped providers; flat id kinds (`tmdb`, `tvdb`, `trakt`,
+ * `imdb`) route globally. The dispatcher uses this classification for both
+ * provider lookup and cache keying, so a server-local resolution done for
+ * user A cannot be served back to user B from the global cache.
  */
 export const IdResolveV1 = defineCapability({
   id: "idResolve",
   version: "v1",
   strategy: "single",
-  userScoped: false,
+  scope: "mixed",
+  scopeForInput: (input) => {
+    // `from` is validated by `idResolveInput` before this runs (see
+    // `strategy` pipeline), so the type assertion is safe for well-formed
+    // requests. Defensive `typeof` guard for edge cases where validation
+    // has been bypassed (e.g. direct dispatcher calls from tests).
+    const from = (input as { from?: unknown } | null)?.from;
+    return typeof from === "string" && from.includes(":") ? "user" : "global";
+  },
   defaultCacheTtlSec: 7 * DAY,
   negativeCacheTtlSec: HOUR,
   defaultTimeoutMs: 10_000,
@@ -478,7 +479,7 @@ export const UserCommentsV1 = defineCapability({
   id: "userComments",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 15 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,
@@ -499,7 +500,7 @@ export const WatchProvidersV1 = defineCapability({
   id: "watchProviders",
   version: "v1",
   strategy: "single",
-  userScoped: false,
+  scope: "global",
   defaultCacheTtlSec: DAY,
   negativeCacheTtlSec: HOUR,
   defaultTimeoutMs: 10_000,
@@ -521,7 +522,7 @@ export const TrailersV1 = defineCapability({
   id: "trailers",
   version: "v1",
   strategy: "single",
-  userScoped: false,
+  scope: "global",
   defaultCacheTtlSec: DAY,
   negativeCacheTtlSec: HOUR,
   defaultTimeoutMs: 10_000,
@@ -535,7 +536,7 @@ export const PlaybackV1 = defineCapability({
   id: "playback",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 1 * MIN,
   negativeCacheTtlSec: 30,
   defaultTimeoutMs: 15_000,
@@ -613,7 +614,7 @@ export const LibraryAvailabilityV1 = defineCapability({
   id: "libraryAvailability",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,
@@ -664,7 +665,7 @@ export const ContinueWatchingV1 = defineCapability({
   id: "continueWatching",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,
@@ -750,7 +751,7 @@ export const PlaybackSessionsV1 = defineCapability({
   id: "playbackSessions",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 30,
   negativeCacheTtlSec: 15,
   defaultTimeoutMs: 15_000,
@@ -800,7 +801,7 @@ export const LibraryAdminV1 = defineCapability({
   id: "libraryAdmin",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 30,
   negativeCacheTtlSec: 15,
   defaultTimeoutMs: 30_000,
@@ -815,7 +816,7 @@ export const CollectionV1 = defineCapability({
   id: "collection",
   version: "v1",
   strategy: "aggregate",
-  userScoped: true,
+  scope: "user",
   defaultCacheTtlSec: 15 * MIN,
   negativeCacheTtlSec: 1 * MIN,
   defaultTimeoutMs: 15_000,

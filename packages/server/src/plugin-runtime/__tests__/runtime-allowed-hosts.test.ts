@@ -137,7 +137,7 @@ vi.mock("../capabilities", async (orig) => {
       id: "library",
       version: "v1",
       strategy: "single",
-      userScoped: true,
+      scope: "user",
       defaultCacheTtlSec: 60,
       negativeCacheTtlSec: 30,
       defaultTimeoutMs: 5_000,

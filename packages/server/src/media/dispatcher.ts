@@ -6,8 +6,7 @@ import { capabilityRegistry } from "../plugin-runtime/registry";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { getCapability } from "../plugin-runtime/capabilities";
 import { encryptJson } from "../crypto/helpers";
-import type { CapabilityScope } from "@ent-mcp/shared/plugins";
-import type { CapabilityDefinition } from "../plugin-runtime/types";
+import type { CapabilityDefinition, ResolvedCapabilityScope } from "../plugin-runtime/types";
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
 import { getPrimaryConnection } from "./primary-preference";
 import { harvestIds } from "./id-resolver";
@@ -89,16 +88,34 @@ async function invokeWithTimeout<T>(req: InvokeRequest, conn: ResolvedConnection
 }
 
 /**
- * Dispatch routes by the capability's canonical scope (the `userScoped` flag
- * on the host-side definition). The plugin manifest allows a provider to
- * declare the opposite scope (e.g. `metadata` from a personal library as
- * `scope: "user"`); those providers are not discovered by the current
- * dispatcher. If we want to support cross-scope fan-out we also need to decide
- * how results from global and user providers should be merged, which is out of
- * scope for v1.
+ * Resolves which scope a single dispatch request should execute under. This
+ * value drives two parallel lookups that MUST agree for correctness:
+ *   1. Provider enumeration (`capabilityRegistry.listProviders(…, scope)`).
+ *   2. Cache keying (`cacheKey({ …, scope })`) — a user-scoped result must
+ *      live in a userId-qualified key so it can't be served to other users.
+ *
+ * For `scope: "global"` / `"user"` capabilities this is a constant; for
+ * `"mixed"` capabilities (today: `idResolve@v1`) the capability's
+ * `scopeForInput` classifies the request — typically by looking at the
+ * input's id kind. Computed once per request and threaded through every
+ * subsequent step.
  */
-function scopeFor(capability: CapabilityDefinition): CapabilityScope {
-  return capability.userScoped ? "user" : "global";
+function scopeForRequest(
+  capability: CapabilityDefinition,
+  input: unknown,
+): ResolvedCapabilityScope {
+  if (capability.scope === "mixed") {
+    if (!capability.scopeForInput) {
+      throw new PluginCallError(
+        "plugin.call_failed",
+        `capability ${capability.id}@${capability.version} declares scope:"mixed" but has no scopeForInput classifier`,
+        "",
+        null,
+      );
+    }
+    return capability.scopeForInput(input);
+  }
+  return capability.scope;
 }
 
 /**
@@ -236,7 +253,7 @@ function cacheKeyFor(req: DispatchRequest, capability: CapabilityDefinition): Pr
     version: req.version,
     method: req.method,
     userId: req.userId,
-    userScoped: capability.userScoped,
+    scope: scopeForRequest(capability, req.input),
     input: req.input,
   });
 }
@@ -312,7 +329,7 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
   const providers = capabilityRegistry.listProviders(
     req.capability,
     req.version,
-    scopeFor(capability),
+    scopeForRequest(capability, req.input),
   );
   if (providers.length === 0) {
     throw new PluginCallError(
@@ -376,7 +393,7 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
   const providers = capabilityRegistry.listProviders(
     req.capability,
     req.version,
-    scopeFor(capability),
+    scopeForRequest(capability, req.input),
   );
   const candidates: Array<{ pluginId: string; conn: ResolvedConnection }> = [];
   for (const pluginId of providers) {
@@ -465,7 +482,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const providers = capabilityRegistry.listProviders(
     req.capability,
     req.version,
-    scopeFor(capability),
+    scopeForRequest(capability, req.input),
   );
   if (providers.length === 0) {
     return { data: null as T, errors: [] };
