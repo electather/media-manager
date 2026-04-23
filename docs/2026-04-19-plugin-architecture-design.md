@@ -7,7 +7,7 @@
 
 ## Summary
 
-The connections subsystem is being redesigned so that every service integration (Trakt, Seerr, TMDB, TVDB, and any future third-party service) is implemented as a plugin. Built-in services ship as bundled plugins in the same format as third-party ones. Capabilities are versioned, schema-validated, and discoverable at runtime, so the host can fan out feature calls (watch history, recommendations, media requests, etc.) to whichever plugins implement them.
+The connections subsystem is being redesigned so that every service integration (Trakt, Seerr, TMDB, TVDB, self-hosted media servers such as Plex and Jellyfin, and any future third-party service) is implemented as a plugin. Built-in services ship as bundled plugins in the same format as third-party ones. Capabilities are versioned, schema-validated, and discoverable at runtime, so the host can fan out feature calls (watch history, recommendations, media requests, library availability lookups, etc.) to whichever plugins implement them.
 
 > **v1 scope note:** Built-in plugins currently run as trusted TypeScript modules within the host process — there is no sandbox boundary between them and the host. The QuickJS WASM sandbox (and the third-party plugin install/update/rollback endpoints that depend on it) are deferred to a future revision. See the "Deferred to future revisions" section.
 
@@ -122,6 +122,10 @@ interface PluginManifest {
 
 **`x-secret` extension.** Properties marked `"x-secret": true` are treated as secrets by the host and frontend. The frontend renders them as masked inputs and never displays their values on connection cards. The host strips them from `connection.list` and `connection.getUserConfig` responses. On `updateUserConfig`, omitted secret fields are preserved by merging with the prior stored value rather than blanked out. `sharedCredentialsSchema` is implicitly a secret schema — the host never returns decrypted values to any API response.
 
+**`x-private` extension.** Properties marked `"x-private": true` are stored plaintext but stripped from every API response the host returns to clients. `x-private` protects operationally-sensitive-but-non-secret values (for example, a private-network server URL) from accidental client exposure without requiring the full encryption-at-rest cost of `x-secret`. The read-side behaviour mirrors `x-secret`: omitted fields on `updateUserConfig` are preserved by merging with the prior stored value, and connection-card-type responses never surface the value. A field may carry both `x-secret` and `x-private` if wanted; it is then encrypted at rest AND stripped from responses.
+
+**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` are URL-valued fields whose hostname is automatically added to the per-call `ctx.fetch` allowlist for invocations tied to that connection (user-scoped) or that shared-credentials entry (admin-scoped). This is how self-hosted services like Plex and Jellyfin can accept user-supplied server URLs that cannot be pre-declared in `manifest.allowedHosts`. The static `allowedHosts` list still applies (e.g. `plex.tv` for PIN auth) and is unioned with the dynamic set for the duration of the call. See "Self-hosted network topology".
+
 **`sdkVersion` is a hard compatibility gate.** Install fails fast with a clear error when a plugin targets an incompatible SDK.
 
 ### Derived validation rules
@@ -184,6 +188,62 @@ poolable: true
 capabilities: {
   idResolve: { version: "v1", scope: "global" },
 }
+
+// Plex — self-hosted media server, user-scoped, not poolable.
+// Each connection is a distinct Plex account linked to one or more servers the
+// account has access to. Auth uses Plex's PIN flow, which maps cleanly onto
+// oauth_device: the plugin returns a short code, the user visits plex.tv/link
+// to approve it, and the host polls until the token is issued.
+auth: { kind: "oauth_device" }
+poolable: false
+capabilities: {
+  libraryAvailability: { version: "v1", scope: "user" },
+  playback:            { version: "v1", scope: "user" },
+  playbackSessions:    { version: "v1", scope: "user" },
+  continueWatching:    { version: "v1", scope: "user" },
+  watchHistory:        { version: "v1", scope: "user" },
+  libraryAdmin:        { version: "v1", scope: "user" },
+  idResolve:           { version: "v1", scope: "user" }, // for plex:ratingKey ↔ tmdb/imdb handles
+}
+// userConfig carries:
+//   - machineIdentifier:     chosen from the list returned by
+//                            plex.tv/api/v2/resources after auth.
+//   - externalServerUrl:     public URL the user's browser can reach (used for
+//                            playerLink / webLink). Required.
+//   - internalServerUrl?:    private URL the host uses for server-to-server
+//                            fetches when set (e.g. http://plex:32400 inside a
+//                            docker network). Optional; falls back to
+//                            externalServerUrl. Never surfaced to the client.
+// See "Self-hosted network topology" for the two-URL rationale.
+
+// Jellyfin — self-hosted media server, user-scoped, not poolable.
+// Each connection is a distinct (serverUrl, username) pair, so admins running
+// a shared family Jellyfin still get one row per user.
+auth: { kind: "form" }
+poolable: false
+capabilities: {
+  libraryAvailability: { version: "v1", scope: "user" },
+  playback:            { version: "v1", scope: "user" },
+  playbackSessions:    { version: "v1", scope: "user" },
+  continueWatching:    { version: "v1", scope: "user" },
+  watchHistory:        { version: "v1", scope: "user" },
+  libraryAdmin:        { version: "v1", scope: "user" },
+  idResolve:           { version: "v1", scope: "user" }, // for jellyfin:itemId ↔ tmdb/imdb handles
+}
+// userConfig:
+//   - externalServerUrl:   public URL (used for playerLink / webLink). Required.
+//   - internalServerUrl?:  private URL used for host-side fetches when set.
+//                          Optional; falls back to externalServerUrl.
+//   - username
+//   - userId:              Jellyfin user id, resolved and cached by startAuth via
+//                          /Users/Me. Non-secret, non-editable — stored so every
+//                          subsequent capability invocation can build per-user
+//                          URLs (/Users/{userId}/...) without a round-trip.
+// credentials: { accessToken } — obtained by POST /Users/AuthenticateByName
+//                                during startAuth (against internalServerUrl
+//                                when set, otherwise externalServerUrl), or
+//                                admin-provided API key.
+// See "Self-hosted network topology" for the two-URL rationale.
 ```
 
 ## Plugin entry point
@@ -225,28 +285,30 @@ export default definePlugin({
 
 The host orchestrates auth based on `manifest.auth.kind`. Plugin functions return discriminated-union status payloads; the host drives the UI.
 
+Every `status: "completed"` payload has the shape `{ status: "completed", credentials, userConfigPatch? }`. The optional `userConfigPatch` merges into the submitted `userConfig` before the `service_connections` row is written — used by plugins that resolve server-side identifiers during auth (for example Jellyfin's `userId` from `/Users/Me`) without round-tripping through the client. Keys in `userConfigPatch` must be declared on `userConfigSchema`; the host validates the merged result against the schema and rejects any key the plugin attempts to smuggle in.
+
 **`form`** (e.g. Seerr):
 
 1. Frontend collects `userConfig` fields from `userConfigSchema`.
-2. Host calls `startAuth(ctx, userConfig)`. Plugin tests the credentials and returns `{ status: "completed", credentials }`.
+2. Host calls `startAuth(ctx, userConfig)`. Plugin tests the credentials and returns `{ status: "completed", credentials, userConfigPatch? }`.
 
 **`oauth_redirect`** (standard OAuth2):
 
 1. Host calls `startAuth(ctx, null)`. Plugin returns `{ status: "redirect", url, state }`.
 2. Host stashes `state` in a `pending_auth` row keyed by a nonce.
 3. Frontend redirects user.
-4. Provider redirects back to the host callback route. Host looks up `state`, calls `completeAuth(ctx, queryParams, state)`, receives `{ status: "completed", credentials }`.
+4. Provider redirects back to the host callback route. Host looks up `state`, calls `completeAuth(ctx, queryParams, state)`, receives `{ status: "completed", credentials, userConfigPatch? }`.
 
 **`oauth_device`** (e.g. Trakt):
 
 1. Host calls `startAuth(ctx, null)`. Plugin returns `{ status: "display_code", code, verifyUrl, pollState, intervalSec }`.
 2. Host returns code + verifyUrl + nonce + intervalSec to the frontend.
 3. Frontend displays instructions, polls `connection.pollDeviceAuth(nonce)` at `intervalSec`.
-4. Each poll: host calls `pollAuth(ctx, pollState)`. Plugin returns `pending`, `completed`, or `error`.
+4. Each poll: host calls `pollAuth(ctx, pollState)`. Plugin returns `pending`, `completed` (with optional `userConfigPatch`), or `error`.
 
 **`none`**: plugin has no per-user credentials. Only legal for pure-global plugins (every capability has `scope: "global"`). No `service_connections` rows exist for these plugins; they run entirely off admin-owned shared credentials and global config.
 
-On `status: "completed"`, host encrypts the credentials, creates the `service_connections` row, auto-promotes to default if it's the first instance, and returns the connection to the frontend. **Empty-credentials rows are rejected**: if the validated credentials payload for a plugin that declares `credentialsSchema` is missing required fields or resolves to an empty object, the create is refused with a typed error rather than producing a "parked" connection.
+On `status: "completed"`, host merges `userConfigPatch` (if any) into the submitted `userConfig`, validates the merged result against `userConfigSchema`, encrypts the credentials, creates the `service_connections` row, auto-promotes to default if it's the first instance, and returns the connection to the frontend. **Empty-credentials rows are rejected**: if the validated credentials payload for a plugin that declares `credentialsSchema` is missing required fields or resolves to an empty object, the create is refused with a typed error rather than producing a "parked" connection.
 
 Credentials and device codes are never logged. `pending_auth` rows have a 15-minute TTL with a nightly sweep.
 
@@ -291,12 +353,16 @@ Enforcement by the runtime on every invocation:
 - `recommendations@v1` — personal recommendations, trending, anticipated. Typically `user` (may accept a `global` variant for anonymous trending).
 - `calendar@v1` — upcoming TV episodes and movie releases. Typically `user`.
 - `mediaRequest@v1` — request media, check availability, cancel requests. Typically `user`.
-- `idResolve@v1` — resolve one id type to others; feeds `id_map`. Typically `global`.
+- `idResolve@v1` — resolve one id type to others; feeds `id_map`. Typically `global` for metadata providers (TMDB, TVDB, Trakt), but also implemented `user`-scoped by media-server plugins to translate cross-service ids into server-local handles (`plex:ratingKey`, `jellyfin:itemId`). Server-local handles are per-server and per-account, so they cannot be global.
 - `userComments@v1` — get user's own comments. Typically `user`.
 - `watchProviders@v1` — streaming/rent/buy availability per media item per region. Typically `global`.
 - `trailers@v1` — trailer/teaser/clip videos per media item. Typically `global`.
 - `playback@v1` — cross-device resume positions. Typically `user`.
 - `collection@v1` — user's owned/collected library. Typically `user`.
+- `libraryAvailability@v1` — check whether a media item exists on a connected media server (Plex, Jellyfin), with quality details and a deep-play link. Typically `user`. Distinct from `collection@v1`, which is user-curated "I marked this as owned" state rather than ground-truth file presence on a server.
+- `playbackSessions@v1` — currently-playing sessions across the user's server: device, user, item, progress, transcoding state, plus a stop action. Typically `user`. Distinct from `playback@v1` (historical resume points) and from any future `transcoding@v1` — transcoding details ride along on the session payload so a dedicated capability is unnecessary.
+- `continueWatching@v1` — server-computed "pick up where you left off" feed, including Next Up episode stitching. Typically `user`. Distinct from `playback@v1` (raw positions) — this capability returns the server's own ranking of what to watch next, already joined to Next Up logic for TV shows, which the client does not want to reimplement.
+- `libraryAdmin@v1` — trigger library scan / metadata refresh on demand. Typically `user`, but intended to be called by the host after a `mediaRequest@v1` fulfils (so a newly-grabbed file lands in the library immediately instead of on the next periodic scan). App-layer authorisation may restrict this to admins.
 
 **Capability discipline.** A plugin that declares a capability must implement _every_ method declared on it — the loader rejects plugins with missing method implementations. If a service does not natively support a method in a capability, the plugin should either (a) not declare that capability at all, or (b) degrade gracefully (empty array / `{ ok: false }`) rather than silently ignoring the call. This keeps the routing matrix boolean — callers can assume "this plugin claims watchHistory" means every watchHistory method works on it.
 
@@ -319,6 +385,8 @@ The sections below enumerate every method on every capability. Entries marked _a
 - `getHistory({ limit?, since? })` → `HistoryEntry[]`
 - `addToHistory(items)` → `{ added }`
 - _added_ `removeFromHistory(items)` → `{ removed }` — closes the symmetry gap with `addToHistory`. Backed by Trakt `POST /sync/history/remove`.
+
+_Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/unscrobble` + `GET /status/sessions/history/all`, and Jellyfin `POST /Users/{userId}/PlayedItems/{itemId}` + `DELETE /Users/{userId}/PlayedItems/{itemId}`. Both servers operate on server-local item handles (`plex:ratingKey`, `jellyfin:itemId`), so `addToHistory` / `removeFromHistory` call the plugin's own `idResolve@v1` implementation first to translate the incoming cross-service id — see the `idResolve@v1` section below.
 
 **`watchlist@v1`** (user)
 
@@ -381,23 +449,122 @@ Backed by Trakt `/sync/playback` and `DELETE /sync/playback/:id`. Feeds the `wat
 
 Backed by Trakt `/sync/collection/*`. Answers "does the user already own this locally" as a signal distinct from `watchHistory` (seen), `watchlist` (planned), and `mediaRequest` (asked a download manager for it).
 
+**`libraryAvailability@v1`** (user, _new capability_)
+
+- `checkAvailability({ id, idType, type })` → `{ items: LibraryItem[] }` — `idType` is one of the cross-service ids (`"tmdb" | "imdb" | "tvdb"`). Server-local ids (`plex:ratingKey`, `jellyfin:itemId`) are intentionally not accepted here: if a caller already holds a server-local id they have a `LibraryItem` and do not need to re-check availability. Returns zero or more matches so multiple quality copies of the same title (e.g. 4k HDR and 1080p SDR) each surface as their own entry. Backed by Plex `/library/metadata/matches` / `/library/all?guid=...` and Jellyfin `/Users/{userId}/Items?AnyProviderIdEquals=...`.
+- `listRecentlyAdded({ type?, limit? })` → `LibraryItem[]` — server-reported recently-imported items for the authenticated user. Feeds a "new on your server" row in the UI. Backed by Plex `/library/recentlyAdded` and Jellyfin `/Users/{userId}/Items/Latest`.
+- `searchLibrary({ query, type? })` → `LibraryItem[]` — free-text search scoped to the user's library.
+
+Where `LibraryItem` is:
+
+```
+{
+  id:            string,   // server-local id (for subsequent server calls)
+  title:         string,
+  type:          "movie" | "show" | "episode",
+  season?:       number,
+  episode?:      number,
+  quality: {
+    resolution?: "4k" | "1080p" | "720p" | "sd",
+    codec?:      string,   // e.g. "h265", "h264", "av1"
+    hdr?:        "hdr10" | "dolby-vision" | "hlg" | "none",
+    bitrate?:    number,   // kbps
+  },
+  playerLink:    string,   // deep link that opens the native client on the caller's device (plex://..., jellyfin://...). MUST be built from the connection's external server URL, never the internal/docker one.
+  webLink?:      string,   // https link to the server's web UI. Same rule — always external.
+  sizeBytes?:    number,
+  durationSec?:  number,
+  addedAt:       string,   // iso timestamp the server imported the item
+}
+```
+
+Feeds the `available_on` field on the `ent_details` MCP tool output, replaces ad-hoc "do I own this already" checks, and gives the frontend a one-click "play in Plex / play in Jellyfin" affordance on any media card.
+
+**`playbackSessions@v1`** (user, _new capability_)
+
+- `getSessions()` → `SessionEntry[]` — currently-playing sessions visible to the authenticated connection. Backed by Plex `/status/sessions` (joined with `/transcode/sessions` for transcoding fields) and Jellyfin `/Sessions`. Results are always filtered to the connection's own user: Jellyfin's `/Sessions` returns server-wide sessions for admin tokens, so the plugin MUST post-filter by the cached `userConfig.userId` before returning; Plex's endpoint is already account-scoped but the plugin still drops sessions whose `User.id` does not match the connection's account id. This is a privacy guarantee, not an optimisation — never return another user's session even if the underlying token can see it.
+- `stopSession({ sessionId, reason? })` → `{ ok, semantics: "forced" | "requested" }` — ask the server to end a session. Backed by Plex `DELETE /status/sessions/terminate?sessionId=...` and Jellyfin `POST /Sessions/{id}/Playing/Stop`. The two endpoints differ: Plex terminates server-side and the session vanishes from the next `getSessions()` call, while Jellyfin sends a remote-control command to the client, which an offline or unresponsive client may ignore. The `semantics` field returns `"forced"` for Plex and `"requested"` for Jellyfin so UIs can surface the right confirmation ("stopped" vs "stop requested — may take a moment") instead of assuming immediate effect.
+
+Where `SessionEntry` is:
+
+```
+{
+  sessionId:       string,
+  deviceName:      string,
+  clientName?:     string,              // "Plex for iOS", "Jellyfin Web", ...
+  user: { id, name },                   // server-local; same user the connection is authed as, or another home/managed user
+  item:            LibraryItem,         // same shape as libraryAvailability returns
+  progressMs:      number,
+  durationMs:      number,
+  state:           "playing" | "paused" | "buffering",
+  transcoding?: {
+    videoDecision: "direct-play" | "copy" | "transcode",
+    audioDecision: "direct-play" | "copy" | "transcode",
+    targetBitrate?: number,             // kbps
+    reason?:       string,              // server-reported reason, when available
+  },
+  startedAt:       string,              // iso
+}
+```
+
+Feeds a "playing now on your server" home-feed row and a per-device kill switch. Transcoding fields let the UI surface "your phone is pulling a 12 Mbps transcode" without a separate capability.
+
+**`continueWatching@v1`** (user, _new capability_)
+
+- `getContinueWatching({ type?, limit? })` → `ContinueEntry[]` — the server's own ranking of what to resume or start next. Backed by Plex `/hubs/continueWatching` (falls back to `/library/onDeck` for older servers) and Jellyfin `/Users/{userId}/Items/Resume` merged with `/Shows/NextUp`.
+
+Where `ContinueEntry` is:
+
+```
+{
+  item:      LibraryItem,    // the thing to resume or start (episode for shows, movie for movies)
+  progressMs?: number,       // undefined when this is a "start next episode" entry with no prior position
+  nextUp?:   LibraryItem,    // for TV: the episode after `item`, when the server surfaces one
+  lastPlayedAt?: string,     // iso, for sorting alongside other feeds
+}
+```
+
+Reuses `LibraryItem` as the shared shape — no re-definition. Distinct from `playback@v1.getPositions`, which returns raw resume points from sync APIs (Trakt) rather than a curated feed.
+
+**`libraryAdmin@v1`** (user, _new capability_)
+
+- `refreshLibrary({ librarySectionId? })` → `{ ok }` — trigger a full or section-scoped rescan. Fire-and-forget: both Plex `/library/sections/{id}/refresh` (force=1 when `librarySectionId` is omitted across all sections) and Jellyfin `POST /Library/Refresh` return empty bodies and neither exposes a scan id or progress handle. Callers must not expect to poll for completion — the contract is only "the server accepted the rescan request".
+- `refreshItem({ serverItemId })` → `{ ok }` — targeted metadata refresh for a single item. Backed by Plex `PUT /library/metadata/{id}/refresh` and Jellyfin `POST /Items/{id}/Refresh`.
+
+Intended caller is the host itself, invoked on completion of a `mediaRequest@v1` fulfilment so the new file lands in the library without waiting on the periodic scan. Can also be surfaced in an admin UI.
+
+**`idResolve@v1`** — additional id-types for media servers
+
+Beyond the existing cross-service ids, this revision adds two server-local id-types:
+
+- `plex:ratingKey` — Plex's per-server item key. Resolvable to `tmdb` / `imdb` via Plex's `Guid` elements on library items. Required for `watchHistory@v1.addToHistory` on Plex (scrobble takes a `ratingKey`, not a TMDB id).
+- `jellyfin:itemId` — Jellyfin's per-server item UUID. Resolvable to `tmdb` / `imdb` via `ProviderIds` on the item. Required for `watchHistory@v1.addToHistory` on Jellyfin (`POST /Users/{userId}/PlayedItems/{itemId}`).
+
+Server-local ids are user-scoped (they only mean something against a specific connection), so the Plex and Jellyfin plugins implement `idResolve@v1` with `scope: "user"` — a deliberate departure from the "typically global" pattern on this capability.
+
+**`id_map` scoping for server-local handles.** A user with two Plex connections (two different servers) will produce two distinct `plex:ratingKey` values for the same title — the key is meaningful only against the server that issued it. The `id_map` table therefore keys server-local id rows by `(plugin_id, connection_id, id_type, id_value)` rather than the `(id_type, id_value)` pair used for global-scope ids like `tmdb:`/`imdb:`. Cross-service ids from metadata providers (TMDB, TVDB, Trakt) keep the connection-less key so they remain shareable across users; only id-types that declare themselves server-local inherit the extra dimension. The schema change is additive — the existing `id_map` columns stay, with `plugin_id` and `connection_id` added as nullable and constrained to be non-null for server-local id types.
+
 ### Built-in plugin coverage after this revision
 
-| Capability           | TMDB     | Trakt    | Seerr  | TVDB     |
-| -------------------- | -------- | -------- | ------ | -------- |
-| `metadata@v1`        | ✓ global |          |        |          |
-| `idResolve@v1`       | ✓ global | ✓ global |        | ✓ global |
-| `watchHistory@v1`    |          | ✓ user   |        |          |
-| `watchlist@v1`       |          | ✓ user   |        |          |
-| `ratings@v1`         |          | ✓ user   |        |          |
-| `recommendations@v1` |          | ✓ user   |        |          |
-| `calendar@v1`        |          | ✓ user   |        |          |
-| `mediaRequest@v1`    |          |          | ✓ user |          |
-| `userComments@v1`    |          | ✓ user   |        |          |
-| `watchProviders@v1`  | ✓ global |          |        |          |
-| `trailers@v1`        | ✓ global |          |        |          |
-| `playback@v1`        |          | ✓ user   |        |          |
-| `collection@v1`      |          | ✓ user   |        |          |
+| Capability               | TMDB     | Trakt    | Seerr  | TVDB     | Plex   | Jellyfin |
+| ------------------------ | -------- | -------- | ------ | -------- | ------ | -------- |
+| `metadata@v1`            | ✓ global |          |        |          |        |          |
+| `idResolve@v1`           | ✓ global | ✓ global |        | ✓ global | ✓ user | ✓ user   |
+| `watchHistory@v1`        |          | ✓ user   |        |          | ✓ user | ✓ user   |
+| `watchlist@v1`           |          | ✓ user   |        |          |        |          |
+| `ratings@v1`             |          | ✓ user   |        |          |        |          |
+| `recommendations@v1`     |          | ✓ user   |        |          |        |          |
+| `calendar@v1`            |          | ✓ user   |        |          |        |          |
+| `mediaRequest@v1`        |          |          | ✓ user |          |        |          |
+| `userComments@v1`        |          | ✓ user   |        |          |        |          |
+| `watchProviders@v1`      | ✓ global |          |        |          |        |          |
+| `trailers@v1`            | ✓ global |          |        |          |        |          |
+| `playback@v1`            |          | ✓ user   |        |          | ✓ user | ✓ user   |
+| `collection@v1`          |          | ✓ user   |        |          |        |          |
+| `libraryAvailability@v1` |          |          |        |          | ✓ user | ✓ user   |
+| `playbackSessions@v1`    |          |          |        |          | ✓ user | ✓ user   |
+| `continueWatching@v1`    |          |          |        |          | ✓ user | ✓ user   |
+| `libraryAdmin@v1`        |          |          |        |          | ✓ user | ✓ user   |
 
 ## Plugin context
 
@@ -406,7 +573,12 @@ The only surface a plugin can touch outside its own code. Built fresh by the hos
 ```ts
 interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
   // Networking — only way plugins reach the outside world.
-  fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts + per-plugin rate limit
+  fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts (plus per-call x-allowed-host fields) + per-plugin rate limit
+
+  // Media-manager's own public URL (APP_EXTERNAL_URL). Used by plugins to build
+  // OAuth redirect_uri values and any client-facing link-back. Never the
+  // internal/docker URL — always the one a user's browser can reach.
+  appBaseUrl: string;
 
   // Logging — tagged with plugin id, host-controlled level.
   log: { debug: Fn; info: Fn; warn: Fn; error: Fn };
@@ -755,6 +927,36 @@ The former bespoke "shared-key model" is now just an instance of the general sco
 - The manifest sets `poolable: true` for TMDB/TVDB; admins can configure multiple API keys and the host rotates/fails over automatically.
 - `personalKeyFallback` lets the admin decide how admin pool and a user's personal keys interact for user-scoped calls — without ever mixing keys across users.
 
+## Self-hosted network topology
+
+Media-manager, Plex, Jellyfin, and the browser that ultimately opens a deep link often live on three different network vantage points. A typical docker-compose deployment has media-manager reaching Plex at `http://plex:32400` over a private bridge network, while the user's phone reaches the same server at `https://plex.mydomain.com`. The two URLs are not interchangeable, and conflating them breaks silently — the host talks to Plex fine, but every `playerLink` it returns 404s on the client.
+
+The design handles this in three places.
+
+**User-configurable dual URLs on server plugins.** Plex and Jellyfin `userConfigSchema` expose:
+
+- `externalServerUrl` (required, marked `"x-allowed-host": true`) — the URL the client can reach. All `playerLink` / `webLink` values MUST be built from this. Stored plaintext in `user_config`.
+- `internalServerUrl` (optional, marked `"x-allowed-host": true` and `"x-private": true`) — the URL the host should prefer for server-to-server `ctx.fetch` calls. Falls back to `externalServerUrl` when unset. The `x-private` annotation is what keeps this value from ever appearing in an API response; the mechanism is defined once in the manifest section and reused here rather than hardcoded for this specific field.
+
+When both are set, the plugin's convention is: **fetch via internal, return external in every field that leaves the server.**
+
+**Dynamic `ctx.fetch` allowlist.** `manifest.allowedHosts` is still the static floor — `plex.tv` for Plex PIN auth, for example. For hosts that cannot be known at manifest time (any user-supplied URL), the runtime unions in the hostname of every `"x-allowed-host": true` field present on the current call's connection (or shared-credentials entry). The allowlist is recomputed per invocation, so rotating to a different connection in a pool reshapes what `ctx.fetch` can reach.
+
+**SSRF mitigation on `x-allowed-host` fields.** Self-hosted deployments require the host to reach private-network addresses (a user's `internalServerUrl: http://plex:32400` is the whole point), so a blanket RFC1918 block would defeat the design. Instead, the runtime applies a narrow blocklist to hostnames resolved from `x-allowed-host` fields before adding them to the per-call allowlist, covering the attack surfaces that have no legitimate reason to be reached from a plugin:
+
+- Cloud instance-metadata endpoints: `169.254.169.254` (AWS / GCP / Azure IMDS), `fd00:ec2::254` (IMDSv6), `100.100.100.200` (Alibaba), and `metadata.google.internal`.
+- Loopback ranges: `127.0.0.0/8` and `::1` — legitimate server URLs point to a real host in the network, not to the media-manager process itself.
+- Link-local ranges outside the metadata blocklist: `169.254.0.0/16` and `fe80::/10`.
+
+DNS resolution for `x-allowed-host` URLs happens inside the `ctx.fetch` implementation, so the runtime can apply the blocklist to the resolved address (not just the hostname string) and mitigate DNS-rebinding attempts. RFC1918 / ULA / unique-local ranges are deliberately **allowed**, because they are the expected topology for docker-compose and LAN deployments. Admins who deploy in hostile multi-tenant environments can tighten the blocklist via a host-level setting; the default is the list above.
+
+**App-level external URL for OAuth and link-backs.** The media-manager app itself has the same internal-vs-external split. OAuth providers redirect users back to the app, and "open in browser" links in emails or MCP tool outputs must resolve on the client's network. The host reads a single `APP_EXTERNAL_URL` setting (env var, surfaced to admins) and uses it for:
+
+- OAuth `redirect_uri` values the plugin returns from `startAuth` (`${APP_EXTERNAL_URL}/oauth/callback/${plugin_id}`). Plugins never construct this themselves — the runtime injects the base URL via `ctx.appBaseUrl`.
+- Any absolute link the host returns in an API response that is expected to be opened by a browser.
+
+`APP_EXTERNAL_URL` is mandatory in production. In dev it defaults to `http://localhost:<port>`. A misconfigured value fails fast: the host validates on startup that it is a well-formed absolute URL, and OAuth providers will reject a redirect URI that does not match their registered value, surfacing the mistake at the first connection attempt rather than silently.
+
 ## Preference profiles
 
 Host-owned internal state, not a plugin concern. The rebuild job reads from `watchHistory@v1`, `ratings@v1`, `metadata@v1`, and the `feedback_log` table, then writes to the existing `preference_profiles` table. No new capability.
@@ -854,3 +1056,5 @@ The following are explicitly out of scope for v1 and tracked here so they are no
 - **User-installable plugins from an admin allowlist.** Data model leaves room via a future `plugin_allowlist` table; not built in v1.
 - **Auto-update of plugins.** Manual only in v1.
 - **Marketplace / discovery.** Out of scope.
+- **`serverPlaylists@v1`.** CRUD for server-side playlists (Plex `/playlists/*`, Jellyfin `/Playlists/*`). Real value for "add to Friday movie night" flows, but does not feed the home feed directly. Revisit once a concrete consumer appears.
+- **`markers@v1` (skip-intro / skip-credits).** Plex exposes this cleanly via `Marker` elements on items; Jellyfin's intro-skip is plugin-only and unstable. Held back until Jellyfin stabilises theirs so it can ship as a cross-server capability rather than Plex-only.
