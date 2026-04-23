@@ -6,6 +6,7 @@ export interface BuildContextArgs {
   pluginId: string;
   allowedHosts: string[];
   userId: string | null;
+  appBaseUrl: string;
   credentials?: unknown;
   sharedCredentials?: unknown;
   userConfig?: unknown;
@@ -33,5 +34,6 @@ export function buildContext(args: BuildContextArgs): PluginContext {
     },
     store: buildStore(args.pluginId, args.userId),
     pool: args.pool ?? INERT_POOL,
+    appBaseUrl: args.appBaseUrl,
   };
 }

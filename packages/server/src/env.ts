@@ -16,6 +16,19 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
     ENCRYPTION_KEY: z.string().min(1),
+    /**
+     * Public-facing URL the deployment is reachable at (including scheme and
+     * any port or path prefix). Used by plugins to build OAuth redirect URIs
+     * and deep links such as `playerLink` / `webLink`. Required — startup
+     * fails fast if missing, malformed, or not `http(s)`. Any trailing slash
+     * is stripped at parse time so plugins can safely append paths.
+     */
+    APP_EXTERNAL_URL: z
+      .url()
+      .refine((url) => url.startsWith("http://") || url.startsWith("https://"), {
+        message: "APP_EXTERNAL_URL must use http or https",
+      })
+      .transform((url) => url.replace(/\/+$/, "")),
   },
   runtimeEnv: process.env,
 });

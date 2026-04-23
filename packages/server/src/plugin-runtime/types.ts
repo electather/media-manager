@@ -56,6 +56,15 @@ export interface PluginContext<
   config: { global: TGlobalCfg; user: TUserCfg };
   store: PluginStoreApi;
   pool: PoolSignalingApi;
+  /**
+   * Public-facing base URL of this deployment (e.g. `https://media.example.com`).
+   * Sourced from `APP_EXTERNAL_URL` and normalised at env-parse time: scheme
+   * is guaranteed to be `http(s)`, and any trailing slash is stripped. Plugins
+   * can safely append path segments with a leading `/` (e.g.
+   * `${ctx.appBaseUrl}/oauth/callback`) when building OAuth redirect URIs and
+   * outward-facing deep links.
+   */
+  appBaseUrl: string;
 }
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */

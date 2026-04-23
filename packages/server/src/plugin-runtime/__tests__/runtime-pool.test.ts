@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import type { PluginModule } from "../types";
 
 vi.mock("../../env", () => ({
-  env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
+  env: {
+    ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef",
+    APP_EXTERNAL_URL: "https://media.example.com",
+  },
 }));
 
 // Simple in-memory plugin row store keyed by id.
@@ -634,5 +637,33 @@ describe("pluginRuntime.invokeWithCredentials", () => {
       shared: { clientId: "cid", clientSecret: "cs" },
       creds: { accessToken: "tok" },
     });
+  });
+});
+
+describe("pluginRuntime aux paths — appBaseUrl threading", () => {
+  it("populates ctx.appBaseUrl on testConnection via buildAuxContext", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([]);
+
+    let observedBaseUrl: string | undefined;
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: {
+        ...buildUserScopedModule(async () => []),
+        testConnection: async (ctx) => {
+          observedBaseUrl = (ctx as { appBaseUrl: string }).appBaseUrl;
+          return { ok: true };
+        },
+      },
+      enabled: true,
+    });
+
+    await pluginRuntime.testConnection("trakt", "user-1", { accessToken: "tok" }, null);
+    expect(observedBaseUrl).toBe("https://media.example.com");
   });
 });
