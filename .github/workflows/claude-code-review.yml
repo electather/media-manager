@@ -58,8 +58,28 @@ jobs:
                - Inline comments where non-obvious logic appears
                - README or changelog updates where applicable
 
+            6. **Design-doc sync (BLOCKING)**
+               Each subsystem in this repo is specified by its own design
+               document under `docs/`. The PR description MUST link the
+               design document the work belongs to; code changes MUST stay
+               in sync with that document, and edits to the document live
+               in the same PR as the code.
+
+               - Find the design-doc link in the PR description.
+               - If the PR is substantive implementation work and no link
+                 is present, block and ask the author to add one.
+               - If a link is present, read the linked document and check
+                 that the code changes in this PR match it. Block when the
+                 code contradicts the document, or extends the subsystem's
+                 public surface (new capability, new field, new semantics)
+                 without a matching edit to the document in the same PR.
+                 Quote the specific passage that is stale or missing.
+               - Skip this check for pure internal refactors, test-only
+                 changes, CI/tooling edits, dependency bumps, and doc-only
+                 PRs; say so explicitly and don't demand a link.
+
             Post inline comments for specific line-level issues.
             Use a top-level PR comment for overall observations or a summary.
             Mark blocking issues clearly; flag minor suggestions as non-blocking.
 
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"'
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read(docs/**),Bash(cat docs/:*)"'
