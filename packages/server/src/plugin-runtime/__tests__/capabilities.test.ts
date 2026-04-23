@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
+import type { ManifestCapability } from "@ent-mcp/shared/plugins";
 import {
   CAPABILITY_CATALOG,
   capabilityKey,
@@ -7,6 +8,8 @@ import {
   WatchHistoryV1,
   IdResolveV1,
 } from "../capabilities";
+import { CapabilityRegistry } from "../registry";
+import type { PluginModule } from "../types";
 
 describe("capability catalog", () => {
   it("keys by id@version", () => {
@@ -82,5 +85,74 @@ describe("IdResolveV1", () => {
   it("accepts empty output", () => {
     const r = IdResolveV1.methods.resolve.output.safeParse({});
     expect(r.success).toBe(true);
+  });
+
+  it("accepts plex:ratingKey as an input `from` kind", () => {
+    const r = IdResolveV1.methods.resolve.input.safeParse({
+      from: "plex:ratingKey",
+      id: "12345",
+      type: "movie",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts jellyfin:itemId as an input `from` kind", () => {
+    const r = IdResolveV1.methods.resolve.input.safeParse({
+      from: "jellyfin:itemId",
+      id: "abc-123",
+      type: "tv",
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects unknown `from` kinds", () => {
+    const r = IdResolveV1.methods.resolve.input.safeParse({
+      from: "emby:itemId",
+      id: "1",
+      type: "movie",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("accepts local ids in the output bundle", () => {
+    const r = IdResolveV1.methods.resolve.output.safeParse({
+      tmdb: "550",
+      "plex:ratingKey": "42",
+      "jellyfin:itemId": "f00",
+    });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe("idResolve@v1 with scope: user", () => {
+  function fakeUserScopedIdResolvePlugin(id: string): PluginModule {
+    const capability: ManifestCapability = { version: "v1", scope: "user" };
+    return {
+      manifest: {
+        id,
+        name: id,
+        version: "1.0.0",
+        description: "",
+        author: { name: "test" },
+        sdkVersion: "^1.0.0",
+        allowedHosts: [],
+        credentialsSchema: { type: "object" },
+        auth: { kind: "form" },
+        capabilities: { idResolve: capability },
+      },
+      capabilities: {},
+    };
+  }
+
+  it("registers and is resolvable via the registry when declared with scope: user", () => {
+    const reg = new CapabilityRegistry();
+    reg.register({
+      pluginId: "plex",
+      module: fakeUserScopedIdResolvePlugin("plex"),
+      enabled: true,
+    });
+    expect(reg.listProviders("idResolve", "v1", "user")).toEqual(["plex"]);
+    // Does not leak across scopes.
+    expect(reg.listProviders("idResolve", "v1", "global")).toEqual([]);
   });
 });

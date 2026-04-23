@@ -109,7 +109,18 @@ const discoverFilters = z.object({
   limit: z.number().optional(),
 });
 
-const idKinds = z.enum(["tmdb", "tvdb", "trakt", "imdb"]);
+/**
+ * Id kinds accepted by `idResolve@v1`.
+ *
+ * Cross-service ids (`tmdb`, `tvdb`, `trakt`, `imdb`) are globally meaningful
+ * and typically resolved by global plugins. Server-local ids
+ * (`plex:ratingKey`, `jellyfin:itemId`) belong to a specific user's media
+ * server and are only resolvable by user-scoped plugins with access to that
+ * server.
+ */
+const idKinds = z.enum(["tmdb", "tvdb", "trakt", "imdb", "plex:ratingKey", "jellyfin:itemId"]);
+
+export type IdResolveKind = z.infer<typeof idKinds>;
 
 const idResolveInput = z.object({
   from: idKinds,
@@ -122,6 +133,8 @@ const idResolveOutput = z.object({
   tvdb: z.string().optional(),
   trakt: z.string().optional(),
   imdb: z.string().optional(),
+  "plex:ratingKey": z.string().optional(),
+  "jellyfin:itemId": z.string().optional(),
 });
 
 const MIN = 60;
