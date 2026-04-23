@@ -1,0 +1,171 @@
+import { describe, it, expect } from "vite-plus/test";
+import type { PluginContext } from "../../../../plugin-runtime/types";
+import { MediaRequestV1 } from "../../../../plugin-runtime/capabilities";
+import { validatePluginModule } from "../../../../plugin-runtime/loader";
+import seerrPlugin from "../plugin";
+
+// Contract tests: drive every declared capability method end-to-end with a
+// stubbed ctx and confirm the plugin's return value parses against the
+// capability's Zod output schema. Detailed error-path regressions for
+// cancelRequest live in `__tests__/capability-behavior.test.ts`; this file
+// covers the happy path for each declared method.
+
+interface FakeCall {
+  url: string;
+  init?: RequestInit;
+}
+
+function makeCtx(
+  responses: Array<Response | Error>,
+  overrides: Partial<PluginContext> = {},
+): PluginContext & { calls: FakeCall[] } {
+  const calls: FakeCall[] = [];
+  const ctx = {
+    calls,
+    async fetch(url: string, init?: RequestInit) {
+      calls.push({ url, init });
+      const next = responses.shift();
+      if (!next) throw new Error(`unexpected fetch: ${url}`);
+      if (next instanceof Error) throw next;
+      return next;
+    },
+    log: { debug() {}, info() {}, warn() {}, error() {} },
+    credentials: { sessionCookie: "connect.sid=xyz", userId: 1 },
+    sharedCredentials: null,
+    config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+    store: {
+      async get() {
+        return undefined;
+      },
+      async set() {},
+      async delete() {},
+    },
+    pool: { markExhausted() {} },
+    appBaseUrl: "https://app.example.com",
+    ...overrides,
+  } as unknown as PluginContext & { calls: FakeCall[] };
+  return ctx;
+}
+
+function jsonRes(body: unknown, init?: ResponseInit): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+    ...init,
+  });
+}
+
+function statusRes(status: number, body: string = ""): Response {
+  const nullBody = status === 204 || status === 205 || status === 304;
+  return new Response(nullBody ? null : body, { status });
+}
+
+describe("seerr plugin passes loader validation", () => {
+  it("validates against the manifest + capability catalog", async () => {
+    await expect(
+      validatePluginModule(seerrPlugin, `builtin:${seerrPlugin.manifest.id}`),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe("seerr capability contract", () => {
+  it("mediaRequest.checkAvailability: hits /movie/{tmdbId} and maps status", async () => {
+    const ctx = makeCtx([jsonRes({ mediaInfo: { status: 5 } })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+    });
+    expect(ctx.calls[0]?.url).toContain("/api/v1/movie/550");
+    expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.checkAvailability: hits /tv/{tmdbId} for tv input", async () => {
+    const ctx = makeCtx([jsonRes({ mediaInfo: { status: 2 } })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+      tmdbId: "1399",
+      type: "tv",
+    });
+    expect(ctx.calls[0]?.url).toContain("/api/v1/tv/1399");
+    expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.createRequest: POST /request with mediaType + mediaId", async () => {
+    const ctx = makeCtx([jsonRes({ id: 42 })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+    });
+    expect(ctx.calls[0]?.url).toContain("/api/v1/request");
+    expect(ctx.calls[0]?.init?.method).toBe("POST");
+    expect(ctx.calls[0]?.init?.body).toContain('"mediaType":"movie"');
+    expect(ctx.calls[0]?.init?.body).toContain('"mediaId":550');
+    expect(MediaRequestV1.methods.createRequest.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.createRequest (tv): forwards parsed seasons list", async () => {
+    const ctx = makeCtx([jsonRes({ id: 43 })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {
+      tmdbId: "1399",
+      type: "tv",
+      seasons: "1, 2, 3",
+    });
+    expect(ctx.calls[0]?.init?.body).toContain('"seasons":[1,2,3]');
+    expect(MediaRequestV1.methods.createRequest.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.cancelRequest: DELETE /request/{id}", async () => {
+    const ctx = makeCtx([statusRes(204)]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.cancelRequest!(ctx, {
+      requestId: "42",
+    });
+    expect(ctx.calls[0]?.url).toContain("/api/v1/request/42");
+    expect(ctx.calls[0]?.init?.method).toBe("DELETE");
+    expect(MediaRequestV1.methods.cancelRequest.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listRequests: stops on a partial first page (early-exit)", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        results: [
+          {
+            id: 1,
+            type: "movie",
+            status: 4,
+            createdAt: "2026-04-01T00:00:00.000Z",
+            media: { tmdbId: 550, title: "Fight Club" },
+          },
+        ],
+      }),
+    ]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(ctx.calls.length).toBe(1);
+    expect(ctx.calls[0]?.url).toContain("/api/v1/request?take=100&skip=0");
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listRequests: paginates when a full page comes back, accumulating across pages", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => ({
+      id: i + 1,
+      type: "movie" as const,
+      status: 4,
+      createdAt: "2026-04-01T00:00:00.000Z",
+      media: { tmdbId: 500 + i, title: `Movie ${i + 1}` },
+    }));
+    const tailPage = [
+      {
+        id: 101,
+        type: "tv" as const,
+        status: 2,
+        createdAt: "2026-04-02T00:00:00.000Z",
+        media: { tmdbId: 999, title: "Show" },
+      },
+    ];
+    const ctx = makeCtx([jsonRes({ results: fullPage }), jsonRes({ results: tailPage })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(ctx.calls.length).toBe(2);
+    expect(ctx.calls[0]?.url).toContain("skip=0");
+    expect(ctx.calls[1]?.url).toContain("skip=100");
+    expect((out as unknown[]).length).toBe(101);
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+});
