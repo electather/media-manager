@@ -8,6 +8,12 @@ import { handleHttpStatus } from "../../utils/http-status";
 
 interface JellyfinCreds {
   accessToken: string;
+  /**
+   * The user-submitted Jellyfin password, kept in the encrypted credentials
+   * blob so that it never hits the plaintext `userConfig` column. Needed on
+   * re-auth to exchange for a fresh access token after the cached one expires.
+   */
+  password: string;
 }
 
 // Pure user-scoped plugin — no `sharedCredentialsSchema` declared.
@@ -30,6 +36,24 @@ interface JellyfinUserCfg {
 interface JellyfinGlobalCfg {}
 
 type Ctx = PluginContext<JellyfinCreds, JellyfinSharedCreds, JellyfinUserCfg, JellyfinGlobalCfg>;
+
+/**
+ * Cross-service media item shape returned by capabilities like `playback@v1`
+ * and `watchHistory@v1` — distinct from the richer server-local `LibraryItem`
+ * that leaks Jellyfin-only fields. Kept at file scope so the two emitters
+ * (`getPositions` and `getHistory`) cannot drift.
+ */
+interface MediaItemShape {
+  id: string;
+  title: string;
+  year: number | null;
+  type: "movie" | "tv";
+  genres: string[];
+  rating: null;
+  overview: string;
+  posterUrl: null;
+  ids: Record<string, string | undefined>;
+}
 
 // Stable client identity sent to Jellyfin on every request. Jellyfin uses this
 // to attribute sessions + log-in audits; keeping it constant makes it easier
@@ -251,15 +275,13 @@ function mapResolution(
   return undefined;
 }
 
-function buildPlayerLink(externalBase: string, itemId: string): string {
-  // Jellyfin official clients open the web UI directly — there is no
-  // registered custom scheme on most platforms. `#!/details?id=…&serverId=…`
-  // is what `jellyfin-web` itself routes to, so passing it through the
-  // configured external URL lands the caller on the same detail view.
-  return `${externalBase}/web/index.html#!/details?id=${encodeURIComponent(itemId)}`;
-}
-
-function buildWebLink(externalBase: string, itemId: string): string {
+// Jellyfin official clients open the web UI directly — there is no
+// registered custom scheme on most platforms. `#!/details?id=…` is what
+// `jellyfin-web` itself routes to, so passing it through the configured
+// external URL lands the caller on the same detail view. `playerLink` and
+// `webLink` currently share this URL; kept as a single helper until a
+// platform-specific scheme (e.g. mobile app deep link) is wired.
+function buildItemUrl(externalBase: string, itemId: string): string {
   return `${externalBase}/web/index.html#!/details?id=${encodeURIComponent(itemId)}`;
 }
 
@@ -284,8 +306,8 @@ function mapLibraryItem(item: JellyfinItem, externalBase: string): LibraryItem |
     title: item.Name,
     type,
     quality: mapQuality(item),
-    playerLink: buildPlayerLink(externalBase, item.Id),
-    webLink: buildWebLink(externalBase, item.Id),
+    playerLink: buildItemUrl(externalBase, item.Id),
+    webLink: buildItemUrl(externalBase, item.Id),
     addedAt: item.DateCreated ?? new Date(0).toISOString(),
   };
   if (type === "episode") {
@@ -336,7 +358,10 @@ export default definePlugin({
         password: {
           type: "string",
           title: "Password",
+          description:
+            "Collected from the form and promoted into the encrypted credentials blob by startAuth; never persisted in userConfig.",
           "x-secret": true,
+          writeOnly: true,
         },
         userId: {
           type: "string",
@@ -345,15 +370,20 @@ export default definePlugin({
           readOnly: true,
         },
       },
-      required: ["externalServerUrl", "username", "password"],
+      // `password` is required on initial create only — it is stripped from
+      // persisted userConfig by startAuth's `userConfigPatch: { password: null }`
+      // after being moved into the encrypted credentials blob, so re-auth
+      // reads it from `ctx.credentials` rather than from userConfig.
+      required: ["externalServerUrl", "username"],
       additionalProperties: false,
     },
     credentialsSchema: {
       type: "object",
       properties: {
         accessToken: { type: "string" },
+        password: { type: "string" },
       },
-      required: ["accessToken"],
+      required: ["accessToken", "password"],
     },
     auth: { kind: "form" },
     capabilities: {
@@ -368,6 +398,9 @@ export default definePlugin({
       // becomes reachable automatically once that lands.
       idResolve: { version: "v1", scope: "user" },
     },
+    // Jellyfin access tokens are per-user; there are no admin-owned shared
+    // credentials to pool/rotate across users, so the shared-credentials pool
+    // does not apply here.
     poolable: false,
   },
 
@@ -380,7 +413,13 @@ export default definePlugin({
         devMessage: "externalServerUrl is required",
       };
     }
-    if (!cfg.username || !cfg.password) {
+    // On re-auth the form does not resubmit the password (it is not stored in
+    // userConfig — the host-side plumbing keeps it in the encrypted credentials
+    // blob). Fall back to the prior password the host rehydrates via
+    // ctx.credentials so a userConfig edit doesn't require re-entering it.
+    const priorCreds = ctx.credentials as JellyfinCreds | null;
+    const password = cfg.password ?? priorCreds?.password;
+    if (!cfg.username || !password) {
       return {
         status: "error",
         code: "plugin.input_invalid",
@@ -401,7 +440,7 @@ export default definePlugin({
         // header even before we have a token.
         Authorization: `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
       },
-      body: JSON.stringify({ Username: cfg.username, Pw: cfg.password }),
+      body: JSON.stringify({ Username: cfg.username, Pw: password }),
     });
 
     if (authRes.status === 401 || authRes.status === 403) {
@@ -433,10 +472,9 @@ export default definePlugin({
 
     // Resolve the caller's Jellyfin user id so every subsequent capability
     // call can build `/Users/{userId}/...` routes without a round-trip.
-    // `AuthenticateByName` returns a `User.Id` already, but we call
-    // `/Users/Me` anyway to keep the flow consistent with how refresh /
-    // re-verify should work: the cached userId is whatever the server says
-    // `this token represents` right now.
+    // `AuthenticateByName` usually returns `User.Id` inline; fall back to
+    // `/Users/Me` only when the auth response omits it, so the cached userId
+    // is always whatever the server says the current access token represents.
     let userId = body.User?.Id;
     if (!userId) {
       const meRes = await ctx.fetch(`${base}/Users/Me`, {
@@ -455,8 +493,10 @@ export default definePlugin({
 
     return {
       status: "completed",
-      credentials: { accessToken: body.AccessToken } satisfies JellyfinCreds,
-      userConfigPatch: { userId },
+      credentials: { accessToken: body.AccessToken, password } satisfies JellyfinCreds,
+      // `password: null` strips the submitted password from the persisted
+      // userConfig — it now lives in the encrypted credentials blob instead.
+      userConfigPatch: { userId, password: null },
     };
   },
 
@@ -620,17 +660,6 @@ export default definePlugin({
         // server did not record a `LastPlayedDate` — the schema requires a
         // string, and an empty string would still validate but "epoch" reads
         // as "unknown" more honestly.
-        type MediaItemShape = {
-          id: string;
-          title: string;
-          year: number | null;
-          type: "movie" | "tv";
-          genres: string[];
-          rating: null;
-          overview: string;
-          posterUrl: null;
-          ids: Record<string, string | undefined>;
-        };
         const results: Array<{
           item: MediaItemShape;
           progress: number;
@@ -704,7 +733,16 @@ export default definePlugin({
         const cfg = getUserCfg(typedCtx);
         const cachedUserId = getUserId(typedCtx);
         const externalBase = getExternalBase(cfg);
-        const sessions = await jellyfinJson<JellyfinSession[]>(typedCtx, `/Sessions`);
+        // Server-side filter so large servers don't return every session over
+        // the wire. This is a payload-size hint only — the client-side
+        // `session.UserId !== cachedUserId` check below remains the privacy
+        // guarantee, because Jellyfin's behaviour when the filter is ignored
+        // or a server returns extra entries must not leak other users'
+        // sessions.
+        const sessions = await jellyfinJson<JellyfinSession[]>(
+          typedCtx,
+          `/Sessions?controllableByUserId=${encodeURIComponent(cachedUserId)}`,
+        );
         const entries: Array<{
           sessionId: string;
           deviceName: string;
@@ -877,6 +915,10 @@ export default definePlugin({
       async getHistory(ctx, _input) {
         const typedCtx = ctx as Ctx;
         const userId = getUserId(typedCtx);
+        // Hard cap of 200 items: the capability contract doesn't yet carry
+        // pagination, and 200 is large enough for the current home-feed UX
+        // without pulling multi-megabyte responses from large libraries.
+        // Users with bigger histories will see the 200 most recently played.
         const params = new URLSearchParams({
           Recursive: "true",
           IsPlayed: "true",
@@ -891,17 +933,7 @@ export default definePlugin({
           `/Users/${userId}/Items?${params.toString()}`,
         );
         const results: Array<{
-          item: {
-            id: string;
-            title: string;
-            year: number | null;
-            type: "movie" | "tv";
-            genres: string[];
-            rating: null;
-            overview: string;
-            posterUrl: null;
-            ids: Record<string, string | undefined>;
-          };
+          item: MediaItemShape;
           watchedAt: string;
           progress: number;
         }> = [];
@@ -935,8 +967,7 @@ export default definePlugin({
         const typedCtx = ctx as Ctx;
         const items = input as Array<{ ids?: { "jellyfin:itemId"?: string } }>;
         const userId = getUserId(typedCtx);
-        let added = 0;
-        for (const it of items) {
+        const itemIds = items.map((it) => {
           const itemId = it.ids?.["jellyfin:itemId"];
           if (!itemId) {
             throw pluginError(
@@ -944,21 +975,26 @@ export default definePlugin({
               "Jellyfin.addToHistory requires `jellyfin:itemId` on every item",
             );
           }
-          const res = await jellyfinFetch(typedCtx, `/Users/${userId}/PlayedItems/${itemId}`, {
-            method: "POST",
-          });
+          return itemId;
+        });
+        // Jellyfin has no batch endpoint; fan out in parallel so an N-item
+        // call is ~N× faster than a sequential loop.
+        const responses = await Promise.all(
+          itemIds.map((itemId) =>
+            jellyfinFetch(typedCtx, `/Users/${userId}/PlayedItems/${itemId}`, { method: "POST" }),
+          ),
+        );
+        for (const res of responses) {
           handleHttpStatus(res, "Jellyfin", { on401: "plugin.token_expired" });
-          if (res.ok) added += 1;
         }
-        return { added };
+        return { added: responses.filter((r) => r.ok).length };
       },
 
       async removeFromHistory(ctx, input) {
         const typedCtx = ctx as Ctx;
         const items = input as Array<{ ids?: { "jellyfin:itemId"?: string } }>;
         const userId = getUserId(typedCtx);
-        let removed = 0;
-        for (const it of items) {
+        const itemIds = items.map((it) => {
           const itemId = it.ids?.["jellyfin:itemId"];
           if (!itemId) {
             throw pluginError(
@@ -966,18 +1002,22 @@ export default definePlugin({
               "Jellyfin.removeFromHistory requires `jellyfin:itemId` on every item",
             );
           }
-          const res = await jellyfinFetch(typedCtx, `/Users/${userId}/PlayedItems/${itemId}`, {
-            method: "DELETE",
-          });
+          return itemId;
+        });
+        const responses = await Promise.all(
+          itemIds.map((itemId) =>
+            jellyfinFetch(typedCtx, `/Users/${userId}/PlayedItems/${itemId}`, { method: "DELETE" }),
+          ),
+        );
+        for (const res of responses) {
           if (res.status === 401)
             throw pluginError("plugin.token_expired", "Jellyfin auth rejected (401)");
           if (res.status === 429)
             throw pluginError("plugin.rate_limited", "Jellyfin rate limited (429)");
           if (res.status >= 500)
             throw pluginError("plugin.upstream_error", `Jellyfin server error (${res.status})`);
-          if (res.ok || res.status === 404) removed += 1;
         }
-        return { removed };
+        return { removed: responses.filter((r) => r.ok || r.status === 404).length };
       },
     },
 

@@ -116,6 +116,25 @@ describe("jellyfin manifest", () => {
     expect(props.internalServerUrl?.["x-allowed-host"]).toBe(true);
     expect(props.internalServerUrl?.["x-private"]).toBe(true);
     expect(props.password?.["x-secret"]).toBe(true);
+    expect(props.password?.writeOnly).toBe(true);
+  });
+
+  it("promotes the password into credentialsSchema — it must never be persisted to userConfig", () => {
+    const credProps = (
+      jellyfinPlugin.manifest.credentialsSchema as {
+        properties: Record<string, Record<string, unknown>>;
+        required: string[];
+      }
+    ).properties;
+    expect(credProps.accessToken?.type).toBe("string");
+    expect(credProps.password?.type).toBe("string");
+    expect(
+      (
+        jellyfinPlugin.manifest.userConfigSchema as {
+          required: string[];
+        }
+      ).required,
+    ).not.toContain("password");
   });
 
   it("does not declare sharedCredentialsSchema — pure user-scoped", () => {
@@ -127,9 +146,12 @@ describe("jellyfin manifest", () => {
 // ─── startAuth: cached userId + URL preference ────────────────────────────────
 
 describe("jellyfin startAuth", () => {
-  it("authenticates and caches userId via userConfigPatch from AuthenticateByName", async () => {
+  it("authenticates, caches userId, and moves the password into the encrypted credentials blob", async () => {
     // The issue explicitly requires this: after auth, userId is cached on
     // userConfigPatch so no round-trip to /Users/Me is needed on every call.
+    // The password is promoted into the credentials blob and stripped from
+    // the persisted userConfig via `password: null`, so it is only ever
+    // stored encrypted at rest.
     const ctx = makeCtx([jsonRes({ AccessToken: "new-token", User: { Id: "jf-user-42" } })]);
     const result = (await jellyfinPlugin.startAuth!(ctx, {
       externalServerUrl: "https://jellyfin.example.com",
@@ -138,9 +160,32 @@ describe("jellyfin startAuth", () => {
       password: "s3cret",
     })) as { status: string; userConfigPatch?: Record<string, unknown>; credentials: unknown };
     expect(result.status).toBe("completed");
-    expect(result.userConfigPatch).toEqual({ userId: "jf-user-42" });
-    expect(result.credentials).toEqual({ accessToken: "new-token" });
+    expect(result.userConfigPatch).toEqual({ userId: "jf-user-42", password: null });
+    expect(result.credentials).toEqual({ accessToken: "new-token", password: "s3cret" });
     expect(ctx.calls[0]?.url).toBe("http://jellyfin:8096/Users/AuthenticateByName");
+  });
+
+  it("rehydrates the password from ctx.credentials on re-auth (form edit that omits password)", async () => {
+    // On an updateUserConfig re-auth, the form does not resubmit the
+    // password (it lives in the encrypted credentials blob, not userConfig).
+    // The host passes the prior decrypted credentials through to startAuth
+    // via ctx.credentials — startAuth reads the password from there rather
+    // than refusing.
+    const ctx = makeCtx([jsonRes({ AccessToken: "rotated-token", User: { Id: "jf-user-42" } })], {
+      credentials: { accessToken: "stale", password: "prior-pw" },
+    });
+    const result = (await jellyfinPlugin.startAuth!(ctx, {
+      externalServerUrl: "https://jellyfin.example.com",
+      internalServerUrl: "http://jellyfin:8096",
+      username: "alice",
+    })) as { status: string; credentials: { accessToken: string; password: string } };
+    expect(result.status).toBe("completed");
+    expect(result.credentials.accessToken).toBe("rotated-token");
+    expect(result.credentials.password).toBe("prior-pw");
+    expect(JSON.parse(ctx.calls[0]?.init?.body as string)).toEqual({
+      Username: "alice",
+      Pw: "prior-pw",
+    });
   });
 
   it("falls back to /Users/Me when AuthenticateByName does not return User.Id", async () => {
@@ -151,7 +196,18 @@ describe("jellyfin startAuth", () => {
       password: "pw",
     })) as { status: string; userConfigPatch?: Record<string, unknown> };
     expect(result.status).toBe("completed");
-    expect(result.userConfigPatch).toEqual({ userId: "jf-user-99" });
+    expect(result.userConfigPatch).toEqual({ userId: "jf-user-99", password: null });
+  });
+
+  it("returns plugin.upstream_error when the /Users/Me fallback fails", async () => {
+    const ctx = makeCtx([jsonRes({ AccessToken: "new-token" }), statusRes(500, "nope")]);
+    const result = (await jellyfinPlugin.startAuth!(ctx, {
+      externalServerUrl: "https://jellyfin.example.com",
+      username: "alice",
+      password: "pw",
+    })) as { status: string; code: string };
+    expect(result.status).toBe("error");
+    expect(result.code).toBe("plugin.upstream_error");
   });
 
   it("authenticates against internalServerUrl when set, not external", async () => {
@@ -176,8 +232,8 @@ describe("jellyfin startAuth", () => {
     expect(result.code).toBe("plugin.bad_credentials");
   });
 
-  it("rejects missing credentials before any fetch", async () => {
-    const ctx = makeCtx([]);
+  it("rejects missing credentials before any fetch (no ctx.credentials fallback)", async () => {
+    const ctx = makeCtx([], { credentials: null });
     const result = (await jellyfinPlugin.startAuth!(ctx, {
       externalServerUrl: "https://jellyfin.example.com",
       username: "",
@@ -185,6 +241,27 @@ describe("jellyfin startAuth", () => {
     })) as { status: string; code: string };
     expect(result.status).toBe("error");
     expect(result.code).toBe("plugin.input_invalid");
+  });
+});
+
+describe("jellyfin testConnection", () => {
+  it("returns { ok: true } when /Users/Me accepts the cached token", async () => {
+    const ctx = makeCtx([jsonRes({ Id: "user-1" })]);
+    const out = (await jellyfinPlugin.testConnection!(ctx)) as { ok: boolean };
+    expect(out.ok).toBe(true);
+    expect(ctx.calls[0]?.url).toContain("/Users/Me");
+  });
+
+  it("returns { ok: false } when /Users/Me rejects the token with 401", async () => {
+    const ctx = makeCtx([statusRes(401, "unauthorized")]);
+    const out = (await jellyfinPlugin.testConnection!(ctx)) as { ok: boolean; message?: string };
+    expect(out.ok).toBe(false);
+  });
+
+  it("returns { ok: false } when the network call throws", async () => {
+    const ctx = makeCtx([new Error("econnrefused")]);
+    const out = (await jellyfinPlugin.testConnection!(ctx)) as { ok: boolean };
+    expect(out.ok).toBe(false);
   });
 });
 
@@ -268,6 +345,18 @@ describe("jellyfin libraryAvailability", () => {
     expect(out.items[0]?.id).toBe("local-42");
   });
 
+  it("checkAvailability idType=jellyfin returns empty list on 404 (item removed upstream)", async () => {
+    // The cached server-local id may have been deleted since the caller
+    // captured it — treat as "not available", not as an error.
+    const ctx = makeCtx([statusRes(404)]);
+    const out = (await cap.checkAvailability!(ctx, {
+      id: "gone",
+      idType: "jellyfin",
+      type: "movie",
+    })) as { items: unknown[] };
+    expect(out.items).toEqual([]);
+  });
+
   it("checkAvailability returns empty for idType=plex (cross-server handles aren't resolvable)", async () => {
     const ctx = makeCtx([]);
     const out = (await cap.checkAvailability!(ctx, {
@@ -299,6 +388,19 @@ describe("jellyfin libraryAvailability", () => {
     };
     expect(out.items.map((i) => i.id)).toEqual(["a", "b"]);
     expect(out.nextCursor).toBe("2");
+  });
+
+  it("listRecentlyAdded returns the second page when given cursor='2'", async () => {
+    // Follow-up to the paging test above: with cursor='2' the slice starts at
+    // offset 2 and returns the remaining items. Exercises the read path for
+    // non-first pages.
+    const ctx = makeCtx([jsonRes([jfItem({ Id: "a" }), jfItem({ Id: "b" }), jfItem({ Id: "c" })])]);
+    const out = (await cap.listRecentlyAdded!(ctx, { limit: 2, cursor: "2" })) as {
+      items: Array<{ id: string }>;
+      nextCursor?: string;
+    };
+    expect(out.items.map((i) => i.id)).toEqual(["c"]);
+    expect(out.nextCursor).toBeUndefined();
   });
 
   it("searchLibrary hits /Items with SearchTerm", async () => {
@@ -386,7 +488,8 @@ describe("jellyfin playbackSessions", () => {
   it("getSessions filters out sessions belonging to other users — privacy guarantee", async () => {
     // Jellyfin /Sessions returns server-wide sessions for admin tokens. The
     // plugin MUST drop entries whose UserId does not match the cached
-    // userConfig.userId.
+    // userConfig.userId even if the server ignores the `controllableByUserId`
+    // filter hint below.
     const ctx = makeCtx([
       jsonRes([
         {
@@ -416,9 +519,53 @@ describe("jellyfin playbackSessions", () => {
     expect(out).toHaveLength(1);
     expect(out[0]?.sessionId).toBe("session-mine");
     expect(out[0]?.user.id).toBe("user-1");
+    // Server-side payload-size filter — the request must narrow to the
+    // cached user so a large server doesn't return every session over the
+    // wire.
+    expect(ctx.calls[0]?.url).toContain("controllableByUserId=user-1");
     // Validate against the capability schema.
     const parsed = PlaybackSessionsV1.methods.getSessions.output.safeParse(out);
     expect(parsed.success).toBe(true);
+  });
+
+  it("getSessions fills in transcoding decisions when TranscodingInfo is present", async () => {
+    // Exercises the video/audio direct-play-vs-copy-vs-transcode logic in
+    // getSessions (untested before). IsVideoDirect=true with a Transcode
+    // play method maps video to 'copy', audio falls to 'transcode' via the
+    // PlayMethod path, and the TranscodingInfo bitrate/reasons are forwarded.
+    const ctx = makeCtx([
+      jsonRes([
+        {
+          Id: "sess-tx",
+          UserId: "user-1",
+          UserName: "alice",
+          DeviceName: "Roku",
+          StartTimeUtc: "2026-04-01T00:00:00.000Z",
+          NowPlayingItem: jfItem({ Id: "t1", RunTimeTicks: 60 * 10_000_000 }),
+          PlayState: { PositionTicks: 0, IsPaused: false, PlayMethod: "Transcode" },
+          TranscodingInfo: {
+            IsVideoDirect: true,
+            IsAudioDirect: false,
+            Bitrate: 4_000_000,
+            TranscodeReasons: ["AudioCodecNotSupported", "ContainerNotSupported"],
+          },
+        },
+      ]),
+    ]);
+    const out = (await cap.getSessions!(ctx, {})) as Array<{
+      transcoding?: {
+        videoDecision: string;
+        audioDecision: string;
+        targetBitrate?: number;
+        reason?: string;
+      };
+    }>;
+    expect(out[0]?.transcoding).toEqual({
+      videoDecision: "copy",
+      audioDecision: "transcode",
+      targetBitrate: 4000,
+      reason: "AudioCodecNotSupported, ContainerNotSupported",
+    });
   });
 
   it("getSessions drops sessions without a NowPlayingItem", async () => {
@@ -518,8 +665,60 @@ describe("jellyfin watchHistory", () => {
       { type: "tv", ids: { "jellyfin:itemId": "jf-2" } },
     ])) as { added: number };
     expect(out.added).toBe(2);
-    expect(ctx.calls[0]?.url).toContain("/Users/user-1/PlayedItems/jf-1");
+    expect(ctx.calls.map((c) => c.url).some((u) => u.includes("/PlayedItems/jf-1"))).toBe(true);
+    expect(ctx.calls.map((c) => c.url).some((u) => u.includes("/PlayedItems/jf-2"))).toBe(true);
     expect(ctx.calls[0]?.init?.method).toBe("POST");
+  });
+
+  it("addToHistory fires requests in parallel (all fetches started before any resolves)", async () => {
+    // Enforces Promise.all semantics: the plugin must not wait for the first
+    // POST to resolve before issuing the second. Uses deferreds so the test
+    // is deterministic — if the plugin serialises, the second fetch will
+    // never be issued while the first is pending.
+    const deferreds = [0, 1].map(() => {
+      let resolve!: (v: Response) => void;
+      const promise = new Promise<Response>((r) => {
+        resolve = r;
+      });
+      return { promise, resolve };
+    });
+    const calls: FakeCall[] = [];
+    const ctx = {
+      calls,
+      async fetch(url: string, init?: RequestInit) {
+        calls.push({ url, init });
+        return deferreds[calls.length - 1]!.promise;
+      },
+      log: { debug() {}, info() {}, warn() {}, error() {} },
+      credentials: { accessToken: "tok", password: "pw" },
+      sharedCredentials: null,
+      config: {
+        global: null,
+        user: {
+          externalServerUrl: "https://jellyfin.example.com",
+          username: "alice",
+          userId: "user-1",
+        },
+      },
+      store: {
+        async get() {
+          return undefined;
+        },
+        async set() {},
+        async delete() {},
+      },
+      pool: { markExhausted() {} },
+      appBaseUrl: "https://app.example.com",
+    } as unknown as PluginContext;
+    const p = cap.addToHistory!(ctx, [
+      { type: "movie", ids: { "jellyfin:itemId": "jf-1" } },
+      { type: "movie", ids: { "jellyfin:itemId": "jf-2" } },
+    ]);
+    // Yield so startAuth-style microtasks can schedule both fetches.
+    await Promise.resolve();
+    expect(calls).toHaveLength(2);
+    deferreds.forEach((d) => d.resolve(statusRes(204)));
+    await p;
   });
 
   it("removeFromHistory treats 404 as idempotent removal", async () => {

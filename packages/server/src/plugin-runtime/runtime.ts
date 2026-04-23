@@ -424,6 +424,7 @@ export class PluginRuntime {
     userId: string | null,
     input: unknown,
     state?: unknown,
+    priorCredentials?: unknown,
   ): Promise<AuthResult> {
     const module = await this.getModule(pluginId);
     const fn = module[fnName];
@@ -433,7 +434,12 @@ export class PluginRuntime {
         `plugin ${pluginId} does not export ${fnName}`,
       );
     }
-    const ctx = await this.buildAuxContext(pluginId, userId);
+    // Prior credentials are passed through when the caller is re-running
+    // startAuth on an existing connection (form re-auth). Plugins that keep
+    // user-entered secrets out of userConfig by storing them in the encrypted
+    // credentials blob (e.g. Jellyfin's password) need ctx.credentials to
+    // rehydrate those secrets without the user re-entering them.
+    const ctx = await this.buildAuxContext(pluginId, userId, priorCredentials);
     try {
       if (fnName === "completeAuth") {
         return await (fn as NonNullable<PluginModule["completeAuth"]>)(

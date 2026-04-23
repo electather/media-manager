@@ -164,7 +164,7 @@ describe("jellyfin capability contract", () => {
       ]),
     ]);
     const out = await jellyfinPlugin.capabilities.playbackSessions!.getSessions!(ctx, {});
-    expect(ctx.calls[0]?.url).toMatch(/\/Sessions$/);
+    expect(ctx.calls[0]?.url).toMatch(/\/Sessions\?controllableByUserId=user-1$/);
     expect(PlaybackSessionsV1.methods.getSessions.output.safeParse(out).success).toBe(true);
   });
 
