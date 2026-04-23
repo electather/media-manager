@@ -12,6 +12,16 @@
 
 <!-- e.g. "Closes #123" or "Relates to #456". Delete this section if not applicable. -->
 
+## Design document
+
+<!--
+  Link the design document this PR implements or extends (e.g.
+  `docs/2026-04-19-plugin-architecture-design.md`). Update that
+  document in the same PR when the code changes its surface — code and
+  doc must stay in sync on merge. Delete this section ONLY for pure
+  internal refactors, test-only changes, CI/tooling, or doc-only PRs.
+-->
+
 ## Type of change
 
 <!-- Check all that apply. -->
