@@ -3,6 +3,11 @@ import { defineCapability, method } from "./define";
 
 const mediaType = z.enum(["movie", "tv"]);
 
+// Cross-service ids carried on every `MediaItemShape`. Intentionally omits
+// server-local ids like `plex:ratingKey` and `jellyfin:itemId`: those are
+// resolution artifacts (a single media item lives on many Plex/Jellyfin
+// servers with different local ids per server) and are returned by
+// `idResolve@v1` for routing, not attached to media items.
 const idBundle = z
   .object({
     tmdb_id: z.string().optional(),
@@ -435,7 +440,26 @@ export const MediaRequestV1 = defineCapability({
   ],
 });
 
-/** Internal-only capability: not invoked directly by callers — only by MediaService id_map gap-fill. */
+/**
+ * Internal-only capability: not invoked directly by callers — only by
+ * MediaService id_map gap-fill.
+ *
+ * ⚠ **Mixed-scope, but `userScoped: false` on the host definition.** Global
+ * plugins (Trakt/TMDB/TVDB) own cross-service id resolution; user-scoped
+ * plugins (Plex/Jellyfin) own server-local ids (`plex:ratingKey`,
+ * `jellyfin:itemId`). The capability schema accepts both scopes at the plugin
+ * side, but this flag dictates dispatch routing (see `media/dispatcher.ts`)
+ * and cache key scoping (see `media/cache.ts`). Keeping it `false` preserves
+ * routing to global providers; flipping it would exclude them.
+ *
+ * Consequences until #29 lands:
+ * - User-scoped `idResolve` providers are registered but unreachable via the
+ *   dispatcher.
+ * - The cache key for `idResolve@v1` is keyed by `(from, id, type)` only. A
+ *   hypothetical server-local resolution written through this cache would be
+ *   shared across users; the dispatcher gap prevents that today, and #29 must
+ *   land before user-scoped `idResolve` results can be routed safely.
+ */
 export const IdResolveV1 = defineCapability({
   id: "idResolve",
   version: "v1",

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { ManifestCapability } from "@ent-mcp/shared/plugins";
+import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
 import {
   CAPABILITY_CATALOG,
   capabilityKey,
@@ -154,5 +155,11 @@ describe("idResolve@v1 with scope: user", () => {
     expect(reg.listProviders("idResolve", "v1", "user")).toEqual(["plex"]);
     // Does not leak across scopes.
     expect(reg.listProviders("idResolve", "v1", "global")).toEqual([]);
+  });
+
+  it("fake plugin manifest passes the shared manifest schema", () => {
+    const manifest = fakeUserScopedIdResolvePlugin("plex").manifest;
+    const parsed = pluginManifestSchema.safeParse(manifest);
+    expect(parsed.success).toBe(true);
   });
 });
