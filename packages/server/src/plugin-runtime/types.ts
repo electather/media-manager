@@ -207,12 +207,28 @@ export interface CapabilityMcpTool {
   handlerKey: string;
 }
 
-export interface CapabilityDefinition {
+/**
+ * The scope a dispatched call is routed at.
+ *
+ * - `"global"`: one shared result across all callers; cache key is not
+ *   userId-qualified; providers register under the global scope.
+ * - `"user"`: result depends on the caller; cache key is userId-qualified;
+ *   providers register under the user scope.
+ * - `"mixed"`: the capability accepts either — providers can register under
+ *   either scope and the dispatcher chooses per-request from the input via
+ *   `scopeForInput`. Required for capabilities like `idResolve@v1` where a
+ *   `from: "tmdb"` input is global but a `from: "plex:ratingKey"` input
+ *   must resolve against a user's own Plex server.
+ */
+export type CapabilityScopeMode = "global" | "user" | "mixed";
+
+/** The resolved scope a single dispatch request is executed under. */
+export type ResolvedCapabilityScope = "global" | "user";
+
+interface CapabilityDefinitionBase {
   id: string;
   version: string;
   strategy: CapabilityStrategy;
-  /** `true` when output depends on the caller's identity (cache key includes userId). */
-  userScoped: boolean;
   /** Default positive-cache TTL applied when a call returns non-null. */
   defaultCacheTtlSec: number;
   /** TTL for null/empty results. Shorter to avoid pinning misses long-term. */
@@ -223,3 +239,25 @@ export interface CapabilityDefinition {
   /** Optional capability-owned MCP tools registered at host startup. */
   mcpTools?: CapabilityMcpTool[];
 }
+
+/**
+ * A dispatched capability is one of three shapes:
+ *
+ * - Fixed-scope (`"global"` or `"user"`): every call resolves to the same
+ *   scope and `scopeForInput` is prohibited at the type level.
+ * - `"mixed"`: the scope depends on the request, so `scopeForInput` is
+ *   **required**. The classifier must be pure and side-effect free — the
+ *   dispatcher calls it once per dispatch and threads the result through
+ *   both provider lookup (`listProviders` is indexed by scope) and cache
+ *   keying (the key is only userId-qualified when the resolved scope is
+ *   `"user"`), so a user-scoped result can never be served from a global
+ *   cache entry.
+ */
+export type CapabilityDefinition = CapabilityDefinitionBase &
+  (
+    | { scope: "global" | "user"; scopeForInput?: never }
+    | {
+        scope: "mixed";
+        scopeForInput: (input: unknown) => ResolvedCapabilityScope;
+      }
+  );

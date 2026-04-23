@@ -3,7 +3,7 @@ import { MemoryCache } from "../cache/memory";
 import { RedisCache } from "../cache/redis";
 import type { CacheProvider } from "../cache/types";
 import { env } from "../env";
-import type { CapabilityDefinition } from "../plugin-runtime/types";
+import type { CapabilityDefinition, ResolvedCapabilityScope } from "../plugin-runtime/types";
 
 /**
  * Canonicalizes a value so the cache key is insensitive to object key order.
@@ -29,13 +29,20 @@ export interface CacheKeyArgs {
   version: string;
   method: string;
   userId: string;
-  userScoped: boolean;
+  /**
+   * Scope the key is written under — resolved per-request by the dispatcher,
+   * not derived from a capability-level flag. For mixed-scope capabilities
+   * this means a user-scoped resolution (e.g. `idResolve(from: "plex:…")`)
+   * lives in a userId-qualified key namespace and cannot be served to a
+   * different user out of the global cache.
+   */
+  scope: ResolvedCapabilityScope;
   input: unknown;
 }
 
 export async function cacheKey(args: CacheKeyArgs): Promise<string> {
-  const scope = args.userScoped ? `user:${args.userId}` : "global";
-  return `mv:${args.capability}:${args.version}:${args.method}:${scope}:${await argsHash(args.input)}`;
+  const scopeSegment = args.scope === "user" ? `user:${args.userId}` : "global";
+  return `mv:${args.capability}:${args.version}:${args.method}:${scopeSegment}:${await argsHash(args.input)}`;
 }
 
 export function userScopedPrefix(userId: string): string {

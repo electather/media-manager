@@ -131,6 +131,34 @@ describe("IdResolveV1", () => {
     });
     expect(r.success).toBe(true);
   });
+
+  it("is declared as mixed-scope so both global and user-scoped providers are reachable", () => {
+    expect(IdResolveV1.scope).toBe("mixed");
+    expect(typeof IdResolveV1.scopeForInput).toBe("function");
+  });
+
+  it("scopeForInput routes server-local id kinds to 'user' and flat ids to 'global'", () => {
+    // The dispatcher uses this to pick which provider pool to enumerate and
+    // (critically) to decide whether the cache key gets userId-qualified, so
+    // a resolution of user A's plex:ratingKey can't be served to user B.
+    const classify = IdResolveV1.scopeForInput!;
+    expect(classify({ from: "tmdb", id: "550", type: "movie" })).toBe("global");
+    expect(classify({ from: "imdb", id: "tt0137523", type: "movie" })).toBe("global");
+    expect(classify({ from: "tvdb", id: "12345", type: "tv" })).toBe("global");
+    expect(classify({ from: "trakt", id: "99", type: "movie" })).toBe("global");
+    expect(classify({ from: "plex:ratingKey", id: "1", type: "movie" })).toBe("user");
+    expect(classify({ from: "jellyfin:itemId", id: "abc", type: "tv" })).toBe("user");
+  });
+
+  it("scopeForInput defensively returns 'global' for malformed inputs", () => {
+    // Guards direct dispatcher calls that bypass schema validation — the
+    // safe default is the less-privileged scope (no userId leak).
+    const classify = IdResolveV1.scopeForInput!;
+    expect(classify(null)).toBe("global");
+    expect(classify(undefined)).toBe("global");
+    expect(classify({})).toBe("global");
+    expect(classify({ from: 42 })).toBe("global");
+  });
 });
 
 describe("idResolve@v1 with scope: user", () => {
@@ -185,7 +213,7 @@ const libraryItemFixture = {
 describe("LibraryAvailabilityV1", () => {
   it("registers as a user-scoped capability at v1", () => {
     expect(LibraryAvailabilityV1.version).toBe("v1");
-    expect(LibraryAvailabilityV1.userScoped).toBe(true);
+    expect(LibraryAvailabilityV1.scope).toBe("user");
     expect(getCapability("libraryAvailability", "v1")).toBe(LibraryAvailabilityV1);
   });
 
@@ -336,7 +364,7 @@ describe("LibraryAvailabilityV1", () => {
 describe("ContinueWatchingV1", () => {
   it("registers as a user-scoped capability at v1", () => {
     expect(ContinueWatchingV1.version).toBe("v1");
-    expect(ContinueWatchingV1.userScoped).toBe(true);
+    expect(ContinueWatchingV1.scope).toBe("user");
     expect(getCapability("continueWatching", "v1")).toBe(ContinueWatchingV1);
   });
 
@@ -414,7 +442,7 @@ describe("PlaybackSessionsV1", () => {
 
   it("registers as a user-scoped capability at v1", () => {
     expect(PlaybackSessionsV1.version).toBe("v1");
-    expect(PlaybackSessionsV1.userScoped).toBe(true);
+    expect(PlaybackSessionsV1.scope).toBe("user");
     expect(getCapability("playbackSessions", "v1")).toBe(PlaybackSessionsV1);
   });
 
@@ -525,7 +553,7 @@ describe("PlaybackSessionsV1", () => {
 describe("LibraryAdminV1", () => {
   it("registers as a user-scoped capability at v1", () => {
     expect(LibraryAdminV1.version).toBe("v1");
-    expect(LibraryAdminV1.userScoped).toBe(true);
+    expect(LibraryAdminV1.scope).toBe("user");
     expect(getCapability("libraryAdmin", "v1")).toBe(LibraryAdminV1);
   });
 
