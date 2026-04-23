@@ -340,7 +340,7 @@ Enforcement by the runtime on every invocation:
 - Validate input against the capability's Zod input schema before calling the plugin.
 - Validate output against the Zod output schema after the call returns. Bad output throws before reaching `MediaService`.
 - Version pinning. A caller asking for `watchHistory@v1` is not matched by a plugin declaring `watchHistory: "v2"`.
-- Scope routing. The registry is indexed by `(capability_id, version, scope)`; `MediaService` asks for "who provides X at scope Y" and never mixes the two.
+- Scope routing. The registry is indexed by `(capability_id, version, scope)`; `MediaService` asks for "who provides X at scope Y". For most capabilities the scope is fixed on the host-side definition (`scope: "global"` or `scope: "user"`) and callers always land on that pool. Capabilities that need to accept both (today: `idResolve@v1`) declare `scope: "mixed"` on the host definition and supply a pure `scopeForInput(input)` classifier. The dispatcher calls the classifier once per request and threads the resolved scope through both the provider lookup and the cache key — so a user-scoped resolution (e.g. `from: "plex:ratingKey"`) visits only user-scoped providers and is cached under `user:{user_id}`, and a global resolution (e.g. `from: "tmdb"`) visits only global providers and is cached globally. Provider enumeration and cache-keying see the same scope on every request, which is what prevents a server-local handle from leaking across users through a shared cache entry.
 
 **Versioning policy.** Breaking changes introduce a new version alongside the old. Old plugins keep working until no consumer needs v1, at which point v1 can be removed host-side. No forced upgrades. Scope changes on a capability (global ↔ user) always constitute a breaking change and require a new major version.
 
@@ -353,7 +353,7 @@ Enforcement by the runtime on every invocation:
 - `recommendations@v1` — personal recommendations, trending, anticipated. Typically `user` (may accept a `global` variant for anonymous trending).
 - `calendar@v1` — upcoming TV episodes and movie releases. Typically `user`.
 - `mediaRequest@v1` — request media, check availability, cancel requests. Typically `user`.
-- `idResolve@v1` — resolve one id type to others; feeds `id_map`. Typically `global` for metadata providers (TMDB, TVDB, Trakt), but also implemented `user`-scoped by media-server plugins to translate cross-service ids into server-local handles (`plex:ratingKey`, `jellyfin:itemId`). Server-local handles are per-server and per-account, so they cannot be global.
+- `idResolve@v1` — resolve one id type to others; feeds `id_map`. Host-side this is the canonical **mixed-scope** capability: metadata providers (TMDB, TVDB, Trakt) register `scope: "global"` on their manifest and handle cross-service ids; media-server plugins (Plex, Jellyfin) register `scope: "user"` and handle server-local handles (`plex:ratingKey`, `jellyfin:itemId`). The host-side `CapabilityDefinition` declares `scope: "mixed"` with a `scopeForInput` classifier so the dispatcher can pick the right pool per request. Server-local handles are per-server and per-account, so they cannot be global.
 - `userComments@v1` — get user's own comments. Typically `user`.
 - `watchProviders@v1` — streaming/rent/buy availability per media item per region. Typically `global`.
 - `trailers@v1` — trailer/teaser/clip videos per media item. Typically `global`.
@@ -418,7 +418,7 @@ _Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/
 - `listRequests({})` → `RequestRow[]`
 - _added_ `cancelRequest({ requestId })` → `{ ok }` — backed by Seerr `DELETE /request/:id`.
 
-**`idResolve@v1`** (global)
+**`idResolve@v1`** (mixed — see ["additional id-types for media servers"](#idresolvev1--additional-id-types-for-media-servers) below for the mixed-scope routing rules)
 
 - `resolve({ from, id, type })` → partial id bundle.
 
@@ -541,6 +541,10 @@ Beyond the existing cross-service ids, this revision adds two server-local id-ty
 - `jellyfin:itemId` — Jellyfin's per-server item UUID. Resolvable to `tmdb` / `imdb` via `ProviderIds` on the item. Required for `watchHistory@v1.addToHistory` on Jellyfin (`POST /Users/{userId}/PlayedItems/{itemId}`).
 
 Server-local ids are user-scoped (they only mean something against a specific connection), so the Plex and Jellyfin plugins implement `idResolve@v1` with `scope: "user"` — a deliberate departure from the "typically global" pattern on this capability.
+
+**Host-side mixed-scope routing.** The host-side `CapabilityDefinition` for `idResolve@v1` declares `scope: "mixed"` and supplies a pure `scopeForInput(input) → "global" | "user"` classifier: inputs whose `from` contains a `:` (`plex:ratingKey`, `jellyfin:itemId`) resolve `"user"`, everything else (`tmdb`, `imdb`, `tvdb`, `trakt`) resolves `"global"`. The classifier is invoked once per dispatch and its return value is threaded through both the registry lookup (`capabilityRegistry.listProviders(cap, ver, scope)`) and the cache key. The invariant is that provider enumeration and cache-keying agree on the resolved scope for the same request — if they disagreed, a server-local resolution could be written to a global cache entry and served to a different user on the next request.
+
+**Per-request cache-key scoping.** The cache key prefix carries the _resolved_ scope, not the capability's declared scope mode. A `resolve({ from: "tmdb", id: "550" })` request lands on `mv:idResolve:v1:resolve:global:…` (one entry shared across every caller), while `resolve({ from: "plex:ratingKey", id: "42" })` for user Alice lands on `mv:idResolve:v1:resolve:user:alice:…` and for user Bob on `mv:idResolve:v1:resolve:user:bob:…` — two distinct entries, so Bob can never read Alice's cached server-local resolution even though they ran identical arguments. The classifier defensively returns `"global"` for malformed inputs so a bypassed schema cannot smuggle a userId-keyed entry.
 
 **`id_map` scoping for server-local handles.** A user with two Plex connections (two different servers) will produce two distinct `plex:ratingKey` values for the same title — the key is meaningful only against the server that issued it. The `id_map` table therefore keys server-local id rows by `(plugin_id, connection_id, id_type, id_value)` rather than the `(id_type, id_value)` pair used for global-scope ids like `tmdb:`/`imdb:`. Cross-service ids from metadata providers (TMDB, TVDB, Trakt) keep the connection-less key so they remain shareable across users; only id-types that declare themselves server-local inherit the extra dimension. The schema change is additive — the existing `id_map` columns stay, with `plugin_id` and `connection_id` added as nullable and constrained to be non-null for server-local id types.
 
@@ -965,7 +969,9 @@ If a plugin later needs to read the user's profile (e.g. a taste-based recommend
 
 ## Caching
 
-Unchanged from the initial design. Cache keys remain `user:{user_id}:{resource}`. Connection create/update/delete invalidates relevant per-user cache entries. `CacheProvider` supports in-memory (lru-cache) and optional Redis.
+Cache keys are `mv:{capability}:{version}:{method}:{scope_segment}:{args_hash}`, where `{scope_segment}` is `user:{user_id}` for user-scoped calls and `global` otherwise. Connection create/update/delete invalidates relevant per-user cache entries. `CacheProvider` supports in-memory (lru-cache) and optional Redis.
+
+The scope segment comes from the _resolved_ scope of the request, not a capability-level flag. For fixed-scope capabilities (`scope: "global"` or `scope: "user"` on the host definition) this is equivalent to the old rule. For mixed-scope capabilities the dispatcher calls `scopeForInput(input)` once per request and uses the result for both provider lookup and the cache key — so a user-scoped branch of a mixed capability (e.g. `idResolve@v1` with `from: "plex:ratingKey"`) cannot pollute or be served from the global cache. This is what lets `idResolve@v1` serve its cross-service id-types (`tmdb`/`imdb`/`tvdb`/`trakt`) from one shared global entry while keeping server-local resolutions (`plex:ratingKey`/`jellyfin:itemId`) isolated per user.
 
 ## Testing
 
