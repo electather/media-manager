@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { libraryItemSchema } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "./define";
 
 const mediaType = z.enum(["movie", "tv"]);
@@ -509,6 +510,118 @@ export const PlaybackV1 = defineCapability({
   },
 });
 
+// ─── libraryAvailability@v1 shared shapes ────────────────────────────────────
+
+/**
+ * Id-type accepted by `libraryAvailability@v1.checkAvailability`. Covers the
+ * cross-service ids media-server plugins can look up (`tmdb`, `imdb`, `tvdb`)
+ * plus their own server-local ids so a caller holding e.g. a Plex ratingKey
+ * can skip the resolve step.
+ */
+const libraryAvailabilityIdType = z.enum(["tmdb", "imdb", "tvdb", "plex", "jellyfin"]);
+
+const libraryAvailabilityCheckInput = z.object({
+  /** Identifier value; its flavour is tagged by `idType`. */
+  id: z.string().min(1),
+  idType: libraryAvailabilityIdType,
+  type: mediaType,
+});
+
+const libraryAvailabilityCheckOutput = z.object({
+  /**
+   * Zero or more matches — multiple quality copies of the same title (e.g. 4k
+   * HDR alongside 1080p SDR) each surface as their own entry so callers can
+   * pick the right one to play.
+   */
+  items: z.array(libraryItemSchema),
+});
+
+const libraryAvailabilityRecentlyAddedInput = z.object({
+  type: mediaType.optional(),
+  /** Page size; plugins clamp server-side to a sensible max. */
+  limit: z.number().optional(),
+  /** Opaque cursor returned by the previous page, or omitted for the first page. */
+  cursor: z.string().optional(),
+});
+
+const libraryAvailabilityRecentlyAddedOutput = z.object({
+  items: z.array(libraryItemSchema),
+  /** Opaque cursor for the next page; absent when there is no next page. */
+  nextCursor: z.string().optional(),
+});
+
+const libraryAvailabilitySearchInput = z.object({
+  query: z.string().min(1),
+  type: mediaType.optional(),
+  limit: z.number().optional(),
+});
+
+/**
+ * libraryAvailability@v1 — does the user's self-hosted media server (Plex,
+ * Jellyfin, …) have this item, and what's new on it? See the design doc's
+ * "New capability contracts" section for backing endpoints and rationale.
+ */
+export const LibraryAvailabilityV1 = defineCapability({
+  id: "libraryAvailability",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 5 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
+  methods: {
+    checkAvailability: method(libraryAvailabilityCheckInput, libraryAvailabilityCheckOutput),
+    listRecentlyAdded: method(
+      libraryAvailabilityRecentlyAddedInput,
+      libraryAvailabilityRecentlyAddedOutput,
+    ),
+    searchLibrary: method(libraryAvailabilitySearchInput, z.array(libraryItemSchema)),
+  },
+});
+
+// ─── continueWatching@v1 shared shapes ───────────────────────────────────────
+
+const continueWatchingInput = z.object({
+  type: mediaType.optional(),
+  limit: z.number().optional(),
+});
+
+const continueWatchingEntry = z.object({
+  /** The thing to resume or start — an episode for shows, a movie for movies. */
+  item: libraryItemSchema,
+  /**
+   * Progress into `item` in milliseconds. Absent when this is a "start next
+   * episode" entry with no prior position on the server.
+   */
+  progressMs: z.number().optional(),
+  /** For TV: the episode after `item` when the server surfaces one. */
+  nextUp: libraryItemSchema.optional(),
+  /** ISO timestamp of the most recent playback on `item`, for cross-feed sort. */
+  lastPlayedAt: z.string().optional(),
+});
+
+export type ContinueWatchingEntry = z.infer<typeof continueWatchingEntry>;
+
+/**
+ * continueWatching@v1 — the server's own "pick up where you left off" feed,
+ * including Next Up episode stitching. Distinct from `playback@v1`, which
+ * returns raw resume points from external sync APIs (Trakt) rather than a
+ * server-curated ranking. Reuses `LibraryItem` so sessions and continue feeds
+ * nest the same media shape.
+ */
+export const ContinueWatchingV1 = defineCapability({
+  id: "continueWatching",
+  version: "v1",
+  strategy: "aggregate",
+  userScoped: true,
+  defaultCacheTtlSec: 5 * MIN,
+  negativeCacheTtlSec: 1 * MIN,
+  defaultTimeoutMs: 15_000,
+  methods: {
+    getContinueWatching: method(continueWatchingInput, z.array(continueWatchingEntry)),
+  },
+});
+
 /** collection@v1 — user's owned/collected library. */
 export const CollectionV1 = defineCapability({
   id: "collection",
@@ -546,6 +659,8 @@ export const CAPABILITY_CATALOG = {
   "trailers@v1": TrailersV1,
   "playback@v1": PlaybackV1,
   "collection@v1": CollectionV1,
+  "libraryAvailability@v1": LibraryAvailabilityV1,
+  "continueWatching@v1": ContinueWatchingV1,
 } as const;
 
 export type CapabilityKey = keyof typeof CAPABILITY_CATALOG;

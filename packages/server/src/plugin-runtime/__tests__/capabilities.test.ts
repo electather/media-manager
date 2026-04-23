@@ -2,10 +2,12 @@ import { describe, it, expect } from "vite-plus/test";
 import {
   CAPABILITY_CATALOG,
   capabilityKey,
+  ContinueWatchingV1,
   getCapability,
+  IdResolveV1,
+  LibraryAvailabilityV1,
   MetadataV1,
   WatchHistoryV1,
-  IdResolveV1,
 } from "../capabilities";
 
 describe("capability catalog", () => {
@@ -19,7 +21,9 @@ describe("capability catalog", () => {
       [
         "calendar@v1",
         "collection@v1",
+        "continueWatching@v1",
         "idResolve@v1",
+        "libraryAvailability@v1",
         "mediaRequest@v1",
         "metadata@v1",
         "playback@v1",
@@ -82,5 +86,175 @@ describe("IdResolveV1", () => {
   it("accepts empty output", () => {
     const r = IdResolveV1.methods.resolve.output.safeParse({});
     expect(r.success).toBe(true);
+  });
+});
+
+// A minimal valid LibraryItem fixture — reused across the media-server
+// capability tests so each assertion can focus on its own field.
+const libraryItemFixture = {
+  id: "plex:12345",
+  title: "Example Movie",
+  type: "movie" as const,
+  playerLink: "plex://server/12345",
+  addedAt: "2026-04-20T10:00:00.000Z",
+};
+
+describe("LibraryAvailabilityV1", () => {
+  it("registers as a user-scoped capability at v1", () => {
+    expect(LibraryAvailabilityV1.version).toBe("v1");
+    expect(LibraryAvailabilityV1.userScoped).toBe(true);
+    expect(getCapability("libraryAvailability", "v1")).toBe(LibraryAvailabilityV1);
+  });
+
+  it("exposes the three library methods", () => {
+    expect(Object.keys(LibraryAvailabilityV1.methods).sort()).toEqual(
+      ["checkAvailability", "listRecentlyAdded", "searchLibrary"].sort(),
+    );
+  });
+
+  describe("checkAvailability input", () => {
+    it("accepts a tmdb lookup", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.input.safeParse({
+        id: "550",
+        idType: "tmdb",
+        type: "movie",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts a server-local plex ratingKey", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.input.safeParse({
+        id: "12345",
+        idType: "plex",
+        type: "movie",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects an unknown idType", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.input.safeParse({
+        id: "550",
+        idType: "letterboxd",
+        type: "movie",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("rejects missing id", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.input.safeParse({
+        idType: "tmdb",
+        type: "movie",
+      });
+      expect(r.success).toBe(false);
+    });
+  });
+
+  describe("checkAvailability output", () => {
+    it("accepts an empty items array", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.output.safeParse({ items: [] });
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts multiple LibraryItem entries", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.output.safeParse({
+        items: [
+          { ...libraryItemFixture, quality: { resolution: "4k", hdr: "hdr10" } },
+          { ...libraryItemFixture, id: "plex:12346", quality: { resolution: "1080p" } },
+        ],
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects items missing the required playerLink", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.output.safeParse({
+        items: [
+          {
+            id: "plex:12345",
+            title: "Example",
+            type: "movie",
+            addedAt: "2026-04-20T10:00:00.000Z",
+          },
+        ],
+      });
+      expect(r.success).toBe(false);
+    });
+  });
+
+  describe("listRecentlyAdded", () => {
+    it("accepts pagination fields", () => {
+      const r = LibraryAvailabilityV1.methods.listRecentlyAdded.input.safeParse({
+        type: "tv",
+        limit: 25,
+        cursor: "opaque-cursor-1",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts an empty page with a next cursor", () => {
+      const r = LibraryAvailabilityV1.methods.listRecentlyAdded.output.safeParse({
+        items: [],
+        nextCursor: "opaque-cursor-2",
+      });
+      expect(r.success).toBe(true);
+    });
+  });
+
+  describe("searchLibrary", () => {
+    it("requires a non-empty query", () => {
+      const r = LibraryAvailabilityV1.methods.searchLibrary.input.safeParse({ query: "" });
+      expect(r.success).toBe(false);
+    });
+
+    it("accepts an optional type filter", () => {
+      const r = LibraryAvailabilityV1.methods.searchLibrary.input.safeParse({
+        query: "Inception",
+        type: "movie",
+      });
+      expect(r.success).toBe(true);
+    });
+  });
+});
+
+describe("ContinueWatchingV1", () => {
+  it("registers as a user-scoped capability at v1", () => {
+    expect(ContinueWatchingV1.version).toBe("v1");
+    expect(ContinueWatchingV1.userScoped).toBe(true);
+    expect(getCapability("continueWatching", "v1")).toBe(ContinueWatchingV1);
+  });
+
+  it("exposes only getContinueWatching", () => {
+    expect(Object.keys(ContinueWatchingV1.methods)).toEqual(["getContinueWatching"]);
+  });
+
+  it("accepts entries with a nextUp episode", () => {
+    const r = ContinueWatchingV1.methods.getContinueWatching.output.safeParse([
+      {
+        item: { ...libraryItemFixture, type: "episode", season: 1, episode: 2 },
+        progressMs: 320_000,
+        nextUp: {
+          ...libraryItemFixture,
+          id: "plex:12346",
+          type: "episode",
+          season: 1,
+          episode: 3,
+        },
+        lastPlayedAt: "2026-04-22T20:00:00.000Z",
+      },
+    ]);
+    expect(r.success).toBe(true);
+  });
+
+  it("accepts entries without progress (start next episode)", () => {
+    const r = ContinueWatchingV1.methods.getContinueWatching.output.safeParse([
+      { item: libraryItemFixture },
+    ]);
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects entries missing item", () => {
+    const r = ContinueWatchingV1.methods.getContinueWatching.output.safeParse([
+      { progressMs: 1000 },
+    ]);
+    expect(r.success).toBe(false);
   });
 });
