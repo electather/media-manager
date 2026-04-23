@@ -10,12 +10,8 @@ vi.mock("../../env", () => ({
   },
 }));
 
-const {
-  RESPONSE_STRIPPED_EXTENSIONS,
-  stripExtensionFields,
-  stripResponseFields,
-  stripSecretFields,
-} = await import("../helpers");
+const { RESPONSE_STRIPPED_EXTENSIONS, stripExtensionFields, stripResponseFields } =
+  await import("../helpers");
 
 // Shapes mirror the subset of JSON Schema the helper cares about.
 const schema = {
@@ -120,29 +116,5 @@ describe("stripExtensionFields", () => {
       apiKey: "super-secret",
     };
     expect(stripExtensionFields(schema, value, [])).toEqual(value);
-  });
-});
-
-describe("stripSecretFields (back-compat shim)", () => {
-  it("continues to strip only x-secret fields", () => {
-    const value = {
-      externalUrl: "https://plex.example.com",
-      internalUrl: "http://192.168.1.10:32400",
-      apiKey: "super-secret",
-    };
-    expect(stripSecretFields(schema, value)).toEqual({
-      externalUrl: "https://plex.example.com",
-      internalUrl: "http://192.168.1.10:32400",
-    });
-  });
-
-  it("still strips a field that carries both x-secret and x-private", () => {
-    const value = {
-      externalUrl: "https://plex.example.com",
-      accessToken: "leaked",
-    };
-    expect(stripSecretFields(schema, value)).toEqual({
-      externalUrl: "https://plex.example.com",
-    });
   });
 });

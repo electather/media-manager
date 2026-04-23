@@ -111,9 +111,15 @@ export const connectionsService = {
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .get();
     if (!row) throw notFound("connection.not_found", "connection not found");
-    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
-    const schema = pluginRow ? parseManifest(pluginRow.manifest).userConfigSchema : null;
+    // An orphaned connection (its plugin was uninstalled) must not return its
+    // `userConfig`: without the manifest we cannot identify which fields carry
+    // `x-private` / `x-secret`, so stripping would silently pass them through.
+    // Surface the inconsistency instead — the caller should reconnect or the
+    // operator should delete the row.
+    if (!pluginRow) throw notFound("connection.plugin_missing", "plugin not installed");
+    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
+    const schema = parseManifest(pluginRow.manifest).userConfigSchema;
     return stripResponseFields(schema, userConfig);
   },
 

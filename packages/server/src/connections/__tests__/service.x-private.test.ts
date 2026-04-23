@@ -64,6 +64,12 @@ vi.mock("../../db/client", () => {
     return [];
   }
 
+  // NOTE: the `where(...)` predicate is ignored here — every query against a
+  // table returns its entire seeded rowset. These tests are scoped to the
+  // stripping and merge semantics of userConfig, not to the authorization
+  // predicates (`eq(userId, …)` / `eq(id, connectionId)`). Tests that need to
+  // exercise those predicates must seed multiple rows and either pick their
+  // own row, or use a richer mock that honours the predicate identity.
   const dbMock = {
     select() {
       return {
@@ -310,6 +316,22 @@ describe("connectionsService — x-private stripping", () => {
       unknown
     >;
     expect(cfg).toEqual({ externalUrl: "https://new.example.com" });
+  });
+
+  it("refuses to return userConfig when the plugin has been uninstalled", async () => {
+    // Without the manifest we can't identify which fields are x-private or
+    // x-secret — returning the raw userConfig would silently leak them. The
+    // service must surface the orphaned state instead.
+    seedConnection({
+      externalUrl: "https://plex.example.com",
+      internalUrl: "http://192.168.1.10:32400",
+      apiKey: "super-secret",
+    });
+    // Intentionally do NOT installPlugin() — state.plugins stays empty.
+
+    await expect(connectionsService.getUserConfig("user-1", "conn-1")).rejects.toMatchObject({
+      code: "connection.plugin_missing",
+    });
   });
 
   it("allows updating an x-private field when the client sends a new value", async () => {

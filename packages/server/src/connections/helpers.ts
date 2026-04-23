@@ -35,12 +35,17 @@ export async function decryptJson(iv: string | null, data: string | null): Promi
  * A field may carry both; stripping is idempotent.
  */
 export const RESPONSE_STRIPPED_EXTENSIONS = ["x-secret", "x-private"] as const;
-export type ResponseStrippedExtension = (typeof RESPONSE_STRIPPED_EXTENSIONS)[number];
 
 /**
  * Removes properties on `value` whose schema definition carries any of the
  * given extension flags set to `true`. Used so sensitive or internal-only
  * fields never travel back to clients via connection list/get responses.
+ *
+ * NOTE: Only walks the top-level `properties` of the schema. A nested
+ * `object`-typed field whose own properties carry `x-private` / `x-secret`
+ * will not be stripped — the flag must sit on the leaf field the host hands
+ * back. All current built-in plugin schemas are flat, so this is a deliberate
+ * simplification, not a gap to fill speculatively.
  */
 export function stripExtensionFields(
   schema: unknown,
@@ -62,15 +67,6 @@ export function stripExtensionFields(
     }
   }
   return out;
-}
-
-/**
- * Backward-compatible shim for callers that only want to strip `x-secret`
- * fields. New callers should prefer {@link stripExtensionFields}, which
- * strips both `x-secret` and `x-private` by default.
- */
-export function stripSecretFields(schema: unknown, value: unknown): unknown {
-  return stripExtensionFields(schema, value, ["x-secret"]);
 }
 
 /**
