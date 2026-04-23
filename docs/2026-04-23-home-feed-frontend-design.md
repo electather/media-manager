@@ -54,6 +54,8 @@ If something currently lives at `/`, it gets displaced — the landing page for 
 
 **Deep-link detail route:** `packages/client/src/routes/_authenticated/media.$id.tsx` — TanStack Router's dot syntax for a dynamic path segment. Matches `/media/movie:550` and `/media/tv:1396`; the `id` param is the composite `MediaId` from the backend.
 
+The route declares a Zod schema on its `params` (the same `^(movie|tv):\d+$` regex the `peek` search param uses) via TanStack Router's `params.parse`. A URL whose `$id` segment fails the regex is routed to the framework's error boundary, which renders the same "Not found" surface the media-detail spec defines for a well-formed id that doesn't resolve upstream. This keeps the invalid-input path identical to the not-resolved path from the user's perspective — one error surface, delegated to the media-detail spec — and matches the zero-defensive-parsing rule the modal already follows.
+
 **Sidebar nav:** one new item labelled "Home", positioned above "Connections" and "Taste profile" in the existing sidebar. Uses `lucide-react`'s `Home` icon for visual consistency with the rest of the nav. The shell's existing active-route highlighting handles the selected state.
 
 **Page title / subtitle:** no page-level `h1`. Streaming-service homes don't render "Home" as a visible heading — row titles carry the hierarchy. The browser tab title is set via TanStack Router's `meta` to "Home · {App name}".
@@ -166,6 +168,7 @@ packages/client/src/
 ### Data flow
 
 - **`useHomeLayout()`** — a single tanstack-query call against `home.getLayout`. Cache key: `["home", "layout"]`. Stale time: 60 seconds — Continue Watching updates fast, but refetching on every navigation is wasteful. On window refocus after 60s, revalidate in background while keeping the current layout on screen (tanstack-query's default SWR behaviour).
+  - **`HomeLayoutResponse.generatedAt` in v1:** received, intentionally unused. The 60s staleTime is anchored on tanstack-query's own fetch-completion timestamp, which is what determines background revalidation — not the server-side compose time. `generatedAt` is retained in the wire type (the backend spec calls it out as a client-facing field) so that a later "Last updated X ago" affordance, or a staleness policy that cares about server compose time rather than client fetch time, can adopt it without a contract change. No component reads it in v1; no hook branches on it.
 - **`useRowPagination(rowId, initialCursor, initialItems)`** — internal to `Row`. Keeps state `{ items: CompactMediaItem[], cursor: string | null, isFetching: boolean }`. Initial items and cursor come from the `HomeRow` inline. When `RowCarousel` signals "near end of visible items" (≥75% scroll progress within the rendered window, debounced to 150ms), the hook fires `home.getRowContent` and appends. Stops when cursor is `null`. On `home.row_unavailable`, the hook signals the parent to remove the row (see States below).
 - Detail fetch is out of scope — `MediaDetailBody` has its own data-shape spec in a later doc. For this design, the modal's job is to mount that component and manage the overlay / close behaviour.
 
@@ -289,7 +292,7 @@ Two surfaces, one body. The `peek` search param drives the overlay; the real rou
 
 ### Trigger
 
-- `<Card>`'s click handler calls `event.preventDefault()` and updates search: `router.navigate({ search: (prev) => ({ ...prev, peek: item.id }) })`.
+- `<Card>`'s click handler calls `event.preventDefault()` and updates search: `router.navigate({ search: (prev) => ({ ...prev, peek: item.id }), replace: false })`. The explicit `replace: false` is load-bearing — TanStack Router's default for search updates is `replace: true`, which would not produce a history entry, and browser-back would skip past the modal open instead of dismissing it (see Implementation review notes).
 - Middle-click, Cmd/Ctrl-click, and "Open in new tab" fall through to the native `<a href="/media/<id>">` — takes the user to the full-route page in a new context.
 - The `peek` search param is validated via Zod on the route definition (`peekSchema` above). Invalid values are stripped by TanStack Router before they reach any component — no defensive parsing in the modal.
 
@@ -309,6 +312,10 @@ The layout reads search via `useSearch({ strict: false })` so it can run under r
 function MediaDetailModal() {
   const { peek } = useSearch({ strict: false });
   const router = useRouter();
+  // Close uses the default `replace: true` — we want the dismiss to replace
+  // the "peek open" history entry, not push a new one on top of it. That way
+  // one browser-back dismisses and the preceding entry is whatever the user
+  // was on before opening the modal.
   const close = () =>
     router.navigate({ search: (prev) => ({ ...prev, peek: undefined }) });
 
@@ -339,7 +346,7 @@ function MediaDetailPage() {
 
 - Click outside the modal dismisses (shadcn Dialog default).
 - `Escape` dismisses.
-- Browser back dismisses. `router.navigate` with a search update pushes a new history entry; back reverts it.
+- Browser back dismisses. The card's open-transition navigate call uses `replace: false`, pushing a new history entry; the default `replace: true` on the close call rewrites it in place so dismissing doesn't pile a dead entry on top of the pre-modal URL. Net effect: one back-press goes from "modal open" to "home feed without peek," which is what users expect.
 - The close button (top-right, `X` icon) dismisses.
 
 All four paths route through the same `close()` function: clear the `peek` search param. Scroll position and row state are untouched because the home route never unmounted.
