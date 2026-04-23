@@ -3,6 +3,7 @@ import traktPlugin from "./trakt/plugin";
 import tmdbPlugin from "./tmdb/plugin";
 import tvdbPlugin from "./tvdb/plugin";
 import seerrPlugin from "./seerr/plugin";
+import jellyfinPlugin from "./jellyfin/plugin";
 
 /**
  * Registers all built-in plugin modules with the loader. Called once during server boot
@@ -32,5 +33,10 @@ export function registerBuiltinPlugins(): void {
     id: seerrPlugin.manifest.id,
     module: seerrPlugin,
     bytes: `builtin:${seerrPlugin.manifest.id}@${seerrPlugin.manifest.version}`,
+  });
+  registerBuiltin({
+    id: jellyfinPlugin.manifest.id,
+    module: jellyfinPlugin,
+    bytes: `builtin:${jellyfinPlugin.manifest.id}@${jellyfinPlugin.manifest.version}`,
   });
 }

@@ -69,7 +69,19 @@ export interface PluginContext<
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */
 export type AuthResult =
-  | { status: "completed"; credentials: unknown }
+  | {
+      status: "completed";
+      credentials: unknown;
+      /**
+       * Optional patch merged into the submitted `userConfig` before the
+       * `service_connections` row is written. Used by plugins that resolve
+       * server-side identifiers during auth (e.g. Jellyfin's `userId` from
+       * `/Users/Me`) without round-tripping through the client. Keys must be
+       * declared on `userConfigSchema` — the host rejects any key the plugin
+       * attempts to smuggle in.
+       */
+      userConfigPatch?: Record<string, unknown>;
+    }
   | { status: "redirect"; url: string; state: unknown }
   | {
       status: "display_code";

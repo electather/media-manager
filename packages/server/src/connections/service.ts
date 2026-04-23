@@ -223,11 +223,18 @@ export const connectionsService = {
           message,
         });
       }
+      // Merge any plugin-returned patch (e.g. Jellyfin's `userId` from
+      // `/Users/Me`) on top of the incoming userConfig so re-auth refreshes
+      // server-resolved identifiers without the client having to round-trip.
+      const patched =
+        result.userConfigPatch && Object.keys(result.userConfigPatch).length > 0
+          ? { ...merged, ...result.userConfigPatch }
+          : merged;
       const credEnc = await encryptJson(result.credentials);
       await db
         .update(serviceConnections)
         .set({
-          userConfig: JSON.stringify(merged),
+          userConfig: JSON.stringify(patched),
           encryptedCredentials: credEnc.data,
           credentialsIv: credEnc.iv,
           lastVerifiedAt: Date.now(),
