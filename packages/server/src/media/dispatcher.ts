@@ -97,24 +97,21 @@ async function invokeWithTimeout<T>(req: InvokeRequest, conn: ResolvedConnection
  * For `scope: "global"` / `"user"` capabilities this is a constant; for
  * `"mixed"` capabilities (today: `idResolve@v1`) the capability's
  * `scopeForInput` classifies the request — typically by looking at the
- * input's id kind. Computed once per request and threaded through every
- * subsequent step.
+ * input's id kind. Each dispatch strategy computes this once at entry and
+ * threads the result through every subsequent step so a future impure
+ * classifier cannot observe or diverge across the lookups.
+ *
+ * The discriminated union on `CapabilityDefinition` guarantees at the type
+ * level that `scopeForInput` is present whenever `scope === "mixed"`, so
+ * no runtime guard is needed here — a malformed capability defined via an
+ * `as any` cast would fail on the subsequent call with a descriptive
+ * TypeError.
  */
 function scopeForRequest(
   capability: CapabilityDefinition,
   input: unknown,
 ): ResolvedCapabilityScope {
-  if (capability.scope === "mixed") {
-    if (!capability.scopeForInput) {
-      throw new PluginCallError(
-        "plugin.call_failed",
-        `capability ${capability.id}@${capability.version} declares scope:"mixed" but has no scopeForInput classifier`,
-        "",
-        null,
-      );
-    }
-    return capability.scopeForInput(input);
-  }
+  if (capability.scope === "mixed") return capability.scopeForInput(input);
   return capability.scope;
 }
 
@@ -247,23 +244,23 @@ async function harvestFromOutcomes(
   }
 }
 
-function cacheKeyFor(req: DispatchRequest, capability: CapabilityDefinition): Promise<string> {
+function cacheKeyFor(req: DispatchRequest, scope: ResolvedCapabilityScope): Promise<string> {
   return cacheKey({
     capability: req.capability,
     version: req.version,
     method: req.method,
     userId: req.userId,
-    scope: scopeForRequest(capability, req.input),
+    scope,
     input: req.input,
   });
 }
 
 async function readCache<T>(
   req: DispatchRequest,
-  capability: CapabilityDefinition,
+  scope: ResolvedCapabilityScope,
 ): Promise<T | undefined> {
   if (req.skipCache) return undefined;
-  const key = await cacheKeyFor(req, capability);
+  const key = await cacheKeyFor(req, scope);
   // Values are wrapped in { v } so a negatively-cached `null` is distinguishable
   // from a cache miss (both would otherwise serialize to `null`).
   const cached = await getCacheProvider().get<{ v: T }>(key);
@@ -274,10 +271,11 @@ async function readCache<T>(
 async function writeCache<T>(
   req: DispatchRequest,
   capability: CapabilityDefinition,
+  scope: ResolvedCapabilityScope,
   value: T,
 ): Promise<void> {
   if (req.skipCache) return;
-  const key = await cacheKeyFor(req, capability);
+  const key = await cacheKeyFor(req, scope);
   const ttl = ttlMsFor(capability, value);
   await getCacheProvider().set(key, { v: value }, ttl);
 }
@@ -323,14 +321,11 @@ async function pickSingleConnection(
  */
 export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null> {
   const capability = requireCapability(req.capability, req.version);
-  const cached = await readCache<T | null>(req, capability);
+  const scope = scopeForRequest(capability, req.input);
+  const cached = await readCache<T | null>(req, scope);
   if (cached !== undefined) return cached;
 
-  const providers = capabilityRegistry.listProviders(
-    req.capability,
-    req.version,
-    scopeForRequest(capability, req.input),
-  );
+  const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   if (providers.length === 0) {
     throw new PluginCallError(
       "plugin.call_failed",
@@ -364,7 +359,7 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
   );
   if (outcome.error) {
     if (outcome.error.code === "plugin.item_not_found") {
-      await writeCache<T | null>(req, capability, null);
+      await writeCache<T | null>(req, capability, scope, null);
       return null;
     }
     throw new PluginCallError(
@@ -376,7 +371,7 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
   }
   await harvestFromOutcomes([outcome], req.mediaType);
   const value = (outcome.data ?? null) as T | null;
-  await writeCache(req, capability, value);
+  await writeCache(req, capability, scope, value);
   await applyInvalidations(req, capability);
   return value;
 }
@@ -387,14 +382,11 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
  */
 export async function dispatchAggregate<T>(req: DispatchRequest): Promise<AggregateResult<T>> {
   const capability = requireCapability(req.capability, req.version);
-  const cached = await readCache<AggregateResult<T>>(req, capability);
+  const scope = scopeForRequest(capability, req.input);
+  const cached = await readCache<AggregateResult<T>>(req, scope);
   if (cached !== undefined) return cached;
 
-  const providers = capabilityRegistry.listProviders(
-    req.capability,
-    req.version,
-    scopeForRequest(capability, req.input),
-  );
+  const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   const candidates: Array<{ pluginId: string; conn: ResolvedConnection }> = [];
   for (const pluginId of providers) {
     const connections = await resolveConnections(req.userId, pluginId);
@@ -439,7 +431,7 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
     }
   }
   const result: AggregateResult<T> = { data: data as T, errors };
-  await writeCache(req, capability, result);
+  await writeCache(req, capability, scope, result);
   await applyInvalidations(req, capability);
   return result;
 }
@@ -476,14 +468,11 @@ function mergeObjects(base: Record<string, unknown>, extra: Record<string, unkno
  */
 export async function dispatchPrimary<T>(req: DispatchRequest): Promise<AggregateResult<T>> {
   const capability = requireCapability(req.capability, req.version);
-  const cached = await readCache<AggregateResult<T>>(req, capability);
+  const scope = scopeForRequest(capability, req.input);
+  const cached = await readCache<AggregateResult<T>>(req, scope);
   if (cached !== undefined) return cached;
 
-  const providers = capabilityRegistry.listProviders(
-    req.capability,
-    req.version,
-    scopeForRequest(capability, req.input),
-  );
+  const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   if (providers.length === 0) {
     return { data: null as T, errors: [] };
   }
@@ -536,7 +525,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
     const empty: AggregateResult<T> = { data: null as T, errors };
-    await writeCache(req, capability, empty);
+    await writeCache(req, capability, scope, empty);
     return empty;
   }
 
@@ -555,7 +544,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   }
 
   const result: AggregateResult<T> = { data: merged, errors };
-  await writeCache(req, capability, result);
+  await writeCache(req, capability, scope, result);
   await applyInvalidations(req, capability);
   return result;
 }

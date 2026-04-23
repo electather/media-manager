@@ -464,6 +464,13 @@ export const IdResolveV1 = defineCapability({
     // `strategy` pipeline), so the type assertion is safe for well-formed
     // requests. Defensive `typeof` guard for edge cases where validation
     // has been bypassed (e.g. direct dispatcher calls from tests).
+    //
+    // Classifier rule: server-local id kinds are the ones that contain
+    // `":"` (`plex:ratingKey`, `jellyfin:itemId`). Cross-service id kinds
+    // (`tmdb`, `imdb`, `tvdb`, `trakt`) are flat — no colon — and route
+    // globally. Because `idResolveInput` uses `z.enum`, adding a new
+    // colon-bearing global id kind later would require an explicit code
+    // change here, not a silent classification flip.
     const from = (input as { from?: unknown } | null)?.from;
     return typeof from === "string" && from.includes(":") ? "user" : "global";
   },

@@ -512,6 +512,109 @@ describe("dispatchSingle — mixed-scope routing for idResolve@v1", () => {
   });
 });
 
+describe("dispatchAggregate — mixed-scope routing", () => {
+  // `idResolve@v1`'s declared strategy is `single`, but the scope-resolution
+  // path in `dispatchAggregate` reads the same `scopeForInput` classifier —
+  // the reviewer's concern is a future mixed-scope aggregate capability
+  // arriving without coverage. Invoking `dispatchAggregate` directly against
+  // idResolve exercises that code path.
+  it("routes user-scoped for from:'plex:ratingKey' and global for from:'tmdb'", async () => {
+    listProvidersMock.mockImplementation((_cap: string, _ver: string, scope: "user" | "global") =>
+      scope === "user" ? ["plex"] : ["tmdb"],
+    );
+    resolveConnectionsMock.mockImplementation(async (_userId: string, pluginId: string) => [
+      userConn(pluginId),
+    ]);
+    invokeMock.mockResolvedValueOnce({ tmdb: "550", "plex:ratingKey": "42" });
+
+    await dispatchAggregate({
+      userId: "alice",
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      input: { from: "plex:ratingKey", id: "42", type: "movie" },
+    });
+    expect(listProvidersMock).toHaveBeenCalledWith("idResolve", "v1", "user");
+    expect(listProvidersMock.mock.calls.some((args) => args[2] === "global")).toBe(false);
+
+    listProvidersMock.mockClear();
+    invokeMock.mockResolvedValueOnce({ tmdb: "550", imdb: "tt0137523" });
+
+    await dispatchAggregate({
+      userId: "alice",
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      input: { from: "tmdb", id: "550", type: "movie" },
+    });
+    expect(listProvidersMock).toHaveBeenCalledWith("idResolve", "v1", "global");
+    expect(listProvidersMock.mock.calls.some((args) => args[2] === "user")).toBe(false);
+  });
+
+  it("per-user cache isolation for user-scoped aggregate dispatches", async () => {
+    listProvidersMock.mockImplementation((_cap: string, _ver: string, scope: "user" | "global") =>
+      scope === "user" ? ["plex"] : [],
+    );
+    resolveConnectionsMock.mockImplementation(async (userId: string) => [
+      userConn("plex", `plex-conn-${userId}`),
+    ]);
+    invokeMock
+      .mockResolvedValueOnce({ tmdb: "alice-result" })
+      .mockResolvedValueOnce({ tmdb: "bob-result" });
+
+    await dispatchAggregate({
+      userId: "alice",
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      input: { from: "plex:ratingKey", id: "42", type: "movie" },
+    });
+    await dispatchAggregate({
+      userId: "bob",
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      input: { from: "plex:ratingKey", id: "42", type: "movie" },
+    });
+    expect(invokeMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("dispatchPrimary — mixed-scope routing", () => {
+  it("routes user-scoped for from:'plex:ratingKey' and global for from:'tmdb'", async () => {
+    listProvidersMock.mockImplementation((_cap: string, _ver: string, scope: "user" | "global") =>
+      scope === "user" ? ["plex"] : ["tmdb"],
+    );
+    resolveConnectionsMock.mockImplementation(async (_userId: string, pluginId: string) => [
+      userConn(pluginId),
+    ]);
+    invokeMock.mockResolvedValueOnce({ tmdb: "550", "plex:ratingKey": "42" });
+
+    await dispatchPrimary({
+      userId: "alice",
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      input: { from: "plex:ratingKey", id: "42", type: "movie" },
+    });
+    expect(listProvidersMock).toHaveBeenCalledWith("idResolve", "v1", "user");
+    expect(listProvidersMock.mock.calls.some((args) => args[2] === "global")).toBe(false);
+
+    listProvidersMock.mockClear();
+    invokeMock.mockResolvedValueOnce({ tmdb: "550", imdb: "tt0137523" });
+
+    await dispatchPrimary({
+      userId: "alice",
+      capability: "idResolve",
+      version: "v1",
+      method: "resolve",
+      input: { from: "tmdb", id: "550", type: "movie" },
+    });
+    expect(listProvidersMock).toHaveBeenCalledWith("idResolve", "v1", "global");
+    expect(listProvidersMock.mock.calls.some((args) => args[2] === "user")).toBe(false);
+  });
+});
+
 describe("invalidateUserCache", () => {
   it("clears the mv: namespace", async () => {
     const provider = getCacheProvider();

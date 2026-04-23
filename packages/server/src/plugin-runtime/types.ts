@@ -225,26 +225,10 @@ export type CapabilityScopeMode = "global" | "user" | "mixed";
 /** The resolved scope a single dispatch request is executed under. */
 export type ResolvedCapabilityScope = "global" | "user";
 
-export interface CapabilityDefinition {
+interface CapabilityDefinitionBase {
   id: string;
   version: string;
   strategy: CapabilityStrategy;
-  /**
-   * Declares how the capability is routed. `"mixed"` requires `scopeForInput`
-   * so the dispatcher can pick "global" or "user" per request.
-   */
-  scope: CapabilityScopeMode;
-  /**
-   * Required when `scope === "mixed"`. Classifies an individual input into
-   * the scope that should handle it — this drives both provider lookup
-   * (`listProviders` is indexed by scope) and cache keying (the key only
-   * gets userId-qualified when the resolved scope is "user"), so a
-   * user-scoped result can never be served from a global cache entry.
-   *
-   * Must be pure and side-effect free: it's called once per request before
-   * the cache lookup.
-   */
-  scopeForInput?: (input: unknown) => ResolvedCapabilityScope;
   /** Default positive-cache TTL applied when a call returns non-null. */
   defaultCacheTtlSec: number;
   /** TTL for null/empty results. Shorter to avoid pinning misses long-term. */
@@ -255,3 +239,25 @@ export interface CapabilityDefinition {
   /** Optional capability-owned MCP tools registered at host startup. */
   mcpTools?: CapabilityMcpTool[];
 }
+
+/**
+ * A dispatched capability is one of three shapes:
+ *
+ * - Fixed-scope (`"global"` or `"user"`): every call resolves to the same
+ *   scope and `scopeForInput` is prohibited at the type level.
+ * - `"mixed"`: the scope depends on the request, so `scopeForInput` is
+ *   **required**. The classifier must be pure and side-effect free — the
+ *   dispatcher calls it once per dispatch and threads the result through
+ *   both provider lookup (`listProviders` is indexed by scope) and cache
+ *   keying (the key is only userId-qualified when the resolved scope is
+ *   `"user"`), so a user-scoped result can never be served from a global
+ *   cache entry.
+ */
+export type CapabilityDefinition = CapabilityDefinitionBase &
+  (
+    | { scope: "global" | "user"; scopeForInput?: never }
+    | {
+        scope: "mixed";
+        scopeForInput: (input: unknown) => ResolvedCapabilityScope;
+      }
+  );
