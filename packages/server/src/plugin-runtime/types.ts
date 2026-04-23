@@ -75,14 +75,15 @@ export type AuthResult =
       /**
        * Optional patch merged into the submitted `userConfig` before the
        * `service_connections` row is written. Used by plugins that resolve
-       * server-side identifiers during auth (e.g. Jellyfin's `userId` from
-       * `/Users/Me`) without round-tripping through the client, or to strip
-       * submitted secrets that the plugin has promoted into the encrypted
-       * `credentials` blob (set the key to `null` to delete it from the
-       * persisted `userConfig`). Built-in plugins are trusted to only set
-       * keys that are either declared on `userConfigSchema` or explicitly
-       * cleared via `null`; schema-level validation for user-installed
-       * plugins is planned but not yet implemented.
+       * server-side identifiers during auth (e.g. Plex's `machineIdentifier`
+       * and account id, Jellyfin's `userId` from `/Users/Me`) without
+       * round-tripping through the client, or to strip submitted secrets
+       * that the plugin has promoted into the encrypted `credentials` blob
+       * (set the key to `null` to delete it from the persisted
+       * `userConfig`). Built-in plugins are trusted to only set keys that
+       * are either declared on `userConfigSchema` or explicitly cleared via
+       * `null`; schema-level validation for user-installed plugins is
+       * planned but not yet implemented.
        */
       userConfigPatch?: Record<string, unknown>;
     }
