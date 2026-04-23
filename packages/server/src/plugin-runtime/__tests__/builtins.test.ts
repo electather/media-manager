@@ -5,6 +5,7 @@ import traktPlugin from "../../plugins/builtin/trakt/plugin";
 import tmdbPlugin from "../../plugins/builtin/tmdb/plugin";
 import tvdbPlugin from "../../plugins/builtin/tvdb/plugin";
 import seerrPlugin from "../../plugins/builtin/seerr/plugin";
+import jellyfinPlugin from "../../plugins/builtin/jellyfin/plugin";
 
 const tmdbManifest: PluginManifest = tmdbPlugin.manifest;
 
@@ -32,6 +33,11 @@ describe("built-in plugins pass loader validation", () => {
   it("seerr", async () => {
     await expect(
       validatePluginModule(seerrPlugin, `builtin:${seerrPlugin.manifest.id}`),
+    ).resolves.toBeDefined();
+  });
+  it("jellyfin", async () => {
+    await expect(
+      validatePluginModule(jellyfinPlugin, `builtin:${jellyfinPlugin.manifest.id}`),
     ).resolves.toBeDefined();
   });
 });

@@ -6,6 +6,30 @@ import type { AuthResult } from "../plugin-runtime/types";
 import { notFound, unprocessable } from "../errors/http-errors";
 import { encryptJson, decryptJson, writeConnection } from "./helpers";
 
+/**
+ * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.
+ * Returns the submitted value unchanged when the patch is absent so plugins
+ * that don't need the feature stay on the zero-copy path. A `null` patch value
+ * removes the key from the merged result, letting plugins strip submitted
+ * secrets (e.g. a password that has been moved into the encrypted credentials
+ * blob) from the persisted `userConfig` JSON.
+ */
+export function applyUserConfigPatch(
+  userConfig: unknown,
+  patch: Record<string, unknown> | undefined,
+): unknown {
+  if (!patch || Object.keys(patch).length === 0) return userConfig;
+  const base =
+    userConfig && typeof userConfig === "object" && !Array.isArray(userConfig)
+      ? { ...(userConfig as Record<string, unknown>) }
+      : ({} as Record<string, unknown>);
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete base[key];
+    else base[key] = value;
+  }
+  return base;
+}
+
 export async function verifyConfig(args: {
   userId: string;
   pluginId: string;
@@ -48,7 +72,7 @@ export async function createFormConnection(args: {
     userId: args.userId,
     pluginId: args.pluginId,
     credentials: result.credentials,
-    userConfig: args.userConfig,
+    userConfig: applyUserConfigPatch(args.userConfig, result.userConfigPatch),
     displayName: args.displayName,
   });
   return { id };
@@ -124,7 +148,7 @@ export async function completeRedirectAuth(args: {
     userId: args.userId,
     pluginId: row.pluginId,
     credentials: result.credentials,
-    userConfig: null,
+    userConfig: applyUserConfigPatch(null, result.userConfigPatch),
   });
   await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
   return { connectionId: id };
@@ -203,7 +227,7 @@ export async function pollDeviceAuth(args: {
       userId: args.userId,
       pluginId: row.pluginId,
       credentials: result.credentials,
-      userConfig: null,
+      userConfig: applyUserConfigPatch(null, result.userConfigPatch),
     });
     await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
     return { status: "completed", connectionId: id };

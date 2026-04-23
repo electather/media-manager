@@ -11,6 +11,7 @@ import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import { decryptJson, encryptJson, promoteToDefault, stripResponseFields } from "./helpers";
 import {
+  applyUserConfigPatch,
   verifyConfig,
   createFormConnection,
   initiateRedirectAuth,
@@ -209,12 +210,18 @@ export const connectionsService = {
     if (manifest.auth.kind === "form") {
       // Re-run startAuth so credentials stay synced with userConfig changes
       // (e.g. apiKey rotation). startAuth validates upstream and returns the
-      // fresh credentials blob to persist alongside.
+      // fresh credentials blob to persist alongside. Decrypt prior credentials
+      // and pass them into runAuth so plugins that keep secrets out of
+      // userConfig (e.g. Jellyfin's password lives in the encrypted
+      // credentials blob) can rehydrate them via ctx.credentials on re-auth.
+      const priorCredentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
       const result = (await pluginRuntime.runAuth(
         row.pluginId,
         "startAuth",
         args.userId,
         merged,
+        undefined,
+        priorCredentials,
       )) as AuthResult;
       if (result.status !== "completed") {
         const message =
@@ -223,11 +230,17 @@ export const connectionsService = {
           message,
         });
       }
+      // Merge any plugin-returned patch (e.g. Jellyfin's `userId` from
+      // `/Users/Me`) on top of the incoming userConfig so re-auth refreshes
+      // server-resolved identifiers without the client having to round-trip.
+      // `null` patch values mean "delete this key" — used to strip secrets
+      // that the plugin has promoted into the encrypted credentials blob.
+      const patched = applyUserConfigPatch(merged, result.userConfigPatch);
       const credEnc = await encryptJson(result.credentials);
       await db
         .update(serviceConnections)
         .set({
-          userConfig: JSON.stringify(merged),
+          userConfig: JSON.stringify(patched),
           encryptedCredentials: credEnc.data,
           credentialsIv: credEnc.iv,
           lastVerifiedAt: Date.now(),
