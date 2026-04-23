@@ -9,8 +9,8 @@ import {
   LibraryAdminV1,
   IdResolveV1,
 } from "../../../../plugin-runtime/capabilities";
-import type { PluginContext } from "../../../../plugin-runtime/types";
 import jellyfinPlugin from "../plugin";
+import { jfItem, jsonRes, makeCtx, statusRes } from "./helpers";
 
 /**
  * Contract tests: drive every declared capability method end-to-end with a
@@ -18,73 +18,6 @@ import jellyfinPlugin from "../plugin";
  * Jellyfin server, and confirm the plugin's return value parses against the
  * capability's Zod output schema.
  */
-
-interface FakeCall {
-  url: string;
-  init?: RequestInit;
-}
-
-function makeCtx(responses: Array<Response | Error>): PluginContext & { calls: FakeCall[] } {
-  const calls: FakeCall[] = [];
-  const ctx = {
-    calls,
-    async fetch(url: string, init?: RequestInit) {
-      calls.push({ url, init });
-      const next = responses.shift();
-      if (!next) throw new Error(`unexpected fetch: ${url}`);
-      if (next instanceof Error) throw next;
-      return next;
-    },
-    log: { debug() {}, info() {}, warn() {}, error() {} },
-    credentials: { accessToken: "tok" },
-    sharedCredentials: null,
-    config: {
-      global: null,
-      user: {
-        externalServerUrl: "https://jellyfin.example.com",
-        internalServerUrl: "http://jellyfin:8096",
-        username: "alice",
-        userId: "user-1",
-      },
-    },
-    store: {
-      async get() {
-        return undefined;
-      },
-      async set() {},
-      async delete() {},
-    },
-    pool: { markExhausted() {} },
-    appBaseUrl: "https://app.example.com",
-  } as unknown as PluginContext & { calls: FakeCall[] };
-  return ctx;
-}
-
-function jsonRes(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
-}
-
-function statusRes(status: number): Response {
-  const nullBody = status === 204 || status === 205 || status === 304;
-  return new Response(nullBody ? null : "", { status });
-}
-
-// Minimal Jellyfin item suitable for output mapping.
-function jfItem(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    Id: "item-1",
-    Name: "Example",
-    Type: "Movie",
-    ProductionYear: 2026,
-    DateCreated: "2026-04-01T00:00:00.000Z",
-    MediaSources: [],
-    ProviderIds: {},
-    ...overrides,
-  };
-}
 
 describe("jellyfin plugin passes loader validation", () => {
   it("validates against the manifest + capability catalog", async () => {

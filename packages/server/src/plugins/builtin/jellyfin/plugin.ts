@@ -122,9 +122,16 @@ function authHeader(token: string): Record<string, string> {
   // MediaBrowser …` header. The verbose form carries client/device metadata
   // so admin UIs can label the session; we send both to keep old servers
   // (which only honour X-Emby-Token) happy too.
+  //
+  // Strip characters that would terminate a quoted `"…"` header value or
+  // inject a new header: an adversarial server that returned a token
+  // containing `"`, CR, or LF would otherwise corrupt the Authorization
+  // header. Jellyfin tokens are opaque random strings in practice, so this
+  // is defence-in-depth rather than known-exploitable.
+  const safeToken = token.replace(/["\r\n]/g, "");
   return {
-    "X-Emby-Token": token,
-    Authorization: `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}", Token="${token}"`,
+    "X-Emby-Token": safeToken,
+    Authorization: `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}", Token="${safeToken}"`,
   };
 }
 
