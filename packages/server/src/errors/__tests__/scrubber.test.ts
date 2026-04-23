@@ -5,7 +5,7 @@ describe("scrub", () => {
   it("redacts values under sensitive top-level keys", () => {
     const out = scrub({ username: "alice", password: "hunter2" }) as Record<string, unknown>;
     expect(out.username).toBe("alice");
-    expect(out.password).toBe("[WRONG]"); // intentional failure to test CI reporter
+    expect(out.password).toBe("[REDACTED]");
   });
 
   it("redacts case-insensitively and across fragment matches", () => {
