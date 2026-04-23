@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { libraryItemSchema } from "@ent-mcp/shared/plugins/library";
+import { libraryItemSchema, LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "./define";
 
 const mediaType = z.enum(["movie", "tv"]);
@@ -520,11 +520,18 @@ export const PlaybackV1 = defineCapability({
  */
 const libraryAvailabilityIdType = z.enum(["tmdb", "imdb", "tvdb", "plex", "jellyfin"]);
 
+// Inputs across libraryAvailability@v1 / continueWatching@v1 use
+// LIBRARY_ITEM_QUERY_TYPES (`"movie" | "show"`) rather than the cross-service
+// `mediaType` ("movie" | "tv") so the input vocabulary matches the
+// LIBRARY_ITEM_TYPES the output schema uses. Episodes are an output-only
+// granularity — callers filter at the title level.
+const libraryItemQueryType = z.enum(LIBRARY_ITEM_QUERY_TYPES);
+
 const libraryAvailabilityCheckInput = z.object({
   /** Identifier value; its flavour is tagged by `idType`. */
   id: z.string().min(1),
   idType: libraryAvailabilityIdType,
-  type: mediaType,
+  type: libraryItemQueryType,
 });
 
 const libraryAvailabilityCheckOutput = z.object({
@@ -537,7 +544,7 @@ const libraryAvailabilityCheckOutput = z.object({
 });
 
 const libraryAvailabilityRecentlyAddedInput = z.object({
-  type: mediaType.optional(),
+  type: libraryItemQueryType.optional(),
   /** Page size; plugins clamp server-side to a sensible max. */
   limit: z.number().optional(),
   /** Opaque cursor returned by the previous page, or omitted for the first page. */
@@ -552,7 +559,7 @@ const libraryAvailabilityRecentlyAddedOutput = z.object({
 
 const libraryAvailabilitySearchInput = z.object({
   query: z.string().min(1),
-  type: mediaType.optional(),
+  type: libraryItemQueryType.optional(),
   limit: z.number().optional(),
 });
 
@@ -560,6 +567,10 @@ const libraryAvailabilitySearchInput = z.object({
  * libraryAvailability@v1 — does the user's self-hosted media server (Plex,
  * Jellyfin, …) have this item, and what's new on it? See the design doc's
  * "New capability contracts" section for backing endpoints and rationale.
+ *
+ * No `mcpTools` in this revision — they will land alongside the Plex/Jellyfin
+ * plugin implementations (#22, #23) so the tool surface can reference real
+ * backing methods rather than stubs.
  */
 export const LibraryAvailabilityV1 = defineCapability({
   id: "libraryAvailability",
@@ -582,7 +593,7 @@ export const LibraryAvailabilityV1 = defineCapability({
 // ─── continueWatching@v1 shared shapes ───────────────────────────────────────
 
 const continueWatchingInput = z.object({
-  type: mediaType.optional(),
+  type: libraryItemQueryType.optional(),
   limit: z.number().optional(),
 });
 
@@ -608,6 +619,9 @@ export type ContinueWatchingEntry = z.infer<typeof continueWatchingEntry>;
  * returns raw resume points from external sync APIs (Trakt) rather than a
  * server-curated ranking. Reuses `LibraryItem` so sessions and continue feeds
  * nest the same media shape.
+ *
+ * No `mcpTools` in this revision — they land with the Plex/Jellyfin plugin
+ * implementations (#22, #23).
  */
 export const ContinueWatchingV1 = defineCapability({
   id: "continueWatching",

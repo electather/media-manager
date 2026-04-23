@@ -183,7 +183,7 @@ describe("LibraryAvailabilityV1", () => {
   describe("listRecentlyAdded", () => {
     it("accepts pagination fields", () => {
       const r = LibraryAvailabilityV1.methods.listRecentlyAdded.input.safeParse({
-        type: "tv",
+        type: "show",
         limit: 25,
         cursor: "opaque-cursor-1",
       });
@@ -194,6 +194,13 @@ describe("LibraryAvailabilityV1", () => {
       const r = LibraryAvailabilityV1.methods.listRecentlyAdded.output.safeParse({
         items: [],
         nextCursor: "opaque-cursor-2",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts a final page with no nextCursor", () => {
+      const r = LibraryAvailabilityV1.methods.listRecentlyAdded.output.safeParse({
+        items: [libraryItemFixture],
       });
       expect(r.success).toBe(true);
     });
@@ -212,6 +219,34 @@ describe("LibraryAvailabilityV1", () => {
       });
       expect(r.success).toBe(true);
     });
+
+    it("validates output as an array of LibraryItem", () => {
+      const r = LibraryAvailabilityV1.methods.searchLibrary.output.safeParse([
+        libraryItemFixture,
+        { ...libraryItemFixture, id: "plex:12346", type: "show" },
+      ]);
+      expect(r.success).toBe(true);
+    });
+  });
+
+  describe("input type enum", () => {
+    it("rejects episode as a query type (output-only granularity)", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.input.safeParse({
+        id: "42",
+        idType: "plex",
+        type: "episode",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("rejects the cross-service tv alias (use show instead)", () => {
+      const r = LibraryAvailabilityV1.methods.checkAvailability.input.safeParse({
+        id: "550",
+        idType: "tmdb",
+        type: "tv",
+      });
+      expect(r.success).toBe(false);
+    });
   });
 });
 
@@ -224,6 +259,28 @@ describe("ContinueWatchingV1", () => {
 
   it("exposes only getContinueWatching", () => {
     expect(Object.keys(ContinueWatchingV1.methods)).toEqual(["getContinueWatching"]);
+  });
+
+  describe("getContinueWatching input", () => {
+    it("accepts no filters", () => {
+      const r = ContinueWatchingV1.methods.getContinueWatching.input.safeParse({});
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts a type filter and limit", () => {
+      const r = ContinueWatchingV1.methods.getContinueWatching.input.safeParse({
+        type: "show",
+        limit: 10,
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects episode as a query type", () => {
+      const r = ContinueWatchingV1.methods.getContinueWatching.input.safeParse({
+        type: "episode",
+      });
+      expect(r.success).toBe(false);
+    });
   });
 
   it("accepts entries with a nextUp episode", () => {

@@ -8,6 +8,17 @@ import { z } from "zod";
 export const LIBRARY_ITEM_TYPES = ["movie", "show", "episode"] as const;
 export type LibraryItemType = (typeof LIBRARY_ITEM_TYPES)[number];
 
+/**
+ * Title-level kinds callers query against `libraryAvailability@v1` /
+ * `continueWatching@v1`. A proper subset of `LIBRARY_ITEM_TYPES` — `"episode"`
+ * is an output-only granularity and is not a meaningful query target on its
+ * own (callers narrow by movie vs. show). Using this on inputs instead of the
+ * cross-service `"movie" | "tv"` convention keeps the input/output vocabulary
+ * consistent within the media-server capabilities.
+ */
+export const LIBRARY_ITEM_QUERY_TYPES = ["movie", "show"] as const;
+export type LibraryItemQueryType = (typeof LIBRARY_ITEM_QUERY_TYPES)[number];
+
 export const LIBRARY_ITEM_RESOLUTIONS = ["4k", "1080p", "720p", "sd"] as const;
 export type LibraryItemResolution = (typeof LIBRARY_ITEM_RESOLUTIONS)[number];
 
@@ -41,7 +52,7 @@ export type LibraryItemQuality = z.infer<typeof libraryItemQualitySchema>;
  */
 export const libraryItemSchema = z.object({
   /** Server-local id. Used by subsequent calls back to the same server. */
-  id: z.string(),
+  id: z.string().min(1),
   title: z.string(),
   type: z.enum(LIBRARY_ITEM_TYPES),
   /** Season number for episodes. */
