@@ -10,6 +10,9 @@ jobs:
   quality-and-test:
     name: Quality Checks & Tests
     runs-on: [media-manager, sandboxed]
+    permissions:
+      checks: write
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,6 +29,15 @@ jobs:
 
       - name: Run Tests
         run: vp test
+
+      - name: Report Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Vitest Results
+          path: test-results/junit.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Require at least one changeset
         if: github.event_name == 'pull_request'

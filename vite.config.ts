@@ -9,4 +9,10 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
   },
   lint: { ignorePatterns: ["dist/**"], options: { typeAware: true, typeCheck: true } },
+  test: {
+    reporters: ["default", "junit"],
+    outputFile: {
+      junit: "./test-results/junit.xml",
+    },
+  },
 });
