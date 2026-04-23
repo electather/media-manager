@@ -124,7 +124,7 @@ interface PluginManifest {
 
 **`x-private` extension.** Properties marked `"x-private": true` are stored plaintext but stripped from every API response the host returns to clients. `x-private` protects operationally-sensitive-but-non-secret values (for example, a private-network server URL) from accidental client exposure without requiring the full encryption-at-rest cost of `x-secret`. The read-side behaviour mirrors `x-secret`: omitted fields on `updateUserConfig` are preserved by merging with the prior stored value, and connection-card-type responses never surface the value. A field may carry both `x-secret` and `x-private` if wanted; it is then encrypted at rest AND stripped from responses.
 
-**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` are URL-valued fields whose hostname is automatically added to the per-call `ctx.fetch` allowlist for invocations tied to that connection (user-scoped) or that shared-credentials entry (admin-scoped). This is how self-hosted services like Plex and Jellyfin can accept user-supplied server URLs that cannot be pre-declared in `manifest.allowedHosts`. The static `allowedHosts` list still applies (e.g. `plex.tv` for PIN auth) and is unioned with the dynamic set for the duration of the call. See "Self-hosted network topology".
+**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` in a plugin's `userConfigSchema` or `sharedCredentialsSchema` are URL-valued fields whose hostname is added to the per-call `ctx.fetch` allowlist, unioned with the plugin's static `manifest.allowedHosts`. This is how self-hosted services like Plex and Jellyfin can accept user-supplied server URLs that cannot be pre-declared in `manifest.allowedHosts`. The host resolves the dynamic host set at every invocation: user-scoped calls read the active connection's `userConfig`; admin/global-scoped calls read the picked `shared_credentials` entry. Aux contexts (auth flows, job handlers, `testConnection`, refresh) union both sides. A malformed URL in an `x-allowed-host` field fails the call with `plugin.input_invalid` — the allowlist is not silently degraded. See "Self-hosted network topology".
 
 **`sdkVersion` is a hard compatibility gate.** Install fails fast with a clear error when a plugin targets an incompatible SDK.
 
@@ -573,7 +573,7 @@ The only surface a plugin can touch outside its own code. Built fresh by the hos
 ```ts
 interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
   // Networking — only way plugins reach the outside world.
-  fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts (plus per-call x-allowed-host fields) + per-plugin rate limit
+  fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts ∪ x-allowed-host hosts + per-plugin rate limit
 
   // Media-manager's own public URL (APP_EXTERNAL_URL). Used by plugins to build
   // OAuth redirect_uri values and any client-facing link-back. Never the
@@ -682,7 +682,7 @@ Only meaningful for plugins with `poolable: true` and at least one user-scoped c
 
 **Security enforcement points:**
 
-- `ctx.fetch`: hostname check against `manifest.allowedHosts`; per-plugin token-bucket rate limit.
+- `ctx.fetch`: hostname check against `manifest.allowedHosts` unioned with any hostnames resolved from `x-allowed-host` fields in the active `userConfig`/`shared_credentials`; per-plugin token-bucket rate limit.
 - `ctx.store`: server-side namespacing by `(plugin_id, user_id, key)`. Plugins never see other plugins' or other users' data.
 - `ctx.log`: tagged and filtered by host.
 - `ctx.pool.markExhausted` is purely advisory to the host; it cannot be used to leak state across plugins or users.

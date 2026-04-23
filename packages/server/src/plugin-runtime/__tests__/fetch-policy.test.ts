@@ -1,0 +1,264 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
+import { buildFetch } from "../fetch-policy";
+import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../allowed-hosts";
+
+describe("buildFetch — static + dynamic allowlist", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("ok")),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("allows hosts present in the static list", async () => {
+    const fetch = buildFetch("plug-static", ["api.trakt.tv"]);
+    await expect(fetch("https://api.trakt.tv/path")).resolves.toBeInstanceOf(Response);
+  });
+
+  it("allows hosts present only in the dynamic set", async () => {
+    const fetch = buildFetch("plug-dynamic", [], new Set(["plex.local"]));
+    await expect(fetch("http://plex.local:32400/status")).resolves.toBeInstanceOf(Response);
+  });
+
+  it("rejects hosts that are in neither the static list nor the dynamic set", async () => {
+    const fetch = buildFetch("plug-rejects", ["api.trakt.tv"], new Set(["plex.local"]));
+    await expect(fetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+  });
+
+  it("unions static + dynamic hosts — either membership is sufficient", async () => {
+    const fetch = buildFetch("plug-union", ["api.themoviedb.org"], new Set(["my.plex.box"]));
+    await expect(fetch("https://api.themoviedb.org/3/movie/1")).resolves.toBeInstanceOf(Response);
+    await expect(fetch("http://my.plex.box:32400")).resolves.toBeInstanceOf(Response);
+  });
+
+  it("rejects invalid URLs with plugin.input_invalid", async () => {
+    const fetch = buildFetch("plug-bad-url", ["api.trakt.tv"]);
+    await expect(fetch("not a url")).rejects.toMatchObject({ code: "plugin.input_invalid" });
+  });
+
+  it("is case-insensitive for dynamic hostnames", async () => {
+    const fetch = buildFetch("plug-case", [], new Set(["my.plex.box"]));
+    await expect(fetch("https://My.Plex.Box/status")).resolves.toBeInstanceOf(Response);
+  });
+});
+
+describe("resolveAllowedHostsFromSchema", () => {
+  it("returns empty set when schema is undefined", () => {
+    expect(resolveAllowedHostsFromSchema("p", undefined, { baseUrl: "https://x" })).toEqual(
+      new Set(),
+    );
+  });
+
+  it("returns empty set when config is null/undefined", () => {
+    const schema = {
+      type: "object",
+      properties: { baseUrl: { type: "string", "x-allowed-host": true } },
+    };
+    expect(resolveAllowedHostsFromSchema("p", schema, null)).toEqual(new Set());
+    expect(resolveAllowedHostsFromSchema("p", schema, undefined)).toEqual(new Set());
+  });
+
+  it("extracts a single hostname from a top-level x-allowed-host field", () => {
+    const schema = {
+      type: "object",
+      properties: { baseUrl: { type: "string", "x-allowed-host": true } },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, { baseUrl: "https://plex.local:32400/foo" }),
+    ).toEqual(new Set(["plex.local"]));
+  });
+
+  it("ignores properties not marked x-allowed-host", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        baseUrl: { type: "string", "x-allowed-host": true },
+        label: { type: "string" },
+      },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, {
+        baseUrl: "https://plex.local",
+        label: "ignored",
+      }),
+    ).toEqual(new Set(["plex.local"]));
+  });
+
+  it("descends into nested objects and arrays", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        servers: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { url: { type: "string", "x-allowed-host": true } },
+          },
+        },
+      },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, {
+        servers: [{ url: "https://a.example.com" }, { url: "https://b.example.com" }],
+      }),
+    ).toEqual(new Set(["a.example.com", "b.example.com"]));
+  });
+
+  it("throws plugin.input_invalid when an x-allowed-host value is not a valid URL", () => {
+    const schema = {
+      type: "object",
+      properties: { baseUrl: { type: "string", "x-allowed-host": true } },
+    };
+    expect(() => resolveAllowedHostsFromSchema("p", schema, { baseUrl: "not-a-url" })).toThrow(
+      expect.objectContaining({ code: "plugin.input_invalid" }),
+    );
+  });
+
+  it("skips empty-string values without throwing", () => {
+    const schema = {
+      type: "object",
+      properties: { baseUrl: { type: "string", "x-allowed-host": true } },
+    };
+    expect(resolveAllowedHostsFromSchema("p", schema, { baseUrl: "" })).toEqual(new Set());
+  });
+
+  it("descends into tuple-style items (array-of-schemas)", () => {
+    // Plugins that declare tuple-shaped arrays (different schema per index)
+    // must still surface x-allowed-host entries. The earlier `asRecord` path
+    // silently skipped tuples because `items` is an array, not an object.
+    const schema = {
+      type: "object",
+      properties: {
+        endpoints: {
+          type: "array",
+          items: [
+            { type: "string", "x-allowed-host": true },
+            { type: "string", "x-allowed-host": true },
+          ],
+        },
+      },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, {
+        endpoints: ["https://primary.example.com", "https://backup.example.com"],
+      }),
+    ).toEqual(new Set(["primary.example.com", "backup.example.com"]));
+  });
+
+  it("throws plugin.input_invalid when an x-allowed-host value resolves to a blocked hostname", () => {
+    // Without the blocklist, a user-supplied baseUrl of http://169.254.169.254
+    // would land in the dynamic allowlist and let ctx.fetch reach the cloud
+    // instance-metadata service. The resolver must reject at collection time
+    // so the hostname never enters the set.
+    const schema = {
+      type: "object",
+      properties: { baseUrl: { type: "string", "x-allowed-host": true } },
+    };
+    expect(() =>
+      resolveAllowedHostsFromSchema("p", schema, { baseUrl: "http://169.254.169.254/latest" }),
+    ).toThrow(expect.objectContaining({ code: "plugin.input_invalid" }));
+  });
+
+  it("surfaces a readable path when x-allowed-host sits on the root schema", () => {
+    // Root-level `x-allowed-host` is unusual but valid — the error message
+    // substitutes `(root)` for the empty path so `'…'` does not render bare.
+    const schema = { type: "string", "x-allowed-host": true } as const;
+    expect(() => resolveAllowedHostsFromSchema("p", schema, "not-a-url")).toThrow(
+      expect.objectContaining({
+        code: "plugin.input_invalid",
+        message: expect.stringContaining("'(root)'"),
+      }),
+    );
+  });
+
+  it("tuple items silently skip indexes with no corresponding value", () => {
+    // Fewer values than tuple entries — unmatched indexes are simply unvisited
+    // rather than thrown. Extra values beyond the tuple schema are also ignored
+    // (the schema-walk is driven by the tuple length).
+    const schema = {
+      type: "object",
+      properties: {
+        endpoints: {
+          type: "array",
+          items: [
+            { type: "string", "x-allowed-host": true },
+            { type: "string", "x-allowed-host": true },
+          ],
+        },
+      },
+    };
+    expect(
+      resolveAllowedHostsFromSchema("p", schema, {
+        endpoints: ["https://primary.example.com"],
+      }),
+    ).toEqual(new Set(["primary.example.com"]));
+  });
+});
+
+describe("isBlockedHostname", () => {
+  // Cloud instance-metadata endpoints: the primary SSRF attack class this
+  // blocklist exists to defeat. Missing any one here means a user-controlled
+  // x-allowed-host URL could reach credentials or sensitive metadata.
+  it.each([
+    ["169.254.169.254", "AWS / GCP / Azure IMDS"],
+    ["fd00:ec2::254", "AWS IMDSv6"],
+    ["100.100.100.200", "Alibaba metadata"],
+    ["metadata.google.internal", "GCP metadata DNS"],
+  ])("blocks %s (%s)", (hostname) => {
+    expect(isBlockedHostname(hostname)).toBe(true);
+  });
+
+  // Loopback: both IPv4 and IPv6, including the less-obvious IPv4-mapped
+  // IPv6 form that a naive string comparison would miss.
+  it.each([
+    ["localhost"],
+    ["127.0.0.1"],
+    ["127.1.2.3"],
+    ["::1"],
+    ["::ffff:127.0.0.1"],
+    ["0.0.0.0"],
+  ])("blocks loopback / unspecified %s", (hostname) => {
+    expect(isBlockedHostname(hostname)).toBe(true);
+  });
+
+  // Link-local ranges outside the metadata block.
+  it.each([["169.254.0.1"], ["169.254.200.200"], ["fe80::1"], ["fe80:0:0:0:0:0:0:1"]])(
+    "blocks link-local %s",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(true);
+    },
+  );
+
+  // URL.hostname wraps IPv6 in brackets — the blocklist must peel them off
+  // before matching, otherwise `[::1]` would slip past the exact-match check.
+  it("handles IPv6 addresses that arrive wrapped in brackets", () => {
+    expect(isBlockedHostname("[::1]")).toBe(true);
+    expect(isBlockedHostname("[fe80::1]")).toBe(true);
+  });
+
+  // Private networks are the expected topology for self-hosted deployments
+  // (docker-compose, LAN Plex/Jellyfin). Blocking them would defeat the
+  // design — these must keep working.
+  it.each([
+    ["192.168.1.10"],
+    ["10.0.0.1"],
+    ["172.16.5.1"],
+    ["172.31.255.255"],
+    ["fc00::1"],
+    ["fd12:3456:789a::1"],
+  ])("allows private-network address %s (by design)", (hostname) => {
+    expect(isBlockedHostname(hostname)).toBe(false);
+  });
+
+  it("allows ordinary public hostnames", () => {
+    expect(isBlockedHostname("api.trakt.tv")).toBe(false);
+    expect(isBlockedHostname("plex.local")).toBe(false);
+    expect(isBlockedHostname("my.plex.box")).toBe(false);
+  });
+});

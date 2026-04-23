@@ -52,8 +52,22 @@ export function getBucket(pluginId: string, capacity = 30, refillPerSecond = 5):
   return bucket;
 }
 
-/** Builds a fetch function bound to a plugin's allowlist and rate limiter. */
-export function buildFetch(pluginId: string, allowedHosts: string[]) {
+/**
+ * Builds a fetch function bound to a plugin's allowlist and rate limiter.
+ *
+ * The allowlist is the union of the plugin's static `manifest.allowedHosts`
+ * (passed as `allowedHosts`) and any dynamic hosts resolved per-invocation
+ * from the plugin's `userConfig` or shared-credential entry via the
+ * `x-allowed-host` JSON Schema extension (passed as `dynamicHosts`).
+ *
+ * `dynamicHosts` is optional so existing callers that do not resolve dynamic
+ * hosts continue to work unchanged.
+ */
+export function buildFetch(
+  pluginId: string,
+  allowedHosts: string[],
+  dynamicHosts?: ReadonlySet<string>,
+) {
   const bucket = getBucket(pluginId);
   return async (url: string, init?: RequestInit): Promise<Response> => {
     let parsed: URL;
@@ -62,10 +76,13 @@ export function buildFetch(pluginId: string, allowedHosts: string[]) {
     } catch {
       throw new PluginError("plugin.input_invalid", `[${pluginId}] invalid URL: ${url}`);
     }
-    if (!isHostAllowed(parsed.hostname, allowedHosts)) {
+    const hostname = parsed.hostname;
+    const staticAllowed = isHostAllowed(hostname, allowedHosts);
+    const dynamicAllowed = dynamicHosts ? dynamicHosts.has(hostname.toLowerCase()) : false;
+    if (!staticAllowed && !dynamicAllowed) {
       throw new PluginError(
         "plugin.upstream_error",
-        `[${pluginId}] host not in allowlist: ${parsed.hostname}`,
+        `[${pluginId}] host not in allowlist: ${hostname}`,
       );
     }
     if (!bucket.take()) {
