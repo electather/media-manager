@@ -317,4 +317,322 @@ describe("pluginRuntime.invoke — scope + pool", () => {
       }),
     ).rejects.toMatchObject({ code: "plugin.pool_exhausted" });
   });
+
+  it("tries admin picks before user picks when personalKeyFallback is admin-first", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "admin-first",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "cred-admin", label: "app", value: { clientId: "cid", clientSecret: "cs" } },
+    ]);
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-user",
+        isDefault: true,
+        credentials: { accessToken: "tok" },
+        userConfig: null,
+      },
+    ]);
+
+    const order: Array<"admin" | "user"> = [];
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: buildUserScopedModule(async ({ ctx }) => {
+        const c = ctx as { credentials: unknown };
+        order.push(c.credentials === null ? "admin" : "user");
+        return [];
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invoke({
+      pluginId: "trakt",
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(order).toEqual(["admin"]);
+  });
+
+  it("tries user picks before admin picks when personalKeyFallback is personal-first", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "personal-first",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "cred-admin", label: "app", value: { clientId: "cid", clientSecret: "cs" } },
+    ]);
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-user",
+        isDefault: true,
+        credentials: { accessToken: "tok" },
+        userConfig: null,
+      },
+    ]);
+
+    const order: Array<"admin" | "user"> = [];
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: buildUserScopedModule(async ({ ctx }) => {
+        const c = ctx as {
+          credentials: unknown;
+          pool: { markExhausted: (o?: { retryAfterSec?: number }) => void };
+        };
+        order.push(c.credentials === null ? "admin" : "user");
+        if (order.length === 1) {
+          c.pool.markExhausted({ retryAfterSec: 5 });
+          throw Object.assign(new Error("rate"), {
+            name: "PluginError",
+            code: "plugin.rate_limited",
+          });
+        }
+        return [];
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invoke({
+      pluginId: "trakt",
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(order).toEqual(["user", "admin"]);
+    expect(markUserConnectionExhaustedMock).toHaveBeenCalledWith("conn-user", 5);
+    expect(markExhaustedMock).not.toHaveBeenCalled();
+  });
+
+  it("rotates across user connections on markExhausted", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "cred-admin", label: "app", value: { clientId: "cid", clientSecret: "cs" } },
+    ]);
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-a",
+        isDefault: true,
+        credentials: { accessToken: "tok-a" },
+        userConfig: null,
+      },
+      {
+        connectionId: "conn-b",
+        isDefault: false,
+        credentials: { accessToken: "tok-b" },
+        userConfig: null,
+      },
+    ]);
+
+    const seen: string[] = [];
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: buildUserScopedModule(async ({ ctx }) => {
+        const c = ctx as {
+          credentials: { accessToken: string };
+          pool: { markExhausted: (o?: { retryAfterSec?: number }) => void };
+        };
+        seen.push(c.credentials.accessToken);
+        if (c.credentials.accessToken === "tok-a") {
+          c.pool.markExhausted({ retryAfterSec: 12 });
+          throw Object.assign(new Error("rate"), {
+            name: "PluginError",
+            code: "plugin.rate_limited",
+          });
+        }
+        return [];
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invoke({
+      pluginId: "trakt",
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(seen).toEqual(["tok-a", "tok-b"]);
+    expect(markUserConnectionExhaustedMock).toHaveBeenCalledWith("conn-a", 12);
+    expect(markUserConnectionExhaustedMock).not.toHaveBeenCalledWith("conn-b", expect.anything());
+  });
+
+  it("does not inject an exhausted admin as sharedCredentials on later user picks", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "admin-first",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "cred-admin-1", label: "app1", value: { clientId: "c1", clientSecret: "s1" } },
+      { id: "cred-admin-2", label: "app2", value: { clientId: "c2", clientSecret: "s2" } },
+    ]);
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-user",
+        isDefault: true,
+        credentials: { accessToken: "tok" },
+        userConfig: null,
+      },
+    ]);
+
+    const observed: Array<{ side: "admin" | "user"; shared: { clientId: string } | null }> = [];
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: buildUserScopedModule(async ({ ctx }) => {
+        const c = ctx as {
+          credentials: { accessToken: string } | null;
+          sharedCredentials: { clientId: string } | null;
+          pool: { markExhausted: (o?: { retryAfterSec?: number }) => void };
+        };
+        const side = c.credentials === null ? "admin" : "user";
+        observed.push({ side, shared: c.sharedCredentials });
+        // Exhaust every admin so we fall through to the user pick.
+        if (side === "admin") {
+          c.pool.markExhausted({ retryAfterSec: 5 });
+          throw Object.assign(new Error("rate"), {
+            name: "PluginError",
+            code: "plugin.rate_limited",
+          });
+        }
+        return [];
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invoke({
+      pluginId: "trakt",
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    // The final (user) call must not see an admin credential that was just marked exhausted.
+    const userCall = observed.find((o) => o.side === "user");
+    expect(userCall?.shared).toBeNull();
+  });
+});
+
+describe("pluginRuntime.invokeWithCredentials", () => {
+  it("fails fast with plugin.input_invalid when input does not match the Zod schema", async () => {
+    pluginRows.set("tmdb", {
+      id: "tmdb",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([]);
+    capabilityRegistry.register({
+      pluginId: "tmdb",
+      module: buildPluginModule(async () => {
+        throw new Error("should not run");
+      }),
+      enabled: true,
+    });
+
+    await expect(
+      pluginRuntime.invokeWithCredentials({
+        pluginId: "tmdb",
+        capability: "idResolve",
+        version: "v1",
+        method: "resolve",
+        input: { from: "tmdb" },
+        userId: null,
+      }),
+    ).rejects.toMatchObject({ code: "plugin.input_invalid" });
+  });
+
+  it("does not rotate — markExhausted signalling is ignored and no pool bookkeeping is touched", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "cred-admin", label: "app", value: { clientId: "cid", clientSecret: "cs" } },
+    ]);
+
+    let calls = 0;
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: buildUserScopedModule(async ({ ctx }) => {
+        calls += 1;
+        const c = ctx as { pool: { markExhausted: (o?: { retryAfterSec?: number }) => void } };
+        c.pool.markExhausted({ retryAfterSec: 99 });
+        return [];
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invokeWithCredentials({
+      pluginId: "trakt",
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      userId: "user-1",
+      credentials: { accessToken: "tok" },
+    });
+    expect(calls).toBe(1);
+    expect(markExhaustedMock).not.toHaveBeenCalled();
+    expect(markUserConnectionExhaustedMock).not.toHaveBeenCalled();
+  });
+
+  it("injects the first admin credential as ctx.sharedCredentials", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([
+      { id: "cred-admin", label: "app", value: { clientId: "cid", clientSecret: "cs" } },
+    ]);
+
+    let observed: { shared: unknown; creds: unknown } | null = null;
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: buildUserScopedModule(async ({ ctx }) => {
+        const c = ctx as { credentials: unknown; sharedCredentials: unknown };
+        observed = { shared: c.sharedCredentials, creds: c.credentials };
+        return [];
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invokeWithCredentials({
+      pluginId: "trakt",
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      userId: "user-1",
+      credentials: { accessToken: "tok" },
+    });
+    expect(observed).toEqual({
+      shared: { clientId: "cid", clientSecret: "cs" },
+      creds: { accessToken: "tok" },
+    });
+  });
 });

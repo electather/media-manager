@@ -234,9 +234,17 @@ export class PluginRuntime {
       throw new PluginError("plugin.input_invalid", inputParsed.error.message);
     }
 
+    const exhaustedAdminIds = new Set<string>();
     let nextRetryAfterSec: number | undefined;
     for (const pick of plan) {
-      const adminPick = pick.side === "admin" ? pick : plan.find((p) => p.side === "admin");
+      // For user picks we need to inject an admin credential as sharedCredentials
+      // (e.g. Trakt's OAuth client id). Skip any admin pick already marked
+      // exhausted earlier in this loop so we don't hand a rate-limited secret
+      // to a subsequent user call.
+      const adminPick =
+        pick.side === "admin"
+          ? pick
+          : plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId));
       let exhaustedReport: { retryAfterSec?: number } | null = null;
       const poolApi: PoolSignalingApi = {
         markExhausted: (opts) => {
@@ -279,6 +287,7 @@ export class PluginRuntime {
           const retryAfterSec = (exhaustedReport as { retryAfterSec?: number } | null)
             ?.retryAfterSec;
           await this.markPickExhausted(args.pluginId, pick, retryAfterSec);
+          if (pick.side === "admin") exhaustedAdminIds.add(pick.entryId);
           nextRetryAfterSec = retryAfterSec;
           continue;
         }
