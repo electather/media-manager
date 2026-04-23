@@ -9,7 +9,7 @@ import type { ConnectionListItem } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "../plugin-runtime/types";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
-import { decryptJson, encryptJson, promoteToDefault, stripSecretFields } from "./helpers";
+import { decryptJson, encryptJson, promoteToDefault, stripResponseFields } from "./helpers";
 import {
   verifyConfig,
   createFormConnection,
@@ -73,7 +73,7 @@ export const connectionsService = {
       if (!pluginRow) continue;
       const manifest = parseManifest(pluginRow.manifest);
       const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
-      const safeUserConfig = stripSecretFields(manifest.userConfigSchema, userConfig);
+      const safeUserConfig = stripResponseFields(manifest.userConfigSchema, userConfig);
       result.push({
         id: row.id,
         pluginId: row.pluginId,
@@ -111,10 +111,16 @@ export const connectionsService = {
       .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
       .get();
     if (!row) throw notFound("connection.not_found", "connection not found");
-    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
-    const schema = pluginRow ? parseManifest(pluginRow.manifest).userConfigSchema : null;
-    return stripSecretFields(schema, userConfig);
+    // An orphaned connection (its plugin was uninstalled) must not return its
+    // `userConfig`: without the manifest we cannot identify which fields carry
+    // `x-private` / `x-secret`, so stripping would silently pass them through.
+    // Surface the inconsistency instead — the caller should reconnect or the
+    // operator should delete the row.
+    if (!pluginRow) throw notFound("connection.plugin_missing", "plugin not installed");
+    const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
+    const schema = parseManifest(pluginRow.manifest).userConfigSchema;
+    return stripResponseFields(schema, userConfig);
   },
 
   async setDefault(args: { userId: string; connectionId: string }): Promise<void> {
@@ -190,8 +196,9 @@ export const connectionsService = {
     if (!pluginRow) throw badRequest("connection.plugin_missing", "plugin not installed");
     const manifest = parseManifest(pluginRow.manifest);
 
-    // Merge prior userConfig under the incoming payload so omitted secret fields
-    // (stripped client-side via stripEmptySecrets) preserve their stored values.
+    // Merge prior userConfig under the incoming payload so omitted stripped
+    // fields (`x-secret` or `x-private`, never sent to the client and therefore
+    // absent from the edit form) preserve their stored values.
     const prior =
       (row.userConfig ? (JSON.parse(row.userConfig) as Record<string, unknown>) : null) ?? {};
     const merged = {

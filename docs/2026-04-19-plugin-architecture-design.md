@@ -885,8 +885,8 @@ Permission: `account:connections`. Scoped to the authenticated user.
 
 **Reads:**
 
-- `connection.list` — user's connections with plugin manifest info merged in. Includes `userConfig` with `x-secret` properties stripped (cards need non-secret fields for display); never includes credentials.
-- `connection.getUserConfig` — `{ connectionId }` → `user_config` with `x-secret` properties stripped (for edit-form prefill). Credentials never returned.
+- `connection.list` — user's connections with plugin manifest info merged in. Includes `userConfig` with `x-secret` and `x-private` properties stripped (cards need non-secret, non-private fields for display); never includes credentials.
+- `connection.getUserConfig` — `{ connectionId }` → `user_config` with `x-secret` and `x-private` properties stripped (for edit-form prefill). Credentials never returned.
 - `plugin.listAvailable` — plugins the user can create a connection for. **Only returns plugins with at least one user-scoped capability.** Each entry includes:
   - `userScopedCapabilities: Array<{ id, version }>` — what a connection unlocks for this user.
   - `globalScopedCapabilities: Array<{ id, version }>` — informational only; already available, no connection required.
@@ -896,7 +896,7 @@ Permission: `account:connections`. Scoped to the authenticated user.
 **Writes — form auth:**
 
 - `connection.create` — `{ pluginId, userConfig, displayName? }`.
-- `connection.updateUserConfig` — `{ connectionId, userConfig }`. The host **merges** the incoming payload over the prior decrypted `userConfig` (incoming wins where present), so `x-secret` fields the client omits are preserved. For `auth.kind === "form"`, the host then re-runs `startAuth(ctx, mergedUserConfig)` to validate upstream and produce fresh credentials, and writes both `encrypted_user_config` and `encrypted_credentials` atomically. For other auth kinds, the host runs `testConnection` against existing credentials + merged userConfig and writes only `encrypted_user_config`. On any verification failure, both columns are preserved.
+- `connection.updateUserConfig` — `{ connectionId, userConfig }`. The host **merges** the incoming payload over the prior decrypted `userConfig` (incoming wins where present), so `x-secret` and `x-private` fields the client omits are preserved. For `auth.kind === "form"`, the host then re-runs `startAuth(ctx, mergedUserConfig)` to validate upstream and produce fresh credentials, and writes both `encrypted_user_config` and `encrypted_credentials` atomically. For other auth kinds, the host runs `testConnection` against existing credentials + merged userConfig and writes only `encrypted_user_config`. On any verification failure, both columns are preserved.
 - `connection.updateDisplayName` — cosmetic, no plugin involvement.
 
 **Writes — OAuth redirect:**
