@@ -639,3 +639,31 @@ describe("pluginRuntime.invokeWithCredentials", () => {
     });
   });
 });
+
+describe("pluginRuntime aux paths — appBaseUrl threading", () => {
+  it("populates ctx.appBaseUrl on testConnection via buildAuxContext", async () => {
+    pluginRows.set("trakt", {
+      id: "trakt",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listDecryptedActiveMock.mockResolvedValue([]);
+
+    let observedBaseUrl: string | undefined;
+    capabilityRegistry.register({
+      pluginId: "trakt",
+      module: {
+        ...buildUserScopedModule(async () => []),
+        testConnection: async (ctx) => {
+          observedBaseUrl = (ctx as { appBaseUrl: string }).appBaseUrl;
+          return { ok: true };
+        },
+      },
+      enabled: true,
+    });
+
+    await pluginRuntime.testConnection("trakt", "user-1", { accessToken: "tok" }, null);
+    expect(observedBaseUrl).toBe("https://media.example.com");
+  });
+});
