@@ -39,6 +39,9 @@ type Ctx = PluginContext<PlexCreds, PlexSharedCreds, PlexUserCfg, PlexGlobalCfg>
 const PLEX_CLIENT_IDENTIFIER = "media-manager-v1";
 const PLEX_PRODUCT = "Media Manager";
 const PLEX_DEVICE = "Media Manager";
+// Single source for both the `X-Plex-Version` request header (Plex admin UIs
+// attribute sessions by this value) and the manifest's `version` field, so
+// bumping the plugin version does not leave the header behind.
 const PLEX_VERSION = "1.0.0";
 const PLEX_PLATFORM = "Web";
 
@@ -122,13 +125,23 @@ async function plexServerFetch(ctx: Ctx, path: string, init: RequestInit = {}): 
   return ctx.fetch(url, { ...init, headers });
 }
 
+/**
+ * Signals the shared-credentials pool when Plex returns 429 and then throws
+ * `plugin.rate_limited`. Every direct-fetch call site must route through this
+ * (or `plexServerJson`, which wraps it) so the host can back off / rotate
+ * credentials — a bare `throw pluginError("plugin.rate_limited", …)` without
+ * `markExhausted` would leave the pool unaware and retries would stampede.
+ */
+function throwIfRateLimited(res: Response, ctx: Ctx): void {
+  if (res.status !== 429) return;
+  const retryAfterSec = Number(res.headers.get("Retry-After") ?? 0) || undefined;
+  ctx.pool.markExhausted({ retryAfterSec });
+  throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+}
+
 async function plexServerJson<T>(ctx: Ctx, path: string, init: RequestInit = {}): Promise<T> {
   const res = await plexServerFetch(ctx, path, init);
-  if (res.status === 429) {
-    const retryAfterSec = Number(res.headers.get("Retry-After") ?? 0) || undefined;
-    ctx.pool.markExhausted({ retryAfterSec });
-    throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
-  }
+  throwIfRateLimited(res, ctx);
   handleHttpStatus(res, "Plex", { on401: "plugin.token_expired" });
   if (!res.ok) {
     throw pluginError("plugin.upstream_error", `Plex ${res.status}: ${await res.text()}`);
@@ -249,7 +262,10 @@ function buildPlayerLink(cfg: PlexUserCfg, ratingKey: string): string {
 function buildWebLink(cfg: PlexUserCfg, ratingKey: string): string {
   const base = externalBase(cfg);
   const metadataKey = encodeURIComponent(`/library/metadata/${ratingKey}`);
-  return `${base}/web/index.html#!/server/${cfg.machineIdentifier}/details?key=${metadataKey}`;
+  // `machineIdentifier` is a Plex-assigned hex string in practice; wrap in
+  // `encodeURIComponent` as defence-in-depth in case a future server form
+  // starts returning values that include URL-reserved characters.
+  return `${base}/web/index.html#!/server/${encodeURIComponent(cfg.machineIdentifier)}/details?key=${metadataKey}`;
 }
 
 function toLibraryItem(cfg: PlexUserCfg, m: PlexMetadata): LibraryItem {
@@ -272,6 +288,11 @@ function toLibraryItem(cfg: PlexUserCfg, m: PlexMetadata): LibraryItem {
     webLink: buildWebLink(cfg, m.ratingKey),
     sizeBytes: firstPart?.size,
     durationSec: m.duration ? Math.round(m.duration / 1000) : undefined,
+    // `LibraryItem.addedAt` is required by the capability schema, so falling
+    // back to the Unix epoch when Plex does not send `addedAt` keeps the item
+    // schema-valid. Callers sorting by `addedAt` see all unknown-timestamp
+    // items cluster at the start of time — this is deliberately surprising
+    // so the gap is visible rather than silent.
     addedAt: m.addedAt ? new Date(m.addedAt * 1000).toISOString() : new Date(0).toISOString(),
   };
 }
@@ -294,7 +315,7 @@ export default definePlugin({
   manifest: {
     id: "plex",
     name: "Plex",
-    version: "1.0.0",
+    version: PLEX_VERSION,
     description:
       "Plex Media Server integration — library availability, sessions, continue watching, history, and admin refreshes.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -464,11 +485,24 @@ export default definePlugin({
           provides: string;
           owned?: boolean;
           name?: string;
+          connections?: Array<{ uri?: string; local?: boolean }>;
         }>;
         const owned = resources.find((r) => r.provides?.includes("server") && (r.owned ?? true));
         const firstServer = owned ?? resources.find((r) => r.provides?.includes("server"));
         if (firstServer) {
           userConfigPatch["machineIdentifier"] = firstServer.clientIdentifier;
+          // Auto-fill `externalServerUrl` from the first public connection so
+          // the user does not have to copy-paste their server URL after the
+          // PIN flow completes. Prefer `local: false` (a public/internet URL)
+          // over local URLs; fall back to the first connection when Plex does
+          // not annotate locality. Only set when not already populated so a
+          // manual override survives re-auth.
+          const publicConn =
+            firstServer.connections?.find((c) => c.local === false && Boolean(c.uri)) ??
+            firstServer.connections?.find((c) => Boolean(c.uri));
+          if (publicConn?.uri) {
+            userConfigPatch["externalServerUrl"] = publicConn.uri;
+          }
         }
       }
     } catch {
@@ -582,7 +616,11 @@ export default definePlugin({
       },
 
       async searchLibrary(ctx, input) {
-        const { query, type } = input as {
+        const {
+          query,
+          type,
+          limit = 50,
+        } = input as {
           query: string;
           type?: "movie" | "show";
           limit?: number;
@@ -591,6 +629,10 @@ export default definePlugin({
         const params = new URLSearchParams({ query });
         if (type === "movie") params.set("type", "1");
         else if (type === "show") params.set("type", "2");
+        // Plex paginates `/search` via the `X-Plex-Container-Size` query
+        // parameter; without it the server returns its default page (100–500)
+        // and silently ignores the caller's `limit` request.
+        params.set("X-Plex-Container-Size", String(limit));
         const body = await plexServerJson<PlexMediaContainer<{ Metadata?: PlexMetadata[] }>>(
           ctx as Ctx,
           `/search?${params.toString()}`,
@@ -616,6 +658,10 @@ export default definePlugin({
           const duration = m.duration ?? 0;
           const offset = m.viewOffset ?? 0;
           const progress = duration > 0 ? Math.min(100, Math.round((offset / duration) * 100)) : 0;
+          // Unix-epoch sentinel for missing `lastViewedAt`: the capability
+          // schema requires `pausedAt: string`, so the sentinel keeps the
+          // response schema-valid. Callers sorting by `pausedAt` see
+          // unknown-timestamp rows at the start of time.
           const pausedAt = m.lastViewedAt
             ? new Date(m.lastViewedAt * 1000).toISOString()
             : new Date(0).toISOString();
@@ -643,7 +689,7 @@ export default definePlugin({
         const res = await plexServerFetch(ctx as Ctx, `/:/unscrobble?${params.toString()}`);
         if (res.status === 401)
           throw pluginError("plugin.token_expired", "Plex auth rejected (401)");
-        if (res.status === 429) throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+        throwIfRateLimited(res, ctx as Ctx);
         if (res.status >= 500)
           throw pluginError("plugin.upstream_error", `Plex server error (${res.status})`);
         return { ok: res.ok || res.status === 404 };
@@ -691,6 +737,12 @@ export default definePlugin({
                   reason: s.TranscodeSession.transcodeReason,
                 }
               : undefined,
+            // `startedAt` is a required string on the capability schema, but
+            // Plex's `/status/sessions` does not expose the session-start
+            // timestamp. Emit the Unix epoch as a schema-valid sentinel so
+            // callers can detect "unknown" rather than silently receive a
+            // fabricated value; promoting the schema to an optional field is
+            // tracked separately.
             startedAt: new Date(0).toISOString(),
           });
         }
@@ -708,7 +760,7 @@ export default definePlugin({
         );
         if (res.status === 401)
           throw pluginError("plugin.token_expired", "Plex auth rejected (401)");
-        if (res.status === 429) throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+        throwIfRateLimited(res, ctx as Ctx);
         if (res.status >= 500)
           throw pluginError("plugin.upstream_error", `Plex server error (${res.status})`);
         // 404 means the session already ended; treat as idempotent success so
@@ -724,8 +776,10 @@ export default definePlugin({
           limit?: number;
         };
         const cfg = readUserConfig(ctx as Ctx);
+        // `/hubs/continueWatching` aggregates across every directory when no
+        // `contentDirectoryID` is supplied, so omitting the parameter handles
+        // servers whose layout does not start at directory id `1`.
         const params = new URLSearchParams({
-          contentDirectoryID: "1",
           "X-Plex-Container-Start": "0",
           "X-Plex-Container-Size": String(limit),
         });
@@ -780,16 +834,24 @@ export default definePlugin({
       async getHistory(ctx, input) {
         const { since } = input as { since?: string };
         const cfg = readUserConfig(ctx as Ctx);
-        const params = new URLSearchParams();
-        if (cfg.plexAccountId) params.set("accountID", cfg.plexAccountId);
+        // Build the query manually for the `viewedAt>` key: URLSearchParams
+        // percent-encodes `>` to `%3E`, but Plex's filter syntax requires
+        // the literal `>` character in the key (`?viewedAt>=<unix_ts>`), so
+        // routing it through URLSearchParams silently drops the filter on
+        // some PMS builds and returns every row regardless of `since`.
+        const accountQs = cfg.plexAccountId
+          ? `accountID=${encodeURIComponent(cfg.plexAccountId)}`
+          : "";
+        let sinceQs = "";
         if (since) {
           const t = Math.floor(new Date(since).getTime() / 1000);
-          if (!Number.isNaN(t)) params.set("viewedAt>", String(t));
+          if (!Number.isNaN(t)) sinceQs = `viewedAt>=${t}`;
         }
-        const query = params.toString();
-        const path = query
-          ? `/status/sessions/history/all?${query}`
-          : "/status/sessions/history/all";
+        const parts = [accountQs, sinceQs].filter(Boolean);
+        const path =
+          parts.length > 0
+            ? `/status/sessions/history/all?${parts.join("&")}`
+            : "/status/sessions/history/all";
         const body = await plexServerJson<
           PlexMediaContainer<{
             Metadata?: Array<PlexMetadata & { viewedAt?: number }>;
@@ -820,8 +882,7 @@ export default definePlugin({
           const res = await plexServerFetch(ctx as Ctx, `/:/scrobble?${params.toString()}`);
           if (res.status === 401)
             throw pluginError("plugin.token_expired", "Plex auth rejected (401)");
-          if (res.status === 429)
-            throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+          throwIfRateLimited(res, ctx as Ctx);
           if (res.ok || res.status === 404) added += 1;
         }
         return { added };
@@ -844,8 +905,7 @@ export default definePlugin({
           const res = await plexServerFetch(ctx as Ctx, `/:/unscrobble?${params.toString()}`);
           if (res.status === 401)
             throw pluginError("plugin.token_expired", "Plex auth rejected (401)");
-          if (res.status === 429)
-            throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+          throwIfRateLimited(res, ctx as Ctx);
           if (res.ok || res.status === 404) removed += 1;
         }
         return { removed };
@@ -862,19 +922,21 @@ export default definePlugin({
           );
           if (res.status === 401)
             throw pluginError("plugin.token_expired", "Plex auth rejected (401)");
-          if (res.status === 429)
-            throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+          throwIfRateLimited(res, ctx as Ctx);
           return { ok: res.ok };
         }
         // No section id: enumerate every section and kick a force=1 refresh on
         // each. Plex itself has no server-wide "refresh everything" endpoint.
+        // `Promise.allSettled` so a mid-batch 429 or transient failure does
+        // not reject the whole batch and leave later requests orphaned in
+        // flight — the per-section response is reported via `ok: every .ok`.
         const body = await plexServerJson<PlexMediaContainer<{ Directory?: PlexDirectory[] }>>(
           ctx as Ctx,
           "/library/sections",
         );
         const sections = body.MediaContainer?.Directory ?? [];
         if (sections.length === 0) return { ok: true };
-        const results = await Promise.all(
+        const results = await Promise.allSettled(
           sections.map((s) =>
             plexServerFetch(
               ctx as Ctx,
@@ -882,7 +944,7 @@ export default definePlugin({
             ),
           ),
         );
-        return { ok: results.every((r) => r.ok) };
+        return { ok: results.every((r) => r.status === "fulfilled" && r.value.ok) };
       },
 
       async refreshItem(ctx, input) {
@@ -894,7 +956,7 @@ export default definePlugin({
         );
         if (res.status === 401)
           throw pluginError("plugin.token_expired", "Plex auth rejected (401)");
-        if (res.status === 429) throw pluginError("plugin.rate_limited", "Plex rate limited (429)");
+        throwIfRateLimited(res, ctx as Ctx);
         return { ok: res.ok };
       },
     },

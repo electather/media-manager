@@ -173,6 +173,31 @@ describe("plex startAuth / pollAuth", () => {
     expect(r.userConfigPatch?.["machineIdentifier"]).toBe("server-mid-1");
   });
 
+  it("pollAuth auto-fills externalServerUrl from the public connection, preferring non-local", async () => {
+    // First-run UX: after the PIN flow the user should not also have to
+    // hand-copy their server URL. When the `resources` response carries a
+    // public connection URL, pollAuth stashes it on userConfigPatch.
+    const ctx = makeCtx([
+      jsonRes({ id: 999, authToken: "tok_abc" }),
+      jsonRes({ id: 42, username: "omid" }),
+      jsonRes([
+        {
+          clientIdentifier: "server-mid-1",
+          provides: "server",
+          owned: true,
+          name: "home",
+          connections: [
+            { uri: "http://192.168.1.10:32400", local: true },
+            { uri: "https://plex.example.com", local: false },
+          ],
+        },
+      ]),
+    ]);
+    const r = await plexPlugin.pollAuth!(ctx, { pinId: 999, pinCode: "ABCD" });
+    if (r.status !== "completed") throw new Error("unreachable");
+    expect(r.userConfigPatch?.["externalServerUrl"]).toBe("https://plex.example.com");
+  });
+
   it("pollAuth surfaces token_expired when Plex returns 404 for the PIN", async () => {
     const ctx = makeCtx([statusRes(404)]);
     const r = await plexPlugin.pollAuth!(ctx, { pinId: 999, pinCode: "ABCD" });
@@ -338,6 +363,17 @@ describe("plex libraryAvailability.searchLibrary", () => {
     expect(ctx.calls[0]?.url).toContain("query=fight");
     expect(ctx.calls[0]?.url).toContain("type=1");
   });
+
+  it("propagates the caller's limit via X-Plex-Container-Size (defaulting to 50)", async () => {
+    // Without this, Plex returns its server-default page of 100–500 rows and
+    // silently ignores the caller's cap — broke the capability contract.
+    const ctxWithLimit = makeCtx([jsonRes({ MediaContainer: { Metadata: [] } })]);
+    await cap.searchLibrary!(ctxWithLimit, { query: "x", limit: 25 });
+    expect(ctxWithLimit.calls[0]?.url).toContain("X-Plex-Container-Size=25");
+    const ctxDefault = makeCtx([jsonRes({ MediaContainer: { Metadata: [] } })]);
+    await cap.searchLibrary!(ctxDefault, { query: "x" });
+    expect(ctxDefault.calls[0]?.url).toContain("X-Plex-Container-Size=50");
+  });
 });
 
 describe("plex playback.getPositions", () => {
@@ -419,6 +455,26 @@ describe("plex playback.removePosition", () => {
     }
     expect(isPluginError(caught)).toBe(true);
     expect((caught as { code: string }).code).toBe("plugin.token_expired");
+  });
+
+  it("surfaces 429 as plugin.rate_limited AND signals the pool on the direct-fetch path", async () => {
+    let exhausted = 0;
+    const ctx = makeCtx([statusRes(429)], {
+      pool: {
+        markExhausted() {
+          exhausted += 1;
+        },
+      },
+    });
+    let caught: unknown;
+    try {
+      await cap.removePosition!(ctx, { playbackId: "1000" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+    expect(exhausted).toBe(1);
   });
 });
 
@@ -513,6 +569,26 @@ describe("plex playbackSessions.stopSession", () => {
     const r = (await cap.stopSession!(ctx, { sessionId: "s-1" })) as { ok: boolean };
     expect(r.ok).toBe(true);
   });
+
+  it("surfaces 429 as plugin.rate_limited AND signals the pool", async () => {
+    let exhausted = 0;
+    const ctx = makeCtx([statusRes(429)], {
+      pool: {
+        markExhausted() {
+          exhausted += 1;
+        },
+      },
+    });
+    let caught: unknown;
+    try {
+      await cap.stopSession!(ctx, { sessionId: "s-1" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+    expect(exhausted).toBe(1);
+  });
 });
 
 describe("plex continueWatching.getContinueWatching", () => {
@@ -583,6 +659,61 @@ describe("plex watchHistory", () => {
     expect(parsed.success).toBe(true);
     expect(ctx.calls[0]?.url).toContain("accountID=42");
   });
+
+  it("getHistory emits a literal `viewedAt>=<unix>` filter when `since` is set", async () => {
+    // Regression: URLSearchParams percent-encodes `>` to `%3E`, but Plex's
+    // filter syntax needs the literal `>`. The plugin builds that segment
+    // manually — this verifies the on-the-wire URL matches.
+    const ctx = makeCtx([jsonRes({ MediaContainer: { Metadata: [] } })]);
+    const since = "2026-04-01T00:00:00.000Z";
+    await cap.getHistory!(ctx, { since });
+    const url = ctx.calls[0]?.url ?? "";
+    const expectedTs = Math.floor(new Date(since).getTime() / 1000);
+    expect(url).toContain(`viewedAt>=${expectedTs}`);
+    expect(url).not.toContain("viewedAt%3E");
+  });
+
+  it("addToHistory surfaces 429 as plugin.rate_limited AND signals the pool", async () => {
+    // Regression: earlier the direct-fetch path threw without calling
+    // markExhausted, so the host couldn't rotate credentials for scrobble.
+    let exhausted = 0;
+    const ctx = makeCtx([statusRes(429, "slow down")], {
+      pool: {
+        markExhausted() {
+          exhausted += 1;
+        },
+      },
+    });
+    let caught: unknown;
+    try {
+      await cap.addToHistory!(ctx, [{ ids: { plex_ratingKey: "1234" }, type: "movie" }]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+    expect(exhausted).toBe(1);
+  });
+
+  it("removeFromHistory surfaces 429 as plugin.rate_limited AND signals the pool", async () => {
+    let exhausted = 0;
+    const ctx = makeCtx([statusRes(429)], {
+      pool: {
+        markExhausted() {
+          exhausted += 1;
+        },
+      },
+    });
+    let caught: unknown;
+    try {
+      await cap.removeFromHistory!(ctx, [{ ids: { plex_ratingKey: "1234" }, type: "movie" }]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+    expect(exhausted).toBe(1);
+  });
 });
 
 describe("plex libraryAdmin", () => {
@@ -624,6 +755,46 @@ describe("plex libraryAdmin", () => {
     expect(r.ok).toBe(true);
     expect(ctx.calls[0]?.init?.method).toBe("PUT");
     expect(ctx.calls[0]?.url).toContain("/library/metadata/555/refresh");
+  });
+
+  it("refreshLibrary single-section 429 surfaces rate_limited AND signals the pool", async () => {
+    let exhausted = 0;
+    const ctx = makeCtx([statusRes(429)], {
+      pool: {
+        markExhausted() {
+          exhausted += 1;
+        },
+      },
+    });
+    let caught: unknown;
+    try {
+      await cap.refreshLibrary!(ctx, { librarySectionId: "1" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+    expect(exhausted).toBe(1);
+  });
+
+  it("refreshItem 429 surfaces rate_limited AND signals the pool", async () => {
+    let exhausted = 0;
+    const ctx = makeCtx([statusRes(429)], {
+      pool: {
+        markExhausted() {
+          exhausted += 1;
+        },
+      },
+    });
+    let caught: unknown;
+    try {
+      await cap.refreshItem!(ctx, { serverItemId: "555" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(isPluginError(caught)).toBe(true);
+    expect((caught as { code: string }).code).toBe("plugin.rate_limited");
+    expect(exhausted).toBe(1);
   });
 });
 
