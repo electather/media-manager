@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { consola } from "consola";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 import { getDb } from "../db/client";
+import { env } from "../env";
 import { plugins } from "../db/schema/plugins";
 import { buildContext } from "./context";
 import { getCapability } from "./capabilities";
@@ -255,6 +256,7 @@ export class PluginRuntime {
         pluginId: args.pluginId,
         allowedHosts: module.manifest.allowedHosts,
         userId: args.userId,
+        appBaseUrl: env.APP_EXTERNAL_URL,
         credentials: pick.side === "user" ? pick.value : null,
         sharedCredentials: pick.side === "admin" ? pick.value : (adminPick?.value ?? adminFallback),
         userConfig: pick.userConfig,
@@ -346,6 +348,7 @@ export class PluginRuntime {
       pluginId: args.pluginId,
       allowedHosts: module.manifest.allowedHosts,
       userId: args.userId,
+      appBaseUrl: env.APP_EXTERNAL_URL,
       credentials: args.credentials,
       sharedCredentials: await this.peekAdminCredential(args.pluginId),
       userConfig: args.userConfig,
@@ -569,6 +572,7 @@ export class PluginRuntime {
       pluginId,
       allowedHosts: module.manifest.allowedHosts,
       userId,
+      appBaseUrl: env.APP_EXTERNAL_URL,
       credentials,
       sharedCredentials,
       userConfig,

@@ -56,6 +56,13 @@ export interface PluginContext<
   config: { global: TGlobalCfg; user: TUserCfg };
   store: PluginStoreApi;
   pool: PoolSignalingApi;
+  /**
+   * Public-facing base URL of this deployment (e.g. `https://media.example.com`).
+   * Sourced from `APP_EXTERNAL_URL`. Plugins use it to build OAuth redirect URIs
+   * and outward-facing deep links (`playerLink`, `webLink`, etc.). No trailing
+   * slash is guaranteed — callers that need one should append it themselves.
+   */
+  appBaseUrl: string;
 }
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */

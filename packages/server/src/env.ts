@@ -16,6 +16,13 @@ export const env = createEnv({
     BETTER_AUTH_URL: z.url(),
     BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
     ENCRYPTION_KEY: z.string().min(1),
+    /**
+     * Public-facing URL the deployment is reachable at (including scheme and
+     * any port or path prefix). Used by plugins to build OAuth redirect URIs
+     * and deep links such as `playerLink` / `webLink`. Required — startup
+     * fails fast if missing or malformed.
+     */
+    APP_EXTERNAL_URL: z.url(),
   },
   runtimeEnv: process.env,
 });

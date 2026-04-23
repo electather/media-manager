@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import type { PluginModule } from "../types";
 
 vi.mock("../../env", () => ({
-  env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
+  env: {
+    ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef",
+    APP_EXTERNAL_URL: "https://media.example.com",
+  },
 }));
 
 // Simple in-memory plugin row store keyed by id.
