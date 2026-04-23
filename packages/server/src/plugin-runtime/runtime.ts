@@ -4,6 +4,7 @@ import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 import { getDb } from "../db/client";
 import { env } from "../env";
 import { plugins } from "../db/schema/plugins";
+import { resolveAllowedHostsFromSchema, unionHostSets } from "./allowed-hosts";
 import { buildContext } from "./context";
 import { getCapability } from "./capabilities";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
@@ -252,9 +253,26 @@ export class PluginRuntime {
           exhaustedReport = { retryAfterSec: opts?.retryAfterSec };
         },
       };
+      // Resolve per-invocation `x-allowed-host` hostnames from whichever
+      // config matches the current pick: user-scoped picks read
+      // `userConfigSchema` against the stored `userConfig`; admin-scoped picks
+      // read `sharedCredentialsSchema` against the chosen pool entry.
+      const dynamicAllowedHosts =
+        pick.side === "user"
+          ? resolveAllowedHostsFromSchema(
+              args.pluginId,
+              module.manifest.userConfigSchema,
+              pick.userConfig,
+            )
+          : resolveAllowedHostsFromSchema(
+              args.pluginId,
+              module.manifest.sharedCredentialsSchema,
+              pick.value,
+            );
       const ctx = buildContext({
         pluginId: args.pluginId,
         allowedHosts: module.manifest.allowedHosts,
+        dynamicAllowedHosts,
         userId: args.userId,
         appBaseUrl: env.APP_EXTERNAL_URL,
         credentials: pick.side === "user" ? pick.value : null,
@@ -344,9 +362,17 @@ export class PluginRuntime {
       throw new PluginError("plugin.input_invalid", inputParsed.error.message);
     }
 
+    // Connection-targeted dispatch: credentials are user-scoped, so resolve
+    // `x-allowed-host` hosts from the `userConfigSchema`.
+    const dynamicAllowedHosts = resolveAllowedHostsFromSchema(
+      args.pluginId,
+      module.manifest.userConfigSchema,
+      args.userConfig,
+    );
     const ctx = buildContext({
       pluginId: args.pluginId,
       allowedHosts: module.manifest.allowedHosts,
+      dynamicAllowedHosts,
       userId: args.userId,
       appBaseUrl: env.APP_EXTERNAL_URL,
       credentials: args.credentials,
@@ -568,9 +594,22 @@ export class PluginRuntime {
       sharedCredentialsOverride !== undefined
         ? sharedCredentialsOverride
         : await this.peekAdminCredential(pluginId);
+    // Aux contexts (auth, job handlers, testConnection, refresh) don't know
+    // ahead of time whether the user config or shared credentials are in
+    // play, so union hosts from both schemas against whichever values are
+    // present. Missing values simply contribute nothing.
+    const dynamicAllowedHosts = unionHostSets(
+      resolveAllowedHostsFromSchema(pluginId, module.manifest.userConfigSchema, userConfig),
+      resolveAllowedHostsFromSchema(
+        pluginId,
+        module.manifest.sharedCredentialsSchema,
+        sharedCredentials,
+      ),
+    );
     return buildContext({
       pluginId,
       allowedHosts: module.manifest.allowedHosts,
+      dynamicAllowedHosts,
       userId,
       appBaseUrl: env.APP_EXTERNAL_URL,
       credentials,

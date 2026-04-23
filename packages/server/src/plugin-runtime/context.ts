@@ -5,6 +5,14 @@ import type { PluginContext, PoolSignalingApi } from "./types";
 export interface BuildContextArgs {
   pluginId: string;
   allowedHosts: string[];
+  /**
+   * Additional hostnames resolved per-invocation from `x-allowed-host` fields
+   * in the plugin's `userConfigSchema` or `sharedCredentialsSchema`. Unioned
+   * with `allowedHosts` before being passed to `buildFetch`. Optional so
+   * call sites that don't have dynamic hosts (e.g. aux contexts for auth or
+   * job handlers) keep working.
+   */
+  dynamicAllowedHosts?: ReadonlySet<string>;
   userId: string | null;
   appBaseUrl: string;
   credentials?: unknown;
@@ -24,7 +32,7 @@ const INERT_POOL: PoolSignalingApi = {
 /** Builds a fresh PluginContext per invocation. Nothing here is plugin-mutable. */
 export function buildContext(args: BuildContextArgs): PluginContext {
   return {
-    fetch: buildFetch(args.pluginId, args.allowedHosts),
+    fetch: buildFetch(args.pluginId, args.allowedHosts, args.dynamicAllowedHosts),
     log: buildLogger(args.pluginId),
     credentials: args.credentials ?? null,
     sharedCredentials: args.sharedCredentials ?? null,

@@ -1,0 +1,257 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
+import type { PluginModule } from "../types";
+
+// E2E: verify x-allowed-host on a user-scoped plugin's userConfigSchema causes
+// the hostname from the stored userConfig to be added to ctx.fetch's
+// allowlist, alongside manifest.allowedHosts (unioned).
+
+vi.mock("../../env", () => ({
+  env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },
+}));
+
+const pluginRows = new Map<
+  string,
+  { id: string; globalConfig: string | null; manifest: string; personalKeyFallback: string }
+>();
+
+const dbMock = {
+  select() {
+    return {
+      from(_table: unknown) {
+        return {
+          where(_: unknown) {
+            return {
+              async get() {
+                return [...pluginRows.values()][0];
+              },
+            };
+          },
+        };
+      },
+    };
+  },
+  update(_table: unknown) {
+    return {
+      set(_: unknown) {
+        return {
+          where(_w: unknown) {
+            return Promise.resolve();
+          },
+        };
+      },
+    };
+  },
+};
+
+vi.mock("../../db/client", () => ({ getDb: () => dbMock }));
+
+const listDecryptedActiveMock = vi.fn();
+const markExhaustedMock = vi.fn();
+
+vi.mock("../shared-credentials", () => ({
+  sharedCredentialsService: {
+    listDecryptedActive: (...args: unknown[]) => listDecryptedActiveMock(...args),
+    markExhausted: (...args: unknown[]) => markExhaustedMock(...args),
+    countEnabled: async () => 0,
+    list: async () => [],
+    add: async () => "",
+    update: async () => {},
+    delete: async () => {},
+    getDecrypted: async () => ({ id: "", label: "", value: null }),
+  },
+}));
+
+const listReadyUserConnectionsMock = vi.fn();
+vi.mock("../user-pool", () => ({
+  listReadyUserConnections: (...args: unknown[]) => listReadyUserConnectionsMock(...args),
+  markUserConnectionExhausted: vi.fn(),
+}));
+
+vi.mock("../../errors/capture", () => ({
+  captureError: async () => {},
+}));
+
+vi.mock("../host-bridge", () => ({
+  buildStore: () => ({
+    get: async () => null,
+    set: async () => {},
+    delete: async () => {},
+  }),
+  sweepExpiredStore: async () => 0,
+}));
+
+// Intentionally do NOT mock ../fetch-policy here — we want the real buildFetch
+// so we can assert that the dynamic host derived from userConfig flows through.
+
+const { pluginRuntime } = await import("../runtime");
+const { capabilityRegistry } = await import("../registry");
+
+// A user-scoped plugin (like a self-hosted media server) whose base URL is
+// supplied at connection time via userConfig. The schema marks `baseUrl` with
+// x-allowed-host so the host appends its hostname to the ctx.fetch allowlist.
+function buildSelfHostedPlugin(
+  onCall: (args: { ctx: unknown; input: unknown }) => Promise<unknown>,
+): PluginModule {
+  return {
+    manifest: {
+      id: "plex-like",
+      name: "Plex-like",
+      version: "1.0.0",
+      description: "",
+      author: { name: "t" },
+      sdkVersion: "^1.0.0",
+      allowedHosts: [],
+      userConfigSchema: {
+        type: "object",
+        properties: {
+          baseUrl: { type: "string", "x-allowed-host": true },
+        },
+      },
+      credentialsSchema: { type: "object" },
+      auth: { kind: "form" },
+      capabilities: { library: { version: "v1", scope: "user" } },
+      poolable: false,
+    },
+    capabilities: {
+      library: {
+        list: async (ctx, input) => onCall({ ctx, input }),
+      },
+    },
+  };
+}
+
+// Register a synthetic capability spec so the runtime's requireMethodSpec
+// check succeeds. We do this lazily by mocking ./capabilities.
+vi.mock("../capabilities", async (orig) => {
+  const mod = (await orig()) as object;
+  return {
+    ...mod,
+    getCapability: () => ({
+      id: "library",
+      version: "v1",
+      strategy: "single",
+      userScoped: true,
+      defaultCacheTtlSec: 60,
+      negativeCacheTtlSec: 30,
+      defaultTimeoutMs: 5_000,
+      methods: {
+        list: {
+          input: {
+            safeParse: (v: unknown) => ({ success: true, data: v }),
+          },
+          output: {
+            safeParse: (v: unknown) => ({ success: true, data: v }),
+          },
+        },
+      },
+    }),
+  };
+});
+
+describe("runtime honors x-allowed-host from userConfigSchema", () => {
+  const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ ok: true })));
+
+  beforeEach(() => {
+    pluginRows.clear();
+    capabilityRegistry.clear();
+    listDecryptedActiveMock.mockReset();
+    listReadyUserConnectionsMock.mockReset();
+    listDecryptedActiveMock.mockResolvedValue([]);
+    fetchSpy.mockClear();
+    vi.stubGlobal("fetch", fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("allows ctx.fetch to reach the hostname declared in the connection's userConfig.baseUrl", async () => {
+    pluginRows.set("plex-like", {
+      id: "plex-like",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-1",
+        isDefault: true,
+        credentials: { token: "t" },
+        userConfig: { baseUrl: "https://my.plex.box:32400" },
+      },
+    ]);
+
+    let observedResponse: unknown;
+    capabilityRegistry.register({
+      pluginId: "plex-like",
+      module: buildSelfHostedPlugin(async ({ ctx }) => {
+        const c = ctx as {
+          fetch: (url: string, init?: RequestInit) => Promise<Response>;
+        };
+        const res = await c.fetch("https://my.plex.box:32400/library/sections");
+        observedResponse = await res.json();
+        return { items: [] };
+      }),
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.invoke<{ items: unknown[] }>({
+      pluginId: "plex-like",
+      capability: "library",
+      version: "v1",
+      method: "list",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(result).toEqual({ items: [] });
+    expect(observedResponse).toEqual({ ok: true });
+    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/library/sections", undefined);
+  });
+
+  it("rejects ctx.fetch to a hostname not in the static list nor derived from userConfig", async () => {
+    pluginRows.set("plex-like", {
+      id: "plex-like",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-1",
+        isDefault: true,
+        credentials: { token: "t" },
+        userConfig: { baseUrl: "https://my.plex.box:32400" },
+      },
+    ]);
+
+    const caught: Array<{ code?: string }> = [];
+    capabilityRegistry.register({
+      pluginId: "plex-like",
+      module: buildSelfHostedPlugin(async ({ ctx }) => {
+        const c = ctx as {
+          fetch: (url: string, init?: RequestInit) => Promise<Response>;
+        };
+        try {
+          await c.fetch("https://someone-else.example.com/leak");
+        } catch (err) {
+          caught.push(err as { code?: string });
+        }
+        return { items: [] };
+      }),
+      enabled: true,
+    });
+
+    await pluginRuntime.invoke({
+      pluginId: "plex-like",
+      capability: "library",
+      version: "v1",
+      method: "list",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(caught[0]?.code).toBe("plugin.upstream_error");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
