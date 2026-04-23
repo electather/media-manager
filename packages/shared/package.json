@@ -9,6 +9,7 @@
     "./errors": "./src/errors/index.ts",
     "./connections": "./src/connections/index.ts",
     "./plugins": "./src/plugins/index.ts",
+    "./plugins/library": "./src/plugins/library.ts",
     "./media": "./src/media/index.ts",
     "./preferences": "./src/preferences/index.ts",
     "./users": "./src/users/index.ts",
