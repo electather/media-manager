@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import { buildFetch } from "../fetch-policy";
-import { resolveAllowedHostsFromSchema } from "../allowed-hosts";
+import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../allowed-hosts";
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -151,6 +151,32 @@ describe("resolveAllowedHostsFromSchema", () => {
     ).toEqual(new Set(["primary.example.com", "backup.example.com"]));
   });
 
+  it("throws plugin.input_invalid when an x-allowed-host value resolves to a blocked hostname", () => {
+    // Without the blocklist, a user-supplied baseUrl of http://169.254.169.254
+    // would land in the dynamic allowlist and let ctx.fetch reach the cloud
+    // instance-metadata service. The resolver must reject at collection time
+    // so the hostname never enters the set.
+    const schema = {
+      type: "object",
+      properties: { baseUrl: { type: "string", "x-allowed-host": true } },
+    };
+    expect(() =>
+      resolveAllowedHostsFromSchema("p", schema, { baseUrl: "http://169.254.169.254/latest" }),
+    ).toThrow(expect.objectContaining({ code: "plugin.input_invalid" }));
+  });
+
+  it("surfaces a readable path when x-allowed-host sits on the root schema", () => {
+    // Root-level `x-allowed-host` is unusual but valid — the error message
+    // substitutes `(root)` for the empty path so `'…'` does not render bare.
+    const schema = { type: "string", "x-allowed-host": true } as const;
+    expect(() => resolveAllowedHostsFromSchema("p", schema, "not-a-url")).toThrow(
+      expect.objectContaining({
+        code: "plugin.input_invalid",
+        message: expect.stringContaining("'(root)'"),
+      }),
+    );
+  });
+
   it("tuple items silently skip indexes with no corresponding value", () => {
     // Fewer values than tuple entries — unmatched indexes are simply unvisited
     // rather than thrown. Extra values beyond the tuple schema are also ignored
@@ -172,5 +198,67 @@ describe("resolveAllowedHostsFromSchema", () => {
         endpoints: ["https://primary.example.com"],
       }),
     ).toEqual(new Set(["primary.example.com"]));
+  });
+});
+
+describe("isBlockedHostname", () => {
+  // Cloud instance-metadata endpoints: the primary SSRF attack class this
+  // blocklist exists to defeat. Missing any one here means a user-controlled
+  // x-allowed-host URL could reach credentials or sensitive metadata.
+  it.each([
+    ["169.254.169.254", "AWS / GCP / Azure IMDS"],
+    ["fd00:ec2::254", "AWS IMDSv6"],
+    ["100.100.100.200", "Alibaba metadata"],
+    ["metadata.google.internal", "GCP metadata DNS"],
+  ])("blocks %s (%s)", (hostname) => {
+    expect(isBlockedHostname(hostname)).toBe(true);
+  });
+
+  // Loopback: both IPv4 and IPv6, including the less-obvious IPv4-mapped
+  // IPv6 form that a naive string comparison would miss.
+  it.each([
+    ["localhost"],
+    ["127.0.0.1"],
+    ["127.1.2.3"],
+    ["::1"],
+    ["::ffff:127.0.0.1"],
+    ["0.0.0.0"],
+  ])("blocks loopback / unspecified %s", (hostname) => {
+    expect(isBlockedHostname(hostname)).toBe(true);
+  });
+
+  // Link-local ranges outside the metadata block.
+  it.each([["169.254.0.1"], ["169.254.200.200"], ["fe80::1"], ["fe80:0:0:0:0:0:0:1"]])(
+    "blocks link-local %s",
+    (hostname) => {
+      expect(isBlockedHostname(hostname)).toBe(true);
+    },
+  );
+
+  // URL.hostname wraps IPv6 in brackets — the blocklist must peel them off
+  // before matching, otherwise `[::1]` would slip past the exact-match check.
+  it("handles IPv6 addresses that arrive wrapped in brackets", () => {
+    expect(isBlockedHostname("[::1]")).toBe(true);
+    expect(isBlockedHostname("[fe80::1]")).toBe(true);
+  });
+
+  // Private networks are the expected topology for self-hosted deployments
+  // (docker-compose, LAN Plex/Jellyfin). Blocking them would defeat the
+  // design — these must keep working.
+  it.each([
+    ["192.168.1.10"],
+    ["10.0.0.1"],
+    ["172.16.5.1"],
+    ["172.31.255.255"],
+    ["fc00::1"],
+    ["fd12:3456:789a::1"],
+  ])("allows private-network address %s (by design)", (hostname) => {
+    expect(isBlockedHostname(hostname)).toBe(false);
+  });
+
+  it("allows ordinary public hostnames", () => {
+    expect(isBlockedHostname("api.trakt.tv")).toBe(false);
+    expect(isBlockedHostname("plex.local")).toBe(false);
+    expect(isBlockedHostname("my.plex.box")).toBe(false);
   });
 });

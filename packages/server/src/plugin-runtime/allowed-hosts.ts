@@ -13,10 +13,12 @@ import { PluginError } from "./types";
  * the upstream DNS resolves. Plugin authors must only apply the flag to
  * fields that represent the plugin's *own intended upstream* (the user's
  * Plex/Jellyfin server, a self-hosted mirror, etc.), never to generic proxy
- * targets or free-form URL inputs. The runtime applies a narrow blocklist
- * to the resolved address (cloud metadata, localhost, IPv4-mapped IPv6
- * loopback — see the "SSRF mitigation" section of the design doc), but the
- * host boundary and intent check live with the plugin author.
+ * targets or free-form URL inputs. `isBlockedHostname` below catches cloud
+ * instance-metadata endpoints, loopback, link-local, and IPv4-mapped IPv6
+ * loopback at resolution time (see the "SSRF mitigation" section of the
+ * design doc); DNS-rebinding mitigation still has to happen at fetch time
+ * and is tracked separately. The host boundary and intent check live with
+ * the plugin author.
  */
 const X_ALLOWED_HOST = "x-allowed-host";
 
@@ -26,6 +28,72 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return isObject(value) ? value : null;
+}
+
+// Hostnames that must never enter the dynamic allowlist even when a plugin's
+// `x-allowed-host` field resolves to them. See the "SSRF mitigation" section
+// of `docs/2026-04-19-plugin-architecture-design.md` for the authoritative
+// list and rationale. RFC1918 / ULA / `fc00::/7` ranges are deliberately
+// NOT blocked — docker-compose and LAN deployments legitimately need them
+// (a user's `internalServerUrl: http://plex:32400` is the whole point).
+const BLOCKED_EXACT_HOSTNAMES = new Set([
+  "localhost",
+  "metadata.google.internal",
+  // Cloud instance-metadata endpoints.
+  "169.254.169.254", // AWS / GCP / Azure IMDS.
+  "fd00:ec2::254", // AWS IMDSv6.
+  "100.100.100.200", // Alibaba.
+  // Unspecified and IPv6 loopback.
+  "::1",
+  "::",
+  "0.0.0.0",
+]);
+
+// URL.hostname lowercases DNS names but returns IPv6 addresses wrapped in
+// square brackets (`[::1]`). Strip the brackets so exact-match and prefix
+// predicates can be written without worrying about the wrapping.
+function normalizeHostname(hostname: string): string {
+  const lower = hostname.toLowerCase();
+  if (lower.startsWith("[") && lower.endsWith("]")) return lower.slice(1, -1);
+  return lower;
+}
+
+function isIpv4Loopback(hostname: string): boolean {
+  // 127.0.0.0/8 — the entire loopback block, not just 127.0.0.1.
+  return /^127(?:\.\d{1,3}){3}$/.test(hostname);
+}
+
+function isIpv4LinkLocal(hostname: string): boolean {
+  // 169.254.0.0/16 — covers the AWS IMDS IP alongside the rest of the range.
+  return /^169\.254(?:\.\d{1,3}){2}$/.test(hostname);
+}
+
+function isIpv6LinkLocal(hostname: string): boolean {
+  // fe80::/10 — the first 10 bits are `1111 1110 10`, which means the leading
+  // nibble is `f` and the second nibble is one of 8, 9, a, or b. Anything
+  // starting with `fe8`, `fe9`, `fea`, or `feb` falls in range.
+  return /^fe[89ab][0-9a-f]?:/.test(hostname);
+}
+
+function isIpv4MappedIpv6Loopback(hostname: string): boolean {
+  // ::ffff:127.0.0.0/104 — loopback tunnelled through IPv4-mapped IPv6.
+  return /^::ffff:127(?:\.\d{1,3}){3}$/.test(hostname);
+}
+
+/**
+ * Rejects hostnames that should never be reached from a plugin even when a
+ * user-controlled `x-allowed-host` field resolves to them. Matches the string
+ * only — DNS-rebinding mitigation (resolving the name and checking the actual
+ * address) happens at fetch time and is out of scope for this module.
+ */
+export function isBlockedHostname(hostname: string): boolean {
+  const h = normalizeHostname(hostname);
+  if (BLOCKED_EXACT_HOSTNAMES.has(h)) return true;
+  if (isIpv4Loopback(h)) return true;
+  if (isIpv4LinkLocal(h)) return true;
+  if (isIpv6LinkLocal(h)) return true;
+  if (isIpv4MappedIpv6Loopback(h)) return true;
+  return false;
 }
 
 /**
@@ -38,10 +106,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  * silently losing the allowlist entry).
  */
 function hostnameFromValue(pluginId: string, path: string, value: unknown): string {
+  // Empty `path` can happen if a plugin declares `x-allowed-host` on the root
+  // schema (unusual but valid JSON Schema); render it readably in errors so
+  // the message does not end up with bare `''`.
+  const displayPath = path || "(root)";
   if (typeof value !== "string" || value.length === 0) {
     throw new PluginError(
       "plugin.input_invalid",
-      `[${pluginId}] x-allowed-host field '${path}' must be a non-empty URL string`,
+      `[${pluginId}] x-allowed-host field '${displayPath}' must be a non-empty URL string`,
     );
   }
   let parsed: URL;
@@ -50,16 +122,23 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
   } catch {
     throw new PluginError(
       "plugin.input_invalid",
-      `[${pluginId}] x-allowed-host field '${path}' is not a valid URL: ${value}`,
+      `[${pluginId}] x-allowed-host field '${displayPath}' is not a valid URL: ${value}`,
     );
   }
   if (!parsed.hostname) {
     throw new PluginError(
       "plugin.input_invalid",
-      `[${pluginId}] x-allowed-host field '${path}' has no hostname: ${value}`,
+      `[${pluginId}] x-allowed-host field '${displayPath}' has no hostname: ${value}`,
     );
   }
-  return parsed.hostname.toLowerCase();
+  const hostname = normalizeHostname(parsed.hostname);
+  if (isBlockedHostname(hostname)) {
+    throw new PluginError(
+      "plugin.input_invalid",
+      `[${pluginId}] x-allowed-host field '${displayPath}' resolves to a blocked address: ${hostname}`,
+    );
+  }
+  return hostname;
 }
 
 /**
