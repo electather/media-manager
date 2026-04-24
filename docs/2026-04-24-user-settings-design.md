@@ -210,7 +210,7 @@ type AuthorizedApp = {
   4. If `oauthClient.userId === currentUser.id` **and** no other `oauthConsent` rows reference this `clientId` (checked in the same transaction), delete the `oauthClient` row. Otherwise the `oauthClient` row stays intact so other users' consents and tokens are untouched. A dedicated "delete this application entirely" surface (owner-level, affects all users) is deferred — it would belong under `/admin` or a future owner-surface, not a per-user revoke.
   5. Return the new list.
 
-Rationale for the guarded client-delete: a revoke action is framed to the user as "remove *my* authorization". Cascading that into destruction of every other user's access because I happened to be the registrar is a silent-blast-radius bug. Guarding on "no other consents" keeps the cleanup path tidy for the common case (single-user self-hosted deployment where the registrar is also the only consumer) while refusing to go near multi-user state.
+Rationale for the guarded client-delete: a revoke action is framed to the user as "remove _my_ authorization". Cascading that into destruction of every other user's access because I happened to be the registrar is a silent-blast-radius bug. Guarding on "no other consents" keeps the cleanup path tidy for the common case (single-user self-hosted deployment where the registrar is also the only consumer) while refusing to go near multi-user state.
 
 ### UI
 
@@ -311,13 +311,13 @@ export const meApp = new Hono()
 
 Client RPC calls derived from the chain: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"].revoke.$post({ param: { clientId } })`, `api.me.delete.$post({ json: { ... } })`. The export endpoint is called via anchor navigation, not via the RPC client, so its chain shape doesn't matter for typing.
 
-| Route                       | Method | Body / Params                       | Returns                                                                                                                         |
-| --------------------------- | ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Route                       | Method | Body / Params                       | Returns                                                                                                              |
+| --------------------------- | ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `/me/role`                  | GET    | —                                   | `{ role: { name, description } \| null }` — always HTTP 200; `role: null` for unassigned users. No 404 for this path |
-| `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                                                                                               |
-| `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                                                                                                  |
-| `/me/export`                | GET    | —                                   | `application/zip` stream                                                                                                        |
-| `/me/delete`                | POST   | `{ confirmEmail, currentPassword }` | `{ ok: true }` or 401/400                                                                                                       |
+| `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                                                                                    |
+| `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                                                                                       |
+| `/me/export`                | GET    | —                                   | `application/zip` stream                                                                                             |
+| `/me/delete`                | POST   | `{ confirmEmail, currentPassword }` | `{ ok: true }` or 401/400                                                                                            |
 
 ### New Hono sub-app: `configPublicApp`
 
