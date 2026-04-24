@@ -10,3 +10,5 @@ data/
 bun.lockb
 packages/client/dist/
 .DS_Store
+test-server.ts
+.claude/worktrees/
