@@ -134,17 +134,27 @@ jobs:
           # URLs are derived from the PR-specific Worker name so the OAuth
           # redirect and external URL match the preview's actual origin.
           preview_url="https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
-          put() {
-            local name="$1"
-            local value="$2"
-            printf '%s' "$value" | vp exec wrangler secret put "$name" --name "$WORKER_NAME"
-          }
-          put SQLITE_PATH "$SQLITE_PATH_VALUE"
-          put LIBSQL_AUTH_TOKEN "$LIBSQL_AUTH_TOKEN_VALUE"
-          put BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET_VALUE"
-          put BETTER_AUTH_URL "$preview_url"
-          put ENCRYPTION_KEY "$ENCRYPTION_KEY_VALUE"
-          put APP_EXTERNAL_URL "$preview_url"
+          # One `secret bulk` call uploads all six values in a single
+          # deployment — six sequential `secret put` calls would trigger
+          # six Worker redeploys before the real `wrangler deploy`. JSON is
+          # built with `jq -n --arg` so values with quotes, backslashes, or
+          # newlines are escaped correctly.
+          jq -n \
+            --arg sqlite_path "$SQLITE_PATH_VALUE" \
+            --arg libsql_auth_token "$LIBSQL_AUTH_TOKEN_VALUE" \
+            --arg better_auth_secret "$BETTER_AUTH_SECRET_VALUE" \
+            --arg better_auth_url "$preview_url" \
+            --arg encryption_key "$ENCRYPTION_KEY_VALUE" \
+            --arg app_external_url "$preview_url" \
+            '{
+              SQLITE_PATH: $sqlite_path,
+              LIBSQL_AUTH_TOKEN: $libsql_auth_token,
+              BETTER_AUTH_SECRET: $better_auth_secret,
+              BETTER_AUTH_URL: $better_auth_url,
+              ENCRYPTION_KEY: $encryption_key,
+              APP_EXTERNAL_URL: $app_external_url,
+            }' \
+            | vp exec wrangler secret bulk --name "$WORKER_NAME"
 
       - name: Deploy Worker
         run: vp exec wrangler deploy ${{ steps.target.outputs.wrangler_flags }}
