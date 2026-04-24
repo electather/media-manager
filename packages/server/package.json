@@ -27,6 +27,7 @@
     "croner": "^10.0.1",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
+    "hash-wasm": "^4.12.0",
     "hono": "catalog:",
     "ioredis": "^5.10.1",
     "lru-cache": "^11.3.5",

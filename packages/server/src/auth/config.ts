@@ -6,6 +6,7 @@ import { getDb } from "../db/client";
 import { env } from "../env";
 import { MCP_SCOPES } from "../mcp/scopes";
 import * as schema from "../db/schema/index";
+import { hashPassword, verifyPassword } from "./password";
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
@@ -21,6 +22,13 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    // See `./password.ts`. Override better-auth's default scrypt because on
+    // Cloudflare Workers scrypt's memory cost pushes `sign-in/email` past
+    // the 30 s isolate CPU limit.
+    password: {
+      hash: hashPassword,
+      verify: verifyPassword,
+    },
   },
   plugins: [
     jwt(),
