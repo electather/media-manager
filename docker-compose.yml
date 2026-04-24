@@ -1,0 +1,12 @@
+services:
+  app:
+    image: ghcr.io/electather/media-manager:latest
+    env_file: .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+volumes:
+  app-data:
