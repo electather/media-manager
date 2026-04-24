@@ -27,23 +27,29 @@ import { errorHandler } from "./errors/middleware";
 //   4. Running `migrate.ts` — migrations run as a pre-deploy CI step against
 //      the target Turso database instead.
 //
-// Bootstrap is kept to synchronous, in-memory work so the Worker passes the
-// deploy-time validator and cold-starts quickly on the first request.
+// Module init only runs in-memory registration. `getDb()` and the error sink
+// touch `env` (secrets/vars), which Cloudflare only populates at request
+// time — calling them during the deploy validator's module-scope sweep
+// would either crash or bind a client to an empty URL.
 function bootstrap(): void {
-  getDb();
-  registerErrorSink(new DatabaseSink());
   registerBuiltinPlugins();
   bootstrapMcpHostTools();
 }
 
 bootstrap();
 
-// Plugins that need async setup are loaded on the first request rather than
-// at module init so we stay inside the Workers deploy-validator budget.
-let pluginsReady: Promise<void> | undefined;
-function ensurePluginsReady(): Promise<void> {
-  pluginsReady ??= pluginRuntime.bootstrapBuiltins();
-  return pluginsReady;
+// First-request initialisation: everything that reads `env` or makes a
+// network call is deferred here so the Workers deploy validator never sees
+// a Worker that touches the database at module init. The promise is cached
+// so subsequent requests skip straight to the handler.
+let runtimeReady: Promise<void> | undefined;
+function ensureRuntimeReady(): Promise<void> {
+  runtimeReady ??= (async () => {
+    getDb();
+    registerErrorSink(new DatabaseSink());
+    await pluginRuntime.bootstrapBuiltins();
+  })();
+  return runtimeReady;
 }
 
 const app = new Hono();
@@ -57,7 +63,7 @@ const mcpCors = cors({
 });
 
 app.use(async (_c, next) => {
-  await ensurePluginsReady();
+  await ensureRuntimeReady();
   await next();
 });
 
