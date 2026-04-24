@@ -72,7 +72,7 @@ function OAuthCallbackPage() {
         }
         setState({ kind: "ok", pluginName: pending.pluginName });
         window.setTimeout(() => {
-          void navigate({ to: "/connections" });
+          void navigate({ to: "/settings/connections" });
         }, 1200);
       } catch (err) {
         setState({
@@ -115,7 +115,7 @@ function OAuthCallbackPage() {
               <h1 className="text-xl font-semibold">Authorization failed</h1>
               <p className="max-w-[42ch] text-sm text-muted-foreground">{state.message}</p>
             </div>
-            <Button onClick={() => void navigate({ to: "/connections" })}>
+            <Button onClick={() => void navigate({ to: "/settings/connections" })}>
               Back to Connections
             </Button>
           </>

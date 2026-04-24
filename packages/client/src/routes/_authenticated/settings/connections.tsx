@@ -58,7 +58,7 @@ import {
 import type { JSONSchema } from "@ent-mcp/shared";
 import { nonSecretFields } from "@/components/connections/schema-form";
 
-export const Route = createFileRoute("/_authenticated/connections")({
+export const Route = createFileRoute("/_authenticated/settings/connections")({
   component: ConnectionsPage,
 });
 
