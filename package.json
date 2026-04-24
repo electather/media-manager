@@ -32,6 +32,7 @@
     "@better-auth/oauth-provider": "^1.6.5",
     "better-auth": "^1.6.5",
     "hono": "^4.12.14",
+    "jszip": "^3.10.1",
     "typescript": "^6.0.0",
     "ua-parser-js": "^2.0.5",
     "zod": "^4.3.6"

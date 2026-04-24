@@ -29,6 +29,7 @@
     "drizzle-zod": "^0.8.3",
     "hono": "catalog:",
     "ioredis": "^5.10.1",
+    "jszip": "catalog:",
     "lru-cache": "^11.3.5",
     "ofetch": "^1.5.1",
     "postgres": "^3.4.9",
