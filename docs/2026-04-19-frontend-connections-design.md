@@ -6,6 +6,8 @@
 **Supersedes:** Initial "Design Brief: Connections Page (/connections)"
 **Companion:** See `2026-04-19-plugin-architecture-design.md` for the backend spec.
 
+> **Superseded and route relocated.** This document was superseded by `2026-04-22-frontend-plugin-connections-design.md`. Additionally, as of 2026-04-24 the user-facing page lives at `/settings/connections` — the top-level `/connections` URL was removed. See `docs/2026-04-24-user-settings-design.md` for the relocation rationale.
+
 ## Summary
 
 The connections UI is being reworked to drive entirely off plugin manifests. The old page hardcoded Trakt, Seerr, TMDB, and TVDB into the layout, modal content, and capability badges. In the plugin model, the frontend knows nothing about specific services. It renders sections, forms, auth flows, and capability badges from data returned by the oRPC layer. This keeps the page honest as plugins are added, removed, or updated, and removes the need to ship a frontend change every time a new integration lands.
