@@ -41,14 +41,20 @@ bootstrap();
 // First-request initialisation: everything that reads `env` or makes a
 // network call is deferred here so the Workers deploy validator never sees
 // a Worker that touches the database at module init. The promise is cached
-// so subsequent requests skip straight to the handler.
+// so subsequent requests skip straight to the handler; a rejection clears
+// the cache so a transient failure (e.g. Turso timeout) doesn't poison
+// every subsequent request with the same error until the Worker is
+// redeployed.
 let runtimeReady: Promise<void> | undefined;
 function ensureRuntimeReady(): Promise<void> {
   runtimeReady ??= (async () => {
     getDb();
     registerErrorSink(new DatabaseSink());
     await pluginRuntime.bootstrapBuiltins();
-  })();
+  })().catch((err) => {
+    runtimeReady = undefined;
+    throw err;
+  });
   return runtimeReady;
 }
 

@@ -31,6 +31,7 @@ vi.mock("../db/client", () => ({
 
 vi.mock("../errors/capture", () => ({
   registerErrorSink: (...args: unknown[]) => registerErrorSinkMock(...args),
+  captureError: vi.fn(async () => {}),
 }));
 
 vi.mock("../errors/database-sink", () => ({
@@ -100,6 +101,24 @@ describe("cloudflare worker entry", () => {
     expect(getDbMock).toHaveBeenCalledTimes(1);
     expect(registerErrorSinkMock).toHaveBeenCalledTimes(1);
     expect(bootstrapBuiltinsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries deferred init on the next request after a transient failure", async () => {
+    // A rejected init promise must not be cached — otherwise every later
+    // request short-circuits to the same error until the Worker is
+    // redeployed. Simulate a transient Turso failure on the first request
+    // and verify the second request re-runs init and succeeds.
+    bootstrapBuiltinsMock.mockRejectedValueOnce(new Error("transient turso failure"));
+    const worker = (await import("../worker")).default;
+    const req = () => new Request("http://localhost/api/anything");
+
+    const first = await worker.fetch(req());
+    expect(first.status).toBeGreaterThanOrEqual(500);
+    expect(bootstrapBuiltinsMock).toHaveBeenCalledTimes(1);
+
+    const second = await worker.fetch(req());
+    expect(second.status).toBeLessThan(500);
+    expect(bootstrapBuiltinsMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not import Bun-only modules (hono/bun, croner, migrate)", async () => {

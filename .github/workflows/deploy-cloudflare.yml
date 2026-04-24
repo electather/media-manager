@@ -33,8 +33,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -206,18 +204,18 @@ jobs:
         with:
           cache: true
 
-      - name: Install dependencies
-        run: vp install
-
       - name: Install Turso CLI
         run: |
           set -euo pipefail
           curl -sSfL https://get.tur.so/install.sh | bash
           echo "$HOME/.turso" >> "$GITHUB_PATH"
 
+      # `vp dlx` pulls wrangler on demand so cleanup skips the full workspace
+      # install that every deploy job needs — this runs on every PR close,
+      # so the saved install time adds up.
       - name: Delete preview Worker
         run: |
-          vp exec wrangler delete \
+          vp dlx wrangler delete \
             --name app-pr-${{ github.event.pull_request.number }} \
             || echo "Preview Worker already removed"
 

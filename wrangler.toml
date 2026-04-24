@@ -14,11 +14,5 @@ directory = "./packages/client/dist"
 [env.nightly]
 name = "app-nightly"
 
-[env.nightly.vars]
-ENVIRONMENT = "nightly"
-
 [env.production]
 name = "app-production"
-
-[env.production.vars]
-ENVIRONMENT = "production"

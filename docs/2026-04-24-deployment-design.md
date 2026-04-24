@@ -137,7 +137,7 @@ Triggers on push to `main`, on release tags (`v*`), and on PRs (open/update and 
 1. `vp install` — install dependencies
 2. `vp run build:client` — build client SPA to `packages/client/dist`
 3. Run migrations against the target Turso DB (using `SQLITE_PATH` + `LIBSQL_AUTH_TOKEN` from secrets)
-4. `vp dlx wrangler deploy [--env <environment>] [--name <worker-name>]` — Wrangler bundles `worker.ts` and deploys Worker + assets
+4. `vp exec wrangler deploy [--env <environment>] [--name <worker-name>]` — Wrangler bundles `worker.ts` and deploys Worker + assets (`vp exec` because `wrangler` is a devDependency)
 
 **Per trigger:**
 
@@ -148,11 +148,11 @@ Triggers on push to `main`, on release tags (`v*`), and on PRs (open/update and 
 | Push to `main`     | `--env nightly`          | Deploy to nightly environment                          |
 | Release tag (`v*`) | `--env production`       | Deploy to production environment                       |
 
-PR previews use `--name app-pr-{number}` (not `--env`) to deploy to a uniquely named Worker. Secrets for the preview Worker are injected immediately before the deploy step using `wrangler secret put --name app-pr-{number}` for each required secret. This avoids touching the `app` (default) or named environments.
+PR previews use `--name app-pr-{number}` (not `--env`) to deploy to a uniquely named Worker. Secrets for the preview Worker are injected immediately before the deploy step using a single `wrangler secret bulk --name app-pr-{number}` call — one bulk upload avoids the multiple Worker redeploys that sequential `secret put` calls would trigger. This avoids touching the `app` (default) or named environments.
 
 #### PR Preview Cleanup
 
-A separate `on: pull_request: types: [closed]` job in `deploy-cloudflare.yml` fires when a PR is closed. It calls `vp dlx wrangler delete --name app-pr-${{ github.event.pull_request.number }}` to remove the preview Worker. Without `--name`, Wrangler would use the `name` from `wrangler.toml` (`app`) and delete the wrong Worker.
+A separate `on: pull_request: types: [closed]` job in `deploy-cloudflare.yml` fires when a PR is closed. It calls `vp dlx wrangler delete --name app-pr-${{ github.event.pull_request.number }}` to remove the preview Worker and then destroys the per-PR Turso branch via the Turso CLI. The cleanup job uses `vp dlx` (not `vp exec`) so it can skip the full workspace install — it only needs a one-shot wrangler invocation. Without `--name`, Wrangler would use the `name` from `wrangler.toml` (`app`) and delete the wrong Worker.
 
 ### `build-docker.yml`
 
@@ -198,17 +198,11 @@ directory = "./packages/client/dist"
 [env.nightly]
 name = "app-nightly"
 
-[env.nightly.vars]
-ENVIRONMENT = "nightly"
-
 [env.production]
 name = "app-production"
-
-[env.production.vars]
-ENVIRONMENT = "production"
 ```
 
-Secrets for named environments are set once via `vp dlx wrangler secret put --env <environment>` and are not re-uploaded on every deploy. For PR previews (default environment), the workflow injects secrets using `wrangler secret put` (without `--env`) as part of each preview deploy step.
+Secrets for named environments are set once via `vp exec wrangler secret put --env <environment>` and are not re-uploaded on every deploy. For PR previews (default environment), the workflow injects all secrets in a single `vp exec wrangler secret bulk --name app-pr-{number}` call as part of each preview deploy step.
 
 ---
 
@@ -216,19 +210,21 @@ Secrets for named environments are set once via `vp dlx wrangler secret put --en
 
 ### GitHub Actions Secrets
 
-| Secret                        | Used by                 | Notes                                     |
-| ----------------------------- | ----------------------- | ----------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`        | `deploy-cloudflare.yml` | Needs Workers + Assets deploy permissions |
-| `CLOUDFLARE_ACCOUNT_ID`       | `deploy-cloudflare.yml` | Required by Wrangler                      |
-| `TURSO_URL_PREVIEW`           | `deploy-cloudflare.yml` | Shared Turso DB URL for all PR previews   |
-| `TURSO_AUTH_TOKEN_PREVIEW`    | `deploy-cloudflare.yml` | Auth token for preview DB                 |
-| `TURSO_URL_NIGHTLY`           | `deploy-cloudflare.yml` | Nightly Turso DB URL                      |
-| `TURSO_AUTH_TOKEN_NIGHTLY`    | `deploy-cloudflare.yml` | Nightly Turso auth token                  |
-| `TURSO_URL_PRODUCTION`        | `deploy-cloudflare.yml` | Production Turso DB URL                   |
-| `TURSO_AUTH_TOKEN_PRODUCTION` | `deploy-cloudflare.yml` | Production Turso auth token               |
-| `GITHUB_TOKEN`                | `build-docker.yml`      | Auto-provided; used for ghcr.io login     |
+| Secret                         | Used by                 | Notes                                                                              |
+| ------------------------------ | ----------------------- | ---------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`         | `deploy-cloudflare.yml` | Needs Workers + Assets deploy permissions                                          |
+| `CLOUDFLARE_ACCOUNT_ID`        | `deploy-cloudflare.yml` | Required by Wrangler                                                               |
+| `CLOUDFLARE_WORKERS_SUBDOMAIN` | `deploy-cloudflare.yml` | Account's `*.workers.dev` subdomain; used to build preview URLs                    |
+| `TURSO_API_TOKEN`              | `deploy-cloudflare.yml` | Turso platform token; used by the Turso CLI to fork and destroy per-PR DB branches |
+| `TURSO_URL_NIGHTLY`            | `deploy-cloudflare.yml` | Nightly Turso DB URL                                                               |
+| `TURSO_AUTH_TOKEN_NIGHTLY`     | `deploy-cloudflare.yml` | Nightly Turso auth token                                                           |
+| `TURSO_URL_PRODUCTION`         | `deploy-cloudflare.yml` | Production Turso DB URL                                                            |
+| `TURSO_AUTH_TOKEN_PRODUCTION`  | `deploy-cloudflare.yml` | Production Turso auth token                                                        |
+| `PREVIEW_BETTER_AUTH_SECRET`   | `deploy-cloudflare.yml` | Shared `BETTER_AUTH_SECRET` value injected into every preview Worker               |
+| `PREVIEW_ENCRYPTION_KEY`       | `deploy-cloudflare.yml` | Shared `ENCRYPTION_KEY` value injected into every preview Worker                   |
+| `GITHUB_TOKEN`                 | `build-docker.yml`      | Auto-provided; used for ghcr.io login                                              |
 
-PR preview Workers share a single Turso preview database — one database for all active previews, not one per PR.
+Each PR gets its own Turso branch (`media-manager-pr-<number>`) forked from `media-manager-nightly` on first deploy. Subsequent pushes to the same PR reuse the branch and let Drizzle migrations apply any schema delta. The branch is torn down by the cleanup job when the PR closes.
 
 ### Self-Hosted Configuration
 
@@ -269,7 +265,7 @@ volumes:
 **Cloudflare:** Wrangler keeps a deployment history per Worker. Roll back with:
 
 ```
-vp dlx wrangler rollback --env production
+vp exec wrangler rollback --env production
 ```
 
 **Docker Compose (self-hosted):** Pin to a specific version tag rather than `latest` for rollback capability. To roll back, update the `image:` field in `docker-compose.yml` to the previous tag (e.g. `ghcr.io/org/app:v1.2.2`) and run `docker compose up -d`.
