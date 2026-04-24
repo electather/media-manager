@@ -9,6 +9,7 @@ import { configPublicApp } from "./procedures/config";
 import { errorsApp, adminErrorsApp } from "./procedures/errors";
 import { adminJobsApp, userJobsApp } from "./procedures/jobs";
 import { adminUsersApp } from "./procedures/users";
+import { meApp } from "./procedures/me";
 import { preferencesApp } from "./procedures/preferences";
 import { requestContextMiddleware, errorHandler } from "../errors/middleware";
 
@@ -31,6 +32,7 @@ export const appRouter = new Hono()
   .route("/jobs", userJobsApp)
   .route("/admin/jobs", adminJobsApp)
   .route("/admin/users", adminUsersApp)
+  .route("/me", meApp)
   .route("/preferences", preferencesApp)
   .onError(errorHandler);
 
