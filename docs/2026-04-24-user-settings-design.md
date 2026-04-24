@@ -91,14 +91,15 @@ The existing single-file `settings.tsx` is rewritten as the layout shell. Each t
 **Name.** `<Input>` bound to a local draft. Save button enabled when dirty. Save calls `authClient.updateUser({ name })`. Success: toast "Name updated"; invalidate session. Error: inline error under the field, preserving the draft.
 
 **Email.**
+
 - When `emailEnabled = true`: `<Input>` + "Change email" button. Submit calls `authClient.changeEmail({ newEmail, callbackURL: '/settings/profile' })`. Better Auth sends a verification link to the **current** email; UI switches to a confirmation state ("We've sent a link to `current@x` — click it to complete the change"). The `user.email` field updates only after the old-address click; `user.emailVerified` flips false on switch. On success, Better Auth fires the post-switch notification to the old address.
-- When `emailEnabled = false`: email input + "Change email" button + inline warning *"No verification email will be sent — make sure the new address is correct."* Submit opens a password-confirm dialog; on confirm, call `authClient.updateUser({ email: newEmail })` directly. No notification to old address.
+- When `emailEnabled = false`: email input + "Change email" button + inline warning _"No verification email will be sent — make sure the new address is correct."_ Submit opens a password-confirm dialog; on confirm, call `authClient.updateUser({ email: newEmail })` directly. No notification to old address.
 
 **Member since.** `format(user.createdAt, 'MMMM yyyy')` → "Member since April 2026". Read-only.
 
 **Role.** Read-only row: role name as a `<Badge>`, description as muted text below. A 404 from `/me/role` (unassigned user) is returned as an explicit empty result and is **not** an error — the row is hidden and no toast fires. "View all roles →" link only if the user has the admin permission (existing permission check).
 
-**Verification banner.** Shown at the top of the Profile tab only (not global) when `emailEnabled && !user.emailVerified`. Copy: *"Verify your email address to secure your account."* Right-aligned "Resend verification email" button, disabled for 60s after click with a countdown (`Resend in 42s`). Click calls `authClient.sendVerificationEmail({ email: user.email })`. Banner disappears when `emailVerified` flips true. Dismissible per-session via `useState` — no persisted dismissal.
+**Verification banner.** Shown at the top of the Profile tab only (not global) when `emailEnabled && !user.emailVerified`. Copy: _"Verify your email address to secure your account."_ Right-aligned "Resend verification email" button, disabled for 60s after click with a countdown (`Resend in 42s`). Click calls `authClient.sendVerificationEmail({ email: user.email })`. Banner disappears when `emailVerified` flips true. Dismissible per-session via `useState` — no persisted dismissal.
 
 ### Error states
 
@@ -191,11 +192,11 @@ The only way this tab regresses is if the move accidentally drops an import path
 ```ts
 type AuthorizedApp = {
   clientId: string;
-  name: string;                    // oauthClient.name, fallback to clientId
-  scopes: string[];                // from oauthConsent.scopes
-  connectedAt: number;             // oauthConsent.createdAt for (user, client)
-  lastUsedAt: number | null;       // max(oauthAccessToken.createdAt), null if never
-  ownedByUser: boolean;            // oauthClient.userId === currentUser.id
+  name: string; // oauthClient.name, fallback to clientId
+  scopes: string[]; // from oauthConsent.scopes
+  connectedAt: number; // oauthConsent.createdAt for (user, client)
+  lastUsedAt: number | null; // max(oauthAccessToken.createdAt), null if never
+  ownedByUser: boolean; // oauthClient.userId === currentUser.id
 };
 ```
 
@@ -214,6 +215,7 @@ type AuthorizedApp = {
 **MCP endpoint.** Unchanged from mock: read-only `InputGroup` with `${window.location.origin}/mcp` and a copy button.
 
 **App list.** Row per app:
+
 - Primary line: `name` (bold), fallback to `clientId` when missing.
 - `clientId` in mono below, full and selectable.
 - Meta line: `Connected ${relativeTime(connectedAt)} · Last active ${lastUsedAt ? relativeTime(lastUsedAt) : 'never'}`.
@@ -237,7 +239,7 @@ type AuthorizedApp = {
 
 ### Export my data
 
-**Copy.** *"Download a ZIP of your account data — identity, taste profile, feedback history, and connection metadata (no credentials or access tokens)."*
+**Copy.** _"Download a ZIP of your account data — identity, taste profile, feedback history, and connection metadata (no credentials or access tokens)."_
 
 **Action.** Single "Export my data" button. Click triggers a temporary anchor navigation to `GET /api/me/export` (not `fetch`) so the browser's download pipeline handles the stream. Button shows a spinner for the ~1-2s window between click and download starting.
 
@@ -262,20 +264,23 @@ Table names map to the actual schema in `packages/server/src/db/schema/`: `user`
 **Server implementation.** Stream the ZIP with `jszip` in memory — self-hosted, per-user data is small, no temp files needed. All reads run inside a single transaction for a point-in-time-consistent snapshot. Schema-version field in README so future exports can diverge.
 
 **Failure modes.**
+
 - Auth missing: 401, existing middleware redirects to login.
 - Transaction error: HTTP 500. Anchor-navigation errors don't bubble through `window.error`, so a silent failure is accepted for v1 — the user sees the browser's default "download failed" UI and can retry. If this becomes a real pain point, the v2 path is an async job with a token-protected download link. Not worth building now.
 - Very large user (hypothetical): not optimized for v1. Revisit with async/streaming if it becomes real.
 
 ### Delete account
 
-**Copy.** Preserved from mock: *"Permanently delete your account and all associated data — connections, taste profile, feedback history, and preferences. This cannot be undone."*
+**Copy.** Preserved from mock: _"Permanently delete your account and all associated data — connections, taste profile, feedback history, and preferences. This cannot be undone."_
 
 **Action.** "Delete account" button opens the confirmation dialog. Dialog contains:
+
 - Email-typed input (must match current email exactly).
 - Password input.
 - "Delete my account" button, disabled until both validate.
 
 **Submit.** `POST /api/me/delete` with `{ confirmEmail, currentPassword }`. Server:
+
 1. Verify password via Better Auth's password helper; fail → 401 "Incorrect password".
 2. Verify `confirmEmail === user.email`; fail → 400.
 3. Call Better Auth's `deleteUser` on the `user.id`. A single `DELETE` on `user` — FK cascades handle the rest: `session`, `account`, `oauthClient` (user-owned only; other users' clients untouched), `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `userRoles`, `primaryConnections`, `serviceConnections` (+ encrypted credentials), `preferenceProfiles`, `feedback`. `jobRuns.triggeredByUserId` is `SET NULL` by design — history survives the user, anonymized.
@@ -283,7 +288,7 @@ Table names map to the actual schema in `packages/server/src/db/schema/`: `user`
 
 No manual deletion before `deleteUser` — the cascade graph is the source of truth. The FK cascade audit in Prerequisites is what makes this single-call delete safe.
 
-**Client.** On 200: close dialog; the response itself has already invalidated the session cookie (session row is gone server-side, subsequent requests 401), so the client calls `navigate('/auth/login', { replace: true })` with a one-shot toast *"Your account has been deleted."* A follow-up `authClient.signOut()` is not strictly necessary — the session is dead — but a defensive client-side call to clear any in-memory cache is harmless and keeps the code symmetric with the regular sign-out flow. On 401 (wrong password): inline error under the password field, dialog stays open, inputs retained. Any other error: toast, dialog stays open.
+**Client.** On 200: close dialog; the response itself has already invalidated the session cookie (session row is gone server-side, subsequent requests 401), so the client calls `navigate('/auth/login', { replace: true })` with a one-shot toast _"Your account has been deleted."_ A follow-up `authClient.signOut()` is not strictly necessary — the session is dead — but a defensive client-side call to clear any in-memory cache is harmless and keeps the code symmetric with the regular sign-out flow. On 401 (wrong password): inline error under the password field, dialog stays open, inputs retained. Any other error: toast, dialog stays open.
 
 ## Server work
 
@@ -304,21 +309,22 @@ export const meApp = new Hono()
 
 Client RPC calls derived from the chain: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"].revoke.$post({ param: { clientId } })`, `api.me.delete.$post({ json: { ... } })`. The export endpoint is called via anchor navigation, not via the RPC client, so its chain shape doesn't matter for typing.
 
-| Route | Method | Body / Params | Returns |
-|---|---|---|---|
-| `/me/role` | GET | — | `{ name, description }` — 404 returned as `null` equivalent so client can render absent role without the standard error surface |
-| `/me/apps` | GET | — | `AuthorizedApp[]` |
-| `/me/apps/:clientId/revoke` | POST | — | `{ ok: true }` |
-| `/me/export` | GET | — | `application/zip` stream |
-| `/me/delete` | POST | `{ confirmEmail, currentPassword }` | `{ ok: true }` or 401/400 |
+| Route                       | Method | Body / Params                       | Returns                                                                                                                         |
+| --------------------------- | ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `/me/role`                  | GET    | —                                   | `{ name, description }` — 404 returned as `null` equivalent so client can render absent role without the standard error surface |
+| `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                                                                                               |
+| `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                                                                                                  |
+| `/me/export`                | GET    | —                                   | `application/zip` stream                                                                                                        |
+| `/me/delete`                | POST   | `{ confirmEmail, currentPassword }` | `{ ok: true }` or 401/400                                                                                                       |
 
 ### New Hono sub-app: `configPublicApp`
 
 File: `packages/server/src/api/procedures/config.ts`. No auth. Mounted at `.route("/config/public", configPublicApp)` with the handler registered at the root path:
 
 ```ts
-export const configPublicApp = new Hono()
-  .get("/", (c) => c.json({ emailEnabled: env.EMAIL_PROVIDER_CONFIGURED }));
+export const configPublicApp = new Hono().get("/", (c) =>
+  c.json({ emailEnabled: env.EMAIL_PROVIDER_CONFIGURED }),
+);
 ```
 
 Client call: `api.config.public.$get()`.
@@ -340,6 +346,7 @@ These are Better Auth config knobs, not custom code. Verify current installed ve
 ### Shared types
 
 Extend `packages/shared/src/users/`:
+
 - `AuthorizedApp` type.
 - `RoleSummary` type `{ name: string; description: string | null }`.
 - `DeleteAccountBody` zod schema `{ confirmEmail: string, currentPassword: string }`.
@@ -356,7 +363,7 @@ These must land before or alongside the main implementation PR:
 2. **Composite indexes for MCP app queries.** `oauthAccessToken` and `oauthRefreshToken` have no index on `(userId, clientId)` today. The `/me/apps` aggregation and the revoke transaction both filter on that pair. Add two indexes in a migration bundled with this PR:
    - `oauth_access_token_user_client_idx` on `oauth_access_token(user_id, client_id)`.
    - `oauth_refresh_token_user_client_idx` on `oauth_refresh_token(user_id, client_id)`.
-   `oauthConsent` already has `(userId, clientId)` as a natural lookup key; verify an index exists and add one if not. All three tables have nullable `userId`; the queries filter `WHERE user_id = ?` which naturally excludes nulls.
+     `oauthConsent` already has `(userId, clientId)` as a natural lookup key; verify an index exists and add one if not. All three tables have nullable `userId`; the queries filter `WHERE user_id = ?` which naturally excludes nulls.
 
 3. **`EMAIL_PROVIDER_CONFIGURED` env var** added to `packages/server/src/env.ts` with `z.coerce.boolean().default(false)`. Documented in `docs/2026-04-24-deployment-design.md` in the same PR.
 
@@ -370,15 +377,15 @@ These must land before or alongside the main implementation PR:
 
 Handlers throw through the existing `errorHandler` in `router.ts`. Everything listed here maps to an existing `HttpError` subtype in `packages/server/src/errors/` — no new error classes.
 
-| Failure | HTTP | Client surface |
-|---|---|---|
-| Auth missing / expired | 401 | Redirect to login (existing middleware) |
-| Validation failure | 400 | Inline field errors from zod issues |
-| Wrong current password (change-password, delete) | 401 | Inline error under the password field |
-| Email already in use | 409 | Inline error under the email field |
-| Rate-limited (resend / change-email) | 429 | Toast with retry-after |
-| Concurrent revoke (already gone) | 404 | Toast "Already revoked", list refetches |
-| Unexpected | 500 | Standard app error toast with request id |
+| Failure                                          | HTTP | Client surface                           |
+| ------------------------------------------------ | ---- | ---------------------------------------- |
+| Auth missing / expired                           | 401  | Redirect to login (existing middleware)  |
+| Validation failure                               | 400  | Inline field errors from zod issues      |
+| Wrong current password (change-password, delete) | 401  | Inline error under the password field    |
+| Email already in use                             | 409  | Inline error under the email field       |
+| Rate-limited (resend / change-email)             | 429  | Toast with retry-after                   |
+| Concurrent revoke (already gone)                 | 404  | Toast "Already revoked", list refetches  |
+| Unexpected                                       | 500  | Standard app error toast with request id |
 
 ## Testing
 
