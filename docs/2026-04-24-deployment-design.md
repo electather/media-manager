@@ -91,12 +91,13 @@ The `LIBSQL_AUTH_TOKEN` variable is added to the server's env schema. `db/client
 
 ### Optional Variables
 
-| Variable         | Default   | Purpose                              |
-| ---------------- | --------- | ------------------------------------ |
-| `PORT`           | `3000`    | HTTP listen port                     |
-| `HOST`           | `0.0.0.0` | HTTP listen host                     |
-| `CACHE_PROVIDER` | `memory`  | `memory` or `redis`                  |
-| `REDIS_URL`      | —         | Required when `CACHE_PROVIDER=redis` |
+| Variable                    | Default   | Purpose                                                                                                |
+| --------------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `PORT`                      | `3000`    | HTTP listen port                                                                                       |
+| `HOST`                      | `0.0.0.0` | HTTP listen host                                                                                       |
+| `CACHE_PROVIDER`            | `memory`  | `memory` or `redis`                                                                                    |
+| `REDIS_URL`                 | —         | Required when `CACHE_PROVIDER=redis`                                                                   |
+| `EMAIL_PROVIDER_CONFIGURED` | `false`   | Set to `true` when a transactional-email provider is wired; gates email-dependent UI via public config |
 
 ---
 
