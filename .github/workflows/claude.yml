@@ -10,6 +10,10 @@ on:
   pull_request_review:
     types: [submitted]
 
+env:
+  # Opt every JS action into Node.js 24 ahead of the June 2026 forced cutover.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   claude:
     if: |

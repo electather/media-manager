@@ -51,6 +51,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Opt every JS action into Node.js 24 ahead of the June 2026 forced cutover.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   create-user:
     name: Create user
