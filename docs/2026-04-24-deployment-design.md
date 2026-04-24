@@ -24,11 +24,11 @@ A new file `packages/server/src/worker.ts` serves as the Workers entry point and
 
 **Environments:**
 
-| Environment | Trigger | URL |
-|---|---|---|
-| Production | Release tag (`v*`) | `app.example.com` |
-| Nightly | Push to `main` | `nightly.app.example.com` |
-| PR Preview | PR open/update | `app-pr-{number}.account.workers.dev` |
+| Environment | Trigger            | URL                                   |
+| ----------- | ------------------ | ------------------------------------- |
+| Production  | Release tag (`v*`) | `app.example.com`                     |
+| Nightly     | Push to `main`     | `nightly.app.example.com`             |
+| PR Preview  | PR open/update     | `app-pr-{number}.account.workers.dev` |
 
 PR preview Workers are deleted when the PR is closed (see [PR Preview Cleanup](#pr-preview-cleanup)).
 
@@ -38,9 +38,9 @@ A single container runs the compiled Hono server binary, which also serves the c
 
 Images are published to `ghcr.io` with two rolling tags:
 
-| Git event | Tags pushed |
-|---|---|
-| Push to `main` | `ghcr.io/org/app:nightly` |
+| Git event            | Tags pushed                                        |
+| -------------------- | -------------------------------------------------- |
+| Push to `main`       | `ghcr.io/org/app:nightly`                          |
 | Release tag `v1.2.3` | `ghcr.io/org/app:latest`, `ghcr.io/org/app:v1.2.3` |
 
 PR branches do not produce Docker images.
@@ -51,13 +51,13 @@ PR branches do not produce Docker images.
 
 The current `packages/server/src/index.ts` entry point uses several APIs that are not available in the Cloudflare Workers runtime. The new `worker.ts` entry point excludes or replaces each one:
 
-| Item | `index.ts` usage | `worker.ts` behaviour |
-|---|---|---|
-| `serveStatic` from `hono/bun` | Serves `packages/client/dist` | Omitted — Cloudflare Assets handles all static file serving including SPA fallback |
-| `scheduler` (croner) | Starts a persistent cron scheduler | Omitted — the scheduler requires a long-lived process. Scheduled jobs are not supported in the Cloudflare deployment. Cloudflare Cron Triggers are a future option if needed. |
-| `mkdirSync` in `db/client.ts` | Creates the local SQLite directory | `db/client.ts` is updated to skip `mkdirSync` when the connection URL is not a `file:` path (i.e. when connecting to Turso). |
-| `node:async_hooks` (`AsyncLocalStorage`) | Request context propagation | Compatible with Workers when `nodejs_compat` is declared in `wrangler.toml`. |
-| `node:path`, `node:fs` (via migrate.ts) | Migration runner at startup | Omitted from `worker.ts` — migrations run as a pre-deploy CI step instead. |
+| Item                                     | `index.ts` usage                   | `worker.ts` behaviour                                                                                                                                                         |
+| ---------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `serveStatic` from `hono/bun`            | Serves `packages/client/dist`      | Omitted — Cloudflare Assets handles all static file serving including SPA fallback                                                                                            |
+| `scheduler` (croner)                     | Starts a persistent cron scheduler | Omitted — the scheduler requires a long-lived process. Scheduled jobs are not supported in the Cloudflare deployment. Cloudflare Cron Triggers are a future option if needed. |
+| `mkdirSync` in `db/client.ts`            | Creates the local SQLite directory | `db/client.ts` is updated to skip `mkdirSync` when the connection URL is not a `file:` path (i.e. when connecting to Turso).                                                  |
+| `node:async_hooks` (`AsyncLocalStorage`) | Request context propagation        | Compatible with Workers when `nodejs_compat` is declared in `wrangler.toml`.                                                                                                  |
+| `node:path`, `node:fs` (via migrate.ts)  | Migration runner at startup        | Omitted from `worker.ts` — migrations run as a pre-deploy CI step instead.                                                                                                    |
 
 The Hono app, API router, auth handler, MCP handler, error middleware, and plugin runtime are all Workers-compatible and are imported by `worker.ts` unchanged.
 
@@ -67,35 +67,36 @@ The Hono app, API router, auth handler, MCP handler, error middleware, and plugi
 
 ### Required Variables (all environments)
 
-| Variable | Purpose | Notes |
-|---|---|---|
-| `BETTER_AUTH_SECRET` | Auth signing secret | Required, min 1 char |
-| `BETTER_AUTH_URL` | Auth base URL | Required; http acceptable for local/self-hosted |
-| `ENCRYPTION_KEY` | Plugin credential encryption key | Required, min 1 char |
-| `APP_EXTERNAL_URL` | Public-facing URL | Required, http/https only |
-| `SQLITE_PATH` | Database connection URL | See notes below |
+| Variable             | Purpose                          | Notes                                           |
+| -------------------- | -------------------------------- | ----------------------------------------------- |
+| `BETTER_AUTH_SECRET` | Auth signing secret              | Required, min 1 char                            |
+| `BETTER_AUTH_URL`    | Auth base URL                    | Required; http acceptable for local/self-hosted |
+| `ENCRYPTION_KEY`     | Plugin credential encryption key | Required, min 1 char                            |
+| `APP_EXTERNAL_URL`   | Public-facing URL                | Required, http/https only                       |
+| `SQLITE_PATH`        | Database connection URL          | See notes below                                 |
 
 **`SQLITE_PATH` in each environment:**
+
 - **Docker (self-hosted):** `file:/data/ent-mcp.db` — local SQLite file in the volume
 - **Cloudflare (all envs):** Turso URL, e.g. `libsql://my-db.turso.io`
 
 ### Cloudflare-Only Variables
 
-| Variable | Purpose |
-|---|---|
-| `LIBSQL_AUTH_TOKEN` | Turso auth token (required when `SQLITE_PATH` is a Turso URL) |
-| `BETTER_AUTH_TRUSTED_ORIGINS` | Comma-separated allowed origins (optional) |
+| Variable                      | Purpose                                                       |
+| ----------------------------- | ------------------------------------------------------------- |
+| `LIBSQL_AUTH_TOKEN`           | Turso auth token (required when `SQLITE_PATH` is a Turso URL) |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Comma-separated allowed origins (optional)                    |
 
 The `LIBSQL_AUTH_TOKEN` variable is added to the server's env schema. `db/client.ts` is updated to pass it to `createClient({ url, authToken })` when present.
 
 ### Optional Variables
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `PORT` | `3000` | HTTP listen port |
-| `HOST` | `0.0.0.0` | HTTP listen host |
-| `CACHE_PROVIDER` | `memory` | `memory` or `redis` |
-| `REDIS_URL` | — | Required when `CACHE_PROVIDER=redis` |
+| Variable         | Default   | Purpose                              |
+| ---------------- | --------- | ------------------------------------ |
+| `PORT`           | `3000`    | HTTP listen port                     |
+| `HOST`           | `0.0.0.0` | HTTP listen host                     |
+| `CACHE_PROVIDER` | `memory`  | `memory` or `redis`                  |
+| `REDIS_URL`      | —         | Required when `CACHE_PROVIDER=redis` |
 
 ---
 
@@ -132,6 +133,7 @@ Two new workflow files are added alongside the existing `ci.yml` and `release.ym
 Triggers on push to `main`, on release tags (`v*`), and on PRs (open/update and closed). Quality checks in `ci.yml` run independently.
 
 **Steps (PR open/update, push to `main`, release tag):**
+
 1. `vp install` — install dependencies
 2. `vp run build:client` — build client SPA to `packages/client/dist`
 3. Run migrations against the target Turso DB (using `SQLITE_PATH` + `LIBSQL_AUTH_TOKEN` from secrets)
@@ -139,12 +141,12 @@ Triggers on push to `main`, on release tags (`v*`), and on PRs (open/update and 
 
 **Per trigger:**
 
-| Trigger | Wrangler flags | Action |
-|---|---|---|
-| PR opened/updated | `--name app-pr-{number}` | Deploy to named preview Worker, post URL as PR comment |
-| PR closed | — | Delete preview Worker (see below) |
-| Push to `main` | `--env nightly` | Deploy to nightly environment |
-| Release tag (`v*`) | `--env production` | Deploy to production environment |
+| Trigger            | Wrangler flags           | Action                                                 |
+| ------------------ | ------------------------ | ------------------------------------------------------ |
+| PR opened/updated  | `--name app-pr-{number}` | Deploy to named preview Worker, post URL as PR comment |
+| PR closed          | —                        | Delete preview Worker (see below)                      |
+| Push to `main`     | `--env nightly`          | Deploy to nightly environment                          |
+| Release tag (`v*`) | `--env production`       | Deploy to production environment                       |
 
 PR previews use `--name app-pr-{number}` (not `--env`) to deploy to a uniquely named Worker. Secrets for the preview Worker are injected immediately before the deploy step using `wrangler secret put --name app-pr-{number}` for each required secret. This avoids touching the `app` (default) or named environments.
 
@@ -164,9 +166,9 @@ Triggers on push to `main` and on release tags (`v*`). Never runs on PRs.
 
 **Tag strategy:**
 
-| Trigger | Tags |
-|---|---|
-| Push to `main` | `nightly` |
+| Trigger              | Tags               |
+| -------------------- | ------------------ |
+| Push to `main`       | `nightly`          |
 | Release tag `v1.2.3` | `latest`, `v1.2.3` |
 
 ### Relation to `release.yml`
@@ -214,17 +216,17 @@ Secrets for named environments are set once via `vp dlx wrangler secret put --en
 
 ### GitHub Actions Secrets
 
-| Secret | Used by | Notes |
-|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | `deploy-cloudflare.yml` | Needs Workers + Assets deploy permissions |
-| `CLOUDFLARE_ACCOUNT_ID` | `deploy-cloudflare.yml` | Required by Wrangler |
-| `TURSO_URL_PREVIEW` | `deploy-cloudflare.yml` | Shared Turso DB URL for all PR previews |
-| `TURSO_AUTH_TOKEN_PREVIEW` | `deploy-cloudflare.yml` | Auth token for preview DB |
-| `TURSO_URL_NIGHTLY` | `deploy-cloudflare.yml` | Nightly Turso DB URL |
-| `TURSO_AUTH_TOKEN_NIGHTLY` | `deploy-cloudflare.yml` | Nightly Turso auth token |
-| `TURSO_URL_PRODUCTION` | `deploy-cloudflare.yml` | Production Turso DB URL |
-| `TURSO_AUTH_TOKEN_PRODUCTION` | `deploy-cloudflare.yml` | Production Turso auth token |
-| `GITHUB_TOKEN` | `build-docker.yml` | Auto-provided; used for ghcr.io login |
+| Secret                        | Used by                 | Notes                                     |
+| ----------------------------- | ----------------------- | ----------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`        | `deploy-cloudflare.yml` | Needs Workers + Assets deploy permissions |
+| `CLOUDFLARE_ACCOUNT_ID`       | `deploy-cloudflare.yml` | Required by Wrangler                      |
+| `TURSO_URL_PREVIEW`           | `deploy-cloudflare.yml` | Shared Turso DB URL for all PR previews   |
+| `TURSO_AUTH_TOKEN_PREVIEW`    | `deploy-cloudflare.yml` | Auth token for preview DB                 |
+| `TURSO_URL_NIGHTLY`           | `deploy-cloudflare.yml` | Nightly Turso DB URL                      |
+| `TURSO_AUTH_TOKEN_NIGHTLY`    | `deploy-cloudflare.yml` | Nightly Turso auth token                  |
+| `TURSO_URL_PRODUCTION`        | `deploy-cloudflare.yml` | Production Turso DB URL                   |
+| `TURSO_AUTH_TOKEN_PRODUCTION` | `deploy-cloudflare.yml` | Production Turso auth token               |
+| `GITHUB_TOKEN`                | `build-docker.yml`      | Auto-provided; used for ghcr.io login     |
 
 PR preview Workers share a single Turso preview database — one database for all active previews, not one per PR.
 
@@ -233,6 +235,7 @@ PR preview Workers share a single Turso preview database — one database for al
 Self-hosters copy `.env.example` to `.env`. The Docker Compose file loads it via `env_file`.
 
 **`.env.example`:**
+
 ```
 SQLITE_PATH=file:/data/ent-mcp.db
 BETTER_AUTH_SECRET=changeme
@@ -264,6 +267,7 @@ volumes:
 ## Rollback
 
 **Cloudflare:** Wrangler keeps a deployment history per Worker. Roll back with:
+
 ```
 vp dlx wrangler rollback --env production
 ```
@@ -274,21 +278,21 @@ vp dlx wrangler rollback --env production
 
 ## New Files
 
-| File | Purpose |
-|---|---|
-| `packages/server/src/worker.ts` | Cloudflare Workers entry point (Workers-compatible app composition) |
-| `wrangler.toml` | Wrangler environment config |
-| `docker-compose.yml` | Self-hosted deployment |
-| `.env.example` | Self-hosted env var template |
-| `.dockerignore` | Build context exclusions |
-| `.github/workflows/deploy-cloudflare.yml` | Cloudflare deploy workflow |
-| `.github/workflows/build-docker.yml` | Docker build and push workflow |
+| File                                      | Purpose                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| `packages/server/src/worker.ts`           | Cloudflare Workers entry point (Workers-compatible app composition) |
+| `wrangler.toml`                           | Wrangler environment config                                         |
+| `docker-compose.yml`                      | Self-hosted deployment                                              |
+| `.env.example`                            | Self-hosted env var template                                        |
+| `.dockerignore`                           | Build context exclusions                                            |
+| `.github/workflows/deploy-cloudflare.yml` | Cloudflare deploy workflow                                          |
+| `.github/workflows/build-docker.yml`      | Docker build and push workflow                                      |
 
 ## Modified Files
 
-| File | Change |
-|---|---|
-| `docker/Dockerfile` | Add shared package copy, drizzle migrations copy in final stage, cache mounts, production installs, multi-arch support |
-| `packages/server/src/index.ts` | Import `migrate.ts` at startup before HTTP server starts |
-| `packages/server/src/db/client.ts` | Skip `mkdirSync` for non-`file:` URLs; pass `LIBSQL_AUTH_TOKEN` to `createClient` |
-| `packages/server/src/env.ts` | Add `LIBSQL_AUTH_TOKEN` (optional string) |
+| File                               | Change                                                                                                                 |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `docker/Dockerfile`                | Add shared package copy, drizzle migrations copy in final stage, cache mounts, production installs, multi-arch support |
+| `packages/server/src/index.ts`     | Import `migrate.ts` at startup before HTTP server starts                                                               |
+| `packages/server/src/db/client.ts` | Skip `mkdirSync` for non-`file:` URLs; pass `LIBSQL_AUTH_TOKEN` to `createClient`                                      |
+| `packages/server/src/env.ts`       | Add `LIBSQL_AUTH_TOKEN` (optional string)                                                                              |
