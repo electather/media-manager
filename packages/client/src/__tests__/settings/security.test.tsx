@@ -158,6 +158,44 @@ describe("ActiveSessionsCard", () => {
     });
   });
 
+  it("toasts and leaves the row in place when revokeSession fails", async () => {
+    mocks.listSessions.mockResolvedValue({ data: sessionFixtures, error: null });
+    mocks.revokeSession.mockResolvedValue({
+      data: null,
+      error: { message: "boom" },
+    });
+
+    const user = userEvent.setup();
+    renderWithClient(<ActiveSessionsCard />);
+
+    const otherRow = await screen.findByTestId(`session-row-${OTHER_SESSION_ID}`);
+    await user.click(within(otherRow).getByRole("button", { name: /revoke/i }));
+    await user.click(await screen.findByTestId("confirm-revoke"));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith("boom"));
+    // Row stays after a failed revoke.
+    expect(screen.getByTestId(`session-row-${OTHER_SESSION_ID}`)).toBeTruthy();
+  });
+
+  it("toasts and keeps the list when revokeOtherSessions fails", async () => {
+    mocks.listSessions.mockResolvedValue({ data: sessionFixtures, error: null });
+    mocks.revokeOtherSessions.mockResolvedValue({
+      data: null,
+      error: { message: "kapow" },
+    });
+
+    const user = userEvent.setup();
+    renderWithClient(<ActiveSessionsCard />);
+
+    await user.click(await screen.findByTestId("sign-out-everywhere"));
+    await user.click(await screen.findByTestId("confirm-sign-out-everywhere"));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith("kapow"));
+    // Both sessions still present after a failed sign-out-everywhere.
+    expect(screen.getByTestId(`session-row-${CURRENT_SESSION_ID}`)).toBeTruthy();
+    expect(screen.getByTestId(`session-row-${OTHER_SESSION_ID}`)).toBeTruthy();
+  });
+
   it("renders an error surface with a Retry button when listSessions fails", async () => {
     mocks.listSessions
       .mockResolvedValueOnce({ data: null, error: { message: "boom" } })
@@ -236,9 +274,9 @@ describe("ChangePasswordCard", () => {
   it("collapses the form, toasts, and refetches sessions on a successful change", async () => {
     const user = userEvent.setup();
     mocks.changePassword.mockResolvedValue({ data: { status: true }, error: null });
-    // listSessions is called by the surrounding card; not under test here, but
-    // the mutation invalidates the queryKey so a fresh call is expected when
-    // the card is mounted in isolation it stays inert.
+    // The mutation invalidates SESSIONS_QUERY_KEY; even though
+    // ChangePasswordCard is mounted in isolation here, the invalidation can
+    // trigger a listSessions call, so it needs a stub return.
     mocks.listSessions.mockResolvedValue({ data: [], error: null });
 
     renderWithClient(<ChangePasswordCard />);

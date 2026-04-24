@@ -5,16 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseUserAgent } from "@/lib/user-agent";
 
+export interface SessionListItem {
+  id: string;
+  token: string;
+  createdAt: string | number | Date;
+  updatedAt: string | number | Date;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
+
 export interface SessionRowProps {
-  /** The Better Auth session row. */
-  session: {
-    id: string;
-    token: string;
-    createdAt: string | number | Date;
-    updatedAt: string | number | Date;
-    ipAddress?: string | null;
-    userAgent?: string | null;
-  };
+  session: SessionListItem;
   /** True when this session belongs to the device viewing the page. */
   isCurrent: boolean;
   /** Called when the user confirms revocation. */

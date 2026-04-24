@@ -16,7 +16,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SessionRow } from "@/components/settings/session-row";
+import { SessionRow, type SessionListItem } from "@/components/settings/session-row";
 import { authClient } from "@/lib/auth";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -24,17 +24,6 @@ import { authClient } from "@/lib/auth";
 export const Route = createFileRoute("/_authenticated/settings/security")({
   component: SecuritySection,
 });
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface SessionListItem {
-  id: string;
-  token: string;
-  createdAt: string | number | Date;
-  updatedAt: string | number | Date;
-  ipAddress?: string | null;
-  userAgent?: string | null;
-}
 
 const MIN_PASSWORD_LENGTH = 12;
 const SESSIONS_QUERY_KEY = ["security", "sessions"] as const;
