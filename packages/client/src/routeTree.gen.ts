@@ -23,13 +23,13 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRequestsRouteImport } from './routes/_authenticated/requests'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedOauthCallbackRouteImport } from './routes/_authenticated/oauth-callback'
-import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedActivityRouteImport } from './routes/_authenticated/activity'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings/security'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings/profile'
 import { Route as AuthenticatedSettingsDangerRouteImport } from './routes/_authenticated/settings/danger'
+import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated/settings/connections'
 import { Route as AuthenticatedSettingsAppsRouteImport } from './routes/_authenticated/settings/apps'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
 import { Route as AuthenticatedAdminServerRouteImport } from './routes/_authenticated/admin/server'
@@ -108,12 +108,6 @@ const AuthenticatedOauthCallbackRoute =
     path: '/oauth-callback',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedConnectionsRoute =
-  AuthenticatedConnectionsRouteImport.update({
-    id: '/connections',
-    path: '/connections',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedActivityRoute = AuthenticatedActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
@@ -146,6 +140,12 @@ const AuthenticatedSettingsDangerRoute =
   AuthenticatedSettingsDangerRouteImport.update({
     id: '/danger',
     path: '/danger',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsConnectionsRoute =
+  AuthenticatedSettingsConnectionsRouteImport.update({
+    id: '/connections',
+    path: '/connections',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsAppsRoute =
@@ -192,7 +192,6 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
   '/activity': typeof AuthenticatedActivityRoute
-  '/connections': typeof AuthenticatedConnectionsRoute
   '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/requests': typeof AuthenticatedRequestsRoute
@@ -210,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/admin/server': typeof AuthenticatedAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/settings/apps': typeof AuthenticatedSettingsAppsRoute
+  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsDangerRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
@@ -220,7 +220,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
   '/activity': typeof AuthenticatedActivityRoute
-  '/connections': typeof AuthenticatedConnectionsRoute
   '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/requests': typeof AuthenticatedRequestsRoute
@@ -238,6 +237,7 @@ export interface FileRoutesByTo {
   '/admin/server': typeof AuthenticatedAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/settings/apps': typeof AuthenticatedSettingsAppsRoute
+  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsDangerRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
@@ -250,7 +250,6 @@ export interface FileRoutesById {
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
   '/_authenticated/activity': typeof AuthenticatedActivityRoute
-  '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/oauth-callback': typeof AuthenticatedOauthCallbackRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/requests': typeof AuthenticatedRequestsRoute
@@ -269,6 +268,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/server': typeof AuthenticatedAdminServerRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/settings/apps': typeof AuthenticatedSettingsAppsRoute
+  '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/_authenticated/settings/danger': typeof AuthenticatedSettingsDangerRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
@@ -282,7 +282,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/oauth'
     | '/activity'
-    | '/connections'
     | '/oauth-callback'
     | '/profile'
     | '/requests'
@@ -300,6 +299,7 @@ export interface FileRouteTypes {
     | '/admin/server'
     | '/admin/users'
     | '/settings/apps'
+    | '/settings/connections'
     | '/settings/danger'
     | '/settings/profile'
     | '/settings/security'
@@ -310,7 +310,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/oauth'
     | '/activity'
-    | '/connections'
     | '/oauth-callback'
     | '/profile'
     | '/requests'
@@ -328,6 +327,7 @@ export interface FileRouteTypes {
     | '/admin/server'
     | '/admin/users'
     | '/settings/apps'
+    | '/settings/connections'
     | '/settings/danger'
     | '/settings/profile'
     | '/settings/security'
@@ -339,7 +339,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/oauth'
     | '/_authenticated/activity'
-    | '/_authenticated/connections'
     | '/_authenticated/oauth-callback'
     | '/_authenticated/profile'
     | '/_authenticated/requests'
@@ -358,6 +357,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/server'
     | '/_authenticated/admin/users'
     | '/_authenticated/settings/apps'
+    | '/_authenticated/settings/connections'
     | '/_authenticated/settings/danger'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/security'
@@ -471,13 +471,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOauthCallbackRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/connections': {
-      id: '/_authenticated/connections'
-      path: '/connections'
-      fullPath: '/connections'
-      preLoaderRoute: typeof AuthenticatedConnectionsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/activity': {
       id: '/_authenticated/activity'
       path: '/activity'
@@ -518,6 +511,13 @@ declare module '@tanstack/react-router' {
       path: '/danger'
       fullPath: '/settings/danger'
       preLoaderRoute: typeof AuthenticatedSettingsDangerRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/connections': {
+      id: '/_authenticated/settings/connections'
+      path: '/connections'
+      fullPath: '/settings/connections'
+      preLoaderRoute: typeof AuthenticatedSettingsConnectionsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/apps': {
@@ -574,6 +574,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAppsRoute: typeof AuthenticatedSettingsAppsRoute
+  AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
   AuthenticatedSettingsDangerRoute: typeof AuthenticatedSettingsDangerRoute
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
@@ -582,6 +583,7 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAppsRoute: AuthenticatedSettingsAppsRoute,
+  AuthenticatedSettingsConnectionsRoute: AuthenticatedSettingsConnectionsRoute,
   AuthenticatedSettingsDangerRoute: AuthenticatedSettingsDangerRoute,
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
@@ -595,7 +597,6 @@ const AuthenticatedSettingsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedActivityRoute: typeof AuthenticatedActivityRoute
-  AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedOauthCallbackRoute: typeof AuthenticatedOauthCallbackRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedRequestsRoute: typeof AuthenticatedRequestsRoute
@@ -613,7 +614,6 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActivityRoute: AuthenticatedActivityRoute,
-  AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedOauthCallbackRoute: AuthenticatedOauthCallbackRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedRequestsRoute: AuthenticatedRequestsRoute,

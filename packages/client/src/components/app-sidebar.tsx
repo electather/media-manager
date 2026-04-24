@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/sidebar";
 import {
   HomeIcon,
-  PlugIcon,
   ClockIcon,
   DownloadIcon,
   SparklesIcon,
@@ -32,7 +31,6 @@ import { api } from "@/lib/api";
 
 const navMain = [
   { title: "Home", to: "/", icon: <HomeIcon />, matchPrefix: false },
-  { title: "Connections", to: "/connections", icon: <PlugIcon />, matchPrefix: true },
   { title: "Activity", to: "/activity", icon: <ClockIcon />, matchPrefix: true },
   { title: "Requests", to: "/requests", icon: <DownloadIcon />, matchPrefix: true },
   { title: "Taste profile", to: "/taste", icon: <SparklesIcon />, matchPrefix: true },
