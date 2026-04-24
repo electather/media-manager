@@ -39,19 +39,19 @@ vi.mock("../../../auth/middleware", () => ({
 }));
 
 // Drive the `/role` query result by swapping `getDb` for a tiny stub that
-// records the userId the handler filtered on and returns whatever row the
+// records the where-clause the handler used and returns whatever row the
 // test arranged.
 let mockRoleRow: { name: string; description: string | null } | undefined;
-let lastWhereUserId: string | undefined;
+let lastWhereClause: { column?: string; value?: unknown } | undefined;
 
 vi.mock("../../../db/client", () => ({
   getDb: () => ({
     select: () => ({
       from: () => ({
         innerJoin: () => ({
-          where: (clause: { userId: string }) => ({
+          where: (clause: { column?: string; value?: unknown }) => ({
             get: () => {
-              lastWhereUserId = clause.userId;
+              lastWhereClause = clause;
               return mockRoleRow;
             },
           }),
@@ -61,15 +61,15 @@ vi.mock("../../../db/client", () => ({
   }),
 }));
 
-// Fake drizzle-orm `eq` so the chained builder above can capture the userId
-// used in the where clause without spinning up a real database.
+// Fake drizzle-orm `eq` so the chained builder above can capture both the
+// column name and value used in the where clause without a real database.
 vi.mock("drizzle-orm", async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     eq: (column: { name?: string }, value: unknown) => ({
       column: column?.name,
-      userId: value as string,
+      value,
     }),
   };
 });
@@ -87,7 +87,7 @@ describe("meApp GET /role", () => {
   beforeEach(() => {
     mockUserId = null;
     mockRoleRow = undefined;
-    lastWhereUserId = undefined;
+    lastWhereClause = undefined;
   });
 
   it("returns the assigned role for the authenticated user", async () => {
@@ -98,21 +98,22 @@ describe("meApp GET /role", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      name: "Admin",
-      description: "Has every permission.",
+      role: { name: "Admin", description: "Has every permission." },
     });
-    expect(lastWhereUserId).toBe("user-1");
+    expect(lastWhereClause?.column).toBe("user_id");
+    expect(lastWhereClause?.value).toBe("user-1");
   });
 
-  it("returns 404 when the user has no role assignment", async () => {
+  it("returns 200 with role:null when the user has no role assignment", async () => {
     mockUserId = "user-no-role";
     mockRoleRow = undefined;
 
     const res = await buildApp().request("/me/role");
 
-    expect(res.status).toBe(404);
-    const body = (await res.json()) as { code: string };
-    expect(body.code).toBe("me.role_not_assigned");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ role: null });
+    expect(lastWhereClause?.column).toBe("user_id");
+    expect(lastWhereClause?.value).toBe("user-no-role");
   });
 
   it("returns 401 when the request is unauthenticated", async () => {
