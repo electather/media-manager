@@ -117,6 +117,27 @@ jobs:
           APP_EXTERNAL_URL: http://localhost
         run: vp run db:migrate
 
+      # Pre-flight: GitHub expands missing secrets to empty strings, so a
+      # typo or an unset `NIGHTLY_*` secret would silently upload empty
+      # credentials to Cloudflare and the Worker would crash on env
+      # validation. Fail fast here with a clear message instead.
+      - name: Verify preview-seeding secrets are set
+        if: steps.target.outputs.mode == 'preview'
+        env:
+          BETTER_AUTH_SECRET_VALUE: ${{ secrets.NIGHTLY_BETTER_AUTH_SECRET }}
+          ENCRYPTION_KEY_VALUE: ${{ secrets.NIGHTLY_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -z "${BETTER_AUTH_SECRET_VALUE:-}" ]] && missing+=("NIGHTLY_BETTER_AUTH_SECRET")
+          [[ -z "${ENCRYPTION_KEY_VALUE:-}" ]] && missing+=("NIGHTLY_ENCRYPTION_KEY")
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Missing required GitHub repo secret(s): ${missing[*]}"
+            echo "::error::Set these to the same values currently stored in Cloudflare for the nightly env (via \`wrangler secret put --env nightly\`)."
+            echo "::error::See the comment block above the 'Inject preview Worker secrets' step in .github/workflows/deploy-cloudflare.yml."
+            exit 1
+          fi
+
       # Preview Workers use the default (unnamed) wrangler environment with a
       # unique `--name`. Their secrets must be injected each deploy because the
       # Worker identity is per-PR. Named environments (nightly, production)

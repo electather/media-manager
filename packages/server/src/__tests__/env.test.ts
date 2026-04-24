@@ -40,10 +40,15 @@ describe("server env schema", () => {
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
+  // Env validation now throws instead of calling `process.exit(1)`. On
+  // Cloudflare Workers `process.exit` is a no-op with nodejs_compat, so a
+  // silent return from `onValidationError` left `env` undefined and triggered
+  // a misleading downstream crash. Throwing surfaces the real failure at
+  // module-load on both runtimes.
   it("fails startup when APP_EXTERNAL_URL is missing", async () => {
     delete process.env.APP_EXTERNAL_URL;
-    await expect(import("../env")).rejects.toThrow(/process\.exit/);
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    await expect(import("../env")).rejects.toThrow(/Invalid environment variables/);
+    expect(exitSpy).not.toHaveBeenCalled();
     const issues = errorSpy.mock.calls.flat().flat();
     const asString = JSON.stringify(issues);
     expect(asString).toContain("APP_EXTERNAL_URL");
@@ -51,8 +56,8 @@ describe("server env schema", () => {
 
   it("fails startup when APP_EXTERNAL_URL is not a URL", async () => {
     process.env.APP_EXTERNAL_URL = "not-a-url";
-    await expect(import("../env")).rejects.toThrow(/process\.exit/);
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    await expect(import("../env")).rejects.toThrow(/Invalid environment variables/);
+    expect(exitSpy).not.toHaveBeenCalled();
     const issues = errorSpy.mock.calls.flat().flat();
     const asString = JSON.stringify(issues);
     expect(asString).toContain("APP_EXTERNAL_URL");
@@ -60,8 +65,8 @@ describe("server env schema", () => {
 
   it("rejects non-http(s) schemes (e.g. file://)", async () => {
     process.env.APP_EXTERNAL_URL = "file:///etc/passwd";
-    await expect(import("../env")).rejects.toThrow(/process\.exit/);
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    await expect(import("../env")).rejects.toThrow(/Invalid environment variables/);
+    expect(exitSpy).not.toHaveBeenCalled();
     const issues = errorSpy.mock.calls.flat().flat();
     expect(JSON.stringify(issues)).toContain("APP_EXTERNAL_URL");
   });
