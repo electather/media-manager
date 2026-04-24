@@ -66,6 +66,9 @@ No new table. Adding columns matches how `globalConfig` and `personalKeyFallback
 
 - `null` — **inherit**. The plugin runs against `manifest.allowedHosts` exactly as today. This is the default after migration so existing deployments see no behaviour change.
 - `[]` — admin has actively blocked every static host. The plugin can still reach any hostname resolved from `x-allowed-host` fields (user's Plex URL, Jellyfin URL). Legitimate for a deployment that only wants the user-side self-hosted path to work.
+
+  > **Important:** `adminAllowlist: []` does **not** mean "this plugin makes no outbound calls." Dynamic hosts supplied by users via `x-allowed-host` fields (e.g. a self-hosted Plex or Jellyfin URL) bypass the admin allowlist entirely and remain reachable. An admin deploying a wildcard plugin in a locked-down environment must also control what users can enter into connection forms. The UI warning banner ("Plugin will make no network calls with this configuration. User-supplied server URLs (x-allowed-host) are unaffected.") surfaces this when the static intersection is empty.
+
 - `["api.trakt.tv", "*.tmdb.org", "*"]` — intersection candidates. Semantics match `manifest.allowedHosts`: exact hostnames, `*.domain.com` wildcards, bare `"*"`. A bare `"*"` in the admin list effectively means "allow everything the manifest already allows" — useful as an explicit acknowledgement rather than leaving the field `null`.
 
 Validation at write time:
@@ -95,7 +98,7 @@ Two small surgical changes under `packages/server/src/plugin-runtime`.
 
 ### Allowlist intersection — `fetch-policy.ts`
 
-`buildFetch` signature gains a fourth parameter:
+`buildFetch` signature gains two new parameters (`adminAllowlist` and `adminHeaders`):
 
 ```ts
 export function buildFetch(
@@ -216,14 +219,6 @@ Response: { ok: true } | typed error
 - Array is validated per the rules in _Data model_. Lowercasing is done server-side.
 - Duplicate entries, invalid hostnames, or a length above 64 return `plugin.input_invalid`.
 - Successful write invalidates the per-plugin policy cache; next `buildContext` call reloads.
-
-### `GET /api/plugins/:id/admin-headers`
-
-```ts
-Response: { names: string[] }
-```
-
-Names only; no values. This is redundant with the `PluginRow.advanced.adminHeaderNames` field but useful as a dedicated fetch when the admin dialog opens without re-listing every plugin.
 
 ### `PUT /api/plugins/:id/admin-headers`
 
@@ -391,13 +386,14 @@ The component only renders on `/admin/plugins`, which is already gated by the ad
 - `@ent-mcp/shared` gains Zod schemas for the new API payloads alongside the existing `plugin*Schema` exports.
 - `@ent-mcp/client` picks up the new `PluginRow.advanced` shape via `InferResponseType`; no client-side migration beyond rendering the new section.
 - No changeset bump is strictly required for a docs-only PR, but the implementation PRs that follow this doc will bump `@ent-mcp/server` (minor — new capability) and `@ent-mcp/client` (minor — new UI). Neither is a breaking change; existing deployments see identical runtime behaviour until an admin opts in.
-- No rollback considerations beyond reverting the columns — since `null` means "inherit manifest", a rollback that drops the columns drops the feature without affecting already-configured plugins in any active way.
+- Rollback requires a dedicated Drizzle down-migration — SQLite versions before 3.35 do not support `ALTER TABLE … DROP COLUMN`, so Drizzle handles column removal by recreating the table. A rollback cannot simply drop the three columns; it must emit a second migration file that Drizzle generates via `drizzle-kit push` on the reverted schema. Since `null` means "inherit manifest", any plugins that had admin policy configured will lose it on rollback, but no already-running deployments are affected in terms of current behaviour.
 
 ## Open questions
 
 - **Audit retention.** How long do `plugin.host_blocked_by_admin` rows live? The existing errors table already has a retention policy; this code inherits it. If admins want longer-lived audit logs, that's a separate revision of the error management design — out of scope here.
 - **DNS rebinding.** The admin allowlist is a hostname string match. An attacker controlling a domain the admin allows could still pin it to an internal IP at fetch time. This is an existing runtime concern called out in `allowed-hosts.ts` (`"DNS-rebinding mitigation still has to happen at fetch time and is tracked separately"`). The admin policy does not make this worse; fixing it is tracked against the broader SSRF hardening work.
 - **Header templating.** Not in v1. If we need dynamic values (per-request nonces, short-lived tokens) a future revision adds a `${env.VAR_NAME}` syntax. Plain strings cover the common corporate-gateway case.
+- **Encryption-key rotation.** The `admin_headers_encrypted` / `admin_headers_iv` blobs are encrypted with the application's AES-256-GCM key, following the same scheme as `plugin_shared_credentials`. If the application key is rotated, any existing `admin_headers_*` blobs will fail to decrypt until re-encrypted with the new key. Does the existing key-rotation path for `shared_credentials` already handle a re-encryption pass over the `plugins` table? If so, this spec can defer to that design; if not, the implementation PR needs to include a migration or runbook for re-encrypting affected rows.
 
 ## Out of scope for this PR (tracked for future work)
 
@@ -406,3 +402,4 @@ The component only renders on `/admin/plugins`, which is already gated by the ad
 - Admin-visible aggregated violation dashboard per plugin.
 - Bulk import/export of admin policy.
 - Header templating / dynamic values.
+- `GET /api/plugins/:id/admin-headers` dedicated endpoint — omitted in v1 since `PluginRow.advanced.adminHeaderNames` already carries this data on every plugin list response. Can be added if incremental-load requirements emerge.
