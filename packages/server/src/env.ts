@@ -8,6 +8,7 @@ export const env = createEnv({
   },
   server: {
     SQLITE_PATH: z.string().optional(),
+    LIBSQL_AUTH_TOKEN: z.string().optional(),
     CACHE_PROVIDER: z.enum(["memory", "redis"]).default("memory"),
     REDIS_URL: z.url().optional(),
     PORT: z.coerce.number().default(3000),

@@ -15,4 +15,6 @@ export async function runMigrations(): Promise<void> {
   }
 }
 
-await runMigrations();
+if (import.meta.main) {
+  await runMigrations();
+}
