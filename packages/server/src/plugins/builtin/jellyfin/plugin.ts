@@ -334,7 +334,7 @@ export default definePlugin({
   manifest: {
     id: "jellyfin",
     name: "Jellyfin",
-    version: "1.0.0",
+    version: "1.0.2",
     description:
       "Self-hosted Jellyfin server integration. Users sign in with their Jellyfin username and password; the plugin caches an access token and the resolved Jellyfin user id per connection.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -375,6 +375,7 @@ export default definePlugin({
           title: "Jellyfin user id",
           description: "Resolved by the server on connect. Not user-editable.",
           readOnly: true,
+          "x-plugin-resolved": true,
         },
       },
       // `password` is required on initial create only — it is stripped from
@@ -592,8 +593,11 @@ export default definePlugin({
         const userId = getUserId(typedCtx);
         // Jellyfin's /Latest endpoint does not expose a cursor, but it accepts
         // a `Limit`. Callers paginate by asking for a bigger page — we treat
-        // a passed cursor as the 1-based page index and translate.
-        const page = cursor ? Math.max(parseInt(cursor, 10) || 1, 1) : 1;
+        // a passed cursor as the 1-based page index and translate. The page is
+        // capped at MAX_PAGE so a caller passing `cursor: "50000"` cannot
+        // ask Jellyfin for millions of rows in a single round-trip.
+        const MAX_PAGE = 50;
+        const page = cursor ? Math.min(Math.max(parseInt(cursor, 10) || 1, 1), MAX_PAGE) : 1;
         const safeLimit = Math.min(Math.max(limit, 1), 200);
         const params = new URLSearchParams({
           Limit: String(safeLimit * page),

@@ -21,6 +21,11 @@ import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { capabilityDisplay } from "@/lib/capabilities";
 import { api } from "@/lib/api";
+import {
+  parseFormErrorResponse,
+  splitFormError,
+  type FormErrorResult,
+} from "@/lib/errors/form-errors";
 
 import type { JSONSchema } from "@ent-mcp/shared";
 import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "./schema-form";
@@ -51,11 +56,7 @@ interface Props {
   onSuccess: () => void;
 }
 
-type TestState =
-  | { kind: "idle" }
-  | { kind: "testing" }
-  | { kind: "ok" }
-  | { kind: "err"; message: string };
+type TestState = { kind: "idle" } | { kind: "testing" } | { kind: "ok" } | { kind: "err" };
 
 type DeviceState =
   | { kind: "idle" }
@@ -158,13 +159,46 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     onOpenChange(next);
   };
 
+  // Property names currently rendered as inputs. In create mode, SchemaForm
+  // hides `x-plugin-resolved` fields (the plugin owns them, the user never
+  // submits one) — routing a server error into one of them would land the
+  // message in a hidden slot and silently disappear. Exclude them so the
+  // error falls back to the top-level banner instead.
+  const schemaProperties = (userConfigSchema?.properties ?? {}) as Record<
+    string,
+    Record<string, unknown> | undefined
+  >;
+  const schemaFieldNames = Object.keys(schemaProperties).filter((name) => {
+    const def = schemaProperties[name];
+    const hiddenInCreate = def?.["x-plugin-resolved"] === true && !isEdit;
+    return !hiddenInCreate;
+  });
+
+  // Applies a routed error to the modal's state: field-scoped messages go to
+  // `serverErrors` (which the SchemaForm already renders under the matching
+  // input), and the top-level message lights up the banner. `submitAttempted`
+  // is flipped on so the SchemaForm actually surfaces a fresh server error
+  // even before the user touches the field.
+  const applyFormError = (routed: FormErrorResult) => {
+    setServerErrors(routed.fieldErrors);
+    setTopError(routed.message);
+    if (Object.keys(routed.fieldErrors).length > 0) setSubmitAttempted(true);
+  };
+
+  const clearPendingErrors = () => {
+    setServerErrors({});
+    setTopError(null);
+  };
+
   const runTest = async () => {
     if (!plugin) return;
+    clearPendingErrors();
     if (userConfigSchema) {
       const clientErrors = validateSchema(userConfigSchema, values);
       if (Object.keys(clientErrors).length > 0) {
         setSubmitAttempted(true);
-        setTest({ kind: "err", message: "Fix the highlighted fields before testing." });
+        setTest({ kind: "err" });
+        setTopError("Fix the highlighted fields before testing.");
         return;
       }
     }
@@ -173,10 +207,21 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       const res = await api.connections["verify-config"].$post({
         json: { pluginId: plugin.id, userConfig: values },
       });
-      const body = (await res.json()) as { ok: boolean; message?: string };
-      setTest(body.ok ? { kind: "ok" } : { kind: "err", message: body.message ?? "Test failed." });
+      const body = (await res.json()) as {
+        ok: boolean;
+        message?: string;
+        field?: string;
+        params?: Record<string, string | number>;
+      };
+      if (body.ok) {
+        setTest({ kind: "ok" });
+      } else {
+        setTest({ kind: "err" });
+        applyFormError(splitFormError(body, schemaFieldNames, "Test failed."));
+      }
     } catch (err) {
-      setTest({ kind: "err", message: err instanceof Error ? err.message : "Test failed." });
+      setTest({ kind: "err" });
+      setTopError(err instanceof Error ? err.message : "Test failed.");
     }
   };
 
@@ -188,28 +233,17 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       return;
     }
     setSaving(true);
-    setTopError(null);
+    clearPendingErrors();
     try {
       const submission = isEdit ? stripEmptySecrets(userConfigSchema, values) : values;
-      if (isEdit && existing) {
-        await api.connections[":id"]["display-name"].$patch({
-          param: { id: existing.id },
-          json: { displayName: displayName || plugin.name },
-        });
-        const res = await api.connections[":id"]["user-config"].$patch({
-          param: { id: existing.id },
-          json: { userConfig: submission },
-        });
-        if (!res.ok) throw new Error((await safeError(res)) ?? "Failed to update connection.");
-      } else {
-        const res = await api.connections.$post({
-          json: {
-            pluginId: plugin.id,
-            userConfig: submission,
-            displayName: displayName || undefined,
-          },
-        });
-        if (!res.ok) throw new Error((await safeError(res)) ?? "Failed to create connection.");
+      const fallback = isEdit ? "Failed to update connection." : "Failed to create connection.";
+      const res =
+        isEdit && existing
+          ? await patchExistingConnection(existing.id, submission)
+          : await createNewConnection(submission);
+      if (!res.ok) {
+        applyFormError(await parseFormErrorResponse(res, schemaFieldNames, fallback));
+        return;
       }
       onSuccess();
       onOpenChange(false);
@@ -219,6 +253,33 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       setSaving(false);
     }
   };
+
+  // Patches display name then user-config on an existing connection and
+  // returns the user-config response so the caller can route its errors.
+  // Display-name update is fire-and-forget by shape — no error routing on it
+  // to keep the field-level error path tied to a single response.
+  const patchExistingConnection = async (
+    connectionId: string,
+    submission: Record<string, unknown>,
+  ): Promise<Response> => {
+    await api.connections[":id"]["display-name"].$patch({
+      param: { id: connectionId },
+      json: { displayName: displayName || plugin.name },
+    });
+    return api.connections[":id"]["user-config"].$patch({
+      param: { id: connectionId },
+      json: { userConfig: submission },
+    });
+  };
+
+  const createNewConnection = (submission: Record<string, unknown>): Promise<Response> =>
+    api.connections.$post({
+      json: {
+        pluginId: plugin.id,
+        userConfig: submission,
+        displayName: displayName || undefined,
+      },
+    });
 
   const handleSaveOauthEdit = async () => {
     if (!plugin || !existing) return;
@@ -245,7 +306,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       const res = await api.connections.oauth.device.start.$post({
         json: { pluginId: plugin.id },
       });
-      if (!res.ok) throw new Error((await safeError(res)) ?? "Failed to start device auth.");
+      if (!res.ok) throw new Error(await readErrorMessage(res, "Failed to start device auth."));
       const body = (await res.json()) as {
         userCode: string;
         verifyUrl: string;
@@ -268,7 +329,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       const res = await api.connections.oauth.redirect.start.$post({
         json: { pluginId: plugin.id },
       });
-      if (!res.ok) throw new Error((await safeError(res)) ?? "Failed to start authorization.");
+      if (!res.ok) throw new Error(await readErrorMessage(res, "Failed to start authorization."));
       const body = (await res.json()) as { redirectUrl: string; nonce: string };
       // Stash the nonce + plugin name so the callback route can resume the flow and show a clean
       // return-destination toast. sessionStorage is safe here — the callback runs in the same tab.
@@ -285,8 +346,11 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="gap-0 p-0 sm:max-w-120" showCloseButton={canInteract}>
-        <DialogHeader className="border-b border-border px-6 pt-5 pb-4">
+      <DialogContent
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-120"
+        showCloseButton={canInteract}
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-6 pt-5 pb-4">
           <div className="flex items-start gap-3">
             {plugin.logoUrl ? (
               <img
@@ -325,7 +389,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
           ) : null}
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-6 py-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
           <Field>
             <FieldTitle>
               Display name
@@ -349,7 +413,6 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
             serverErrors,
             submitAttempted,
             plugin,
-            test,
             device,
             now,
             onRetryDevice: () => setDevice({ kind: "idle" }),
@@ -392,7 +455,6 @@ interface BodyArgs {
   serverErrors: Record<string, string>;
   submitAttempted: boolean;
   plugin: PluginSummary;
-  test: TestState;
   device: DeviceState;
   now: number;
   onRetryDevice: () => void;
@@ -409,7 +471,6 @@ function renderBody(args: BodyArgs) {
     serverErrors,
     submitAttempted,
     plugin,
-    test,
     device,
     now,
     onRetryDevice,
@@ -424,17 +485,14 @@ function renderBody(args: BodyArgs) {
       );
     }
     return (
-      <>
-        <SchemaForm
-          schema={userConfigSchema}
-          value={values}
-          onChange={setValues}
-          serverErrors={serverErrors}
-          mode={isEdit ? "edit" : "create"}
-          submitAttempted={submitAttempted}
-        />
-        {test.kind === "err" ? <p className="text-sm text-destructive">{test.message}</p> : null}
-      </>
+      <SchemaForm
+        schema={userConfigSchema}
+        value={values}
+        onChange={setValues}
+        serverErrors={serverErrors}
+        mode={isEdit ? "edit" : "create"}
+        submitAttempted={submitAttempted}
+      />
     );
   }
 
@@ -527,10 +585,17 @@ function DeviceCodePanel({
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/40 px-4 py-5">
       <div className="flex flex-col items-center gap-3">
         <span className="text-xs tracking-wide text-muted-foreground uppercase">Your code</span>
-        <div className="flex items-center gap-3">
+        <div className="@container flex w-full items-center justify-center gap-3">
           <span
-            className="font-mono text-3xl tracking-[0.25em] tabular-nums"
+            className="cursor-pointer font-mono text-[clamp(1rem,7cqi,1.875rem)] tracking-[0.25em] tabular-nums wrap-anywhere select-all"
             aria-label={`Device code: ${device.userCode}`}
+            onClick={(e) => {
+              const range = document.createRange();
+              range.selectNodeContents(e.currentTarget);
+              const selection = window.getSelection();
+              selection?.removeAllRanges();
+              selection?.addRange(range);
+            }}
           >
             {device.userCode}
           </span>
@@ -595,7 +660,7 @@ function renderFooter(args: FooterArgs) {
 
   if (authKind === "form") {
     return (
-      <DialogFooter className="flex-wrap items-center gap-2 border-t border-border px-6 py-4">
+      <DialogFooter className="shrink-0 flex-wrap items-center gap-2 border-t border-border px-6 py-4">
         <div className="mr-auto flex items-center gap-2 text-xs">
           <Button
             type="button"
@@ -633,7 +698,7 @@ function renderFooter(args: FooterArgs) {
   if (authKind === "oauth_device") {
     if (isEdit) {
       return (
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
@@ -646,7 +711,7 @@ function renderFooter(args: FooterArgs) {
     }
     if (device.kind === "waiting") {
       return (
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
@@ -655,7 +720,7 @@ function renderFooter(args: FooterArgs) {
     }
     const startDisabled = device.kind === "starting";
     return (
-      <DialogFooter className="border-t border-border px-6 py-4">
+      <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
         <Button variant="outline" onClick={onCancel} disabled={startDisabled}>
           Cancel
         </Button>
@@ -670,7 +735,7 @@ function renderFooter(args: FooterArgs) {
   if (authKind === "oauth_redirect") {
     if (isEdit) {
       return (
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
@@ -681,7 +746,7 @@ function renderFooter(args: FooterArgs) {
       );
     }
     return (
-      <DialogFooter className="border-t border-border px-6 py-4">
+      <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
@@ -696,7 +761,7 @@ function renderFooter(args: FooterArgs) {
   if (authKind === "none") {
     if (!hasUserConfigFields) {
       return (
-        <DialogFooter className="border-t border-border px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
           <Button variant="outline" onClick={onCancel} disabled={saving}>
             Cancel
           </Button>
@@ -708,7 +773,7 @@ function renderFooter(args: FooterArgs) {
       );
     }
     return (
-      <DialogFooter className="border-t border-border px-6 py-4">
+      <DialogFooter className="shrink-0 border-t border-border px-6 py-4">
         <Button variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
@@ -723,11 +788,11 @@ function renderFooter(args: FooterArgs) {
   return null;
 }
 
-async function safeError(res: Response): Promise<string | null> {
-  try {
-    const body = (await res.json()) as { error?: string; message?: string };
-    return body.error ?? body.message ?? null;
-  } catch {
-    return null;
-  }
+// Extracts a human-readable message from an error response, delegating to
+// `parseFormErrorResponse` so all error-body parsing shares a single
+// implementation. The empty `knownFields` array opts this caller out of
+// field routing — it always wants a single banner message.
+async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+  const routed = await parseFormErrorResponse(res, [], fallback);
+  return routed.message ?? fallback;
 }

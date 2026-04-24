@@ -58,14 +58,37 @@ Hooks into the existing sandbox error handling path described in the backend spe
 
 ## Severity model
 
-Two levels only:
+Three levels:
 
 - **`error`** — something broke in a way that indicates a bug or infrastructure failure. Default viewer filter shows these.
-- **`warning`** — something unexpected happened but was recovered from. Not shown by default; toggle in viewer.
+- **`warning`** — something unexpected happened but was recovered from (plugin returned malformed output and we fell back to empty, admin allowlist narrowed a pick, pool exhausted and rotated). Not shown by default; toggle in the viewer.
+- **`info`** — expected user-input failure (bad URL, wrong password, stale 404, permission denied). Stored alongside the other severities so an admin can toggle them on when debugging a specific user's flow, but excluded from the default error view so the "something is wrong right now" signal is not drowned out.
 
-No `info`. Logs-for-the-sake-of-logs are not this system's job; use normal logging for that.
+`info` deliberately does not include generic logs-for-the-sake-of-logs; it's scoped to user-input failures we would otherwise have thrown away. Normal logging remains the place for execution traces.
 
-Explicit decision: expected user-input failures (bad password, invalid URL, permission denied) are neither. They don't enter the error store.
+### Severity lives on the code, not the callsite
+
+Every stable error code carries a default severity in the codes registry (`server/src/errors/codes.ts`). The registry is the single source of truth:
+
+```ts
+export const HOST_ERROR_CODES = {
+  "plugin.input_invalid": { severity: "info" },
+  "plugin.bad_credentials": { severity: "info" },
+  "plugin.upstream_error": { severity: "error" },
+  "plugin.output_invalid": { severity: "warning" },
+  // ...
+} as const satisfies Record<string, ErrorCodeSpec>;
+```
+
+The per-code object shape — rather than a flat `Record<code, severity>` — is load-bearing: it leaves room to grow into additional per-code metadata (translation hints, default HTTP status, category, whether to echo a request id to the user) without a breaking refactor of every consumer.
+
+`captureError` consults the registry to pick the effective severity:
+
+1. If the caller passes an explicit `severity`, that wins (used for recovered paths that want to bump an `error`-classified code down to `warning`).
+2. Otherwise, the code's registered severity is used.
+3. Unknown codes — including the namespaced `plugin.<id>.<code>` identifiers plugins emit — default to `error`. Better to over-capture than silently drop.
+
+This moves the "is this worth storing at what severity" decision out of every try/catch and into one place that the error-design-doc rule can actually be enforced against. Callsites stop carrying `severity: "error"` as a ritual; the exceptions are the handful of paths that genuinely diverge from the registered default.
 
 ## Correlation — request ID
 
@@ -108,21 +131,26 @@ interface UserFacingError {
 
 Two registries:
 
-- **Host codes** live in `server/errors/codes.ts` as a union type. Adding a new error requires adding the code, which forces a translation entry. This keeps the code list discoverable and prevents drift.
+- **Host codes** live in `server/errors/codes.ts` as a keyed object of per-code specs. Adding a new error requires adding the code and its default severity, which forces both a translation entry and a decision about whether the event represents a bug, a recovered-from anomaly, or a user-input failure. This keeps the code list discoverable and prevents drift.
 
   ```ts
-  export const HOST_ERROR_CODES = [
-    "connection.test_failed",
-    "connection.not_found",
-    "plugin.timeout",
-    "plugin.output_invalid",
-    "plugin.disabled",
-    "oauth.state_expired",
-    "oauth.polling_timeout",
-    // ...
-  ] as const;
+  export interface ErrorCodeSpec {
+    severity: "error" | "warning" | "info";
+  }
 
-  export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];
+  export const HOST_ERROR_CODES = {
+    "connection.test_failed": { severity: "info" },
+    "connection.not_found": { severity: "info" },
+    "plugin.timeout": { severity: "error" },
+    "plugin.output_invalid": { severity: "warning" },
+    "plugin.input_invalid": { severity: "info" },
+    "plugin.disabled": { severity: "info" },
+    "oauth.state_expired": { severity: "info" },
+    "oauth.polling_timeout": { severity: "info" },
+    // ...
+  } as const satisfies Record<string, ErrorCodeSpec>;
+
+  export type HostErrorCode = keyof typeof HOST_ERROR_CODES;
   ```
 
 - **Plugin codes** are declared in the plugin manifest and namespaced automatically. Plugins ship English fallbacks in their manifest; translations are contributed later by whoever cares about localization.
@@ -170,7 +198,7 @@ The table backing the error store.
 error_records
 ├── id                  text PK                      (cuid2)
 ├── request_id          text NOT NULL
-├── severity            text NOT NULL                ("error" | "warning")
+├── severity            text NOT NULL                ("error" | "warning" | "info")
 ├── source              text NOT NULL                ("frontend" | "backend" | "plugin" | "cron")
 ├── code                text                         (stable error code if available; nullable for unhandled throws without a code)
 ├── dev_message         text NOT NULL
@@ -241,7 +269,7 @@ Permission: `admin:plugins` (same tier as plugin management; no separate permiss
 
 ### Filters
 
-- **Severity**: defaults to `error` only; toggle shows `warning` too. Multi-select.
+- **Severity**: defaults to `error` only; toggles reveal `warning` and `info`. Multi-select. `info` records (user-input failures) are stored but off by default so they don't drown out bug signals.
 - **Source**: frontend / backend / plugin / cron. Multi-select.
 - **Plugin**: dropdown populated from installed plugins. Only meaningful when source includes `plugin`.
 - **Date range**: last 24h / 7d / 30d / custom. Custom uses date pickers.
@@ -255,7 +283,7 @@ Filters apply as the user sets them (debounced for the text inputs). State is pe
 Columns (in order):
 
 - Timestamp (relative, with tooltip showing absolute)
-- Severity (icon + color: red for error, yellow for warning)
+- Severity (icon + color: red for error, yellow for warning, muted for info)
 - Source (badge: frontend / backend / plugin / cron)
 - Code (monospace, truncated to fit)
 - Summary (first ~80 chars of `dev_message`)
@@ -288,7 +316,8 @@ In the admin sidebar/header, the link to `/admin/errors` shows a small badge wit
 export async function captureError(
   err: unknown,
   meta: {
-    severity: "error" | "warning";
+    /** Optional. When omitted, derived from `code` via the registry in ./codes. */
+    severity?: "error" | "warning" | "info";
     source: ErrorSource;
     code?: string;
     route?: string;
@@ -302,6 +331,7 @@ export async function captureError(
 
 - Called by the oRPC middleware, the plugin runtime, and the cron wrapper.
 - Reads `requestId` from AsyncLocalStorage.
+- `severity` is optional — when omitted, it is derived from `code` via the per-code classification in `server/errors/codes.ts`. Pass explicitly to bump a normally-`error` code down to `warning`/`info` on a recovered or user-input path.
 - Writes to all configured sinks via `Promise.allSettled`.
 - Returns the record id so the caller can include it in a response to the frontend if needed.
 
@@ -311,7 +341,7 @@ export async function captureError(
 // client/errors/report.ts
 export async function reportError(
   err: unknown,
-  severity: "error" | "warning",
+  severity: "error" | "warning" | "info",
   context?: Record<string, unknown>,
 ): Promise<void>;
 ```

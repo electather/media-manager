@@ -1,64 +1,114 @@
-/** Stable, namespaced identifiers used for translation lookup and error grouping.
- *  Adding an entry here forces callers to translate and prevents drift. */
-export const HOST_ERROR_CODES = [
-  "connection.test_failed",
-  "connection.not_found",
-  "connection.verify_failed",
-  "connection.plugin_missing",
-  "plugin.timeout",
-  "plugin.output_invalid",
-  "plugin.input_invalid",
-  "plugin.disabled",
-  "plugin.not_found",
-  "plugin.upstream_error",
-  "plugin.missing_method",
-  "plugin.missing_refresh",
-  "plugin.missing_auth_fn",
-  "plugin.builtin_uninstall",
-  "plugin.call_failed",
-  "plugin.token_expired",
-  "plugin.bad_credentials",
-  "plugin.rate_limited",
-  "plugin.item_not_found",
-  "plugin.pool_exhausted",
-  "plugin.capability_unavailable",
-  "plugin.shared_credential_not_found",
-  "plugin.shared_credential_conflict",
-  "plugin.not_poolable",
-  "plugin.scope_invalid",
-  "plugin.host_blocked_by_admin",
-  "media.no_connection",
-  "media.primary_unavailable",
-  "oauth.state_expired",
-  "oauth.polling_timeout",
-  "oauth.init_failed",
-  "oauth.pending_not_found",
-  "oauth.unexpected_status",
-  "cron.job_failed",
-  "http.internal_error",
-  "http.not_found",
-  "http.forbidden",
-  "http.unauthorized",
-  "http.invalid_input",
-  "http.method_not_allowed",
-  "mcp.ambiguous_target",
-  "mcp.target_not_found",
-  "mcp.forbidden",
-  "mcp.invalid_id",
-  "mcp.not_connected",
-  "mcp.rate_limited",
-  "mcp.tool_not_found",
-  "mcp.output_invalid",
-  "mcp.bad_input",
-  "job.not_found",
-  "job.already_running",
-  "job.disabled",
-  "job.bad_input",
-  "job.wrong_kind",
-  "job.forbidden",
-] as const;
+import type { ErrorSeverity } from "@ent-mcp/shared/errors";
 
-export type HostErrorCode = (typeof HOST_ERROR_CODES)[number];
+/** Severity classification attached to each stable error code.
+ *
+ * - `error`   — genuine bug or infrastructure failure. Surfaced on the
+ *               admin viewer's default filter.
+ * - `warning` — unexpected but recovered from (e.g. plugin returned malformed
+ *               output, fell back to a secondary).
+ * - `info`    — expected user-input failure (bad URL, wrong password, stale
+ *               404). Stored alongside the other severities so admins can
+ *               filter them in when debugging, but excluded from the default
+ *               error view per the error design doc §Severity model.
+ *
+ * The registry's classification is the default severity applied at the
+ * `captureError` boundary. Callers can still pass an explicit `severity` to
+ * bump a normally-error code down to `warning` for recovered paths.
+ */
+export interface ErrorCodeSpec {
+  severity: ErrorSeverity;
+}
+
+/** Stable, namespaced identifiers used for translation lookup, error grouping,
+ *  and default-severity classification. Adding an entry here forces callers
+ *  to translate and prevents drift. The per-code object leaves room to grow
+ *  into extra metadata (translation hints, default HTTP status, category)
+ *  without a breaking refactor of every consumer. */
+export const HOST_ERROR_CODES = {
+  // Connection lifecycle. Test/verify failures are typically driven by user
+  // input (bad URL, expired password); 404s are always user-facing.
+  "connection.test_failed": { severity: "info" },
+  "connection.not_found": { severity: "info" },
+  "connection.verify_failed": { severity: "info" },
+  "connection.plugin_missing": { severity: "error" },
+
+  // Plugin runtime.
+  "plugin.timeout": { severity: "error" },
+  "plugin.output_invalid": { severity: "warning" },
+  "plugin.input_invalid": { severity: "info" },
+  "plugin.disabled": { severity: "info" },
+  "plugin.not_found": { severity: "info" },
+  "plugin.upstream_error": { severity: "error" },
+  "plugin.missing_method": { severity: "error" },
+  "plugin.missing_refresh": { severity: "error" },
+  "plugin.missing_auth_fn": { severity: "error" },
+  "plugin.builtin_uninstall": { severity: "info" },
+  "plugin.call_failed": { severity: "error" },
+  "plugin.token_expired": { severity: "info" },
+  "plugin.bad_credentials": { severity: "info" },
+  "plugin.rate_limited": { severity: "warning" },
+  "plugin.item_not_found": { severity: "info" },
+  "plugin.pool_exhausted": { severity: "warning" },
+  "plugin.capability_unavailable": { severity: "info" },
+  "plugin.shared_credential_not_found": { severity: "info" },
+  "plugin.shared_credential_conflict": { severity: "info" },
+  "plugin.not_poolable": { severity: "info" },
+  "plugin.scope_invalid": { severity: "info" },
+  "plugin.host_blocked_by_admin": { severity: "warning" },
+
+  // Media dispatcher.
+  "media.no_connection": { severity: "info" },
+  "media.primary_unavailable": { severity: "warning" },
+
+  // OAuth flow.
+  "oauth.state_expired": { severity: "info" },
+  "oauth.polling_timeout": { severity: "info" },
+  "oauth.init_failed": { severity: "error" },
+  "oauth.pending_not_found": { severity: "info" },
+  "oauth.unexpected_status": { severity: "error" },
+
+  // Cron.
+  "cron.job_failed": { severity: "error" },
+
+  // HTTP envelope. 4xx-mapped codes land here for reference but the HTTP
+  // middleware's `isExpectedUserError` already skips their capture; the info
+  // classification is defence in depth for any non-middleware callsite.
+  "http.internal_error": { severity: "error" },
+  "http.not_found": { severity: "info" },
+  "http.forbidden": { severity: "info" },
+  "http.unauthorized": { severity: "info" },
+  "http.invalid_input": { severity: "info" },
+  "http.method_not_allowed": { severity: "info" },
+
+  // MCP dispatcher.
+  "mcp.ambiguous_target": { severity: "info" },
+  "mcp.target_not_found": { severity: "info" },
+  "mcp.forbidden": { severity: "info" },
+  "mcp.invalid_id": { severity: "info" },
+  "mcp.not_connected": { severity: "info" },
+  "mcp.rate_limited": { severity: "warning" },
+  "mcp.tool_not_found": { severity: "info" },
+  "mcp.output_invalid": { severity: "warning" },
+  "mcp.bad_input": { severity: "info" },
+
+  // Jobs.
+  "job.not_found": { severity: "info" },
+  "job.already_running": { severity: "info" },
+  "job.disabled": { severity: "info" },
+  "job.bad_input": { severity: "info" },
+  "job.wrong_kind": { severity: "info" },
+  "job.forbidden": { severity: "info" },
+} as const satisfies Record<string, ErrorCodeSpec>;
+
+export type HostErrorCode = keyof typeof HOST_ERROR_CODES;
+
+/** Looks up the registered severity for a code. Unknown codes (e.g.
+ *  plugin-namespaced `plugin.<id>.<code>` identifiers that were not declared
+ *  as host codes) default to `error` — better to over-capture than miss. */
+export function severityFor(code: string): ErrorSeverity {
+  const spec = (HOST_ERROR_CODES as Record<string, ErrorCodeSpec | undefined>)[code];
+  return spec?.severity ?? "error";
+}
 
 /** Wire-format shape returned by any error-producing oRPC/HTTP handler.
  *  `devMessage` is English free-form for logs; `code` + `params` drive user-facing translation. */

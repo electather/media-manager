@@ -20,7 +20,7 @@ import type {
   PoolSignalingApi,
 } from "./types";
 import { captureError } from "../errors/capture";
-import { pluginCode } from "../errors/codes";
+import { pluginCode, type HostErrorCode } from "../errors/codes";
 import { sharedCredentialsService } from "./shared-credentials";
 import { listReadyUserConnections, markUserConnectionExhausted } from "./user-pool";
 
@@ -446,8 +446,19 @@ export class PluginRuntime {
     // user-entered secrets out of userConfig by storing them in the encrypted
     // credentials blob (e.g. Jellyfin's password) need ctx.credentials to
     // rehydrate those secrets without the user re-entering them.
-    const ctx = await this.buildAuxContext(pluginId, userId, priorCredentials);
+    //
+    // For startAuth specifically, `input` is the submitted userConfig. Pass
+    // it through so `buildAuxContext` can resolve `x-allowed-host` fields
+    // against it and ctx.fetch can reach the user-supplied upstream (e.g.
+    // Jellyfin's externalServerUrl) during the initial auth round-trip.
+    const authUserConfig = fnName === "startAuth" ? input : undefined;
     try {
+      // `buildAuxContext` itself throws a PluginError when `x-allowed-host`
+      // resolution fails on user-supplied values (e.g. "asd" is not a valid
+      // URL). Running it inside the same try as the plugin function keeps the
+      // error funneled through the AuthResult boundary so `params.field`
+      // reaches the frontend instead of escaping as a generic 500.
+      const ctx = await this.buildAuxContext(pluginId, userId, priorCredentials, authUserConfig);
       if (fnName === "completeAuth") {
         return await (fn as NonNullable<PluginModule["completeAuth"]>)(
           ctx,
@@ -461,15 +472,32 @@ export class PluginRuntime {
       return await (fn as NonNullable<PluginModule["startAuth"]>)(ctx, input);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      // Severity is derived from the code via the registry in ./errors/codes
+      // (PluginError.code for plugin throws, plugin-namespaced code otherwise).
+      // Genuine `plugin.upstream_error` → error; user-input `plugin.input_invalid`
+      // → info. No per-callsite gate required.
       await captureError(err, {
-        severity: "error",
         source: "plugin",
-        code: pluginCode(pluginId, "auth_failed"),
+        code: isPluginError(err) ? err.code : pluginCode(pluginId, "auth_failed"),
         pluginId,
         userId,
         context: { fnName },
       });
-      return { status: "error", code: "plugin.upstream_error", devMessage: message };
+      // Preserve both the original code and any `params` carried by a
+      // PluginError so downstream callers (including the frontend) can
+      // distinguish e.g. `plugin.bad_credentials` from `plugin.input_invalid`
+      // without grubbing through params.field. Non-PluginError throws surface
+      // as the generic `plugin.upstream_error` with no params. The cast is
+      // safe because `PluginError` is constructed with a `HostErrorCode` —
+      // `PluginErrorShape.code: string` is intentionally looser only so the
+      // duck-type guard works for plugins loaded from a separate bundle.
+      const pluginErr = isPluginError(err) ? err : null;
+      return {
+        status: "error",
+        code: (pluginErr?.code as HostErrorCode | undefined) ?? "plugin.upstream_error",
+        devMessage: message,
+        ...(pluginErr?.params ? { params: pluginErr.params } : {}),
+      };
     }
   }
 
@@ -484,15 +512,17 @@ export class PluginRuntime {
     if (typeof module.testConnection !== "function") {
       return { ok: true, message: "plugin has no testConnection" };
     }
-    const ctx = await this.buildAuxContext(pluginId, userId, credentials, userConfig);
     try {
+      // buildAuxContext sits inside the try so a malformed x-allowed-host
+      // field (user-input error) returns a friendly `{ ok: false, message }`
+      // instead of escaping as an uncaught throw.
+      const ctx = await this.buildAuxContext(pluginId, userId, credentials, userConfig);
       return await module.testConnection(ctx);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await captureError(err, {
-        severity: "error",
         source: "plugin",
-        code: pluginCode(pluginId, "test_failed"),
+        code: isPluginError(err) ? err.code : pluginCode(pluginId, "test_failed"),
         pluginId,
         userId,
       });

@@ -34,6 +34,13 @@ interface FieldSchema {
   minimum?: number;
   maximum?: number;
   step?: number;
+  // JSON Schema `readOnly`: the field is informational and the user cannot
+  // edit it. The form renders the input disabled.
+  readOnly: boolean;
+  // `x-plugin-resolved`: the plugin owns this field; the user never submits
+  // one. Hidden from the create form entirely, and shown disabled on the
+  // edit form so the user can see what the plugin resolved.
+  pluginResolved: boolean;
 }
 
 function parseFields(schema: JSONSchema): FieldSchema[] {
@@ -56,6 +63,8 @@ function parseFields(schema: JSONSchema): FieldSchema[] {
       minimum: typeof raw.minimum === "number" ? raw.minimum : undefined,
       maximum: typeof raw.maximum === "number" ? raw.maximum : undefined,
       step: typeof raw.multipleOf === "number" ? raw.multipleOf : undefined,
+      readOnly: raw.readOnly === true,
+      pluginResolved: raw["x-plugin-resolved"] === true,
     };
   });
 }
@@ -116,6 +125,10 @@ export function validateSchema(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const field of parseFields(schema)) {
+    // `x-plugin-resolved` fields are populated by the plugin, not by the
+    // user. Client-side validation would flag them as missing before the
+    // plugin has run — skip them entirely.
+    if (field.pluginResolved) continue;
     const err = validateField(field, value[field.name]);
     if (err) errors[field.name] = err;
   }
@@ -163,19 +176,25 @@ export function SchemaForm({
     onChange({ ...value, [name]: next });
   };
 
-  if (fields.length === 0) {
+  // `x-plugin-resolved` fields are never user-entered. Hide them entirely in
+  // create mode (there is no value yet to display); show them disabled on
+  // edit so the user can see what identity the plugin resolved.
+  const visibleFields = fields.filter((f) => !(f.pluginResolved && mode === "create"));
+
+  if (visibleFields.length === 0) {
     return null;
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {fields.map((field) => {
+      {visibleFields.map((field) => {
         const raw = value[field.name];
         const err =
           touched[field.name] || submitAttempted
             ? (serverErrors[field.name] ?? clientErrors[field.name])
             : undefined;
         const invalid = Boolean(err);
+        const locked = field.readOnly || field.pluginResolved;
 
         return (
           <Field key={field.name} data-invalid={invalid || undefined}>
@@ -186,12 +205,14 @@ export function SchemaForm({
                   *
                 </span>
               ) : (
-                <span className="text-xs font-normal text-muted-foreground">optional</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {locked ? "read-only" : "optional"}
+                </span>
               )}
             </FieldTitle>
             {renderControl(field, raw, setValue, {
               mode,
-              disabled,
+              disabled: disabled || locked,
               invalid,
               shown: secretShown[field.name],
               toggleShown: () => setSecretShown((s) => ({ ...s, [field.name]: !s[field.name] })),
@@ -343,6 +364,6 @@ export function nonSecretFields(schema: JSONSchema): Array<{
   isUri: boolean;
 }> {
   return parseFields(schema)
-    .filter((f) => !f.secret)
+    .filter((f) => !f.secret && !f.pluginResolved)
     .map((f) => ({ name: f.name, label: f.title, isUri: f.format === "uri" }));
 }
