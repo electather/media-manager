@@ -80,7 +80,7 @@ jobs:
           BETTER_AUTH_URL: http://localhost
           ENCRYPTION_KEY: migration-noop
           APP_EXTERNAL_URL: http://localhost
-        run: bun run packages/server/src/db/migrate.ts
+        run: vp run db:migrate
 
       # Preview Workers use the default (unnamed) wrangler environment with a
       # unique `--name`. Their secrets must be injected each deploy because the
