@@ -122,6 +122,16 @@ jobs:
       # Worker identity is per-PR. Named environments (nightly, production)
       # have their secrets set once out-of-band via `wrangler secret put --env`
       # and are not re-uploaded on every deploy.
+      #
+      # `BETTER_AUTH_SECRET` and `ENCRYPTION_KEY` deliberately mirror the
+      # nightly values. The preview DB is forked from `media-manager-nightly`,
+      # so its `jwks` private keys, service-connection credentials, and any
+      # other at-rest ciphertext were written under nightly's keys.
+      # Previews using distinct secrets would fail to decrypt any of it —
+      # better-auth specifically throws "Failed to decrypt private key" when
+      # signing a JWT, breaking login. Nightly is a testing environment, not
+      # a production one, so sharing its crypto material with preview Workers
+      # is an acceptable trade for a DB-forked branch deploy flow.
       - name: Inject preview Worker secrets
         if: steps.target.outputs.mode == 'preview'
         env:
@@ -129,8 +139,8 @@ jobs:
           WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
           SQLITE_PATH_VALUE: ${{ steps.preview_db.outputs.url }}
           LIBSQL_AUTH_TOKEN_VALUE: ${{ steps.preview_db.outputs.token }}
-          BETTER_AUTH_SECRET_VALUE: ${{ secrets.PREVIEW_BETTER_AUTH_SECRET }}
-          ENCRYPTION_KEY_VALUE: ${{ secrets.PREVIEW_ENCRYPTION_KEY }}
+          BETTER_AUTH_SECRET_VALUE: ${{ secrets.NIGHTLY_BETTER_AUTH_SECRET }}
+          ENCRYPTION_KEY_VALUE: ${{ secrets.NIGHTLY_ENCRYPTION_KEY }}
         run: |
           set -euo pipefail
           # URLs are derived from the PR-specific Worker name so the OAuth
