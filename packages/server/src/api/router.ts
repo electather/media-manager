@@ -5,6 +5,7 @@ import { requestsApp } from "./procedures/requests";
 import { settingsApp } from "./procedures/settings";
 import { pluginsApp } from "./procedures/plugins";
 import { connectionsApp } from "./procedures/connections";
+import { configPublicApp } from "./procedures/config";
 import { errorsApp, adminErrorsApp } from "./procedures/errors";
 import { adminJobsApp, userJobsApp } from "./procedures/jobs";
 import { adminUsersApp } from "./procedures/users";
@@ -24,6 +25,7 @@ export const appRouter = new Hono()
   .route("/settings", settingsApp)
   .route("/plugins", pluginsApp)
   .route("/connections", connectionsApp)
+  .route("/config/public", configPublicApp)
   .route("/errors", errorsApp)
   .route("/admin/errors", adminErrorsApp)
   .route("/jobs", userJobsApp)

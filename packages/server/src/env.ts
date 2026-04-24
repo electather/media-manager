@@ -37,6 +37,16 @@ export const env = createEnv({
         message: "APP_EXTERNAL_URL must use http or https",
       })
       .transform((url) => url.replace(/\/+$/, "")),
+    /**
+     * Whether the deployment has a transactional-email provider wired up.
+     * When `true`, Better Auth's `sendVerificationEmail` /
+     * `sendChangeEmailVerification` / `sendResetPassword` hooks deliver real
+     * mail; when `false`, those hooks are no-ops and the settings UI falls
+     * back to its degraded paths. The same flag is exposed unauthenticated
+     * via `GET /api/config/public` so the client can gate email-dependent
+     * UI before sign-in.
+     */
+    EMAIL_PROVIDER_CONFIGURED: z.coerce.boolean().default(false),
   },
   runtimeEnv: process.env,
 });
