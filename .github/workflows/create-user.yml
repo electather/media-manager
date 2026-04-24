@@ -104,4 +104,8 @@ jobs:
           CREATE_USER_PASSWORD: ${{ inputs.password }}
           CREATE_USER_ROLE_ID: ${{ inputs.role }}
           CREATE_USER_NAME: ${{ inputs.name }}
-        run: bun packages/server/src/db/create-user.ts
+        # `vp run` delegates to the package manager (bun) so the nested
+        # `bun run ...` in the `db:create-user` script gets a PATH that
+        # includes bun. Calling `bun` directly here would fail because
+        # `voidzero-dev/setup-vp` doesn't expose bun as a top-level binary.
+        run: vp run db:create-user
