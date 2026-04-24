@@ -3,6 +3,14 @@ main = "packages/server/src/worker.ts"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Workers Logs — inherited by [env.nightly] and [env.production] since
+# `observability` is an inheritable key. Enables the per-Worker Logs
+# dashboard + `wrangler tail`; `invocation_logs: true` (the default) keeps
+# the one-line request summary every Worker invocation already emits.
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [assets]
 directory = "./packages/client/dist"
 
