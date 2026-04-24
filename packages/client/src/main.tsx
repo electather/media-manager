@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import "./globals.css";
 import { TooltipProvider } from "./components/ui/tooltip";
+import { Toaster } from "./components/ui/sonner";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "./components/error-boundary";
 import { installGlobalErrorHandlers } from "./lib/errors/global-handlers";
@@ -31,6 +32,7 @@ createRoot(rootEl).render(
         <TooltipProvider>
           <RouterProvider router={router} />
         </TooltipProvider>
+        <Toaster />
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </ErrorBoundary>

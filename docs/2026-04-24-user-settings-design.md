@@ -150,7 +150,7 @@ Button below the session list. Confirmation dialog ("You'll remain signed in on 
 
 ### Shared helpers
 
-- `parseUserAgent(ua) → { browser, os, device }` in `packages/client/src/lib/user-agent.ts`.
+- `parseUserAgent(ua) → { label, browser, os, unknown }` in `packages/client/src/lib/user-agent.ts`. `label` is the displayable string (e.g. "Chrome 120 on macOS"); `unknown` is true when neither browser nor OS could be parsed and is the signal to suppress adjacent metadata such as the IP address.
 - `session-row.tsx` component.
 
 ## Connections tab (`/settings/connections`)
