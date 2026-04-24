@@ -4,7 +4,7 @@ import { pendingAuth } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import type { AuthResult } from "../plugin-runtime/types";
 import { notFound, unprocessable } from "../errors/http-errors";
-import { encryptJson, decryptJson, writeConnection } from "./helpers";
+import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
 
 /**
  * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.
@@ -30,11 +30,29 @@ export function applyUserConfigPatch(
   return base;
 }
 
+/**
+ * Shape surfaced by `/verify-config` on failure. The optional `field` mirrors
+ * the `params.field` convention used on HTTPError wire bodies so a single
+ * client-side helper can handle both.
+ */
+export interface VerifyConfigResult {
+  ok: boolean;
+  message?: string;
+  field?: string;
+}
+
+/** Extracts the `field` hint from an AuthResult error's params. */
+function fieldFromAuthResult(result: AuthResult): string | undefined {
+  if (result.status !== "error") return undefined;
+  const field = result.params?.field;
+  return typeof field === "string" ? field : undefined;
+}
+
 export async function verifyConfig(args: {
   userId: string;
   pluginId: string;
   userConfig: unknown;
-}): Promise<{ ok: boolean; message?: string }> {
+}): Promise<VerifyConfigResult> {
   try {
     const result = (await pluginRuntime.runAuth(
       args.pluginId,
@@ -45,7 +63,8 @@ export async function verifyConfig(args: {
     if (result.status === "completed") return { ok: true };
     const message =
       result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    return { ok: false, message };
+    const field = fieldFromAuthResult(result);
+    return field ? { ok: false, message, field } : { ok: false, message };
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "verification failed" };
   }
@@ -57,22 +76,31 @@ export async function createFormConnection(args: {
   userConfig: unknown;
   displayName?: string;
 }): Promise<{ id: string }> {
+  // `x-plugin-resolved` fields are owned by the plugin; drop any value the
+  // client tried to submit before the payload reaches `startAuth` or the
+  // persisted row. The plugin repopulates them via `userConfigPatch`.
+  const module = await pluginRuntime.getModule(args.pluginId);
+  const sanitized = stripRequestFields(module.manifest.userConfigSchema, args.userConfig);
   const result = (await pluginRuntime.runAuth(
     args.pluginId,
     "startAuth",
     args.userId,
-    args.userConfig,
+    sanitized,
   )) as AuthResult;
   if (result.status !== "completed") {
     const message =
       result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    throw unprocessable("connection.verify_failed", `auth failed: ${message}`, { message });
+    const field = fieldFromAuthResult(result);
+    throw unprocessable("connection.verify_failed", `auth failed: ${message}`, {
+      message,
+      ...(field ? { field } : {}),
+    });
   }
   const id = await writeConnection({
     userId: args.userId,
     pluginId: args.pluginId,
     credentials: result.credentials,
-    userConfig: applyUserConfigPatch(args.userConfig, result.userConfigPatch),
+    userConfig: applyUserConfigPatch(sanitized, result.userConfigPatch),
     displayName: args.displayName,
   });
   return { id };

@@ -72,4 +72,54 @@ describe("captureError", () => {
     expect(id).toBeDefined();
     expect(collector.records.at(-1)!.devMessage).toBe("resilient");
   });
+
+  it("derives severity from the codes registry when meta.severity is omitted", async () => {
+    // `plugin.upstream_error` → error in the registry.
+    await captureError(new Error("upstream boom"), {
+      source: "plugin",
+      code: "plugin.upstream_error",
+      pluginId: "trakt",
+    });
+    expect(collector.records.at(-1)!.severity).toBe("error");
+
+    // `plugin.output_invalid` → warning.
+    await captureError(new Error("bad output"), {
+      source: "plugin",
+      code: "plugin.output_invalid",
+      pluginId: "trakt",
+    });
+    expect(collector.records.at(-1)!.severity).toBe("warning");
+
+    // `plugin.input_invalid` → info (stored, but filterable).
+    await captureError(new Error("bad url"), {
+      source: "plugin",
+      code: "plugin.input_invalid",
+      pluginId: "trakt",
+    });
+    expect(collector.records.at(-1)!.severity).toBe("info");
+  });
+
+  it("defaults unknown codes to error", async () => {
+    // `plugin.<pluginId>.<code>` namespaced identifiers are not in the
+    // registry; the severity falls back to error so we over-capture rather
+    // than silently drop.
+    await captureError(new Error("unknown"), {
+      source: "plugin",
+      code: "plugin.trakt.custom_rare",
+      pluginId: "trakt",
+    });
+    expect(collector.records.at(-1)!.severity).toBe("error");
+  });
+
+  it("respects an explicit severity override from the caller", async () => {
+    // `plugin.output_invalid` defaults to warning but a caller can bump it
+    // up (or down) for a specific path.
+    await captureError(new Error("bumped"), {
+      severity: "error",
+      source: "plugin",
+      code: "plugin.output_invalid",
+      pluginId: "trakt",
+    });
+    expect(collector.records.at(-1)!.severity).toBe("error");
+  });
 });

@@ -334,7 +334,7 @@ export default definePlugin({
   manifest: {
     id: "jellyfin",
     name: "Jellyfin",
-    version: "1.0.0",
+    version: "1.0.2",
     description:
       "Self-hosted Jellyfin server integration. Users sign in with their Jellyfin username and password; the plugin caches an access token and the resolved Jellyfin user id per connection.",
     author: { name: "Media Manager", url: "https://github.com/" },
@@ -375,13 +375,14 @@ export default definePlugin({
           title: "Jellyfin user id",
           description: "Resolved by the server on connect. Not user-editable.",
           readOnly: true,
+          "x-plugin-resolved": true,
         },
       },
       // `password` is required on initial create only — it is stripped from
       // persisted userConfig by startAuth's `userConfigPatch: { password: null }`
       // after being moved into the encrypted credentials blob, so re-auth
       // reads it from `ctx.credentials` rather than from userConfig.
-      required: ["externalServerUrl", "username"],
+      required: ["externalServerUrl", "username", "password"],
       additionalProperties: false,
     },
     credentialsSchema: {

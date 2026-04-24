@@ -10,8 +10,13 @@ vi.mock("../../env", () => ({
   },
 }));
 
-const { RESPONSE_STRIPPED_EXTENSIONS, stripExtensionFields, stripResponseFields } =
-  await import("../helpers");
+const {
+  RESPONSE_STRIPPED_EXTENSIONS,
+  REQUEST_STRIPPED_EXTENSIONS,
+  stripExtensionFields,
+  stripRequestFields,
+  stripResponseFields,
+} = await import("../helpers");
 
 // Shapes mirror the subset of JSON Schema the helper cares about.
 const schema = {
@@ -89,6 +94,42 @@ describe("stripResponseFields", () => {
 
   it("exposes the default extension list for callers", () => {
     expect(RESPONSE_STRIPPED_EXTENSIONS).toEqual(["x-secret", "x-private"]);
+  });
+});
+
+describe("stripRequestFields", () => {
+  const schemaWithResolved = {
+    type: "object",
+    properties: {
+      externalUrl: { type: "string" },
+      username: { type: "string" },
+      userId: { type: "string", "x-plugin-resolved": true },
+    },
+  } as const;
+
+  it("drops x-plugin-resolved keys from incoming payloads", () => {
+    // A hostile client tries to impersonate a different Jellyfin account by
+    // submitting a spoofed userId alongside their own credentials. The server
+    // must strip it before the payload reaches the plugin's startAuth or the
+    // persisted userConfig.
+    const value = {
+      externalUrl: "https://jellyfin.example.com",
+      username: "alice",
+      userId: "victim-user-id",
+    };
+    expect(stripRequestFields(schemaWithResolved, value)).toEqual({
+      externalUrl: "https://jellyfin.example.com",
+      username: "alice",
+    });
+  });
+
+  it("leaves non-resolved fields alone when nothing matches", () => {
+    const value = { externalUrl: "https://jellyfin.example.com", username: "alice" };
+    expect(stripRequestFields(schemaWithResolved, value)).toEqual(value);
+  });
+
+  it("exposes the default request-stripped extension list", () => {
+    expect(REQUEST_STRIPPED_EXTENSIONS).toEqual(["x-plugin-resolved"]);
   });
 });
 

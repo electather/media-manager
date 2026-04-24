@@ -9,7 +9,13 @@ import type { ConnectionListItem } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "../plugin-runtime/types";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
-import { decryptJson, encryptJson, promoteToDefault, stripResponseFields } from "./helpers";
+import {
+  decryptJson,
+  encryptJson,
+  promoteToDefault,
+  stripRequestFields,
+  stripResponseFields,
+} from "./helpers";
 import {
   applyUserConfigPatch,
   verifyConfig,
@@ -199,12 +205,18 @@ export const connectionsService = {
 
     // Merge prior userConfig under the incoming payload so omitted stripped
     // fields (`x-secret` or `x-private`, never sent to the client and therefore
-    // absent from the edit form) preserve their stored values.
+    // absent from the edit form) preserve their stored values. `x-plugin-
+    // resolved` fields are dropped from the *incoming* payload before the
+    // merge so a client cannot overwrite a plugin-owned field; the prior
+    // stored value (resolved by the plugin on the last auth round-trip) is
+    // what ends up in `merged`.
     const prior =
       (row.userConfig ? (JSON.parse(row.userConfig) as Record<string, unknown>) : null) ?? {};
+    const sanitizedIncoming = (stripRequestFields(manifest.userConfigSchema, args.userConfig) ??
+      {}) as Record<string, unknown>;
     const merged = {
       ...(prior as Record<string, unknown>),
-      ...((args.userConfig ?? {}) as Record<string, unknown>),
+      ...sanitizedIncoming,
     };
 
     if (manifest.auth.kind === "form") {
@@ -226,8 +238,13 @@ export const connectionsService = {
       if (result.status !== "completed") {
         const message =
           result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
+        const field =
+          result.status === "error" && typeof result.params?.field === "string"
+            ? result.params.field
+            : undefined;
         throw unprocessable("connection.verify_failed", `config did not verify: ${message}`, {
           message,
+          ...(field ? { field } : {}),
         });
       }
       // Merge any plugin-returned patch (e.g. Jellyfin's `userId` from

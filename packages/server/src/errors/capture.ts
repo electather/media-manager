@@ -2,10 +2,15 @@ import { consola } from "consola";
 import type { ErrorRecord, ErrorSeverity, ErrorSource } from "@ent-mcp/shared/errors";
 import { currentRequestContext, newRequestId } from "./request-context";
 import { serializeContext } from "./scrubber";
+import { severityFor } from "./codes";
 import type { ErrorSink } from "./types";
 
 export interface CaptureMeta {
-  severity: ErrorSeverity;
+  /** Optional severity override. When omitted, `captureError` derives it from
+   *  `code` via the registry in `./codes`. Pass explicitly to bump a normally
+   *  `error`-classified code down to `warning` (or `info`) on a recovered or
+   *  user-input path. */
+  severity?: ErrorSeverity;
   source: ErrorSource;
   code?: string;
   route?: string;
@@ -50,14 +55,21 @@ function stackFrom(err: unknown): string | null {
   return null;
 }
 
-/** Central entry point for capturing an error. Builds the record, writes to every
- *  registered sink via Promise.allSettled, and returns the new record id. */
+/** Central entry point for capturing an error. Looks up the effective severity
+ *  from the codes registry (falling back to an explicit `meta.severity` when
+ *  provided), builds the record, and fans it out to every registered sink via
+ *  Promise.allSettled. `info`-severity records are stored alongside `warning`
+ *  and `error` so admins can filter them in the viewer — per the error design
+ *  doc, they represent expected user-input failures (bad URL, wrong password)
+ *  that are worth keeping for debug but not surfacing on the default dashboard
+ *  view. */
 export async function captureError(err: unknown, meta: CaptureMeta): Promise<string> {
+  const severity = resolveSeverity(meta);
   const ctx = currentRequestContext();
   const record: ErrorRecord = {
     id: crypto.randomUUID(),
     requestId: meta.requestId ?? ctx?.requestId ?? newRequestId(),
-    severity: meta.severity,
+    severity,
     source: meta.source,
     code: meta.code ?? null,
     devMessage: meta.devMessage ?? devMessageFrom(err),
@@ -79,4 +91,13 @@ export async function captureError(err: unknown, meta: CaptureMeta): Promise<str
   }
 
   return record.id;
+}
+
+// Resolves the effective severity for a capture call. The explicit
+// `meta.severity` wins when provided (callers bump recovered paths to
+// `warning` this way); otherwise the code's registered classification is
+// used. The registry's `ErrorCodeSeverity` type is the same set as the
+// stored `ErrorSeverity`, so the return type narrows naturally.
+function resolveSeverity(meta: CaptureMeta): ErrorSeverity {
+  return meta.severity ?? severityFor(meta.code ?? "");
 }

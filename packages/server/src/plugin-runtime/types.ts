@@ -97,7 +97,18 @@ export type AuthResult =
       expiresAt: number;
     }
   | { status: "pending" }
-  | { status: "error"; code: HostErrorCode; devMessage: string };
+  | {
+      status: "error";
+      code: HostErrorCode;
+      devMessage: string;
+      /**
+       * Interpolation values and routing hints per the error design doc's
+       * wire format (docs/2026-04-19-error-management-design.md §Wire
+       * format). Used today to carry a `field` hint back to the frontend so
+       * a form-submission failure can highlight the offending input.
+       */
+      params?: Record<string, string | number>;
+    };
 
 export type CapabilityMethod<I = unknown, O = unknown> = (
   ctx: PluginContext,
@@ -144,6 +155,13 @@ export class PluginError extends Error {
   constructor(
     public code: HostErrorCode,
     message: string,
+    /**
+     * Interpolation values and routing hints per the error design doc's wire
+     * format. The host threads these onto the outgoing HTTP error body so the
+     * frontend can route the error (e.g. `{ field: "externalServerUrl" }`
+     * attaches the message to a specific form input).
+     */
+    public params?: Record<string, string | number>,
   ) {
     super(message);
     this.name = "PluginError";
@@ -155,6 +173,7 @@ export interface PluginErrorShape {
   name: "PluginError";
   code: string;
   message: string;
+  params?: Record<string, string | number>;
 }
 
 /**

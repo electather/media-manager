@@ -74,8 +74,9 @@ vi.mock("../user-pool", () => ({
   markUserConnectionExhausted: vi.fn(),
 }));
 
+const captureErrorMock = vi.fn<typeof import("../../errors/capture").captureError>();
 vi.mock("../../errors/capture", () => ({
-  captureError: async () => {},
+  captureError: captureErrorMock,
 }));
 
 vi.mock("../host-bridge", () => ({
@@ -164,6 +165,7 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     listDecryptedActiveMock.mockReset();
     listReadyUserConnectionsMock.mockReset();
     listDecryptedActiveMock.mockResolvedValue([]);
+    captureErrorMock.mockReset();
     fetchSpy.mockClear();
     vi.stubGlobal("fetch", fetchSpy);
   });
@@ -332,5 +334,96 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     expect(result).toEqual({ items: [] });
     expect(observedJson).toEqual({ ok: true });
     expect(fetchSpy).toHaveBeenCalledWith("https://ops.internal.example.com/status", undefined);
+  });
+
+  // Regression: the submitted userConfig for startAuth must flow through to
+  // ctx.fetch's dynamic host allowlist. Previously runAuth built the context
+  // without the userConfig, which caused form-auth plugins (Jellyfin, ...) to
+  // reject every user-supplied server URL with "host not in allowlist".
+  it("resolves x-allowed-host from startAuth input for form-auth plugins", async () => {
+    pluginRows.set("plex-like", {
+      id: "plex-like",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+
+    let observedBase: string | null = null;
+    capabilityRegistry.register({
+      pluginId: "plex-like",
+      module: {
+        ...buildSelfHostedPlugin(async () => ({ items: [] })),
+        startAuth: async (ctx, input) => {
+          const cfg = input as { baseUrl: string };
+          const c = ctx as {
+            fetch: (url: string, init?: RequestInit) => Promise<Response>;
+          };
+          await c.fetch(`${cfg.baseUrl}/auth`);
+          observedBase = cfg.baseUrl;
+          return {
+            status: "completed",
+            credentials: { token: "t" },
+          };
+        },
+      },
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.runAuth("plex-like", "startAuth", "user-1", {
+      baseUrl: "https://my.plex.box:32400",
+    });
+    expect(result).toEqual({ status: "completed", credentials: { token: "t" } });
+    expect(observedBase).toBe("https://my.plex.box:32400");
+    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/auth", undefined);
+  });
+
+  // Regression: a malformed x-allowed-host value (e.g. the user typed "asd"
+  // into an URL field) surfaces as a PluginError thrown by buildAuxContext
+  // during dynamic-host resolution — BEFORE the plugin's startAuth runs.
+  // That throw must be caught and funneled into an AuthResult error
+  // preserving params.field, otherwise it escapes as an uncaught 500 and
+  // the frontend loses the routing hint.
+  it("surfaces x-allowed-host resolution failures as AuthResult errors with params.field", async () => {
+    pluginRows.set("plex-like", {
+      id: "plex-like",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+
+    const startAuthSpy = vi.fn();
+    capabilityRegistry.register({
+      pluginId: "plex-like",
+      module: {
+        ...buildSelfHostedPlugin(async () => ({ items: [] })),
+        startAuth: async (_ctx, _input) => {
+          startAuthSpy();
+          return { status: "completed", credentials: { token: "t" } };
+        },
+      },
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.runAuth("plex-like", "startAuth", "user-1", {
+      baseUrl: "asd",
+    });
+
+    expect(result).toMatchObject({
+      status: "error",
+      code: "plugin.upstream_error",
+      params: { field: "baseUrl" },
+    });
+    expect(startAuthSpy).not.toHaveBeenCalled();
+    // captureError is called with the plugin.input_invalid code; severity
+    // routing lives in the shared captureError (covered by capture.test.ts),
+    // so asserting `code` here is enough to lock in the info classification
+    // for this path.
+    expect(captureErrorMock).toHaveBeenCalledTimes(1);
+    const [, meta] = captureErrorMock.mock.calls[0]!;
+    expect(meta).toMatchObject({
+      source: "plugin",
+      code: "plugin.input_invalid",
+      pluginId: "plex-like",
+    });
   });
 });

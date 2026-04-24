@@ -110,10 +110,22 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
   // schema (unusual but valid JSON Schema); render it readably in errors so
   // the message does not end up with bare `''`.
   const displayPath = path || "(root)";
+  // Each throw below attaches `params.field` (plus the offending value when
+  // known) per the error design doc's wire convention, so the frontend can
+  // attribute the error to the specific form input without string-parsing
+  // the devMessage.
+  // Omit `field` when the marker sits on the root schema — an empty string
+  // would be a misleading hint for any downstream form that tried to route
+  // on it.
+  const fieldParams = (extra?: Record<string, string>): Record<string, string> => ({
+    ...(path ? { field: path } : {}),
+    ...extra,
+  });
   if (typeof value !== "string" || value.length === 0) {
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' must be a non-empty URL string`,
+      fieldParams(),
     );
   }
   let parsed: URL;
@@ -123,12 +135,14 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' is not a valid URL: ${value}`,
+      fieldParams({ value }),
     );
   }
   if (!parsed.hostname) {
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' has no hostname: ${value}`,
+      fieldParams({ value }),
     );
   }
   const hostname = normalizeHostname(parsed.hostname);
@@ -136,6 +150,7 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' resolves to a blocked address: ${hostname}`,
+      fieldParams({ value, hostname }),
     );
   }
   return hostname;

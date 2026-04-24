@@ -37,6 +37,28 @@ export async function decryptJson(iv: string | null, data: string | null): Promi
 export const RESPONSE_STRIPPED_EXTENSIONS = ["x-secret", "x-private"] as const;
 
 /**
+ * Extension marker for `userConfig` fields whose value is resolved and owned
+ * by the plugin — the user never submits one through the form. Incoming
+ * payloads that contain a value for a field carrying `"x-plugin-resolved":
+ * true` have that key stripped before the payload reaches the plugin's
+ * `startAuth` or the persisted row. The plugin repopulates the field via
+ * `userConfigPatch` (e.g. Jellyfin resolving the caller's `userId` from
+ * `/Users/Me`); a hostile client cannot impersonate another account by
+ * spoofing the value.
+ */
+export const REQUEST_STRIPPED_EXTENSIONS = ["x-plugin-resolved"] as const;
+
+/**
+ * Strips properties from an incoming client payload whose schema marks them
+ * `x-plugin-resolved`. Used at the connection create/update boundary so a
+ * plugin's `startAuth` and the persisted `userConfig` never see user-supplied
+ * values for fields the plugin is the sole source of truth for.
+ */
+export function stripRequestFields(schema: unknown, value: unknown): unknown {
+  return stripExtensionFields(schema, value, REQUEST_STRIPPED_EXTENSIONS);
+}
+
+/**
  * Removes properties on `value` whose schema definition carries any of the
  * given extension flags set to `true`. Used so sensitive or internal-only
  * fields never travel back to clients via connection list/get responses.
