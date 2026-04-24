@@ -93,18 +93,21 @@ type RowDisplayConfig = {
 };
 
 const ROW_DISPLAY: Record<RowKind, RowDisplayConfig> = {
-  continueWatching:  { cardShape: "backdrop", showMatchReasonInline: false },
-  upcomingForYou:    { cardShape: "backdrop", showMatchReasonInline: false },
-  recommendedForYou: { cardShape: "poster",   showMatchReasonInline: true  },
-  becauseYouWatched: { cardShape: "poster",   showMatchReasonInline: false },
-  trendingNow:       { cardShape: "poster",   showMatchReasonInline: false },
-  newReleases:       { cardShape: "poster",   showMatchReasonInline: false },
-  yourWatchlist:     { cardShape: "poster",   showMatchReasonInline: false },
+  continueWatching: { cardShape: "backdrop", showMatchReasonInline: false },
+  upcomingForYou: { cardShape: "backdrop", showMatchReasonInline: false },
+  recommendedForYou: { cardShape: "poster", showMatchReasonInline: true },
+  becauseYouWatched: { cardShape: "poster", showMatchReasonInline: false },
+  trendingNow: { cardShape: "poster", showMatchReasonInline: false },
+  newReleases: { cardShape: "poster", showMatchReasonInline: false },
+  yourWatchlist: { cardShape: "poster", showMatchReasonInline: false },
 };
 
 // Search-param schema for the detail-modal peek.
 const peekSchema = z.object({
-  peek: z.string().regex(/^(movie|tv):\d+$/).optional(),
+  peek: z
+    .string()
+    .regex(/^(movie|tv):\d+$/)
+    .optional(),
 });
 ```
 
@@ -316,8 +319,7 @@ function MediaDetailModal() {
   // the "peek open" history entry, not push a new one on top of it. That way
   // one browser-back dismisses and the preceding entry is whatever the user
   // was on before opening the modal.
-  const close = () =>
-    router.navigate({ search: (prev) => ({ ...prev, peek: undefined }) });
+  const close = () => router.navigate({ search: (prev) => ({ ...prev, peek: undefined }) });
 
   return (
     <Dialog open={!!peek} onOpenChange={(open) => !open && close()}>
