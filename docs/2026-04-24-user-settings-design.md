@@ -6,21 +6,24 @@
 
 ## Summary
 
-Wire the existing `/settings` mock to real Better Auth and Hono RPC primitives, split it into a nested-route layout with four deep-linkable tabs, and add the account-shaped features that are missing today: email verification (when an email provider is configured), verify-before-switch email change, active-session management, authorized-apps wiring, data export, and a real delete-account flow.
+Wire the existing `/settings` mock to real Better Auth and Hono RPC primitives, split it into a nested-route layout with five deep-linkable tabs, and add the account-shaped features that are missing today: email verification (when an email provider is configured), verify-before-switch email change, active-session management, authorized-apps wiring, data export, and a real delete-account flow. The existing `/connections` page is also relocated into this layout as the fifth tab — a move, not a re-design.
 
 This is an implementation contract, not a visual redesign — a dedicated redesign pass follows later. Styling stays inside today's shadcn/ui vocabulary.
 
 ## Goals
 
 - Every mocked field in today's `/settings` (name, email, password, MCP endpoint, OAuth clients, delete) is driven by real data and real mutations — no mock constants left.
-- Four deep-linkable tabs: `/settings/profile`, `/settings/security`, `/settings/apps`, `/settings/danger`. Bare `/settings` redirects to `/settings/profile`.
+- Five deep-linkable tabs: `/settings/profile`, `/settings/security`, `/settings/connections`, `/settings/apps`, `/settings/danger`. Bare `/settings` redirects to `/settings/profile`.
+- The connections surface (today at `/connections`) is relocated under the settings layout without behaviour or visual changes. The top-level "Connections" sidebar entry is removed. The old `/connections` URL returns 404 — back-compat redirect is explicitly out of scope per the connections scope decision.
 - Email-dependent flows degrade gracefully when no email provider is configured on the server (the self-hosted case).
 - Identity/security actions use Better Auth's client directly; app-specific actions (role lookup, authorized-app listing with aggregated last-used, export, delete-with-cascade) go through a new Hono sub-app `meApp`.
-- A signed-in user can: verify their email, change their email safely, change their password, see and revoke active sessions, see and revoke authorized MCP apps, export their data as a ZIP, and permanently delete their account.
+- A signed-in user can: verify their email, change their email safely, change their password, manage their service connections, see and revoke active sessions, see and revoke authorized MCP apps, export their data as a ZIP, and permanently delete their account.
 
 ## Non-goals
 
 - Visual/interaction redesign of the page. Preserved for a later pass.
+- Re-designing the connections UI or altering any of its existing flows. The Connections tab is a route relocation only; the existing component, queries, mutations, and modals are kept as-is.
+- A back-compat redirect from `/connections` to `/settings/connections`. The old URL 404s.
 - 2FA, passkeys, social-account linking. Deferred. The Security tab layout leaves a natural slot for a Two-Factor card above Change Password when the plugin lands, but nothing is scaffolded in v1.
 - Profile image upload. Deferred; avatar stays initials-based as today.
 - Admin-facing settings (role management, user management). Already live under `/admin`.
@@ -46,6 +49,7 @@ packages/client/src/routes/_authenticated/
     index.tsx               ← redirects to ./profile via beforeLoad
     profile.tsx             ← Profile tab
     security.tsx            ← Security tab
+    connections.tsx         ← Connections tab (moved from ../connections.tsx)
     apps.tsx                ← Authorized apps tab
     danger.tsx              ← Danger zone tab
 
@@ -61,14 +65,16 @@ packages/server/src/api/procedures/
   config.ts                 ← new: public config (emailEnabled)
 ```
 
-The existing single-file `settings.tsx` is rewritten as the layout shell. Each tab file is its own route component; shared sub-components live in `packages/client/src/components/settings/` so tab files stay focused on layout, queries, and mutations.
+The existing single-file `settings.tsx` is rewritten as the layout shell. Each tab file is its own route component; shared sub-components live in `packages/client/src/components/settings/` so tab files stay focused on layout, queries, and mutations. The Connections tab file is the result of moving `packages/client/src/routes/_authenticated/connections.tsx` — the existing component body, queries, mutations, and modal dependencies are preserved verbatim; only the route path and the `createFileRoute` call site change.
 
 ## Route behaviour
 
 - Bare `/settings` renders the layout and redirects to `/settings/profile` via `beforeLoad` on `settings/index.tsx` using TanStack Router's `redirect()` helper.
 - The left nav is part of the `settings.tsx` layout and uses `<Link>` with `activeOptions={{ exact: true }}` so the active tab is URL-driven, not local state.
-- All four tab routes inherit the `_authenticated` guard on the parent. No per-tab auth logic.
-- The public config endpoint `/api/config/public` (no auth) returns `{ emailEnabled: boolean }`. Profile, Security, and the layout read this once via TanStack Query with `staleTime: Infinity` — it's config, not data — and use the flag to gate email-dependent UI.
+- All five tab routes inherit the `_authenticated` guard on the parent. No per-tab auth logic.
+- The public config endpoint `/api/config/public` (no auth) returns `{ emailEnabled: boolean }`. Profile, Security, and the layout read this once via TanStack Query with `staleTime: Infinity` — it's config, not data — and use the flag to gate email-dependent UI. The Connections tab does not read this flag.
+- The old `/connections` route file is deleted; TanStack Router's generated route tree drops the path. Requests to `/connections` fall through to the app's existing not-found surface (404). No redirect.
+- The top-level "Connections" entry in the app sidebar is removed. Connections is reached only via the Settings left nav.
 
 ## Profile tab (`/settings/profile`)
 
@@ -145,6 +151,36 @@ Button below the session list. Confirmation dialog ("You'll remain signed in on 
 
 - `parseUserAgent(ua) → { browser, os, device }` in `packages/client/src/lib/user-agent.ts`.
 - `session-row.tsx` component.
+
+## Connections tab (`/settings/connections`)
+
+### Scope
+
+Relocation only. The existing `/connections` page (`packages/client/src/routes/_authenticated/connections.tsx`, ~934 lines, fully wired to the `api.connections.*` surface) is moved under the settings layout. Its data flow, queries, mutations, modal components, capability badges, empty states, and error handling are preserved verbatim. No design work beyond the move.
+
+### What changes
+
+- **Route file:** `packages/client/src/routes/_authenticated/connections.tsx` is moved to `packages/client/src/routes/_authenticated/settings/connections.tsx`. The only code change is the `createFileRoute` path — the component body and all imports are unchanged.
+- **Old route file is deleted**; TanStack Router's generated route tree (`routeTree.gen.ts`) regenerates without the old entry.
+- **Settings left nav** gains a "Connections" entry between "Security" and "Authorized apps", matching the order in the `Goals` section.
+- **App sidebar** loses its top-level "Connections" entry. The existing `Plug`-style icon and label belong to settings' nav exclusively.
+- **Inbound links** in the codebase pointing at `/connections` — including any `Link to="/connections"`, email templates (none exist today), or hard-coded strings — are updated to `/settings/connections`. A grep pass covers this.
+- **Inbound design references**: the prior connections design docs (`2026-04-19-frontend-connections-design.md`, `2026-04-22-frontend-plugin-connections-design.md`) are amended with a short "route relocated" note at the top pointing at this doc.
+
+### What does not change
+
+- Nothing in the component's behaviour: plugin-driven sections, capability badges, connection modals, schema forms, primary-connection toggling, test-and-save flows — all preserved.
+- No server-side work. The `api.connections.*` endpoints are unchanged.
+- No new shared types.
+- No new tests. Existing component + integration tests move with the route file and keep passing.
+
+### Route-relocation risk
+
+The only way this tab regresses is if the move accidentally drops an import path, a component dependency, or a query-key collision with the settings layout. The PR doing the move runs the full client test suite and a manual smoke pass through the connections flows (add, edit, test, disable, set-primary) to confirm no regression.
+
+### Old URL behaviour
+
+`GET /connections` returns the app's existing not-found surface (TanStack Router's default 404). No banner, no "moved to" hint — per Q2 the break is accepted. If this turns out to matter in practice, a redirect can be added in a follow-up.
 
 ## Authorized apps tab (`/settings/apps`)
 
@@ -372,7 +408,8 @@ Single PR strategy, no feature flag:
 2. Server `meApp` + `configPublicApp` + tests.
 3. Better Auth config changes (`sendChangeEmailVerification`, `revokeOtherSessions`).
 4. Client nested-route split + tab files wired against the new surface.
-5. Test suite green, manual walkthrough of every flow in both `emailEnabled` states on a dev deploy.
-6. Changeset file added per the repo's `CLAUDE.md` convention.
+5. Connections route relocation: move the component to `settings/connections.tsx`, delete the old route file, add the settings nav entry, remove the top-level sidebar entry, sweep inbound `/connections` links.
+6. Test suite green, manual walkthrough of every flow in both `emailEnabled` states on a dev deploy, plus a smoke pass through the connections flows (add/edit/test/disable/set-primary) to confirm the move didn't regress anything.
+7. Changeset file added per the repo's `CLAUDE.md` convention.
 
-No data migration beyond the cascade audit. No rollback plan needed beyond `git revert` — no destructive migrations in this set.
+No data migration beyond the cascade audit. No rollback plan needed beyond `git revert` — no destructive migrations in this set. The connections move is purely a file relocation and can be reverted by restoring the old route file if anything unexpected surfaces.

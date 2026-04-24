@@ -7,6 +7,8 @@
 **Companion:** `2026-04-19-plugin-architecture-design.md` (backend)
 **Tracking issue:** [#36](https://github.com/electather/media-manager/issues/36)
 
+> **Route relocated (2026-04-24).** The user-facing connections page described here now lives at `/settings/connections` under the nested settings layout. The top-level `/connections` URL was removed and returns 404. The component body, queries, mutations, capability badges, and modal dependencies documented below are unchanged — only the route file location and the app sidebar entry changed. See `docs/2026-04-24-user-settings-design.md` for the relocation rationale and the surrounding settings work.
+
 ## Summary
 
 The backend plugin architecture has been revised: capabilities now carry an explicit `scope` (`global` | `user`), admin-owned secrets live in a `plugin_shared_credentials` **pool** (multiple entries per plugin, with rotation and cooldown bookkeeping), and a per-plugin `personalKeyFallback` policy defines how the admin pool and a user's own keys interact for user-scoped calls. The bespoke `allowsSharedCredentials` flag is gone; pool-safety is expressed via `poolable`.
