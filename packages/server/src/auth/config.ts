@@ -35,15 +35,21 @@ export const auth = betterAuth({
   user: {
     changeEmail: {
       enabled: true,
-      // The verification link is sent to the user's CURRENT (old) email
-      // address; the address only flips after that link is clicked.
-      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
-        await sendEmail({
-          to: user.email,
-          subject: "Approve email change",
-          text: `Click to approve changing your email to ${newEmail}: ${url}`,
-        });
-      },
+      // When the deployment has email wired up, the verification link goes
+      // to the user's CURRENT (old) address — the email only flips after
+      // that link is clicked. When email is off (self-hosted without a
+      // provider), leaving this undefined makes Better Auth flip the email
+      // immediately, matching the design's "no verification email will be
+      // sent" disabled-mode flow.
+      sendChangeEmailConfirmation: env.EMAIL_PROVIDER_CONFIGURED
+        ? async ({ user, newEmail, url }) => {
+            await sendEmail({
+              to: user.email,
+              subject: "Approve email change",
+              text: `Click to approve changing your email to ${newEmail}: ${url}`,
+            });
+          }
+        : undefined,
     },
   },
   databaseHooks: {
