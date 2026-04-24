@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "docker/**"
+      - ".dockerignore"
+      - ".github/workflows/build-docker.yml"
+      - "package.json"
+      - "bun.lock"
+      - "packages/*/package.json"
 
 concurrency:
   group: docker-${{ github.ref }}
@@ -47,6 +55,8 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             version="${{ github.ref_name }}"
             printf 'tags<<EOF\n%s:latest\n%s:%s\nEOF\n' "$image_lc" "$image_lc" "$version" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            printf 'tags<<EOF\n%s:pr-%s\nEOF\n' "$image_lc" "${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           else
             printf 'tags<<EOF\n%s:nightly\nEOF\n' "$image_lc" >> "$GITHUB_OUTPUT"
           fi
@@ -57,7 +67,8 @@ jobs:
           context: .
           file: docker/Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: true
+          # PR runs validate the build without publishing to ghcr.io.
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -9,8 +9,10 @@ COPY packages/server/package.json ./packages/server/package.json
 COPY packages/client/package.json ./packages/client/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 
+# `--ignore-scripts` skips the root `prepare` hook (`vp config`), which is a
+# local developer-tooling step and requires `git` — not present in oven/bun.
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+    bun install --frozen-lockfile --ignore-scripts
 
 # ── Stage 2: build client SPA ────────────────────────────────────────────────
 FROM deps AS client-build
