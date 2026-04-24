@@ -92,10 +92,14 @@ jobs:
         env:
           SQLITE_PATH: ${{ secrets[steps.target.outputs.turso_url_secret] }}
           LIBSQL_AUTH_TOKEN: ${{ secrets[steps.target.outputs.turso_token_secret] }}
-          # Better Auth's signUpEmail hashes the password with scrypt
-          # (self-contained hash, salt included) so these values don't
-          # need to match the deployed Worker's secrets — the password
-          # hash we write will still validate at login.
+          # `create-user.ts` deliberately does not boot better-auth — it
+          # writes the `user` + `account` rows directly so we don't
+          # trigger the JWT plugin's JWKS keypair generation, which
+          # would encrypt a private key with a secret that doesn't
+          # match the Worker's. The vars below are unused by the
+          # script itself; they only exist to satisfy the server's
+          # shared env-schema validation, which runs on import of
+          # `getDb()`.
           BETTER_AUTH_SECRET: create-user-noop
           BETTER_AUTH_URL: http://localhost
           ENCRYPTION_KEY: create-user-noop
