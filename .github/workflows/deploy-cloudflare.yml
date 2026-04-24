@@ -91,14 +91,16 @@ jobs:
         if: steps.target.outputs.mode == 'preview'
         env:
           WORKER_NAME: ${{ steps.target.outputs.worker_name }}
+          WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
           SQLITE_PATH_VALUE: ${{ secrets.TURSO_URL_PREVIEW }}
           LIBSQL_AUTH_TOKEN_VALUE: ${{ secrets.TURSO_AUTH_TOKEN_PREVIEW }}
           BETTER_AUTH_SECRET_VALUE: ${{ secrets.PREVIEW_BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL_VALUE: ${{ secrets.PREVIEW_BETTER_AUTH_URL }}
           ENCRYPTION_KEY_VALUE: ${{ secrets.PREVIEW_ENCRYPTION_KEY }}
-          APP_EXTERNAL_URL_VALUE: ${{ secrets.PREVIEW_APP_EXTERNAL_URL }}
         run: |
           set -euo pipefail
+          # URLs are derived from the PR-specific Worker name so the OAuth
+          # redirect and external URL match the preview's actual origin.
+          preview_url="https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
           put() {
             local name="$1"
             local value="$2"
@@ -107,9 +109,9 @@ jobs:
           put SQLITE_PATH "$SQLITE_PATH_VALUE"
           put LIBSQL_AUTH_TOKEN "$LIBSQL_AUTH_TOKEN_VALUE"
           put BETTER_AUTH_SECRET "$BETTER_AUTH_SECRET_VALUE"
-          put BETTER_AUTH_URL "$BETTER_AUTH_URL_VALUE"
+          put BETTER_AUTH_URL "$preview_url"
           put ENCRYPTION_KEY "$ENCRYPTION_KEY_VALUE"
-          put APP_EXTERNAL_URL "$APP_EXTERNAL_URL_VALUE"
+          put APP_EXTERNAL_URL "$preview_url"
 
       - name: Deploy Worker
         run: vp dlx wrangler deploy ${{ steps.target.outputs.wrangler_flags }}
