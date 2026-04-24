@@ -16,6 +16,19 @@ export const plugins = sqliteTable("plugins", {
   personalKeyFallback: text("personal_key_fallback", { enum: PERSONAL_KEY_FALLBACK_POLICIES })
     .notNull()
     .default("off"),
+  /**
+   * Admin-set host allowlist. `null` means "inherit manifest allowlist"
+   * (no narrowing). An empty array `[]` blocks every static host — legitimate
+   * for deployments that only want the user-supplied `x-allowed-host` path.
+   */
+  adminAllowlist: text("admin_allowlist"),
+  /**
+   * Encrypted admin headers blob (`Record<string, string>`). Same
+   * AES-256-GCM path as `plugin_shared_credentials`. `null` when no admin
+   * headers are configured.
+   */
+  adminHeadersEncrypted: text("admin_headers_encrypted"),
+  adminHeadersIv: text("admin_headers_iv"),
   installedBy: text("installed_by").references(() => user.id, { onDelete: "set null" }),
   installedAt: integer("installed_at").notNull(),
   updatedAt: integer("updated_at").notNull(),

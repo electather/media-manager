@@ -5,6 +5,7 @@ import { getDb } from "../db/client";
 import { env } from "../env";
 import { plugins } from "../db/schema/plugins";
 import { resolveAllowedHostsFromSchema, unionHostSets } from "./allowed-hosts";
+import { loadPluginPolicy } from "./admin-policy";
 import { buildContext } from "./context";
 import { getCapability } from "./capabilities";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
@@ -215,6 +216,7 @@ export class PluginRuntime {
 
     const row = await this.getPluginRow(args.pluginId);
     const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const adminPolicy = await loadPluginPolicy(args.pluginId);
     const plan = await this.buildCredentialPlan(args, row);
     if (plan.length === 0) {
       throw new PluginError(
@@ -273,6 +275,8 @@ export class PluginRuntime {
         pluginId: args.pluginId,
         allowedHosts: module.manifest.allowedHosts,
         dynamicAllowedHosts,
+        adminAllowlist: adminPolicy.adminAllowlist,
+        adminHeaders: adminPolicy.adminHeaders,
         userId: args.userId,
         appBaseUrl: env.APP_EXTERNAL_URL,
         credentials: pick.side === "user" ? pick.value : null,
@@ -369,10 +373,13 @@ export class PluginRuntime {
       module.manifest.userConfigSchema,
       args.userConfig,
     );
+    const adminPolicy = await loadPluginPolicy(args.pluginId);
     const ctx = buildContext({
       pluginId: args.pluginId,
       allowedHosts: module.manifest.allowedHosts,
       dynamicAllowedHosts,
+      adminAllowlist: adminPolicy.adminAllowlist,
+      adminHeaders: adminPolicy.adminHeaders,
       userId: args.userId,
       appBaseUrl: env.APP_EXTERNAL_URL,
       credentials: args.credentials,
@@ -612,10 +619,13 @@ export class PluginRuntime {
         sharedCredentials,
       ),
     );
+    const adminPolicy = await loadPluginPolicy(pluginId);
     return buildContext({
       pluginId,
       allowedHosts: module.manifest.allowedHosts,
       dynamicAllowedHosts,
+      adminAllowlist: adminPolicy.adminAllowlist,
+      adminHeaders: adminPolicy.adminHeaders,
       userId,
       appBaseUrl: env.APP_EXTERNAL_URL,
       credentials,

@@ -54,9 +54,9 @@ Three nullable columns on `plugins` (`packages/server/src/db/schema/plugins.ts`)
 ```ts
 export const plugins = sqliteTable("plugins", {
   // ...existing columns...
-  adminAllowlist: text("admin_allowlist"),               // JSON string[] | null
+  adminAllowlist: text("admin_allowlist"), // JSON string[] | null
   adminHeadersEncrypted: text("admin_headers_encrypted"), // base64 ciphertext | null
-  adminHeadersIv: text("admin_headers_iv"),              // base64 iv | null
+  adminHeadersIv: text("admin_headers_iv"), // base64 iv | null
 });
 ```
 
@@ -105,7 +105,7 @@ export function buildFetch(
   adminAllowlist: string[] | null,
   adminHeaders: Record<string, string> | undefined,
   errorSink: ErrorSink,
-): (url: string, init?: RequestInit) => Promise<Response>
+): (url: string, init?: RequestInit) => Promise<Response>;
 ```
 
 The allowlist check becomes:
@@ -159,8 +159,8 @@ Admin header values are never logged — the fetch-policy logger emits only host
 ```ts
 interface BuildContextArgs {
   // ...existing fields...
-  adminAllowlist?: string[] | null;        // null = inherit
-  adminHeaders?: Record<string, string>;   // undefined = none
+  adminAllowlist?: string[] | null; // null = inherit
+  adminHeaders?: Record<string, string>; // undefined = none
 }
 ```
 
@@ -213,7 +213,7 @@ Response: { ok: true } | typed error
 ```
 
 - `null` clears the override; the plugin reverts to manifest-only.
-- Array is validated per the rules in *Data model*. Lowercasing is done server-side.
+- Array is validated per the rules in _Data model_. Lowercasing is done server-side.
 - Duplicate entries, invalid hostnames, or a length above 64 return `plugin.input_invalid`.
 - Successful write invalidates the per-plugin policy cache; next `buildContext` call reloads.
 
@@ -241,7 +241,7 @@ Merge semantics mirror the `x-secret` pattern the connection modal already uses:
 
 To fully clear, the UI sends `null` for every existing name. There is no `replace: true` flag in v1 — the pattern above covers every realistic case.
 
-Validation rules from *Data model* apply; violations return `plugin.input_invalid` and the blob is not re-encrypted or written.
+Validation rules from _Data model_ apply; violations return `plugin.input_invalid` and the blob is not re-encrypted or written.
 
 ### No ephemeral test endpoint
 
@@ -317,10 +317,10 @@ Copy on the panel header explains what the override does in one sentence, linkin
 Layout:
 
 - Table of header names with actions:
-  | Name        | Value   |              |
+  | Name | Value | |
   |-------------|---------|--------------|
-  | `X-Corp-Key`| `••••`  | Edit / Delete|
-  | `X-Env`     | `••••`  | Edit / Delete|
+  | `X-Corp-Key`| `••••` | Edit / Delete|
+  | `X-Env` | `••••` | Edit / Delete|
 - `Add header` button opens a dialog taking `{ name, value }`.
 - Edit dialog:
   - `Name` — read-only on edit (changing name would leak the old key; admins delete + re-add).
@@ -350,7 +350,7 @@ The component only renders on `/admin/plugins`, which is already gated by the ad
 ### Server — runtime
 
 - `fetch-policy.test.ts` — intersection cases: `null` (inherit), `[]` (block all static), concrete list narrowing, `*.foo.com` admin entry narrowing an exact manifest entry, bare `"*"` admin entry as a no-op.
-- `fetch-policy.test.ts` — admin-block path emits `plugin.host_blocked_by_admin` to the error sink *and* throws `plugin.upstream_error` to the plugin. Manifest-miss path emits no admin-block log.
+- `fetch-policy.test.ts` — admin-block path emits `plugin.host_blocked_by_admin` to the error sink _and_ throws `plugin.upstream_error` to the plugin. Manifest-miss path emits no admin-block log.
 - `fetch-policy.test.ts` — dynamic hosts (`x-allowed-host`) remain reachable when admin allowlist is set to `[]`, confirming the admin rule does not gate user-supplied URLs.
 - `fetch-policy.test.ts` — admin headers merged into `init.headers`; admin `Authorization` overrides plugin `Authorization` regardless of casing; empty / undefined `adminHeaders` leaves `init.headers` untouched.
 - `fetch-policy.test.ts` — admin header values are not logged on rejection.

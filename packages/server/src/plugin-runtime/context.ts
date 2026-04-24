@@ -13,6 +13,18 @@ export interface BuildContextArgs {
    * job handlers) keep working.
    */
   dynamicAllowedHosts?: ReadonlySet<string>;
+  /**
+   * Admin-set host allowlist. Intersected with `allowedHosts` inside
+   * `buildFetch`. `null` / `undefined` means "inherit manifest" (no
+   * narrowing). Applies only to the static side; `dynamicAllowedHosts` is
+   * never filtered by admin policy.
+   */
+  adminAllowlist?: string[] | null;
+  /**
+   * Admin-set request headers merged into every `ctx.fetch` call. Admin
+   * values override plugin-supplied headers on name collision.
+   */
+  adminHeaders?: Record<string, string>;
   userId: string | null;
   appBaseUrl: string;
   credentials?: unknown;
@@ -32,7 +44,13 @@ const INERT_POOL: PoolSignalingApi = {
 /** Builds a fresh PluginContext per invocation. Nothing here is plugin-mutable. */
 export function buildContext(args: BuildContextArgs): PluginContext {
   return {
-    fetch: buildFetch(args.pluginId, args.allowedHosts, args.dynamicAllowedHosts),
+    fetch: buildFetch(
+      args.pluginId,
+      args.allowedHosts,
+      args.dynamicAllowedHosts,
+      args.adminAllowlist ?? null,
+      args.adminHeaders,
+    ),
     log: buildLogger(args.pluginId),
     credentials: args.credentials ?? null,
     sharedCredentials: args.sharedCredentials ?? null,
