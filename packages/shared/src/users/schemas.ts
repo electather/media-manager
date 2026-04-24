@@ -28,7 +28,7 @@ export type AssignRoleBody = z.infer<typeof assignRoleSchema>;
  * `currentPassword` is valid before performing the destructive action.
  */
 export const deleteAccountSchema = z.object({
-  confirmEmail: z.string().min(1),
-  currentPassword: z.string().min(1),
+  confirmEmail: z.email(),
+  currentPassword: z.string().min(8),
 });
 export type DeleteAccountBody = z.infer<typeof deleteAccountSchema>;
