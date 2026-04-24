@@ -1016,17 +1016,12 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
     setDraftError(null);
   };
 
-  const intersectionEmpty =
-    mode === "restrict" &&
-    manifestHosts.length > 0 &&
-    !manifestHosts.includes("*") &&
-    !entries.includes("*") &&
-    entries.length > 0 &&
-    !entries.some((admin) =>
-      manifestHosts.some(
-        (m) => admin === m || (admin.startsWith("*.") && m.endsWith(admin.slice(1))),
-      ),
-    );
+  // The authoritative intersection check lives on the server (`isHostAllowed`);
+  // mirroring it in the client is fragile — e.g. admin `bar.foo.com` ∩
+  // manifest `*.foo.com` was flagged as empty even though the server would
+  // accept it. Keep only the unambiguous case: admin chose "restrict" and
+  // supplied no hosts at all, so every static-allowlist call will be blocked.
+  const noHostsConfigured = mode === "restrict" && entries.length === 0;
 
   const save = async () => {
     setSaving(true);
@@ -1135,11 +1130,11 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
             </Button>
           </div>
           {draftError ? <p className="text-xs text-destructive">{draftError}</p> : null}
-          {intersectionEmpty ? (
+          {noHostsConfigured ? (
             <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-500">
               <TriangleAlertIcon className="mt-px size-3.5 shrink-0" />
-              Intersection with manifest is empty — plugin will make no network calls through the
-              static allowlist. User-supplied server URLs (x-allowed-host) still work.
+              No hosts configured — plugin will make no network calls through the static allowlist.
+              User-supplied server URLs (x-allowed-host) still work.
             </p>
           ) : null}
         </div>
@@ -1159,18 +1154,22 @@ function HeadersPanel({ plugin, onChanged }: AdvancedSectionProps) {
   const [dialog, setDialog] = useState<
     { kind: "none" } | { kind: "add" } | { kind: "edit"; name: string }
   >({ kind: "none" });
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const deleteHeader = async (name: string) => {
+    setDeleteError(null);
     try {
       const res = await api.plugins[":id"]["admin-headers"].$put({
         param: { id: plugin.id },
         json: { headers: { [name]: null } },
       });
-      if (!res.ok) throw new Error("Failed to delete header.");
+      if (!res.ok) {
+        const payload = (await safeJson(res)) as { devMessage?: string } | null;
+        throw new Error(payload?.devMessage ?? "Failed to delete header.");
+      }
       onChanged();
-    } catch {
-      // Surface errors inline via a small toast later; for now the refetch
-      // path re-renders any server state.
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete header.");
     }
   };
 
@@ -1225,7 +1224,7 @@ function HeadersPanel({ plugin, onChanged }: AdvancedSectionProps) {
           </table>
         )}
       </div>
-      <div>
+      <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="outline"
@@ -1234,6 +1233,7 @@ function HeadersPanel({ plugin, onChanged }: AdvancedSectionProps) {
         >
           <PlusIcon /> Add header
         </Button>
+        {deleteError ? <span className="text-xs text-destructive">{deleteError}</span> : null}
       </div>
       <HeaderDialog
         plugin={plugin}
