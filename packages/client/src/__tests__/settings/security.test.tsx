@@ -27,9 +27,8 @@ vi.mock("@/lib/auth", () => ({
 
 // Sonner is auto-mounted in main.tsx but not loaded in tests; calling toast()
 // without a Toaster is fine, but we silence to avoid noisy output.
-vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
+const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast: toastMock }));
 
 import { ActiveSessionsCard, ChangePasswordCard } from "@/routes/_authenticated/settings/security";
 
@@ -70,6 +69,8 @@ beforeEach(() => {
   mocks.revokeOtherSessions.mockReset();
   mocks.changePassword.mockReset();
   mocks.useSession.mockReset();
+  toastMock.success.mockReset();
+  toastMock.error.mockReset();
 
   mocks.useSession.mockReturnValue({
     data: { session: { id: CURRENT_SESSION_ID } },
@@ -78,9 +79,7 @@ beforeEach(() => {
   });
 });
 
-afterEach(() => {
-  cleanup();
-});
+afterEach(() => cleanup());
 
 describe("ActiveSessionsCard", () => {
   it("renders sessions, badges the current one, and revokes another via the confirmation dialog", async () => {
@@ -94,7 +93,6 @@ describe("ActiveSessionsCard", () => {
     const user = userEvent.setup();
     renderWithClient(<ActiveSessionsCard />);
 
-    // Both rows render and only the non-current session has a Revoke button.
     await waitFor(() => {
       expect(screen.getByTestId(`session-row-${CURRENT_SESSION_ID}`)).toBeTruthy();
       expect(screen.getByTestId(`session-row-${OTHER_SESSION_ID}`)).toBeTruthy();
@@ -108,13 +106,11 @@ describe("ActiveSessionsCard", () => {
     const revokeButton = within(otherRow).getByRole("button", { name: /revoke/i });
     await user.click(revokeButton);
 
-    // Confirmation dialog shows up; confirm to call the API.
     const confirm = await screen.findByTestId("confirm-revoke");
     await user.click(confirm);
 
     await waitFor(() => expect(mocks.revokeSession).toHaveBeenCalledWith({ token: "tok-other" }));
 
-    // After success the row disappears from the list.
     await waitFor(() => {
       expect(screen.queryByTestId(`session-row-${OTHER_SESSION_ID}`)).toBeNull();
     });
@@ -133,6 +129,53 @@ describe("ActiveSessionsCard", () => {
     });
 
     expect(screen.queryByTestId("sign-out-everywhere")).toBeNull();
+  });
+
+  it("signs out other sessions via the confirmation dialog and refetches the list", async () => {
+    // First call returns both; after revokeOtherSessions, the refetch returns
+    // only the current session.
+    mocks.listSessions
+      .mockResolvedValueOnce({ data: sessionFixtures, error: null })
+      .mockResolvedValue({ data: [sessionFixtures[0]], error: null });
+    mocks.revokeOtherSessions.mockResolvedValue({ data: { status: true }, error: null });
+
+    const user = userEvent.setup();
+    renderWithClient(<ActiveSessionsCard />);
+
+    const trigger = await screen.findByTestId("sign-out-everywhere");
+    await user.click(trigger);
+
+    const confirm = await screen.findByTestId("confirm-sign-out-everywhere");
+    await user.click(confirm);
+
+    await waitFor(() => expect(mocks.revokeOtherSessions).toHaveBeenCalledTimes(1));
+
+    // The refetch removes the other session and the trigger button should
+    // disappear once only the current session remains.
+    await waitFor(() => {
+      expect(screen.queryByTestId(`session-row-${OTHER_SESSION_ID}`)).toBeNull();
+      expect(screen.queryByTestId("sign-out-everywhere")).toBeNull();
+    });
+  });
+
+  it("renders an error surface with a Retry button when listSessions fails", async () => {
+    mocks.listSessions
+      .mockResolvedValueOnce({ data: null, error: { message: "boom" } })
+      .mockResolvedValue({ data: sessionFixtures, error: null });
+
+    const user = userEvent.setup();
+    renderWithClient(<ActiveSessionsCard />);
+
+    const errorSurface = await screen.findByText(/could not load active sessions/i);
+    expect(errorSurface).toBeTruthy();
+
+    const retry = screen.getByRole("button", { name: /retry/i });
+    await user.click(retry);
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`session-row-${CURRENT_SESSION_ID}`)).toBeTruthy();
+      expect(screen.getByTestId(`session-row-${OTHER_SESSION_ID}`)).toBeTruthy();
+    });
   });
 });
 
@@ -154,21 +197,99 @@ describe("ChangePasswordCard", () => {
 
     await user.click(screen.getByTestId("save-password"));
 
-    // Inline error appears under the current-password field.
     const inlineError = await screen.findByText(/that password is incorrect/i);
     expect(inlineError).toBeTruthy();
 
-    // The form stays open and the new-password fields are retained.
     expect(screen.getByTestId("save-password")).toBeTruthy();
     expect((screen.getByTestId("new-password") as HTMLInputElement).value).toBe(
       "brand-new-password-123",
     );
 
-    // The mutation was invoked with the right body (incl. revokeOtherSessions: true).
     expect(mocks.changePassword).toHaveBeenCalledWith({
       currentPassword: "wrong-password",
       newPassword: "brand-new-password-123",
       revokeOtherSessions: true,
     });
+  });
+
+  it("does NOT mistake other 400 codes for the wrong-current-password case", async () => {
+    const user = userEvent.setup();
+    mocks.changePassword.mockResolvedValue({
+      data: null,
+      error: { status: 400, code: "RATE_LIMITED", message: "Too many requests" },
+    });
+
+    renderWithClient(<ChangePasswordCard />);
+
+    await user.click(screen.getByTestId("open-change-password"));
+    await user.type(screen.getByTestId("current-password"), "any-current-password");
+    await user.type(screen.getByTestId("new-password"), "brand-new-password-123");
+    await user.type(screen.getByTestId("confirm-password"), "brand-new-password-123");
+    await user.click(screen.getByTestId("save-password"));
+
+    // The server message lands on the new-password field, not the current-password field.
+    const inlineError = await screen.findByText(/too many requests/i);
+    expect(inlineError).toBeTruthy();
+    expect(screen.queryByText(/that password is incorrect/i)).toBeNull();
+  });
+
+  it("collapses the form, toasts, and refetches sessions on a successful change", async () => {
+    const user = userEvent.setup();
+    mocks.changePassword.mockResolvedValue({ data: { status: true }, error: null });
+    // listSessions is called by the surrounding card; not under test here, but
+    // the mutation invalidates the queryKey so a fresh call is expected when
+    // the card is mounted in isolation it stays inert.
+    mocks.listSessions.mockResolvedValue({ data: [], error: null });
+
+    renderWithClient(<ChangePasswordCard />);
+
+    await user.click(screen.getByTestId("open-change-password"));
+    await user.type(screen.getByTestId("current-password"), "old-password");
+    await user.type(screen.getByTestId("new-password"), "brand-new-password-123");
+    await user.type(screen.getByTestId("confirm-password"), "brand-new-password-123");
+    await user.click(screen.getByTestId("save-password"));
+
+    // Form collapses back to the trigger button.
+    await waitFor(() => {
+      expect(screen.getByTestId("open-change-password")).toBeTruthy();
+      expect(screen.queryByTestId("save-password")).toBeNull();
+    });
+
+    expect(toastMock.success).toHaveBeenCalled();
+    expect(mocks.changePassword).toHaveBeenCalledWith({
+      currentPassword: "old-password",
+      newPassword: "brand-new-password-123",
+      revokeOtherSessions: true,
+    });
+  });
+
+  it("rejects a too-short new password client-side without calling the API", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<ChangePasswordCard />);
+
+    await user.click(screen.getByTestId("open-change-password"));
+    await user.type(screen.getByTestId("current-password"), "old-password");
+    await user.type(screen.getByTestId("new-password"), "short");
+    await user.type(screen.getByTestId("confirm-password"), "short");
+    await user.click(screen.getByTestId("save-password"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/at least 12 characters/i);
+    expect(mocks.changePassword).not.toHaveBeenCalled();
+  });
+
+  it("rejects mismatched confirmation client-side without calling the API", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<ChangePasswordCard />);
+
+    await user.click(screen.getByTestId("open-change-password"));
+    await user.type(screen.getByTestId("current-password"), "old-password");
+    await user.type(screen.getByTestId("new-password"), "brand-new-password-123");
+    await user.type(screen.getByTestId("confirm-password"), "different-password-456");
+    await user.click(screen.getByTestId("save-password"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/passwords do not match/i);
+    expect(mocks.changePassword).not.toHaveBeenCalled();
   });
 });

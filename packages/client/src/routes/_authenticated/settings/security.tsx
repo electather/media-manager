@@ -99,14 +99,17 @@ export function ChangePasswordCard() {
     },
     onError: (err: unknown) => {
       const status = (err as { status?: number } | null)?.status;
+      const code = (err as { code?: string } | null)?.code;
       const message = (err as { message?: string } | null)?.message ?? "Could not update password.";
 
-      // Better Auth surfaces wrong-current-password as 400 INVALID_PASSWORD; the
-      // OpenAPI doc lists 401 UNAUTHORIZED. Treat either as the wrong-password
-      // case so the inline error always lands under the right field.
+      // Better Auth tags wrong-current-password as `code: "INVALID_PASSWORD"`
+      // (status 400). The OpenAPI doc also lists 401. Match the explicit code
+      // first; fall back to 401 or recognisable message text only when the
+      // server didn't supply a code, so other 400s (rate limit, malformed
+      // body, policy violation) don't get mislabelled.
       const lower = message.toLowerCase();
       const looksWrongCurrent =
-        status === 400 ||
+        code === "INVALID_PASSWORD" ||
         status === 401 ||
         lower.includes("incorrect") ||
         lower.includes("invalid password") ||

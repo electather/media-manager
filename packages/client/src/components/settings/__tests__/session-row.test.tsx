@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { SessionRow } from "../session-row";
+
+afterEach(() => cleanup());
 
 const baseSession = {
   id: "sess-1",
@@ -20,15 +22,13 @@ describe("SessionRow", () => {
     const onRevoke = vi.fn();
     render(<SessionRow session={baseSession} isCurrent={false} onRevoke={onRevoke} />);
 
-    expect(screen.getByText("Chrome on macOS")).toBeTruthy();
+    expect(screen.getByText("Chrome 120 on macOS")).toBeTruthy();
     expect(screen.getByText(/203\.0\.113\.10/)).toBeTruthy();
     expect(screen.queryByText("This device")).toBeNull();
 
     const revoke = screen.getByRole("button", { name: /revoke/i });
     await userEvent.click(revoke);
     expect(onRevoke).toHaveBeenCalledWith("tok-1");
-
-    cleanup();
   });
 
   it("badges the current session and hides the Revoke button", () => {
@@ -36,8 +36,6 @@ describe("SessionRow", () => {
 
     expect(screen.getByText("This device")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /revoke/i })).toBeNull();
-
-    cleanup();
   });
 
   it("falls back to 'Unknown device' and hides the IP fragment when both UA and IP are missing", () => {
@@ -56,8 +54,6 @@ describe("SessionRow", () => {
       expect(line.textContent?.startsWith(" · ")).toBe(false);
       expect(line.textContent ?? "").not.toMatch(/^·/);
     }
-
-    cleanup();
   });
 
   it("hides the IP fragment when only the UA is missing", () => {
@@ -71,7 +67,5 @@ describe("SessionRow", () => {
 
     // IP must not render alongside an "Unknown device" label.
     expect(screen.queryByText(/203\.0\.113\.10/)).toBeNull();
-
-    cleanup();
   });
 });

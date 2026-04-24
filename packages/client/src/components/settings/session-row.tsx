@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseUserAgent } from "@/lib/user-agent";
-import { cn } from "@/lib/utils";
 
 export interface SessionRowProps {
   /** The Better Auth session row. */
@@ -70,7 +69,7 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
           )}
           {isCurrent ? <Badge variant="secondary">This device</Badge> : null}
         </div>
-        <p className={cn("mt-0.5 text-xs text-muted-foreground")}>{meta.join(" · ")}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{meta.join(" · ")}</p>
       </div>
 
       {!isCurrent ? (

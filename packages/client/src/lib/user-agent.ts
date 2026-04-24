@@ -1,25 +1,17 @@
 import { UAParser } from "ua-parser-js";
 
-/**
- * Parsed user-agent broken down into the fields the Security tab cares about.
- */
 export interface ParsedUserAgent {
-  /** Display string such as "Chrome on macOS" or "Unknown device". */
+  /** Display string such as "Chrome 120 on macOS" or "Unknown device". */
   label: string;
   browser: string | null;
   os: string | null;
-  /** True when both browser and OS were missing from the UA — caller can use
-   *  this as a hint to hide adjacent metadata such as IP address. */
+  /** True when neither browser nor OS were parsed; callers can use this to
+   *  suppress adjacent metadata such as IP address. */
   unknown: boolean;
 }
 
 const UNKNOWN_LABEL = "Unknown device";
 
-/**
- * Parse a Better Auth session's `userAgent` string into a humanised label plus
- * the underlying browser/os components. Falls back to "Unknown device" when
- * the input is missing, empty, or unrecognised.
- */
 export function parseUserAgent(ua: string | null | undefined): ParsedUserAgent {
   if (!ua) {
     return { label: UNKNOWN_LABEL, browser: null, os: null, unknown: true };
@@ -27,17 +19,24 @@ export function parseUserAgent(ua: string | null | undefined): ParsedUserAgent {
 
   const { browser, os } = UAParser(ua);
   const browserName = browser?.name?.trim() || null;
+  const browserMajor = browser?.major?.trim() || null;
   const osName = os?.name?.trim() || null;
 
   if (!browserName && !osName) {
     return { label: UNKNOWN_LABEL, browser: null, os: null, unknown: true };
   }
 
+  const browserLabel = browserName
+    ? browserMajor
+      ? `${browserName} ${browserMajor}`
+      : browserName
+    : null;
+
   let label: string;
-  if (browserName && osName) {
-    label = `${browserName} on ${osName}`;
-  } else if (browserName) {
-    label = browserName;
+  if (browserLabel && osName) {
+    label = `${browserLabel} on ${osName}`;
+  } else if (browserLabel) {
+    label = browserLabel;
   } else {
     label = osName!;
   }

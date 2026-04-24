@@ -14,14 +14,14 @@ describe("parseUserAgent", () => {
     expect(parseUserAgent("")).toMatchObject({ label: "Unknown device", unknown: true });
   });
 
-  it("formats Chrome on macOS", () => {
+  it("formats Chrome on macOS with major version", () => {
     const ua =
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     const result = parseUserAgent(ua);
     expect(result.unknown).toBe(false);
     expect(result.browser).toBe("Chrome");
     expect(result.os).toBe("macOS");
-    expect(result.label).toBe("Chrome on macOS");
+    expect(result.label).toBe("Chrome 120 on macOS");
   });
 
   it("uses the OS alone when no browser is parsed", () => {
