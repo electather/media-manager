@@ -1016,12 +1016,16 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
     setDraftError(null);
   };
 
-  // The authoritative intersection check lives on the server (`isHostAllowed`);
-  // mirroring it in the client is fragile — e.g. admin `bar.foo.com` ∩
-  // manifest `*.foo.com` was flagged as empty even though the server would
-  // accept it. Keep only the unambiguous case: admin chose "restrict" and
-  // supplied no hosts at all, so every static-allowlist call will be blocked.
-  const noHostsConfigured = mode === "restrict" && entries.length === 0;
+  // Mirrors the server's `isHostAllowed` pattern overlap so the banner surfaces
+  // whenever the static intersection is empty — per the advanced-admin design
+  // doc. Previous versions missed the wildcard case where an admin exact host
+  // was covered by a manifest `*.domain` wildcard (or vice versa), so this
+  // walks all four combinations.
+  const intersectionEmpty =
+    mode === "restrict" &&
+    (entries.length === 0 ||
+      (manifestHosts.length > 0 &&
+        !entries.some((a) => manifestHosts.some((m) => patternsOverlap(a, m)))));
 
   const save = async () => {
     setSaving(true);
@@ -1130,11 +1134,11 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
             </Button>
           </div>
           {draftError ? <p className="text-xs text-destructive">{draftError}</p> : null}
-          {noHostsConfigured ? (
+          {intersectionEmpty ? (
             <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-500">
               <TriangleAlertIcon className="mt-px size-3.5 shrink-0" />
-              No hosts configured — plugin will make no network calls through the static allowlist.
-              User-supplied server URLs (x-allowed-host) still work.
+              Plugin will make no network calls with this configuration. User-supplied server URLs
+              (x-allowed-host) are unaffected.
             </p>
           ) : null}
         </div>
@@ -1398,4 +1402,31 @@ async function safeJson(res: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+// Mirrors `isHostAllowed` semantics on pairs of patterns so the advanced-admin
+// allowlist UI can detect an empty intersection. Two patterns overlap if any
+// hostname matches both — `*` matches everything, `*.X` matches subdomains of
+// X, and exact hosts only match themselves.
+function patternsOverlap(a: string, b: string): boolean {
+  const lowerA = a.toLowerCase();
+  const lowerB = b.toLowerCase();
+  if (lowerA === "*" || lowerB === "*") return true;
+  if (lowerA === lowerB) return true;
+  const aWild = lowerA.startsWith("*.");
+  const bWild = lowerB.startsWith("*.");
+  if (aWild && !bWild) {
+    const suffix = lowerA.slice(1);
+    return lowerB.endsWith(suffix) && lowerB.length > suffix.length;
+  }
+  if (bWild && !aWild) {
+    const suffix = lowerB.slice(1);
+    return lowerA.endsWith(suffix) && lowerA.length > suffix.length;
+  }
+  if (aWild && bWild) {
+    const aSuffix = lowerA.slice(1);
+    const bSuffix = lowerB.slice(1);
+    return aSuffix.endsWith(bSuffix) || bSuffix.endsWith(aSuffix);
+  }
+  return false;
 }

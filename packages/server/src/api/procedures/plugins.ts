@@ -17,7 +17,6 @@ import { pluginRuntime } from "../../plugin-runtime/runtime";
 import { getBuiltin } from "../../plugin-runtime/loader";
 import { sharedCredentialsService } from "../../plugin-runtime/shared-credentials";
 import {
-  listAdminHeaderNames,
   loadPluginPolicy,
   setAdminAllowlist,
   updateAdminHeaders,
@@ -164,15 +163,6 @@ export const pluginsApp = new Hono()
     try {
       await setAdminAllowlist(pluginId, allowlist);
       return c.json({ ok: true });
-    } catch (err) {
-      throw toHttpError(err);
-    }
-  })
-  .get("/:id/admin-headers", async (c) => {
-    const pluginId = c.req.param("id");
-    try {
-      const names = await listAdminHeaderNames(pluginId);
-      return c.json({ names });
     } catch (err) {
       throw toHttpError(err);
     }

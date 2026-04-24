@@ -125,16 +125,6 @@ export async function setAdminAllowlist(
 }
 
 /**
- * Lists configured admin header names for a plugin (no values). Used by the
- * admin UI to render the configured-headers table without round-tripping
- * decrypted values.
- */
-export async function listAdminHeaderNames(pluginId: string): Promise<string[]> {
-  const { adminHeaders } = await loadPluginPolicy(pluginId);
-  return adminHeaders ? Object.keys(adminHeaders).sort() : [];
-}
-
-/**
  * Merges a partial headers patch into the stored map, applying the
  * `x-secret`-style semantics: omitted keys preserve, `null` deletes, strings
  * replace. Reserved header names are rejected — the shared schema already

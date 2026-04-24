@@ -106,7 +106,6 @@ vi.mock("../../crypto/helpers", () => ({
 // Load after mocks are registered.
 const {
   _resetPluginPolicyCacheForTests,
-  listAdminHeaderNames,
   loadPluginPolicy,
   setAdminAllowlist,
   updateAdminHeaders,
@@ -274,21 +273,6 @@ describe("updateAdminHeaders", () => {
     await updateAdminHeaders(PLUGIN_ID, { "X-Added": "late" });
     const policy = await loadPluginPolicy(PLUGIN_ID);
     expect(policy.adminHeaders).toEqual({ "x-added": "late" });
-  });
-});
-
-describe("listAdminHeaderNames", () => {
-  beforeEach(() => seedRow());
-
-  it("returns sorted, lowercased header names when headers are configured", async () => {
-    await updateAdminHeaders(PLUGIN_ID, { "X-Z": "1", "X-A": "2", "X-M": "3" });
-    const names = await listAdminHeaderNames(PLUGIN_ID);
-    expect(names).toEqual(["x-a", "x-m", "x-z"]);
-  });
-
-  it("returns [] when no headers are set", async () => {
-    const names = await listAdminHeaderNames(PLUGIN_ID);
-    expect(names).toEqual([]);
   });
 });
 
