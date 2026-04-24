@@ -1,0 +1,24 @@
+name = "app"
+main = "packages/server/src/worker.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./packages/client/dist"
+
+# Default environment is used for PR preview deployments. Secrets
+# (SQLITE_PATH, LIBSQL_AUTH_TOKEN, BETTER_AUTH_SECRET, BETTER_AUTH_URL,
+# ENCRYPTION_KEY, APP_EXTERNAL_URL) are injected via `wrangler secret put`
+# in the deploy workflow before each preview deploy.
+
+[env.nightly]
+name = "app-nightly"
+
+[env.nightly.vars]
+ENVIRONMENT = "nightly"
+
+[env.production]
+name = "app-production"
+
+[env.production.vars]
+ENVIRONMENT = "production"
