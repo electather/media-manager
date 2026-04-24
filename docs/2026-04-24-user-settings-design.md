@@ -97,7 +97,7 @@ The existing single-file `settings.tsx` is rewritten as the layout shell. Each t
 
 **Member since.** `format(user.createdAt, 'MMMM yyyy')` → "Member since April 2026". Read-only.
 
-**Role.** Read-only row: role name as a `<Badge>`, description as muted text below. A 404 from `/me/role` (unassigned user) is returned as an explicit empty result and is **not** an error — the row is hidden and no toast fires. "View all roles →" link only if the user has the admin permission (existing permission check).
+**Role.** Read-only row: role name as a `<Badge>`, description as muted text below. `/me/role` always returns HTTP 200 — an unassigned user gets `{ role: null }`. The client renders the row only when `role !== null`; no error surface for the unassigned case, no toast. "View all roles →" link only if the user has the admin permission (existing permission check).
 
 **Verification banner.** Shown at the top of the Profile tab only (not global) when `emailEnabled && !user.emailVerified`. Copy: _"Verify your email address to secure your account."_ Right-aligned "Resend verification email" button, disabled for 60s after click with a countdown (`Resend in 42s`). Click calls `authClient.sendVerificationEmail({ email: user.email })`. Banner disappears when `emailVerified` flips true. Dismissible per-session via `useState` — no persisted dismissal.
 
@@ -205,10 +205,12 @@ type AuthorizedApp = {
 - `GET /api/me/apps`: left-join `oauthConsent` with `oauthClient` on `clientId`, filter by `userId`, aggregate `MAX(oauthAccessToken.createdAt)` as `lastUsedAt`. One query, no N+1.
 - `POST /api/me/apps/:clientId/revoke`: in a transaction —
   1. Delete all `oauthAccessToken` rows where `userId = currentUser AND clientId = :clientId`.
-  2. Delete all `oauthRefreshToken` rows with the same filter.
+  2. Delete all `oauthRefreshToken` rows with the same filter. The table has a `revoked` timestamp column that is intentionally unused in this flow — user-initiated revoke is a cleanup action, not an audit event; hard-delete is simpler and the `oauthClient`/`oauthConsent` audit trail already captures who had access.
   3. Delete the `oauthConsent` row for `(userId, clientId)`.
-  4. If `oauthClient.userId === currentUser.id`, delete the `oauthClient` row as well.
+  4. If `oauthClient.userId === currentUser.id` **and** no other `oauthConsent` rows reference this `clientId` (checked in the same transaction), delete the `oauthClient` row. Otherwise the `oauthClient` row stays intact so other users' consents and tokens are untouched. A dedicated "delete this application entirely" surface (owner-level, affects all users) is deferred — it would belong under `/admin` or a future owner-surface, not a per-user revoke.
   5. Return the new list.
+
+Rationale for the guarded client-delete: a revoke action is framed to the user as "remove *my* authorization". Cascading that into destruction of every other user's access because I happened to be the registrar is a silent-blast-radius bug. Guarding on "no other consents" keeps the cleanup path tidy for the common case (single-user self-hosted deployment where the registrar is also the only consumer) while refusing to go near multi-user state.
 
 ### UI
 
@@ -250,7 +252,7 @@ identity.json            user row (id, name, email, emailVerified, createdAt, up
 role.json                role name + description
 sessions.json            session rows (ip, ua, timestamps)
 oauth-apps.json          authorized apps (no tokens, no secrets)
-connections.json         service connections (id, service, displayName, createdAt — NO credentials)
+connections.json         service connections (id, pluginId, displayName, createdAt — NO credentials)
 primary-connections.json primary_connections rows
 taste/
   preference-profiles.json  one row per (userId, mediaType) from preference_profiles
@@ -261,7 +263,7 @@ README.txt               "what's in this export" explainer with schema version
 
 Table names map to the actual schema in `packages/server/src/db/schema/`: `user`, `session`, `oauth_client`/`oauth_consent`/`oauth_access_token`, `service_connections`, `primary_connections`, `preference_profiles`, `feedback`, `job_runs`. There is no `user_preferences` table — the preference-engine domain is `preference_profiles` + `feedback`.
 
-**Server implementation.** Stream the ZIP with `jszip` in memory — self-hosted, per-user data is small, no temp files needed. All reads run inside a single transaction for a point-in-time-consistent snapshot. Schema-version field in README so future exports can diverge.
+**Server implementation.** Stream the ZIP with `jszip` in memory — self-hosted, per-user data is small, no temp files needed. All reads run inside a single transaction for a point-in-time-consistent snapshot. Schema-version field in README so future exports can diverge. Generate with `zip.generateAsync({ type: "uint8array" })` (or `"arraybuffer"`) — the default `nodebuffer` type returns a Node `Buffer` which does not exist in the Cloudflare Workers runtime.
 
 **Failure modes.**
 
@@ -311,7 +313,7 @@ Client RPC calls derived from the chain: `api.me.role.$get()`, `api.me.apps.$get
 
 | Route                       | Method | Body / Params                       | Returns                                                                                                                         |
 | --------------------------- | ------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/me/role`                  | GET    | —                                   | `{ name, description }` — 404 returned as `null` equivalent so client can render absent role without the standard error surface |
+| `/me/role`                  | GET    | —                                   | `{ role: { name, description } \| null }` — always HTTP 200; `role: null` for unassigned users. No 404 for this path |
 | `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                                                                                               |
 | `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                                                                                                  |
 | `/me/export`                | GET    | —                                   | `application/zip` stream                                                                                                        |
@@ -363,13 +365,13 @@ These must land before or alongside the main implementation PR:
 2. **Composite indexes for MCP app queries.** `oauthAccessToken` and `oauthRefreshToken` have no index on `(userId, clientId)` today. The `/me/apps` aggregation and the revoke transaction both filter on that pair. Add two indexes in a migration bundled with this PR:
    - `oauth_access_token_user_client_idx` on `oauth_access_token(user_id, client_id)`.
    - `oauth_refresh_token_user_client_idx` on `oauth_refresh_token(user_id, client_id)`.
-     `oauthConsent` already has `(userId, clientId)` as a natural lookup key; verify an index exists and add one if not. All three tables have nullable `userId`; the queries filter `WHERE user_id = ?` which naturally excludes nulls.
+     `oauthConsent` has no index on `(user_id, client_id)` today (confirmed against `db/schema/auth.ts` — only the PK on `id` exists). Add `oauth_consent_user_client_idx` on `oauth_consent(user_id, client_id)` in the same migration. All three tables have nullable `userId`; the queries filter `WHERE user_id = ?` which naturally excludes nulls.
 
 3. **`EMAIL_PROVIDER_CONFIGURED` env var** added to `packages/server/src/env.ts` with `z.coerce.boolean().default(false)`. Documented in `docs/2026-04-24-deployment-design.md` in the same PR.
 
-4. **`ua-parser-js`** added to `packages/client/package.json` (catalog entry if the project uses catalog pinning).
+4. **`ua-parser-js`** added. The root `package.json` uses Bun workspaces with a `catalog:` convention (per the shared user memory and `packages/*/package.json` dep entries like `"better-auth": "catalog:"`). Add `ua-parser-js` to the catalog and reference it as `"ua-parser-js": "catalog:"` from `packages/client/package.json`.
 
-5. **`jszip`** added to `packages/server/package.json`. Confirmed compatible with the Cloudflare Workers runtime (no Node-only deps).
+5. **`jszip`** added to the catalog the same way, referenced as `"jszip": "catalog:"` from `packages/server/package.json`. Only the `type: "uint8array"` / `type: "arraybuffer"` output modes are Workers-compatible; the default `nodebuffer` is not.
 
 6. **Better Auth capabilities.** The deployed version is 1.6.5 (`package.json` catalog). Core client methods `authClient.listSessions()`, `authClient.revokeSession()`, `authClient.revokeOtherSessions()`, and `authClient.changeEmail()` are available in 1.x without extra plugins. The `changePassword({ revokeOtherSessions: true })` option and `sendChangeEmailVerification` config knob are also core. No version bump or plugin install needed.
 
@@ -393,7 +395,7 @@ Follows the existing test pattern — server tests in `packages/server/src/__tes
 
 ### Server tests (new)
 
-- `me.role.test.ts` — returns assigned role, 404 when unassigned.
+- `me.role.test.ts` — returns `{ role: { name, description } }` for an assigned user, `{ role: null }` for unassigned; both cases HTTP 200.
 - `me.apps.test.ts` — list shape, last-used aggregation, revoke cascade (tokens + consent deleted; user-owned client deleted; another user's client untouched).
 - `me.export.test.ts` — ZIP structure, schema-version in README, no credential fields leak in any JSON.
 - `me.delete.test.ts` — happy path, wrong password (401), wrong email (400), cascade completeness (assert no orphan rows for the deleted user id across every FK-bearing table — the most important test in this set).
