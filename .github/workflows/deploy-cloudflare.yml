@@ -1,0 +1,228 @@
+name: Deploy (Cloudflare)
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: cloudflare-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Deploys to the target Cloudflare Workers environment. Dispatch matrix:
+  #   - PR opened / synchronized / reopened → preview Worker `app-pr-<number>`
+  #   - push to `main`                       → named env `nightly`
+  #   - release tag `v*`                     → named env `production`
+  deploy:
+    name: Deploy Worker
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.action != 'closed'
+    runs-on: [media-manager, sandboxed]
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          cache: true
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Build client SPA
+        run: vp run build:client
+
+      - name: Resolve deploy target
+        id: target
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "mode=preview" >> "$GITHUB_OUTPUT"
+            echo "worker_name=app-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "wrangler_flags=--name app-pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "mode=production" >> "$GITHUB_OUTPUT"
+            echo "worker_name=app-production" >> "$GITHUB_OUTPUT"
+            echo "wrangler_flags=--env production" >> "$GITHUB_OUTPUT"
+            echo "turso_url_secret=TURSO_URL_PRODUCTION" >> "$GITHUB_OUTPUT"
+            echo "turso_token_secret=TURSO_AUTH_TOKEN_PRODUCTION" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=nightly" >> "$GITHUB_OUTPUT"
+            echo "worker_name=app-nightly" >> "$GITHUB_OUTPUT"
+            echo "wrangler_flags=--env nightly" >> "$GITHUB_OUTPUT"
+            echo "turso_url_secret=TURSO_URL_NIGHTLY" >> "$GITHUB_OUTPUT"
+            echo "turso_token_secret=TURSO_AUTH_TOKEN_NIGHTLY" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Per-PR database branching. The DB `media-manager-pr-<N>` is forked from
+      # `media-manager-nightly` on first deploy so each preview starts from a
+      # realistic schema/data snapshot. Subsequent pushes to the same PR reuse
+      # the existing branch and let Drizzle migrations apply any schema delta
+      # the PR introduces. The branch is torn down in the cleanup job.
+      - name: Install Turso CLI
+        if: steps.target.outputs.mode == 'preview'
+        run: |
+          set -euo pipefail
+          curl -sSfL https://get.tur.so/install.sh | bash
+          echo "$HOME/.turso" >> "$GITHUB_PATH"
+
+      - name: Provision per-PR Turso branch
+        if: steps.target.outputs.mode == 'preview'
+        id: preview_db
+        env:
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          DB_NAME: media-manager-pr-${{ github.event.pull_request.number }}
+          PARENT_DB: media-manager-nightly
+        run: |
+          set -euo pipefail
+          if turso db show "$DB_NAME" --url >/dev/null 2>&1; then
+            echo "Reusing existing branch $DB_NAME"
+          else
+            echo "Forking $DB_NAME from $PARENT_DB"
+            turso db create "$DB_NAME" --from-db "$PARENT_DB"
+          fi
+          url=$(turso db show "$DB_NAME" --url)
+          token=$(turso db tokens create "$DB_NAME")
+          echo "::add-mask::$token"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Run database migrations
+        env:
+          # Preview mode uses the per-PR Turso branch provisioned above;
+          # nightly/production fall back to their static GitHub secrets.
+          SQLITE_PATH: ${{ steps.preview_db.outputs.url || secrets[steps.target.outputs.turso_url_secret] }}
+          LIBSQL_AUTH_TOKEN: ${{ steps.preview_db.outputs.token || secrets[steps.target.outputs.turso_token_secret] }}
+          # Satisfy env schema during the one-off migrate run; migrate.ts only
+          # uses SQLITE_PATH / LIBSQL_AUTH_TOKEN but the schema requires these.
+          BETTER_AUTH_SECRET: migration-noop
+          BETTER_AUTH_URL: http://localhost
+          ENCRYPTION_KEY: migration-noop
+          APP_EXTERNAL_URL: http://localhost
+        run: vp run db:migrate
+
+      # Preview Workers use the default (unnamed) wrangler environment with a
+      # unique `--name`. Their secrets must be injected each deploy because the
+      # Worker identity is per-PR. Named environments (nightly, production)
+      # have their secrets set once out-of-band via `wrangler secret put --env`
+      # and are not re-uploaded on every deploy.
+      - name: Inject preview Worker secrets
+        if: steps.target.outputs.mode == 'preview'
+        env:
+          WORKER_NAME: ${{ steps.target.outputs.worker_name }}
+          WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+          SQLITE_PATH_VALUE: ${{ steps.preview_db.outputs.url }}
+          LIBSQL_AUTH_TOKEN_VALUE: ${{ steps.preview_db.outputs.token }}
+          BETTER_AUTH_SECRET_VALUE: ${{ secrets.PREVIEW_BETTER_AUTH_SECRET }}
+          ENCRYPTION_KEY_VALUE: ${{ secrets.PREVIEW_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          # URLs are derived from the PR-specific Worker name so the OAuth
+          # redirect and external URL match the preview's actual origin.
+          preview_url="https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
+          # One `secret bulk` call uploads all six values in a single
+          # deployment — six sequential `secret put` calls would trigger
+          # six Worker redeploys before the real `wrangler deploy`. JSON is
+          # built with `jq -n --arg` so values with quotes, backslashes, or
+          # newlines are escaped correctly.
+          jq -n \
+            --arg sqlite_path "$SQLITE_PATH_VALUE" \
+            --arg libsql_auth_token "$LIBSQL_AUTH_TOKEN_VALUE" \
+            --arg better_auth_secret "$BETTER_AUTH_SECRET_VALUE" \
+            --arg better_auth_url "$preview_url" \
+            --arg encryption_key "$ENCRYPTION_KEY_VALUE" \
+            --arg app_external_url "$preview_url" \
+            '{
+              SQLITE_PATH: $sqlite_path,
+              LIBSQL_AUTH_TOKEN: $libsql_auth_token,
+              BETTER_AUTH_SECRET: $better_auth_secret,
+              BETTER_AUTH_URL: $better_auth_url,
+              ENCRYPTION_KEY: $encryption_key,
+              APP_EXTERNAL_URL: $app_external_url,
+            }' \
+            | vp exec wrangler secret bulk --name "$WORKER_NAME"
+
+      - name: Deploy Worker
+        run: vp exec wrangler deploy ${{ steps.target.outputs.wrangler_flags }}
+
+      - name: Comment preview URL on PR
+        if: steps.target.outputs.mode == 'preview'
+        uses: actions/github-script@v7
+        env:
+          WORKER_NAME: ${{ steps.target.outputs.worker_name }}
+          WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+        with:
+          script: |
+            const { WORKER_NAME, WORKERS_SUBDOMAIN } = process.env;
+            const url = `https://${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev`;
+            const marker = '<!-- cloudflare-preview-url -->';
+            const body = `${marker}\nCloudflare preview: ${url}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number, body,
+              });
+            }
+
+  # On PR close: tear down both the preview Worker and the per-PR Turso
+  # branch. `--name` is mandatory on `wrangler delete` — without it wrangler
+  # would use `name = "app"` from wrangler.toml and remove the wrong Worker.
+  cleanup-preview:
+    name: Delete preview Worker & DB branch
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: [media-manager, sandboxed]
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          cache: true
+
+      - name: Install Turso CLI
+        run: |
+          set -euo pipefail
+          curl -sSfL https://get.tur.so/install.sh | bash
+          echo "$HOME/.turso" >> "$GITHUB_PATH"
+
+      # `vp dlx` pulls wrangler on demand so cleanup skips the full workspace
+      # install that every deploy job needs — this runs on every PR close,
+      # so the saved install time adds up.
+      - name: Delete preview Worker
+        run: |
+          vp dlx wrangler delete \
+            --name app-pr-${{ github.event.pull_request.number }} \
+            || echo "Preview Worker already removed"
+
+      - name: Destroy per-PR Turso branch
+        env:
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          DB_NAME: media-manager-pr-${{ github.event.pull_request.number }}
+        run: |
+          turso db destroy "$DB_NAME" --yes \
+            || echo "DB branch $DB_NAME already removed"

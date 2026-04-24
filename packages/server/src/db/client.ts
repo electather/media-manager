@@ -14,9 +14,14 @@ export function getDb(): Db {
   if (instance) return instance;
 
   const url = env.SQLITE_PATH ?? "file:./data/ent-mcp.db";
-  // Ensure the parent directory exists before libSQL tries to open the file.
-  mkdirSync(dirname(url.replace(/^file:/, "")), { recursive: true });
-  instance = drizzle(createClient({ url }), { schema });
+  // Only create the parent directory when the URL points at a local SQLite
+  // file. Hosted libSQL (Turso) URLs use http/https/libsql/ws schemes and
+  // have no local path.
+  const isRemote = /^(libsql|wss?|https?):/.test(url);
+  if (!isRemote) {
+    mkdirSync(dirname(url.replace(/^file:/, "")), { recursive: true });
+  }
+  instance = drizzle(createClient({ url, authToken: env.LIBSQL_AUTH_TOKEN }), { schema });
 
   return instance;
 }

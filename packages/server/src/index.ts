@@ -12,6 +12,7 @@ import {
 } from "./mcp/server";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
+import { runMigrations } from "./db/migrate";
 import { scheduler } from "./jobs/scheduler";
 import { markOrphanedRunsFailed } from "./jobs/history";
 import { registerBuiltinPlugins } from "./plugins/builtin";
@@ -22,6 +23,11 @@ import { errorHandler } from "./errors/middleware";
 
 async function bootstrap(): Promise<void> {
   getDb();
+  // Run pending migrations before accepting traffic. Self-hosters deploying
+  // via `docker compose pull && docker compose up -d` get the schema applied
+  // automatically; the Cloudflare workflow runs migrations as a pre-deploy
+  // step instead and uses a separate Workers entry point.
+  await runMigrations();
   registerErrorSink(new DatabaseSink());
   const orphaned = await markOrphanedRunsFailed();
   if (orphaned > 0) consola.warn(`[jobs] marked ${orphaned} orphaned run(s) as failed on startup`);

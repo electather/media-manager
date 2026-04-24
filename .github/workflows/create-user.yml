@@ -1,0 +1,103 @@
+# TEMPORARY: Manual user provisioning workflow.
+#
+# This exists solely to bootstrap the first admin (or seed ad-hoc users)
+# against a deployed Turso database until a proper onboarding / invite
+# flow lands. Both this file and `packages/server/src/db/create-user.ts`
+# should be deleted once onboarding ships.
+#
+# Usage: GitHub Actions → "Create user (temporary)" → Run workflow.
+# The `password` input is masked in logs via `::add-mask::` but is still
+# visible to anyone who can trigger workflows on this repo (it appears
+# in the dispatch form). Only share that access with trusted maintainers.
+
+name: Create user (temporary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target deployment environment
+        type: choice
+        required: true
+        options:
+          - nightly
+          - production
+      email:
+        description: User email
+        type: string
+        required: true
+      password:
+        description: User password (min 8 chars)
+        type: string
+        required: true
+      role:
+        description: Role to assign
+        type: choice
+        required: true
+        default: role_admin
+        options:
+          - role_admin
+          - role_member
+          - role_viewer
+      name:
+        description: Display name (optional; defaults to local part of email)
+        type: string
+        required: false
+
+concurrency:
+  group: create-user-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  create-user:
+    name: Create user
+    runs-on: [media-manager, sandboxed]
+    steps:
+      # Mask the password in logs before any other step runs. GitHub does
+      # not auto-mask `workflow_dispatch` inputs, so without this a stray
+      # `echo`/`set -x` downstream would print the plaintext password.
+      - name: Mask password in logs
+        run: echo "::add-mask::${{ inputs.password }}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          cache: true
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Resolve Turso secrets
+        id: target
+        run: |
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "turso_url_secret=TURSO_URL_PRODUCTION" >> "$GITHUB_OUTPUT"
+            echo "turso_token_secret=TURSO_AUTH_TOKEN_PRODUCTION" >> "$GITHUB_OUTPUT"
+          else
+            echo "turso_url_secret=TURSO_URL_NIGHTLY" >> "$GITHUB_OUTPUT"
+            echo "turso_token_secret=TURSO_AUTH_TOKEN_NIGHTLY" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create user
+        env:
+          SQLITE_PATH: ${{ secrets[steps.target.outputs.turso_url_secret] }}
+          LIBSQL_AUTH_TOKEN: ${{ secrets[steps.target.outputs.turso_token_secret] }}
+          # Better Auth's signUpEmail hashes the password with scrypt
+          # (self-contained hash, salt included) so these values don't
+          # need to match the deployed Worker's secrets — the password
+          # hash we write will still validate at login.
+          BETTER_AUTH_SECRET: create-user-noop
+          BETTER_AUTH_URL: http://localhost
+          ENCRYPTION_KEY: create-user-noop
+          APP_EXTERNAL_URL: http://localhost
+          CREATE_USER_EMAIL: ${{ inputs.email }}
+          CREATE_USER_PASSWORD: ${{ inputs.password }}
+          CREATE_USER_ROLE_ID: ${{ inputs.role }}
+          CREATE_USER_NAME: ${{ inputs.name }}
+        run: bun packages/server/src/db/create-user.ts
