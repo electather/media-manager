@@ -90,7 +90,7 @@ The existing single-file `settings.tsx` is rewritten as the layout shell. Each t
 
 **Member since.** `format(user.createdAt, 'MMMM yyyy')` → "Member since April 2026". Read-only.
 
-**Role.** Read-only row: role name as a `<Badge>`, description as muted text below. "View all roles →" link only if the user has the admin permission (existing permission check).
+**Role.** Read-only row: role name as a `<Badge>`, description as muted text below. A 404 from `/me/role` (unassigned user) is returned as an explicit empty result and is **not** an error — the row is hidden and no toast fires. "View all roles →" link only if the user has the admin permission (existing permission check).
 
 **Verification banner.** Shown at the top of the Profile tab only (not global) when `emailEnabled && !user.emailVerified`. Copy: *"Verify your email address to secure your account."* Right-aligned "Resend verification email" button, disabled for 60s after click with a countdown (`Resend in 42s`). Click calls `authClient.sendVerificationEmail({ email: user.email })`. Banner disappears when `emailVerified` flips true. Dismissible per-session via `useState` — no persisted dismissal.
 
@@ -208,25 +208,26 @@ type AuthorizedApp = {
 **Response.** `Content-Type: application/zip`, `Content-Disposition: attachment; filename="ent-mcp-export-${userId}-${yyyymmdd}.zip"`. ZIP contents:
 
 ```
-identity.json      user row (id, name, email, emailVerified, createdAt, updatedAt)
-role.json          role name + description
-sessions.json      session rows (ip, ua, timestamps)
-oauth-apps.json    authorized apps (no tokens, no secrets)
-connections.json   service connections (id, service, displayName, createdAt — NO credentials)
-primary-connections.json
+identity.json            user row (id, name, email, emailVerified, createdAt, updatedAt)
+role.json                role name + description
+sessions.json            session rows (ip, ua, timestamps)
+oauth-apps.json          authorized apps (no tokens, no secrets)
+connections.json         service connections (id, service, displayName, createdAt — NO credentials)
+primary-connections.json primary_connections rows
 taste/
-  preference-profile.json
-  feedback.json    likes, dislikes, ratings, notes
-  preferences.json user-preference rows
-jobs.json          job run history attributable to the user
-README.txt         "what's in this export" explainer with schema version
+  preference-profiles.json  one row per (userId, mediaType) from preference_profiles
+  feedback.json             likes, dislikes, ratings, notes from feedback
+jobs.json                job_runs rows where triggeredByUserId = user (history; set-null on delete)
+README.txt               "what's in this export" explainer with schema version
 ```
+
+Table names map to the actual schema in `packages/server/src/db/schema/`: `user`, `session`, `oauth_client`/`oauth_consent`/`oauth_access_token`, `service_connections`, `primary_connections`, `preference_profiles`, `feedback`, `job_runs`. There is no `user_preferences` table — the preference-engine domain is `preference_profiles` + `feedback`.
 
 **Server implementation.** Stream the ZIP with `jszip` in memory — self-hosted, per-user data is small, no temp files needed. All reads run inside a single transaction for a point-in-time-consistent snapshot. Schema-version field in README so future exports can diverge.
 
 **Failure modes.**
 - Auth missing: 401, existing middleware redirects to login.
-- Transaction error: HTTP 500. The anchor click fails silently; a `window` error listener scoped to the export click shows a toast "Export failed — try again".
+- Transaction error: HTTP 500. Anchor-navigation errors don't bubble through `window.error`, so a silent failure is accepted for v1 — the user sees the browser's default "download failed" UI and can retry. If this becomes a real pain point, the v2 path is an async job with a token-protected download link. Not worth building now.
 - Very large user (hypothetical): not optimized for v1. Revisit with async/streaming if it becomes real.
 
 ### Delete account
@@ -241,14 +242,12 @@ README.txt         "what's in this export" explainer with schema version
 **Submit.** `POST /api/me/delete` with `{ confirmEmail, currentPassword }`. Server:
 1. Verify password via Better Auth's password helper; fail → 401 "Incorrect password".
 2. Verify `confirmEmail === user.email`; fail → 400.
-3. Transaction:
-   - Revoke all `oauthAccessToken` / `oauthRefreshToken` / `oauthConsent` for the user.
-   - Delete `oauthClient` rows where `userId = currentUser`.
-   - Delete all `session` rows (forces immediate sign-out everywhere after response).
-   - Call Better Auth's `deleteUser` on the `user` row. FK cascades handle: `account`, `userRoles`, `primaryConnections`, `serviceConnections` + encrypted credentials, `userPreferences`, taste-engine rows, feedback, jobs.
+3. Call Better Auth's `deleteUser` on the `user.id`. A single `DELETE` on `user` — FK cascades handle the rest: `session`, `account`, `oauthClient` (user-owned only; other users' clients untouched), `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `userRoles`, `primaryConnections`, `serviceConnections` (+ encrypted credentials), `preferenceProfiles`, `feedback`. `jobRuns.triggeredByUserId` is `SET NULL` by design — history survives the user, anonymized.
 4. Return 200 with `{ ok: true }`.
 
-**Client.** On 200: close dialog, `authClient.signOut()` to clear in-memory session state, then `navigate('/auth/login', { replace: true })` with a one-shot toast *"Your account has been deleted."* On 401 (wrong password): inline error under the password field, dialog stays open, inputs retained. Any other error: toast, dialog stays open.
+No manual deletion before `deleteUser` — the cascade graph is the source of truth. The FK cascade audit in Prerequisites is what makes this single-call delete safe.
+
+**Client.** On 200: close dialog; the response itself has already invalidated the session cookie (session row is gone server-side, subsequent requests 401), so the client calls `navigate('/auth/login', { replace: true })` with a one-shot toast *"Your account has been deleted."* A follow-up `authClient.signOut()` is not strictly necessary — the session is dead — but a defensive client-side call to clear any in-memory cache is harmless and keeps the code symmetric with the regular sign-out flow. On 401 (wrong password): inline error under the password field, dialog stays open, inputs retained. Any other error: toast, dialog stays open.
 
 ## Server work
 
@@ -256,9 +255,22 @@ README.txt         "what's in this export" explainer with schema version
 
 File: `packages/server/src/api/procedures/me.ts`. All routes auth-required via the existing auth middleware used by `activityApp`, `connectionsApp`, etc. Mounted in `router.ts`: `.route("/me", meApp)`.
 
+Handler paths are written relative to the mount point (standard Hono). Each handler is registered with a root-relative path so the Hono RPC client chain follows naturally:
+
+```ts
+export const meApp = new Hono()
+  .get("/role", ...)
+  .get("/apps", ...)
+  .post("/apps/:clientId/revoke", ...)
+  .get("/export", ...)
+  .post("/delete", zValidator("json", DeleteAccountBody), ...);
+```
+
+Client RPC calls derived from the chain: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"].revoke.$post({ param: { clientId } })`, `api.me.delete.$post({ json: { ... } })`. The export endpoint is called via anchor navigation, not via the RPC client, so its chain shape doesn't matter for typing.
+
 | Route | Method | Body / Params | Returns |
 |---|---|---|---|
-| `/me/role` | GET | — | `{ name, description }` or 404 if unassigned |
+| `/me/role` | GET | — | `{ name, description }` — 404 returned as `null` equivalent so client can render absent role without the standard error surface |
 | `/me/apps` | GET | — | `AuthorizedApp[]` |
 | `/me/apps/:clientId/revoke` | POST | — | `{ ok: true }` |
 | `/me/export` | GET | — | `application/zip` stream |
@@ -266,13 +278,20 @@ File: `packages/server/src/api/procedures/me.ts`. All routes auth-required via t
 
 ### New Hono sub-app: `configPublicApp`
 
-File: `packages/server/src/api/procedures/config.ts`. No auth. Mounted at `.route("/config/public", configPublicApp)`.
+File: `packages/server/src/api/procedures/config.ts`. No auth. Mounted at `.route("/config/public", configPublicApp)` with the handler registered at the root path:
 
-| Route | Method | Returns |
-|---|---|---|
-| `/config/public` | GET | `{ emailEnabled: boolean }` |
+```ts
+export const configPublicApp = new Hono()
+  .get("/", (c) => c.json({ emailEnabled: env.EMAIL_PROVIDER_CONFIGURED }));
+```
 
-`emailEnabled` is derived in `env.ts` so both the Better Auth wiring and this endpoint read the same source. Truth-source: presence of a configured email provider in the deployment env (single flag `EMAIL_PROVIDER_CONFIGURED`, or equivalent presence-check of SMTP-style env vars — matches the convention already established in the existing deployment design).
+Client call: `api.config.public.$get()`.
+
+`emailEnabled` is derived in `env.ts` so both the Better Auth wiring and this endpoint read the same source. This spec introduces a new env var:
+
+- `EMAIL_PROVIDER_CONFIGURED: boolean` — defaults to `false`. When `true`, Better Auth's `sendVerificationEmail` / `sendChangeEmailVerification` / `sendResetPassword` hooks are wired to the deployment's configured transactional-email sender; when `false`, those hooks are no-ops and the settings UI falls back to the degraded paths described in the Profile tab.
+
+The env var is added to `packages/server/src/env.ts` alongside the existing entries, validated as `z.coerce.boolean().default(false)`. Self-hosted deployments that don't configure email leave it at the default. The deployment design doc should be updated in the same PR to list the new env var.
 
 ### Better Auth configuration
 
@@ -296,13 +315,20 @@ Export via the existing `@ent-mcp/shared/users` subpath.
 
 These must land before or alongside the main implementation PR:
 
-1. **FK cascade audit.** Verify every table with a `userId` column declares `onDelete: "cascade"`. A one-off script can enumerate all such tables. From the current schema scan: `session`, `account`, `userRoles`, `oauthClient`, `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `primaryConnections` already cascade. Tables to verify: `serviceConnections` (and its encrypted-credential rows), `userPreferences`, every preference-engine table, feedback tables, job-runs table. Any that don't get a migration bundled into this work.
+1. **FK cascade audit.** Verify every table with a `user.id` reference declares `onDelete: "cascade"` (or `set null` where history survival is intentional). From the current schema scan, these already cascade on `user` delete: `session`, `account`, `userRoles`, `oauthClient`, `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `primaryConnections`, `serviceConnections`, `feedback`, `preferenceProfiles`. `jobRuns.triggeredByUserId` is `SET NULL` (intentional — job history survives the user, anonymized). The audit is a safety net: if a new table landed between this design and its implementation and the author forgot the cascade clause, catch it here. Any table that needs a cascade fix gets its migration bundled into this PR.
 
-2. **`ua-parser-js`** added to `packages/client/package.json`.
+2. **Composite indexes for MCP app queries.** `oauthAccessToken` and `oauthRefreshToken` have no index on `(userId, clientId)` today. The `/me/apps` aggregation and the revoke transaction both filter on that pair. Add two indexes in a migration bundled with this PR:
+   - `oauth_access_token_user_client_idx` on `oauth_access_token(user_id, client_id)`.
+   - `oauth_refresh_token_user_client_idx` on `oauth_refresh_token(user_id, client_id)`.
+   `oauthConsent` already has `(userId, clientId)` as a natural lookup key; verify an index exists and add one if not. All three tables have nullable `userId`; the queries filter `WHERE user_id = ?` which naturally excludes nulls.
 
-3. **`jszip`** added to `packages/server/package.json`. Confirmed compatible with the Cloudflare Workers runtime (no Node-only deps).
+3. **`EMAIL_PROVIDER_CONFIGURED` env var** added to `packages/server/src/env.ts` with `z.coerce.boolean().default(false)`. Documented in `docs/2026-04-24-deployment-design.md` in the same PR.
 
-4. **Better Auth version check.** Confirm current version supports `changeEmail` with old-email verification and `revokeOtherSessions` on `changePassword`. Both documented on Better Auth ≥ 1.2.
+4. **`ua-parser-js`** added to `packages/client/package.json` (catalog entry if the project uses catalog pinning).
+
+5. **`jszip`** added to `packages/server/package.json`. Confirmed compatible with the Cloudflare Workers runtime (no Node-only deps).
+
+6. **Better Auth capabilities.** The deployed version is 1.6.5 (`package.json` catalog). Core client methods `authClient.listSessions()`, `authClient.revokeSession()`, `authClient.revokeOtherSessions()`, and `authClient.changeEmail()` are available in 1.x without extra plugins. The `changePassword({ revokeOtherSessions: true })` option and `sendChangeEmailVerification` config knob are also core. No version bump or plugin install needed.
 
 ## Error handling
 
