@@ -170,8 +170,12 @@ export const pluginsApp = new Hono()
   })
   .get("/:id/admin-headers", async (c) => {
     const pluginId = c.req.param("id");
-    const names = await listAdminHeaderNames(pluginId);
-    return c.json({ names });
+    try {
+      const names = await listAdminHeaderNames(pluginId);
+      return c.json({ names });
+    } catch (err) {
+      throw toHttpError(err);
+    }
   })
   .put("/:id/admin-headers", zValidator("json", adminHeadersSchema), async (c) => {
     const pluginId = c.req.param("id");

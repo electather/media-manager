@@ -147,11 +147,11 @@ describe("loadPluginPolicy", () => {
     expect(policy.adminAllowlist).toBeNull();
   });
 
-  it("decrypts stored admin headers", async () => {
+  it("decrypts stored admin headers and normalises names to lowercase", async () => {
     const stored = JSON.stringify({ "X-Corp-Key": "abc" });
     seedRow({ adminHeadersIv: "iv-fixture", adminHeadersEncrypted: stored });
     const policy = await loadPluginPolicy(PLUGIN_ID);
-    expect(policy.adminHeaders).toEqual({ "X-Corp-Key": "abc" });
+    expect(policy.adminHeaders).toEqual({ "x-corp-key": "abc" });
   });
 
   it("caches: second call does not re-read the row", async () => {
@@ -199,13 +199,13 @@ describe("setAdminAllowlist", () => {
 describe("updateAdminHeaders", () => {
   beforeEach(() => seedRow());
 
-  it("adds new headers and persists encrypted blob", async () => {
+  it("adds new headers and persists encrypted blob with lowercased names", async () => {
     await updateAdminHeaders(PLUGIN_ID, { "X-Corp-Key": "abc", "X-Env": "prod" });
     const row = rows.get(PLUGIN_ID)!;
     expect(row.adminHeadersIv).toBe("iv-fixture");
     expect(JSON.parse(row.adminHeadersEncrypted!)).toEqual({
-      "X-Corp-Key": "abc",
-      "X-Env": "prod",
+      "x-corp-key": "abc",
+      "x-env": "prod",
     });
   });
 
@@ -213,7 +213,22 @@ describe("updateAdminHeaders", () => {
     await updateAdminHeaders(PLUGIN_ID, { "X-A": "1", "X-B": "2" });
     await updateAdminHeaders(PLUGIN_ID, { "X-A": null });
     const row = rows.get(PLUGIN_ID)!;
-    expect(JSON.parse(row.adminHeadersEncrypted!)).toEqual({ "X-B": "2" });
+    expect(JSON.parse(row.adminHeadersEncrypted!)).toEqual({ "x-b": "2" });
+  });
+
+  it("delete is case-insensitive — patch casing may differ from the casing used to add", async () => {
+    await updateAdminHeaders(PLUGIN_ID, { Authorization: "Bearer abc" });
+    await updateAdminHeaders(PLUGIN_ID, { authorization: null });
+    const row = rows.get(PLUGIN_ID)!;
+    expect(row.adminHeadersEncrypted).toBeNull();
+    expect(row.adminHeadersIv).toBeNull();
+  });
+
+  it("update is case-insensitive — a differently-cased patch replaces the existing value", async () => {
+    await updateAdminHeaders(PLUGIN_ID, { Authorization: "old" });
+    await updateAdminHeaders(PLUGIN_ID, { AUTHORIZATION: "new" });
+    const row = rows.get(PLUGIN_ID)!;
+    expect(JSON.parse(row.adminHeadersEncrypted!)).toEqual({ authorization: "new" });
   });
 
   it("deleting the last header clears the encrypted columns", async () => {
@@ -222,6 +237,27 @@ describe("updateAdminHeaders", () => {
     const row = rows.get(PLUGIN_ID)!;
     expect(row.adminHeadersIv).toBeNull();
     expect(row.adminHeadersEncrypted).toBeNull();
+  });
+
+  it("rejects a merge that would push the stored total past the ceiling", async () => {
+    const firstBatch: Record<string, string> = {};
+    for (let i = 0; i < 30; i += 1) firstBatch[`x-a-${i}`] = "v";
+    await updateAdminHeaders(PLUGIN_ID, firstBatch);
+
+    const secondBatch: Record<string, string> = {};
+    for (let i = 0; i < 5; i += 1) secondBatch[`x-b-${i}`] = "v";
+    await expect(updateAdminHeaders(PLUGIN_ID, secondBatch)).rejects.toMatchObject({
+      code: "plugin.input_invalid",
+    });
+  });
+
+  it("throws plugin.not_found when the row has been deleted between load and write", async () => {
+    // Prime the cache, then drop the row so the UPDATE matches nothing.
+    await loadPluginPolicy(PLUGIN_ID);
+    rows.delete(PLUGIN_ID);
+    await expect(updateAdminHeaders(PLUGIN_ID, { "X-A": "1" })).rejects.toMatchObject({
+      code: "plugin.not_found",
+    });
   });
 
   it("rejects reserved header names (case-insensitive)", async () => {
@@ -237,17 +273,17 @@ describe("updateAdminHeaders", () => {
     await loadPluginPolicy(PLUGIN_ID);
     await updateAdminHeaders(PLUGIN_ID, { "X-Added": "late" });
     const policy = await loadPluginPolicy(PLUGIN_ID);
-    expect(policy.adminHeaders).toEqual({ "X-Added": "late" });
+    expect(policy.adminHeaders).toEqual({ "x-added": "late" });
   });
 });
 
 describe("listAdminHeaderNames", () => {
   beforeEach(() => seedRow());
 
-  it("returns sorted header names when headers are configured", async () => {
+  it("returns sorted, lowercased header names when headers are configured", async () => {
     await updateAdminHeaders(PLUGIN_ID, { "X-Z": "1", "X-A": "2", "X-M": "3" });
     const names = await listAdminHeaderNames(PLUGIN_ID);
-    expect(names).toEqual(["X-A", "X-M", "X-Z"]);
+    expect(names).toEqual(["x-a", "x-m", "x-z"]);
   });
 
   it("returns [] when no headers are set", async () => {

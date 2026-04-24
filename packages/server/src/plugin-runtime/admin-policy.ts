@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { PLUGIN_RESERVED_HEADER_NAMES } from "@ent-mcp/shared/plugins";
+import { PLUGIN_ADMIN_HEADERS_MAX, PLUGIN_RESERVED_HEADER_NAMES } from "@ent-mcp/shared/plugins";
 import { getDb } from "../db/client";
 import { plugins } from "../db/schema/plugins";
 import { decryptJson, encryptJson } from "../crypto/helpers";
@@ -30,6 +30,11 @@ interface CacheEntry {
   headers?: Record<string, string>;
 }
 
+// Module-level cache. Not shared across cluster workers — a PUT on worker A
+// invalidates A's cache only, so workers B/C serve stale decrypted headers
+// until their own cache misses. Acceptable for single-process deployments and
+// matches the `globalConfig` pattern. TODO: revisit when multi-worker mode
+// lands.
 const cache = new Map<string, CacheEntry>();
 
 function parseAllowlist(raw: string | null): string[] | null {
@@ -82,7 +87,11 @@ export async function loadPluginPolicy(pluginId: string): Promise<PluginAdminPol
     if (decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
       headers = {};
       for (const [name, value] of Object.entries(decoded as Record<string, unknown>)) {
-        if (typeof value === "string") headers[name] = value;
+        // Header names are stored and compared in lowercase so later edits and
+        // deletes match regardless of the casing the admin supplied. Legacy
+        // rows that predate this normalisation get canonicalised on read and
+        // rewritten on the next update.
+        if (typeof value === "string") headers[name.toLowerCase()] = value;
       }
       if (Object.keys(headers).length === 0) headers = undefined;
     }
@@ -137,7 +146,12 @@ export async function updateAdminHeaders(
   patch: Record<string, string | null>,
 ): Promise<void> {
   const { adminHeaders: existing } = await loadPluginPolicy(pluginId);
-  const next: Record<string, string> = { ...existing };
+  // Rebuild `next` with lowercased keys so case-insensitive delete and update
+  // work regardless of the casing the existing entry was first stored under.
+  const next: Record<string, string> = {};
+  for (const [name, value] of Object.entries(existing ?? {})) {
+    next[name.toLowerCase()] = value;
+  }
 
   for (const [name, value] of Object.entries(patch)) {
     const lower = name.toLowerCase();
@@ -145,32 +159,48 @@ export async function updateAdminHeaders(
       throw new PluginError("plugin.input_invalid", `header ${name} is reserved by the runtime`);
     }
     if (value === null) {
-      delete next[name];
+      delete next[lower];
     } else {
-      next[name] = value;
+      next[lower] = value;
     }
   }
 
+  // The shared schema already bounds the patch size; re-check the stored total
+  // so an admin can't bypass the ceiling by sending a sequence of small
+  // additive patches.
+  if (Object.keys(next).length > PLUGIN_ADMIN_HEADERS_MAX) {
+    throw new PluginError(
+      "plugin.input_invalid",
+      `plugin ${pluginId} would exceed the maximum of ${PLUGIN_ADMIN_HEADERS_MAX} headers`,
+    );
+  }
+
   const db = getDb();
-  if (Object.keys(next).length === 0) {
-    await db
-      .update(plugins)
-      .set({
-        adminHeadersEncrypted: null,
-        adminHeadersIv: null,
-        updatedAt: Date.now(),
-      })
-      .where(eq(plugins.id, pluginId));
-  } else {
-    const { iv, data } = await encryptJson(next);
-    await db
-      .update(plugins)
-      .set({
-        adminHeadersEncrypted: data,
-        adminHeadersIv: iv,
-        updatedAt: Date.now(),
-      })
-      .where(eq(plugins.id, pluginId));
+  const result =
+    Object.keys(next).length === 0
+      ? await db
+          .update(plugins)
+          .set({
+            adminHeadersEncrypted: null,
+            adminHeadersIv: null,
+            updatedAt: Date.now(),
+          })
+          .where(eq(plugins.id, pluginId))
+          .returning({ id: plugins.id })
+      : await (async () => {
+          const { iv, data } = await encryptJson(next);
+          return db
+            .update(plugins)
+            .set({
+              adminHeadersEncrypted: data,
+              adminHeadersIv: iv,
+              updatedAt: Date.now(),
+            })
+            .where(eq(plugins.id, pluginId))
+            .returning({ id: plugins.id });
+        })();
+  if (result.length === 0) {
+    throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
   }
   invalidatePluginPolicy(pluginId);
 }
