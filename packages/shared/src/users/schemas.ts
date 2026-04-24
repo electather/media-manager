@@ -21,3 +21,14 @@ export const assignRoleSchema = z.object({
   roleId: z.string().min(1),
 });
 export type AssignRoleBody = z.infer<typeof assignRoleSchema>;
+
+/**
+ * Body for `POST /api/me/delete`. Both fields are required confirmation gates;
+ * the server re-verifies `confirmEmail` matches the session user and that
+ * `currentPassword` is valid before performing the destructive action.
+ */
+export const deleteAccountSchema = z.object({
+  confirmEmail: z.string().min(1),
+  currentPassword: z.string().min(1),
+});
+export type DeleteAccountBody = z.infer<typeof deleteAccountSchema>;
