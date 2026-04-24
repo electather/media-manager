@@ -6,5 +6,8 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.oxc": "explicit"
   },
-  "cSpell.words": ["imdb", "SEERR", "tmdb", "Triggerable", "tvdb"]
+  "cSpell.words": ["imdb", "SEERR", "tmdb", "Triggerable", "tvdb"],
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  }
 }

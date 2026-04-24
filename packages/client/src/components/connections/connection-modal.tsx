@@ -574,10 +574,17 @@ function DeviceCodePanel({
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-muted/40 px-4 py-5">
       <div className="flex flex-col items-center gap-3">
         <span className="text-xs tracking-wide text-muted-foreground uppercase">Your code</span>
-        <div className="flex items-center gap-3">
+        <div className="@container flex w-full items-center justify-center gap-3">
           <span
-            className="font-mono text-3xl tracking-[0.25em] tabular-nums"
+            className="cursor-pointer font-mono text-[clamp(1rem,7cqi,1.875rem)] tracking-[0.25em] tabular-nums wrap-anywhere select-all"
             aria-label={`Device code: ${device.userCode}`}
+            onClick={(e) => {
+              const range = document.createRange();
+              range.selectNodeContents(e.currentTarget);
+              const selection = window.getSelection();
+              selection?.removeAllRanges();
+              selection?.addRange(range);
+            }}
           >
             {device.userCode}
           </span>
