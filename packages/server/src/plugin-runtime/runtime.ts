@@ -20,7 +20,7 @@ import type {
   PoolSignalingApi,
 } from "./types";
 import { captureError } from "../errors/capture";
-import { pluginCode } from "../errors/codes";
+import { pluginCode, type HostErrorCode } from "../errors/codes";
 import { sharedCredentialsService } from "./shared-credentials";
 import { listReadyUserConnections, markUserConnectionExhausted } from "./user-pool";
 
@@ -483,15 +483,20 @@ export class PluginRuntime {
         userId,
         context: { fnName },
       });
-      // Preserve any `params` carried by a PluginError so routing hints (e.g.
-      // `params.field` for form-input highlighting) survive the auth-result
-      // boundary. Non-PluginError throws surface without params.
-      const params = isPluginError(err) ? err.params : undefined;
+      // Preserve both the original code and any `params` carried by a
+      // PluginError so downstream callers (including the frontend) can
+      // distinguish e.g. `plugin.bad_credentials` from `plugin.input_invalid`
+      // without grubbing through params.field. Non-PluginError throws surface
+      // as the generic `plugin.upstream_error` with no params. The cast is
+      // safe because `PluginError` is constructed with a `HostErrorCode` —
+      // `PluginErrorShape.code: string` is intentionally looser only so the
+      // duck-type guard works for plugins loaded from a separate bundle.
+      const pluginErr = isPluginError(err) ? err : null;
       return {
         status: "error",
-        code: "plugin.upstream_error",
+        code: (pluginErr?.code as HostErrorCode | undefined) ?? "plugin.upstream_error",
         devMessage: message,
-        ...(params ? { params } : {}),
+        ...(pluginErr?.params ? { params: pluginErr.params } : {}),
       };
     }
   }

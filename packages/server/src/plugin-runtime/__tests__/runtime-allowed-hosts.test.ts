@@ -410,7 +410,7 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
 
     expect(result).toMatchObject({
       status: "error",
-      code: "plugin.upstream_error",
+      code: "plugin.input_invalid",
       params: { field: "baseUrl" },
     });
     expect(startAuthSpy).not.toHaveBeenCalled();

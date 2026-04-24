@@ -159,9 +159,20 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     onOpenChange(next);
   };
 
-  const schemaFieldNames = Object.keys(
-    (userConfigSchema?.properties ?? {}) as Record<string, unknown>,
-  );
+  // Property names currently rendered as inputs. In create mode, SchemaForm
+  // hides `x-plugin-resolved` fields (the plugin owns them, the user never
+  // submits one) — routing a server error into one of them would land the
+  // message in a hidden slot and silently disappear. Exclude them so the
+  // error falls back to the top-level banner instead.
+  const schemaProperties = (userConfigSchema?.properties ?? {}) as Record<
+    string,
+    Record<string, unknown> | undefined
+  >;
+  const schemaFieldNames = Object.keys(schemaProperties).filter((name) => {
+    const def = schemaProperties[name];
+    const hiddenInCreate = def?.["x-plugin-resolved"] === true && !isEdit;
+    return !hiddenInCreate;
+  });
 
   // Applies a routed error to the modal's state: field-scoped messages go to
   // `serverErrors` (which the SchemaForm already renders under the matching

@@ -198,7 +198,7 @@ The table backing the error store.
 error_records
 ├── id                  text PK                      (cuid2)
 ├── request_id          text NOT NULL
-├── severity            text NOT NULL                ("error" | "warning")
+├── severity            text NOT NULL                ("error" | "warning" | "info")
 ├── source              text NOT NULL                ("frontend" | "backend" | "plugin" | "cron")
 ├── code                text                         (stable error code if available; nullable for unhandled throws without a code)
 ├── dev_message         text NOT NULL
@@ -316,7 +316,8 @@ In the admin sidebar/header, the link to `/admin/errors` shows a small badge wit
 export async function captureError(
   err: unknown,
   meta: {
-    severity: "error" | "warning";
+    /** Optional. When omitted, derived from `code` via the registry in ./codes. */
+    severity?: "error" | "warning" | "info";
     source: ErrorSource;
     code?: string;
     route?: string;
@@ -330,6 +331,7 @@ export async function captureError(
 
 - Called by the oRPC middleware, the plugin runtime, and the cron wrapper.
 - Reads `requestId` from AsyncLocalStorage.
+- `severity` is optional — when omitted, it is derived from `code` via the per-code classification in `server/errors/codes.ts`. Pass explicitly to bump a normally-`error` code down to `warning`/`info` on a recovered or user-input path.
 - Writes to all configured sinks via `Promise.allSettled`.
 - Returns the record id so the caller can include it in a response to the frontend if needed.
 
@@ -339,7 +341,7 @@ export async function captureError(
 // client/errors/report.ts
 export async function reportError(
   err: unknown,
-  severity: "error" | "warning",
+  severity: "error" | "warning" | "info",
   context?: Record<string, unknown>,
 ): Promise<void>;
 ```

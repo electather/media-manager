@@ -110,13 +110,19 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
   // schema (unusual but valid JSON Schema); render it readably in errors so
   // the message does not end up with bare `''`.
   const displayPath = path || "(root)";
-  // Each throw below attaches `params.field` (plus the offending value when
-  // known) per the error design doc's wire convention, so the frontend can
-  // attribute the error to the specific form input without string-parsing
-  // the devMessage.
+  // Each throw below attaches `params.field` per the error design doc's wire
+  // convention so the frontend can attribute the error to the specific form
+  // input without string-parsing the devMessage.
+  //
+  // The raw user-submitted `value` is *not* echoed into params: a URL of the
+  // shape `http://user:password@host/` would round-trip the password through
+  // the error body to the browser and into any sink that stores params.
+  // `devMessage` still contains the URL for the admin viewer, which lives
+  // behind authentication and passes through the scrubber.
+  //
   // Omit `field` when the marker sits on the root schema — an empty string
-  // would be a misleading hint for any downstream form that tried to route
-  // on it.
+  // would be a misleading hint for any downstream form that tried to route on
+  // it.
   const fieldParams = (extra?: Record<string, string>): Record<string, string> => ({
     ...(path ? { field: path } : {}),
     ...extra,
@@ -135,22 +141,25 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' is not a valid URL: ${value}`,
-      fieldParams({ value }),
+      fieldParams(),
     );
   }
   if (!parsed.hostname) {
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' has no hostname: ${value}`,
-      fieldParams({ value }),
+      fieldParams(),
     );
   }
   const hostname = normalizeHostname(parsed.hostname);
   if (isBlockedHostname(hostname)) {
+    // `hostname` is the parsed output, not the raw input — safe to echo: it's
+    // one of a small set of loopback/link-local strings (`localhost`,
+    // `169.254.169.254`, etc.) that carry no credential material.
     throw new PluginError(
       "plugin.input_invalid",
       `[${pluginId}] x-allowed-host field '${displayPath}' resolves to a blocked address: ${hostname}`,
-      fieldParams({ value, hostname }),
+      fieldParams({ hostname }),
     );
   }
   return hostname;

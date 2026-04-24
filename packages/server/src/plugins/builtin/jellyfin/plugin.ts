@@ -382,7 +382,7 @@ export default definePlugin({
       // persisted userConfig by startAuth's `userConfigPatch: { password: null }`
       // after being moved into the encrypted credentials blob, so re-auth
       // reads it from `ctx.credentials` rather than from userConfig.
-      required: ["externalServerUrl", "username", "password"],
+      required: ["externalServerUrl", "username"],
       additionalProperties: false,
     },
     credentialsSchema: {
@@ -593,8 +593,11 @@ export default definePlugin({
         const userId = getUserId(typedCtx);
         // Jellyfin's /Latest endpoint does not expose a cursor, but it accepts
         // a `Limit`. Callers paginate by asking for a bigger page — we treat
-        // a passed cursor as the 1-based page index and translate.
-        const page = cursor ? Math.max(parseInt(cursor, 10) || 1, 1) : 1;
+        // a passed cursor as the 1-based page index and translate. The page is
+        // capped at MAX_PAGE so a caller passing `cursor: "50000"` cannot
+        // ask Jellyfin for millions of rows in a single round-trip.
+        const MAX_PAGE = 50;
+        const page = cursor ? Math.min(Math.max(parseInt(cursor, 10) || 1, 1), MAX_PAGE) : 1;
         const safeLimit = Math.min(Math.max(limit, 1), 200);
         const params = new URLSearchParams({
           Limit: String(safeLimit * page),

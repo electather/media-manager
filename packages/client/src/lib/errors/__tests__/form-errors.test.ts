@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { splitFormError } from "../form-errors";
+import { parseFormErrorResponse, splitFormError } from "../form-errors";
 
 const KNOWN_FIELDS = ["externalServerUrl", "username"] as const;
 
@@ -83,6 +83,51 @@ describe("splitFormError", () => {
 
     expect(splitFormError(body, KNOWN_FIELDS, "fallback")).toEqual({
       message: "oops",
+      fieldErrors: {},
+    });
+  });
+
+  it("falls back to body.error when no other message key is present", () => {
+    // Some legacy endpoints returned a bare `{ error: "..." }` envelope.
+    // The helper still extracts the string so callers don't see the fallback.
+    const body = { error: "legacy error envelope" };
+
+    expect(splitFormError(body, KNOWN_FIELDS, "fallback")).toEqual({
+      message: "legacy error envelope",
+      fieldErrors: {},
+    });
+  });
+});
+
+describe("parseFormErrorResponse", () => {
+  it("extracts fieldErrors from a well-formed Response body", async () => {
+    const res = new Response(
+      JSON.stringify({
+        code: "connection.verify_failed",
+        params: { message: "bad url", field: "externalServerUrl" },
+      }),
+      { status: 422, headers: { "content-type": "application/json" } },
+    );
+
+    const result = await parseFormErrorResponse(res, KNOWN_FIELDS, "fallback");
+    expect(result).toEqual({
+      message: null,
+      fieldErrors: { externalServerUrl: "bad url" },
+    });
+  });
+
+  it("falls back to the provided message when the response body is not JSON", async () => {
+    // A proxy error page (HTML) or an empty 502 won't parse as JSON. The
+    // helper should swallow the parse error and surface the fallback so the
+    // UI still shows *something* rather than going silent.
+    const res = new Response("<html>oops</html>", {
+      status: 502,
+      headers: { "content-type": "text/html" },
+    });
+
+    const result = await parseFormErrorResponse(res, KNOWN_FIELDS, "Upstream unavailable.");
+    expect(result).toEqual({
+      message: "Upstream unavailable.",
       fieldErrors: {},
     });
   });
