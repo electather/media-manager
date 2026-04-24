@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import { buildFetch } from "../fetch-policy";
 import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../allowed-hosts";
+import { registerErrorSink, resetErrorSinks } from "../../errors/capture";
+import type { ErrorSink } from "../../errors/types";
+import type { ErrorRecord } from "@ent-mcp/shared/errors";
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -45,6 +48,144 @@ describe("buildFetch — static + dynamic allowlist", () => {
   it("is case-insensitive for dynamic hostnames", async () => {
     const fetch = buildFetch("plug-case", [], new Set(["my.plex.box"]));
     await expect(fetch("https://My.Plex.Box/status")).resolves.toBeInstanceOf(Response);
+  });
+});
+
+describe("buildFetch — admin allowlist + headers", () => {
+  let captured: ErrorRecord[] = [];
+  let fetchSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    captured = [];
+    resetErrorSinks();
+    const sink: ErrorSink = {
+      async capture(record) {
+        captured.push(record);
+      },
+    };
+    registerErrorSink(sink);
+    fetchSpy = vi.fn(async () => new Response("ok"));
+    vi.stubGlobal("fetch", fetchSpy);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    resetErrorSinks();
+  });
+
+  // Flush microtasks so the fire-and-forget captureError promise lands
+  // before assertions run.
+  const flush = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+
+  it("null admin allowlist inherits manifest (no narrowing)", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"], undefined, null);
+    await expect(fetch("https://api.trakt.tv/x")).resolves.toBeInstanceOf(Response);
+    await flush();
+    expect(captured).toHaveLength(0);
+  });
+
+  it("admin allowlist narrows the manifest — concrete entry passes", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv", "api.tmdb.org"], undefined, [
+      "api.trakt.tv",
+    ]);
+    await expect(fetch("https://api.trakt.tv/x")).resolves.toBeInstanceOf(Response);
+    await flush();
+    expect(captured).toHaveLength(0);
+  });
+
+  it("admin allowlist narrows the manifest — excluded host is blocked", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv", "api.tmdb.org"], undefined, [
+      "api.trakt.tv",
+    ]);
+    await expect(fetch("https://api.tmdb.org/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    await flush();
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      code: "plugin.host_blocked_by_admin",
+      severity: "warning",
+      pluginId: "plug-a",
+    });
+  });
+
+  it("admin allowlist = [] blocks every static host but leaves dynamic hosts reachable", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"], new Set(["plex.local"]), []);
+    await expect(fetch("https://api.trakt.tv/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    await expect(fetch("http://plex.local:32400")).resolves.toBeInstanceOf(Response);
+    await flush();
+    // Only the static-side block emits the audit event.
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.code).toBe("plugin.host_blocked_by_admin");
+  });
+
+  it("admin allowlist does not filter dynamic x-allowed-host set", async () => {
+    // Admin restricts static to a concrete host; user-supplied plex.local
+    // is still reachable via the dynamic set.
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"], new Set(["plex.local"]), ["api.trakt.tv"]);
+    await expect(fetch("http://plex.local:32400")).resolves.toBeInstanceOf(Response);
+    await flush();
+    expect(captured).toHaveLength(0);
+  });
+
+  it("admin allowlist wildcards work — *.foo.com narrows to subdomains only", async () => {
+    const fetch = buildFetch("plug-a", ["*"], undefined, ["*.foo.com"]);
+    await expect(fetch("https://x.foo.com/a")).resolves.toBeInstanceOf(Response);
+    await expect(fetch("https://bar.com/a")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+  });
+
+  it("manifest-miss does not emit an admin-block audit entry", async () => {
+    // Host is not in the manifest at all; the admin list is irrelevant and no
+    // admin-block violation should be recorded (it is a manifest-author miss,
+    // not an admin-imposed block).
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"], undefined, null);
+    await expect(fetch("https://evil.example.com/x")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
+    await flush();
+    expect(captured).toHaveLength(0);
+  });
+
+  it("merges admin headers into the outbound request", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"], undefined, null, {
+      "X-Corp-Key": "abc",
+      "X-Env": "prod",
+    });
+    await fetch("https://api.trakt.tv/x", { headers: { "User-Agent": "plugin" } });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = init!.headers as Headers;
+    expect(headers.get("x-corp-key")).toBe("abc");
+    expect(headers.get("x-env")).toBe("prod");
+    expect(headers.get("user-agent")).toBe("plugin");
+  });
+
+  it("admin headers override plugin-set headers on case-insensitive name match", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"], undefined, null, {
+      Authorization: "Bearer admin-override",
+    });
+    await fetch("https://api.trakt.tv/x", {
+      headers: { authorization: "Bearer plugin-original" },
+    });
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = init!.headers as Headers;
+    expect(headers.get("authorization")).toBe("Bearer admin-override");
+  });
+
+  it("no admin headers leaves the request init untouched", async () => {
+    const fetch = buildFetch("plug-a", ["api.trakt.tv"]);
+    const init = { headers: { "X-Foo": "bar" } };
+    await fetch("https://api.trakt.tv/x", init);
+    // The call passed the original init through without wrapping in Headers —
+    // no allocation beyond the plugin's own init.
+    expect(fetchSpy).toHaveBeenCalledWith("https://api.trakt.tv/x", init);
   });
 });
 

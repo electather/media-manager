@@ -154,3 +154,82 @@ export const pluginUpdateSharedCredentialSchema = z.object({
 export const pluginPersonalKeyFallbackSchema = z.object({
   policy: personalKeyFallbackPolicySchema,
 });
+
+// ─── Admin advanced policy (host allowlist + custom headers) ──────────────────
+
+/** Max allowlist entries per plugin. Bound the payload; admins editing this UI never approach this. */
+export const PLUGIN_ADMIN_ALLOWLIST_MAX = 64;
+
+/** Max custom headers per plugin. Same rationale as the allowlist ceiling. */
+export const PLUGIN_ADMIN_HEADERS_MAX = 32;
+
+/**
+ * Hop-by-hop headers plus a few others the runtime must own. Admins can't
+ * override these — setting them would break the transport or duplicate values
+ * that `fetch` manages itself.
+ */
+export const PLUGIN_RESERVED_HEADER_NAMES = [
+  "host",
+  "content-length",
+  "transfer-encoding",
+  "connection",
+  "upgrade",
+  "keep-alive",
+  "te",
+  "trailer",
+  "proxy-authorization",
+  "proxy-authenticate",
+] as const;
+
+const hostnamePattern =
+  /^(?:\*|(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)$/;
+
+const adminAllowlistEntrySchema = z
+  .string()
+  .min(1)
+  .max(253)
+  .refine((s) => s === s.toLowerCase(), "entry must be lowercase")
+  .refine((s) => hostnamePattern.test(s), 'entry must be "*", a hostname, or "*.domain"');
+
+/** Body for `PUT /admin/plugins/:id/admin-allowlist`. */
+export const pluginAdminAllowlistSchema = z.object({
+  allowlist: z
+    .array(adminAllowlistEntrySchema)
+    .max(PLUGIN_ADMIN_ALLOWLIST_MAX, `at most ${PLUGIN_ADMIN_ALLOWLIST_MAX} entries`)
+    .refine((arr) => new Set(arr).size === arr.length, "duplicate entries")
+    .nullable(),
+});
+
+// RFC 7230 token: bytes allowed in a header name.
+const headerNamePattern = /^[a-zA-Z0-9!#$%&'*+\-.^_`|~]+$/;
+
+const adminHeaderNameSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .refine((s) => headerNamePattern.test(s), "invalid header name")
+  .refine(
+    (s) => !(PLUGIN_RESERVED_HEADER_NAMES as readonly string[]).includes(s.toLowerCase()),
+    "header is reserved by the runtime",
+  );
+
+const adminHeaderValueSchema = z
+  .string()
+  .min(1, "empty value — delete instead by passing null")
+  .max(4096)
+  .refine((s) => !/[\r\n]/.test(s), "CR/LF not allowed in header values");
+
+/**
+ * Body for `PUT /admin/plugins/:id/admin-headers`. Merge semantics:
+ * - Omitted key: preserved at its existing value.
+ * - String value: set or replace.
+ * - `null` value: delete the header.
+ */
+export const pluginAdminHeadersSchema = z.object({
+  headers: z
+    .record(adminHeaderNameSchema, z.union([adminHeaderValueSchema, z.null()]))
+    .refine(
+      (rec) => Object.keys(rec).length <= PLUGIN_ADMIN_HEADERS_MAX,
+      `at most ${PLUGIN_ADMIN_HEADERS_MAX} headers`,
+    ),
+});

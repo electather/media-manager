@@ -6,6 +6,8 @@ import {
   pluginAddSharedCredentialSchema as addSharedCredentialSchema,
   pluginUpdateSharedCredentialSchema as updateSharedCredentialSchema,
   pluginPersonalKeyFallbackSchema as personalKeyFallbackSchema,
+  pluginAdminAllowlistSchema as adminAllowlistSchema,
+  pluginAdminHeadersSchema as adminHeadersSchema,
 } from "@ent-mcp/shared/plugins";
 import { getDb } from "../../db/client";
 import { plugins } from "../../db/schema";
@@ -14,6 +16,11 @@ import { PERMISSIONS } from "../../auth/permissions";
 import { pluginRuntime } from "../../plugin-runtime/runtime";
 import { getBuiltin } from "../../plugin-runtime/loader";
 import { sharedCredentialsService } from "../../plugin-runtime/shared-credentials";
+import {
+  loadPluginPolicy,
+  setAdminAllowlist,
+  updateAdminHeaders,
+} from "../../plugin-runtime/admin-policy";
 import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
 import { classifyScopes } from "../../plugin-runtime/manifest";
 import { zValidator } from "../../errors/validator";
@@ -35,6 +42,7 @@ export const pluginsApp = new Hono()
         const manifest = parseManifest(r.manifest);
         const scopes = classifyScopes(manifest);
         const sharedCount = await sharedCredentialsService.countEnabled(r.id);
+        const policy = await loadPluginPolicy(r.id);
         return {
           id: r.id,
           version: r.version,
@@ -54,6 +62,10 @@ export const pluginsApp = new Hono()
           installedAt: r.installedAt,
           updatedAt: r.updatedAt,
           isBuiltin: !!getBuiltin(r.id),
+          advanced: {
+            adminAllowlist: policy.adminAllowlist,
+            adminHeaderNames: policy.adminHeaders ? Object.keys(policy.adminHeaders).sort() : [],
+          },
         };
       }),
     );
@@ -144,6 +156,26 @@ export const pluginsApp = new Hono()
     }
     await pluginRuntime.setPersonalKeyFallback(pluginId, policy);
     return c.json({ ok: true });
+  })
+  .put("/:id/admin-allowlist", zValidator("json", adminAllowlistSchema), async (c) => {
+    const pluginId = c.req.param("id");
+    const { allowlist } = c.req.valid("json");
+    try {
+      await setAdminAllowlist(pluginId, allowlist);
+      return c.json({ ok: true });
+    } catch (err) {
+      throw toHttpError(err);
+    }
+  })
+  .put("/:id/admin-headers", zValidator("json", adminHeadersSchema), async (c) => {
+    const pluginId = c.req.param("id");
+    const { headers } = c.req.valid("json");
+    try {
+      await updateAdminHeaders(pluginId, headers);
+      return c.json({ ok: true });
+    } catch (err) {
+      throw toHttpError(err);
+    }
   })
   .delete("/:id", async (c) => {
     const id = c.req.param("id");

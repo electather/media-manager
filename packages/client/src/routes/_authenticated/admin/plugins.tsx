@@ -3,11 +3,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BadgeCheck,
+  ChevronDownIcon,
   CogIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
+  PlusIcon,
   TrashIcon,
   TriangleAlertIcon,
+  XIcon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +39,7 @@ import { api } from "@/lib/api";
 import { capabilityDisplay } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { JSONSchema } from "@ent-mcp/shared";
 import type { PersonalKeyFallbackPolicy, PluginManifest } from "@ent-mcp/shared/plugins";
@@ -65,6 +69,12 @@ interface PluginRow {
   installedAt: number;
   updatedAt: number;
   isBuiltin: boolean;
+  advanced: {
+    /** `null` = inherit manifest allowlist. */
+    adminAllowlist: string[] | null;
+    /** Names only; values are never returned from the API. */
+    adminHeaderNames: string[];
+  };
 }
 
 interface SharedCredentialEntry {
@@ -286,6 +296,7 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
           ) : null}
           <span>Installed {formatDate(plugin.installedAt)}</span>
         </div>
+        <AdvancedSection plugin={plugin} onChanged={onRefetch} />
       </CardContent>
     </Card>
   );
@@ -923,6 +934,452 @@ function LoadingSkeleton() {
   );
 }
 
+// ─── Advanced section (admin policy) ──────────────────────────────────────────
+
+import {
+  PLUGIN_ADMIN_ALLOWLIST_MAX,
+  PLUGIN_ADMIN_HEADERS_MAX,
+  PLUGIN_RESERVED_HEADER_NAMES,
+} from "@ent-mcp/shared/plugins";
+
+const ADMIN_HOST_PATTERN =
+  /^(?:\*|(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)$/;
+const ADMIN_HEADER_NAME_PATTERN = /^[a-zA-Z0-9!#$%&'*+\-.^_`|~]+$/;
+
+interface AdvancedSectionProps {
+  plugin: PluginRow;
+  onChanged: () => void;
+}
+
+function AdvancedSection({ plugin, onChanged }: AdvancedSectionProps) {
+  const restrictedCount = plugin.advanced.adminAllowlist?.length ?? 0;
+  const headerCount = plugin.advanced.adminHeaderNames.length;
+  const hasPolicy = plugin.advanced.adminAllowlist !== null || headerCount > 0;
+
+  return (
+    <Collapsible className="border-t border-border pt-3">
+      <CollapsibleTrigger className="group flex w-full items-center gap-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+        <ChevronDownIcon className="size-3 transition-transform group-data-[panel-open]:rotate-180" />
+        <span>Advanced</span>
+        {hasPolicy ? (
+          <Badge variant="outline" className="text-xs font-normal">
+            {plugin.advanced.adminAllowlist !== null
+              ? `${restrictedCount} host${restrictedCount === 1 ? "" : "s"}`
+              : null}
+            {plugin.advanced.adminAllowlist !== null && headerCount > 0 ? " · " : null}
+            {headerCount > 0 ? `${headerCount} header${headerCount === 1 ? "" : "s"}` : null}
+          </Badge>
+        ) : null}
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-4 flex flex-col gap-5">
+        <AllowlistPanel plugin={plugin} onChanged={onChanged} />
+        <HeadersPanel plugin={plugin} onChanged={onChanged} />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
+  const manifestHosts = plugin.manifest.allowedHosts ?? [];
+  const stored = plugin.advanced.adminAllowlist;
+  const [mode, setMode] = useState<"inherit" | "restrict">(
+    stored === null ? "inherit" : "restrict",
+  );
+  const [entries, setEntries] = useState<string[]>(stored ?? []);
+  const [draft, setDraft] = useState("");
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMode(stored === null ? "inherit" : "restrict");
+    setEntries(stored ?? []);
+  }, [stored]);
+
+  const addEntry = () => {
+    const normalized = draft.trim().toLowerCase();
+    if (!normalized) return;
+    if (!ADMIN_HOST_PATTERN.test(normalized)) {
+      setDraftError('Must be "*", a hostname, or "*.domain"');
+      return;
+    }
+    if (entries.includes(normalized)) {
+      setDraftError("Already in list");
+      return;
+    }
+    if (entries.length >= PLUGIN_ADMIN_ALLOWLIST_MAX) {
+      setDraftError(`At most ${PLUGIN_ADMIN_ALLOWLIST_MAX} entries`);
+      return;
+    }
+    setEntries([...entries, normalized]);
+    setDraft("");
+    setDraftError(null);
+  };
+
+  // Mirrors the server's `isHostAllowed` pattern overlap so the banner surfaces
+  // whenever the static intersection is empty — per the advanced-admin design
+  // doc. Previous versions missed the wildcard case where an admin exact host
+  // was covered by a manifest `*.domain` wildcard (or vice versa), so this
+  // walks all four combinations.
+  const intersectionEmpty =
+    mode === "restrict" &&
+    (entries.length === 0 ||
+      (manifestHosts.length > 0 &&
+        !entries.some((a) => manifestHosts.some((m) => patternsOverlap(a, m)))));
+
+  const save = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body = { allowlist: mode === "inherit" ? null : entries };
+      const res = await api.plugins[":id"]["admin-allowlist"].$put({
+        param: { id: plugin.id },
+        json: body,
+      });
+      if (!res.ok) {
+        const payload = (await safeJson(res)) as { devMessage?: string } | null;
+        throw new Error(payload?.devMessage ?? "Failed to save allowlist.");
+      }
+      onChanged();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save allowlist.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h4 className="text-sm font-medium">Host allowlist override</h4>
+        <p className="text-xs text-muted-foreground">
+          Narrows the plugin's declared hosts. User-supplied server URLs (x-allowed-host) are never
+          affected.
+        </p>
+      </div>
+      {manifestHosts.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">Manifest allowlist</span>
+          <div className="flex flex-wrap gap-1.5">
+            {manifestHosts.map((h) => (
+              <Badge key={h} variant="secondary" className="text-xs font-normal">
+                {h}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-2 text-xs">
+          <input
+            type="radio"
+            name={`mode-${plugin.id}`}
+            checked={mode === "inherit"}
+            onChange={() => setMode("inherit")}
+          />
+          Inherit manifest (default)
+        </label>
+        <label className="flex items-start gap-2 text-xs">
+          <input
+            type="radio"
+            name={`mode-${plugin.id}`}
+            checked={mode === "restrict"}
+            onChange={() => setMode("restrict")}
+            className="mt-1"
+          />
+          <span className="flex-1">Restrict to:</span>
+        </label>
+      </div>
+      {mode === "restrict" ? (
+        <div className="ml-5 flex flex-col gap-2">
+          <div className="flex flex-wrap gap-1.5">
+            {entries.map((entry) => (
+              <Badge key={entry} variant="outline" className="gap-1 pr-1 text-xs font-normal">
+                {entry}
+                <button
+                  type="button"
+                  aria-label={`Remove ${entry}`}
+                  onClick={() => setEntries(entries.filter((e) => e !== entry))}
+                  className="inline-flex size-3.5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <XIcon className="size-3" />
+                </button>
+              </Badge>
+            ))}
+            {entries.length === 0 ? (
+              <span className="text-xs text-muted-foreground">
+                No hosts — plugin will make no static-allowlist calls.
+              </span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="api.trakt.tv or *.tmdb.org"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setDraftError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addEntry();
+                }
+              }}
+              className="h-8 max-w-xs text-xs"
+            />
+            <Button type="button" size="sm" variant="outline" onClick={addEntry}>
+              <PlusIcon /> Add
+            </Button>
+          </div>
+          {draftError ? <p className="text-xs text-destructive">{draftError}</p> : null}
+          {intersectionEmpty ? (
+            <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-500">
+              <TriangleAlertIcon className="mt-px size-3.5 shrink-0" />
+              Plugin will make no network calls with this configuration. User-supplied server URLs
+              (x-allowed-host) are unaffected.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
+          Save allowlist
+        </Button>
+        {saveError ? <span className="text-xs text-destructive">{saveError}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function HeadersPanel({ plugin, onChanged }: AdvancedSectionProps) {
+  const [dialog, setDialog] = useState<
+    { kind: "none" } | { kind: "add" } | { kind: "edit"; name: string }
+  >({ kind: "none" });
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const deleteHeader = async (name: string) => {
+    setDeleteError(null);
+    try {
+      const res = await api.plugins[":id"]["admin-headers"].$put({
+        param: { id: plugin.id },
+        json: { headers: { [name]: null } },
+      });
+      if (!res.ok) {
+        const payload = (await safeJson(res)) as { devMessage?: string } | null;
+        throw new Error(payload?.devMessage ?? "Failed to delete header.");
+      }
+      onChanged();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete header.");
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h4 className="text-sm font-medium">Custom headers</h4>
+        <p className="text-xs text-muted-foreground">
+          Injected into every request this plugin makes. Admin values override plugin-supplied
+          headers on conflict. Values are encrypted on the server and never returned.
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        {plugin.advanced.adminHeaderNames.length === 0 ? (
+          <span className="text-xs text-muted-foreground">No custom headers configured.</span>
+        ) : (
+          <table className="w-full table-fixed text-xs">
+            <thead>
+              <tr className="text-left text-muted-foreground">
+                <th className="py-1 font-normal">Name</th>
+                <th className="py-1 font-normal">Value</th>
+                <th className="w-20 py-1" />
+              </tr>
+            </thead>
+            <tbody>
+              {plugin.advanced.adminHeaderNames.map((name) => (
+                <tr key={name} className="border-t border-border">
+                  <td className="py-1.5 font-mono">{name}</td>
+                  <td className="py-1.5 text-muted-foreground">••••</td>
+                  <td className="py-1.5 text-right">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDialog({ kind: "edit", name })}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void deleteHeader(name)}
+                      aria-label={`Delete ${name}`}
+                    >
+                      <XIcon />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setDialog({ kind: "add" })}
+          disabled={plugin.advanced.adminHeaderNames.length >= PLUGIN_ADMIN_HEADERS_MAX}
+        >
+          <PlusIcon /> Add header
+        </Button>
+        {deleteError ? <span className="text-xs text-destructive">{deleteError}</span> : null}
+      </div>
+      <HeaderDialog
+        plugin={plugin}
+        state={dialog}
+        onClose={() => setDialog({ kind: "none" })}
+        onSaved={() => {
+          setDialog({ kind: "none" });
+          onChanged();
+        }}
+      />
+    </div>
+  );
+}
+
+interface HeaderDialogProps {
+  plugin: PluginRow;
+  state: { kind: "none" } | { kind: "add" } | { kind: "edit"; name: string };
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function HeaderDialog({ plugin, state, onClose, onSaved }: HeaderDialogProps) {
+  const open = state.kind !== "none";
+  const isEdit = state.kind === "edit";
+  const initialName = state.kind === "edit" ? state.name : "";
+
+  const [name, setName] = useState(initialName);
+  const [value, setValue] = useState("");
+  const [preserveValue, setPreserveValue] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(initialName);
+    setValue("");
+    setPreserveValue(isEdit);
+    setError(null);
+  }, [open, initialName, isEdit]);
+
+  const save = async () => {
+    setError(null);
+    if (!ADMIN_HEADER_NAME_PATTERN.test(name)) {
+      setError("Invalid header name — use RFC 7230 token characters only.");
+      return;
+    }
+    if ((PLUGIN_RESERVED_HEADER_NAMES as readonly string[]).includes(name.toLowerCase())) {
+      setError("Header is reserved by the runtime.");
+      return;
+    }
+    if (!preserveValue) {
+      if (!value) {
+        setError("Value cannot be empty — use the delete action to remove.");
+        return;
+      }
+      if (/[\r\n]/.test(value)) {
+        setError("Value contains CR/LF.");
+        return;
+      }
+    }
+    if (isEdit && preserveValue) {
+      // Nothing to submit — keep existing value.
+      onClose();
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.plugins[":id"]["admin-headers"].$put({
+        param: { id: plugin.id },
+        json: { headers: { [name]: value } },
+      });
+      if (!res.ok) {
+        const payload = (await safeJson(res)) as { devMessage?: string } | null;
+        throw new Error(payload?.devMessage ?? "Failed to save header.");
+      }
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save header.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : undefined)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? `Edit header ${name}` : "Add header"}</DialogTitle>
+          <DialogDescription>
+            Values are stored encrypted on the server and never displayed after save.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <Field>
+            <FieldTitle>Name</FieldTitle>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              readOnly={isEdit}
+              placeholder="X-Corp-Key"
+            />
+            {isEdit ? (
+              <FieldDescription>To rename a header, delete and re-add it.</FieldDescription>
+            ) : null}
+          </Field>
+          {isEdit ? (
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={preserveValue}
+                onChange={(e) => setPreserveValue(e.target.checked)}
+              />
+              Preserve existing value
+            </label>
+          ) : null}
+          {!preserveValue ? (
+            <Field>
+              <FieldTitle>Value</FieldTitle>
+              <Input
+                type="password"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                autoComplete="off"
+              />
+            </Field>
+          ) : null}
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function sourceLabel(sourceType: string): string {
@@ -945,4 +1402,31 @@ async function safeJson(res: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+// Mirrors `isHostAllowed` semantics on pairs of patterns so the advanced-admin
+// allowlist UI can detect an empty intersection. Two patterns overlap if any
+// hostname matches both — `*` matches everything, `*.X` matches subdomains of
+// X, and exact hosts only match themselves.
+function patternsOverlap(a: string, b: string): boolean {
+  const lowerA = a.toLowerCase();
+  const lowerB = b.toLowerCase();
+  if (lowerA === "*" || lowerB === "*") return true;
+  if (lowerA === lowerB) return true;
+  const aWild = lowerA.startsWith("*.");
+  const bWild = lowerB.startsWith("*.");
+  if (aWild && !bWild) {
+    const suffix = lowerA.slice(1);
+    return lowerB.endsWith(suffix) && lowerB.length > suffix.length;
+  }
+  if (bWild && !aWild) {
+    const suffix = lowerB.slice(1);
+    return lowerA.endsWith(suffix) && lowerA.length > suffix.length;
+  }
+  if (aWild && bWild) {
+    const aSuffix = lowerA.slice(1);
+    const bSuffix = lowerB.slice(1);
+    return aSuffix.endsWith(bSuffix) || bSuffix.endsWith(aSuffix);
+  }
+  return false;
 }

@@ -1,4 +1,5 @@
 import { consola } from "consola";
+import { captureError } from "../errors/capture";
 import { PluginError } from "./types";
 import type { PluginLogger } from "./types";
 
@@ -53,20 +54,35 @@ export function getBucket(pluginId: string, capacity = 30, refillPerSecond = 5):
 }
 
 /**
- * Builds a fetch function bound to a plugin's allowlist and rate limiter.
+ * Builds a fetch function bound to a plugin's allowlist, rate limiter, and
+ * admin policy.
  *
  * The allowlist is the union of the plugin's static `manifest.allowedHosts`
- * (passed as `allowedHosts`) and any dynamic hosts resolved per-invocation
- * from the plugin's `userConfig` or shared-credential entry via the
- * `x-allowed-host` JSON Schema extension (passed as `dynamicHosts`).
+ * (`allowedHosts`) and any dynamic hosts resolved per-invocation from the
+ * plugin's `userConfig` or shared-credential entry via `x-allowed-host`
+ * (`dynamicHosts`). Admin policy layers on top:
  *
- * `dynamicHosts` is optional so existing callers that do not resolve dynamic
- * hosts continue to work unchanged.
+ * - `adminAllowlist` narrows the static side — the hostname must pass both
+ *   `manifest.allowedHosts` AND `adminAllowlist`. `null` means the admin has
+ *   not set a narrowing list (current behaviour; manifest-only). Dynamic
+ *   `x-allowed-host` values are deliberately unaffected so user-supplied LAN
+ *   server URLs remain reachable.
+ * - `adminHeaders` are merged into the request after the allowlist check
+ *   passes. Admin values override plugin-supplied headers on name collisions
+ *   (`Headers.set` is case-insensitive, so admin-wins is uniform).
+ *
+ * When a call is rejected specifically because the admin list narrowed the
+ * manifest, a `plugin.host_blocked_by_admin` error is captured at severity
+ * `warning` so the admin errors dashboard carries the audit trail. The plugin
+ * itself sees the pre-existing `plugin.upstream_error` — plugins treat that as
+ * a terminal call failure already and do not need a new error shape.
  */
 export function buildFetch(
   pluginId: string,
   allowedHosts: string[],
   dynamicHosts?: ReadonlySet<string>,
+  adminAllowlist?: string[] | null,
+  adminHeaders?: Record<string, string>,
 ) {
   const bucket = getBucket(pluginId);
   return async (url: string, init?: RequestInit): Promise<Response> => {
@@ -77,9 +93,27 @@ export function buildFetch(
       throw new PluginError("plugin.input_invalid", `[${pluginId}] invalid URL: ${url}`);
     }
     const hostname = parsed.hostname;
-    const staticAllowed = isHostAllowed(hostname, allowedHosts);
+    const inManifest = isHostAllowed(hostname, allowedHosts);
+    const inAdmin =
+      adminAllowlist === null || adminAllowlist === undefined
+        ? true
+        : isHostAllowed(hostname, adminAllowlist);
+    const staticAllowed = inManifest && inAdmin;
     const dynamicAllowed = dynamicHosts ? dynamicHosts.has(hostname.toLowerCase()) : false;
     if (!staticAllowed && !dynamicAllowed) {
+      if (inManifest && !inAdmin) {
+        // Admin-imposed block: audit-log it before surfacing the existing
+        // plugin-facing error. Fire-and-forget — a sink failure must not
+        // prevent the fetch from rejecting.
+        void captureError(new Error(`host blocked by admin allowlist: ${hostname}`), {
+          severity: "warning",
+          source: "plugin",
+          code: "plugin.host_blocked_by_admin",
+          pluginId,
+          devMessage: `[${pluginId}] host blocked by admin allowlist: ${hostname}`,
+          context: { hostname },
+        });
+      }
       throw new PluginError(
         "plugin.upstream_error",
         `[${pluginId}] host not in allowlist: ${hostname}`,
@@ -87,6 +121,13 @@ export function buildFetch(
     }
     if (!bucket.take()) {
       throw new PluginError("plugin.rate_limited", `[${pluginId}] rate limit exceeded`);
+    }
+    if (adminHeaders && Object.keys(adminHeaders).length > 0) {
+      const merged = new Headers(init?.headers);
+      for (const [name, value] of Object.entries(adminHeaders)) {
+        merged.set(name, value);
+      }
+      return fetch(url, { ...init, headers: merged });
     }
     return fetch(url, init);
   };

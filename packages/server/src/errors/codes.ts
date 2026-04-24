@@ -26,6 +26,7 @@ export const HOST_ERROR_CODES = [
   "plugin.shared_credential_conflict",
   "plugin.not_poolable",
   "plugin.scope_invalid",
+  "plugin.host_blocked_by_admin",
   "media.no_connection",
   "media.primary_unavailable",
   "oauth.state_expired",
