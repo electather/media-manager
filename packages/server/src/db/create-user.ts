@@ -21,12 +21,19 @@
 // the two secrets disagree the Worker fails at startup with "Failed to
 // decrypt private key". The account row written below mirrors the shape
 // better-auth itself writes from `sign-up/email`: `providerId = "credential"`,
-// `accountId = userId`, `password = <argon2id hash>`. That is exactly
-// what `sign-in/email` looks up at login time.
+// `accountId = userId`, `password = <hash>`. That is exactly what
+// `sign-in/email` looks up at login time.
+//
+// `hashPassword` is imported from `better-auth/crypto` (which re-exports
+// `@better-auth/utils/password`), not from our own auth config. That
+// gets us the same scrypt implementation the runtime sign-in path uses
+// to verify, without loading the full `betterAuth({...})` instance and
+// its plugins — so no JWKS side effect, and no reliance on any app-level
+// hashing override that might or might not exist.
 
+import { hashPassword } from "better-auth/crypto";
 import { consola } from "consola";
 import { eq } from "drizzle-orm";
-import { hashPassword } from "../auth/password";
 import { getDb } from "./client";
 import { account, user } from "./schema/auth";
 import { roles, userRoles } from "./schema/roles";
