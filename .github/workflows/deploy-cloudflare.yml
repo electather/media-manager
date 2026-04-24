@@ -117,11 +117,42 @@ jobs:
           APP_EXTERNAL_URL: http://localhost
         run: vp run db:migrate
 
+      # Pre-flight: GitHub expands missing secrets to empty strings, so a
+      # typo or an unset `NIGHTLY_*` secret would silently upload empty
+      # credentials to Cloudflare and the Worker would crash on env
+      # validation. Fail fast here with a clear message instead.
+      - name: Verify preview-seeding secrets are set
+        if: steps.target.outputs.mode == 'preview'
+        env:
+          BETTER_AUTH_SECRET_VALUE: ${{ secrets.NIGHTLY_BETTER_AUTH_SECRET }}
+          ENCRYPTION_KEY_VALUE: ${{ secrets.NIGHTLY_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -z "${BETTER_AUTH_SECRET_VALUE:-}" ]] && missing+=("NIGHTLY_BETTER_AUTH_SECRET")
+          [[ -z "${ENCRYPTION_KEY_VALUE:-}" ]] && missing+=("NIGHTLY_ENCRYPTION_KEY")
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Missing required GitHub repo secret(s): ${missing[*]}"
+            echo "::error::Set these to the same values currently stored in Cloudflare for the nightly env (via \`wrangler secret put --env nightly\`)."
+            echo "::error::See the comment block above the 'Inject preview Worker secrets' step in .github/workflows/deploy-cloudflare.yml."
+            exit 1
+          fi
+
       # Preview Workers use the default (unnamed) wrangler environment with a
       # unique `--name`. Their secrets must be injected each deploy because the
       # Worker identity is per-PR. Named environments (nightly, production)
       # have their secrets set once out-of-band via `wrangler secret put --env`
       # and are not re-uploaded on every deploy.
+      #
+      # `BETTER_AUTH_SECRET` and `ENCRYPTION_KEY` deliberately mirror the
+      # nightly values. The preview DB is forked from `media-manager-nightly`,
+      # so its `jwks` private keys, service-connection credentials, and any
+      # other at-rest ciphertext were written under nightly's keys.
+      # Previews using distinct secrets would fail to decrypt any of it —
+      # better-auth specifically throws "Failed to decrypt private key" when
+      # signing a JWT, breaking login. Nightly is a testing environment, not
+      # a production one, so sharing its crypto material with preview Workers
+      # is an acceptable trade for a DB-forked branch deploy flow.
       - name: Inject preview Worker secrets
         if: steps.target.outputs.mode == 'preview'
         env:
@@ -129,8 +160,8 @@ jobs:
           WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
           SQLITE_PATH_VALUE: ${{ steps.preview_db.outputs.url }}
           LIBSQL_AUTH_TOKEN_VALUE: ${{ steps.preview_db.outputs.token }}
-          BETTER_AUTH_SECRET_VALUE: ${{ secrets.PREVIEW_BETTER_AUTH_SECRET }}
-          ENCRYPTION_KEY_VALUE: ${{ secrets.PREVIEW_ENCRYPTION_KEY }}
+          BETTER_AUTH_SECRET_VALUE: ${{ secrets.NIGHTLY_BETTER_AUTH_SECRET }}
+          ENCRYPTION_KEY_VALUE: ${{ secrets.NIGHTLY_ENCRYPTION_KEY }}
         run: |
           set -euo pipefail
           # URLs are derived from the PR-specific Worker name so the OAuth
