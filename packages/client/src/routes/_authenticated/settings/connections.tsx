@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { InferResponseType } from "hono/client";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -55,62 +56,25 @@ import {
   type ExistingConnection,
   type PluginSummary,
 } from "@/components/connections/connection-modal";
-import type { JSONSchema } from "@ent-mcp/shared";
 
 export const Route = createFileRoute("/_authenticated/settings/connections")({
   component: ConnectionsPage,
 });
 
-// ─── API shapes (derived from the server response types) ──────────────────────
+// ─── API shapes (inferred from the server response types) ────────────────────
 
-interface EmbeddedPluginSummary {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  logoUrl?: string;
-  authKind: "form" | "oauth_redirect" | "oauth_device" | "none";
-  poolable: boolean;
-  userScopedCapabilities: Array<{ id: string; version: string }>;
-  globalScopedCapabilities: Array<{ id: string; version: string }>;
-  userConfigSchema: unknown;
-  credentialsSchema: unknown;
-  adminSharedAvailable: boolean;
-}
-
-interface DisplayField {
-  label: string;
-  value: string;
-  mono?: boolean;
-}
-
-interface ConnectionItem {
-  id: string;
-  pluginId: string;
-  status: string;
-  enabled: boolean;
-  isDefault: boolean;
-  displayName: string | null;
-  tokenExpiresAt: number | null;
-  lastVerifiedAt: number | null;
-  errorMessage: string | null;
-  createdAt: number;
-  updatedAt: number;
-  displayFields: DisplayField[];
-  plugin: EmbeddedPluginSummary;
-}
-
-type AvailablePlugin = EmbeddedPluginSummary;
+type ConnectionItem = InferResponseType<typeof api.connections.$get>["connections"][number];
+type AvailablePlugin = InferResponseType<typeof api.connections.available.$get>["plugins"][number];
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 function useConnectionsQuery() {
   return useQuery({
     queryKey: ["connections", "list"],
-    queryFn: async (): Promise<ConnectionItem[]> => {
+    queryFn: async () => {
       const res = await api.connections.$get();
       if (!res.ok) throw new Error("Failed to load connections.");
-      const body = (await res.json()) as { connections: ConnectionItem[] };
+      const body = await res.json();
       return body.connections;
     },
   });
@@ -119,10 +83,10 @@ function useConnectionsQuery() {
 function useAvailablePluginsQuery() {
   return useQuery({
     queryKey: ["connections", "available"],
-    queryFn: async (): Promise<AvailablePlugin[]> => {
+    queryFn: async () => {
       const res = await api.connections.available.$get();
       if (!res.ok) throw new Error("Failed to load available plugins.");
-      const body = (await res.json()) as { plugins: AvailablePlugin[] };
+      const body = await res.json();
       return body.plugins;
     },
   });
@@ -135,39 +99,6 @@ type ModalState =
   | { kind: "create"; plugin: PluginSummary }
   | { kind: "edit"; plugin: PluginSummary; existing: ExistingConnection }
   | { kind: "remove"; connection: ConnectionItem };
-
-function availableToPluginSummary(p: AvailablePlugin): PluginSummary {
-  return {
-    id: p.id,
-    name: p.name,
-    version: p.version,
-    description: p.description,
-    logoUrl: p.logoUrl,
-    auth: p.authKind,
-    capabilities: [
-      ...p.userScopedCapabilities.map((c) => c.id),
-      ...p.globalScopedCapabilities.map((c) => c.id),
-    ],
-    userConfigSchema: (p.userConfigSchema as JSONSchema | null) ?? null,
-    hasSharedConfig: p.adminSharedAvailable,
-  };
-}
-
-function connectedToPluginSummary(c: ConnectionItem): PluginSummary {
-  return {
-    id: c.plugin.id,
-    name: c.plugin.name,
-    version: c.plugin.version,
-    description: c.plugin.description,
-    logoUrl: c.plugin.logoUrl,
-    auth: c.plugin.authKind,
-    capabilities: [
-      ...c.plugin.userScopedCapabilities.map((cap) => cap.id),
-      ...c.plugin.globalScopedCapabilities.map((cap) => cap.id),
-    ],
-    userConfigSchema: (c.plugin.userConfigSchema as JSONSchema | null) ?? null,
-  };
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -223,7 +154,7 @@ function ConnectionsPage() {
       ) : !hasAnyConnections ? (
         <EmptyConnectionsState
           plugins={available.data ?? []}
-          onConnect={(p) => setModal({ kind: "create", plugin: availableToPluginSummary(p) })}
+          onConnect={(p) => setModal({ kind: "create", plugin: p })}
         />
       ) : (
         <>
@@ -258,7 +189,7 @@ function ConnectionsPage() {
                 onEdit={(connection) =>
                   setModal({
                     kind: "edit",
-                    plugin: connectedToPluginSummary(connection),
+                    plugin: connection.plugin,
                     existing: {
                       id: connection.id,
                       displayName: connection.displayName,
@@ -271,7 +202,7 @@ function ConnectionsPage() {
                   if (connection.plugin.authKind === "form") {
                     setModal({
                       kind: "edit",
-                      plugin: connectedToPluginSummary(connection),
+                      plugin: connection.plugin,
                       existing: {
                         id: connection.id,
                         displayName: connection.displayName,
@@ -281,7 +212,7 @@ function ConnectionsPage() {
                   } else {
                     setModal({
                       kind: "create",
-                      plugin: connectedToPluginSummary(connection),
+                      plugin: connection.plugin,
                     });
                   }
                 }}
@@ -293,12 +224,7 @@ function ConnectionsPage() {
           {unconnected.length > 0 ? (
             <AvailableSection
               plugins={unconnected}
-              onConnect={(p) =>
-                setModal({
-                  kind: "create",
-                  plugin: availableToPluginSummary(p),
-                })
-              }
+              onConnect={(p) => setModal({ kind: "create", plugin: p })}
             />
           ) : null}
         </>
@@ -382,20 +308,11 @@ function PluginGroup({
   onReconnect,
   onRefetch,
 }: PluginGroupProps) {
-  const groupCapabilityIds = [
-    ...group.plugin.userScopedCapabilities.map((cap) => cap.id),
-    ...group.plugin.globalScopedCapabilities.map((cap) => cap.id),
-  ];
-  const summary: PluginSummary = {
-    id: group.plugin.id,
-    name: group.plugin.name,
-    version: group.plugin.version,
-    description: group.plugin.description,
-    logoUrl: group.plugin.logoUrl,
-    auth: group.plugin.authKind,
-    capabilities: groupCapabilityIds,
-    userConfigSchema: (group.plugin.userConfigSchema as JSONSchema | null) ?? null,
-  };
+  // Group header lists only the user-scoped capabilities — those are what a
+  // connection unlocks for the user. Global-scoped ones don't depend on a
+  // connection and live on the modal's "also provides" line instead.
+  const userScopedCaps = group.plugin.userScopedCapabilities;
+  const summary = group.plugin;
   const showDefault = group.connections.length > 1;
 
   return (
@@ -407,12 +324,16 @@ function PluginGroup({
           ) : null}
           <h3 className="text-lg font-semibold tracking-tight">{group.plugin.name}</h3>
         </div>
-        {groupCapabilityIds.length > 0 ? (
+        {userScopedCaps.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {groupCapabilityIds.map((cap) => {
-              const { label, icon: Icon } = capabilityDisplay(cap);
+            {userScopedCaps.map((cap) => {
+              const { label, icon: Icon } = capabilityDisplay(cap.id);
               return (
-                <Badge key={cap} variant="secondary" className="gap-1 text-xs font-normal">
+                <Badge
+                  key={`${cap.id}@${cap.version}`}
+                  variant="secondary"
+                  className="gap-1 text-xs font-normal"
+                >
                   <Icon className="size-3 opacity-60" aria-hidden="true" />
                   {label}
                 </Badge>
@@ -506,14 +427,7 @@ function ConnectionCard({
     if (testMutation.isSuccess) onRefetch();
   }, [testMutation.isSuccess, onRefetch]);
 
-  // The full design's `displayFields` rendering ships in Phase 2; for now,
-  // adapt the card to the new server-side shape so the build remains green.
-  const displayPairs = connection.displayFields.map((f) => ({
-    name: f.label,
-    label: f.label,
-    isUri: !!f.mono,
-    value: f.value,
-  }));
+  const displayFields = connection.displayFields;
 
   return (
     <Card
@@ -574,18 +488,18 @@ function ConnectionCard({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2 text-sm">
-        {displayPairs.length > 0 ? (
+        {displayFields.length > 0 ? (
           <dl className="flex flex-col gap-1">
-            {displayPairs.map((p) => (
-              <div key={p.name} className="flex items-baseline gap-2">
+            {displayFields.map((p) => (
+              <div key={p.label} className="flex items-baseline gap-2">
                 <dt className="shrink-0 text-xs text-muted-foreground">{p.label}</dt>
                 <dd
                   className={cn(
                     "flex-1 truncate text-xs",
-                    p.isUri && "font-mono text-[11px] text-muted-foreground",
+                    p.mono && "font-mono text-[11px] text-muted-foreground",
                   )}
                 >
-                  {renderPrimitive(p.value)}
+                  {p.value}
                 </dd>
               </div>
             ))}
@@ -914,13 +828,6 @@ function RemoveDialog({
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function renderPrimitive(v: unknown): string {
-  if (v === undefined || v === null) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return "";
-}
 
 function formatRelative(ts: number | null): string {
   if (!ts) return "never";

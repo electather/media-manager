@@ -19,7 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { capabilityDisplay } from "@/lib/capabilities";
+import {
+  capabilityListSummary,
+  renderCapabilityBadges,
+  type CapabilityEntry,
+} from "@/lib/capabilities";
 import { api } from "@/lib/api";
 import {
   parseFormErrorResponse,
@@ -30,16 +34,23 @@ import {
 import type { JSONSchema } from "@ent-mcp/shared";
 import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "./schema-form";
 
+/**
+ * Shape the modal needs to render the create/edit dialog. Mirrors the
+ * `PluginSummary` shape returned by `/api/connections/available` and
+ * embedded on connection rows — both `connections.tsx` and
+ * `admin/plugins.tsx` can pass the inferred row through unchanged.
+ */
 export interface PluginSummary {
   id: string;
   name: string;
   version: string;
   description: string;
   logoUrl?: string;
-  auth: string;
-  capabilities: string[];
-  userConfigSchema?: JSONSchema | null;
-  hasSharedConfig?: boolean;
+  authKind: "form" | "oauth_redirect" | "oauth_device" | "none";
+  userScopedCapabilities: ReadonlyArray<CapabilityEntry>;
+  globalScopedCapabilities: ReadonlyArray<CapabilityEntry>;
+  userConfigSchema?: Record<string, unknown> | null;
+  adminSharedAvailable?: boolean;
 }
 
 export interface ExistingConnection {
@@ -73,7 +84,7 @@ type DeviceState =
 
 export function ConnectionModal({ open, plugin, existing, onOpenChange, onSuccess }: Props) {
   const isEdit = Boolean(existing);
-  const authKind = plugin?.auth ?? "none";
+  const authKind = plugin?.authKind ?? "none";
   const userConfigSchema = (plugin?.userConfigSchema ?? null) as JSONSchema | null;
   const hasUserConfigFields =
     userConfigSchema !== null &&
@@ -371,21 +382,17 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
               ) : null}
             </div>
           </div>
-          {plugin.capabilities.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {plugin.capabilities.map((cap) => {
-                const { label, icon: Icon } = capabilityDisplay(cap);
-                return (
-                  <span
-                    key={cap}
-                    className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-                  >
-                    <Icon className="size-3 opacity-60" aria-hidden="true" />
-                    {label}
-                  </span>
-                );
-              })}
+          {plugin.userScopedCapabilities.length > 0 ? (
+            <div className="mt-2">
+              {renderCapabilityBadges(plugin.userScopedCapabilities, { size: "sm" })}
             </div>
+          ) : null}
+          {plugin.globalScopedCapabilities.length > 0 ? (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              <span className="sr-only">Also available without a connection: </span>
+              Also provides {capabilityListSummary(plugin.globalScopedCapabilities)} without a
+              connection
+            </p>
           ) : null}
         </DialogHeader>
 

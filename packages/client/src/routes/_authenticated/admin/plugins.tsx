@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { InferResponseType } from "hono/client";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -42,7 +43,6 @@ import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { JSONSchema } from "@ent-mcp/shared";
-import type { PersonalKeyFallbackPolicy, PluginManifest } from "@ent-mcp/shared/plugins";
 import {
   SchemaForm,
   defaultsFromSchema,
@@ -54,38 +54,11 @@ export const Route = createFileRoute("/_authenticated/admin/plugins")({
   component: AdminPluginsPage,
 });
 
-interface PluginRow {
-  id: string;
-  version: string;
-  sourceType: string;
-  enabled: boolean;
-  hasGlobalConfig: boolean;
-  sharedCredentialsCount: number;
-  personalKeyFallback: PersonalKeyFallbackPolicy;
-  poolable: boolean;
-  capabilities: Array<{ id: string; version: string; scope: "global" | "user" }>;
-  manifest: PluginManifest;
-  isPureGlobal: boolean;
-  installedAt: number;
-  updatedAt: number;
-  isBuiltin: boolean;
-  advanced: {
-    /** `null` = inherit manifest allowlist. */
-    adminAllowlist: string[] | null;
-    /** Names only; values are never returned from the API. */
-    adminHeaderNames: string[];
-  };
-}
-
-interface SharedCredentialEntry {
-  id: string;
-  label: string;
-  enabled: boolean;
-  lastExhaustedAt: number | null;
-  retryAfter: number | null;
-  createdAt: number;
-  updatedAt: number;
-}
+type PluginRow = InferResponseType<typeof api.plugins.$get>["plugins"][number];
+// Hono's typed client exposes path params as their literal `:`-prefixed key.
+type SharedCredentialEntry = InferResponseType<
+  (typeof api.plugins)[":id"]["shared-credentials"]["$get"]
+>["entries"][number];
 
 type ModalState =
   | { kind: "none" }
@@ -98,10 +71,10 @@ function AdminPluginsPage() {
 
   const plugins = useQuery({
     queryKey: ["admin", "plugins"],
-    queryFn: async (): Promise<PluginRow[]> => {
+    queryFn: async () => {
       const res = await api.plugins.$get();
       if (!res.ok) throw new Error("Failed to load plugins.");
-      const body = (await res.json()) as { plugins: PluginRow[] };
+      const body = await res.json();
       return body.plugins;
     },
   });
@@ -485,10 +458,10 @@ function SharedCredentialsPool({
   const qc = useQueryClient();
   const entries = useQuery({
     queryKey: ["admin", "plugins", plugin.id, "shared-credentials"],
-    queryFn: async (): Promise<SharedCredentialEntry[]> => {
+    queryFn: async () => {
       const res = await api.plugins[":id"]["shared-credentials"].$get({ param: { id: plugin.id } });
       if (!res.ok) throw new Error("Failed to load shared credentials.");
-      const body = (await res.json()) as { entries: SharedCredentialEntry[] };
+      const body = await res.json();
       return body.entries;
     },
   });
