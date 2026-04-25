@@ -13,6 +13,10 @@ invocation_logs = true
 
 [assets]
 directory = "./packages/client/dist"
+# Serve `index.html` (200 OK) for any path that doesn't match a built asset
+# so client-side router routes (e.g. /auth/login) work on direct navigation
+# and page refresh. Without this, Cloudflare Assets 404s unmatched paths.
+not_found_handling = "single-page-application"
 
 # Default environment is used for PR preview deployments. Secrets
 # (SQLITE_PATH, LIBSQL_AUTH_TOKEN, BETTER_AUTH_SECRET, BETTER_AUTH_URL,
