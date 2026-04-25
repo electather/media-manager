@@ -113,7 +113,7 @@ async function readUserSnapshot(db: Db, userId: string): Promise<UserSnapshot> {
 
     const jobs = await tx.select().from(jobRuns).where(eq(jobRuns.triggeredByUserId, userId)).all();
 
-    const oauthApps = await listAuthorizedApps(db, userId);
+    const oauthApps = await listAuthorizedApps(tx, userId);
 
     return {
       identity: serializeRow(identityRow),

@@ -104,10 +104,10 @@ export function AppsList() {
       }
       return res.json();
     },
-    onSuccess: (_data, clientId) => {
+    onSuccess: (data, clientId) => {
       const app = appsQuery.data?.find((a) => a.clientId === clientId);
       toast.success(`Access revoked for ${app?.name ?? clientId}.`);
-      void qc.invalidateQueries({ queryKey: APPS_QUERY_KEY });
+      qc.setQueryData(APPS_QUERY_KEY, data.apps);
       setConfirmRevoke(null);
     },
     onError: (err: unknown) => {

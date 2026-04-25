@@ -9,6 +9,8 @@ import {
 import type { Db } from "../../../db/client";
 import { notFound } from "../../../errors/http-errors";
 
+type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+
 interface AppRow {
   clientId: string;
   name: string | null;
@@ -18,7 +20,7 @@ interface AppRow {
   lastUsedAt: number | Date | null;
 }
 
-export async function listAuthorizedApps(db: Db, userId: string): Promise<AuthorizedApp[]> {
+export async function listAuthorizedApps(db: DbOrTx, userId: string): Promise<AuthorizedApp[]> {
   const rows = (await db
     .select({
       clientId: oauthConsent.clientId,

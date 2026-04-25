@@ -21,10 +21,13 @@ import {
   session,
   user,
 } from "../../../../db/schema/auth";
+import { serviceConnections } from "../../../../db/schema/credentials";
 import { feedback } from "../../../../db/schema/feedback";
 import { jobRuns } from "../../../../db/schema/jobs";
+import { plugins } from "../../../../db/schema/plugins";
 import { preferenceProfiles } from "../../../../db/schema/preferences";
 import { roles, userRoles } from "../../../../db/schema/roles";
+import { primaryConnections } from "../../../../db/schema/user-preferences";
 
 const USER = "victim";
 const SURVIVOR = "survivor";
@@ -68,6 +71,22 @@ describe("deleteAccount", () => {
 
   it("rejects with 401 when the password is wrong", async () => {
     verifyPassword.mockRejectedValue(new Error("Invalid password"));
+
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "wrong",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
+  });
+
+  it("rejects with 401 when verifyPassword resolves to { valid: false }", async () => {
+    verifyPassword.mockResolvedValue({ valid: false });
 
     await expect(
       deleteAccount(db, {
@@ -187,6 +206,34 @@ async function seedFullUserGraph(db: Db, userId: string): Promise<void> {
     lastRebuiltAt: 0,
     lastUpdatedAt: 0,
   });
+
+  await db.insert(plugins).values({
+    id: `plugin-${userId}`,
+    version: "1.0.0",
+    sourceUrl: "https://example.test/plugin",
+    sourceType: "url",
+    checksum: "deadbeef",
+    manifest: "{}",
+    installedAt: 0,
+    updatedAt: 0,
+  });
+
+  await db.insert(serviceConnections).values({
+    id: `sc-${userId}`,
+    userId,
+    pluginId: `plugin-${userId}`,
+    status: "connected",
+    createdAt: 0,
+    updatedAt: 0,
+  });
+
+  await db.insert(primaryConnections).values({
+    userId,
+    capabilityKey: "metadata@v1",
+    mediaType: "movie",
+    connectionId: `sc-${userId}`,
+    updatedAt: 0,
+  });
 }
 
 async function seedJobHistory(db: Db, userId: string): Promise<void> {
@@ -222,6 +269,12 @@ async function assertNoOrphans(db: Db, userId: string): Promise<void> {
   expect(await db.select().from(feedback).where(eq(feedback.userId, userId)).all()).toHaveLength(0);
   expect(
     await db.select().from(preferenceProfiles).where(eq(preferenceProfiles.userId, userId)).all(),
+  ).toHaveLength(0);
+  expect(
+    await db.select().from(serviceConnections).where(eq(serviceConnections.userId, userId)).all(),
+  ).toHaveLength(0);
+  expect(
+    await db.select().from(primaryConnections).where(eq(primaryConnections.userId, userId)).all(),
   ).toHaveLength(0);
 }
 

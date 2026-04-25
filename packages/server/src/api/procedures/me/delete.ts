@@ -16,6 +16,16 @@ export interface DeleteAccountInput {
  * confirmation before issuing a single `DELETE` on the user row — FK cascades
  * (audited in #77) handle every dependent table. `jobRuns.triggeredByUserId`
  * is `SET NULL` by design so history survives the user, anonymized.
+ *
+ * Why not `auth.api.deleteUser`? Better Auth's helper layers an extra round of
+ * email-confirmation flows, which we already replace with our own
+ * password-and-email gate above. The configured `jwt()` plugin signs short-lived
+ * (default 15 min) JWTs with no server-side blacklist — so the cascade-driven
+ * deletion of `session`, `oauthAccessToken`, and `oauthRefreshToken` rows
+ * matches what `deleteUser` would do, and any in-flight JWT issued before the
+ * delete naturally expires within the JWT lifetime. If we ever introduce a
+ * longer-lived JWT or a token blacklist, switch to `auth.api.deleteUser` (or
+ * call `auth.api.revokeUserSessions` first).
  */
 export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<void> {
   const userRow = await db
@@ -40,11 +50,21 @@ export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<
 async function verifyPasswordOrThrow(password: string, headers: Headers): Promise<void> {
   try {
     const result = await auth.api.verifyPassword({ body: { password }, headers });
-    if (!result || (typeof result === "object" && "error" in result && result.error)) {
+    if (!isVerifyPasswordOk(result)) {
       throw unauthorized("me.delete.invalid_password", "Incorrect password");
     }
   } catch (err) {
     if (err instanceof Error && err.name === "HttpError") throw err;
     throw unauthorized("me.delete.invalid_password", "Incorrect password");
   }
+}
+
+// Better Auth's `verifyPassword` may resolve to `{ valid: boolean }`,
+// `{ error: ... }`, or throw on wrong credentials depending on version.
+// Treat anything other than an explicit success as a failure.
+function isVerifyPasswordOk(result: unknown): boolean {
+  if (!result || typeof result !== "object") return false;
+  if ("error" in result && (result as { error?: unknown }).error) return false;
+  if ("valid" in result) return Boolean((result as { valid?: unknown }).valid);
+  return true;
 }

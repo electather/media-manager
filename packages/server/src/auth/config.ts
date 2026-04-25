@@ -60,9 +60,26 @@ export const auth = betterAuth({
         // notification, so we synthesise one here. The session context still
         // holds the previous email at this point because the session row
         // updates lazily. sendEmail no-ops when the provider is off.
+        //
+        // The `ctx?.context?.session?.user?.email` path reads Better Auth's
+        // internal hook context shape — not part of the public API. If the
+        // path resolves to undefined (admin-driven update, migration, or a
+        // shape change in a Better Auth version bump), we skip the
+        // notification rather than guess the previous email. Pin Better Auth
+        // tightly in the catalog so a minor bump doesn't silently regress
+        // this path; revisit when the library exposes an official old-email
+        // accessor.
         after: async (user, ctx) => {
           const previousEmail = ctx?.context?.session?.user?.email;
-          if (!previousEmail || previousEmail === user.email) return;
+          if (previousEmail === undefined) {
+            console.warn(
+              "[auth.databaseHooks.user.update] previous email unavailable from ctx; " +
+                "old-address notification skipped. Likely an admin-driven update or a " +
+                "Better Auth context-shape change.",
+            );
+            return;
+          }
+          if (previousEmail === user.email) return;
           await sendEmail({
             to: previousEmail,
             subject: "Your email address was changed",
