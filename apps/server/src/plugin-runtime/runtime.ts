@@ -20,7 +20,7 @@ import type {
   PoolSignalingApi,
 } from "./types";
 import { captureError } from "../errors/capture";
-import { pluginCode, type HostErrorCode } from "../errors/codes";
+import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/errors";
 import { sharedCredentialsService } from "./shared-credentials";
 import { listReadyUserConnections, markUserConnectionExhausted } from "./user-pool";
 
@@ -472,8 +472,9 @@ export class PluginRuntime {
       return await (fn as NonNullable<PluginModule["startAuth"]>)(ctx, input);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      // Severity is derived from the code via the registry in ./errors/codes
-      // (PluginError.code for plugin throws, plugin-namespaced code otherwise).
+      // Severity is derived from the code via the registry in
+      // @ent-mcp/shared/errors (PluginError.code for plugin throws,
+      // plugin-namespaced code otherwise).
       // Genuine `plugin.upstream_error` → error; user-input `plugin.input_invalid`
       // → info. No per-callsite gate required.
       await captureError(err, {

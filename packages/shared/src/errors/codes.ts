@@ -1,4 +1,4 @@
-import type { ErrorSeverity } from "@ent-mcp/shared/errors";
+import type { ErrorSeverity } from "./enums";
 
 /** Severity classification attached to each stable error code.
  *

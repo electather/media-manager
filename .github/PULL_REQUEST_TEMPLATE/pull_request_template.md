@@ -48,7 +48,7 @@
 <!--
   Describe how you verified the change. Prefer reproducible commands.
   Examples:
-    - `vp test packages/server`
+    - `vp test apps/server`
     - Manual: start `vp run dev`, navigate to /plugins, add a connection, verify it persists after reload.
 -->
 

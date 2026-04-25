@@ -1,7 +1,7 @@
 {
   "name": "@ent-mcp/server",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "exports": {
     "./api/router": "./src/api/router.ts"

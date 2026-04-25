@@ -5,7 +5,7 @@ import {
   newRequestId,
   runWithRequestContext,
 } from "../errors/request-context";
-import type { UserFacingError } from "../errors/codes";
+import type { UserFacingError } from "@ent-mcp/shared/errors";
 import { badInput, EXPECTED_MCP_CODES, McpError, outputInvalid, toolNotFound } from "./errors";
 import { hasAllScopes, missingScopes } from "./scopes";
 import { forbidden } from "./errors";

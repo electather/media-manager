@@ -1,4 +1,4 @@
-import { HostErrorCode } from "@/errors";
+import { HostErrorCode } from "@ent-mcp/shared/errors";
 import { pluginError } from "./plugin-error";
 
 interface HandleHttpStatusOptions {

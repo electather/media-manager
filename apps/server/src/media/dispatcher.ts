@@ -10,7 +10,7 @@ import type { CapabilityDefinition, ResolvedCapabilityScope } from "../plugin-ru
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
 import { getPrimaryConnection } from "./primary-preference";
 import { harvestIds } from "./id-resolver";
-import type { HostErrorCode } from "../errors/codes";
+import type { HostErrorCode } from "@ent-mcp/shared/errors";
 import { type InvocationOutcome, PluginCallError, normalizeError } from "./errors";
 import { cacheKey, getCacheProvider, ttlMsFor } from "./cache";
 

@@ -1,4 +1,4 @@
-import type { HostErrorCode } from "../errors/codes";
+import type { HostErrorCode } from "@ent-mcp/shared/errors";
 import { isPluginError } from "../plugin-runtime/types";
 
 /**

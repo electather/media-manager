@@ -1,4 +1,4 @@
-import type { HostErrorCode } from "../../errors/codes";
+import type { HostErrorCode } from "@ent-mcp/shared/errors";
 
 export function pluginError(code: HostErrorCode, message: string): Error {
   const err = new Error(message);

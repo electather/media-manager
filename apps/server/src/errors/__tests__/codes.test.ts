@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { HOST_ERROR_CODES, severityFor } from "../codes";
+import { HOST_ERROR_CODES, severityFor } from "@ent-mcp/shared/errors";
 
 describe("severityFor", () => {
   it("returns the registered severity for known codes", () => {
@@ -23,7 +23,9 @@ describe("severityFor", () => {
 
 describe("HOST_ERROR_CODES", () => {
   it("assigns a severity to every registered code", () => {
-    for (const [code, spec] of Object.entries(HOST_ERROR_CODES)) {
+    for (const [code, spec] of Object.entries(HOST_ERROR_CODES) as Array<
+      [string, { severity: string }]
+    >) {
       expect(["error", "warning", "info"]).toContain(spec.severity);
       expect(code).toMatch(/^[a-z]+(\.[a-z_]+)+$/);
     }

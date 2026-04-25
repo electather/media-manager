@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@ent-mcp/shared";
-import type { HostErrorCode } from "../errors/codes";
+import type { HostErrorCode } from "@ent-mcp/shared/errors";
 
 // ─── Server-only plugin runtime interfaces ────────────────────────────────────
 

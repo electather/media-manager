@@ -1,8 +1,8 @@
 import { consola } from "consola";
 import type { ErrorRecord, ErrorSeverity, ErrorSource } from "@ent-mcp/shared/errors";
+import { severityFor } from "@ent-mcp/shared/errors";
 import { currentRequestContext, newRequestId } from "./request-context";
 import { serializeContext } from "./scrubber";
-import { severityFor } from "./codes";
 import type { ErrorSink } from "./types";
 
 export interface CaptureMeta {

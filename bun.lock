@@ -10,9 +10,9 @@
         "wrangler": "^4.84.1",
       },
     },
-    "packages/client": {
+    "apps/client": {
       "name": "@ent-mcp/client",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@base-ui/react": "^1.4.1",
         "@better-auth/oauth-provider": "catalog:",
@@ -62,9 +62,9 @@
         "vite-plus": "catalog:",
       },
     },
-    "packages/server": {
+    "apps/server": {
       "name": "@ent-mcp/server",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "@better-auth/oauth-provider": "catalog:",
         "@ent-mcp/shared": "workspace:*",
@@ -96,7 +96,7 @@
     },
     "packages/shared": {
       "name": "@ent-mcp/shared",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -272,9 +272,9 @@
 
     "@emnapi/runtime": ["@emnapi/runtime@1.9.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-3U4+MIWHImeyu1wnmVygh5WlgfYDtyf0k8AbLhMFxOipihf6nrWC4syIm/SwEeec0mNSafiiNnMJwbza/Is6Lw=="],
 
-    "@ent-mcp/client": ["@ent-mcp/client@workspace:packages/client"],
+    "@ent-mcp/client": ["@ent-mcp/client@workspace:apps/client"],
 
-    "@ent-mcp/server": ["@ent-mcp/server@workspace:packages/server"],
+    "@ent-mcp/server": ["@ent-mcp/server@workspace:apps/server"],
 
     "@ent-mcp/shared": ["@ent-mcp/shared@workspace:packages/shared"],
 
