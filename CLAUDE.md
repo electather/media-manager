@@ -83,30 +83,61 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 
 ## Pull Requests and Versioning
 
-This project uses [Changesets](https://github.com/changesets/changesets) for versioning and changelog management. A changeset file is REQUIRED for the CI pipeline to pass on PRs.
+This project uses [Changesets](https://github.com/changesets/changesets) for versioning and changelog management. Every PR must include a changeset file or CI will fail.
 
-**Instructions for AI Agents:**
-Since `bunx changeset add` is an interactive command, you MUST provide changesets using one of the following non-interactive methods:
+Only `@ent-mcp/client` and `@ent-mcp/server` are released (tagged + GitHub Release). `@ent-mcp/shared` is internal — never list it in a changeset.
 
-1. **If a version bump is required** (features, fixes, breaking changes):
-   Create a new Markdown file in the `.changeset/` directory with a unique, descriptive name (e.g., `.changeset/add-new-feature.md`). The file must contain YAML frontmatter specifying the package(s) and bump type (`major`, `minor`, or `patch`), followed by the changelog message.
+### Adding a changeset
 
-   Example `.changeset/add-new-feature.md`:
+Don't run the `changeset` CLI — just create the file directly. Drop a new `.changeset/<short-slug>.md` with YAML frontmatter listing the affected packages and bump types, followed by a one-line description:
 
-   ```md
-   ---
-   "@ent-mcp/client": minor
-   "@ent-mcp/server": patch
-   ---
+```md
+---
+"@ent-mcp/client": minor
+---
 
-   Added a new dashboard feature to the client and fixed an API parsing bug in the server.
-   ```
+Added a connections page where users can review and revoke linked apps.
+```
 
-2. **If NO version bump is required** (e.g., purely internal refactoring, tests, docs, or CI changes):
-   Run the following command to automatically generate an empty changeset:
-   ```bash
-   bunx changeset add --empty
-   ```
+Use a unique kebab-case slug (e.g. `connections-page.md`). One changeset per logical user-visible change — if a PR makes two unrelated changes, write two files.
+
+### Bump types
+
+- `patch` — bug fixes and behaviour fixes with no API surface change
+- `minor` — new user-visible functionality, backwards-compatible
+- `major` — breaking change (removed feature, behaviour change users must adapt to)
+
+### Writing the description
+
+Changeset descriptions land verbatim in `CHANGELOG.md` and on the GitHub Release page, so write them for end users, following [Keep a Changelog](https://keepachangelog.com) conventions:
+
+- **Keep it to one short sentence.** Two only if truly necessary.
+- **Non-technical.** Describe the user-visible change, not the implementation. No file paths, function names, internal types, or PR/issue numbers in the body.
+- **Past tense, active voice.** "Added X." / "Fixed Y." / "Removed Z."
+
+Good:
+
+```
+Fixed sign-in failing when the session had expired.
+```
+
+Bad (too technical, too long):
+
+```
+Refactored useConnections to extract polling into usePolledConnection and added an
+AbortController to prevent the race condition introduced in #123.
+```
+
+### When no release is needed
+
+For internal-only changes (refactors with no user-visible impact, tests, docs, CI, dependency bumps), create an empty changeset — empty frontmatter, no body:
+
+```md
+---
+---
+```
+
+Save it as `.changeset/<short-slug>.md` like any other. CI accepts this and skips the version bump.
 
 ## Review Checklist for Agents
 
