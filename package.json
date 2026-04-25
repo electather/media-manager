@@ -2,16 +2,18 @@
   "name": "ent-mcp",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "apps/*",
+    "packages/*",
+    "packages/plugins/*"
   ],
   "scripts": {
     "dev": "trap 'kill 0' SIGINT; bun run dev:server & bun run dev:client; wait",
-    "dev:server": "bun --env-file=$(pwd)/.env --cwd packages/server --hot src/index.ts",
-    "dev:client": "bun run --cwd packages/client dev",
-    "build:client": "bun run --cwd packages/client build",
-    "db:migrate": "bun run packages/server/src/db/migrate.ts",
-    "db:create-user": "bun run packages/server/src/db/create-user.ts",
-    "typecheck": "bun run --cwd packages/shared tsc --noEmit && bun run --cwd packages/server tsc --noEmit && bun run --cwd packages/client tsc --noEmit",
+    "dev:server": "bun --env-file=$(pwd)/.env --cwd apps/server --hot src/index.ts",
+    "dev:client": "bun run --cwd apps/client dev",
+    "build:client": "bun run --cwd apps/client build",
+    "db:migrate": "bun run apps/server/src/db/migrate.ts",
+    "db:create-user": "bun run apps/server/src/db/create-user.ts",
+    "typecheck": "bun run --cwd packages/shared tsc --noEmit && bun run --cwd apps/server tsc --noEmit && bun run --cwd apps/client tsc --noEmit",
     "inspect": "bun x @modelcontextprotocol/inspector ",
     "prepare": "vp config"
   },

@@ -1,0 +1,52 @@
+{
+  "name": "@ent-mcp/server",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "exports": {
+    "./api/router": "./src/api/router.ts"
+  },
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "bun --env-file=../../.env x drizzle-kit generate",
+    "db:migrate": "bun --env-file=../../.env src/db/migrate.ts",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@better-auth/oauth-provider": "catalog:",
+    "@ent-mcp/plugin-jellyfin": "workspace:*",
+    "@ent-mcp/plugin-plex": "workspace:*",
+    "@ent-mcp/plugin-sdk": "workspace:*",
+    "@ent-mcp/plugin-seerr": "workspace:*",
+    "@ent-mcp/plugin-tmdb": "workspace:*",
+    "@ent-mcp/plugin-trakt": "workspace:*",
+    "@ent-mcp/plugin-tvdb": "workspace:*",
+    "@ent-mcp/shared": "workspace:*",
+    "@hono/zod-validator": "^0.7.6",
+    "@libsql/client": "^0.17.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@t3-oss/env-core": "^0.13.11",
+    "ajv": "^8.18.0",
+    "better-auth": "catalog:",
+    "consola": "^3.4.2",
+    "croner": "^10.0.1",
+    "drizzle-orm": "^0.45.2",
+    "drizzle-zod": "^0.8.3",
+    "hono": "catalog:",
+    "ioredis": "^5.10.1",
+    "jszip": "catalog:",
+    "lru-cache": "^11.3.5",
+    "ofetch": "^1.5.1",
+    "postgres": "^3.4.9",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}

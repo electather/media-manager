@@ -4,12 +4,15 @@
 **Date:** 2026-04-19
 **Author:** Omid Astaraki
 **Supersedes:** Initial Connections design (non-plugin)
+**Updated:** 2026-04-25 — packaging layout reorganised, see `docs/2026-04-25-plugin-monorepo-design.md` for details. Runtime, capability, and database designs in this document remain authoritative.
 
 ## Summary
 
 The connections subsystem is being redesigned so that every service integration (Trakt, Seerr, TMDB, TVDB, self-hosted media servers such as Plex and Jellyfin, and any future third-party service) is implemented as a plugin. Built-in services ship as bundled plugins in the same format as third-party ones. Capabilities are versioned, schema-validated, and discoverable at runtime, so the host can fan out feature calls (watch history, recommendations, media requests, library availability lookups, etc.) to whichever plugins implement them.
 
 > **v1 scope note:** Built-in plugins currently run as trusted TypeScript modules within the host process — there is no sandbox boundary between them and the host. The QuickJS WASM sandbox (and the third-party plugin install/update/rollback endpoints that depend on it) are deferred to a future revision. See the "Deferred to future revisions" section.
+
+> **Packaging update (2026-04-25):** Each integration now lives in its own workspace package under `packages/plugins/<id>/` and depends on `@ent-mcp/plugin-sdk` for plugin-author types and helpers. Apps moved to `apps/{client,server}/`. Built-ins continue to load via workspace TypeScript imports (no runtime bundle loading for built-ins in v1); each plugin builds a `dist/plugin.js` bundle artifact for distribution and forward-compatibility with future third-party install. Versioning is independent per package via Changesets. Full design: `docs/2026-04-25-plugin-monorepo-design.md`.
 
 Capabilities declare a **scope** — `global` or `user` — so a single plugin can legitimately expose both a server-wide data source (e.g. TMDB metadata) and per-user integrations (e.g. TMDB watchlist). Admins can configure an **admin-owned pool** of shared credentials for pool-safe plugins so quota-limited services like TMDB can fail over across multiple keys. Users with user-scoped capabilities authenticate normally and may have multiple distinct connections of their own; a per-plugin `personalKeyFallback` policy optionally links the two pools for per-user requests without ever sharing keys across users.
 
@@ -643,13 +646,33 @@ Host-owned. Nothing else in the app touches the plugin runtime directly.
 **v1 layout (trusted TypeScript modules, no sandbox):**
 
 ```
-server/plugin-runtime/
+apps/server/src/plugin-runtime/      host-internal subsystems (NOT exported to plugins)
 ├── runtime.ts       PluginRuntime — lifecycle, invocation
-├── context.ts       PluginContext builder
-├── loader.ts        Validate and register built-in modules
-├── registry.ts      Capability registry
-└── types.ts
+├── context.ts       PluginContext builder (BuildContextArgs, buildContext)
+├── loader.ts        registerBuiltin / listBuiltins / getBuiltin
+├── registry.ts      Capability dispatch registry
+├── host-bridge.ts   ctx.store implementation
+├── fetch-policy.ts  ctx.fetch + buildLogger
+├── allowed-hosts.ts allowlist resolution
+├── admin-policy.ts  admin-set host narrowing
+├── shared-credentials.ts / user-pool.ts  pool resolution
+└── register-capabilities.ts  imports SDK capability defs and registers them
+
+packages/plugin-sdk/src/             plugin-author API (consumed by apps/server AND every plugin)
+├── types.ts         PluginContext, PluginModule, AuthResult, CapabilityImpl, …
+├── define.ts        definePlugin, defineCapability, method
+├── errors/plugin-error.ts   PluginError class + factory
+├── utils/{http-status,credentials}.ts
+├── capabilities/    capability schema definitions (WatchHistoryV1 etc.)
+├── validate.ts      validatePluginModule
+├── version.ts       SDK_VERSION + isSdkCompatible
+└── manifest.ts      re-exports pluginManifestSchema from @ent-mcp/shared
+
+packages/plugins/<id>/src/           one workspace package per integration
+└── plugin.ts        the plugin module (definePlugin({...}))
 ```
+
+See `docs/2026-04-25-plugin-monorepo-design.md` for the full packaging design and the symbol map (what moved where, what re-exports, what stays).
 
 > **Future revision — QuickJS sandbox:** When third-party plugin support is introduced, `sandbox.ts` (QuickJS instance wrapper via `quickjs-emscripten`) and `host-bridge.ts` (implementations of `ctx` methods crossing the sandbox boundary) will be added. The layout above will expand accordingly, and the per-instance memory cap (64 MB) and call timeout (30 s via QuickJS interrupt handler) will be enforced at that point. Until then, built-in plugins run as trusted TypeScript modules with no memory or timeout isolation.
 
