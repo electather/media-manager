@@ -78,11 +78,11 @@ packages/plugins/*  ──► packages/plugin-sdk
 Two boundary rules, enforced by a CI lint check (see "Boundary enforcement" below):
 
 1. **Plugins depend only on `@ent-mcp/plugin-sdk`.** Never on `@ent-mcp/shared`, never on `@ent-mcp/server`, never on each other. Anything a plugin needs must be re-exported from the SDK.
-2. **`@ent-mcp/shared` stays free of plugin concerns.** Anything plugin-specific shared between client and server stays where it is today (`@ent-mcp/shared/plugins` for manifest schema, library types). The SDK *re-exports* those for plugin authors but does not move them. Shared keeps its existing rule: isomorphic data shapes, zod-only runtime dep.
+2. **`@ent-mcp/shared` stays free of plugin concerns.** Anything plugin-specific shared between client and server stays where it is today (`@ent-mcp/shared/plugins` for manifest schema, library types). The SDK _re-exports_ those for plugin authors but does not move them. Shared keeps its existing rule: isomorphic data shapes, zod-only runtime dep.
 
 ## `@ent-mcp/plugin-sdk` package contents
 
-**Hard rule: every symbol has exactly one canonical home. The SDK either *owns* a symbol (moved from somewhere else) or *re-exports* it from `@ent-mcp/shared`. Nothing is duplicated.**
+**Hard rule: every symbol has exactly one canonical home. The SDK either _owns_ a symbol (moved from somewhere else) or _re-exports_ it from `@ent-mcp/shared`. Nothing is duplicated.**
 
 `@ent-mcp/shared` is internal to this monorepo (Bun workspace dep, never published). Third-party plugin authors can only depend on `@ent-mcp/plugin-sdk`. Shared types plugins need (manifest schema, error codes) reach plugin authors via SDK re-export, while shared remains the canonical source for first-party consumers.
 
@@ -120,7 +120,7 @@ packages/plugin-sdk/
   "private": false,
   "type": "module",
   "exports": {
-    ".":         "./src/index.ts",
+    ".": "./src/index.ts",
     "./testing": "./src/testing/index.ts"
   },
   "dependencies": {
@@ -136,30 +136,30 @@ packages/plugin-sdk/
 
 #### MOVED (canonical home becomes SDK; deleted from original location)
 
-| Symbol | Today's location | After |
-|---|---|---|
-| `PluginContext`, `PluginModule`, `AuthResult`, `CapabilityImpl`, `CapabilityMethod`, `PluginJobHandler`, `McpToolHandler`, `PluginLogger`, `PluginStoreApi`, `PoolSignalingApi`, `StoreScopeOpts`, `StoreSetOpts` | `apps/server/src/plugin-runtime/types.ts` | `packages/plugin-sdk/src/types.ts`. Server imports from SDK. |
-| `PluginError` class, `isPluginError`, `PluginErrorShape` | `apps/server/src/plugin-runtime/types.ts` | `packages/plugin-sdk/src/errors/plugin-error.ts`. Server imports from SDK. |
-| `pluginError()` factory, `toErrorMessage` | `apps/server/src/plugins/utils/plugin-error.ts` | `packages/plugin-sdk/src/errors/plugin-error.ts`. |
-| `handleHttpStatus` | `apps/server/src/plugins/utils/http-status.ts` | `packages/plugin-sdk/src/utils/http-status.ts`. |
-| `resolveCredential` | `apps/server/src/plugins/utils/credentials.ts` | `packages/plugin-sdk/src/utils/credentials.ts`. |
-| `definePlugin`, `defineCapability`, `method` | `apps/server/src/plugin-runtime/define.ts` | `packages/plugin-sdk/src/define.ts`. Server imports from SDK. |
+| Symbol                                                                                                                                                                                                                                                                                                                                       | Today's location                                                                                                                                          | After                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PluginContext`, `PluginModule`, `AuthResult`, `CapabilityImpl`, `CapabilityMethod`, `PluginJobHandler`, `McpToolHandler`, `PluginLogger`, `PluginStoreApi`, `PoolSignalingApi`, `StoreScopeOpts`, `StoreSetOpts`                                                                                                                            | `apps/server/src/plugin-runtime/types.ts`                                                                                                                 | `packages/plugin-sdk/src/types.ts`. Server imports from SDK.                                                                                                                                                                              |
+| `PluginError` class, `isPluginError`, `PluginErrorShape`                                                                                                                                                                                                                                                                                     | `apps/server/src/plugin-runtime/types.ts`                                                                                                                 | `packages/plugin-sdk/src/errors/plugin-error.ts`. Server imports from SDK.                                                                                                                                                                |
+| `pluginError()` factory, `toErrorMessage`                                                                                                                                                                                                                                                                                                    | `apps/server/src/plugins/utils/plugin-error.ts`                                                                                                           | `packages/plugin-sdk/src/errors/plugin-error.ts`.                                                                                                                                                                                         |
+| `handleHttpStatus`                                                                                                                                                                                                                                                                                                                           | `apps/server/src/plugins/utils/http-status.ts`                                                                                                            | `packages/plugin-sdk/src/utils/http-status.ts`.                                                                                                                                                                                           |
+| `resolveCredential`                                                                                                                                                                                                                                                                                                                          | `apps/server/src/plugins/utils/credentials.ts`                                                                                                            | `packages/plugin-sdk/src/utils/credentials.ts`.                                                                                                                                                                                           |
+| `definePlugin`, `defineCapability`, `method`                                                                                                                                                                                                                                                                                                 | `apps/server/src/plugin-runtime/define.ts`                                                                                                                | `packages/plugin-sdk/src/define.ts`. Server imports from SDK.                                                                                                                                                                             |
 | `WatchHistoryV1`, `WatchlistV1`, `RatingsV1`, `RecommendationsV1`, `CalendarV1`, `PlaybackV1`, `CollectionV1`, `UserCommentsV1`, `IdResolveV1`, `MetadataV1`, `WatchProvidersV1`, `TrailersV1`, `MediaRequestV1`, `LibraryAvailabilityV1`, `ContinueWatchingV1`, `PlaybackSessionsV1`, `LibraryAdminV1`, plus the `CAPABILITY_CATALOG` index | `apps/server/src/plugin-runtime/capabilities.ts` (single file holding all capability `defineCapability(...)` exports plus the catalog and lookup helpers) | Split into `packages/plugin-sdk/src/capabilities/` directory: one file per capability plus an `index.ts` barrel that re-builds the catalog. Server's runtime imports the schemas from the SDK and registers each into its dispatch table. |
-| `CapabilityDefinition`, `CapabilityMethodSpec`, `CapabilitySpec`, `CapabilityScopeMode`, `ResolvedCapabilityScope`, `CapabilityStrategy`, `CapabilityMcpTool` | `apps/server/src/plugin-runtime/types.ts` | `packages/plugin-sdk/src/types.ts`. |
-| `validatePluginModule` | `apps/server/src/plugin-runtime/loader.ts` | `packages/plugin-sdk/src/validate.ts`. Used by server boot AND contract tests. |
-| `getCapability`, `listCapabilities` (catalog lookup helpers, currently in the same `capabilities.ts` file as the schemas above) | `apps/server/src/plugin-runtime/capabilities.ts` | `packages/plugin-sdk/src/capabilities/index.ts` — the lookup helpers move with the catalog they read. |
-| `SDK_VERSION` constant + `isSdkCompatible(range)` | `apps/server/src/plugin-runtime/manifest.ts` (`isSdkCompatible` only) | `packages/plugin-sdk/src/version.ts`. Server imports `isSdkCompatible` from SDK to gate installs. |
+| `CapabilityDefinition`, `CapabilityMethodSpec`, `CapabilitySpec`, `CapabilityScopeMode`, `ResolvedCapabilityScope`, `CapabilityStrategy`, `CapabilityMcpTool`                                                                                                                                                                                | `apps/server/src/plugin-runtime/types.ts`                                                                                                                 | `packages/plugin-sdk/src/types.ts`.                                                                                                                                                                                                       |
+| `validatePluginModule`                                                                                                                                                                                                                                                                                                                       | `apps/server/src/plugin-runtime/loader.ts`                                                                                                                | `packages/plugin-sdk/src/validate.ts`. Used by server boot AND contract tests.                                                                                                                                                            |
+| `getCapability`, `listCapabilities` (catalog lookup helpers, currently in the same `capabilities.ts` file as the schemas above)                                                                                                                                                                                                              | `apps/server/src/plugin-runtime/capabilities.ts`                                                                                                          | `packages/plugin-sdk/src/capabilities/index.ts` — the lookup helpers move with the catalog they read.                                                                                                                                     |
+| `SDK_VERSION` constant + `isSdkCompatible(range)`                                                                                                                                                                                                                                                                                            | `apps/server/src/plugin-runtime/manifest.ts` (`isSdkCompatible` only)                                                                                     | `packages/plugin-sdk/src/version.ts`. Server imports `isSdkCompatible` from SDK to gate installs.                                                                                                                                         |
 
 #### RE-EXPORTED (canonical stays in `@ent-mcp/shared`)
 
 These already cross the client/server boundary. They stay in shared (consumed by client UI, server validation, plugins via SDK).
 
-| Symbol | Canonical home | SDK behaviour |
-|---|---|---|
-| `pluginManifestSchema`, `PluginManifest` type | `packages/shared/src/plugins/schemas.ts` + `types.ts` | Re-export from SDK for third-party access. |
-| `JSONSchema` type, `McpToolAnnotations`, library types under `@ent-mcp/shared/plugins/library` | `packages/shared/src/plugins/library.ts` + `types.ts` | Re-export from SDK. |
-| `HostErrorCode` union | `packages/shared/src/errors/codes.ts` (after issue #106 lands) | Re-export from SDK. |
-| Connection / job / preference enums plugins reference (lazy: add as plugins require them) | `packages/shared/src/{jobs,connections,…}/enums.ts` | Re-export only the ones plugins actually need. |
+| Symbol                                                                                         | Canonical home                                                 | SDK behaviour                                  |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------- |
+| `pluginManifestSchema`, `PluginManifest` type                                                  | `packages/shared/src/plugins/schemas.ts` + `types.ts`          | Re-export from SDK for third-party access.     |
+| `JSONSchema` type, `McpToolAnnotations`, library types under `@ent-mcp/shared/plugins/library` | `packages/shared/src/plugins/library.ts` + `types.ts`          | Re-export from SDK.                            |
+| `HostErrorCode` union                                                                          | `packages/shared/src/errors/codes.ts` (after issue #106 lands) | Re-export from SDK.                            |
+| Connection / job / preference enums plugins reference (lazy: add as plugins require them)      | `packages/shared/src/{jobs,connections,…}/enums.ts`            | Re-export only the ones plugins actually need. |
 
 #### STAYS in server (not exported from SDK)
 
@@ -169,7 +169,7 @@ Host-internal subsystems plugins must never reach.
 - `plugin-runtime/registry.ts` — in-memory dispatch index
 - `plugin-runtime/runtime.ts` — invocation, retry, pool rotation
 - `plugin-runtime/host-bridge.ts`, `fetch-policy.ts`, `allowed-hosts.ts`, `admin-policy.ts`, `shared-credentials.ts`, `user-pool.ts`, `context.ts` (the `buildContext` factory and its `BuildContextArgs`)
-- The server-side capability *index* (small file that imports SDK defs and calls `registerCapability(...)`) — only the registration glue lives here.
+- The server-side capability _index_ (small file that imports SDK defs and calls `registerCapability(...)`) — only the registration glue lives here.
 
 After the move, the existing `apps/server/src/plugins/` directory disappears: `builtin/` becomes workspace dependencies; `utils/` moves to the SDK.
 
@@ -177,11 +177,11 @@ After the move, the existing `apps/server/src/plugins/` directory disappears: `b
 
 Test-only utilities. None of these exist anywhere today; they are extracted from duplicated helpers across the current `__tests__/` directories.
 
-| Symbol | Origin |
-|---|---|
-| `makeTestContext(overrides)` | New — extracted from `makeCtx` patterns duplicated across every plugin's contract test. |
-| `jsonRes`, `statusRes`, `paginatedPage`, fetch response builders | New — extracted from same. |
-| Capability fixture builders (typed input builders for each capability) | New, optional, lazy. |
+| Symbol                                                                 | Origin                                                                                  |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `makeTestContext(overrides)`                                           | New — extracted from `makeCtx` patterns duplicated across every plugin's contract test. |
+| `jsonRes`, `statusRes`, `paginatedPage`, fetch response builders       | New — extracted from same.                                                              |
+| Capability fixture builders (typed input builders for each capability) | New, optional, lazy.                                                                    |
 
 `validatePluginModule` is **not** in `/testing` — it lives on the main entry because the server uses it at boot.
 
@@ -252,7 +252,9 @@ The `exports` conditional gives us "workspace import in dev with HMR, single-fil
 ```ts
 import { definePlugin } from "@ent-mcp/plugin-sdk";
 // import implementation pieces
-export default definePlugin({ /* … */ });
+export default definePlugin({
+  /* … */
+});
 ```
 
 ### `tsdown.config.ts`
@@ -269,7 +271,7 @@ export default defineConfig({
 });
 ```
 
-`external: ["@ent-mcp/plugin-sdk"]` is critical: the bundle does **not** inline the SDK. At runtime (workspace import in dev or `dist/plugin.js` in prod), the plugin and the server share a single SDK instance. Inlining would mean every plugin ships its own copy of `PluginError`, breaking `instanceof` checks. (`isPluginError` is duck-typed defensively *because* of this risk, but a single shared instance is still preferable.)
+`external: ["@ent-mcp/plugin-sdk"]` is critical: the bundle does **not** inline the SDK. At runtime (workspace import in dev or `dist/plugin.js` in prod), the plugin and the server share a single SDK instance. Inlining would mean every plugin ships its own copy of `PluginError`, breaking `instanceof` checks. (`isPluginError` is duck-typed defensively _because_ of this risk, but a single shared instance is still preferable.)
 
 A shared base config helper from `@ent-mcp/plugin-sdk/build` could DRY this up later; for v1 each plugin keeps its own copy.
 
@@ -316,17 +318,37 @@ A single file mirrors plugin-side registration: imports capability defs from the
 ```ts
 // apps/server/src/plugin-runtime/register-capabilities.ts
 import {
-  WatchHistoryV1, WatchlistV1, RatingsV1, RecommendationsV1,
-  CalendarV1, PlaybackV1, CollectionV1, UserCommentsV1,
-  IdResolveV1, MetadataV1, WatchProvidersV1, TrailersV1, MediaRequestV1,
+  WatchHistoryV1,
+  WatchlistV1,
+  RatingsV1,
+  RecommendationsV1,
+  CalendarV1,
+  PlaybackV1,
+  CollectionV1,
+  UserCommentsV1,
+  IdResolveV1,
+  MetadataV1,
+  WatchProvidersV1,
+  TrailersV1,
+  MediaRequestV1,
 } from "@ent-mcp/plugin-sdk";
 import { registerCapability } from "./registry";
 
 export function registerHostCapabilities(): void {
   for (const def of [
-    WatchHistoryV1, WatchlistV1, RatingsV1, RecommendationsV1,
-    CalendarV1, PlaybackV1, CollectionV1, UserCommentsV1,
-    IdResolveV1, MetadataV1, WatchProvidersV1, TrailersV1, MediaRequestV1,
+    WatchHistoryV1,
+    WatchlistV1,
+    RatingsV1,
+    RecommendationsV1,
+    CalendarV1,
+    PlaybackV1,
+    CollectionV1,
+    UserCommentsV1,
+    IdResolveV1,
+    MetadataV1,
+    WatchProvidersV1,
+    TrailersV1,
+    MediaRequestV1,
   ]) {
     registerCapability(def);
   }
@@ -347,12 +369,12 @@ We do not hash `dist/plugin.js` for built-ins because dev mode resolves to TS so
 
 ## Testing strategy
 
-| Layer | Location | Purpose |
-|---|---|---|
-| Per-plugin contract tests | `packages/plugins/<id>/__tests__/contract.test.ts` | Drive every declared capability method end-to-end with stubbed `PluginContext`; assert request URLs and parse results against the capability's Zod output schema. Imports `validatePluginModule`, `makeTestContext`, fetch helpers from `@ent-mcp/plugin-sdk/testing`. Today's pattern, relocated. |
-| Per-plugin unit tests | `packages/plugins/<id>/__tests__/plugin.test.ts`, `helpers.ts` | Plugin-internal coverage — auth ceremonies, edge cases, helpers. Today's pattern, relocated. |
-| Server-side integration tests | `apps/server/src/plugin-runtime/__tests__/` | Tests runtime, registry, host bridge, fetch policy. Doesn't touch individual plugins. Stays put. |
-| SDK self-tests | `packages/plugin-sdk/__tests__/` | New — minimal coverage for `validatePluginModule`, `pluginError`, `handleHttpStatus`, `resolveCredential`, testing-kit fixtures. |
+| Layer                         | Location                                                       | Purpose                                                                                                                                                                                                                                                                                            |
+| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Per-plugin contract tests     | `packages/plugins/<id>/__tests__/contract.test.ts`             | Drive every declared capability method end-to-end with stubbed `PluginContext`; assert request URLs and parse results against the capability's Zod output schema. Imports `validatePluginModule`, `makeTestContext`, fetch helpers from `@ent-mcp/plugin-sdk/testing`. Today's pattern, relocated. |
+| Per-plugin unit tests         | `packages/plugins/<id>/__tests__/plugin.test.ts`, `helpers.ts` | Plugin-internal coverage — auth ceremonies, edge cases, helpers. Today's pattern, relocated.                                                                                                                                                                                                       |
+| Server-side integration tests | `apps/server/src/plugin-runtime/__tests__/`                    | Tests runtime, registry, host bridge, fetch policy. Doesn't touch individual plugins. Stays put.                                                                                                                                                                                                   |
+| SDK self-tests                | `packages/plugin-sdk/__tests__/`                               | New — minimal coverage for `validatePluginModule`, `pluginError`, `handleHttpStatus`, `resolveCredential`, testing-kit fixtures.                                                                                                                                                                   |
 
 `vp test` behaviour:
 
@@ -364,13 +386,13 @@ We do not hash `dist/plugin.js` for built-ins because dev mode resolves to TS so
 
 Independent versions per package. The `private` flag decides whether a package gets a GitHub Release page (per the convention from PR #107).
 
-| Package | `private` | Tagged + GitHub Release? | Release artifacts |
-|---|---|---|---|
-| `@ent-mcp/server` | `false` | Yes | Docker image pushed to GHCR (`ghcr.io/electather/media-manager:<version>`), linked from Release notes; plus source archive |
-| `@ent-mcp/client` | `false` | Yes | Built static bundle attached as Release asset (so self-hosters can serve it from any static host without rebuilding) |
-| `@ent-mcp/shared` | `true` | No | — |
-| `@ent-mcp/plugin-sdk` | `false` | Yes | `dist/` tarball |
-| `@ent-mcp/plugin-<id>` (each) | `false` | Yes | `dist/plugin.js` + `dist/plugin.d.ts` + manifest snapshot |
+| Package                       | `private` | Tagged + GitHub Release? | Release artifacts                                                                                                          |
+| ----------------------------- | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `@ent-mcp/server`             | `false`   | Yes                      | Docker image pushed to GHCR (`ghcr.io/electather/media-manager:<version>`), linked from Release notes; plus source archive |
+| `@ent-mcp/client`             | `false`   | Yes                      | Built static bundle attached as Release asset (so self-hosters can serve it from any static host without rebuilding)       |
+| `@ent-mcp/shared`             | `true`    | No                       | —                                                                                                                          |
+| `@ent-mcp/plugin-sdk`         | `false`   | Yes                      | `dist/` tarball                                                                                                            |
+| `@ent-mcp/plugin-<id>` (each) | `false`   | Yes                      | `dist/plugin.js` + `dist/plugin.d.ts` + manifest snapshot                                                                  |
 
 Why per-plugin Releases: (a) the audit trail self-hosters actually want when reading "what changed in Trakt"; (b) pre-stages the third-party install path — when QuickJS sandboxing lands, the Release URL becomes the install URL with zero pipeline change; (c) `changesets/action` already creates Releases per non-private package, so the marginal cost is one workflow step that uploads `dist/*` as Release assets.
 
@@ -398,27 +420,35 @@ Why per-plugin Releases: (a) the audit trail self-hosters actually want when rea
 
 ```md
 # A bug in one plugin only.
+
 ---
-"@ent-mcp/plugin-trakt": patch
----
+
+## "@ent-mcp/plugin-trakt": patch
+
 Fix Trakt 401 retry loop after refresh.
 ```
 
 ```md
 # An SDK change with downstream impact.
+
 ---
+
 "@ent-mcp/plugin-sdk": minor
 "@ent-mcp/plugin-trakt": patch
 "@ent-mcp/plugin-tmdb": patch
+
 ---
+
 Add `ctx.signal: AbortSignal` to PluginContext.
 ```
 
 ```md
 # Pure server-side change.
+
 ---
-"@ent-mcp/server": minor
----
+
+## "@ent-mcp/server": minor
+
 Wire AbortSignal into runtime invocation.
 ```
 
@@ -458,11 +488,11 @@ Each commit is independently reviewable and leaves the repo in a working state.
 2. **Create `@ent-mcp/plugin-sdk` skeleton with relocated types and helpers.** New package at `packages/plugin-sdk/`. Move plugin-author types, `definePlugin`, `validatePluginModule`, `isSdkCompatible` + `SDK_VERSION`, `pluginError`, `handleHttpStatus`, `resolveCredential`. Update server imports. Plugins still live at `apps/server/src/plugins/builtin/` and import from the SDK now.
 3. **Move capability schemas to the SDK.** Split `apps/server/src/plugin-runtime/capabilities.ts` (a single 870+ line file holding every `defineCapability(...)` export plus `CAPABILITY_CATALOG`, `getCapability`, `listCapabilities`) into `packages/plugin-sdk/src/capabilities/<capability>.ts` with a barrel `index.ts` that rebuilds the catalog and re-exports the lookup helpers. **Create** a new `apps/server/src/plugin-runtime/register-capabilities.ts` that imports each capability def from the SDK and calls `registerCapability(...)` to populate the runtime dispatch registry. Update plugin contract tests to import schemas and helpers from `@ent-mcp/plugin-sdk` instead of relative server paths.
 4. **Create `@ent-mcp/plugin-sdk/testing` subpath.** Extract `makeTestContext`, `jsonRes`, `statusRes`, `paginatedPage` from duplicated patterns across `apps/server/src/plugins/builtin/*/__tests__/`. Plugin tests adopt the shared fixtures.
-5–10. **Extract one plugin per commit, smallest first.** Order: TVDB → TMDB → Seerr → Trakt → Plex → Jellyfin. For each: create `packages/plugins/<id>/` with `package.json`, `tsdown.config.ts`, `src/`, `__tests__/`; add `@ent-mcp/plugin-<id>` as dep in `apps/server/package.json`; update `registry.ts` to import from the new package; delete old `apps/server/src/plugins/builtin/<id>/` directory; write changeset (`@ent-mcp/plugin-<id>: minor` initial release + `@ent-mcp/server: patch` consumer update).
-11. **Delete the husk.** Remove now-empty `apps/server/src/plugins/builtin/` and `apps/server/src/plugins/utils/` directories.
-12. **Add the boundary lint check.** `scripts/check-plugin-deps.ts` failing on plugin-package imports from `@ent-mcp/shared` or `@ent-mcp/server`. Wired into `vp check`.
-13. **Add the SDK-compat CI check.** `scripts/check-sdk-compat.ts` verifying every plugin's `manifest.sdkVersion` parses against the SDK's current version. Wired into `vp check`.
-14. **Release workflow updates.** Adjust `.github/workflows/release.yml` to (a) build and attach `dist/plugin.js` + `dist/plugin.d.ts` as Release assets for each tagged plugin package, (b) build and attach the SDK's `dist/` tarball to its Release, (c) build and push the server Docker image to GHCR and link the pull URL from the `@ent-mcp/server` Release notes, and (d) build and attach the client static bundle as an asset on the `@ent-mcp/client` Release. The Docker build job itself is new — `release.yml` does not build images today.
+   5–10. **Extract one plugin per commit, smallest first.** Order: TVDB → TMDB → Seerr → Trakt → Plex → Jellyfin. For each: create `packages/plugins/<id>/` with `package.json`, `tsdown.config.ts`, `src/`, `__tests__/`; add `@ent-mcp/plugin-<id>` as dep in `apps/server/package.json`; update `registry.ts` to import from the new package; delete old `apps/server/src/plugins/builtin/<id>/` directory; write changeset (`@ent-mcp/plugin-<id>: minor` initial release + `@ent-mcp/server: patch` consumer update).
+5. **Delete the husk.** Remove now-empty `apps/server/src/plugins/builtin/` and `apps/server/src/plugins/utils/` directories.
+6. **Add the boundary lint check.** `scripts/check-plugin-deps.ts` failing on plugin-package imports from `@ent-mcp/shared` or `@ent-mcp/server`. Wired into `vp check`.
+7. **Add the SDK-compat CI check.** `scripts/check-sdk-compat.ts` verifying every plugin's `manifest.sdkVersion` parses against the SDK's current version. Wired into `vp check`.
+8. **Release workflow updates.** Adjust `.github/workflows/release.yml` to (a) build and attach `dist/plugin.js` + `dist/plugin.d.ts` as Release assets for each tagged plugin package, (b) build and attach the SDK's `dist/` tarball to its Release, (c) build and push the server Docker image to GHCR and link the pull URL from the `@ent-mcp/server` Release notes, and (d) build and attach the client static bundle as an asset on the `@ent-mcp/client` Release. The Docker build job itself is new — `release.yml` does not build images today.
 
 ### Risk & rollback
 
