@@ -198,11 +198,11 @@ const PRIVATE_PLUGIN_MANIFEST = {
   poolable: false,
 };
 
-function installPlugin() {
+function installPlugin(opts: { enabled?: 0 | 1 } = {}) {
   state.plugins = [
     {
       id: "plex",
-      enabled: 1,
+      enabled: opts.enabled ?? 1,
       manifest: JSON.stringify(PRIVATE_PLUGIN_MANIFEST),
     },
   ];
@@ -238,7 +238,7 @@ beforeEach(() => {
 });
 
 describe("connectionsService — x-private stripping", () => {
-  it("omits x-private fields from listForUser responses", async () => {
+  it("redacts x-private and excludes x-secret in displayFields on listForUser", async () => {
     installPlugin();
     seedConnection({
       externalUrl: "https://plex.example.com",
@@ -248,10 +248,27 @@ describe("connectionsService — x-private stripping", () => {
 
     const list = await connectionsService.listForUser("user-1");
     expect(list).toHaveLength(1);
-    const cfg = list[0]?.userConfig as Record<string, unknown>;
-    expect(cfg.externalUrl).toBe("https://plex.example.com");
-    expect(cfg).not.toHaveProperty("internalUrl");
-    expect(cfg).not.toHaveProperty("apiKey");
+    const fields = list[0]?.displayFields ?? [];
+    const labels = fields.map((f) => f.label);
+    expect(labels).toContain("External URL");
+    expect(labels).toContain("Internal URL");
+    expect(labels).not.toContain("API Key");
+    const internal = fields.find((f) => f.label === "Internal URL");
+    expect(internal?.value).toBe("••••");
+    const external = fields.find((f) => f.label === "External URL");
+    expect(external?.value).toBe("https://plex.example.com");
+  });
+
+  it("omits connections to disabled plugins from listForUser", async () => {
+    // Mirrors the design doc's claim that `/connections/` only surfaces
+    // connections to currently-enabled plugins. The user keeps their row
+    // (no destructive cascade), but the API hides it until an admin
+    // re-enables the plugin.
+    installPlugin({ enabled: 0 });
+    seedConnection({ externalUrl: "https://plex.example.com" });
+
+    const list = await connectionsService.listForUser("user-1");
+    expect(list).toHaveLength(0);
   });
 
   it("omits x-private fields from getUserConfig responses", async () => {

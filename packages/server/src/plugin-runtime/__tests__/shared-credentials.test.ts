@@ -35,6 +35,13 @@ function chainable<T>(value: T) {
   });
 }
 
+// NOTE: this mock ignores `where(...)` predicates and returns the entire seeded
+// rowset on every query. Existing tests work because the duplicate-label /
+// not-poolable logic runs in JS *after* `list()` returns. Tests that need to
+// exercise the per-credentialId or per-pluginId predicates must seed multiple
+// rows and either pick their own row in JS, or upgrade this mock to honour the
+// drizzle filter identity. Without that, a regression in the `where` clause
+// would silently pass.
 const dbMock = {
   select() {
     return {
@@ -151,6 +158,43 @@ describe("sharedCredentialsService", () => {
         value: { clientId: "x2", clientSecret: "y2" },
       }),
     ).rejects.toThrow(PluginError);
+  });
+
+  it("rejects a duplicate label (case-insensitive) on add", async () => {
+    installPlugin("tmdb", true);
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Primary",
+      value: { apiKey: "x" },
+    });
+    await expect(
+      sharedCredentialsService.add({
+        pluginId: "tmdb",
+        label: "primary",
+        value: { apiKey: "y" },
+      }),
+    ).rejects.toMatchObject({ code: "plugin.duplicate_label" });
+  });
+
+  it("rejects a duplicate label on rename", async () => {
+    installPlugin("tmdb", true);
+    const a = await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Primary",
+      value: { apiKey: "x" },
+    });
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Backup",
+      value: { apiKey: "y" },
+    });
+    await expect(
+      sharedCredentialsService.update({
+        pluginId: "tmdb",
+        credentialId: a,
+        label: "backup",
+      }),
+    ).rejects.toMatchObject({ code: "plugin.duplicate_label" });
   });
 
   it("marks an entry exhausted with a retry window", async () => {

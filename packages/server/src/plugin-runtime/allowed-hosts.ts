@@ -129,7 +129,7 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
   });
   if (typeof value !== "string" || value.length === 0) {
     throw new PluginError(
-      "plugin.input_invalid",
+      "plugin.invalid_base_url",
       `[${pluginId}] x-allowed-host field '${displayPath}' must be a non-empty URL string`,
       fieldParams(),
     );
@@ -139,14 +139,14 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
     parsed = new URL(value);
   } catch {
     throw new PluginError(
-      "plugin.input_invalid",
+      "plugin.invalid_base_url",
       `[${pluginId}] x-allowed-host field '${displayPath}' is not a valid URL: ${value}`,
       fieldParams(),
     );
   }
   if (!parsed.hostname) {
     throw new PluginError(
-      "plugin.input_invalid",
+      "plugin.invalid_base_url",
       `[${pluginId}] x-allowed-host field '${displayPath}' has no hostname: ${value}`,
       fieldParams(),
     );
@@ -157,7 +157,7 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
     // one of a small set of loopback/link-local strings (`localhost`,
     // `169.254.169.254`, etc.) that carry no credential material.
     throw new PluginError(
-      "plugin.input_invalid",
+      "plugin.invalid_base_url",
       `[${pluginId}] x-allowed-host field '${displayPath}' resolves to a blocked address: ${hostname}`,
       fieldParams({ hostname }),
     );

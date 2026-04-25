@@ -93,7 +93,8 @@ export const sharedCredentialsService = {
     return rows.filter((r) => r.enabled).length;
   },
 
-  /** Adds a new entry. Rejects multiple entries for non-poolable plugins. */
+  /** Adds a new entry. Rejects multiple entries for non-poolable plugins and
+   *  case-insensitive label collisions. */
   async add(args: { pluginId: string; label: string; value: unknown }): Promise<string> {
     const manifestJson = await requirePluginManifestJson(args.pluginId);
     const existing = await this.list(args.pluginId);
@@ -101,6 +102,15 @@ export const sharedCredentialsService = {
       throw new PluginError(
         "plugin.not_poolable",
         `plugin ${args.pluginId} is not poolable — only one shared credential entry is permitted`,
+        { field: "label" },
+      );
+    }
+    const labelLower = args.label.trim().toLowerCase();
+    if (existing.some((e) => e.label.trim().toLowerCase() === labelLower)) {
+      throw new PluginError(
+        "plugin.duplicate_label",
+        `shared credential with label "${args.label}" already exists for plugin ${args.pluginId}`,
+        { field: "label" },
       );
     }
     const { iv, data } = await encryptJson(args.value);
@@ -128,6 +138,21 @@ export const sharedCredentialsService = {
     enabled?: boolean;
   }): Promise<void> {
     const db = getDb();
+    if (args.label !== undefined) {
+      const labelLower = args.label.trim().toLowerCase();
+      const existing = await this.list(args.pluginId);
+      if (
+        existing.some(
+          (e) => e.id !== args.credentialId && e.label.trim().toLowerCase() === labelLower,
+        )
+      ) {
+        throw new PluginError(
+          "plugin.duplicate_label",
+          `shared credential with label "${args.label}" already exists for plugin ${args.pluginId}`,
+          { field: "label" },
+        );
+      }
+    }
     const patch: Partial<{
       label: string;
       encryptedValue: string;

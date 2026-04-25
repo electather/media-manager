@@ -56,13 +56,33 @@ import {
   type PluginSummary,
 } from "@/components/connections/connection-modal";
 import type { JSONSchema } from "@ent-mcp/shared";
-import { nonSecretFields } from "@/components/connections/schema-form";
 
 export const Route = createFileRoute("/_authenticated/settings/connections")({
   component: ConnectionsPage,
 });
 
 // ─── API shapes (derived from the server response types) ──────────────────────
+
+interface EmbeddedPluginSummary {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  logoUrl?: string;
+  authKind: "form" | "oauth_redirect" | "oauth_device" | "none";
+  poolable: boolean;
+  userScopedCapabilities: Array<{ id: string; version: string }>;
+  globalScopedCapabilities: Array<{ id: string; version: string }>;
+  userConfigSchema: unknown;
+  credentialsSchema: unknown;
+  adminSharedAvailable: boolean;
+}
+
+interface DisplayField {
+  label: string;
+  value: string;
+  mono?: boolean;
+}
 
 interface ConnectionItem {
   id: string;
@@ -76,34 +96,11 @@ interface ConnectionItem {
   errorMessage: string | null;
   createdAt: number;
   updatedAt: number;
-  userConfig: unknown;
-  plugin: {
-    id: string;
-    name: string;
-    version: string;
-    description: string;
-    auth: string;
-    enabled: boolean;
-    logoUrl?: string;
-    capabilities: string[];
-    userConfigSchema: unknown;
-  };
+  displayFields: DisplayField[];
+  plugin: EmbeddedPluginSummary;
 }
 
-interface AvailablePlugin {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  logoUrl?: string;
-  auth: string;
-  poolable: boolean;
-  adminSharedAvailable: boolean;
-  userScopedCapabilities: Array<{ id: string; version: string }>;
-  globalScopedCapabilities: Array<{ id: string; version: string }>;
-  userConfigSchema: unknown;
-  credentialsSchema: unknown;
-}
+type AvailablePlugin = EmbeddedPluginSummary;
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -146,7 +143,7 @@ function availableToPluginSummary(p: AvailablePlugin): PluginSummary {
     version: p.version,
     description: p.description,
     logoUrl: p.logoUrl,
-    auth: p.auth,
+    auth: p.authKind,
     capabilities: [
       ...p.userScopedCapabilities.map((c) => c.id),
       ...p.globalScopedCapabilities.map((c) => c.id),
@@ -163,8 +160,11 @@ function connectedToPluginSummary(c: ConnectionItem): PluginSummary {
     version: c.plugin.version,
     description: c.plugin.description,
     logoUrl: c.plugin.logoUrl,
-    auth: c.plugin.auth,
-    capabilities: c.plugin.capabilities,
+    auth: c.plugin.authKind,
+    capabilities: [
+      ...c.plugin.userScopedCapabilities.map((cap) => cap.id),
+      ...c.plugin.globalScopedCapabilities.map((cap) => cap.id),
+    ],
     userConfigSchema: (c.plugin.userConfigSchema as JSONSchema | null) ?? null,
   };
 }
@@ -262,20 +262,20 @@ function ConnectionsPage() {
                     existing: {
                       id: connection.id,
                       displayName: connection.displayName,
-                      userConfig: connection.userConfig,
+                      userConfig: null,
                     },
                   })
                 }
                 onRemove={(connection) => setModal({ kind: "remove", connection })}
                 onReconnect={(connection) => {
-                  if (connection.plugin.auth === "form") {
+                  if (connection.plugin.authKind === "form") {
                     setModal({
                       kind: "edit",
                       plugin: connectedToPluginSummary(connection),
                       existing: {
                         id: connection.id,
                         displayName: connection.displayName,
-                        userConfig: connection.userConfig,
+                        userConfig: null,
                       },
                     });
                   } else {
@@ -382,14 +382,18 @@ function PluginGroup({
   onReconnect,
   onRefetch,
 }: PluginGroupProps) {
+  const groupCapabilityIds = [
+    ...group.plugin.userScopedCapabilities.map((cap) => cap.id),
+    ...group.plugin.globalScopedCapabilities.map((cap) => cap.id),
+  ];
   const summary: PluginSummary = {
     id: group.plugin.id,
     name: group.plugin.name,
     version: group.plugin.version,
     description: group.plugin.description,
     logoUrl: group.plugin.logoUrl,
-    auth: group.plugin.auth,
-    capabilities: group.plugin.capabilities,
+    auth: group.plugin.authKind,
+    capabilities: groupCapabilityIds,
     userConfigSchema: (group.plugin.userConfigSchema as JSONSchema | null) ?? null,
   };
   const showDefault = group.connections.length > 1;
@@ -403,9 +407,9 @@ function PluginGroup({
           ) : null}
           <h3 className="text-lg font-semibold tracking-tight">{group.plugin.name}</h3>
         </div>
-        {group.plugin.capabilities.length > 0 ? (
+        {groupCapabilityIds.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {group.plugin.capabilities.map((cap) => {
+            {groupCapabilityIds.map((cap) => {
               const { label, icon: Icon } = capabilityDisplay(cap);
               return (
                 <Badge key={cap} variant="secondary" className="gap-1 text-xs font-normal">
@@ -502,14 +506,14 @@ function ConnectionCard({
     if (testMutation.isSuccess) onRefetch();
   }, [testMutation.isSuccess, onRefetch]);
 
-  const displayPairs = useMemo(() => {
-    if (!plugin.userConfigSchema || !connection.userConfig) return [];
-    const schema = plugin.userConfigSchema as JSONSchema;
-    const cfg = connection.userConfig as Record<string, unknown>;
-    return nonSecretFields(schema)
-      .map((f) => ({ ...f, value: cfg[f.name] }))
-      .filter((p) => p.value !== undefined && p.value !== null && p.value !== "");
-  }, [plugin.userConfigSchema, connection.userConfig]);
+  // The full design's `displayFields` rendering ships in Phase 2; for now,
+  // adapt the card to the new server-side shape so the build remains green.
+  const displayPairs = connection.displayFields.map((f) => ({
+    name: f.label,
+    label: f.label,
+    isUri: !!f.mono,
+    value: f.value,
+  }));
 
   return (
     <Card

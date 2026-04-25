@@ -155,6 +155,11 @@ export const pluginPersonalKeyFallbackSchema = z.object({
   policy: personalKeyFallbackPolicySchema,
 });
 
+/** Body for `POST /admin/plugins/:id/shared-credentials/test-ephemeral`. */
+export const pluginTestEphemeralSharedCredentialSchema = z.object({
+  value: z.unknown(),
+});
+
 // ─── Admin advanced policy (host allowlist + custom headers) ──────────────────
 
 /** Max allowlist entries per plugin. Bound the payload; admins editing this UI never approach this. */
