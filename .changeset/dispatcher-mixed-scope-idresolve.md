@@ -1,5 +1,0 @@
----
-"@ent-mcp/server": minor
----
-
-Teach the dispatcher and cache about mixed-scope capabilities, unblocking user-scoped `idResolve@v1` providers (Plex, Jellyfin). `CapabilityDefinition` now declares `scope: "user" | "global" | "mixed"` instead of `userScoped: boolean`; mixed-scope capabilities carry a `scopeForInput(input)` classifier that the dispatcher calls once per request. The resolved scope is threaded through both `capabilityRegistry.listProviders(...)` and the cache key so provider selection and cache-keying agree — a server-local resolution (`plex:ratingKey`, `jellyfin:itemId`) is routed to user-scoped providers and cached under `user:<userId>`, while cross-service ids (`tmdb`, `imdb`, `tvdb`, `trakt`) continue to route globally and share one cache entry across users. `idResolve@v1` becomes the first mixed-scope capability; Plex and Jellyfin plugins that declared user-scoped `idResolve` providers in earlier PRs are now reachable through the dispatcher without plugin-side changes.
