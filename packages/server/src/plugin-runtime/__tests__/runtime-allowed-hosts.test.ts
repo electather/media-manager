@@ -426,4 +426,58 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
       pluginId: "plex-like",
     });
   });
+
+  // Regression: an `x-allowed-host` field on a `sharedCredentialsSchema` whose
+  // submitted value is malformed must return a friendly { ok: false, message }
+  // instead of bubbling out of `runSharedCredentialProbe` as an uncaught throw.
+  // The `/shared-credentials/:credId/test` route has no outer try/catch, so an
+  // escape would surface as a 500 to the admin instead of a row-local error.
+  it("returns { ok: false } when x-allowed-host on sharedCredentialsSchema is malformed", async () => {
+    pluginRows.set("ops-tool", {
+      id: "ops-tool",
+      globalConfig: null,
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+
+    const verifyShared = vi.fn();
+    capabilityRegistry.register({
+      pluginId: "ops-tool",
+      module: {
+        manifest: {
+          id: "ops-tool",
+          name: "Ops",
+          version: "1.0.0",
+          description: "",
+          author: { name: "t" },
+          sdkVersion: "^1.0.0",
+          allowedHosts: [],
+          sharedCredentialsSchema: {
+            type: "object",
+            properties: {
+              baseUrl: { type: "string", "x-allowed-host": true },
+              apiKey: { type: "string", "x-secret": true },
+            },
+          },
+          credentialsSchema: { type: "object" },
+          auth: { kind: "form" },
+          capabilities: { library: { version: "v1", scope: "global" } },
+          poolable: true,
+        },
+        capabilities: {
+          library: { list: async () => ({ items: [] }) },
+        },
+        verifyShared,
+      },
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.testSharedCredentialEphemeral("ops-tool", {
+      baseUrl: "asd",
+      apiKey: "k",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("x-allowed-host");
+    expect(verifyShared).not.toHaveBeenCalled();
+  });
 });

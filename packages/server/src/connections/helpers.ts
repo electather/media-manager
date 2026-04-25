@@ -105,6 +105,12 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
  * `x-private` as `"••••"`, marks URI-typed fields as `mono`, and preserves
  * schema declaration order. Returns `[]` when the schema has no displayable
  * fields or the user config is empty/missing.
+ *
+ * Schema-order output relies on `Object.entries()` preserving the JSON
+ * insertion order of string-keyed properties (V8 / SpiderMonkey / JSC all
+ * honour this for non-integer keys, and the manifest is JSON-parsed so all
+ * keys are strings). Not formally guaranteed by the spec, but reliable in
+ * every JS runtime this repo targets.
  */
 export function computeDisplayFields(
   schema: unknown,

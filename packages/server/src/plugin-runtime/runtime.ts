@@ -562,12 +562,18 @@ export class PluginRuntime {
     pluginId: string,
     sharedValue: unknown,
   ): Promise<{ ok: boolean; message?: string }> {
-    const ctx = await this.buildAuxContext(pluginId, null, null, null, sharedValue);
-    const probe = module.verifyShared ?? module.testConnection;
-    if (typeof probe !== "function") {
-      return { ok: true, message: "plugin has no testConnection/verifyShared" };
-    }
+    // `buildAuxContext` resolves `x-allowed-host` fields on the shared
+    // credential and throws `PluginError("plugin.invalid_base_url")` for
+    // malformed URLs. Wrap it inside the try so that escapes as a friendly
+    // `{ ok: false, message }` instead of bubbling to Hono as a 500 — same
+    // pattern as `testConnection`. The `/shared-credentials/:credId/test`
+    // route has no outer try/catch, so this is the only safety net.
     try {
+      const ctx = await this.buildAuxContext(pluginId, null, null, null, sharedValue);
+      const probe = module.verifyShared ?? module.testConnection;
+      if (typeof probe !== "function") {
+        return { ok: true, message: "plugin has no testConnection/verifyShared" };
+      }
       return await probe(ctx);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
