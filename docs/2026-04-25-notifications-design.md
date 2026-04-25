@@ -37,17 +37,17 @@ The system ships with a single, narrow `notifications.emit()` entry point. In v2
 
 ## Design decisions
 
-| | Decision | Rationale |
-|---|---|---|
-| Audience | Both users and admins | Same dispatcher, different audience descriptors per event |
-| Emission model | "B+" — typed registry + single `emit()` seam | Keeps v2 bus migration mechanical; no premature pub/sub infra |
-| Subscription granularity | Category-based (4 categories), RBAC-gated | Simple grid UI; permissions reuse existing `PERMISSIONS` |
-| Plugin contract | New capability `notificationDelivery@v1` | Reuses the existing capability machinery; a plugin can be a notifier and something else |
-| Plugin payload | Pre-rendered `NotificationMessage` AND raw event | Default zero-churn for plugins on new event types; opt-in rich rendering |
-| Channel config schema | Reuse existing `userConfigSchema` | Connection equals channel for v1 plugins; no new SDK surface |
-| Schema format | JSON Schema | Matches existing manifest convention; serialises to UI form |
-| Delivery semantics | Job-backed with exponential retry | Reuses existing job runner & history; durable; cross-instance safe |
-| In-app inbox | Yes, modeled as a built-in plugin | Same dispatch path; doubles as audit + zero-config default |
+|                          | Decision                                         | Rationale                                                                               |
+| ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Audience                 | Both users and admins                            | Same dispatcher, different audience descriptors per event                               |
+| Emission model           | "B+" — typed registry + single `emit()` seam     | Keeps v2 bus migration mechanical; no premature pub/sub infra                           |
+| Subscription granularity | Category-based (4 categories), RBAC-gated        | Simple grid UI; permissions reuse existing `PERMISSIONS`                                |
+| Plugin contract          | New capability `notificationDelivery@v1`         | Reuses the existing capability machinery; a plugin can be a notifier and something else |
+| Plugin payload           | Pre-rendered `NotificationMessage` AND raw event | Default zero-churn for plugins on new event types; opt-in rich rendering                |
+| Channel config schema    | Reuse existing `userConfigSchema`                | Connection equals channel for v1 plugins; no new SDK surface                            |
+| Schema format            | JSON Schema                                      | Matches existing manifest convention; serialises to UI form                             |
+| Delivery semantics       | Job-backed with exponential retry                | Reuses existing job runner & history; durable; cross-instance safe                      |
+| In-app inbox             | Yes, modeled as a built-in plugin                | Same dispatch path; doubles as audit + zero-config default                              |
 
 ## Architecture overview
 
@@ -111,9 +111,9 @@ export const NOTIFICATION_CONTENT_KINDS = ["text", "markdown", "image", "actions
 export type NotificationContentKind = (typeof NOTIFICATION_CONTENT_KINDS)[number];
 
 export const NOTIFICATION_CATEGORY_PERMISSION: Record<NotificationCategory, Permission> = {
-  media:  PERMISSIONS.MEDIA_ACTIVITY,
-  sync:   PERMISSIONS.ACCOUNT_CONNECTIONS,
-  auth:   PERMISSIONS.ACCOUNT_CONNECTIONS,
+  media: PERMISSIONS.MEDIA_ACTIVITY,
+  sync: PERMISSIONS.ACCOUNT_CONNECTIONS,
+  auth: PERMISSIONS.ACCOUNT_CONNECTIONS,
   system: PERMISSIONS.ADMIN_SERVER,
 };
 ```
@@ -124,9 +124,9 @@ export const NOTIFICATION_CATEGORY_PERMISSION: Record<NotificationCategory, Perm
 
 ```ts
 export interface BaseEvent {
-  id: string;            // ULID, set by emit() if absent
-  occurredAt: string;    // ISO-8601, set by emit() if absent
-  source?: string;       // plugin id or server module that emitted
+  id: string; // ULID, set by emit() if absent
+  occurredAt: string; // ISO-8601, set by emit() if absent
+  source?: string; // plugin id or server module that emitted
 }
 
 export const NOTIFICATION_EVENT_TYPES = [
@@ -148,23 +148,26 @@ export interface NotificationEventEnvelope<T extends NotificationEventType, P> e
   category: NotificationCategory;
   severity: NotificationSeverity;
   audience: NotificationAudience;
-  correlationKey?: string;     // indexed; reserved for future coalescing
+  correlationKey?: string; // indexed; reserved for future coalescing
   payload: P;
 }
 
 export type NotificationEvent =
-  | NotificationEventEnvelope<"job.run.failed",
-      { jobId: string; runId: string; error: string }>
-  | NotificationEventEnvelope<"connection.auth.expired",
-      { connectionId: string; pluginId: string }>
-  | NotificationEventEnvelope<"connection.sync.succeeded",
-      { connectionId: string; pluginId: string; itemCount: number }>
-  | NotificationEventEnvelope<"media.request.available",
-      { requestId: string; mediaId: string; title: string; posterUrl?: string }>
-  | NotificationEventEnvelope<"media.request.denied",
-      { requestId: string; mediaId: string; title: string; posterUrl?: string; reason?: string }>
-  | NotificationEventEnvelope<"system.error",
-      { source: string; message: string }>;
+  | NotificationEventEnvelope<"job.run.failed", { jobId: string; runId: string; error: string }>
+  | NotificationEventEnvelope<"connection.auth.expired", { connectionId: string; pluginId: string }>
+  | NotificationEventEnvelope<
+      "connection.sync.succeeded",
+      { connectionId: string; pluginId: string; itemCount: number }
+    >
+  | NotificationEventEnvelope<
+      "media.request.available",
+      { requestId: string; mediaId: string; title: string; posterUrl?: string }
+    >
+  | NotificationEventEnvelope<
+      "media.request.denied",
+      { requestId: string; mediaId: string; title: string; posterUrl?: string; reason?: string }
+    >
+  | NotificationEventEnvelope<"system.error", { errorSource: string; message: string }>;
 ```
 
 ### Neutral message contract
@@ -213,7 +216,7 @@ notification_deliveries
   id                text  pk
   event_id          text                  -- BaseEvent.id, for cross-table joins
   event_type        text  enum(NOTIFICATION_EVENT_TYPES)
-  event_payload     jsonb                 -- full envelope, audit + retry source
+  event_payload     text                  -- JSON-serialised envelope, audit + retry source (SQLite text, like `job_runs.result`)
   recipient_connection_id text fk -> connections.id  (set null on delete)
   recipient_user_id text  fk -> users.id  (cascade delete)
   status            text  enum(NOTIFICATION_DELIVERY_STATUSES)
@@ -273,9 +276,9 @@ export interface NotificationDeliveryCapabilityV1<TConfig = unknown> {
   deliver(
     ctx: PluginContext<unknown, unknown, unknown, unknown>,
     args: {
-      message: NotificationMessage;   // pre-rendered neutral payload
-      event: NotificationEvent;       // raw typed event for plugin-specific rendering
-      channelConfig: TConfig;         // decrypted, validated against userConfigSchema
+      message: NotificationMessage; // pre-rendered neutral payload
+      event: NotificationEvent; // raw typed event for plugin-specific rendering
+      channelConfig: TConfig; // decrypted, validated against userConfigSchema
     },
   ): Promise<{ providerMessageId?: string }>;
 
@@ -305,6 +308,7 @@ manifest: {
   capabilities: {
     notificationDelivery: {
       version: "v1",
+      scope: "user",
       supportsKinds: ["text", "image", "actions"],
     },
   },
@@ -347,6 +351,7 @@ manifest: {
   capabilities: {
     notificationDelivery: {
       version: "v1",
+      scope: "user",
       supportsKinds: ["text", "markdown", "image", "actions"],
     },
   },
@@ -354,16 +359,21 @@ manifest: {
 }
 
 deliver: async (ctx, { message, event }) => {
-  await ctx.db.insert(notificationsInbox).values({
-    id: nanoid(), userId: /* recipient */, deliveryId: /* delivery row id */,
-    title: message.title, body: message.body, severity: message.severity,
-    category: message.category, actionUrl: message.actionUrl ?? null,
-    imageUrl: message.image?.url ?? null, imageAlt: message.image?.alt ?? null,
-    createdAt: new Date(),
+  await ctx.inbox.insert({
+    userId: /* recipient */,
+    deliveryId: /* delivery row id */,
+    title: message.title,
+    body: message.body,
+    severity: message.severity,
+    category: message.category,
+    actionUrl: message.actionUrl ?? null,
+    image: message.image,
   });
   return {};
 }
 ```
+
+The inbox plugin is a **host-privileged built-in**: it ships in-tree with the server, runs in the host's trusted module space, and is the only plugin allowed to persist server-owned state. To keep the standard `PluginContext` contract honest (no `ctx.db` for third-party plugins, per the plugin architecture doc), the inbox receives an **extended context** with a host-owned repository capability: `ctx.inbox.insert(row)`. The host owns the table, the schema, and the mapping from `NotificationMessage` to columns; the plugin only signals "persist this delivery for the user". Third-party `notificationDelivery` plugins receive the standard `PluginContext` and never see `ctx.inbox` or `ctx.db`.
 
 Auto-created on user signup; backfilled for existing users in PR 4.
 
@@ -374,7 +384,7 @@ Plugins can emit pre-registered events through their context:
 ```ts
 notify: async (event: Omit<NotificationEvent, "id" | "occurredAt">) => {
   await emit({ ...event, id: ulid(), occurredAt: new Date().toISOString() });
-}
+};
 ```
 
 The discriminated union enforces at the type level that plugins can only emit events the registry declares. Plugin-declared event types are deferred to v2.
@@ -415,7 +425,8 @@ The delivery job inspects the error:
 
 ```ts
 export async function emit(
-  event: Omit<NotificationEvent, "id" | "occurredAt"> & Partial<Pick<BaseEvent, "id" | "occurredAt">>,
+  event: Omit<NotificationEvent, "id" | "occurredAt"> &
+    Partial<Pick<BaseEvent, "id" | "occurredAt">>,
 ): Promise<void> {
   const enriched = {
     id: event.id ?? ulid(),
@@ -431,19 +442,22 @@ export async function emit(
 
   // 3. Persist one delivery row per recipient (single tx).
   const deliveries = await db.transaction(async (tx) => {
-    return tx.insert(notificationDeliveries).values(
-      recipients.map((r) => ({
-        id: nanoid(),
-        eventId: validated.id,
-        eventType: validated.type,
-        eventPayload: validated,
-        recipientConnectionId: r.connectionId,
-        recipientUserId: r.userId,
-        status: "pending",
-        attemptCount: 0,
-        correlationKey: validated.correlationKey ?? null,
-      })),
-    ).returning();
+    return tx
+      .insert(notificationDeliveries)
+      .values(
+        recipients.map((r) => ({
+          id: nanoid(),
+          eventId: validated.id,
+          eventType: validated.type,
+          eventPayload: validated,
+          recipientConnectionId: r.connectionId,
+          recipientUserId: r.userId,
+          status: "pending",
+          attemptCount: 0,
+          correlationKey: validated.correlationKey ?? null,
+        })),
+      )
+      .returning();
   });
 
   // 4. Schedule a delivery job per row.
@@ -459,11 +473,14 @@ This is the **only** function that produces notifications. Every emitter funnels
 
 ```ts
 async function resolveRecipients(event: NotificationEvent): Promise<Recipient[]> {
-  // 1. Find candidate users based on audience.
-  const candidateUserIds = match(event.audience, {
-    user: ({ userId }) => [userId],
-    admin: async ({ permission }) =>
-      db.select({ id: users.id }).from(users)
+  // 1. Find candidate users based on audience. Both branches are async so
+  //    `candidateUserIds` is uniformly `Promise<string[]>` — no conditional awaits.
+  const candidateUserIds = await match(event.audience, {
+    user: ({ userId }) => Promise.resolve([userId]),
+    admin: ({ permission }) =>
+      db
+        .select({ id: users.id })
+        .from(users)
         .innerJoin(roles, eq(users.roleId, roles.id))
         .where(arrayContains(roles.permissions, permission))
         .then((rows) => rows.map((r) => r.id)),
@@ -530,7 +547,9 @@ registerJobHandler("notification.deliver", {
 
     try {
       const result = await plugin.capabilities.notificationDelivery.deliver(pluginCtx, {
-        message, event, channelConfig: conn.userConfig,
+        message,
+        event,
+        channelConfig: conn.userConfig,
       });
       await markSucceeded(delivery.id, result.providerMessageId);
     } catch (err) {
@@ -542,21 +561,23 @@ registerJobHandler("notification.deliver", {
 
 ### v1 emission sources
 
-| Source | Event(s) | Audience |
-|---|---|---|
-| Job runner post-finish (`apps/server/src/jobs/runner.ts`) | `job.run.failed` | `admin` (`admin:server`) |
-| Job runner post-finish, sync-classified jobs | `connection.sync.succeeded` | `user` (`triggeredByUserId`) |
-| Plugin auth-refresh failure path | `connection.auth.expired` | `user` (connection owner) |
-| Seerr request status changes | `media.request.available`, `media.request.denied` | `user` (requester) |
-| Global `ErrorSink` for unhandled critical errors | `system.error` | `admin` (`admin:server`) |
+| Source                                                    | Event(s)                                          | Audience                     |
+| --------------------------------------------------------- | ------------------------------------------------- | ---------------------------- |
+| Job runner post-finish (`apps/server/src/jobs/runner.ts`) | `job.run.failed`                                  | `admin` (`admin:server`)     |
+| Job runner post-finish, sync-classified jobs              | `connection.sync.succeeded`                       | `user` (`triggeredByUserId`) |
+| Plugin auth-refresh failure path                          | `connection.auth.expired`                         | `user` (connection owner)    |
+| Seerr request status changes                              | `media.request.available`, `media.request.denied` | `user` (requester)           |
+| Global `ErrorSink` for unhandled critical errors          | `system.error`                                    | `admin` (`admin:server`)     |
 
 ### Templates
 
 `apps/server/src/notifications/templates/<event-type>.ts` — one file per event type. Signature:
 
 ```ts
-type NotificationTemplate<T extends NotificationEventType> =
-  (event: Extract<NotificationEvent, { type: T }>, locale: "en") => NotificationMessage;
+type NotificationTemplate<T extends NotificationEventType> = (
+  event: Extract<NotificationEvent, { type: T }>,
+  locale: "en",
+) => NotificationMessage;
 ```
 
 Locale is threaded through but only `en` exists in v1. Adding i18n later is additive: extend the locale union and add per-locale strings.
@@ -697,14 +718,14 @@ Permission: `ADMIN_SERVER`.
 
 ### Frontend route to API mapping
 
-| Page | Routes |
-|---|---|
+| Page                                      | Routes                                                                                                                                                                                                            |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/settings/notifications` (list + matrix) | `GET /api/notifications/{plugins,channels,categories,subscriptions}`, `PUT /api/notifications/subscriptions/:c/:cat`, `POST /api/notifications/channels/:id/test`. Mutations through existing `/api/connections`. |
-| Add-channel modal | `GET /api/notifications/plugins`, `POST /api/connections`, `POST /api/notifications/channels/:id/test` |
-| `/notifications` (inbox) | `GET /api/notifications/inbox`, `POST /api/notifications/inbox/{mark-read,mark-unread,mark-all-read}`, `DELETE /api/notifications/inbox`, `DELETE /api/notifications/inbox/all` |
-| Nav badge | `GET /api/notifications/inbox/unread-count` |
-| `/admin/notifications/deliveries` | `GET /api/admin/notifications/deliveries`, `GET /api/admin/notifications/deliveries/:id`, `POST /api/admin/notifications/deliveries/:id/retry` |
-| `/admin/settings/notifications` | `GET/PATCH /api/admin/notifications/settings` |
+| Add-channel modal                         | `GET /api/notifications/plugins`, `POST /api/connections`, `POST /api/notifications/channels/:id/test`                                                                                                            |
+| `/notifications` (inbox)                  | `GET /api/notifications/inbox`, `POST /api/notifications/inbox/{mark-read,mark-unread,mark-all-read}`, `DELETE /api/notifications/inbox`, `DELETE /api/notifications/inbox/all`                                   |
+| Nav badge                                 | `GET /api/notifications/inbox/unread-count`                                                                                                                                                                       |
+| `/admin/notifications/deliveries`         | `GET /api/admin/notifications/deliveries`, `GET /api/admin/notifications/deliveries/:id`, `POST /api/admin/notifications/deliveries/:id/retry`                                                                    |
+| `/admin/settings/notifications`           | `GET/PATCH /api/admin/notifications/settings`                                                                                                                                                                     |
 
 ### Shared schemas
 
@@ -824,14 +845,14 @@ Eight PRs, each independently mergeable. Earlier PRs don't change user-visible b
 
 ### PR sizing
 
-| PR | Rough LOC + tests |
-|---|---|
-| 1, 2, 3 | ~200–400 each |
-| 4 | ~800–1200 (largest backend; dispatcher + retry) |
-| 5 | ~500–700 (route plumbing) |
-| 6 | ~150 (hook insertions) |
-| 7 | ~250 per plugin × 3 |
-| 8 | ~800–1200 (client UI; largest frontend) |
+| PR      | Rough LOC + tests                               |
+| ------- | ----------------------------------------------- |
+| 1, 2, 3 | ~200–400 each                                   |
+| 4       | ~800–1200 (largest backend; dispatcher + retry) |
+| 5       | ~500–700 (route plumbing)                       |
+| 6       | ~150 (hook insertions)                          |
+| 7       | ~250 per plugin × 3                             |
+| 8       | ~800–1200 (client UI; largest frontend)         |
 
 ### Out of v1 (deferred, not lost)
 
@@ -851,3 +872,4 @@ Eight PRs, each independently mergeable. Earlier PRs don't change user-visible b
 - **Plugin concurrency.** The delivery job runs one row at a time; nothing prevents N parallel jobs hitting the same provider. ntfy/Telegram/Discord rate-limits are gentle, but a future high-volume plugin may need a per-plugin concurrency cap. Out of scope; the pool-signaling mechanism (`ctx.pool`) exists in the SDK if needed.
 - **Backfill of existing users with inbox connection.** One-time migration in PR 4. If migration fails midway, idempotent re-run is safe (insert if not exists). Not blocking.
 - **Discord webhook URL is sensitive.** Already covered by `x-secret` and the existing AES-GCM encryption for `userConfig` values; same protection ntfy auth headers and Telegram bot tokens get.
+- **Crash window between transaction commit and `jobRunner.trigger()`.** The delivery rows are written inside a transaction (step 3 of `emit()`), but the per-row `jobRunner.trigger()` calls run after the commit (step 4). A crash or OOM-kill between the two leaves rows in `status: "pending"` with no scheduled job. v1 closes this with a periodic **stale-pending sweep job** (every 5 minutes) that requeues any `notification_deliveries` row stuck in `pending` for more than 2 minutes; the job is idempotent because the delivery handler short-circuits when `status !== "pending"`. v2 replaces this with a transactional outbox written inside the same transaction and drained by the bus consumer, removing the gap entirely.
