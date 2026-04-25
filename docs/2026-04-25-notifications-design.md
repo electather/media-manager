@@ -646,7 +646,8 @@ POST /api/notifications/subscriptions/bulk
        updates: Array<{ connectionId: string; category: NotificationCategory; enabled: boolean }>
      }
      → { updated: number }
-     For "save all" UX; same per-row validation.
+     For "save all" UX; same per-row validation. `updates` is capped at 200 entries
+     per request — oversized payloads return 413. Frontend chunks longer lists.
 ```
 
 Permission: `ACCOUNT_CONNECTIONS`.
@@ -668,6 +669,9 @@ GET  /api/notifications/inbox
          unreadCount: number;
        }
      Default limit 50, max 200.
+     `nextCursor` is opaque to the client: `base64url(<created_at_iso>:<id>)`,
+     decoded server-side and applied as a `(created_at, id) < cursor` keyset
+     predicate. Stable across pagination even when new rows arrive at the head.
 
 GET  /api/notifications/inbox/unread-count
      → { count: number }
