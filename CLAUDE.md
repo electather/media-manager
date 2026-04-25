@@ -83,61 +83,27 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 
 ## Pull Requests and Versioning
 
-This project uses [Changesets](https://github.com/changesets/changesets) for versioning and changelog management. Every PR must include a changeset file or CI will fail.
+This project uses [Changesets](https://github.com/changesets/changesets). Every PR needs a `.changeset/<slug>.md` file or CI fails. Create the file directly — don't run the CLI.
 
-Only `@ent-mcp/client` and `@ent-mcp/server` are released (tagged + GitHub Release). `@ent-mcp/shared` is internal — never list it in a changeset.
-
-### Adding a changeset
-
-Don't run the `changeset` CLI — just create the file directly. Drop a new `.changeset/<short-slug>.md` with YAML frontmatter listing the affected packages and bump types, followed by a one-line description:
+Only `@ent-mcp/client` and `@ent-mcp/server` are released. Never list `@ent-mcp/shared`.
 
 ```md
 ---
 "@ent-mcp/client": minor
 ---
 
-Added a connections page where users can review and revoke linked apps.
+Added a connections page for reviewing and revoking linked apps.
 ```
 
-Use a unique kebab-case slug (e.g. `connections-page.md`). One changeset per logical user-visible change — if a PR makes two unrelated changes, write two files.
+- Bump: `patch` (fix), `minor` (new feature), `major` (breaking).
+- Description: one short sentence, end-user language, past tense ([Keep a Changelog](https://keepachangelog.com) style). No file names, no PR numbers, no implementation detail.
+- One logical change per file.
+- For internal-only changes (refactors, tests, docs, CI, deps), use empty frontmatter and no body:
 
-### Bump types
-
-- `patch` — bug fixes and behaviour fixes with no API surface change
-- `minor` — new user-visible functionality, backwards-compatible
-- `major` — breaking change (removed feature, behaviour change users must adapt to)
-
-### Writing the description
-
-Changeset descriptions land verbatim in `CHANGELOG.md` and on the GitHub Release page, so write them for end users, following [Keep a Changelog](https://keepachangelog.com) conventions:
-
-- **Keep it to one short sentence.** Two only if truly necessary.
-- **Non-technical.** Describe the user-visible change, not the implementation. No file paths, function names, internal types, or PR/issue numbers in the body.
-- **Past tense, active voice.** "Added X." / "Fixed Y." / "Removed Z."
-
-Good:
-
-```
-Fixed sign-in failing when the session had expired.
-```
-
-Bad (too technical, too long):
-
-```
-Refactored useConnections to extract polling into usePolledConnection and added an
-AbortController to prevent the race condition introduced in #123.
-```
-
-### When no release is needed
-
-For internal-only changes (refactors with no user-visible impact, tests, docs, CI, dependency bumps), create an empty changeset — empty frontmatter, no body:
-
-```md
----
----
-```
-
-Save it as `.changeset/<short-slug>.md` like any other. CI accepts this and skips the version bump.
+  ```md
+  ---
+  ---
+  ```
 
 ## Review Checklist for Agents
 
