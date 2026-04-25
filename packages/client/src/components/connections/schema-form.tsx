@@ -356,14 +356,3 @@ function renderControl(
     />
   );
 }
-
-/** Returns field metadata needed to render a non-secret display list on cards. */
-export function nonSecretFields(schema: JSONSchema): Array<{
-  name: string;
-  label: string;
-  isUri: boolean;
-}> {
-  return parseFields(schema)
-    .filter((f) => !f.secret && !f.pluginResolved)
-    .map((f) => ({ name: f.name, label: f.title, isUri: f.format === "uri" }));
-}
