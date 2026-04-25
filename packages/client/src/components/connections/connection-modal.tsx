@@ -107,17 +107,45 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     setTopError(null);
     setDevice({ kind: "idle" });
     setSubmitAttempted(false);
-    if (authKind === "form" && userConfigSchema) {
-      const base = defaultsFromSchema(userConfigSchema);
-      if (isEdit && existing?.userConfig && typeof existing.userConfig === "object") {
-        setValues({ ...base, ...(existing.userConfig as Record<string, unknown>) });
-      } else {
-        setValues(base);
-      }
-    } else {
+
+    if (authKind !== "form" || !userConfigSchema) {
       setValues({});
+      return;
     }
-  }, [open, authKind, userConfigSchema, isEdit, existing?.displayName, existing?.userConfig]);
+
+    // Always seed with schema defaults first so the form is responsive
+    // while the prefill request is in flight.
+    const base = defaultsFromSchema(userConfigSchema);
+    setValues(base);
+
+    // Edit-mode prefill: hydrate non-secret fields from the server's
+    // `GET /api/connections/:id/user-config`. Without this, opening Edit
+    // would show blank inputs for values the user previously entered;
+    // `x-secret` / `x-private` fields are stripped by the endpoint so
+    // they keep their masked / "leave blank to keep" placeholder behaviour.
+    if (!isEdit || !existing?.id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.connections[":id"]["user-config"].$get({
+          param: { id: existing.id },
+        });
+        if (!res.ok || cancelled) return;
+        const body = await res.json();
+        if (cancelled) return;
+        if (body.config && typeof body.config === "object" && !Array.isArray(body.config)) {
+          setValues({ ...base, ...(body.config as Record<string, unknown>) });
+        }
+      } catch {
+        // Network/parse failure leaves the schema defaults in place; the
+        // user can still re-enter values, and the save path will surface
+        // a real error if there's a deeper issue.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, authKind, userConfigSchema, isEdit, existing?.displayName, existing?.id]);
 
   // Countdown tick for the device code panel.
   useEffect(() => {
@@ -205,8 +233,13 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     if (!body || body.code !== "plugin.credentials_empty") return null;
     const field = typeof body.params?.field === "string" ? body.params.field : null;
     if (!field || !schemaFieldNames.includes(field)) return null;
-    const title = readFieldTitle(schemaProperties, field);
-    const message = `Credentials can't be blank. Enter a ${title} to continue.`;
+    const fieldTitle = readFieldTitle(schemaProperties, field);
+    // The design doc's template is `"Enter a {field.title}"`; for titles that
+    // start with a vowel sound (e.g. "API Key") the literal "a" is incorrect.
+    // First-character vowel detection covers the common case here without
+    // dragging in a full a/an library — every current plugin's title fits it.
+    const article = /^[aeiou]/i.test(fieldTitle) ? "an" : "a";
+    const message = `Credentials can't be blank. Enter ${article} ${fieldTitle} to continue.`;
     return { message, fieldErrors: { [field]: message } };
   };
 

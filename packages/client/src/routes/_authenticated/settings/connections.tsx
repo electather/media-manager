@@ -5,8 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightIcon,
   CheckIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
   KeyIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
@@ -24,14 +22,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -48,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { capabilityDisplay, capabilityListSummary } from "@/lib/capabilities";
+import { CapabilityBadges, capabilityListSummary } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 
 import {
@@ -121,111 +111,49 @@ function ConnectionsPage() {
   );
   const brokenCount = (connections.data ?? []).filter(isBroken).length;
   const expiredOnly = (connections.data ?? []).every((c) => !isBroken(c) || c.status === "expired");
-  const hasAnyConnections = (connections.data ?? []).length > 0;
-  const hasAnyPlugins = (available.data ?? []).length > 0 || hasAnyConnections;
+  const hasAnyConnections = byPlugin.length > 0;
+  const hasAnyAvailable = unconnected.length > 0;
+  const hasAnyPlugins = hasAnyAvailable || hasAnyConnections;
 
   const isLoading = connections.isLoading || available.isLoading;
 
+  const openCreate = (plugin: PluginSummary) => setModal({ kind: "create", plugin });
+  const openEdit = (connection: ConnectionItem) =>
+    setModal({
+      kind: "edit",
+      plugin: connection.plugin,
+      existing: { id: connection.id, displayName: connection.displayName, userConfig: null },
+    });
+  const openReconnect = (connection: ConnectionItem) => {
+    if (connection.plugin.authKind === "form") openEdit(connection);
+    else setModal({ kind: "create", plugin: connection.plugin });
+  };
+
   return (
-    <div className="flex flex-col gap-8 px-4 py-4 md:py-6 lg:px-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Connections</h1>
-          <p className="mt-1.5 max-w-[64ch] text-sm text-muted-foreground">
-            Connect your media services to enable tracking, requesting, and personalized
-            recommendations through your AI assistant.
-          </p>
-        </div>
-        {/* Non-admin users get a 403 from /plugins which is fine — the link is harmless. Hide
-            behind a client-side permissions hook once one exists. */}
-        <Link
-          to="/admin/plugins"
-          className="hidden shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
-        >
-          Manage plugins
-          <ArrowRightIcon className="size-3.5" />
-        </Link>
-      </header>
+    <div className="flex flex-col gap-8">
+      <PageHeader />
+
+      {brokenCount > 0 ? <BrokenAlert count={brokenCount} expiredOnly={expiredOnly} /> : null}
 
       {isLoading ? (
         <LoadingSkeleton />
       ) : !hasAnyPlugins ? (
         <NoPluginsState />
-      ) : !hasAnyConnections ? (
-        <EmptyConnectionsState
-          plugins={available.data ?? []}
-          onConnect={(p) => setModal({ kind: "create", plugin: p })}
-        />
       ) : (
         <>
-          {brokenCount > 0 ? (
-            <Alert
-              variant={expiredOnly ? "default" : "destructive"}
-              className={
-                expiredOnly
-                  ? "border-amber-500/40 bg-amber-500/8 text-amber-900 dark:text-amber-200"
-                  : undefined
-              }
-            >
-              <TriangleAlertIcon />
-              <AlertTitle>
-                {brokenCount} connection{brokenCount === 1 ? "" : "s"} need
-                {brokenCount === 1 ? "s" : ""} attention
-              </AlertTitle>
-              <AlertDescription>
-                {expiredOnly
-                  ? "Some services need re-authentication. Use Reconnect on the affected card."
-                  : "Features that rely on these services won't work until they're fixed."}
-              </AlertDescription>
-            </Alert>
+          {hasAnyConnections ? (
+            <ConnectedSection
+              groups={byPlugin}
+              onAddAnother={openCreate}
+              onEdit={openEdit}
+              onRemove={(c) => setModal({ kind: "remove", connection: c })}
+              onReconnect={openReconnect}
+              onRefetch={refetch}
+            />
           ) : null}
 
-          <section className="flex flex-col gap-10">
-            {byPlugin.map((group) => (
-              <PluginGroup
-                key={group.pluginId}
-                group={group}
-                onAddAnother={(summary) => setModal({ kind: "create", plugin: summary })}
-                onEdit={(connection) =>
-                  setModal({
-                    kind: "edit",
-                    plugin: connection.plugin,
-                    existing: {
-                      id: connection.id,
-                      displayName: connection.displayName,
-                      userConfig: null,
-                    },
-                  })
-                }
-                onRemove={(connection) => setModal({ kind: "remove", connection })}
-                onReconnect={(connection) => {
-                  if (connection.plugin.authKind === "form") {
-                    setModal({
-                      kind: "edit",
-                      plugin: connection.plugin,
-                      existing: {
-                        id: connection.id,
-                        displayName: connection.displayName,
-                        userConfig: null,
-                      },
-                    });
-                  } else {
-                    setModal({
-                      kind: "create",
-                      plugin: connection.plugin,
-                    });
-                  }
-                }}
-                onRefetch={refetch}
-              />
-            ))}
-          </section>
-
-          {unconnected.length > 0 ? (
-            <AvailableSection
-              plugins={unconnected}
-              onConnect={(p) => setModal({ kind: "create", plugin: p })}
-            />
+          {hasAnyAvailable ? (
+            <AvailableSection plugins={unconnected} onConnect={openCreate} />
           ) : null}
         </>
       )}
@@ -249,6 +177,51 @@ function ConnectionsPage() {
         onRemoved={refetch}
       />
     </div>
+  );
+}
+
+function PageHeader() {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <h2 className="text-base font-medium">Connections</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Connect your media services to enable tracking, requesting, and personalized
+          recommendations through your AI assistant.
+        </p>
+      </div>
+      {/* Non-admin users get a 403 from /plugins which is fine — the link is harmless. Hide
+          behind a client-side permissions hook once one exists. */}
+      <Link
+        to="/admin/plugins"
+        className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
+      >
+        Manage plugins
+        <ArrowRightIcon className="size-3.5" />
+      </Link>
+    </div>
+  );
+}
+
+function BrokenAlert({ count, expiredOnly }: { count: number; expiredOnly: boolean }) {
+  return (
+    <Alert
+      variant={expiredOnly ? "default" : "destructive"}
+      className={cn(
+        "max-w-2xl",
+        expiredOnly && "border-amber-500/40 bg-amber-500/8 text-amber-900 dark:text-amber-200",
+      )}
+    >
+      <TriangleAlertIcon />
+      <AlertTitle>
+        {count} connection{count === 1 ? "" : "s"} need{count === 1 ? "s" : ""} attention
+      </AlertTitle>
+      <AlertDescription>
+        {expiredOnly
+          ? "Some services need re-authentication. Use Reconnect on the affected card."
+          : "Features that rely on these services won't work until they're fixed."}
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -289,11 +262,51 @@ function isBroken(c: ConnectionItem): boolean {
   return c.status === "error" || c.status === "expired";
 }
 
-// ─── Plugin group section ─────────────────────────────────────────────────────
+// ─── Connected section ────────────────────────────────────────────────────────
+
+interface ConnectedSectionProps {
+  groups: PluginGroupData[];
+  onAddAnother: (plugin: PluginSummary) => void;
+  onEdit: (connection: ConnectionItem) => void;
+  onRemove: (connection: ConnectionItem) => void;
+  onReconnect: (connection: ConnectionItem) => void;
+  onRefetch: () => void;
+}
+
+function ConnectedSection({
+  groups,
+  onAddAnother,
+  onEdit,
+  onRemove,
+  onReconnect,
+  onRefetch,
+}: ConnectedSectionProps) {
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-medium">Your connections</h3>
+        <p className="text-xs text-muted-foreground">Plugins you've authorized for your account.</p>
+      </div>
+      <div className="flex max-w-2xl flex-col gap-6">
+        {groups.map((group) => (
+          <PluginGroup
+            key={group.pluginId}
+            group={group}
+            onAddAnother={onAddAnother}
+            onEdit={onEdit}
+            onRemove={onRemove}
+            onReconnect={onReconnect}
+            onRefetch={onRefetch}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 interface PluginGroupProps {
   group: PluginGroupData;
-  onAddAnother: (summary: PluginSummary) => void;
+  onAddAnother: (plugin: PluginSummary) => void;
   onEdit: (connection: ConnectionItem) => void;
   onRemove: (connection: ConnectionItem) => void;
   onReconnect: (connection: ConnectionItem) => void;
@@ -312,43 +325,23 @@ function PluginGroup({
   // connection unlocks for the user. Global-scoped ones don't depend on a
   // connection and live on the modal's "also provides" line instead.
   const userScopedCaps = group.plugin.userScopedCapabilities;
-  const summary = group.plugin;
   // Per design doc § "Connected instance card": poolable plugins always
   // surface "Set as default" (rotation assumes one); non-poolable plugins
   // surface it only once the user has multiple instances.
   const showDefault = group.plugin.poolable || group.connections.length > 1;
 
   return (
-    <section className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-1">
-        <div className="flex items-center gap-2">
-          {group.plugin.logoUrl ? (
-            <img src={group.plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
-          ) : null}
-          <h3 className="text-lg font-semibold tracking-tight">{group.plugin.name}</h3>
-        </div>
-        {userScopedCaps.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {userScopedCaps.map((cap) => {
-              const { label, icon: Icon } = capabilityDisplay(cap.id);
-              return (
-                <Badge
-                  key={`${cap.id}@${cap.version}`}
-                  variant="secondary"
-                  className="gap-1 text-xs font-normal"
-                >
-                  <Icon className="size-3 opacity-60" aria-hidden="true" />
-                  {label}
-                </Badge>
-              );
-            })}
-          </div>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {group.plugin.logoUrl ? (
+          <img src={group.plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
         ) : null}
-      </header>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <h4 className="text-sm font-medium">{group.plugin.name}</h4>
+        <CapabilityBadges entries={userScopedCaps} size="sm" />
+      </div>
+      <div className="flex flex-col divide-y divide-border rounded-xl border border-border">
         {group.connections.map((conn) => (
-          <ConnectionCard
+          <ConnectionRow
             key={conn.id}
             connection={conn}
             showDefault={showDefault}
@@ -358,15 +351,22 @@ function PluginGroup({
             onRefetch={onRefetch}
           />
         ))}
-        <AddAnotherCard plugin={summary} onClick={() => onAddAnother(summary)} />
+        <button
+          type="button"
+          onClick={() => onAddAnother(group.plugin)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <PlugIcon className="size-3.5" />
+          Add another {group.plugin.name} connection
+        </button>
       </div>
-    </section>
+    </div>
   );
 }
 
-// ─── Connection card ──────────────────────────────────────────────────────────
+// ─── Connection row ───────────────────────────────────────────────────────────
 
-interface ConnectionCardProps {
+interface ConnectionRowProps {
   connection: ConnectionItem;
   showDefault: boolean;
   onEdit: (c: ConnectionItem) => void;
@@ -375,14 +375,14 @@ interface ConnectionCardProps {
   onRefetch: () => void;
 }
 
-function ConnectionCard({
+function ConnectionRow({
   connection,
   showDefault,
   onEdit,
   onRemove,
   onReconnect,
   onRefetch,
-}: ConnectionCardProps) {
+}: ConnectionRowProps) {
   const { plugin } = connection;
   const disabled = !connection.enabled;
   const broken = isBroken(connection);
@@ -390,9 +390,7 @@ function ConnectionCard({
 
   const testMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.connections[":id"].test.$post({
-        param: { id: connection.id },
-      });
+      const res = await api.connections[":id"].test.$post({ param: { id: connection.id } });
       if (!res.ok) throw new Error("Test failed.");
       return await res.json();
     },
@@ -430,75 +428,34 @@ function ConnectionCard({
     if (testMutation.isSuccess) onRefetch();
   }, [testMutation.isSuccess, onRefetch]);
 
-  const displayFields = connection.displayFields;
-
   return (
-    <Card
-      size="sm"
+    <div
       className={cn(
-        "transition-opacity",
+        "flex flex-col gap-2 px-4 py-3 transition-opacity sm:flex-row sm:items-start",
         disabled && "opacity-55",
-        connection.status === "error" && "ring-destructive/40",
-        connection.status === "expired" && "ring-amber-500/50",
       )}
     >
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2">
-          <span className="truncate">{displayName}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="truncate text-sm font-medium">{displayName}</span>
           <StatusBadge connection={connection} />
           {showDefault && connection.isDefault ? (
             <Badge variant="outline" className="text-xs font-normal">
               Default
             </Badge>
           ) : null}
-        </CardTitle>
-        <CardAction>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="More actions"
-              className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <MoreHorizontalIcon className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem
-                onClick={() => testMutation.mutate()}
-                disabled={testMutation.isPending || disabled}
-              >
-                <CheckIcon /> Test connection
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(connection)}>
-                <PencilIcon /> Edit
-              </DropdownMenuItem>
-              {showDefault && !connection.isDefault && !disabled ? (
-                <DropdownMenuItem onClick={() => setDefaultMutation.mutate()}>
-                  <StarIcon /> Set as default
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                onClick={() => setEnabledMutation.mutate(!connection.enabled)}
-                disabled={setEnabledMutation.isPending}
-              >
-                <PowerIcon /> {disabled ? "Enable" : "Disable"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => onRemove(connection)}>
-                <XIcon /> Remove
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardAction>
-      </CardHeader>
+        </div>
 
-      <CardContent className="flex flex-col gap-2 text-sm">
-        {displayFields.length > 0 ? (
-          <dl className="flex flex-col gap-1">
-            {displayFields.map((p) => (
-              <div key={p.label} className="flex items-baseline gap-2">
+        {connection.displayFields.length > 0 ? (
+          <dl className="flex flex-col gap-0.5">
+            {connection.displayFields.map((p, i) => (
+              // Index suffix guards against the (theoretical) case of two
+              // schema properties sharing the same `title`.
+              <div key={`${p.label}-${i}`} className="flex items-baseline gap-2">
                 <dt className="shrink-0 text-xs text-muted-foreground">{p.label}</dt>
                 <dd
                   className={cn(
-                    "flex-1 truncate text-xs",
+                    "min-w-0 flex-1 truncate text-xs",
                     p.mono && "font-mono text-sm text-muted-foreground",
                   )}
                 >
@@ -508,6 +465,7 @@ function ConnectionCard({
             ))}
           </dl>
         ) : null}
+
         <span className="text-xs text-muted-foreground">
           {broken ? "Last verified " : "Verified "}
           {formatRelative(connection.lastVerifiedAt)}
@@ -515,9 +473,17 @@ function ConnectionCard({
         {broken && connection.errorMessage ? (
           <span className="text-xs leading-snug text-destructive">{connection.errorMessage}</span>
         ) : null}
-      </CardContent>
 
-      <CardFooter className="flex items-center gap-2">
+        {showTestResult ? (
+          <RowFeedback
+            data={testMutation.data}
+            isError={testMutation.isError}
+            error={testMutation.error}
+          />
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-1 self-start sm:self-center">
         {broken ? (
           <Button size="sm" onClick={() => onReconnect(connection)}>
             <RotateCwIcon /> Reconnect
@@ -530,27 +496,74 @@ function ConnectionCard({
             disabled={testMutation.isPending || disabled}
           >
             {testMutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            {testMutation.isPending ? "Testing…" : "Test connection"}
+            {testMutation.isPending ? "Testing…" : "Test"}
           </Button>
         )}
-        {showTestResult && testMutation.isSuccess && testMutation.data?.ok ? (
-          <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
-            <CheckIcon className="size-3" /> Verified
-          </span>
-        ) : null}
-        {showTestResult && testMutation.data && !testMutation.data.ok ? (
-          <span className="inline-flex items-center gap-1 text-xs text-destructive">
-            <XIcon className="size-3" /> {testMutation.data.message ?? "Test failed"}
-          </span>
-        ) : null}
-        {showTestResult && testMutation.isError ? (
-          <span className="inline-flex items-center gap-1 text-xs text-destructive">
-            <XIcon className="size-3" /> {(testMutation.error as Error).message}
-          </span>
-        ) : null}
-      </CardFooter>
-    </Card>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="More actions"
+            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <MoreHorizontalIcon className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onClick={() => onEdit(connection)}>
+              <PencilIcon /> Edit
+            </DropdownMenuItem>
+            {showDefault && !connection.isDefault && !disabled ? (
+              <DropdownMenuItem onClick={() => setDefaultMutation.mutate()}>
+                <StarIcon /> Set as default
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              onClick={() => setEnabledMutation.mutate(!connection.enabled)}
+              disabled={setEnabledMutation.isPending}
+            >
+              <PowerIcon /> {disabled ? "Enable" : "Disable"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => onRemove(connection)}>
+              <XIcon /> Remove
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
   );
+}
+
+function RowFeedback({
+  data,
+  isError,
+  error,
+}: {
+  data: { ok: boolean; message?: string } | undefined;
+  isError: boolean;
+  error: unknown;
+}) {
+  if (data?.ok) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+        <CheckIcon className="size-3" /> Verified
+      </span>
+    );
+  }
+  if (data && !data.ok) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-destructive">
+        <XIcon className="size-3" /> {data.message ?? "Test failed"}
+      </span>
+    );
+  }
+  if (isError) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-destructive">
+        <XIcon className="size-3" /> {(error as Error).message}
+      </span>
+    );
+  }
+  return null;
 }
 
 function StatusBadge({ connection }: { connection: ConnectionItem }) {
@@ -572,6 +585,9 @@ function StatusBadge({ connection }: { connection: ConnectionItem }) {
       </Badge>
     );
   }
+  if (status === "disconnected") {
+    return <Badge variant="outline">Disconnected</Badge>;
+  }
   return (
     <Badge variant="secondary">
       <CheckIcon /> Connected
@@ -579,19 +595,7 @@ function StatusBadge({ connection }: { connection: ConnectionItem }) {
   );
 }
 
-// ─── Add another + Available cards ────────────────────────────────────────────
-
-function AddAnotherCard({ plugin, onClick }: { plugin: PluginSummary; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border px-5 py-6 text-sm font-medium text-muted-foreground ring-1 ring-transparent transition-all hover:border-foreground hover:bg-accent hover:text-foreground"
-    >
-      <PlugIcon className="size-4" />
-      Add another {plugin.name} connection
-    </button>
-  );
-}
+// ─── Available section ────────────────────────────────────────────────────────
 
 interface AvailableSectionProps {
   plugins: AvailablePlugin[];
@@ -599,111 +603,55 @@ interface AvailableSectionProps {
 }
 
 function AvailableSection({ plugins, onConnect }: AvailableSectionProps) {
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return window.localStorage.getItem("connections.availableCollapsed") === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  const toggle = () => {
-    setCollapsed((next) => {
-      const v = !next;
-      try {
-        window.localStorage.setItem("connections.availableCollapsed", v ? "true" : "false");
-      } catch {
-        // localStorage unavailable; ignore.
-      }
-      return v;
-    });
-  };
-
   return (
-    <section className="flex flex-col gap-3">
-      <button
-        onClick={toggle}
-        className="-mx-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        aria-expanded={!collapsed}
-      >
-        {collapsed ? (
-          <ChevronRightIcon className="size-4" />
-        ) : (
-          <ChevronDownIcon className="size-4" />
-        )}
-        Available to connect
-        <span className="text-xs text-muted-foreground/70">· {plugins.length}</span>
-      </button>
-      {!collapsed ? (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {plugins.map((p) => (
-            <AvailablePluginCard key={p.id} plugin={p} onConnect={() => onConnect(p)} />
-          ))}
-        </div>
-      ) : null}
+    <section className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-sm font-medium">Available to connect</h3>
+        <p className="text-xs text-muted-foreground">Services you can connect to.</p>
+      </div>
+      <div className="flex max-w-2xl flex-col divide-y divide-border rounded-xl border border-border">
+        {plugins.map((p) => (
+          <AvailableRow key={p.id} plugin={p} onConnect={() => onConnect(p)} />
+        ))}
+      </div>
     </section>
   );
 }
 
-function AvailablePluginCard({
-  plugin,
-  onConnect,
-}: {
-  plugin: AvailablePlugin;
-  onConnect: () => void;
-}) {
+function AvailableRow({ plugin, onConnect }: { plugin: AvailablePlugin; onConnect: () => void }) {
   // Per the design doc § "Available to Connect": badges represent only the
   // user-scoped capabilities (what a connection unlocks); a muted footer
   // line lists the global-scoped ones with "available without a connection".
   const userScopedCaps = plugin.userScopedCapabilities;
   const globalScopedCaps = plugin.globalScopedCapabilities;
+
   return (
-    <Card size="sm" className="gap-3">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex items-center gap-2">
           {plugin.logoUrl ? (
             <img src={plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
           ) : null}
-          <span className="truncate">{plugin.name}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+          <span className="truncate text-sm font-medium">{plugin.name}</span>
+        </div>
         {plugin.description ? (
           <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
             {plugin.description}
           </p>
         ) : null}
-        {userScopedCaps.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {userScopedCaps.slice(0, 4).map((cap) => {
-              const { label, icon: Icon } = capabilityDisplay(cap.id);
-              return (
-                <Badge
-                  key={`${cap.id}@${cap.version}`}
-                  variant="secondary"
-                  className="gap-1 text-sm font-normal"
-                >
-                  <Icon className="size-2.5 opacity-60" aria-hidden="true" />
-                  {label}
-                </Badge>
-              );
-            })}
-            {userScopedCaps.length > 4 ? (
-              <span className="text-sm text-muted-foreground">+{userScopedCaps.length - 4}</span>
-            ) : null}
-          </div>
-        ) : null}
+        {userScopedCaps.length > 0 ? <CapabilityBadges entries={userScopedCaps} size="sm" /> : null}
         {globalScopedCaps.length > 0 ? (
           <p className="text-xs text-muted-foreground">
             <span className="sr-only">Also available without a connection: </span>
             {capabilityListSummary(globalScopedCaps)} available without a connection
           </p>
         ) : null}
-      </CardContent>
-      <CardFooter className="flex items-center justify-between gap-2">
+      </div>
+
+      <div className="flex items-center gap-2 self-start sm:self-center">
         {plugin.adminSharedAvailable ? (
           <>
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
               <KeyIcon className="size-3" /> Using server key
             </span>
             <Button variant="outline" size="sm" onClick={onConnect}>
@@ -715,71 +663,34 @@ function AvailablePluginCard({
             <UnplugIcon /> Connect
           </Button>
         )}
-      </CardFooter>
-    </Card>
-  );
-}
-
-// ─── Empty states ─────────────────────────────────────────────────────────────
-
-function EmptyConnectionsState({
-  plugins,
-  onConnect,
-}: {
-  plugins: AvailablePlugin[];
-  onConnect: (p: AvailablePlugin) => void;
-}) {
-  return (
-    <div className="flex min-h-[55vh] items-center justify-center px-5 py-10">
-      <div className="flex w-full max-w-xl flex-col items-center gap-5 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card">
-          <UnplugIcon className="size-6 text-muted-foreground" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <h2 className="text-2xl font-semibold tracking-tight">No services connected</h2>
-          <p className="max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
-            Connect your media services to start tracking what you watch, requesting downloads, and
-            getting personalized recommendations.
-          </p>
-        </div>
-        <div className="mt-1 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
-          {plugins.map((p) => (
-            <AvailablePluginCard key={p.id} plugin={p} onConnect={() => onConnect(p)} />
-          ))}
-        </div>
       </div>
     </div>
   );
 }
 
+// ─── Empty + skeleton states ─────────────────────────────────────────────────
+
 function NoPluginsState() {
   return (
-    <div className="flex min-h-[45vh] items-center justify-center px-5 py-10">
-      <div className="flex max-w-md flex-col items-center gap-4 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl border border-border bg-card">
-          <PlugIcon className="size-6 text-muted-foreground" />
-        </div>
-        <h2 className="text-2xl font-semibold tracking-tight">No plugins installed</h2>
-        <p className="max-w-[42ch] text-sm text-muted-foreground">
-          Ask your administrator to install plugins to connect external services.
-        </p>
+    <div className="flex max-w-2xl flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-9 text-center">
+      <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-card">
+        <PlugIcon className="size-5 text-muted-foreground" />
       </div>
+      <p className="text-sm font-medium">No plugins installed</p>
+      <p className="max-w-[42ch] text-xs text-muted-foreground">
+        Ask your administrator to install plugins to connect external services.
+      </p>
     </div>
   );
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="flex flex-col gap-10">
-      {[0, 1].map((i) => (
-        <div key={i} className="flex flex-col gap-4">
-          <Skeleton className="h-6 w-32" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Skeleton className="h-36" />
-            <Skeleton className="h-36" />
-          </div>
-        </div>
-      ))}
+    <div className="flex max-w-2xl flex-col gap-4">
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <Skeleton className="h-5 w-32" />
+      <Skeleton className="h-32 w-full rounded-xl" />
     </div>
   );
 }
