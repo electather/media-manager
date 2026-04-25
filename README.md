@@ -24,5 +24,5 @@ bun run dev:client
 
 ## Packages
 
-- `packages/server` — Hono + MCP + oRPC + Better Auth backend
-- `packages/client` — React + TanStack Router + oRPC client SPA
+- `apps/server` — Hono + MCP + oRPC + Better Auth backend
+- `apps/client` — React + TanStack Router + oRPC client SPA

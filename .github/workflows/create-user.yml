@@ -2,7 +2,7 @@
 #
 # This exists solely to bootstrap the first admin (or seed ad-hoc users)
 # against a deployed Turso database until a proper onboarding / invite
-# flow lands. Both this file and `packages/server/src/db/create-user.ts`
+# flow lands. Both this file and `apps/server/src/db/create-user.ts`
 # should be deleted once onboarding ships.
 #
 # Usage: GitHub Actions → "Create user (temporary)" → Run workflow.

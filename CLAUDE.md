@@ -81,11 +81,17 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 - run: vp test
 ```
 
+## Review Checklist for Agents
+
+- [ ] Run `vp install` after pulling remote changes and before getting started.
+- [ ] Run `vp check` and `vp test` to validate changes.
+<!--VITE PLUS END-->
+
 ## Pull Requests and Versioning
 
 This project uses [Changesets](https://github.com/changesets/changesets). Every PR needs a `.changeset/<slug>.md` file or CI fails. Create the file directly — don't run the CLI.
 
-Only `@ent-mcp/client` and `@ent-mcp/server` are released. Never list `@ent-mcp/shared`.
+Released packages (`private: false`): `@ent-mcp/client`, `@ent-mcp/server`, `@ent-mcp/plugin-sdk`, and every `@ent-mcp/plugin-<id>` (trakt, tmdb, tvdb, seerr, plex, jellyfin). Never list `@ent-mcp/shared` — it is internal-only.
 
 ```md
 ---
@@ -105,15 +111,9 @@ Added a connections page for reviewing and revoking linked apps.
   ---
   ```
 
-## Review Checklist for Agents
-
-- [ ] Run `vp install` after pulling remote changes and before getting started.
-- [ ] Run `vp check` and `vp test` to validate changes.
-<!--VITE PLUS END-->
-
 ## Shared Package (`@ent-mcp/shared`)
 
-Anything used by both client and server lives in `packages/shared/` — domain enum tuples, public types, and zod schemas. Workspaces: `packages/{shared,server,client}`. Consumers depend on it directly as `"@ent-mcp/shared": "workspace:*"` in their own `package.json`; there is no `catalog:` indirection for this package.
+Anything used by both client and server lives in `packages/shared/` — domain enum tuples, public types, and zod schemas. Workspaces: `apps/{client,server}`, `packages/{shared,plugin-sdk}`, `packages/plugins/*`. Consumers depend on it directly as `"@ent-mcp/shared": "workspace:*"` in their own `package.json`; there is no `catalog:` indirection for this package.
 
 ### Rules
 
@@ -122,3 +122,7 @@ Anything used by both client and server lives in `packages/shared/` — domain e
 - **Enums are `as const` tuples.** Export values like `export const JOB_RUN_STATUSES = [...] as const;` plus a derived type. Drizzle consumes the tuple via `text("x", { enum: CONST })` and Zod via `z.enum(CONST)` — one source, both sides.
 - **When adding a new domain**, create `packages/shared/src/<domain>/{enums,types,schemas,index}.ts` and wire a subpath export in `packages/shared/package.json`.
 - **Shared has no runtime deps besides zod** (catalog). Don't add `drizzle-orm`, `hono`, or framework deps — keep it isomorphic.
+
+## Token Savior MCP
+
+The `token-savior` MCP server is registered. Prefer its structural code-navigation tools over `Read` + `Grep` when exploring symbols, sources, or dependencies in this repo. Use its memory engine (`memory_*`) for session-spanning context — overrides the file-based auto-memory at `~/.claude/projects/.../memory/` for this project.
