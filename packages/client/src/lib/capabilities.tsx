@@ -1,14 +1,22 @@
-import type { ReactNode } from "react";
 import {
   BookmarkIcon,
   CalendarIcon,
+  CheckCircle2Icon,
   DownloadIcon,
+  FilmIcon,
   HistoryIcon,
   InfoIcon,
+  LayersIcon,
+  LibraryBigIcon,
   LinkIcon,
+  MessageSquareIcon,
+  MonitorPlayIcon,
+  PlayIcon,
   PlugIcon,
+  RewindIcon,
   SparklesIcon,
   StarIcon,
+  TvIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +34,18 @@ export const CAPABILITY_DISPLAY: Record<string, CapabilityDisplay> = {
   metadata: { label: "Metadata", icon: InfoIcon },
   mediaRequest: { label: "Media Requests", icon: DownloadIcon },
   idResolve: { label: "ID Resolution", icon: LinkIcon },
+  libraryAvailability: { label: "Library Availability", icon: CheckCircle2Icon },
+  libraryAdmin: { label: "Library Admin", icon: LibraryBigIcon },
+  playback: { label: "Playback", icon: PlayIcon },
+  playbackSessions: { label: "Playback Sessions", icon: MonitorPlayIcon },
+  continueWatching: { label: "Continue Watching", icon: RewindIcon },
+  watchProviders: { label: "Watch Providers", icon: TvIcon },
+  trailers: { label: "Trailers", icon: FilmIcon },
+  userComments: { label: "User Comments", icon: MessageSquareIcon },
+  collection: { label: "Collection", icon: LayersIcon },
+  // New plugin-declared capabilities should be added here. Unmapped ids still
+  // render via `capabilityDisplay`'s titleize + PlugIcon fallback so the page
+  // never breaks.
 };
 
 // Unknown ids fall back to a titleized label and a generic plug icon so the page never breaks
@@ -48,36 +68,32 @@ export interface CapabilityEntry {
   version: string;
 }
 
-interface RenderCapabilityBadgesOptions {
+interface CapabilityBadgesProps {
+  entries: ReadonlyArray<CapabilityEntry>;
+  /**
+   * Typography density. `sm` matches the modal header / admin card density;
+   * `md` matches the connection card. Scope is conveyed by *where* the row
+   * appears (under its scope heading), never by per-badge styling.
+   */
   size?: "sm" | "md";
 }
 
 /**
- * Renders a flat row of capability badges. Scope is conveyed by *where* the
- * row appears (under its scope heading), not by per-badge styling — keeping
- * the visual weight identical regardless of which scope the entry belongs
- * to. `size` controls the typography density (matches the prior inline
- * styles in the modal header and admin card).
+ * Flat row of capability badges. Renders nothing when `entries` is empty.
  */
-export function renderCapabilityBadges(
-  entries: ReadonlyArray<CapabilityEntry>,
-  opts: RenderCapabilityBadgesOptions = {},
-): ReactNode {
+export function CapabilityBadges({ entries, size = "md" }: CapabilityBadgesProps) {
   if (entries.length === 0) return null;
-  const size = opts.size ?? "md";
-  const wrapperClass = size === "sm" ? "flex flex-wrap gap-1.5" : "flex flex-wrap gap-1.5";
   const badgeClass =
     size === "sm"
       ? "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
       : "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground";
-  const iconClass = size === "sm" ? "size-3 opacity-60" : "size-3 opacity-60";
   return (
-    <div className={wrapperClass}>
+    <div className="flex flex-wrap gap-1.5">
       {entries.map((cap) => {
         const { label, icon: Icon } = capabilityDisplay(cap.id);
         return (
           <span key={`${cap.id}@${cap.version}`} className={badgeClass}>
-            <Icon className={iconClass} aria-hidden="true" />
+            <Icon className="size-3 opacity-60" aria-hidden="true" />
             {label}
           </span>
         );

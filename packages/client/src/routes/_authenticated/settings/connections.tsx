@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { capabilityDisplay } from "@/lib/capabilities";
+import { capabilityDisplay, capabilityListSummary } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 
 import {
@@ -313,7 +313,10 @@ function PluginGroup({
   // connection and live on the modal's "also provides" line instead.
   const userScopedCaps = group.plugin.userScopedCapabilities;
   const summary = group.plugin;
-  const showDefault = group.connections.length > 1;
+  // Per design doc § "Connected instance card": poolable plugins always
+  // surface "Set as default" (rotation assumes one); non-poolable plugins
+  // surface it only once the user has multiple instances.
+  const showDefault = group.plugin.poolable || group.connections.length > 1;
 
   return (
     <section className="flex flex-col gap-4">
@@ -496,7 +499,7 @@ function ConnectionCard({
                 <dd
                   className={cn(
                     "flex-1 truncate text-xs",
-                    p.mono && "font-mono text-[11px] text-muted-foreground",
+                    p.mono && "font-mono text-sm text-muted-foreground",
                   )}
                 >
                   {p.value}
@@ -649,10 +652,11 @@ function AvailablePluginCard({
   plugin: AvailablePlugin;
   onConnect: () => void;
 }) {
-  const capabilityIds = [
-    ...plugin.userScopedCapabilities.map((c) => c.id),
-    ...plugin.globalScopedCapabilities.map((c) => c.id),
-  ];
+  // Per the design doc § "Available to Connect": badges represent only the
+  // user-scoped capabilities (what a connection unlocks); a muted footer
+  // line lists the global-scoped ones with "available without a connection".
+  const userScopedCaps = plugin.userScopedCapabilities;
+  const globalScopedCaps = plugin.globalScopedCapabilities;
   return (
     <Card size="sm" className="gap-3">
       <CardHeader>
@@ -669,21 +673,31 @@ function AvailablePluginCard({
             {plugin.description}
           </p>
         ) : null}
-        {capabilityIds.length > 0 ? (
+        {userScopedCaps.length > 0 ? (
           <div className="flex flex-wrap gap-1">
-            {capabilityIds.slice(0, 4).map((cap) => {
-              const { label, icon: Icon } = capabilityDisplay(cap);
+            {userScopedCaps.slice(0, 4).map((cap) => {
+              const { label, icon: Icon } = capabilityDisplay(cap.id);
               return (
-                <Badge key={cap} variant="secondary" className="gap-1 text-sm font-normal">
+                <Badge
+                  key={`${cap.id}@${cap.version}`}
+                  variant="secondary"
+                  className="gap-1 text-sm font-normal"
+                >
                   <Icon className="size-2.5 opacity-60" aria-hidden="true" />
                   {label}
                 </Badge>
               );
             })}
-            {capabilityIds.length > 4 ? (
-              <span className="text-sm text-muted-foreground">+{capabilityIds.length - 4}</span>
+            {userScopedCaps.length > 4 ? (
+              <span className="text-sm text-muted-foreground">+{userScopedCaps.length - 4}</span>
             ) : null}
           </div>
+        ) : null}
+        {globalScopedCaps.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            <span className="sr-only">Also available without a connection: </span>
+            {capabilityListSummary(globalScopedCaps)} available without a connection
+          </p>
         ) : null}
       </CardContent>
       <CardFooter className="flex items-center justify-between gap-2">
@@ -693,7 +707,7 @@ function AvailablePluginCard({
               <KeyIcon className="size-3" /> Using server key
             </span>
             <Button variant="outline" size="sm" onClick={onConnect}>
-              Add your own
+              Add your own key
             </Button>
           </>
         ) : (

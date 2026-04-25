@@ -19,15 +19,12 @@ import {
 } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import {
-  capabilityListSummary,
-  renderCapabilityBadges,
-  type CapabilityEntry,
-} from "@/lib/capabilities";
+import { CapabilityBadges, capabilityListSummary, type CapabilityEntry } from "@/lib/capabilities";
 import { api } from "@/lib/api";
 import {
   parseFormErrorResponse,
   splitFormError,
+  type FormErrorBody,
   type FormErrorResult,
 } from "@/lib/errors/form-errors";
 
@@ -49,8 +46,8 @@ export interface PluginSummary {
   authKind: "form" | "oauth_redirect" | "oauth_device" | "none";
   userScopedCapabilities: ReadonlyArray<CapabilityEntry>;
   globalScopedCapabilities: ReadonlyArray<CapabilityEntry>;
-  userConfigSchema?: Record<string, unknown> | null;
-  adminSharedAvailable?: boolean;
+  userConfigSchema: Record<string, unknown> | null;
+  adminSharedAvailable: boolean;
 }
 
 export interface ExistingConnection {
@@ -196,6 +193,27 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     if (Object.keys(routed.fieldErrors).length > 0) setSubmitAttempted(true);
   };
 
+  // Specialised copy for the typed `plugin.credentials_empty` error from
+  // Migration step 2 of the design doc: substitutes the offending field's
+  // schema title (so "apiKey" surfaces as "API Key") and routes it to both
+  // the top-of-form banner and the input. Returns null when the body is
+  // unrelated, letting the generic `splitFormError` handle the rest.
+  // `plugin.invalid_base_url` is already routed correctly by the field
+  // handler; the design doc only mandates field highlighting for it, not
+  // a fixed message, so we leave the server-supplied copy in place.
+  const rewriteTypedFormError = (body: FormErrorBody | null): FormErrorResult | null => {
+    if (!body || body.code !== "plugin.credentials_empty") return null;
+    const field = typeof body.params?.field === "string" ? body.params.field : null;
+    if (!field || !schemaFieldNames.includes(field)) return null;
+    const title = readFieldTitle(schemaProperties, field);
+    const message = `Credentials can't be blank. Enter a ${title} to continue.`;
+    return { message, fieldErrors: { [field]: message } };
+  };
+
+  const routeFormError = (body: FormErrorBody | null, fallback: string): FormErrorResult => {
+    return rewriteTypedFormError(body) ?? splitFormError(body, schemaFieldNames, fallback);
+  };
+
   const clearPendingErrors = () => {
     setServerErrors({});
     setTopError(null);
@@ -228,7 +246,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
         setTest({ kind: "ok" });
       } else {
         setTest({ kind: "err" });
-        applyFormError(splitFormError(body, schemaFieldNames, "Test failed."));
+        applyFormError(routeFormError(body, "Test failed."));
       }
     } catch (err) {
       setTest({ kind: "err" });
@@ -253,7 +271,8 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
           ? await patchExistingConnection(existing.id, submission)
           : await createNewConnection(submission);
       if (!res.ok) {
-        applyFormError(await parseFormErrorResponse(res, schemaFieldNames, fallback));
+        const body = (await readErrorBody(res)) as FormErrorBody | null;
+        applyFormError(routeFormError(body, fallback));
         return;
       }
       onSuccess();
@@ -384,7 +403,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
           </div>
           {plugin.userScopedCapabilities.length > 0 ? (
             <div className="mt-2">
-              {renderCapabilityBadges(plugin.userScopedCapabilities, { size: "sm" })}
+              <CapabilityBadges entries={plugin.userScopedCapabilities} size="sm" />
             </div>
           ) : null}
           {plugin.globalScopedCapabilities.length > 0 ? (
@@ -802,4 +821,27 @@ function renderFooter(args: FooterArgs) {
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const routed = await parseFormErrorResponse(res, [], fallback);
   return routed.message ?? fallback;
+}
+
+// Reads a Response's JSON body without throwing on malformed payloads. Used
+// for the form-save path where we need the raw body to inspect `code` for
+// typed-error rewriting before falling back to the generic splitter.
+async function readErrorBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Looks up the JSON-Schema `title` for a field so the typed-error rewrite
+// can substitute it into the user-facing copy. Falls back to the property
+// name (already a useful string for plugin-authored ids).
+function readFieldTitle(
+  properties: Record<string, Record<string, unknown> | undefined>,
+  name: string,
+): string {
+  const def = properties[name];
+  if (def && typeof def.title === "string" && def.title.length > 0) return def.title;
+  return name;
 }
