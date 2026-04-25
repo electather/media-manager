@@ -541,7 +541,28 @@ export class PluginRuntime {
   ): Promise<{ ok: boolean; message?: string }> {
     const module = await this.getModule(pluginId);
     const pick = await sharedCredentialsService.getDecrypted({ pluginId, credentialId });
-    const ctx = await this.buildAuxContext(pluginId, null, null, null, pick.value);
+    return this.runSharedCredentialProbe(module, pluginId, pick.value);
+  }
+
+  /**
+   * Verifies an unsaved candidate shared credential. Mirrors `testSharedCredential`
+   * but takes the raw value directly instead of fetching by id, so the admin
+   * dialog's `Test & save` can run before the row is persisted.
+   */
+  async testSharedCredentialEphemeral(
+    pluginId: string,
+    value: unknown,
+  ): Promise<{ ok: boolean; message?: string }> {
+    const module = await this.getModule(pluginId);
+    return this.runSharedCredentialProbe(module, pluginId, value);
+  }
+
+  private async runSharedCredentialProbe(
+    module: PluginModule,
+    pluginId: string,
+    sharedValue: unknown,
+  ): Promise<{ ok: boolean; message?: string }> {
+    const ctx = await this.buildAuxContext(pluginId, null, null, null, sharedValue);
     const probe = module.verifyShared ?? module.testConnection;
     if (typeof probe !== "function") {
       return { ok: true, message: "plugin has no testConnection/verifyShared" };

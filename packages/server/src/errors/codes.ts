@@ -55,6 +55,10 @@ export const HOST_ERROR_CODES = {
   "plugin.not_poolable": { severity: "info" },
   "plugin.scope_invalid": { severity: "info" },
   "plugin.host_blocked_by_admin": { severity: "warning" },
+  // Form-validation errors carrying a `params.field` so the client can inline-route them.
+  "plugin.credentials_empty": { severity: "info" },
+  "plugin.duplicate_label": { severity: "info" },
+  "plugin.invalid_base_url": { severity: "info" },
 
   // Media dispatcher.
   "media.no_connection": { severity: "info" },

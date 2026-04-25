@@ -410,11 +410,11 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
 
     expect(result).toMatchObject({
       status: "error",
-      code: "plugin.input_invalid",
+      code: "plugin.invalid_base_url",
       params: { field: "baseUrl" },
     });
     expect(startAuthSpy).not.toHaveBeenCalled();
-    // captureError is called with the plugin.input_invalid code; severity
+    // captureError is called with the plugin.invalid_base_url code; severity
     // routing lives in the shared captureError (covered by capture.test.ts),
     // so asserting `code` here is enough to lock in the info classification
     // for this path.
@@ -422,7 +422,7 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     const [, meta] = captureErrorMock.mock.calls[0]!;
     expect(meta).toMatchObject({
       source: "plugin",
-      code: "plugin.input_invalid",
+      code: "plugin.invalid_base_url",
       pluginId: "plex-like",
     });
   });

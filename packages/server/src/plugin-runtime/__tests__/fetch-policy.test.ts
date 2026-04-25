@@ -251,13 +251,13 @@ describe("resolveAllowedHostsFromSchema", () => {
     ).toEqual(new Set(["a.example.com", "b.example.com"]));
   });
 
-  it("throws plugin.input_invalid when an x-allowed-host value is not a valid URL", () => {
+  it("throws plugin.invalid_base_url when an x-allowed-host value is not a valid URL", () => {
     const schema = {
       type: "object",
       properties: { baseUrl: { type: "string", "x-allowed-host": true } },
     };
     expect(() => resolveAllowedHostsFromSchema("p", schema, { baseUrl: "not-a-url" })).toThrow(
-      expect.objectContaining({ code: "plugin.input_invalid" }),
+      expect.objectContaining({ code: "plugin.invalid_base_url" }),
     );
   });
 
@@ -292,7 +292,7 @@ describe("resolveAllowedHostsFromSchema", () => {
     ).toEqual(new Set(["primary.example.com", "backup.example.com"]));
   });
 
-  it("throws plugin.input_invalid when an x-allowed-host value resolves to a blocked hostname", () => {
+  it("throws plugin.invalid_base_url when an x-allowed-host value resolves to a blocked hostname", () => {
     // Without the blocklist, a user-supplied baseUrl of http://169.254.169.254
     // would land in the dynamic allowlist and let ctx.fetch reach the cloud
     // instance-metadata service. The resolver must reject at collection time
@@ -303,7 +303,7 @@ describe("resolveAllowedHostsFromSchema", () => {
     };
     expect(() =>
       resolveAllowedHostsFromSchema("p", schema, { baseUrl: "http://169.254.169.254/latest" }),
-    ).toThrow(expect.objectContaining({ code: "plugin.input_invalid" }));
+    ).toThrow(expect.objectContaining({ code: "plugin.invalid_base_url" }));
   });
 
   it("surfaces a readable path when x-allowed-host sits on the root schema", () => {
@@ -312,7 +312,7 @@ describe("resolveAllowedHostsFromSchema", () => {
     const schema = { type: "string", "x-allowed-host": true } as const;
     expect(() => resolveAllowedHostsFromSchema("p", schema, "not-a-url")).toThrow(
       expect.objectContaining({
-        code: "plugin.input_invalid",
+        code: "plugin.invalid_base_url",
         message: expect.stringContaining("'(root)'"),
       }),
     );

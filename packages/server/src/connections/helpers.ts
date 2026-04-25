@@ -99,6 +99,67 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
   return stripExtensionFields(schema, value, RESPONSE_STRIPPED_EXTENSIONS);
 }
 
+/**
+ * Computes the display-field list for a connection card from the plugin's
+ * `userConfigSchema` and decrypted `userConfig`. Excludes `x-secret`, redacts
+ * `x-private` as `"••••"`, marks URI-typed fields as `mono`, and preserves
+ * schema declaration order. Returns `[]` when the schema has no displayable
+ * fields or the user config is empty/missing.
+ */
+export function computeDisplayFields(
+  schema: unknown,
+  value: unknown,
+): Array<{ label: string; value: string; mono?: boolean }> {
+  if (!schema || typeof schema !== "object") return [];
+  const props = (schema as { properties?: Record<string, Record<string, unknown>> }).properties;
+  if (!props) return [];
+  const cfg =
+    (value && typeof value === "object" ? (value as Record<string, unknown>) : null) ?? {};
+  const out: Array<{ label: string; value: string; mono?: boolean }> = [];
+  for (const [name, def] of Object.entries(props)) {
+    if (!def) continue;
+    if (def["x-secret"] === true) continue;
+    const isPrivate = def["x-private"] === true;
+    const label =
+      typeof def.title === "string" && def.title.length > 0 ? def.title : titleizeFieldName(name);
+    const stored = cfg[name];
+    const isUri = def.format === "uri" || def.format === "url";
+    const monoHint = def["x-mono"] === true;
+    const hasAllowedHost = def["x-allowed-host"] === true;
+    const mono = isUri || monoHint || hasAllowedHost ? true : undefined;
+    const stringValue =
+      isPrivate && stored !== undefined && stored !== null && stored !== ""
+        ? "••••"
+        : stringifyDisplayValue(stored);
+    out.push(mono ? { label, value: stringValue, mono } : { label, value: stringValue });
+  }
+  return out;
+}
+
+function titleizeFieldName(name: string): string {
+  return name
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function stringifyDisplayValue(v: unknown): string {
+  if (v === undefined || v === null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (Array.isArray(v)) {
+    const primitives = v.filter(
+      (x) => typeof x === "string" || typeof x === "number" || typeof x === "boolean",
+    );
+    if (primitives.length === v.length) return primitives.map((x) => String(x)).join(", ");
+    return "";
+  }
+  return "";
+}
+
 /** Promotes the given connection id to default within its plugin; demotes the rest. */
 export async function promoteToDefault(
   userId: string,

@@ -161,6 +161,7 @@ vi.mock("../../plugin-runtime/registry", () => ({
 vi.mock("../../plugin-runtime/shared-credentials", () => ({
   sharedCredentialsService: {
     countEnabled: async () => 0,
+    countAll: async () => 0,
   },
 }));
 
@@ -238,7 +239,7 @@ beforeEach(() => {
 });
 
 describe("connectionsService — x-private stripping", () => {
-  it("omits x-private fields from listForUser responses", async () => {
+  it("redacts x-private and excludes x-secret in displayFields on listForUser", async () => {
     installPlugin();
     seedConnection({
       externalUrl: "https://plex.example.com",
@@ -248,10 +249,15 @@ describe("connectionsService — x-private stripping", () => {
 
     const list = await connectionsService.listForUser("user-1");
     expect(list).toHaveLength(1);
-    const cfg = list[0]?.userConfig as Record<string, unknown>;
-    expect(cfg.externalUrl).toBe("https://plex.example.com");
-    expect(cfg).not.toHaveProperty("internalUrl");
-    expect(cfg).not.toHaveProperty("apiKey");
+    const fields = list[0]?.displayFields ?? [];
+    const labels = fields.map((f) => f.label);
+    expect(labels).toContain("External URL");
+    expect(labels).toContain("Internal URL");
+    expect(labels).not.toContain("API Key");
+    const internal = fields.find((f) => f.label === "Internal URL");
+    expect(internal?.value).toBe("••••");
+    const external = fields.find((f) => f.label === "External URL");
+    expect(external?.value).toBe("https://plex.example.com");
   });
 
   it("omits x-private fields from getUserConfig responses", async () => {

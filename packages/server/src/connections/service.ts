@@ -10,6 +10,7 @@ import type { AuthResult } from "../plugin-runtime/types";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import {
+  computeDisplayFields,
   decryptJson,
   encryptJson,
   promoteToDefault,
@@ -53,10 +54,6 @@ function capabilitiesAtScope(
     .map(([id, cap]) => ({ id, version: cap.version }));
 }
 
-function capabilityKeys(manifest: StoredManifest): string[] {
-  return Object.entries(manifest.capabilities).map(([id, cap]) => `${id}@${cap.version}`);
-}
-
 export const connectionsService = {
   verifyConfig,
   createFormConnection,
@@ -80,7 +77,7 @@ export const connectionsService = {
       if (!pluginRow) continue;
       const manifest = parseManifest(pluginRow.manifest);
       const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
-      const safeUserConfig = stripResponseFields(manifest.userConfigSchema, userConfig);
+      const adminSharedAvailable = (await sharedCredentialsService.countEnabled(pluginRow.id)) > 0;
       result.push({
         id: row.id,
         pluginId: row.pluginId,
@@ -93,17 +90,20 @@ export const connectionsService = {
         errorMessage: row.errorMessage,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
-        userConfig: safeUserConfig,
+        displayFields: computeDisplayFields(manifest.userConfigSchema, userConfig),
         plugin: {
           id: pluginRow.id,
           name: manifest.name,
           version: manifest.version,
           description: manifest.description ?? "",
-          auth: manifest.auth.kind,
-          enabled: pluginRow.enabled === 1,
           logoUrl: manifest.logoUrl,
-          capabilities: capabilityKeys(manifest),
+          authKind: manifest.auth.kind,
+          poolable: manifest.poolable ?? false,
+          userScopedCapabilities: capabilitiesAtScope(manifest, "user"),
+          globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
           userConfigSchema: manifest.userConfigSchema ?? null,
+          credentialsSchema: manifest.credentialsSchema ?? null,
+          adminSharedAvailable,
         },
       });
     }
@@ -374,7 +374,7 @@ export const connectionsService = {
       version: string;
       description: string;
       logoUrl?: string;
-      auth: string;
+      authKind: PluginManifest["auth"]["kind"];
       poolable: boolean;
       adminSharedAvailable: boolean;
       userScopedCapabilities: Array<{ id: string; version: string }>;
@@ -398,7 +398,7 @@ export const connectionsService = {
         version: manifest.version,
         description: manifest.description ?? "",
         logoUrl: manifest.logoUrl,
-        auth: manifest.auth.kind,
+        authKind: manifest.auth.kind,
         poolable: manifest.poolable ?? false,
         adminSharedAvailable,
         userScopedCapabilities: userScoped,

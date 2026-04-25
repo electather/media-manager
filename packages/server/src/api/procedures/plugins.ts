@@ -6,6 +6,7 @@ import {
   pluginAddSharedCredentialSchema as addSharedCredentialSchema,
   pluginUpdateSharedCredentialSchema as updateSharedCredentialSchema,
   pluginPersonalKeyFallbackSchema as personalKeyFallbackSchema,
+  pluginTestEphemeralSharedCredentialSchema as testEphemeralSharedCredentialSchema,
   pluginAdminAllowlistSchema as adminAllowlistSchema,
   pluginAdminHeadersSchema as adminHeadersSchema,
 } from "@ent-mcp/shared/plugins";
@@ -41,7 +42,10 @@ export const pluginsApp = new Hono()
       rows.map(async (r) => {
         const manifest = parseManifest(r.manifest);
         const scopes = classifyScopes(manifest);
-        const sharedCount = await sharedCredentialsService.countEnabled(r.id);
+        const [sharedTotal, sharedEnabled] = await Promise.all([
+          sharedCredentialsService.countAll(r.id),
+          sharedCredentialsService.countEnabled(r.id),
+        ]);
         const policy = await loadPluginPolicy(r.id);
         return {
           id: r.id,
@@ -49,7 +53,12 @@ export const pluginsApp = new Hono()
           sourceType: r.sourceType,
           enabled: r.enabled === 1,
           hasGlobalConfig: !!r.globalConfig,
-          sharedCredentialsCount: sharedCount,
+          // Total entries (any enabled state). The previous `countEnabled`
+          // semantics moved to `sharedCredentialsEnabledCount` below so the
+          // admin meta line can render `enabled/total` without a follow-up
+          // query.
+          sharedCredentialsCount: sharedTotal,
+          sharedCredentialsEnabledCount: sharedEnabled,
           personalKeyFallback: r.personalKeyFallback,
           poolable: manifest.poolable ?? false,
           capabilities: Object.entries(manifest.capabilities).map(([id, cap]) => ({
@@ -140,6 +149,20 @@ export const pluginsApp = new Hono()
     const result = await pluginRuntime.testSharedCredential(pluginId, credentialId);
     return c.json(result);
   })
+  .post(
+    "/:id/shared-credentials/test-ephemeral",
+    zValidator("json", testEphemeralSharedCredentialSchema),
+    async (c) => {
+      const pluginId = c.req.param("id");
+      const { value } = c.req.valid("json");
+      try {
+        const result = await pluginRuntime.testSharedCredentialEphemeral(pluginId, value);
+        return c.json(result);
+      } catch (err) {
+        throw toHttpError(err);
+      }
+    },
+  )
   .patch("/:id/personal-key-fallback", zValidator("json", personalKeyFallbackSchema), async (c) => {
     const pluginId = c.req.param("id");
     const { policy } = c.req.valid("json");
@@ -188,7 +211,7 @@ export const pluginsApp = new Hono()
 
 function toHttpError(err: unknown) {
   if (err instanceof PluginError) {
-    return badRequest(err.code, err.message);
+    return badRequest(err.code, err.message, err.params);
   }
   throw err;
 }

@@ -153,6 +153,59 @@ describe("sharedCredentialsService", () => {
     ).rejects.toThrow(PluginError);
   });
 
+  it("rejects a duplicate label (case-insensitive) on add", async () => {
+    installPlugin("tmdb", true);
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Primary",
+      value: { apiKey: "x" },
+    });
+    await expect(
+      sharedCredentialsService.add({
+        pluginId: "tmdb",
+        label: "primary",
+        value: { apiKey: "y" },
+      }),
+    ).rejects.toMatchObject({ code: "plugin.duplicate_label" });
+  });
+
+  it("rejects a duplicate label on rename", async () => {
+    installPlugin("tmdb", true);
+    const a = await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Primary",
+      value: { apiKey: "x" },
+    });
+    await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Backup",
+      value: { apiKey: "y" },
+    });
+    await expect(
+      sharedCredentialsService.update({
+        pluginId: "tmdb",
+        credentialId: a,
+        label: "backup",
+      }),
+    ).rejects.toMatchObject({ code: "plugin.duplicate_label" });
+  });
+
+  it("countAll returns total entries regardless of enabled state", async () => {
+    installPlugin("tmdb", true);
+    const id = await sharedCredentialsService.add({
+      pluginId: "tmdb",
+      label: "Primary",
+      value: { apiKey: "x" },
+    });
+    await sharedCredentialsService.update({
+      pluginId: "tmdb",
+      credentialId: id,
+      enabled: false,
+    });
+    expect(await sharedCredentialsService.countAll("tmdb")).toBe(1);
+    expect(await sharedCredentialsService.countEnabled("tmdb")).toBe(0);
+  });
+
   it("marks an entry exhausted with a retry window", async () => {
     installPlugin("tmdb", true);
     const id = await sharedCredentialsService.add({

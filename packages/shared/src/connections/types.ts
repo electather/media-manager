@@ -1,4 +1,36 @@
 import type { ConnectionStatus } from "./enums";
+import type { AuthKind } from "../plugins/enums";
+
+/**
+ * Embedded plugin shape on every `ConnectionListItem` and the entries returned
+ * by `GET /api/connections/available`. Authoritative for the user-facing UI:
+ * available cards, connected cards, and the connection modal all render off of
+ * this. Admin-only fields live on the `PluginRow` shape used by `/api/plugins/`.
+ */
+export interface PluginSummary {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  logoUrl?: string;
+  authKind: AuthKind;
+  poolable: boolean;
+  /** Capabilities the user must connect to unlock. `scope` is implicit. */
+  userScopedCapabilities: Array<{ id: string; version: string }>;
+  /** Capabilities that work without any user action. `scope` is implicit. */
+  globalScopedCapabilities: Array<{ id: string; version: string }>;
+  userConfigSchema: unknown;
+  credentialsSchema: unknown;
+  /** True when the admin pool has at least one enabled entry for this plugin. */
+  adminSharedAvailable: boolean;
+}
+
+/** Server-rendered display field for a connection's non-secret user config. */
+export interface ConnectionDisplayField {
+  label: string;
+  value: string;
+  mono?: boolean;
+}
 
 /** Row returned by `GET /api/connections`. Plugin metadata is joined in. */
 export interface ConnectionListItem {
@@ -13,19 +45,11 @@ export interface ConnectionListItem {
   errorMessage: string | null;
   createdAt: number;
   updatedAt: number;
-  /** Non-secret user-supplied config. Null when none was stored. */
-  userConfig: unknown;
-  plugin: ConnectionPluginSummary;
-}
-
-export interface ConnectionPluginSummary {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  auth: string;
-  enabled: boolean;
-  logoUrl?: string;
-  capabilities: string[];
-  userConfigSchema: unknown;
+  /**
+   * Server-computed display fields derived from `userConfigSchema` and the
+   * decrypted user config. Excludes `x-secret`, redacts `x-private` to
+   * "••••". Empty when the plugin has no non-secret user config.
+   */
+  displayFields: ConnectionDisplayField[];
+  plugin: PluginSummary;
 }

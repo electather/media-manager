@@ -3,7 +3,7 @@ import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import type { AuthResult } from "../plugin-runtime/types";
-import { notFound, unprocessable } from "../errors/http-errors";
+import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
 
 /**
@@ -48,11 +48,69 @@ function fieldFromAuthResult(result: AuthResult): string | undefined {
   return typeof field === "string" ? field : undefined;
 }
 
+/**
+ * Returns the first required, user-submittable field on the schema whose value
+ * is blank in `value`, or `undefined` if every required field is populated.
+ * Skips `x-plugin-resolved` fields — the plugin owns those values.
+ */
+function firstBlankRequiredField(schema: unknown, value: unknown): string | undefined {
+  if (!schema || typeof schema !== "object") return undefined;
+  const obj = schema as {
+    properties?: Record<string, Record<string, unknown> | undefined>;
+    required?: unknown;
+  };
+  const required = Array.isArray(obj.required) ? (obj.required as string[]) : [];
+  if (required.length === 0) return undefined;
+  const valueObj =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+  for (const key of required) {
+    const def = obj.properties?.[key];
+    if (def?.["x-plugin-resolved"] === true) continue;
+    const v = valueObj[key];
+    if (v === undefined || v === null || v === "") return key;
+  }
+  return undefined;
+}
+
+/**
+ * Maps an AuthResult error to the typed `plugin.invalid_base_url` HTTP error
+ * when the underlying cause was an `x-allowed-host` validation failure. The
+ * runtime maps that throw into `plugin.invalid_base_url` with `params.field`,
+ * so we can route on the code without string-matching.
+ */
+function rethrowAuthError(result: AuthResult): never {
+  if (result.status !== "error") {
+    throw unprocessable("connection.verify_failed", `unexpected status: ${result.status}`, {});
+  }
+  const message = result.devMessage;
+  const field = fieldFromAuthResult(result);
+  if (result.code === "plugin.invalid_base_url") {
+    throw badRequest("plugin.invalid_base_url", message, {
+      message,
+      ...(field ? { field } : {}),
+    });
+  }
+  throw unprocessable("connection.verify_failed", `auth failed: ${message}`, {
+    message,
+    ...(field ? { field } : {}),
+  });
+}
+
 export async function verifyConfig(args: {
   userId: string;
   pluginId: string;
   userConfig: unknown;
 }): Promise<VerifyConfigResult> {
+  // Surface blank-required-field submissions as a typed error before any
+  // plugin work. Mirrors the create path; the modal routes the result to the
+  // offending input via `params.field`.
+  const module = await pluginRuntime.getModule(args.pluginId);
+  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, args.userConfig);
+  if (blank) {
+    throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
+  }
   try {
     const result = (await pluginRuntime.runAuth(
       args.pluginId,
@@ -61,11 +119,21 @@ export async function verifyConfig(args: {
       args.userConfig,
     )) as AuthResult;
     if (result.status === "completed") return { ok: true };
+    if (result.status === "error" && result.code === "plugin.invalid_base_url") {
+      // Surface as a typed HTTP error so the client can route to a field; matches
+      // the create-path behaviour rather than dropping it into the generic body.
+      const field = fieldFromAuthResult(result);
+      throw badRequest("plugin.invalid_base_url", result.devMessage, {
+        message: result.devMessage,
+        ...(field ? { field } : {}),
+      });
+    }
     const message =
       result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
     const field = fieldFromAuthResult(result);
     return field ? { ok: false, message, field } : { ok: false, message };
   } catch (err) {
+    if (err && typeof err === "object" && "status" in err) throw err;
     return { ok: false, message: err instanceof Error ? err.message : "verification failed" };
   }
 }
@@ -81,21 +149,17 @@ export async function createFormConnection(args: {
   // persisted row. The plugin repopulates them via `userConfigPatch`.
   const module = await pluginRuntime.getModule(args.pluginId);
   const sanitized = stripRequestFields(module.manifest.userConfigSchema, args.userConfig);
+  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, sanitized);
+  if (blank) {
+    throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
+  }
   const result = (await pluginRuntime.runAuth(
     args.pluginId,
     "startAuth",
     args.userId,
     sanitized,
   )) as AuthResult;
-  if (result.status !== "completed") {
-    const message =
-      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    const field = fieldFromAuthResult(result);
-    throw unprocessable("connection.verify_failed", `auth failed: ${message}`, {
-      message,
-      ...(field ? { field } : {}),
-    });
-  }
+  if (result.status !== "completed") rethrowAuthError(result);
   const id = await writeConnection({
     userId: args.userId,
     pluginId: args.pluginId,
