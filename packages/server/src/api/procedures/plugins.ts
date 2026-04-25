@@ -42,10 +42,11 @@ export const pluginsApp = new Hono()
       rows.map(async (r) => {
         const manifest = parseManifest(r.manifest);
         const scopes = classifyScopes(manifest);
-        const [sharedTotal, sharedEnabled] = await Promise.all([
-          sharedCredentialsService.countAll(r.id),
-          sharedCredentialsService.countEnabled(r.id),
-        ]);
+        // Single `list()` round-trip — derive both total and enabled counts
+        // from the same row set instead of issuing two parallel queries.
+        const sharedEntries = await sharedCredentialsService.list(r.id);
+        const sharedTotal = sharedEntries.length;
+        const sharedEnabled = sharedEntries.filter((e) => e.enabled).length;
         const policy = await loadPluginPolicy(r.id);
         return {
           id: r.id,

@@ -161,7 +161,6 @@ vi.mock("../../plugin-runtime/registry", () => ({
 vi.mock("../../plugin-runtime/shared-credentials", () => ({
   sharedCredentialsService: {
     countEnabled: async () => 0,
-    countAll: async () => 0,
   },
 }));
 
@@ -199,11 +198,11 @@ const PRIVATE_PLUGIN_MANIFEST = {
   poolable: false,
 };
 
-function installPlugin() {
+function installPlugin(opts: { enabled?: 0 | 1 } = {}) {
   state.plugins = [
     {
       id: "plex",
-      enabled: 1,
+      enabled: opts.enabled ?? 1,
       manifest: JSON.stringify(PRIVATE_PLUGIN_MANIFEST),
     },
   ];
@@ -258,6 +257,18 @@ describe("connectionsService — x-private stripping", () => {
     expect(internal?.value).toBe("••••");
     const external = fields.find((f) => f.label === "External URL");
     expect(external?.value).toBe("https://plex.example.com");
+  });
+
+  it("omits connections to disabled plugins from listForUser", async () => {
+    // Mirrors the design doc's claim that `/connections/` only surfaces
+    // connections to currently-enabled plugins. The user keeps their row
+    // (no destructive cascade), but the API hides it until an admin
+    // re-enables the plugin.
+    installPlugin({ enabled: 0 });
+    seedConnection({ externalUrl: "https://plex.example.com" });
+
+    const list = await connectionsService.listForUser("user-1");
+    expect(list).toHaveLength(0);
   });
 
   it("omits x-private fields from getUserConfig responses", async () => {

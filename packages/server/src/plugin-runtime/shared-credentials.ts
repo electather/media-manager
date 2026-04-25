@@ -93,10 +93,6 @@ export const sharedCredentialsService = {
     return rows.filter((r) => r.enabled).length;
   },
 
-  async countAll(pluginId: string): Promise<number> {
-    return (await this.list(pluginId)).length;
-  },
-
   /** Adds a new entry. Rejects multiple entries for non-poolable plugins and
    *  case-insensitive label collisions. */
   async add(args: { pluginId: string; label: string; value: unknown }): Promise<string> {

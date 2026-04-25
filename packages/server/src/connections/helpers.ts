@@ -127,6 +127,9 @@ export function computeDisplayFields(
     const monoHint = def["x-mono"] === true;
     const hasAllowedHost = def["x-allowed-host"] === true;
     const mono = isUri || monoHint || hasAllowedHost ? true : undefined;
+    // Empty / missing `x-private` values render as "" (the unset case)
+    // rather than "••••" — there's no actual content to hide, and a
+    // redaction badge for an unset field would mislead the reader.
     const stringValue =
       isPrivate && stored !== undefined && stored !== null && stored !== ""
         ? "••••"

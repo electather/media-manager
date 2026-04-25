@@ -71,13 +71,38 @@ export const connectionsService = {
       .orderBy(desc(serviceConnections.isDefault), desc(serviceConnections.createdAt))
       .all();
 
+    // De-duplicate per-plugin work across rows so a user with N connections
+    // to the same plugin doesn't pay for N plugin lookups + N pool counts.
+    // The cache lives only for the duration of this call — fresh on every
+    // request so admin-side mutations are picked up.
+    const pluginCache = new Map<string, Promise<typeof plugins.$inferSelect | undefined>>();
+    const adminSharedCache = new Map<string, Promise<boolean>>();
+    const fetchPlugin = (pluginId: string) => {
+      const hit = pluginCache.get(pluginId);
+      if (hit) return hit;
+      const promise = db.select().from(plugins).where(eq(plugins.id, pluginId)).get();
+      pluginCache.set(pluginId, promise);
+      return promise;
+    };
+    const fetchAdminShared = (pluginId: string) => {
+      const hit = adminSharedCache.get(pluginId);
+      if (hit) return hit;
+      const promise = sharedCredentialsService.countEnabled(pluginId).then((n) => n > 0);
+      adminSharedCache.set(pluginId, promise);
+      return promise;
+    };
+
     const result: ConnectionListItem[] = [];
     for (const row of rows) {
-      const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
+      const pluginRow = await fetchPlugin(row.pluginId);
+      // Skip orphaned (uninstalled) plugins, and disabled ones — the latter
+      // matches the design doc's claim that `/connections/` only surfaces
+      // connections to currently-enabled plugins.
       if (!pluginRow) continue;
+      if (pluginRow.enabled !== 1) continue;
       const manifest = parseManifest(pluginRow.manifest);
       const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
-      const adminSharedAvailable = (await sharedCredentialsService.countEnabled(pluginRow.id)) > 0;
+      const adminSharedAvailable = await fetchAdminShared(pluginRow.id);
       result.push({
         id: row.id,
         pluginId: row.pluginId,
@@ -101,8 +126,8 @@ export const connectionsService = {
           poolable: manifest.poolable ?? false,
           userScopedCapabilities: capabilitiesAtScope(manifest, "user"),
           globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
-          userConfigSchema: manifest.userConfigSchema ?? null,
-          credentialsSchema: manifest.credentialsSchema ?? null,
+          userConfigSchema: (manifest.userConfigSchema as Record<string, unknown>) ?? null,
+          credentialsSchema: (manifest.credentialsSchema as Record<string, unknown>) ?? null,
           adminSharedAvailable,
         },
       });
@@ -379,8 +404,8 @@ export const connectionsService = {
       adminSharedAvailable: boolean;
       userScopedCapabilities: Array<{ id: string; version: string }>;
       globalScopedCapabilities: Array<{ id: string; version: string }>;
-      userConfigSchema: unknown;
-      credentialsSchema: unknown;
+      userConfigSchema: Record<string, unknown> | null;
+      credentialsSchema: Record<string, unknown> | null;
     }>
   > {
     const db = getDb();
@@ -403,8 +428,8 @@ export const connectionsService = {
         adminSharedAvailable,
         userScopedCapabilities: userScoped,
         globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
-        userConfigSchema: manifest.userConfigSchema ?? null,
-        credentialsSchema: manifest.credentialsSchema ?? null,
+        userConfigSchema: (manifest.userConfigSchema as Record<string, unknown>) ?? null,
+        credentialsSchema: (manifest.credentialsSchema as Record<string, unknown>) ?? null,
       });
     }
     return out;

@@ -19,8 +19,10 @@ export interface PluginSummary {
   userScopedCapabilities: Array<{ id: string; version: string }>;
   /** Capabilities that work without any user action. `scope` is implicit. */
   globalScopedCapabilities: Array<{ id: string; version: string }>;
-  userConfigSchema: unknown;
-  credentialsSchema: unknown;
+  /** JSON Schema or `null` when the manifest declares none. */
+  userConfigSchema: Record<string, unknown> | null;
+  /** JSON Schema or `null` when the manifest declares none. */
+  credentialsSchema: Record<string, unknown> | null;
   /** True when the admin pool has at least one enabled entry for this plugin. */
   adminSharedAvailable: boolean;
 }
