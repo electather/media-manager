@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { isPluginError } from "@ent-mcp/plugin-sdk";
 import {
+  isPluginError,
   LibraryAvailabilityV1,
   ContinueWatchingV1,
   PlaybackSessionsV1,
@@ -10,68 +10,29 @@ import {
   WatchHistoryV1,
   IdResolveV1,
 } from "@ent-mcp/plugin-sdk";
+import { jsonRes, makeTestContext, statusRes, type TestContext } from "@ent-mcp/plugin-sdk/testing";
 import plexPlugin from "../src/plugin";
-
-// Minimal fake ctx that feeds a queue of responses to `ctx.fetch` and records
-// every outbound call for assertion. Mirrors the shape used by the trakt
-// behaviour tests in ../__tests__/capability-behavior.test.ts so both suites
-// stay consistent.
-interface FakeCall {
-  url: string;
-  init?: RequestInit;
-}
 
 function makeCtx(
   responses: Array<Response | Error>,
   overrides: Partial<PluginContext> = {},
-): PluginContext & { calls: FakeCall[] } {
-  const calls: FakeCall[] = [];
-  const ctx = {
-    calls,
-    async fetch(url: string, init?: RequestInit) {
-      calls.push({ url, init });
-      const next = responses.shift();
-      if (!next) throw new Error(`unexpected fetch: ${url}`);
-      if (next instanceof Error) throw next;
-      return next;
-    },
-    log: { debug() {}, info() {}, warn() {}, error() {} },
-    credentials: { authToken: "token-123" },
-    sharedCredentials: null,
-    config: {
-      global: null,
-      user: {
-        machineIdentifier: "abc123",
-        externalServerUrl: "https://plex.example.com",
-        internalServerUrl: "http://plex:32400",
-        plexAccountId: "42",
+): TestContext {
+  return makeTestContext({
+    responses,
+    overrides: {
+      credentials: { authToken: "token-123" },
+      config: {
+        global: null,
+        user: {
+          machineIdentifier: "abc123",
+          externalServerUrl: "https://plex.example.com",
+          internalServerUrl: "http://plex:32400",
+          plexAccountId: "42",
+        },
       },
+      ...overrides,
     },
-    store: {
-      async get() {
-        return undefined;
-      },
-      async set() {},
-      async delete() {},
-    },
-    pool: { markExhausted() {} },
-    appBaseUrl: "https://app.example.com",
-    ...overrides,
-  } as unknown as PluginContext & { calls: FakeCall[] };
-  return ctx;
-}
-
-function jsonRes(body: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-    ...init,
   });
-}
-
-function statusRes(status: number, body: string = ""): Response {
-  const nullBody = status === 204 || status === 205 || status === 304;
-  return new Response(nullBody ? null : body, { status });
 }
 
 // Builds a minimal Plex metadata row that satisfies the toLibraryItem /

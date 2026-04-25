@@ -10,8 +10,15 @@ import {
   CollectionV1,
   UserCommentsV1,
   IdResolveV1,
+  validatePluginModule,
 } from "@ent-mcp/plugin-sdk";
-import { validatePluginModule } from "@ent-mcp/plugin-sdk";
+import {
+  jsonRes,
+  makeTestContext,
+  paginatedPage as sdkPaginatedPage,
+  statusRes,
+  type TestContext,
+} from "@ent-mcp/plugin-sdk/testing";
 import traktPlugin from "../src/plugin";
 
 // Contract tests: drive every declared capability method end-to-end with a
@@ -19,70 +26,29 @@ import traktPlugin from "../src/plugin";
 // confirm the plugin's return value parses against the capability's Zod
 // output schema.
 
-interface FakeCall {
-  url: string;
-  init?: RequestInit;
-}
-
 function makeCtx(
   responses: Array<Response | Error>,
   overrides: Partial<PluginContext> = {},
-): PluginContext & { calls: FakeCall[] } {
-  const calls: FakeCall[] = [];
-  const ctx = {
-    calls,
-    async fetch(url: string, init?: RequestInit) {
-      calls.push({ url, init });
-      const next = responses.shift();
-      if (!next) throw new Error(`unexpected fetch: ${url}`);
-      if (next instanceof Error) throw next;
-      return next;
-    },
-    log: { debug() {}, info() {}, warn() {}, error() {} },
-    credentials: {
-      accessToken: "access-1",
-      refreshToken: "refresh-1",
-      createdAt: 0,
-      expiresIn: 60 * 60 * 24 * 30,
-    },
-    sharedCredentials: { clientId: "cid", clientSecret: "csecret" },
-    config: { global: null, user: null },
-    store: {
-      async get() {
-        return undefined;
+): TestContext {
+  return makeTestContext({
+    responses,
+    overrides: {
+      credentials: {
+        accessToken: "access-1",
+        refreshToken: "refresh-1",
+        createdAt: 0,
+        expiresIn: 60 * 60 * 24 * 30,
       },
-      async set() {},
-      async delete() {},
+      sharedCredentials: { clientId: "cid", clientSecret: "csecret" },
+      ...overrides,
     },
-    pool: { markExhausted() {} },
-    appBaseUrl: "https://app.example.com",
-    ...overrides,
-  } as unknown as PluginContext & { calls: FakeCall[] };
-  return ctx;
-}
-
-function jsonRes(body: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-    ...init,
   });
 }
 
-function statusRes(status: number, body: string = ""): Response {
-  const nullBody = status === 204 || status === 205 || status === 304;
-  return new Response(nullBody ? null : body, { status });
-}
-
-// Paginated endpoints read X-Pagination-Page-Count from the first response.
+// Trakt's paged endpoints only need page-count for the test cases here, so
+// thread the kit's full signature through a 2-arg shim.
 function paginatedPage(body: unknown, pageCount: number = 1): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: {
-      "content-type": "application/json",
-      "X-Pagination-Page-Count": String(pageCount),
-    },
-  });
+  return sdkPaginatedPage(body, 1, pageCount);
 }
 
 const MOVIE = {
@@ -98,7 +64,7 @@ const SHOW = {
 
 describe("trakt plugin passes loader validation", () => {
   it("validates against the manifest + capability catalog", async () => {
-    await expect(validatePluginModule(traktPlugin)).resolves.toBeDefined();
+    expect(validatePluginModule(traktPlugin)).toBeDefined();
   });
 });
 

@@ -55,6 +55,11 @@ export function makeTestContext(opts: MakeTestContextOptions = {}): TestContext 
     credentials: null,
     sharedCredentials: null,
     config: { global: null, user: null },
+    // Known limitation: this in-memory store ignores the `scope` option entirely
+    // (`{ scope: "user" }` and `{ scope: "global" }` share the same key space).
+    // Tests that exercise multi-scope store routing must pass a richer
+    // `overrides.store` or build a scoped fake — `makeTestContext` keeps the
+    // happy-path simple and lets richer scenarios opt in.
     store: {
       async get(key: string) {
         return storeState.get(key);
@@ -83,9 +88,16 @@ export function jsonRes(body: unknown, init?: ResponseInit): Response {
   });
 }
 
-/** Builds a `Response` carrying only a status code (e.g. 204 No Content). */
-export function statusRes(status: number, init?: ResponseInit): Response {
-  return new Response(null, { status, ...init });
+/**
+ * Builds a `Response` with a status code and an optional plain-text body.
+ * Status codes that semantically forbid a body (204 / 205 / 304) always send
+ * a `null` body regardless of what the caller passes, matching how real
+ * fetch implementations behave. Used by tests that exercise non-2xx error
+ * paths and want to assert against a response body.
+ */
+export function statusRes(status: number, body: string = "", init?: ResponseInit): Response {
+  const nullBody = status === 204 || status === 205 || status === 304;
+  return new Response(nullBody ? null : body, { status, ...init });
 }
 
 /**

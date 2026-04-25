@@ -1,66 +1,26 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { IdResolveV1 } from "@ent-mcp/plugin-sdk";
-import { validatePluginModule } from "@ent-mcp/plugin-sdk";
+import { IdResolveV1, validatePluginModule } from "@ent-mcp/plugin-sdk";
+import { jsonRes, makeTestContext, type TestContext } from "@ent-mcp/plugin-sdk/testing";
 import tvdbPlugin from "../src/plugin";
 
 // Contract tests: drive every declared capability method end-to-end with a
 // stubbed ctx and confirm the plugin's return value parses against the
 // capability's Zod output schema.
 
-interface FakeCall {
-  url: string;
-  init?: RequestInit;
-}
-
 function makeCtx(
   responses: Array<Response | Error>,
   overrides: Partial<PluginContext> = {},
-): PluginContext & { calls: FakeCall[] } {
-  const calls: FakeCall[] = [];
-  const storeState = new Map<string, unknown>();
-  const ctx = {
-    calls,
-    async fetch(url: string, init?: RequestInit) {
-      calls.push({ url, init });
-      const next = responses.shift();
-      if (!next) throw new Error(`unexpected fetch: ${url}`);
-      if (next instanceof Error) throw next;
-      return next;
-    },
-    log: { debug() {}, info() {}, warn() {}, error() {} },
-    credentials: null,
-    sharedCredentials: { apiKey: "tvdb-key" },
-    config: { global: null, user: null },
-    store: {
-      async get(key: string) {
-        return storeState.get(key);
-      },
-      async set(key: string, value: unknown) {
-        storeState.set(key, value);
-      },
-      async delete(key: string) {
-        storeState.delete(key);
-      },
-    },
-    pool: { markExhausted() {} },
-    appBaseUrl: "https://app.example.com",
-    ...overrides,
-  } as unknown as PluginContext & { calls: FakeCall[] };
-  return ctx;
-}
-
-function jsonRes(body: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-    ...init,
+): TestContext {
+  return makeTestContext({
+    responses,
+    overrides: { sharedCredentials: { apiKey: "tvdb-key" }, ...overrides },
   });
 }
 
 describe("tvdb plugin passes loader validation", () => {
   it("validates against the manifest + capability catalog", async () => {
-    await expect(validatePluginModule(tvdbPlugin)).resolves.toBeDefined();
+    expect(validatePluginModule(tvdbPlugin)).toBeDefined();
   });
 });
 

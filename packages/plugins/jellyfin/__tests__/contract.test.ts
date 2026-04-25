@@ -21,7 +21,7 @@ import { jfItem, jsonRes, makeCtx, statusRes } from "./helpers";
 
 describe("jellyfin plugin passes loader validation", () => {
   it("validates against the manifest + capability catalog", async () => {
-    await expect(validatePluginModule(jellyfinPlugin)).resolves.toBeDefined();
+    expect(validatePluginModule(jellyfinPlugin)).toBeDefined();
   });
 });
 

@@ -30,14 +30,18 @@ export interface ValidatedPlugin {
  * Throws `PluginError` on any failure. Used by the server boot loader and by
  * per-plugin contract tests.
  */
-export async function validatePluginModule(module: PluginModule): Promise<ValidatedPlugin> {
+export function validatePluginModule(module: PluginModule): ValidatedPlugin {
   const parsed = pluginManifestSchema.safeParse(module.manifest);
   if (!parsed.success) {
-    throw new PluginError("plugin.output_invalid", parsed.error.message);
+    // Manifest authoring failure — plugin author supplied invalid input. Use
+    // `plugin.input_invalid` (severity: info), not `plugin.output_invalid`
+    // (severity: warning), so the admin error monitor can filter manifest
+    // mistakes from runtime malformed-output bugs.
+    throw new PluginError("plugin.input_invalid", parsed.error.message);
   }
   if (!isSdkCompatible(parsed.data.sdkVersion)) {
     throw new PluginError(
-      "plugin.output_invalid",
+      "plugin.input_invalid",
       `plugin targets sdkVersion ${parsed.data.sdkVersion} incompatible with host`,
     );
   }

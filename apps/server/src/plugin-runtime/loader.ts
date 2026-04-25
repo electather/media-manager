@@ -44,7 +44,7 @@ export interface LoadedPlugin extends ValidatedPlugin {
  * bad manifest never produces a row.
  */
 export async function loadPlugin(module: PluginModule, bytes: string): Promise<LoadedPlugin> {
-  const validated = await sdkValidatePluginModule(module);
+  const validated = sdkValidatePluginModule(module);
   return { ...validated, checksum: await sha256(bytes) };
 }
 
@@ -56,7 +56,7 @@ export async function validatePluginModule(
   module: PluginModule,
   bytes?: string,
 ): Promise<LoadedPlugin> {
-  const validated = await sdkValidatePluginModule(module);
+  const validated = sdkValidatePluginModule(module);
   return { ...validated, checksum: bytes ? await sha256(bytes) : "" };
 }
 

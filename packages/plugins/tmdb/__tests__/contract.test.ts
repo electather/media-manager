@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { MetadataV1, IdResolveV1, WatchProvidersV1, TrailersV1 } from "@ent-mcp/plugin-sdk";
-import { validatePluginModule } from "@ent-mcp/plugin-sdk";
+import {
+  MetadataV1,
+  IdResolveV1,
+  WatchProvidersV1,
+  TrailersV1,
+  validatePluginModule,
+} from "@ent-mcp/plugin-sdk";
+import { jsonRes, makeTestContext, type TestContext } from "@ent-mcp/plugin-sdk/testing";
 import tmdbPlugin from "../src/plugin";
 
 // Contract tests: drive every declared capability method end-to-end with a
@@ -9,48 +15,13 @@ import tmdbPlugin from "../src/plugin";
 // TMDB server, and confirm the plugin's return value parses against the
 // capability's Zod output schema.
 
-interface FakeCall {
-  url: string;
-  init?: RequestInit;
-}
-
 function makeCtx(
   responses: Array<Response | Error>,
   overrides: Partial<PluginContext> = {},
-): PluginContext & { calls: FakeCall[] } {
-  const calls: FakeCall[] = [];
-  const ctx = {
-    calls,
-    async fetch(url: string, init?: RequestInit) {
-      calls.push({ url, init });
-      const next = responses.shift();
-      if (!next) throw new Error(`unexpected fetch: ${url}`);
-      if (next instanceof Error) throw next;
-      return next;
-    },
-    log: { debug() {}, info() {}, warn() {}, error() {} },
-    credentials: null,
-    sharedCredentials: { apiKey: "tmdb-key" },
-    config: { global: null, user: null },
-    store: {
-      async get() {
-        return undefined;
-      },
-      async set() {},
-      async delete() {},
-    },
-    pool: { markExhausted() {} },
-    appBaseUrl: "https://app.example.com",
-    ...overrides,
-  } as unknown as PluginContext & { calls: FakeCall[] };
-  return ctx;
-}
-
-function jsonRes(body: unknown, init?: ResponseInit): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-    ...init,
+): TestContext {
+  return makeTestContext({
+    responses,
+    overrides: { sharedCredentials: { apiKey: "tmdb-key" }, ...overrides },
   });
 }
 
@@ -93,7 +64,7 @@ const SHOW_RAW = {
 
 describe("tmdb plugin passes loader validation", () => {
   it("validates against the manifest + capability catalog", async () => {
-    await expect(validatePluginModule(tmdbPlugin)).resolves.toBeDefined();
+    expect(validatePluginModule(tmdbPlugin)).toBeDefined();
   });
 });
 

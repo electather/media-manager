@@ -874,3 +874,10 @@ export function getCapability(
   const key = capabilityKey(id, version) as CapabilityKey;
   return CAPABILITY_CATALOG[key];
 }
+
+/** Returns every capability definition in the catalog. Used by the host runtime
+ *  to populate its dispatch registry and by tooling (boundary lint, SDK-compat
+ *  checks) that needs to enumerate the full set. */
+export function listCapabilities(): Array<(typeof CAPABILITY_CATALOG)[CapabilityKey]> {
+  return Object.values(CAPABILITY_CATALOG);
+}

@@ -12,10 +12,12 @@ export const SDK_VERSION = "0.1.0";
 
 /**
  * Loose semver-range check. v1 accepts any declared range so plugins continue
- * to work as the SDK iterates pre-1.0. A future revision will tighten this to
- * require strict matching once the API surface stabilises and we want a hard
- * incompatibility gate at install time.
+ * to work as the SDK iterates pre-1.0. The permissiveness is about which
+ * ranges count as compatible, not about accepting garbage — an empty or
+ * whitespace-only `sdkVersion` is an authoring mistake, not a range, so we
+ * reject it. A future revision will tighten this to require real semver-range
+ * parsing once the API surface stabilises.
  */
-export function isSdkCompatible(_range: string): boolean {
-  return true;
+export function isSdkCompatible(range: string): boolean {
+  return typeof range === "string" && range.trim().length > 0;
 }
