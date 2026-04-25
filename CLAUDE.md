@@ -83,30 +83,27 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 
 ## Pull Requests and Versioning
 
-This project uses [Changesets](https://github.com/changesets/changesets) for versioning and changelog management. A changeset file is REQUIRED for the CI pipeline to pass on PRs.
+This project uses [Changesets](https://github.com/changesets/changesets). Every PR needs a `.changeset/<slug>.md` file or CI fails. Create the file directly — don't run the CLI.
 
-**Instructions for AI Agents:**
-Since `bunx changeset add` is an interactive command, you MUST provide changesets using one of the following non-interactive methods:
+Only `@ent-mcp/client` and `@ent-mcp/server` are released. Never list `@ent-mcp/shared`.
 
-1. **If a version bump is required** (features, fixes, breaking changes):
-   Create a new Markdown file in the `.changeset/` directory with a unique, descriptive name (e.g., `.changeset/add-new-feature.md`). The file must contain YAML frontmatter specifying the package(s) and bump type (`major`, `minor`, or `patch`), followed by the changelog message.
+```md
+---
+"@ent-mcp/client": minor
+---
 
-   Example `.changeset/add-new-feature.md`:
+Added a connections page for reviewing and revoking linked apps.
+```
 
-   ```md
-   ---
-   "@ent-mcp/client": minor
-   "@ent-mcp/server": patch
-   ---
+- Bump: `patch` (fix), `minor` (new feature), `major` (breaking).
+- Description: one short sentence, end-user language, past tense ([Keep a Changelog](https://keepachangelog.com) style). No file names, no PR numbers, no implementation detail.
+- One logical change per file.
+- For internal-only changes (refactors, tests, docs, CI, deps), use empty frontmatter and no body:
 
-   Added a new dashboard feature to the client and fixed an API parsing bug in the server.
-   ```
-
-2. **If NO version bump is required** (e.g., purely internal refactoring, tests, docs, or CI changes):
-   Run the following command to automatically generate an empty changeset:
-   ```bash
-   bunx changeset add --empty
-   ```
+  ```md
+  ---
+  ---
+  ```
 
 ## Review Checklist for Agents
 
