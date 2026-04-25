@@ -5,6 +5,7 @@
 **Author:** Omid Astaraki
 **Supersedes:** Initial Connections design (non-plugin)
 **Updated:** 2026-04-25 — packaging layout reorganised, see `docs/2026-04-25-plugin-monorepo-design.md` for details. Runtime, capability, and database designs in this document remain authoritative.
+**Updated:** 2026-04-25 — `notificationDelivery@v1` capability and `ctx.notify()` added for the notification system; see `docs/2026-04-25-notifications-design.md` for the full design.
 
 ## Summary
 
@@ -98,11 +99,16 @@ interface PluginManifest {
   auth: { kind: "form" | "oauth_redirect" | "oauth_device" | "none" };
 
   // Capabilities implemented. Each entry declares its version and scope.
+  // Capability-specific extra fields are permitted alongside `version` and
+  // `scope` — for example `notificationDelivery@v1` requires
+  // `supportsKinds: NotificationContentKind[]`. Extra fields are validated by
+  // the per-capability schema at install time, not by the manifest schema.
   capabilities: Record<
     string,
     {
       version: string; // e.g. "v1"
       scope: "global" | "user";
+      [extra: string]: unknown;
     }
   >;
 
@@ -368,6 +374,7 @@ Enforcement by the runtime on every invocation:
 - `playbackSessions@v1` — currently-playing sessions across the user's server: device, user, item, progress, transcoding state, plus a stop action. Typically `user`. Distinct from `playback@v1` (historical resume points) and from any future `transcoding@v1` — transcoding details ride along on the session payload so a dedicated capability is unnecessary.
 - `continueWatching@v1` — server-computed "pick up where you left off" feed, including Next Up episode stitching. Typically `user`. Distinct from `playback@v1` (raw positions) — this capability returns the server's own ranking of what to watch next, already joined to Next Up logic for TV shows, which the client does not want to reimplement.
 - `libraryAdmin@v1` — trigger library scan / metadata refresh on demand. Typically `user`, but intended to be called by the host after a `mediaRequest@v1` fulfils (so a newly-grabbed file lands in the library immediately instead of on the next periodic scan). App-layer authorisation may restrict this to admins.
+- `notificationDelivery@v1` — send a notification to a third-party service (e.g. ntfy, Telegram, Discord) or to the built-in in-app inbox. Typically `user` (each user configures their own destinations through the existing connection flow). The capability declares an additional manifest field `supportsKinds: NotificationContentKind[]` so the host knows whether a plugin can render images, markdown, or inline actions. See `docs/2026-04-25-notifications-design.md` for event registry, dispatch, and HTTP API.
 
 **Capability discipline.** A plugin that declares a capability must implement _every_ method declared on it — the loader rejects plugins with missing method implementations. If a service does not natively support a method in a capability, the plugin should either (a) not declare that capability at all, or (b) degrade gracefully (empty array / `{ ok: false }`) rather than silently ignoring the call. This keeps the routing matrix boolean — callers can assume "this plugin claims watchHistory" means every watchHistory method works on it.
 
@@ -538,6 +545,13 @@ Reuses `LibraryItem` as the shared shape — no re-definition. Distinct from `pl
 
 Intended caller is the host itself, invoked on completion of a `mediaRequest@v1` fulfilment so the new file lands in the library without waiting on the periodic scan. Can also be surfaced in an admin UI.
 
+**`notificationDelivery@v1`** (user, _new capability_)
+
+- `deliver({ message, event, channelConfig })` → `{ providerMessageId? }` — render and ship one notification. `message` is the host-rendered neutral payload (`title`, `body`, `severity`, `category`, optional `bodyMarkdown`, `image`, `thumbnail`, `actions`, `actionUrl`). `event` is the raw typed `NotificationEvent` for plugins that want to specialise rendering. `channelConfig` is the plugin's decrypted `userConfig` (the connection itself acts as the channel). Throw `pluginError(..., { retryable })` to drive the host's retry/backoff loop; non-retryable errors mark the delivery `failed` immediately.
+- `testDelivery({ channelConfig })` → `{ ok, message? }` — validate config and reachability without actually delivering. Backs the "Test" button in the UI and runs once at channel-create time.
+
+The capability has one extra manifest field: `supportsKinds: NotificationContentKind[]` (subset of `["text", "markdown", "image", "actions"]`). Plugins ignore message fields outside their declared kinds; the host always populates the core text fields so even a `["text"]` plugin always has something to send. Channel config schema reuses the existing `userConfigSchema` — for v1 plugins (`ntfy`, `telegram`, `discord`, built-in `inbox`) the connection row is the channel; multi-channel-per-connection is deferred per `docs/2026-04-25-notifications-design.md`.
+
 **`idResolve@v1`** — additional id-types for media servers
 
 Beyond the existing cross-service ids, this revision adds two server-local id-types:
@@ -574,6 +588,8 @@ Server-local ids are user-scoped (they only mean something against a specific co
 | `playbackSessions@v1`    |          |          |        |          | ✓ user | ✓ user   |
 | `continueWatching@v1`    |          |          |        |          | ✓ user | ✓ user   |
 | `libraryAdmin@v1`        |          |          |        |          | ✓ user | ✓ user   |
+
+For `notificationDelivery@v1`, coverage lives in dedicated notification plugins (`ntfy`, `telegram`, `discord`, built-in `inbox`) rather than the media-integration plugins above. None of the existing built-ins implement notification delivery; conversely, the notification plugins implement only `notificationDelivery@v1`. See `docs/2026-04-25-notifications-design.md`.
 
 ## Plugin context
 
@@ -624,6 +640,13 @@ interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
     ): Promise<void>;
     delete(key: string, opts?: { scope?: "user" | "global" }): Promise<void>;
   };
+
+  // Emit a pre-registered notification event. The discriminated union enforces
+  // at the type level that plugins can only emit events declared in
+  // `@ent-mcp/shared/notifications`. Plugin-declared event types are deferred.
+  // See `docs/2026-04-25-notifications-design.md` for the registry, dispatch
+  // pipeline, and audience model.
+  notify(event: Omit<NotificationEvent, "id" | "occurredAt">): Promise<void>;
 }
 ```
 
