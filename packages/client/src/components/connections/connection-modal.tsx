@@ -205,8 +205,8 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     if (!body || body.code !== "plugin.credentials_empty") return null;
     const field = typeof body.params?.field === "string" ? body.params.field : null;
     if (!field || !schemaFieldNames.includes(field)) return null;
-    const title = readFieldTitle(schemaProperties, field);
-    const message = `Credentials can't be blank. Enter a ${title} to continue.`;
+    const fieldTitle = readFieldTitle(schemaProperties, field);
+    const message = `Credentials can't be blank. Enter a ${fieldTitle} to continue.`;
     return { message, fieldErrors: { [field]: message } };
   };
 
