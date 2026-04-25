@@ -448,8 +448,10 @@ function ConnectionRow({
 
         {connection.displayFields.length > 0 ? (
           <dl className="flex flex-col gap-0.5">
-            {connection.displayFields.map((p) => (
-              <div key={p.label} className="flex items-baseline gap-2">
+            {connection.displayFields.map((p, i) => (
+              // Index suffix guards against the (theoretical) case of two
+              // schema properties sharing the same `title`.
+              <div key={`${p.label}-${i}`} className="flex items-baseline gap-2">
                 <dt className="shrink-0 text-xs text-muted-foreground">{p.label}</dt>
                 <dd
                   className={cn(
@@ -583,6 +585,9 @@ function StatusBadge({ connection }: { connection: ConnectionItem }) {
       </Badge>
     );
   }
+  if (status === "disconnected") {
+    return <Badge variant="outline">Disconnected</Badge>;
+  }
   return (
     <Badge variant="secondary">
       <CheckIcon /> Connected
@@ -647,7 +652,7 @@ function AvailableRow({ plugin, onConnect }: { plugin: AvailablePlugin; onConnec
         {plugin.adminSharedAvailable ? (
           <>
             <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
-              <KeyIcon className="size-3" /> Server key
+              <KeyIcon className="size-3" /> Using server key
             </span>
             <Button variant="outline" size="sm" onClick={onConnect}>
               Add your own key

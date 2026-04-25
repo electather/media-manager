@@ -142,9 +142,10 @@ describe("ConnectionModal — typed errors and scoped capabilities", () => {
 
     await waitFor(() => {
       // Banner copy substitutes the schema's `title` ("API Key") into the
-      // spec'd template, not the raw property name ("apiKey").
+      // spec'd template, not the raw property name ("apiKey"). Article is
+      // selected by leading-vowel-letter ("an" for "API Key").
       expect(
-        screen.getAllByText("Credentials can't be blank. Enter a API Key to continue.").length,
+        screen.getAllByText("Credentials can't be blank. Enter an API Key to continue.").length,
       ).toBeGreaterThan(0);
     });
   });
