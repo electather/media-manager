@@ -93,7 +93,7 @@ The existing single-file `settings.tsx` is rewritten as the layout shell. Each t
 **Email.**
 
 - When `emailEnabled = true`: `<Input>` + "Change email" button. Submit calls `authClient.changeEmail({ newEmail, callbackURL: '/settings/profile' })`. Better Auth sends a verification link to the **current** email; UI switches to a confirmation state ("We've sent a link to `current@x` — click it to complete the change"). The `user.email` field updates only after the old-address click; `user.emailVerified` flips false on switch. On success, Better Auth fires the post-switch notification to the old address.
-- When `emailEnabled = false`: email input + "Change email" button + inline warning _"No verification email will be sent — make sure the new address is correct."_ Submit opens a password-confirm dialog; on confirm, call `authClient.updateUser({ email: newEmail })` directly. No notification to old address.
+- When `emailEnabled = false`: email input + "Change email" button + inline warning _"No verification email will be sent — make sure the new address is correct."_ Submit opens a deliberate-action confirmation dialog (no password field) and on confirm calls `authClient.changeEmail({ newEmail })`. With Better Auth's `sendChangeEmailConfirmation` hook unset on the server, the address flips immediately. The dialog exists as a guard against accidental clicks, not as a credential check — the user has already authenticated for the session, and a second password prompt would not raise the bar materially. No notification to old address.
 
 **Member since.** `format(user.createdAt, 'MMMM yyyy')` → "Member since April 2026". Read-only.
 
@@ -333,13 +333,13 @@ Client call: `api.config.public.$get()`.
 
 `emailEnabled` is derived in `env.ts` so both the Better Auth wiring and this endpoint read the same source. This spec introduces a new env var:
 
-- `EMAIL_PROVIDER_CONFIGURED: boolean` — defaults to `false`. When `true`, Better Auth's `sendVerificationEmail` / `sendChangeEmailVerification` / `sendResetPassword` hooks are wired to the deployment's configured transactional-email sender; when `false`, those hooks are no-ops and the settings UI falls back to the degraded paths described in the Profile tab.
+- `EMAIL_PROVIDER_CONFIGURED: boolean` — defaults to `false`. When `true`, Better Auth's `sendVerificationEmail` / `sendChangeEmailConfirmation` / `sendResetPassword` hooks are wired to the deployment's configured transactional-email sender; when `false`, those hooks are no-ops and the settings UI falls back to the degraded paths described in the Profile tab.
 
 The env var is added to `packages/server/src/env.ts` alongside the existing entries, validated as `z.coerce.boolean().default(false)`. Self-hosted deployments that don't configure email leave it at the default. The deployment design doc should be updated in the same PR to list the new env var.
 
 ### Better Auth configuration
 
-- `emailAndPassword.sendChangeEmailVerification` configured to target the **current (old)** email address.
+- `user.changeEmail.sendChangeEmailConfirmation` configured to target the **current (old)** email address (Better Auth 1.6's actual hook name; older revisions of this doc referred to `sendChangeEmailVerification`).
 - Post-switch notification to the old address enabled.
 - `changePassword` called with `revokeOtherSessions: true`.
 
@@ -373,7 +373,7 @@ These must land before or alongside the main implementation PR:
 
 5. **`jszip`** added to the catalog the same way, referenced as `"jszip": "catalog:"` from `packages/server/package.json`. Only the `type: "uint8array"` / `type: "arraybuffer"` output modes are Workers-compatible; the default `nodebuffer` is not.
 
-6. **Better Auth capabilities.** The deployed version is 1.6.5 (`package.json` catalog). Core client methods `authClient.listSessions()`, `authClient.revokeSession()`, `authClient.revokeOtherSessions()`, and `authClient.changeEmail()` are available in 1.x without extra plugins. The `changePassword({ revokeOtherSessions: true })` option and `sendChangeEmailVerification` config knob are also core. No version bump or plugin install needed.
+6. **Better Auth capabilities.** The deployed version is 1.6.5 (`package.json` catalog). Core client methods `authClient.listSessions()`, `authClient.revokeSession()`, `authClient.revokeOtherSessions()`, and `authClient.changeEmail()` are available in 1.x without extra plugins. The `changePassword({ revokeOtherSessions: true })` option and `user.changeEmail.sendChangeEmailConfirmation` config knob are also core. No version bump or plugin install needed.
 
 ## Error handling
 
@@ -415,7 +415,7 @@ Single PR strategy, no feature flag:
 
 1. Prerequisites (cascade-audit migration, deps) merge first, possibly in a separate small PR if any cascade fixes are needed.
 2. Server `meApp` + `configPublicApp` + tests.
-3. Better Auth config changes (`sendChangeEmailVerification`, `revokeOtherSessions`).
+3. Better Auth config changes (`user.changeEmail.sendChangeEmailConfirmation`, `revokeOtherSessions`).
 4. Client nested-route split + tab files wired against the new surface.
 5. Connections route relocation: move the component to `settings/connections.tsx`, delete the old route file, add the settings nav entry, remove the top-level sidebar entry, sweep inbound `/connections` links.
 6. Test suite green, manual walkthrough of every flow in both `emailEnabled` states on a dev deploy, plus a smoke pass through the connections flows (add/edit/test/disable/set-primary) to confirm the move didn't regress anything.
