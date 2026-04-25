@@ -32,3 +32,19 @@ export type {
 } from "@ent-mcp/shared/plugins";
 export type { JSONSchema } from "@ent-mcp/shared/common";
 export type { HostErrorCode } from "@ent-mcp/shared/errors";
+export {
+  libraryItemSchema,
+  libraryItemQualitySchema,
+  LIBRARY_ITEM_TYPES,
+  LIBRARY_ITEM_QUERY_TYPES,
+  LIBRARY_ITEM_RESOLUTIONS,
+  LIBRARY_ITEM_HDR_FORMATS,
+} from "@ent-mcp/shared/plugins/library";
+export type {
+  LibraryItem,
+  LibraryItemType,
+  LibraryItemQueryType,
+  LibraryItemResolution,
+  LibraryItemHdrFormat,
+  LibraryItemQuality,
+} from "@ent-mcp/shared/plugins/library";

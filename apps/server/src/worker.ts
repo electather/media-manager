@@ -9,7 +9,7 @@ import {
 } from "./mcp/server";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
-import { registerBuiltinPlugins } from "./plugins/builtin";
+import { registerBuiltinPlugins } from "./plugins/registry";
 import { pluginRuntime } from "./plugin-runtime/runtime";
 import { registerErrorSink } from "./errors/capture";
 import { DatabaseSink } from "./errors/database-sink";

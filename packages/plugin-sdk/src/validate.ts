@@ -30,7 +30,7 @@ export interface ValidatedPlugin {
  * Throws `PluginError` on any failure. Used by the server boot loader and by
  * per-plugin contract tests.
  */
-export function validatePluginModule(module: PluginModule): ValidatedPlugin {
+export async function validatePluginModule(module: PluginModule): Promise<ValidatedPlugin> {
   const parsed = pluginManifestSchema.safeParse(module.manifest);
   if (!parsed.success) {
     throw new PluginError("plugin.output_invalid", parsed.error.message);

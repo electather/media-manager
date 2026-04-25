@@ -38,7 +38,7 @@ vi.mock("../errors/database-sink", () => ({
   DatabaseSink: class {},
 }));
 
-vi.mock("../plugins/builtin", () => ({
+vi.mock("../plugins/registry", () => ({
   registerBuiltinPlugins: (...args: unknown[]) => registerBuiltinPluginsMock(...args),
 }));
 

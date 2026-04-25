@@ -16,7 +16,13 @@
   },
   "dependencies": {
     "@better-auth/oauth-provider": "catalog:",
+    "@ent-mcp/plugin-jellyfin": "workspace:*",
+    "@ent-mcp/plugin-plex": "workspace:*",
     "@ent-mcp/plugin-sdk": "workspace:*",
+    "@ent-mcp/plugin-seerr": "workspace:*",
+    "@ent-mcp/plugin-tmdb": "workspace:*",
+    "@ent-mcp/plugin-trakt": "workspace:*",
+    "@ent-mcp/plugin-tvdb": "workspace:*",
     "@ent-mcp/shared": "workspace:*",
     "@hono/zod-validator": "^0.7.6",
     "@libsql/client": "^0.17.2",

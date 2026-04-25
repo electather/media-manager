@@ -44,19 +44,19 @@ export interface LoadedPlugin extends ValidatedPlugin {
  * bad manifest never produces a row.
  */
 export async function loadPlugin(module: PluginModule, bytes: string): Promise<LoadedPlugin> {
-  const validated = sdkValidatePluginModule(module);
+  const validated = await sdkValidatePluginModule(module);
   return { ...validated, checksum: await sha256(bytes) };
 }
 
 // Back-compat shim for callers that imported `validatePluginModule` from the
-// host-side loader. Forwards to the SDK's pure validator and (when `bytes` is
+// host-side loader. Forwards to the SDK's validator and (when `bytes` is
 // supplied) attaches a checksum so existing call sites keep their old return
 // shape. Prefer `loadPlugin` in new code.
 export async function validatePluginModule(
   module: PluginModule,
   bytes?: string,
 ): Promise<LoadedPlugin> {
-  const validated = sdkValidatePluginModule(module);
+  const validated = await sdkValidatePluginModule(module);
   return { ...validated, checksum: bytes ? await sha256(bytes) : "" };
 }
 

@@ -15,7 +15,7 @@ import { getDb } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { scheduler } from "./jobs/scheduler";
 import { markOrphanedRunsFailed } from "./jobs/history";
-import { registerBuiltinPlugins } from "./plugins/builtin";
+import { registerBuiltinPlugins } from "./plugins/registry";
 import { pluginRuntime } from "./plugin-runtime/runtime";
 import { registerErrorSink } from "./errors/capture";
 import { DatabaseSink } from "./errors/database-sink";
