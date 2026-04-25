@@ -77,12 +77,18 @@ export function SharedCredentialsSection({
     },
   });
 
-  const refetch = () => {
+  // Per design doc § "TanStack Query invalidation map": only changes that
+  // affect the meta line counters (add, delete, enable-toggle) should
+  // invalidate the parent `["admin", "plugins"]` key. A label/value-only
+  // edit fires `refetchLocal` so the row list updates without spawning an
+  // extra top-level plugins query.
+  const refetchLocal = () => {
     void qc.invalidateQueries({
       queryKey: ["admin", "plugins", pluginId, "shared-credentials"],
     });
-    // Whenever pool membership changes, the parent card's meta line
-    // (`Pool: enabled/total`) needs to refresh too.
+  };
+  const refetchPool = () => {
+    refetchLocal();
     onChanged();
   };
 
@@ -134,7 +140,7 @@ export function SharedCredentialsSection({
           pluginId={pluginId}
           onEdit={(entry) => setDialog({ kind: "edit", entry })}
           onDeleteRequest={setDeleteState}
-          onChanged={refetch}
+          onPoolChange={refetchPool}
         />
       )}
 
@@ -145,14 +151,14 @@ export function SharedCredentialsSection({
         pluginName={pluginName}
         schema={schema}
         existing={dialog.kind === "edit" ? dialog.entry : undefined}
-        onSaved={refetch}
+        onSaved={(affectsPoolCounts) => (affectsPoolCounts ? refetchPool : refetchLocal)()}
       />
 
       <DeleteCredentialDialog
         entry={deleteState}
         pluginId={pluginId}
         onClose={() => setDeleteState(null)}
-        onDeleted={refetch}
+        onDeleted={refetchPool}
       />
     </section>
   );
@@ -223,13 +229,14 @@ function CredentialsTable({
   pluginId,
   onEdit,
   onDeleteRequest,
-  onChanged,
+  onPoolChange,
 }: {
   rows: ReadonlyArray<SharedCredentialEntry>;
   pluginId: string;
   onEdit: (entry: SharedCredentialEntry) => void;
   onDeleteRequest: (entry: SharedCredentialEntry) => void;
-  onChanged: () => void;
+  /** Called after the row's enable toggle succeeds — meta line counts shift. */
+  onPoolChange: () => void;
 }) {
   // Tick once per second only while at least one row is in cooldown — the
   // hook ignores its interval otherwise so the rest of the admin page
@@ -248,7 +255,7 @@ function CredentialsTable({
           nowMs={nowMs}
           onEdit={() => onEdit(entry)}
           onDeleteRequest={() => onDeleteRequest(entry)}
-          onChanged={onChanged}
+          onPoolChange={onPoolChange}
         />
       ))}
     </ul>
@@ -263,14 +270,14 @@ function CredentialRow({
   nowMs,
   onEdit,
   onDeleteRequest,
-  onChanged,
+  onPoolChange,
 }: {
   entry: SharedCredentialEntry;
   pluginId: string;
   nowMs: number;
   onEdit: () => void;
   onDeleteRequest: () => void;
-  onChanged: () => void;
+  onPoolChange: () => void;
 }) {
   const toggleEnabled = useMutation({
     mutationFn: async (next: boolean) => {
@@ -280,7 +287,9 @@ function CredentialRow({
       });
       if (!res.ok) throw new Error("Failed to update.");
     },
-    onSuccess: () => onChanged(),
+    // Toggling `enabled` shifts the meta line's enabled/total counts, so
+    // the parent plugin row needs to refetch alongside the local list.
+    onSuccess: () => onPoolChange(),
     onError: (err: unknown) => {
       toast.error(err instanceof Error ? err.message : "Couldn't update credential.");
     },
@@ -314,12 +323,17 @@ function CredentialRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-sm font-medium">{entry.label}</span>
         <RowMeta entry={entry} cooldownSec={cooldownSec} />
-        {showResult && test.data?.ok ? (
+        {/* TanStack Query v5 keeps `data` from the previous run while a
+            new mutation is in flight, so a re-test that errors after a
+            previously-successful test would otherwise render "Verified"
+            and the error message simultaneously. Gating each branch on
+            the matching `isSuccess` / `isError` flag avoids that overlap. */}
+        {showResult && test.isSuccess && test.data?.ok ? (
           <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
             <CheckIcon className="size-3" /> Verified
           </span>
         ) : null}
-        {showResult && test.data && !test.data.ok ? (
+        {showResult && test.isSuccess && test.data && !test.data.ok ? (
           <span className="inline-flex items-center gap-1 text-xs text-destructive">
             <XIcon className="size-3" /> {test.data.message ?? "Test failed"}
           </span>
@@ -347,7 +361,7 @@ function CredentialRow({
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
-            aria-label="More actions"
+            aria-label={`More actions for ${entry.label}`}
             className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <MoreHorizontalIcon className="size-4" />

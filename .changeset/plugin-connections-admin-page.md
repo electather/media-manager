@@ -27,3 +27,12 @@ toast/inline split.
 
 Also drops the now-dead `userConfig` field from the connection modal's
 `ExistingConnection` interface (deferred Phase 3 review note).
+
+The fallback control is now scoped to plugins where the policy can
+actually do something — i.e. plugins that declare a
+`sharedCredentialsSchema` (so an admin pool exists) on top of having
+either user-scoped capabilities or being pure-global. Plugins like
+Plex / Jellyfin / Seerr that declare no `sharedCredentialsSchema` at
+all (purely user-side) skip the row entirely; the only sensible policy
+there is `off` and rendering the segmented control would suggest an
+option the admin can't actually use. Design doc updated to match.

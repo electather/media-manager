@@ -92,20 +92,35 @@ export function PersonalKeyFallbackControl({
     >
       {POLICIES.map((p) => {
         const active = p.value === optimistic;
+        // For pure-global plugins keep the radios reachable to assistive
+        // tech (`aria-disabled` instead of native `disabled`) — HTML
+        // `disabled` removes elements from the accessibility tree in some
+        // browsers, defeating the radiogroup announcement. Block clicks
+        // on the handler side when `isPureGlobal` is true. The pending
+        // path keeps native `disabled` since it's transient and the
+        // active button still announces via `aria-busy` semantics.
+        const ariaDisabled = isPureGlobal;
+        const nativelyDisabled = !isPureGlobal && mutation.isPending;
         return (
           <Button
             key={p.value}
             type="button"
             role="radio"
             aria-checked={active}
+            aria-disabled={ariaDisabled || undefined}
+            tabIndex={ariaDisabled ? -1 : undefined}
             variant="ghost"
             size="sm"
-            onClick={() => onSelect(p.value)}
-            disabled={isPureGlobal || mutation.isPending}
+            onClick={() => {
+              if (ariaDisabled) return;
+              onSelect(p.value);
+            }}
+            disabled={nativelyDisabled}
             className={cn(
               "h-7 px-3 font-normal",
               active && "bg-background shadow-sm",
               !active && "text-muted-foreground",
+              ariaDisabled && "cursor-not-allowed",
             )}
           >
             {mutation.isPending && active ? (

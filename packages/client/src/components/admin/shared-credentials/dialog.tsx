@@ -29,6 +29,7 @@ import {
   type FormErrorBody,
   type FormErrorResult,
 } from "@/lib/errors/form-errors";
+import { safeJson } from "@/lib/errors/safe-json";
 import { cn } from "@/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";
 
@@ -45,7 +46,13 @@ interface SharedCredentialDialogProps {
   schema: JSONSchema;
   /** When provided, dialog is in edit mode; absent → create mode. */
   existing?: SharedCredentialEntry;
-  onSaved: () => void;
+  /**
+   * Reports whether this save changed the meta-line counters: `true` for
+   * adds and edits that flipped `enabled`; `false` for label/value-only
+   * edits. Lets the section choose between local-only and pool-wide
+   * invalidation per the design doc's invalidation table.
+   */
+  onSaved: (affectsPoolCounts: boolean) => void;
 }
 
 type TestState =
@@ -80,8 +87,11 @@ export function SharedCredentialDialog({
   const [test, setTest] = useState<TestState>({ kind: "idle" });
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  // Reset on open. We don't auto-fetch the existing decrypted values — the
-  // server never returns them; the admin re-enters or leaves blank.
+  // Reset on open or when editing a different entry. We don't auto-fetch
+  // the existing decrypted values — the server never returns them; the
+  // admin re-enters or leaves blank. Deliberately *not* depending on
+  // `existing.label` / `existing.enabled` — a background refetch that
+  // updates those fields shouldn't blow away in-progress edits.
   useEffect(() => {
     if (!open) return;
     setLabel(existing?.label ?? "");
@@ -92,7 +102,8 @@ export function SharedCredentialDialog({
     setLabelError(null);
     setTest({ kind: "idle" });
     setSubmitAttempted(false);
-  }, [open, existing?.label, existing?.enabled, schema]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional, see comment above
+  }, [open, existing?.id, schema]);
 
   const schemaProperties = (schema.properties ?? {}) as Record<
     string,
@@ -132,7 +143,8 @@ export function SharedCredentialDialog({
         if (label.trim() !== existing.label) patch.label = label.trim();
         const hasFilledValues = Object.values(values).some((v) => v !== "" && v !== undefined);
         if (hasFilledValues) patch.value = stripEmptySecrets(schema, values);
-        if (enabled !== existing.enabled) patch.enabled = enabled;
+        const enabledChanged = enabled !== existing.enabled;
+        if (enabledChanged) patch.enabled = enabled;
         const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
           param: { id: pluginId, credId: existing.id },
           json: patch,
@@ -141,7 +153,7 @@ export function SharedCredentialDialog({
           const body = (await safeJson(res)) as FormErrorBody | null;
           return { ok: false as const, body };
         }
-        return { ok: true as const };
+        return { ok: true as const, affectsPoolCounts: enabledChanged };
       }
       const res = await api.plugins[":id"]["shared-credentials"].$post({
         param: { id: pluginId },
@@ -151,12 +163,13 @@ export function SharedCredentialDialog({
         const body = (await safeJson(res)) as FormErrorBody | null;
         return { ok: false as const, body };
       }
-      return { ok: true as const };
+      // Adding a new credential always shifts the pool-count meta line.
+      return { ok: true as const, affectsPoolCounts: true };
     },
     onSuccess: (result) => {
       if (result.ok) {
         toast.success(isEdit ? "Shared credential updated." : "Shared credential saved.");
-        onSaved();
+        onSaved(result.affectsPoolCounts);
         onOpenChange(false);
       } else {
         applyFormError(splitFormError(result.body, schemaFieldNames, "Failed to save."));
@@ -315,12 +328,14 @@ export function SharedCredentialDialog({
           <Button variant="outline" onClick={onClose} disabled={saving || testing}>
             Cancel
           </Button>
-          {/* Test & save is the primary action by default; once a test has
-              failed, "Save without test" promotes so the admin can persist
-              the value despite the failure (per design doc § states). */}
+          {/* `Test & save` is the primary action by default. Once an
+              ephemeral test has failed, `Save without test` promotes to the
+              primary so the admin can persist the value despite the failure
+              (per design doc § states). The two buttons swap variants —
+              never both primary or both outline. */}
           <Button
             type="button"
-            variant={testFailed ? "outline" : "default"}
+            variant={testFailed ? "default" : "outline"}
             size="sm"
             onClick={onSaveWithoutTest}
             disabled={saving || testing}
@@ -365,12 +380,4 @@ function InlineBanner({
       {children}
     </div>
   );
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
 }

@@ -55,6 +55,7 @@ import {
 } from "@/components/connections/schema-form";
 import { PersonalKeyFallbackControl } from "@/components/admin/personal-key-fallback-control";
 import { SharedCredentialsSection } from "@/components/admin/shared-credentials/section";
+import { safeJson } from "@/lib/errors/safe-json";
 
 export const Route = createFileRoute("/_authenticated/admin/plugins")({
   component: AdminPluginsPage,
@@ -306,18 +307,26 @@ function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: Plugi
           ) : null}
         </div>
 
-        {hasSharedCredentialsSchema ? (
+        {sharedSchema ? (
           <SharedCredentialsSection
             pluginId={plugin.id}
             pluginName={plugin.manifest.name}
-            schema={sharedSchema!}
+            schema={sharedSchema}
             poolable={plugin.poolable}
             capabilityHint={capabilityHint}
             onChanged={onRefetch}
           />
         ) : null}
 
-        {hasUserScoped || plugin.isPureGlobal ? (
+        {/* The fallback policy only does anything when both an admin pool
+            (`sharedCredentialsSchema`) and user keys (a user-scoped
+            capability) coexist. Plugins like Plex / Jellyfin / Seerr declare
+            no `sharedCredentialsSchema` at all — there's nothing to fall
+            back to or from, so rendering the control would suggest an
+            option the admin can't actually use. Pure-global plugins (TMDB
+            / TVDB) keep the disabled-with-tooltip path so the affordance
+            still surfaces, but read-only. */}
+        {hasSharedCredentialsSchema && (hasUserScoped || plugin.isPureGlobal) ? (
           <PersonalKeyFallbackControl
             pluginId={plugin.id}
             policy={plugin.personalKeyFallback}
@@ -1067,14 +1076,6 @@ function formatDate(ts: number): string {
     return new Date(ts).toLocaleDateString();
   } catch {
     return "";
-  }
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
   }
 }
 
