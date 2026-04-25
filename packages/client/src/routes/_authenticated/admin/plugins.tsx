@@ -37,33 +37,36 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
-import { capabilityDisplay } from "@/lib/capabilities";
+import { CapabilityBadges, type CapabilityEntry } from "@/lib/capabilities";
 import { cn } from "@/lib/utils";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { JSONSchema } from "@ent-mcp/shared";
+import {
+  PLUGIN_ADMIN_ALLOWLIST_MAX,
+  PLUGIN_ADMIN_HEADERS_MAX,
+  PLUGIN_RESERVED_HEADER_NAMES,
+} from "@ent-mcp/shared/plugins";
 import {
   SchemaForm,
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
 } from "@/components/connections/schema-form";
+import { PersonalKeyFallbackControl } from "@/components/admin/personal-key-fallback-control";
+import { SharedCredentialsSection } from "@/components/admin/shared-credentials/section";
 
 export const Route = createFileRoute("/_authenticated/admin/plugins")({
   component: AdminPluginsPage,
 });
 
 type PluginRow = InferResponseType<typeof api.plugins.$get>["plugins"][number];
-// Hono's typed client exposes path params as their literal `:`-prefixed key.
-type SharedCredentialEntry = InferResponseType<
-  (typeof api.plugins)[":id"]["shared-credentials"]["$get"]
->["entries"][number];
 
 type ModalState =
   | { kind: "none" }
-  | { kind: "configure"; plugin: PluginRow }
-  | { kind: "uninstall"; plugin: PluginRow };
+  | { kind: "global-config"; plugin: PluginRow }
+  | { kind: "uninstall"; plugin: PluginRow }
+  | { kind: "install-stub" };
 
 function AdminPluginsPage() {
   const qc = useQueryClient();
@@ -87,12 +90,14 @@ function AdminPluginsPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Plugins</h1>
           <p className="mt-1.5 max-w-[64ch] text-sm text-muted-foreground">
-            Manage plugins that provide external service integrations. Enable or disable, edit
-            admin-level configuration, and uninstall third-party plugins.
+            Manage plugins that provide external service integrations. Toggle individual plugins,
+            edit shared credentials inline, set the personal key fallback policy, and uninstall
+            third-party plugins.
           </p>
         </div>
-        {/* Install flow is out of scope in v1: the loader only handles built-in modules.
-            When URL-based installs are supported, wire up an Install Plugin button here. */}
+        <Button variant="outline" size="sm" onClick={() => setModal({ kind: "install-stub" })}>
+          <PlusIcon /> Install plugin
+        </Button>
       </header>
 
       {plugins.isLoading ? (
@@ -105,7 +110,7 @@ function AdminPluginsPage() {
             <PluginCard
               key={plugin.id}
               plugin={plugin}
-              onConfigure={() => setModal({ kind: "configure", plugin })}
+              onConfigureGlobal={() => setModal({ kind: "global-config", plugin })}
               onUninstall={() => setModal({ kind: "uninstall", plugin })}
               onRefetch={refetch}
             />
@@ -113,7 +118,7 @@ function AdminPluginsPage() {
         </div>
       )}
 
-      <ConfigureDialog
+      <GlobalConfigDialog
         state={modal}
         onOpenChange={(open) => {
           if (!open) setModal({ kind: "none" });
@@ -127,20 +132,26 @@ function AdminPluginsPage() {
         }}
         onRemoved={refetch}
       />
+      <InstallStubDialog
+        open={modal.kind === "install-stub"}
+        onOpenChange={(open) => {
+          if (!open) setModal({ kind: "none" });
+        }}
+      />
     </div>
   );
 }
 
-// ─── Card ─────────────────────────────────────────────────────────────────────
+// ─── Plugin card ─────────────────────────────────────────────────────────────
 
 interface PluginCardProps {
   plugin: PluginRow;
-  onConfigure: () => void;
+  onConfigureGlobal: () => void;
   onUninstall: () => void;
   onRefetch: () => void;
 }
 
-function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardProps) {
+function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: PluginCardProps) {
   const setEnabled = useMutation({
     mutationFn: async (enabled: boolean) => {
       const res = await api.plugins[":id"].enabled.$patch({
@@ -152,11 +163,25 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
     onSuccess: onRefetch,
   });
 
-  const hasGlobalConfig = Boolean(plugin.manifest.globalConfigSchema);
-  const hasSharedCredentialsSchema = Boolean(plugin.manifest.sharedCredentialsSchema);
-  const isConfigurable = hasGlobalConfig || hasSharedCredentialsSchema;
-  const capabilities = Object.keys(plugin.manifest.capabilities ?? {});
+  const userScoped: CapabilityEntry[] = plugin.capabilities
+    .filter((c) => c.scope === "user")
+    .map((c) => ({ id: c.id, version: c.version }));
+  const globalScoped: CapabilityEntry[] = plugin.capabilities
+    .filter((c) => c.scope === "global")
+    .map((c) => ({ id: c.id, version: c.version }));
+  const hasGlobalConfigSchema = Boolean(plugin.manifest.globalConfigSchema);
+  const sharedSchema = (plugin.manifest.sharedCredentialsSchema ?? null) as JSONSchema | null;
+  const hasSharedCredentialsSchema = sharedSchema !== null;
   const disabled = !plugin.enabled;
+
+  const hasUserScoped = userScoped.length > 0;
+  const hasGlobalScoped = globalScoped.length > 0;
+  const showPoolMeta = hasSharedCredentialsSchema && plugin.sharedCredentialsCount > 0;
+  const capabilityHint: "global-only" | "user-fallback" | "global-and-fallback" = hasGlobalScoped
+    ? hasUserScoped
+      ? "global-and-fallback"
+      : "global-only"
+    : "user-fallback";
 
   return (
     <Card size="sm" className={cn("gap-3 transition-opacity", disabled && "opacity-60")}>
@@ -209,10 +234,14 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
               >
                 <MoreHorizontalIcon className="size-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={onConfigure} disabled={!isConfigurable}>
-                  <CogIcon /> Configure
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56">
+                {hasGlobalConfigSchema ? (
+                  <DropdownMenuItem onClick={onConfigureGlobal}>
+                    <CogIcon /> Configure global config
+                  </DropdownMenuItem>
+                ) : null}
+                {/* `Set personal key fallback…` lives inline on the card now,
+                    so the design doc's dropdown item is intentionally absent. */}
                 {!plugin.isBuiltin ? (
                   <>
                     <DropdownMenuSeparator />
@@ -230,24 +259,35 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
         {plugin.manifest.description ? (
           <p className="text-sm text-muted-foreground">{plugin.manifest.description}</p>
         ) : null}
-        {capabilities.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {capabilities.map((cap) => {
-              const { label, icon: Icon } = capabilityDisplay(cap);
-              return (
-                <Badge key={cap} variant="secondary" className="gap-1 text-xs font-normal">
-                  <Icon className="size-3 opacity-60" aria-hidden="true" />
-                  {label}
-                </Badge>
-              );
-            })}
+
+        {hasGlobalScoped || hasUserScoped ? (
+          <div className="flex flex-col gap-1.5 text-xs">
+            {hasGlobalScoped ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span aria-hidden="true" className="font-medium text-muted-foreground">
+                  Global:
+                </span>
+                <span className="sr-only">Global capabilities:</span>
+                <CapabilityBadges entries={globalScoped} size="sm" />
+              </div>
+            ) : null}
+            {hasUserScoped ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span aria-hidden="true" className="font-medium text-muted-foreground">
+                  User:
+                </span>
+                <span className="sr-only">User-scoped capabilities:</span>
+                <CapabilityBadges entries={userScoped} size="sm" />
+              </div>
+            ) : null}
           </div>
         ) : null}
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>
             Auth: <span className="font-medium text-foreground">{plugin.manifest.auth.kind}</span>
           </span>
-          {hasGlobalConfig ? (
+          {hasGlobalConfigSchema ? (
             <span>
               Global config:{" "}
               <span className="font-medium text-foreground">
@@ -255,29 +295,46 @@ function PluginCard({ plugin, onConfigure, onUninstall, onRefetch }: PluginCardP
               </span>
             </span>
           ) : null}
-          {hasSharedCredentialsSchema ? (
+          <span>Installed {formatDate(plugin.installedAt)}</span>
+          {showPoolMeta ? (
             <span>
-              Shared credentials:{" "}
+              Pool:{" "}
               <span className="font-medium text-foreground">
-                {plugin.sharedCredentialsCount > 0
-                  ? plugin.poolable
-                    ? `${plugin.sharedCredentialsCount} in pool`
-                    : "set"
-                  : "not set"}
+                {plugin.sharedCredentialsEnabledCount}/{plugin.sharedCredentialsCount} enabled
               </span>
             </span>
           ) : null}
-          <span>Installed {formatDate(plugin.installedAt)}</span>
         </div>
+
+        {hasSharedCredentialsSchema ? (
+          <SharedCredentialsSection
+            pluginId={plugin.id}
+            pluginName={plugin.manifest.name}
+            schema={sharedSchema!}
+            poolable={plugin.poolable}
+            capabilityHint={capabilityHint}
+            onChanged={onRefetch}
+          />
+        ) : null}
+
+        {hasUserScoped || plugin.isPureGlobal ? (
+          <PersonalKeyFallbackControl
+            pluginId={plugin.id}
+            policy={plugin.personalKeyFallback}
+            isPureGlobal={plugin.isPureGlobal}
+            onChanged={onRefetch}
+          />
+        ) : null}
+
         <AdvancedSection plugin={plugin} onChanged={onRefetch} />
       </CardContent>
     </Card>
   );
 }
 
-// ─── Configure dialog ─────────────────────────────────────────────────────────
+// ─── Global-config dialog (single-purpose) ───────────────────────────────────
 
-function ConfigureDialog({
+function GlobalConfigDialog({
   state,
   onOpenChange,
   onSaved,
@@ -286,67 +343,33 @@ function ConfigureDialog({
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
 }) {
-  const open = state.kind === "configure";
-  const plugin = state.kind === "configure" ? state.plugin : null;
-  const configSchema = (plugin?.manifest.globalConfigSchema ?? null) as JSONSchema | null;
-  const credsSchema = (plugin?.manifest.sharedCredentialsSchema ?? null) as JSONSchema | null;
-  const hasConfig = Boolean(configSchema);
-  const hasCreds = Boolean(credsSchema);
-  const hasBoth = hasConfig && hasCreds;
+  const open = state.kind === "global-config";
+  const plugin = state.kind === "global-config" ? state.plugin : null;
+  const schema = (plugin?.manifest.globalConfigSchema ?? null) as JSONSchema | null;
 
-  const [tab, setTab] = useState<"config" | "credentials">(hasConfig ? "config" : "credentials");
-
-  useEffect(() => {
-    if (!open) return;
-    setTab(hasConfig ? "config" : "credentials");
-  }, [open, hasConfig]);
-
-  if (!plugin || (!hasConfig && !hasCreds)) return null;
-
+  if (!plugin || !schema) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 p-0 sm:max-w-140">
         <DialogHeader className="border-b border-border px-6 pt-5 pb-4">
           <DialogTitle>Configure {plugin.manifest.name}</DialogTitle>
           <DialogDescription>
-            Admin-level configuration for this plugin. Secret fields stay encrypted on the server
-            and are never displayed after save.
+            Plaintext admin-level configuration. Secret fields stay encrypted on the server and are
+            never displayed after save.
           </DialogDescription>
         </DialogHeader>
-        {hasBoth ? (
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "config" | "credentials")}>
-            <TabsList className="mx-6 mt-5 w-auto">
-              <TabsTrigger value="config">Global config</TabsTrigger>
-              <TabsTrigger value="credentials">Shared credentials</TabsTrigger>
-            </TabsList>
-            <TabsContent value="config" className="mt-0">
-              <GlobalConfigTab
-                plugin={plugin}
-                schema={configSchema!}
-                onClose={() => onOpenChange(false)}
-                onSaved={onSaved}
-              />
-            </TabsContent>
-            <TabsContent value="credentials" className="mt-0">
-              <SharedCredentialsPool plugin={plugin} schema={credsSchema!} onChanged={onSaved} />
-            </TabsContent>
-          </Tabs>
-        ) : hasConfig ? (
-          <GlobalConfigTab
-            plugin={plugin}
-            schema={configSchema!}
-            onClose={() => onOpenChange(false)}
-            onSaved={onSaved}
-          />
-        ) : (
-          <SharedCredentialsPool plugin={plugin} schema={credsSchema!} onChanged={onSaved} />
-        )}
+        <GlobalConfigBody
+          plugin={plugin}
+          schema={schema}
+          onClose={() => onOpenChange(false)}
+          onSaved={onSaved}
+        />
       </DialogContent>
     </Dialog>
   );
 }
 
-function GlobalConfigTab({
+function GlobalConfigBody({
   plugin,
   schema,
   onClose,
@@ -444,352 +467,41 @@ function GlobalConfigTab({
   );
 }
 
-// ─── Shared credentials pool ──────────────────────────────────────────────────
-
-function SharedCredentialsPool({
-  plugin,
-  schema,
-  onChanged,
-}: {
-  plugin: PluginRow;
-  schema: JSONSchema;
-  onChanged: () => void;
-}) {
-  const qc = useQueryClient();
-  const entries = useQuery({
-    queryKey: ["admin", "plugins", plugin.id, "shared-credentials"],
-    queryFn: async () => {
-      const res = await api.plugins[":id"]["shared-credentials"].$get({ param: { id: plugin.id } });
-      if (!res.ok) throw new Error("Failed to load shared credentials.");
-      const body = await res.json();
-      return body.entries;
-    },
-  });
-
-  const refetch = () => {
-    void qc.invalidateQueries({
-      queryKey: ["admin", "plugins", plugin.id, "shared-credentials"],
-    });
-    onChanged();
-  };
-
-  const [mode, setMode] = useState<
-    { kind: "list" } | { kind: "add" } | { kind: "edit"; entry: SharedCredentialEntry }
-  >({
-    kind: "list",
-  });
-
-  // Reset to list whenever the plugin changes.
-  useEffect(() => {
-    setMode({ kind: "list" });
-  }, [plugin.id]);
-
-  const list = entries.data ?? [];
-  const atCapacity = !plugin.poolable && list.length >= 1;
-
-  if (mode.kind === "add") {
-    return (
-      <SharedCredentialForm
-        plugin={plugin}
-        schema={schema}
-        mode="add"
-        onCancel={() => setMode({ kind: "list" })}
-        onSaved={() => {
-          setMode({ kind: "list" });
-          refetch();
-        }}
-      />
-    );
-  }
-  if (mode.kind === "edit") {
-    return (
-      <SharedCredentialForm
-        plugin={plugin}
-        schema={schema}
-        mode="edit"
-        entry={mode.entry}
-        onCancel={() => setMode({ kind: "list" })}
-        onSaved={() => {
-          setMode({ kind: "list" });
-          refetch();
-        }}
-      />
-    );
-  }
-
-  return (
-    <>
-      <div className="flex flex-col gap-3 px-6 py-5">
-        {entries.isLoading ? (
-          <Skeleton className="h-24" />
-        ) : entries.error ? (
-          <InlineError message={(entries.error as Error).message} />
-        ) : list.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No shared credentials configured. Add one so {plugin.manifest.name} can make
-            {plugin.poolable ? " pooled " : " "}
-            global calls on behalf of users without their own connection.
-          </p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
-            {list.map((entry) => (
-              <SharedCredentialRow
-                key={entry.id}
-                plugin={plugin}
-                entry={entry}
-                onEdit={() => setMode({ kind: "edit", entry })}
-                onChanged={refetch}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
-      <DialogFooter className="flex items-center justify-between gap-2 border-t border-border px-6 py-4">
-        <span className="text-xs text-muted-foreground">
-          {plugin.poolable
-            ? "Multiple credentials can be pooled and rotated on rate-limit."
-            : "This plugin accepts a single shared credential."}
-        </span>
-        <Button onClick={() => setMode({ kind: "add" })} disabled={atCapacity}>
-          Add credential
-        </Button>
-      </DialogFooter>
-    </>
-  );
-}
-
-function SharedCredentialRow({
-  plugin,
-  entry,
-  onEdit,
-  onChanged,
-}: {
-  plugin: PluginRow;
-  entry: SharedCredentialEntry;
-  onEdit: () => void;
-  onChanged: () => void;
-}) {
-  const [busy, setBusy] = useState<"toggle" | "test" | "delete" | null>(null);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message?: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const toggleEnabled = async (next: boolean) => {
-    setBusy("toggle");
-    setError(null);
-    try {
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
-        param: { id: plugin.id, credId: entry.id },
-        json: { enabled: next },
-      });
-      if (!res.ok) throw new Error("Failed to update.");
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const test = async () => {
-    setBusy("test");
-    setError(null);
-    setTestResult(null);
-    try {
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
-        param: { id: plugin.id, credId: entry.id },
-      });
-      if (!res.ok) throw new Error("Test failed.");
-      const body = (await res.json()) as { ok: boolean; message?: string };
-      setTestResult(body);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Test failed.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const remove = async () => {
-    if (!window.confirm(`Delete shared credential "${entry.label}"?`)) return;
-    setBusy("delete");
-    setError(null);
-    try {
-      const res = await api.plugins[":id"]["shared-credentials"][":credId"].$delete({
-        param: { id: plugin.id, credId: entry.id },
-      });
-      if (!res.ok) throw new Error("Failed to delete.");
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <li className="flex flex-col gap-2 px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{entry.label}</div>
-          <div className="text-xs text-muted-foreground">
-            {entry.lastExhaustedAt
-              ? `Rate-limited ${formatDate(entry.lastExhaustedAt)}`
-              : `Added ${formatDate(entry.createdAt)}`}
-          </div>
-        </div>
-        <Switch
-          checked={entry.enabled}
-          onCheckedChange={toggleEnabled}
-          disabled={busy !== null}
-          aria-label={entry.enabled ? "Disable credential" : "Enable credential"}
-        />
-        <Button variant="outline" size="sm" onClick={test} disabled={busy !== null}>
-          {busy === "test" ? <LoaderCircleIcon className="animate-spin" /> : null}
-          Test
-        </Button>
-        <Button variant="outline" size="sm" onClick={onEdit} disabled={busy !== null}>
-          Edit
-        </Button>
-        <Button variant="ghost" size="sm" onClick={remove} disabled={busy !== null}>
-          {busy === "delete" ? (
-            <LoaderCircleIcon className="animate-spin" />
-          ) : (
-            <TrashIcon className="text-destructive" />
-          )}
-        </Button>
-      </div>
-      {testResult ? (
-        <div
-          className={cn(
-            "rounded-md border px-3 py-2 text-xs",
-            testResult.ok
-              ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
-              : "border-destructive/40 bg-destructive/5 text-destructive",
-          )}
-        >
-          {testResult.ok ? "OK" : (testResult.message ?? "Test failed.")}
-        </div>
-      ) : null}
-      {error ? <InlineError message={error} /> : null}
-    </li>
-  );
-}
-
-function SharedCredentialForm({
-  plugin,
-  schema,
-  mode,
-  entry,
-  onCancel,
-  onSaved,
-}: {
-  plugin: PluginRow;
-  schema: JSONSchema;
-  mode: "add" | "edit";
-  entry?: SharedCredentialEntry;
-  onCancel: () => void;
-  onSaved: () => void;
-}) {
-  const [label, setLabel] = useState(entry?.label ?? "");
-  // On edit, value fields start empty — the server doesn't return the decrypted
-  // secret. An empty submission preserves the existing value; filled submission
-  // replaces it.
-  const [values, setValues] = useState<Record<string, unknown>>(() => defaultsFromSchema(schema));
-  const [saving, setSaving] = useState(false);
-  const [topError, setTopError] = useState<string | null>(null);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-
-  const onSave = async () => {
-    if (label.trim() === "") {
-      setSubmitAttempted(true);
-      setTopError("Label is required.");
-      return;
-    }
-    // On add, the value must validate. On edit, only validate if the admin
-    // actually filled in new secret values.
-    const hasFilledValues = Object.values(values).some((v) => v !== "" && v !== undefined);
-    if (mode === "add" || hasFilledValues) {
-      const errors = validateSchema(schema, values);
-      if (Object.keys(errors).length > 0) {
-        setSubmitAttempted(true);
-        return;
-      }
-    }
-    setSaving(true);
-    setTopError(null);
-    try {
-      if (mode === "add") {
-        const submission = stripEmptySecrets(schema, values);
-        const res = await api.plugins[":id"]["shared-credentials"].$post({
-          param: { id: plugin.id },
-          json: { label: label.trim(), value: submission },
-        });
-        if (!res.ok) throw new Error("Failed to add credential.");
-      } else if (entry) {
-        const patch: { label?: string; value?: unknown } = {};
-        if (label.trim() !== entry.label) patch.label = label.trim();
-        if (hasFilledValues) patch.value = stripEmptySecrets(schema, values);
-        const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
-          param: { id: plugin.id, credId: entry.id },
-          json: patch,
-        });
-        if (!res.ok) throw new Error("Failed to update credential.");
-      }
-      onSaved();
-    } catch (err) {
-      setTopError(err instanceof Error ? err.message : "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <>
-      <div className="flex flex-col gap-4 px-6 py-5">
-        <Field>
-          <FieldTitle>Label</FieldTitle>
-          <Input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Primary TMDB key"
-            disabled={saving}
-          />
-          <FieldDescription>
-            A short name for this entry. Helps you identify it in the pool.
-          </FieldDescription>
-        </Field>
-        <SchemaForm
-          schema={schema}
-          value={values}
-          onChange={setValues}
-          mode={mode === "add" ? "create" : "edit"}
-          submitAttempted={submitAttempted}
-        />
-        {mode === "edit" ? (
-          <p className="text-xs text-muted-foreground">
-            Leave secret fields empty to keep the existing value.
-          </p>
-        ) : null}
-        {topError ? <InlineError message={topError} /> : null}
-      </div>
-      <DialogFooter className="border-t border-border px-6 py-4">
-        <Button variant="outline" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? <LoaderCircleIcon className="animate-spin" /> : null}
-          {mode === "add" ? "Add" : "Save"}
-        </Button>
-      </DialogFooter>
-    </>
-  );
-}
-
 function InlineError({ message }: { message: string }) {
   return (
     <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
       <TriangleAlertIcon className="mt-0.5 size-4" aria-hidden="true" />
       <span>{message}</span>
     </div>
+  );
+}
+
+// ─── Install stub dialog ─────────────────────────────────────────────────────
+
+function InstallStubDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Install plugin</DialogTitle>
+          <DialogDescription>
+            Built-in plugins register on boot. Installing third-party plugins from a URL will ship
+            in a later version.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -824,9 +536,7 @@ function UninstallDialog({
     setPending(true);
     setTopError(null);
     try {
-      const res = await api.plugins[":id"].$delete({
-        param: { id: plugin.id },
-      });
+      const res = await api.plugins[":id"].$delete({ param: { id: plugin.id } });
       if (!res.ok) {
         const body = (await safeJson(res)) as { error?: string } | null;
         throw new Error(body?.error ?? "Failed to uninstall.");
@@ -909,12 +619,6 @@ function LoadingSkeleton() {
 
 // ─── Advanced section (admin policy) ──────────────────────────────────────────
 
-import {
-  PLUGIN_ADMIN_ALLOWLIST_MAX,
-  PLUGIN_ADMIN_HEADERS_MAX,
-  PLUGIN_RESERVED_HEADER_NAMES,
-} from "@ent-mcp/shared/plugins";
-
 const ADMIN_HOST_PATTERN =
   /^(?:\*|(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)$/;
 const ADMIN_HEADER_NAME_PATTERN = /^[a-zA-Z0-9!#$%&'*+\-.^_`|~]+$/;
@@ -991,9 +695,7 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
 
   // Mirrors the server's `isHostAllowed` pattern overlap so the banner surfaces
   // whenever the static intersection is empty — per the advanced-admin design
-  // doc. Previous versions missed the wildcard case where an admin exact host
-  // was covered by a manifest `*.domain` wildcard (or vice versa), so this
-  // walks all four combinations.
+  // doc. Walks all four wildcard combinations between admin and manifest entries.
   const intersectionEmpty =
     mode === "restrict" &&
     (entries.length === 0 ||
@@ -1272,7 +974,6 @@ function HeaderDialog({ plugin, state, onClose, onSaved }: HeaderDialogProps) {
       }
     }
     if (isEdit && preserveValue) {
-      // Nothing to submit — keep existing value.
       onClose();
       return;
     }

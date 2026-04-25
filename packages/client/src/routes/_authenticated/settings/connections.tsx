@@ -122,7 +122,7 @@ function ConnectionsPage() {
     setModal({
       kind: "edit",
       plugin: connection.plugin,
-      existing: { id: connection.id, displayName: connection.displayName, userConfig: null },
+      existing: { id: connection.id, displayName: connection.displayName },
     });
   const openReconnect = (connection: ConnectionItem) => {
     if (connection.plugin.authKind === "form") openEdit(connection);

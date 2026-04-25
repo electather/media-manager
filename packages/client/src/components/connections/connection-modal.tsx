@@ -53,7 +53,6 @@ export interface PluginSummary {
 export interface ExistingConnection {
   id: string;
   displayName: string | null;
-  userConfig: unknown;
 }
 
 interface Props {
