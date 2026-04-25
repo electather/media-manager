@@ -1,9 +1,10 @@
-import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
+import {
+  PluginError,
+  validatePluginModule as sdkValidatePluginModule,
+  type PluginModule,
+  type ValidatedPlugin,
+} from "@ent-mcp/plugin-sdk";
 import { sha256 } from "../crypto/hash";
-import { isSdkCompatible } from "./manifest";
-import { getCapability } from "./capabilities";
-import { PluginError } from "./types";
-import type { PluginModule } from "./types";
 
 /**
  * Built-in plugin modules bundled with the server. Third-party plugins would be loaded
@@ -32,103 +33,33 @@ export function getBuiltin(id: string): BuiltinSource | undefined {
   return builtins.get(id);
 }
 
-export interface LoadedPlugin {
-  module: PluginModule;
+export interface LoadedPlugin extends ValidatedPlugin {
   checksum: string;
-  manifestJson: string;
 }
 
-/** Full validation pipeline. Throws PluginError on any failure. */
+/**
+ * Server-side load: SDK schema + capability validation, plus a content
+ * checksum for the `plugins` row. Throws `PluginError` on validation failure
+ * via the SDK; checksum is computed only after validation succeeds so a
+ * bad manifest never produces a row.
+ */
+export async function loadPlugin(module: PluginModule, bytes: string): Promise<LoadedPlugin> {
+  const validated = sdkValidatePluginModule(module);
+  return { ...validated, checksum: await sha256(bytes) };
+}
+
+// Back-compat shim for callers that imported `validatePluginModule` from the
+// host-side loader. Forwards to the SDK's pure validator and (when `bytes` is
+// supplied) attaches a checksum so existing call sites keep their old return
+// shape. Prefer `loadPlugin` in new code.
 export async function validatePluginModule(
   module: PluginModule,
-  bytes: string,
+  bytes?: string,
 ): Promise<LoadedPlugin> {
-  const parsed = pluginManifestSchema.safeParse(module.manifest);
-  if (!parsed.success) {
-    throw new PluginError("plugin.output_invalid", parsed.error.message);
-  }
-  if (!isSdkCompatible(parsed.data.sdkVersion)) {
-    throw new PluginError(
-      "plugin.output_invalid",
-      `plugin targets sdkVersion ${parsed.data.sdkVersion} incompatible with host`,
-    );
-  }
-
-  // Every declared capability must exist in the host catalog at the declared version.
-  for (const [capId, cap] of Object.entries(parsed.data.capabilities)) {
-    const spec = getCapability(capId, cap.version);
-    if (!spec) {
-      throw new PluginError(
-        "plugin.missing_method",
-        `plugin declares unknown capability ${capId}@${cap.version}`,
-      );
-    }
-    const impl = module.capabilities[capId];
-    if (!impl) {
-      throw new PluginError(
-        "plugin.missing_method",
-        `plugin manifest claims ${capId} but exports no implementation`,
-      );
-    }
-    for (const methodName of Object.keys(spec.methods)) {
-      if (typeof impl[methodName] !== "function") {
-        throw new PluginError(
-          "plugin.missing_method",
-          `${capId}@${cap.version}.${methodName} not implemented`,
-        );
-      }
-    }
-  }
-
-  // Every declared job must have a handler.
-  for (const job of parsed.data.jobs ?? []) {
-    const handler = module.jobs?.[job.handler];
-    if (typeof handler !== "function") {
-      throw new PluginError(
-        "plugin.missing_method",
-        `job ${job.id} references handler "${job.handler}" which is not exported`,
-      );
-    }
-  }
-
-  // Auth discipline: plugins with auth.kind != "none" must provide testConnection.
-  if (parsed.data.auth.kind !== "none" && typeof module.testConnection !== "function") {
-    throw new PluginError("plugin.missing_auth_fn", "plugins with auth require testConnection");
-  }
-
-  // Declared MCP tools must have an exported handler, not start with "ext_" themselves,
-  // and must fit within the 64-char prefixed-name cap.
-  const seenNames = new Set<string>();
-  for (const tool of parsed.data.mcpTools ?? []) {
-    if (tool.name.startsWith("ext_")) {
-      throw new PluginError(
-        "plugin.input_invalid",
-        `plugin tool name "${tool.name}" must not start with "ext_" (the host adds the prefix)`,
-      );
-    }
-    if (seenNames.has(tool.name)) {
-      throw new PluginError("plugin.input_invalid", `duplicate mcpTool name "${tool.name}"`);
-    }
-    seenNames.add(tool.name);
-    const prefixed = `ext_${parsed.data.id}_${tool.name}`;
-    if (prefixed.length > 64) {
-      throw new PluginError(
-        "plugin.input_invalid",
-        `prefixed tool name "${prefixed}" exceeds 64 characters`,
-      );
-    }
-    const handler = module.mcpTools?.[tool.handler];
-    if (typeof handler !== "function") {
-      throw new PluginError(
-        "plugin.missing_method",
-        `mcpTool "${tool.name}" references handler "${tool.handler}" which is not exported`,
-      );
-    }
-  }
-
-  return {
-    module,
-    checksum: await sha256(bytes),
-    manifestJson: JSON.stringify(parsed.data),
-  };
+  const validated = sdkValidatePluginModule(module);
+  return { ...validated, checksum: bytes ? await sha256(bytes) : "" };
 }
+
+// Re-exported so consumers that imported `PluginError` from this loader path
+// keep resolving. New code should import directly from `@ent-mcp/plugin-sdk`.
+export { PluginError };

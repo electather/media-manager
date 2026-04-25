@@ -1,6 +1,6 @@
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
-import { capabilityKey } from "./capabilities";
-import type { PluginModule } from "./types";
+import { capabilityKey } from "@ent-mcp/plugin-sdk";
+import type { PluginModule } from "@ent-mcp/plugin-sdk";
 
 export interface RegistryEntry {
   pluginId: string;

@@ -8,7 +8,7 @@ import {
   WatchHistoryV1,
   LibraryAdminV1,
   IdResolveV1,
-} from "../../../../plugin-runtime/capabilities";
+} from "@ent-mcp/plugin-sdk";
 import jellyfinPlugin from "../plugin";
 import { jfItem, jsonRes, makeCtx, statusRes } from "./helpers";
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { libraryItemSchema, LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
-import { defineCapability, method } from "./define";
+import { defineCapability, method } from "../define";
 
 const mediaType = z.enum(["movie", "tv"]);
 
@@ -459,7 +459,7 @@ export const IdResolveV1 = defineCapability({
   version: "v1",
   strategy: "single",
   scope: "mixed",
-  scopeForInput: (input) => {
+  scopeForInput: (input: unknown) => {
     // `from` is validated by `idResolveInput` before this runs (see
     // `strategy` pipeline), so the type assertion is safe for well-formed
     // requests. Defensive `typeof` guard for edge cases where validation

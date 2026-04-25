@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { PluginError } from "../../plugin-runtime/types";
+import { PluginError } from "@ent-mcp/plugin-sdk";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

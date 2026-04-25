@@ -1,4 +1,4 @@
-import { pluginError } from "./plugin-error";
+import { pluginError } from "../errors/plugin-error";
 
 export function resolveCredential(
   primary: string | undefined,

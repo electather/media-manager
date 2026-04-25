@@ -3,7 +3,7 @@ import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { decryptField } from "../crypto/helpers";
 import { capabilityRegistry } from "../plugin-runtime/registry";
-import { getCapability } from "../plugin-runtime/capabilities";
+import { getCapability } from "@ent-mcp/plugin-sdk";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { PluginCallError, normalizeError } from "./errors";
 import type { ResolvedConnection } from "./resolve-connection";

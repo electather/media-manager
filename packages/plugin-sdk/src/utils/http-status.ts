@@ -1,5 +1,5 @@
 import { HostErrorCode } from "@ent-mcp/shared/errors";
-import { pluginError } from "./plugin-error";
+import { pluginError } from "../errors/plugin-error";
 
 interface HandleHttpStatusOptions {
   on401?: HostErrorCode;

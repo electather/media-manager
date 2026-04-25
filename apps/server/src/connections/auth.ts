@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
-import type { AuthResult } from "../plugin-runtime/types";
+import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
 

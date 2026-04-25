@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { plugins, primaryConnections, serviceConnections } from "../../db/schema";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
-import { CAPABILITY_CATALOG, type CapabilityKey } from "../../plugin-runtime/capabilities";
+import { CAPABILITY_CATALOG, type CapabilityKey } from "@ent-mcp/plugin-sdk";
 import type { ToolHandler, ToolRegistration } from "../registry";
 
 interface ConnectionView {

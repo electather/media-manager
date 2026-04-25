@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "../../../../plugin-runtime/types";
+import type { PluginContext } from "@ent-mcp/plugin-sdk";
 import {
   WatchHistoryV1,
   WatchlistV1,
@@ -10,7 +10,7 @@ import {
   CollectionV1,
   UserCommentsV1,
   IdResolveV1,
-} from "../../../../plugin-runtime/capabilities";
+} from "@ent-mcp/plugin-sdk";
 import { validatePluginModule } from "../../../../plugin-runtime/loader";
 import traktPlugin from "../plugin";
 

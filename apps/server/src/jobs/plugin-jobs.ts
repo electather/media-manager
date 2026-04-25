@@ -4,7 +4,7 @@ import { plugins, serviceConnections } from "../db/schema";
 import { encryptJson, decryptJson } from "../crypto/helpers";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { pluginRuntime } from "../plugin-runtime/runtime";
-import type { PluginJobHandler } from "../plugin-runtime/types";
+import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 

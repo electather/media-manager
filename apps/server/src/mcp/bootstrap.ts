@@ -1,8 +1,8 @@
 import { consola } from "consola";
-import { MediaRequestV1, MetadataV1 } from "../plugin-runtime/capabilities";
+import { MediaRequestV1, MetadataV1 } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { setMcpLifecycleHooks } from "../plugin-runtime/runtime";
-import type { PluginModule } from "../plugin-runtime/types";
+import type { PluginModule } from "@ent-mcp/plugin-sdk";
 import { callExtension } from "./extension-dispatch";
 import {
   mcpToolRegistry,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { pluginError, toErrorMessage } from "../plugin-error";
+import { pluginError, toErrorMessage } from "@ent-mcp/plugin-sdk";
 
 describe("pluginError", () => {
   it("returns an Error instance", () => {

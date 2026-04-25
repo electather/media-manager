@@ -2,7 +2,7 @@ import { consola } from "consola";
 import Ajv from "ajv";
 import type { ValidateFunction } from "ajv";
 import type { JSONSchema, McpToolAnnotations } from "@ent-mcp/shared";
-import type { CapabilityDefinition } from "../plugin-runtime/types";
+import type { CapabilityDefinition } from "@ent-mcp/plugin-sdk";
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 

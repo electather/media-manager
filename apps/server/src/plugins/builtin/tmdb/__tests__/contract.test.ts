@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "../../../../plugin-runtime/types";
-import {
-  MetadataV1,
-  IdResolveV1,
-  WatchProvidersV1,
-  TrailersV1,
-} from "../../../../plugin-runtime/capabilities";
+import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import { MetadataV1, IdResolveV1, WatchProvidersV1, TrailersV1 } from "@ent-mcp/plugin-sdk";
 import { validatePluginModule } from "../../../../plugin-runtime/loader";
 import tmdbPlugin from "../plugin";
 

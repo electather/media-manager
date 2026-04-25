@@ -1,8 +1,8 @@
 import type { LibraryItem } from "@ent-mcp/shared/plugins/library";
-import { definePlugin } from "../../../plugin-runtime/define";
-import type { AuthResult, PluginContext } from "../../../plugin-runtime/types";
-import { pluginError, toErrorMessage } from "../../utils/plugin-error";
-import { handleHttpStatus } from "../../utils/http-status";
+import { definePlugin } from "@ent-mcp/plugin-sdk";
+import type { AuthResult, PluginContext } from "@ent-mcp/plugin-sdk";
+import { pluginError, toErrorMessage } from "@ent-mcp/plugin-sdk";
+import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
 
 // ─── Config / credentials shapes ─────────────────────────────────────────────
 

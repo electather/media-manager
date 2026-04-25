@@ -6,7 +6,7 @@ import { capabilityRegistry } from "../plugin-runtime/registry";
 import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
 import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
 import type { ConnectionListItem } from "@ent-mcp/shared/connections";
-import type { AuthResult } from "../plugin-runtime/types";
+import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import {

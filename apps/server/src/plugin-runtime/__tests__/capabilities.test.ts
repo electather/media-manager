@@ -12,9 +12,9 @@ import {
   MetadataV1,
   PlaybackSessionsV1,
   WatchHistoryV1,
-} from "../capabilities";
+} from "@ent-mcp/plugin-sdk";
 import { CapabilityRegistry } from "../registry";
-import type { PluginModule } from "../types";
+import type { PluginModule } from "@ent-mcp/plugin-sdk";
 
 describe("capability catalog", () => {
   it("keys by id@version", () => {

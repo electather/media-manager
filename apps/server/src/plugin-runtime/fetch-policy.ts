@@ -1,7 +1,7 @@
 import { consola } from "consola";
 import { captureError } from "../errors/capture";
-import { PluginError } from "./types";
-import type { PluginLogger } from "./types";
+import { PluginError } from "@ent-mcp/plugin-sdk";
+import type { PluginLogger } from "@ent-mcp/plugin-sdk";
 
 /** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards and bare "*" for allow-all. */
 export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {

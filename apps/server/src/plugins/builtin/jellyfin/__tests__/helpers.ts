@@ -1,4 +1,4 @@
-import type { PluginContext } from "../../../../plugin-runtime/types";
+import type { PluginContext } from "@ent-mcp/plugin-sdk";
 
 // Shared helpers for the Jellyfin plugin test suites. Both `plugin.test.ts`
 // and `contract.test.ts` build the same fake `ctx` around a queue of

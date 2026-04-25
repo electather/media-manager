@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
-import type { PluginModule } from "../types";
+import type { PluginModule } from "@ent-mcp/plugin-sdk";
 
 // E2E: verify x-allowed-host on a user-scoped plugin's userConfigSchema causes
 // the hostname from the stored userConfig to be added to ctx.fetch's
@@ -129,8 +129,9 @@ function buildSelfHostedPlugin(
 }
 
 // Register a synthetic capability spec so the runtime's requireMethodSpec
-// check succeeds. We do this lazily by mocking ./capabilities.
-vi.mock("../capabilities", async (orig) => {
+// check succeeds. We do this lazily by mocking the SDK module that exposes
+// getCapability.
+vi.mock("@ent-mcp/plugin-sdk", async (orig) => {
   const mod = (await orig()) as object;
   return {
     ...mod,

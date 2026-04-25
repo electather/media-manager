@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { handleHttpStatus } from "../http-status";
+import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
 
 function mockResponse(status: number): Response {
   return { status, ok: status >= 200 && status < 300 } as Response;

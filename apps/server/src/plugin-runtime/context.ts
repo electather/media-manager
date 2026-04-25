@@ -1,6 +1,6 @@
 import { buildFetch, buildLogger } from "./fetch-policy";
 import { buildStore } from "./host-bridge";
-import type { PluginContext, PoolSignalingApi } from "./types";
+import type { PluginContext, PoolSignalingApi } from "@ent-mcp/plugin-sdk";
 
 export interface BuildContextArgs {
   pluginId: string;

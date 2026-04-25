@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import type { PluginModule } from "../types";
+import type { PluginModule } from "@ent-mcp/plugin-sdk";
 
 vi.mock("../../env", () => ({
   env: {

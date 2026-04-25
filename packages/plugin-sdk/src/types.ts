@@ -151,45 +151,6 @@ export interface PluginModule {
   mcpTools?: Record<string, McpToolHandler>;
 }
 
-export class PluginError extends Error {
-  constructor(
-    public code: HostErrorCode,
-    message: string,
-    /**
-     * Interpolation values and routing hints per the error design doc's wire
-     * format. The host threads these onto the outgoing HTTP error body so the
-     * frontend can route the error (e.g. `{ field: "externalServerUrl" }`
-     * attaches the message to a specific form input).
-     */
-    public params?: Record<string, string | number>,
-  ) {
-    super(message);
-    this.name = "PluginError";
-  }
-}
-
-/** The structural shape that the host recognizes as a plugin error. */
-export interface PluginErrorShape {
-  name: "PluginError";
-  code: string;
-  message: string;
-  params?: Record<string, string | number>;
-}
-
-/**
- * Duck-type guard for plugin errors. Intentionally does not use `instanceof` so
- * plugins loaded in a separate bundle (or without importing this class) still work
- * as long as they set `err.name = "PluginError"` and `err.code`.
- */
-export function isPluginError(err: unknown): err is PluginErrorShape {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as Error).name === "PluginError" &&
-    typeof (err as PluginErrorShape).code === "string"
-  );
-}
-
 export interface CapabilitySpec<
   I extends z.ZodTypeAny = z.ZodTypeAny,
   O extends z.ZodTypeAny = z.ZodTypeAny,

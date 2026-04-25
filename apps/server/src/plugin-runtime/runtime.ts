@@ -7,18 +7,18 @@ import { plugins } from "../db/schema/plugins";
 import { resolveAllowedHostsFromSchema, unionHostSets } from "./allowed-hosts";
 import { loadPluginPolicy } from "./admin-policy";
 import { buildContext } from "./context";
-import { getCapability } from "./capabilities";
+import { getCapability } from "@ent-mcp/plugin-sdk";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
 import { capabilityRegistry } from "./registry";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
-import { isPluginError, PluginError } from "./types";
+import { isPluginError, PluginError } from "@ent-mcp/plugin-sdk";
 import type {
   AuthResult,
   CapabilitySpec,
   PluginContext,
   PluginModule,
   PoolSignalingApi,
-} from "./types";
+} from "@ent-mcp/plugin-sdk";
 import { captureError } from "../errors/capture";
 import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/errors";
 import { sharedCredentialsService } from "./shared-credentials";

@@ -1,4 +1,4 @@
-import type { MediaItemShape } from "../plugin-runtime/capabilities";
+import type { MediaItemShape } from "@ent-mcp/plugin-sdk";
 
 export type AvailabilityStatus =
   | "available"

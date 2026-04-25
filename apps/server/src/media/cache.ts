@@ -3,7 +3,7 @@ import { MemoryCache } from "../cache/memory";
 import { RedisCache } from "../cache/redis";
 import type { CacheProvider } from "../cache/types";
 import { env } from "../env";
-import type { CapabilityDefinition, ResolvedCapabilityScope } from "../plugin-runtime/types";
+import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 
 /**
  * Canonicalizes a value so the cache key is insensitive to object key order.

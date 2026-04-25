@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "../../../../plugin-runtime/types";
-import { isPluginError } from "../../../../plugin-runtime/types";
+import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import { isPluginError } from "@ent-mcp/plugin-sdk";
 import {
   LibraryAvailabilityV1,
   ContinueWatchingV1,
@@ -9,7 +9,7 @@ import {
   PlaybackV1,
   WatchHistoryV1,
   IdResolveV1,
-} from "../../../../plugin-runtime/capabilities";
+} from "@ent-mcp/plugin-sdk";
 import plexPlugin from "../plugin";
 
 // Minimal fake ctx that feeds a queue of responses to `ctx.fetch` and records

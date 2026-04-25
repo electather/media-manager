@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
-import type { PluginContext } from "../../../plugin-runtime/types";
-import { isPluginError } from "../../../plugin-runtime/types";
+import type { PluginContext } from "@ent-mcp/plugin-sdk";
+import { isPluginError } from "@ent-mcp/plugin-sdk";
 import traktPlugin from "../trakt/plugin";
 import tmdbPlugin from "../tmdb/plugin";
 import seerrPlugin from "../seerr/plugin";

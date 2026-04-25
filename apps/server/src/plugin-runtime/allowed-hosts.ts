@@ -1,5 +1,5 @@
 import type { JSONSchema } from "@ent-mcp/shared";
-import { PluginError } from "./types";
+import { PluginError } from "@ent-mcp/plugin-sdk";
 
 /**
  * Marker for the `x-allowed-host` JSON Schema extension. Plugins set this on

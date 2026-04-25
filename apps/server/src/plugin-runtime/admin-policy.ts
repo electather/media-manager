@@ -3,7 +3,7 @@ import { PLUGIN_ADMIN_HEADERS_MAX, PLUGIN_RESERVED_HEADER_NAMES } from "@ent-mcp
 import { getDb } from "../db/client";
 import { plugins } from "../db/schema/plugins";
 import { decryptJson, encryptJson } from "../crypto/helpers";
-import { PluginError } from "./types";
+import { PluginError } from "@ent-mcp/plugin-sdk";
 
 /**
  * Admin policy resolved for one plugin. Passed into every `buildContext` call

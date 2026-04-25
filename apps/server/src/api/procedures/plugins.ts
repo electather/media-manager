@@ -26,7 +26,7 @@ import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
 import { classifyScopes } from "../../plugin-runtime/manifest";
 import { zValidator } from "../../errors/validator";
 import { badRequest } from "../../errors/http-errors";
-import { PluginError } from "../../plugin-runtime/types";
+import { PluginError } from "@ent-mcp/plugin-sdk";
 
 function parseManifest(raw: string): ValidatedManifest {
   return JSON.parse(raw) as ValidatedManifest;
