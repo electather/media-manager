@@ -87,6 +87,30 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 - [ ] Run `vp check` and `vp test` to validate changes.
 <!--VITE PLUS END-->
 
+## Pull Requests and Versioning
+
+This project uses [Changesets](https://github.com/changesets/changesets). Every PR needs a `.changeset/<slug>.md` file or CI fails. Create the file directly — don't run the CLI.
+
+Released packages (`private: false`): `@ent-mcp/client`, `@ent-mcp/server`, `@ent-mcp/plugin-sdk`, and every `@ent-mcp/plugin-<id>` (trakt, tmdb, tvdb, seerr, plex, jellyfin). Never list `@ent-mcp/shared` — it is internal-only.
+
+```md
+---
+"@ent-mcp/client": minor
+---
+
+Added a connections page for reviewing and revoking linked apps.
+```
+
+- Bump: `patch` (fix), `minor` (new feature), `major` (breaking).
+- Description: one short sentence, end-user language, past tense ([Keep a Changelog](https://keepachangelog.com) style). No file names, no PR numbers, no implementation detail.
+- One logical change per file.
+- For internal-only changes (refactors, tests, docs, CI, deps), use empty frontmatter and no body:
+
+  ```md
+  ---
+  ---
+  ```
+
 ## Shared Package (`@ent-mcp/shared`)
 
 Anything used by both client and server lives in `packages/shared/` — domain enum tuples, public types, and zod schemas. Workspaces: `apps/{client,server}`, `packages/{shared,plugin-sdk}`, `packages/plugins/*`. Consumers depend on it directly as `"@ent-mcp/shared": "workspace:*"` in their own `package.json`; there is no `catalog:` indirection for this package.
