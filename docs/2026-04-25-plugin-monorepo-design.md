@@ -132,6 +132,8 @@ packages/plugin-sdk/
 
 ### Symbol map — what moves, what re-exports, what stays
 
+> **Note on paths.** "Today's location" columns below use `apps/server/...` — i.e. they assume the `apps/` rename from commit 1 of the migration plan has been applied. Pre-rename, the same files live at `packages/server/...`. The relative paths inside server are unchanged.
+
 #### MOVED (canonical home becomes SDK; deleted from original location)
 
 | Symbol | Today's location | After |
@@ -142,10 +144,10 @@ packages/plugin-sdk/
 | `handleHttpStatus` | `apps/server/src/plugins/utils/http-status.ts` | `packages/plugin-sdk/src/utils/http-status.ts`. |
 | `resolveCredential` | `apps/server/src/plugins/utils/credentials.ts` | `packages/plugin-sdk/src/utils/credentials.ts`. |
 | `definePlugin`, `defineCapability`, `method` | `apps/server/src/plugin-runtime/define.ts` | `packages/plugin-sdk/src/define.ts`. Server imports from SDK. |
-| `WatchHistoryV1`, `WatchlistV1`, `RatingsV1`, `RecommendationsV1`, `CalendarV1`, `PlaybackV1`, `CollectionV1`, `UserCommentsV1`, `IdResolveV1`, `MetadataV1`, `WatchProvidersV1`, `TrailersV1`, `MediaRequestV1` | `apps/server/src/plugin-runtime/capabilities/` | `packages/plugin-sdk/src/capabilities/`. Server's runtime imports from SDK and registers each into its dispatch table. |
+| `WatchHistoryV1`, `WatchlistV1`, `RatingsV1`, `RecommendationsV1`, `CalendarV1`, `PlaybackV1`, `CollectionV1`, `UserCommentsV1`, `IdResolveV1`, `MetadataV1`, `WatchProvidersV1`, `TrailersV1`, `MediaRequestV1`, `LibraryAvailabilityV1`, `ContinueWatchingV1`, `PlaybackSessionsV1`, `LibraryAdminV1`, plus the `CAPABILITY_CATALOG` index | `apps/server/src/plugin-runtime/capabilities.ts` (single file holding all capability `defineCapability(...)` exports plus the catalog and lookup helpers) | Split into `packages/plugin-sdk/src/capabilities/` directory: one file per capability plus an `index.ts` barrel that re-builds the catalog. Server's runtime imports the schemas from the SDK and registers each into its dispatch table. |
 | `CapabilityDefinition`, `CapabilityMethodSpec`, `CapabilitySpec`, `CapabilityScopeMode`, `ResolvedCapabilityScope`, `CapabilityStrategy`, `CapabilityMcpTool` | `apps/server/src/plugin-runtime/types.ts` | `packages/plugin-sdk/src/types.ts`. |
 | `validatePluginModule` | `apps/server/src/plugin-runtime/loader.ts` | `packages/plugin-sdk/src/validate.ts`. Used by server boot AND contract tests. |
-| `getCapability`, `listCapabilities` | `apps/server/src/plugin-runtime/capabilities.ts` | `packages/plugin-sdk/src/capabilities/index.ts`. The catalog moves with its schemas. |
+| `getCapability`, `listCapabilities` (catalog lookup helpers, currently in the same `capabilities.ts` file as the schemas above) | `apps/server/src/plugin-runtime/capabilities.ts` | `packages/plugin-sdk/src/capabilities/index.ts` — the lookup helpers move with the catalog they read. |
 | `SDK_VERSION` constant + `isSdkCompatible(range)` | `apps/server/src/plugin-runtime/manifest.ts` (`isSdkCompatible` only) | `packages/plugin-sdk/src/version.ts`. Server imports `isSdkCompatible` from SDK to gate installs. |
 
 #### RE-EXPORTED (canonical stays in `@ent-mcp/shared`)
@@ -364,13 +366,15 @@ Independent versions per package. The `private` flag decides whether a package g
 
 | Package | `private` | Tagged + GitHub Release? | Release artifacts |
 |---|---|---|---|
-| `@ent-mcp/server` | `false` | Yes | Docker image (existing deploy pipeline) + source archive |
-| `@ent-mcp/client` | `false` | Yes | Static bundle (Cloudflare Assets) and/or source archive |
+| `@ent-mcp/server` | `false` | Yes | Docker image pushed to GHCR (`ghcr.io/electather/media-manager:<version>`), linked from Release notes; plus source archive |
+| `@ent-mcp/client` | `false` | Yes | Built static bundle attached as Release asset (so self-hosters can serve it from any static host without rebuilding) |
 | `@ent-mcp/shared` | `true` | No | — |
 | `@ent-mcp/plugin-sdk` | `false` | Yes | `dist/` tarball |
 | `@ent-mcp/plugin-<id>` (each) | `false` | Yes | `dist/plugin.js` + `dist/plugin.d.ts` + manifest snapshot |
 
 Why per-plugin Releases: (a) the audit trail self-hosters actually want when reading "what changed in Trakt"; (b) pre-stages the third-party install path — when QuickJS sandboxing lands, the Release URL becomes the install URL with zero pipeline change; (c) `changesets/action` already creates Releases per non-private package, so the marginal cost is one workflow step that uploads `dist/*` as Release assets.
+
+**How "no npm publish" is enforced.** The existing `.github/workflows/release.yml:38-40` runs `vp dlx changeset tag` as the `publish` step (not `vp dlx changeset publish`). `changeset tag` only creates git tags and (with `createGithubReleases: true`) GitHub Releases — it never calls `npm publish`. Flipping a package's `private` flag to `false` therefore makes it eligible for tagging and Releases without any risk of npm publication. This is the same mechanism PR [#107](https://github.com/electather/media-manager/pull/107) introduced for `client` and `server`; the SDK and plugin packages adopt the same pattern.
 
 ### Changesets config
 
@@ -436,9 +440,9 @@ The SDK's `tsdown.config.ts` reads its own `package.json` version and substitute
 
 Follow-on PR after #107 merges:
 
-- After `changeset publish` / `changeset tag` runs, iterate over packages that got tagged, build them (`vp run build` per package), and upload `dist/*` as GitHub Release assets.
-- For `@ent-mcp/server`, build the Docker image (existing pipeline) and attach as a Release asset (or push to a registry and link from the Release notes — choice depends on existing deploy infra).
-- For `@ent-mcp/client`, attach the static bundle so self-hosters can serve it themselves.
+- After `changeset tag` runs, iterate over packages that got tagged, build them (`vp run build` per package), and upload `dist/*` as GitHub Release assets via `gh release upload`.
+- For `@ent-mcp/server`: build the Docker image and **push to GitHub Container Registry (`ghcr.io/electather/media-manager:<version>`)**, then add a line to the Release notes linking the GHCR URL. Docker images are not attached as Release assets (oversized for the asset mechanism and GHCR is the conventional pull surface for self-hosters). The Docker build job itself is new — the existing `release.yml` does not build images today — so this commit also introduces the build/push step.
+- For `@ent-mcp/client`: attach the built static bundle (`dist/`) as a Release asset so self-hosters can serve it from any static host without rebuilding.
 
 ## Boundary enforcement
 
@@ -452,13 +456,13 @@ Each commit is independently reviewable and leaves the repo in a working state.
 
 1. **Move apps to `apps/`.** Pure rename. `packages/client/` → `apps/client/`, `packages/server/` → `apps/server/`. Update root `package.json` workspaces glob, scripts, `vite.config.ts`, `wrangler.toml`, `docker/`, `.github/workflows/*`, any docs that reference old paths. Package names unchanged. No logic touched.
 2. **Create `@ent-mcp/plugin-sdk` skeleton with relocated types and helpers.** New package at `packages/plugin-sdk/`. Move plugin-author types, `definePlugin`, `validatePluginModule`, `isSdkCompatible` + `SDK_VERSION`, `pluginError`, `handleHttpStatus`, `resolveCredential`. Update server imports. Plugins still live at `apps/server/src/plugins/builtin/` and import from the SDK now.
-3. **Move capability schemas to the SDK.** Server-side `register-capabilities.ts` becomes a thin file that imports schemas from the SDK and calls `registerCapability(...)` for each. Plugin contract tests update their imports.
+3. **Move capability schemas to the SDK.** Split `apps/server/src/plugin-runtime/capabilities.ts` (a single 870+ line file holding every `defineCapability(...)` export plus `CAPABILITY_CATALOG`, `getCapability`, `listCapabilities`) into `packages/plugin-sdk/src/capabilities/<capability>.ts` with a barrel `index.ts` that rebuilds the catalog and re-exports the lookup helpers. **Create** a new `apps/server/src/plugin-runtime/register-capabilities.ts` that imports each capability def from the SDK and calls `registerCapability(...)` to populate the runtime dispatch registry. Update plugin contract tests to import schemas and helpers from `@ent-mcp/plugin-sdk` instead of relative server paths.
 4. **Create `@ent-mcp/plugin-sdk/testing` subpath.** Extract `makeTestContext`, `jsonRes`, `statusRes`, `paginatedPage` from duplicated patterns across `apps/server/src/plugins/builtin/*/__tests__/`. Plugin tests adopt the shared fixtures.
 5–10. **Extract one plugin per commit, smallest first.** Order: TVDB → TMDB → Seerr → Trakt → Plex → Jellyfin. For each: create `packages/plugins/<id>/` with `package.json`, `tsdown.config.ts`, `src/`, `__tests__/`; add `@ent-mcp/plugin-<id>` as dep in `apps/server/package.json`; update `registry.ts` to import from the new package; delete old `apps/server/src/plugins/builtin/<id>/` directory; write changeset (`@ent-mcp/plugin-<id>: minor` initial release + `@ent-mcp/server: patch` consumer update).
 11. **Delete the husk.** Remove now-empty `apps/server/src/plugins/builtin/` and `apps/server/src/plugins/utils/` directories.
 12. **Add the boundary lint check.** `scripts/check-plugin-deps.ts` failing on plugin-package imports from `@ent-mcp/shared` or `@ent-mcp/server`. Wired into `vp check`.
 13. **Add the SDK-compat CI check.** `scripts/check-sdk-compat.ts` verifying every plugin's `manifest.sdkVersion` parses against the SDK's current version. Wired into `vp check`.
-14. **Release workflow updates.** Adjust `.github/workflows/release.yml` to build and attach `dist/plugin.js` + `dist/plugin.d.ts` as Release assets for each tagged plugin package, and attach the Docker image / static bundle to `@ent-mcp/server` and `@ent-mcp/client` Releases.
+14. **Release workflow updates.** Adjust `.github/workflows/release.yml` to (a) build and attach `dist/plugin.js` + `dist/plugin.d.ts` as Release assets for each tagged plugin package, (b) build and attach the SDK's `dist/` tarball to its Release, (c) build and push the server Docker image to GHCR and link the pull URL from the `@ent-mcp/server` Release notes, and (d) build and attach the client static bundle as an asset on the `@ent-mcp/client` Release. The Docker build job itself is new — `release.yml` does not build images today.
 
 ### Risk & rollback
 
