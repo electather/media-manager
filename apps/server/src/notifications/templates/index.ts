@@ -4,7 +4,7 @@ import { renderJobRunFailed } from "./job-run-failed";
 export function renderTemplate(event: NotificationEvent, _locale: "en"): NotificationMessage {
   switch (event.type) {
     case "job.run.failed":
-      return renderJobRunFailed(event as any);
+      return renderJobRunFailed(event);
     case "connection.auth.expired":
       return {
         title: "Auth Expired",
@@ -15,7 +15,7 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
     case "connection.sync.succeeded":
       return {
         title: "Sync Complete",
-        body: `Sync completed successfully with ${event.payload.itemCount} items.`,
+        body: `Sync completed successfully with ${Number(event.payload.itemCount ?? 0)} items.`,
         severity: "info",
         category: "sync",
       };

@@ -5,7 +5,7 @@ export function renderJobRunFailed(
 ): NotificationMessage {
   return {
     title: "Job Failed",
-    body: `Job ${event.payload.jobId} failed: ${event.payload.error}`,
+    body: `Job ${String(event.payload.jobId ?? "?")} failed: ${String(event.payload.error ?? "unknown error")}`,
     severity: "error",
     category: "system",
   };
