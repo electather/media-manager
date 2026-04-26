@@ -1,3 +1,4 @@
+import { consola } from "consola";
 import {
   and,
   count,
@@ -9,6 +10,7 @@ import {
   isNull,
   lte,
   lt,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -400,38 +402,37 @@ export async function listDeliveries(
   const out = [];
   for (const row of rows) {
     if (out.length >= limit) break;
+    let event: { category?: NotificationCategory; severity?: NotificationSeverity };
     try {
-      const event = JSON.parse(row.eventPayload) as {
-        category?: NotificationCategory;
-        severity?: NotificationSeverity;
-      };
-      if (filters.category && event.category !== filters.category) continue;
-      if (filters.severity && event.severity !== filters.severity) continue;
-    } catch {
+      event = JSON.parse(row.eventPayload) as typeof event;
+    } catch (err) {
+      // A row with corrupt JSON is invisible to the admin filter, which
+      // hides the data integrity issue. Surface it so ops can investigate.
+      consola.warn(
+        `notifications: delivery ${row.id} has unparsable event_payload, skipping during filtered list: ${err instanceof Error ? err.message : String(err)}`,
+      );
       continue;
     }
+    if (filters.category && event.category !== filters.category) continue;
+    if (filters.severity && event.severity !== filters.severity) continue;
     out.push(row);
   }
   return out;
 }
 
-/** Result of an admin-triggered retry. `not_found` covers both missing rows
- * and rows currently in flight (`in_progress`) — flipping the latter back to
- * pending mid-flight could double-deliver because the delivery handler can't
- * abort an in-progress plugin call. The admin can retry once the in-flight
- * attempt has settled. */
+/** Result of an admin-triggered retry. `in_progress` shields rows currently
+ * in flight from being flipped back to pending, which would double-deliver
+ * because the delivery handler can't abort an active plugin call. The admin
+ * can retry once the in-flight attempt has settled. */
 export type RetryResetResult = "reset" | "in_progress" | "not_found";
 
 export async function resetDeliveryForRetry(id: string): Promise<RetryResetResult> {
   const db = getDb();
-  const existing = await db
-    .select({ status: notificationDeliveries.status })
-    .from(notificationDeliveries)
-    .where(eq(notificationDeliveries.id, id))
-    .get();
-  if (!existing) return "not_found";
-  if (existing.status === "in_progress") return "in_progress";
-  await db
+  // Atomic conditional update — single statement so a concurrent transition
+  // of the row from `pending`/`failed`/`succeeded` to `in_progress` cannot
+  // slip between a check and the write. Drizzle's `returning` lets us tell
+  // whether the predicate matched without a separate read.
+  const updated = await db
     .update(notificationDeliveries)
     .set({
       status: "pending",
@@ -440,6 +441,17 @@ export async function resetDeliveryForRetry(id: string): Promise<RetryResetResul
       lastErrorCode: null,
       updatedAt: Date.now(),
     })
-    .where(eq(notificationDeliveries.id, id));
-  return "reset";
+    .where(and(eq(notificationDeliveries.id, id), ne(notificationDeliveries.status, "in_progress")))
+    .returning({ id: notificationDeliveries.id });
+  if (updated.length > 0) return "reset";
+  // No row updated: either the id is unknown or the row is in_progress.
+  // Disambiguate with a single follow-up SELECT — runs only on the
+  // miss path so the happy case stays at one query.
+  const existing = await db
+    .select({ status: notificationDeliveries.status })
+    .from(notificationDeliveries)
+    .where(eq(notificationDeliveries.id, id))
+    .get();
+  if (!existing) return "not_found";
+  return "in_progress";
 }

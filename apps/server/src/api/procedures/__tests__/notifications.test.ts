@@ -544,6 +544,36 @@ describe("notifications HTTP — admin retry resets and reschedules", () => {
     expect(res.status).toBe(404);
   });
 
+  it("uses an atomic conditional UPDATE (resetDeliveryForRetry never overwrites in_progress)", async () => {
+    // Regression for the prior SELECT-then-UPDATE TOCTOU race: even if the
+    // row transitions to in_progress between the read and the write, the
+    // single conditional UPDATE will not flip it back to pending. We
+    // exercise the repo helper directly so we don't depend on timing.
+    const { resetDeliveryForRetry } = await import("../../../notifications/repos");
+    await seedUser("u-x");
+    await db.insert(notificationDeliveries).values({
+      id: "d-atomic",
+      eventId: "e1",
+      eventType: "system.error",
+      eventPayload: JSON.stringify({ id: "e1", type: "system.error" }),
+      recipientConnectionId: null,
+      recipientUserId: "u-x",
+      status: "in_progress",
+      attemptCount: 2,
+      lastError: null,
+      lastErrorCode: null,
+      providerMessageId: null,
+      correlationKey: null,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const result = await resetDeliveryForRetry("d-atomic");
+    expect(result).toBe("in_progress");
+    const row = await db.select().from(notificationDeliveries).all();
+    expect(row[0]?.status).toBe("in_progress");
+    expect(row[0]?.attemptCount).toBe(2);
+  });
+
   it("resets attempt_count to 0 and flips status back to pending", async () => {
     mockUserId = "admin-1";
     await seedUser("admin-1", ["admin:server"]);

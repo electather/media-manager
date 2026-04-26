@@ -748,7 +748,9 @@ GET  /api/admin/notifications/settings
 
 PATCH /api/admin/notifications/settings
       body: { inboxRetentionDays?: number; deliveryRetentionDays?: number }
-      → { ok: true }
+      → { ok: true; inboxRetentionDays: number; deliveryRetentionDays: number }
+      Returns the persisted (clamped) values alongside `ok` so the client can
+      reflect what was actually stored without a follow-up GET.
 ```
 
 Permission: `ADMIN_SERVER`.

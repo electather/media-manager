@@ -1,4 +1,5 @@
 import { Hono, type Context, type Next } from "hono";
+import { consola } from "consola";
 import { eq, and, inArray } from "drizzle-orm";
 import {
   NOTIFICATION_CATEGORIES,
@@ -103,18 +104,22 @@ function decodeKeysetCursor(
   cursor: string | undefined,
 ): { createdAt: number; id: string } | undefined {
   if (!cursor) return undefined;
-  try {
-    const decoded = Buffer.from(cursor, "base64url").toString("utf8");
-    const sep = decoded.indexOf(CURSOR_SEP);
-    if (sep <= 0) throw new Error("malformed");
-    const createdAtRaw = decoded.slice(0, sep);
-    const id = decoded.slice(sep + 1);
-    const createdAt = Number(createdAtRaw);
-    if (!Number.isFinite(createdAt) || !id) throw new Error("malformed");
-    return { createdAt, id };
-  } catch {
+  // Decode without a try/catch: every transformation here is total over
+  // strings (Buffer.from with explicit base64url, indexOf, slice, Number).
+  // Validate the resulting shape and surface a 400 for malformed cursors;
+  // any genuinely unexpected runtime error from this code path should
+  // propagate as a 500 rather than be hidden behind "invalid cursor".
+  const decoded = Buffer.from(cursor, "base64url").toString("utf8");
+  const sep = decoded.indexOf(CURSOR_SEP);
+  if (sep <= 0) {
     throw badRequest("notifications.bad_cursor", "invalid cursor");
   }
+  const createdAt = Number(decoded.slice(0, sep));
+  const id = decoded.slice(sep + 1);
+  if (!Number.isFinite(createdAt) || !id) {
+    throw badRequest("notifications.bad_cursor", "invalid cursor");
+  }
+  return { createdAt, id };
 }
 
 function encodeKeysetCursor(createdAt: number, id: string): string {
@@ -453,6 +458,14 @@ export const adminNotificationsApp = new Hono()
         { triggeredBy: "admin", requestId: newRequestId() },
       );
       rescheduled = true;
+    } else {
+      // The row was reset to pending but no job was enqueued. The
+      // stale-pending sweep (every 5 min) is the only recovery path —
+      // surface this so ops can detect a misregistered job runner instead
+      // of silently relying on the sweep.
+      consola.warn(
+        `notifications: retry for delivery ${id} reset row to pending but the notification.deliver job is not registered; stale-pending sweep is the only recovery path`,
+      );
     }
     return c.json({ ok: true, rescheduled });
   })
