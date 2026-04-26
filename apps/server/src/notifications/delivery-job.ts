@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { getDb } from "../db/client";
 import { notificationDeliveries, serviceConnections } from "../db/schema";
 import { env } from "../env";
@@ -78,7 +79,8 @@ export function registerDeliveryJob() {
         pluginCtx = {
           ...pluginCtx,
           inbox: {
-            insert: (row: Parameters<typeof insertInboxItem>[0]) => insertInboxItem(row),
+            insert: (row: Omit<Parameters<typeof insertInboxItem>[0], "id">) =>
+              insertInboxItem({ ...row, id: randomUUID() }),
           },
         } as any;
       }
