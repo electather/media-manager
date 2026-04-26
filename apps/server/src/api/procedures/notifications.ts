@@ -16,14 +16,26 @@ import {
   adminDeliveriesQuerySchema,
   adminSettingsBodySchema,
 } from "@ent-mcp/shared/notifications";
-import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
-import { PERMISSIONS, type Permission } from "../../auth/permissions";
+import {
+  requireSession,
+  requirePermission,
+  sessionUserId,
+  loadUserRole,
+  roleHasPermission,
+  userHasPermission,
+} from "../../auth/middleware";
+import { PERMISSIONS } from "../../auth/permissions";
 import { connectionsService } from "../../connections/service";
 import { getDb } from "../../db/client";
-import { rolePermissions, userRoles, roles } from "../../db/schema/roles";
 import { notificationDeliveries, serviceConnections } from "../../db/schema";
 import { env } from "../../env";
-import { badRequest, forbidden, notFound, payloadTooLarge } from "../../errors/http-errors";
+import {
+  badRequest,
+  conflict,
+  forbidden,
+  notFound,
+  payloadTooLarge,
+} from "../../errors/http-errors";
 import { newRequestId } from "../../errors/request-context";
 import { zValidator } from "../../errors/validator";
 import { find } from "../../jobs/registry";
@@ -80,51 +92,33 @@ function manifestSupportsKinds(pluginId: string): NotificationContentKind[] {
   return cap?.supportsKinds ?? ["text"];
 }
 
-async function userHasPermission(userId: string, permission: Permission): Promise<boolean> {
-  const db = getDb();
-  const userRole = await db
-    .select({ roleId: userRoles.roleId, isSystem: roles.isSystem, name: roles.name })
-    .from(userRoles)
-    .innerJoin(roles, eq(roles.id, userRoles.roleId))
-    .where(eq(userRoles.userId, userId))
-    .get();
-  if (!userRole) return false;
-  if (userRole.isSystem === 1 && userRole.name === "Admin") return true;
-  const allowed = await db
-    .select({ permission: rolePermissions.permission })
-    .from(rolePermissions)
-    .where(
-      and(eq(rolePermissions.roleId, userRole.roleId), eq(rolePermissions.permission, permission)),
-    )
-    .get();
-  return !!allowed;
-}
+// Shared keyset cursor format used by inbox listing AND admin deliveries:
+// `base64url(<created_at_ms>|<id>)`. Epoch milliseconds (not ISO) keeps the
+// payload short and avoids escaping the `:` characters inside ISO-8601.
+// Both endpoints decode/encode through the same helpers so cursors are
+// interchangeable across consumers.
+const CURSOR_SEP = "|";
 
-// Cursor format: base64url(`<created_at_iso>|<id>`). The pipe is reserved
-// because the ISO-8601 timestamp itself contains `:` characters.
-const INBOX_CURSOR_SEP = "|";
-
-function decodeInboxCursor(
+function decodeKeysetCursor(
   cursor: string | undefined,
 ): { createdAt: number; id: string } | undefined {
   if (!cursor) return undefined;
   try {
     const decoded = Buffer.from(cursor, "base64url").toString("utf8");
-    const sep = decoded.indexOf(INBOX_CURSOR_SEP);
+    const sep = decoded.indexOf(CURSOR_SEP);
     if (sep <= 0) throw new Error("malformed");
-    const iso = decoded.slice(0, sep);
+    const createdAtRaw = decoded.slice(0, sep);
     const id = decoded.slice(sep + 1);
-    const createdAt = Date.parse(iso);
-    if (Number.isNaN(createdAt) || !id) throw new Error("malformed");
+    const createdAt = Number(createdAtRaw);
+    if (!Number.isFinite(createdAt) || !id) throw new Error("malformed");
     return { createdAt, id };
   } catch {
     throw badRequest("notifications.bad_cursor", "invalid cursor");
   }
 }
 
-function encodeInboxCursor(createdAt: number, id: string): string {
-  const iso = new Date(createdAt).toISOString();
-  return Buffer.from(`${iso}${INBOX_CURSOR_SEP}${id}`, "utf8").toString("base64url");
+function encodeKeysetCursor(createdAt: number, id: string): string {
+  return Buffer.from(`${createdAt}${CURSOR_SEP}${id}`, "utf8").toString("base64url");
 }
 
 // ─── User-facing procedures ────────────────────────────────────────────────
@@ -154,10 +148,14 @@ export const notificationsApp = new Hono()
   })
   .get("/categories", async (c) => {
     const userId = sessionUserId(c);
+    // Load the role row once and re-check it per category instead of issuing
+    // 4× full role+permission lookups. The category permission table is small
+    // and the system Admin shortcut short-circuits without a second query.
+    const role = await loadUserRole(userId);
     const categories = [];
     for (const id of NOTIFICATION_CATEGORIES) {
       const requiredPermission = NOTIFICATION_CATEGORY_PERMISSION[id];
-      const allowed = await userHasPermission(userId, requiredPermission);
+      const allowed = role ? await roleHasPermission(role, requiredPermission) : false;
       categories.push({
         id,
         label: CATEGORY_LABELS[id].label,
@@ -260,10 +258,13 @@ export const notificationsApp = new Hono()
           throw forbidden("notifications.foreign_channel", "channel does not belong to user");
         }
       }
-      // Permission re-check per category.
+      // Permission re-check per category. Load the role row once and reuse
+      // it across categories so we don't issue 1× lookup per category.
+      const role = await loadUserRole(userId);
+      if (!role) throw forbidden();
       const distinctCategories = [...new Set(updates.map((u) => u.category))];
       for (const cat of distinctCategories) {
-        if (!(await userHasPermission(userId, NOTIFICATION_CATEGORY_PERMISSION[cat]))) {
+        if (!(await roleHasPermission(role, NOTIFICATION_CATEGORY_PERMISSION[cat]))) {
           throw forbidden();
         }
       }
@@ -278,7 +279,7 @@ export const notificationsApp = new Hono()
   .get("/inbox", zValidator("query", inboxListQuerySchema), async (c) => {
     const userId = sessionUserId(c);
     const q = c.req.valid("query");
-    const cursor = decodeInboxCursor(q.cursor);
+    const cursor = decodeKeysetCursor(q.cursor);
     const items = await listInboxForUser(
       userId,
       { unreadOnly: q.unreadOnly, category: q.category, severity: q.severity },
@@ -288,7 +289,7 @@ export const notificationsApp = new Hono()
     const unreadCount = await getUnreadCount(userId);
     const nextCursor =
       items.length === q.limit && items.length > 0
-        ? encodeInboxCursor(items[items.length - 1]!.createdAt, items[items.length - 1]!.id)
+        ? encodeKeysetCursor(items[items.length - 1]!.createdAt, items[items.length - 1]!.id)
         : undefined;
     return c.json({
       items: items.map((row) => ({
@@ -354,21 +355,7 @@ export const adminNotificationsApp = new Hono()
   .use("*", requirePermission(PERMISSIONS.ADMIN_SERVER))
   .get("/deliveries", zValidator("query", adminDeliveriesQuerySchema), async (c) => {
     const q = c.req.valid("query");
-    const cursor = q.cursor
-      ? (() => {
-          try {
-            const decoded = Buffer.from(q.cursor!, "base64url").toString("utf8");
-            const sep = decoded.indexOf(":");
-            if (sep <= 0) throw new Error("malformed");
-            const createdAt = Number(decoded.slice(0, sep));
-            const id = decoded.slice(sep + 1);
-            if (Number.isNaN(createdAt) || !id) throw new Error("malformed");
-            return { createdAt, id };
-          } catch {
-            throw badRequest("notifications.bad_cursor", "invalid cursor");
-          }
-        })()
-      : undefined;
+    const cursor = decodeKeysetCursor(q.cursor);
     const rows = await listDeliveries(
       {
         ...(q.status ? { status: q.status } : {}),
@@ -383,9 +370,7 @@ export const adminNotificationsApp = new Hono()
     );
     const last = rows[rows.length - 1];
     const nextCursor =
-      rows.length === q.limit && last
-        ? Buffer.from(`${last.createdAt}:${last.id}`, "utf8").toString("base64url")
-        : undefined;
+      rows.length === q.limit && last ? encodeKeysetCursor(last.createdAt, last.id) : undefined;
     return c.json({
       deliveries: rows.map((r) => ({
         id: r.id,
@@ -436,22 +421,29 @@ export const adminNotificationsApp = new Hono()
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         eventPayload,
-        attempts: [],
+        // The design doc reserves an `attempts: AttemptRecord[]` field for a
+        // future per-attempt history table. None exists in v1, so the field
+        // is omitted rather than returned as a permanently empty array — the
+        // client can detect the absent field and hide the section.
       },
     });
   })
   .post("/deliveries/:id/retry", async (c) => {
-    const id = c.req.param("id");
-    const db = getDb();
-    const row = await db
-      .select({ id: notificationDeliveries.id })
-      .from(notificationDeliveries)
-      .where(eq(notificationDeliveries.id, id))
-      .get();
-    if (!row) throw notFound("notifications.delivery_not_found", "delivery not found");
+    const id = c.req.param("id") as string;
 
     const reset = await resetDeliveryForRetry(id);
-    if (!reset) throw notFound("notifications.delivery_not_found", "delivery not found");
+    if (reset === "not_found") {
+      throw notFound("notifications.delivery_not_found", "delivery not found");
+    }
+    if (reset === "in_progress") {
+      // Refuse to reset a row mid-flight — the in-flight job could complete
+      // and a re-enqueued job CAS-acquire the now-pending row, double-firing.
+      // The admin should wait for the in-flight attempt to settle.
+      throw conflict(
+        "notifications.delivery_in_progress",
+        "delivery is currently in flight; retry once it has settled",
+      );
+    }
 
     const jobEntry = find("notification.deliver");
     let rescheduled = false;

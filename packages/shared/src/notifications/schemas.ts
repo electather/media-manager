@@ -89,6 +89,11 @@ export const inboxListQuerySchema = z
 
 export const subscriptionUpdateBodySchema = z.object({ enabled: z.boolean() });
 
+// Upper-bound applied to the wire shape to bound parser memory; the route
+// returns 413 for `length > SUBSCRIPTION_BULK_LIMIT` (200) per the design
+// doc, so this ceiling sits above the application limit.
+export const SUBSCRIPTIONS_BULK_HARD_CEILING = 1000;
+
 export const subscriptionsBulkBodySchema = z.object({
   updates: z
     .array(
@@ -99,8 +104,18 @@ export const subscriptionsBulkBodySchema = z.object({
       }),
     )
     .min(1)
-    .max(200),
+    .max(SUBSCRIPTIONS_BULK_HARD_CEILING),
 });
+
+// Coerces query-string numbers (Hono parses query params as strings) and
+// rejects anything that does not produce a finite number. Without this guard
+// `?from=foo` would resolve to `NaN`, get passed unchanged to drizzle's
+// `gte`, and return whatever SQLite happens to compare NaN against.
+const optionalEpochMs = z
+  .union([z.number(), z.string()])
+  .optional()
+  .transform((v) => (v === undefined ? undefined : typeof v === "string" ? Number(v) : v))
+  .pipe(z.number().finite().optional());
 
 export const adminDeliveriesQuerySchema = z
   .object({
@@ -108,14 +123,8 @@ export const adminDeliveriesQuerySchema = z
     category: notificationCategorySchema.optional(),
     severity: notificationSeveritySchema.optional(),
     recipientUserId: z.string().min(1).optional(),
-    from: z
-      .union([z.number(), z.string()])
-      .optional()
-      .transform((v) => (v === undefined ? undefined : typeof v === "string" ? Number(v) : v)),
-    to: z
-      .union([z.number(), z.string()])
-      .optional()
-      .transform((v) => (v === undefined ? undefined : typeof v === "string" ? Number(v) : v)),
+    from: optionalEpochMs,
+    to: optionalEpochMs,
     cursor: z.string().optional(),
     limit: z
       .union([z.number(), z.string()])

@@ -693,8 +693,10 @@ GET  /api/notifications/inbox
          unreadCount: number;
        }
      Default limit 50, max 200.
-     `nextCursor` opaque to client: `base64url(<created_at_iso>:<id>)`,
+     `nextCursor` opaque to client: `base64url(<created_at_ms>|<id>)`,
      decoded server-side → `(created_at, id) < cursor` keyset predicate.
+     The `|` separator is required because epoch ms is interleaved with the
+     row id; same encoding is reused by `GET /admin/notifications/deliveries`.
      Stable across pagination even when new rows arrive at head.
 
 GET  /api/notifications/inbox/unread-count
@@ -728,11 +730,18 @@ GET  /api/admin/notifications/deliveries
      → { deliveries: Array<DeliveryRow>; nextCursor?: string }
 
 GET  /api/admin/notifications/deliveries/:id
-     → { delivery: DeliveryRow & { eventPayload: NotificationEvent; attempts: AttemptRecord[] } }
+     → { delivery: DeliveryRow & { eventPayload: NotificationEvent; attempts?: AttemptRecord[] } }
+     `attempts` is reserved for a future per-attempt history table and is
+     omitted in v1 until the table exists. Clients should treat the field as
+     optional rather than expect an empty array.
 
 POST /api/admin/notifications/deliveries/:id/retry
      → { ok: boolean; rescheduled: boolean }
-     Resets attempt_count to 0, schedules immediately.
+     Resets attempt_count to 0 (and clears last_error / last_error_code),
+     then schedules `notification.deliver` immediately. Refuses with 409
+     `notifications.delivery_in_progress` when the row is currently in
+     flight — the admin should wait for the current attempt to settle so
+     the re-enqueue does not race with an active plugin call.
 
 GET  /api/admin/notifications/settings
      → { inboxRetentionDays: number; deliveryRetentionDays: number }

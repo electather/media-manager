@@ -379,9 +379,15 @@ export async function listDeliveries(
     const keyset = or(lt(notificationDeliveries.createdAt, cursor.createdAt), tieBreaker);
     if (keyset) conditions.push(keyset);
   }
-  // Note: category/severity live inside `event_payload` JSON. For v1 we filter
-  // post-query when those are supplied; if dashboards become hot we add
-  // generated columns or denormalise.
+  // category/severity live inside `event_payload` JSON, so filter them
+  // post-query. We over-fetch by 2× limit as a heuristic — when the database
+  // window is dominated by non-matching rows the post-filter can return
+  // fewer than `limit` items even though more pages exist, and the caller
+  // will not produce a `nextCursor`. v1 admin volume is small; promote the
+  // fields to generated columns or a denormalised dashboard if pagination
+  // gaps become user-visible.
+  // TODO(notifications): denormalise category/severity onto
+  // notification_deliveries when admin volume grows.
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const rows = await db
     .select()
@@ -409,9 +415,23 @@ export async function listDeliveries(
   return out;
 }
 
-export async function resetDeliveryForRetry(id: string): Promise<boolean> {
+/** Result of an admin-triggered retry. `not_found` covers both missing rows
+ * and rows currently in flight (`in_progress`) — flipping the latter back to
+ * pending mid-flight could double-deliver because the delivery handler can't
+ * abort an in-progress plugin call. The admin can retry once the in-flight
+ * attempt has settled. */
+export type RetryResetResult = "reset" | "in_progress" | "not_found";
+
+export async function resetDeliveryForRetry(id: string): Promise<RetryResetResult> {
   const db = getDb();
-  const result = await db
+  const existing = await db
+    .select({ status: notificationDeliveries.status })
+    .from(notificationDeliveries)
+    .where(eq(notificationDeliveries.id, id))
+    .get();
+  if (!existing) return "not_found";
+  if (existing.status === "in_progress") return "in_progress";
+  await db
     .update(notificationDeliveries)
     .set({
       status: "pending",
@@ -420,7 +440,6 @@ export async function resetDeliveryForRetry(id: string): Promise<boolean> {
       lastErrorCode: null,
       updatedAt: Date.now(),
     })
-    .where(eq(notificationDeliveries.id, id))
-    .returning({ id: notificationDeliveries.id });
-  return result.length > 0;
+    .where(eq(notificationDeliveries.id, id));
+  return "reset";
 }

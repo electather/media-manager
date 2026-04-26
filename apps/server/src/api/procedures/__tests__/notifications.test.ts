@@ -40,7 +40,41 @@ vi.mock("../../../db/client", () => ({
 }));
 
 vi.mock("../../../auth/middleware", async () => {
+  // Reimplement the role / permission helpers against the in-memory db so
+  // tests drive permission semantics by seeding role_permissions rows. We
+  // avoid `importOriginal()` here because the real module pulls in
+  // better-auth, which fails to init under test env. The helpers are tiny
+  // and the duplication is intentional — keep the queries in lockstep with
+  // auth/middleware.ts when one of them changes.
   const { unauthorized } = await import("../../../errors/http-errors");
+  const { eq, and } = await import("drizzle-orm");
+  const { userRoles, roles, rolePermissions } = await import("../../../db/schema/roles");
+  type RoleInfo = { roleId: string; isSystemAdmin: boolean };
+  async function loadUserRole(userId: string): Promise<RoleInfo | null> {
+    const row = await db
+      .select({ roleId: userRoles.roleId, isSystem: roles.isSystem, name: roles.name })
+      .from(userRoles)
+      .innerJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(eq(userRoles.userId, userId))
+      .get();
+    if (!row) return null;
+    return { roleId: row.roleId, isSystemAdmin: row.isSystem === 1 && row.name === "Admin" };
+  }
+  async function roleHasPermission(role: RoleInfo, permission: string): Promise<boolean> {
+    if (role.isSystemAdmin) return true;
+    const allowed = await db
+      .select({ permission: rolePermissions.permission })
+      .from(rolePermissions)
+      .where(
+        and(eq(rolePermissions.roleId, role.roleId), eq(rolePermissions.permission, permission)),
+      )
+      .get();
+    return !!allowed;
+  }
+  async function userHasPermission(userId: string, permission: string): Promise<boolean> {
+    const r = await loadUserRole(userId);
+    return r ? roleHasPermission(r, permission) : false;
+  }
   return {
     requireSession: async (c: any, next: any) => {
       if (!mockUserId) throw unauthorized();
@@ -53,11 +87,14 @@ vi.mock("../../../auth/middleware", async () => {
       return session.user.id;
     },
     requirePermission: () => async (_c: any, next: any) => {
-      // Permission gate is enforced by the inner per-user lookup against
-      // role_permissions via userHasPermission(); this stub keeps the
-      // middleware out of the way so test arrangement controls the outcome.
+      // Outer requirePermission middleware is bypassed in tests because the
+      // real route handlers re-check the per-category permission. Tests
+      // arrange role_permissions rows to drive outcomes.
       await next();
     },
+    loadUserRole,
+    roleHasPermission,
+    userHasPermission,
   };
 });
 
@@ -279,10 +316,26 @@ describe("notifications HTTP — plugins endpoint", () => {
 });
 
 describe("notifications HTTP — bulk subscriptions", () => {
-  it("rejects payloads above SUBSCRIPTION_BULK_LIMIT with 400 (zod) before route runs", async () => {
+  it("rejects payloads above SUBSCRIPTION_BULK_LIMIT with 413", async () => {
     mockUserId = "u1";
     await seedUser("u1", ["account:connections"]);
     const updates = Array.from({ length: 201 }, () => ({
+      connectionId: "c1",
+      category: "media",
+      enabled: true,
+    }));
+    const res = await buildApp().request("/notifications/subscriptions/bulk", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ updates }),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("still rejects payloads above the parser hard ceiling with 400", async () => {
+    mockUserId = "u1";
+    await seedUser("u1", ["account:connections"]);
+    const updates = Array.from({ length: 1001 }, () => ({
       connectionId: "c1",
       category: "media",
       enabled: true,
@@ -436,7 +489,61 @@ describe("notifications HTTP — inbox listing & scoping", () => {
   });
 });
 
+describe("notifications HTTP — admin deliveries query validation", () => {
+  it("rejects non-numeric `from` with 400 instead of binding NaN to the query", async () => {
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/deliveries?from=notanumber");
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects non-numeric `to` with 400", async () => {
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/deliveries?to=foo");
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("notifications HTTP — admin retry resets and reschedules", () => {
+  it("refuses to retry a row currently in_progress with 409", async () => {
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    await db.insert(notificationDeliveries).values({
+      id: "d-inflight",
+      eventId: "e1",
+      eventType: "system.error",
+      eventPayload: JSON.stringify({ id: "e1", type: "system.error" }),
+      recipientConnectionId: null,
+      recipientUserId: "admin-1",
+      status: "in_progress",
+      attemptCount: 1,
+      lastError: null,
+      lastErrorCode: null,
+      providerMessageId: null,
+      correlationKey: null,
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const res = await buildApp().request("/admin/notifications/deliveries/d-inflight/retry", {
+      method: "POST",
+    });
+    expect(res.status).toBe(409);
+    const row = await db.select().from(notificationDeliveries).all();
+    // Row left untouched — attempt count and status unchanged.
+    expect(row[0]?.status).toBe("in_progress");
+    expect(row[0]?.attemptCount).toBe(1);
+  });
+
+  it("returns 404 for unknown delivery id", async () => {
+    mockUserId = "admin-1";
+    await seedUser("admin-1", ["admin:server"]);
+    const res = await buildApp().request("/admin/notifications/deliveries/missing/retry", {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("resets attempt_count to 0 and flips status back to pending", async () => {
     mockUserId = "admin-1";
     await seedUser("admin-1", ["admin:server"]);

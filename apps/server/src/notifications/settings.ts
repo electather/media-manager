@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { appConfig } from "../db/schema/errors";
 
@@ -66,6 +67,6 @@ export async function setNotificationSettings(input: {
       deliveryRetentionDays: next.deliveryRetentionDays,
       updatedAt: Date.now(),
     })
-    .run();
+    .where(eq(appConfig.id, APP_CONFIG_ID));
   return next;
 }
