@@ -117,7 +117,7 @@ async function handleDeliveryFailure(
   const isRetryable =
     error instanceof Error && "retryable" in error && typeof error.retryable === "boolean"
       ? error.retryable
-      : delivery.attemptCount < 2;
+      : delivery.attemptCount < 5;
 
   const errorCode =
     error instanceof Error && "code" in error ? String(error.code) : "unknown_error";

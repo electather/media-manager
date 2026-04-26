@@ -36,7 +36,7 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
     case "system.error":
       return {
         title: "System Error",
-        body: event.payload.message,
+        body: String(event.payload.message ?? "An error occurred"),
         severity: "error",
         category: "system",
       };

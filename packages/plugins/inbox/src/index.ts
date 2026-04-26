@@ -15,6 +15,7 @@ export const inboxPlugin = definePlugin({
       notificationDelivery: {
         version: "v1",
         scope: "user",
+        supportsKinds: ["text", "markdown", "image", "actions"],
       },
     },
     userConfigSchema: {
@@ -34,10 +35,10 @@ export const inboxPlugin = definePlugin({
           channelConfig: unknown;
         };
 
-        const userId = recipientUserId || "unknown";
+        if (!recipientUserId) throw new Error("recipientUserId required for inbox delivery");
 
         await (ctx as any).inbox.insert({
-          userId,
+          userId: recipientUserId,
           deliveryId: deliveryId ?? null,
           title: message.title,
           body: message.body,

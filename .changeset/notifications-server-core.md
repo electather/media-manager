@@ -3,4 +3,4 @@
 "@ent-mcp/plugin-inbox": minor
 ---
 
-Added server-side notification emission, delivery, and built-in in-app inbox with RBAC permission gating and durable retry.
+Added the in-app notification inbox so users can review activity alerts from one place.
