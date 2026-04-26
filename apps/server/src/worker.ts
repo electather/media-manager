@@ -14,6 +14,7 @@ import { pluginRuntime } from "./plugin-runtime/runtime";
 import { registerErrorSink } from "./errors/capture";
 import { DatabaseSink } from "./errors/database-sink";
 import { errorHandler } from "./errors/middleware";
+import { NotificationErrorSink } from "./notifications/error-sink";
 
 // Cloudflare Workers entry point. Diverges from `index.ts` by excluding the
 // pieces of the local server that don't work in the Workers runtime:
@@ -50,6 +51,7 @@ function ensureRuntimeReady(): Promise<void> {
   runtimeReady ??= (async () => {
     getDb();
     registerErrorSink(new DatabaseSink());
+    registerErrorSink(new NotificationErrorSink());
     await pluginRuntime.bootstrapBuiltins();
   })().catch((err) => {
     runtimeReady = undefined;

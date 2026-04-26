@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { resetErrorSinks } from "../../errors/capture";
 
+vi.mock("../../notifications/emit", () => ({
+  emit: async () => undefined,
+}));
+
 vi.mock("../history", () => ({
   startRun: async () => undefined,
   finishRun: async () => undefined,

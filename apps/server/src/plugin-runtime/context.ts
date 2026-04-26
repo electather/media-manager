@@ -1,5 +1,7 @@
+import { consola } from "consola";
 import { buildFetch, buildLogger } from "./fetch-policy";
 import { buildStore } from "./host-bridge";
+import { emit as hostEmit } from "../notifications/emit";
 import type { PluginContext, PoolSignalingApi } from "@ent-mcp/plugin-sdk";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 
@@ -33,6 +35,10 @@ export interface BuildContextArgs {
   userConfig?: unknown;
   globalConfig?: unknown;
   pool?: PoolSignalingApi;
+  /**
+   * Optional emit override; defaults to the host's `emit()`. Test contexts
+   * supply a stub when they want to assert envelopes without persisting.
+   */
   notify?: (event: Omit<NotificationEvent, "id" | "occurredAt">) => Promise<void>;
 }
 
@@ -54,6 +60,7 @@ export function buildContext(args: BuildContextArgs): PluginContext {
       args.adminHeaders,
     ),
     log: buildLogger(args.pluginId),
+    userId: args.userId,
     credentials: args.credentials ?? null,
     sharedCredentials: args.sharedCredentials ?? null,
     config: {
@@ -63,6 +70,24 @@ export function buildContext(args: BuildContextArgs): PluginContext {
     store: buildStore(args.pluginId, args.userId),
     pool: args.pool ?? INERT_POOL,
     appBaseUrl: args.appBaseUrl,
-    notify: args.notify ?? (async () => {}),
+    notify: args.notify ?? buildHostNotify(args.pluginId),
+  };
+}
+
+/**
+ * Produces the default `ctx.notify` that funnels plugin-emitted events into
+ * the host's `emit()`. Failures are logged via `consola` and never propagate
+ * — a misbehaving notification path must not break the plugin's primary
+ * operation.
+ */
+function buildHostNotify(
+  pluginId: string,
+): (event: Omit<NotificationEvent, "id" | "occurredAt">) => Promise<void> {
+  return async (event) => {
+    try {
+      await hostEmit(event);
+    } catch (err) {
+      consola.error(`[plugin:${pluginId}] ctx.notify failed:`, err);
+    }
   };
 }

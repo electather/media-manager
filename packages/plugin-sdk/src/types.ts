@@ -45,6 +45,13 @@ export interface PluginContext<
   fetch(url: string, init?: RequestInit): Promise<Response>;
   log: PluginLogger;
   /**
+   * The user this invocation is running on behalf of, or `null` for
+   * unauthenticated / global-scoped calls. Plugins use this when emitting
+   * user-targeted notifications (e.g. `connection.sync.succeeded` from a
+   * per-connection sync job needs the connection owner in `audience.userId`).
+   */
+  userId: string | null;
+  /**
    * User secrets injected for user-scoped calls. `null` for global-scoped
    * calls (the plugin should fall back to `sharedCredentials` in that case).
    */

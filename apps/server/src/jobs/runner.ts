@@ -1,8 +1,11 @@
+import { consola } from "consola";
 import { captureError } from "../errors/capture";
 import { runWithRequestContext, newRequestId } from "../errors/request-context";
+import { emit } from "../notifications/emit";
 import { getConfig } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
+import { isSyncJob, pluginIdFromJobId } from "./sync-classifier";
 import type { JobKind, JobRunStatus, JobTriggeredBy } from "@ent-mcp/shared/jobs";
 import type { CaptureMeta, JobRunContext } from "./types";
 
@@ -172,6 +175,13 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
     rowsFailed: override?.rowsFailed ?? null,
   });
 
+  await emitJobOutcome(req, {
+    runId,
+    status,
+    thrown,
+    rowsSucceeded: override?.rowsSucceeded ?? null,
+  });
+
   return { runId, status, result, error: thrown, durationMs };
 }
 
@@ -189,6 +199,72 @@ function resolveStatus(outcome: {
   if (outcome.timedOut) return "timed_out";
   if (outcome.thrown !== undefined) return "failed";
   return "succeeded";
+}
+
+/**
+ * Notification emit hook fired after every run finishes. Two events surface:
+ *   - `job.run.failed` for any non-success terminal status (admin audience).
+ *   - `connection.sync.succeeded` for sync-classified jobs whose user trigger
+ *     completed (user audience). Cron-fired runs (no `triggeredByUserId`) are
+ *     skipped silently per design.
+ *
+ * Emit failures must never propagate to the host operation — they are logged
+ * and swallowed.
+ */
+async function emitJobOutcome(
+  req: RunRequest,
+  outcome: { runId: string; status: JobRunStatus; thrown: unknown; rowsSucceeded: number | null },
+): Promise<void> {
+  if (
+    outcome.status === "failed" ||
+    outcome.status === "timed_out" ||
+    outcome.status === "partial_failure"
+  ) {
+    await safeEmit({
+      type: "job.run.failed",
+      category: "system",
+      severity: "error",
+      audience: { kind: "admin", permission: "admin:server" },
+      payload: {
+        jobId: req.jobId,
+        runId: outcome.runId,
+        error: errorMessageFrom(outcome.thrown) ?? outcome.status,
+      },
+    });
+    return;
+  }
+
+  if (outcome.status !== "succeeded") return;
+  if (!isSyncJob(req.kind)) return;
+  if (!req.triggeredByUserId) return;
+
+  const pluginId = pluginIdFromJobId(req.jobId) ?? "host";
+  const connectionId = req.scopeKey ?? "";
+  await safeEmit({
+    type: "connection.sync.succeeded",
+    category: "sync",
+    severity: "info",
+    audience: { kind: "user", userId: req.triggeredByUserId },
+    payload: {
+      connectionId,
+      pluginId,
+      itemCount: outcome.rowsSucceeded ?? 0,
+    },
+  });
+}
+
+async function safeEmit(event: Parameters<typeof emit>[0]): Promise<void> {
+  try {
+    await emit(event);
+  } catch (err) {
+    consola.error(`[runner] notification emit failed for ${event.type}:`, err);
+  }
+}
+
+function errorMessageFrom(err: unknown): string | null {
+  if (err === null || err === undefined) return null;
+  if (err instanceof Error) return err.message || err.name;
+  return typeof err === "string" ? err : null;
 }
 
 async function captureFailure(

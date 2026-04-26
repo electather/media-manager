@@ -20,6 +20,7 @@ import { pluginRuntime } from "./plugin-runtime/runtime";
 import { registerErrorSink } from "./errors/capture";
 import { DatabaseSink } from "./errors/database-sink";
 import { errorHandler } from "./errors/middleware";
+import { NotificationErrorSink } from "./notifications/error-sink";
 
 async function bootstrap(): Promise<void> {
   getDb();
@@ -29,6 +30,7 @@ async function bootstrap(): Promise<void> {
   // step instead and uses a separate Workers entry point.
   await runMigrations();
   registerErrorSink(new DatabaseSink());
+  registerErrorSink(new NotificationErrorSink());
   const orphaned = await markOrphanedRunsFailed();
   if (orphaned > 0) consola.warn(`[jobs] marked ${orphaned} orphaned run(s) as failed on startup`);
   registerBuiltinPlugins();

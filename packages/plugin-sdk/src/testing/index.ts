@@ -58,6 +58,7 @@ export function makeTestContext(opts: MakeTestContextOptions = {}): TestContext 
       return next;
     },
     log: { debug() {}, info() {}, warn() {}, error() {} },
+    userId: null,
     credentials: null,
     sharedCredentials: null,
     config: { global: null, user: null },

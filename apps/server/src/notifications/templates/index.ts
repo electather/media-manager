@@ -8,14 +8,14 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
     case "connection.auth.expired":
       return {
         title: "Auth Expired",
-        body: `Authentication for connection expired. Please re-authenticate.`,
+        body: `Authentication for ${String(event.payload.pluginId ?? "connection")} expired. Please re-authenticate.`,
         severity: "warn",
         category: "auth",
       };
     case "connection.sync.succeeded":
       return {
         title: "Sync Complete",
-        body: `Sync completed successfully with ${Number(event.payload.itemCount ?? 0)} items.`,
+        body: `Sync completed successfully with ${String(event.payload.itemCount ?? 0)} items.`,
         severity: "info",
         category: "sync",
       };
@@ -25,6 +25,14 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
         body: "Your requested media is now available.",
         severity: "info",
         category: "media",
+        ...(event.payload.posterUrl
+          ? {
+              image: {
+                url: String(event.payload.posterUrl),
+                alt: String(event.payload.title ?? ""),
+              },
+            }
+          : {}),
       };
     case "media.request.denied":
       return {
@@ -36,7 +44,7 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
     case "system.error":
       return {
         title: "System Error",
-        body: String(event.payload.message ?? "An error occurred"),
+        body: `${String(event.payload.errorSource ?? "system")}: ${String(event.payload.message ?? "An error occurred")}`,
         severity: "error",
         category: "system",
       };

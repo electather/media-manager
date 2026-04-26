@@ -156,6 +156,94 @@ function mapRequestStatus(
   }
 }
 
+interface SeerrRequestRow {
+  id: number;
+  type: "movie" | "tv";
+  status: number;
+  createdAt: string;
+  media: { tmdbId: number; title?: string; originalTitle?: string; posterPath?: string };
+}
+
+/**
+ * Fetches every request page from Seerr. Shared between the `listRequests`
+ * capability and the per-connection sync job.
+ */
+async function fetchAllRequests(ctx: Ctx): Promise<SeerrRequestRow[]> {
+  const PAGE_SIZE = 100;
+  const all: SeerrRequestRow[] = [];
+  let skip = 0;
+  while (true) {
+    const data = await seerrGet<{ results: SeerrRequestRow[] }>(
+      ctx,
+      `/request?take=${PAGE_SIZE}&skip=${skip}`,
+    );
+    all.push(...data.results);
+    if (data.results.length < PAGE_SIZE) break;
+    skip += PAGE_SIZE;
+  }
+  return all;
+}
+
+const REQUEST_STATUS_STORE_KEY = "seerr.requestStatuses.v1";
+
+/**
+ * Per-connection job that detects request-status transitions in Seerr and
+ * emits `media.request.available` / `media.request.denied` events.
+ *
+ * State is kept in `ctx.store` keyed per connection (the host scopes the
+ * store by user automatically). On the first run for a connection no events
+ * fire — the job simply records the baseline. Subsequent runs emit when a
+ * request transitions into the `available` or `failed` terminal states.
+ *
+ * Emits run via `ctx.notify` so the host's `emit()` handles enrichment,
+ * permission gating, and delivery scheduling. Emit failures are logged by
+ * the host wrapper and do not break the sweep.
+ */
+async function syncRequestStatuses(ctx: Ctx): Promise<void> {
+  if (!ctx.userId) return;
+
+  const prior = ((await ctx.store.get(REQUEST_STATUS_STORE_KEY, { scope: "user" })) ??
+    {}) as Record<string, string>;
+  const requests = await fetchAllRequests(ctx);
+  const next: Record<string, string> = {};
+  const isFirstRun = Object.keys(prior).length === 0;
+
+  for (const row of requests) {
+    const id = String(row.id);
+    const status = mapRequestStatus(row.status);
+    next[id] = status;
+
+    if (isFirstRun) continue;
+    if (prior[id] === status) continue;
+
+    const title = row.media.title ?? row.media.originalTitle ?? "";
+    const mediaId = String(row.media.tmdbId);
+    const posterUrl = row.media.posterPath
+      ? `https://image.tmdb.org/t/p/w500${row.media.posterPath}`
+      : undefined;
+
+    if (status === "available") {
+      await ctx.notify({
+        type: "media.request.available",
+        category: "media",
+        severity: "info",
+        audience: { kind: "user", userId: ctx.userId },
+        payload: { requestId: id, mediaId, title, ...(posterUrl ? { posterUrl } : {}) },
+      });
+    } else if (status === "failed") {
+      await ctx.notify({
+        type: "media.request.denied",
+        category: "media",
+        severity: "warn",
+        audience: { kind: "user", userId: ctx.userId },
+        payload: { requestId: id, mediaId, title, ...(posterUrl ? { posterUrl } : {}) },
+      });
+    }
+  }
+
+  await ctx.store.set(REQUEST_STATUS_STORE_KEY, next, { scope: "user" });
+}
+
 export default definePlugin({
   manifest: {
     id: "seerr",
@@ -207,6 +295,16 @@ export default definePlugin({
       mediaRequest: { version: "v1", scope: "user" },
     },
     poolable: false,
+    jobs: [
+      {
+        id: "requestStatusSync",
+        // Every 5 minutes; matches the polling cadence the design assumes for
+        // request status notifications.
+        schedule: "*/5 * * * *",
+        handler: "syncRequestStatuses",
+        perConnection: true,
+      },
+    ],
   },
 
   async startAuth(ctx, input): Promise<AuthResult> {
@@ -353,25 +451,7 @@ export default definePlugin({
       },
 
       async listRequests(ctx, _input) {
-        type RequestItem = {
-          id: number;
-          type: "movie" | "tv";
-          status: number;
-          createdAt: string;
-          media: { tmdbId: number; title?: string; originalTitle?: string };
-        };
-        const PAGE_SIZE = 100;
-        const all: RequestItem[] = [];
-        let skip = 0;
-        while (true) {
-          const data = await seerrGet<{ results: RequestItem[] }>(
-            ctx as Ctx,
-            `/request?take=${PAGE_SIZE}&skip=${skip}`,
-          );
-          all.push(...data.results);
-          if (data.results.length < PAGE_SIZE) break;
-          skip += PAGE_SIZE;
-        }
+        const all = await fetchAllRequests(ctx as Ctx);
         return all.map((r) => ({
           id: String(r.id),
           tmdbId: String(r.media.tmdbId),
@@ -382,5 +462,8 @@ export default definePlugin({
         }));
       },
     },
+  },
+  jobs: {
+    syncRequestStatuses: (ctx) => syncRequestStatuses(ctx as Ctx),
   },
 });
