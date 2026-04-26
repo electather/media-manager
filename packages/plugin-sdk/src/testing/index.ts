@@ -137,15 +137,23 @@ export function paginatedPage(
 export function createTestNotificationContext(
   opts: MakeTestContextOptions = {},
 ): TestNotificationContext {
-  const base = makeTestContext(opts);
   const emittedNotifications: Omit<NotificationEvent, "id" | "occurredAt">[] = [];
+
+  const base = makeTestContext({
+    ...opts,
+    overrides: {
+      ...opts.overrides,
+      notify:
+        opts.overrides?.notify ||
+        (async (event) => {
+          emittedNotifications.push(event);
+        }),
+    },
+  });
 
   const ctx: TestNotificationContext = {
     ...base,
     emittedNotifications,
-    notify: async (event) => {
-      emittedNotifications.push(event);
-    },
   };
   return ctx;
 }
