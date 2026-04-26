@@ -46,13 +46,15 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 
 ### I.plugin — Plugin SDK (`@ent-mcp/plugin-sdk`)
 
-Capabilities versioned: `metadata@v1`, `watchHistory@v1`, `watchlist@v1`, `ratings@v1`, `recommendations@v1`, `calendar@v1`, `mediaRequest@v1`, `idResolve@v1`, `notificationDelivery@v1`.
+Capabilities versioned: `metadata@v1`, `watchHistory@v1`, `watchlist@v1`, `ratings@v1`, `recommendations@v1`, `calendar@v1`, `mediaRequest@v1`, `idResolve@v1` (mixed-scope), `userComments@v1`, `watchProviders@v1`, `trailers@v1`, `playback@v1`, `collection@v1`, `libraryAvailability@v1`, `playbackSessions@v1`, `continueWatching@v1`, `libraryAdmin@v1`, `notificationDelivery@v1`.
 Auth kinds: `form` | `oauth_redirect` | `oauth_device` | `none`.
-Scope: `global` (admin creds, shared pool) | `user` (per-connection creds).
+Scope: `global` (admin creds, shared pool) | `user` (per-connection creds) | `mixed` (`idResolve@v1` — classifier routes per input).
 `ctx.fetch` — single network surface; gated by manifest allowlist + admin allowlist intersection.
 `ctx.notify(event)` — emit notification to owning user.
 `ctx.store` — plugin-scoped KV, namespaced by `(pluginId, userId, key)`.
 `ctx.log` — structured logger; tagged with `requestId`.
+`ctx.pool.markExhausted({ retryAfterSec? })` — signal host current credential rate-limited; host rotates + retries within same call.
+`ctx.appBaseUrl` — host external URL (`APP_EXTERNAL_URL`); plugins build OAuth `redirect_uri` from this only.
 
 ### I.deploy — deployment
 
@@ -62,15 +64,23 @@ Scope: `global` (admin creds, shared pool) | `user` (per-connection creds).
 
 ### I.notifications — notification events (v1)
 
-`media.available`, `sync.completed`, `sync.failed`, `auth.expired`, `job.failed`, `system.error`.
-Channels: `inbox` (in-app), `ntfy`, `telegram`, `discord`.
-Categories: `media` | `sync` | `auth` | `system`.
+Events: `job.run.failed`, `connection.auth.expired`, `connection.sync.succeeded`, `media.request.available`, `media.request.denied`, `system.error`.
+Channels: `inbox` (built-in, host-privileged), `ntfy`, `telegram`, `discord`.
+Categories: `media` | `sync` | `auth` | `system`. Category→permission map in `NOTIFICATION_CATEGORY_PERMISSION`.
+Delivery: per-row `notification_deliveries` table, CAS lock (`pending→in_progress`), exponential retry `[60s, 5m, 30m, 2h, 12h]` capped 6 total attempts. Stale-pending sweep every 5 min.
+Subscription captured at emit time. Already-queued delivery fires even if user disables subscription after emit.
+HTTP user: `/api/notifications/{inbox,channels,subscriptions,plugins,categories}`.
+HTTP admin: `/api/admin/notifications/{deliveries,settings}`.
+Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 
 ### I.home — home feed procedures
 
-- `home.getLayout` → `HomeLayoutResponse` (hero + rows with first-page items inlined).
-- `home.getRowContent` → `RowContentResponse` (paginated scroll).
+- `home.getLayout` → `HomeLayoutResponse { hero: LayoutHero|null, rows: HomeRow[], generatedAt }`.
+- `home.getRowContent(rowId, cursor)` → `RowContentResponse { items, cursor, partial? }`.
   Seven row kinds: `continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`.
+  `LayoutHero { item: CompactMediaItem, source: RowKind, reason, resumeUrl: string|null }`.
+  `HomeRow.titleOverride` set when hero exclusion shifts row meaning.
+  Error codes: `home.bad_input` (invalid rowId/cursor), `home.row_unavailable` (row no longer eligible mid-session), `home.internal` (captured infra fault).
 
 ## §V Invariants
 
@@ -86,30 +96,48 @@ Categories: `media` | `sync` | `auth` | `system`.
 - V10. Row fetchers access only `RowFetchContext` (MediaService + PreferenceEngine + dataloader). Plugin runtime, credentials, raw DB are out of reach.
 - V11. `becauseYouWatched` seed threaded through opaque cursor. Fetcher reads seed from cursor always; never branches on "cursor null → look up elsewhere." `RowFetchContext` does not expose signal snapshot.
 - V12. `@ent-mcp/shared` has no runtime deps besides `zod`. Any symbol crossing server/client boundary lives in shared. Drizzle tables, server-internal interfaces stay on server.
-- V13. Every published package (non-`shared`) needs a `.changeset/<slug>.md` per PR or CI fails. Internal-only changes use empty frontmatter.
-- V14. `vp check` + `vp test` pass before every commit.
-- V15. `notifications.emit()` sole entry point for notification dispatch. All call sites (job runner hooks, `ctx.notify()`, server modules) go through it. Delivery durable: every dispatch persisted + retried on transient fail.
-- V16. User-facing connections list excludes pure-global plugins (those with no `userScopedCapabilities`). Pure-global plugin surface is admin-only.
+- V13. `notifications.emit()` sole entry point for notification dispatch. All call sites (job runner hooks, `ctx.notify()`, server modules) go through it. Delivery durable: every dispatch persisted + retried on transient fail.
+- V14. User-facing connections list excludes pure-global plugins (those with no `userScopedCapabilities`). Pure-global plugin surface is admin-only.
+- V15. Home feed cursors Zod-validated before any business logic. Malformed base64, version mismatch, rowId mismatch, oversized fields → `home.bad_input`. Zod rejects before allocation to prevent crafted-cursor DoS.
+- V16. Hero pipeline order: fetch all rows → `resolveHero` → `applyHeroExclusion` → `dropEmpty` → wire shape. `applyHeroExclusion` runs before `dropEmpty` so rows emptied by hero exclusion are still dropped.
+- V17. RBAC double-gated on notifications. UI hides categories user lacks permission for. `resolveRecipients()` re-checks permission before writing delivery row. Both gates required — defense in depth.
+- V18. Delivery handler acquires row via CAS: `UPDATE notification_deliveries SET status='in_progress' WHERE id=:id AND status='pending'`. Zero rows → exit immediately, no duplicate `deliver()` call. Stale `in_progress` rows (>2 min) reset to `pending` by sweep every 5 min.
+- V19. v2 bus migration zero-footprint on callers. `emit()` signature, all call sites, all plugin code, all DB tables, full HTTP surface unchanged. Only `emit()` body replaced by `bus.publish()`. Zero call-site changes required.
+- V20. Plugin bundles declare `@ent-mcp/plugin-sdk` as `pack.external`. SDK ⊥ inlined — single shared instance required; `instanceof PluginError` across server/plugin boundary breaks if each plugin ships own copy.
+- V21. Plugin packages use conditional exports: `development` → `src/index.ts` (Bun resolves TS), `default` → `dist/plugin.js`, `types` → `dist/plugin.d.ts`. ⊥ "bundle not yet built" fallback — dev always TS source, prod always prebuilt.
+- V22. `scripts/check-plugin-deps.ts` wired into `vp check`; CI fails if any file under `packages/plugins/*` imports from `@ent-mcp/shared` or `@ent-mcp/server` directly. Plugins reach those only via SDK re-exports.
+- V23. `scripts/check-sdk-compat.ts` wired into `vp check`; CI fails if any plugin `manifest.sdkVersion` semver range does not satisfy current SDK `package.json` version. Catches "bumped SDK major, forgot to widen plugin ranges."
+- V24. `personalKeyFallback` fallback always scoped to requesting user. Admin-pool pick per-user-request only; ⊥ cross-user credential mixing ever.
+- V25. Connection create rejected when validated creds payload resolves to empty object for plugin with `credentialsSchema`. ⊥ parked connections.
+- V26. `idResolve@v1` scope classifier: `from` ∋ `:` → `"user"` scope; else → `"global"`. Classifier called once per dispatch; result threads through both provider lookup and cache key. Server-local handles ⊥ pollute global cache.
+- V27. OAuth 2.1 JWT validated before MCP tool dispatch. ∀ tool handler unreachable w/o valid token. Auth check ∈ transport layer; runs before tool routing — ⊥ handler reachable unauthenticated.
+- V28. `config.public` sole unauthenticated endpoint. ∀ other routes & procedures → valid session | JWT required. ⊥ accidental info leak when adding new routes.
+- V29. `me.accountDelete` cascades ∀ user-owned rows: connections, `notification_deliveries`, preferences, activity, watchlist, ratings, feedback, errors. ⊥ orphaned user data post-deletion.
 
 ## §T Tasks
 
-| id  | status | desc                                                                     | cites                 |
-| --- | ------ | ------------------------------------------------------------------------ | --------------------- |
-| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch            | I.plugin              |
-| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk       | I.plugin,C8           |
-| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                     | I.api,V1              |
-| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                    | I.mcp,V1              |
-| T5  | ✓      | Error management — capture, codes, correlation, admin viewer             | V5,V6                 |
-| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                   | I.api                 |
-| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job             | V8,C1                 |
-| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`) | I.api,I.plugin        |
-| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                  | V2,V3,V4,I.api        |
-| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord        | I.notifications,V15   |
-| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)         | I.api                 |
-| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                | I.deploy,C6           |
-| T13 | x      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures       | I.home,V9,V10,V11,V12 |
-| T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal        | I.home,T13            |
-| T15 | x      | `home` subpath export in `@ent-mcp/shared`                               | V12,T13               |
+| id  | status | desc                                                                                                              | cites                 |
+| --- | ------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
+| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch                                                     | I.plugin              |
+| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk                                                | I.plugin,C8           |
+| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                                                              | I.api,V1              |
+| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                                                             | I.mcp,V1              |
+| T5  | ✓      | Error management — capture, codes, correlation, admin viewer                                                      | V5,V6                 |
+| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                                                            | I.api                 |
+| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job                                                      | V8,C1                 |
+| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`)                                          | I.api,I.plugin        |
+| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                                                           | V2,V3,V4,I.api        |
+| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord                                                 | I.notifications,V15   |
+| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)                                                  | I.api                 |
+| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                                                         | I.deploy,C6           |
+| T13 | ✓      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures                                                | I.home,V9,V10,V11,V12 |
+| T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal                                                 | I.home,T13,T16        |
+| T15 | ✓      | `home` subpath export in `@ent-mcp/shared`                                                                        | V12,T13               |
+| T16 | .      | Decide `resumeUrl` capability: `watchHistory@v1` ext vs new `playback@v1`                                         | I.home,T13            |
+| T17 | .      | `@ent-mcp/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                    | C8,V23                |
+| T18 | .      | Per-plugin extraction — TVDB, TMDB, Seerr, Trakt, Plex, Jellyfin → `packages/plugins/<id>/`; delete builtin/ husk | C8,V22,V23,V24        |
+| T19 | .      | Boundary lint + SDK-compat CI checks wired into `vp check`                                                        | V24,V25               |
+| T20 | .      | Release workflow — GHCR Docker push (server), `dist/*` assets on plugin + SDK GitHub Releases                     | I.deploy              |
 
 ## §B Bugs
 
