@@ -881,3 +881,5 @@ export function getCapability(
 export function listCapabilities(): Array<(typeof CAPABILITY_CATALOG)[CapabilityKey]> {
   return Object.values(CAPABILITY_CATALOG);
 }
+
+export type { NotificationDeliveryCapabilityV1 } from "./notification-delivery";

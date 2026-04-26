@@ -6,6 +6,7 @@
  */
 
 import type { PluginContext } from "../types";
+import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 
 export interface FakeCall {
   url: string;
@@ -28,6 +29,11 @@ export interface MakeTestContextOptions {
 export interface TestContext extends PluginContext {
   /** Each fetch invocation is recorded so tests can assert request URLs and bodies. */
   calls: FakeCall[];
+}
+
+export interface TestNotificationContext extends TestContext {
+  /** Track emitted notifications for assertion in tests. */
+  emittedNotifications: Omit<NotificationEvent, "id" | "occurredAt">[];
 }
 
 /**
@@ -73,6 +79,7 @@ export function makeTestContext(opts: MakeTestContextOptions = {}): TestContext 
     },
     pool: { markExhausted() {} },
     appBaseUrl: "https://app.example.com",
+    notify: async () => {},
     ...overrides,
   } as TestContext;
 
@@ -120,4 +127,33 @@ export function paginatedPage(
       "x-pagination-item-count": String(itemCount ?? 0),
     },
   });
+}
+
+/**
+ * Builds a `PluginContext` with notification tracking for tests. Captures
+ * all emitted notifications in `emittedNotifications` for assertion.
+ * Inherits all other testing helpers from `makeTestContext`.
+ */
+export function createTestNotificationContext(
+  opts: MakeTestContextOptions = {},
+): TestNotificationContext {
+  const emittedNotifications: Omit<NotificationEvent, "id" | "occurredAt">[] = [];
+
+  const base = makeTestContext({
+    ...opts,
+    overrides: {
+      ...opts.overrides,
+      notify:
+        opts.overrides?.notify ||
+        (async (event) => {
+          emittedNotifications.push(event);
+        }),
+    },
+  });
+
+  const ctx: TestNotificationContext = {
+    ...base,
+    emittedNotifications,
+  };
+  return ctx;
 }
