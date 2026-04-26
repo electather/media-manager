@@ -15,17 +15,6 @@ export interface Recipient {
   userId: string;
 }
 
-async function userHasPermission(userId: string, permission: string): Promise<boolean> {
-  const db = getDb();
-  const result = await db
-    .select({ permission: rolePermissions.permission })
-    .from(rolePermissions)
-    .innerJoin(userRoles, eq(rolePermissions.roleId, userRoles.roleId))
-    .where(and(eq(userRoles.userId, userId), eq(rolePermissions.permission, permission)))
-    .get();
-  return !!result;
-}
-
 export async function resolveRecipients(event: NotificationEvent): Promise<Recipient[]> {
   const db = getDb();
 
@@ -65,17 +54,28 @@ export async function resolveRecipients(event: NotificationEvent): Promise<Recip
     )
     .all();
 
-  const recipients: Recipient[] = [];
+  // Defense in depth: batch re-check that users still have category permission at dispatch time.
   const requiredPermission = NOTIFICATION_CATEGORY_PERMISSION[event.category];
+  const connUserIds = conns.map((r) => r.service_connections.userId);
 
-  for (const row of conns) {
-    const conn = row.service_connections;
-    // Defense in depth: re-check user has category permission at dispatch time.
-    const hasPermission = await userHasPermission(conn.userId, requiredPermission);
-    if (hasPermission) {
-      recipients.push({ connectionId: conn.id, userId: conn.userId });
-    }
-  }
+  const authorizedRows = await db
+    .select({ userId: userRoles.userId })
+    .from(rolePermissions)
+    .innerJoin(userRoles, eq(rolePermissions.roleId, userRoles.roleId))
+    .where(
+      and(
+        inArray(userRoles.userId, connUserIds),
+        eq(rolePermissions.permission, requiredPermission),
+      ),
+    )
+    .all();
 
-  return recipients;
+  const authorizedIds = new Set(authorizedRows.map((r) => r.userId));
+
+  return conns
+    .filter((r) => authorizedIds.has(r.service_connections.userId))
+    .map((r) => ({
+      connectionId: r.service_connections.id,
+      userId: r.service_connections.userId,
+    }));
 }

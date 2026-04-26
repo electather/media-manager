@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { notificationDeliveries, serviceConnections } from "../db/schema";
 import { env } from "../env";
@@ -20,13 +20,23 @@ export function registerDeliveryJob() {
       const { deliveryId } = input;
       const db = getDb();
 
-      const delivery = await db
-        .select()
-        .from(notificationDeliveries)
-        .where(eq(notificationDeliveries.id, deliveryId))
+      // Atomic CAS: only proceed if we can transition from pending to in_progress.
+      // Prevents duplicate delivery if sweep retriggers during flight.
+      const updated = await db
+        .update(notificationDeliveries)
+        .set({ status: "in_progress", updatedAt: Date.now() })
+        .where(
+          and(
+            eq(notificationDeliveries.id, deliveryId),
+            eq(notificationDeliveries.status, "pending"),
+          ),
+        )
+        .returning()
         .get();
 
-      if (!delivery || delivery.status !== "pending") return;
+      if (!updated) return;
+
+      const delivery = updated;
 
       const event = JSON.parse(delivery.eventPayload) as NotificationEvent;
       const message = renderTemplate(event, "en");

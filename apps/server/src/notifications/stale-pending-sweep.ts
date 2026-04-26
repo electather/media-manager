@@ -1,4 +1,4 @@
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { notificationDeliveries } from "../db/schema";
 import { find } from "../jobs/registry";
@@ -20,7 +20,10 @@ export function registerStalePendingSweep() {
         .from(notificationDeliveries)
         .where(
           and(
-            eq(notificationDeliveries.status, "pending"),
+            or(
+              eq(notificationDeliveries.status, "pending"),
+              eq(notificationDeliveries.status, "in_progress"),
+            ),
             lt(notificationDeliveries.updatedAt, twoMinutesAgo),
           ),
         )

@@ -6,7 +6,12 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 export const NOTIFICATION_SEVERITIES = ["info", "warn", "error"] as const;
 export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 
-export const NOTIFICATION_DELIVERY_STATUSES = ["pending", "succeeded", "failed"] as const;
+export const NOTIFICATION_DELIVERY_STATUSES = [
+  "pending",
+  "in_progress",
+  "succeeded",
+  "failed",
+] as const;
 export type NotificationDeliveryStatus = (typeof NOTIFICATION_DELIVERY_STATUSES)[number];
 
 export const NOTIFICATION_CONTENT_KINDS = ["text", "markdown", "image", "actions"] as const;

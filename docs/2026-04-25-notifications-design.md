@@ -741,7 +741,7 @@ Permission: `ADMIN_SERVER`.
 - **Shared:** event registry exhaustiveness, category-permission map coverage, audience union schema rejection.
 - **Plugin SDK:** `createTestNotificationContext()` helper; `notify()` plumbing on plugin with capability.
 - **∀ first-party plugins:** happy path, retryable failure (5xx, 429), non-retryable failure (401, 403), `testDelivery()`, content-kind handling, golden-file payload snapshots per event type.
-- **Server:** `emit()` validation & persistence, `resolveRecipients()` matrix (audience × subscription × permission × enabled), delivery job (success, retry, terminal-fail, dropped-mid-flight), inbox plugin transactional behaviour.
+- **Server:** (PR 5) `emit()` validation & persistence, `resolveRecipients()` matrix (audience × subscription × permission × enabled), delivery job (success, retry, terminal-fail, dropped-mid-flight), inbox plugin transactional behaviour.
 
 ### Integration tests
 
