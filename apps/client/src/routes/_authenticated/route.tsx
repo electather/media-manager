@@ -1,7 +1,10 @@
 import { createFileRoute, isRedirect, Outlet, redirect } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth";
+import { peekSchema } from "@/lib/home-display";
+import { MediaDetailModal } from "@/components/home/media-detail-modal";
 
 export const Route = createFileRoute("/_authenticated")({
+  validateSearch: peekSchema,
   beforeLoad: async ({ location }) => {
     try {
       const { data: session } = await authClient.getSession();
@@ -18,5 +21,14 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/auth/login" });
     }
   },
-  component: Outlet,
+  component: AuthenticatedLayout,
 });
+
+function AuthenticatedLayout() {
+  return (
+    <>
+      <Outlet />
+      <MediaDetailModal />
+    </>
+  );
+}
