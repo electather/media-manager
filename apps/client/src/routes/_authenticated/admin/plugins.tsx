@@ -92,8 +92,7 @@ function AdminPluginsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Plugins</h1>
           <p className="mt-1.5 max-w-[64ch] text-sm text-muted-foreground">
             Manage plugins that provide external service integrations. Toggle individual plugins,
-            edit shared credentials inline, set the personal key fallback policy, and uninstall
-            third-party plugins.
+            edit shared credentials inline, and uninstall third-party plugins.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => setModal({ kind: "install-stub" })}>
@@ -178,6 +177,10 @@ function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: Plugi
   const hasUserScoped = userScoped.length > 0;
   const hasGlobalScoped = globalScoped.length > 0;
   const showPoolMeta = hasSharedCredentialsSchema && plugin.sharedCredentialsCount > 0;
+  // The dropdown body only ever holds "Configure global config" and "Uninstall".
+  // Built-ins without a global config schema (Trakt) would render an empty
+  // popover, so suppress the trigger entirely in that case.
+  const hasMenuItems = hasGlobalConfigSchema || !plugin.isBuiltin;
   const capabilityHint: "global-only" | "user-fallback" | "global-and-fallback" = hasGlobalScoped
     ? hasUserScoped
       ? "global-and-fallback"
@@ -228,31 +231,29 @@ function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: Plugi
                 aria-label={plugin.enabled ? "Disable plugin" : "Enable plugin"}
               />
             </label>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label="More actions"
-                className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <MoreHorizontalIcon className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {hasGlobalConfigSchema ? (
-                  <DropdownMenuItem onClick={onConfigureGlobal}>
-                    <CogIcon /> Configure global config
-                  </DropdownMenuItem>
-                ) : null}
-                {/* `Set personal key fallback…` lives inline on the card now,
-                    so the design doc's dropdown item is intentionally absent. */}
-                {!plugin.isBuiltin ? (
-                  <>
-                    <DropdownMenuSeparator />
+            {hasMenuItems ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label="More actions"
+                  className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <MoreHorizontalIcon className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {hasGlobalConfigSchema ? (
+                    <DropdownMenuItem onClick={onConfigureGlobal}>
+                      <CogIcon /> Configure global config
+                    </DropdownMenuItem>
+                  ) : null}
+                  {hasGlobalConfigSchema && !plugin.isBuiltin ? <DropdownMenuSeparator /> : null}
+                  {!plugin.isBuiltin ? (
                     <DropdownMenuItem variant="destructive" onClick={onUninstall}>
                       <TrashIcon /> Uninstall
                     </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </CardAction>
       </CardHeader>
@@ -318,15 +319,18 @@ function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: Plugi
           />
         ) : null}
 
-        {/* The fallback policy only does anything when both an admin pool
-            (`sharedCredentialsSchema`) and user keys (a user-scoped
-            capability) coexist. Plugins like Plex / Jellyfin / Seerr declare
-            no `sharedCredentialsSchema` at all — there's nothing to fall
-            back to or from, so rendering the control would suggest an
-            option the admin can't actually use. Pure-global plugins (TMDB
-            / TVDB) keep the disabled-with-tooltip path so the affordance
-            still surfaces, but read-only. */}
-        {hasSharedCredentialsSchema && (hasUserScoped || plugin.isPureGlobal) ? (
+        {/* The fallback policy is only meaningful when admin shared
+            credentials can substitute for user credentials on a capability
+            call. Under the current manifest schema that means
+            `auth.kind: "none"` plugins — equivalent to `isPureGlobal` —
+            where shared creds (e.g. a TMDB API key) directly satisfy every
+            call. For OAuth plugins like Trakt, `sharedCredentialsSchema`
+            holds the OAuth app config, which the runtime cannot feed to a
+            user-scoped capability handler in place of the user's tokens, so
+            surfacing the policy there would suggest an option that breaks
+            the call. Pure-global plugins still render the control disabled
+            with a tooltip so the affordance documents the concept. */}
+        {hasSharedCredentialsSchema && plugin.isPureGlobal ? (
           <PersonalKeyFallbackControl
             pluginId={plugin.id}
             policy={plugin.personalKeyFallback}
