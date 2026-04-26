@@ -72,6 +72,28 @@ Categories: `media` | `sync` | `auth` | `system`.
 - `home.getRowContent` → `RowContentResponse` (paginated scroll).
   Seven row kinds: `continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`.
 
+### I.theme — design system tokens
+
+Source: Figma `icLS0oZe6eQL0hRj8Go8Zm` node `31:21`. Hex sampled, oklch at token boundary.
+v1 dark only. Light deferred. Sans = Geist Variable. Mono = Geist Mono.
+Map Figma palette onto existing shadcn token names; no new vars.
+
+Dark map:
+
+- bg `#0f1018` → `--background` = `oklch(17.60% 0.017 278.99)`
+- surface `#12131c` → `--card`, `--popover`, `--sidebar` = `oklch(19.01% 0.018 279.56)`
+- raised `#181922` → `--accent`, `--sidebar-accent` = `oklch(21.66% 0.018 279.84)`
+- secondary `#20212c` → `--secondary` = `oklch(25.17% 0.021 280.72)`
+- border `#252631` → `--border`, `--sidebar-border` = `oklch(27.24% 0.020 280.87)`
+- input `#2f303e` → `--input` = `oklch(31.42% 0.025 281.65)`
+- track `#37394d` → `--muted` = `oklch(35.13% 0.035 279.99)`
+- text-hi `#ffffff` → `--foreground`, `--sidebar-foreground` = `oklch(100% 0 0)`
+- text-card `#cacbd6` → `--card-foreground`, `--popover-foreground`, `--secondary-foreground`, `--accent-foreground`, `--sidebar-accent-foreground` = `oklch(84.46% 0.015 281.91)`
+- text-meta `#8f91a5` (absorbs `Icon/Secondary` `#8b8da4`) → `--muted-foreground` = `oklch(66.17% 0.030 281.03)`
+- warm `#ce9e11` → `--ring`, `--sidebar-ring` = `oklch(72.44% 0.145 86.15)`
+- primary → `--primary`, `--sidebar-primary` = `oklch(34.02% 0.150 279.60)`
+- unmapped (keep existing): `--primary-foreground`, `--sidebar-primary-foreground`, `--destructive*`, `--chart-1..5`.
+
 ## §V Invariants
 
 - V1. `MediaService` sole facade for plugin features. MCP tools + Hono RPC + jobs call `MediaService`; nothing below it (runtime, registry, credentials) is reachable from callers.
@@ -90,27 +112,33 @@ Categories: `media` | `sync` | `auth` | `system`.
 - V14. `vp check` + `vp test` pass before every commit.
 - V15. `notifications.emit()` sole entry point for notification dispatch. All call sites (job runner hooks, `ctx.notify()`, server modules) go through it. Delivery durable: every dispatch persisted + retried on transient fail.
 - V16. User-facing connections list excludes pure-global plugins (those with no `userScopedCapabilities`). Pure-global plugin surface is admin-only.
+- V17. Dark default. `<html>` ship `class="dark"`. Light palette deferred until light theme task lands.
+- V18. Sans font = Geist Variable across all schemes. No per-mode font swap. Mono = Geist Mono.
+- V19. UI consume shadcn tokens (`bg-background`, `text-muted-foreground`, …). No raw hex/oklch in component JSX. Token values defined once in `globals.css`.
 
 ## §T Tasks
 
-| id  | status | desc                                                                     | cites                 |
-| --- | ------ | ------------------------------------------------------------------------ | --------------------- |
-| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch            | I.plugin              |
-| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk       | I.plugin,C8           |
-| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                     | I.api,V1              |
-| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                    | I.mcp,V1              |
-| T5  | ✓      | Error management — capture, codes, correlation, admin viewer             | V5,V6                 |
-| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                   | I.api                 |
-| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job             | V8,C1                 |
-| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`) | I.api,I.plugin        |
-| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                  | V2,V3,V4,I.api        |
-| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord        | I.notifications,V15   |
-| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)         | I.api                 |
-| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                | I.deploy,C6           |
-| T13 | x      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures       | I.home,V9,V10,V11,V12 |
-| T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal        | I.home,T13            |
-| T15 | x      | `home` subpath export in `@ent-mcp/shared`                               | V12,T13               |
-| T16 | ?      | User profile page (`/profile` Hono rpc procedures backend)               | I.api                 |
+| id  | status | desc                                                                      | cites                 |
+| --- | ------ | ------------------------------------------------------------------------- | --------------------- |
+| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch             | I.plugin              |
+| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk        | I.plugin,C8           |
+| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                      | I.api,V1              |
+| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                     | I.mcp,V1              |
+| T5  | ✓      | Error management — capture, codes, correlation, admin viewer              | V5,V6                 |
+| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                    | I.api                 |
+| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job              | V8,C1                 |
+| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`)  | I.api,I.plugin        |
+| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                   | V2,V3,V4,I.api        |
+| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord         | I.notifications,V15   |
+| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)          | I.api                 |
+| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                 | I.deploy,C6           |
+| T13 | x      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures        | I.home,V9,V10,V11,V12 |
+| T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal         | I.home,T13            |
+| T15 | x      | `home` subpath export in `@ent-mcp/shared`                                | V12,T13               |
+| T16 | ?      | User profile page (`/profile` Hono rpc procedures backend)                | I.api                 |
+| T17 | x      | Migrate `globals.css` dark tokens to Figma oklch palette (existing names) | I.theme,V19           |
+| T18 | x      | Dark default — `<html class="dark">`; light `:root` block stays dormant   | V17                   |
+| T19 | x      | Lock sans to Geist Variable; remove Inter                                 | V18                   |
 
 ## §B Bugs
 
