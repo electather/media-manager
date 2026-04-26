@@ -3,7 +3,7 @@ import { getDb } from "../db/client";
 import { notificationDeliveries, serviceConnections } from "../db/schema";
 import { env } from "../env";
 import { renderTemplate } from "./templates";
-import { updateDeliveryStatus, recordDeliveryAttempt } from "./repos";
+import { updateDeliveryStatus, recordDeliveryAttempt, insertInboxItem } from "./repos";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { buildContext } from "../plugin-runtime/context";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
@@ -65,13 +65,23 @@ export function registerDeliveryJob() {
         return;
       }
 
-      const pluginCtx = buildContext({
+      let pluginCtx = buildContext({
         pluginId: conn.pluginId,
         allowedHosts: [],
         userId: conn.userId,
         appBaseUrl: env.APP_EXTERNAL_URL,
         userConfig: conn.userConfig,
       });
+
+      // Inject host-privileged inbox context for built-in inbox plugin.
+      if (conn.pluginId === "inbox") {
+        pluginCtx = {
+          ...pluginCtx,
+          inbox: {
+            insert: (row: Parameters<typeof insertInboxItem>[0]) => insertInboxItem(row),
+          },
+        } as any;
+      }
 
       try {
         if (!plugin.capabilities?.notificationDelivery?.deliver) {
