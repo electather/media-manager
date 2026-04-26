@@ -118,15 +118,14 @@ export async function recordDeliveryAttempt(
   errorMessage?: string,
 ): Promise<void> {
   const db = getDb();
-  const updates: any = {
-    attemptCount: sql`${notificationDeliveries.attemptCount} + 1`,
-    updatedAt: Date.now(),
-  };
-  if (errorCode) {
-    updates.lastErrorCode = errorCode;
-    updates.lastError = errorMessage ?? null;
-  }
-  await db.update(notificationDeliveries).set(updates).where(eq(notificationDeliveries.id, id));
+  await db
+    .update(notificationDeliveries)
+    .set({
+      attemptCount: sql`${notificationDeliveries.attemptCount} + 1`,
+      updatedAt: Date.now(),
+      ...(errorCode ? { lastErrorCode: errorCode, lastError: errorMessage ?? null } : {}),
+    })
+    .where(eq(notificationDeliveries.id, id));
 }
 
 // ─── Inbox ──────────────────────────────────────────────────────────────────

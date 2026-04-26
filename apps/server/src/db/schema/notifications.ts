@@ -4,6 +4,7 @@ import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_EVENT_TYPES,
   NOTIFICATION_DELIVERY_STATUSES,
+  NOTIFICATION_SEVERITIES,
 } from "@ent-mcp/shared/notifications";
 import { user } from "./auth";
 import { serviceConnections } from "./credentials";
@@ -61,8 +62,8 @@ export const notificationsInbox = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     body: text("body").notNull(),
-    severity: text("severity").notNull(),
-    category: text("category").notNull(),
+    severity: text("severity", { enum: NOTIFICATION_SEVERITIES }).notNull(),
+    category: text("category", { enum: NOTIFICATION_CATEGORIES }).notNull(),
     actionUrl: text("action_url"),
     imageUrl: text("image_url"),
     imageAlt: text("image_alt"),
