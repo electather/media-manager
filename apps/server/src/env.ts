@@ -47,6 +47,7 @@ export const env = createEnv({
      * UI before sign-in.
      */
     EMAIL_PROVIDER_CONFIGURED: z.coerce.boolean().default(false),
+    NOTIFICATIONS_ENABLED: z.coerce.boolean().default(false),
   },
   runtimeEnv: process.env,
 });
