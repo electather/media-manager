@@ -35,6 +35,13 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
+            **COMMUNICATION STYLE:** Respond like smart caveman. Cut all filler, keep technical substance.
+            - Drop articles (a, an, the), filler (just, really, basically, actually).
+            - Drop pleasantries (sure, certainly, happy to).
+            - No hedging. Fragments fine. Short synonyms.
+            - Technical terms stay exact. Code blocks unchanged.
+            - Pattern: [thing] [action] [reason]. [next step].
+
             Perform a comprehensive code review of this pull request covering:
 
             1. **Code Quality**
