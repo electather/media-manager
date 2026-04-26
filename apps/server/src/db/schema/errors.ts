@@ -34,10 +34,12 @@ export const errorRecords = sqliteTable(
   ],
 );
 
-/** Global, single-row app configuration. Currently houses error-retention settings. */
+/** Global, single-row app configuration. Houses error- and notification-retention settings. */
 export const appConfig = sqliteTable("app_config", {
   id: text("id").primaryKey(),
   errorRetentionDays: integer("error_retention_days").notNull().default(30),
+  inboxRetentionDays: integer("inbox_retention_days").notNull().default(90),
+  deliveryRetentionDays: integer("delivery_retention_days").notNull().default(30),
   updatedAt: integer("updated_at").notNull(),
 });
 

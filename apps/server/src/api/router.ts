@@ -11,6 +11,7 @@ import { adminJobsApp, userJobsApp } from "./procedures/jobs";
 import { adminUsersApp } from "./procedures/users";
 import { meApp } from "./procedures/me";
 import { preferencesApp } from "./procedures/preferences";
+import { notificationsApp, adminNotificationsApp } from "./procedures/notifications";
 import { requestContextMiddleware, errorHandler } from "../errors/middleware";
 
 /** Hono sub-app that handles all /api/* RPC calls. Re-exported type for client.
@@ -34,6 +35,8 @@ export const appRouter = new Hono()
   .route("/admin/users", adminUsersApp)
   .route("/me", meApp)
   .route("/preferences", preferencesApp)
+  .route("/notifications", notificationsApp)
+  .route("/admin/notifications", adminNotificationsApp)
   .onError(errorHandler);
 
 export type AppType = typeof appRouter;

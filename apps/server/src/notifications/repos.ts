@@ -1,10 +1,28 @@
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { consola } from "consola";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  lt,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { getDb } from "../db/client";
 import type {
   NotificationCategory,
   NotificationDeliveryStatus,
   NotificationEventType,
   NotificationSeverity,
+  AdminDeliveryRow,
+  InboxItemDto,
 } from "@ent-mcp/shared/notifications";
 import {
   notificationSubscriptions,
@@ -198,4 +216,314 @@ export async function getUnreadCount(userId: string): Promise<number> {
     .where(and(eq(notificationsInbox.userId, userId), isNull(notificationsInbox.readAt)))
     .get();
   return result?.count ?? 0;
+}
+
+// ─── Inbox: user-scoped queries (used by HTTP routes) ───────────────────────
+
+export interface InboxListFilters {
+  unreadOnly?: boolean;
+  category?: NotificationCategory;
+  severity?: NotificationSeverity;
+}
+
+export interface InboxCursor {
+  createdAt: number;
+  id: string;
+}
+
+export async function listInboxForUser(
+  userId: string,
+  filters: InboxListFilters,
+  cursor: InboxCursor | undefined,
+  limit: number,
+): Promise<(typeof notificationsInbox.$inferSelect)[]> {
+  const db = getDb();
+  const conditions = [eq(notificationsInbox.userId, userId)];
+  if (filters.unreadOnly) conditions.push(isNull(notificationsInbox.readAt));
+  if (filters.category) conditions.push(eq(notificationsInbox.category, filters.category));
+  if (filters.severity) conditions.push(eq(notificationsInbox.severity, filters.severity));
+  if (cursor) {
+    // Keyset: (createdAt, id) < cursor — older rows come after the cursor.
+    const tieBreaker = and(
+      eq(notificationsInbox.createdAt, cursor.createdAt),
+      lt(notificationsInbox.id, cursor.id),
+    );
+    const keyset = or(lt(notificationsInbox.createdAt, cursor.createdAt), tieBreaker);
+    if (keyset) conditions.push(keyset);
+  }
+  return db
+    .select()
+    .from(notificationsInbox)
+    .where(and(...conditions))
+    .orderBy(desc(notificationsInbox.createdAt), desc(notificationsInbox.id))
+    .limit(limit)
+    .all();
+}
+
+export async function markInboxReadForUser(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const result = await db
+    .update(notificationsInbox)
+    .set({ readAt: Date.now() })
+    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function markInboxUnreadForUser(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const result = await db
+    .update(notificationsInbox)
+    .set({ readAt: null })
+    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function markAllReadForUser(
+  userId: string,
+  category?: NotificationCategory,
+): Promise<number> {
+  const db = getDb();
+  const conditions = [eq(notificationsInbox.userId, userId), isNull(notificationsInbox.readAt)];
+  if (category) conditions.push(eq(notificationsInbox.category, category));
+  const result = await db
+    .update(notificationsInbox)
+    .set({ readAt: Date.now() })
+    .where(and(...conditions))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function deleteInboxForUser(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const result = await db
+    .delete(notificationsInbox)
+    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function deleteInboxAllForUser(
+  userId: string,
+  opts: { readOnly?: boolean; olderThanMs?: number },
+): Promise<number> {
+  const db = getDb();
+  const conditions = [eq(notificationsInbox.userId, userId)];
+  if (opts.readOnly) conditions.push(isNotNull(notificationsInbox.readAt));
+  if (opts.olderThanMs !== undefined) {
+    conditions.push(lte(notificationsInbox.createdAt, opts.olderThanMs));
+  }
+  const result = await db
+    .delete(notificationsInbox)
+    .where(and(...conditions))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+// ─── Subscriptions (joined with user's connections) ────────────────────────
+
+export async function listSubscriptionsForConnections(
+  connectionIds: string[],
+): Promise<Array<{ connectionId: string; category: NotificationCategory; enabled: boolean }>> {
+  if (connectionIds.length === 0) return [];
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(notificationSubscriptions)
+    .where(inArray(notificationSubscriptions.connectionId, connectionIds))
+    .all();
+  return rows.map((r) => ({
+    connectionId: r.connectionId,
+    category: r.category,
+    enabled: r.enabled === 1,
+  }));
+}
+
+// ─── Deliveries: admin queries ──────────────────────────────────────────────
+
+export interface DeliveryListFilters {
+  status?: NotificationDeliveryStatus;
+  category?: NotificationCategory;
+  severity?: NotificationSeverity;
+  recipientUserId?: string;
+  from?: number;
+  to?: number;
+}
+
+export interface DeliveryCursor {
+  createdAt: number;
+  id: string;
+}
+
+// We over-fetch by `OVERFETCH_RATIO × limit` rows when category/severity
+// filters apply because those fields live inside the JSON `event_payload`
+// and must be checked after the query runs. The ratio is a heuristic: too
+// low and the post-filter starves the response; too high and we waste IO.
+// 2× is fine for v1 admin volume. Promote the fields to generated columns
+// or a denormalised dashboard if pagination gaps become user-visible.
+// TODO(notifications): denormalise category/severity onto
+// notification_deliveries when admin volume grows.
+const DELIVERY_LIST_OVERFETCH_RATIO = 2;
+
+function buildDeliveryFilterPredicate(filters: DeliveryListFilters): SQL[] {
+  const conditions: SQL[] = [];
+  if (filters.status) conditions.push(eq(notificationDeliveries.status, filters.status));
+  if (filters.recipientUserId) {
+    conditions.push(eq(notificationDeliveries.recipientUserId, filters.recipientUserId));
+  }
+  if (filters.from !== undefined) {
+    conditions.push(gte(notificationDeliveries.createdAt, filters.from));
+  }
+  if (filters.to !== undefined) {
+    conditions.push(lte(notificationDeliveries.createdAt, filters.to));
+  }
+  return conditions;
+}
+
+function buildDeliveryKeysetPredicate(cursor: DeliveryCursor): SQL | undefined {
+  // Older rows come AFTER the cursor in `desc(createdAt), desc(id)` order:
+  // (createdAt, id) < (cursor.createdAt, cursor.id).
+  const tieBreaker = and(
+    eq(notificationDeliveries.createdAt, cursor.createdAt),
+    lt(notificationDeliveries.id, cursor.id),
+  );
+  return or(lt(notificationDeliveries.createdAt, cursor.createdAt), tieBreaker);
+}
+
+function deliveryEventTags(
+  row: typeof notificationDeliveries.$inferSelect,
+): { category?: NotificationCategory; severity?: NotificationSeverity } | "unparsable" {
+  try {
+    return JSON.parse(row.eventPayload) as {
+      category?: NotificationCategory;
+      severity?: NotificationSeverity;
+    };
+  } catch (err) {
+    // A row with corrupt JSON is invisible to the admin filter, which
+    // hides the data integrity issue. Surface it so ops can investigate.
+    consola.warn(
+      `notifications: delivery ${row.id} has unparsable event_payload, skipping during filtered list: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return "unparsable";
+  }
+}
+
+function applyEventPayloadFilters(
+  rows: (typeof notificationDeliveries.$inferSelect)[],
+  filters: Pick<DeliveryListFilters, "category" | "severity">,
+  limit: number,
+): (typeof notificationDeliveries.$inferSelect)[] {
+  if (!filters.category && !filters.severity) return rows.slice(0, limit);
+  const out: (typeof notificationDeliveries.$inferSelect)[] = [];
+  for (const row of rows) {
+    if (out.length >= limit) break;
+    const tags = deliveryEventTags(row);
+    if (tags === "unparsable") continue;
+    if (filters.category && tags.category !== filters.category) continue;
+    if (filters.severity && tags.severity !== filters.severity) continue;
+    out.push(row);
+  }
+  return out;
+}
+
+export async function listDeliveries(
+  filters: DeliveryListFilters,
+  cursor: DeliveryCursor | undefined,
+  limit: number,
+): Promise<(typeof notificationDeliveries.$inferSelect)[]> {
+  const conditions = buildDeliveryFilterPredicate(filters);
+  if (cursor) {
+    const keyset = buildDeliveryKeysetPredicate(cursor);
+    if (keyset) conditions.push(keyset);
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const fetchLimit =
+    filters.category || filters.severity ? limit * DELIVERY_LIST_OVERFETCH_RATIO : limit;
+  const rows = await getDb()
+    .select()
+    .from(notificationDeliveries)
+    .where(where)
+    .orderBy(desc(notificationDeliveries.createdAt), desc(notificationDeliveries.id))
+    .limit(fetchLimit)
+    .all();
+  return applyEventPayloadFilters(rows, filters, limit);
+}
+
+// ─── Row → DTO mappers (shared between HTTP handlers and tests) ─────────────
+
+export function inboxRowToDto(row: typeof notificationsInbox.$inferSelect): InboxItemDto {
+  return {
+    id: row.id,
+    createdAt: row.createdAt,
+    readAt: row.readAt,
+    title: row.title,
+    body: row.body,
+    severity: row.severity,
+    category: row.category,
+    actionUrl: row.actionUrl,
+    image:
+      row.imageUrl !== null
+        ? { url: row.imageUrl, ...(row.imageAlt ? { alt: row.imageAlt } : {}) }
+        : null,
+  };
+}
+
+export function deliveryRowToDto(
+  row: typeof notificationDeliveries.$inferSelect,
+): AdminDeliveryRow {
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    eventType: row.eventType,
+    status: row.status,
+    recipientConnectionId: row.recipientConnectionId,
+    recipientUserId: row.recipientUserId,
+    attemptCount: row.attemptCount,
+    lastError: row.lastError,
+    lastErrorCode: row.lastErrorCode,
+    providerMessageId: row.providerMessageId,
+    correlationKey: row.correlationKey,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+/** Result of an admin-triggered retry. `in_progress` shields rows currently
+ * in flight from being flipped back to pending, which would double-deliver
+ * because the delivery handler can't abort an active plugin call. The admin
+ * can retry once the in-flight attempt has settled. */
+export type RetryResetResult = "reset" | "in_progress" | "not_found";
+
+export async function resetDeliveryForRetry(id: string): Promise<RetryResetResult> {
+  const db = getDb();
+  // Atomic conditional update — single statement so a concurrent transition
+  // of the row from `pending`/`failed`/`succeeded` to `in_progress` cannot
+  // slip between a check and the write. Drizzle's `returning` lets us tell
+  // whether the predicate matched without a separate read.
+  const updated = await db
+    .update(notificationDeliveries)
+    .set({
+      status: "pending",
+      attemptCount: 0,
+      lastError: null,
+      lastErrorCode: null,
+      updatedAt: Date.now(),
+    })
+    .where(and(eq(notificationDeliveries.id, id), ne(notificationDeliveries.status, "in_progress")))
+    .returning({ id: notificationDeliveries.id });
+  if (updated.length > 0) return "reset";
+  // No row updated: either the id is unknown or the row is in_progress.
+  // Disambiguate with a single follow-up SELECT — runs only on the
+  // miss path so the happy case stays at one query.
+  const existing = await db
+    .select({ status: notificationDeliveries.status })
+    .from(notificationDeliveries)
+    .where(eq(notificationDeliveries.id, id))
+    .get();
+  if (!existing) return "not_found";
+  return "in_progress";
 }

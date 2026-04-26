@@ -7,6 +7,55 @@ import type { Permission } from "./permissions";
 import { currentRequestContext } from "../errors/request-context";
 import { forbidden, unauthorized } from "../errors/http-errors";
 
+interface UserRoleInfo {
+  roleId: string;
+  isSystemAdmin: boolean;
+}
+
+/** Loads the user's role row joined with `roles` so the system-Admin shortcut
+ * can be evaluated without a follow-up query. Returns `null` when the user
+ * has no role assigned. Centralised so the routes that need to gate on
+ * permissions don't reimplement the join. */
+export async function loadUserRole(userId: string): Promise<UserRoleInfo | null> {
+  const db = getDb();
+  const row = await db
+    .select({ roleId: userRoles.roleId, isSystem: roles.isSystem, name: roles.name })
+    .from(userRoles)
+    .innerJoin(roles, eq(roles.id, userRoles.roleId))
+    .where(eq(userRoles.userId, userId))
+    .get();
+  if (!row) return null;
+  return {
+    roleId: row.roleId,
+    isSystemAdmin: row.isSystem === 1 && row.name === "Admin",
+  };
+}
+
+/** Returns true when the given role row grants `permission`. The system Admin
+ * role bypasses every check — same shortcut `requirePermission` enforces. */
+export async function roleHasPermission(
+  role: UserRoleInfo,
+  permission: Permission,
+): Promise<boolean> {
+  if (role.isSystemAdmin) return true;
+  const db = getDb();
+  const allowed = await db
+    .select({ permission: rolePermissions.permission })
+    .from(rolePermissions)
+    .where(and(eq(rolePermissions.roleId, role.roleId), eq(rolePermissions.permission, permission)))
+    .get();
+  return !!allowed;
+}
+
+/** Convenience: load + check in one call. Two queries; prefer
+ * `loadUserRole` once + `roleHasPermission` per check when checking many
+ * permissions for one user (e.g. the categories endpoint). */
+export async function userHasPermission(userId: string, permission: Permission): Promise<boolean> {
+  const role = await loadUserRole(userId);
+  if (!role) return false;
+  return roleHasPermission(role, permission);
+}
+
 /** Returns the authenticated user's id from the Hono context. */
 export function sessionUserId(c: Context): string {
   const session = c.get("session") as { user: { id: string } } | undefined;
@@ -41,49 +90,13 @@ export function requirePermission(permission: Permission) {
     if (!session) {
       throw unauthorized();
     }
-
-    const db = getDb();
-    const userId = session.user.id;
-
-    // Look up the user's assigned role.
-    const userRole = await db
-      .select({ roleId: userRoles.roleId })
-      .from(userRoles)
-      .where(eq(userRoles.userId, userId))
-      .get();
-
-    if (!userRole) {
+    const role = await loadUserRole(session.user.id);
+    if (!role) {
       throw forbidden();
     }
-
-    // The system Admin role always has all permissions.
-    const role = await db
-      .select({ isSystem: roles.isSystem, name: roles.name })
-      .from(roles)
-      .where(eq(roles.id, userRole.roleId))
-      .get();
-
-    if (role?.isSystem === 1 && role.name === "Admin") {
-      await next();
-      return;
-    }
-
-    // Fall back to checking the role's explicit permission rows.
-    const allowed = await db
-      .select({ permission: rolePermissions.permission })
-      .from(rolePermissions)
-      .where(
-        and(
-          eq(rolePermissions.roleId, userRole.roleId),
-          eq(rolePermissions.permission, permission),
-        ),
-      )
-      .get();
-
-    if (!allowed) {
+    if (!(await roleHasPermission(role, permission))) {
       throw forbidden();
     }
-
     await next();
   };
 }
