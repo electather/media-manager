@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AUTH_KINDS, CAPABILITY_SCOPES, PERSONAL_KEY_FALLBACK_POLICIES } from "./enums";
+import { NOTIFICATION_CONTENT_KINDS } from "../notifications/enums";
 
 export const authKindSchema = z.enum(AUTH_KINDS);
 export const capabilityScopeSchema = z.enum(CAPABILITY_SCOPES);
@@ -15,6 +16,7 @@ const semverRange = z
 export const manifestCapabilitySchema = z.object({
   version: z.string().min(1),
   scope: capabilityScopeSchema,
+  supportsKinds: z.array(z.enum(NOTIFICATION_CONTENT_KINDS)).optional(),
 });
 
 export const manifestJobEntrySchema = z.object({

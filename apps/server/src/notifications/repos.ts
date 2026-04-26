@@ -1,4 +1,17 @@
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm";
 import { getDb } from "../db/client";
 import type {
   NotificationCategory,
@@ -198,4 +211,216 @@ export async function getUnreadCount(userId: string): Promise<number> {
     .where(and(eq(notificationsInbox.userId, userId), isNull(notificationsInbox.readAt)))
     .get();
   return result?.count ?? 0;
+}
+
+// ─── Inbox: user-scoped queries (used by HTTP routes) ───────────────────────
+
+export interface InboxListFilters {
+  unreadOnly?: boolean;
+  category?: NotificationCategory;
+  severity?: NotificationSeverity;
+}
+
+export interface InboxCursor {
+  createdAt: number;
+  id: string;
+}
+
+export async function listInboxForUser(
+  userId: string,
+  filters: InboxListFilters,
+  cursor: InboxCursor | undefined,
+  limit: number,
+): Promise<(typeof notificationsInbox.$inferSelect)[]> {
+  const db = getDb();
+  const conditions = [eq(notificationsInbox.userId, userId)];
+  if (filters.unreadOnly) conditions.push(isNull(notificationsInbox.readAt));
+  if (filters.category) conditions.push(eq(notificationsInbox.category, filters.category));
+  if (filters.severity) conditions.push(eq(notificationsInbox.severity, filters.severity));
+  if (cursor) {
+    // Keyset: (createdAt, id) < cursor — older rows come after the cursor.
+    const tieBreaker = and(
+      eq(notificationsInbox.createdAt, cursor.createdAt),
+      lt(notificationsInbox.id, cursor.id),
+    );
+    const keyset = or(lt(notificationsInbox.createdAt, cursor.createdAt), tieBreaker);
+    if (keyset) conditions.push(keyset);
+  }
+  return db
+    .select()
+    .from(notificationsInbox)
+    .where(and(...conditions))
+    .orderBy(desc(notificationsInbox.createdAt), desc(notificationsInbox.id))
+    .limit(limit)
+    .all();
+}
+
+export async function markInboxReadForUser(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const result = await db
+    .update(notificationsInbox)
+    .set({ readAt: Date.now() })
+    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function markInboxUnreadForUser(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const result = await db
+    .update(notificationsInbox)
+    .set({ readAt: null })
+    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function markAllReadForUser(
+  userId: string,
+  category?: NotificationCategory,
+): Promise<number> {
+  const db = getDb();
+  const conditions = [eq(notificationsInbox.userId, userId), isNull(notificationsInbox.readAt)];
+  if (category) conditions.push(eq(notificationsInbox.category, category));
+  const result = await db
+    .update(notificationsInbox)
+    .set({ readAt: Date.now() })
+    .where(and(...conditions))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function deleteInboxForUser(userId: string, ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const db = getDb();
+  const result = await db
+    .delete(notificationsInbox)
+    .where(and(eq(notificationsInbox.userId, userId), inArray(notificationsInbox.id, ids)))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+export async function deleteInboxAllForUser(
+  userId: string,
+  opts: { readOnly?: boolean; olderThanMs?: number },
+): Promise<number> {
+  const db = getDb();
+  const conditions = [eq(notificationsInbox.userId, userId)];
+  if (opts.readOnly) conditions.push(isNotNull(notificationsInbox.readAt));
+  if (opts.olderThanMs !== undefined) {
+    conditions.push(lte(notificationsInbox.createdAt, opts.olderThanMs));
+  }
+  const result = await db
+    .delete(notificationsInbox)
+    .where(and(...conditions))
+    .returning({ id: notificationsInbox.id });
+  return result.length;
+}
+
+// ─── Subscriptions (joined with user's connections) ────────────────────────
+
+export async function listSubscriptionsForConnections(
+  connectionIds: string[],
+): Promise<Array<{ connectionId: string; category: NotificationCategory; enabled: boolean }>> {
+  if (connectionIds.length === 0) return [];
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(notificationSubscriptions)
+    .where(inArray(notificationSubscriptions.connectionId, connectionIds))
+    .all();
+  return rows.map((r) => ({
+    connectionId: r.connectionId,
+    category: r.category,
+    enabled: r.enabled === 1,
+  }));
+}
+
+// ─── Deliveries: admin queries ──────────────────────────────────────────────
+
+export interface DeliveryListFilters {
+  status?: NotificationDeliveryStatus;
+  category?: NotificationCategory;
+  severity?: NotificationSeverity;
+  recipientUserId?: string;
+  from?: number;
+  to?: number;
+}
+
+export interface DeliveryCursor {
+  createdAt: number;
+  id: string;
+}
+
+export async function listDeliveries(
+  filters: DeliveryListFilters,
+  cursor: DeliveryCursor | undefined,
+  limit: number,
+): Promise<(typeof notificationDeliveries.$inferSelect)[]> {
+  const db = getDb();
+  const conditions = [];
+  if (filters.status) conditions.push(eq(notificationDeliveries.status, filters.status));
+  if (filters.recipientUserId) {
+    conditions.push(eq(notificationDeliveries.recipientUserId, filters.recipientUserId));
+  }
+  if (filters.from !== undefined) {
+    conditions.push(gte(notificationDeliveries.createdAt, filters.from));
+  }
+  if (filters.to !== undefined) {
+    conditions.push(lte(notificationDeliveries.createdAt, filters.to));
+  }
+  if (cursor) {
+    const tieBreaker = and(
+      eq(notificationDeliveries.createdAt, cursor.createdAt),
+      lt(notificationDeliveries.id, cursor.id),
+    );
+    const keyset = or(lt(notificationDeliveries.createdAt, cursor.createdAt), tieBreaker);
+    if (keyset) conditions.push(keyset);
+  }
+  // Note: category/severity live inside `event_payload` JSON. For v1 we filter
+  // post-query when those are supplied; if dashboards become hot we add
+  // generated columns or denormalise.
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+  const rows = await db
+    .select()
+    .from(notificationDeliveries)
+    .where(where)
+    .orderBy(desc(notificationDeliveries.createdAt), desc(notificationDeliveries.id))
+    .limit(limit * 2)
+    .all();
+  if (!filters.category && !filters.severity) return rows.slice(0, limit);
+  const out = [];
+  for (const row of rows) {
+    if (out.length >= limit) break;
+    try {
+      const event = JSON.parse(row.eventPayload) as {
+        category?: NotificationCategory;
+        severity?: NotificationSeverity;
+      };
+      if (filters.category && event.category !== filters.category) continue;
+      if (filters.severity && event.severity !== filters.severity) continue;
+    } catch {
+      continue;
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+export async function resetDeliveryForRetry(id: string): Promise<boolean> {
+  const db = getDb();
+  const result = await db
+    .update(notificationDeliveries)
+    .set({
+      status: "pending",
+      attemptCount: 0,
+      lastError: null,
+      lastErrorCode: null,
+      updatedAt: Date.now(),
+    })
+    .where(eq(notificationDeliveries.id, id))
+    .returning({ id: notificationDeliveries.id });
+  return result.length > 0;
 }

@@ -53,6 +53,12 @@ export const conflict = (
   params?: Record<string, string | number>,
 ): HttpError => new HttpError(409, code, message, params);
 
+export const payloadTooLarge = (
+  code: string,
+  message: string,
+  params?: Record<string, string | number>,
+): HttpError => new HttpError(413, code, message, params);
+
 export const unprocessable = (
   code: string,
   message: string,

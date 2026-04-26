@@ -1,10 +1,13 @@
 import type { JSONSchema } from "../common";
+import type { NotificationContentKind } from "../notifications/enums";
 import type { AuthKind, CapabilityScope } from "./enums";
 
 /** One entry in `manifest.capabilities`. Scope governs credential routing. */
 export interface ManifestCapability {
   version: string;
   scope: CapabilityScope;
+  /** Optional, used by `notificationDelivery` to advertise renderable content kinds. */
+  supportsKinds?: NotificationContentKind[];
 }
 
 export interface McpToolAnnotations {
