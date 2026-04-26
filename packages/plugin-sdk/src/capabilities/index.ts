@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { libraryItemSchema, LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "../define";
-export type { NotificationDeliveryCapabilityV1 } from "./notification-delivery";
 
 const mediaType = z.enum(["movie", "tv"]);
 
@@ -882,3 +881,5 @@ export function getCapability(
 export function listCapabilities(): Array<(typeof CAPABILITY_CATALOG)[CapabilityKey]> {
   return Object.values(CAPABILITY_CATALOG);
 }
+
+export type { NotificationDeliveryCapabilityV1 } from "./notification-delivery";

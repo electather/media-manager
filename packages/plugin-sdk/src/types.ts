@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@ent-mcp/shared";
 import type { HostErrorCode } from "@ent-mcp/shared/errors";
-import type { NotificationEvent, BaseEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 
 // ─── Server-only plugin runtime interfaces ────────────────────────────────────
 
@@ -72,7 +72,7 @@ export interface PluginContext<
    * Plugins can only emit events declared in the core registry — plugin-declared
    * event types are deferred to v2.
    */
-  notify: (event: Omit<NotificationEvent, keyof BaseEvent>) => Promise<void>;
+  notify: (event: Omit<NotificationEvent, "id" | "occurredAt">) => Promise<void>;
 }
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */

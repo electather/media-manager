@@ -12,7 +12,6 @@ export * from "./utils/credentials";
 export * from "./capabilities";
 export * from "./validate";
 export * from "./version";
-export { createTestNotificationContext } from "./testing";
 
 // ─── Re-exported from @ent-mcp/shared so plugin authors only need one dep ─────
 export {

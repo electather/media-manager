@@ -6,7 +6,7 @@
  */
 
 import type { PluginContext } from "../types";
-import type { NotificationEvent, BaseEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 
 export interface FakeCall {
   url: string;
@@ -33,7 +33,7 @@ export interface TestContext extends PluginContext {
 
 export interface TestNotificationContext extends TestContext {
   /** Track emitted notifications for assertion in tests. */
-  emittedNotifications: Omit<NotificationEvent, keyof BaseEvent>[];
+  emittedNotifications: Omit<NotificationEvent, "id" | "occurredAt">[];
 }
 
 /**
@@ -79,7 +79,7 @@ export function makeTestContext(opts: MakeTestContextOptions = {}): TestContext 
     },
     pool: { markExhausted() {} },
     appBaseUrl: "https://app.example.com",
-    notify: async () => {}, // No-op default; override in tests if needed.
+    notify: async () => {},
     ...overrides,
   } as TestContext;
 
@@ -138,13 +138,14 @@ export function createTestNotificationContext(
   opts: MakeTestContextOptions = {},
 ): TestNotificationContext {
   const base = makeTestContext(opts);
-  const emittedNotifications: Omit<NotificationEvent, keyof BaseEvent>[] = [];
+  const emittedNotifications: Omit<NotificationEvent, "id" | "occurredAt">[] = [];
 
-  return {
+  const ctx: TestNotificationContext = {
     ...base,
     emittedNotifications,
     notify: async (event) => {
       emittedNotifications.push(event);
     },
-  } as TestNotificationContext;
+  };
+  return ctx;
 }

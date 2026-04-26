@@ -1,7 +1,7 @@
 import { buildFetch, buildLogger } from "./fetch-policy";
 import { buildStore } from "./host-bridge";
 import type { PluginContext, PoolSignalingApi } from "@ent-mcp/plugin-sdk";
-import type { NotificationEvent, BaseEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 
 export interface BuildContextArgs {
   pluginId: string;
@@ -33,7 +33,7 @@ export interface BuildContextArgs {
   userConfig?: unknown;
   globalConfig?: unknown;
   pool?: PoolSignalingApi;
-  notify?: (event: Omit<NotificationEvent, keyof BaseEvent>) => Promise<void>;
+  notify?: (event: Omit<NotificationEvent, "id" | "occurredAt">) => Promise<void>;
 }
 
 /** No-op pool signalling for contexts built outside an invocation (e.g. auth flows). */
