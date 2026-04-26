@@ -84,19 +84,19 @@ No type mirroring, no re-declaration.
 // Maps rowId → how the row renders. The ONLY place row-specific visual
 // decisions live. Everything else reads from HomeRow and CompactMediaItem.
 type RowDisplayConfig = {
-  slot: "main" | "sidebar";        // sidebar overrides to "main" at <md
+  slot: "main" | "sidebar"; // sidebar overrides to "main" at <md
   aspectRatio: "poster" | "backdrop";
   showMatchReasonInline: boolean;
 };
 
 const ROW_DISPLAY: Record<RowKind, RowDisplayConfig> = {
-  continueWatching:  { slot: "main",    aspectRatio: "backdrop", showMatchReasonInline: false },
-  upcomingForYou:    { slot: "sidebar", aspectRatio: "backdrop", showMatchReasonInline: false },
-  recommendedForYou: { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: true  },
-  becauseYouWatched: { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
-  trendingNow:       { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
-  newReleases:       { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
-  yourWatchlist:     { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
+  continueWatching: { slot: "main", aspectRatio: "backdrop", showMatchReasonInline: false },
+  upcomingForYou: { slot: "sidebar", aspectRatio: "backdrop", showMatchReasonInline: false },
+  recommendedForYou: { slot: "main", aspectRatio: "poster", showMatchReasonInline: true },
+  becauseYouWatched: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  trendingNow: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  newReleases: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  yourWatchlist: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
 };
 
 // Search-param schema for the detail-modal peek.
@@ -407,12 +407,12 @@ Breakpoints follow existing Tailwind convention: `sm` (640px), `md` (768px), `lg
 
 ### Card dimensions
 
-| Viewport | Poster        | Backdrop      | Hero       | Sidebar item |
-| -------- | ------------- | ------------- | ---------- | ------------ |
-| `xl`+    | 180 × 270     | 280 × 158     | full-col   | 280 × 80     |
-| `lg`     | 160 × 240     | 250 × 141     | full-col   | 250 × 72     |
-| `md`     | 140 × 210     | 220 × 124     | full-col   | 220 × 64     |
-| `<md`    | 128 × 192     | 220 × 124     | full-width | n/a (row)    |
+| Viewport | Poster    | Backdrop  | Hero       | Sidebar item |
+| -------- | --------- | --------- | ---------- | ------------ |
+| `xl`+    | 180 × 270 | 280 × 158 | full-col   | 280 × 80     |
+| `lg`     | 160 × 240 | 250 × 141 | full-col   | 250 × 72     |
+| `md`     | 140 × 210 | 220 × 124 | full-col   | 220 × 64     |
+| `<md`    | 128 × 192 | 220 × 124 | full-width | n/a (row)    |
 
 Heights auto-derive from aspect ratio — driving widths, ⊥ fixed pixel boxes. Tailwind responsive prefixes on `flex-basis`.
 
