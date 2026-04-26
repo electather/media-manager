@@ -30,6 +30,14 @@ export interface PluginErrorShape {
   code: string;
   message: string;
   params?: Record<string, string | number>;
+  /**
+   * Notification delivery uses these to decide retry behavior. `retryable` is
+   * the explicit signal — when present, the delivery job honors it instead of
+   * its defensive default. `retryAfterMs` overrides the next backoff interval
+   * (e.g. populated from a `Retry-After` header on a 429).
+   */
+  retryable?: boolean;
+  retryAfterMs?: number;
 }
 
 /**
@@ -46,16 +54,38 @@ export function isPluginError(err: unknown): err is PluginErrorShape {
   );
 }
 
+/** Optional metadata attached to plugin errors. */
+export interface PluginErrorOptions {
+  params?: Record<string, string | number>;
+  retryable?: boolean;
+  retryAfterMs?: number;
+}
+
 /**
  * Lightweight factory used by plugin helpers (handleHttpStatus, resolveCredential)
  * that want to throw an error tagged with a HostErrorCode without importing the
  * full PluginError class. Returns a plain Error to keep call sites short — the
  * host's duck-type guard treats it identically to a PluginError instance.
+ *
+ * The optional `opts` carry retry hints for notification delivery and
+ * structured `params` for translation/routing on the wire.
  */
-export function pluginError(code: HostErrorCode, message: string): Error {
-  const err = new Error(message);
+export function pluginError(
+  code: HostErrorCode,
+  message: string,
+  opts?: PluginErrorOptions,
+): Error {
+  const err = new Error(message) as Error & {
+    code: HostErrorCode;
+    params?: Record<string, string | number>;
+    retryable?: boolean;
+    retryAfterMs?: number;
+  };
   err.name = "PluginError";
-  (err as Error & { code: HostErrorCode }).code = code;
+  err.code = code;
+  if (opts?.params !== undefined) err.params = opts.params;
+  if (opts?.retryable !== undefined) err.retryable = opts.retryable;
+  if (opts?.retryAfterMs !== undefined) err.retryAfterMs = opts.retryAfterMs;
   return err;
 }
 

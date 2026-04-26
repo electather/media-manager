@@ -1,0 +1,80 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`ntfy: per-event-type payload snapshots > connection.auth.expired 1`] = `
+{
+  "body": "Authentication for trakt expired. Please re-authenticate.",
+  "headers": {
+    "Priority": "4",
+    "Tags": "auth",
+    "Title": "Auth Expired",
+  },
+  "method": "POST",
+  "url": "https://ntfy.example.com/alerts",
+}
+`;
+
+exports[`ntfy: per-event-type payload snapshots > connection.sync.succeeded 1`] = `
+{
+  "body": "Sync completed successfully with 42 items.",
+  "headers": {
+    "Priority": "3",
+    "Tags": "sync",
+    "Title": "Sync Complete",
+  },
+  "method": "POST",
+  "url": "https://ntfy.example.com/alerts",
+}
+`;
+
+exports[`ntfy: per-event-type payload snapshots > job.run.failed 1`] = `
+{
+  "body": "scheduler:job-1 failed",
+  "headers": {
+    "Priority": "5",
+    "Tags": "system",
+    "Title": "Job Failed",
+  },
+  "method": "POST",
+  "url": "https://ntfy.example.com/alerts",
+}
+`;
+
+exports[`ntfy: per-event-type payload snapshots > media.request.available 1`] = `
+{
+  "body": "Your requested media is now available.",
+  "headers": {
+    "Attach": "https://image.tmdb.org/t/p/w500/p.jpg",
+    "Priority": "3",
+    "Tags": "media",
+    "Title": "Fight Club Available",
+  },
+  "method": "POST",
+  "url": "https://ntfy.example.com/alerts",
+}
+`;
+
+exports[`ntfy: per-event-type payload snapshots > media.request.denied 1`] = `
+{
+  "body": "Your request was denied: out of policy.",
+  "headers": {
+    "Priority": "4",
+    "Tags": "media",
+    "Title": "Request Denied",
+  },
+  "method": "POST",
+  "url": "https://ntfy.example.com/alerts",
+}
+`;
+
+exports[`ntfy: per-event-type payload snapshots > system.error 1`] = `
+{
+  "body": "scheduler: boom",
+  "headers": {
+    "Priority": "5",
+    "Tags": "system",
+    "Title": "System Error",
+  },
+  "method": "POST",
+  "url": "https://ntfy.example.com/alerts",
+}
+`;

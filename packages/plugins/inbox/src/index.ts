@@ -1,12 +1,46 @@
 import { definePlugin } from "@ent-mcp/plugin-sdk";
-import type { NotificationMessage, NotificationEvent } from "@ent-mcp/shared/notifications";
+import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
+
+/**
+ * Host-privileged inbox capability injected onto the plugin context by the
+ * server. The plugin only knows about message fields; the host pre-binds the
+ * recipient user id and delivery id so third-party plugins (which never
+ * receive `ctx.inbox`) cannot persist server-owned state.
+ */
+interface InboxInsertArgs {
+  title: string;
+  body: string;
+  severity: NotificationMessage["severity"];
+  category: NotificationMessage["category"];
+  actionUrl?: string | null;
+  imageUrl?: string | null;
+  imageAlt?: string | null;
+}
+
+interface InboxContext {
+  inbox: { insert: (row: InboxInsertArgs) => Promise<void> };
+}
+
+interface DeliverArgs {
+  message: NotificationMessage;
+  event: NotificationEvent;
+  channelConfig: unknown;
+}
+
+function inboxFromCtx(ctx: unknown): InboxContext["inbox"] {
+  const candidate = (ctx as Partial<InboxContext>).inbox;
+  if (!candidate || typeof candidate.insert !== "function") {
+    throw new Error("inbox plugin requires host-privileged ctx.inbox to be injected");
+  }
+  return candidate;
+}
 
 export const inboxPlugin = definePlugin({
   manifest: {
     id: "inbox",
     name: "In-app inbox",
     description: "Receive notifications in your in-app inbox.",
-    version: "0.1.0",
+    version: "0.2.0",
     sdkVersion: "^1.0.0",
     author: { name: "Anthropic" },
     allowedHosts: [],
@@ -27,19 +61,9 @@ export const inboxPlugin = definePlugin({
   capabilities: {
     notificationDelivery: {
       deliver: async (ctx, args) => {
-        const { message, deliveryId, recipientUserId } = args as {
-          message: NotificationMessage;
-          event?: NotificationEvent;
-          deliveryId?: string;
-          recipientUserId?: string;
-          channelConfig: unknown;
-        };
-
-        if (!recipientUserId) throw new Error("recipientUserId required for inbox delivery");
-
-        await (ctx as any).inbox.insert({
-          userId: recipientUserId,
-          deliveryId: deliveryId ?? null,
+        const { message } = args as DeliverArgs;
+        const inbox = inboxFromCtx(ctx);
+        await inbox.insert({
           title: message.title,
           body: message.body,
           severity: message.severity,
@@ -48,12 +72,9 @@ export const inboxPlugin = definePlugin({
           imageUrl: message.image?.url ?? null,
           imageAlt: message.image?.alt ?? null,
         });
-
         return {};
       },
-      testDelivery: async () => {
-        return { ok: true };
-      },
+      testDelivery: async () => ({ ok: true }),
     },
   },
 });

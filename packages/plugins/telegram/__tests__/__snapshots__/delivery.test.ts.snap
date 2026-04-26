@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`telegram: per-event-type payload snapshots > connection.auth.expired 1`] = `
+{
+  "body": "{"chat_id":"987","text":"*Auth Expired*\\nAuthentication for trakt expired\\\\. Please re\\\\-authenticate\\\\.","parse_mode":"MarkdownV2"}",
+  "method": "POST",
+  "url": "https://api.telegram.org/botTKN/sendMessage",
+}
+`;
+
+exports[`telegram: per-event-type payload snapshots > connection.sync.succeeded 1`] = `
+{
+  "body": "{"chat_id":"987","text":"*Sync Complete*\\nSync completed successfully with 42 items\\\\.","parse_mode":"MarkdownV2"}",
+  "method": "POST",
+  "url": "https://api.telegram.org/botTKN/sendMessage",
+}
+`;
+
+exports[`telegram: per-event-type payload snapshots > job.run.failed 1`] = `
+{
+  "body": "{"chat_id":"987","text":"*Job Failed*\\nscheduler:job\\\\-1 failed","parse_mode":"MarkdownV2"}",
+  "method": "POST",
+  "url": "https://api.telegram.org/botTKN/sendMessage",
+}
+`;
+
+exports[`telegram: per-event-type payload snapshots > media.request.available 1`] = `
+{
+  "body": "{"chat_id":"987","photo":"https://image.tmdb.org/p.jpg","caption":"*Fight Club Available*\\nYour requested media is now available\\\\.","parse_mode":"MarkdownV2"}",
+  "method": "POST",
+  "url": "https://api.telegram.org/botTKN/sendPhoto",
+}
+`;
+
+exports[`telegram: per-event-type payload snapshots > media.request.denied 1`] = `
+{
+  "body": "{"chat_id":"987","text":"*Request Denied*\\nYour request was denied: out of policy\\\\.","parse_mode":"MarkdownV2"}",
+  "method": "POST",
+  "url": "https://api.telegram.org/botTKN/sendMessage",
+}
+`;
+
+exports[`telegram: per-event-type payload snapshots > system.error 1`] = `
+{
+  "body": "{"chat_id":"987","text":"*System Error*\\nscheduler: boom","parse_mode":"MarkdownV2"}",
+  "method": "POST",
+  "url": "https://api.telegram.org/botTKN/sendMessage",
+}
+`;

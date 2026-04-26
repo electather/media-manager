@@ -40,6 +40,10 @@ export const notificationDeliveries = sqliteTable(
     lastErrorCode: text("last_error_code"),
     providerMessageId: text("provider_message_id"),
     correlationKey: text("correlation_key"),
+    // Earliest wall-clock millisecond at which the next delivery attempt may
+    // run. NULL means "eligible immediately" (initial pending row); the sweep
+    // and any direct trigger short-circuit when set in the future.
+    nextAttemptAt: integer("next_attempt_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
@@ -47,6 +51,7 @@ export const notificationDeliveries = sqliteTable(
     index("notification_deliveries_user_created_idx").on(table.recipientUserId, table.createdAt),
     index("notification_deliveries_status_updated_idx").on(table.status, table.updatedAt),
     index("notification_deliveries_correlation_key_idx").on(table.correlationKey),
+    index("notification_deliveries_next_attempt_idx").on(table.nextAttemptAt),
   ],
 );
 

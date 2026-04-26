@@ -1,30 +1,52 @@
-import { and, eq, lt, or } from "drizzle-orm";
+import { and, eq, isNull, lt, lte, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { notificationDeliveries } from "../db/schema";
 import { find } from "../jobs/registry";
 import { registerScheduled } from "../jobs/scheduled";
 import { newRequestId } from "../errors/request-context";
 
+const STALE_THRESHOLD_MS = 2 * 60 * 1000;
+
 export function registerStalePendingSweep() {
   registerScheduled({
     id: "host.notifications.stale_pending_sweep",
     name: "Notification stale pending sweep",
-    description: "Requeue deliveries stuck in pending status",
+    description:
+      "Requeue deliveries whose retry window has opened or whose initial trigger was lost",
     schedule: "*/5 * * * *",
     handler: async (ctx) => {
       const db = getDb();
-      const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
+      const now = Date.now();
+      const staleCutoff = now - STALE_THRESHOLD_MS;
 
-      const staleDeliveries = await db
+      // Two distinct retriggers, expressed as one query so the sweep is a
+      // single round trip:
+      // 1. `pending` rows whose backoff window has opened (`nextAttemptAt <=
+      //    now`).
+      // 2. `pending` rows that never had a `nextAttemptAt` set but have been
+      //    sitting longer than the stale threshold — covers the post-emit /
+      //    pre-trigger crash gap.
+      // 3. `in_progress` rows that exceed the stale threshold — reset to
+      //    pending below so the CAS in the delivery handler can pick them up
+      //    on the next sweep tick.
+      const eligible = await db
         .select({ id: notificationDeliveries.id, status: notificationDeliveries.status })
         .from(notificationDeliveries)
         .where(
-          and(
-            or(
+          or(
+            and(
               eq(notificationDeliveries.status, "pending"),
-              eq(notificationDeliveries.status, "in_progress"),
+              lte(notificationDeliveries.nextAttemptAt, now),
             ),
-            lt(notificationDeliveries.updatedAt, twoMinutesAgo),
+            and(
+              eq(notificationDeliveries.status, "pending"),
+              isNull(notificationDeliveries.nextAttemptAt),
+              lt(notificationDeliveries.updatedAt, staleCutoff),
+            ),
+            and(
+              eq(notificationDeliveries.status, "in_progress"),
+              lt(notificationDeliveries.updatedAt, staleCutoff),
+            ),
           ),
         )
         .limit(100)
@@ -33,13 +55,16 @@ export function registerStalePendingSweep() {
       const jobEntry = find("notification.deliver");
       if (!jobEntry?.triggerFromApi) return;
 
-      for (const delivery of staleDeliveries) {
-        // Reset in_progress rows back to pending for crash recovery.
-        // Handler's CAS only accepts pending; without reset, row stays stuck forever.
+      let resetCount = 0;
+      let triggerCount = 0;
+      for (const delivery of eligible) {
         if (delivery.status === "in_progress") {
+          // Reset crashed-mid-flight rows so the CAS predicate (status =
+          // pending) can pick them up. nextAttemptAt is left null →
+          // immediately eligible.
           await db
             .update(notificationDeliveries)
-            .set({ status: "pending", updatedAt: Date.now() })
+            .set({ status: "pending", nextAttemptAt: null, updatedAt: Date.now() })
             .where(
               and(
                 eq(notificationDeliveries.id, delivery.id),
@@ -47,23 +72,24 @@ export function registerStalePendingSweep() {
               ),
             )
             .run();
+          resetCount += 1;
         }
 
         try {
           await jobEntry.triggerFromApi(
             { deliveryId: delivery.id },
-            {
-              triggeredBy: "admin",
-              requestId: newRequestId(),
-            },
+            { triggeredBy: "admin", requestId: newRequestId() },
           );
+          triggerCount += 1;
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.logger.warn(`Failed to requeue delivery ${delivery.id}: ${msg}`);
         }
       }
 
-      ctx.logger.info(`Requeued ${staleDeliveries.length} stale pending deliveries`);
+      ctx.logger.info(
+        `Notification sweep: requeued ${triggerCount} (reset ${resetCount} in_progress)`,
+      );
     },
   });
 }
