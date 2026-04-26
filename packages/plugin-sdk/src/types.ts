@@ -184,6 +184,15 @@ export interface CapabilityMethodSpec<
    * Only meaningful for mutating methods.
    */
   invalidates?: string[];
+  /**
+   * When true, the host treats this method as a backward-compatible
+   * addition: plugins that already implement the capability may omit the
+   * implementation, and the dispatcher surfaces `plugin.missing_method`
+   * which the aggregate strategy tolerates by skipping the contributor.
+   * Used for the home-feed extensions to `watchHistory@v1.getInProgress`
+   * and `mediaRequest@v1.getStatusBatch` so existing plugins keep loading.
+   */
+  optional?: boolean;
 }
 
 /** Dispatch strategy. See `docs/media-service.md` §capability-strategies. */

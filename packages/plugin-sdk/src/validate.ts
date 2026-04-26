@@ -90,13 +90,13 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
         `plugin manifest claims ${capId} but exports no implementation`,
       );
     }
-    for (const methodName of Object.keys(spec.methods)) {
-      if (typeof impl[methodName] !== "function") {
-        throw new PluginError(
-          "plugin.missing_method",
-          `${capId}@${cap.version}.${methodName} not implemented`,
-        );
-      }
+    for (const [methodName, methodSpec] of Object.entries(spec.methods)) {
+      if (typeof impl[methodName] === "function") continue;
+      if (methodSpec.optional) continue;
+      throw new PluginError(
+        "plugin.missing_method",
+        `${capId}@${cap.version}.${methodName} not implemented`,
+      );
     }
   }
 

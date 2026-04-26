@@ -4,16 +4,18 @@ import {
   dispatchPrimary,
   dispatchSingle,
   invalidateUserCache,
+  type AggregateResult,
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import { capabilityRegistry } from "../plugin-runtime/registry";
-import { PluginCallError } from "./errors";
+import { AllPluginsFailedError, PluginCallError } from "./errors";
 import {
   clearPrimaryConnection,
   getPrimaryConnection,
   setPrimaryConnection,
 } from "./primary-preference";
 import { callExtension } from "../mcp/extension-dispatch";
+import { resolveConnections } from "./resolve-connection";
 
 /**
  * Functional facade exposing capability-driven dispatch. Most callers should use
@@ -227,6 +229,198 @@ export class MediaService {
   }
 
   /**
+   * Result envelope returned by every aggregate-style helper used by the home
+   * feed. `partial` mirrors the design's `partial: true` row signal; `allFailed`
+   * is true only when at least one provider was attempted and every one of
+   * them errored — distinct from "no providers installed" (allFailed=false,
+   * data empty) and from "every provider succeeded with nothing to show"
+   * (partial=false, data empty).
+   */
+  // (Type lives at module scope below — kept here as a doc pointer.)
+
+  /**
+   * Aggregate `watchHistory@v1.getInProgress`. Plugins that do not implement
+   * the method are skipped at the dispatcher layer; if any of the surviving
+   * providers return data the row renders, with `partial: true` set when at
+   * least one peer errored. Throws `AllPluginsFailedError` only when every
+   * resolved provider errored, so the row can be flagged `all_failed`.
+   */
+  async getInProgress(opts: { limit?: number } = {}): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "watchHistory",
+      version: "v1",
+      method: "getInProgress",
+      input: { limit: opts.limit },
+    });
+    return interpretAggregate("watchHistory@v1", result);
+  }
+
+  /**
+   * Coalesced batch availability lookup. `mediaRequest@v1` is a `single`
+   * strategy capability, so one plugin owns the response. Failures resolve
+   * to an empty map — callers (today: the home feed dataloader) fall back to
+   * `status: "unknown"` per item.
+   */
+  async getStatusBatch(ids: ReadonlyArray<string>): Promise<Record<string, string>> {
+    if (ids.length === 0) return {};
+    try {
+      const result = await dispatchSingle<{ statuses: Record<string, string> }>({
+        userId: this.userId,
+        capability: "mediaRequest",
+        version: "v1",
+        method: "getStatusBatch",
+        input: { ids: [...ids] },
+      });
+      return result?.statuses ?? {};
+    } catch (err) {
+      if (err instanceof PluginCallError) return {};
+      throw err;
+    }
+  }
+
+  /**
+   * Cheap count signal for the layout snapshot. Reads through the
+   * `watchlist@v1` aggregate cache; on full failure returns zero so the home
+   * feed can drop the row without surfacing the underlying plugin error.
+   */
+  async getWatchlistCount(): Promise<number> {
+    try {
+      const result = await dispatchAggregate<unknown[]>({
+        userId: this.userId,
+        capability: "watchlist",
+        version: "v1",
+        method: "getWatchlist",
+        input: {},
+      });
+      return Array.isArray(result.data) ? result.data.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Count of in-progress shows that have at least one upcoming episode. The
+   * home feed uses this as a layout-time gate for `upcomingForYou`; if the
+   * underlying calendar cache is cold the layout falls back to dropping the
+   * row this snapshot, so failures here resolve to zero.
+   */
+  async getCalendarProgressCount(): Promise<number> {
+    try {
+      const [inProgress, upcoming] = await Promise.all([
+        this.getInProgress(),
+        dispatchAggregate<unknown[]>({
+          userId: this.userId,
+          capability: "calendar",
+          version: "v1",
+          method: "getUpcoming",
+          input: {},
+        }),
+      ]);
+      const upcomingShows = new Set<string>();
+      for (const entry of upcoming.data ?? []) {
+        const tmdbId = readTmdbId(entry);
+        if (tmdbId) upcomingShows.add(tmdbId);
+      }
+      let count = 0;
+      for (const item of inProgress.items) {
+        const tmdbId = readNestedTmdbId(item);
+        if (tmdbId && upcomingShows.has(tmdbId)) count += 1;
+      }
+      return count;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Primary `metadata@v1.discover` — used by the `newReleases` row. */
+  async discoverFeed(filters: {
+    genres?: string[];
+    yearMin?: number;
+    yearMax?: number;
+    ratingMin?: number;
+    limit?: number;
+  }): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchPrimary<unknown[]>({
+      userId: this.userId,
+      capability: "metadata",
+      version: "v1",
+      method: "discover",
+      input: filters,
+    });
+    return interpretAggregate("metadata@v1", result);
+  }
+
+  /**
+   * Primary `metadata@v1.getSimilar` — used by `becauseYouWatched` keyed on
+   * the cursor-pinned seed media id.
+   */
+  async getSimilarFeed(input: {
+    id: string;
+    type: "movie" | "tv";
+  }): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchPrimary<unknown[]>({
+      userId: this.userId,
+      capability: "metadata",
+      version: "v1",
+      method: "getSimilar",
+      input,
+      mediaType: input.type,
+    });
+    return interpretAggregate("metadata@v1", result);
+  }
+
+  /** Aggregate `recommendations@v1.getTrending`. */
+  async getTrendingFeed(opts: {
+    mediaType?: "movie" | "tv";
+    limit?: number;
+  }): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "recommendations",
+      version: "v1",
+      method: "getTrending",
+      input: { type: opts.mediaType, limit: opts.limit },
+    });
+    return interpretAggregate("recommendations@v1", result);
+  }
+
+  /** Aggregate `recommendations@v1.getRecommendations` — raw candidates feed. */
+  async getRecommendationsFeed(opts: {
+    mediaType?: "movie" | "tv";
+    limit?: number;
+  }): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "recommendations",
+      version: "v1",
+      method: "getRecommendations",
+      input: { type: opts.mediaType, limit: opts.limit },
+    });
+    return interpretAggregate("recommendations@v1", result);
+  }
+
+  /**
+   * Returns true when at least one enabled provider for `capability@version`
+   * is reachable for this user. Cheap presence check the home feed snapshot
+   * uses to gate row eligibility before any plugin call. Walks the registry
+   * for providers, then `resolveConnections` for the first plugin that has
+   * a usable connection — short-circuits on first match.
+   */
+  async hasCapabilityProvider(
+    capability: string,
+    version: string,
+    scope: CapabilityScope = "user",
+  ): Promise<boolean> {
+    const providers = capabilityRegistry.listProviders(capability, version, scope);
+    for (const pluginId of providers) {
+      const conns = await resolveConnections(this.userId, pluginId);
+      if (conns.length > 0) return true;
+    }
+    return false;
+  }
+
+  /**
    * Invokes a plugin-contributed `ext_*` MCP tool. Resolves the user's
    * connection for the given plugin, decrypts credentials, and runs the
    * plugin's `mcpTools[handlerKey]` under its sandbox. Used by the MCP
@@ -246,4 +440,62 @@ export class MediaService {
       connectionId: args.connectionId,
     });
   }
+}
+
+/**
+ * Result envelope returned by every aggregate-style helper used by the home
+ * feed. `partial` mirrors the design's `partial: true` row signal.
+ */
+export interface HomeAggregate<T extends unknown[]> {
+  items: T;
+  partial: boolean;
+}
+
+/**
+ * Translates a raw `AggregateResult` into the home-feed `HomeAggregate`
+ * envelope and decides whether the row should be flagged `all_failed`. A
+ * provider that succeeded with no items is treated as "ok empty"; only when
+ * every provider that was contacted errored does this throw — that signal is
+ * what the home orchestrator uses to mark the row's `FetchOutcome` rather
+ * than silently dropping a row that timed out across the board.
+ */
+function interpretAggregate<T>(
+  capabilityKey: string,
+  result: AggregateResult<T[]>,
+): HomeAggregate<T[]> {
+  const data = (result.data ?? []) as T[];
+  const errors = result.errors ?? [];
+  if (data.length === 0 && errors.length > 0) {
+    throw new AllPluginsFailedError(
+      capabilityKey,
+      errors.map((e) => ({ pluginId: e.pluginId, code: e.code })),
+    );
+  }
+  return { items: data, partial: errors.length > 0 };
+}
+
+/**
+ * Best-effort lookup of a `tmdbId` field on aggregate calendar entries. The
+ * shape is deliberately untyped at the dispatcher boundary — different
+ * calendar plugins surface it under `item.ids.tmdb_id`, `tmdbId`, or `id`.
+ */
+function readTmdbId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const flat = typeof v.tmdbId === "string" ? v.tmdbId : null;
+  if (flat) return flat;
+  const item = v.item as Record<string, unknown> | undefined;
+  if (!item) return null;
+  const ids = item.ids as Record<string, unknown> | undefined;
+  const tmdb = ids?.tmdb_id;
+  if (typeof tmdb === "string") return tmdb;
+  const id = item.id;
+  if (typeof id === "string" && id.includes(":")) return id.split(":")[1] ?? null;
+  return null;
+}
+
+function readNestedTmdbId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const item = (value as { item?: unknown }).item;
+  return readTmdbId({ item });
 }

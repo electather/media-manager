@@ -52,6 +52,35 @@ const watchlistEntry = z.object({
   addedAt: z.string(),
 });
 
+const inProgressEntry = z.object({
+  item: mediaItem,
+  /** Within-content position. Episodes for TV, the movie itself for movies. */
+  watchedMs: z.number(),
+  /** Total runtime in ms. Zero/negative when the source could not measure it;
+   *  the host treats those as "in-progress, progress unmeasurable" and omits
+   *  the wire `progress` field rather than rendering a broken bar. */
+  durationMs: z.number(),
+  /** ISO timestamp of the most recent watch event for sort. */
+  lastWatchedAt: z.string(),
+  /** TV-only — `{ season, episode, name? }` for the in-progress episode. */
+  episode: z
+    .object({
+      season: z.number(),
+      episode: z.number(),
+      name: z.string().optional(),
+    })
+    .optional(),
+  /** TV-only season position, e.g. `2/12 watched`. */
+  episodeProgress: z
+    .object({
+      watched: z.number(),
+      total: z.number(),
+    })
+    .optional(),
+});
+
+const statusEnum = z.enum(["available", "requested", "processing", "unavailable", "unknown"]);
+
 const commentEntry = z.object({
   item: mediaItem,
   text: z.string(),
@@ -235,6 +264,18 @@ export const WatchHistoryV1 = defineCapability({
       z.object({ limit: z.number().optional(), since: z.string().optional() }),
       z.array(historyEntry),
     ),
+    /**
+     * `getInProgress` — used by the home feed's "Continue Watching" row.
+     * Aggregate strategy: each plugin returns the items it can see; the host
+     * dedupes by `(tmdbId, mediaType)` and sorts by `lastWatchedAt`, then
+     * paginates with an offset cursor. `limit` is a per-plugin hint, not a
+     * global cap. Plugins not implementing it surface `plugin.missing_method`,
+     * which the aggregate dispatcher skips, so adding the method is
+     * backward-compatible.
+     */
+    getInProgress: method(z.object({ limit: z.number().optional() }), z.array(inProgressEntry), {
+      optional: true,
+    }),
     addToHistory: method(z.array(mediaItem), z.object({ added: z.number() }), {
       invalidates: ["watchHistory@v1"],
     }),
@@ -363,6 +404,21 @@ export const MediaRequestV1 = defineCapability({
       z.object({ requestId: z.string() }),
       z.object({ ok: z.boolean(), message: z.string().optional() }),
       { invalidates: ["mediaRequest@v1"] },
+    ),
+    /**
+     * `getStatusBatch` — bulk variant used by the home feed dataloader to
+     * enrich every visible row with `status` in a single underlying call. The
+     * keyspace mirrors the request: callers pass composite media ids
+     * (`"movie:550"` / `"tv:1396"`) and receive the same strings back as keys
+     * in the `statuses` map. Plugins that do not implement this method are
+     * skipped; the host falls back to `"unknown"` per item.
+     */
+    getStatusBatch: method(
+      z.object({ ids: z.array(z.string()) }),
+      z.object({
+        statuses: z.record(z.string(), statusEnum),
+      }),
+      { optional: true },
     ),
   },
   mcpTools: [
