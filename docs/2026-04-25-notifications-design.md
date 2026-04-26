@@ -244,6 +244,7 @@ notifications_inbox
   image_alt       text  null
   read_at         timestamptz null
   created_at      timestamptz
+  index(user_id, created_at)
   index(user_id, read_at, created_at desc)
 ```
 

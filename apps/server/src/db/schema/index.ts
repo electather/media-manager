@@ -12,3 +12,4 @@ export * from "./roles";
 export * from "./errors";
 export * from "./user-preferences";
 export * from "./jobs";
+export * from "./notifications";
