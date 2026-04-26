@@ -1,8 +1,10 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import type {
   NotificationCategory,
   NotificationDeliveryStatus,
+  NotificationEventType,
+  NotificationSeverity,
 } from "@ent-mcp/shared/notifications";
 import {
   notificationSubscriptions,
@@ -16,29 +18,30 @@ export async function getSubscriptions(connectionId: string): Promise<
   Array<{
     connectionId: string;
     category: NotificationCategory;
-    enabled: number;
+    enabled: boolean;
   }>
 > {
   const db = getDb();
-  return db
+  const rows = await db
     .select()
     .from(notificationSubscriptions)
     .where(eq(notificationSubscriptions.connectionId, connectionId))
     .all();
+  return rows.map((row) => ({ ...row, enabled: row.enabled === 1 }));
 }
 
 export async function upsertSubscription(
   connectionId: string,
   category: NotificationCategory,
-  enabled: number,
+  enabled: boolean,
 ): Promise<void> {
   const db = getDb();
   await db
     .insert(notificationSubscriptions)
-    .values({ connectionId, category, enabled })
+    .values({ connectionId, category, enabled: enabled ? 1 : 0 })
     .onConflictDoUpdate({
       target: [notificationSubscriptions.connectionId, notificationSubscriptions.category],
-      set: { enabled },
+      set: { enabled: enabled ? 1 : 0 },
     });
 }
 
@@ -62,7 +65,7 @@ export async function deleteSubscription(
 export interface InsertDeliveryInput {
   id: string;
   eventId: string;
-  eventType: string;
+  eventType: NotificationEventType;
   eventPayload: string;
   recipientConnectionId: string | null;
   recipientUserId: string;
@@ -73,7 +76,8 @@ export interface InsertDeliveryInput {
 export async function insertDelivery(input: InsertDeliveryInput): Promise<void> {
   const db = getDb();
   const now = Date.now();
-  const values: any = {
+  type DeliveryInsert = typeof notificationDeliveries.$inferInsert;
+  const values: DeliveryInsert = {
     id: input.id,
     eventId: input.eventId,
     eventType: input.eventType,
@@ -81,13 +85,11 @@ export async function insertDelivery(input: InsertDeliveryInput): Promise<void> 
     recipientConnectionId: input.recipientConnectionId,
     recipientUserId: input.recipientUserId,
     status: input.status,
+    correlationKey: input.correlationKey ?? null,
     attemptCount: 0,
     createdAt: now,
     updatedAt: now,
   };
-  if (input.correlationKey) {
-    values.correlationKey = input.correlationKey;
-  }
   await db.insert(notificationDeliveries).values(values);
 }
 
@@ -102,7 +104,8 @@ export async function updateDeliveryStatus(
   providerMessageId?: string | null,
 ): Promise<void> {
   const db = getDb();
-  const updates: any = { status, updatedAt: Date.now() };
+  type DeliveryUpdate = Partial<typeof notificationDeliveries.$inferInsert>;
+  const updates: DeliveryUpdate = { status, updatedAt: Date.now() };
   if (providerMessageId !== undefined) {
     updates.providerMessageId = providerMessageId;
   }
@@ -115,10 +118,8 @@ export async function recordDeliveryAttempt(
   errorMessage?: string,
 ): Promise<void> {
   const db = getDb();
-  const current = await getDelivery(id);
-  if (!current) return;
   const updates: any = {
-    attemptCount: current.attemptCount + 1,
+    attemptCount: sql`${notificationDeliveries.attemptCount} + 1`,
     updatedAt: Date.now(),
   };
   if (errorCode) {
@@ -136,8 +137,8 @@ export interface InsertInboxItemInput {
   userId: string;
   title: string;
   body: string;
-  severity: string;
-  category: string;
+  severity: NotificationSeverity;
+  category: NotificationCategory;
   actionUrl?: string | null;
   imageUrl?: string | null;
   imageAlt?: string | null;
@@ -167,6 +168,7 @@ export async function getInboxItem(id: string) {
 }
 
 export async function markInboxRead(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
   const db = getDb();
   await db
     .update(notificationsInbox)
@@ -175,6 +177,7 @@ export async function markInboxRead(ids: string[]): Promise<void> {
 }
 
 export async function markInboxUnread(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
   const db = getDb();
   await db
     .update(notificationsInbox)
@@ -183,6 +186,7 @@ export async function markInboxUnread(ids: string[]): Promise<void> {
 }
 
 export async function deleteInboxItems(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
   const db = getDb();
   await db.delete(notificationsInbox).where(inArray(notificationsInbox.id, ids));
 }
@@ -190,9 +194,9 @@ export async function deleteInboxItems(ids: string[]): Promise<void> {
 export async function getUnreadCount(userId: string): Promise<number> {
   const db = getDb();
   const result = await db
-    .select()
+    .select({ count: count() })
     .from(notificationsInbox)
     .where(and(eq(notificationsInbox.userId, userId), isNull(notificationsInbox.readAt)))
-    .all();
-  return result.length;
+    .get();
+  return result?.count ?? 0;
 }
