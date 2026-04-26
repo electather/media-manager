@@ -35,3 +35,22 @@ export const notificationAudienceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.string() }),
   z.object({ kind: z.literal("admin"), permission: z.enum(ALL_PERMISSIONS) }),
 ]);
+
+export const notificationEventSchema = z.object({
+  id: z.string(),
+  occurredAt: z.string(),
+  type: z.enum([
+    "job.run.failed",
+    "connection.auth.expired",
+    "connection.sync.succeeded",
+    "media.request.available",
+    "media.request.denied",
+    "system.error",
+  ]),
+  category: notificationCategorySchema,
+  severity: notificationSeveritySchema,
+  audience: notificationAudienceSchema,
+  correlationKey: z.string().optional(),
+  source: z.string().optional(),
+  payload: z.record(z.string(), z.unknown()),
+});

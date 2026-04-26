@@ -10,6 +10,10 @@ on:
   pull_request_review:
     types: [submitted]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.issue.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   # Opt every JS action into Node.js 24 ahead of the June 2026 forced cutover.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
