@@ -24,7 +24,6 @@ Follows MCP spec discipline: thin translation layer over `MediaService`, no new 
 ## Non-goals
 
 - Frontend design (card shape, scroll, skeleton, empty-state copy, rendering) — later frontend spec.
-- Billboard hero unit — deferred; `layout.hero` additive field when shipped.
 - Genre-scoped rows — deferred until `preference_profiles` data dense enough.
 - Personalized row ordering from engagement tracking — ruled out per PreferenceEngine spec's "no things-we-showed-this-user tracking."
 - Cross-row dedup — v1 accepts title may appear in both Trending & New Releases.
@@ -47,6 +46,7 @@ Follows MCP spec discipline: thin translation layer over `MediaService`, no new 
              │  • resolveLayout            │
              │  • fetchRowContent          │
              │  • request-scoped dataloader│
+             │  • resolveHero.             │
              └───┬──────────────────┬──────┘
                  │                  │
                  ▼                  ▼
@@ -141,32 +141,29 @@ Two oRPC procedures under `server/api/routes/home.ts`, authenticated-user-only (
 ### `home.getLayout`
 
 ```ts
-// Input
-z.object({}).strict(); // no input in v1; userId comes from ctx
-
-// Output
 interface HomeLayoutResponse {
-  rows: HomeRow[]; // ordered; rules already applied, empties dropped
-  generatedAt: number; // ms epoch; client uses for staleness UX
+  hero: LayoutHero | null; // NEW
+  rows: HomeRow[];
+  generatedAt: number;
 }
 
 interface HomeRow {
-  rowId: RowKind; // serves as both the getRowContent identifier and the client-side rendering discriminant
-  title: string; // "Continue Watching"
-  subtitle?: string; // e.g. "Because you watched Inception" on seed rows
-  items: CompactMediaItem[]; // first page, inlined
-  cursor: string | null; // null when there is no next page
-  partial?: true; // aggregate dispatch had one or more plugin errors
+  rowId: RowKind;
+  title: string;
+  titleOverride?: string; // NEW: set when hero exclusion changed row meaning
+  subtitle?: string;
+  items: CompactMediaItem[];
+  cursor: string | null;
+  partial?: true;
 }
 
-type RowKind =
-  | "continueWatching"
-  | "recommendedForYou"
-  | "trendingNow"
-  | "newReleases"
-  | "becauseYouWatched"
-  | "upcomingForYou"
-  | "yourWatchlist";
+// NEW
+interface LayoutHero {
+  item: CompactMediaItem;
+  source: RowKind;
+  reason: "continue_watching" | "recommended" | "trending" | "new_release";
+  resumeUrl: string | null; // server-resolved deep link; null when no playable source
+}
 ```
 
 ### `home.getRowContent`
@@ -199,14 +196,16 @@ interface CompactMediaItem {
   mediaType: "movie" | "tv";
   title: string;
   year?: number;
-  poster?: string; // TMDB proxied URL
-  backdrop?: string; // TMDB proxied URL; rows that want large art
+  poster?: string; // fanart.tv preferred, TMDB fallback (comment update)
+  backdrop?: string; // fanart.tv preferred, TMDB fallback (comment update)
+  clearLogo?: string; // NEW: fanart.tv hdmovielogo / hdtvlogo
+  progress?: { watched: number; total: number }; // existing; semantics clarify: within-content (movie OR episode)
+  episodeProgress?: { watched: number; total: number }; // NEW: TV-only season position; "2/12 watched"  backdrop?: string; // TMDB proxied URL; rows that want large art
   overview?: string; // truncated to ~240 chars
   genres?: string[]; // top 3
   rating?: number; // aggregated; omitted when no source
   userRating?: number; // from ratings@v1; omitted when absent
   matchReason?: string; // only on recommendedForYou / becauseYouWatched
-  progress?: { watched: number; total: number }; // only on continueWatching
   status?: "available" | "requested" | "processing" | "unavailable" | "unknown";
   episode?: {
     // only on upcomingForYou items
@@ -342,6 +341,54 @@ function orderRows(candidates: RowKind[], signals: LayoutSignals): RowKind[] {
   }
 
   return order;
+}
+```
+
+### Layout decision logic
+
+resolveHero runs after row fetches complete, before dropEmpty. Pure function over (signals, rowResults). Pipeline: fetch all rows → resolveHero → applyHeroExclusion → dropEmpty → ship.
+resumeUrl resolution — new subsection. Decide before implementation: extend watchHistory@v1 with getResumeUrl(mediaId), or new playback@v1 capability. Server resolves from the plugin that supplied progress for that item.
+Per-row updates — continueWatching:
+
+Populate episodeProgress for TV items from watchHistory's season-level state.
+compact.ts mapper prefers fanart.tv assets (poster, backdrop, clearLogo) with TMDB fallback.
+
+```ts
+function resolveHero(
+  signals: LayoutSignals,
+  rowResults: Map<RowKind, FetchedRow>,
+): LayoutHero | null {
+  const cw = rowResults.get("continueWatching");
+  if (cw?.items.length) return makeHero(cw.items[0], "continueWatching", "continue_watching");
+
+  const rfy = rowResults.get("recommendedForYou");
+  const confident = signals.profileConfidence === "medium" || signals.profileConfidence === "high";
+  if (rfy?.items.length && confident)
+    return makeHero(rfy.items[0], "recommendedForYou", "recommended");
+
+  const trending = rowResults.get("trendingNow");
+  if (trending?.items.length) return makeHero(trending.items[0], "trendingNow", "trending");
+
+  return null;
+}
+
+const TITLE_OVERRIDE_MAP: Partial<Record<RowKind, string>> = {
+  continueWatching: "Also watching",
+  recommendedForYou: "More for you",
+  trendingNow: "More trending",
+};
+
+// Runs BEFORE dropEmpty so rows emptied by exclusion still get dropped.
+function applyHeroExclusion(rows: FetchedRow[], hero: LayoutHero | null): FetchedRow[] {
+  if (!hero) return rows;
+  return rows.map((row) => {
+    if (row.rowId !== hero.source) return row;
+    return {
+      ...row,
+      items: row.items.filter((i) => i.id !== hero.item.id),
+      titleOverride: TITLE_OVERRIDE_MAP[row.rowId],
+    };
+  });
 }
 ```
 
@@ -831,6 +878,22 @@ One test per user-state fixture:
 
 ∀ fixtures assert row set, order, which rows carry `matchReason`/`progress`/`partial`.
 
+- resolveHero rule tests:
+  - cw has items → hero = cw[0]
+  - cw empty, RFY + confidence high → hero = rfy[0]
+  - cw empty, RFY + confidence low → falls through to trending
+  - all rows empty → null
+  - confidence absent treated as low
+- applyHeroExclusion:
+  - hero from continueWatching → row[0] dropped, titleOverride set
+  - hero source not in rows → no-op
+  - row empty after exclusion → dropEmpty drops it
+  - row's items filtered by id, not by reference
+- resumeUrl:
+  - hero source = continueWatching with playable plugin → URL populated
+  - hero source = RFY/trending → null
+  - continueWatching with no playable plugin → null
+
 ### API contract tests
 
 - oRPC input schema: `getLayout` rejects extra keys (strict); `getRowContent` requires `rowId` & `cursor`; unknown `rowId` → `home.bad_input`.
@@ -857,7 +920,6 @@ One test per user-state fixture:
 
 ## Open questions / deferred
 
-- **Billboard hero unit.** Additive `layout.hero` field. Reserved for later spec.
 - **Cross-row dedupe.** ⊥ applied v1. If "same title in Trending & New Releases" noisy, add seen-set at tail of layout handler.
 - **Personalized row ordering beyond rule table.** Requires engagement tracking ruled out by PreferenceEngine spec.
 - **Genre-scoped rows.** Defer until `preference_profiles` data strong enough.
@@ -867,3 +929,5 @@ One test per user-state fixture:
 - **Dashboard rate limiting.** ⊥ introduced here. Extend same token-bucket primitive used for MCP to oRPC if needed.
 - **A/B variants on rule table.** Pure-function shape built for it; no experiment infra wired v1.
 - **MCP equivalent.** MCP agents already get home-equivalent via `ent_discover`; dedicated `ent_home` would duplicate surface — ⊥ planned.
+- Add: fanart.tv access. Rate limits, language-tagged asset selection, fallback chain. Own subspec or metadata-capability extension.
+- Add: resumeUrl capability owner. watchHistory@v1 extension vs new playback@v1. Decide before implementation.

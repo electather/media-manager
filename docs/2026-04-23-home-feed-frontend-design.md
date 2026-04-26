@@ -21,11 +21,10 @@ No row-specific branching in page code — rows driven by `rowId` & `HomeRow` sh
 - Card click feels instant; feed scroll position preserved when modal closes.
 - Horizontal scroll works with trackpad, mouse drag, touch swipe, keyboard; arrow buttons surface on hover.
 - Degrade honestly across same user-state spectrum as backend.
-- Card-treatment split from backend data model: landscape backdrops for `continueWatching` & `upcomingForYou`, tall posters everything else.
+- Single Card component. Treatment data-driven from item shape (progress → continue-watching, episode → upcoming, neither → default). Aspect ratio row-driven via ROW_DISPLAY. Size driven by container queries.
 
 ## Non-goals
 
-- Hero/billboard unit — additive when backend ships `layout.hero`.
 - Netflix-style hover-preview card — deferred v2.
 - Infinite vertical scroll of rows — row set small & fixed by layout endpoint.
 - SSR — current client = Vite SPA; TanStack Start needed, out of scope.
@@ -41,6 +40,7 @@ No row-specific branching in page code — rows driven by `rowId` & `HomeRow` sh
 - oRPC client + tanstack-query (existing pattern).
 - `embla-carousel-react` for row horizontal scroll — ~10kb, maintained, battle-tested. Drag + snap + arrow-button hooks without rolling pointer-event handling.
 - Shared types from `@ent-mcp/shared/home` per backend spec's shared-package rule.
+- Tailwind container queries plugin (`@tailwindcss/container-queries`) for hero/card/sidebar adaptive sizing.
 
 Dashboard shell (sidebar nav, header, theme toggle) already exists. Design covers page content only.
 
@@ -84,20 +84,19 @@ No type mirroring, no re-declaration.
 // Maps rowId → how the row renders. The ONLY place row-specific visual
 // decisions live. Everything else reads from HomeRow and CompactMediaItem.
 type RowDisplayConfig = {
-  cardShape: "poster" | "backdrop";
-  showMatchReasonInline: boolean; // true on recommendedForYou
-  // HomeRow.subtitle from the server already carries "Because you watched X"
-  // on seed rows — the client adds no extra subtitle logic.
+  slot: "main" | "sidebar";        // sidebar overrides to "main" at <md
+  aspectRatio: "poster" | "backdrop";
+  showMatchReasonInline: boolean;
 };
 
 const ROW_DISPLAY: Record<RowKind, RowDisplayConfig> = {
-  continueWatching: { cardShape: "backdrop", showMatchReasonInline: false },
-  upcomingForYou: { cardShape: "backdrop", showMatchReasonInline: false },
-  recommendedForYou: { cardShape: "poster", showMatchReasonInline: true },
-  becauseYouWatched: { cardShape: "poster", showMatchReasonInline: false },
-  trendingNow: { cardShape: "poster", showMatchReasonInline: false },
-  newReleases: { cardShape: "poster", showMatchReasonInline: false },
-  yourWatchlist: { cardShape: "poster", showMatchReasonInline: false },
+  continueWatching:  { slot: "main",    aspectRatio: "backdrop", showMatchReasonInline: false },
+  upcomingForYou:    { slot: "sidebar", aspectRatio: "backdrop", showMatchReasonInline: false },
+  recommendedForYou: { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: true  },
+  becauseYouWatched: { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
+  trendingNow:       { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
+  newReleases:       { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
+  yourWatchlist:     { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
 };
 
 // Search-param schema for the detail-modal peek.
@@ -109,7 +108,7 @@ const peekSchema = z.object({
 });
 ```
 
-`ROW_DISPLAY` = only place row-specific presentation logic exists. Adding row on backend → add one entry here; rest of page code untouched. No separate `PosterCard`/`BackdropCard` data shapes — both variants render from same `CompactMediaItem`.
+`ROW_DISPLAY` = only place row-specific presentation logic exists. Adding row on backend → add one entry here; rest of page code untouched. Single `Card` component handles all shapes — treatment dispatched from item shape, aspect from `ROW_DISPLAY`.
 
 ### Cursors are opaque
 
@@ -120,17 +119,20 @@ Frontend treats `HomeRow.cursor` & `getRowContent` return as black-box strings. 
 ### Component tree
 
 ```
-HomeFeedPage (route component at /)
-├── HomeFeedSkeleton        (while first getLayout is in flight on cold cache)
-├── HomeFeedEmpty           (when layout returns rows: [])
+HomeFeedPage
+├── HomeFeedSkeleton
+├── HomeFeedEmpty
 └── HomeFeedContent
-    └── Row[]                (one per HomeRow)
-        ├── RowHeader        (title + optional subtitle + partial indicator)
-        └── RowCarousel      (embla instance; manages scroll, arrows, pagination trigger)
-            └── Card[]       (CardPoster | CardBackdrop, picked via ROW_DISPLAY[rowId].cardShape)
+    ├── TopZone                       (renders when hero or sidebar rows exist)
+    │   ├── Hero                      (LayoutHero or null)
+    │   └── SidebarColumn             (rows where slot === "sidebar")
+    │       └── SidebarItem[]
+    └── Row[]                         (slot === "main", plus sidebar rows at <md)
+        ├── RowHeader                 (uses titleOverride ?? title)
+        └── RowCarousel
+            └── Card[]                (single component; treatment + size data-driven)
 
-MediaDetailModal             (portal, mounted by the _authenticated layout when ?peek= is set)
-└── MediaDetailBody          (shared body component used by modal + /media/$id)
+MediaDetailModal (unchanged)
 ```
 
 ### File layout
@@ -144,13 +146,15 @@ packages/client/src/
 │   ├── home-feed.tsx                # picks skeleton / empty / content / error
 │   ├── row.tsx                      # RowHeader + RowCarousel + pagination glue
 │   ├── row-carousel.tsx             # embla wrapper: scroll, arrows, snap, "near end" signal
-│   ├── card.tsx                     # dispatches to poster or backdrop variant
-│   ├── card-poster.tsx              # 2:3 variant
-│   ├── card-backdrop.tsx            # 16:9 variant with progress / episode overlays
+│   ├── top-zone.tsx                 # composes hero + sidebar; handles mobile stack
+│   ├── hero.tsx                     # LayoutHero render; click → resumeUrl OR peek
+│   ├── sidebar-column.tsx           # vertical list at md+, horizontal row at <md
+│   ├── sidebar-item.tsx             # thumb + title + episode + relative date
+│   ├── card.tsx                     # treatment dispatch from item shape; aspect from ROW_DISPLAY
 │   ├── status-pill.tsx              # requested / processing / unavailable
 │   ├── rating-badge.tsx             # user rating corner badge
 │   ├── match-reason.tsx             # muted multi-line reason under title
-│   ├── home-feed-skeleton.tsx
+│   ├── home-feed-skeleton.tsx       # includes top-zone skeleton
 │   ├── home-feed-empty.tsx
 │   ├── home-feed-error.tsx
 │   ├── media-detail-modal.tsx       # dialog wrapper; reads ?peek from search
@@ -172,8 +176,8 @@ packages/client/src/
 ### What lives where
 
 - `index.tsx` thin: calls `useHomeLayout`, picks top-level branch (skeleton/empty/content/error), renders. ~40 lines.
-- `row.tsx` owns row-local pagination state. ⊥ knows card shape — `card.tsx`'s job.
-- `card.tsx` small dispatcher (~20 lines): reads `ROW_DISPLAY[rowId].cardShape`, renders `CardPoster` or `CardBackdrop`. No row logic.
+- `row.tsx` owns row-local pagination state. ⊥ knows card treatment — `card.tsx`'s job.
+- `card.tsx` dispatches treatment from item shape (progress/episode/neither), reads `ROW_DISPLAY[rowId].aspectRatio` for frame. No row logic beyond that.
 - `ROW_DISPLAY` in `lib/home-display.ts` = single source of truth for row-specific visual behavior.
 
 ### What doesn't exist
@@ -231,57 +235,31 @@ While fetch in flight: single skeleton card at end of row. On success: replaced 
 
 ## Card designs
 
-### Poster card (`CardPoster`)
+### Treatment (data-driven, from item shape)
 
-2:3 aspect ratio. Used for `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `yourWatchlist`.
+- **progress present → continue-watching:** progress bar pinned to bottom edge of art, "Xmin left" caption, `clearLogo` overlay rendered only at hero container size.
+- **episode present, no progress → upcoming:** "S2 E4 · Fri 9pm" detail line, no progress bar.
+- **neither → default:** title + year + optional status pill + optional rating badge.
 
-Desktop: 180px wide (≈270px tall). ~6 across 1440px viewport.
-Mobile: 128px wide (≈192px tall). ~2.5 across 375px.
+### Aspect (row-driven)
 
-**Always rendered:**
+- `ROW_DISPLAY[rowId].aspectRatio === "poster"` → 2:3 frame.
+- `"backdrop"` → 16:9 frame.
 
-- Poster from `item.poster` (TMDB-proxied). Missing → flat `--color-background-secondary` tile, title centered in small muted text.
-- Title below card — 14px, weight 500, 2-line clamp.
-- Year below title — 12px, muted.
+### Size (container-driven, via `@container`)
 
-**Conditional overlays (positioned absolutely inside poster):**
+- **Hero size:** ~70% main column at md+, full-width <md. `clearLogo` overlay enabled.
+- **Row card:** rendered inside `RowCarousel`.
+- **Sidebar item:** rendered inside `SidebarColumn`.
 
-- **Status pill** top-right, 8px inset. Only for `requested`/`processing`/`unavailable`. ⊥ for `available`/`unknown`. Colors: `warning`/`info`/`danger`.
-- **User rating** bottom-left (small star icon + number) when `item.userRating` present.
-- **Match reason** below title (2-line clamp, 11px, muted). Only when `ROW_DISPLAY[rowId].showMatchReasonInline === true` & `item.matchReason` present.
-
-**Hover:** subtle `scale(1.02)`, 120ms ease. ⊥ Netflix-style expand/reveal. Cursor pointer. Keyboard focus: standard shadcn focus-visible outline.
-
-### Backdrop card (`CardBackdrop`)
-
-16:9 aspect ratio. Used for `continueWatching` & `upcomingForYou`.
-
-Desktop: 280px wide (≈158px tall). ~4 across.
-Mobile: 220px wide (≈124px tall). ~1.5 across.
-
-**Always rendered:**
-
-- Backdrop from `item.backdrop`, landscape-cropped `item.poster` as fallback.
-- Title below card — 14px, weight 500, 1-line clamp.
-- Row-specific detail line below title.
-
-**Conditional overlays:**
-
-- **Progress bar** pinned to bottom edge of backdrop image (inside image, ⊥ below it). 3px tall, full width. Background: 20% opacity (theme-aware); fill: `var(--color-text-danger)`. Only on `continueWatching`.
-- **Status pill** top-right — same rules as poster card.
-- **User rating** bottom-left — same rules, **only when progress bar absent** (i.e. on `upcomingForYou`; bar would collide on `continueWatching`).
-
-**Row-specific detail line:**
-
-- `continueWatching`: "22 min left" for movies, "S2 E4 · 22 min left" for TV. From `progress.total - progress.watched` + episode metadata on item.
-- `upcomingForYou`: "S2 E4 · Fri 9pm" from `item.episode.{season,episode,airsAt}`. `airsAt` formatted relative for near dates ("tomorrow"), weekday this week ("Fri"), full date after.
+Same `Card` component, three sizes. `StatusPill` / `RatingBadge` / `MatchReason` primitives unchanged.
 
 ### Shared rules
 
 - Images `loading="lazy"` + `decoding="async"`. ⊥ custom blur-up — neutral background fill while loading is enough.
 - ∀ cards rendered as `<a href={`/media/${item.id}`}>`, not `<button>`. Middle-click, Cmd/Ctrl-click, "Open in new tab" work naturally. Click handler intercepts default, updates `peek` search param; modifier-clicks fall through to real URL.
-- Card component signature: `<Card item={...} rowId={...} />`. Dispatches via `ROW_DISPLAY[rowId].cardShape`. No other row-specific branching in card code.
-- `StatusPill`, `RatingBadge`, `MatchReason` in dedicated sub-components — both card variants render from same primitives.
+- Card component signature: `<Card item={...} rowId={...} />`. Treatment from item shape; aspect from `ROW_DISPLAY[rowId].aspectRatio`. No other row-specific branching in card code.
+- `StatusPill`, `RatingBadge`, `MatchReason` in dedicated sub-components — shared across all card sizes.
 
 ## Detail modal
 
@@ -400,18 +378,41 @@ No visual indicator. Row ends; `Next` arrow disables.
 
 Single skeleton card at end of row. Replaced by real cards on success, removed on failure without inline error.
 
+### Top zone present (hero + sidebar)
+
+Two-column at md+: hero left ~70%, sidebar right ~30%.
+
+### Sidebar empty (no calendar plugin or `calendarProgressCount === 0`)
+
+Sidebar collapses. Hero expands to full main-column width.
+
+### Hero null, sidebar present
+
+Sidebar collapses, renders as horizontal-scroll row at top of `rows[]`.
+
+### Both null
+
+Top zone removed. `rows[]` renders from top.
+
+### Hero click
+
+- `source === "continueWatching"` && `resumeUrl != null` → open `resumeUrl` (anchor with `target=_blank`).
+- otherwise → open detail modal via `peek` search param, same as cards.
+
+`resumeUrl` null check is explicit `!= null` (server returns `null` when no playable source).
+
 ## Responsive treatment
 
 Breakpoints follow existing Tailwind convention: `sm` (640px), `md` (768px), `lg` (1024px), `xl` (1280px).
 
 ### Card dimensions
 
-| Viewport | Poster (width × height) | Backdrop (width × height) |
-| -------- | ----------------------- | ------------------------- |
-| `xl`+    | 180 × 270               | 280 × 158                 |
-| `lg`     | 160 × 240               | 250 × 141                 |
-| `md`     | 140 × 210               | 220 × 124                 |
-| `<md`    | 128 × 192               | 220 × 124                 |
+| Viewport | Poster        | Backdrop      | Hero       | Sidebar item |
+| -------- | ------------- | ------------- | ---------- | ------------ |
+| `xl`+    | 180 × 270     | 280 × 158     | full-col   | 280 × 80     |
+| `lg`     | 160 × 240     | 250 × 141     | full-col   | 250 × 72     |
+| `md`     | 140 × 210     | 220 × 124     | full-col   | 220 × 64     |
+| `<md`    | 128 × 192     | 220 × 124     | full-width | n/a (row)    |
 
 Heights auto-derive from aspect ratio — driving widths, ⊥ fixed pixel boxes. Tailwind responsive prefixes on `flex-basis`.
 
@@ -424,6 +425,13 @@ Heights auto-derive from aspect ratio — driving widths, ⊥ fixed pixel boxes.
 ### Arrows
 
 Hidden on touch-primary via `@media (hover: none)`. ⊥ user-agent sniffing.
+
+### Top zone responsive
+
+- md+: two-column. Hero ~70%, sidebar ~30%.
+- <md: stack. Hero full-width on top. Upcoming items render as horizontal-scroll backdrop row labelled "Upcoming."
+
+Slot override happens via container query, not viewport hook (avoids hydration mismatch when SSR lands).
 
 ### Modal → full-screen on mobile
 
@@ -460,14 +468,17 @@ Follows existing `vp test` harness & patterns from `/connections` tests.
 One file per component, colocated.
 
 - `row-carousel.test.tsx`: embla initializes with expected config; `Previous` disabled at scroll start; `Next` disabled when at end & cursor null; arrows hidden without hover, revealed with row focus; pagination callback fires at 75% threshold debounced; keyboard arrow nav scrolls to keep focus in view.
-- `card.test.tsx`: dispatches to `CardPoster` for poster rowId, `CardBackdrop` for backdrop rowId; no other branches reachable.
-- `card-poster.test.tsx`: title + year always rendered; status pill for `requested`/`processing`/`unavailable`, **⊥** for `available`/`unknown`; user rating when `userRating` present; match reason only when `ROW_DISPLAY[rowId].showMatchReasonInline && item.matchReason`.
-- `card-backdrop.test.tsx`: progress bar on `continueWatching` with width matching `progress.watched / progress.total`; episode detail line on `upcomingForYou` with formatted airdate; user rating bottom-left only when progress bar absent.
+- `top-zone.test.tsx`: composes Hero + SidebarColumn at md+; stacks (hero on top, sidebar as row below) at <md via mocked container size; both null → renders nothing.
+- `hero.test.tsx`: renders `LayoutHero` per source variant; `continueWatching` + `resumeUrl` → click opens `resumeUrl`; RFY source or `resumeUrl` null → click navigates to peek; `clearLogo` rendered at hero size, ⊥ at row/sidebar sizes.
+- `sidebar-column.test.tsx`: vertical list at desktop container width; horizontal scroll row at narrow container width.
+- `sidebar-item.test.tsx`: thumb + title + episode line + relative date formatting (today/tomorrow/weekday/full date).
+- `card.test.tsx`: dispatches treatment by item shape, ⊥ rowId — progress present → continue-watching treatment; episode present, no progress → upcoming treatment; neither → default.
 - `status-pill.test.tsx`: semantic color per status; visually-hidden text for screen readers ("Status: Requested").
 - `media-detail-modal.test.tsx`: opens when `peek` = valid `MediaId`; closes on Escape/outside click/close button → `peek: undefined`; malformed `peek` values ⊥ open modal.
 - `home-feed-skeleton.test.tsx`: renders 4 rows with alternating poster/backdrop skeleton shapes.
 - `home-feed-empty.test.tsx`: renders CTA with working link to `/connections`.
-- `home-feed.test.tsx`: branches correctly on loading/empty/content/error.
+- `home-feed.test.tsx`: branches correctly on loading/empty/content/error; top-zone visibility branches: hero+sidebar, hero only, sidebar only, neither.
+- `row-header.test.tsx`: uses `titleOverride` when present, falls back to `title`.
 
 ### Hook tests
 
@@ -498,6 +509,8 @@ One file per component, colocated.
 
 ## Open questions / deferred
 
+- **Hero rotation / multiple heroes.** Single static hero v1. Rotation deferred.
+- **Hero vertical height on mobile.** Measure on real devices; may compress to fixed 16:9 if aspect-driven gets too tall.
 - **Hero/billboard unit.** Additive when backend ships `layout.hero`. Frontend change = new top-slot component.
 - **Netflix-style hover preview card.** Genuine work — deferred v2.
 - **Horizontal row scroll restoration across full-page navigation.** ⊥ preserved v1. If users complain, stash per-row `scrollLeft` in Zustand store keyed on `rowId`.
@@ -525,3 +538,6 @@ Load-bearing details from design review — ∀ implementing PRs must address:
 - **`@media (hover: none)` + keyboard on touch devices.** iPad with keyboard matches `(hover: none)` & supports Tab. Arrow visibility rule ! be consistent with Tab-order decision above; ⊥ produce invisible tab stops.
 - **Progress bar color token.** `--color-text-danger` = text color used on non-text surface. Introduce `--color-progress-watched` or pick non-text role.
 - **`@ent-mcp/shared/home` subpath export.** Backend spec mandates this; coordinate if spec landed before export.
+- **`resumeUrl` null check.** Use `!= null`, not falsy. Empty-string URL is malformed but truthy — treating it as openable is wrong.
+- **Sidebar → main slot override at <md.** Via container query (`@container`), ⊥ `useMediaQuery`. Hydration-safe when SSR lands.
+- **`clearLogo` overlay.** Rendered at hero container size only. At row/sidebar sizes, title text rules — rendering both creates visual conflict.
