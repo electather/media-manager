@@ -54,6 +54,8 @@ export async function resolveRecipients(event: NotificationEvent): Promise<Recip
     )
     .all();
 
+  if (conns.length === 0) return [];
+
   // Defense in depth: batch re-check that users still have category permission at dispatch time.
   const requiredPermission = NOTIFICATION_CATEGORY_PERMISSION[event.category];
   const connUserIds = conns.map((r) => r.service_connections.userId);

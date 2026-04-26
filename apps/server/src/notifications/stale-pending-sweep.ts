@@ -16,7 +16,7 @@ export function registerStalePendingSweep() {
       const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
 
       const staleDeliveries = await db
-        .select({ id: notificationDeliveries.id })
+        .select({ id: notificationDeliveries.id, status: notificationDeliveries.status })
         .from(notificationDeliveries)
         .where(
           and(
@@ -34,6 +34,21 @@ export function registerStalePendingSweep() {
       if (!jobEntry?.triggerFromApi) return;
 
       for (const delivery of staleDeliveries) {
+        // Reset in_progress rows back to pending for crash recovery.
+        // Handler's CAS only accepts pending; without reset, row stays stuck forever.
+        if (delivery.status === "in_progress") {
+          await db
+            .update(notificationDeliveries)
+            .set({ status: "pending", updatedAt: Date.now() })
+            .where(
+              and(
+                eq(notificationDeliveries.id, delivery.id),
+                eq(notificationDeliveries.status, "in_progress"),
+              ),
+            )
+            .run();
+        }
+
         try {
           await jobEntry.triggerFromApi(
             { deliveryId: delivery.id },
