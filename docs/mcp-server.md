@@ -839,7 +839,7 @@ Plugin-emitted errors during `ext_*` calls keep `plugin.<plugin_id>.<code>` name
 
 ### Capture
 
-Follows same "bugs get captured, expected product behavior doesn't" rule as error-management doc's oRPC middleware:
+Follows same "bugs get captured, expected product behavior doesn't" rule as error-management doc's RPC middleware:
 
 - **Captured as `error`:** throws inside tool handlers, `mcp.output_invalid`, plugin-runtime errors during `ext_*` calls (already captured by existing plugin-runtime capture path, now with MCP request ID threaded in).
 - **⊥ captured:** `mcp.invalid_id`, `mcp.forbidden`, `mcp.ambiguous_target`, `mcp.target_not_found`, `mcp.not_connected`, `mcp.bad_input`, `mcp.rate_limited`. All = expected product behavior — agent passed something wrong, user hasn't connected something, etc.

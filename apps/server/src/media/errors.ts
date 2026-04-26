@@ -30,6 +30,22 @@ export class PluginCallError extends Error {
   }
 }
 
+/**
+ * Thrown by aggregate `MediaService` methods when every contributing plugin
+ * returned an error. Callers (today: the home feed orchestrator) catch this
+ * to mark a row's `FetchOutcome` as `all_failed`, distinct from a genuine
+ * empty fetch where every plugin succeeded but had nothing to contribute.
+ */
+export class AllPluginsFailedError extends Error {
+  constructor(
+    public readonly capability: string,
+    public readonly errors: ReadonlyArray<{ pluginId: string; code: HostErrorCode }>,
+  ) {
+    super(`every provider for ${capability} errored`);
+    this.name = "AllPluginsFailedError";
+  }
+}
+
 /** Normalizes a thrown value into a canonical `{ code, devMessage }` pair. */
 export function normalizeError(err: unknown): { code: HostErrorCode; devMessage: string } {
   if (isPluginError(err)) {

@@ -102,6 +102,11 @@ export const HOST_ERROR_CODES = {
   "job.bad_input": { severity: "info" },
   "job.wrong_kind": { severity: "info" },
   "job.forbidden": { severity: "info" },
+
+  // Home feed.
+  "home.bad_input": { severity: "info" },
+  "home.row_unavailable": { severity: "info" },
+  "home.internal": { severity: "error" },
 } as const satisfies Record<string, ErrorCodeSpec>;
 
 export type HostErrorCode = keyof typeof HOST_ERROR_CODES;
@@ -114,7 +119,7 @@ export function severityFor(code: string): ErrorSeverity {
   return spec?.severity ?? "error";
 }
 
-/** Wire-format shape returned by any error-producing oRPC/HTTP handler.
+/** Wire-format shape returned by any error-producing RPC/HTTP handler.
  *  `devMessage` is English free-form for logs; `code` + `params` drive user-facing translation. */
 export interface UserFacingError {
   code: string;

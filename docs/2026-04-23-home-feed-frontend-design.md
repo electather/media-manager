@@ -8,7 +8,7 @@
 
 ## Summary
 
-Netflix-style home page rendering two oRPC procedures from companion backend spec. Single `home.getLayout` call → full page at first paint, rows inlined with first items page. Horizontal scroll → `home.getRowContent`. Card click → detail modal via `peek` search param; `/media/$id` = real-route deep link for shares & deep navigation.
+Netflix-style home page rendering two RPC procedures from companion backend spec. Single `home.getLayout` call → full page at first paint, rows inlined with first items page. Horizontal scroll → `home.getRowContent`. Card click → detail modal via `peek` search param; `/media/$id` = real-route deep link for shares & deep navigation.
 
 Scope: client-side only — route, component tree, row scroll, card visuals, detail-modal, non-happy-path states. Server behavior out of scope, unchanged from backend spec.
 
@@ -37,7 +37,7 @@ No row-specific branching in page code — rows driven by `rowId` & `HomeRow` sh
 - TanStack Router (file-based routes under `packages/client/src/routes/`).
 - React + TypeScript, Vite.
 - shadcn/ui, `lucide-react` icons (matches `/connections` & `/taste`).
-- oRPC client + tanstack-query (existing pattern).
+- RPC client + tanstack-query (existing pattern).
 - `embla-carousel-react` for row horizontal scroll — ~10kb, maintained, battle-tested. Drag + snap + arrow-button hooks without rolling pointer-event handling.
 - Shared types from `@ent-mcp/shared/home` per backend spec's shared-package rule.
 - Tailwind container queries plugin (`@tailwindcss/container-queries`) for hero/card/sidebar adaptive sizing.
@@ -84,19 +84,19 @@ No type mirroring, no re-declaration.
 // Maps rowId → how the row renders. The ONLY place row-specific visual
 // decisions live. Everything else reads from HomeRow and CompactMediaItem.
 type RowDisplayConfig = {
-  slot: "main" | "sidebar";        // sidebar overrides to "main" at <md
+  slot: "main" | "sidebar"; // sidebar overrides to "main" at <md
   aspectRatio: "poster" | "backdrop";
   showMatchReasonInline: boolean;
 };
 
 const ROW_DISPLAY: Record<RowKind, RowDisplayConfig> = {
-  continueWatching:  { slot: "main",    aspectRatio: "backdrop", showMatchReasonInline: false },
-  upcomingForYou:    { slot: "sidebar", aspectRatio: "backdrop", showMatchReasonInline: false },
-  recommendedForYou: { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: true  },
-  becauseYouWatched: { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
-  trendingNow:       { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
-  newReleases:       { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
-  yourWatchlist:     { slot: "main",    aspectRatio: "poster",   showMatchReasonInline: false },
+  continueWatching: { slot: "main", aspectRatio: "backdrop", showMatchReasonInline: false },
+  upcomingForYou: { slot: "sidebar", aspectRatio: "backdrop", showMatchReasonInline: false },
+  recommendedForYou: { slot: "main", aspectRatio: "poster", showMatchReasonInline: true },
+  becauseYouWatched: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  trendingNow: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  newReleases: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  yourWatchlist: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
 };
 
 // Search-param schema for the detail-modal peek.
@@ -407,12 +407,12 @@ Breakpoints follow existing Tailwind convention: `sm` (640px), `md` (768px), `lg
 
 ### Card dimensions
 
-| Viewport | Poster        | Backdrop      | Hero       | Sidebar item |
-| -------- | ------------- | ------------- | ---------- | ------------ |
-| `xl`+    | 180 × 270     | 280 × 158     | full-col   | 280 × 80     |
-| `lg`     | 160 × 240     | 250 × 141     | full-col   | 250 × 72     |
-| `md`     | 140 × 210     | 220 × 124     | full-col   | 220 × 64     |
-| `<md`    | 128 × 192     | 220 × 124     | full-width | n/a (row)    |
+| Viewport | Poster    | Backdrop  | Hero       | Sidebar item |
+| -------- | --------- | --------- | ---------- | ------------ |
+| `xl`+    | 180 × 270 | 280 × 158 | full-col   | 280 × 80     |
+| `lg`     | 160 × 240 | 250 × 141 | full-col   | 250 × 72     |
+| `md`     | 140 × 210 | 220 × 124 | full-col   | 220 × 64     |
+| `<md`    | 128 × 192 | 220 × 124 | full-width | n/a (row)    |
 
 Heights auto-derive from aspect ratio — driving widths, ⊥ fixed pixel boxes. Tailwind responsive prefixes on `flex-basis`.
 
@@ -487,7 +487,7 @@ One file per component, colocated.
 
 ### Integration tests
 
-(testing-library + mocked oRPC client)
+(testing-library + mocked RPC client)
 
 - Full page render with fixture `HomeLayoutResponse` (mix of rows, one `partial: true`, one `upcomingForYou` + `ok_empty`).
 - Click card → modal opens, URL shows `?peek=movie:550`, home page still mounted underneath.

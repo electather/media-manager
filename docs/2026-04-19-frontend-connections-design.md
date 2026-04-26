@@ -10,7 +10,7 @@
 
 ## Summary
 
-Connections UI rework: fully manifest-driven. Old page hardcoded Trakt, Seerr, TMDB, TVDB. New model: frontend knows ⊥ specific services. Renders sections, forms, auth flows, capability badges from oRPC layer data. Page stays honest as plugins added/removed/updated. ⊥ frontend change when new integration lands.
+Connections UI rework: fully manifest-driven. Old page hardcoded Trakt, Seerr, TMDB, TVDB. New model: frontend knows ⊥ specific services. Renders sections, forms, auth flows, capability badges from RPC layer data. Page stays honest as plugins added/removed/updated. ⊥ frontend change when new integration lands.
 
 Two surfaces:
 
@@ -36,7 +36,7 @@ Two surfaces:
 
 - Next.js App Router, React, TypeScript.
 - shadcn/ui (existing).
-- oRPC client + tanstack-query.
+- RPC client + tanstack-query.
 - Icons: `lucide-react`.
 - Form renderer: custom, ~200 lines.
 
@@ -44,7 +44,7 @@ Dashboard shell (sidebar nav, header, theme toggle) exists. Design covers page c
 
 ## Core data model
 
-All pages consume derived types from oRPC API. Types generated from host Zod schemas.
+All pages consume derived types from RPC API. Types generated from host Zod schemas.
 
 ```ts
 type PluginSummary = {
