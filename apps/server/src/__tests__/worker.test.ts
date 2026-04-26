@@ -38,6 +38,10 @@ vi.mock("../errors/database-sink", () => ({
   DatabaseSink: class {},
 }));
 
+vi.mock("../notifications/error-sink", () => ({
+  NotificationErrorSink: class {},
+}));
+
 vi.mock("../plugins/registry", () => ({
   registerBuiltinPlugins: (...args: unknown[]) => registerBuiltinPluginsMock(...args),
 }));
@@ -99,7 +103,8 @@ describe("cloudflare worker entry", () => {
     const req = () => new Request("http://localhost/api/anything");
     await Promise.all([worker.fetch(req()), worker.fetch(req()), worker.fetch(req())]);
     expect(getDbMock).toHaveBeenCalledTimes(1);
-    expect(registerErrorSinkMock).toHaveBeenCalledTimes(1);
+    // Two sinks registered: DatabaseSink + NotificationErrorSink.
+    expect(registerErrorSinkMock).toHaveBeenCalledTimes(2);
     expect(bootstrapBuiltinsMock).toHaveBeenCalledTimes(1);
   });
 

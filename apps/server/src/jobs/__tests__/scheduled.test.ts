@@ -5,6 +5,10 @@ const started: unknown[] = [];
 const finished: unknown[] = [];
 const skips: unknown[] = [];
 
+vi.mock("../../notifications/emit", () => ({
+  emit: async () => undefined,
+}));
+
 vi.mock("../history", () => ({
   startRun: async (args: unknown) => {
     started.push(args);

@@ -13,6 +13,25 @@ import { harvestIds } from "./id-resolver";
 import type { HostErrorCode } from "@ent-mcp/shared/errors";
 import { type InvocationOutcome, PluginCallError, normalizeError } from "./errors";
 import { cacheKey, getCacheProvider, ttlMsFor } from "./cache";
+import { emit } from "../notifications/emit";
+
+async function emitAuthExpired(args: {
+  connectionId: string;
+  pluginId: string;
+  userId: string;
+}): Promise<void> {
+  try {
+    await emit({
+      type: "connection.auth.expired",
+      category: "auth",
+      severity: "warn",
+      audience: { kind: "user", userId: args.userId },
+      payload: { connectionId: args.connectionId, pluginId: args.pluginId },
+    });
+  } catch (err) {
+    consola.error("[dispatcher] auth-expired notification emit failed:", err);
+  }
+}
 
 async function persistRefreshedCredentials(connectionId: string, credentials: unknown) {
   const { iv, data } = await encryptJson(credentials);
@@ -156,6 +175,11 @@ async function invokeOne<T>(
         } catch (refreshErr) {
           const refreshMsg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
           await markConnectionStatus(conn.connectionId, "expired", refreshMsg);
+          await emitAuthExpired({
+            connectionId: conn.connectionId,
+            pluginId: req.pluginId,
+            userId: req.userId,
+          });
           return {
             pluginId: req.pluginId,
             connectionId: conn.connectionId,

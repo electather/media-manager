@@ -8,6 +8,10 @@ const finished: Array<{
   rowsFailed: number;
 }> = [];
 
+vi.mock("../../notifications/emit", () => ({
+  emit: async () => undefined,
+}));
+
 vi.mock("../history", () => ({
   startRun: async () => undefined,
   finishRun: async (args: {
