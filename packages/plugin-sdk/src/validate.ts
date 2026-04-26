@@ -47,6 +47,35 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
   }
 
   for (const [capId, cap] of Object.entries(parsed.data.capabilities)) {
+    // notificationDelivery is delivery-side, not a dispatched capability — its
+    // methods are TypeScript-typed (NotificationMessage, NotificationEvent)
+    // rather than zod-validated, so it lives outside the dispatch catalog.
+    // Validate the impl shape inline.
+    if (capId === "notificationDelivery") {
+      if (cap.version !== "v1") {
+        throw new PluginError(
+          "plugin.missing_method",
+          `unknown notificationDelivery version ${cap.version}`,
+        );
+      }
+      const impl = module.capabilities[capId];
+      if (!impl) {
+        throw new PluginError(
+          "plugin.missing_method",
+          `plugin manifest claims notificationDelivery but exports no implementation`,
+        );
+      }
+      for (const methodName of ["deliver", "testDelivery"]) {
+        if (typeof impl[methodName] !== "function") {
+          throw new PluginError(
+            "plugin.missing_method",
+            `notificationDelivery@${cap.version}.${methodName} not implemented`,
+          );
+        }
+      }
+      continue;
+    }
+
     const spec = getCapability(capId, cap.version);
     if (!spec) {
       throw new PluginError(

@@ -5,6 +5,10 @@ import tvdbPlugin from "@ent-mcp/plugin-tvdb";
 import seerrPlugin from "@ent-mcp/plugin-seerr";
 import jellyfinPlugin from "@ent-mcp/plugin-jellyfin";
 import plexPlugin from "@ent-mcp/plugin-plex";
+import inboxPlugin from "@ent-mcp/plugin-inbox";
+import ntfyPlugin from "@ent-mcp/plugin-ntfy";
+import telegramPlugin from "@ent-mcp/plugin-telegram";
+import discordPlugin from "@ent-mcp/plugin-discord";
 
 const BUILTIN_PLUGINS = [
   traktPlugin,
@@ -13,6 +17,10 @@ const BUILTIN_PLUGINS = [
   seerrPlugin,
   jellyfinPlugin,
   plexPlugin,
+  inboxPlugin,
+  ntfyPlugin,
+  telegramPlugin,
+  discordPlugin,
 ];
 
 /**

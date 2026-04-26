@@ -431,11 +431,11 @@ CAS returning zero rows means another worker (or sweep retrigger) won the race; 
 
 ### PR 4 implementation deviations
 
-Tracked here for follow-up; revisit before PR 7 (third-party plugins):
+PR 7 closed the deviations that needed to land before third-party plugins shipped:
 
-- **Backoff schedule:** PR 4 ships flat ~2–5 min retry via the sweep cadence rather than `[60s, 5m, 30m, 2h, 12h]`. `retryAfterMs` is currently ignored. Acceptable while no user-visible channels exist; implement before PR 7.
-- **Event ID:** PR 4 uses `randomUUID()` instead of `ulid()`. Loses time-sortable property; revisit if correlation queries become hot.
-- **Extended deliver args:** `deliveryId` and `recipientUserId` are passed to all plugins via the deliver `args` (not via host-privileged `ctx.inbox`). Document as internal-only or restrict to host plugins before third-party plugins ship in PR 7.
+- ~~**Backoff schedule:** PR 4 ships flat ~2–5 min retry via the sweep cadence rather than `[60s, 5m, 30m, 2h, 12h]`. `retryAfterMs` is currently ignored.~~ **Resolved in PR 7.** Delivery job now persists `next_attempt_at` and selects `BACKOFF_INTERVALS_MS[attempt-1]` (capped at 5 attempts); a `pluginError(..., { retryAfterMs })` overrides the next interval, and the stale-pending sweep gates re-enqueue on `next_attempt_at <= now`.
+- ~~**Extended deliver args:** `deliveryId` and `recipientUserId` are passed to all plugins via the deliver `args` (not via host-privileged `ctx.inbox`).~~ **Resolved in PR 7.** Third-party plugins now receive only the SDK-typed `{ message, event, channelConfig }` shape; the host-privileged plugin allowlist (currently `inbox`) opts in to the extended args, and the inbox plugin reads its persistence target through the host-injected `ctx.inbox.insert(...)` capability.
+- **Event ID:** PR 4 uses `randomUUID()` instead of `ulid()`. Loses time-sortable property; revisit if correlation queries become hot. (Still deferred.)
 
 ### Plugin testing helper
 

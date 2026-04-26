@@ -1,0 +1,21 @@
+{
+  "name": "@ent-mcp/plugin-telegram",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@ent-mcp/plugin-sdk": "workspace:*",
+    "@ent-mcp/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

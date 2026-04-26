@@ -146,6 +146,58 @@ export async function recordDeliveryAttempt(
     .where(eq(notificationDeliveries.id, id));
 }
 
+/**
+ * Records a failed-but-retryable attempt and reschedules it. Single update so
+ * the row is never visible in an "attempt recorded but not yet rescheduled"
+ * state to a concurrent reader. Status flips back to `pending` so the sweep
+ * (or a direct trigger after the delay elapses) can pick it up; the CAS in
+ * the delivery handler enforces the `nextAttemptAt <= now` gate before
+ * actually starting the retry.
+ */
+export async function rescheduleDeliveryAttempt(
+  id: string,
+  nextAttemptAt: number,
+  errorCode: string,
+  errorMessage: string,
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(notificationDeliveries)
+    .set({
+      status: "pending",
+      attemptCount: sql`${notificationDeliveries.attemptCount} + 1`,
+      lastErrorCode: errorCode,
+      lastError: errorMessage,
+      nextAttemptAt,
+      updatedAt: Date.now(),
+    })
+    .where(eq(notificationDeliveries.id, id));
+}
+
+/**
+ * Marks a delivery as terminally failed and stamps the final error metadata.
+ * `nextAttemptAt` is cleared so admin/sweep tooling never reschedules a row
+ * that the cap has retired.
+ */
+export async function markDeliveryFailed(
+  id: string,
+  errorCode: string,
+  errorMessage: string,
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(notificationDeliveries)
+    .set({
+      status: "failed",
+      lastErrorCode: errorCode,
+      lastError: errorMessage,
+      attemptCount: sql`${notificationDeliveries.attemptCount} + 1`,
+      nextAttemptAt: null,
+      updatedAt: Date.now(),
+    })
+    .where(eq(notificationDeliveries.id, id));
+}
+
 // ─── Inbox ──────────────────────────────────────────────────────────────────
 
 export interface InsertInboxItemInput {

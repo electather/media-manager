@@ -1,14 +1,34 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db/client";
 import { notificationDeliveries, serviceConnections } from "../db/schema";
 import { env } from "../env";
 import { renderTemplate } from "./templates";
-import { updateDeliveryStatus, recordDeliveryAttempt, insertInboxItem } from "./repos";
+import {
+  insertInboxItem,
+  markDeliveryFailed,
+  rescheduleDeliveryAttempt,
+  updateDeliveryStatus,
+  type InsertInboxItemInput,
+} from "./repos";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { buildContext } from "../plugin-runtime/context";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../jobs/triggerable";
+import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";
+
+// Re-export pure-policy symbols so callers and tests can import from a
+// single module while the IO-bound delivery handler still lives here.
+export {
+  BACKOFF_INTERVALS_MS,
+  MAX_ATTEMPTS,
+  buildDeliverArgs,
+  decideFailure,
+  isHostPrivilegedPlugin,
+  pickRetryDelayMs,
+  readFailureSignals,
+  type FailureDecision,
+} from "./delivery-policy";
 
 export function registerDeliveryJob() {
   registerTriggerable<{ deliveryId: string }, void>({
@@ -21,15 +41,23 @@ export function registerDeliveryJob() {
       const { deliveryId } = input;
       const db = getDb();
 
-      // Atomic CAS: only proceed if we can transition from pending to in_progress.
-      // Prevents duplicate delivery if sweep retriggers during flight.
+      // Atomic CAS: only proceed if we can transition pending → in_progress
+      // AND the row is eligible right now (nextAttemptAt is null or in the
+      // past). Prevents duplicate delivery if a sweep retriggers during
+      // flight, and prevents a backoff-pending row from running before its
+      // window opens.
+      const now = Date.now();
       const updated = await db
         .update(notificationDeliveries)
-        .set({ status: "in_progress", updatedAt: Date.now() })
+        .set({ status: "in_progress", nextAttemptAt: null, updatedAt: now })
         .where(
           and(
             eq(notificationDeliveries.id, deliveryId),
             eq(notificationDeliveries.status, "pending"),
+            or(
+              isNull(notificationDeliveries.nextAttemptAt),
+              lte(notificationDeliveries.nextAttemptAt, now),
+            ),
           ),
         )
         .returning()
@@ -43,7 +71,7 @@ export function registerDeliveryJob() {
       const message = renderTemplate(event, "en");
 
       if (!delivery.recipientConnectionId) {
-        await updateDeliveryStatus(deliveryId, "failed", null);
+        await markDeliveryFailed(deliveryId, "connection_deleted", "recipient connection missing");
         return;
       }
 
@@ -54,17 +82,20 @@ export function registerDeliveryJob() {
         .get();
 
       if (!conn) {
-        await updateDeliveryStatus(deliveryId, "failed", null);
+        await markDeliveryFailed(deliveryId, "connection_deleted", "recipient connection missing");
         return;
       }
 
       let plugin;
       try {
         plugin = await pluginRuntime.getModule(conn.pluginId);
-      } catch {
-        await updateDeliveryStatus(deliveryId, "failed", null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await markDeliveryFailed(deliveryId, "plugin_load_failed", msg);
         return;
       }
+
+      const isHostPrivileged = isHostPrivilegedPlugin(conn.pluginId);
 
       let pluginCtx = buildContext({
         pluginId: conn.pluginId,
@@ -74,32 +105,57 @@ export function registerDeliveryJob() {
         userConfig: conn.userConfig,
       });
 
-      // Inject host-privileged inbox context for built-in inbox plugin.
-      if (conn.pluginId === "inbox") {
+      // Inject host-privileged inbox capability for the in-tree inbox plugin
+      // only. The host pre-binds the recipient user id and delivery id so the
+      // plugin's `deliver()` only knows about the message — third-party
+      // plugins never see these fields.
+      if (isHostPrivileged && conn.pluginId === "inbox") {
         pluginCtx = {
           ...pluginCtx,
           inbox: {
-            insert: (row: Omit<Parameters<typeof insertInboxItem>[0], "id">) =>
-              insertInboxItem({ ...row, id: randomUUID() }),
+            insert: (
+              row: Pick<
+                InsertInboxItemInput,
+                "title" | "body" | "severity" | "category" | "actionUrl" | "imageUrl" | "imageAlt"
+              >,
+            ) =>
+              insertInboxItem({
+                id: randomUUID(),
+                userId: delivery.recipientUserId,
+                deliveryId,
+                ...row,
+              }),
           },
-        } as any;
+        } as typeof pluginCtx;
       }
 
       try {
         if (!plugin.capabilities?.notificationDelivery?.deliver) {
-          await updateDeliveryStatus(deliveryId, "failed", null);
+          await markDeliveryFailed(
+            deliveryId,
+            "missing_capability",
+            "plugin missing notificationDelivery.deliver",
+          );
           return;
         }
-        const result = await plugin.capabilities.notificationDelivery.deliver(pluginCtx, {
-          message,
-          event,
-          channelConfig: conn.userConfig,
-          deliveryId,
-          recipientUserId: delivery.recipientUserId,
-        } as any);
+
+        // Third-party plugins get the SDK-typed args only. Host-privileged
+        // plugins receive an extended shape so the inbox can persist with
+        // the right user id and delivery linkage.
+        const deliverArgs = buildDeliverArgs(
+          conn.pluginId,
+          { message, event, channelConfig: conn.userConfig },
+          { deliveryId, recipientUserId: delivery.recipientUserId },
+        );
+        const result = await plugin.capabilities.notificationDelivery.deliver(
+          pluginCtx,
+          deliverArgs as Parameters<
+            NonNullable<typeof plugin.capabilities.notificationDelivery>["deliver"]
+          >[1],
+        );
         const providerMessageId =
           result && typeof result === "object" && "providerMessageId" in result
-            ? (result as any).providerMessageId
+            ? ((result as { providerMessageId?: string }).providerMessageId ?? null)
             : null;
         await updateDeliveryStatus(deliveryId, "succeeded", providerMessageId);
       } catch (err) {
@@ -114,18 +170,15 @@ async function handleDeliveryFailure(
   delivery: typeof notificationDeliveries.$inferSelect,
   error: unknown,
 ): Promise<void> {
-  const isRetryable =
-    error instanceof Error && "retryable" in error && typeof error.retryable === "boolean"
-      ? error.retryable
-      : delivery.attemptCount < 2;
-
-  const errorCode =
-    error instanceof Error && "code" in error ? String(error.code) : "unknown_error";
-  const errorMessage = error instanceof Error ? error.message : String(error);
-
-  if (isRetryable && delivery.attemptCount < 5) {
-    await recordDeliveryAttempt(deliveryId, errorCode, errorMessage);
-  } else {
-    await updateDeliveryStatus(deliveryId, "failed", null);
+  const decision = decideFailure(delivery, error);
+  if (decision.action === "fail") {
+    await markDeliveryFailed(deliveryId, decision.errorCode, decision.errorMessage);
+    return;
   }
+  await rescheduleDeliveryAttempt(
+    deliveryId,
+    Date.now() + decision.delayMs,
+    decision.errorCode,
+    decision.errorMessage,
+  );
 }

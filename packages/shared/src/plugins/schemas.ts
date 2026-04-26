@@ -75,7 +75,8 @@ const manifestShape = z.object({
  * capability scopes, and the other manifest fields must line up with that shape.
  */
 export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) => {
-  const scopes = new Set(Object.values(manifest.capabilities).map((c) => c.scope));
+  const capabilityEntries = Object.entries(manifest.capabilities);
+  const scopes = new Set(capabilityEntries.map(([, c]) => c.scope));
   const hasUserScoped = scopes.has("user");
   const hasGlobalScoped = scopes.has("global");
   const isPureGlobal = hasGlobalScoped && !hasUserScoped;
@@ -112,6 +113,23 @@ export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) =>
         path: ["userConfigSchema"],
       });
     }
+    return;
+  }
+
+  // Notification-delivery channels carry auth inside their `userConfigSchema`
+  // (e.g. ntfy `authHeader`, Telegram `botToken`, Discord webhook secret in
+  // the URL itself). The plugin runtime never needs to mint or refresh
+  // credentials, so an `auth.kind: "none"` + missing `credentialsSchema`
+  // combination is intentional. We exempt plugins whose only user-scoped
+  // capability is `notificationDelivery` from the credential rules below.
+  const userScopedCapabilityIds = capabilityEntries
+    .filter(([, c]) => c.scope === "user")
+    .map(([id]) => id);
+  const isNotificationOnlyChannel =
+    userScopedCapabilityIds.length > 0 &&
+    userScopedCapabilityIds.every((id) => id === "notificationDelivery");
+
+  if (isNotificationOnlyChannel) {
     return;
   }
 

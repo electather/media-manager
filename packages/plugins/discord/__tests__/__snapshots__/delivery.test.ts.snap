@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`discord: per-event-type payload snapshots > connection.auth.expired 1`] = `
+{
+  "body": "{"embeds":[{"title":"Auth Expired","description":"Authentication for trakt expired. Please re-authenticate.","color":16096779}]}",
+  "method": "POST",
+  "url": "https://discord.com/api/webhooks/123/abc?wait=true",
+}
+`;
+
+exports[`discord: per-event-type payload snapshots > connection.sync.succeeded 1`] = `
+{
+  "body": "{"embeds":[{"title":"Sync Complete","description":"Sync completed successfully with 42 items.","color":3900150}]}",
+  "method": "POST",
+  "url": "https://discord.com/api/webhooks/123/abc?wait=true",
+}
+`;
+
+exports[`discord: per-event-type payload snapshots > job.run.failed 1`] = `
+{
+  "body": "{"embeds":[{"title":"Job Failed","description":"scheduler:job-1 failed","color":15680580}]}",
+  "method": "POST",
+  "url": "https://discord.com/api/webhooks/123/abc?wait=true",
+}
+`;
+
+exports[`discord: per-event-type payload snapshots > media.request.available 1`] = `
+{
+  "body": "{"embeds":[{"title":"Fight Club Available","description":"Your requested media is now available.","color":3900150,"image":{"url":"https://image.tmdb.org/p.jpg"}}]}",
+  "method": "POST",
+  "url": "https://discord.com/api/webhooks/123/abc?wait=true",
+}
+`;
+
+exports[`discord: per-event-type payload snapshots > media.request.denied 1`] = `
+{
+  "body": "{"embeds":[{"title":"Request Denied","description":"Your request was denied: out of policy.","color":16096779}]}",
+  "method": "POST",
+  "url": "https://discord.com/api/webhooks/123/abc?wait=true",
+}
+`;
+
+exports[`discord: per-event-type payload snapshots > system.error 1`] = `
+{
+  "body": "{"embeds":[{"title":"System Error","description":"scheduler: boom","color":15680580}]}",
+  "method": "POST",
+  "url": "https://discord.com/api/webhooks/123/abc?wait=true",
+}
+`;
