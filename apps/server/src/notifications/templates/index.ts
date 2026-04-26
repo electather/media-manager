@@ -21,15 +21,15 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
       };
     case "media.request.available":
       return {
-        title: `${event.payload.title} Available`,
+        title: `${String(event.payload.title ?? "Media")} Available`,
         body: "Your requested media is now available.",
         severity: "info",
         category: "media",
       };
     case "media.request.denied":
       return {
-        title: `${event.payload.title} Request Denied`,
-        body: `Your request was denied${event.payload.reason ? `: ${event.payload.reason}` : "."}`,
+        title: `${String(event.payload.title ?? "Request")} Denied`,
+        body: `Your request was denied${event.payload.reason ? `: ${String(event.payload.reason)}` : "."}`,
         severity: "warn",
         category: "media",
       };

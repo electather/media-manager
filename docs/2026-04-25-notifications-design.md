@@ -104,7 +104,12 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 export const NOTIFICATION_SEVERITIES = ["info", "warn", "error"] as const;
 export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number];
 
-export const NOTIFICATION_DELIVERY_STATUSES = ["pending", "succeeded", "failed"] as const;
+export const NOTIFICATION_DELIVERY_STATUSES = [
+  "pending",
+  "in_progress",
+  "succeeded",
+  "failed",
+] as const;
 export type NotificationDeliveryStatus = (typeof NOTIFICATION_DELIVERY_STATUSES)[number];
 
 export const NOTIFICATION_CONTENT_KINDS = ["text", "markdown", "image", "actions"] as const;
@@ -411,6 +416,26 @@ Delivery job inspects error:
 - `retryable: true` → next attempt with backoff `[60s, 5m, 30m, 2h, 12h]`, cap 5 attempts. `retryAfterMs` overrides next interval.
 - `retryable: false` → mark `failed` immediately.
 - Plain throw, no retryable flag → treat retryable for first 2 attempts, then give up (defensive default).
+
+### Delivery lock & crash recovery
+
+`pending → in_progress → succeeded | failed`. The handler acquires a row by atomic CAS:
+
+```ts
+UPDATE notification_deliveries
+SET status = 'in_progress', updated_at = now()
+WHERE id = :id AND status = 'pending'
+```
+
+CAS returning zero rows means another worker (or sweep retrigger) won the race; handler exits early — no duplicate `deliver()`. On crash mid-flight the row is left `in_progress`; the stale-pending sweep (every 5 min) resets `in_progress` rows older than 2 min back to `pending` and re-enqueues them, restoring the CAS contract. `pending` rows older than 2 min are re-enqueued without reset.
+
+### PR 4 implementation deviations
+
+Tracked here for follow-up; revisit before PR 7 (third-party plugins):
+
+- **Backoff schedule:** PR 4 ships flat ~2–5 min retry via the sweep cadence rather than `[60s, 5m, 30m, 2h, 12h]`. `retryAfterMs` is currently ignored. Acceptable while no user-visible channels exist; implement before PR 7.
+- **Event ID:** PR 4 uses `randomUUID()` instead of `ulid()`. Loses time-sortable property; revisit if correlation queries become hot.
+- **Extended deliver args:** `deliveryId` and `recipientUserId` are passed to all plugins via the deliver `args` (not via host-privileged `ctx.inbox`). Document as internal-only or restrict to host plugins before third-party plugins ship in PR 7.
 
 ### Plugin testing helper
 
