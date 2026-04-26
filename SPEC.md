@@ -72,19 +72,6 @@ Categories: `media` | `sync` | `auth` | `system`.
 - `home.getRowContent` → `RowContentResponse` (paginated scroll).
   Seven row kinds: `continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`.
 
-### I.theme — design system
-
-Source: Figma `icLS0oZe6eQL0hRj8Go8Zm` node `31:21`.
-
-### I.layout — frontend layouts
-
-- `AppShell`: layout wrapping the 5 bottom-nav routes — Home (`/`), Activity (`/activity`), Requests (`/requests`), Taste (`/taste`), Profile (`/profile`).
-  - Top bar: logo + right-side profile dropdown (Settings, Logout).
-  - Bottom nav (all viewports): same 5 items, fixed to bottom of viewport.
-- `SettingsLayout`: standalone layout for `/settings/*`. No bottom nav, no AppShell sidebar.
-- All other authenticated routes (`/admin/*`, `/setup`, etc.) keep current `AppSidebar` shell — out of scope for this iteration.
-- Profile dropdown sole AppShell surface for Settings link + Logout action.
-
 ## §V Invariants
 
 - V1. `MediaService` sole facade for plugin features. MCP tools + Hono RPC + jobs call `MediaService`; nothing below it (runtime, registry, credentials) is reachable from callers.
@@ -103,10 +90,6 @@ Source: Figma `icLS0oZe6eQL0hRj8Go8Zm` node `31:21`.
 - V14. `vp check` + `vp test` pass before every commit.
 - V15. `notifications.emit()` sole entry point for notification dispatch. All call sites (job runner hooks, `ctx.notify()`, server modules) go through it. Delivery durable: every dispatch persisted + retried on transient fail.
 - V16. User-facing connections list excludes pure-global plugins (those with no `userScopedCapabilities`). Pure-global plugin surface is admin-only.
-- V17. Dark default. `<html>` ship `class="dark"`. Light palette deferred until light theme task lands.
-- V18. AppShell wraps Home/Activity/Requests/Taste/Profile only. `/settings/*` uses `SettingsLayout`. Other authenticated routes keep existing `AppSidebar` shell.
-- V19. Settings link + Logout action live solely in profile dropdown. AppShell sidebar + bottom nav never list them.
-- V20. AppShell uses bottom nav at all viewports. No sidebar in AppShell.
 
 ## §T Tasks
 
@@ -127,11 +110,6 @@ Source: Figma `icLS0oZe6eQL0hRj8Go8Zm` node `31:21`.
 | T13 | x      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures       | I.home,V9,V10,V11,V12 |
 | T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal        | I.home,T13            |
 | T15 | x      | `home` subpath export in `@ent-mcp/shared`                               | V12,T13               |
-| T16 | ?      | User profile page (`/profile` Hono rpc procedures backend)               | I.api                 |
-| T17 | x      | AppShell layout — top bar + profile dropdown (Settings/Logout)           | I.layout,V18,V19      |
-| T18 | x      | Bottom nav — 5 items, fixed bottom-0, visible at all viewports           | I.layout,V20          |
-| T19 | x      | Split `SettingsLayout` standalone from AppShell                          | I.layout,V18          |
-| T20 | x      | Stub Home/Activity/Requests/Taste/Profile pages w/ name-only dummy       | I.layout              |
 
 ## §B Bugs
 

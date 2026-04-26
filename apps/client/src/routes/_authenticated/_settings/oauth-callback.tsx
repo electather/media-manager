@@ -5,7 +5,7 @@ import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
-export const Route = createFileRoute("/_authenticated/_legacy/oauth-callback")({
+export const Route = createFileRoute("/_authenticated/_settings/oauth-callback")({
   component: OAuthCallbackPage,
 });
 

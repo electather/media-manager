@@ -37,7 +37,7 @@ const searchSchema = z.object({
 
 type SearchParams = z.infer<typeof searchSchema>;
 
-export const Route = createFileRoute("/_authenticated/_legacy/admin/logs")({
+export const Route = createFileRoute("/_authenticated/_settings/admin/logs")({
   component: AdminLogsPage,
   validateSearch: (search) => searchSchema.parse(search),
 });

@@ -57,7 +57,7 @@ import { PersonalKeyFallbackControl } from "@/components/admin/personal-key-fall
 import { SharedCredentialsSection } from "@/components/admin/shared-credentials/section";
 import { safeJson } from "@/lib/errors/safe-json";
 
-export const Route = createFileRoute("/_authenticated/_legacy/admin/plugins")({
+export const Route = createFileRoute("/_authenticated/_settings/admin/plugins")({
   component: AdminPluginsPage,
 });
 

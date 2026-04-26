@@ -65,7 +65,7 @@ import { cn } from "@/lib/utils";
 
 import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
 
-export const Route = createFileRoute("/_authenticated/_legacy/admin/jobs")({
+export const Route = createFileRoute("/_authenticated/_settings/admin/jobs")({
   component: AdminJobsPage,
 });
 

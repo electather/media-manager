@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { ClockIcon, CircleUserRoundIcon, DownloadIcon, HomeIcon, SparklesIcon } from "lucide-react";
+import { ActivityIcon, HomeIcon, InboxIcon, LibraryIcon } from "lucide-react";
 
 export interface NavItem {
   title: string;
@@ -10,8 +10,7 @@ export interface NavItem {
 
 export const APP_NAV_ITEMS: NavItem[] = [
   { title: "Home", to: "/", icon: HomeIcon, matchPrefix: false },
-  { title: "Activity", to: "/activity", icon: ClockIcon, matchPrefix: true },
-  { title: "Requests", to: "/requests", icon: DownloadIcon, matchPrefix: true },
-  { title: "Taste", to: "/taste", icon: SparklesIcon, matchPrefix: true },
-  { title: "Profile", to: "/profile", icon: CircleUserRoundIcon, matchPrefix: true },
+  { title: "Library", to: "/library", icon: LibraryIcon, matchPrefix: true },
+  { title: "Requests", to: "/requests", icon: InboxIcon, matchPrefix: true },
+  { title: "Activity", to: "/activity", icon: ActivityIcon, matchPrefix: true },
 ];
