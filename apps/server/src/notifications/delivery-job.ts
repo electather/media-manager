@@ -12,10 +12,9 @@ import {
   type InsertInboxItemInput,
 } from "./repos";
 import { pluginRuntime } from "../plugin-runtime/runtime";
-import { buildContext } from "../plugin-runtime/context";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../jobs/triggerable";
-import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";
+import { buildDeliverArgs, decideFailure } from "./delivery-policy";
 
 // Re-export pure-policy symbols so callers and tests can import from a
 // single module while the IO-bound delivery handler still lives here.
@@ -95,21 +94,32 @@ export function registerDeliveryJob() {
         return;
       }
 
-      const isHostPrivileged = isHostPrivilegedPlugin(conn.pluginId);
-
-      let pluginCtx = buildContext({
-        pluginId: conn.pluginId,
-        allowedHosts: [],
-        userId: conn.userId,
-        appBaseUrl: env.APP_EXTERNAL_URL,
-        userConfig: conn.userConfig,
-      });
+      // Use the same context-building path as job handlers: it pulls the
+      // plugin's `manifest.allowedHosts`, resolves dynamic `x-allowed-host`
+      // entries from the user's channel config, and intersects against the
+      // admin allowlist + headers. Building a bare context with an empty
+      // allowlist would block every outbound HTTP call.
+      let pluginCtx;
+      try {
+        pluginCtx = await pluginRuntime.buildJobContext(
+          conn.pluginId,
+          conn.userId,
+          null,
+          conn.userConfig,
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await markDeliveryFailed(deliveryId, "context_build_failed", msg);
+        return;
+      }
 
       // Inject host-privileged inbox capability for the in-tree inbox plugin
       // only. The host pre-binds the recipient user id and delivery id so the
       // plugin's `deliver()` only knows about the message — third-party
-      // plugins never see these fields.
-      if (isHostPrivileged && conn.pluginId === "inbox") {
+      // plugins never see these fields. The privilege check runs through
+      // `buildDeliverArgs` below; this branch only shapes the inbox-specific
+      // ctx field that the inbox plugin reads for persistence.
+      if (conn.pluginId === "inbox") {
         pluginCtx = {
           ...pluginCtx,
           inbox: {
