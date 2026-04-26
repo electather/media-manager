@@ -30,7 +30,10 @@ vi.mock("@/lib/auth", () => ({
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
-import { ActiveSessionsCard, ChangePasswordCard } from "@/routes/_authenticated/settings/security";
+import {
+  ActiveSessionsCard,
+  ChangePasswordCard,
+} from "@/routes/_authenticated/_settings/settings/security";
 
 const CURRENT_SESSION_ID = "sess-current";
 const OTHER_SESSION_ID = "sess-other";

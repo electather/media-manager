@@ -20,7 +20,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth";
 
-export const Route = createFileRoute("/_authenticated/settings/profile")({
+export const Route = createFileRoute("/_authenticated/_settings/settings/profile")({
   component: ProfileSection,
 });
 

@@ -25,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AuthorizedAppRow } from "@/components/settings/authorized-app-row";
 import { api } from "@/lib/api";
 
-export const Route = createFileRoute("/_authenticated/settings/apps")({
+export const Route = createFileRoute("/_authenticated/_settings/settings/apps")({
   component: AuthorizedAppsSection,
 });
 

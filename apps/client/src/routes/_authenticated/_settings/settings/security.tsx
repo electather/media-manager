@@ -21,7 +21,7 @@ import { authClient } from "@/lib/auth";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
-export const Route = createFileRoute("/_authenticated/settings/security")({
+export const Route = createFileRoute("/_authenticated/_settings/settings/security")({
   component: SecuritySection,
 });
 

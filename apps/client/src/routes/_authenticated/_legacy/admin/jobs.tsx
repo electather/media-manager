@@ -20,8 +20,8 @@ import {
   FilterIcon,
 } from "lucide-react";
 
-import { DynamicTriggerDialog } from "../../../components/jobs/trigger-dialog";
-import { RunDetailDrawer } from "../../../components/jobs/run-detail-drawer";
+import { DynamicTriggerDialog } from "@/components/jobs/trigger-dialog";
+import { RunDetailDrawer } from "@/components/jobs/run-detail-drawer";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ import { cn } from "@/lib/utils";
 
 import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
 
-export const Route = createFileRoute("/_authenticated/admin/jobs")({
+export const Route = createFileRoute("/_authenticated/_legacy/admin/jobs")({
   component: AdminJobsPage,
 });
 

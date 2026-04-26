@@ -1,8 +1,5 @@
 import { createFileRoute, isRedirect, Outlet, redirect } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
@@ -21,22 +18,5 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/auth/login" });
     }
   },
-  component: Layout,
+  component: Outlet,
 });
-
-/** App shell with sidebar navigation used by all authenticated routes. */
-function Layout() {
-  return (
-    <SidebarProvider>
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <Outlet />
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
-}

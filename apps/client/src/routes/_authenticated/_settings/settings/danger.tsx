@@ -19,7 +19,7 @@ import { triggerAnchorDownload } from "@/lib/anchor-download";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth";
 
-export const Route = createFileRoute("/_authenticated/settings/danger")({
+export const Route = createFileRoute("/_authenticated/_settings/settings/danger")({
   component: DangerZoneSection,
 });
 

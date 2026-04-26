@@ -21,7 +21,7 @@ import {
   EmailField,
   NameField,
   VerificationBanner,
-} from "@/routes/_authenticated/settings/profile";
+} from "@/routes/_authenticated/_settings/settings/profile";
 
 beforeEach(() => {
   auth.updateUser.mockReset();

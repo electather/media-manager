@@ -47,7 +47,7 @@ import {
   type PluginSummary,
 } from "@/components/connections/connection-modal";
 
-export const Route = createFileRoute("/_authenticated/settings/connections")({
+export const Route = createFileRoute("/_authenticated/_settings/settings/connections")({
   component: ConnectionsPage,
 });
 

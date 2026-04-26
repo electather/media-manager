@@ -31,7 +31,7 @@ vi.mock("sonner", () => ({ toast: toastMock }));
 const downloadMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/anchor-download", () => ({ triggerAnchorDownload: downloadMock }));
 
-import { DeleteCard, ExportCard } from "@/routes/_authenticated/settings/danger";
+import { DeleteCard, ExportCard } from "@/routes/_authenticated/_settings/settings/danger";
 
 beforeEach(() => {
   apiMock.delete.mockReset();

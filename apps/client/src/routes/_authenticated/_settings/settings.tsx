@@ -14,7 +14,7 @@ const NAV = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export const Route = createFileRoute("/_authenticated/settings")({
+export const Route = createFileRoute("/_authenticated/_settings/settings")({
   component: SettingsLayout,
 });
 
