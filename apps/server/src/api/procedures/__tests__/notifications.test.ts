@@ -190,31 +190,31 @@ async function seedUser(userId: string, permissions: string[] = []): Promise<voi
   }
 }
 
-async function seedConnection(args: { id: string; userId: string; pluginId: string }) {
-  await db
-    .insert(plugins)
-    .values({
-      id: args.pluginId,
+async function seedPlugin(pluginId: string) {
+  await db.insert(plugins).values({
+    id: pluginId,
+    version: "0.0.0",
+    sourceUrl: `builtin:${pluginId}`,
+    sourceType: "builtin",
+    checksum: "0",
+    enabled: 1,
+    manifest: JSON.stringify({
+      id: pluginId,
+      name: pluginId,
       version: "0.0.0",
-      sourceUrl: `builtin:${args.pluginId}`,
-      sourceType: "builtin",
-      checksum: "0",
-      enabled: 1,
-      manifest: JSON.stringify({
-        id: args.pluginId,
-        name: args.pluginId,
-        version: "0.0.0",
-        description: "",
-        sdkVersion: "^1.0.0",
-        author: { name: "test" },
-        allowedHosts: [],
-        auth: { kind: "none" },
-        capabilities: { notificationDelivery: { version: "v1", scope: "user" } },
-      }),
-      installedAt: 0,
-      updatedAt: 0,
-    })
-    .onConflictDoNothing();
+      description: "",
+      sdkVersion: "^1.0.0",
+      author: { name: "test" },
+      allowedHosts: [],
+      auth: { kind: "none" },
+      capabilities: { notificationDelivery: { version: "v1", scope: "user" } },
+    }),
+    installedAt: 0,
+    updatedAt: 0,
+  });
+}
+
+async function seedConnection(args: { id: string; userId: string; pluginId: string }) {
   await db.insert(serviceConnections).values({
     id: args.id,
     userId: args.userId,
@@ -352,6 +352,7 @@ describe("notifications HTTP — bulk subscriptions", () => {
     mockUserId = "u1";
     await seedUser("u1", ["account:connections", "media:activity"]);
     await seedUser("u2");
+    await seedPlugin("inbox");
     await seedConnection({ id: "c-other", userId: "u2", pluginId: "inbox" });
     const res = await buildApp().request("/notifications/subscriptions/bulk", {
       method: "POST",
@@ -366,6 +367,7 @@ describe("notifications HTTP — bulk subscriptions", () => {
   it("upserts subscription rows for owned channels", async () => {
     mockUserId = "u1";
     await seedUser("u1", ["account:connections", "media:activity"]);
+    await seedPlugin("inbox");
     await seedConnection({ id: "c1", userId: "u1", pluginId: "inbox" });
     const res = await buildApp().request("/notifications/subscriptions/bulk", {
       method: "POST",
