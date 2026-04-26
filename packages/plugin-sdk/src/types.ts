@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { JSONSchema, McpToolAnnotations, PluginManifest } from "@ent-mcp/shared";
 import type { HostErrorCode } from "@ent-mcp/shared/errors";
+import type { NotificationEvent, BaseEvent } from "@ent-mcp/shared/notifications";
 
 // ─── Server-only plugin runtime interfaces ────────────────────────────────────
 
@@ -65,6 +66,13 @@ export interface PluginContext<
    * outward-facing deep links.
    */
   appBaseUrl: string;
+  /**
+   * Emit a pre-registered notification event. The host handles enrichment
+   * (id, occurredAt), validation, recipient resolution, and delivery.
+   * Plugins can only emit events declared in the core registry — plugin-declared
+   * event types are deferred to v2.
+   */
+  notify: (event: Omit<NotificationEvent, keyof BaseEvent>) => Promise<void>;
 }
 
 /** Discriminated union returned by startAuth/completeAuth/pollAuth. */

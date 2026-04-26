@@ -12,6 +12,7 @@ export * from "./utils/credentials";
 export * from "./capabilities";
 export * from "./validate";
 export * from "./version";
+export { createTestNotificationContext } from "./testing";
 
 // ─── Re-exported from @ent-mcp/shared so plugin authors only need one dep ─────
 export {
@@ -48,3 +49,24 @@ export type {
   LibraryItemHdrFormat,
   LibraryItemQuality,
 } from "@ent-mcp/shared/plugins/library";
+export {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_SEVERITIES,
+  NOTIFICATION_DELIVERY_STATUSES,
+  NOTIFICATION_CONTENT_KINDS,
+  NOTIFICATION_EVENT_TYPES,
+  NOTIFICATION_CATEGORY_PERMISSION,
+} from "@ent-mcp/shared/notifications";
+export type {
+  BaseEvent,
+  NotificationCategory,
+  NotificationSeverity,
+  NotificationDeliveryStatus,
+  NotificationContentKind,
+  NotificationEventType,
+  NotificationAudience,
+  NotificationEventEnvelope,
+  NotificationAction,
+  NotificationMessage,
+  NotificationEvent,
+} from "@ent-mcp/shared/notifications";

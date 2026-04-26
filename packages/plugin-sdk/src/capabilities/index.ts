@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { libraryItemSchema, LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "../define";
+export type { NotificationDeliveryCapabilityV1 } from "./notification-delivery";
 
 const mediaType = z.enum(["movie", "tv"]);
 
