@@ -44,7 +44,9 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import {
   deleteInboxAllForUser,
   deleteInboxForUser,
+  deliveryRowToDto,
   getUnreadCount,
+  inboxRowToDto,
   listDeliveries,
   listInboxForUser,
   listSubscriptionsForConnections,
@@ -124,6 +126,42 @@ function decodeKeysetCursor(
 
 function encodeKeysetCursor(createdAt: number, id: string): string {
   return Buffer.from(`${createdAt}${CURSOR_SEP}${id}`, "utf8").toString("base64url");
+}
+
+/** Throws 403 when any of the provided connection ids does not belong to
+ * the user. The single SELECT is the only DB hit per bulk request. */
+async function assertOwnsConnections(userId: string, connectionIds: string[]): Promise<void> {
+  if (connectionIds.length === 0) return;
+  const owned = await getDb()
+    .select({ id: serviceConnections.id })
+    .from(serviceConnections)
+    .where(
+      and(eq(serviceConnections.userId, userId), inArray(serviceConnections.id, connectionIds)),
+    )
+    .all();
+  const ownedSet = new Set(owned.map((r) => r.id));
+  for (const id of connectionIds) {
+    if (!ownedSet.has(id)) {
+      throw forbidden("notifications.foreign_channel", "channel does not belong to user");
+    }
+  }
+}
+
+/** Throws 403 when the user lacks the gating permission for any of the
+ * provided categories. Loads the role row once and reuses it across the
+ * category checks. */
+async function assertCanWriteCategories(
+  userId: string,
+  categories: NotificationCategory[],
+): Promise<void> {
+  if (categories.length === 0) return;
+  const role = await loadUserRole(userId);
+  if (!role) throw forbidden();
+  for (const cat of categories) {
+    if (!(await roleHasPermission(role, NOTIFICATION_CATEGORY_PERMISSION[cat]))) {
+      throw forbidden();
+    }
+  }
 }
 
 // ─── User-facing procedures ────────────────────────────────────────────────
@@ -248,37 +286,12 @@ export const notificationsApp = new Hono()
           `at most ${SUBSCRIPTION_BULK_LIMIT} updates per request`,
         );
       }
-      const db = getDb();
-      const distinctIds = [...new Set(updates.map((u) => u.connectionId))];
-      const owned = await db
-        .select({ id: serviceConnections.id })
-        .from(serviceConnections)
-        .where(
-          and(eq(serviceConnections.userId, userId), inArray(serviceConnections.id, distinctIds)),
-        )
-        .all();
-      const ownedSet = new Set(owned.map((r) => r.id));
-      for (const id of distinctIds) {
-        if (!ownedSet.has(id)) {
-          throw forbidden("notifications.foreign_channel", "channel does not belong to user");
-        }
-      }
-      // Permission re-check per category. Load the role row once and reuse
-      // it across categories so we don't issue 1× lookup per category.
-      const role = await loadUserRole(userId);
-      if (!role) throw forbidden();
-      const distinctCategories = [...new Set(updates.map((u) => u.category))];
-      for (const cat of distinctCategories) {
-        if (!(await roleHasPermission(role, NOTIFICATION_CATEGORY_PERMISSION[cat]))) {
-          throw forbidden();
-        }
-      }
-      let count = 0;
+      await assertOwnsConnections(userId, [...new Set(updates.map((u) => u.connectionId))]);
+      await assertCanWriteCategories(userId, [...new Set(updates.map((u) => u.category))]);
       for (const u of updates) {
         await upsertSubscription(u.connectionId, u.category, u.enabled);
-        count += 1;
       }
-      return c.json({ updated: count });
+      return c.json({ updated: updates.length });
     },
   )
   .get("/inbox", zValidator("query", inboxListQuerySchema), async (c) => {
@@ -297,20 +310,7 @@ export const notificationsApp = new Hono()
         ? encodeKeysetCursor(items[items.length - 1]!.createdAt, items[items.length - 1]!.id)
         : undefined;
     return c.json({
-      items: items.map((row) => ({
-        id: row.id,
-        createdAt: row.createdAt,
-        readAt: row.readAt,
-        title: row.title,
-        body: row.body,
-        severity: row.severity,
-        category: row.category,
-        actionUrl: row.actionUrl,
-        image:
-          row.imageUrl !== null
-            ? { url: row.imageUrl, ...(row.imageAlt ? { alt: row.imageAlt } : {}) }
-            : null,
-      })),
+      items: items.map(inboxRowToDto),
       ...(nextCursor !== undefined ? { nextCursor } : {}),
       unreadCount,
     });
@@ -377,21 +377,7 @@ export const adminNotificationsApp = new Hono()
     const nextCursor =
       rows.length === q.limit && last ? encodeKeysetCursor(last.createdAt, last.id) : undefined;
     return c.json({
-      deliveries: rows.map((r) => ({
-        id: r.id,
-        eventId: r.eventId,
-        eventType: r.eventType,
-        status: r.status,
-        recipientConnectionId: r.recipientConnectionId,
-        recipientUserId: r.recipientUserId,
-        attemptCount: r.attemptCount,
-        lastError: r.lastError,
-        lastErrorCode: r.lastErrorCode,
-        providerMessageId: r.providerMessageId,
-        correlationKey: r.correlationKey,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      })),
+      deliveries: rows.map(deliveryRowToDto),
       ...(nextCursor !== undefined ? { nextCursor } : {}),
     });
   })
@@ -410,28 +396,11 @@ export const adminNotificationsApp = new Hono()
     } catch {
       eventPayload = null;
     }
-    return c.json({
-      delivery: {
-        id: row.id,
-        eventId: row.eventId,
-        eventType: row.eventType,
-        status: row.status,
-        recipientConnectionId: row.recipientConnectionId,
-        recipientUserId: row.recipientUserId,
-        attemptCount: row.attemptCount,
-        lastError: row.lastError,
-        lastErrorCode: row.lastErrorCode,
-        providerMessageId: row.providerMessageId,
-        correlationKey: row.correlationKey,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        eventPayload,
-        // The design doc reserves an `attempts: AttemptRecord[]` field for a
-        // future per-attempt history table. None exists in v1, so the field
-        // is omitted rather than returned as a permanently empty array — the
-        // client can detect the absent field and hide the section.
-      },
-    });
+    // The design doc reserves an `attempts: AttemptRecord[]` field for a
+    // future per-attempt history table. None exists in v1, so the field is
+    // omitted rather than returned as a permanently empty array — the
+    // client can detect the absent field and hide the section.
+    return c.json({ delivery: { ...deliveryRowToDto(row), eventPayload } });
   })
   .post("/deliveries/:id/retry", async (c) => {
     const id = c.req.param("id") as string;

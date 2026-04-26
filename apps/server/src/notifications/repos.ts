@@ -13,6 +13,7 @@ import {
   ne,
   or,
   sql,
+  type SQL,
 } from "drizzle-orm";
 import { getDb } from "../db/client";
 import type {
@@ -20,6 +21,8 @@ import type {
   NotificationDeliveryStatus,
   NotificationEventType,
   NotificationSeverity,
+  AdminDeliveryRow,
+  InboxItemDto,
 } from "@ent-mcp/shared/notifications";
 import {
   notificationSubscriptions,
@@ -356,13 +359,18 @@ export interface DeliveryCursor {
   id: string;
 }
 
-export async function listDeliveries(
-  filters: DeliveryListFilters,
-  cursor: DeliveryCursor | undefined,
-  limit: number,
-): Promise<(typeof notificationDeliveries.$inferSelect)[]> {
-  const db = getDb();
-  const conditions = [];
+// We over-fetch by `OVERFETCH_RATIO × limit` rows when category/severity
+// filters apply because those fields live inside the JSON `event_payload`
+// and must be checked after the query runs. The ratio is a heuristic: too
+// low and the post-filter starves the response; too high and we waste IO.
+// 2× is fine for v1 admin volume. Promote the fields to generated columns
+// or a denormalised dashboard if pagination gaps become user-visible.
+// TODO(notifications): denormalise category/severity onto
+// notification_deliveries when admin volume grows.
+const DELIVERY_LIST_OVERFETCH_RATIO = 2;
+
+function buildDeliveryFilterPredicate(filters: DeliveryListFilters): SQL[] {
+  const conditions: SQL[] = [];
   if (filters.status) conditions.push(eq(notificationDeliveries.status, filters.status));
   if (filters.recipientUserId) {
     conditions.push(eq(notificationDeliveries.recipientUserId, filters.recipientUserId));
@@ -373,51 +381,115 @@ export async function listDeliveries(
   if (filters.to !== undefined) {
     conditions.push(lte(notificationDeliveries.createdAt, filters.to));
   }
-  if (cursor) {
-    const tieBreaker = and(
-      eq(notificationDeliveries.createdAt, cursor.createdAt),
-      lt(notificationDeliveries.id, cursor.id),
+  return conditions;
+}
+
+function buildDeliveryKeysetPredicate(cursor: DeliveryCursor): SQL | undefined {
+  // Older rows come AFTER the cursor in `desc(createdAt), desc(id)` order:
+  // (createdAt, id) < (cursor.createdAt, cursor.id).
+  const tieBreaker = and(
+    eq(notificationDeliveries.createdAt, cursor.createdAt),
+    lt(notificationDeliveries.id, cursor.id),
+  );
+  return or(lt(notificationDeliveries.createdAt, cursor.createdAt), tieBreaker);
+}
+
+function deliveryEventTags(
+  row: typeof notificationDeliveries.$inferSelect,
+): { category?: NotificationCategory; severity?: NotificationSeverity } | "unparsable" {
+  try {
+    return JSON.parse(row.eventPayload) as {
+      category?: NotificationCategory;
+      severity?: NotificationSeverity;
+    };
+  } catch (err) {
+    // A row with corrupt JSON is invisible to the admin filter, which
+    // hides the data integrity issue. Surface it so ops can investigate.
+    consola.warn(
+      `notifications: delivery ${row.id} has unparsable event_payload, skipping during filtered list: ${err instanceof Error ? err.message : String(err)}`,
     );
-    const keyset = or(lt(notificationDeliveries.createdAt, cursor.createdAt), tieBreaker);
+    return "unparsable";
+  }
+}
+
+function applyEventPayloadFilters(
+  rows: (typeof notificationDeliveries.$inferSelect)[],
+  filters: Pick<DeliveryListFilters, "category" | "severity">,
+  limit: number,
+): (typeof notificationDeliveries.$inferSelect)[] {
+  if (!filters.category && !filters.severity) return rows.slice(0, limit);
+  const out: (typeof notificationDeliveries.$inferSelect)[] = [];
+  for (const row of rows) {
+    if (out.length >= limit) break;
+    const tags = deliveryEventTags(row);
+    if (tags === "unparsable") continue;
+    if (filters.category && tags.category !== filters.category) continue;
+    if (filters.severity && tags.severity !== filters.severity) continue;
+    out.push(row);
+  }
+  return out;
+}
+
+export async function listDeliveries(
+  filters: DeliveryListFilters,
+  cursor: DeliveryCursor | undefined,
+  limit: number,
+): Promise<(typeof notificationDeliveries.$inferSelect)[]> {
+  const conditions = buildDeliveryFilterPredicate(filters);
+  if (cursor) {
+    const keyset = buildDeliveryKeysetPredicate(cursor);
     if (keyset) conditions.push(keyset);
   }
-  // category/severity live inside `event_payload` JSON, so filter them
-  // post-query. We over-fetch by 2× limit as a heuristic — when the database
-  // window is dominated by non-matching rows the post-filter can return
-  // fewer than `limit` items even though more pages exist, and the caller
-  // will not produce a `nextCursor`. v1 admin volume is small; promote the
-  // fields to generated columns or a denormalised dashboard if pagination
-  // gaps become user-visible.
-  // TODO(notifications): denormalise category/severity onto
-  // notification_deliveries when admin volume grows.
   const where = conditions.length > 0 ? and(...conditions) : undefined;
-  const rows = await db
+  const fetchLimit =
+    filters.category || filters.severity ? limit * DELIVERY_LIST_OVERFETCH_RATIO : limit;
+  const rows = await getDb()
     .select()
     .from(notificationDeliveries)
     .where(where)
     .orderBy(desc(notificationDeliveries.createdAt), desc(notificationDeliveries.id))
-    .limit(limit * 2)
+    .limit(fetchLimit)
     .all();
-  if (!filters.category && !filters.severity) return rows.slice(0, limit);
-  const out = [];
-  for (const row of rows) {
-    if (out.length >= limit) break;
-    let event: { category?: NotificationCategory; severity?: NotificationSeverity };
-    try {
-      event = JSON.parse(row.eventPayload) as typeof event;
-    } catch (err) {
-      // A row with corrupt JSON is invisible to the admin filter, which
-      // hides the data integrity issue. Surface it so ops can investigate.
-      consola.warn(
-        `notifications: delivery ${row.id} has unparsable event_payload, skipping during filtered list: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      continue;
-    }
-    if (filters.category && event.category !== filters.category) continue;
-    if (filters.severity && event.severity !== filters.severity) continue;
-    out.push(row);
-  }
-  return out;
+  return applyEventPayloadFilters(rows, filters, limit);
+}
+
+// ─── Row → DTO mappers (shared between HTTP handlers and tests) ─────────────
+
+export function inboxRowToDto(row: typeof notificationsInbox.$inferSelect): InboxItemDto {
+  return {
+    id: row.id,
+    createdAt: row.createdAt,
+    readAt: row.readAt,
+    title: row.title,
+    body: row.body,
+    severity: row.severity,
+    category: row.category,
+    actionUrl: row.actionUrl,
+    image:
+      row.imageUrl !== null
+        ? { url: row.imageUrl, ...(row.imageAlt ? { alt: row.imageAlt } : {}) }
+        : null,
+  };
+}
+
+export function deliveryRowToDto(
+  row: typeof notificationDeliveries.$inferSelect,
+): AdminDeliveryRow {
+  return {
+    id: row.id,
+    eventId: row.eventId,
+    eventType: row.eventType,
+    status: row.status,
+    recipientConnectionId: row.recipientConnectionId,
+    recipientUserId: row.recipientUserId,
+    attemptCount: row.attemptCount,
+    lastError: row.lastError,
+    lastErrorCode: row.lastErrorCode,
+    providerMessageId: row.providerMessageId,
+    correlationKey: row.correlationKey,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 /** Result of an admin-triggered retry. `in_progress` shields rows currently
