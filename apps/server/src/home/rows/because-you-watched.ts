@@ -45,7 +45,13 @@ export const becauseYouWatchedFetcher: RowFetcher = {
       return id ? !inProgress.has(id) : true;
     });
 
-    const slice = candidates.slice(decoded.p * opts.limit - opts.limit, decoded.p * opts.limit);
+    // `becauseYouWatched` uses 1-indexed pages: the layout handler emits
+    // `p: 1` for the first page (so the cursor is non-null and the fetcher's
+    // single code path always reads `s` from the cursor — see V11). All other
+    // page-cursor fetchers are 0-indexed because their first call carries
+    // `cursor: null` and starts at `p: 0` internally. Slice math reflects
+    // the offset: page 1 → `[0, limit)`, page 2 → `[limit, 2*limit)`.
+    const slice = candidates.slice((decoded.p - 1) * opts.limit, decoded.p * opts.limit);
     const items = await Promise.all(slice.map((item) => buildItem(ctx, item)));
     const usable = items.filter((item): item is CompactMediaItem => item !== null);
 

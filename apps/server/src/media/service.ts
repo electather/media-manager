@@ -502,7 +502,7 @@ export interface HomeAggregate<T extends unknown[]> {
  *   - else — at least one provider succeeded. Returns whatever data was
  *     collected, with `partial: true` when at least one peer errored.
  */
-function interpretAggregate<T>(
+export function interpretAggregate<T>(
   capabilityKey: string,
   result: AggregateResult<T[]>,
 ): HomeAggregate<T[]> {
