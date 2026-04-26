@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ALL_PERMISSIONS } from "../auth";
 import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_SEVERITIES,
@@ -32,5 +33,5 @@ export const notificationMessageSchema = z.object({
 
 export const notificationAudienceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("user"), userId: z.string() }),
-  z.object({ kind: z.literal("admin"), permission: z.string() }),
+  z.object({ kind: z.literal("admin"), permission: z.enum(ALL_PERMISSIONS) }),
 ]);

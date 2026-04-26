@@ -1,5 +1,5 @@
 import type { Permission } from "../auth";
-import type { NotificationCategory, NotificationSeverity } from "./enums";
+import type { NotificationCategory, NotificationSeverity, NotificationEventType } from "./enums";
 
 export interface BaseEvent {
   id: string; // ULID, set by emit() if absent
@@ -11,7 +11,10 @@ export type NotificationAudience =
   | { kind: "user"; userId: string }
   | { kind: "admin"; permission: Permission };
 
-export interface NotificationEventEnvelope<T extends string, P = unknown> extends BaseEvent {
+export interface NotificationEventEnvelope<
+  T extends NotificationEventType,
+  P = unknown,
+> extends BaseEvent {
   type: T;
   category: NotificationCategory;
   severity: NotificationSeverity;

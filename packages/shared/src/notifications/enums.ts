@@ -12,6 +12,16 @@ export type NotificationDeliveryStatus = (typeof NOTIFICATION_DELIVERY_STATUSES)
 export const NOTIFICATION_CONTENT_KINDS = ["text", "markdown", "image", "actions"] as const;
 export type NotificationContentKind = (typeof NOTIFICATION_CONTENT_KINDS)[number];
 
+export const NOTIFICATION_EVENT_TYPES = [
+  "job.run.failed",
+  "connection.auth.expired",
+  "connection.sync.succeeded",
+  "media.request.available",
+  "media.request.denied",
+  "system.error",
+] as const;
+export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
+
 export const NOTIFICATION_CATEGORY_PERMISSION: Record<NotificationCategory, Permission> = {
   media: PERMISSIONS.MEDIA_ACTIVITY,
   sync: PERMISSIONS.ACCOUNT_CONNECTIONS,
