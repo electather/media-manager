@@ -13,8 +13,9 @@ describe("delivery backoff schedule", () => {
     ]);
   });
 
-  it("caps total attempts at 5", () => {
-    expect(MAX_ATTEMPTS).toBe(5);
+  it("caps total attempts at 6 (initial + 5 retries) so every entry in the schedule is reachable", () => {
+    expect(MAX_ATTEMPTS).toBe(6);
+    expect(MAX_ATTEMPTS).toBe(BACKOFF_INTERVALS_MS.length + 1);
   });
 });
 
@@ -54,8 +55,15 @@ describe("decideFailure: retry scheduling", () => {
     expect(d.delayMs).toBe(2 * 60 * 60_000);
   });
 
-  it("attempt 5 retryable failure → terminal failed (cap reached)", () => {
+  it("attempt 5 retryable failure → 12h delay (last reschedule)", () => {
     const d = decideFailure({ attemptCount: 4 }, retryableErr());
+    expect(d.action).toBe("reschedule");
+    if (d.action !== "reschedule") return;
+    expect(d.delayMs).toBe(12 * 60 * 60_000);
+  });
+
+  it("attempt 6 retryable failure → terminal failed (cap reached)", () => {
+    const d = decideFailure({ attemptCount: 5 }, retryableErr());
     expect(d.action).toBe("fail");
   });
 

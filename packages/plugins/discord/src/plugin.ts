@@ -122,7 +122,10 @@ export const discordPlugin = definePlugin({
     version: "0.1.0",
     sdkVersion: "^1.0.0",
     author: { name: "Media Manager" },
-    allowedHosts: ["discord.com", "*.discord.com"],
+    // Webhook traffic only ever hits `discord.com/api/webhooks/...` — keep
+    // the allowlist tight so a leaked webhook URL can't be redirected to a
+    // sibling Discord-controlled host (cdn, media) by a malicious upstream.
+    allowedHosts: ["discord.com"],
     auth: { kind: "none" },
     capabilities: {
       notificationDelivery: {

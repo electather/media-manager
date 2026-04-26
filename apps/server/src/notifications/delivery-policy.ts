@@ -11,10 +11,13 @@ export const BACKOFF_INTERVALS_MS: readonly number[] = [
   60_000, 300_000, 1_800_000, 7_200_000, 43_200_000,
 ];
 
-/** Hard cap on attempts (initial + retries). The cap is applied after the
- *  failed attempt is counted, so a delivery may run up to MAX_ATTEMPTS times
- *  before we mark it terminally failed. */
-export const MAX_ATTEMPTS = 5;
+/** Hard cap on attempts (initial + retries). Sized so every entry in
+ *  `BACKOFF_INTERVALS_MS` can be used: 1 initial + 5 retries = 6 attempts,
+ *  the last reschedule lands on the 12h delay before the cap fires on the
+ *  sixth failure. The cap is applied after the failed attempt is counted,
+ *  so a delivery may run up to MAX_ATTEMPTS times before we mark it
+ *  terminally failed. */
+export const MAX_ATTEMPTS = 6;
 
 /** The plugins that the host trusts with extended deliver args (`deliveryId`
  *  and `recipientUserId`) and with the host-privileged `ctx.inbox` capability.

@@ -14,7 +14,7 @@ import {
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../jobs/triggerable";
-import { buildDeliverArgs, decideFailure } from "./delivery-policy";
+import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";
 
 // Re-export pure-policy symbols so callers and tests can import from a
 // single module while the IO-bound delivery handler still lives here.
@@ -113,30 +113,31 @@ export function registerDeliveryJob() {
         return;
       }
 
-      // Inject host-privileged inbox capability for the in-tree inbox plugin
-      // only. The host pre-binds the recipient user id and delivery id so the
-      // plugin's `deliver()` only knows about the message — third-party
-      // plugins never see these fields. The privilege check runs through
-      // `buildDeliverArgs` below; this branch only shapes the inbox-specific
-      // ctx field that the inbox plugin reads for persistence.
-      if (conn.pluginId === "inbox") {
-        pluginCtx = {
-          ...pluginCtx,
-          inbox: {
-            insert: (
-              row: Pick<
-                InsertInboxItemInput,
-                "title" | "body" | "severity" | "category" | "actionUrl" | "imageUrl" | "imageAlt"
-              >,
-            ) =>
-              insertInboxItem({
-                id: randomUUID(),
-                userId: delivery.recipientUserId,
-                deliveryId,
-                ...row,
-              }),
-          },
-        } as typeof pluginCtx;
+      // Inject host-privileged context fields for plugins on the privilege
+      // allowlist. The privilege gate is `isHostPrivilegedPlugin` so a
+      // future host-privileged plugin only needs to be added to the set
+      // once; this block branches per-plugin id to attach the right shape
+      // (today only inbox needs `ctx.inbox.insert`).
+      if (isHostPrivilegedPlugin(conn.pluginId)) {
+        if (conn.pluginId === "inbox") {
+          pluginCtx = {
+            ...pluginCtx,
+            inbox: {
+              insert: (
+                row: Pick<
+                  InsertInboxItemInput,
+                  "title" | "body" | "severity" | "category" | "actionUrl" | "imageUrl" | "imageAlt"
+                >,
+              ) =>
+                insertInboxItem({
+                  id: randomUUID(),
+                  userId: delivery.recipientUserId,
+                  deliveryId,
+                  ...row,
+                }),
+            },
+          } as typeof pluginCtx;
+        }
       }
 
       try {

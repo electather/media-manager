@@ -401,21 +401,21 @@ Plugins signal retryability via existing `pluginError` helper:
 import { pluginError } from "@ent-mcp/plugin-sdk";
 
 if (res.status === 429) {
-  throw pluginError("rate_limited", "ntfy 429", { retryable: true, retryAfterMs: 60_000 });
+  throw pluginError("plugin.rate_limited", "ntfy 429", { retryable: true, retryAfterMs: 60_000 });
 }
 if (res.status >= 500) {
-  throw pluginError("upstream_error", `ntfy ${res.status}`, { retryable: true });
+  throw pluginError("plugin.upstream_error", `ntfy ${res.status}`, { retryable: true });
 }
 if (res.status === 401 || res.status === 403) {
-  throw pluginError("auth_failed", "ntfy auth rejected", { retryable: false });
+  throw pluginError("plugin.bad_credentials", "ntfy auth rejected", { retryable: false });
 }
 ```
 
 Delivery job inspects error:
 
-- `retryable: true` → next attempt with backoff `[60s, 5m, 30m, 2h, 12h]`, cap 5 attempts. `retryAfterMs` overrides next interval.
+- `retryable: true` → next attempt with backoff `[60s, 5m, 30m, 2h, 12h]`, capped at 6 total attempts (1 initial + 5 retries — every entry in the schedule is reachable). `retryAfterMs` overrides next interval.
 - `retryable: false` → mark `failed` immediately.
-- Plain throw, no retryable flag → treat retryable for first 2 attempts, then give up (defensive default).
+- Plain throw, no retryable flag → defensive default: retry once after the initial attempt, then give up (so 2 total attempts for an untagged failure).
 
 ### Delivery lock & crash recovery
 
@@ -433,7 +433,7 @@ CAS returning zero rows means another worker (or sweep retrigger) won the race; 
 
 PR 7 closed the deviations that needed to land before third-party plugins shipped:
 
-- ~~**Backoff schedule:** PR 4 ships flat ~2–5 min retry via the sweep cadence rather than `[60s, 5m, 30m, 2h, 12h]`. `retryAfterMs` is currently ignored.~~ **Resolved in PR 7.** Delivery job now persists `next_attempt_at` and selects `BACKOFF_INTERVALS_MS[attempt-1]` (capped at 5 attempts); a `pluginError(..., { retryAfterMs })` overrides the next interval, and the stale-pending sweep gates re-enqueue on `next_attempt_at <= now`.
+- ~~**Backoff schedule:** PR 4 ships flat ~2–5 min retry via the sweep cadence rather than `[60s, 5m, 30m, 2h, 12h]`. `retryAfterMs` is currently ignored.~~ **Resolved in PR 7.** Delivery job now persists `next_attempt_at` and selects `BACKOFF_INTERVALS_MS[attempt-1]` (capped at 6 total attempts so every entry in the schedule is reachable); a `pluginError(..., { retryAfterMs })` overrides the next interval, and the stale-pending sweep gates re-enqueue on `next_attempt_at <= now`.
 - ~~**Extended deliver args:** `deliveryId` and `recipientUserId` are passed to all plugins via the deliver `args` (not via host-privileged `ctx.inbox`).~~ **Resolved in PR 7.** Third-party plugins now receive only the SDK-typed `{ message, event, channelConfig }` shape; the host-privileged plugin allowlist (currently `inbox`) opts in to the extended args, and the inbox plugin reads its persistence target through the host-injected `ctx.inbox.insert(...)` capability.
 - **Event ID:** PR 4 uses `randomUUID()` instead of `ulid()`. Loses time-sortable property; revisit if correlation queries become hot. (Still deferred.)
 
