@@ -5,15 +5,17 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./jobs": "./src/jobs/index.ts",
-    "./errors": "./src/errors/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./common": "./src/common/index.ts",
     "./connections": "./src/connections/index.ts",
+    "./errors": "./src/errors/index.ts",
+    "./jobs": "./src/jobs/index.ts",
+    "./media": "./src/media/index.ts",
+    "./notifications": "./src/notifications/index.ts",
     "./plugins": "./src/plugins/index.ts",
     "./plugins/library": "./src/plugins/library.ts",
-    "./media": "./src/media/index.ts",
     "./preferences": "./src/preferences/index.ts",
-    "./users": "./src/users/index.ts",
-    "./common": "./src/common/index.ts"
+    "./users": "./src/users/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
