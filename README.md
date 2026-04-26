@@ -5,7 +5,7 @@ An MCP server for entertainment management with a companion dashboard.
 ## Architecture
 
 - **MCP server** (Streamable HTTP) — 6 tools for entertainment management
-- **Dashboard API** (oRPC over Hono) — consumed by a static React SPA
+- **Dashboard API** (Hono) — consumed by a static React SPA
 - **Better Auth** — dashboard login and MCP client OAuth
 
 ## Getting Started
@@ -24,5 +24,5 @@ bun run dev:client
 
 ## Packages
 
-- `apps/server` — Hono + MCP + oRPC + Better Auth backend
-- `apps/client` — React + TanStack Router + oRPC client SPA
+- `apps/server` — Hono + MCP + Better Auth backend
+- `apps/client` — React + TanStack Router + client SPA

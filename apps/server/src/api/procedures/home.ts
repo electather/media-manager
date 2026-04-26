@@ -5,7 +5,7 @@ import { zValidator } from "../../errors/validator";
 import { getHomeFeedService } from "../../home";
 
 /**
- * `home.*` oRPC procedures. Authenticated-user-only — no admin variants —
+ * `home.*` RPC procedures. Authenticated-user-only — no admin variants —
  * because the response is scoped entirely to `ctx.user.id` (V10 prevents
  * the row fetchers from reaching anything below `MediaService`, so the user
  * id from the session is the only authority that matters here).

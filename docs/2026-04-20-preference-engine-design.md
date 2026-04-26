@@ -11,7 +11,7 @@ Host-owned. Consumes feedback, ratings, watch history → compact structured pro
 
 2 profiles per user (movie, TV) + combined fallback for thin signal. Profiles rebuild nightly via job service, update incrementally on feedback bursts. Pure `MediaService` consumer — no plugin surface. `embedding` slot reserved in schema & one scorer slot in pipeline for future `embedding@v1` without refactor.
 
-Scope: engine only — interface, data model, scoring math, lifecycle, integration. `/profile` page separate spec; oRPC procedures this doc specifies but not page itself.
+Scope: engine only — interface, data model, scoring math, lifecycle, integration. `/profile` page separate spec; RPC procedures this doc specifies but not page itself.
 
 ## Goals
 
@@ -40,7 +40,7 @@ Scope: engine only — interface, data model, scoring math, lifecycle, integrati
                    │   ent_discover (recommend mode)      │
                    │   ent_feedback (preview)             │
                    │   ent_details (per-item feedback)    │
-                   │   /profile oRPC procedures           │
+                   │   /profile RPC procedures           │
                    │   preference-rebuild jobs            │
                    └──────────────────┬───────────────────┘
                                       │
@@ -77,7 +77,7 @@ Scope: engine only — interface, data model, scoring math, lifecycle, integrati
                └──────────────────────┘
 ```
 
-Engine: singleton at host startup, DI into MCP tool handlers, oRPC procedures, job handlers. 3 concerns:
+Engine: singleton at host startup, DI into MCP tool handlers, RPC procedures, job handlers. 3 concerns:
 
 - **Scoring** — given profile & candidates → ranked list with per-candidate contributors & confidence.
 - **Profile maintenance** — given user, read history from `MediaService` & feedback from `feedback_log`, aggregate into features, write profile.
@@ -595,9 +595,9 @@ All ∃ or trivially derivable from media-service doc. ⊥ new capability, ⊥ n
 
 Implicit requirement: rebuild issues many `getMetadata` calls. 24h cache cheap for popular items; obscure → first-miss-then-cache. ⊥ bulk-fetch needed.
 
-### `/profile` oRPC procedures
+### `/profile` RPC procedures
 
-`/profile` page separate spec. Engine exposes 3 oRPC procedures:
+`/profile` page separate spec. Engine exposes 3 RPC procedures:
 
 ```
 preference.getMyProfile(mediaType: "movie" | "tv" | "combined")
@@ -678,7 +678,7 @@ server/
 │       ├── runtime.ts
 │       └── languages.ts
 ├── routes/
-│   └── preference.ts              # oRPC procedures for /profile page
+│   └── preference.ts              # RPC procedures for /profile page
 └── jobs/                          # unchanged; registrations live with callers
 
 migrations/

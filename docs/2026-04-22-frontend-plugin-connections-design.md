@@ -13,7 +13,7 @@
 
 The backend plugin architecture has been revised: capabilities now carry an explicit `scope` (`global` | `user`), admin-owned secrets live in a `plugin_shared_credentials` **pool** (multiple entries per plugin, with rotation and cooldown bookkeeping), and a per-plugin `personalKeyFallback` policy defines how the admin pool and a user's own keys interact for user-scoped calls. The bespoke `allowsSharedCredentials` flag is gone; pool-safety is expressed via `poolable`.
 
-The current frontend still assumes the old shape. This document specifies how to refactor the two existing pages and their supporting components to drive entirely off the revised manifest and the revised oRPC surface.
+The current frontend still assumes the old shape. This document specifies how to refactor the two existing pages and their supporting components to drive entirely off the revised manifest and the revised RPC surface.
 
 This is a **bundled client + server PR**. A reconciliation pass at finalization time found four server gaps that the frontend work depends on (`displayFields` on connection responses, scoped capability arrays on the embedded plugin shape in `GET /api/connections/`, `sharedCredentialsEnabledCount` on `GET /api/plugins/`, and typed error codes for form validation). They ship alongside the frontend refactor in the same PR, per the migration notes at the bottom of this doc. Additionally a new endpoint for **ephemeral** shared-credential testing lands in the same PR so `Test & save` in the admin dialog runs against an unsaved value without writing it first.
 
@@ -43,7 +43,7 @@ The visual language from the previous iteration (shadcn/ui, two-block layout on 
 - Per-entry quota editing, weighted rotation, or sticky-per-user UI. Backend ships round-robin; UI exposes no knob for it.
 - User-installable plugins. Admin-only throughout.
 - i18n for plugin-provided strings.
-- Migration of the client from the Hono REST client to oRPC procedure calls. Response typing moves to `InferResponseType<typeof api.x.$get>` (inferred off the existing Hono client); call sites keep using the existing REST verbs.
+- Migration of the client from the Hono REST client to RPC procedure calls. Response typing moves to `InferResponseType<typeof api.x.$get>` (inferred off the existing Hono client); call sites keep using the existing REST verbs.
 
 ## What changes vs. current code
 
@@ -69,7 +69,7 @@ The visual language from the previous iteration (shadcn/ui, two-block layout on 
 
 ## Revised data model consumed by the frontend
 
-All types below are the shape the UI expects from oRPC. They are generated from host Zod schemas; the refactor does not hand-write them.
+All types below are the shape the UI expects from RPC. They are generated from host Zod schemas; the refactor does not hand-write them.
 
 ```ts
 export type CapabilityEntry = {
@@ -180,7 +180,7 @@ export type PluginRow = {
 };
 ```
 
-Shapes are consumed by the same oRPC endpoints already in use; the bundled server change in this PR extends the payloads without renaming existing fields. Two fields disappear on the frontend side after the refactor: `hasSharedConfig` (ambiguous; replaced with `adminSharedAvailable` + `hasGlobalConfig`) and `capabilities: string[]` (replaced with the two scoped arrays).
+Shapes are consumed by the same RPC endpoints already in use; the bundled server change in this PR extends the payloads without renaming existing fields. Two fields disappear on the frontend side after the refactor: `hasSharedConfig` (ambiguous; replaced with `adminSharedAvailable` + `hasGlobalConfig`) and `capabilities: string[]` (replaced with the two scoped arrays).
 
 The client stops hand-writing these interfaces and starts deriving them via `InferResponseType<typeof api.x.$get>` from the existing Hono client. See the _Type inference_ sub-section of Migration below.
 
@@ -424,7 +424,7 @@ The bundled server change adds three error codes so form validation surfaces as 
 
 The existing `plugin.not_poolable` code (already defined, already thrown when a non-poolable plugin gets a second shared credential) continues to be surfaced inline on the label field with "This plugin only supports one shared credential."
 
-Frontend work wires each of these; the oRPC client surfaces them via typed error objects on the response.
+Frontend work wires each of these; the RPC client surfaces them via typed error objects on the response.
 
 ## File-by-file refactor plan
 

@@ -7,7 +7,7 @@
 
 ## Summary
 
-Capture → store errors across frontend, backend oRPC, plugin runtime. Self-hosted DB, correlated via request ID, structured codes → i18n. Admin viewer `/admin/errors` with search & request-ID chaining. Dev context ≠ user messages. Credentials ⊥ stored (by design).
+Capture → store errors across frontend, backend RPC, plugin runtime. Self-hosted DB, correlated via request ID, structured codes → i18n. Admin viewer `/admin/errors` with search & request-ID chaining. Dev context ≠ user messages. Credentials ⊥ stored (by design).
 
 Dev-debugging only. ⊥ product analytics.
 
@@ -40,11 +40,11 @@ V6: pluggable `ErrorSink` → forward to Sentry, GlitchTip.
 | React error boundary (root + routes)         | catch render → POST `/api/errors` → fallback UI with request ID |
 | `window.error` & `unhandledrejection` events | catch outside React tree                                        |
 | `reportError(err, severity, context?)`       | explicit capture (fetch failed but fallback OK)                 |
-| oRPC non-2xx                                 | tag `warning` frontend-only; backend holds authoritative record |
+| RPC non-2xx                                  | tag `warning` frontend-only; backend holds authoritative record |
 
 ### Backend
 
-oRPC middleware wraps ∀ handler:
+RPC middleware wraps ∀ handler:
 
 | response          | action                                                      |
 | ----------------- | ----------------------------------------------------------- |
@@ -102,7 +102,7 @@ Decision "store at severity X" → one place. ⊥ ritual `severity: "error"` ∀
 
 | surface  | generation                                                                                 |
 | -------- | ------------------------------------------------------------------------------------------ |
-| Frontend | once per page load or oRPC call, sent `X-Request-Id` header                                |
+| Frontend | once per page load or RPC call, sent `X-Request-Id` header                                 |
 | Backend  | read header \| generate if absent, available via AsyncLocalStorage, pass to plugin runtime |
 | Plugin   | tag `ctx.log`, stamp error record                                                          |
 | Cron     | generate @ job start                                                                       |
@@ -117,7 +117,7 @@ User & dev messages separate. Constraint: translate ⊥ painful migration.
 
 ### Wire Format
 
-∀ oRPC error | plugin → host conforms:
+∀ RPC error | plugin → host conforms:
 
 ```ts
 interface UserFacingError {
@@ -219,7 +219,7 @@ error_records
 ├── user_id             text FK → user.id            (NULL if unauthenticated)
 ├── plugin_id           text FK → plugins.id         (NULL unless plugin-source)
 ├── connection_id       text FK → service_connections.id  (NULL unless tied to connection)
-├── route               text                         (oRPC procedure | frontend route)
+├── route               text                         (RPC procedure | frontend route)
 ├── http_status         integer                      (backend errors only; NULL)
 ├── context             text                         (JSON scrubbed blob)
 ├── created_at          integer NOT NULL
@@ -233,13 +233,13 @@ error_records
 
 JSON + scrub pass on write. Debug context, ⊥ dump.
 
-**Allowed**: oRPC input shape (names + types, ⊥ values), handler fields worked, plugin method, HTTP status, user agent.
+**Allowed**: RPC input shape (names + types, ⊥ values), handler fields worked, plugin method, HTTP status, user agent.
 
 **Scrubbed** (⊥ stored): ∀ value in credentials | `user_config` | `global_config`; keys matching pattern (`password`, `api_key`, `token`, `authorization`, `secret`, `credentials`, `apikey`, `api-key`); `Set-Cookie` | `Authorization` headers.
 
 Scrubber: `server/errors/scrubber.ts`. Explicit patterns; additions reviewed.
 
-**Credentials ⊥ enter error layer.** Sandbox throws ⊥ pull `ctx`. oRPC ⊥ auto-capture bodies. Arch guarantees, ⊥ scrubber as safety.
+**Credentials ⊥ enter error layer.** Sandbox throws ⊥ pull `ctx`. RPC ⊥ auto-capture bodies. Arch guarantees, ⊥ scrubber as safety.
 
 ## Retention
 
@@ -335,7 +335,7 @@ export async function captureError(
 ): Promise<string>; // returns error record id
 ```
 
-Called by oRPC middleware, plugin runtime, cron wrapper. Reads `requestId` from AsyncLocalStorage. `severity` optional → derived from code registry when omitted. Pass explicit to bump `error` → `warning`|`info` (recover | user-input). Writes ∀ sinks via `Promise.allSettled`. Returns record id.
+Called by RPC middleware, plugin runtime, cron wrapper. Reads `requestId` from AsyncLocalStorage. `severity` optional → derived from code registry when omitted. Pass explicit to bump `error` → `warning`|`info` (recover | user-input). Writes ∀ sinks via `Promise.allSettled`. Returns record id.
 
 ### Frontend
 
@@ -352,13 +352,13 @@ Posts `/api/errors` with request ID, severity, JSON-safe error, context. Endpoin
 
 ## Testing
 
-| test        | coverage                                                     |
-| ----------- | ------------------------------------------------------------ |
-| Unit        | scrubber vs credentials/tokens/nested. ∀ sensitive removed.  |
-| Integration | oRPC middleware: 5xx captured, expected 4xx user ⊥ captured. |
-| Integration | plugin runtime: throw → record source + pluginId + stack.    |
-| E2E         | frontend error → viewer with request ID → searchable.        |
-| Integration | retention sweep: insert range → run → verify deletions.      |
+| test        | coverage                                                    |
+| ----------- | ----------------------------------------------------------- |
+| Unit        | scrubber vs credentials/tokens/nested. ∀ sensitive removed. |
+| Integration | RPC middleware: 5xx captured, expected 4xx user ⊥ captured. |
+| Integration | plugin runtime: throw → record source + pluginId + stack.   |
+| E2E         | frontend error → viewer with request ID → searchable.       |
+| Integration | retention sweep: insert range → run → verify deletions.     |
 
 ## Open Questions / Deferred
 

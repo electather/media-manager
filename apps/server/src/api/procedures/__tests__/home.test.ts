@@ -52,7 +52,7 @@ beforeEach(() => {
   rowContentSpy.mockReset();
 });
 
-describe("home oRPC contract", () => {
+describe("home RPC contract", () => {
   it("rejects getLayout when the session is unauthenticated", async () => {
     const res = await buildApp().request("/home/getLayout", {
       method: "POST",

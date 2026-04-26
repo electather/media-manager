@@ -43,7 +43,7 @@ export const mediaService = {
 /**
  * Per-user facade. Constructed per-request with the authenticated user id;
  * every method dispatches through the strategy router, so callers never see
- * the plugin layer directly. Shapes results so the MCP tools and oRPC
+ * the plugin layer directly. Shapes results so the MCP tools and RPC
  * procedures can consume arrays/objects directly.
  */
 export class MediaService {

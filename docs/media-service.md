@@ -23,13 +23,13 @@ Scope: `metadata@v1` only, TMDB only. Subsequent plugins (Trakt, Seerr, TVDB) fo
 ✗ Trakt, Seerr, TVDB (follow-up specs, same pattern)
 ✗ Capabilities beyond `metadata@v1`
 ✗ MCP tool integration (later)
-✗ oRPC procedures (already specified in plugin architecture doc)
+✗ RPC procedures (already specified in plugin architecture doc)
 
 ## Architecture
 
 ```
      ┌──────────────────────────────┐
-     │ Caller (oRPC/MCP/job/...)    │
+     │ Caller (RPC/MCP/job/...)    │
      └────────────┬─────────────────┘
                   ▼
      ┌──────────────────────────────┐

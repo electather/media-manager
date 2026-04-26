@@ -7,7 +7,7 @@
 
 ## Summary
 
-Server-side surface behind dashboard's Netflix-style home page. Stack of themed rows (Continue Watching, Recommended For You, Trending Now, etc.) composed from plugin capabilities, re-ranked against user preference profile. Two oRPC procedures (`home.getLayout` & `home.getRowContent`), `HomeFeedService` orchestrating existing `MediaService` & `PreferenceEngine` into uniform row catalog. Caching/pagination/degradation behaviors included.
+Server-side surface behind dashboard's Netflix-style home page. Stack of themed rows (Continue Watching, Recommended For You, Trending Now, etc.) composed from plugin capabilities, re-ranked against user preference profile. Two RPC procedures (`home.getLayout` & `home.getRowContent`), `HomeFeedService` orchestrating existing `MediaService` & `PreferenceEngine` into uniform row catalog. Caching/pagination/degradation behaviors included.
 
 Scope: server-side only — endpoints, backing logic, data shapes, behavioral rules. Frontend = separate spec.
 
@@ -15,7 +15,7 @@ Follows MCP spec discipline: thin translation layer over `MediaService`, no new 
 
 ## Goals
 
-- Two oRPC procedures (`home.getLayout` & `home.getRowContent`) for dashboard.
+- Two RPC procedures (`home.getLayout` & `home.getRowContent`) for dashboard.
 - Reuse `MediaService`, `PreferenceEngine`, existing capability methods. No new capability/plugin contract/DB table.
 - Degrade gracefully ∀ user states: no plugins, TMDB-only, tracker-connected, full install.
 - Layout decisions ! pure functions — testable, cheap to A/B, safe to swap.
@@ -29,13 +29,13 @@ Follows MCP spec discipline: thin translation layer over `MediaService`, no new 
 - Cross-row dedup — v1 accepts title may appear in both Trending & New Releases.
 - Streaming/SSE — all procedures synchronous request/response v1.
 - MCP surface — agents already get home-equivalent via `ent_discover mode=recommend|trending`.
-- Dashboard rate limiting — inherits general oRPC layer.
+- Dashboard rate limiting — inherits general RPC layer.
 
 ## Architecture
 
 ```
              ┌─────────────────────────────┐
-             │ oRPC procedures             │
+             │ RPC procedures             │
              │   home.getLayout            │
              │   home.getRowContent        │
              └──────────────┬──────────────┘
@@ -127,14 +127,14 @@ server/
 │       └── your-watchlist.ts
 └── api/
     └── routes/
-        └── home.ts                   # oRPC procedures: getLayout, getRowContent
+        └── home.ts                   # RPC procedures: getLayout, getRowContent
 ```
 
 No new capability files. No new DB migrations. Only `MediaService` additions: thin count methods & one batched status method (§8).
 
 ## API surface
 
-Two oRPC procedures under `server/api/routes/home.ts`, authenticated-user-only (scope: `ctx.user.id`). No admin variants. Errors use `UserFacingError` from error-management doc.
+Two RPC procedures under `server/api/routes/home.ts`, authenticated-user-only (scope: `ctx.user.id`). No admin variants. Errors use `UserFacingError` from error-management doc.
 
 **Shared types in `@ent-mcp/shared/home`.** Per repo shared-package rules (`CLAUDE.md`): types crossing server/client boundary live in `packages/shared/src/home/`, exported via subpath in `packages/shared/package.json`. Types that qualify: `RowKind` (const tuple + derived type), `HomeRow`, `HomeLayoutResponse`, `RowContentResponse`, `CompactMediaItem`. `FetchedRow`/`FetchOutcome` types (§5) = host-internal, stay in `server/home/`. Cursor Zod schemas stay server-internal (cursors opaque on wire; client ⊥ decodes).
 
@@ -669,7 +669,7 @@ Decode-side cap on `x[]` & `p`/`o` load-bearing: crafted cursor with 10k entries
 
 Cursors ⊥ expire & **⊥ HMAC-signed**. Risk analysis:
 
-- oRPC endpoint authenticates via session; `userId` from `ctx.user.id`, ⊥ from cursor. Client ⊥ paginate against another user's data by replaying captured cursor — needs that user's session token.
+- RPC endpoint authenticates via session; `userId` from `ctx.user.id`, ⊥ from cursor. Client ⊥ paginate against another user's data by replaying captured cursor — needs that user's session token.
 - What client can do: craft valid cursors for own account. Worst achievable within validated shape: "skip to page 3" or "exclude titles I never saw" — affects only own view, ⊥ access they don't already have.
 - Real threat from untrusted cursor input: decode-time DoS (crash on malformed, memory pressure from oversized). Zod validation + hard length caps handle directly.
 - HMAC signing adds secret management, rotation, per-request CPU cost to solve attack session-auth already prevents. Deliberately not adopted.
@@ -714,7 +714,7 @@ When `rows` empty after filtering & drop-empty:
 { "rows": [], "generatedAt": 1713820000000 }
 ```
 
-Client responsible for empty-state UX. Already knows user's connection state via `/connections` oRPC. No `guidance` field — avoids duplicating knowledge that lives in connections layer.
+Client responsible for empty-state UX. Already knows user's connection state via `/connections` RPC. No `guidance` field — avoids duplicating knowledge that lives in connections layer.
 
 ### Degradation matrix
 
@@ -896,8 +896,8 @@ One test per user-state fixture:
 
 ### API contract tests
 
-- oRPC input schema: `getLayout` rejects extra keys (strict); `getRowContent` requires `rowId` & `cursor`; unknown `rowId` → `home.bad_input`.
-- oRPC output schema matches published type in `@ent-mcp/shared`; no extraneous fields.
+- RPC input schema: `getLayout` rejects extra keys (strict); `getRowContent` requires `rowId` & `cursor`; unknown `rowId` → `home.bad_input`.
+- RPC output schema matches published type in `@ent-mcp/shared`; no extraneous fields.
 - Shape stability: snapshot test on canonical fixture response.
 
 ### Degradation integration
@@ -926,7 +926,7 @@ One test per user-state fixture:
 - **Streaming / progressive loading.** Synchronous v1. If slow row becomes P95 problem, per-row SSE = clean retrofit — `RowFetcher` shape already row-local.
 - **Layout-level caching per user.** ⊥ worth it until per-row TTLs prove insufficient.
 - **Cache pre-warm on connection-create.** First `getLayout` after connecting warms cache cold. Add hook if cold-load UX visibly bad.
-- **Dashboard rate limiting.** ⊥ introduced here. Extend same token-bucket primitive used for MCP to oRPC if needed.
+- **Dashboard rate limiting.** ⊥ introduced here. Extend same token-bucket primitive used for MCP to RPC if needed.
 - **A/B variants on rule table.** Pure-function shape built for it; no experiment infra wired v1.
 - **MCP equivalent.** MCP agents already get home-equivalent via `ent_discover`; dedicated `ent_home` would duplicate surface — ⊥ planned.
 - Add: fanart.tv access. Rate limits, language-tagged asset selection, fallback chain. Own subspec or metadata-capability extension.

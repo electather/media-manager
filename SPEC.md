@@ -74,7 +74,7 @@ Categories: `media` | `sync` | `auth` | `system`.
 
 ## §V Invariants
 
-- V1. `MediaService` sole facade for plugin features. MCP tools + oRPC + jobs call `MediaService`; nothing below it (runtime, registry, credentials) is reachable from callers.
+- V1. `MediaService` sole facade for plugin features. MCP tools + Hono RPC + jobs call `MediaService`; nothing below it (runtime, registry, credentials) is reachable from callers.
 - V2. Every `ctx.fetch` call goes through `buildFetch` in `fetch-policy.ts`. Hostname checked against `manifest.allowedHosts ∩ adminAllowlist`; blocked calls recorded to error sink with code `plugin.host_blocked_by_admin`; plugin sees `plugin.upstream_error`.
 - V3. `adminAllowlist = null` → inherit manifest (no narrowing). `adminAllowlist = []` → block all static hosts (dynamic `x-allowed-host` still pass).
 - V4. Admin headers injected after allowlist check; `adminHeaders` values decrypted in memory per invocation only; never written to logs.
@@ -110,7 +110,7 @@ Categories: `media` | `sync` | `auth` | `system`.
 | T13 | x      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures       | I.home,V9,V10,V11,V12 |
 | T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal        | I.home,T13            |
 | T15 | x      | `home` subpath export in `@ent-mcp/shared`                               | V12,T13               |
-| T16 | ?      | User profile page (`/profile` oRPC procedures backend)                   | I.api                 |
+| T16 | ?      | User profile page (`/profile` Hono rpc procedures backend)               | I.api                 |
 
 ## §B Bugs
 

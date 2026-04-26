@@ -119,7 +119,7 @@ export function severityFor(code: string): ErrorSeverity {
   return spec?.severity ?? "error";
 }
 
-/** Wire-format shape returned by any error-producing oRPC/HTTP handler.
+/** Wire-format shape returned by any error-producing RPC/HTTP handler.
  *  `devMessage` is English free-form for logs; `code` + `params` drive user-facing translation. */
 export interface UserFacingError {
   code: string;

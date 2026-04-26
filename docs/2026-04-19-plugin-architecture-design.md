@@ -42,13 +42,13 @@ Authoritative spec for backend. Frontend covered in later document.
 
 Three layers:
 
-- **Host** — owns DB, encryption, auth, cron (croner), oRPC, plugin runtime. ⊥ trust plugin code.
+- **Host** — owns DB, encryption, auth, cron (croner), RPC, plugin runtime. ⊥ trust plugin code.
 - **Plugin runtime** — host-owned subsystem. Loads, sandboxes, invokes plugins. Exposes narrow `PluginContext` only.
 - **Plugins** — self-contained JS files. Each declares manifest, implements ≥1 capability interfaces, handles own auth.
 
 Central components:
 
-- `MediaService` only surface rest of app uses. oRPC procedures & MCP tools ⊥ call plugins directly.
+- `MediaService` only surface rest of app uses. RPC procedures & MCP tools ⊥ call plugins directly.
 - **Capability registry** (in-memory, rebuilt on install/update/disable) maps `(capability, version, scope)` → list of implementing plugins. Global & user lookups independent.
 - `MediaService` dispatches through runtime. Global-scoped calls → pick `shared_credentials` from admin pool (rotate for pool-safe). User-scoped calls → resolve user's connection(s), pick from user pool (per-plugin `poolable` flag). Optional `personalKeyFallback` → exhaustion falls through to other side, strictly within single user request.
 - **Connections** bound by `plugin_id` (not hardcoded service enum); ∃ only for plugins with ≥1 user-scoped capability.
@@ -897,7 +897,7 @@ Declared in `manifest.jobs`. Host croner fires each job at schedule.
 
 Iteration in host keeps plugins simple & consistent.
 
-## API Endpoints (oRPC)
+## API Endpoints (RPC)
 
 ### Admin — Plugin Management
 
