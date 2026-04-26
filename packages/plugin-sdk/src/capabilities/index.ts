@@ -142,6 +142,21 @@ const discoverFilters = z.object({
   yearMax: z.number().optional(),
   ratingMin: z.number().optional(),
   limit: z.number().optional(),
+  /**
+   * Inclusive lower bound on release date as ms epoch. Ignored by plugins
+   * that do not support a release-date filter; backward-compatible.
+   */
+  releaseDateGte: z.number().optional(),
+  /** Inclusive upper bound on release date as ms epoch. */
+  releaseDateLte: z.number().optional(),
+  /**
+   * Result ordering hint. `popularity_desc` is the home feed's default for
+   * `newReleases`; plugins that do not support a sort key fall back to their
+   * native ordering.
+   */
+  sort: z
+    .enum(["popularity_desc", "popularity_asc", "release_date_desc", "release_date_asc"])
+    .optional(),
 });
 
 /**

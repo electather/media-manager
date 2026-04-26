@@ -1,7 +1,8 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+import type { MediaItem } from "@ent-mcp/shared/media";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, type RawMediaItem } from "../compact";
+import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "recommendedForYou" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -92,16 +93,13 @@ async function rankCandidates(
   limit: number,
 ): Promise<RankedItem[]> {
   if (candidates.length === 0) return [];
+  const adapted = candidates.map(toPreferenceMediaItem);
   try {
-    const ranked = await ctx.preferenceEngine.rankCandidates(
-      ctx.userId,
-      candidates as unknown as Parameters<typeof ctx.preferenceEngine.rankCandidates>[1],
-      {},
-    );
+    const ranked = await ctx.preferenceEngine.rankCandidates(ctx.userId, adapted, {});
     const top = ranked.slice(0, limit);
     return Promise.all(
       top.map(async (entry) => {
-        const item = (entry as { item: RawMediaItem }).item;
+        const item = entry.item as unknown as RawMediaItem;
         const reason = await safeExplain(ctx, item);
         return { item, matchReason: reason };
       }),
@@ -114,13 +112,32 @@ async function rankCandidates(
 
 async function safeExplain(ctx: RowFetchContext, item: RawMediaItem): Promise<string | null> {
   try {
-    return await ctx.preferenceEngine.explainMatch(
-      ctx.userId,
-      item as unknown as Parameters<typeof ctx.preferenceEngine.explainMatch>[1],
-    );
+    return await ctx.preferenceEngine.explainMatch(ctx.userId, toPreferenceMediaItem(item));
   } catch {
     return null;
   }
+}
+
+/**
+ * Adapter from the plugin-SDK `RawMediaItem` shape to the host
+ * `@ent-mcp/shared/media` `MediaItem` shape that `PreferenceEngine` consumes.
+ * Centralised here so a future change to either side surfaces in exactly one
+ * place rather than as a runtime cast inside every fetcher.
+ */
+function toPreferenceMediaItem(item: RawMediaItem): MediaItem {
+  return {
+    id: item.id,
+    title: item.title,
+    year: typeof item.year === "number" ? item.year : 0,
+    type: item.type,
+    genres: item.genres ?? [],
+    rating: item.rating ?? null,
+    overview: item.overview ?? "",
+    posterUrl: item.posterUrl ?? null,
+    status: "unknown",
+    userRating: item.userRating ?? null,
+    matchReason: null,
+  };
 }
 
 async function buildItem(
@@ -129,27 +146,10 @@ async function buildItem(
   matchReason: string | null,
 ): Promise<CompactMediaItem | null> {
   const compact = toCompact(item, matchReason ? { matchReason } : {});
-  const status = await fetchStatus(ctx, compact.id);
+  const map = await ctx.dataloader.getStatusBatch([compact.id]);
+  const status = toStatusOrUndefined(map[compact.id]);
   if (status) compact.status = status;
   return compact;
-}
-
-async function fetchStatus(
-  ctx: RowFetchContext,
-  id: string,
-): Promise<CompactMediaItem["status"] | null> {
-  const map = await ctx.dataloader.getStatusBatch([id]);
-  const value = map[id];
-  if (
-    value === "available" ||
-    value === "requested" ||
-    value === "processing" ||
-    value === "unavailable" ||
-    value === "unknown"
-  ) {
-    return value;
-  }
-  return null;
 }
 
 function capExclusion(ids: string[]): string[] {

@@ -43,7 +43,7 @@ export const mediaService = {
 /**
  * Per-user facade. Constructed per-request with the authenticated user id;
  * every method dispatches through the strategy router, so callers never see
- * the plugin layer directly. Shapes results so the MCP tools and oRPC
+ * the plugin layer directly. Shapes results so the MCP tools and RPC
  * procedures can consume arrays/objects directly.
  */
 export class MediaService {
@@ -340,6 +340,9 @@ export class MediaService {
     yearMax?: number;
     ratingMin?: number;
     limit?: number;
+    releaseDateGte?: number;
+    releaseDateLte?: number;
+    sort?: "popularity_desc" | "popularity_asc" | "release_date_desc" | "release_date_asc";
   }): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchPrimary<unknown[]>({
       userId: this.userId,
@@ -368,6 +371,39 @@ export class MediaService {
       mediaType: input.type,
     });
     return interpretAggregate("metadata@v1", result);
+  }
+
+  /**
+   * Aggregate `calendar@v1.getUpcoming`. Distinct from the legacy
+   * `getUpcoming` getter on this class: this variant surfaces a `partial`
+   * flag and an `AllPluginsFailedError` so the home feed orchestrator can
+   * classify the row outcome correctly.
+   */
+  async getUpcomingFeed(): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "calendar",
+      version: "v1",
+      method: "getUpcoming",
+      input: {},
+    });
+    return interpretAggregate("calendar@v1", result);
+  }
+
+  /**
+   * Aggregate `watchlist@v1.getWatchlist` for the home-feed `yourWatchlist`
+   * row. Surfaces partial-failure signalling that the legacy `getWatchlist`
+   * getter swallows.
+   */
+  async getWatchlistFeed(): Promise<HomeAggregate<unknown[]>> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "watchlist",
+      version: "v1",
+      method: "getWatchlist",
+      input: {},
+    });
+    return interpretAggregate("watchlist@v1", result);
   }
 
   /** Aggregate `recommendations@v1.getTrending`. */
@@ -453,19 +489,27 @@ export interface HomeAggregate<T extends unknown[]> {
 
 /**
  * Translates a raw `AggregateResult` into the home-feed `HomeAggregate`
- * envelope and decides whether the row should be flagged `all_failed`. A
- * provider that succeeded with no items is treated as "ok empty"; only when
- * every provider that was contacted errored does this throw — that signal is
- * what the home orchestrator uses to mark the row's `FetchOutcome` rather
- * than silently dropping a row that timed out across the board.
+ * envelope and decides whether the row should be flagged `all_failed`.
+ *
+ * Three distinct outcomes share the surface:
+ *   - `attempted === 0` — no providers installed. Returns empty, partial=false;
+ *     row drops normally (no `partial: true` because there is no error to
+ *     surface).
+ *   - `errors.length === attempted && attempted > 0` — every provider errored.
+ *     Throws `AllPluginsFailedError` so the orchestrator marks the row
+ *     `all_failed` rather than letting `upcomingForYou`'s ok_empty exemption
+ *     fire on a calendar plugin outage.
+ *   - else — at least one provider succeeded. Returns whatever data was
+ *     collected, with `partial: true` when at least one peer errored.
  */
-function interpretAggregate<T>(
+export function interpretAggregate<T>(
   capabilityKey: string,
   result: AggregateResult<T[]>,
 ): HomeAggregate<T[]> {
   const data = (result.data ?? []) as T[];
   const errors = result.errors ?? [];
-  if (data.length === 0 && errors.length > 0) {
+  const attempted = result.attempted ?? 0;
+  if (attempted > 0 && errors.length === attempted) {
     throw new AllPluginsFailedError(
       capabilityKey,
       errors.map((e) => ({ pluginId: e.pluginId, code: e.code })),

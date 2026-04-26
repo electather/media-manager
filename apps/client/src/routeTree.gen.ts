@@ -12,31 +12,33 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as OauthRouteRouteImport } from './routes/oauth/route'
 import { Route as AuthRouteRouteImport } from './routes/auth/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as AuthRegisterRouteImport } from './routes/auth/register'
 import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
-import { Route as AuthenticatedTasteRouteImport } from './routes/_authenticated/taste'
-import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedRequestsRouteImport } from './routes/_authenticated/requests'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedOauthCallbackRouteImport } from './routes/_authenticated/oauth-callback'
-import { Route as AuthenticatedActivityRouteImport } from './routes/_authenticated/activity'
-import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/_settings/route'
+import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
+import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/_app/index'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
-import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings/security'
-import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings/profile'
-import { Route as AuthenticatedSettingsDangerRouteImport } from './routes/_authenticated/settings/danger'
-import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated/settings/connections'
-import { Route as AuthenticatedSettingsAppsRouteImport } from './routes/_authenticated/settings/apps'
-import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
-import { Route as AuthenticatedAdminServerRouteImport } from './routes/_authenticated/admin/server'
-import { Route as AuthenticatedAdminRolesRouteImport } from './routes/_authenticated/admin/roles'
-import { Route as AuthenticatedAdminPluginsRouteImport } from './routes/_authenticated/admin/plugins'
-import { Route as AuthenticatedAdminLogsRouteImport } from './routes/_authenticated/admin/logs'
-import { Route as AuthenticatedAdminJobsRouteImport } from './routes/_authenticated/admin/jobs'
+import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
+import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
+import { Route as AuthenticatedAppTasteRouteImport } from './routes/_authenticated/_app/taste'
+import { Route as AuthenticatedAppRequestsRouteImport } from './routes/_authenticated/_app/requests'
+import { Route as AuthenticatedAppProfileRouteImport } from './routes/_authenticated/_app/profile'
+import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
+import { Route as AuthenticatedAppActivityRouteImport } from './routes/_authenticated/_app/activity'
+import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
+import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
+import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
+import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './routes/_authenticated/_settings/settings/danger'
+import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
+import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
+import { Route as AuthenticatedSettingsAdminUsersRouteImport } from './routes/_authenticated/_settings/admin/users'
+import { Route as AuthenticatedSettingsAdminServerRouteImport } from './routes/_authenticated/_settings/admin/server'
+import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_authenticated/_settings/admin/roles'
+import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
+import { Route as AuthenticatedSettingsAdminLogsRouteImport } from './routes/_authenticated/_settings/admin/logs'
+import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
 
 const OauthRouteRoute = OauthRouteRouteImport.update({
   id: '/oauth',
@@ -51,11 +53,6 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const OauthConsentRoute = OauthConsentRouteImport.update({
   id: '/consent',
@@ -77,203 +74,227 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthenticatedTasteRoute = AuthenticatedTasteRouteImport.update({
-  id: '/taste',
-  path: '/taste',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedRequestsRoute = AuthenticatedRequestsRouteImport.update({
-  id: '/requests',
-  path: '/requests',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedOauthCallbackRoute =
-  AuthenticatedOauthCallbackRouteImport.update({
-    id: '/oauth-callback',
-    path: '/oauth-callback',
+const AuthenticatedSettingsRouteRoute =
+  AuthenticatedSettingsRouteRouteImport.update({
+    id: '/_settings',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedActivityRoute = AuthenticatedActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
+const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
+  id: '/_app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSettingsIndexRoute =
-  AuthenticatedSettingsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
+const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
 const AuthInviteTokenRoute = AuthInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const AuthenticatedSettingsSecurityRoute =
-  AuthenticatedSettingsSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedSettingsSetupRoute =
+  AuthenticatedSettingsSetupRouteImport.update({
+    id: '/setup',
+    path: '/setup',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedSettingsProfileRoute =
-  AuthenticatedSettingsProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedSettingsOauthCallbackRoute =
+  AuthenticatedSettingsOauthCallbackRouteImport.update({
+    id: '/oauth-callback',
+    path: '/oauth-callback',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedSettingsDangerRoute =
-  AuthenticatedSettingsDangerRouteImport.update({
-    id: '/danger',
-    path: '/danger',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
-const AuthenticatedSettingsConnectionsRoute =
-  AuthenticatedSettingsConnectionsRouteImport.update({
-    id: '/connections',
-    path: '/connections',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
-const AuthenticatedSettingsAppsRoute =
-  AuthenticatedSettingsAppsRouteImport.update({
-    id: '/apps',
-    path: '/apps',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
-const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
-  id: '/admin/users',
-  path: '/admin/users',
-  getParentRoute: () => AuthenticatedRouteRoute,
+const AuthenticatedAppTasteRoute = AuthenticatedAppTasteRouteImport.update({
+  id: '/taste',
+  path: '/taste',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
-const AuthenticatedAdminServerRoute =
-  AuthenticatedAdminServerRouteImport.update({
+const AuthenticatedAppRequestsRoute =
+  AuthenticatedAppRequestsRouteImport.update({
+    id: '/requests',
+    path: '/requests',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppProfileRoute = AuthenticatedAppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppLibraryRoute = AuthenticatedAppLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppActivityRoute =
+  AuthenticatedAppActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsIndexRoute =
+  AuthenticatedSettingsSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsSecurityRoute =
+  AuthenticatedSettingsSettingsSecurityRouteImport.update({
+    id: '/settings/security',
+    path: '/settings/security',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsProfileRoute =
+  AuthenticatedSettingsSettingsProfileRouteImport.update({
+    id: '/settings/profile',
+    path: '/settings/profile',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsDangerRoute =
+  AuthenticatedSettingsSettingsDangerRouteImport.update({
+    id: '/settings/danger',
+    path: '/settings/danger',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsConnectionsRoute =
+  AuthenticatedSettingsSettingsConnectionsRouteImport.update({
+    id: '/settings/connections',
+    path: '/settings/connections',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsAppsRoute =
+  AuthenticatedSettingsSettingsAppsRouteImport.update({
+    id: '/settings/apps',
+    path: '/settings/apps',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdminUsersRoute =
+  AuthenticatedSettingsAdminUsersRouteImport.update({
+    id: '/admin/users',
+    path: '/admin/users',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdminServerRoute =
+  AuthenticatedSettingsAdminServerRouteImport.update({
     id: '/admin/server',
     path: '/admin/server',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedAdminRolesRoute = AuthenticatedAdminRolesRouteImport.update({
-  id: '/admin/roles',
-  path: '/admin/roles',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAdminPluginsRoute =
-  AuthenticatedAdminPluginsRouteImport.update({
+const AuthenticatedSettingsAdminRolesRoute =
+  AuthenticatedSettingsAdminRolesRouteImport.update({
+    id: '/admin/roles',
+    path: '/admin/roles',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdminPluginsRoute =
+  AuthenticatedSettingsAdminPluginsRouteImport.update({
     id: '/admin/plugins',
     path: '/admin/plugins',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedAdminLogsRoute = AuthenticatedAdminLogsRouteImport.update({
-  id: '/admin/logs',
-  path: '/admin/logs',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAdminJobsRoute = AuthenticatedAdminJobsRouteImport.update({
-  id: '/admin/jobs',
-  path: '/admin/jobs',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedSettingsAdminLogsRoute =
+  AuthenticatedSettingsAdminLogsRouteImport.update({
+    id: '/admin/logs',
+    path: '/admin/logs',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdminJobsRoute =
+  AuthenticatedSettingsAdminJobsRouteImport.update({
+    id: '/admin/jobs',
+    path: '/admin/jobs',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof AuthenticatedAppIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
-  '/activity': typeof AuthenticatedActivityRoute
-  '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
-  '/profile': typeof AuthenticatedProfileRoute
-  '/requests': typeof AuthenticatedRequestsRoute
-  '/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/setup': typeof AuthenticatedSetupRoute
-  '/taste': typeof AuthenticatedTasteRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/admin/jobs': typeof AuthenticatedAdminJobsRoute
-  '/admin/logs': typeof AuthenticatedAdminLogsRoute
-  '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
-  '/admin/roles': typeof AuthenticatedAdminRolesRoute
-  '/admin/server': typeof AuthenticatedAdminServerRoute
-  '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/settings/apps': typeof AuthenticatedSettingsAppsRoute
-  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
-  '/settings/danger': typeof AuthenticatedSettingsDangerRoute
-  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
-  '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/activity': typeof AuthenticatedAppActivityRoute
+  '/library': typeof AuthenticatedAppLibraryRoute
+  '/profile': typeof AuthenticatedAppProfileRoute
+  '/requests': typeof AuthenticatedAppRequestsRoute
+  '/taste': typeof AuthenticatedAppTasteRoute
+  '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
+  '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
-  '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
+  '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
+  '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
+  '/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
+  '/admin/server': typeof AuthenticatedSettingsAdminServerRoute
+  '/admin/users': typeof AuthenticatedSettingsAdminUsersRoute
+  '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
+  '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
+  '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
+  '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
+  '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof AuthenticatedAppIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
-  '/activity': typeof AuthenticatedActivityRoute
-  '/oauth-callback': typeof AuthenticatedOauthCallbackRoute
-  '/profile': typeof AuthenticatedProfileRoute
-  '/requests': typeof AuthenticatedRequestsRoute
-  '/setup': typeof AuthenticatedSetupRoute
-  '/taste': typeof AuthenticatedTasteRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/': typeof AuthenticatedIndexRoute
-  '/admin/jobs': typeof AuthenticatedAdminJobsRoute
-  '/admin/logs': typeof AuthenticatedAdminLogsRoute
-  '/admin/plugins': typeof AuthenticatedAdminPluginsRoute
-  '/admin/roles': typeof AuthenticatedAdminRolesRoute
-  '/admin/server': typeof AuthenticatedAdminServerRoute
-  '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/settings/apps': typeof AuthenticatedSettingsAppsRoute
-  '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
-  '/settings/danger': typeof AuthenticatedSettingsDangerRoute
-  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
-  '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/activity': typeof AuthenticatedAppActivityRoute
+  '/library': typeof AuthenticatedAppLibraryRoute
+  '/profile': typeof AuthenticatedAppProfileRoute
+  '/requests': typeof AuthenticatedAppRequestsRoute
+  '/taste': typeof AuthenticatedAppTasteRoute
+  '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
+  '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
-  '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
+  '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
+  '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
+  '/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
+  '/admin/server': typeof AuthenticatedSettingsAdminServerRoute
+  '/admin/users': typeof AuthenticatedSettingsAdminUsersRoute
+  '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
+  '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
+  '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
+  '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
+  '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
-  '/_authenticated/activity': typeof AuthenticatedActivityRoute
-  '/_authenticated/oauth-callback': typeof AuthenticatedOauthCallbackRoute
-  '/_authenticated/profile': typeof AuthenticatedProfileRoute
-  '/_authenticated/requests': typeof AuthenticatedRequestsRoute
-  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/_authenticated/setup': typeof AuthenticatedSetupRoute
-  '/_authenticated/taste': typeof AuthenticatedTasteRoute
+  '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/_settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/admin/jobs': typeof AuthenticatedAdminJobsRoute
-  '/_authenticated/admin/logs': typeof AuthenticatedAdminLogsRoute
-  '/_authenticated/admin/plugins': typeof AuthenticatedAdminPluginsRoute
-  '/_authenticated/admin/roles': typeof AuthenticatedAdminRolesRoute
-  '/_authenticated/admin/server': typeof AuthenticatedAdminServerRoute
-  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/_authenticated/settings/apps': typeof AuthenticatedSettingsAppsRoute
-  '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
-  '/_authenticated/settings/danger': typeof AuthenticatedSettingsDangerRoute
-  '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
-  '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/_authenticated/_app/activity': typeof AuthenticatedAppActivityRoute
+  '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRoute
+  '/_authenticated/_app/profile': typeof AuthenticatedAppProfileRoute
+  '/_authenticated/_app/requests': typeof AuthenticatedAppRequestsRoute
+  '/_authenticated/_app/taste': typeof AuthenticatedAppTasteRoute
+  '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
+  '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
-  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/_settings/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
+  '/_authenticated/_settings/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
+  '/_authenticated/_settings/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
+  '/_authenticated/_settings/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
+  '/_authenticated/_settings/admin/server': typeof AuthenticatedSettingsAdminServerRoute
+  '/_authenticated/_settings/admin/users': typeof AuthenticatedSettingsAdminUsersRoute
+  '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
+  '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
+  '/_authenticated/_settings/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
+  '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
+  '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -281,17 +302,18 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/oauth'
-    | '/activity'
-    | '/oauth-callback'
-    | '/profile'
-    | '/requests'
-    | '/settings'
-    | '/setup'
-    | '/taste'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
+    | '/activity'
+    | '/library'
+    | '/profile'
+    | '/requests'
+    | '/taste'
+    | '/oauth-callback'
+    | '/setup'
+    | '/auth/invite/$token'
     | '/admin/jobs'
     | '/admin/logs'
     | '/admin/plugins'
@@ -303,23 +325,24 @@ export interface FileRouteTypes {
     | '/settings/danger'
     | '/settings/profile'
     | '/settings/security'
-    | '/auth/invite/$token'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/'
     | '/auth'
     | '/oauth'
-    | '/activity'
-    | '/oauth-callback'
-    | '/profile'
-    | '/requests'
-    | '/setup'
-    | '/taste'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
-    | '/'
+    | '/activity'
+    | '/library'
+    | '/profile'
+    | '/requests'
+    | '/taste'
+    | '/oauth-callback'
+    | '/setup'
+    | '/auth/invite/$token'
     | '/admin/jobs'
     | '/admin/logs'
     | '/admin/plugins'
@@ -331,38 +354,39 @@ export interface FileRouteTypes {
     | '/settings/danger'
     | '/settings/profile'
     | '/settings/security'
-    | '/auth/invite/$token'
     | '/settings'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/oauth'
-    | '/_authenticated/activity'
-    | '/_authenticated/oauth-callback'
-    | '/_authenticated/profile'
-    | '/_authenticated/requests'
-    | '/_authenticated/settings'
-    | '/_authenticated/setup'
-    | '/_authenticated/taste'
+    | '/_authenticated/_app'
+    | '/_authenticated/_settings'
     | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
-    | '/_authenticated/'
-    | '/_authenticated/admin/jobs'
-    | '/_authenticated/admin/logs'
-    | '/_authenticated/admin/plugins'
-    | '/_authenticated/admin/roles'
-    | '/_authenticated/admin/server'
-    | '/_authenticated/admin/users'
-    | '/_authenticated/settings/apps'
-    | '/_authenticated/settings/connections'
-    | '/_authenticated/settings/danger'
-    | '/_authenticated/settings/profile'
-    | '/_authenticated/settings/security'
+    | '/_authenticated/_app/activity'
+    | '/_authenticated/_app/library'
+    | '/_authenticated/_app/profile'
+    | '/_authenticated/_app/requests'
+    | '/_authenticated/_app/taste'
+    | '/_authenticated/_settings/oauth-callback'
+    | '/_authenticated/_settings/setup'
     | '/auth/invite/$token'
-    | '/_authenticated/settings/'
+    | '/_authenticated/_app/'
+    | '/_authenticated/_settings/admin/jobs'
+    | '/_authenticated/_settings/admin/logs'
+    | '/_authenticated/_settings/admin/plugins'
+    | '/_authenticated/_settings/admin/roles'
+    | '/_authenticated/_settings/admin/server'
+    | '/_authenticated/_settings/admin/users'
+    | '/_authenticated/_settings/settings/apps'
+    | '/_authenticated/_settings/settings/connections'
+    | '/_authenticated/_settings/settings/danger'
+    | '/_authenticated/_settings/settings/profile'
+    | '/_authenticated/_settings/settings/security'
+    | '/_authenticated/_settings/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -394,13 +418,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/': {
-      id: '/_authenticated/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/oauth/consent': {
       id: '/oauth/consent'
       path: '/consent'
@@ -429,61 +446,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_authenticated/taste': {
-      id: '/_authenticated/taste'
-      path: '/taste'
-      fullPath: '/taste'
-      preLoaderRoute: typeof AuthenticatedTasteRouteImport
+    '/_authenticated/_settings': {
+      id: '/_authenticated/_settings'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/setup': {
-      id: '/_authenticated/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof AuthenticatedSetupRouteImport
+    '/_authenticated/_app': {
+      id: '/_authenticated/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/requests': {
-      id: '/_authenticated/requests'
-      path: '/requests'
-      fullPath: '/requests'
-      preLoaderRoute: typeof AuthenticatedRequestsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/oauth-callback': {
-      id: '/_authenticated/oauth-callback'
-      path: '/oauth-callback'
-      fullPath: '/oauth-callback'
-      preLoaderRoute: typeof AuthenticatedOauthCallbackRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/activity': {
-      id: '/_authenticated/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof AuthenticatedActivityRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/settings/': {
-      id: '/_authenticated/settings/'
+    '/_authenticated/_app/': {
+      id: '/_authenticated/_app/'
       path: '/'
-      fullPath: '/settings/'
-      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
     }
     '/auth/invite/$token': {
       id: '/auth/invite/$token'
@@ -492,141 +474,222 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthInviteTokenRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_authenticated/settings/security': {
-      id: '/_authenticated/settings/security'
-      path: '/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof AuthenticatedSettingsSecurityRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/_settings/setup': {
+      id: '/_authenticated/_settings/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof AuthenticatedSettingsSetupRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/settings/profile': {
-      id: '/_authenticated/settings/profile'
+    '/_authenticated/_settings/oauth-callback': {
+      id: '/_authenticated/_settings/oauth-callback'
+      path: '/oauth-callback'
+      fullPath: '/oauth-callback'
+      preLoaderRoute: typeof AuthenticatedSettingsOauthCallbackRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_app/taste': {
+      id: '/_authenticated/_app/taste'
+      path: '/taste'
+      fullPath: '/taste'
+      preLoaderRoute: typeof AuthenticatedAppTasteRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/requests': {
+      id: '/_authenticated/_app/requests'
+      path: '/requests'
+      fullPath: '/requests'
+      preLoaderRoute: typeof AuthenticatedAppRequestsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/profile': {
+      id: '/_authenticated/_app/profile'
       path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedAppProfileRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/library': {
+      id: '/_authenticated/_app/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthenticatedAppLibraryRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/activity': {
+      id: '/_authenticated/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AuthenticatedAppActivityRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_settings/settings/': {
+      id: '/_authenticated/_settings/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_settings/settings/security': {
+      id: '/_authenticated/_settings/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsSecurityRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_settings/settings/profile': {
+      id: '/_authenticated/_settings/settings/profile'
+      path: '/settings/profile'
       fullPath: '/settings/profile'
-      preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsProfileRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/settings/danger': {
-      id: '/_authenticated/settings/danger'
-      path: '/danger'
+    '/_authenticated/_settings/settings/danger': {
+      id: '/_authenticated/_settings/settings/danger'
+      path: '/settings/danger'
       fullPath: '/settings/danger'
-      preLoaderRoute: typeof AuthenticatedSettingsDangerRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsDangerRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/settings/connections': {
-      id: '/_authenticated/settings/connections'
-      path: '/connections'
+    '/_authenticated/_settings/settings/connections': {
+      id: '/_authenticated/_settings/settings/connections'
+      path: '/settings/connections'
       fullPath: '/settings/connections'
-      preLoaderRoute: typeof AuthenticatedSettingsConnectionsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsConnectionsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/settings/apps': {
-      id: '/_authenticated/settings/apps'
-      path: '/apps'
+    '/_authenticated/_settings/settings/apps': {
+      id: '/_authenticated/_settings/settings/apps'
+      path: '/settings/apps'
       fullPath: '/settings/apps'
-      preLoaderRoute: typeof AuthenticatedSettingsAppsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsAppsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/admin/users': {
-      id: '/_authenticated/admin/users'
+    '/_authenticated/_settings/admin/users': {
+      id: '/_authenticated/_settings/admin/users'
       path: '/admin/users'
       fullPath: '/admin/users'
-      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof AuthenticatedSettingsAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/admin/server': {
-      id: '/_authenticated/admin/server'
+    '/_authenticated/_settings/admin/server': {
+      id: '/_authenticated/_settings/admin/server'
       path: '/admin/server'
       fullPath: '/admin/server'
-      preLoaderRoute: typeof AuthenticatedAdminServerRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof AuthenticatedSettingsAdminServerRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/admin/roles': {
-      id: '/_authenticated/admin/roles'
+    '/_authenticated/_settings/admin/roles': {
+      id: '/_authenticated/_settings/admin/roles'
       path: '/admin/roles'
       fullPath: '/admin/roles'
-      preLoaderRoute: typeof AuthenticatedAdminRolesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof AuthenticatedSettingsAdminRolesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/admin/plugins': {
-      id: '/_authenticated/admin/plugins'
+    '/_authenticated/_settings/admin/plugins': {
+      id: '/_authenticated/_settings/admin/plugins'
       path: '/admin/plugins'
       fullPath: '/admin/plugins'
-      preLoaderRoute: typeof AuthenticatedAdminPluginsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof AuthenticatedSettingsAdminPluginsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/admin/logs': {
-      id: '/_authenticated/admin/logs'
+    '/_authenticated/_settings/admin/logs': {
+      id: '/_authenticated/_settings/admin/logs'
       path: '/admin/logs'
       fullPath: '/admin/logs'
-      preLoaderRoute: typeof AuthenticatedAdminLogsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof AuthenticatedSettingsAdminLogsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/admin/jobs': {
-      id: '/_authenticated/admin/jobs'
+    '/_authenticated/_settings/admin/jobs': {
+      id: '/_authenticated/_settings/admin/jobs'
       path: '/admin/jobs'
       fullPath: '/admin/jobs'
-      preLoaderRoute: typeof AuthenticatedAdminJobsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
   }
 }
 
-interface AuthenticatedSettingsRouteChildren {
-  AuthenticatedSettingsAppsRoute: typeof AuthenticatedSettingsAppsRoute
-  AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
-  AuthenticatedSettingsDangerRoute: typeof AuthenticatedSettingsDangerRoute
-  AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
-  AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
-  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppActivityRoute: typeof AuthenticatedAppActivityRoute
+  AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
+  AuthenticatedAppProfileRoute: typeof AuthenticatedAppProfileRoute
+  AuthenticatedAppRequestsRoute: typeof AuthenticatedAppRequestsRoute
+  AuthenticatedAppTasteRoute: typeof AuthenticatedAppTasteRoute
+  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
-const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
-  AuthenticatedSettingsAppsRoute: AuthenticatedSettingsAppsRoute,
-  AuthenticatedSettingsConnectionsRoute: AuthenticatedSettingsConnectionsRoute,
-  AuthenticatedSettingsDangerRoute: AuthenticatedSettingsDangerRoute,
-  AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
-  AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
-  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppActivityRoute: AuthenticatedAppActivityRoute,
+  AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
+  AuthenticatedAppProfileRoute: AuthenticatedAppProfileRoute,
+  AuthenticatedAppRequestsRoute: AuthenticatedAppRequestsRoute,
+  AuthenticatedAppTasteRoute: AuthenticatedAppTasteRoute,
+  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
-const AuthenticatedSettingsRouteWithChildren =
-  AuthenticatedSettingsRoute._addFileChildren(
-    AuthenticatedSettingsRouteChildren,
+const AuthenticatedAppRouteRouteWithChildren =
+  AuthenticatedAppRouteRoute._addFileChildren(
+    AuthenticatedAppRouteRouteChildren,
+  )
+
+interface AuthenticatedSettingsRouteRouteChildren {
+  AuthenticatedSettingsOauthCallbackRoute: typeof AuthenticatedSettingsOauthCallbackRoute
+  AuthenticatedSettingsSetupRoute: typeof AuthenticatedSettingsSetupRoute
+  AuthenticatedSettingsAdminJobsRoute: typeof AuthenticatedSettingsAdminJobsRoute
+  AuthenticatedSettingsAdminLogsRoute: typeof AuthenticatedSettingsAdminLogsRoute
+  AuthenticatedSettingsAdminPluginsRoute: typeof AuthenticatedSettingsAdminPluginsRoute
+  AuthenticatedSettingsAdminRolesRoute: typeof AuthenticatedSettingsAdminRolesRoute
+  AuthenticatedSettingsAdminServerRoute: typeof AuthenticatedSettingsAdminServerRoute
+  AuthenticatedSettingsAdminUsersRoute: typeof AuthenticatedSettingsAdminUsersRoute
+  AuthenticatedSettingsSettingsAppsRoute: typeof AuthenticatedSettingsSettingsAppsRoute
+  AuthenticatedSettingsSettingsConnectionsRoute: typeof AuthenticatedSettingsSettingsConnectionsRoute
+  AuthenticatedSettingsSettingsDangerRoute: typeof AuthenticatedSettingsSettingsDangerRoute
+  AuthenticatedSettingsSettingsProfileRoute: typeof AuthenticatedSettingsSettingsProfileRoute
+  AuthenticatedSettingsSettingsSecurityRoute: typeof AuthenticatedSettingsSettingsSecurityRoute
+  AuthenticatedSettingsSettingsIndexRoute: typeof AuthenticatedSettingsSettingsIndexRoute
+}
+
+const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
+  {
+    AuthenticatedSettingsOauthCallbackRoute:
+      AuthenticatedSettingsOauthCallbackRoute,
+    AuthenticatedSettingsSetupRoute: AuthenticatedSettingsSetupRoute,
+    AuthenticatedSettingsAdminJobsRoute: AuthenticatedSettingsAdminJobsRoute,
+    AuthenticatedSettingsAdminLogsRoute: AuthenticatedSettingsAdminLogsRoute,
+    AuthenticatedSettingsAdminPluginsRoute:
+      AuthenticatedSettingsAdminPluginsRoute,
+    AuthenticatedSettingsAdminRolesRoute: AuthenticatedSettingsAdminRolesRoute,
+    AuthenticatedSettingsAdminServerRoute:
+      AuthenticatedSettingsAdminServerRoute,
+    AuthenticatedSettingsAdminUsersRoute: AuthenticatedSettingsAdminUsersRoute,
+    AuthenticatedSettingsSettingsAppsRoute:
+      AuthenticatedSettingsSettingsAppsRoute,
+    AuthenticatedSettingsSettingsConnectionsRoute:
+      AuthenticatedSettingsSettingsConnectionsRoute,
+    AuthenticatedSettingsSettingsDangerRoute:
+      AuthenticatedSettingsSettingsDangerRoute,
+    AuthenticatedSettingsSettingsProfileRoute:
+      AuthenticatedSettingsSettingsProfileRoute,
+    AuthenticatedSettingsSettingsSecurityRoute:
+      AuthenticatedSettingsSettingsSecurityRoute,
+    AuthenticatedSettingsSettingsIndexRoute:
+      AuthenticatedSettingsSettingsIndexRoute,
+  }
+
+const AuthenticatedSettingsRouteRouteWithChildren =
+  AuthenticatedSettingsRouteRoute._addFileChildren(
+    AuthenticatedSettingsRouteRouteChildren,
   )
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedActivityRoute: typeof AuthenticatedActivityRoute
-  AuthenticatedOauthCallbackRoute: typeof AuthenticatedOauthCallbackRoute
-  AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
-  AuthenticatedRequestsRoute: typeof AuthenticatedRequestsRoute
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
-  AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
-  AuthenticatedTasteRoute: typeof AuthenticatedTasteRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedAdminJobsRoute: typeof AuthenticatedAdminJobsRoute
-  AuthenticatedAdminLogsRoute: typeof AuthenticatedAdminLogsRoute
-  AuthenticatedAdminPluginsRoute: typeof AuthenticatedAdminPluginsRoute
-  AuthenticatedAdminRolesRoute: typeof AuthenticatedAdminRolesRoute
-  AuthenticatedAdminServerRoute: typeof AuthenticatedAdminServerRoute
-  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
+  AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedActivityRoute: AuthenticatedActivityRoute,
-  AuthenticatedOauthCallbackRoute: AuthenticatedOauthCallbackRoute,
-  AuthenticatedProfileRoute: AuthenticatedProfileRoute,
-  AuthenticatedRequestsRoute: AuthenticatedRequestsRoute,
-  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
-  AuthenticatedSetupRoute: AuthenticatedSetupRoute,
-  AuthenticatedTasteRoute: AuthenticatedTasteRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedAdminJobsRoute: AuthenticatedAdminJobsRoute,
-  AuthenticatedAdminLogsRoute: AuthenticatedAdminLogsRoute,
-  AuthenticatedAdminPluginsRoute: AuthenticatedAdminPluginsRoute,
-  AuthenticatedAdminRolesRoute: AuthenticatedAdminRolesRoute,
-  AuthenticatedAdminServerRoute: AuthenticatedAdminServerRoute,
-  AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
+  AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =

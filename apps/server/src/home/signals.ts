@@ -82,7 +82,7 @@ export async function captureSignals(args: {
     return "none" as const;
   });
 
-  const recentSeedPromise = readRecentSeed(userId).catch((err) => {
+  const recentSeedPromise = readRecentSeed(userId, mediaService).catch((err) => {
     consola.warn("[home/signals] recent seed read failed:", err);
     return null;
   });
@@ -137,7 +137,10 @@ async function readProfileConfidence(userId: string): Promise<LayoutSignals["pro
  * Returns null when neither tier produces a candidate; `becauseYouWatched`
  * then drops out of the candidate set.
  */
-async function readRecentSeed(userId: string): Promise<RecentSeed | null> {
+async function readRecentSeed(
+  userId: string,
+  mediaService: MediaService,
+): Promise<RecentSeed | null> {
   const now = Date.now();
   const primaryRows = await getDb()
     .select()
@@ -158,7 +161,7 @@ async function readRecentSeed(userId: string): Promise<RecentSeed | null> {
       id: composeId(row.mediaType, row.tmdbId),
       tmdbId: row.tmdbId,
       mediaType: row.mediaType,
-      title: await resolveTitle(row.mediaType, row.tmdbId),
+      title: await resolveTitle(mediaService, row.mediaType, row.tmdbId),
       reason: row.action === "like" ? "liked" : "high_rating",
     };
   }
@@ -186,7 +189,7 @@ async function readRecentSeed(userId: string): Promise<RecentSeed | null> {
       id: composeId(row.mediaType, row.tmdbId),
       tmdbId: row.tmdbId,
       mediaType: row.mediaType,
-      title: await resolveTitle(row.mediaType, row.tmdbId),
+      title: await resolveTitle(mediaService, row.mediaType, row.tmdbId),
       reason: "recently_completed",
     };
   }
@@ -198,15 +201,26 @@ function composeId(type: "movie" | "tv", tmdbId: string): string {
 }
 
 /**
- * Best-effort title resolver. Misses fall back to a placeholder that the
- * subtitle rendering will swap for the bare media id; the fetcher itself
- * does not care about the title.
+ * Best-effort title resolver. Goes through `MediaService.getDetails` so the
+ * underlying metadata cache is shared across the request and subsequent
+ * `becauseYouWatched` fetches. Failures fall back to a `tmdb:<id>`
+ * placeholder rather than throwing — the subtitle is cosmetic, and a missing
+ * title is still a usable layout signal.
  */
-async function resolveTitle(_type: "movie" | "tv", tmdbId: string): Promise<string> {
-  // Title is purely cosmetic for the row subtitle; we keep the resolver
-  // pluggable so a later pass can hit a metadata cache without churning the
-  // signal-snapshot contract. Today we just emit the tmdb id; the
-  // becauseYouWatched fetcher overrides via a metadata lookup before
-  // mapping to its `subtitle`.
+async function resolveTitle(
+  mediaService: MediaService,
+  type: "movie" | "tv",
+  tmdbId: string,
+): Promise<string> {
+  try {
+    const details = (await mediaService.getDetails(`${type}:${tmdbId}`, type)) as {
+      title?: string;
+    } | null;
+    if (details && typeof details.title === "string" && details.title.length > 0) {
+      return details.title;
+    }
+  } catch (err) {
+    consola.debug("[home/signals] title lookup failed:", err);
+  }
   return `tmdb:${tmdbId}`;
 }

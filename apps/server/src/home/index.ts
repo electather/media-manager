@@ -21,7 +21,7 @@ export class HomeFeedService {
   /**
    * Builds the inline layout — signal snapshot, candidate row order, every
    * row's first page, hero pick, hero exclusion, drop-empty. Wraps any
-   * thrown error in `home.internal` and lets oRPC surface it to the user.
+   * thrown error in `home.internal` and lets RPC surface it to the user.
    */
   async getLayout(userId: string): Promise<HomeLayoutResponse> {
     try {
@@ -60,7 +60,7 @@ export class HomeFeedService {
       throw badRequest("home.bad_input", `unknown row id ${args.rowId}`);
     }
     const ctx = buildContext(userId);
-    const eligible = await fetcher.isEligible(userId, ctx.dataloader);
+    const eligible = await fetcher.isEligible(userId, ctx.dataloader, args.cursor);
     if (!eligible) {
       throw notFound(
         "home.row_unavailable",

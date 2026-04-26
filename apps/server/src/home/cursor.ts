@@ -12,7 +12,7 @@ import { badRequest } from "../errors/http-errors";
  *     fine.
  *   - one of the variant fields (`p`, `o`, `a`+`ts`, `p`+`s`, `p`+`x`).
  *
- * Cursors are NOT HMAC-signed: the oRPC layer authenticates with a session
+ * Cursors are NOT HMAC-signed: the RPC layer authenticates with a session
  * cookie, so the cursor is never the capability token. The strict Zod schemas
  * cap every list and number to small bounds so a crafted cursor cannot pin
  * memory or trigger O(N²) work.

@@ -30,7 +30,7 @@ vi.mock("@/lib/api", () => ({
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
-import { AppsList } from "@/routes/_authenticated/settings/apps";
+import { AppsList } from "@/routes/_authenticated/_settings/settings/apps";
 
 beforeEach(() => {
   apiMock.list.mockReset();

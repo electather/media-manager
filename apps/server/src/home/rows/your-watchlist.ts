@@ -1,7 +1,7 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, type RawMediaItem } from "../compact";
+import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "yourWatchlist" as const satisfies RowKind;
 const MAX_ITEMS = 200;
@@ -23,7 +23,8 @@ export const yourWatchlistFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const offset = readOffset(opts.cursor);
-    const data = (await ctx.mediaService.getWatchlist()) as WatchlistEntry[];
+    const result = await ctx.mediaService.getWatchlistFeed();
+    const data = result.items as WatchlistEntry[];
     const sorted = [...data].sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt));
     const slice = sorted.slice(offset, offset + opts.limit);
     const items = await Promise.all(slice.map((entry) => buildItem(ctx, entry.item)));
@@ -34,7 +35,7 @@ export const yourWatchlistFetcher: RowFetcher = {
       slice.length < opts.limit || nextOffset >= MAX_ITEMS
         ? null
         : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, o: nextOffset });
-    return { items: usable, cursor };
+    return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
   },
 
   async isEligible(_userId, loader) {
@@ -53,15 +54,7 @@ async function buildItem(
 ): Promise<CompactMediaItem | null> {
   const compact = toCompact(item);
   const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = map[compact.id];
-  if (
-    status === "available" ||
-    status === "requested" ||
-    status === "processing" ||
-    status === "unavailable" ||
-    status === "unknown"
-  ) {
-    compact.status = status;
-  }
+  const status = toStatusOrUndefined(map[compact.id]);
+  if (status) compact.status = status;
   return compact;
 }

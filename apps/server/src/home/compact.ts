@@ -1,5 +1,28 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 
+const VALID_STATUSES: ReadonlySet<NonNullable<CompactMediaItem["status"]>> = new Set([
+  "available",
+  "requested",
+  "processing",
+  "unavailable",
+  "unknown",
+]);
+
+/**
+ * Narrows an arbitrary string (typically the value pulled from
+ * `getStatusBatch`) to the wire-allowed status alphabet, returning
+ * `undefined` for anything outside it. Lets row fetchers do
+ * `compact.status = toStatusOrUndefined(map[id])` instead of repeating the
+ * same five-way OR. Tested via row-fetcher contracts; the allowlist matches
+ * the `CompactMediaItem.status` union.
+ */
+export function toStatusOrUndefined(value: string | undefined): CompactMediaItem["status"] {
+  if (typeof value !== "string") return undefined;
+  return VALID_STATUSES.has(value as NonNullable<CompactMediaItem["status"]>)
+    ? (value as CompactMediaItem["status"])
+    : undefined;
+}
+
 /**
  * Plugin-side `MediaItem` shape from `@ent-mcp/plugin-sdk`'s metadata
  * capability schema. Kept as a structural alias rather than a re-export so

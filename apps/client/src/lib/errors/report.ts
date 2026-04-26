@@ -37,7 +37,7 @@ export async function reportError(
       ...serialize(err),
     };
     const headers: Record<string, string> = { "content-type": "application/json" };
-    // Thread any ambient request id off the DOM so the record chains with the oRPC call
+    // Thread any ambient request id off the DOM so the record chains with the Hono rpc call
     // that triggered the surfaced error (see request-id.ts writes on every fetch).
     const current = document.documentElement.dataset.requestId;
     if (current) headers[REQUEST_ID_HEADER] = current;

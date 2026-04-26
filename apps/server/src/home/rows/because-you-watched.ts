@@ -1,10 +1,14 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, parseCompactId, type RawMediaItem } from "../compact";
+import { toCompact, toStatusOrUndefined, parseCompactId, type RawMediaItem } from "../compact";
 
 const ROW_ID = "becauseYouWatched" as const satisfies RowKind;
-const MAX_ITEMS = 40;
+// `metadata@v1.getSimilar` does not expose a page knob, so the host can
+// only surface the single page the upstream returns (~20 items on TMDB).
+// A higher cap would mint cursors for pages that always come back empty.
+// Issue #1 tracks adding pagination at the capability level.
+const MAX_ITEMS = 20;
 
 /**
  * Per V11: the seed is delivered to the fetcher only through the cursor.
@@ -41,7 +45,13 @@ export const becauseYouWatchedFetcher: RowFetcher = {
       return id ? !inProgress.has(id) : true;
     });
 
-    const slice = candidates.slice(decoded.p * opts.limit - opts.limit, decoded.p * opts.limit);
+    // `becauseYouWatched` uses 1-indexed pages: the layout handler emits
+    // `p: 1` for the first page (so the cursor is non-null and the fetcher's
+    // single code path always reads `s` from the cursor — see V11). All other
+    // page-cursor fetchers are 0-indexed because their first call carries
+    // `cursor: null` and starts at `p: 0` internally. Slice math reflects
+    // the offset: page 1 → `[0, limit)`, page 2 → `[limit, 2*limit)`.
+    const slice = candidates.slice((decoded.p - 1) * opts.limit, decoded.p * opts.limit);
     const items = await Promise.all(slice.map((item) => buildItem(ctx, item)));
     const usable = items.filter((item): item is CompactMediaItem => item !== null);
 
@@ -54,8 +64,26 @@ export const becauseYouWatchedFetcher: RowFetcher = {
     return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
   },
 
-  async isEligible(_userId, loader) {
-    return loader.hasPlugin("metadata@v1");
+  async isEligible(_userId, loader, cursor) {
+    if (!(await loader.hasPlugin("metadata@v1"))) return false;
+    // Per design §7: verify the cursor-pinned seed still resolves before
+    // serving more pages. A removed-from-TMDB seed mid-session should
+    // surface as `home.row_unavailable`, not an empty payload that the
+    // dashboard cannot distinguish from end-of-pagination.
+    if (!cursor) return true;
+    let decoded;
+    try {
+      decoded = decodeCursor(ROW_ID, cursor);
+    } catch {
+      // Malformed cursor → let the fetcher's own decode raise `home.bad_input`.
+      return true;
+    }
+    try {
+      const details = await loader.getMetadata(decoded.s);
+      return Boolean(details);
+    } catch {
+      return false;
+    }
   },
 };
 
@@ -71,15 +99,7 @@ async function buildItem(
 ): Promise<CompactMediaItem | null> {
   const compact = toCompact(item, { matchReason: "Similar to a recent watch" });
   const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = map[compact.id];
-  if (
-    status === "available" ||
-    status === "requested" ||
-    status === "processing" ||
-    status === "unavailable" ||
-    status === "unknown"
-  ) {
-    compact.status = status;
-  }
+  const status = toStatusOrUndefined(map[compact.id]);
+  if (status) compact.status = status;
   return compact;
 }

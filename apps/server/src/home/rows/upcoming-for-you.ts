@@ -33,26 +33,30 @@ export const upcomingForYouFetcher: RowFetcher = {
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const after = readAfter(opts.cursor);
     const [result, inProgress] = await Promise.all([
-      ctx.mediaService.getUpcoming() as Promise<unknown[]>,
+      ctx.mediaService.getUpcomingFeed(),
       ctx.dataloader.getInProgressSet(),
     ]);
-    const entries = (result as UpcomingEntry[])
+    const entries = (result.items as UpcomingEntry[])
       .filter((entry) => filterByInProgress(entry, inProgress))
       .sort(compareEntries);
     const sliced = entries.filter((entry) => isAfter(entry, after)).slice(0, opts.limit);
     const items = sliced.map(mapToCompact);
 
     const last = sliced[sliced.length - 1];
+    const lastAnchor = last ? compositeId(last) : null;
+    // No anchor available → end pagination cleanly. A synthetic "tv:0"
+    // would let the cursor encode but produce a nonsensical starting point
+    // for the next page, breaking the (tmdbId, airsAt) ordering.
     const cursor =
-      !last || items.length < opts.limit || items.length >= MAX_ITEMS
+      !last || !lastAnchor || items.length < opts.limit || items.length >= MAX_ITEMS
         ? null
         : encodeCursor(ROW_ID, {
             v: 1,
             r: ROW_ID,
-            a: compositeId(last) ?? "tv:0",
+            a: lastAnchor,
             ts: Date.parse(last.airsAt),
           });
-    return { items, cursor };
+    return result.partial ? { items, cursor, partial: true } : { items, cursor };
   },
 
   async isEligible(_userId, loader) {

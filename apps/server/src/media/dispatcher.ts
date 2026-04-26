@@ -243,6 +243,13 @@ export interface AggregateResult<T> {
     code: HostErrorCode;
     devMessage: string;
   }>;
+  /**
+   * Total number of providers contacted (successes + errors). Lets callers
+   * disambiguate "no providers installed" (attempted=0) from "every provider
+   * errored" (attempted=errors.length) from "some succeeded but had nothing
+   * to contribute" (attempted > errors.length, data empty).
+   */
+  attempted: number;
 }
 
 /**
@@ -454,7 +461,11 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
       data.push(outcome.data);
     }
   }
-  const result: AggregateResult<T> = { data: data as T, errors };
+  const result: AggregateResult<T> = {
+    data: data as T,
+    errors,
+    attempted: outcomes.length,
+  };
   await writeCache(req, capability, scope, result);
   await applyInvalidations(req, capability);
   return result;
@@ -498,7 +509,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
 
   const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   if (providers.length === 0) {
-    return { data: null as T, errors: [] };
+    return { data: null as T, errors: [], attempted: 0 };
   }
 
   const primary = await getPrimaryConnection({
@@ -548,7 +559,11 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
 
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
-    const empty: AggregateResult<T> = { data: null as T, errors };
+    const empty: AggregateResult<T> = {
+      data: null as T,
+      errors,
+      attempted: outcomes.length,
+    };
     await writeCache(req, capability, scope, empty);
     return empty;
   }
@@ -567,7 +582,11 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
     merged = base as T;
   }
 
-  const result: AggregateResult<T> = { data: merged, errors };
+  const result: AggregateResult<T> = {
+    data: merged,
+    errors,
+    attempted: outcomes.length,
+  };
   await writeCache(req, capability, scope, result);
   await applyInvalidations(req, capability);
   return result;
