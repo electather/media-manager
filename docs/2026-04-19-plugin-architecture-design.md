@@ -4,72 +4,72 @@
 **Date:** 2026-04-19
 **Author:** Omid Astaraki
 **Supersedes:** Initial Connections design (non-plugin)
-**Updated:** 2026-04-25 — packaging layout reorganised, see `docs/2026-04-25-plugin-monorepo-design.md` for details. Runtime, capability, and database designs in this document remain authoritative.
-**Updated:** 2026-04-25 — `notificationDelivery@v1` capability and `ctx.notify()` added for the notification system; see `docs/2026-04-25-notifications-design.md` for the full design.
+**Updated:** 2026-04-25 — packaging layout reorganised, see `docs/2026-04-25-plugin-monorepo-design.md` for details. Runtime, capability, & DB designs remain authoritative.
+**Updated:** 2026-04-25 — `notificationDelivery@v1` capability & `ctx.notify()` added; see `docs/2026-04-25-notifications-design.md` for full design.
 
 ## Summary
 
-The connections subsystem is being redesigned so that every service integration (Trakt, Seerr, TMDB, TVDB, self-hosted media servers such as Plex and Jellyfin, and any future third-party service) is implemented as a plugin. Built-in services ship as bundled plugins in the same format as third-party ones. Capabilities are versioned, schema-validated, and discoverable at runtime, so the host can fan out feature calls (watch history, recommendations, media requests, library availability lookups, etc.) to whichever plugins implement them.
+Connections subsystem redesigned: every service integration (Trakt, Seerr, TMDB, TVDB, Plex, Jellyfin, future 3rd-party) → plugin. Built-ins ship as bundled plugins in same format as 3rd-party. Capabilities versioned, schema-validated, discoverable at runtime → host fan-out to whichever plugins implement them.
 
-> **v1 scope note:** Built-in plugins currently run as trusted TypeScript modules within the host process — there is no sandbox boundary between them and the host. The QuickJS WASM sandbox (and the third-party plugin install/update/rollback endpoints that depend on it) are deferred to a future revision. See the "Deferred to future revisions" section.
+> **v1 scope:** Built-in plugins run as trusted TypeScript modules inside host process — no sandbox boundary. QuickJS WASM sandbox & 3rd-party install/update/rollback → deferred. See §Deferred.
 
-> **Packaging update (2026-04-25):** Each integration now lives in its own workspace package under `packages/plugins/<id>/` and depends on `@ent-mcp/plugin-sdk` for plugin-author types and helpers. Apps moved to `apps/{client,server}/`. Built-ins continue to load via workspace TypeScript imports (no runtime bundle loading for built-ins in v1); each plugin builds a `dist/plugin.js` bundle artifact for distribution and forward-compatibility with future third-party install. Versioning is independent per package via Changesets. Full design: `docs/2026-04-25-plugin-monorepo-design.md`.
+> **Packaging update (2026-04-25):** Each integration → own workspace package under `packages/plugins/<id>/`, depends on `@ent-mcp/plugin-sdk`. Apps → `apps/{client,server}/`. Built-ins load via workspace TypeScript imports (no runtime bundle loading in v1); each plugin builds `dist/plugin.js` bundle for distribution. Versioning independent per package via Changesets. Full design: `docs/2026-04-25-plugin-monorepo-design.md`.
 
-Capabilities declare a **scope** — `global` or `user` — so a single plugin can legitimately expose both a server-wide data source (e.g. TMDB metadata) and per-user integrations (e.g. TMDB watchlist). Admins can configure an **admin-owned pool** of shared credentials for pool-safe plugins so quota-limited services like TMDB can fail over across multiple keys. Users with user-scoped capabilities authenticate normally and may have multiple distinct connections of their own; a per-plugin `personalKeyFallback` policy optionally links the two pools for per-user requests without ever sharing keys across users.
+Capabilities declare **scope** — `global` | `user` — so single plugin can expose both server-wide source (TMDB metadata) & per-user integration (TMDB watchlist). Admins configure **admin-owned pool** of shared creds for pool-safe plugins so quota-limited services (TMDB) fail over across multiple keys. Per-plugin `personalKeyFallback` policy optionally links pools for per-user requests without sharing keys across users.
 
-This document is the authoritative spec for the backend design. A later document will cover the frontend.
+Authoritative spec for backend. Frontend covered in later document.
 
 ## Goals
 
-- One abstraction for all service integrations. Built-ins and third-party plugins go through the same interface.
-- Plugins are extensible feature-by-feature. New capabilities can be added to the host without breaking existing plugins.
-- Plugins are sandboxed. They can only do what the host explicitly grants.
-- Typed development for plugin authors via a host-generated `.d.ts` file.
-- Multi-instance-per-service support preserved from the initial design.
-- First-class distinction between global-scoped capabilities (server-wide, driven by admin-owned credentials) and user-scoped capabilities (per-user auth). A single plugin can expose both.
-- Admin-owned credentials may be pooled for pool-safe plugins (e.g. multiple TMDB API keys) with host-driven rotation and failover.
-- No nonsense states: a user connection can only exist if it carries real credentials for the plugin's user-scoped capabilities.
-- All credential material is encrypted at rest (AES-256-GCM). Plaintext `*_config` columns stay plaintext; `*_credentials` columns are always encrypted.
+- One abstraction ∀ service integrations. Built-ins & 3rd-party → same interface.
+- Plugins extensible feature-by-feature. New capabilities added to host without breaking existing plugins.
+- Plugins sandboxed. Can only do what host explicitly grants.
+- Typed dev for plugin authors via host-generated `.d.ts`.
+- Multi-instance-per-service preserved.
+- First-class global-scope (server-wide, admin creds) vs user-scope (per-user auth). Single plugin can expose both.
+- Admin creds may pool for pool-safe plugins (multiple TMDB keys) with host-driven rotation & failover.
+- V1: user connection ∃ only if it carries real creds. ⊥ empty-creds rows.
+- ∀ cred material encrypted at rest (AES-256-GCM). Plaintext `*_config` stays plaintext; `*_credentials` always encrypted.
 
 ## Non-goals
 
-- Plugin marketplace or auto-update. Admin installs plugins manually by URL.
-- User-installed plugins in v1. Schema and design leave room for an admin-curated allowlist later.
-- Cross-plugin event bus. Plugins do not call other plugins directly.
-- Pluggable internals beyond the service integration layer (e.g. swappable scoring for preference profiles is out of scope).
+- Plugin marketplace | auto-update. Admin installs manually by URL.
+- User-installed plugins in v1.
+- Cross-plugin event bus. Plugins ⊥ call other plugins.
+- Pluggable internals beyond service integration layer.
 
-## Architecture overview
+## Architecture Overview
 
 Three layers:
 
-- **Host** — the application itself. Owns the database, encryption, authentication, cron (croner), oRPC, and the plugin runtime. Never trusts plugin code.
-- **Plugin runtime** — a host-owned subsystem that loads, sandboxes, and invokes plugins. Exposes a narrow `PluginContext` and nothing else.
-- **Plugins** — self-contained JavaScript files. Each declares a manifest, implements one or more capability interfaces, and handles its own auth ceremony.
+- **Host** — owns DB, encryption, auth, cron (croner), oRPC, plugin runtime. ⊥ trust plugin code.
+- **Plugin runtime** — host-owned subsystem. Loads, sandboxes, invokes plugins. Exposes narrow `PluginContext` only.
+- **Plugins** — self-contained JS files. Each declares manifest, implements ≥1 capability interfaces, handles own auth.
 
 Central components:
 
-- `MediaService` is the only surface the rest of the app talks to. oRPC procedures and MCP tools never call plugins directly.
-- The **capability registry** (in-memory, rebuilt on plugin install/update/disable) maps `(capability, version, scope)` to a list of plugins that implement it. Global-scoped and user-scoped lookups are independent — "who provides `metadata@v1` globally?" and "who provides `watchlist@v1` for a given user?" are separate queries.
-- `MediaService` dispatches calls through the runtime. For global-scoped calls, it picks a `shared_credentials` entry from the admin pool (rotating for pool-safe plugins). For user-scoped calls, it resolves the user's connection(s) and picks credentials from the user's pool (per-plugin `poolable` flag). An optional `personalKeyFallback` policy lets exhaustion on one side fall through to the other, strictly within a single user's request.
-- **Connections** are bound to plugins by `plugin_id`, not a hardcoded service enum, and exist only for plugins that expose at least one user-scoped capability.
+- `MediaService` only surface rest of app uses. oRPC procedures & MCP tools ⊥ call plugins directly.
+- **Capability registry** (in-memory, rebuilt on install/update/disable) maps `(capability, version, scope)` → list of implementing plugins. Global & user lookups independent.
+- `MediaService` dispatches through runtime. Global-scoped calls → pick `shared_credentials` from admin pool (rotate for pool-safe). User-scoped calls → resolve user's connection(s), pick from user pool (per-plugin `poolable` flag). Optional `personalKeyFallback` → exhaustion falls through to other side, strictly within single user request.
+- **Connections** bound by `plugin_id` (not hardcoded service enum); ∃ only for plugins with ≥1 user-scoped capability.
 
-Carried over from the initial design unchanged:
+Carried over unchanged:
 
-- AES-256-GCM encryption with per-user derived keys.
+- AES-256-GCM with per-user derived keys.
 - `id_map` table for cross-service ID resolution, populated opportunistically.
-- `account:connections` permission, per-user scope (admins cannot edit other users' connections).
-- Multi-instance per service type with a default-instance (user-side).
+- `account:connections` permission, per-user scope (admins ⊥ edit other users' connections).
+- Multi-instance per service with default-instance (user-side).
 - Connections can be disabled without removal.
 
 Removed:
 
-- The `service` enum (`"trakt" | "tmdb" | "seerr" | "tvdb"`) on `service_connections`. Replaced by `plugin_id`.
-- The `integrations/` folder structure. Each former integration becomes a bundled plugin.
-- The ad-hoc `allowsSharedCredentials` manifest flag and the bespoke "Shared-key model" special case. Both are now folded into the general scope + pool model.
+- `service` enum (`"trakt" | "tmdb" | "seerr" | "tvdb"`) on `service_connections`. Replaced by `plugin_id`.
+- `integrations/` folder. Each former integration → bundled plugin.
+- Ad-hoc `allowsSharedCredentials` flag & bespoke "Shared-key model". Folded into general scope + pool model.
 
-## Plugin manifest
+## Plugin Manifest
 
-Every plugin exports a `getManifest()` function returning this shape. Validated against a host-side Zod schema at install time.
+Every plugin exports `getManifest()` → this shape. Validated against host-side Zod schema at install.
 
 ```ts
 interface PluginManifest {
@@ -127,31 +127,31 @@ interface PluginManifest {
 }
 ```
 
-**Why JSON Schema, not Zod, for config shapes.** JSON Schema is inert data that renders on the frontend with a generic renderer (e.g. `@rjsf/core`) and validates server-side with `ajv`. It is also the only viable choice once third-party plugins run in a QuickJS sandbox, where bundling Zod would be overkill. The host's own internal schemas stay Zod — they are host code.
+**Why JSON Schema not Zod for config shapes.** JSON Schema → inert data, renders on frontend via generic renderer (e.g. `@rjsf/core`), validates server-side with `ajv`. Only viable choice once 3rd-party plugins run in QuickJS sandbox where bundling Zod = overkill. Host's internal schemas stay Zod.
 
-**`x-secret` extension.** Properties marked `"x-secret": true` are treated as secrets by the host and frontend. The frontend renders them as masked inputs and never displays their values on connection cards. The host strips them from `connection.list` and `connection.getUserConfig` responses. On `updateUserConfig`, omitted secret fields are preserved by merging with the prior stored value rather than blanked out. `sharedCredentialsSchema` is implicitly a secret schema — the host never returns decrypted values to any API response.
+**`x-secret` extension.** Properties marked `"x-secret": true` → treated as secrets by host & frontend. Frontend renders as masked inputs, ⊥ display values on connection cards. Host strips from `connection.list` & `connection.getUserConfig` responses. On `updateUserConfig`, omitted secret fields preserved by merging with prior stored value. `sharedCredentialsSchema` implicitly secret — host ⊥ return decrypted values.
 
-**`x-private` extension.** Properties marked `"x-private": true` are stored plaintext but stripped from every API response the host returns to clients. `x-private` protects operationally-sensitive-but-non-secret values (for example, a private-network server URL) from accidental client exposure without requiring the full encryption-at-rest cost of `x-secret`. The read-side behaviour mirrors `x-secret`: omitted fields on `updateUserConfig` are preserved by merging with the prior stored value, and connection-card-type responses never surface the value. A field may carry both `x-secret` and `x-private` if wanted; it is then encrypted at rest AND stripped from responses.
+**`x-private` extension.** Properties marked `"x-private": true` → stored plaintext but stripped from every API response. Protects operationally-sensitive-but-non-secret values (private-network server URL) without encryption cost of `x-secret`. Read-side mirrors `x-secret`: omitted fields on `updateUserConfig` preserved by merge. Field may carry both `x-secret` & `x-private` → encrypted at rest AND stripped.
 
-**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` in a plugin's `userConfigSchema` or `sharedCredentialsSchema` are URL-valued fields whose hostname is added to the per-call `ctx.fetch` allowlist, unioned with the plugin's static `manifest.allowedHosts`. This is how self-hosted services like Plex and Jellyfin can accept user-supplied server URLs that cannot be pre-declared in `manifest.allowedHosts`. The host resolves the dynamic host set at every invocation: user-scoped calls read the active connection's `userConfig`; admin/global-scoped calls read the picked `shared_credentials` entry. Aux contexts (auth flows, job handlers, `testConnection`, refresh) union both sides. A malformed URL in an `x-allowed-host` field fails the call with `plugin.input_invalid` — the allowlist is not silently degraded. See "Self-hosted network topology".
+**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` in `userConfigSchema` | `sharedCredentialsSchema` → URL-valued fields whose hostname added to per-call `ctx.fetch` allowlist, unioned with static `manifest.allowedHosts`. Enables self-hosted services (Plex, Jellyfin) with user-supplied URLs unpredictable at manifest time. Host resolves dynamic host set every invocation: user-scoped reads active connection's `userConfig`; admin/global reads picked `shared_credentials` entry. Malformed URL in `x-allowed-host` field → `plugin.input_invalid`; allowlist ⊥ silently degrade.
 
-**`x-plugin-resolved` extension.** Properties marked `"x-plugin-resolved": true` in a `userConfigSchema` are values that the plugin sets, never the user. On `createFormConnection` and `updateUserConfig`, the host strips these keys from the incoming client payload _before_ the payload reaches `startAuth` or the persisted row; the plugin repopulates the field through `userConfigPatch` (e.g. Jellyfin resolves the caller's `userId` from `/Users/Me` and patches it back). A hostile client cannot impersonate another account by spoofing the value. The frontend hides `x-plugin-resolved` fields from the create form entirely and renders them disabled on the edit form so users can see what the plugin resolved. `x-plugin-resolved` complements the standard JSON Schema `readOnly: true` marker: `readOnly` is a frontend-only display hint, while `x-plugin-resolved` adds server-side stripping of client submissions. Plugins that need both behaviours should set both flags.
+**`x-plugin-resolved` extension.** Properties marked `"x-plugin-resolved": true` in `userConfigSchema` → values plugin sets, ⊥ user. On `createFormConnection` & `updateUserConfig`, host strips these keys from client payload before reaching `startAuth` or persisted row; plugin repopulates via `userConfigPatch` (e.g. Jellyfin resolves `userId` from `/Users/Me`). Hostile client ⊥ impersonate another account by spoofing value. Frontend hides `x-plugin-resolved` fields from create form, renders disabled on edit form. Complements `readOnly: true` (`readOnly` = frontend-only hint; `x-plugin-resolved` adds server-side stripping). Plugins needing both → set both.
 
-**`sdkVersion` is a hard compatibility gate.** Install fails fast with a clear error when a plugin targets an incompatible SDK.
+**`sdkVersion` = hard compatibility gate.** Install fails fast with clear error on mismatch.
 
-### Derived validation rules
+### Derived Validation Rules
 
 Applied at manifest install:
 
-| Plugin shape              | `auth.kind` (user ceremony) | `sharedCredentialsSchema`          | `credentialsSchema` | `userConfigSchema` | `poolable` allowed |
-| ------------------------- | --------------------------- | ---------------------------------- | ------------------- | ------------------ | ------------------ |
-| All capabilities `global` | must be `"none"`            | typically required (e.g. API key)  | must be **absent**  | must be **absent** | yes                |
-| Any capability `user`     | must not be `"none"`        | optional (e.g. OAuth client creds) | **required**        | optional           | yes                |
-| Mixed (both scopes)       | must not be `"none"`        | typically required                 | **required**        | optional           | yes                |
+| Plugin shape              | `auth.kind` (user ceremony) | `sharedCredentialsSchema`         | `credentialsSchema` | `userConfigSchema` | `poolable` allowed |
+| ------------------------- | --------------------------- | --------------------------------- | ------------------- | ------------------ | ------------------ |
+| All capabilities `global` | must be `"none"`            | typically required (e.g. API key) | must be **absent**  | must be **absent** | yes                |
+| Any capability `user`     | must not be `"none"`        | optional (e.g. OAuth client creds)| **required**        | optional           | yes                |
+| Mixed (both scopes)       | must not be `"none"`        | typically required                | **required**        | optional           | yes                |
 
-A plugin whose declared scope changes between versions (e.g. moving a capability from `global` to `user`) is considered a breaking change — the host rejects minor/patch bumps that alter scope.
+Scope change between versions (global → user on capability) = breaking change; host rejects minor/patch bumps that alter scope.
 
-### Concrete plugin mappings
+### Concrete Plugin Mappings
 
 ```ts
 // TMDB — pure-global, poolable
@@ -257,9 +257,9 @@ capabilities: {
 // See "Self-hosted network topology" for the two-URL rationale.
 ```
 
-## Plugin entry point
+## Plugin Entry Point
 
-A plugin is a single JS file that exports a default object built with `definePlugin` (a pure identity helper for type inference).
+Single JS file exporting default object built with `definePlugin` (pure identity helper for type inference).
 
 ```ts
 export default definePlugin({
@@ -290,42 +290,42 @@ export default definePlugin({
 });
 ```
 
-`testConnection(ctx)` is required for any plugin with `auth.kind !== "none"`. It is called by the UI's "test" button, the health-check cron, and as a pre-commit check during `connection.updateUserConfig`. For pure-global plugins (`auth.kind === "none"`), admins verify shared-credential entries via `plugin.testSharedCredential` instead (see API section).
+`testConnection(ctx)` ! for `auth.kind !== "none"`. Called by UI "test" button, health-check cron, & pre-commit during `connection.updateUserConfig`. Pure-global plugins (`auth.kind === "none"`) → admin verifies via `plugin.testSharedCredential` (see §API).
 
-## Auth ceremony — flow types
+## Auth Ceremony — Flow Types
 
-The host orchestrates auth based on `manifest.auth.kind`. Plugin functions return discriminated-union status payloads; the host drives the UI.
+Host orchestrates auth by `manifest.auth.kind`. Plugin functions return discriminated-union status payloads; host drives UI.
 
-Every `status: "completed"` payload has the shape `{ status: "completed", credentials, userConfigPatch? }`. The optional `userConfigPatch` merges into the submitted `userConfig` before the `service_connections` row is written — used by plugins that resolve server-side identifiers during auth (for example Jellyfin's `userId` from `/Users/Me`) without round-tripping through the client. Keys in `userConfigPatch` must be declared on `userConfigSchema`; the host validates the merged result against the schema and rejects any key the plugin attempts to smuggle in.
+∀ `status: "completed"` payload shape: `{ status: "completed", credentials, userConfigPatch? }`. Optional `userConfigPatch` merges into submitted `userConfig` before `service_connections` row written — for plugins that resolve server-side identifiers during auth (e.g. Jellyfin `userId` from `/Users/Me`) without client round-trip. Keys in `userConfigPatch` ! declared on `userConfigSchema`; host validates merged result & rejects any key plugin attempts to smuggle.
 
 **`form`** (e.g. Seerr):
 
 1. Frontend collects `userConfig` fields from `userConfigSchema`.
-2. Host calls `startAuth(ctx, userConfig)`. Plugin tests the credentials and returns `{ status: "completed", credentials, userConfigPatch? }`.
+2. Host calls `startAuth(ctx, userConfig)`. Plugin tests creds → `{ status: "completed", credentials, userConfigPatch? }`.
 
 **`oauth_redirect`** (standard OAuth2):
 
-1. Host calls `startAuth(ctx, null)`. Plugin returns `{ status: "redirect", url, state }`.
-2. Host stashes `state` in a `pending_auth` row keyed by a nonce.
+1. Host calls `startAuth(ctx, null)`. Plugin → `{ status: "redirect", url, state }`.
+2. Host stashes `state` in `pending_auth` row keyed by nonce.
 3. Frontend redirects user.
-4. Provider redirects back to the host callback route. Host looks up `state`, calls `completeAuth(ctx, queryParams, state)`, receives `{ status: "completed", credentials, userConfigPatch? }`.
+4. Provider redirects back to host callback. Host looks up `state`, calls `completeAuth(ctx, queryParams, state)` → `{ status: "completed", credentials, userConfigPatch? }`.
 
 **`oauth_device`** (e.g. Trakt):
 
-1. Host calls `startAuth(ctx, null)`. Plugin returns `{ status: "display_code", code, verifyUrl, pollState, intervalSec }`.
-2. Host returns code + verifyUrl + nonce + intervalSec to the frontend.
+1. Host calls `startAuth(ctx, null)`. Plugin → `{ status: "display_code", code, verifyUrl, pollState, intervalSec }`.
+2. Host returns code + verifyUrl + nonce + intervalSec to frontend.
 3. Frontend displays instructions, polls `connection.pollDeviceAuth(nonce)` at `intervalSec`.
-4. Each poll: host calls `pollAuth(ctx, pollState)`. Plugin returns `pending`, `completed` (with optional `userConfigPatch`), or `error`.
+4. Each poll: host calls `pollAuth(ctx, pollState)`. Plugin → `pending` | `completed` (with optional `userConfigPatch`) | `error`.
 
-**`none`**: plugin has no per-user credentials. Only legal for pure-global plugins (every capability has `scope: "global"`). No `service_connections` rows exist for these plugins; they run entirely off admin-owned shared credentials and global config.
+**`none`**: plugin has no per-user creds. Only legal for pure-global plugins (∀ capabilities `scope: "global"`). ⊥ `service_connections` rows.
 
-On `status: "completed"`, host merges `userConfigPatch` (if any) into the submitted `userConfig`, validates the merged result against `userConfigSchema`, encrypts the credentials, creates the `service_connections` row, auto-promotes to default if it's the first instance, and returns the connection to the frontend. **Empty-credentials rows are rejected**: if the validated credentials payload for a plugin that declares `credentialsSchema` is missing required fields or resolves to an empty object, the create is refused with a typed error rather than producing a "parked" connection.
+On `status: "completed"`: host merges `userConfigPatch` (if any) into submitted `userConfig`, validates merged result against `userConfigSchema`, encrypts creds, creates `service_connections` row, auto-promotes to default if first instance, returns connection to frontend. **Empty-creds rows rejected**: if validated credentials payload for plugin with `credentialsSchema` missing required fields | resolves to empty object → create refused with typed error. ⊥ "parked" connections.
 
-Credentials and device codes are never logged. `pending_auth` rows have a 15-minute TTL with a nightly sweep.
+Creds & device codes ⊥ logged. `pending_auth` rows have 15-min TTL with nightly sweep.
 
-## Capability interfaces
+## Capability Interfaces
 
-Capabilities are the typed contract between host and plugin. Host defines them as Zod schemas; a build script generates a `.d.ts` from those schemas and commits it to the repo. Plugin authors import the generated types for dev-time safety.
+Typed contract between host & plugin. Host defines as Zod schemas; build script generates `.d.ts` committed to repo. Plugin authors import generated types for dev-time safety.
 
 Example host-side definition:
 
@@ -346,43 +346,39 @@ export const WatchHistoryV1 = defineCapability({
 });
 ```
 
-Enforcement by the runtime on every invocation:
+Runtime enforcement on every invocation:
 
-- Validate input against the capability's Zod input schema before calling the plugin.
-- Validate output against the Zod output schema after the call returns. Bad output throws before reaching `MediaService`.
-- Version pinning. A caller asking for `watchHistory@v1` is not matched by a plugin declaring `watchHistory: "v2"`.
-- Scope routing. The registry is indexed by `(capability_id, version, scope)`; `MediaService` asks for "who provides X at scope Y". For most capabilities the scope is fixed on the host-side definition (`scope: "global"` or `scope: "user"`) and callers always land on that pool. Capabilities that need to accept both (today: `idResolve@v1`) declare `scope: "mixed"` on the host definition and supply a pure `scopeForInput(input)` classifier. The dispatcher calls the classifier once per request and threads the resolved scope through both the provider lookup and the cache key — so a user-scoped resolution (e.g. `from: "plex:ratingKey"`) visits only user-scoped providers and is cached under `user:{user_id}`, and a global resolution (e.g. `from: "tmdb"`) visits only global providers and is cached globally. Provider enumeration and cache-keying see the same scope on every request, which is what prevents a server-local handle from leaking across users through a shared cache entry.
+- Validate input against capability's Zod input schema before calling plugin.
+- Validate output against Zod output schema after call. Bad output throws before reaching `MediaService`.
+- Version pinning. Caller asking `watchHistory@v1` ≠ matched by plugin declaring `watchHistory: "v2"`.
+- Scope routing. Registry indexed by `(capability_id, version, scope)`. Capabilities with fixed scope (`scope: "global"` | `scope: "user"`) always land on that pool. Capabilities needing both (today: `idResolve@v1`) declare `scope: "mixed"` on host definition with pure `scopeForInput(input)` classifier. Dispatcher calls classifier once per request → threads resolved scope through both provider lookup & cache key. User-scoped resolution (e.g. `from: "plex:ratingKey"`) → only user-scoped providers, cached under `user:{user_id}`. Global resolution (e.g. `from: "tmdb"`) → only global providers, cached globally. ⊥ server-local handle leaks across users through shared cache entry.
 
-**Versioning policy.** Breaking changes introduce a new version alongside the old. Old plugins keep working until no consumer needs v1, at which point v1 can be removed host-side. No forced upgrades. Scope changes on a capability (global ↔ user) always constitute a breaking change and require a new major version.
+**Versioning policy.** Breaking changes introduce new version alongside old. Old plugins work until no consumer needs v1 → v1 removable host-side. ⊥ forced upgrades. Scope changes (global ↔ user) always = breaking → new major version.
 
-**Initial capability set (with canonical scope; plugins may still declare the opposite where it makes sense, e.g. a plugin that exposes `metadata` from a personal library):**
+**Initial capability set (canonical scope; plugins may declare opposite where it makes sense):**
 
-- `metadata@v1` — search, get by id, similar titles, discover, trending. Typically `global`.
-- `watchHistory@v1` — get/add/remove history. Output carries `watchedAt`, optional `progress`, optional `rewatchCount`. Typically `user`.
+- `metadata@v1` — search, get by id, similar, discover, trending. Typically `global`.
+- `watchHistory@v1` — get/add/remove history. Output: `watchedAt`, optional `progress`, optional `rewatchCount`. Typically `user`.
 - `watchlist@v1` — get/add/remove watchlist. Typically `user`.
 - `ratings@v1` — get/set/remove ratings. Typically `user`.
-- `recommendations@v1` — personal recommendations, trending, anticipated. Typically `user` (may accept a `global` variant for anonymous trending).
-- `calendar@v1` — upcoming TV episodes and movie releases. Typically `user`.
-- `mediaRequest@v1` — request media, check availability, cancel requests. Typically `user`.
-- `idResolve@v1` — resolve one id type to others; feeds `id_map`. Host-side this is the canonical **mixed-scope** capability: metadata providers (TMDB, TVDB, Trakt) register `scope: "global"` on their manifest and handle cross-service ids; media-server plugins (Plex, Jellyfin) register `scope: "user"` and handle server-local handles (`plex:ratingKey`, `jellyfin:itemId`). The host-side `CapabilityDefinition` declares `scope: "mixed"` with a `scopeForInput` classifier so the dispatcher can pick the right pool per request. Server-local handles are per-server and per-account, so they cannot be global.
+- `recommendations@v1` — personal recommendations, trending, anticipated. Typically `user` (may accept `global` variant for anonymous trending).
+- `calendar@v1` — upcoming TV episodes & movie releases. Typically `user`.
+- `mediaRequest@v1` — request media, check availability, cancel. Typically `user`.
+- `idResolve@v1` — resolve one id type to others; feeds `id_map`. Host-side: canonical **mixed-scope** capability. Metadata providers (TMDB, TVDB, Trakt) register `scope: "global"` for cross-service ids; media-server plugins (Plex, Jellyfin) register `scope: "user"` for server-local handles (`plex:ratingKey`, `jellyfin:itemId`). Host `CapabilityDefinition` declares `scope: "mixed"` with `scopeForInput` classifier. Server-local handles = per-server & per-account → ⊥ global.
 - `userComments@v1` — get user's own comments. Typically `user`.
-- `watchProviders@v1` — streaming/rent/buy availability per media item per region. Typically `global`.
-- `trailers@v1` — trailer/teaser/clip videos per media item. Typically `global`.
+- `watchProviders@v1` — streaming/rent/buy availability per item per region. Typically `global`.
+- `trailers@v1` — trailer/teaser/clip videos per item. Typically `global`.
 - `playback@v1` — cross-device resume positions. Typically `user`.
 - `collection@v1` — user's owned/collected library. Typically `user`.
-- `libraryAvailability@v1` — check whether a media item exists on a connected media server (Plex, Jellyfin), with quality details and a deep-play link. Typically `user`. Distinct from `collection@v1`, which is user-curated "I marked this as owned" state rather than ground-truth file presence on a server.
-- `playbackSessions@v1` — currently-playing sessions across the user's server: device, user, item, progress, transcoding state, plus a stop action. Typically `user`. Distinct from `playback@v1` (historical resume points) and from any future `transcoding@v1` — transcoding details ride along on the session payload so a dedicated capability is unnecessary.
-- `continueWatching@v1` — server-computed "pick up where you left off" feed, including Next Up episode stitching. Typically `user`. Distinct from `playback@v1` (raw positions) — this capability returns the server's own ranking of what to watch next, already joined to Next Up logic for TV shows, which the client does not want to reimplement.
-- `libraryAdmin@v1` — trigger library scan / metadata refresh on demand. Typically `user`, but intended to be called by the host after a `mediaRequest@v1` fulfils (so a newly-grabbed file lands in the library immediately instead of on the next periodic scan). App-layer authorisation may restrict this to admins.
-- `notificationDelivery@v1` — send a notification to a third-party service (e.g. ntfy, Telegram, Discord) or to the built-in in-app inbox. Typically `user` (each user configures their own destinations through the existing connection flow). The capability declares an additional manifest field `supportsKinds: NotificationContentKind[]` so the host knows whether a plugin can render images, markdown, or inline actions. See `docs/2026-04-25-notifications-design.md` for event registry, dispatch, and HTTP API.
+- `libraryAvailability@v1` — check media item ∃ on connected server (Plex, Jellyfin), with quality details & deep-play link. Typically `user`. Distinct from `collection@v1` (user-curated "I marked this owned" vs ground-truth file presence).
+- `playbackSessions@v1` — currently-playing sessions across user's server: device, user, item, progress, transcoding state + stop action. Typically `user`. Distinct from `playback@v1` (historical resume points).
+- `continueWatching@v1` — server-computed "pick up where you left off" feed with Next Up episode stitching. Typically `user`. Distinct from `playback@v1` (raw positions) — server's own ranking with Next Up logic already joined.
+- `libraryAdmin@v1` — trigger library scan / metadata refresh on demand. Typically `user`, but called by host after `mediaRequest@v1` fulfils so new file lands immediately. App-layer auth may restrict to admins.
+- `notificationDelivery@v1` — send notification to 3rd-party service (ntfy, Telegram, Discord) | built-in in-app inbox. Typically `user`. Extra manifest field `supportsKinds: NotificationContentKind[]` so host knows if plugin can render images, markdown, inline actions. See `docs/2026-04-25-notifications-design.md`.
 
-**Capability discipline.** A plugin that declares a capability must implement _every_ method declared on it — the loader rejects plugins with missing method implementations. If a service does not natively support a method in a capability, the plugin should either (a) not declare that capability at all, or (b) degrade gracefully (empty array / `{ ok: false }`) rather than silently ignoring the call. This keeps the routing matrix boolean — callers can assume "this plugin claims watchHistory" means every watchHistory method works on it.
+**Capability discipline.** Plugin declaring capability ! implement every method — loader rejects plugins with missing implementations. Service not natively supporting method → (a) don't declare that capability, or (b) degrade gracefully (empty array | `{ ok: false }`). ⊥ silent ignore. Routing matrix boolean — callers assume "plugin claims watchHistory" ≡ every watchHistory method works.
 
-New capabilities are added over time as features land.
-
-### Capability method reference
-
-The sections below enumerate every method on every capability. Entries marked _added_ were introduced alongside this revision; the rest were in the initial capability set.
+### Capability Method Reference
 
 **`metadata@v1`** (global)
 
@@ -396,9 +392,9 @@ The sections below enumerate every method on every capability. Entries marked _a
 
 - `getHistory({ limit?, since? })` → `HistoryEntry[]`
 - `addToHistory(items)` → `{ added }`
-- _added_ `removeFromHistory(items)` → `{ removed }` — closes the symmetry gap with `addToHistory`. Backed by Trakt `POST /sync/history/remove`.
+- _added_ `removeFromHistory(items)` → `{ removed }` — closes symmetry gap with `addToHistory`. Backed by Trakt `POST /sync/history/remove`.
 
-_Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/unscrobble` + `GET /status/sessions/history/all`, and Jellyfin `POST /Users/{userId}/PlayedItems/{itemId}` + `DELETE /Users/{userId}/PlayedItems/{itemId}`. Both servers operate on server-local item handles (`plex:ratingKey`, `jellyfin:itemId`), so `addToHistory` / `removeFromHistory` call the plugin's own `idResolve@v1` implementation first to translate the incoming cross-service id — see the `idResolve@v1` section below.
+_Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/unscrobble` + `GET /status/sessions/history/all`, Jellyfin `POST /Users/{userId}/PlayedItems/{itemId}` + `DELETE /Users/{userId}/PlayedItems/{itemId}`. Both operate on server-local handles (`plex:ratingKey`, `jellyfin:itemId`) → `addToHistory` / `removeFromHistory` call plugin's own `idResolve@v1` first to translate.
 
 **`watchlist@v1`** (user)
 
@@ -416,12 +412,12 @@ _Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/
 
 - `getRecommendations({ type?, limit? })` → `MediaItem[]`
 - `getTrending({ type?, limit? })` → `MediaItem[]`
-- _added_ `getAnticipated({ type?, limit? })` → `MediaItem[]` — distinct from trending (future vs. now). Backed by Trakt `/movies/anticipated`, `/shows/anticipated`.
+- _added_ `getAnticipated({ type?, limit? })` → `MediaItem[]` — distinct from trending (future vs now). Backed by Trakt `/movies/anticipated`, `/shows/anticipated`.
 
 **`calendar@v1`** (user)
 
 - `getUpcoming({ days? })` → `UpcomingEntry[]` — TV episodes.
-- _added_ `getUpcomingMovies({ days? })` → `UpcomingEntry[]` — movie releases. Backed by Trakt `/calendars/my/movies/{start}/{days}`. Returned entries have `season`/`episode` unset.
+- _added_ `getUpcomingMovies({ days? })` → `UpcomingEntry[]` — movie releases. Backed by Trakt `/calendars/my/movies/{start}/{days}`. `season`/`episode` unset.
 
 **`mediaRequest@v1`** (user)
 
@@ -430,7 +426,7 @@ _Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/
 - `listRequests({})` → `RequestRow[]`
 - _added_ `cancelRequest({ requestId })` → `{ ok }` — backed by Seerr `DELETE /request/:id`.
 
-**`idResolve@v1`** (mixed — see ["additional id-types for media servers"](#idresolvev1--additional-id-types-for-media-servers) below for the mixed-scope routing rules)
+**`idResolve@v1`** (mixed — see §idResolve below for mixed-scope routing rules)
 
 - `resolve({ from, id, type })` → partial id bundle.
 
@@ -438,36 +434,36 @@ _Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/
 
 - `getComments({ limit? })` → `CommentEntry[]`
 
-**`watchProviders@v1`** (global, _new capability_)
+**`watchProviders@v1`** (global, _new_)
 
-- `getProviders({ id, type, region? })` → `{ streaming: string[], rent: string[], buy: string[] }` — provider names. `region` defaults to the host's configured region (fall back to `"US"`). Backed by TMDB `/{type}/{id}/watch/providers`. Feeds the `streaming` field on the `ent_details` MCP tool output that is otherwise dead.
+- `getProviders({ id, type, region? })` → `{ streaming: string[], rent: string[], buy: string[] }` — provider names. `region` defaults to host configured region (fallback `"US"`). Backed by TMDB `/{type}/{id}/watch/providers`. Feeds `streaming` field on `ent_details` MCP tool.
 
-**`trailers@v1`** (global, _new capability_)
+**`trailers@v1`** (global, _new_)
 
-- `getVideos({ id, type })` → `Array<{ kind: "trailer" | "teaser" | "clip" | "featurette" | "other", site, key, url, official? }>`. Backed by TMDB `/{type}/{id}/videos`. Feeds the `trailer` field on the `ent_details` MCP tool output.
+- `getVideos({ id, type })` → `Array<{ kind: "trailer" | "teaser" | "clip" | "featurette" | "other", site, key, url, official? }>`. Backed by TMDB `/{type}/{id}/videos`. Feeds `trailer` field on `ent_details` MCP tool.
 
-**`playback@v1`** (user, _new capability_)
+**`playback@v1`** (user, _new_)
 
 - `getPositions({ type? })` → `Array<{ item, progress (0–100), pausedAt, season?, episode?, playbackId }>`
 - `removePosition({ playbackId })` → `{ ok }`
 
-Backed by Trakt `/sync/playback` and `DELETE /sync/playback/:id`. Feeds the `watch_progress` field on the `ent_details` MCP tool output.
+Backed by Trakt `/sync/playback` & `DELETE /sync/playback/:id`. Feeds `watch_progress` on `ent_details` MCP tool.
 
-**`collection@v1`** (user, _new capability_)
+**`collection@v1`** (user, _new_)
 
-- `getCollection({ type? })` → `Array<{ item, addedAt }>` — same shape as `watchlist` entries.
+- `getCollection({ type? })` → `Array<{ item, addedAt }>`
 - `addToCollection(items)` → `{ added }`
 - `removeFromCollection(items)` → `{ removed }`
 
-Backed by Trakt `/sync/collection/*`. Answers "does the user already own this locally" as a signal distinct from `watchHistory` (seen), `watchlist` (planned), and `mediaRequest` (asked a download manager for it).
+Backed by Trakt `/sync/collection/*`. "Does user already own this locally" — distinct from `watchHistory` (seen), `watchlist` (planned), `mediaRequest` (asked download manager).
 
-**`libraryAvailability@v1`** (user, _new capability_)
+**`libraryAvailability@v1`** (user, _new_)
 
-- `checkAvailability({ id, idType, type })` → `{ items: LibraryItem[] }` — `idType` is one of the cross-service ids (`"tmdb" | "imdb" | "tvdb"`). Server-local ids (`plex:ratingKey`, `jellyfin:itemId`) are intentionally not accepted here: if a caller already holds a server-local id they have a `LibraryItem` and do not need to re-check availability. Returns zero or more matches so multiple quality copies of the same title (e.g. 4k HDR and 1080p SDR) each surface as their own entry. Backed by Plex `/library/metadata/matches` / `/library/all?guid=...` and Jellyfin `/Users/{userId}/Items?AnyProviderIdEquals=...`.
-- `listRecentlyAdded({ type?, limit? })` → `LibraryItem[]` — server-reported recently-imported items for the authenticated user. Feeds a "new on your server" row in the UI. Backed by Plex `/library/recentlyAdded` and Jellyfin `/Users/{userId}/Items/Latest`.
-- `searchLibrary({ query, type? })` → `LibraryItem[]` — free-text search scoped to the user's library.
+- `checkAvailability({ id, idType, type })` → `{ items: LibraryItem[] }` — `idType` ∈ `"tmdb" | "imdb" | "tvdb"`. Server-local ids ∉ accepted here: if caller already has server-local id, they have `LibraryItem` & ⊥ need re-check. Returns 0..n matches so multiple quality copies each surface as own entry. Backed by Plex `/library/metadata/matches` / `/library/all?guid=...` & Jellyfin `/Users/{userId}/Items?AnyProviderIdEquals=...`.
+- `listRecentlyAdded({ type?, limit? })` → `LibraryItem[]` — server-reported recently-imported items. Backed by Plex `/library/recentlyAdded` & Jellyfin `/Users/{userId}/Items/Latest`.
+- `searchLibrary({ query, type? })` → `LibraryItem[]` — free-text search scoped to user's library.
 
-Where `LibraryItem` is:
+Where `LibraryItem`:
 
 ```
 {
@@ -490,14 +486,14 @@ Where `LibraryItem` is:
 }
 ```
 
-Feeds the `available_on` field on the `ent_details` MCP tool output, replaces ad-hoc "do I own this already" checks, and gives the frontend a one-click "play in Plex / play in Jellyfin" affordance on any media card.
+Feeds `available_on` on `ent_details` MCP tool, replaces ad-hoc "do I own this" checks, gives frontend one-click "play in Plex / Jellyfin" on media cards.
 
-**`playbackSessions@v1`** (user, _new capability_)
+**`playbackSessions@v1`** (user, _new_)
 
-- `getSessions()` → `SessionEntry[]` — currently-playing sessions visible to the authenticated connection. Backed by Plex `/status/sessions` (joined with `/transcode/sessions` for transcoding fields) and Jellyfin `/Sessions`. Results are always filtered to the connection's own user: Jellyfin's `/Sessions` returns server-wide sessions for admin tokens, so the plugin MUST post-filter by the cached `userConfig.userId` before returning; Plex's endpoint is already account-scoped but the plugin still drops sessions whose `User.id` does not match the connection's account id. This is a privacy guarantee, not an optimisation — never return another user's session even if the underlying token can see it.
-- `stopSession({ sessionId, reason? })` → `{ ok, semantics: "forced" | "requested" }` — ask the server to end a session. Backed by Plex `DELETE /status/sessions/terminate?sessionId=...` and Jellyfin `POST /Sessions/{id}/Playing/Stop`. The two endpoints differ: Plex terminates server-side and the session vanishes from the next `getSessions()` call, while Jellyfin sends a remote-control command to the client, which an offline or unresponsive client may ignore. The `semantics` field returns `"forced"` for Plex and `"requested"` for Jellyfin so UIs can surface the right confirmation ("stopped" vs "stop requested — may take a moment") instead of assuming immediate effect.
+- `getSessions()` → `SessionEntry[]` — currently-playing sessions visible to authenticated connection. Backed by Plex `/status/sessions` (joined with `/transcode/sessions` for transcoding fields) & Jellyfin `/Sessions`. Results filtered to connection's own user: Jellyfin `/Sessions` returns server-wide sessions for admin tokens → plugin ! post-filter by cached `userConfig.userId`. Plex already account-scoped but plugin still drops sessions whose `User.id` ≠ connection's account id. Privacy guarantee, ⊥ optimisation — ⊥ return another user's session even if underlying token can see it.
+- `stopSession({ sessionId, reason? })` → `{ ok, semantics: "forced" | "requested" }` — ask server to end session. Backed by Plex `DELETE /status/sessions/terminate?sessionId=...` & Jellyfin `POST /Sessions/{id}/Playing/Stop`. Plex terminates server-side (session vanishes from next `getSessions()`); Jellyfin sends remote-control command to client (offline/unresponsive client may ignore). `semantics: "forced"` for Plex, `"requested"` for Jellyfin → UI surfaces right confirmation.
 
-Where `SessionEntry` is:
+Where `SessionEntry`:
 
 ```
 {
@@ -519,13 +515,13 @@ Where `SessionEntry` is:
 }
 ```
 
-Feeds a "playing now on your server" home-feed row and a per-device kill switch. Transcoding fields let the UI surface "your phone is pulling a 12 Mbps transcode" without a separate capability.
+Feeds "playing now on your server" home-feed row & per-device kill switch. Transcoding fields → UI surface "your phone pulling 12 Mbps transcode" without separate capability.
 
-**`continueWatching@v1`** (user, _new capability_)
+**`continueWatching@v1`** (user, _new_)
 
-- `getContinueWatching({ type?, limit? })` → `ContinueEntry[]` — the server's own ranking of what to resume or start next. Backed by Plex `/hubs/continueWatching` (falls back to `/library/onDeck` for older servers) and Jellyfin `/Users/{userId}/Items/Resume` merged with `/Shows/NextUp`.
+- `getContinueWatching({ type?, limit? })` → `ContinueEntry[]` — server's own ranking of what to resume | start next. Backed by Plex `/hubs/continueWatching` (fallback `/library/onDeck` for older servers) & Jellyfin `/Users/{userId}/Items/Resume` merged with `/Shows/NextUp`.
 
-Where `ContinueEntry` is:
+Where `ContinueEntry`:
 
 ```
 {
@@ -536,38 +532,40 @@ Where `ContinueEntry` is:
 }
 ```
 
-Reuses `LibraryItem` as the shared shape — no re-definition. Distinct from `playback@v1.getPositions`, which returns raw resume points from sync APIs (Trakt) rather than a curated feed.
+Reuses `LibraryItem` — no re-definition. Distinct from `playback@v1.getPositions` (raw resume points from sync APIs vs curated feed).
 
-**`libraryAdmin@v1`** (user, _new capability_)
+**`libraryAdmin@v1`** (user, _new_)
 
-- `refreshLibrary({ librarySectionId? })` → `{ ok }` — trigger a full or section-scoped rescan. Fire-and-forget: both Plex `/library/sections/{id}/refresh` (force=1 when `librarySectionId` is omitted across all sections) and Jellyfin `POST /Library/Refresh` return empty bodies and neither exposes a scan id or progress handle. Callers must not expect to poll for completion — the contract is only "the server accepted the rescan request".
-- `refreshItem({ serverItemId })` → `{ ok }` — targeted metadata refresh for a single item. Backed by Plex `PUT /library/metadata/{id}/refresh` and Jellyfin `POST /Items/{id}/Refresh`.
+- `refreshLibrary({ librarySectionId? })` → `{ ok }` — trigger full | section-scoped rescan. Fire-and-forget: Plex `/library/sections/{id}/refresh` & Jellyfin `POST /Library/Refresh` return empty bodies. ⊥ expect poll for completion — contract = "server accepted rescan request" only.
+- `refreshItem({ serverItemId })` → `{ ok }` — targeted metadata refresh for single item. Backed by Plex `PUT /library/metadata/{id}/refresh` & Jellyfin `POST /Items/{id}/Refresh`.
 
-Intended caller is the host itself, invoked on completion of a `mediaRequest@v1` fulfilment so the new file lands in the library without waiting on the periodic scan. Can also be surfaced in an admin UI.
+Intended caller = host, invoked on `mediaRequest@v1` fulfilment completion. Can also surface in admin UI.
 
-**`notificationDelivery@v1`** (user, _new capability_)
+**`notificationDelivery@v1`** (user, _new_)
 
-- `deliver({ message, event, channelConfig })` → `{ providerMessageId? }` — render and ship one notification. `message` is the host-rendered neutral payload (`title`, `body`, `severity`, `category`, optional `bodyMarkdown`, `image`, `thumbnail`, `actions`, `actionUrl`). `event` is the raw typed `NotificationEvent` for plugins that want to specialise rendering. `channelConfig` is the plugin's decrypted `userConfig` (the connection itself acts as the channel). Throw `pluginError(..., { retryable })` to drive the host's retry/backoff loop; non-retryable errors mark the delivery `failed` immediately.
-- `testDelivery({ channelConfig })` → `{ ok, message? }` — validate config and reachability without actually delivering. Backs the "Test" button in the UI and runs once at channel-create time.
+- `deliver({ message, event, channelConfig })` → `{ providerMessageId? }` — render & ship one notification. `message` = host-rendered neutral payload (`title`, `body`, `severity`, `category`, optional `bodyMarkdown`, `image`, `thumbnail`, `actions`, `actionUrl`). `event` = raw typed `NotificationEvent` for plugins wanting specialised rendering. `channelConfig` = plugin's decrypted `userConfig`. Throw `pluginError(..., { retryable })` to drive host's retry/backoff; non-retryable errors mark delivery `failed` immediately.
+- `testDelivery({ channelConfig })` → `{ ok, message? }` — validate config & reachability without delivering. Backs UI "Test" button & runs once at channel-create.
 
-The capability has one extra manifest field: `supportsKinds: NotificationContentKind[]` (subset of `["text", "markdown", "image", "actions"]`). Plugins ignore message fields outside their declared kinds; the host always populates the core text fields so even a `["text"]` plugin always has something to send. Channel config schema reuses the existing `userConfigSchema` — for v1 plugins (`ntfy`, `telegram`, `discord`, built-in `inbox`) the connection row is the channel; multi-channel-per-connection is deferred per `docs/2026-04-25-notifications-design.md`.
+Extra manifest field: `supportsKinds: NotificationContentKind[]` (subset of `["text", "markdown", "image", "actions"]`). Plugins ignore message fields outside declared kinds; host always populates core text fields so even `["text"]` plugin has something to send. Channel config schema reuses existing `userConfigSchema`.
 
 **`idResolve@v1`** — additional id-types for media servers
 
-Beyond the existing cross-service ids, this revision adds two server-local id-types:
+New server-local id-types:
 
-- `plex:ratingKey` — Plex's per-server item key. Resolvable to `tmdb` / `imdb` via Plex's `Guid` elements on library items. Required for `watchHistory@v1.addToHistory` on Plex (scrobble takes a `ratingKey`, not a TMDB id).
-- `jellyfin:itemId` — Jellyfin's per-server item UUID. Resolvable to `tmdb` / `imdb` via `ProviderIds` on the item. Required for `watchHistory@v1.addToHistory` on Jellyfin (`POST /Users/{userId}/PlayedItems/{itemId}`).
+- `plex:ratingKey` — Plex per-server item key. Resolvable to `tmdb` / `imdb` via Plex `Guid` elements. ! for `watchHistory@v1.addToHistory` on Plex.
+- `jellyfin:itemId` — Jellyfin per-server item UUID. Resolvable to `tmdb` / `imdb` via `ProviderIds`. ! for `watchHistory@v1.addToHistory` on Jellyfin.
 
-Server-local ids are user-scoped (they only mean something against a specific connection), so the Plex and Jellyfin plugins implement `idResolve@v1` with `scope: "user"` — a deliberate departure from the "typically global" pattern on this capability.
+Server-local ids = user-scoped (only meaningful against specific connection) → Plex & Jellyfin implement `idResolve@v1` with `scope: "user"`.
 
-**Host-side mixed-scope routing.** The host-side `CapabilityDefinition` for `idResolve@v1` declares `scope: "mixed"` and supplies a pure `scopeForInput(input) → "global" | "user"` classifier: inputs whose `from` contains a `:` (`plex:ratingKey`, `jellyfin:itemId`) resolve `"user"`, everything else (`tmdb`, `imdb`, `tvdb`, `trakt`) resolves `"global"`. The classifier is invoked once per dispatch and its return value is threaded through both the registry lookup (`capabilityRegistry.listProviders(cap, ver, scope)`) and the cache key. The invariant is that provider enumeration and cache-keying agree on the resolved scope for the same request — if they disagreed, a server-local resolution could be written to a global cache entry and served to a different user on the next request.
+**Host-side mixed-scope routing.** Host `CapabilityDefinition` for `idResolve@v1` declares `scope: "mixed"` with pure `scopeForInput(input) → "global" | "user"` classifier: inputs whose `from` contains `:` (`plex:ratingKey`, `jellyfin:itemId`) → `"user"`, everything else (`tmdb`, `imdb`, `tvdb`, `trakt`) → `"global"`. Classifier invoked once per dispatch; result threaded through both registry lookup & cache key.
 
-**Per-request cache-key scoping.** The cache key prefix carries the _resolved_ scope, not the capability's declared scope mode. A `resolve({ from: "tmdb", id: "550" })` request lands on `mv:idResolve:v1:resolve:global:…` (one entry shared across every caller), while `resolve({ from: "plex:ratingKey", id: "42" })` for user Alice lands on `mv:idResolve:v1:resolve:user:alice:…` and for user Bob on `mv:idResolve:v1:resolve:user:bob:…` — two distinct entries, so Bob can never read Alice's cached server-local resolution even though they ran identical arguments. The classifier defensively returns `"global"` for malformed inputs so a bypassed schema cannot smuggle a userId-keyed entry.
+V1: provider enumeration & cache-keying ! agree on resolved scope for same request. Disagreement → server-local resolution could write to global cache entry & serve to different user.
 
-**`id_map` scoping for server-local handles.** A user with two Plex connections (two different servers) will produce two distinct `plex:ratingKey` values for the same title — the key is meaningful only against the server that issued it. The `id_map` table therefore keys server-local id rows by `(plugin_id, connection_id, id_type, id_value)` rather than the `(id_type, id_value)` pair used for global-scope ids like `tmdb:`/`imdb:`. Cross-service ids from metadata providers (TMDB, TVDB, Trakt) keep the connection-less key so they remain shareable across users; only id-types that declare themselves server-local inherit the extra dimension. The schema change is additive — the existing `id_map` columns stay, with `plugin_id` and `connection_id` added as nullable and constrained to be non-null for server-local id types.
+**Per-request cache-key scoping.** Cache key prefix carries _resolved_ scope, not capability's declared scope mode. `resolve({ from: "tmdb", id: "550" })` → `mv:idResolve:v1:resolve:global:…` (shared ∀ callers). `resolve({ from: "plex:ratingKey", id: "42" })` for user Alice → `mv:idResolve:v1:resolve:user:alice:…`; for Bob → `mv:idResolve:v1:resolve:user:bob:…` — two distinct entries. Classifier defensively returns `"global"` for malformed inputs.
 
-### Built-in plugin coverage after this revision
+**`id_map` scoping for server-local handles.** User with two Plex connections → two distinct `plex:ratingKey` values for same title. ∴ `id_map` keys server-local id rows by `(plugin_id, connection_id, id_type, id_value)` rather than `(id_type, id_value)`. Cross-service ids from metadata providers keep connection-less key (shareable across users). Schema change additive — existing columns stay; `plugin_id` & `connection_id` added nullable, constrained non-null for server-local id types.
+
+### Built-in Plugin Coverage
 
 | Capability               | TMDB     | Trakt    | Seerr  | TVDB     | Plex   | Jellyfin |
 | ------------------------ | -------- | -------- | ------ | -------- | ------ | -------- |
@@ -589,11 +587,11 @@ Server-local ids are user-scoped (they only mean something against a specific co
 | `continueWatching@v1`    |          |          |        |          | ✓ user | ✓ user   |
 | `libraryAdmin@v1`        |          |          |        |          | ✓ user | ✓ user   |
 
-For `notificationDelivery@v1`, coverage lives in dedicated notification plugins (`ntfy`, `telegram`, `discord`, built-in `inbox`) rather than the media-integration plugins above. None of the existing built-ins implement notification delivery; conversely, the notification plugins implement only `notificationDelivery@v1`. See `docs/2026-04-25-notifications-design.md`.
+`notificationDelivery@v1` coverage lives in dedicated notification plugins (`ntfy`, `telegram`, `discord`, built-in `inbox`). Existing media-integration plugins ⊥ implement notification delivery; notification plugins implement only `notificationDelivery@v1`. See `docs/2026-04-25-notifications-design.md`.
 
-## Plugin context
+## Plugin Context
 
-The only surface a plugin can touch outside its own code. Built fresh by the host for every call. The host selects which credentials to inject based on the scope of the capability being invoked and, where relevant, the current rotation pick from a pool.
+Only surface plugin can touch outside its own code. Built fresh by host per call. Host selects creds to inject based on capability scope & current pool rotation pick.
 
 ```ts
 interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
@@ -650,21 +648,21 @@ interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
 }
 ```
 
-The plugin does not need to know or decide which side (shared vs user) the current credential came from — after `markExhausted`, the host knows what to mark and what to try next.
+Plugin ⊥ need to know which side (shared vs user) current cred came from — after `markExhausted`, host knows what to mark & what to try next.
 
-What is deliberately not exposed:
+Deliberately ⊥ exposed:
 
-- No direct DB access.
-- No filesystem.
-- No cross-plugin calls. The host resolves `id_map` lookups.
-- No `setTimeout` / `setInterval`. Scheduling is host-driven via manifest jobs.
-- No env vars. Anything a plugin needs is in `config` or the credential slots.
-- No `eval` or dynamic imports. The bundled JS file is everything the plugin gets.
-- No visibility into other pool entries. The plugin sees only the current pick.
+- ⊥ direct DB access.
+- ⊥ filesystem.
+- ⊥ cross-plugin calls. Host resolves `id_map` lookups.
+- ⊥ `setTimeout` / `setInterval`. Scheduling host-driven via manifest jobs.
+- ⊥ env vars. ∀ plugin needs ∈ `config` | credential slots.
+- ⊥ `eval` | dynamic imports. Bundled JS = everything plugin gets.
+- ⊥ visibility into other pool entries. Plugin sees only current pick.
 
-## Plugin runtime
+## Plugin Runtime
 
-Host-owned. Nothing else in the app touches the plugin runtime directly.
+Host-owned. Nothing else in app touches runtime directly.
 
 **v1 layout (trusted TypeScript modules, no sandbox):**
 
@@ -695,24 +693,24 @@ packages/plugins/<id>/src/           one workspace package per integration
 └── plugin.ts        the plugin module (definePlugin({...}))
 ```
 
-See `docs/2026-04-25-plugin-monorepo-design.md` for the full packaging design and the symbol map (what moved where, what re-exports, what stays).
+See `docs/2026-04-25-plugin-monorepo-design.md` for full packaging design & symbol map.
 
-> **Future revision — QuickJS sandbox:** When third-party plugin support is introduced, `sandbox.ts` (QuickJS instance wrapper via `quickjs-emscripten`) and `host-bridge.ts` (implementations of `ctx` methods crossing the sandbox boundary) will be added. The layout above will expand accordingly, and the per-instance memory cap (64 MB) and call timeout (30 s via QuickJS interrupt handler) will be enforced at that point. Until then, built-in plugins run as trusted TypeScript modules with no memory or timeout isolation.
+> **Future — QuickJS sandbox:** When 3rd-party plugin support introduced, `sandbox.ts` (QuickJS instance wrapper via `quickjs-emscripten`) & `host-bridge.ts` (implementations of `ctx` methods crossing sandbox boundary) added. Per-instance memory cap (64 MB) & call timeout (30 s via QuickJS interrupt handler) enforced then.
 
-**Instance model (v1):** one module reference per plugin, registered at host startup. User-scoped data is passed through `ctx` every call; plugins must not stash user state in module scope.
+**Instance model (v1):** one module ref per plugin, registered at host startup. User-scoped data passed through `ctx` per call; plugins ! stash user state in module scope.
 
 **Invocation path:**
 
-1. `MediaService` asks the registry which plugins implement the requested `(capability, version, scope)` tuple.
-2. For each matching plugin: runtime validates input against the capability's input schema.
-3. Host builds the credential plan for this call:
-   - **Global-scoped call:** pick a `shared_credentials` entry from the admin pool. For `poolable: true` plugins, rotate across enabled entries whose `retry_after` is past (round-robin). For non-poolable plugins, use the single entry or fail with `CAPABILITY_UNAVAILABLE` if none.
-   - **User-scoped call:** resolve the user's enabled connections for this plugin. For `poolable: true` plugins, rotate across them; otherwise pick the default. If the plugin's `personalKeyFallback` is `"admin-first"` or `"personal-first"`, the call also has a secondary pool on the other side (always scoped to this user's request — user A's key is never used for user B).
-4. Host decrypts the selected credential, builds `PluginContext` with `config.global`, `config.user` (user-scoped only), `credentials`, and/or `sharedCredentials` according to the plan.
-5. Host invokes the plugin method.
-6. If the plugin calls `ctx.pool.markExhausted({ retryAfterSec })` and throws: host updates the current pool entry's `retry_after`, picks the next entry in the current pool (or falls over to the secondary pool per `personalKeyFallback`), rebuilds `ctx`, and retries the same invocation. Retry count is bounded by the total pool size to prevent loops; exhausting everything surfaces as `POOL_EXHAUSTED`.
-7. Runtime validates output against the output schema.
-8. Result returned to `MediaService` for fan-out handling.
+1. `MediaService` asks registry which plugins implement `(capability, version, scope)`.
+2. ∀ matching plugin: runtime validates input against capability's input schema.
+3. Host builds cred plan:
+   - **Global-scoped:** pick `shared_credentials` from admin pool. `poolable: true` → rotate across enabled entries where `retry_after` past (round-robin). Non-poolable → use single entry | fail `CAPABILITY_UNAVAILABLE`.
+   - **User-scoped:** resolve user's enabled connections. `poolable: true` → rotate; otherwise pick default. `personalKeyFallback` `"admin-first"` | `"personal-first"` → call has secondary pool on other side (always scoped to this user — ⊥ user A key used for user B).
+4. Host decrypts selected cred, builds `PluginContext` with `config.global`, `config.user` (user-scoped only), `credentials`, &/or `sharedCredentials` per plan.
+5. Host invokes plugin method.
+6. If plugin calls `ctx.pool.markExhausted({ retryAfterSec })` & throws: host updates current pool entry `retry_after`, picks next entry (| falls to secondary pool per `personalKeyFallback`), rebuilds `ctx`, retries. Retry count bounded by total pool size; exhausting everything → `POOL_EXHAUSTED`.
+7. Runtime validates output against output schema.
+8. Result → `MediaService` for fan-out handling.
 
 **`personalKeyFallback` policy (per plugin, admin-configured):**
 
@@ -722,34 +720,34 @@ See `docs/2026-04-25-plugin-monorepo-design.md` for the full packaging design an
 | `"admin-first"`    | Admin shared-credentials pool                                  | Requesting user's own connection pool (user-scoped calls only, if user has connections) |
 | `"personal-first"` | Requesting user's own connection pool (user-scoped calls only) | Admin shared-credentials pool                                                           |
 
-Only meaningful for plugins with `poolable: true` and at least one user-scoped capability. For pure-global plugins the policy is unused; for non-poolable plugins with user-scoped capabilities the policy still applies (the "pool" is just size-one on the user side).
+Only meaningful for plugins with `poolable: true` & ≥1 user-scoped capability. Pure-global plugins → policy unused. Non-poolable plugins with user-scoped capabilities → policy still applies (pool size-one on user side).
 
 **Error handling:**
 
-- Plugin throws: host catches, logs with plugin id and stack, updates the relevant connection or pool entry (`status = "error"` on a connection, or `retry_after` on a pool entry) with message, returns a typed error to the caller. Host never crashes.
-- Auth-specific errors (expired token, bad credentials) surface via reserved error codes so the host can trigger refresh or mark the connection / shared-credential entry as errored.
-- `POOL_EXHAUSTED`: every entry in every relevant pool for this call is in cooldown. Carries the nearest `retryAfterSec`.
-- `CAPABILITY_UNAVAILABLE`: no plugin provides `(capability, scope)`, or the only providers have no usable config (e.g. pure-global plugin with no admin shared credentials set).
-- _(Future — QuickJS sandbox)_ Sandbox OOM or timeout: runtime reboots the instance on next use; affected connection is marked error until recovery.
+- Plugin throws: host catches, logs with plugin id & stack, updates connection | pool entry (`status = "error"` on connection | `retry_after` on pool entry), returns typed error. Host ⊥ crash.
+- Auth-specific errors (expired token, bad creds) surface via reserved error codes → host triggers refresh | marks connection / shared-credential entry as errored.
+- `POOL_EXHAUSTED`: ∀ entries in ∀ relevant pools in cooldown. Carries nearest `retryAfterSec`.
+- `CAPABILITY_UNAVAILABLE`: no plugin provides `(capability, scope)` | only providers have no usable config.
+- _(Future — QuickJS sandbox)_ Sandbox OOM | timeout: runtime reboots instance on next use; affected connection marked error until recovery.
 
 **Security enforcement points:**
 
-- `ctx.fetch`: hostname check against `manifest.allowedHosts` unioned with any hostnames resolved from `x-allowed-host` fields in the active `userConfig`/`shared_credentials`; per-plugin token-bucket rate limit.
-- `ctx.store`: server-side namespacing by `(plugin_id, user_id, key)`. Plugins never see other plugins' or other users' data.
-- `ctx.log`: tagged and filtered by host.
-- `ctx.pool.markExhausted` is purely advisory to the host; it cannot be used to leak state across plugins or users.
-- Call timeout, memory limit, no dynamic code execution.
+- `ctx.fetch`: hostname check against `manifest.allowedHosts` ∪ hostnames from `x-allowed-host` fields in active `userConfig`/`shared_credentials`; per-plugin token-bucket rate limit.
+- `ctx.store`: server-side namespacing by `(plugin_id, user_id, key)`. Plugins ⊥ see other plugins' | other users' data.
+- `ctx.log`: tagged & filtered by host.
+- `ctx.pool.markExhausted` purely advisory to host; ⊥ leak state across plugins | users.
+- Call timeout, memory limit, ⊥ dynamic code execution.
 
 **Caching implications:**
 
-- Global-scoped call results are user-independent. Cache keys are `plugin:{plugin_id}:{capability}:{argsHash}`, shared across all users — large saving on TMDB/TVDB metadata.
-- User-scoped call results keep the existing `user:{user_id}:{plugin_id}:{capability}:{argsHash}` keys.
+- Global-scoped results = user-independent. Cache keys: `plugin:{plugin_id}:{capability}:{argsHash}`, shared ∀ users.
+- User-scoped results keep `user:{user_id}:{plugin_id}:{capability}:{argsHash}` keys.
 
-## Database schema
+## Database Schema
 
 ### `plugins`
 
-Registry of installed plugins. One row per installed plugin.
+Registry of installed plugins. One row per plugin.
 
 ```
 plugins
@@ -767,13 +765,13 @@ plugins
 ├── updated_at               integer NOT NULL
 ```
 
-`global_config` is plaintext by design — it carries display settings, base URLs, feature flags. All admin secrets live in `plugin_shared_credentials` (encrypted).
+`global_config` plaintext by design — display settings, base URLs, feature flags. ∀ admin secrets → `plugin_shared_credentials` (encrypted).
 
-One version per plugin at a time. Retention: the last 3 version directories stay on disk for rollback.
+One version per plugin at a time. Retention: last 3 version directories on disk for rollback.
 
 ### `plugin_shared_credentials` (new)
 
-Admin-owned encrypted credentials for a plugin. For `poolable: true` plugins the host rotates across enabled entries with cooldown bookkeeping. For non-poolable plugins exactly one row is permitted per plugin (enforced at insert time).
+Admin-owned encrypted creds for plugin. `poolable: true` → host rotates across enabled entries with cooldown. Non-poolable → exactly one row permitted per plugin (enforced at insert).
 
 ```
 plugin_shared_credentials
@@ -790,7 +788,7 @@ plugin_shared_credentials
 ├── INDEX(plugin_id, enabled)
 ```
 
-Decrypted values are never returned over the API. Admin UIs use `label` and status telemetry only.
+Decrypted values ⊥ returned over API. Admin UIs use `label` & status telemetry only.
 
 ### `service_connections` (revised)
 
@@ -816,9 +814,9 @@ service_connections
 ├── INDEX(user_id, plugin_id)
 ```
 
-**Why `user_config` and `credentials` live in different columns:** they have independent lifecycles. `user_config` is plaintext and low-stakes; `encrypted_credentials` is the secret material with its own IV. A cron token refresh re-encrypts credentials without touching config; editing a Seerr URL rewrites config without touching credentials. Fewer ways to corrupt one while writing the other.
+**Why `user_config` & `credentials` in different columns:** independent lifecycles. `user_config` plaintext, low-stakes; `encrypted_credentials` secret material with own IV. Cron token refresh re-encrypts creds without touching config; editing Seerr URL rewrites config without touching creds.
 
-**Rows exist only for plugins with user-scoped capabilities.** A plugin with `auth.kind: "none"` and only global-scoped capabilities never has `service_connections` rows — its whole lifecycle is admin-side.
+**Rows ∃ only for plugins with user-scoped capabilities.** `auth.kind: "none"` + only global capabilities → ⊥ `service_connections` rows.
 
 ### `plugin_store`
 
@@ -837,7 +835,7 @@ plugin_store
 ├── INDEX(expires_at)
 ```
 
-Namespace enforcement is in the host bridge. Nightly sweep prunes expired rows.
+Namespace enforcement in host bridge. Nightly sweep prunes expired rows.
 
 ### `pending_auth`
 
@@ -856,259 +854,257 @@ pending_auth
 
 ### `id_map` (unchanged)
 
-As in the initial design. Populated opportunistically by the host as capability calls return cross-service IDs.
+As in initial design. Populated opportunistically by host as capability calls return cross-service IDs.
 
 ## Lifecycle
 
 ### Install (admin-initiated)
 
-1. Fetch JS from `source_url` (or read from bundled path for built-ins).
+1. Fetch JS from `source_url` (| read from bundled path for built-ins).
 2. Compute sha256. If caller provided `expectedChecksum`, compare; mismatch aborts.
-3. Boot a throwaway QuickJS instance. Call `getManifest()`. Tear down.
-4. Validate manifest against host's Zod schema, including the derived rules in the manifest section (scope consistency, required schemas per plugin shape, etc.).
-5. Compatibility: `manifest.sdkVersion` satisfies the host's current SDK semver.
-6. Confirm every declared capability exists in the host registry at the declared `(version, scope)`.
-7. Confirm the plugin object exports all declared capability methods and job handlers.
+3. Boot throwaway QuickJS instance. Call `getManifest()`. Tear down.
+4. Validate manifest against host's Zod schema, including derived rules (scope consistency, required schemas per plugin shape, etc.).
+5. Compatibility: `manifest.sdkVersion` satisfies host's current SDK semver.
+6. Confirm ∀ declared capabilities ∃ in host registry at declared `(version, scope)`.
+7. Confirm plugin exports ∀ declared capability methods & job handlers.
 8. Write JS to `data/plugins/<plugin_id>/<version>/plugin.js`.
-9. Insert `plugins` row (with `personal_key_fallback` defaulting to `'off'`).
+9. Insert `plugins` row (`personal_key_fallback` defaults `'off'`).
 10. Register capabilities indexed by `(id, version, scope)`; register jobs with croner.
-11. Boot the long-lived runtime instance.
+11. Boot long-lived runtime instance.
 
-Admin-owned shared credentials are added after install via `plugin.addSharedCredential`. A newly-installed plugin may have no shared credentials yet, in which case global-scoped calls return `CAPABILITY_UNAVAILABLE` until the admin configures one.
+Admin-owned shared creds added after install via `plugin.addSharedCredential`. Newly-installed plugin with no shared creds → global-scoped calls return `CAPABILITY_UNAVAILABLE` until admin configures one.
 
-Any failure rolls back cleanly. No partial state.
+∀ failure → clean rollback. ⊥ partial state.
 
 ### Update
 
-Runs the full install flow against a new version. On success: tear down old instance, stop old cron jobs, update `plugins` row, retain old `<version>/` directory on disk, boot new instance, register new jobs. On failure, old version stays active.
+Full install flow against new version. On success: tear down old instance, stop old cron jobs, update `plugins` row, retain old `<version>/` directory on disk, boot new instance, register new jobs. On failure → old version stays active.
 
-### Enable / disable
+### Enable / Disable
 
-Admin toggles `plugins.enabled`. Runtime tears down the instance, unregisters capabilities and jobs. Existing `service_connections` rows are untouched. `MediaService` returns "plugin disabled" errors for disabled-plugin connections. Re-enabling restores everything.
+Admin toggles `plugins.enabled`. Runtime tears down instance, unregisters capabilities & jobs. Existing `service_connections` untouched. `MediaService` returns "plugin disabled" errors. Re-enabling restores everything.
 
 ### Uninstall
 
-Delete `plugins` row (cascade deletes `service_connections` and `plugin_store` rows for this plugin). Delete `data/plugins/<plugin_id>/`. Tear down runtime, unregister capabilities and jobs. Invalidate caches tagged to this plugin.
+Delete `plugins` row (cascade deletes `service_connections` & `plugin_store` rows). Delete `data/plugins/<plugin_id>/`. Tear down runtime, unregister capabilities & jobs. Invalidate caches tagged to plugin.
 
-### Token refresh and other scheduled work
+### Token Refresh & Scheduled Work
 
-Declared by the plugin in `manifest.jobs`. Host croner fires each job at its schedule and calls the plugin handler.
+Declared in `manifest.jobs`. Host croner fires each job at schedule.
 
-- **Plugin-global jobs:** handler called once per tick with a plugin-scoped `ctx` (no user credentials).
-- **`perConnection: true` jobs:** host iterates every `service_connections` row for the plugin, builds a user-scoped `ctx`, calls the handler per row. Handler returns new credentials (or throws). Host re-encrypts and updates the row. Used for token refresh and health checks.
+- **Plugin-global jobs:** handler called once per tick with plugin-scoped `ctx` (no user creds).
+- **`perConnection: true` jobs:** host iterates ∀ `service_connections` rows for plugin, builds user-scoped `ctx`, calls handler per row. Handler returns new creds (| throws). Host re-encrypts & updates row. Used for token refresh & health checks.
 
-Putting the iteration in the host keeps plugins simple and consistent.
+Iteration in host keeps plugins simple & consistent.
 
-## API endpoints (oRPC)
+## API Endpoints (oRPC)
 
-### Admin — plugin management
+### Admin — Plugin Management
 
 Permission: `admin:plugins`.
 
 **Core lifecycle:**
 
-- `plugin.list` — all installed plugins with manifest, version, enabled, install date, `personalKeyFallback` policy, `poolable`, `sharedCredentialsCount` (enabled entries), and `capabilities: Array<{ id, version, scope }>`. Never includes decrypted secrets.
-- `plugin.install` — `{ sourceUrl, expectedChecksum? }` → new plugin row. _(Deferred — requires QuickJS sandbox; see "Deferred to future revisions".)_
+- `plugin.list` — ∀ installed plugins with manifest, version, enabled, install date, `personalKeyFallback`, `poolable`, `sharedCredentialsCount`, `capabilities: Array<{ id, version, scope }>`. ⊥ decrypted secrets.
+- `plugin.install` — `{ sourceUrl, expectedChecksum? }` → new plugin row. _(Deferred — requires QuickJS sandbox; see §Deferred.)_
 - `plugin.update` — `{ pluginId, sourceUrl, expectedChecksum? }` → updated row. _(Deferred — same prerequisite.)_
-- `plugin.uninstall` — `{ pluginId }` → full cascade (drops shared credentials, connections, store entries). Built-in plugins cannot be uninstalled.
+- `plugin.uninstall` — `{ pluginId }` → full cascade (drops shared creds, connections, store entries). Built-in plugins ⊥ uninstallable.
 - `plugin.setEnabled` — `{ pluginId, enabled }`.
-- `plugin.rollback` — `{ pluginId, toVersion }`, only versions still on disk. _(Deferred — same prerequisite.)_
+- `plugin.rollback` — `{ pluginId, toVersion }`, only versions still on disk. _(Deferred.)_
 
 **Plaintext global config (admin):**
 
 - `plugin.setGlobalConfig` — `{ pluginId, config }`, validated against `globalConfigSchema`. Stored plaintext.
-- `plugin.getGlobalConfig` — returns plaintext global config for the admin UI.
+- `plugin.getGlobalConfig` — returns plaintext global config for admin UI.
 
 **Shared credentials pool (admin):**
 
-- `plugin.listSharedCredentials` — `{ pluginId }` → array of `{ id, label, enabled, lastExhaustedAt, retryAfter, createdAt, updatedAt }`. Decrypted values are never returned.
-- `plugin.addSharedCredential` — `{ pluginId, label, value }`. Value is validated against `sharedCredentialsSchema` and encrypted before write. Rejected if the plugin is not `poolable` and an entry already exists.
-- `plugin.updateSharedCredential` — `{ pluginId, credentialId, label?, value?, enabled? }`. Fields omitted in the payload are preserved (merge semantics).
-- `plugin.deleteSharedCredential` — `{ pluginId, credentialId }`. No count guard; deleting the last enabled entry simply causes global-scoped calls to return `CAPABILITY_UNAVAILABLE` until another is added.
-- `plugin.testSharedCredential` — `{ pluginId, credentialId }` → `{ ok, message? }`. Host builds a runtime `ctx` with that specific credential injected and calls the plugin's `testConnection` (or, for pure-global plugins with `auth.kind: "none"`, a reserved lightweight probe method — alternatively, pure-global plugins can export an optional `verifyShared` handler that the host calls here).
+- `plugin.listSharedCredentials` — `{ pluginId }` → array of `{ id, label, enabled, lastExhaustedAt, retryAfter, createdAt, updatedAt }`. ⊥ decrypted values.
+- `plugin.addSharedCredential` — `{ pluginId, label, value }`. Value validated against `sharedCredentialsSchema` & encrypted before write. Rejected if plugin ⊥ `poolable` & entry already ∃.
+- `plugin.updateSharedCredential` — `{ pluginId, credentialId, label?, value?, enabled? }`. Omitted fields preserved (merge semantics).
+- `plugin.deleteSharedCredential` — `{ pluginId, credentialId }`. ⊥ count guard; deleting last enabled entry → global-scoped calls return `CAPABILITY_UNAVAILABLE` until another added.
+- `plugin.testSharedCredential` — `{ pluginId, credentialId }` → `{ ok, message? }`. Host builds runtime `ctx` with that specific cred & calls plugin's `testConnection` (| for pure-global `auth.kind: "none"`, reserved lightweight probe | optional `verifyShared` handler).
 
 **Fallback policy (admin):**
 
-- `plugin.setPersonalKeyFallback` — `{ pluginId, policy: "off" | "admin-first" | "personal-first" }`. Only meaningful for plugins with any user-scoped capability; rejected for pure-global plugins. Default remains `"off"`.
+- `plugin.setPersonalKeyFallback` — `{ pluginId, policy: "off" | "admin-first" | "personal-first" }`. Only meaningful for plugins with ≥1 user-scoped capability; rejected for pure-global plugins. Default `"off"`.
 
-### User — connection management
+### User — Connection Management
 
-Permission: `account:connections`. Scoped to the authenticated user.
+Permission: `account:connections`. Scoped to authenticated user.
 
 **Reads:**
 
-- `connection.list` — user's connections with plugin manifest info merged in. Includes `userConfig` with `x-secret` and `x-private` properties stripped (cards need non-secret, non-private fields for display); never includes credentials.
-- `connection.getUserConfig` — `{ connectionId }` → `user_config` with `x-secret` and `x-private` properties stripped (for edit-form prefill). Credentials never returned.
-- `plugin.listAvailable` — plugins the user can create a connection for. **Only returns plugins with at least one user-scoped capability.** Each entry includes:
-  - `userScopedCapabilities: Array<{ id, version }>` — what a connection unlocks for this user.
-  - `globalScopedCapabilities: Array<{ id, version }>` — informational only; already available, no connection required.
-  - `poolable: boolean` — drives whether the UI offers an "add another instance" affordance for this plugin.
-  - `adminSharedAvailable: boolean` — true when admin has configured at least one enabled shared-credentials entry. The UI uses this to show "metadata already works out of the box" language on mixed plugins.
+- `connection.list` — user's connections with plugin manifest merged in. Includes `userConfig` with `x-secret` & `x-private` stripped; ⊥ credentials.
+- `connection.getUserConfig` — `{ connectionId }` → `user_config` with `x-secret` & `x-private` stripped (for edit-form prefill). ⊥ credentials.
+- `plugin.listAvailable` — plugins user can connect to. **Only returns plugins with ≥1 user-scoped capability.** Each entry:
+  - `userScopedCapabilities: Array<{ id, version }>` — what connection unlocks.
+  - `globalScopedCapabilities: Array<{ id, version }>` — informational; already available, ⊥ connection needed.
+  - `poolable: boolean` — drives whether UI offers "add another instance".
+  - `adminSharedAvailable: boolean` — true when admin configured ≥1 enabled shared-cred entry. UI uses for "metadata already works out of the box" language on mixed plugins.
 
 **Writes — form auth:**
 
 - `connection.create` — `{ pluginId, userConfig, displayName? }`.
-- `connection.updateUserConfig` — `{ connectionId, userConfig }`. The host **merges** the incoming payload over the prior decrypted `userConfig` (incoming wins where present), so `x-secret` and `x-private` fields the client omits are preserved. For `auth.kind === "form"`, the host then re-runs `startAuth(ctx, mergedUserConfig)` to validate upstream and produce fresh credentials, and writes both `encrypted_user_config` and `encrypted_credentials` atomically. For other auth kinds, the host runs `testConnection` against existing credentials + merged userConfig and writes only `encrypted_user_config`. On any verification failure, both columns are preserved.
-- `connection.updateDisplayName` — cosmetic, no plugin involvement.
+- `connection.updateUserConfig` — `{ connectionId, userConfig }`. Host **merges** incoming payload over prior decrypted `userConfig` (incoming wins where present) → `x-secret` & `x-private` fields client omits preserved. For `auth.kind === "form"`: host re-runs `startAuth(ctx, mergedUserConfig)` to validate upstream & produce fresh creds, writes both columns atomically. Other auth kinds: host runs `testConnection` against existing creds + merged userConfig, writes only `user_config`. On verification failure → both columns preserved.
+- `connection.updateDisplayName` — cosmetic, ⊥ plugin involvement.
 
 **Writes — OAuth redirect:**
 
 - `connection.initiateOAuth` — `{ pluginId }` → `{ redirectUrl, nonce }`.
-- Completing the redirect flow. Two approaches are supported; both are valid and can coexist:
-  - **SPA / frontend-driven (current implementation):** The OAuth provider redirects back to the frontend. The frontend extracts `code` and `state` from the query string, then calls `connection.completeOAuth` — `{ nonce, queryParams }` → `{ connection }`. This avoids a server-side session cookie requirement and works naturally in a SPA context.
-  - **Server-side callback (future, for non-SPA clients):** A regular HTTP handler at `GET /api/oauth/callback/:pluginId` receives the provider redirect directly. The host looks up `state` in `pending_auth`, calls `completeAuth(ctx, queryParams, state)`, encrypts credentials, and redirects the client to a confirmation page. Required for native apps, server-rendered clients, or any context where the frontend cannot intercept the redirect.
+- Completing redirect flow. Two approaches, both valid:
+  - **SPA / frontend-driven (current):** Provider redirects to frontend. Frontend extracts `code` & `state`, calls `connection.completeOAuth` — `{ nonce, queryParams }` → `{ connection }`. ⊥ server-side session cookie. Natural for SPA.
+  - **Server-side callback (future):** Regular HTTP handler at `GET /api/oauth/callback/:pluginId` receives provider redirect. Host looks up `state` in `pending_auth`, calls `completeAuth(ctx, queryParams, state)`, encrypts creds, redirects to confirmation page. Needed for native apps, server-rendered clients.
 
 **Writes — OAuth device:**
 
 - `connection.initiateDeviceAuth` — `{ pluginId }` → `{ userCode, verifyUrl, nonce, intervalSec, expiresAt }`.
-- `connection.pollDeviceAuth` — `{ nonce }` → pending / completed / error.
+- `connection.pollDeviceAuth` — `{ nonce }` → pending | completed | error.
 
 **Writes — common:**
 
 - `connection.setDefault` — `{ connectionId }`.
 - `connection.setEnabled` — `{ connectionId, enabled }`.
 - `connection.delete` — auto-promotes another instance to default if needed.
-- `connection.test` — `{ connectionId }`. Calls `testConnection(ctx)` on the plugin. Updates `last_verified_at` on success, `status="error"` on fail.
+- `connection.test` — `{ connectionId }`. Calls `testConnection(ctx)` on plugin. Updates `last_verified_at` on success, `status="error"` on fail.
 
-## Shared-credentials behaviour for TMDB / TVDB
+## Shared-Credentials Behaviour for TMDB / TVDB
 
-The former bespoke "shared-key model" is now just an instance of the general scope + pool system:
+Former bespoke "shared-key model" = instance of general scope + pool system:
 
-- TMDB/TVDB declare `metadata` and `idResolve` as `scope: "global"`. These calls never require a user connection and run entirely off the admin pool in `plugin_shared_credentials`.
-- When TMDB/TVDB later expose user-scoped capabilities (watchlist, ratings), those require a user connection with real credentials. Users without a connection still get global capabilities from the admin pool; they just can't sync their personal watchlist.
-- The manifest sets `poolable: true` for TMDB/TVDB; admins can configure multiple API keys and the host rotates/fails over automatically.
-- `personalKeyFallback` lets the admin decide how admin pool and a user's personal keys interact for user-scoped calls — without ever mixing keys across users.
+- TMDB/TVDB declare `metadata` & `idResolve` as `scope: "global"`. ⊥ user connection needed; run entirely off admin pool.
+- When TMDB/TVDB expose user-scoped capabilities (watchlist, ratings) → require user connection with real creds. Users without connection still get global capabilities from admin pool; ⊥ can sync personal watchlist.
+- `poolable: true` for TMDB/TVDB; admins configure multiple API keys; host rotates/fails over.
+- `personalKeyFallback` lets admin decide how admin pool & user's personal keys interact for user-scoped calls — ⊥ mixing keys across users.
 
-## Self-hosted network topology
+## Self-hosted Network Topology
 
-Media-manager, Plex, Jellyfin, and the browser that ultimately opens a deep link often live on three different network vantage points. A typical docker-compose deployment has media-manager reaching Plex at `http://plex:32400` over a private bridge network, while the user's phone reaches the same server at `https://plex.mydomain.com`. The two URLs are not interchangeable, and conflating them breaks silently — the host talks to Plex fine, but every `playerLink` it returns 404s on the client.
+Media-manager, Plex, Jellyfin, & browser that opens deep link often live on three different network vantage points. Typical docker-compose: media-manager reaches Plex at `http://plex:32400` over private bridge; user's phone reaches at `https://plex.mydomain.com`. Two URLs ≠ interchangeable; conflating them breaks silently — host talks to Plex fine, but every `playerLink` 404s on client.
 
-The design handles this in three places.
+Design handles this in three places.
 
-**User-configurable dual URLs on server plugins.** Plex and Jellyfin `userConfigSchema` expose:
+**User-configurable dual URLs on server plugins.** Plex & Jellyfin `userConfigSchema` expose:
 
-- `externalServerUrl` (required, marked `"x-allowed-host": true`) — the URL the client can reach. All `playerLink` / `webLink` values MUST be built from this. Stored plaintext in `user_config`.
-- `internalServerUrl` (optional, marked `"x-allowed-host": true` and `"x-private": true`) — the URL the host should prefer for server-to-server `ctx.fetch` calls. Falls back to `externalServerUrl` when unset. The `x-private` annotation is what keeps this value from ever appearing in an API response; the mechanism is defined once in the manifest section and reused here rather than hardcoded for this specific field.
+- `externalServerUrl` (required, `"x-allowed-host": true`) — URL client can reach. ∀ `playerLink` / `webLink` values ! built from this. Stored plaintext.
+- `internalServerUrl` (optional, `"x-allowed-host": true`, `"x-private": true`) — URL host should prefer for `ctx.fetch`. Falls back to `externalServerUrl` when unset. `x-private` keeps this ⊥ appearing in API responses.
 
-When both are set, the plugin's convention is: **fetch via internal, return external in every field that leaves the server.**
+When both set: **fetch via internal, return external in ∀ fields leaving server.**
 
-**Dynamic `ctx.fetch` allowlist.** `manifest.allowedHosts` is still the static floor — `plex.tv` for Plex PIN auth, for example. For hosts that cannot be known at manifest time (any user-supplied URL), the runtime unions in the hostname of every `"x-allowed-host": true` field present on the current call's connection (or shared-credentials entry). The allowlist is recomputed per invocation, so rotating to a different connection in a pool reshapes what `ctx.fetch` can reach.
+**Dynamic `ctx.fetch` allowlist.** `manifest.allowedHosts` = static floor. For hosts unpredictable at manifest time, runtime unions hostname of every `"x-allowed-host": true` field on current call's connection (| shared-credentials entry). Allowlist recomputed per invocation → rotating to different connection reshapes what `ctx.fetch` can reach.
 
-**SSRF mitigation on `x-allowed-host` fields.** Self-hosted deployments require the host to reach private-network addresses (a user's `internalServerUrl: http://plex:32400` is the whole point), so a blanket RFC1918 block would defeat the design. Instead, the runtime applies a narrow blocklist to hostnames resolved from `x-allowed-host` fields before adding them to the per-call allowlist, covering the attack surfaces that have no legitimate reason to be reached from a plugin:
+**SSRF mitigation on `x-allowed-host` fields.** Self-hosted deployments require host to reach private-network addresses (`internalServerUrl: http://plex:32400` = the whole point) → blanket RFC1918 block defeats design. Instead, runtime applies narrow blocklist to hostnames resolved from `x-allowed-host` fields before adding to per-call allowlist:
 
-- Cloud instance-metadata endpoints: `169.254.169.254` (AWS / GCP / Azure IMDS), `fd00:ec2::254` (IMDSv6), `100.100.100.200` (Alibaba), and `metadata.google.internal`.
-- Loopback ranges: `127.0.0.0/8` and `::1` — legitimate server URLs point to a real host in the network, not to the media-manager process itself.
-- Link-local ranges outside the metadata blocklist: `169.254.0.0/16` and `fe80::/10`.
+- Cloud instance-metadata endpoints: `169.254.169.254` (AWS/GCP/Azure IMDS), `fd00:ec2::254` (IMDSv6), `100.100.100.200` (Alibaba), `metadata.google.internal`.
+- Loopback: `127.0.0.0/8` & `::1`.
+- Link-local outside metadata blocklist: `169.254.0.0/16` & `fe80::/10`.
 
-DNS resolution for `x-allowed-host` URLs happens inside the `ctx.fetch` implementation, so the runtime can apply the blocklist to the resolved address (not just the hostname string) and mitigate DNS-rebinding attempts. RFC1918 / ULA / unique-local ranges are deliberately **allowed**, because they are the expected topology for docker-compose and LAN deployments. Admins who deploy in hostile multi-tenant environments can tighten the blocklist via a host-level setting; the default is the list above.
+DNS resolution for `x-allowed-host` URLs happens inside `ctx.fetch` → runtime applies blocklist to resolved address (not just hostname string) to mitigate DNS-rebinding. RFC1918 / ULA / unique-local ranges deliberately **allowed** — expected topology for docker-compose & LAN deployments.
 
-**App-level external URL for OAuth and link-backs.** The media-manager app itself has the same internal-vs-external split. OAuth providers redirect users back to the app, and "open in browser" links in emails or MCP tool outputs must resolve on the client's network. The host reads a single `APP_EXTERNAL_URL` setting (env var, surfaced to admins) and uses it for:
+**App-level external URL for OAuth & link-backs.** Host reads `APP_EXTERNAL_URL` (env var) for:
 
-- OAuth `redirect_uri` values the plugin returns from `startAuth` (`${APP_EXTERNAL_URL}/oauth/callback/${plugin_id}`). Plugins never construct this themselves — the runtime injects the base URL via `ctx.appBaseUrl`.
-- Any absolute link the host returns in an API response that is expected to be opened by a browser.
+- OAuth `redirect_uri` values plugin returns from `startAuth` (`${APP_EXTERNAL_URL}/oauth/callback/${plugin_id}`). Plugins ⊥ construct this — runtime injects via `ctx.appBaseUrl`.
+- ∀ absolute links host returns in API responses expected to be opened by browser.
 
-`APP_EXTERNAL_URL` is mandatory in production. In dev it defaults to `http://localhost:<port>`. A misconfigured value fails fast: the host validates on startup that it is a well-formed absolute URL, and OAuth providers will reject a redirect URI that does not match their registered value, surfacing the mistake at the first connection attempt rather than silently.
+`APP_EXTERNAL_URL` ! in production. Dev defaults to `http://localhost:<port>`. Misconfigured value fails fast: host validates on startup it's well-formed absolute URL; OAuth providers reject non-matching redirect URI → surfaces at first connection attempt, ⊥ silently.
 
-## Preference profiles
+## Preference Profiles
 
-Host-owned internal state, not a plugin concern. The rebuild job reads from `watchHistory@v1`, `ratings@v1`, `metadata@v1`, and the `feedback_log` table, then writes to the existing `preference_profiles` table. No new capability.
+Host-owned internal state, ⊥ plugin concern. Rebuild job reads from `watchHistory@v1`, `ratings@v1`, `metadata@v1`, & `feedback_log` table → writes to existing `preference_profiles` table. ⊥ new capability.
 
-If a plugin later needs to read the user's profile (e.g. a taste-based recommendations plugin), it will be injected via `ctx.userProfile`, not exposed as a capability. Pluggable scoring algorithms are out of scope for v1.
+If plugin later needs to read user's profile → injected via `ctx.userProfile`, ⊥ exposed as capability. Pluggable scoring algorithms ⊥ in scope for v1.
 
 ## Caching
 
-Cache keys are `mv:{capability}:{version}:{method}:{scope_segment}:{args_hash}`, where `{scope_segment}` is `user:{user_id}` for user-scoped calls and `global` otherwise. Connection create/update/delete invalidates relevant per-user cache entries. `CacheProvider` supports in-memory (lru-cache) and optional Redis.
+Cache keys: `mv:{capability}:{version}:{method}:{scope_segment}:{args_hash}`, where `{scope_segment}` = `user:{user_id}` for user-scoped | `global` otherwise. Connection create/update/delete invalidates relevant per-user cache entries. `CacheProvider` supports in-memory (lru-cache) & optional Redis.
 
-The scope segment comes from the _resolved_ scope of the request, not a capability-level flag. For fixed-scope capabilities (`scope: "global"` or `scope: "user"` on the host definition) this is equivalent to the old rule. For mixed-scope capabilities the dispatcher calls `scopeForInput(input)` once per request and uses the result for both provider lookup and the cache key — so a user-scoped branch of a mixed capability (e.g. `idResolve@v1` with `from: "plex:ratingKey"`) cannot pollute or be served from the global cache. This is what lets `idResolve@v1` serve its cross-service id-types (`tmdb`/`imdb`/`tvdb`/`trakt`) from one shared global entry while keeping server-local resolutions (`plex:ratingKey`/`jellyfin:itemId`) isolated per user.
+Scope segment comes from _resolved_ scope of request, not capability-level flag. Fixed-scope capabilities equivalent to old rule. Mixed-scope capabilities → dispatcher calls `scopeForInput(input)` once per request; result used for both provider lookup & cache key — user-scoped branch of mixed capability (e.g. `idResolve@v1` with `from: "plex:ratingKey"`) ⊥ pollute | serve from global cache.
 
 ## Testing
 
-- Every host capability has unit tests with a fake plugin returning fixture data. Covers input/output validation, fan-out, and error paths.
-- Every built-in plugin has a contract test: calls each declared capability with a mocked `ctx`, verifies shape and behavior.
-- _(Future — QuickJS sandbox)_ Plugin runtime integration tests for the sandbox boundary: fetch allowlist enforcement, memory cap, call timeout, store namespacing.
-- _(Future — third-party install)_ Lifecycle tests covering install rollback on each validation failure.
+- ∀ host capabilities have unit tests with fake plugin returning fixture data. Covers input/output validation, fan-out, error paths.
+- ∀ built-in plugins have contract tests: calls each declared capability with mocked `ctx`, verifies shape & behavior.
+- _(Future — QuickJS sandbox)_ Plugin runtime integration tests for sandbox boundary: fetch allowlist enforcement, memory cap, call timeout, store namespacing.
+- _(Future — 3rd-party install)_ Lifecycle tests covering install rollback on each validation failure.
 
-## Migration from the current implementation
+## Migration from Current Implementation
 
-The codebase already has a plugin runtime, but with the old capability/credentials shape. Migration is a one-time process:
+Codebase already has plugin runtime with old capability/credentials shape. One-time migration:
 
 **Schema:**
 
 1. Add `plugin_shared_credentials` table.
-2. For every existing row in `plugins` where `shared_credentials IS NOT NULL`: insert one `plugin_shared_credentials` row with `label: "Primary"`, copying `encrypted_value` and `iv`. Preserves admin-configured keys across the migration.
-3. Drop `plugins.shared_credentials` and `plugins.shared_credentials_iv` columns.
+2. ∀ existing `plugins` rows where `shared_credentials IS NOT NULL`: insert one `plugin_shared_credentials` row with `label: "Primary"`, copying `encrypted_value` & `iv`. Preserves admin-configured keys.
+3. Drop `plugins.shared_credentials` & `plugins.shared_credentials_iv`.
 4. Add `plugins.personal_key_fallback TEXT NOT NULL DEFAULT 'off'`.
-5. Add `service_connections.last_exhausted_at` and `service_connections.retry_after` columns (for user-pool rotation bookkeeping on poolable plugins).
+5. Add `service_connections.last_exhausted_at` & `service_connections.retry_after` (user-pool rotation bookkeeping).
 
 **Manifest shape (stored on `plugins.manifest`):**
 
-Re-parse each stored manifest at migration time and coerce into the new shape:
+Re-parse each stored manifest at migration & coerce:
 
-- `capabilities: Record<string, string>` → `Record<string, { version, scope }>` using a built-in defaults table (e.g. `metadata`/`idResolve` → `global`; `watchHistory`/`watchlist`/`ratings`/`mediaRequest`/`calendar`/`recommendations` → `user`).
+- `capabilities: Record<string, string>` → `Record<string, { version, scope }>` using built-in defaults table (e.g. `metadata`/`idResolve` → `global`; `watchHistory`/`watchlist`/`ratings`/`mediaRequest`/`calendar`/`recommendations` → `user`).
 - Drop `allowsSharedCredentials` (folded into scope + `personalKeyFallback`).
-- Set `poolable` from a built-in defaults map (`tmdb`, `tvdb` → `true`; `trakt`, `seerr` → `false`).
+- Set `poolable` from built-in defaults map (`tmdb`, `tvdb` → `true`; `trakt`, `seerr` → `false`).
 
-The defaults table lives in migration code, not runtime code.
+Defaults table lives in migration code, ⊥ runtime code.
 
-**Data cleanup — remove empty-credentials rows:**
+**Data cleanup — remove empty-creds rows:**
 
-Current TMDB behavior creates `service_connections` rows with empty `credentials: {}` when a user submits the form without a key. These are nonsense under the new rules. Migration decrypts each TMDB connection's credentials and deletes any row whose plaintext credentials are empty. Users with real personal keys keep their connections unchanged.
+Current TMDB behavior creates `service_connections` rows with empty `credentials: {}` when user submits form without key. Nonsense under new rules. Migration decrypts each TMDB connection's creds & deletes rows whose plaintext creds are empty. Users with real personal keys → unchanged.
 
-**Built-in plugin code updates (out of scope for this doc, but tracked):**
+**Built-in plugin code updates (out of scope for this doc, tracked):**
 
-- TMDB `startAuth` no longer produces empty-credentials results; requires a real key or returns `status: "error"`.
-- All built-in manifests updated to the new capability shape with explicit `scope`.
-- TMDB and TVDB: `poolable: true`. Trakt and Seerr: `poolable: false`.
-- References to `ctx.sharedCredentials` stay valid; the injection contract moves from `allowsSharedCredentials` to scope-based selection.
+- TMDB `startAuth` ⊥ produce empty-creds results; requires real key | returns `status: "error"`.
+- ∀ built-in manifests updated to new capability shape with explicit `scope`.
+- TMDB & TVDB: `poolable: true`. Trakt & Seerr: `poolable: false`.
+- References to `ctx.sharedCredentials` stay valid; injection contract moves from `allowsSharedCredentials` to scope-based selection.
 
-## Deferred to future revisions
+## Deferred to Future Revisions
 
-The following are explicitly out of scope for v1 and tracked here so they are not forgotten.
+### QuickJS WASM Sandbox
 
-### QuickJS WASM sandbox
+**What:** Replace trusted-TypeScript-module model with proper QuickJS WASM sandbox (`quickjs-emscripten`) → 3rd-party plugin code runs isolated from host process.
 
-**What:** Replace the current trusted-TypeScript-module model with a proper QuickJS WASM sandbox (`quickjs-emscripten`) so that third-party plugin code runs isolated from the host process.
+**Why deferred:** ∀ current plugins = built-ins in same codebase, same review process as host. Sandboxing complexity only justified when untrusted 3rd-party code involved.
 
-**Why deferred:** All current plugins are built-ins that are part of the same codebase and already go through the same review process as host code. The sandboxing complexity is only justified when untrusted third-party code is involved.
+**Prerequisites:**
 
-**Prerequisites before implementing:**
+- `sandbox.ts` — QuickJS instance wrapper; one long-lived instance per plugin, booted at startup & rebooted on install/update.
+- `host-bridge.ts` — implementations of ∀ `ctx.*` methods crossing sandbox boundary (fetch, log, store, pool).
+- Per-instance memory cap (default 64 MB, configurable).
+- Per-call timeout (30 s) via QuickJS interrupt handler.
+- Sandbox OOM/timeout recovery: runtime reboots instance on next use; affected connection marked error.
+- ∀ built-in plugins ! compiled to plain JS bundles for loading into QuickJS.
 
-- `sandbox.ts` — QuickJS instance wrapper; one long-lived instance per plugin, booted on host startup and rebooted on install/update.
-- `host-bridge.ts` — implementations of all `ctx.*` methods crossing the sandbox boundary (fetch, log, store, pool).
-- Per-instance memory cap enforcement (default 64 MB, configurable per-plugin).
-- Per-call timeout (30 s) enforced via QuickJS interrupt handler.
-- Sandbox OOM/timeout recovery: runtime reboots the instance on next use; affected connection marked error until recovery.
-- All built-in plugins must be compiled to plain JS bundles so they can be loaded into QuickJS identically to third-party plugins.
+### Third-party Plugin Install, Update, Rollback
 
-### Third-party plugin install, update, and rollback
-
-**What:** Admin-initiated lifecycle for plugins sourced from a URL rather than bundled in the codebase.
+**What:** Admin-initiated lifecycle for plugins from URL rather than bundled in codebase.
 
 **Endpoints (deferred):**
 
-- `plugin.install` — `POST /api/plugins` — `{ sourceUrl, expectedChecksum? }`. Fetches JS, computes sha256, boots throwaway QuickJS instance to call `getManifest()`, validates against host schema, writes to `data/plugins/<id>/<version>/plugin.js`, inserts `plugins` row.
-- `plugin.update` — `PATCH /api/plugins/:id/source` — `{ sourceUrl, expectedChecksum? }`. Runs full install flow against new version; on success tears down old instance, stops old cron jobs, retains old version directory on disk, boots new instance.
-- `plugin.rollback` — `POST /api/plugins/:id/rollback` — `{ toVersion }`. Only versions still on disk (last 3 retained). Swaps back to a prior version directory.
+- `plugin.install` — `POST /api/plugins` — `{ sourceUrl, expectedChecksum? }`. Fetches JS, computes sha256, boots throwaway QuickJS to call `getManifest()`, validates, writes to `data/plugins/<id>/<version>/plugin.js`, inserts `plugins` row.
+- `plugin.update` — `PATCH /api/plugins/:id/source` — `{ sourceUrl, expectedChecksum? }`. Full install flow against new version; on success tears down old instance, stops old cron, retains old version dir, boots new.
+- `plugin.rollback` — `POST /api/plugins/:id/rollback` — `{ toVersion }`. Only versions on disk (last 3 retained).
 
-**Why deferred:** All three operations require the QuickJS sandbox to be in place first — they load untrusted JS into a throwaway instance to extract the manifest, and the long-lived runtime instance is a QuickJS instance.
+**Why deferred:** All three require QuickJS sandbox — load untrusted JS into throwaway instance to extract manifest; long-lived runtime instance = QuickJS instance.
 
-### Server-side OAuth redirect callback
+### Server-side OAuth Redirect Callback
 
-**What:** `GET /api/oauth/callback/:pluginId` — a regular HTTP handler that receives the provider redirect directly (for native apps, server-rendered clients, or any context where the frontend cannot intercept the redirect).
+**What:** `GET /api/oauth/callback/:pluginId` — regular HTTP handler receiving provider redirect (for native apps, server-rendered clients, | any context where frontend ⊥ intercept redirect).
 
-**Current approach:** SPA-driven — the frontend catches the provider redirect, extracts `code` and `state`, and calls `POST /api/connections/oauth/redirect/complete` with `{ nonce, queryParams }`. Both approaches share the same underlying `completeAuth` plugin call and `pending_auth` state resolution; only the transport differs.
+**Current:** SPA-driven — frontend catches provider redirect, extracts `code` & `state`, calls `POST /api/connections/oauth/redirect/complete` with `{ nonce, queryParams }`. Both approaches share same underlying `completeAuth` plugin call & `pending_auth` state resolution; only transport differs.
 
-**Why deferred:** The SPA path covers all current client use cases. The server-side callback adds complexity (CSRF handling, post-redirect client-notification strategy) that is not justified until a non-SPA client exists.
+**Why deferred:** SPA path covers ∀ current client use cases. Server-side callback adds complexity (CSRF handling, post-redirect client-notification strategy) not justified until non-SPA client ∃.
 
 ---
 
-## Open questions / deferred
+## Open Questions / Deferred
 
-- **Pool rotation strategy.** v1 ships round-robin. Sticky-per-user, weighted, or quota-aware pickers are future work once telemetry shows uneven distribution or cache-locality wins.
-- **Admin pool telemetry dashboards.** The `last_exhausted_at` / `retry_after` columns exist to back this; the UI surface is out of scope for v1.
-- **Cross-plugin events.** Deferred until a concrete use case appears.
-- **User-installable plugins from an admin allowlist.** Data model leaves room via a future `plugin_allowlist` table; not built in v1.
-- **Auto-update of plugins.** Manual only in v1.
-- **Marketplace / discovery.** Out of scope.
-- **`serverPlaylists@v1`.** CRUD for server-side playlists (Plex `/playlists/*`, Jellyfin `/Playlists/*`). Real value for "add to Friday movie night" flows, but does not feed the home feed directly. Revisit once a concrete consumer appears.
-- **`markers@v1` (skip-intro / skip-credits).** Plex exposes this cleanly via `Marker` elements on items; Jellyfin's intro-skip is plugin-only and unstable. Held back until Jellyfin stabilises theirs so it can ship as a cross-server capability rather than Plex-only.
+- **Pool rotation strategy.** v1 ships round-robin. Sticky-per-user, weighted, | quota-aware pickers = future work once telemetry shows uneven distribution.
+- **Admin pool telemetry dashboards.** `last_exhausted_at` / `retry_after` columns ∃ to back this; UI surface ⊥ in scope for v1.
+- **Cross-plugin events.** Deferred until concrete use case appears.
+- **User-installable plugins from admin allowlist.** Data model leaves room via future `plugin_allowlist` table; ⊥ built in v1.
+- **Auto-update.** Manual only in v1.
+- **Marketplace / discovery.** ⊥ in scope.
+- **`serverPlaylists@v1`.** CRUD for server-side playlists (Plex `/playlists/*`, Jellyfin `/Playlists/*`). Real value for "add to Friday movie night" flows, ⊥ feeds home feed directly. Revisit once concrete consumer appears.
+- **`markers@v1` (skip-intro / skip-credits).** Plex exposes cleanly via `Marker` elements; Jellyfin intro-skip = plugin-only & unstable. Held until Jellyfin stabilises so it ships as cross-server capability ⊥ Plex-only.

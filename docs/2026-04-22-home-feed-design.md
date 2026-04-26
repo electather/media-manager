@@ -1,36 +1,36 @@
 # Home Feed
 
-**Status:** Draft for review
+**Status:** Draft
 **Date:** 2026-04-22
 **Author:** Omid Astaraki
-**Depends on:** `2026-04-19-plugin-architecture-design.md`, `2026-04-19-media-service-design.md` (media-service.md), `2026-04-20-preference-engine-design.md`, `2026-04-19-frontend-connections-design.md`, `2026-04-19-error-management-design.md`, `mcp-server.md`
+**Deps:** `2026-04-19-plugin-architecture-design.md`, `2026-04-19-media-service-design.md`, `2026-04-20-preference-engine-design.md`, `2026-04-19-frontend-connections-design.md`, `2026-04-19-error-management-design.md`, `mcp-server.md`
 
 ## Summary
 
-The Home Feed is the server-side surface behind the dashboard's Netflix-style home page: a stack of themed rows (Continue Watching, Recommended For You, Trending Now, etc.) composed from plugin-provided capabilities and re-ranked against the user's preference profile. This document specifies two oRPC procedures (`home.getLayout` and `home.getRowContent`), a `HomeFeedService` that orchestrates existing `MediaService` and `PreferenceEngine` calls into a uniform row catalog, and the caching / pagination / degradation behaviors that tie the whole surface together.
+Server-side surface behind dashboard's Netflix-style home page. Stack of themed rows (Continue Watching, Recommended For You, Trending Now, etc.) composed from plugin capabilities, re-ranked against user preference profile. Two oRPC procedures (`home.getLayout` & `home.getRowContent`), `HomeFeedService` orchestrating existing `MediaService` & `PreferenceEngine` into uniform row catalog. Caching/pagination/degradation behaviors included.
 
-Scope is strictly server-side: endpoints, backing logic, data shapes, and behavioral rules. The frontend that consumes this surface — card layouts, scroll interactions, skeletons, empty-state copy — is a separate spec.
+Scope: server-side only — endpoints, backing logic, data shapes, behavioral rules. Frontend = separate spec.
 
-The design follows the discipline of the MCP spec: a thin translation layer over `MediaService` with no new dispatch, runtime, credential, or cache infrastructure introduced below it. Seven rows ship in v1. Layout decisions are pure functions of a cheap signal snapshot and can be swapped for A/B variants without touching data-fetching code.
+Follows MCP spec discipline: thin translation layer over `MediaService`, no new dispatch/runtime/credential/cache infra below it. Seven rows ship v1. Layout decisions = pure functions of cheap signal snapshot — swappable for A/B without touching fetch code.
 
 ## Goals
 
-- Ship a server-composed home feed as two oRPC procedures for the dashboard.
-- Reuse `MediaService`, `PreferenceEngine`, and existing capability methods. Introduce no new capability, plugin contract, or database table.
-- Degrade gracefully across the full spectrum of user states: no plugins, TMDB-only, tracker-connected, full install.
-- Keep layout decisions pure functions — easy to test, cheap to A/B, safe to swap.
-- Match the token-efficiency and error-handling discipline of the MCP spec (compact response shapes, `UserFacingError`).
+- Two oRPC procedures (`home.getLayout` & `home.getRowContent`) for dashboard.
+- Reuse `MediaService`, `PreferenceEngine`, existing capability methods. No new capability/plugin contract/DB table.
+- Degrade gracefully ∀ user states: no plugins, TMDB-only, tracker-connected, full install.
+- Layout decisions ! pure functions — testable, cheap to A/B, safe to swap.
+- Match MCP spec token-efficiency & error-handling: compact response shapes, `UserFacingError`.
 
 ## Non-goals
 
-- Frontend design. Card shape, scroll behavior, skeleton UX, empty-state copy, and visual rendering are all owned by a later frontend spec.
-- Billboard hero unit. Deferred; `layout.hero` is an additive field whenever we ship it.
-- Genre-scoped rows (e.g. "More Crime Dramas"). Deferred until `preference_profiles` data is dense enough to pick well.
-- Personalized row ordering from engagement tracking. Explicitly ruled out per the PreferenceEngine spec's "no things-we-showed-this-user tracking" stance.
-- Cross-row deduplication. v1 accepts that a title may appear in both Trending and New Releases.
-- Streaming / SSE responses. All procedures are synchronous request/response in v1.
-- MCP surface. MCP agents already get home-page-equivalent behavior via `ent_discover` with `mode=recommend | trending`; the Home Feed is dashboard-only.
-- Dashboard rate limiting. Not introduced here; inherits whatever the general oRPC layer has.
+- Frontend design (card shape, scroll, skeleton, empty-state copy, rendering) — later frontend spec.
+- Billboard hero unit — deferred; `layout.hero` additive field when shipped.
+- Genre-scoped rows — deferred until `preference_profiles` data dense enough.
+- Personalized row ordering from engagement tracking — ruled out per PreferenceEngine spec's "no things-we-showed-this-user tracking."
+- Cross-row dedup — v1 accepts title may appear in both Trending & New Releases.
+- Streaming/SSE — all procedures synchronous request/response v1.
+- MCP surface — agents already get home-equivalent via `ent_discover mode=recommend|trending`.
+- Dashboard rate limiting — inherits general oRPC layer.
 
 ## Architecture
 
@@ -67,7 +67,7 @@ The design follows the discipline of the MCP spec: a thin translation layer over
        └──────────────────────────────────────┘
 ```
 
-`HomeFeedService` is a small orchestrator. It reads cheap signals, decides the row layout via a pure-function rule table, dispatches per-row content fetches in parallel, and assembles a response. Each row is one `RowFetcher` entry — same file-per-fetcher pattern the PreferenceEngine uses for its `FeatureScorer` registry.
+`HomeFeedService` = small orchestrator. Reads cheap signals, decides row layout via pure-function rule table, dispatches per-row content fetches parallel, assembles response. Each row = one `RowFetcher` entry — same file-per-fetcher pattern as PreferenceEngine's `FeatureScorer` registry.
 
 ### `RowFetcher` interface
 
@@ -94,15 +94,15 @@ interface RowFetcher {
 }
 ```
 
-`RowFetchContext` is the sole surface a row fetcher sees. Nothing below `MediaService` is accessible to a fetcher — plugin runtime, credentials, and DB are all out of reach.
+`RowFetchContext` = sole surface row fetcher sees. Nothing below `MediaService` accessible — plugin runtime, credentials, DB out of reach.
 
-`isEligible` is called only from `getRowContent` (not `getLayout`, which uses the signal snapshot) and must be cheap — the per-row checks specified in §8 all resolve off already-cached data and target sub-5ms. Declaring it as a required interface member (rather than optional) means every new row must state its eligibility rule explicitly, and TypeScript will refuse a fetcher that forgot to implement it. A row that really is always eligible (see `newReleases` in §8) returns `true` unconditionally.
+`isEligible` called only from `getRowContent` (not `getLayout`, which uses signal snapshot), ! cheap — per-row checks in §8 resolve off already-cached data, target sub-5ms. Required interface member (not optional): ∀ new rows must state eligibility rule explicitly; TypeScript refuses fetcher missing implementation. Row always eligible (see `newReleases` §8) returns `true` unconditionally.
 
-The `requires` field is declarative — intended for future auto-documentation and generic registry use. The authoritative runtime gate for whether a row appears in a layout is `candidateRows` in `rules.ts` (§5). If a new row is added, both must be kept in sync: `requires` lists its capability dependencies for humans and tooling, `candidateRows` contains the live check that actually filters it. When they disagree, `candidateRows` wins at runtime; a lint/test checking that every `RowFetcher.requires` entry corresponds to a gate in `candidateRows` is a small retrofit if drift proves real.
+`requires` field declarative — for future auto-doc & generic registry use. Authoritative runtime gate = `candidateRows` in `rules.ts` (§5). New row added → both must sync: `requires` lists capability deps for humans/tooling, `candidateRows` has live check that actually filters. When they disagree, `candidateRows` wins runtime.
 
-The layout handler reuses `RowFetcher.fetch` for _both_ the inlined first page (inside `getLayout`) and scroll pagination (inside `getRowContent`). This is the entire reason the layout-plus-content split exists: one fetch implementation per row, called with either a null cursor (most rows) or a synthetic initial cursor (see below) for the first page and a real client-supplied cursor for scroll.
+Layout handler reuses `RowFetcher.fetch` for both inlined first page (inside `getLayout`) & scroll pagination (inside `getRowContent`). One fetch implementation per row, called with null cursor (most rows) or synthetic initial cursor for first page — plus real client-supplied cursor for scroll.
 
-For rows whose first page already needs out-of-band state — currently just `becauseYouWatched`, whose seed lives in `LayoutSignals` and must be pinned for the scroll session — the layout handler constructs an initial cursor that carries that state before calling `fetch`. Concretely, `becauseYouWatched` receives `{ v: 1, r: "becauseYouWatched", p: 1, s: signals.recentSeed.id }` as `opts.cursor` rather than `null`. The fetcher therefore always reads the seed from the cursor: it never consults `signals.recentSeed` directly, and never branches on "cursor is null → this is page 1 → look up seed somewhere else." `RowFetchContext` deliberately does not expose the signal snapshot, and this convention preserves that — seed state is threaded in through the cursor, the same mechanism scroll pages already use. Other rows continue to receive `null` on the first page and unchanged client cursors on subsequent pages.
+For rows needing out-of-band state on first page — currently only `becauseYouWatched` (seed lives in `LayoutSignals`, must be pinned for scroll session) — layout handler constructs initial cursor carrying that state before calling `fetch`. Concretely: `becauseYouWatched` receives `{ v: 1, r: "becauseYouWatched", p: 1, s: signals.recentSeed.id }` as `opts.cursor` rather than `null`. Fetcher always reads seed from cursor: ⊥ consults `signals.recentSeed` directly, ⊥ branches on "cursor null → page 1 → look up seed elsewhere." `RowFetchContext` deliberately ⊥ exposes signal snapshot; seed state threaded through cursor.
 
 ### Layout
 
@@ -130,13 +130,13 @@ server/
         └── home.ts                   # oRPC procedures: getLayout, getRowContent
 ```
 
-No new capability files. No new database migrations. The only `MediaService` additions are thin count methods and one batched status method (§8).
+No new capability files. No new DB migrations. Only `MediaService` additions: thin count methods & one batched status method (§8).
 
 ## API surface
 
-Two oRPC procedures under `server/api/routes/home.ts`, both authenticated-user-only (scope: `ctx.user.id`). No admin variants. Errors use `UserFacingError` from the error-management doc.
+Two oRPC procedures under `server/api/routes/home.ts`, authenticated-user-only (scope: `ctx.user.id`). No admin variants. Errors use `UserFacingError` from error-management doc.
 
-**Shared types live in `@ent-mcp/shared/home`.** Per the repo's shared-package rules (`CLAUDE.md`), any type that crosses the server/client boundary must live in `packages/shared/src/home/` and be exported via the subpath export in `packages/shared/package.json`. The types that qualify: `RowKind` (const tuple + derived type, per shared package conventions), `HomeRow`, `HomeLayoutResponse`, `RowContentResponse`, and `CompactMediaItem`. The `FetchedRow` / `FetchOutcome` types (§5) are host-internal and stay in `server/home/`. Zod schemas for cursor validation also stay server-internal (cursors are opaque on the wire; the client never decodes them).
+**Shared types in `@ent-mcp/shared/home`.** Per repo shared-package rules (`CLAUDE.md`): types crossing server/client boundary live in `packages/shared/src/home/`, exported via subpath in `packages/shared/package.json`. Types that qualify: `RowKind` (const tuple + derived type), `HomeRow`, `HomeLayoutResponse`, `RowContentResponse`, `CompactMediaItem`. `FetchedRow`/`FetchOutcome` types (§5) = host-internal, stay in `server/home/`. Cursor Zod schemas stay server-internal (cursors opaque on wire; client ⊥ decodes).
 
 ### `home.getLayout`
 
@@ -171,7 +171,7 @@ type RowKind =
 
 ### `home.getRowContent`
 
-Called when the user scrolls a row horizontally past the inlined first page. Uses the same per-row fetcher as `getLayout`, not a separate code path.
+Called when user scrolls row horizontally past inlined first page. Same per-row fetcher as `getLayout`, not separate code path.
 
 ```ts
 // Input
@@ -190,7 +190,7 @@ interface RowContentResponse {
 
 ### `CompactMediaItem`
 
-Home-feed-specific shape. Overlaps with the MCP compact shape but adds dashboard-only fields (`backdrop`, `progress`) and keeps `episode` as an optional extension for `upcomingForYou`. Mapping from `MediaItem` lives in `server/home/compact.ts` — the single place this conversion happens.
+Home-feed-specific shape. Overlaps MCP compact shape, adds dashboard-only fields (`backdrop`, `progress`), keeps `episode` optional for `upcomingForYou`. Mapping from `MediaItem` lives in `server/home/compact.ts` — single place this conversion happens.
 
 ```ts
 interface CompactMediaItem {
@@ -218,27 +218,27 @@ interface CompactMediaItem {
 }
 ```
 
-Absent fields are omitted, not null. Same compression discipline as `ent_discover`.
+Absent fields omitted, not null. Same compression discipline as `ent_discover`.
 
 ### Error codes
 
-New codes registered in `HOST_ERROR_CODES`:
+New codes in `HOST_ERROR_CODES`:
 
 | Code                   | When                                                                                                    | Captured? |
 | ---------------------- | ------------------------------------------------------------------------------------------------------- | --------- |
 | `home.bad_input`       | Invalid `rowId`, malformed cursor, cursor/rowId mismatch                                                | No        |
-| `home.row_unavailable` | `getRowContent` called for a row the user no longer qualifies for (e.g. connection removed mid-session) | No        |
-| `home.internal`        | Thrown inside a handler; underlying error propagated for the admin viewer                               | Yes       |
+| `home.row_unavailable` | `getRowContent` called for row user no longer qualifies for (e.g. connection removed mid-session)       | No        |
+| `home.internal`        | Thrown inside handler; underlying error propagated for admin viewer                                     | Yes       |
 
-Row-level partial failures (some plugins erroring during aggregate) are not errors — they surface as `partial: true` on the row. Full-row failure (zero items from all sources) is not an error either — it degrades to row-omit during `getLayout`, and returns `{ items: [], cursor: null }` during `getRowContent` so scroll behavior stays consistent.
+Row-level partial failures (some plugins erroring during aggregate) ⊥ errors — surface as `partial: true`. Full-row failure (zero items from all sources) ⊥ error — degrades to row-omit during `getLayout`, returns `{ items: [], cursor: null }` during `getRowContent` for scroll consistency.
 
 ## Layout decision logic
 
-The layout endpoint has two concerns: _which rows exist_ and _in what order_. Both are pure functions over a signal snapshot. Content fetching is a separate concern, parallelized after the layout decision is made.
+Two concerns: which rows exist & in what order. Both pure functions over signal snapshot. Content fetching separate concern, parallelized after layout decision.
 
 ### Signal snapshot
 
-`LayoutSignals` is populated by `signals.ts` via a parallel set of cheap reads. Target <50ms P95 for the whole snapshot.
+`LayoutSignals` populated by `signals.ts` via parallel cheap reads. Target <50ms P95 whole snapshot.
 
 ```ts
 interface LayoutSignals {
@@ -272,21 +272,21 @@ interface LayoutSignals {
 | Signal                  | Source                                                                                                                                                                                                                                                              | Cost         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | `hasXPlugin`            | `service_connections` JOIN capability registry; per-user cached                                                                                                                                                                                                     | cache read   |
-| `inProgressCount`       | `loader.getInProgressSet().size` — signal computation goes through the request-scoped dataloader so `becauseYouWatched` hits warm memoization on page 1 (§7)                                                                                                        | cache read   |
+| `inProgressCount`       | `loader.getInProgressSet().size` — signal computation goes through request-scoped dataloader so `becauseYouWatched` hits warm memoization on page 1 (§7)                                                                                                            | cache read   |
 | `watchlistCount`        | `MediaService.getWatchlistCount(userId)` — same pattern                                                                                                                                                                                                             | cache read   |
 | `calendarProgressCount` | Derived from in-progress set + at-least-one-future-episode check (see "Calendar cold-cache" below)                                                                                                                                                                  | cache read   |
 | `profileConfidence`     | `preference_profiles.confidence` for media_type="combined"; `"none"` if row missing                                                                                                                                                                                 | indexed read |
 | `recentSeed`            | `feedback_log` `ORDER BY created_at DESC LIMIT 1` WHERE `action IN ("like", "rate") AND (action != "rate" OR rating >= 8) AND created_at > now-30d`, indexed; fallback to most-recent-completed-within-60d from watchHistory (see "Recency window asymmetry" below) | indexed read |
 
-Two new `MediaService` count methods (`getWatchlistCount`, `getCalendarProgressCount`) are thin read-through wrappers over data already cached at the capability layer. One method each, no new capability. `inProgressCount` does not get a dedicated count method — signal computation reads `loader.getInProgressSet()` and takes `.size`, sharing the memoization with `becauseYouWatched`'s cross-row exclusion (§7). Detailed in §8.
+Two new `MediaService` count methods (`getWatchlistCount`, `getCalendarProgressCount`) — thin read-through wrappers over data already cached at capability layer. One method each, no new capability. `inProgressCount` ⊥ gets dedicated count method — signal computation reads `loader.getInProgressSet()` and takes `.size`, sharing memoization with `becauseYouWatched`'s cross-row exclusion (§7).
 
-**Recency window asymmetry.** The primary path uses a 30d window; the fallback uses 60d. Intentional. A `like` or high `rate` is an active, volitional signal — recent feedback is strong, older feedback is stale fast, so the window is tight. A completed watch is a passive signal — much weaker per-event, so the window is wider to accumulate enough evidence that an item is worth seeding off. Narrowing the fallback to match the primary would leave users without recent explicit feedback with no seed at all, which defeats the point of the fallback.
+**Recency window asymmetry.** Primary path: 30d window; fallback: 60d. Intentional. `like`/high `rate` = active volitional signal, stale fast → tight window. Completed watch = passive signal, weaker per-event → wider window to accumulate enough evidence. Narrowing fallback to 30d → users without recent explicit feedback have no seed.
 
-**Calendar cold-cache.** `calendarProgressCount` is "cache read" only when the calendar data is warm. Calendar's TTL is 1h versus watchHistory's 5min, so the calendar cache is the more likely cold one. If `getCalendarProgressCount` would have to trigger a live aggregate fetch to satisfy the derivation, the signal returns `0` instead and logs. This drops `upcomingForYou` from the current layout; it reappears on the next `getLayout` once the calendar cache warms (via either the normal calendar refresh cycle or another row's fetch). Preserves the <50ms signal-snapshot budget at the cost of one potentially-missed row on the very first cold call after a calendar TTL expiry.
+**Calendar cold-cache.** `calendarProgressCount` "cache read" only when calendar warm. Calendar TTL 1h vs watchHistory 5min → calendar more likely cold. If `getCalendarProgressCount` would trigger live aggregate fetch → signal returns `0`, logs. Drops `upcomingForYou` from current layout; reappears next `getLayout` once cache warms. Preserves <50ms budget at cost of one potentially-missed row on first cold call after TTL expiry.
 
 ### Candidate row set
 
-Starts from the full v1 catalog, filtered by plugin availability and cheap-signal gates:
+Starts from full v1 catalog, filtered by plugin availability & cheap-signal gates:
 
 ```ts
 function candidateRows(signals: LayoutSignals): RowKind[] {
@@ -316,7 +316,7 @@ function candidateRows(signals: LayoutSignals): RowKind[] {
 
 ### Ordering rules
 
-Applied after candidate filtering. Pure function, testable in isolation, swappable for A/B later.
+Applied after candidate filtering. Pure function, testable in isolation, swappable for A/B.
 
 ```ts
 function orderRows(candidates: RowKind[], signals: LayoutSignals): RowKind[] {
@@ -347,7 +347,7 @@ function orderRows(candidates: RowKind[], signals: LayoutSignals): RowKind[] {
 
 ### Drop-empty safety net
 
-After per-row fetches complete, drop any row whose `items` came back empty. Handles signal drift — cache said non-empty, fetch returned zero. One deliberate exception:
+After per-row fetches complete, drop any row with empty `items`. Handles signal drift — cache said non-empty, fetch returned zero. One exception:
 
 ```ts
 type FetchOutcome = "ok_items" | "ok_empty" | "partial" | "timeout" | "all_failed";
@@ -369,9 +369,9 @@ function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
 }
 ```
 
-`FetchedRow` is the layout orchestrator's internal shape, assembled from each `RowFetcher.fetch` return plus the orchestrator's own knowledge of what happened (did the call complete within the timeout, did all plugins fail, etc.). The orchestrator then strips `outcome` when mapping to the wire-level `HomeRow` — clients only see `items`, `cursor`, and `partial`. `outcome` is a host-internal discriminant used for drop-empty logic and for observability/logging.
+`FetchedRow` = layout orchestrator's internal shape, assembled from `RowFetcher.fetch` return plus orchestrator knowledge (did call complete within timeout, did all plugins fail, etc.). Orchestrator strips `outcome` when mapping to wire-level `HomeRow` — clients see only `items`, `cursor`, `partial`. `outcome` = host-internal discriminant for drop-empty logic & observability.
 
-**`FetchOutcome` assignment.** `RowFetcher.fetch` returns `{ items, cursor, partial? }` or throws; it does not know whether it has timed out, been cancelled, or had all its upstream plugins fail. The orchestrator wraps every fetch dispatch and maps it to an outcome:
+**`FetchOutcome` assignment.** `RowFetcher.fetch` returns `{ items, cursor, partial? }` or throws; ⊥ knows whether timed out, cancelled, or all upstream plugins failed. Orchestrator wraps every fetch dispatch:
 
 ```ts
 async function runFetch(fetcher: RowFetcher, ctx, opts): Promise<FetchedRow> {
@@ -402,13 +402,11 @@ async function runFetch(fetcher: RowFetcher, ctx, opts): Promise<FetchedRow> {
 }
 ```
 
-In short: `ok_items` / `ok_empty` / `partial` come from the shape of the successful return; `timeout` comes from the 3s `Promise.race`; `all_failed` comes from a specific `MediaService` aggregate error distinguishable from other throws. This is the only place `FetchOutcome` values are assigned — row fetchers themselves never see or set the field.
+`ok_items`/`ok_empty`/`partial` from shape of successful return; `timeout` from 3s `Promise.race`; `all_failed` from specific `MediaService` aggregate error. Only place `FetchOutcome` values assigned — row fetchers ⊥ see or set field.
 
-`upcomingForYou` is exempt **only when the fetch succeeded and genuinely returned zero items** (`outcome === "ok_empty"`) — "No upcoming episodes for your shows" is meaningful information the user was looking for. When the row timed out or all calendar plugins errored, we drop the row like any other: an empty timeout-row carries a different semantic ("no data available right now") than a genuine empty ("you're caught up"), and rendering the "caught up" copy for a plugin outage is wrong.
+`upcomingForYou` exempt **only when fetch succeeded & genuinely returned zero items** (`outcome === "ok_empty"`) — "No upcoming episodes" = meaningful info user was looking for. Timeout/all-plugins-failed → drop like any other row.
 
 ### A/B hook
-
-The entire layout decision reduces to:
 
 ```ts
 function resolveLayoutOrder(signals: LayoutSignals): RowKind[] {
@@ -416,7 +414,7 @@ function resolveLayoutOrder(signals: LayoutSignals): RowKind[] {
 }
 ```
 
-Everything upstream of fetch is pure. A variant is a different `resolveLayoutOrder`; experiment selection happens once in the layout handler and does not touch fetch code. No experiment infra shipped in v1, but the shape is built for it.
+Everything upstream of fetch pure. Variant = different `resolveLayoutOrder`; experiment selection once in layout handler, ⊥ touches fetch code. No experiment infra v1, but shape built for it.
 
 ### Timeline
 
@@ -430,11 +428,11 @@ t=~???   slowest row completes (typically 200–800ms for aggregate rows)
 t=~???   dropEmpty + response assembly (<5ms)
 ```
 
-Hard per-row fetch timeout: 3s. A row that times out is treated as empty (row-drop applies).
+Hard per-row fetch timeout: 3s. Timeout → treated as empty → drop-empty applies.
 
 ## Row catalog
 
-Each row is one file under `server/home/rows/` implementing `RowFetcher`. Summary table, then per-row notes where the details matter.
+One file per row under `server/home/rows/` implementing `RowFetcher`.
 
 | Row                 | Capability & method                                     | Strategy          | Cursor       | First page | Max items | Extra fields            |
 | ------------------- | ------------------------------------------------------- | ----------------- | ------------ | ---------- | --------- | ----------------------- |
@@ -446,61 +444,61 @@ Each row is one file under `server/home/rows/` implementing `RowFetcher`. Summar
 | `upcomingForYou`    | `calendar@v1.getUpcoming` (in-progress shows only)      | aggregate         | afterTmdbId  | 20         | 60        | `episode`               |
 | `yourWatchlist`     | `watchlist@v1.list`                                     | aggregate         | offset       | 20         | 200       | `status`                |
 
-Every row batches `status` via a single `mediaRequest@v1.getStatusBatch` call per page, coalesced across rows within a single request via the dataloader (§7).
+∀ rows batch `status` via single `mediaRequest@v1.getStatusBatch` call per page, coalesced across rows within single request via dataloader (§7).
 
 ### Per-row details
 
 **`continueWatching`**
 
-- `MediaService` method: `getInProgress(userId, { cursor, limit })` — a new `watchHistory@v1` method. Returns items with `watched_ms` / `duration_ms`. Plugins that don't implement it are skipped in aggregate (backward-compatible addition).
-- Within-row dedupe by `(tmdbId, mediaType)`; most-recent-progress wins when two plugins report overlapping items.
-- No PreferenceEngine re-rank. The in-progress list is not a discovery surface.
-- Ordering: most-recently-watched first.
-- `progress` field handling: the fetcher omits `progress` entirely on items where `duration_ms` is missing, zero, or negative. Protects the client from divide-by-zero on live content, specials, or shorts where the plugin couldn't supply a runtime. Items without `progress` are still included in the row — they're genuinely in-progress from the plugin's perspective; we just don't have a renderable percentage. Server-client contract: absent `progress` means "in-progress item, progress unmeasurable." Rendering (progress bar vs. generic play affordance) is the frontend spec's concern; this spec only guarantees the field is absent rather than `{ watched: 0, total: 0 }` or NaN.
+- `MediaService` method: `getInProgress(userId, { cursor, limit })` — new `watchHistory@v1` method. Returns items with `watched_ms`/`duration_ms`. Plugins not implementing → skipped in aggregate (backward-compatible).
+- Within-row dedupe by `(tmdbId, mediaType)`; most-recent-progress wins on overlap.
+- No PreferenceEngine re-rank — in-progress list ⊥ discovery surface.
+- Order: most-recently-watched first.
+- `progress` field: omit entirely when `duration_ms` missing/zero/negative. Item still included — in-progress from plugin perspective, progress unmeasurable. Server-client contract: absent `progress` = "in-progress item, progress unmeasurable." ⊥ `{ watched: 0, total: 0 }` or NaN. Rendering (progress bar vs. generic play affordance) = frontend spec concern.
 
 **`recommendedForYou`**
 
-- Fetches `limit × 3` candidates per page (same over-fetch-then-prune as `ent_discover`), runs `PreferenceEngine.rankCandidates`, takes top `limit`, calls `explainMatch` only for the returned top-N.
-- Empty case: the row requires at least one connected `recommendations@v1` plugin — a "has feedback, no plugin" state would produce an empty row every time, so it's filtered out in candidate selection rather than admitted and silently dropped. If plugin exists but profile is thin, upstream results pass through with `matchReason` omitted; the row still renders. A profile-only fallback (e.g. TMDB trending re-ranked by PreferenceEngine) is out of scope for v1 — if we want to light this row up for profile-only users later, it's a new row strategy, not a tweak to this one.
-- Pagination carries an exclusion list in the cursor (see §7) to prevent duplicates across scroll pages when ranking shifts between requests.
+- Fetches `limit × 3` candidates per page (same over-fetch-then-prune as `ent_discover`), runs `PreferenceEngine.rankCandidates`, takes top `limit`, calls `explainMatch` only for returned top-N.
+- Empty case: requires ≥1 connected `recommendations@v1` plugin — "has feedback, no plugin" → empty every time → filtered in candidate selection, not admitted and silently dropped. Plugin exists but profile thin → upstream results pass through, `matchReason` omitted, row renders.
+- Pagination: exclusion list in cursor prevents duplicates across scroll pages when ranking shifts (§7).
 
 **`trendingNow`**
 
-- No PreferenceEngine re-rank — this is the "everyone agrees this is popular" row on purpose. Keeps it distinct from `recommendedForYou`.
-- `recommendations@v1.getTrending` is a backward-compatible method addition per the MCP spec.
+- No PreferenceEngine re-rank — "everyone agrees this is popular" row. Distinct from `recommendedForYou`.
+- `recommendations@v1.getTrending` — backward-compatible method addition per MCP spec.
 
 **`newReleases`**
 
-- `metadata@v1.discover` with fixed filters: `release_date.gte = now - 90d`, `release_date.lte = now`, sort by popularity desc.
-- Mixes movies and TV in v1. A `media_type` filter is not exposed; if needed, a client-side filter on `CompactMediaItem.mediaType` or an opt-in endpoint parameter later.
+- `metadata@v1.discover` with fixed filters: `release_date.gte = now - 90d`, `release_date.lte = now`, sort popularity desc.
+- Mixes movies & TV v1. `media_type` filter not exposed; client-side filter on `CompactMediaItem.mediaType` optional later.
 
 **`becauseYouWatched`**
 
-- Subtitle is dynamic: `"Because you watched ${signal.recentSeed.title}"`. The only row with a dynamic subtitle.
-- Seed selection lives in `signals.ts`, not in this row's fetcher, because the same signal is consumed by candidate filtering in the layout layer.
-- Seed can go stale between two `getLayout` calls (user rates something higher five minutes later). Next `getLayout` picks up the new seed.
-- The seed is threaded into the fetcher **through the cursor, not through a side channel**. For the inlined first page, the layout handler synthesises an initial cursor — `{ v: 1, r: "becauseYouWatched", p: 1, s: signals.recentSeed.id }` — and passes it as `opts.cursor` instead of `null`. For scroll pages, the client echoes back the `s` value it received on the previous page. Either way the fetcher reads the seed from exactly one place (`cursor.s`), never from `LayoutSignals` (which is not on `RowFetchContext`) and never with a "cursor is null → page 1 → look seed up somewhere" branch. This keeps the fetcher's input surface uniform across `getLayout` and `getRowContent`, and makes the test matrix in §11 straightforward (no special "page 1 without cursor" code path to exercise).
-- Within a single scroll session, the seed is therefore **pinned** via the cursor's `s` field (§7). `getRowContent` reads `s` and calls `metadata@v1.getSimilar(seed, { page })` against that specific seed, ignoring any live `signals.recentSeed` drift. Prevents page 2 from silently returning "similar to a different movie" than page 1.
-- TMDB `/similar` is paginated by `page`; trivial cursor.
-- Cross-row exclusion: the fetcher excludes any item whose `(tmdbId, mediaType)` is in the user's current in-progress set. `RowFetchContext` does not expose the signal snapshot to fetchers, so both page 1 (inside `getLayout`) and scroll pages (`getRowContent`) obtain the set via `ctx.dataloader.getInProgressSet()` — a dataloader-memoized read-through over `mediaService.getInProgress(userId)` that returns a `Set<MediaId>`. On page 1 this hits warm memoization because signal computation already called the same method during `LayoutSignals`; on scroll pages it hits the same watchHistory cache the signal used (sub-5ms when warm; <100ms cold). The exclusion applies on every page so scroll behavior matches page 1. Recommending something the user is actively watching is jarring — "Because you watched Inception: Inception" is the degenerate case, but "Because you watched Inception: The Matrix (which you're also 40% through)" is the real one this rule catches. Trending + New Releases overlap is deliberately not filtered — same content in different editorial contexts is acceptable; in-progress-in-a-discovery-row is not.
+- Subtitle dynamic: `"Because you watched ${signal.recentSeed.title}"`. Only row with dynamic subtitle.
+- Seed selection in `signals.ts`, not this fetcher — same signal consumed by candidate filtering.
+- Seed can go stale between `getLayout` calls. Next `getLayout` picks up new seed.
+- Seed threaded into fetcher **through cursor, not side channel**. First page: layout handler synthesises `{ v: 1, r: "becauseYouWatched", p: 1, s: signals.recentSeed.id }`, passes as `opts.cursor` instead of `null`. Scroll pages: client echoes `s` from previous page. Fetcher reads seed from `cursor.s` only — single code path across `getLayout` & `getRowContent`, ⊥ `RowFetchContext` needs to expose `LayoutSignals`.
+- Seed **pinned** via cursor's `s` within scroll session. `getRowContent` reads `s`, calls `metadata@v1.getSimilar(seed, { page })` against specific seed, ignores live `signals.recentSeed` drift.
+- TMDB `/similar` paginated by `page`; trivial cursor.
+- Cross-row exclusion: fetcher excludes any item whose `(tmdbId, mediaType)` ∈ user's current in-progress set. `RowFetchContext` ⊥ exposes signal snapshot to fetchers, so both page 1 & scroll pages obtain set via `ctx.dataloader.getInProgressSet()` — dataloader-memoized read-through over `mediaService.getInProgress(userId)` returning `Set<MediaId>`. Page 1 hits warm memoization (signal computation already called same method). Exclusion applies every page. Trending + New Releases overlap deliberately ⊥ filtered.
 
 **`upcomingForYou`**
 
-- Subtitle is none at the row level; per-item `episode` field carries the detail.
-- Scoped to shows the user currently has in progress (from the same cached in-progress set signals use).
-- Cursor is `afterTmdbId` because aggregate results across calendar plugins don't have a stable page notion.
-- Exempt from drop-empty (see §5 above).
+- ⊥ subtitle at row level; per-item `episode` field carries detail.
+- Scoped to shows user currently in progress (from cached in-progress set).
+- Cursor: `afterTmdbId` — aggregate results across calendar plugins lack stable page notion.
+- Exempt from drop-empty (§5).
 
 **`yourWatchlist`**
 
-- Sort: most-recently-added first. Overridable via a row-level preference later; not in v1.
-- `maxItems: 200` — users with long watchlists expect them all reachable. Past 200, the UI should offer an explicit "go to watchlist" affordance (future frontend concern).
+- Sort: most-recently-added first. Overridable via row-level preference later; ⊥ v1.
+- `maxItems: 200` — users with long watchlists expect all reachable. Past 200, UI should offer "go to watchlist" affordance.
 
 ### Dedupe rules
 
 - **Within-row:** dedupe by `(tmdbId, mediaType)` after aggregate merge. Always.
-- **Within scroll pages:** the cursor's page / afterId / exclusion-list logic handles it per row.
-- **Cross-row:** not deduped in v1. Accept "Inception" appearing in both Trending and New Releases. If this proves noisy, add a seen-set at the tail of the layout handler — cheap to retrofit; avoids designing against a problem we haven't observed.
+- **Within scroll pages:** cursor page/afterId/exclusion-list logic per row.
+- **Cross-row:** ⊥ deduped v1. Accept "Inception" in both Trending & New Releases. Cheap retrofit if noisy.
 
 ## Caching, pagination, and request coordination
 
@@ -514,11 +512,11 @@ Three layers, each with one job.
 | Request-scoped dataloader  | Single `getLayout` / `getRowContent` call | Request lifetime      | Cross-row dedupe within a single request        |
 | PreferenceEngine profile   | Per user (existing)                       | Written at rebuild    | Score data; no new cache                        |
 
-**No new home-feed-level cache in v1.** Per-row `MediaService` TTLs already handle most of the win; a layout-level cache would complicate invalidation on feedback events for a marginal improvement. Revisit if `getLayout` P95 shows up on flame graphs.
+**No new home-feed-level cache v1.** Per-row `MediaService` TTLs handle most win; layout-level cache complicates invalidation on feedback events for marginal improvement.
 
 ### Per-row TTLs
 
-All inherited from the capability layer; none overridden.
+All inherited from capability layer; none overridden.
 
 | Row                 | Underlying capability | TTL                                            |
 | ------------------- | --------------------- | ---------------------------------------------- |
@@ -530,11 +528,11 @@ All inherited from the capability layer; none overridden.
 | `upcomingForYou`    | `calendar@v1`         | 1 h                                            |
 | `yourWatchlist`     | `watchlist@v1`        | 5 min                                          |
 
-Important detail on `recommendedForYou`: the _candidate list_ is cached at 6 h, but `PreferenceEngine.rankCandidates` runs on every request. Profile changes (incremental update or daily rebuild) take effect on the next `getLayout` without touching the candidate cache. No invalidation plumbing needed between the PreferenceEngine and the home-feed layer.
+`recommendedForYou` detail: candidate list cached 6h, but `PreferenceEngine.rankCandidates` runs fresh each request. Profile changes take effect next `getLayout` without touching candidate cache. No invalidation plumbing needed.
 
 ### Request-scoped dataloader
 
-Memoization keyed on `(method, argsHash)` with the userId implicit in the request scope. Lives for one `getLayout` or `getRowContent` call, then discarded. Fronts the `MediaService` methods where cross-row overlap is likely.
+Memoization keyed on `(method, argsHash)`, userId implicit in request scope. Lives one `getLayout`/`getRowContent` call, then discarded.
 
 ```ts
 class RequestScopedLoader {
@@ -567,20 +565,18 @@ class RequestScopedLoader {
 }
 ```
 
-Four methods deserve special handling:
+Four methods with special handling:
 
-- **`getMetadata`** — straight memoization. Two rows needing the same title share one underlying call.
-- **`getStatusBatch`** — microtask-level coalescing. Each row calls `loader.getStatusBatch(rowItems)` during its fetch; the loader collects all calls that arrive in the _same microtask_ and flushes on the next one (specifically via `queueMicrotask()`, same primitive the `dataloader` npm package uses). It unions the id set, fires one `mediaRequest@v1.getStatusBatch`, and splits the response back out per caller. Flushing on microtask (rather than `setImmediate` / `setTimeout(0)`) keeps coalescing latency inside sub-millisecond territory and avoids introducing a deferral large enough to be observable in row timings.
-- **`getInProgressSet`** — memoized read-through over `mediaService.getInProgress(this.userId)` that returns a `Set<MediaId>`. Single source of truth for the per-request in-progress set. Called by signal computation during `getLayout` to populate `inProgressCount` (`.size` of the set) and by `becauseYouWatched` for cross-row exclusion on every page. Signal computation runs first, so the `becauseYouWatched` fetcher hits warm memoization on page 1 — zero additional plugin work. `calendarProgressCount` does not share this memoization; it comes from `MediaService.getCalendarProgressCount` which does its own cross-reference against calendar data. Bounded by whatever the underlying `watchHistory@v1` plugins return for an in-progress list — assumed on the order of tens to low hundreds in realistic use; `mediaService.getInProgress` enforces the per-plugin timeout that backstops pathological cases.
-- **`hasPlugin(capability)`** — memoized lookup over `service_connections ∩ capability registry` for `this.userId`. Consumed by every `RowFetcher.isEligible` that needs to verify a plugin is still connected mid-session (six of seven rows; §8). The same table backs signal computation's `hasXPlugin` booleans, so the lookup hits the per-user plugin-presence cache rather than firing new DB queries. Memoization means two rows that both need the same capability only pay for one read.
+- **`getMetadata`** — straight memoization. Two rows needing same title → one underlying call.
+- **`getStatusBatch`** — microtask-level coalescing. Each row calls during fetch; loader collects calls arriving same microtask, flushes via `queueMicrotask()`. Unions id set, fires one `mediaRequest@v1.getStatusBatch`, splits response per caller. Coalescing latency sub-millisecond.
+- **`getInProgressSet`** — memoized read-through, returns `Set<MediaId>`. Single source for per-request in-progress set. Signal computation calls first → `becauseYouWatched` hits warm memoization page 1 — zero additional plugin work. `calendarProgressCount` ⊥ shares this memoization (comes from `MediaService.getCalendarProgressCount` with its own cross-reference against calendar data).
+- **`hasPlugin(capability)`** — memoized lookup over `service_connections ∩ capability registry` for `this.userId`. Same table backs signal computation's `hasXPlugin` booleans. Memoization: two rows checking same capability → one read.
 
-**Status call timeout budget.** The coalesced `getStatusBatch` call has its own 1s cap (tighter than the 3s per-row cap, since status is an enrichment and rows should not sacrifice their entire budget to it). On timeout or full failure, all items in the caller rows have `status` omitted. `partial: true` is _not_ set for this case — status is not core row content, and the feed already tolerates `status === undefined` via the "unknown" fallback path in the frontend. Genuine aggregate partial failures from the underlying `mediaRequest@v1.getStatusBatch` (some plugins erroring while others return data) still surface status for items where at least one plugin responded.
-
-Other `MediaService` methods are not wrapped by the dataloader — they have narrower cross-row overlap, and the `MediaService` LRU handles repeats at request granularity well enough.
+**Status call timeout budget.** Coalesced `getStatusBatch` call: 1s cap (tighter than 3s per-row — status = enrichment, rows ⊥ sacrifice entire budget to it). On timeout/full failure → `status` omitted on all items. `partial: true` ⊥ set for this case — status ⊥ core row content. Genuine aggregate partial failures from underlying `mediaRequest@v1.getStatusBatch` (some plugins error, others succeed) → status present for items where ≥1 plugin responded.
 
 ### Cursor format
 
-Opaque base64-encoded JSON, versioned. Four variants — page-based, offset-based, afterTmdbId-based, and two specialized page variants for `recommendedForYou` (with exclusion list) and `becauseYouWatched` (with pinned seed).
+Opaque base64-encoded JSON, versioned. Four variants:
 
 ```ts
 // page-based (trendingNow, newReleases)
@@ -602,56 +598,52 @@ Opaque base64-encoded JSON, versioned. Four variants — page-based, offset-base
 { v: 1, r: "recommendedForYou", p: 2, x: ["movie:550", "tv:1396", ...] }
 ```
 
-**`upcomingForYou` `ts` field.** An item in `upcomingForYou` represents one upcoming _episode_ of an in-progress show. Multiple upcoming episodes of the same show share `tmdbId` but differ in `airsAt`. `ts` carries the `airsAt` of the last returned item in the previous page; server pagination uses `(tmdbId, airsAt) > (cursor.a, cursor.ts)` as the composite ordering key for the next page. Without `ts`, a show with four upcoming episodes would either return duplicates across pages or skip episodes.
+**`upcomingForYou` `ts` field.** Item = upcoming episode of in-progress show. Multiple upcoming episodes of same show share `tmdbId` but differ in `airsAt`. `ts` carries `airsAt` of last returned item in previous page; server pagination uses `(tmdbId, airsAt) > (cursor.a, cursor.ts)` as composite ordering key. Without `ts` → duplicates or skipped episodes.
 
-**`becauseYouWatched` `s` field.** The row is seed-dependent, and the seed is delivered to the fetcher exclusively through the cursor — including on page 1. During `getLayout`, the layout handler synthesises an initial cursor `{ v: 1, r: "becauseYouWatched", p: 1, s: signals.recentSeed.id }` and passes it as `opts.cursor` to `RowFetcher.fetch` in place of `null`. The fetcher therefore has a single code path: decode the cursor, read `s`, call `metadata@v1.getSimilar(seed, { page: cursor.p })`. There is no "cursor is null → page 1 → pull seed from some other context" branch, and `RowFetchContext` does not need to expose `LayoutSignals` to fetchers to make this work. The seed can shift mid-session (user rates something higher between page 1 and a scroll-to-page-2), so pagination must keep the same seed — otherwise `getRowContent` would silently return "similar to a different movie" with no error, and the user sees a broken scroll. `s` carries the media id (`"movie:550"` or `"tv:1396"`) and is echoed unchanged on every scroll page; `getRowContent` reads `s`, decodes it to `(tmdbId, mediaType)`, and uses that specific seed even if `signals.recentSeed` has since moved on. The row subtitle on the client stays stable for the scroll session; the new seed surfaces on the next `getLayout`. The same `s` is what `isEligible` resolves against in §8 ("does this specific seed still fetch" rather than "does the user still have any recent seed").
+**`becauseYouWatched` `s` field.** Seed delivered to fetcher exclusively through cursor — including page 1. During `getLayout`, layout handler synthesises initial cursor `{ v: 1, r: "becauseYouWatched", p: 1, s: signals.recentSeed.id }`, passes as `opts.cursor`. Fetcher single code path: decode cursor, read `s`, call `metadata@v1.getSimilar(seed, { page: cursor.p })`. No "cursor null → page 1 → pull seed from some other context" branch. `s` carries media id (`"movie:550"` or `"tv:1396"`), echoed unchanged ∀ scroll pages; `getRowContent` reads `s`, decodes to `(tmdbId, mediaType)`, uses specific seed even if `signals.recentSeed` shifted. Row subtitle stable for scroll session; new seed surfaces next `getLayout`. Same `s` is what `isEligible` resolves against in §8.
 
 ### Cursor validation
 
-Cursors are untrusted client input. Every decode runs a Zod schema _before any business logic touches the payload_. The schema enforces:
+Cursors = untrusted client input. ∀ decodes run Zod schema **before any business logic touches payload**. Schema enforces:
 
 - `v === 1`.
-- `r` is one of the `RowKind` enum values.
-- Variant-appropriate fields present and typed: `p` is a non-negative integer capped at `maxItems / pageSize`; `o` is a non-negative integer capped at `maxItems`; `a` and `s` match the `movie:NNN` / `tv:NNN` media-id pattern; `ts` is a positive integer ms epoch; `x` is a string array with `items <= maxItems` (60) and each entry matching the media-id pattern.
+- `r` ∈ `RowKind` enum values.
+- Variant-appropriate fields: `p` non-negative integer capped at `maxItems / pageSize`; `o` non-negative integer capped at `maxItems`; `a` & `s` match `movie:NNN`/`tv:NNN` pattern; `ts` positive integer ms epoch; `x` string array with `items <= maxItems` (60), each entry matching media-id pattern.
 - No extra keys (strict parsing).
-
-Decode outcomes:
 
 | Outcome                                                     | Result                                                      |
 | ----------------------------------------------------------- | ----------------------------------------------------------- |
 | Malformed base64 / non-JSON / fails Zod validation          | `home.bad_input`                                            |
-| Cursor's `r` doesn't match the `rowId` in the request input | `home.bad_input`                                            |
-| Decoded page/offset lies beyond `maxItems`                  | `{ items: [], cursor: null }` — graceful stop, not an error |
-| Decoded position is past the end of underlying data         | same graceful stop                                          |
+| Cursor's `r` doesn't match `rowId` in request input         | `home.bad_input`                                            |
+| Decoded page/offset lies beyond `maxItems`                  | `{ items: [], cursor: null }` — graceful stop, not error    |
+| Decoded position past end of underlying data                | same graceful stop                                          |
 
-The decode-side cap on `x[]` and `p`/`o` is load-bearing: a crafted cursor with 10k entries in `x` would otherwise push the row fetcher into an O(candidates × 10k) filter. Zod rejects the payload before any allocation or dispatch happens.
+Decode-side cap on `x[]` & `p`/`o` load-bearing: crafted cursor with 10k entries in `x` → O(candidates × 10k) filter. Zod rejects before allocation/dispatch.
 
-Cursors do not expire and are **not HMAC-signed**. The risk analysis behind that choice:
+Cursors ⊥ expire & **⊥ HMAC-signed**. Risk analysis:
 
-- The oRPC endpoint authenticates the request via session; `userId` comes from `ctx.user.id`, never from the cursor. A client cannot paginate against another user's data by replaying a captured cursor — they'd need that user's session token, at which point the cursor is the least of the concerns.
-- What a client _can_ do is craft arbitrary valid cursors for their own account. The worst this achieves within the validated payload shape is "skip to page 3 without fetching page 1" or "exclude titles I never saw" — both of which only affect the user's own view and give no access they don't already have via normal pagination.
-- The real threat from untrusted cursor input is decode-time DoS (crash on malformed input, memory pressure from oversized payloads). Zod validation + hard length caps handle that directly.
-- HMAC signing would add secret management, rotation, and per-request CPU cost to solve an attack the session-auth boundary already prevents. It's been considered and deliberately not adopted.
+- oRPC endpoint authenticates via session; `userId` from `ctx.user.id`, ⊥ from cursor. Client ⊥ paginate against another user's data by replaying captured cursor — needs that user's session token.
+- What client can do: craft valid cursors for own account. Worst achievable within validated shape: "skip to page 3" or "exclude titles I never saw" — affects only own view, ⊥ access they don't already have.
+- Real threat from untrusted cursor input: decode-time DoS (crash on malformed, memory pressure from oversized). Zod validation + hard length caps handle directly.
+- HMAC signing adds secret management, rotation, per-request CPU cost to solve attack session-auth already prevents. Deliberately not adopted.
 
-If the threat model changes later (e.g. cursor gets used as a capability token in a different surface), signing is a mechanical retrofit — encode becomes `base64(payload || hmac(secret, payload))`, decode verifies first. No cursor-shape change.
-
-Cursor semantics note: cursors are best-effort across data shifts. If the watchlist changes between pages, the user may see slight inconsistencies on scroll. Acceptable for a home feed; this discipline is deliberately row-local and not applied elsewhere in the system.
+If threat model changes (e.g. cursor used as capability token in different surface), signing = mechanical retrofit — encode becomes `base64(payload || hmac(secret, payload))`, decode verifies first. No cursor-shape change.
 
 ### `recommendedForYou` exclusion list
 
-Re-ranking on every page creates a risk of duplicates across scroll pages: an item ranked 15 on page 1 may rank 21 on page 2 if the profile updated in between. The cursor carries the IDs returned on prior pages and the server excludes them before responding.
+Re-ranking every page risks duplicates across scroll pages: item ranked 15 page 1 may rank 21 page 2 if profile updated. Cursor carries IDs returned on prior pages; server excludes before responding.
 
-Bounds: exclusion list capped at `maxItems` (60), enforced on **both encode and decode** per the cursor-validation schema above. Cursor stays under ~2KB encoded. Only `recommendedForYou` uses this variant.
+Bounds: exclusion list capped at `maxItems` (60), enforced on **both encode & decode** per cursor-validation schema. Cursor stays under ~2KB encoded. Only `recommendedForYou` uses this variant.
 
 ### Timeouts
 
-- **Per-row fetch:** 3s hard cap. Passed into `MediaService` via the existing per-call timeout override. On timeout, row is treated as empty (drop-empty applies).
-- **`getLayout` overall response:** bounded by the slowest row (≤3s) + minor overhead.
-- **`getRowContent`:** 3s flat. On timeout the endpoint returns `{ items: [], cursor: null }` — the same graceful end-of-pagination shape used for "decoded position past end of data" (§7 cursor validation) and "all plugins errored" (§9 degradation matrix). Consistency matters here: the client treats `cursor: null` uniformly as "stop paginating," so a timeout mid-scroll surfaces as the same end-of-row state rather than a thrown error. A timeout is logged so it shows up in observability, but is not promoted to `home.internal` — the row is a degradation surface, not an incident surface.
+- **Per-row fetch:** 3s hard cap. On timeout → treated as empty → drop-empty applies.
+- **`getLayout` overall:** bounded by slowest row (≤3s) + minor overhead.
+- **`getRowContent`:** 3s flat. On timeout → `{ items: [], cursor: null }` — same graceful end-of-pagination shape as "decoded position past end" & "all plugins errored." Timeout logged, ⊥ promoted to `home.internal`.
 
 ### Concurrency and fairness
 
-A single `getLayout` fans out up to seven aggregate calls, each potentially hitting multiple plugins. Per-plugin rate-limit accounting (an open question in the MediaService doc) applies. No new concurrency primitive is introduced here. Worst-case hammering on install day for a user with many plugins is real but bounded by existing `MediaService` rate limits.
+Single `getLayout` fans out ≤7 aggregate calls, each potentially hitting multiple plugins. Per-plugin rate-limit accounting applies. No new concurrency primitive introduced.
 
 ## Empty states and degradation
 
@@ -659,23 +651,23 @@ A single `getLayout` fans out up to seven aggregate calls, each potentially hitt
 
 | State                                              | Rows that render                                                                                                                                         |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No plugins, no shared creds**                    | `rows: []` — client renders an onboarding empty state                                                                                                    |
+| **No plugins, no shared creds**                    | `rows: []` — client renders onboarding empty state                                                                                                       |
 | **TMDB via shared admin key only** (day-zero)      | `newReleases` always; `becauseYouWatched` if feedback seed exists                                                                                        |
-| **TMDB + feedback signal but no trackers**         | `newReleases`, `becauseYouWatched`, and `recommendedForYou` (thin profile → low-confidence re-rank) if a plugin implementing `recommendations@v1` exists |
+| **TMDB + feedback signal but no trackers**         | `newReleases`, `becauseYouWatched`, and `recommendedForYou` (thin profile → low-confidence re-rank) if plugin implementing `recommendations@v1` exists    |
 | **TMDB + tracker (e.g. Trakt)**                    | All seven rows eligible, subject to per-row content checks                                                                                               |
 | **Full install (TMDB + Trakt + Seerr + calendar)** | All seven rows                                                                                                                                           |
 
-Each transition is driven by the signal computation and candidate filter in §5. Nothing special-cases "the user just connected X" — the next `getLayout` simply picks it up.
+Each transition driven by signal computation & candidate filter §5. Nothing special-cases "user just connected X" — next `getLayout` picks it up.
 
 ### Empty layout
 
-When `rows` is empty after filtering and drop-empty, return:
+When `rows` empty after filtering & drop-empty:
 
 ```json
 { "rows": [], "generatedAt": 1713820000000 }
 ```
 
-The client is responsible for the empty-state UX. It already knows the user's connection state via the existing `/connections` oRPC surface and has everything it needs to render context-appropriate guidance. No `guidance` field on the layout response — avoids duplicating knowledge that lives in the connections layer.
+Client responsible for empty-state UX. Already knows user's connection state via `/connections` oRPC. No `guidance` field — avoids duplicating knowledge that lives in connections layer.
 
 ### Degradation matrix
 
@@ -685,128 +677,126 @@ The client is responsible for the empty-state UX. It already knows the user's co
 | Cheap-signal count is zero                             | Row filtered out in candidate selection                                                                                         |
 | Aggregate with partial plugin failure                  | Row renders with returned data + `partial: true`                                                                                |
 | Aggregate with all plugins failing                     | Row empty; drop-empty removes it (including `upcomingForYou` — see below)                                                       |
-| Aggregate returning zero items (all plugins succeeded) | Row dropped by drop-empty, **except** `upcomingForYou` which is retained with `items: []` (meaningful "you're caught up" state) |
+| Aggregate returning zero items (all plugins succeeded) | Row dropped by drop-empty, **except** `upcomingForYou` retained with `items: []` (meaningful "you're caught up" state)          |
 | Primary-with-enrichment primary fails                  | Row empty; dropped                                                                                                              |
 | `becauseYouWatched` seed doesn't resolve in metadata   | Row dropped; signal clears seed for subsequent calls                                                                            |
 | Per-row 3s timeout exceeded                            | Row treated as empty; dropped                                                                                                   |
-| `PreferenceEngine.explainMatch` fails for an item      | `matchReason` omitted on that item; row otherwise unaffected                                                                    |
+| `PreferenceEngine.explainMatch` fails for item         | `matchReason` omitted on that item; row otherwise unaffected                                                                    |
 | `PreferenceEngine.rankCandidates` fails                | Fall back to upstream aggregate order; log; row still renders                                                                   |
 | Signal computation partial failure                     | Failing signal defaults (0 / `"none"`); log; layout proceeds                                                                    |
 | Signal computation total failure (DB down)             | `getLayout` throws `home.internal` (captured)                                                                                   |
 | `mediaRequest@v1.getStatusBatch` fails                 | `status` omitted on items; rows otherwise unaffected                                                                            |
 | `PreferenceEngine` entirely unavailable                | `recommendedForYou` renders via upstream order; `matchReason` absent                                                            |
 
-Principle throughout: **degrade silently at the row level, fail loudly at the infra level.** A plugin being down is product behavior; the DB being down is an incident.
+Principle: **degrade silently at row level, fail loudly at infra level.** Plugin down = product behavior; DB down = incident.
 
 ### `partial: true` signaling
 
-Set on a row when `MediaService` returned aggregate errors alongside data. The client uses it as a signal to render a subtle affordance ("some sources unavailable") and deep-link to `/connections` where the real error detail lives via the connection's `status` field. The home feed does not surface specific error messages — that's the Connections page's job per the error-management doc.
+Set on row when `MediaService` returned aggregate errors alongside data. Client renders subtle affordance ("some sources unavailable"), deep-links to `/connections`. ⊥ specific error messages — Connections page's job per error-management doc.
 
-Not promoted to a top-level response field; keeping the signal on the row preserves locality.
+⊥ promoted to top-level response field; keeping signal on row preserves locality.
 
-### Plugin-connection changes during a session
+### Plugin-connection changes during session
 
-When the user enables, disables, or removes a connection via `/connections`, subsequent `getLayout` calls reflect the new state (signals recompute, rows filter accordingly). Stale `getRowContent` cursors for a row that has since been dropped produce `home.row_unavailable`, which the client treats as "stop paginating, the row is gone." Consistent with the connection-change cache-invalidation hook from the `MediaService` doc.
+When user enables/disables/removes connection via `/connections`, subsequent `getLayout` reflects new state (signals recompute, rows filter accordingly). Stale `getRowContent` cursors for dropped row → `home.row_unavailable`. Consistent with connection-change cache-invalidation hook from `MediaService` doc.
 
-**Eligibility re-check on `getRowContent`.** We do **not** re-run the full `LayoutSignals` snapshot on every pagination call — a ~50ms snapshot on a horizontal-scroll request is wasted work. Instead, each `RowFetcher` declares a cheap `isEligible(userId, loader)` check using only what that row needs:
+**Eligibility re-check on `getRowContent`.** ⊥ re-run full `LayoutSignals` snapshot on every pagination call — ~50ms snapshot on horizontal-scroll = wasted work. Each `RowFetcher` declares cheap `isEligible(userId, loader)`:
 
 - `continueWatching` — `loader.hasPlugin("watchHistory@v1")`.
 - `yourWatchlist` — `loader.hasPlugin("watchlist@v1")`.
-- `upcomingForYou` — `loader.hasPlugin("calendar@v1")`. The `calendarProgressCount > 0` gate from `candidateRows` is intentionally _not_ mirrored here: mid-session the user may have just caught up on their last in-progress show, which legitimately drops the count to zero but should still render the row with `outcome: ok_empty` ("you're caught up") rather than `home.row_unavailable`. The plugin-presence check is what actually governs eligibility; the count gate is a layout-time optimization to skip the fetch entirely when we already know it will be empty.
-- `recommendedForYou`, `trendingNow` — `loader.hasPlugin("recommendations@v1")`. `candidateRows` gates RFY strictly on plugin presence (profile-only fallback is out of scope for v1 per §6), so `isEligible` mirrors that — no profile-exists escape hatch.
-- `becauseYouWatched` — verify the seed media id carried in the cursor's `s` field still resolves via `metadata@v1.getById`. Uses the cursor-pinned seed, not the live `signals.recentSeed` — pagination must be consistent with page 1 even when the user's recent seed has shifted.
-- `newReleases` — always eligible; returns `true` unconditionally. `metadata@v1` is assumed present; if it's somehow not, the row fetch itself empties and the call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
+- `upcomingForYou` — `loader.hasPlugin("calendar@v1")`. `calendarProgressCount > 0` gate from `candidateRows` intentionally ⊥ mirrored: mid-session user may have caught up → count drops to zero → should render row with `outcome: ok_empty` ("you're caught up"), not `home.row_unavailable`. Plugin-presence check governs eligibility; count gate = layout-time optimization to skip fetch when guaranteed empty.
+- `recommendedForYou`, `trendingNow` — `loader.hasPlugin("recommendations@v1")`. `candidateRows` gates RFY strictly on plugin presence (profile-only fallback out of scope v1), so `isEligible` mirrors that — no profile-exists escape hatch.
+- `becauseYouWatched` — verify seed media id in cursor's `s` still resolves via `metadata@v1.getById`. Uses cursor-pinned seed, not live `signals.recentSeed` — pagination ! be consistent with page 1 even when seed shifted.
+- `newReleases` — always eligible; returns `true` unconditionally. `metadata@v1` assumed present; if not, row fetch empties, call returns `{ items: [], cursor: null }` rather than `home.row_unavailable`.
 
-All `hasPlugin` calls go through `RequestScopedLoader.hasPlugin` (§7), which reads the same `service_connections` ∩ capability registry table signals use and memoizes per request — sub-5ms, and two rows checking the same capability only pay once. The `isEligible` contract is one method per row; implementations sit in each row fetcher file.
+∀ `hasPlugin` calls through `RequestScopedLoader.hasPlugin` (§7) — sub-5ms, two rows checking same capability → one read. `isEligible` contract: one method per row; implementations in each row fetcher file.
 
-A failed eligibility check produces `home.row_unavailable` immediately, without touching the plugin runtime. A cursor that decodes but points past data (normal end-of-pagination) still returns `{ items: [], cursor: null }` — eligibility is about "is this row still legal for this user," not "is there more content."
+Failed eligibility → `home.row_unavailable` immediately, ⊥ touching plugin runtime. Cursor past data (normal end-of-pagination) → `{ items: [], cursor: null }` — eligibility ≠ "is there more content."
 
-### Feedback events during a session
+### Feedback events during session
 
-`ent_feedback` writes to `feedback_log` and triggers the `PreferenceEngine` incremental-update job. The home feed does not self-invalidate:
+`ent_feedback` writes to `feedback_log`, triggers `PreferenceEngine` incremental-update job. Feed ⊥ self-invalidates:
 
-- The candidate-list cache in `MediaService` is untouched by feedback — it's the upstream plugins' aggregation, not user-specific.
-- The profile used by `rankCandidates` refreshes as soon as the incremental job runs (coalesced, ~30s debounce). Next `getLayout` picks it up.
-- `recentSeed` for `becauseYouWatched` updates on the next `getLayout`.
+- Candidate-list cache in `MediaService` untouched by feedback.
+- Profile used by `rankCandidates` refreshes when incremental job runs (~30s debounce). Next `getLayout` picks it up.
+- `recentSeed` for `becauseYouWatched` updates next `getLayout`.
 
-Small window (up to ~30 seconds) where a user gives feedback and the next home load still shows the old ranking. Acceptable — matches the preview-vs-authoritative pattern from the PreferenceEngine spec.
+Small window (≤~30s) where user gives feedback & next home load still shows old ranking. Acceptable — matches preview-vs-authoritative pattern from PreferenceEngine spec.
 
 ### First-visit / cold-cache behavior
 
-First-ever `getLayout` for a user warms all per-row caches. Rough P95 upper bound: 3s (timeout cap). Subsequent visits within TTL: ~100–500ms depending on how many rows still need revalidation.
+First-ever `getLayout` warms all per-row caches. P95 upper bound: 3s (timeout cap). Subsequent visits within TTL: ~100–500ms depending on how many rows need revalidation.
 
-No "show skeleton, reload later" logic in v1 — a row is either returned or not. If cold-cache latency proves painful, a warm-on-connection-create hook is a small addition; deferred.
+No "show skeleton, reload later" v1 — row either returned or not. Cache pre-warm on connection-create = small addition; deferred.
 
 ## `MediaService` and capability additions
 
-All additions are backward-compatible. Plugins that don't implement a new capability method are skipped in aggregate per existing MediaService semantics.
+All backward-compatible. Plugins not implementing new capability method → skipped in aggregate per existing MediaService semantics.
 
 ### New `MediaService` methods
 
 Thin read-throughs; no new capability.
 
-- `getWatchlistCount(userId): Promise<number>` — count of items returned by `watchlist@v1.list`, served from the capability cache.
-- `getCalendarProgressCount(userId): Promise<number>` — count of in-progress shows with at least one future episode, derived from the watchHistory in-progress set cross-referenced with calendar data.
+- `getWatchlistCount(userId): Promise<number>` — count of `watchlist@v1.list` items, from capability cache.
+- `getCalendarProgressCount(userId): Promise<number>` — count of in-progress shows with ≥1 future episode, derived from watchHistory in-progress set cross-referenced with calendar data.
 
 ### New capability methods
 
-- `watchHistory@v1.getInProgress(userId, { cursor, limit })` — returns in-progress items with `watched_ms` and `duration_ms`. Backward-compatible addition.
-- `mediaRequest@v1.getStatusBatch(userId, ids: MediaId[])` — batched variant of `getStatus` returning `Record<MediaId, status>` keyed on the same `MediaId` strings (`"movie:550"`, `"tv:1396"`) passed in `ids` — not on bare `tmdbId` integers. Keeping the keyspace symmetric with the input avoids a subtle split bug in the dataloader when it fans a coalesced response back to per-row callers. Plugins that don't implement it are skipped; status falls back to `"unknown"` for items from non-implementing plugins.
+- `watchHistory@v1.getInProgress(userId, { cursor, limit })` — returns in-progress items with `watched_ms` & `duration_ms`. Backward-compatible addition.
+- `mediaRequest@v1.getStatusBatch(userId, ids: MediaId[])` — batched `getStatus` returning `Record<MediaId, status>` keyed on same `MediaId` strings (`"movie:550"`, `"tv:1396"`) as `ids` — not bare `tmdbId` integers. Symmetric keyspace prevents split bug in dataloader when fanning coalesced response back to per-row callers. Plugins not implementing → skipped; status falls back to `"unknown"`.
 
 ### Pre-existing but referenced
-
-These are already spec'd (MCP doc or `ent_discover`'s discover/trending additions):
 
 - `recommendations@v1.getTrending({ mediaType?, limit, cursor })`
 - `metadata@v1.discover({ filters, sort, limit, cursor })`
 
 ## Testing
 
-One test file per unit. Favor small, fast unit tests over integration tests; one end-to-end path per user-state fixture.
+One test file per unit. Favor small, fast unit tests over integration; one end-to-end path per user-state fixture.
 
 ### Signal computation (`signals.test.ts`)
 
-- Each signal independently: given a fixture DB state + mocked `MediaService`, the signal returns the expected value.
-- Partial failures: one signal source errors → the signal defaults and others complete normally.
-- Total DB failure: snapshot throws; caller propagates as `home.internal`.
+- Each signal independently: fixture DB state + mocked `MediaService` → expected value.
+- Partial failures: one signal source errors → signal defaults, others complete normally.
+- Total DB failure: snapshot throws → caller propagates as `home.internal`.
 - `recentSeed` fallback chain: high-rating → like → recently-completed → null.
 
 ### Layout rules (`rules.test.ts`)
 
 Pure-function tests, no mocks.
 
-- `candidateRows(signals)` for representative signal snapshots (zero-plugin, TMDB-only, full-install).
-- `orderRows(candidates, signals)` across the confidence matrix (none/low/medium/high), verifying the RFY ↔ Trending swap.
-- Static tail ordering: `yourWatchlist`, `newReleases`, `upcomingForYou` always appear in that relative order.
-- Snapshot test on the full (signal snapshot → expected row order) table for the v1 rule set.
+- `candidateRows(signals)` for representative snapshots (zero-plugin, TMDB-only, full-install).
+- `orderRows(candidates, signals)` across confidence matrix (none/low/medium/high), verifying RFY ↔ Trending swap.
+- Static tail ordering: `yourWatchlist`, `newReleases`, `upcomingForYou` always in that relative order.
+- Snapshot test on full (signal snapshot → expected row order) table for v1 rule set.
 
 ### Row-fetcher contract tests
 
-One file per row under `rows/*.test.ts`. Every row exercises:
+One file per row under `rows/*.test.ts`. ∀ rows exercise:
 
-- Happy path: fixture plugin returns data → row returns `CompactMediaItem[]` in the right shape.
+- Happy path: fixture plugin returns data → row returns `CompactMediaItem[]` in correct shape.
 - Within-row dedupe: overlapping items from two plugins → single entry (most-recent-progress wins where applicable).
 - Cursor roundtrip: `fetch(null)` → `cursor X` → `fetch(X)` → `cursor Y` → eventually null.
-- Max-items cap: pagination stops at the declared `maxItems`.
-- Per-row timeout: slow plugin → returns `{ items: [], cursor: null }`.
+- Max-items cap: pagination stops at declared `maxItems`.
+- Per-row timeout: slow plugin → `{ items: [], cursor: null }`.
 - Partial aggregate: one failing + one succeeding plugin → merged data with `partial: true`.
 
-Row-specific additions:
+Row-specific:
 
-- `continueWatching`: `progress` populated when `duration_ms > 0`; items with missing/zero/negative `duration_ms` are **included** with the `progress` field absent (matches §6 contract); item with `duration_ms = 0` → returned, `progress` key absent on the item; sorted most-recent-watched-at first.
-- `recommendedForYou`: candidate over-fetch = limit × 3; `rankCandidates` called once; `explainMatch` called only for returned top-N; thin profile → `matchReason` omitted, row still renders.
-- `becauseYouWatched`: subtitle contains seed title; seed resolution failure on `getLayout` → row drops cleanly; `isEligible` called with a cursor whose pinned `s` no longer resolves via `metadata@v1.getById` → returns `false` (orchestrator then emits `home.row_unavailable`); `isEligible` with a still-resolvable `s` → returns `true` even when `signals.recentSeed` has shifted to a different title since page 1 (pagination stays pinned to the original seed).
+- `continueWatching`: `progress` populated when `duration_ms > 0`; items with missing/zero/negative `duration_ms` **included** with `progress` absent (matches §6 contract); `duration_ms = 0` → returned, `progress` key absent; sorted most-recent-watched-at first.
+- `recommendedForYou`: candidate over-fetch = limit × 3; `rankCandidates` called once; `explainMatch` only for top-N; thin profile → `matchReason` omitted, row renders.
+- `becauseYouWatched`: subtitle contains seed title; seed resolution failure on `getLayout` → row drops cleanly; `isEligible` with cursor `s` no longer resolving → returns `false`; `isEligible` with still-resolvable `s` → returns `true` even when `signals.recentSeed` shifted.
 - `recommendedForYou` exclusion: page 2 cursor carries ~20 IDs from page 1; page 2 excludes them; exclusion list capped at `maxItems`.
 
 ### Dataloader (`dataloader.test.ts`)
 
 - Same `getMetadata(id)` called twice within one request → one underlying call.
 - `getStatusBatch` coalescing: three rows each call with disjoint ID sets → one combined upstream call → correct per-caller split.
-- `getStatusBatch` return: keys match input `MediaId` strings verbatim (e.g. `"movie:550"`, not `"550"`).
-- `getInProgressSet` memoization: two callers in one request → one underlying `getInProgress` call; returns a `Set<MediaId>`; no `userId` parameter — uses the loader's constructor-scoped user.
-- `hasPlugin` memoization: two rows checking the same capability in one request → one underlying `service_connections` lookup; distinct capabilities → distinct lookups; returns `boolean`.
-- Error propagation: underlying call fails → all awaiting callers receive the same error.
-- Non-dataloader methods are not memoized.
+- `getStatusBatch` return: keys match input `MediaId` strings verbatim (`"movie:550"`, ⊥ `"550"`).
+- `getInProgressSet` memoization: two callers → one underlying `getInProgress` call; returns `Set<MediaId>`; no `userId` param — uses loader's constructor-scoped user.
+- `hasPlugin` memoization: two rows checking same capability → one lookup; distinct capabilities → distinct lookups; returns `boolean`.
+- Error propagation: underlying call fails → ∀ awaiting callers receive same error.
+- Non-dataloader methods ⊥ memoized.
 
 ### Cursor (`cursor.test.ts`)
 
@@ -819,10 +809,10 @@ Row-specific additions:
 - Exclusion list size cap enforced on encode.
 - `upcomingForYou` decode without `ts` → `home.bad_input`.
 - `becauseYouWatched` decode without `s` → `home.bad_input`.
-- `becauseYouWatched` `s` field with malformed media id (not `movie:NNN` / `tv:NNN`) → `home.bad_input`.
+- `becauseYouWatched` `s` field with malformed media id → `home.bad_input`.
 - `becauseYouWatched` pagination continuity: cursor `s` carries forward unchanged across pages even when `signals.recentSeed` would change mid-session.
-- `becauseYouWatched` layout-synthesised initial cursor: given a `LayoutSignals` with `recentSeed = { tmdbId: "550", mediaType: "movie", ... }`, the layout handler encodes `{ v: 1, r: "becauseYouWatched", p: 1, s: "movie:550" }` and passes it as `opts.cursor` to the fetcher — round-trips through the same encode/decode path as client-supplied cursors and is accepted by Zod validation unchanged.
-- `becauseYouWatched` initial cursor never null: under the contract the layout handler must not invoke the `becauseYouWatched` fetcher with `opts.cursor === null`. A test-double fetcher asserts the cursor it receives on page 1 decodes to `{ p: 1, s: <seed id> }`; the fetcher reads `s` from the cursor and never inspects any other source.
+- `becauseYouWatched` layout-synthesised initial cursor: given `LayoutSignals` with `recentSeed = { tmdbId: "550", mediaType: "movie", ... }`, layout handler encodes `{ v: 1, r: "becauseYouWatched", p: 1, s: "movie:550" }`, passes as `opts.cursor` — round-trips through same encode/decode path as client-supplied cursors, accepted by Zod unchanged.
+- `becauseYouWatched` initial cursor ⊥ null: layout handler ! not invoke `becauseYouWatched` fetcher with `opts.cursor === null`. Test-double fetcher asserts cursor received page 1 decodes to `{ p: 1, s: <seed id> }`; fetcher reads `s` from cursor only.
 
 ### `HomeFeedService` integration tests (`home-feed-service.test.ts`)
 
@@ -831,32 +821,32 @@ One test per user-state fixture:
 - **No plugins:** `getLayout` → `rows: []`.
 - **Shared TMDB only:** `getLayout` → `newReleases` only.
 - **TMDB + feedback signal, no trackers:** `newReleases` + `becauseYouWatched` + `recommendedForYou` (thin).
-- **TMDB + Trakt:** full eligible set with correct ordering per profile confidence.
+- **TMDB + Trakt:** full eligible set, correct ordering per profile confidence.
 - **Full install mid-rebuild:** reads current profile; ranking reflects stale-but-valid profile; no error.
-- **Calendar cold-cache:** `calendarProgressCount` returns 0 when calendar data is cold; `upcomingForYou` dropped; no error.
-- **`upcomingForYou` timeout vs. ok-empty vs. partial-empty:** timeout → row dropped; genuine empty fetch (all plugins succeeded with zero items) → row retained with `items: []`; some calendar plugins fail and successful ones return zero items → row dropped (outcome is `partial`, not `ok_empty`, so the exemption does not apply).
-- **`getRowContent` eligibility re-check:** plugin removed between `getLayout` and `getRowContent` → `home.row_unavailable`; plugin still present, cursor past end → `{ items: [], cursor: null }`.
-- **`getRowContent` timeout:** slow underlying fetch exceeds 3s → response is `{ items: [], cursor: null }` (no thrown error).
-- **Cross-row exclusion:** in-progress item does not appear in `becauseYouWatched` results on page 1 or on scroll page 2; both pages call `ctx.dataloader.getInProgressSet()`, and the test asserts a single underlying `mediaService.getInProgress(userId)` call across signal computation + fetcher invocation (memoization holds).
+- **Calendar cold-cache:** `calendarProgressCount` returns 0; `upcomingForYou` dropped; no error.
+- **`upcomingForYou` timeout vs ok-empty vs partial-empty:** timeout → dropped; genuine empty fetch (all plugins succeeded, zero items) → retained `items: []`; some calendar plugins fail & successful ones return zero → dropped (outcome = `partial`, exemption ⊥ fires).
+- **`getRowContent` eligibility re-check:** plugin removed between `getLayout` & `getRowContent` → `home.row_unavailable`; plugin present, cursor past end → `{ items: [], cursor: null }`.
+- **`getRowContent` timeout:** slow underlying fetch >3s → `{ items: [], cursor: null }` (no error thrown).
+- **Cross-row exclusion:** in-progress item ⊥ appears in `becauseYouWatched` page 1 or scroll page 2; both pages call `ctx.dataloader.getInProgressSet()`; test asserts single underlying `mediaService.getInProgress(userId)` call across signal computation + fetcher invocation (memoization holds).
 
-Each fixture asserts the row set, order, and which rows carry `matchReason` / `progress` / `partial`.
+∀ fixtures assert row set, order, which rows carry `matchReason`/`progress`/`partial`.
 
 ### API contract tests
 
-- oRPC input schema: `getLayout` rejects extra keys (strict); `getRowContent` requires `rowId` and `cursor`; unknown `rowId` → `home.bad_input`.
-- oRPC output schema matches the published type in `@ent-mcp/shared`; no extraneous fields.
-- Shape stability: snapshot test on a canonical fixture response.
+- oRPC input schema: `getLayout` rejects extra keys (strict); `getRowContent` requires `rowId` & `cursor`; unknown `rowId` → `home.bad_input`.
+- oRPC output schema matches published type in `@ent-mcp/shared`; no extraneous fields.
+- Shape stability: snapshot test on canonical fixture response.
 
 ### Degradation integration
 
-- Each capability's aggregate with one plugin failing → `partial: true` on corresponding row.
-- All plugins for a capability fail → row dropped (exception: `upcomingForYou` only when outcome is `ok_empty`, not on timeout/all-failed).
-- `upcomingForYou` with genuine empty fetch → row retained with `items: []`.
-- `upcomingForYou` timing out → row dropped (not retained as empty).
-- `upcomingForYou` partial-empty (mixed plugin failure with zero items from survivors) → row dropped; outcome resolves to `partial`, so the `ok_empty` exemption does not fire.
-- `getRowContent` for a row that became unavailable between layout calls → `home.row_unavailable`.
-- Cursor past end of data → `{ items: [], cursor: null }`, not an error.
-- `getStatusBatch` exceeds 1s budget → `status` omitted on affected items; row still returned; `partial` not set for this.
+- ∀ capability's aggregate with one plugin failing → `partial: true` on corresponding row.
+- All plugins for capability fail → row dropped (exception: `upcomingForYou` only when `ok_empty`).
+- `upcomingForYou` genuine empty fetch → row retained `items: []`.
+- `upcomingForYou` timing out → row dropped (⊥ retained as empty).
+- `upcomingForYou` partial-empty (mixed plugin failure, zero items from survivors) → row dropped; outcome = `partial` → `ok_empty` exemption ⊥ fires.
+- `getRowContent` for row unavailable since layout → `home.row_unavailable`.
+- Cursor past end → `{ items: [], cursor: null }`, not error.
+- `getStatusBatch` >1s → `status` omitted on affected items; row still returned; `partial` ⊥ set.
 
 ### Not tested here
 
@@ -867,13 +857,13 @@ Each fixture asserts the row set, order, and which rows carry `matchReason` / `p
 
 ## Open questions / deferred
 
-- **Billboard hero unit.** Additive `layout.hero` field. Reserved for a later spec.
-- **Cross-row dedupe.** Not applied in v1. If "same title in Trending and New Releases" feels noisy in practice, add a seen-set at the tail of the layout handler.
-- **Personalized row ordering beyond the rule table.** Requires engagement tracking ruled out by the PreferenceEngine spec.
-- **Genre-scoped rows.** Defer until `preference_profiles` data is strong enough to pick well.
-- **Streaming / progressive loading.** Synchronous response in v1. If a slow row becomes a P95 problem, per-row SSE is a clean retrofit — the `RowFetcher` shape is already row-local.
-- **Layout-level caching per user.** Not worth it until per-row TTLs prove insufficient.
-- **Cache pre-warm on connection-create.** First `getLayout` after connecting warms the cache cold. Add a hook if the cold-load UX is visibly bad.
-- **Dashboard rate limiting.** Not introduced here. If needed, extend the same token-bucket primitive used for MCP to oRPC.
-- **A/B variants on the rule table.** The pure-function shape is built for it; no experiment infra wired in v1.
-- **MCP equivalent.** MCP agents already get home-page-equivalent data via `ent_discover`; a dedicated `ent_home` tool would duplicate that surface and is not planned.
+- **Billboard hero unit.** Additive `layout.hero` field. Reserved for later spec.
+- **Cross-row dedupe.** ⊥ applied v1. If "same title in Trending & New Releases" noisy, add seen-set at tail of layout handler.
+- **Personalized row ordering beyond rule table.** Requires engagement tracking ruled out by PreferenceEngine spec.
+- **Genre-scoped rows.** Defer until `preference_profiles` data strong enough.
+- **Streaming / progressive loading.** Synchronous v1. If slow row becomes P95 problem, per-row SSE = clean retrofit — `RowFetcher` shape already row-local.
+- **Layout-level caching per user.** ⊥ worth it until per-row TTLs prove insufficient.
+- **Cache pre-warm on connection-create.** First `getLayout` after connecting warms cache cold. Add hook if cold-load UX visibly bad.
+- **Dashboard rate limiting.** ⊥ introduced here. Extend same token-bucket primitive used for MCP to oRPC if needed.
+- **A/B variants on rule table.** Pure-function shape built for it; no experiment infra wired v1.
+- **MCP equivalent.** MCP agents already get home-equivalent via `ent_discover`; dedicated `ent_home` would duplicate surface — ⊥ planned.

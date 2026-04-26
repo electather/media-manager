@@ -8,48 +8,49 @@
 
 ## Summary
 
-Admins currently have no way to shape a plugin's network behaviour after install. The plugin author's `manifest.allowedHosts` is the only gate, which is fine for first-party plugins but insufficient in two common deployment shapes: self-hosted plugins that declare `["*"]` to keep the manifest portable, and corporate environments where every outbound call must carry a gateway header or auth token.
+⊥ admin control over plugin network behavior post-install. `manifest.allowedHosts` sole gate — insufficient for:
+- Self-hosted plugins w/ `["*"]` manifest (portable but unconstrained).
+- Corporate envs requiring gateway headers on every outbound call.
 
-This spec adds an **Advanced** section (admin-only) to every plugin on `/admin/plugins`, carrying two policies:
+Spec adds **Advanced** collapsible (admin-only) per plugin on `/admin/plugins`:
+- **Admin host allowlist** — intersection w/ `manifest.allowedHosts`. Static only; `x-allowed-host` (user-supplied URLs) unaffected.
+- **Admin custom headers** — `Record<string, string>` merged into every `ctx.fetch`. Admin wins on conflict. Encrypted at rest. ⊥ returned in API responses.
 
-- **Admin host allowlist** — narrows the plugin author's `manifest.allowedHosts` via intersection. Only affects the static side; `x-allowed-host` (user-supplied URLs such as a user's Plex server) is unchanged.
-- **Admin custom headers** — a global per-plugin `Record<string, string>` merged into every `ctx.fetch` call the plugin makes. Admin values override plugin-supplied values on conflict. Stored encrypted at rest, stripped from API responses.
+Blocked attempts → `warn` entry in errors dashboard, code `plugin.host_blocked_by_admin`. Plugin sees pre-existing `plugin.upstream_error` — ⊥ new error shape for plugins.
 
-Blocked-host attempts are recorded as a `warn`-level entry in the existing errors dashboard under a new code `plugin.host_blocked_by_admin` and surface to the plugin as the pre-existing `plugin.upstream_error` — no plugin needs to learn a new error shape.
-
-The feature is intentionally small. Path-level restrictions, per-host header scoping, per-connection overrides, and aggregated violation widgets are deferred to future revisions.
+Intentionally small. Path restrictions, per-host header scoping, per-connection overrides, violation widgets → deferred.
 
 ## Goals
 
-- Give admins a uniform way to tighten a plugin's network surface without touching plugin source or re-publishing manifests.
-- Unblock self-hosted deployments whose plugins legitimately declare `manifest.allowedHosts: ["*"]` by letting the admin fill in the concrete allowlist at their site.
-- Support corporate-gateway and custom-proxy deployments by letting admins inject auth / routing headers into every outbound call a plugin makes.
-- Keep enforcement in one place (`ctx.fetch`) so policy is identical whether a call originates from capability dispatch, auth ceremony, job handler, `testConnection`, or `verifyShared`.
-- Fail loudly: a blocked call produces an audit entry the admin can see.
-- Zero regressions for existing deployments — all fields default to "inherit the manifest", matching current behaviour.
+- V1: Admin tighten plugin network surface ∴ ⊥ plugin source changes needed.
+- V2: Unblock self-hosted `manifest.allowedHosts: ["*"]` → admin fills concrete allowlist.
+- V3: Support corporate-gateway/proxy → admin inject headers on every outbound call.
+- V4: Enforcement single point (`ctx.fetch`) → uniform policy across capability dispatch, auth, jobs, `testConnection`, `verifyShared`.
+- V5: Blocked call → audit entry visible to admin.
+- V6: ∀ existing deployments → ⊥ behavior change; defaults inherit manifest.
 
 ## Non-goals
 
-- **Path/method restrictions** (e.g. "only GET under `/search`"). A future capability; this revision is host-only.
-- **Per-host custom-header rules.** Global per-plugin only.
-- **Per-connection overrides.** Admin policy lives on the plugin row, not on individual user connections.
-- **User-facing plugin install UI** or admin-installable-plugin policy templates. Admins configure one plugin at a time.
-- **Aggregated violation dashboards** (per-host counters, time-series). Violations flow through the existing errors dashboard and no new surface lands in this PR.
-- **Bulk import / export of admin policy.** The two payloads are small; admins configure manually.
-- **User-installable plugin restriction.** Built-ins and admin-installed plugins only, same as today.
+- Path/method restrictions (e.g. GET-only under `/search`) — future.
+- Per-host custom-header rules — global per-plugin only.
+- Per-connection overrides — policy on plugin row, ∉ individual connections.
+- User-facing install UI | admin policy templates.
+- Aggregated violation dashboards — flows through existing errors dashboard, ⊥ new surface this PR.
+- Bulk import/export of admin policy.
+- User-installable plugin restriction — built-ins & admin-installed only, same as today.
 
 ## Background
 
-The plugin runtime today exposes one network surface, `ctx.fetch`, built per-invocation in `packages/server/src/plugin-runtime/context.ts` and gated in `packages/server/src/plugin-runtime/fetch-policy.ts`. Two allowlist inputs merge into that gate:
+Plugin runtime exposes one network surface: `ctx.fetch`. Built per-invocation in `packages/server/src/plugin-runtime/context.ts`, gated in `packages/server/src/plugin-runtime/fetch-policy.ts`. Two allowlist inputs merge into gate:
 
-- `manifest.allowedHosts: string[]` — author-declared. Supports `"*"`, exact hostnames, and `*.domain.com` wildcards via `isHostAllowed`.
-- `dynamicAllowedHosts?: ReadonlySet<string>` — resolved per-invocation from `x-allowed-host` JSON Schema fields on `userConfigSchema` and `sharedCredentialsSchema`. The existing `allowed-hosts.ts` walker produces this set; the `isBlockedHostname` guard already refuses loopback, cloud IMDS, and link-local even when a user supplies them.
+- `manifest.allowedHosts: string[]` — author-declared. Supports `"*"`, exact hostnames, `*.domain.com` wildcards via `isHostAllowed`.
+- `dynamicAllowedHosts?: ReadonlySet<string>` — resolved per-invocation from `x-allowed-host` JSON Schema fields on `userConfigSchema` & `sharedCredentialsSchema`. `allowed-hosts.ts` walker produces set; `isBlockedHostname` already refuses loopback, cloud IMDS, link-local even from user input.
 
-Both inputs are author-controlled at the manifest layer or user-controlled at the connection layer. There is no admin control surface. This spec adds exactly one admin input at the plugin level and threads it through the same `buildFetch` call site — no new runtime layers, no new context fields beyond what this spec introduces.
+Both inputs: author-controlled (manifest) | user-controlled (connection). ⊥ admin control surface. Spec adds exactly one admin input at plugin level, threads through same `buildFetch` call site — ⊥ new runtime layers.
 
 ## Data model
 
-Three nullable columns on `plugins` (`packages/server/src/db/schema/plugins.ts`):
+3 nullable columns on `plugins` (`packages/server/src/db/schema/plugins.ts`):
 
 ```ts
 export const plugins = sqliteTable("plugins", {
@@ -60,45 +61,43 @@ export const plugins = sqliteTable("plugins", {
 });
 ```
 
-No new table. Adding columns matches how `globalConfig` and `personalKeyFallback` already sit on this row and avoids a join on every admin API load. If future advanced features require significantly more state (path rules, per-connection overrides) the columns can move into a `plugin_admin_policy` side table at that point; YAGNI until then.
+⊥ new table. Columns match how `globalConfig` & `personalKeyFallback` already sit on row — avoids join on every admin API load.
 
 ### `adminAllowlist` semantics
 
-- `null` — **inherit**. The plugin runs against `manifest.allowedHosts` exactly as today. This is the default after migration so existing deployments see no behaviour change.
-- `[]` — admin has actively blocked every static host. The plugin can still reach any hostname resolved from `x-allowed-host` fields (user's Plex URL, Jellyfin URL). Legitimate for a deployment that only wants the user-side self-hosted path to work.
+- `null` → **inherit**. Plugin runs against `manifest.allowedHosts` exactly as today. Default after migration — ⊥ behavior change for existing deployments.
+- `[]` → admin blocked every static host. Plugin still reaches hostnames from `x-allowed-host` (user's Plex URL, Jellyfin URL). Dynamic hosts bypass admin allowlist by design.
 
-  > **Important:** `adminAllowlist: []` does **not** mean "this plugin makes no outbound calls." Dynamic hosts supplied by users via `x-allowed-host` fields (e.g. a self-hosted Plex or Jellyfin URL) bypass the admin allowlist entirely and remain reachable. An admin deploying a wildcard plugin in a locked-down environment must also control what users can enter into connection forms. The UI warning banner ("Plugin will make no network calls with this configuration. User-supplied server URLs (x-allowed-host) are unaffected.") surfaces this when the static intersection is empty.
+  > `adminAllowlist: []` ≠ "plugin makes no outbound calls." `x-allowed-host` fields bypass entirely. Admin must also control what users enter into connection forms. UI banner warns when static intersection empty.
 
-- `["api.trakt.tv", "*.tmdb.org", "*"]` — intersection candidates. Semantics match `manifest.allowedHosts`: exact hostnames, `*.domain.com` wildcards, bare `"*"`. A bare `"*"` in the admin list effectively means "allow everything the manifest already allows" — useful as an explicit acknowledgement rather than leaving the field `null`.
+- `["api.trakt.tv", "*.tmdb.org", "*"]` → intersection candidates. Semantics match `manifest.allowedHosts`. Bare `"*"` = allow everything manifest allows — explicit acknowledgement vs `null`.
 
-Validation at write time:
+Validation on write:
+- Entries lowercase. UI & API lowercase on submit.
+- Entry ∈ `"*"` | valid hostname | `*.` + valid hostname.
+- Duplicates → `plugin.input_invalid`. UI dedupes; API rejects.
+- Max 64 entries.
 
-- Entries must be lowercase; UI and API lowercase on submit.
-- Each entry is either `"*"`, a valid hostname, or `*.` followed by a valid hostname.
-- Duplicates are rejected — the UI dedupes; the API returns `plugin.input_invalid`.
-- No max length beyond a sane ceiling (64 entries) to keep the payload bounded.
+### `adminHeaders` payload & encryption
 
-### `adminHeaders` payload and encryption
+Encrypted blob = `Record<string, string>`. Names case-insensitive per RFC 7230; stored as typed; normalised at fetch time via `Headers` object.
 
-Encrypted blob is a `Record<string, string>` — header names are case-insensitive per RFC 7230 but we store exactly what the admin typed; normalisation happens at fetch time via the `Headers` object.
+Encryption reuses AES-256-GCM helper from `plugin_shared_credentials` (`packages/server/src/plugin-runtime/shared-credentials.ts`). Ciphertext & IV stored as separate base64 columns, matching `sharedCredentials` encoding. Plaintext ⊥ written to DB, ⊥ logged; decrypted copy lives only in memory inside `buildContext` for lifetime of single `ctx.fetch` call chain.
 
-Encryption reuses the existing AES-256-GCM helper that `plugin_shared_credentials` already uses (`packages/server/src/plugin-runtime/shared-credentials.ts`). Ciphertext and IV are stored as separate base64 columns, matching the `sharedCredentials` encoding. The plaintext map is never written to the database and never logged; the decrypted copy lives only in memory inside `buildContext` for the lifetime of a single `ctx.fetch` call chain.
-
-Validation at write time:
-
+Validation on write:
 - Header names must match `^[a-zA-Z0-9!#$%&'*+\-.^_\`|~]+$` (RFC 7230 token).
-- Header values reject CR/LF characters (header-injection prevention).
-- Reserved hop-by-hop headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Upgrade`, `Keep-Alive`, `TE`, `Trailer`, `Proxy-Authorization`, `Proxy-Authenticate`) are rejected at write time — these are managed by the runtime and admin-overriding them breaks the transport.
-- Empty-string values are rejected; the admin should delete the header instead (set to `null` on PUT).
-- Max of 32 headers per plugin as a sanity ceiling.
+- Values reject CR/LF (header-injection prevention).
+- Reserved hop-by-hop headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Upgrade`, `Keep-Alive`, `TE`, `Trailer`, `Proxy-Authorization`, `Proxy-Authenticate`) → rejected. Runtime manages these.
+- Empty-string values → rejected; admin deletes instead (`null` on PUT).
+- Max 32 headers per plugin.
 
 ## Runtime enforcement
 
-Two small surgical changes under `packages/server/src/plugin-runtime`.
+2 surgical changes under `packages/server/src/plugin-runtime`.
 
 ### Allowlist intersection — `fetch-policy.ts`
 
-`buildFetch` signature gains two new parameters (`adminAllowlist` and `adminHeaders`):
+`buildFetch` gains 2 params (`adminAllowlist`, `adminHeaders`):
 
 ```ts
 export function buildFetch(
@@ -111,7 +110,7 @@ export function buildFetch(
 ): (url: string, init?: RequestInit) => Promise<Response>;
 ```
 
-The allowlist check becomes:
+Allowlist check:
 
 ```ts
 const inManifest = isHostAllowed(hostname, allowedHosts);
@@ -135,13 +134,11 @@ if (!staticAllowed && !dynamicAllowed) {
 }
 ```
 
-The plugin-visible error shape and code are identical to today. The only behaviour change a plugin can observe is that a host which was previously allowed now raises `plugin.upstream_error` — plugins already treat that code as a terminal call failure, so no plugin needs changes.
-
-Dynamic hosts (`x-allowed-host`) bypass the admin-allowlist check entirely by design. The admin's control surface is for the plugin author's static declarations; user-supplied URLs remain the user's responsibility, still gated by `isBlockedHostname` against loopback, IMDS, and link-local ranges. This keeps a single source of truth at the fetch level and sidesteps the UX problem of admins having to predict every user's LAN hostnames.
+Plugin-visible error shape & code identical to today. `x-allowed-host` dynamic hosts bypass admin allowlist by design — admin controls static declarations; user-supplied URLs gated by `isBlockedHostname` (loopback, IMDS, link-local) only.
 
 ### Header injection — `fetch-policy.ts`
 
-After the allowlist check passes and the rate-limiter takes a token, admin headers are merged into the request:
+After allowlist check passes & rate-limiter takes token:
 
 ```ts
 const hdrs = new Headers(init?.headers);
@@ -151,9 +148,7 @@ if (adminHeaders) {
 return fetch(url, { ...init, headers: hdrs });
 ```
 
-`Headers.set` is case-insensitive, so admin-wins is uniform regardless of the casing a plugin used for the same header. The merge only runs when `adminHeaders` is populated; plugins whose admin has configured nothing see the exact same request they emit today.
-
-Admin header values are never logged — the fetch-policy logger emits only hostname and plugin id on a rejection; successful calls are not logged at all.
+`Headers.set` case-insensitive → admin-wins uniform regardless of casing. Merge only runs when `adminHeaders` populated. Admin header values ⊥ logged.
 
 ### Context wiring — `context.ts`
 
@@ -167,46 +162,47 @@ interface BuildContextArgs {
 }
 ```
 
-`buildContext` threads both into `buildFetch`. Call sites that don't have an active plugin row (unreachable today — context is always built for a known plugin) receive `null` / `undefined` defaults which preserve current behaviour.
+`buildContext` threads both into `buildFetch`. ⊥ active plugin row (unreachable today) → `null`/`undefined` defaults preserve current behavior.
 
 ### Aux contexts — auth, jobs, `testConnection`, `verifyShared`
 
-Every site that builds a `PluginContext` loads the admin policy from the `plugins` row alongside the existing manifest load. This keeps policy enforcement uniform — a `testConnection` that would fail under the admin policy must fail there too, not silently pass and then break at capability call time. Sites covered:
+∀ sites building `PluginContext` → load admin policy from `plugins` row alongside manifest load. `testConnection` failing under admin policy must fail there too, ⊥ silently pass then break at capability call time.
 
-- `pluginRuntime.invokeCapability` — capability dispatch (the common path).
+Sites covered:
+- `pluginRuntime.invokeCapability` — capability dispatch (common path).
 - `pluginRuntime.testConnection` / `pluginRuntime.testSharedCredential` — admin UI test buttons.
-- `pluginRuntime.startAuth` / `completeAuth` / `pollAuth` / `refreshAuth` — the auth ceremony.
+- `pluginRuntime.startAuth` / `completeAuth` / `pollAuth` / `refreshAuth` — auth ceremony.
 - Plugin job handlers — croner-scheduled work.
-- Any host-tool path that reaches into a plugin (e.g. media-service MCP tools).
+- Host-tool paths into plugins (e.g. media-service MCP tools).
 
-All of these already call `buildContext` via the runtime; each gets the two new fields passed through from a single `loadPluginPolicy(pluginId)` helper that returns `{ adminAllowlist, adminHeaders }` after decrypting the headers blob.
+All reach `buildContext` via runtime; each gets 2 new fields via single `loadPluginPolicy(pluginId)` helper returning `{ adminAllowlist, adminHeaders }` after decrypting headers blob.
 
 ### Decryption caching
 
-Decrypting the admin-headers blob on every `buildContext` call would be wasteful. The runtime caches the decrypted headers per `pluginId` behind the existing per-plugin manifest cache, invalidating the entry on any write to `admin_headers_*` columns via the same cache-invalidation hook the runtime uses for manifest reloads. Allowlist values are plaintext and read directly with the manifest.
+Decrypt admin-headers blob on every `buildContext` → wasteful. Runtime caches decrypted headers per `pluginId` behind existing per-plugin manifest cache. Invalidates on write to `admin_headers_*` columns via same cache-invalidation hook as manifest reloads. Allowlist plaintext → read directly w/ manifest.
 
 ### Error sink integration
 
-`plugin.host_blocked_by_admin` joins `HOST_ERROR_CODES` (see `packages/server/src/errors/codes.ts`) at severity `warn`. The `ErrorSink` already routes host errors to the `errors` table and the admin errors dashboard; the only new work is the code enum entry and a short display label on the dashboard side (`"Host blocked by admin policy"`).
+`plugin.host_blocked_by_admin` joins `HOST_ERROR_CODES` (`packages/server/src/errors/codes.ts`) at severity `warn`. `ErrorSink` already routes host errors to `errors` table & admin errors dashboard. New work: code enum entry + short display label (`"Host blocked by admin policy"`).
 
-The plugin-facing error is always `plugin.upstream_error` so a plugin author has exactly one code to handle for "host denied". The two-code split (audit vs plugin-facing) is deliberate — plugins do not need to distinguish author-declared miss from admin-imposed block, and exposing the distinction to plugin code would be a surface area increase for no benefit.
+Plugin-facing error always `plugin.upstream_error` — ⊥ new code for plugin to handle. Two-code split (audit vs plugin-facing) deliberate: plugins ∉ distinguish author-declared miss from admin-imposed block.
 
 ## API surface
 
-All endpoints live under `pluginsApp` in `packages/server/src/api/procedures/plugins.ts` and run under the existing `requirePermission(PERMISSIONS.ADMIN_PLUGINS)` middleware.
+∀ endpoints live under `pluginsApp` in `packages/server/src/api/procedures/plugins.ts`. Run under existing `requirePermission(PERMISSIONS.ADMIN_PLUGINS)` middleware.
 
 ### Extended `PluginRow`
 
-`GET /api/plugins/` is extended — each row gains:
+`GET /api/plugins/` extended — each row gains:
 
 ```ts
 advanced: {
   adminAllowlist: string[] | null;    // null = inherit manifest
-  adminHeaderNames: string[];         // header names only; values never returned
+  adminHeaderNames: string[];         // header names only; values ⊥ returned
 };
 ```
 
-Header values are never surfaced in any API response. The frontend renders the names table with `••••` placeholders and relies on the edit flow to re-submit values.
+Header values ⊥ surfaced in any API response. Frontend renders names table w/ `••••` placeholders; edit flow re-submits values.
 
 ### `PUT /api/plugins/:id/admin-allowlist`
 
@@ -215,10 +211,10 @@ Body: { allowlist: string[] | null }
 Response: { ok: true } | typed error
 ```
 
-- `null` clears the override; the plugin reverts to manifest-only.
-- Array is validated per the rules in _Data model_. Lowercasing is done server-side.
-- Duplicate entries, invalid hostnames, or a length above 64 return `plugin.input_invalid`.
-- Successful write invalidates the per-plugin policy cache; next `buildContext` call reloads.
+- `null` → clear override; plugin reverts to manifest-only.
+- Array validated per §Data model. Lowercased server-side.
+- Duplicate entries | invalid hostnames | length > 64 → `plugin.input_invalid`.
+- Successful write invalidates per-plugin policy cache.
 
 ### `PUT /api/plugins/:id/admin-headers`
 
@@ -227,24 +223,22 @@ Body: { headers: Record<string, string | null> }
 Response: { ok: true } | typed error
 ```
 
-Merge semantics mirror the `x-secret` pattern the connection modal already uses:
+Merge semantics mirror `x-secret` pattern in connection modal:
 
-- **Omitted keys** — preserved at their existing values. The client sends only the names it wants to touch.
-- **Value is a string** — sets or replaces that header.
-- **Value is `null`** — deletes the header.
-- **Empty map `{}`** — no-op (same as sending nothing).
+- **Omitted keys** — preserved. Client sends only names to touch.
+- **Value = string** — set | replace.
+- **Value = `null`** — delete.
+- **Empty map `{}`** — no-op.
 
-To fully clear, the UI sends `null` for every existing name. There is no `replace: true` flag in v1 — the pattern above covers every realistic case.
-
-Validation rules from _Data model_ apply; violations return `plugin.input_invalid` and the blob is not re-encrypted or written.
+Full clear: UI sends `null` for every existing name. ⊥ `replace: true` flag in v1. §Data model validations apply.
 
 ### No ephemeral test endpoint
 
-The admin allowlist and headers only take effect through `ctx.fetch`; the existing `POST /api/plugins/:id/shared-credentials/:credId/test` and per-connection "test" button already run through that code path. Saving the policy then clicking test is the verification flow. Adding an ephemeral-test endpoint for admin policy would double the surface with no extra signal.
+Admin allowlist & headers only take effect through `ctx.fetch`; existing test buttons already run through that code path. Save policy → click test = verification flow. Ephemeral-test endpoint doubles surface ∀ ⊥ extra signal.
 
 ## Violation logging
 
-New error code added to `packages/server/src/errors/codes.ts`:
+New error code in `packages/server/src/errors/codes.ts`:
 
 ```ts
 export const HOST_ERROR_CODES = [
@@ -253,7 +247,7 @@ export const HOST_ERROR_CODES = [
 ] as const;
 ```
 
-Routed through the existing `ErrorSink`. Entry payload:
+Routed through existing `ErrorSink`. Entry payload:
 
 ```ts
 {
@@ -262,144 +256,132 @@ Routed through the existing `ErrorSink`. Entry payload:
   pluginId: string,
   hostname: string,
   timestamp: number,
-  // capabilityId / jobId / authPhase optionally provided by the caller that
-  // invokes buildContext, so the dashboard can show WHICH plugin surface
-  // tried to reach the blocked host. Not required; the code and hostname are
-  // enough to drive a warning row.
+  // capabilityId / jobId / authPhase optionally provided by caller;
+  // not required — code & hostname enough for warning row.
 }
 ```
 
-Surfaces on the existing admin errors dashboard as a standard host-error entry, same shape as `plugin.upstream_error` today. No new UI in this PR. A later revision can add a "recent admin-policy violations for this plugin" widget on the plugin card; the data is already there.
+Surfaces on existing admin errors dashboard — same shape as `plugin.upstream_error` today. ⊥ new UI this PR. Per-plugin violation widget → future revision; data already there.
 
-Rate at which this log can fire is bounded by the existing fetch-policy rate limiter — a runaway plugin cannot spam the errors table with blocked-host entries any faster than it can spam anything else.
+Rate bounded by existing fetch-policy rate limiter — runaway plugin ⊥ spam errors table faster than anything else.
 
 ## Frontend
 
-Admin-only. User-facing surfaces are untouched: `PluginSummary` returned to `/connections` carries nothing from the admin policy.
+Admin-only. User-facing surfaces untouched: `PluginSummary` to `/connections` carries ⊥ admin policy.
 
 ### `<AdvancedSection>` component
 
-Lives in `packages/client/src/routes/_authenticated/admin/plugins.tsx`, rendered inside each plugin card as a shadcn `Collapsible` at the bottom of the card body, below the existing shared-credentials table and `personalKeyFallback` control. Closed by default — most admins will never open it.
+Lives in `packages/client/src/routes/_authenticated/admin/plugins.tsx`. Rendered inside each plugin card as shadcn `Collapsible` at bottom of card body, below shared-credentials table & `personalKeyFallback` control. Closed by default.
 
-The collapsible header shows:
-
+Collapsible header:
 - Label: `Advanced`.
-- Badge count: number of configured restrictions (allowlist-set bit + header count). Hidden when both are defaults.
+- Badge count: # configured restrictions (allowlist-set bit + header count). Hidden when both default.
 - Chevron toggle.
 
-Two sub-panels stacked inside the open state. No nested collapsibles.
+2 sub-panels stacked in open state. ⊥ nested collapsibles.
 
 ### Sub-panel 1 — Host allowlist override
 
 Layout:
-
-- Read-only "Manifest allowlist" list at the top: the plugin's declared `manifest.allowedHosts`, muted chips.
+- Read-only "Manifest allowlist": `manifest.allowedHosts` muted chips.
 - Radio group:
-  - `Inherit manifest (default)` — selected when `adminAllowlist === null`.
-  - `Restrict to:` — when selected, enables the admin-list editor below.
-- Admin-list editor: shadcn chip input with validation on blur (lowercase, hostname or wildcard pattern). `Save` button disabled while the editor is invalid.
-- Warning banner when the resulting intersection is empty (admin allowlist has no overlap with `manifest.allowedHosts`): `"Plugin will make no network calls with this configuration. User-supplied server URLs (x-allowed-host) are unaffected."`
+  - `Inherit manifest (default)` — when `adminAllowlist === null`.
+  - `Restrict to:` — enables admin-list editor below.
+- Admin-list editor: shadcn chip input w/ blur validation (lowercase, hostname | wildcard). `Save` disabled while invalid.
+- Warning banner when intersection empty: `"Plugin will make no network calls with this configuration. User-supplied server URLs (x-allowed-host) are unaffected."`
 
 Submit path:
-
-- Switching the radio to `Inherit manifest` PUTs `{ allowlist: null }`.
-- Saving the admin list PUTs `{ allowlist: [...] }`.
-
-Copy on the panel header explains what the override does in one sentence, linking to this design doc.
+- Radio → `Inherit manifest` → PUT `{ allowlist: null }`.
+- Save admin list → PUT `{ allowlist: [...] }`.
 
 ### Sub-panel 2 — Custom headers
 
 Layout:
-
-- Table of header names with actions:
+- Table of header names:
   | Name | Value | |
   |-------------|---------|--------------|
   | `X-Corp-Key`| `••••` | Edit / Delete|
   | `X-Env` | `••••` | Edit / Delete|
-- `Add header` button opens a dialog taking `{ name, value }`.
+- `Add header` → dialog `{ name, value }`.
 - Edit dialog:
-  - `Name` — read-only on edit (changing name would leak the old key; admins delete + re-add).
-  - `Value` — masked input, empty on open, with a `Preserve existing value` checkbox checked by default. Unchecking enables the input; leaving it checked drives an omission on PUT (preserves prior value).
+  - `Name` — read-only on edit (change name → delete + re-add).
+  - `Value` — masked input, empty on open. `Preserve existing value` checkbox (default: checked). Uncheck enables input; checked → omission on PUT.
 
 Submit path:
-
-- Add: PUT `{ headers: { [name]: value } }` — merge adds a key.
-- Edit with `Preserve existing value` checked and no other fields changed: no request fired (no-op save).
-- Edit with a new value: PUT `{ headers: { [name]: value } }`.
+- Add: PUT `{ headers: { [name]: value } }`.
+- Edit w/ preserve checked & ⊥ other changes: ⊥ request fired.
+- Edit w/ new value: PUT `{ headers: { [name]: value } }`.
 - Delete: PUT `{ headers: { [name]: null } }`.
 
-Masking and merge behaviour match the existing connection modal for `x-secret` fields so admins already know the pattern.
-
-Warning banner when the admin configures a common auth header (`Authorization`, `Proxy-Authorization`, `X-Api-Key`) but the plugin's `manifest.auth.kind !== "none"`: `"This plugin ships its own auth; the admin header will override the plugin's header on every request. Confirm this is intended."` The write still goes through — this is a heads-up, not a block.
+Warning banner when admin configures common auth header (`Authorization`, `Proxy-Authorization`, `X-Api-Key`) & `manifest.auth.kind !== "none"`: `"This plugin ships its own auth; the admin header will override the plugin's header on every request. Confirm this is intended."` Write proceeds — heads-up ⊥ block.
 
 ### Type inference
 
-Follows the pattern already locked in by `docs/2026-04-22-frontend-plugin-connections-design.md`: the new `advanced` field on `PluginRow` is inferred via `InferResponseType<typeof api.plugins.$get>`. No hand-written type; the Hono client is the source of truth.
+Follows pattern from `docs/2026-04-22-frontend-plugin-connections-design.md`: `advanced` on `PluginRow` inferred via `InferResponseType<typeof api.plugins.$get>`. ⊥ hand-written type. Hono client source of truth.
 
 ### Permission gating
 
-The component only renders on `/admin/plugins`, which is already gated by the admin role. No extra frontend permission check; the API-level `ADMIN_PLUGINS` gate is authoritative.
+Component only renders on `/admin/plugins` (admin role gated). ⊥ extra frontend permission check; `ADMIN_PLUGINS` gate at API level authoritative.
 
 ## Testing plan
 
 ### Server — runtime
 
-- `fetch-policy.test.ts` — intersection cases: `null` (inherit), `[]` (block all static), concrete list narrowing, `*.foo.com` admin entry narrowing an exact manifest entry, bare `"*"` admin entry as a no-op.
-- `fetch-policy.test.ts` — admin-block path emits `plugin.host_blocked_by_admin` to the error sink _and_ throws `plugin.upstream_error` to the plugin. Manifest-miss path emits no admin-block log.
-- `fetch-policy.test.ts` — dynamic hosts (`x-allowed-host`) remain reachable when admin allowlist is set to `[]`, confirming the admin rule does not gate user-supplied URLs.
-- `fetch-policy.test.ts` — admin headers merged into `init.headers`; admin `Authorization` overrides plugin `Authorization` regardless of casing; empty / undefined `adminHeaders` leaves `init.headers` untouched.
-- `fetch-policy.test.ts` — admin header values are not logged on rejection.
-- `runtime-allowed-hosts.test.ts` — existing dynamic-host resolution tests extended to pass an admin allowlist through and confirm no interference.
-- `context.test.ts` — `buildContext` threads the two new args into `buildFetch`; auth and job contexts pick them up too.
-- New `admin-policy.test.ts` — `loadPluginPolicy` cache hit/miss, invalidation on write.
+- `fetch-policy.test.ts` — intersection: `null` (inherit), `[]` (block all static), concrete list narrowing, `*.foo.com` admin entry narrowing exact manifest entry, bare `"*"` as no-op.
+- `fetch-policy.test.ts` — admin-block path emits `plugin.host_blocked_by_admin` to sink & throws `plugin.upstream_error`. Manifest-miss path ⊥ emit admin-block log.
+- `fetch-policy.test.ts` — dynamic hosts (`x-allowed-host`) reachable when `adminAllowlist: []`; admin rule ⊥ gate user-supplied URLs.
+- `fetch-policy.test.ts` — admin headers merged into `init.headers`; admin `Authorization` overrides plugin `Authorization` regardless of casing; empty/undefined `adminHeaders` leaves `init.headers` untouched.
+- `fetch-policy.test.ts` — admin header values ⊥ logged on rejection.
+- `runtime-allowed-hosts.test.ts` — existing dynamic-host tests extended w/ admin allowlist; ⊥ interference confirmed.
+- `context.test.ts` — `buildContext` threads 2 new args into `buildFetch`; auth & job contexts pick them up.
+- `admin-policy.test.ts` — `loadPluginPolicy` cache hit/miss, invalidation on write.
 
 ### Server — API
 
 - `procedures/plugins.test.ts` — `PUT /admin-allowlist` validation (lowercase, hostname shape, `null`, dedupe, length ceiling).
-- `procedures/plugins.test.ts` — `PUT /admin-headers` merge semantics (omit preserves, `null` deletes, new value replaces, empty map is no-op), validation (name pattern, CR/LF rejection, reserved-header rejection, ceiling).
-- `procedures/plugins.test.ts` — `GET /` response includes `advanced.adminAllowlist` and `advanced.adminHeaderNames` but no header values.
-- `procedures/plugins.test.ts` — non-admin session is rejected on every new endpoint.
+- `procedures/plugins.test.ts` — `PUT /admin-headers` merge (omit preserves, `null` deletes, new value replaces, `{}` no-op), validation (name pattern, CR/LF rejection, reserved-header rejection, ceiling).
+- `procedures/plugins.test.ts` — `GET /` includes `advanced.adminAllowlist` & `advanced.adminHeaderNames` ∉ header values.
+- `procedures/plugins.test.ts` — non-admin session rejected on every new endpoint.
 
-### Server — end-to-end
+### Server — E2E
 
-- Contract test against the Trakt plugin: set admin allowlist to `["example.com"]`, invoke `watchHistory@v1`, confirm the plugin call fails with `plugin.upstream_error` and an `errors` row lands with code `plugin.host_blocked_by_admin`.
-- Contract test: set admin headers to `{ "X-Corp-Key": "abc" }`, invoke any capability, confirm the upstream fetch sees `X-Corp-Key: abc` (via a test fetch spy).
+- Contract test vs Trakt plugin: set `adminAllowlist` to `["example.com"]`, invoke `watchHistory@v1`, confirm `plugin.upstream_error` & `errors` row w/ code `plugin.host_blocked_by_admin`.
+- Contract test: set `adminHeaders` to `{ "X-Corp-Key": "abc" }`, invoke capability, confirm upstream fetch sees `X-Corp-Key: abc` via fetch spy.
 
 ### Client
 
-- Component test for `<AdvancedSection>` in each of its states (inherit, restricted, headers-populated, empty-intersection warning, reserved-header warning).
-- Snapshot / interaction test for the add / edit / delete flow with the `Preserve existing value` checkbox.
+- Component test for `<AdvancedSection>` in each state (inherit, restricted, headers-populated, empty-intersection warning, reserved-header warning).
+- Snapshot/interaction test for add/edit/delete flow w/ `Preserve existing value` checkbox.
 
 ### Manual verification checklist
 
-- Against a running dev server:
-  1. Enable Trakt plugin; confirm a `/connections` call succeeds.
-  2. On `/admin/plugins`, open the Trakt card's Advanced section, restrict allowlist to `["example.com"]`, save.
-  3. Trigger a Trakt capability call; expect a plugin error surfaced via the usual route.
-  4. Check the admin errors dashboard; expect a `plugin.host_blocked_by_admin` row with `hostname: api.trakt.tv`.
-  5. Revert the allowlist to Inherit; call succeeds.
-  6. Add admin header `{ "X-Test": "abc" }`, capture outbound traffic with a proxy, confirm the header on every Trakt request.
+1. Enable Trakt plugin; confirm `/connections` call succeeds.
+2. On `/admin/plugins`, open Trakt card Advanced section, restrict allowlist to `["example.com"]`, save.
+3. Trigger Trakt capability; expect plugin error via usual route.
+4. Check admin errors dashboard; expect `plugin.host_blocked_by_admin` row w/ `hostname: api.trakt.tv`.
+5. Revert allowlist to Inherit; call succeeds.
+6. Add admin header `{ "X-Test": "abc" }`, capture outbound traffic w/ proxy, confirm header on every Trakt request.
 
 ## Migration
 
-- Drizzle migration adds three nullable columns to `plugins` with defaults `null`. No backfill — inheriting the manifest is the existing behaviour and every new row starts there.
-- `@ent-mcp/shared` gains Zod schemas for the new API payloads alongside the existing `plugin*Schema` exports.
-- `@ent-mcp/client` picks up the new `PluginRow.advanced` shape via `InferResponseType`; no client-side migration beyond rendering the new section.
-- No changeset bump is strictly required for a docs-only PR, but the implementation PRs that follow this doc will bump `@ent-mcp/server` (minor — new capability) and `@ent-mcp/client` (minor — new UI). Neither is a breaking change; existing deployments see identical runtime behaviour until an admin opts in.
-- Rollback requires a dedicated Drizzle down-migration — SQLite versions before 3.35 do not support `ALTER TABLE … DROP COLUMN`, so Drizzle handles column removal by recreating the table. A rollback cannot simply drop the three columns; it must emit a second migration file that Drizzle generates via `drizzle-kit push` on the reverted schema. Since `null` means "inherit manifest", any plugins that had admin policy configured will lose it on rollback, but no already-running deployments are affected in terms of current behaviour.
+- Drizzle migration adds 3 nullable columns to `plugins` w/ defaults `null`. ⊥ backfill — inheriting manifest = existing behavior; ∀ new rows start there.
+- `@ent-mcp/shared` gains Zod schemas for new API payloads alongside existing `plugin*Schema` exports.
+- `@ent-mcp/client` picks up `PluginRow.advanced` via `InferResponseType`; ⊥ client-side migration beyond rendering new section.
+- ⊥ changeset bump required for docs-only PR. Implementation PRs: `@ent-mcp/server` minor (new capability), `@ent-mcp/client` minor (new UI). ⊥ breaking changes; existing deployments see identical runtime behavior until admin opts in.
+- Rollback requires dedicated Drizzle down-migration. SQLite < 3.35 ⊥ `ALTER TABLE … DROP COLUMN`; Drizzle handles via table recreation. Plugins w/ admin policy configured → policy lost on rollback; ∉ affect runtime behavior of already-running deployments.
 
 ## Open questions
 
-- **Audit retention.** How long do `plugin.host_blocked_by_admin` rows live? The existing errors table already has a retention policy; this code inherits it. If admins want longer-lived audit logs, that's a separate revision of the error management design — out of scope here.
-- **DNS rebinding.** The admin allowlist is a hostname string match. An attacker controlling a domain the admin allows could still pin it to an internal IP at fetch time. This is an existing runtime concern called out in `allowed-hosts.ts` (`"DNS-rebinding mitigation still has to happen at fetch time and is tracked separately"`). The admin policy does not make this worse; fixing it is tracked against the broader SSRF hardening work.
-- **Header templating.** Not in v1. If we need dynamic values (per-request nonces, short-lived tokens) a future revision adds a `${env.VAR_NAME}` syntax. Plain strings cover the common corporate-gateway case.
-- **Encryption-key rotation.** The `admin_headers_encrypted` / `admin_headers_iv` blobs are encrypted with the application's AES-256-GCM key, following the same scheme as `plugin_shared_credentials`. If the application key is rotated, any existing `admin_headers_*` blobs will fail to decrypt until re-encrypted with the new key. Does the existing key-rotation path for `shared_credentials` already handle a re-encryption pass over the `plugins` table? If so, this spec can defer to that design; if not, the implementation PR needs to include a migration or runbook for re-encrypting affected rows.
+- **Audit retention.** `plugin.host_blocked_by_admin` row lifespan? Inherits existing errors table retention policy. Longer-lived audit logs → separate revision of error management design; ⊥ scope here.
+- **DNS rebinding.** Admin allowlist = hostname string match. Attacker controlling allowed domain could pin to internal IP at fetch time. Existing runtime concern noted in `allowed-hosts.ts`. Admin policy ∉ make worse; fix tracked under SSRF hardening.
+- **Header templating.** ⊥ v1. Dynamic values (per-request nonces, short-lived tokens) → future revision adds `${env.VAR_NAME}` syntax. Plain strings cover corporate-gateway case.
+- **Encryption-key rotation.** `admin_headers_encrypted`/`admin_headers_iv` encrypted w/ app's AES-256-GCM key (same scheme as `plugin_shared_credentials`). Key rotation → existing blobs fail to decrypt until re-encrypted. Does existing key-rotation path for `shared_credentials` handle re-encryption pass over `plugins` table? If yes → defer; if no → implementation PR needs migration or runbook.
 
-## Out of scope for this PR (tracked for future work)
+## Out of scope (future work)
 
-- Path/method restrictions on the admin allowlist (Tradeoff 1 Option C in the brainstorm).
-- Per-host header scoping (Tradeoff 2 Option B in the brainstorm).
+- Path/method restrictions on admin allowlist.
+- Per-host header scoping.
 - Admin-visible aggregated violation dashboard per plugin.
 - Bulk import/export of admin policy.
 - Header templating / dynamic values.
-- `GET /api/plugins/:id/admin-headers` dedicated endpoint — omitted in v1 since `PluginRow.advanced.adminHeaderNames` already carries this data on every plugin list response. Can be added if incremental-load requirements emerge.
+- `GET /api/plugins/:id/admin-headers` dedicated endpoint — `PluginRow.advanced.adminHeaderNames` already carries data on every plugin list response.

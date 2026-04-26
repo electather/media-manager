@@ -1,44 +1,44 @@
 # User Settings — Design
 
-**Status:** Draft for review
+**Status:** Draft
 **Date:** 2026-04-24
 **Author:** Omid Astaraki
 
 ## Summary
 
-Wire the existing `/settings` mock to real Better Auth and Hono RPC primitives, split it into a nested-route layout with five deep-linkable tabs, and add the account-shaped features that are missing today: email verification (when an email provider is configured), verify-before-switch email change, active-session management, authorized-apps wiring, data export, and a real delete-account flow. The existing `/connections` page is also relocated into this layout as the fifth tab — a move, not a re-design.
+Wire existing `/settings` mock to real Better Auth + Hono RPC. Split into nested-route layout, 5 deep-linkable tabs. Add missing account features: email verification (when email provider configured), verify-before-switch email change, active-session mgmt, authorized-apps wiring, data export, real delete-account flow. Existing `/connections` page relocates into layout as 5th tab — move only, no redesign.
 
-This is an implementation contract, not a visual redesign — a dedicated redesign pass follows later. Styling stays inside today's shadcn/ui vocabulary.
+Implementation contract, not visual redesign. Styling stays in today's shadcn/ui vocabulary.
 
 ## Goals
 
-- Every mocked field in today's `/settings` (name, email, password, MCP endpoint, OAuth clients, delete) is driven by real data and real mutations — no mock constants left.
-- Five deep-linkable tabs: `/settings/profile`, `/settings/security`, `/settings/connections`, `/settings/apps`, `/settings/danger`. Bare `/settings` redirects to `/settings/profile`.
-- The connections surface (today at `/connections`) is relocated under the settings layout without behaviour or visual changes. The top-level "Connections" sidebar entry is removed. The old `/connections` URL returns 404 — back-compat redirect is explicitly out of scope per the connections scope decision.
-- Email-dependent flows degrade gracefully when no email provider is configured on the server (the self-hosted case).
-- Identity/security actions use Better Auth's client directly; app-specific actions (role lookup, authorized-app listing with aggregated last-used, export, delete-with-cascade) go through a new Hono sub-app `meApp`.
-- A signed-in user can: verify their email, change their email safely, change their password, manage their service connections, see and revoke active sessions, see and revoke authorized MCP apps, export their data as a ZIP, and permanently delete their account.
+- ∀ mocked field in `/settings` (name, email, password, MCP endpoint, OAuth clients, delete) → real data & real mutations. No mock constants.
+- 5 deep-linkable tabs: `/settings/profile`, `/settings/security`, `/settings/connections`, `/settings/apps`, `/settings/danger`. Bare `/settings` → redirect `/settings/profile`.
+- `/connections` relocated under settings layout. No behaviour | visual change. Top-level "Connections" sidebar entry removed. Old `/connections` → 404. No back-compat redirect (out of scope).
+- Email-dependent flows degrade gracefully when no email provider configured (self-hosted case).
+- Identity/security actions → `authClient` direct. App-specific (role lookup, authorized-app listing w/ aggregated last-used, export, delete-with-cascade) → new Hono sub-app `meApp`.
+- Signed-in user can: verify email, change email safely, change password, manage service connections, see & revoke active sessions, see & revoke authorized MCP apps, export data as ZIP, permanently delete account.
 
 ## Non-goals
 
-- Visual/interaction redesign of the page. Preserved for a later pass.
-- Re-designing the connections UI or altering any of its existing flows. The Connections tab is a route relocation only; the existing component, queries, mutations, and modals are kept as-is.
-- A back-compat redirect from `/connections` to `/settings/connections`. The old URL 404s.
-- 2FA, passkeys, social-account linking. Deferred. The Security tab layout leaves a natural slot for a Two-Factor card above Change Password when the plugin lands, but nothing is scaffolded in v1.
-- Profile image upload. Deferred; avatar stays initials-based as today.
-- Admin-facing settings (role management, user management). Already live under `/admin`.
+- Visual/interaction redesign. Deferred.
+- Connections UI redesign | altering existing flows. Tab is route relocation only.
+- Back-compat redirect `/connections` → `/settings/connections`. Old URL 404s.
+- 2FA, passkeys, social-account linking. Deferred. Security tab leaves natural slot for Two-Factor card above Change Password. Nothing scaffolded v1.
+- Profile image upload. Deferred; avatar stays initials-based.
+- Admin-facing settings. Already live under `/admin`.
 - Geolocation of sessions. Parsed user-agent + IP only.
-- Async export via the job service. Sync streaming response only.
+- Async export via job service. Sync streaming only.
 - Grace period for account deletion. Hard delete on confirm.
 
 ## Stack
 
 - **Routing:** TanStack Router nested routes (file-based).
-- **State/data:** `authClient` (Better Auth's React client) for identity/session primitives; Hono RPC (`hc<AppType>("/api")`) + TanStack Query for app-specific procedures.
-- **UI:** existing shadcn/ui components — no new primitives added.
-- **Types:** enums/types cross the client/server boundary via `@ent-mcp/shared/users`. Local UI types stay in the tab files.
+- **State/data:** `authClient` for identity/session primitives; Hono RPC (`hc<AppType>("/api")`) + TanStack Query for app-specific procedures.
+- **UI:** existing shadcn/ui — no new primitives.
+- **Types:** enums/types cross boundary via `@ent-mcp/shared/users`. Local UI types stay in tab files.
 
-No changes to the sidebar. The existing "Settings" entry continues to link to `/settings`; the redirect to `/settings/profile` happens at route resolution.
+No sidebar changes. Existing "Settings" entry → `/settings`; redirect to `/settings/profile` at route resolution.
 
 ## File layout
 
@@ -65,16 +65,16 @@ packages/server/src/api/procedures/
   config.ts                 ← new: public config (emailEnabled)
 ```
 
-The existing single-file `settings.tsx` is rewritten as the layout shell. Each tab file is its own route component; shared sub-components live in `packages/client/src/components/settings/` so tab files stay focused on layout, queries, and mutations. The Connections tab file is the result of moving `packages/client/src/routes/_authenticated/connections.tsx` — the existing component body, queries, mutations, and modal dependencies are preserved verbatim; only the route path and the `createFileRoute` call site change.
+Existing single-file `settings.tsx` → rewritten as layout shell. Each tab file = own route component. Shared sub-components in `packages/client/src/components/settings/`. Connections tab = result of moving `packages/client/src/routes/_authenticated/connections.tsx` — component body, queries, mutations, modal deps preserved verbatim. Only `createFileRoute` call site changes.
 
 ## Route behaviour
 
-- Bare `/settings` renders the layout and redirects to `/settings/profile` via `beforeLoad` on `settings/index.tsx` using TanStack Router's `redirect()` helper.
-- The left nav is part of the `settings.tsx` layout and uses `<Link>` with `activeOptions={{ exact: true }}` so the active tab is URL-driven, not local state.
-- All five tab routes inherit the `_authenticated` guard on the parent. No per-tab auth logic.
-- The public config endpoint `/api/config/public` (no auth) returns `{ emailEnabled: boolean }`. Profile, Security, and the layout read this once via TanStack Query with `staleTime: Infinity` — it's config, not data — and use the flag to gate email-dependent UI. The Connections tab does not read this flag.
-- The old `/connections` route file is deleted; TanStack Router's generated route tree drops the path. Requests to `/connections` fall through to the app's existing not-found surface (404). No redirect.
-- The top-level "Connections" entry in the app sidebar is removed. Connections is reached only via the Settings left nav.
+V1: bare `/settings` → redirect `/settings/profile` via `beforeLoad` on `settings/index.tsx` using TanStack Router `redirect()`.
+V2: left nav uses `<Link>` with `activeOptions={{ exact: true }}` → active tab URL-driven, not local state.
+V3: ∀ 5 tab routes inherit `_authenticated` guard from parent. No per-tab auth logic.
+V4: `/api/config/public` (no auth) returns `{ emailEnabled: boolean }`. Profile, Security & layout read once via TanStack Query `staleTime: Infinity`. Used to gate email-dependent UI. Connections tab does not read flag.
+V5: old `/connections` route file deleted → TanStack Router route tree regenerates without entry. Requests → 404. No redirect.
+V6: top-level "Connections" sidebar entry removed. Connections reachable only via Settings left nav.
 
 ## Profile tab (`/settings/profile`)
 
@@ -84,34 +84,33 @@ The existing single-file `settings.tsx` is rewritten as the layout shell. Each t
 - `api.me.role.$get()` → `{ name: string, description: string | null }`.
 - `api.config.public.$get()` → `{ emailEnabled: boolean }` (cached).
 
-### Fields and actions
+### Fields & actions
 
-**Avatar header.** Initials-based `<UserAvatar />` (unchanged), name + email below it. Read-only.
+**Avatar header.** Initials-based `<UserAvatar />` (unchanged), name + email below. Read-only.
 
-**Name.** `<Input>` bound to a local draft. Save button enabled when dirty. Save calls `authClient.updateUser({ name })`. Success: toast "Name updated"; invalidate session. Error: inline error under the field, preserving the draft.
+**Name.** `<Input>` bound to local draft. Save enabled when dirty. Save → `authClient.updateUser({ name })`. Success: toast "Name updated"; invalidate session. Error: inline error under field, draft preserved.
 
 **Email.**
-
-- When `emailEnabled = true`: `<Input>` + "Change email" button. Submit calls `authClient.changeEmail({ newEmail, callbackURL: '/settings/profile' })`. Better Auth sends a verification link to the **current** email; UI switches to a confirmation state ("We've sent a link to `current@x` — click it to complete the change"). The `user.email` field updates only after the old-address click; `user.emailVerified` flips false on switch. On success, Better Auth fires the post-switch notification to the old address.
-- When `emailEnabled = false`: email input + "Change email" button + inline warning _"No verification email will be sent — make sure the new address is correct."_ Submit opens a deliberate-action confirmation dialog (no password field) and on confirm calls `authClient.changeEmail({ newEmail })`. With Better Auth's `sendChangeEmailConfirmation` hook unset on the server, the address flips immediately. The dialog exists as a guard against accidental clicks, not as a credential check — the user has already authenticated for the session, and a second password prompt would not raise the bar materially. No notification to old address.
+- `emailEnabled = true`: `<Input>` + "Change email" button. Submit → `authClient.changeEmail({ newEmail, callbackURL: '/settings/profile' })`. Better Auth sends verification link to current email. UI → confirmation state ("We've sent a link to `current@x` — click it to complete the change"). `user.email` updates only after old-address click; `user.emailVerified` → false on switch. Post-switch notification → old address.
+- `emailEnabled = false`: email input + "Change email" button + inline warning _"No verification email will be sent — make sure the new address is correct."_ Submit → deliberate-action confirmation dialog (no password field). On confirm → `authClient.changeEmail({ newEmail })`. With Better Auth `sendChangeEmailConfirmation` hook unset, address flips immediately. Dialog guards accidental clicks only — user already authenticated, 2nd password prompt adds no security. No notification to old address.
 
 **Member since.** `format(user.createdAt, 'MMMM yyyy')` → "Member since April 2026". Read-only.
 
-**Role.** Read-only row: role name as a `<Badge>`, description as muted text below. `/me/role` always returns HTTP 200 — an unassigned user gets `{ role: null }`. The client renders the row only when `role !== null`; no error surface for the unassigned case, no toast. "View all roles →" link only if the user has the admin permission (existing permission check).
+**Role.** Read-only row: role name as `<Badge>`, description as muted text. `/me/role` always → HTTP 200 (`role: null` for unassigned). Row renders only when `role !== null`. No error surface for unassigned case. "View all roles →" link only when user has admin permission.
 
-**Verification banner.** Shown at the top of the Profile tab only (not global) when `emailEnabled && !user.emailVerified`. Copy: _"Verify your email address to secure your account."_ Right-aligned "Resend verification email" button, disabled for 60s after click with a countdown (`Resend in 42s`). Click calls `authClient.sendVerificationEmail({ email: user.email })`. Banner disappears when `emailVerified` flips true. Dismissible per-session via `useState` — no persisted dismissal.
+**Verification banner.** Shown at top of Profile tab only when `emailEnabled && !user.emailVerified`. Copy: _"Verify your email address to secure your account."_ Right-aligned "Resend verification email" button, disabled 60s after click with countdown (`Resend in 42s`). Click → `authClient.sendVerificationEmail({ email: user.email })`. Banner disappears when `emailVerified` flips true. Dismissible per-session via `useState` — no persisted dismissal.
 
 ### Error states
 
-- Name update fails → inline field error, draft preserved.
-- Email change — address in use: inline error under the email field (Better Auth 409).
-- Email change — rate-limited: toast with retry-after.
-- Resend verification — rate-limited: toast, countdown jumps to server's retry-after.
-- Role fetch failure: hide the row entirely.
+| Failure | Surface |
+| --- | --- |
+| Name update fails | Inline field error, draft preserved |
+| Email in use | Inline error under email field (Better Auth 409) |
+| Email rate-limited | Toast with retry-after |
+| Resend verification rate-limited | Toast; countdown jumps to server retry-after |
+| Role fetch failure | Hide row entirely |
 
-### Password field
-
-Moved out of this tab — now lives in Security.
+Password field → moved to Security tab.
 
 ## Security tab (`/settings/security`)
 
@@ -122,72 +121,70 @@ Moved out of this tab — now lives in Security.
 
 ### Change password
 
-Collapsed "Change password" button by default. Expanded form: current password, new password, confirm new password. Client-side validation: min 12 characters, confirm matches new. Submit calls `authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true })`.
-
+Collapsed by default. Expanded: current password, new password, confirm new. Client validation: min 12 chars, confirm matches new. Submit → `authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true })`.
 - Success: form collapses, toast "Password updated — other sessions signed out", session list refetches.
 - Wrong current password: inline error under that field; other fields retained.
 - Server validation (password policy): inline under new-password.
 
 ### Active sessions
 
-Rows sorted by `updatedAt` descending. Each row:
-
-- Device line: `${browser} on ${os}` via `ua-parser-js` (e.g. "Chrome 135 on macOS"). Raw user-agent in a tooltip on hover.
+Sorted by `updatedAt` desc. Each row:
+- Device line: `${browser} on ${os}` via `ua-parser-js` (e.g. "Chrome 135 on macOS"). Raw UA in tooltip.
 - Meta line: `${ipAddress} · Signed in ${relativeTime(createdAt)} · Last active ${relativeTime(updatedAt)}`.
 - Current session: "This device" badge, no revoke button.
-- Other sessions: "Revoke" button → confirmation dialog → `authClient.revokeSession({ token })`. On success: row disappears, toast "Session revoked".
-- Missing `userAgent` or `ipAddress`: fall back to "Unknown device" and hide the IP fragment — no empty punctuation.
+- Other sessions: "Revoke" → confirmation dialog → `authClient.revokeSession({ token })`. Success: row disappears, toast "Session revoked".
+- Missing `userAgent` | `ipAddress` → fall back to "Unknown device", hide IP fragment. No empty punctuation.
 
 ### Sign out everywhere
 
-Button below the session list. Confirmation dialog ("You'll remain signed in on this device. All other sessions will end."), then `authClient.revokeOtherSessions()`. On success: list refetches, toast.
+Button below session list. Confirmation dialog → `authClient.revokeOtherSessions()`. Success: list refetches, toast.
 
-### Empty & error states
+### States
 
-- Zero other sessions: show the current-device row only; hide "Sign out everywhere".
-- `listSessions` failure: standard app retry surface.
+- Zero other sessions: show current-device row only; hide "Sign out everywhere".
+- `listSessions` failure: standard retry surface.
 - Revoke failure: toast, row stays.
 
 ### Shared helpers
 
-- `parseUserAgent(ua) → { label, browser, os, unknown }` in `packages/client/src/lib/user-agent.ts`. `label` is the displayable string (e.g. "Chrome 120 on macOS"); `unknown` is true when neither browser nor OS could be parsed and is the signal to suppress adjacent metadata such as the IP address.
+- `parseUserAgent(ua) → { label, browser, os, unknown }` in `packages/client/src/lib/user-agent.ts`. `label` = displayable string (e.g. "Chrome 120 on macOS"); `unknown = true` when neither browser nor OS parsed → signal to suppress adjacent metadata (IP).
 - `session-row.tsx` component.
 
 ## Connections tab (`/settings/connections`)
 
 ### Scope
 
-Relocation only. The existing `/connections` page (`packages/client/src/routes/_authenticated/connections.tsx`, ~934 lines, fully wired to the `api.connections.*` surface) is moved under the settings layout. Its data flow, queries, mutations, modal components, capability badges, empty states, and error handling are preserved verbatim. No design work beyond the move.
+Relocation only. Existing `/connections` page (`packages/client/src/routes/_authenticated/connections.tsx`, ~934 lines, fully wired to `api.connections.*`) moves under settings layout. Data flow, queries, mutations, modal components, capability badges, empty states & error handling preserved verbatim.
 
 ### What changes
 
-- **Route file:** `packages/client/src/routes/_authenticated/connections.tsx` is moved to `packages/client/src/routes/_authenticated/settings/connections.tsx`. The only code change is the `createFileRoute` path — the component body and all imports are unchanged.
-- **Old route file is deleted**; TanStack Router's generated route tree (`routeTree.gen.ts`) regenerates without the old entry.
-- **Settings left nav** gains a "Connections" entry between "Security" and "Authorized apps", matching the order in the `Goals` section.
-- **App sidebar** loses its top-level "Connections" entry. The existing `Plug`-style icon and label belong to settings' nav exclusively.
-- **Inbound links** in the codebase pointing at `/connections` — including any `Link to="/connections"`, email templates (none exist today), or hard-coded strings — are updated to `/settings/connections`. A grep pass covers this.
-- **Inbound design references**: the prior connections design docs (`2026-04-19-frontend-connections-design.md`, `2026-04-22-frontend-plugin-connections-design.md`) are amended with a short "route relocated" note at the top pointing at this doc.
+- **Route file:** `connections.tsx` moves to `settings/connections.tsx`. Only change: `createFileRoute` path. Component body & all imports unchanged.
+- **Old route file deleted.** `routeTree.gen.ts` regenerates without old entry.
+- **Settings left nav** gains "Connections" between "Security" & "Authorized apps".
+- **App sidebar** loses top-level "Connections" entry.
+- **Inbound links** pointing at `/connections` → updated to `/settings/connections` (grep pass).
+- **Prior design docs** (`2026-04-19-frontend-connections-design.md`, `2026-04-22-frontend-plugin-connections-design.md`) → amended with "route relocated" note pointing at this doc.
 
 ### What does not change
 
-- Nothing in the component's behaviour: plugin-driven sections, capability badges, connection modals, schema forms, primary-connection toggling, test-and-save flows — all preserved.
-- No server-side work. The `api.connections.*` endpoints are unchanged.
+- Component behaviour: plugin-driven sections, capability badges, modals, schema forms, primary-connection toggling, test-and-save flows.
+- No server-side work. `api.connections.*` unchanged.
 - No new shared types.
-- No new tests. Existing component + integration tests move with the route file and keep passing.
+- No new tests. Existing tests move with route file.
 
-### Route-relocation risk
+### Risk
 
-The only way this tab regresses is if the move accidentally drops an import path, a component dependency, or a query-key collision with the settings layout. The PR doing the move runs the full client test suite and a manual smoke pass through the connections flows (add, edit, test, disable, set-primary) to confirm no regression.
+Only regression path: move accidentally drops import path, component dep, or query-key collision with settings layout. PR runs full client test suite + manual smoke pass (add, edit, test, disable, set-primary).
 
-### Old URL behaviour
+### Old URL
 
-`GET /connections` returns the app's existing not-found surface (TanStack Router's default 404). No banner, no "moved to" hint — per Q2 the break is accepted. If this turns out to matter in practice, a redirect can be added in a follow-up.
+`GET /connections` → 404. No banner. No redirect. Follow-up if it matters in practice.
 
 ## Authorized apps tab (`/settings/apps`)
 
 ### Data model
 
-`AuthorizedApp` (shared in `@ent-mcp/shared/users`):
+`AuthorizedApp` (in `@ent-mcp/shared/users`):
 
 ```ts
 type AuthorizedApp = {
@@ -203,49 +200,50 @@ type AuthorizedApp = {
 ### Server
 
 - `GET /api/me/apps`: left-join `oauthConsent` with `oauthClient` on `clientId`, filter by `userId`, aggregate `MAX(oauthAccessToken.createdAt)` as `lastUsedAt`. One query, no N+1.
-- `POST /api/me/apps/:clientId/revoke`: in a transaction —
-  1. Delete all `oauthAccessToken` rows where `userId = currentUser AND clientId = :clientId`.
-  2. Delete all `oauthRefreshToken` rows with the same filter. The table has a `revoked` timestamp column that is intentionally unused in this flow — user-initiated revoke is a cleanup action, not an audit event; hard-delete is simpler and the `oauthClient`/`oauthConsent` audit trail already captures who had access.
-  3. Delete the `oauthConsent` row for `(userId, clientId)`.
-  4. If `oauthClient.userId === currentUser.id` **and** no other `oauthConsent` rows reference this `clientId` (checked in the same transaction), delete the `oauthClient` row. Otherwise the `oauthClient` row stays intact so other users' consents and tokens are untouched. A dedicated "delete this application entirely" surface (owner-level, affects all users) is deferred — it would belong under `/admin` or a future owner-surface, not a per-user revoke.
-  5. Return the new list.
+- `POST /api/me/apps/:clientId/revoke`: transaction —
+  1. Delete `oauthAccessToken` rows where `userId = currentUser AND clientId = :clientId`.
+  2. Delete `oauthRefreshToken` rows, same filter. `revoked` timestamp col intentionally unused — user-initiated revoke = cleanup, not audit event. Hard-delete simpler; `oauthClient`/`oauthConsent` audit trail captures who had access.
+  3. Delete `oauthConsent` row for `(userId, clientId)`.
+  4. If `oauthClient.userId === currentUser.id` **&** no other `oauthConsent` rows reference `clientId` (checked in same tx) → delete `oauthClient`. Otherwise `oauthClient` stays → other users' consents & tokens untouched. Owner-level "delete app entirely" deferred → `/admin` | future owner-surface.
+  5. Return new list.
 
-Rationale for the guarded client-delete: a revoke action is framed to the user as "remove _my_ authorization". Cascading that into destruction of every other user's access because I happened to be the registrar is a silent-blast-radius bug. Guarding on "no other consents" keeps the cleanup path tidy for the common case (single-user self-hosted deployment where the registrar is also the only consumer) while refusing to go near multi-user state.
+Rationale: revoke = "remove my authorization". Cascading → destroy every other user's access = silent-blast-radius bug. Guard on "no other consents" keeps cleanup tidy for common single-user self-hosted case while refusing to touch multi-user state.
 
 ### UI
 
-**MCP endpoint.** Unchanged from mock: read-only `InputGroup` with `${window.location.origin}/mcp` and a copy button.
+**MCP endpoint.** Read-only `InputGroup` with `${window.location.origin}/mcp` + copy button.
 
 **App list.** Row per app:
-
-- Primary line: `name` (bold), fallback to `clientId` when missing.
-- `clientId` in mono below, full and selectable.
-- Meta line: `Connected ${relativeTime(connectedAt)} · Last active ${lastUsedAt ? relativeTime(lastUsedAt) : 'never'}`.
+- Primary line: `name` (bold), fallback to `clientId`.
+- `clientId` mono below, full & selectable.
+- Meta: `Connected ${relativeTime(connectedAt)} · Last active ${lastUsedAt ? relativeTime(lastUsedAt) : 'never'}`.
 - Scope badges.
-- "Revoke" button opens confirmation dialog (existing copy). On confirm → revoke mutation, list refetches, toast "Access revoked for ${name}".
+- "Revoke" → confirmation dialog. On confirm → revoke mutation, list refetches, toast "Access revoked for ${name}".
 
-**Empty state.** Existing dashed-border card: "No authorized applications — connect an MCP client using the endpoint URL above to get started." The "View setup guides" button from the mock is **dropped** in v1; it can be re-added when a docs page exists.
+**Empty state.** Dashed-border card: "No authorized applications — connect an MCP client using the endpoint URL above to get started." "View setup guides" button dropped v1 (no docs page exists).
 
 ### Error states
 
-- Fetch failure: standard retry surface.
-- Revoke failure: toast error; row stays. Server-side transaction guarantees all-or-nothing.
-- Concurrent revoke (already gone): 404 → toast "Already revoked", list refetches.
+| Failure | Surface |
+| --- | --- |
+| Fetch failure | Standard retry surface |
+| Revoke failure | Toast error; row stays. Tx = all-or-nothing |
+| Concurrent revoke (already gone) | 404 → toast "Already revoked", list refetches |
 
 ## Danger zone tab (`/settings/danger`)
 
 ### Data
 
-- `authClient.useSession()` for the current email (used in delete-confirmation copy and validation).
+- `authClient.useSession()` → current email (for delete copy & validation).
 - No list data — two action cards.
 
 ### Export my data
 
 **Copy.** _"Download a ZIP of your account data — identity, taste profile, feedback history, and connection metadata (no credentials or access tokens)."_
 
-**Action.** Single "Export my data" button. Click triggers a temporary anchor navigation to `GET /api/me/export` (not `fetch`) so the browser's download pipeline handles the stream. Button shows a spinner for the ~1-2s window between click and download starting.
+**Action.** "Export my data" button. Click → temporary anchor nav to `GET /api/me/export` (not `fetch`) — browser download pipeline handles stream. Button shows spinner for ~1-2s before download starts.
 
-**Response.** `Content-Type: application/zip`, `Content-Disposition: attachment; filename="ent-mcp-export-${userId}-${yyyymmdd}.zip"`. ZIP contents:
+**Response.** `Content-Type: application/zip`, `Content-Disposition: attachment; filename="ent-mcp-export-${userId}-${yyyymmdd}.zip"`. ZIP:
 
 ```
 identity.json            user row (id, name, email, emailVerified, createdAt, updatedAt)
@@ -261,44 +259,39 @@ jobs.json                job_runs rows where triggeredByUserId = user (history; 
 README.txt               "what's in this export" explainer with schema version
 ```
 
-Table names map to the actual schema in `packages/server/src/db/schema/`: `user`, `session`, `oauth_client`/`oauth_consent`/`oauth_access_token`, `service_connections`, `primary_connections`, `preference_profiles`, `feedback`, `job_runs`. There is no `user_preferences` table — the preference-engine domain is `preference_profiles` + `feedback`.
+Table names map to schema in `packages/server/src/db/schema/`: `user`, `session`, `oauth_client`/`oauth_consent`/`oauth_access_token`, `service_connections`, `primary_connections`, `preference_profiles`, `feedback`, `job_runs`. No `user_preferences` table — preference domain = `preference_profiles` + `feedback`.
 
-**Server implementation.** Stream the ZIP with `jszip` in memory — self-hosted, per-user data is small, no temp files needed. All reads run inside a single transaction for a point-in-time-consistent snapshot. Schema-version field in README so future exports can diverge. Generate with `zip.generateAsync({ type: "uint8array" })` (or `"arraybuffer"`) — the default `nodebuffer` type returns a Node `Buffer` which does not exist in the Cloudflare Workers runtime.
+**Server impl.** Stream ZIP with `jszip` in memory — self-hosted, per-user data small, no temp files. All reads in single tx for point-in-time-consistent snapshot. Schema-version in README. Use `zip.generateAsync({ type: "uint8array" })` | `"arraybuffer"` — default `nodebuffer` not Workers-compatible.
 
 **Failure modes.**
-
-- Auth missing: 401, existing middleware redirects to login.
-- Transaction error: HTTP 500. Anchor-navigation errors don't bubble through `window.error`, so a silent failure is accepted for v1 — the user sees the browser's default "download failed" UI and can retry. If this becomes a real pain point, the v2 path is an async job with a token-protected download link. Not worth building now.
-- Very large user (hypothetical): not optimized for v1. Revisit with async/streaming if it becomes real.
+- Auth missing → 401; existing middleware → login.
+- Tx error → 500. Anchor-nav errors don't bubble through `window.error` → silent failure accepted v1. User sees browser "download failed" UI + can retry. v2 path = async job + token-protected download link. Not worth building now.
+- Very large user (hypothetical): not optimized v1.
 
 ### Delete account
 
-**Copy.** Preserved from mock: _"Permanently delete your account and all associated data — connections, taste profile, feedback history, and preferences. This cannot be undone."_
+**Copy.** _"Permanently delete your account and all associated data — connections, taste profile, feedback history, and preferences. This cannot be undone."_
 
-**Action.** "Delete account" button opens the confirmation dialog. Dialog contains:
-
+**Action.** "Delete account" → confirmation dialog. Dialog:
 - Email-typed input (must match current email exactly).
 - Password input.
-- "Delete my account" button, disabled until both validate.
+- "Delete my account" button, disabled until both valid.
 
 **Submit.** `POST /api/me/delete` with `{ confirmEmail, currentPassword }`. Server:
-
-1. Verify password via Better Auth's password helper; fail → 401 "Incorrect password".
+1. Verify password via Better Auth password helper; fail → 401 "Incorrect password".
 2. Verify `confirmEmail === user.email`; fail → 400.
-3. Call Better Auth's `deleteUser` on the `user.id`. A single `DELETE` on `user` — FK cascades handle the rest: `session`, `account`, `oauthClient` (user-owned only; other users' clients untouched), `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `userRoles`, `primaryConnections`, `serviceConnections` (+ encrypted credentials), `preferenceProfiles`, `feedback`. `jobRuns.triggeredByUserId` is `SET NULL` by design — history survives the user, anonymized.
-4. Return 200 with `{ ok: true }`.
+3. `deleteUser(user.id)`. Single `DELETE` on `user` — FK cascades handle rest: `session`, `account`, `oauthClient` (user-owned only), `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `userRoles`, `primaryConnections`, `serviceConnections` (+ encrypted credentials), `preferenceProfiles`, `feedback`. `jobRuns.triggeredByUserId` → `SET NULL` — history survives, anonymized.
+4. Return `{ ok: true }`.
 
-No manual deletion before `deleteUser` — the cascade graph is the source of truth. The FK cascade audit in Prerequisites is what makes this single-call delete safe.
+No manual deletion before `deleteUser` — cascade graph = source of truth.
 
-**Client.** On 200: close dialog; the response itself has already invalidated the session cookie (session row is gone server-side, subsequent requests 401), so the client calls `navigate('/auth/login', { replace: true })` with a one-shot toast _"Your account has been deleted."_ A follow-up `authClient.signOut()` is not strictly necessary — the session is dead — but a defensive client-side call to clear any in-memory cache is harmless and keeps the code symmetric with the regular sign-out flow. On 401 (wrong password): inline error under the password field, dialog stays open, inputs retained. Any other error: toast, dialog stays open.
+**Client.** On 200: close dialog; session cookie already invalid (session row gone server-side) → `navigate('/auth/login', { replace: true })` + one-shot toast _"Your account has been deleted."_ Defensive `authClient.signOut()` call clears in-memory cache — session already dead, harmless. On 401: inline error under password field, dialog stays, inputs retained. Other error: toast, dialog stays.
 
 ## Server work
 
-### New Hono sub-app: `meApp`
+### `meApp`
 
-File: `packages/server/src/api/procedures/me.ts`. All routes auth-required via the existing auth middleware used by `activityApp`, `connectionsApp`, etc. Mounted in `router.ts`: `.route("/me", meApp)`.
-
-Handler paths are written relative to the mount point (standard Hono). Each handler is registered with a root-relative path so the Hono RPC client chain follows naturally:
+File: `packages/server/src/api/procedures/me.ts`. All routes auth-required. Mounted in `router.ts`: `.route("/me", meApp)`.
 
 ```ts
 export const meApp = new Hono()
@@ -309,19 +302,19 @@ export const meApp = new Hono()
   .post("/delete", zValidator("json", DeleteAccountBody), ...);
 ```
 
-Client RPC calls derived from the chain: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"].revoke.$post({ param: { clientId } })`, `api.me.delete.$post({ json: { ... } })`. The export endpoint is called via anchor navigation, not via the RPC client, so its chain shape doesn't matter for typing.
+Client RPC: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"].revoke.$post({ param: { clientId } })`, `api.me.delete.$post({ json: { ... } })`. Export → anchor nav, not RPC client.
 
-| Route                       | Method | Body / Params                       | Returns                                                                                                              |
-| --------------------------- | ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `/me/role`                  | GET    | —                                   | `{ role: { name, description } \| null }` — always HTTP 200; `role: null` for unassigned users. No 404 for this path |
-| `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                                                                                    |
-| `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                                                                                       |
-| `/me/export`                | GET    | —                                   | `application/zip` stream                                                                                             |
-| `/me/delete`                | POST   | `{ confirmEmail, currentPassword }` | `{ ok: true }` or 401/400                                                                                            |
+| Route | Method | Body / Params | Returns |
+| --- | --- | --- | --- |
+| `/me/role` | GET | — | `{ role: { name, description } \| null }` — always HTTP 200 |
+| `/me/apps` | GET | — | `AuthorizedApp[]` |
+| `/me/apps/:clientId/revoke` | POST | — | `{ ok: true }` |
+| `/me/export` | GET | — | `application/zip` stream |
+| `/me/delete` | POST | `{ confirmEmail, currentPassword }` | `{ ok: true }` \| 401/400 |
 
-### New Hono sub-app: `configPublicApp`
+### `configPublicApp`
 
-File: `packages/server/src/api/procedures/config.ts`. No auth. Mounted at `.route("/config/public", configPublicApp)` with the handler registered at the root path:
+File: `packages/server/src/api/procedures/config.ts`. No auth. Mounted: `.route("/config/public", configPublicApp)`.
 
 ```ts
 export const configPublicApp = new Hono().get("/", (c) =>
@@ -331,94 +324,95 @@ export const configPublicApp = new Hono().get("/", (c) =>
 
 Client call: `api.config.public.$get()`.
 
-`emailEnabled` is derived in `env.ts` so both the Better Auth wiring and this endpoint read the same source. This spec introduces a new env var:
+`emailEnabled` derived in `env.ts` — Better Auth wiring & this endpoint share same source.
 
-- `EMAIL_PROVIDER_CONFIGURED: boolean` — defaults to `false`. When `true`, Better Auth's `sendVerificationEmail` / `sendChangeEmailConfirmation` / `sendResetPassword` hooks are wired to the deployment's configured transactional-email sender; when `false`, those hooks are no-ops and the settings UI falls back to the degraded paths described in the Profile tab.
+New env var:
+- `EMAIL_PROVIDER_CONFIGURED: boolean` — default `false`. When `true`, Better Auth's `sendVerificationEmail` / `sendChangeEmailConfirmation` / `sendResetPassword` hooks wired to transactional-email sender. When `false`, hooks = no-ops; settings UI falls back to degraded paths.
 
-The env var is added to `packages/server/src/env.ts` alongside the existing entries, validated as `z.coerce.boolean().default(false)`. Self-hosted deployments that don't configure email leave it at the default. The deployment design doc should be updated in the same PR to list the new env var.
+Add to `packages/server/src/env.ts`: `z.coerce.boolean().default(false)`.
 
-### Better Auth configuration
+### Better Auth config
 
-- `user.changeEmail.sendChangeEmailConfirmation` configured to target the **current (old)** email address (Better Auth 1.6's actual hook name; older revisions of this doc referred to `sendChangeEmailVerification`).
-- Post-switch notification to the old address enabled.
+- `user.changeEmail.sendChangeEmailConfirmation` → targets current (old) email (Better Auth 1.6 hook name; old revisions used `sendChangeEmailVerification`).
+- Post-switch notification to old address enabled.
 - `changePassword` called with `revokeOtherSessions: true`.
 
-These are Better Auth config knobs, not custom code. Verify current installed version supports these (≥ 1.2); bump in the same PR if needed.
+Config knobs only, no custom code. Verify installed version ≥ 1.2; bump in same PR if needed.
 
 ### Shared types
 
 Extend `packages/shared/src/users/`:
-
 - `AuthorizedApp` type.
 - `RoleSummary` type `{ name: string; description: string | null }`.
 - `DeleteAccountBody` zod schema `{ confirmEmail: string, currentPassword: string }`.
 - `PublicConfig` type `{ emailEnabled: boolean }`.
 
-Export via the existing `@ent-mcp/shared/users` subpath.
+Export via `@ent-mcp/shared/users` subpath.
 
 ## Prerequisites
 
-These must land before or alongside the main implementation PR:
+Must land before | alongside main PR:
 
-1. **FK cascade audit.** Verify every table with a `user.id` reference declares `onDelete: "cascade"` (or `set null` where history survival is intentional). From the current schema scan, these already cascade on `user` delete: `session`, `account`, `userRoles`, `oauthClient`, `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `primaryConnections`, `serviceConnections`, `feedback`, `preferenceProfiles`. `jobRuns.triggeredByUserId` is `SET NULL` (intentional — job history survives the user, anonymized). The audit is a safety net: if a new table landed between this design and its implementation and the author forgot the cascade clause, catch it here. Any table that needs a cascade fix gets its migration bundled into this PR.
+1. **FK cascade audit.** Verify every table with `user.id` ref declares `onDelete: "cascade"` (or `set null` where history survival intentional). Already cascade on `user` delete: `session`, `account`, `userRoles`, `oauthClient`, `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `primaryConnections`, `serviceConnections`, `feedback`, `preferenceProfiles`. `jobRuns.triggeredByUserId` = `SET NULL` (intentional). Any table needing cascade fix → migration bundled in this PR.
 
-2. **Composite indexes for MCP app queries.** `oauthAccessToken` and `oauthRefreshToken` have no index on `(userId, clientId)` today. The `/me/apps` aggregation and the revoke transaction both filter on that pair. Add two indexes in a migration bundled with this PR:
+2. **Composite indexes.** `oauthAccessToken` & `oauthRefreshToken` lack index on `(userId, clientId)`. Add in migration:
    - `oauth_access_token_user_client_idx` on `oauth_access_token(user_id, client_id)`.
    - `oauth_refresh_token_user_client_idx` on `oauth_refresh_token(user_id, client_id)`.
-     `oauthConsent` has no index on `(user_id, client_id)` today (confirmed against `db/schema/auth.ts` — only the PK on `id` exists). Add `oauth_consent_user_client_idx` on `oauth_consent(user_id, client_id)` in the same migration. All three tables have nullable `userId`; the queries filter `WHERE user_id = ?` which naturally excludes nulls.
+   - `oauth_consent_user_client_idx` on `oauth_consent(user_id, client_id)` (confirmed: only PK on `id` exists in `db/schema/auth.ts`).
+   All 3 tables have nullable `userId`; queries filter `WHERE user_id = ?` → naturally excludes nulls.
 
-3. **`EMAIL_PROVIDER_CONFIGURED` env var** added to `packages/server/src/env.ts` with `z.coerce.boolean().default(false)`. Documented in `docs/2026-04-24-deployment-design.md` in the same PR.
+3. **`EMAIL_PROVIDER_CONFIGURED` env var** in `packages/server/src/env.ts`, `z.coerce.boolean().default(false)`. Document in `docs/2026-04-24-deployment-design.md` in same PR.
 
-4. **`ua-parser-js`** added. The root `package.json` uses Bun workspaces with a `catalog:` convention (per the shared user memory and `packages/*/package.json` dep entries like `"better-auth": "catalog:"`). Add `ua-parser-js` to the catalog and reference it as `"ua-parser-js": "catalog:"` from `packages/client/package.json`.
+4. **`ua-parser-js`** added to catalog. Reference as `"ua-parser-js": "catalog:"` from `packages/client/package.json`.
 
-5. **`jszip`** added to the catalog the same way, referenced as `"jszip": "catalog:"` from `packages/server/package.json`. Only the `type: "uint8array"` / `type: "arraybuffer"` output modes are Workers-compatible; the default `nodebuffer` is not.
+5. **`jszip`** added to catalog. Reference as `"jszip": "catalog:"` from `packages/server/package.json`. Only `type: "uint8array"` | `"arraybuffer"` output modes Workers-compatible; default `nodebuffer` is not.
 
-6. **Better Auth capabilities.** The deployed version is 1.6.5 (`package.json` catalog). Core client methods `authClient.listSessions()`, `authClient.revokeSession()`, `authClient.revokeOtherSessions()`, and `authClient.changeEmail()` are available in 1.x without extra plugins. The `changePassword({ revokeOtherSessions: true })` option and `user.changeEmail.sendChangeEmailConfirmation` config knob are also core. No version bump or plugin install needed.
+6. **Better Auth capabilities.** Deployed version: 1.6.5. `authClient.listSessions()`, `authClient.revokeSession()`, `authClient.revokeOtherSessions()`, `authClient.changeEmail()` available in 1.x without extra plugins. `changePassword({ revokeOtherSessions: true })` & `user.changeEmail.sendChangeEmailConfirmation` = core. No version bump | plugin install needed.
 
 ## Error handling
 
-Handlers throw through the existing `errorHandler` in `router.ts`. Everything listed here maps to an existing `HttpError` subtype in `packages/server/src/errors/` — no new error classes.
+Handlers throw through existing `errorHandler` in `router.ts`. All map to existing `HttpError` subtype in `packages/server/src/errors/` — no new error classes.
 
-| Failure                                          | HTTP | Client surface                           |
-| ------------------------------------------------ | ---- | ---------------------------------------- |
-| Auth missing / expired                           | 401  | Redirect to login (existing middleware)  |
-| Validation failure                               | 400  | Inline field errors from zod issues      |
-| Wrong current password (change-password, delete) | 401  | Inline error under the password field    |
-| Email already in use                             | 409  | Inline error under the email field       |
-| Rate-limited (resend / change-email)             | 429  | Toast with retry-after                   |
-| Concurrent revoke (already gone)                 | 404  | Toast "Already revoked", list refetches  |
-| Unexpected                                       | 500  | Standard app error toast with request id |
+| Failure | HTTP | Client surface |
+| --- | --- | --- |
+| Auth missing / expired | 401 | Redirect to login (existing middleware) |
+| Validation failure | 400 | Inline field errors from zod issues |
+| Wrong current password (change-password, delete) | 401 | Inline error under password field |
+| Email already in use | 409 | Inline error under email field |
+| Rate-limited (resend / change-email) | 429 | Toast with retry-after |
+| Concurrent revoke (already gone) | 404 | Toast "Already revoked", list refetches |
+| Unexpected | 500 | Standard app error toast with request id |
 
 ## Testing
 
-Follows the existing test pattern — server tests in `packages/server/src/__tests__/`, client tests colocated with components.
+Server tests in `packages/server/src/__tests__/`. Client tests colocated with components.
 
 ### Server tests (new)
 
-- `me.role.test.ts` — returns `{ role: { name, description } }` for an assigned user, `{ role: null }` for unassigned; both cases HTTP 200.
+- `me.role.test.ts` — `{ role: { name, description } }` for assigned user, `{ role: null }` for unassigned; both HTTP 200.
 - `me.apps.test.ts` — list shape, last-used aggregation, revoke cascade (tokens + consent deleted; user-owned client deleted; another user's client untouched).
 - `me.export.test.ts` — ZIP structure, schema-version in README, no credential fields leak in any JSON.
-- `me.delete.test.ts` — happy path, wrong password (401), wrong email (400), cascade completeness (assert no orphan rows for the deleted user id across every FK-bearing table — the most important test in this set).
+- `me.delete.test.ts` — happy path, wrong password (401), wrong email (400), cascade completeness (assert no orphan rows for deleted user across every FK-bearing table).
 - `config.public.test.ts` — both `emailEnabled` branches.
 
 ### Client tests (new)
 
-- Profile tab: name-save, email-change opens confirmation state, verification banner visibility gates on `emailEnabled`, resend countdown.
-- Security tab: session list renders, current session badged, revoke removes row, sign-out-everywhere leaves only current, password change form.
-- Apps tab: list renders, empty state, revoke confirmation + mutation.
-- Danger tab: export triggers an anchor download (mock `HTMLAnchorElement.click`), delete dialog button disabled until both inputs valid, wrong-password flow.
-- Nested-routing redirect: `/settings` → `/settings/profile`.
+- Profile: name-save, email-change → confirmation state, verification banner gates on `emailEnabled`, resend countdown.
+- Security: session list renders, current session badged, revoke removes row, sign-out-everywhere leaves only current, password change form.
+- Apps: list renders, empty state, revoke confirmation + mutation.
+- Danger: export triggers anchor download (mock `HTMLAnchorElement.click`), delete dialog disabled until both inputs valid, wrong-password flow.
+- Nested routing redirect: `/settings` → `/settings/profile`.
 
 ## Rollout
 
-Single PR strategy, no feature flag:
+Single PR, no feature flag.
 
-1. Prerequisites (cascade-audit migration, deps) merge first, possibly in a separate small PR if any cascade fixes are needed.
+1. Prerequisites (cascade-audit migration, deps) — may be separate small PR if cascade fixes needed.
 2. Server `meApp` + `configPublicApp` + tests.
-3. Better Auth config changes (`user.changeEmail.sendChangeEmailConfirmation`, `revokeOtherSessions`).
-4. Client nested-route split + tab files wired against the new surface.
-5. Connections route relocation: move the component to `settings/connections.tsx`, delete the old route file, add the settings nav entry, remove the top-level sidebar entry, sweep inbound `/connections` links.
-6. Test suite green, manual walkthrough of every flow in both `emailEnabled` states on a dev deploy, plus a smoke pass through the connections flows (add/edit/test/disable/set-primary) to confirm the move didn't regress anything.
-7. Changeset file added per the repo's `CLAUDE.md` convention.
+3. Better Auth config (`user.changeEmail.sendChangeEmailConfirmation`, `revokeOtherSessions`).
+4. Client nested-route split + tab files wired to new surface.
+5. Connections route relocation: move component to `settings/connections.tsx`, delete old route file, add settings nav entry, remove top-level sidebar entry, sweep inbound `/connections` links.
+6. Test suite green. Manual walkthrough ∀ flow in both `emailEnabled` states on dev deploy. Smoke pass through connections flows (add/edit/test/disable/set-primary).
+7. Changeset file added per `CLAUDE.md` convention.
 
-No data migration beyond the cascade audit. No rollback plan needed beyond `git revert` — no destructive migrations in this set. The connections move is purely a file relocation and can be reverted by restoring the old route file if anything unexpected surfaces.
+No data migration beyond cascade audit. No rollback plan beyond `git revert` — no destructive migrations. Connections move = file relocation only; revert by restoring old route file.

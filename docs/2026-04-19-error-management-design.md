@@ -1,4 +1,4 @@
-# Error Management for Plugins and API Endpoints
+# Error Management — Plugins & API Endpoints
 
 **Status:** Draft for review
 **Date:** 2026-04-19
@@ -7,68 +7,68 @@
 
 ## Summary
 
-A unified error capture and viewing system spanning the frontend, backend oRPC layer, and plugin runtime. Errors are stored self-hosted in the app's database, correlated across surfaces via a shared request ID, and structured with stable error codes to enable user-facing translation in the future. An admin viewer at `/admin/errors` provides filtered search with request-ID chaining. The design keeps developer-facing debug context separate from user-facing messages, and excludes credentials from the error store by construction.
+Unified error capture & viewing system spanning frontend, backend oRPC layer, plugin runtime. Errors stored self-hosted in app DB, correlated via shared request ID, structured with stable error codes for future user-facing i18n. Admin viewer at `/admin/errors` — filtered search + request-ID chaining. Dev debug context ⊥ user messages. Credentials ⊥ error store (by construction).
 
-Product analytics (usage events, funnels, retention) is explicitly out of scope. This is a developer-debugging tool.
+Product analytics ⊥ scope. Dev-debugging tool only.
 
 ## Goals
 
-- Capture unhandled and notable errors from three surfaces: frontend, backend oRPC handlers, and plugin sandbox invocations.
-- Correlate a single user action across all three via a shared request ID.
-- Store errors self-hosted; no data leaves the server by default.
-- Structure errors to enable i18n of user-facing messages without retroactive refactoring.
-- Expose an admin viewer for search, filter, and chain inspection.
-- Keep the door open to forward errors to external services (Sentry, self-hosted GlitchTip, etc.) via a pluggable sink interface.
+- Capture unhandled + notable errors from 3 surfaces: frontend, backend oRPC handlers, plugin sandbox.
+- Correlate single user action across all 3 via shared request ID.
+- Store self-hosted; no data leaves server by default.
+- Structure errors → i18n user messages without retroactive refactor.
+- Admin viewer: search, filter, chain inspection.
+- Extension point → forward to external sinks (Sentry, GlitchTip) via pluggable `ErrorSink`.
 
 ## Non-goals
 
-- Product analytics, usage events, funnels, or retention tracking.
-- Distributed tracing with spans. Request ID is the correlation primitive; span-level timing is a separate future concern.
-- Performance metrics or APM. Different system, different design.
-- Session replay or breadcrumbs.
-- User-facing error reporting UI beyond a toast with a reference code.
-- Alerting and paging. The viewer surfaces trends; actual alerting is deferred.
+⊥ product analytics, usage events, funnels, retention.
+⊥ distributed tracing with spans (request ID = correlation primitive; span timing → separate future concern).
+⊥ performance metrics / APM.
+⊥ session replay / breadcrumbs.
+⊥ user-facing error reporting UI beyond toast + reference code.
+⊥ alerting / paging (viewer surfaces trends; alerting deferred).
 
-## Capture surfaces
+## Capture Surfaces
 
-Three capture points, each with its own integration strategy.
+3 capture points, each with own integration strategy.
 
 ### Frontend
 
-- **React error boundary** at the root of the app and at route boundaries. Catches render-time exceptions. Reports to `/api/errors` and shows a fallback UI with the request ID.
-- **Global handlers**: `window.addEventListener("error", ...)` and `window.addEventListener("unhandledrejection", ...)` for things outside React's tree.
-- **Explicit `reportError(err, severity, context?)`** helper for caught-but-notable cases (e.g. a fetch failed but we have a fallback).
-- **oRPC client interceptor** reports non-2xx responses — but only tagged as warnings on the frontend, since the backend has already captured the authoritative error record. The frontend's role here is to note "the user saw this error" rather than duplicate the root cause.
+- **React error boundary** at root + route boundaries → catches render-time exceptions → reports to `/api/errors` → shows fallback UI with request ID.
+- **Global handlers**: `window.addEventListener("error", ...)` & `window.addEventListener("unhandledrejection", ...)` — outside React tree.
+- **Explicit `reportError(err, severity, context?)`** — caught-but-notable cases (e.g. fetch failed but fallback exists).
+- **oRPC client interceptor** — non-2xx → tagged `warning` on frontend only. Backend captured authoritative record; frontend notes "user saw this error", not root cause.
 
 ### Backend
 
-- **oRPC middleware** wraps every handler:
-  - `5xx`-category thrown errors: captured as `error` severity, request ID stamped, rethrown.
-  - `4xx` caused by handler bugs (our own schema validation failing on outgoing data, unexpected internal states): captured as `error`.
-  - `4xx` caused by expected user input failures (auth denied, not found, validation on incoming user input): **not captured**. These are product behavior, not bugs.
-- **Cron job failures** (`server/cron/*`) captured via a shared wrapper that logs the job name and the exception.
+- **oRPC middleware** wraps ∀ handler:
+  - `5xx` thrown errors → `error` severity, request ID stamped, rethrown.
+  - `4xx` from handler bugs (schema validation fail on outgoing data, unexpected internal state) → `error`.
+  - `4xx` from expected user input failures (auth denied, not found, validation on incoming input) → ⊥ captured. Product behavior, not bugs.
+- **Cron failures** → shared wrapper logs job name + exception.
 
-### Plugin runtime
+### Plugin Runtime
 
-Hooks into the existing sandbox error handling path described in the backend spec (§Plugin runtime, Error handling):
+Hooks into existing sandbox error path (§Plugin runtime, Error handling):
 
-- Plugin throws inside the sandbox → runtime catches, records an error with `source: "plugin"`, `pluginId`, the sandbox stack trace, and the request ID, then marks the connection as errored (existing behavior).
-- Plugin returns output that fails Zod validation → recorded as `warning` severity. This is the "recovered from malformed output" case: host returns empty results to the caller, but the event is worth knowing about.
-- Sandbox OOM or timeout → recorded as `error` severity with the specific cause.
+- Plugin throws inside sandbox → runtime catches → record with `source: "plugin"`, `pluginId`, sandbox stack, request ID → mark connection errored.
+- Plugin output fails Zod validation → `warning` severity. Host returns empty results to caller; event worth recording.
+- Sandbox OOM | timeout → `error` severity with specific cause.
 
-## Severity model
+## Severity Model
 
-Three levels:
+3 levels:
 
-- **`error`** — something broke in a way that indicates a bug or infrastructure failure. Default viewer filter shows these.
-- **`warning`** — something unexpected happened but was recovered from (plugin returned malformed output and we fell back to empty, admin allowlist narrowed a pick, pool exhausted and rotated). Not shown by default; toggle in the viewer.
-- **`info`** — expected user-input failure (bad URL, wrong password, stale 404, permission denied). Stored alongside the other severities so an admin can toggle them on when debugging a specific user's flow, but excluded from the default error view so the "something is wrong right now" signal is not drowned out.
+- **`error`** — bug | infrastructure failure. Default viewer filter shows these.
+- **`warning`** — unexpected but recovered (plugin malformed output → fell back to empty, pool exhausted → rotated). Off by default; viewer toggle.
+- **`info`** — expected user-input failure (bad URL, wrong password, stale 404, permission denied). Stored; admin can toggle on when debugging specific user flow. ⊥ shown by default — would drown bug signal.
 
-`info` deliberately does not include generic logs-for-the-sake-of-logs; it's scoped to user-input failures we would otherwise have thrown away. Normal logging remains the place for execution traces.
+`info` ≠ generic logs. Scoped to user-input failures only.
 
-### Severity lives on the code, not the callsite
+### Severity Lives on Code, Not Callsite
 
-Every stable error code carries a default severity in the codes registry (`server/src/errors/codes.ts`). The registry is the single source of truth:
+∀ stable error code → default severity in codes registry (`server/src/errors/codes.ts`). Registry = single source of truth:
 
 ```ts
 export const HOST_ERROR_CODES = {
@@ -80,58 +80,58 @@ export const HOST_ERROR_CODES = {
 } as const satisfies Record<string, ErrorCodeSpec>;
 ```
 
-The per-code object shape — rather than a flat `Record<code, severity>` — is load-bearing: it leaves room to grow into additional per-code metadata (translation hints, default HTTP status, category, whether to echo a request id to the user) without a breaking refactor of every consumer.
+Per-code object shape (not flat `Record<code, severity>`) → room to grow: translation hints, default HTTP status, category, whether to echo request ID to user. No breaking refactor of ∀ consumer.
 
-`captureError` consults the registry to pick the effective severity:
+`captureError` consults registry → effective severity:
 
-1. If the caller passes an explicit `severity`, that wins (used for recovered paths that want to bump an `error`-classified code down to `warning`).
-2. Otherwise, the code's registered severity is used.
-3. Unknown codes — including the namespaced `plugin.<id>.<code>` identifiers plugins emit — default to `error`. Better to over-capture than silently drop.
+1. Caller passes explicit `severity` → wins (recovered paths bumping `error` code → `warning`).
+2. Otherwise → code's registered severity.
+3. Unknown codes (incl. `plugin.<id>.<code>` from plugins) → `error`. Over-capture > silent drop.
 
-This moves the "is this worth storing at what severity" decision out of every try/catch and into one place that the error-design-doc rule can actually be enforced against. Callsites stop carrying `severity: "error"` as a ritual; the exceptions are the handful of paths that genuinely diverge from the registered default.
+"Is this worth storing at what severity" decision → one place, not ∀ try/catch. Callsites ⊥ carry ritual `severity: "error"`. Exceptions = paths genuinely diverging from registered default.
 
-## Correlation — request ID
+## Correlation — Request ID
 
-Every error carries a `requestId` (UUID). Surfaces:
+∀ error carries `requestId` (UUID). Surfaces:
 
-- **Frontend**: generated once per page load (or per oRPC call, depending on scope) in the oRPC client. Sent in a `X-Request-Id` header.
-- **Backend**: oRPC middleware reads the header or generates one if absent. Available via AsyncLocalStorage throughout the request lifecycle. Passed into the plugin runtime when it invokes a plugin.
-- **Plugin runtime**: request ID is attached to `ctx.log` tags and used to stamp any captured errors.
-- **Cron jobs**: generate their own request ID at job start, since there's no incoming request.
+- **Frontend**: generated once per page load (or per oRPC call) in oRPC client. Sent via `X-Request-Id` header.
+- **Backend**: oRPC middleware reads header | generates if absent. Available via AsyncLocalStorage through request lifecycle. Passed to plugin runtime on invocation.
+- **Plugin runtime**: request ID → `ctx.log` tags & error record stamp.
+- **Cron jobs**: generate own request ID at job start (no incoming request).
 
-**Frontend surfacing:** When the frontend shows a user-visible error (toast, error boundary, card error state), it displays the request ID as a reference (e.g. `Ref: 7f3a2b1c`). The admin viewer supports searching by request ID, so a user can copy-paste the ref into a bug report and the admin can find the whole chain.
+**Frontend surfacing:** User-visible error (toast, error boundary, card error state) → display request ID as reference (e.g. `Ref: 7f3a2b1c`). Admin viewer supports search by request ID → user copy-pastes ref into bug report → admin finds full chain.
 
-**Door open for OpenTelemetry:** the request ID maps cleanly to a trace ID in OTel. When the forwarding sink is added, mapping `requestId → traceId` is trivial. No refactor required.
+**OTel door:** request ID maps cleanly to OTel trace ID. When forwarding sink added, `requestId → traceId` = trivial. ⊥ refactor required.
 
-## Translation — error codes and messages
+## Translation — Error Codes & Messages
 
-User-facing and developer-facing messages are structured separately from the start. This is the design constraint that makes translation possible without a painful migration later.
+User-facing & dev-facing messages structured separately. Constraint: translation possible ⊥ painful migration.
 
-### Wire format
+### Wire Format
 
-Every error returned by oRPC or surfaced by a plugin to the host conforms to:
+∀ error returned by oRPC | surfaced by plugin to host conforms to:
 
 ```ts
 interface UserFacingError {
   code: string; // stable, namespaced, snake_case
   params?: Record<string, string | number>; // interpolation values
   devMessage: string; // English, free-form, for logs/viewer
-  cause?: unknown; // original error (for viewer only)
+  cause?: unknown; // original error (viewer only)
   requestId?: string;
 }
 ```
 
-- `code` is the stable identifier used for translation lookup. Namespaced:
-  - Host codes: `connection.test_failed`, `plugin.timeout`, `oauth.state_expired`, etc.
-  - Plugin-emitted codes: `plugin.<plugin_id>.<code>`, e.g. `plugin.trakt.rate_limited`.
-- `params` are interpolation values for the translation template. Example: `{ pluginName: "Trakt", reason: "network timeout" }`.
-- `devMessage` is the English free-form text shown in the admin viewer. Never shown to users.
+- `code` = stable ID for translation lookup. Namespaced:
+  - Host codes: `connection.test_failed`, `plugin.timeout`, `oauth.state_expired`.
+  - Plugin-emitted: `plugin.<plugin_id>.<code>`, e.g. `plugin.trakt.rate_limited`.
+- `params` = interpolation values for translation template. E.g. `{ pluginName: "Trakt", reason: "network timeout" }`.
+- `devMessage` = English free-form, admin viewer only. ⊥ shown to users.
 
-### Code registries
+### Code Registries
 
-Two registries:
+2 registries:
 
-- **Host codes** live in `server/errors/codes.ts` as a keyed object of per-code specs. Adding a new error requires adding the code and its default severity, which forces both a translation entry and a decision about whether the event represents a bug, a recovered-from anomaly, or a user-input failure. This keeps the code list discoverable and prevents drift.
+- **Host codes** in `server/errors/codes.ts` — keyed object of per-code specs. New error → add code + default severity → forces translation entry + severity decision. Keeps code list discoverable; prevents drift.
 
   ```ts
   export interface ErrorCodeSpec {
@@ -153,16 +153,16 @@ Two registries:
   export type HostErrorCode = keyof typeof HOST_ERROR_CODES;
   ```
 
-- **Plugin codes** are declared in the plugin manifest and namespaced automatically. Plugins ship English fallbacks in their manifest; translations are contributed later by whoever cares about localization.
+- **Plugin codes** declared in plugin manifest, namespaced automatically. Plugins ship English fallbacks in manifest; translations contributed later.
 
   ```ts
   // plugin manifest addition
   errorCodes?: Record<string, string>;   // { test_failed: "Connection test failed" }
   ```
 
-### Frontend rendering
+### Frontend Rendering
 
-Frontend uses i18next (or equivalent). Translation files live under `locales/<lang>/errors.json`:
+Frontend uses i18next (or equivalent). Translation files → `locales/<lang>/errors.json`:
 
 ```json
 {
@@ -172,7 +172,7 @@ Frontend uses i18next (or equivalent). Translation files live under `locales/<la
 }
 ```
 
-A single helper handles display:
+Single helper handles display:
 
 ```ts
 function displayError(err: UserFacingError): string {
@@ -180,19 +180,19 @@ function displayError(err: UserFacingError): string {
 }
 ```
 
-- If a translation exists, it's used.
-- If not, the `devMessage` is shown as a fallback. Localization is never a blocker for shipping a new error.
-- For plugin-namespaced codes without a host translation, the plugin's declared English fallback (from `manifest.errorCodes[code]`) is used before falling back to `devMessage`.
+- Translation exists → use it.
+- Translation missing → `devMessage` fallback. Localization ⊥ blocks shipping new error.
+- Plugin-namespaced code without host translation → plugin's declared English fallback from `manifest.errorCodes[code]` before `devMessage`.
 
 ### Discipline
 
-No user-facing error message is constructed by string concatenation anywhere in the codebase. All user-facing errors go through `UserFacingError`. A lint rule flags direct string-concatenation-to-toast patterns. Violation is caught in code review.
+⊥ user-facing error messages via string concatenation anywhere in codebase.
+∀ user-facing errors → `UserFacingError`.
+Lint rule flags direct string-concatenation-to-toast patterns. Violation caught in code review.
 
-## Data model
+## Data Model
 
 ### `error_records`
-
-The table backing the error store.
 
 ```
 error_records
@@ -216,27 +216,27 @@ error_records
 ├── INDEX(severity, created_at DESC)
 ```
 
-### What goes in `context`
+### `context` Blob
 
-A JSON blob with a declared scrubbing pass on write. Purpose is to carry debugging context without becoming a dumping ground.
+JSON blob with declared scrubbing pass on write. Carries debug context ⊥ dumping ground.
 
-- **Allowed, useful**: the oRPC procedure's input shape (field names and types, not values), the specific fields the handler was working on when it failed, plugin method name being called, HTTP status, user agent (from request headers).
-- **Disallowed, scrubbed**: any value in credentials, user_config, or global_config; any key matching the scrubber pattern list (`password`, `api_key`, `token`, `authorization`, `secret`, `credentials`, `apikey`, `api-key` — case-insensitive); any `Set-Cookie` or `Authorization` headers.
+- **Allowed**: oRPC procedure input shape (field names + types, ⊥ values), fields handler worked on when failed, plugin method name, HTTP status, user agent.
+- **Disallowed, scrubbed**: ∀ value in credentials | `user_config` | `global_config`; ∀ key matching scrubber pattern (`password`, `api_key`, `token`, `authorization`, `secret`, `credentials`, `apikey`, `api-key` — case-insensitive); `Set-Cookie` | `Authorization` headers.
 
-Scrubber lives in `server/errors/scrubber.ts`. Pattern list is explicit; additions are reviewed.
+Scrubber in `server/errors/scrubber.ts`. Pattern list explicit; additions reviewed.
 
-**Credentials never enter the error layer in the first place.** The plugin runtime catches sandbox throws without pulling `ctx` into the error record. The oRPC middleware does not auto-capture request bodies. Both are architectural guarantees, not scrubber fallback.
+**Credentials ⊥ enter error layer in first place.** Plugin runtime catches sandbox throws ⊥ pulling `ctx` into record. oRPC middleware ⊥ auto-captures request bodies. Architectural guarantees, ⊥ scrubber fallback.
 
 ## Retention
 
 - Default: 30 days.
-- Admin-configurable in the admin UI, range 7–365 days.
-- Nightly sweep deletes `WHERE created_at < now - retention_days * 86400`.
-- Retention is stored in a global app config row, read once per sweep.
+- Admin-configurable in admin UI, range 7–365 days.
+- Nightly sweep: `DELETE WHERE created_at < now - retention_days * 86400`.
+- Retention stored in global app config row, read once per sweep.
 
-## Forwarding sink (future door)
+## Forwarding Sink (Future Door)
 
-The error store has a single extension point: an `ErrorSink` interface.
+Single extension point: `ErrorSink` interface.
 
 ```ts
 interface ErrorSink {
@@ -244,7 +244,7 @@ interface ErrorSink {
 }
 ```
 
-The built-in implementation is `DatabaseSink`, which writes to `error_records`. Additional sinks (Sentry, GlitchTip, webhook) can be registered later. The capture path is:
+Built-in = `DatabaseSink` → writes to `error_records`. Additional sinks (Sentry, GlitchTip, webhook) registered later. Capture path:
 
 ```
 captureError(err, meta)
@@ -253,59 +253,59 @@ captureError(err, meta)
   → Promise.allSettled
 ```
 
-Sinks fail independently. A downstream sink throwing does not prevent the DatabaseSink from writing. No additional sinks in v1 — this is purely about not having to refactor later.
+Sinks fail independently. Downstream sink throw ⊥ prevent `DatabaseSink` write. ⊥ additional sinks in v1 — avoids future refactor.
 
-## Admin viewer — `/admin/errors`
+## Admin Viewer — `/admin/errors`
 
-Permission: `admin:plugins` (same tier as plugin management; no separate permission to avoid sprawl).
+Permission: `admin:plugins` (same tier as plugin management; ⊥ separate permission → avoids sprawl).
 
 ### Layout
 
 - Title: "Errors"
 - Subtitle (muted): "Errors captured from the frontend, backend, and plugins."
-- Aggregate widget at the top: "`{n}` errors in the last 24h" with a small sparkline showing per-hour counts. This is a "is the trend bad" signal, not a dashboard.
-- Filter bar below the widget.
+- Aggregate widget top: "`{n}` errors in last 24h" + small sparkline (per-hour counts). "Is trend bad" signal, ⊥ dashboard.
+- Filter bar below widget.
 - Results table.
 
 ### Filters
 
-- **Severity**: defaults to `error` only; toggles reveal `warning` and `info`. Multi-select. `info` records (user-input failures) are stored but off by default so they don't drown out bug signals.
-- **Source**: frontend / backend / plugin / cron. Multi-select.
-- **Plugin**: dropdown populated from installed plugins. Only meaningful when source includes `plugin`.
-- **Date range**: last 24h / 7d / 30d / custom. Custom uses date pickers.
-- **Request ID**: free-text input. Exact match.
-- **Search**: free-text search across `code` and `dev_message`.
+- **Severity**: default = `error` only; toggles reveal `warning` & `info`. Multi-select. `info` off by default → ⊥ drown bug signal.
+- **Source**: frontend | backend | plugin | cron. Multi-select.
+- **Plugin**: dropdown from installed plugins. Meaningful when source includes `plugin`.
+- **Date range**: last 24h | 7d | 30d | custom. Custom → date pickers.
+- **Request ID**: free-text, exact match.
+- **Search**: free-text across `code` & `dev_message`.
 
-Filters apply as the user sets them (debounced for the text inputs). State is persisted to the URL so admins can share filtered links.
+Filters apply as user sets (debounced for text inputs). State → URL (shareable filtered links).
 
 ### Table
 
-Columns (in order):
+Columns:
 
-- Timestamp (relative, with tooltip showing absolute)
-- Severity (icon + color: red for error, yellow for warning, muted for info)
-- Source (badge: frontend / backend / plugin / cron)
-- Code (monospace, truncated to fit)
+- Timestamp (relative + absolute tooltip)
+- Severity (icon + color: red = error, yellow = warning, muted = info)
+- Source (badge: frontend | backend | plugin | cron)
+- Code (monospace, truncated)
 - Summary (first ~80 chars of `dev_message`)
 
-Rows are clickable; click opens a drawer on the right with full details. Sort by newest-first by default. Pagination (50 per page).
+Rows clickable → drawer right with full details. Sort newest-first. Pagination 50/page.
 
-### Detail drawer
+### Detail Drawer
 
-When a row is clicked, a shadcn `Sheet` opens from the right showing:
+shadcn `Sheet` from right showing:
 
 - Full `dev_message`
 - Severity, source, code, timestamp, HTTP status (if any)
 - Route
-- Request ID — **clickable**, filters the table to just this request ID so the admin can see the full chain of errors from a single user action. Big debugging win.
-- User ID (linked to user detail page if that exists; otherwise just shown)
-- Plugin and connection (if applicable, linked to their respective admin pages)
-- Stack trace in a monospace code block with copy button
+- Request ID — **clickable** → filters table to this request ID → full chain of errors from single user action.
+- User ID (linked to user detail page if exists)
+- Plugin & connection (if applicable, linked to admin pages)
+- Stack trace in monospace code block with copy button
 - Scrubbed `context` JSON, pretty-printed
 
-### Navigation signal
+### Navigation Signal
 
-In the admin sidebar/header, the link to `/admin/errors` shows a small badge with the count of `error`-severity records in the last hour. Badge turns red when that count exceeds a threshold (defer threshold design; for v1, just show the count). This is the minimum-viable "something is wrong right now" signal.
+Admin sidebar/header `/admin/errors` link → small badge with `error`-severity count from last hour. Badge turns red when count exceeds threshold (threshold design deferred; v1 = just show count). Min-viable "something wrong right now" signal.
 
 ## Capture API
 
@@ -329,11 +329,11 @@ export async function captureError(
 ): Promise<string>; // returns the new error record id
 ```
 
-- Called by the oRPC middleware, the plugin runtime, and the cron wrapper.
+- Called by oRPC middleware, plugin runtime, cron wrapper.
 - Reads `requestId` from AsyncLocalStorage.
-- `severity` is optional — when omitted, it is derived from `code` via the per-code classification in `server/errors/codes.ts`. Pass explicitly to bump a normally-`error` code down to `warning`/`info` on a recovered or user-input path.
-- Writes to all configured sinks via `Promise.allSettled`.
-- Returns the record id so the caller can include it in a response to the frontend if needed.
+- `severity` optional → derived from `code` via `server/errors/codes.ts` when omitted. Pass explicitly to bump normally-`error` code → `warning`|`info` on recovered | user-input path.
+- Writes to ∀ configured sinks via `Promise.allSettled`.
+- Returns record id → caller can include in response to frontend.
 
 ### Frontend
 
@@ -346,22 +346,22 @@ export async function reportError(
 ): Promise<void>;
 ```
 
-- Posts to `/api/errors` with the current request ID, severity, a JSON-safe serialization of the error, and optional context.
-- The endpoint scrubs and writes to `error_records` with `source: "frontend"`.
-- Silently drops if the post itself fails — we're not going to surface "error capture failed" to users.
+- Posts to `/api/errors` with current request ID, severity, JSON-safe error serialization, optional context.
+- Endpoint scrubs → writes to `error_records` with `source: "frontend"`.
+- Silent drop if post fails — ⊥ surface "error capture failed" to users.
 
 ## Testing
 
-- Unit tests for the scrubber against a fixture of records that contain credentials, tokens, and nested sensitive data. Must pass with all sensitive fields removed.
-- Integration tests for the oRPC middleware: 5xx throws are captured, expected 4xx user errors are not.
-- Integration tests for the plugin runtime capture path: plugin throw → record with correct `source`, `pluginId`, stack.
-- E2E test: trigger an error from the frontend, verify it appears in the admin viewer with the correct request ID and can be found by searching on that ID.
-- Retention sweep test: insert records across a date range, run sweep, verify correct deletions.
+- Unit tests: scrubber against fixture with credentials, tokens, nested sensitive data. ∀ sensitive fields removed.
+- Integration tests: oRPC middleware — 5xx captured, expected 4xx user errors ⊥ captured.
+- Integration tests: plugin runtime path — plugin throw → record with correct `source`, `pluginId`, stack.
+- E2E: trigger error from frontend → verify appears in admin viewer with correct request ID → findable by search.
+- Retention sweep: insert records across date range → run sweep → verify correct deletions.
 
-## Open questions / deferred
+## Open Questions / Deferred
 
-- **Alerting thresholds.** The "errors in the last hour exceeding baseline" signal is deferred. V1 just shows the count; admins decide what's too high.
-- **Error grouping/fingerprinting.** Sentry-style "this is the same error you've seen 400 times" grouping is deferred. V1 shows the raw records; adding a fingerprint column and a group view is a later enhancement.
-- **External sink implementations.** Interface is in v1; no concrete implementations beyond the database. Sentry/GlitchTip/webhook sinks added when there's demand.
-- **User-visible incident pages.** When a plugin is broken across many users, a simple "we know about this" banner could be surfaced. Deferred — the connection card's own error state is enough for v1.
-- **Rate limiting capture.** If something goes very wrong and errors flood in, the capture path itself could become a problem. V1 assumes moderate volume; rate limiting is added if observed.
+- **Alerting thresholds.** "Errors in last hour exceeding baseline" signal deferred. v1 shows count; admins decide threshold.
+- **Error grouping/fingerprinting.** Sentry-style "same error 400×" grouping deferred. v1 = raw records; fingerprint column + group view → later enhancement.
+- **External sink implementations.** Interface in v1; ⊥ concrete beyond DB. Sentry/GlitchTip/webhook sinks added on demand.
+- **User-visible incident pages.** "We know about this" banner when plugin broken across many users. Deferred — connection card error state enough for v1.
+- **Rate limiting capture.** v1 assumes moderate volume; rate limiting added if observed.

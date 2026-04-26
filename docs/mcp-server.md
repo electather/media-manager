@@ -4,100 +4,100 @@
 **Date:** 2026-04-19
 **Author:** Omid Astaraki
 **Depends on:** `2026-04-19-plugin-architecture-design.md`, `2026-04-19-media-service-design.md`, `2026-04-19-frontend-connections-design.md`, `2026-04-19-error-management-design.md`
-**Revises:** Adds `mcpTools` to capability definitions and the plugin manifest (see §8)
+**Revises:** Adds `mcpTools` to capability definitions & plugin manifest (see §8)
 
 ## Summary
 
-This document designs the MCP (Model Context Protocol) surface of the application — how external agents like Claude Desktop, Claude Code, and similar clients reach user data and capabilities. The design sits as a thin translation layer on top of `MediaService`: the MCP handler verifies an OAuth 2.1 JWT, looks up the requested tool in a registry, validates input, calls into `MediaService`, compresses the response, and returns. No new dispatch, runtime, credential vault, or caching is introduced — the MCP layer reuses what already exists.
+Designs MCP (Model Context Protocol) surface — how external agents (Claude Desktop, Claude Code, similar) reach user data & capabilities. Thin translation layer on top of `MediaService`: MCP handler verifies OAuth 2.1 JWT → looks up tool in registry → validates input → calls `MediaService` → compresses response → returns. No new dispatch, runtime, credential vault, or caching — MCP layer reuses what exists.
 
-The design follows the token-efficiency discipline from the initial compass document: a small number of outcome-oriented tools, aggressive server-side enrichment and compression, and a consent-gated scope model. Six tools cover the daily user workflows — discover, inspect, request, track, give feedback, and see connected accounts — at a ~3,900-token baseline for the agent's context window. Plugins can additionally contribute namespaced `ext_*` tools for service-specific functionality without weakening the outcome-oriented discipline of the core surface.
+Follows token-efficiency discipline: small set of outcome-oriented tools, aggressive server-side enrichment & compression, consent-gated scope model. Six tools cover daily user workflows — discover, inspect, request, track, give feedback, see connected accounts — at ~3,900-token baseline for agent context. Plugins contribute namespaced `ext_*` tools for service-specific functionality without weakening outcome-oriented discipline of core surface.
 
 ## Goals
 
-- Expose MediaService to MCP clients as a small, token-efficient tool surface (six outcome-oriented tools).
-- Treat capability-level dispatch as the source of truth — MCP tools know nothing about specific plugins.
+- Expose `MediaService` to MCP clients as small, token-efficient tool surface (6 outcome-oriented tools).
+- Treat capability-level dispatch as source of truth — MCP tools know nothing about specific plugins.
 - Reuse Better Auth's oauth-provider plugin for MCP spec-compliant authorization; no custom OAuth server.
-- Allow plugins to contribute `ext_*` MCP tools that share the same runtime, auth, and error-handling machinery.
-- Produce errors in the canonical `UserFacingError` shape from the error-management doc; participate in the existing capture pipeline.
-- Keep the door open to streaming responses, per-plugin scopes, and PAT auth without requiring a refactor.
+- Allow plugins to contribute `ext_*` MCP tools sharing same runtime, auth & error-handling machinery.
+- Produce errors in canonical `UserFacingError` shape from error-management doc; participate in existing capture pipeline.
+- Keep door open to streaming responses, per-plugin scopes & PAT auth without requiring refactor.
 
 ## Non-goals
 
 - Custom OAuth authorization server. Better Auth provides it.
-- Personal access tokens (PATs) in v1. Deferred; when added, they issue the same JWTs with the same scopes, so tool handlers don't change.
-- Streaming tool responses in v1. All six tools fit in synchronous request/response.
-- Embedding-based re-ranking internals. `ent_discover` in `recommend` mode calls into the preference engine via an interface; the engine's design is a separate document.
-- Product analytics on tool calls (frequency, funnels, retention). Out of scope per the error-management doc's same stance.
-- User-installable MCP clients outside the OAuth flow. Dynamic client registration is enabled; no other registration path in v1.
+- Personal access tokens (PATs) in v1. Deferred; when added → same JWTs with same scopes → tool handlers don't change.
+- Streaming tool responses in v1. All 6 tools fit synchronous request/response.
+- Embedding-based re-ranking internals. `ent_discover` in `recommend` mode calls preference engine via interface; engine design separate doc.
+- Product analytics on tool calls. Out of scope per error-management doc.
+- User-installable MCP clients outside OAuth flow. Dynamic client registration enabled; no other registration path in v1.
 
 ## Architecture
 
 ```
-                    ┌──────────────────────────────┐
-                    │   MCP Client                  │
-                    │   (Claude Desktop, Cursor,    │
-                    │    Claude Code, custom)       │
-                    └──────────────┬───────────────┘
-                                   │  HTTPS + Bearer JWT
-                                   │  Streamable HTTP (POST/GET/DELETE)
-                                   ▼
-                    ┌──────────────────────────────┐
-                    │ /api/mcp (Hono route)         │
-                    │                              │
-                    │ Better Auth mcpHandler:       │
-                    │  • verify JWT via JWKS        │
-                    │  • extract userId from sub    │
-                    │  • attach scopes              │
-                    └──────────────┬───────────────┘
-                                   │
-                                   ▼
-                    ┌──────────────────────────────┐
-                    │ Tool Dispatcher               │
-                    │  • registry lookup            │
-                    │  • scope check                │
-                    │  • ajv input validation       │
-                    │  • requestId → AsyncLocalSt.  │
-                    └──────────────┬───────────────┘
-                                   │
-                      ┌────────────┼────────────┐
-                      ▼            ▼            ▼
-          ┌──────────────┐ ┌─────────────┐ ┌────────────────┐
-          │ Capability   │ │ Composite   │ │ Extension      │
-          │ tool handler │ │ tool handler│ │ tool wrapper   │
-          │              │ │             │ │                │
-          │ 1 handler    │ │ switches on │ │ calls          │
-          │ → 1 capab.   │ │ mode/view,  │ │ MediaService   │
-          │              │ │ calls N     │ │ .callExtension │
-          │              │ │ capabilities│ │                │
-          └──────┬───────┘ └──────┬──────┘ └───────┬────────┘
-                 │                │                │
-                 └────────────────┼────────────────┘
-                                  │
-                                  ▼
-                    ┌──────────────────────────────┐
-                    │   MediaService (existing)     │
-                    │   + callExtension (new)       │
-                    └──────────────┬───────────────┘
-                                   │
-                                   ▼
-                    ┌──────────────────────────────┐
-                    │   Plugin Runtime (existing)   │
-                    └──────────────────────────────┘
+                ┌──────────────────────────────┐
+                │   MCP Client                  │
+                │   (Claude Desktop, Cursor,    │
+                │    Claude Code, custom)       │
+                └──────────────┬───────────────┘
+                               │  HTTPS + Bearer JWT
+                               │  Streamable HTTP (POST/GET/DELETE)
+                               ▼
+                ┌──────────────────────────────┐
+                │ /api/mcp (Hono route)         │
+                │                              │
+                │ Better Auth mcpHandler:       │
+                │  • verify JWT via JWKS        │
+                │  • extract userId from sub    │
+                │  • attach scopes              │
+                └──────────────┬───────────────┘
+                               │
+                               ▼
+                ┌──────────────────────────────┐
+                │ Tool Dispatcher               │
+                │  • registry lookup            │
+                │  • scope check                │
+                │  • ajv input validation       │
+                │  • requestId → AsyncLocalSt.  │
+                └──────────────┬───────────────┘
+                               │
+                  ┌────────────┼────────────┐
+                  ▼            ▼            ▼
+      ┌──────────────┐ ┌─────────────┐ ┌────────────────┐
+      │ Capability   │ │ Composite   │ │ Extension      │
+      │ tool handler │ │ tool handler│ │ tool wrapper   │
+      │              │ │             │ │                │
+      │ 1 handler    │ │ switches on │ │ calls          │
+      │ → 1 capab.   │ │ mode/view,  │ │ MediaService   │
+      │              │ │ calls N     │ │ .callExtension │
+      │              │ │ capabilities│ │                │
+      └──────┬───────┘ └──────┬──────┘ └───────┬────────┘
+             │                │                │
+             └────────────────┼────────────────┘
+                              │
+                              ▼
+                ┌──────────────────────────────┐
+                │   MediaService (existing)     │
+                │   + callExtension (new)       │
+                └──────────────┬───────────────┘
+                               │
+                               ▼
+                ┌──────────────────────────────┐
+                │   Plugin Runtime (existing)   │
+                └──────────────────────────────┘
 ```
 
-The MCP subsystem has five concerns, each a distinct module:
+MCP subsystem: 5 concerns, each distinct module:
 
-- **Transport and auth.** Hono route wrapped by Better Auth's `mcpHandler`; well-known endpoints for discovery.
-- **Tool registry.** In-memory, rebuilt on plugin lifecycle events; holds capability-owned, composite, and `ext_*` tools uniformly.
-- **Tool dispatcher.** Validates input, checks scope, runs handlers, validates output, captures errors per the error-management pipeline.
-- **Tool handlers.** Pure translation logic between the MCP surface and `MediaService`. No database, no runtime, no auth — all of that is below.
-- **Response compression.** A module of pure functions that shape `MediaItem` and other `MediaService` outputs into the compact agent-facing shapes.
+- **Transport & auth.** Hono route wrapped by Better Auth's `mcpHandler`; well-known endpoints for discovery.
+- **Tool registry.** In-memory, rebuilt on plugin lifecycle events; holds capability-owned, composite & `ext_*` tools uniformly.
+- **Tool dispatcher.** Validates input, checks scope, runs handlers, validates output, captures errors per error-management pipeline.
+- **Tool handlers.** Pure translation between MCP surface & `MediaService`. No DB, no runtime, no auth — all below.
+- **Response compression.** Pure functions shaping `MediaItem` & other `MediaService` outputs into compact agent-facing shapes.
 
-The key architectural point: **the MCP layer adds no new infrastructure below itself.** It translates between the MCP protocol and `MediaService`. Everything that makes plugins work — sandboxing, credential vaulting, capability registry, dispatch strategies, caching, error capture — is already in place.
+Key point: **MCP layer adds no new infrastructure below itself.** Translates between MCP protocol & `MediaService`. Everything making plugins work — sandboxing, credential vaulting, capability registry, dispatch strategies, caching, error capture — already in place.
 
 ## Tool registry
 
-The registry is the central data structure. Every exposed tool, regardless of where it's declared, becomes a uniform record:
+Central data structure. Every exposed tool, regardless of declaration site, becomes uniform record:
 
 ```ts
 interface RegisteredTool {
@@ -123,13 +123,13 @@ interface ToolCallContext {
 }
 ```
 
-`source` is internal metadata for logging and the admin UI. It is never exposed to the MCP client. `outputSchema` is also internal — MCP's `tools/list` includes only `{ name, description, inputSchema, annotations }`.
+`source` = internal metadata for logging & admin UI. Never exposed to MCP client. `outputSchema` also internal — MCP `tools/list` includes only `{ name, description, inputSchema, annotations }`.
 
 ### Three declaration sites
 
-Tools enter the registry from three places, all sharing the record shape above.
+Tools enter registry from 3 places, all sharing record shape above.
 
-**Capability-owned tools.** The capability definition gains an optional `mcpTools` field:
+**Capability-owned tools.** Capability definition gains optional `mcpTools` field:
 
 ```ts
 export const MetadataV1 = defineCapability({
@@ -157,11 +157,11 @@ export const MetadataV1 = defineCapability({
 });
 ```
 
-The capability's Zod schemas remain the source of truth for method inputs/outputs. The MCP tool's JSON Schema is authored separately because it is the _agent-facing_ contract, which is shaped differently (e.g. the `id` parameter is `"movie:550"` rather than `{ tmdb_id: "550", media_type: "movie" }`). The handler does the translation.
+Capability's Zod schemas remain source of truth for method inputs/outputs. MCP tool's JSON Schema authored separately — agent-facing contract shaped differently (e.g. `id` param is `"movie:550"` not `{ tmdb_id: "550", media_type: "movie" }`). Handler does translation.
 
-Tools registered this way go live as soon as their capability is registered in the host, regardless of whether any plugin implements the capability. If no plugin implements `metadata@v1` and the agent calls `ent_details`, the handler receives an empty dispatch result and returns `mcp.not_connected` with guidance for the user. **Tools are never hidden from `tools/list` based on what plugins are installed** — hiding them would change the agent's available surface dynamically, which causes more confusion than it prevents.
+Tools registered this way go live when capability registers in host, regardless of plugins. If no plugin implements `metadata@v1` & agent calls `ent_details` → handler receives empty dispatch result → returns `mcp.not_connected` with guidance. **Tools ⊥ hidden from `tools/list` based on installed plugins** — hiding changes agent's surface dynamically → more confusion than prevented.
 
-**Composite tools.** Declared in a host module, not in any capability:
+**Composite tools.** Declared in host module, not in any capability:
 
 ```ts
 // server/mcp/composite-tools/ent-discover.ts
@@ -180,9 +180,9 @@ export const entDiscoverTool: CompositeTool = {
 };
 ```
 
-The host has a fixed, small set of composite tools. In v1: `ent_discover`, `ent_activity`, `ent_feedback`. Adding a new composite is a host code change, not configuration.
+Host has fixed, small set of composite tools. In v1: `ent_discover`, `ent_activity`, `ent_feedback`. Adding new composite = host code change, not configuration.
 
-**Plugin `ext_*` tools.** Declared in the plugin manifest:
+**Plugin `ext_*` tools.** Declared in plugin manifest:
 
 ```ts
 {
@@ -200,44 +200,44 @@ The host has a fixed, small set of composite tools. In v1: `ent_discover`, `ent_
 }
 ```
 
-The plugin exports `rescan(ctx, input)` alongside its capability methods and job handlers. The host registers this as `ext_trakt_rescan` with a wrapper handler that dispatches into the plugin runtime via `MediaService.callExtension`.
+Plugin exports `rescan(ctx, input)` alongside capability methods & job handlers. Host registers as `ext_trakt_rescan` with wrapper handler dispatching into plugin runtime via `MediaService.callExtension`.
 
 ### Validation at registration
 
-Capability-owned and composite tools must not use names starting with `ext_`. Enforced at host startup; failure is a fatal boot error.
+Capability-owned & composite tools ! use names starting with `ext_`. Enforced at host startup; failure = fatal boot error.
 
-Plugin `ext_*` tools are subject to manifest-install validation:
+Plugin `ext_*` tools subject to manifest-install validation:
 
 - `name` matches `/^[a-z][a-z0-9_]*$/`.
-- `name` length keeps the prefixed full name (`ext_<plugin_id>_<name>`) ≤ 64 chars.
-- `description` ≤ 400 chars; per-property descriptions in the schemas ≤ 200 chars each.
-- `handler` matches an exported key on the plugin's `mcpTools` object.
-- `inputSchema` and `outputSchema` are valid JSON Schema (validated with `ajv`).
-- A plugin's `mcpTools` array is capped at 5 entries.
+- `name` length keeps prefixed full name (`ext_<plugin_id>_<name>`) ≤ 64 chars.
+- `description` ≤ 400 chars; per-property descriptions in schemas ≤ 200 chars each.
+- `handler` matches exported key on plugin's `mcpTools` object.
+- `inputSchema` & `outputSchema` = valid JSON Schema (validated with `ajv`).
+- Plugin's `mcpTools` array capped at 5 entries.
 
-The length and count caps are a design choice, not a technical limit. The token-efficiency discipline has teeth: plugin authors who want to expose more than five tools should open an issue, because the default answer is "make it a capability."
+Length & count caps = design choice, not technical limit. Token-efficiency discipline has teeth: plugin authors wanting >5 tools → open issue, default answer = "make it capability."
 
 ### Lifecycle
 
-The registry is rebuilt on three events:
+Registry rebuilt on 3 events:
 
-1. **Host startup.** All capability-owned and composite tools register immediately. Enabled plugins' `ext_*` tools register as each plugin's runtime instance boots.
-2. **Plugin install/update/enable.** The plugin's `ext_*` tools are added (or replaced on update).
-3. **Plugin disable/uninstall.** The plugin's `ext_*` tools are removed.
+1. **Host startup.** All capability-owned & composite tools register immediately. Enabled plugins' `ext_*` tools register as each plugin's runtime boots.
+2. **Plugin install/update/enable.** Plugin's `ext_*` tools added (or replaced on update).
+3. **Plugin disable/uninstall.** Plugin's `ext_*` tools removed.
 
-Capability-owned and composite tools never unregister during a host's lifetime; they're tied to the host's own code.
+Capability-owned & composite tools ⊥ unregister during host's lifetime; tied to host's own code.
 
 ## The six tools
 
 ### Universal conventions
 
-Three conventions apply across all six tools.
+3 conventions apply across all 6 tools.
 
-**Media IDs use TMDB as the canonical surface.** The agent sees `"movie:550"` or `"tv:1396"`. Tool handlers parse this into `{ tmdb_id, media_type }` for `MediaService`. TMDB is canonical because Seerr uses TMDB IDs natively, TMDB's coverage is broadest, and MediaService's `id_map` resolves to other ID types when a plugin needs them — invisible to the agent.
+**Media IDs use TMDB as canonical surface.** Agent sees `"movie:550"` or `"tv:1396"`. Tool handlers parse → `{ tmdb_id, media_type }` for `MediaService`. TMDB canonical because Seerr uses TMDB IDs natively, TMDB coverage broadest, `MediaService`'s `id_map` resolves to other ID types when plugin needs — invisible to agent.
 
-**Compact responses omit absent fields.** `user_rated`, `match_reason`, `watch_progress`, etc. are never included when null or not applicable. The JSON Schema marks them as optional. This is compression, not optionality.
+**Compact responses omit absent fields.** `user_rated`, `match_reason`, `watch_progress`, etc. ⊥ included when null or not applicable. JSON Schema marks optional. Compression, not optionality.
 
-**Structured errors use `UserFacingError`.** All tools return errors in the canonical shape from the error-management doc, with code-specific payloads under `details`:
+**Structured errors use `UserFacingError`.** ∀ tools return errors in canonical shape from error-management doc, with code-specific payloads under `details`:
 
 ```json
 {
@@ -256,11 +256,11 @@ Three conventions apply across all six tools.
 }
 ```
 
-The agent reads `devMessage` (English) and can use structured `details` to disambiguate (e.g. offer the user choices, then retry with `target: "conn_abc"`).
+Agent reads `devMessage` (English) & can use structured `details` to disambiguate (e.g. offer user choices → retry with `target: "conn_abc"`).
 
 ### `ent_discover` — composite
 
-Outcome-oriented search, recommendations, similar titles, trending, and filtered discovery. Composite because the modes dispatch across different capabilities.
+Outcome-oriented search, recommendations, similar titles, trending & filtered discovery. Composite because modes dispatch across different capabilities.
 
 ```json
 {
@@ -293,11 +293,11 @@ Outcome-oriented search, recommendations, similar titles, trending, and filtered
 | ----------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `search`    | `metadata@v1.search`                                                | Filters passed through where supported                                  |
 | `recommend` | `recommendations@v1.getRecommendations` + preference-engine re-rank | Merged results re-ranked against user's preference profile              |
-| `similar`   | `metadata@v1.getSimilar`                                            | If `query` isn't an id, handler first resolves via `metadata@v1.search` |
-| `trending`  | `recommendations@v1.getTrending`                                    | New method on the capability (non-breaking addition)                    |
-| `discover`  | `metadata@v1.discover`                                              | New method on the capability (non-breaking addition)                    |
+| `similar`   | `metadata@v1.getSimilar`                                            | If `query` isn't id → handler first resolves via `metadata@v1.search` |
+| `trending`  | `recommendations@v1.getTrending`                                    | New method on capability (non-breaking addition)                    |
+| `discover`  | `metadata@v1.discover`                                              | New method on capability (non-breaking addition)                    |
 
-Adding `getTrending` to `recommendations@v1` and `discover` to `metadata@v1` are backward-compatible additions: plugins that don't implement them are silently skipped in `aggregate`; in `primary_with_enrichment`, their absence means the feature is unavailable for users whose primary doesn't support them. This avoids inventing a `discovery@v1` mega-capability.
+Adding `getTrending` to `recommendations@v1` & `discover` to `metadata@v1` = backward-compatible additions: plugins not implementing them silently skipped in `aggregate`; in `primary_with_enrichment`, absence means feature unavailable for users whose primary doesn't support them. Avoids inventing `discovery@v1` mega-capability.
 
 **Response:**
 
@@ -323,11 +323,11 @@ Adding `getTrending` to `recommendations@v1` and `discover` to `metadata@v1` are
 }
 ```
 
-- `status` collapses `mediaRequest@v1.getStatus` output into one of `available`, `requested`, `processing`, `unavailable`, `unknown`. Batched per-page for the result set.
-- `user_rated` appears only when `ratings@v1.getRating` returns a value (aggregated across rating plugins; most-recent wins per the MediaService doc).
-- `match_reason` appears only for `recommend` and `similar`, generated by the preference engine during re-ranking.
+- `status` collapses `mediaRequest@v1.getStatus` output into one of `available`, `requested`, `processing`, `unavailable`, `unknown`. Batched per-page for result set.
+- `user_rated` appears only when `ratings@v1.getRating` returns value (aggregated across rating plugins; most-recent wins per MediaService doc).
+- `match_reason` appears only for `recommend` & `similar`, generated by preference engine during re-ranking.
 
-`ent_discover` does not accept a `target` parameter. All its modes are read operations under `aggregate` or `primary_with_enrichment` strategies.
+`ent_discover` ⊥ accepts `target` param. All modes = read ops under `aggregate` | `primary_with_enrichment` strategies.
 
 ### `ent_details` — capability-owned (`metadata@v1`)
 
@@ -349,7 +349,7 @@ Adding `getTrending` to `recommendations@v1` and `discover` to `metadata@v1` are
 }
 ```
 
-Four MediaService calls in parallel:
+4 `MediaService` calls in parallel:
 
 1. `metadata@v1.getById` — base details
 2. `ratings@v1.getRating` — aggregated ratings
@@ -380,7 +380,7 @@ For TV shows, additionally `watchHistory@v1.getShowProgress`.
 }
 ```
 
-Truncation: top 3 cast, top 8 keywords. The `ratings` object keys are plugin-identifying (`tmdb`, `trakt`, etc.) plus `user` for the user's own rating. This is the right place to leak plugin identity — the agent should know which service a rating came from.
+Truncation: top 3 cast, top 8 keywords. `ratings` object keys = plugin-identifying (`tmdb`, `trakt`, etc.) plus `user` for user's own rating. Right place to leak plugin identity — agent should know which service rating came from.
 
 ### `ent_request` — capability-owned (`mediaRequest@v1`), supports `target`
 
@@ -411,14 +411,14 @@ Truncation: top 3 cast, top 8 keywords. The `ratings` object keys are plugin-ide
 **Dispatch for `action: "create"`:**
 
 - Calls `mediaRequest@v1.create` with strategy `single`.
-- If user has >1 eligible connection and `target` is omitted → `mcp.ambiguous_target` with `details.candidates`.
-- If `target` is provided → MediaService routes to that specific connection.
-- If `target` points to a connection that doesn't belong to the user or doesn't implement `mediaRequest@v1` → `mcp.target_not_found`.
+- User has >1 eligible connection & `target` omitted → `mcp.ambiguous_target` with `details.candidates`.
+- `target` provided → `MediaService` routes to that specific connection.
+- `target` points to connection not belonging to user | not implementing `mediaRequest@v1` → `mcp.target_not_found`.
 
 **Dispatch for `action: "status"`:**
 
 - Calls `mediaRequest@v1.listRequests` across all eligible connections (aggregate).
-- `target` is optional: filters to that connection if provided.
+- `target` optional: filters to that connection if provided.
 
 **Response for `create`:**
 
@@ -444,7 +444,7 @@ Truncation: top 3 cast, top 8 keywords. The `ratings` object keys are plugin-ide
 
 ### `ent_activity` — composite
 
-Views the user's watchlist, history, upcoming episodes, or show progress. Composite because each view routes to a different capability.
+Views user's watchlist, history, upcoming episodes, or show progress. Composite because each view routes to different capability.
 
 ```json
 {
@@ -473,11 +473,11 @@ Views the user's watchlist, history, upcoming episodes, or show progress. Compos
 | `upcoming`  | `calendar@v1.getUpcoming`                                  | aggregate |
 | `progress`  | `watchHistory@v1.getShowProgress` across in-progress shows | aggregate |
 
-Response uses the same `results` array shape as `ent_discover`, with availability resolved via `mediaRequest@v1.getStatus`.
+Response uses same `results` array shape as `ent_discover`, with availability resolved via `mediaRequest@v1.getStatus`.
 
 ### `ent_feedback` — composite
 
-Records user preference signals. Composite because it writes to both the host's `feedback_log` _and_ optionally to `ratings@v1` plugins.
+Records user preference signals. Composite because writes to host's `feedback_log` _and_ optionally to `ratings@v1` plugins.
 
 ```json
 {
@@ -509,16 +509,16 @@ Records user preference signals. Composite because it writes to both the host's 
 **Dispatch:**
 
 1. Always: write to host's `feedback_log` with `{ userId, tmdbId, mediaType, action, rating?, note?, timestamp }`.
-2. Always: trigger preference-engine update for this user (async; does not block the response).
-3. For `action: "rate"` only: write rating to `ratings@v1` plugins.
-   - Default (no `target`): write to _all_ connected rating plugins. Ratings are typically something users want mirrored (e.g. "rate this 8" on both Trakt and any other tracker).
-   - With `target`: write only to the specified connection.
-   - One plugin failing does not fail the whole call — surfaces as a partial result.
-4. For `action: "like" | "dislike" | "note"`: no plugin write. Preference-engine only.
+2. Always: trigger preference-engine update for user (async; ⊥ block response).
+3. `action: "rate"` only: write rating to `ratings@v1` plugins.
+   - Default (no `target`): write to _all_ connected rating plugins. Ratings typically mirrored ("rate this 8" on Trakt & any other tracker).
+   - With `target`: write only to specified connection.
+   - One plugin failing ⊥ fail whole call — surfaces as partial result.
+4. `action: "like" | "dislike" | "note"`: no plugin write. Preference-engine only.
 
-`target` is documented as applying only when `action=rate`. For other actions with `target` present, returns `mcp.bad_input` rather than silently ignoring — the explicit error catches agent misunderstandings early.
+`target` documented as applying only when `action=rate`. Other actions with `target` present → `mcp.bad_input` rather than silently ignoring — explicit error catches agent misunderstandings early.
 
-The rating fan-out is neither `aggregate` nor `single` in the strict sense — it's a "broadcast" pattern. Rather than inventing a new strategy for this single case, the composite handler drives the fan-out explicitly by calling `MediaService.setRating(userId, tmdbId, rating, { connectionIds })` with a specific list. This keeps the strategy vocabulary small (three strategies) at the cost of making this particular write explicit.
+Rating fan-out ≠ `aggregate` | `single` in strict sense — "broadcast" pattern. Rather than inventing new strategy for this single case, composite handler drives fan-out explicitly via `MediaService.setRating(userId, tmdbId, rating, { connectionIds })` with specific list. Keeps strategy vocabulary small (3 strategies) at cost of making this write explicit.
 
 **Response:**
 
@@ -530,7 +530,7 @@ The rating fan-out is neither `aggregate` nor `single` in the strict sense — i
 }
 ```
 
-`synced_to` is empty for non-rate actions. `profile_update` is a short human-readable description the preference engine returns as a side effect; the agent can relay it to the user.
+`synced_to` empty for non-rate actions. `profile_update` = short human-readable description preference engine returns as side effect; agent can relay to user.
 
 ### `ent_account` — host-owned, read-only
 
@@ -543,7 +543,7 @@ The rating fan-out is neither `aggregate` nor `single` in the strict sense — i
 }
 ```
 
-Reads from the existing `service_connections` table (already user-scoped via the `account:connections` permission model) and the capability registry.
+Reads from existing `service_connections` table (already user-scoped via `account:connections` permission model) & capability registry.
 
 **Response:**
 
@@ -574,17 +574,17 @@ Reads from the existing `service_connections` table (already user-scoped via the
 }
 ```
 
-`missing_capabilities` lists capabilities the host knows about but for which the user has no connected plugin. The agent can use this to guide the user ("you haven't connected anything that provides upcoming episodes").
+`missing_capabilities` lists capabilities host knows about but user has no connected plugin. Agent can guide user ("you haven't connected anything providing upcoming episodes").
 
-Read-only. If the agent encounters `mcp.not_connected` from another tool, it can call `ent_account` to see what's actually available.
+Read-only. Agent encounters `mcp.not_connected` from another tool → can call `ent_account` to see what's available.
 
 ## Plugin `ext_*` tools
 
-Plugin-contributed tools for plugin-specific functionality that doesn't fit a capability. Namespaced `ext_<plugin_id>_<name>` to prevent collision and signal to the agent that the tool is service-specific.
+Plugin-contributed tools for plugin-specific functionality not fitting capability. Namespaced `ext_<plugin_id>_<name>` to prevent collision & signal to agent that tool = service-specific.
 
 ### Manifest declaration
 
-A new optional `mcpTools` field on the plugin manifest:
+New optional `mcpTools` field on plugin manifest:
 
 ```ts
 interface PluginManifest {
@@ -600,11 +600,11 @@ interface PluginManifest {
 }
 ```
 
-Validation rules are in §3 (Tool registry).
+Validation rules in §3 (Tool registry).
 
 ### Plugin entry point
 
-The plugin exports an `mcpTools` object alongside `capabilities` and `jobs`:
+Plugin exports `mcpTools` object alongside `capabilities` & `jobs`:
 
 ```ts
 export default definePlugin({
@@ -625,11 +625,11 @@ export default definePlugin({
 });
 ```
 
-Handlers receive the same `PluginContext<TCred, TUserCfg, TGlobalCfg>` that capability methods receive. Same runtime, same sandbox, same `ctx.fetch` allowlist, same rate limits.
+Handlers receive same `PluginContext<TCred, TUserCfg, TGlobalCfg>` that capability methods receive. Same runtime, same sandbox, same `ctx.fetch` allowlist, same rate limits.
 
 ### Dispatch
 
-The registered tool record for an `ext_*` tool has a handler that calls:
+Registered tool record for `ext_*` tool has handler calling:
 
 ```ts
 class MediaService {
@@ -642,41 +642,41 @@ class MediaService {
 }
 ```
 
-`callExtension` is the single new method on `MediaService`. It:
+`callExtension` = single new method on `MediaService`. It:
 
-1. Resolves connections for this plugin (single-or-shared, same path as capability calls).
-2. Picks the default connection (or the shared-credentials entry). Strategy is always `single` for `ext_*` tools; if multiple connections exist and no `target` is given, returns `mcp.ambiguous_target`.
+1. Resolves connections for plugin (single-or-shared, same path as capability calls).
+2. Picks default connection (or shared-credentials entry). Strategy always `single` for `ext_*` tools; multiple connections exist & no `target` → `mcp.ambiguous_target`.
 3. Builds `PluginContext`.
-4. Invokes `plugin.mcpTools[handlerName](ctx, input)` via the runtime.
-5. Validates output against the tool's `outputSchema`.
-6. Normalizes errors through the same retry-and-status-update path as capability calls.
-7. Returns the result.
+4. Invokes `plugin.mcpTools[handlerName](ctx, input)` via runtime.
+5. Validates output against tool's `outputSchema`.
+6. Normalizes errors through same retry-and-status-update path as capability calls.
+7. Returns result.
 
-### Constraints inherited from the sandbox
+### Constraints inherited from sandbox
 
-An extension tool cannot call other plugins, touch the database, use `setTimeout`/`setInterval`, run dynamic code, or hit hosts outside `manifest.allowedHosts`. It runs within the plugin's 15s timeout and memory cap. If a plugin author wants to orchestrate multiple capabilities, the answer is "propose a composite tool for the host," not "give plugins more power."
+Extension tool ⊥ call other plugins, ⊥ touch DB, ⊥ use `setTimeout`/`setInterval`, ⊥ run dynamic code, ⊥ hit hosts outside `manifest.allowedHosts`. Runs within plugin's 15s timeout & memory cap. Plugin author wants to orchestrate multiple capabilities → answer = "propose composite tool for host," not "give plugins more power."
 
 ### No cache, no id_map harvest
 
-Extension tools don't use the `MediaService` cache. Capability calls cache because identical calls for the same user return the same data; extension tools are arbitrary plugin operations with no consistent shape. Plugins can cache internally via `ctx.store`.
+Extension tools ⊥ use `MediaService` cache. Capability calls cache because identical calls for same user return same data; extension tools = arbitrary plugin operations with no consistent shape. Plugins can cache internally via `ctx.store`.
 
-`id_map` harvesting also doesn't apply. Harvesting works because capability responses have a known schema (`MediaItem` with an `ids` field); extension outputs are arbitrary.
+`id_map` harvesting ⊥ applies. Harvesting works because capability responses have known schema (`MediaItem` with `ids` field); extension outputs arbitrary.
 
 ### Guidance for plugin authors
 
-A new section in the plugin-authoring guide:
+New section in plugin-authoring guide:
 
-- If the functionality is something users of any similar service would want, propose a new capability.
-- If the functionality is specific to your plugin and doesn't make sense for other services (e.g. Trakt-specific scrobble override, Seerr-specific request-queue management, plugin-local cache reset), it's an `ext_*` tool.
-- When in doubt, it's probably a capability.
+- Functionality ∈ "any user of similar service would want" → propose new capability.
+- Functionality ∈ "specific to plugin, ⊥ makes sense for other services" (e.g. Trakt-specific scrobble override, Seerr-specific request-queue management, plugin-local cache reset) → `ext_*` tool.
+- When unsure → probably capability.
 
-The host doesn't mechanically reject `ext_*` tools that "should have been capabilities." The 5-tool-per-plugin cap is the only real pressure; everything else is editorial.
+Host ⊥ mechanically reject `ext_*` tools that "should have been capabilities." 5-tool-per-plugin cap = only real pressure; everything else editorial.
 
-## Transport, auth, and wiring
+## Transport, auth & wiring
 
 ### Endpoint
 
-Streamable HTTP MCP at `/api/mcp`, handled by the `mcp-handler` package wrapped by Better Auth's `mcpHandler`:
+Streamable HTTP MCP at `/api/mcp`, handled by `mcp-handler` package wrapped by Better Auth's `mcpHandler`:
 
 ```ts
 // server/routes/mcp.ts
@@ -725,7 +725,7 @@ app.all("/api/mcp", handler);
 app.all("/api/mcp/*", handler);
 ```
 
-`dispatchTool` is the shim that runs ajv input validation, checks scopes, invokes the handler, runs ajv output validation, and converts thrown errors into `UserFacingError` shapes. It sets the MCP request ID into AsyncLocalStorage so downstream error captures correlate.
+`dispatchTool` = shim running ajv input validation, checks scopes, invokes handler, runs ajv output validation & converts thrown errors into `UserFacingError` shapes. Sets MCP request ID into AsyncLocalStorage so downstream error captures correlate.
 
 ### OAuth server
 
@@ -744,11 +744,11 @@ oauthProvider({
 });
 ```
 
-`allowUnauthenticatedClientRegistration` lets Claude Desktop, Cursor, and similar clients self-register as public clients on first connect. Without it, each client would need a manually-registered `client_id`, which defeats the "paste the URL" UX those clients assume.
+`allowUnauthenticatedClientRegistration` lets Claude Desktop, Cursor & similar clients self-register as public clients on first connect. Without it → each client needs manually-registered `client_id`, defeating "paste URL" UX those clients assume.
 
 ### Well-known endpoints
 
-Three Hono routes, one-liners per Better Auth's conventions:
+3 Hono routes, one-liners per Better Auth's conventions:
 
 ```ts
 app.get("/.well-known/oauth-authorization-server", oauthProviderAuthServerMetadata(auth));
@@ -764,47 +764,47 @@ app.get("/.well-known/oauth-protected-resource/api/mcp", async () => {
 
 ### Scopes
 
-Scopes express "what can this agent do on behalf of this user." The vocabulary is deliberately coarse and outcome-oriented — aligned to tools, not to capabilities or plugins. Four scopes:
+Scopes express "what can agent do on behalf of user." Vocabulary deliberately coarse & outcome-oriented — aligned to tools, not capabilities | plugins. 4 scopes:
 
 | Scope                | Tools granted                                                |
 | -------------------- | ------------------------------------------------------------ |
 | `mcp.read`           | `ent_discover`, `ent_details`, `ent_activity`, `ent_account` |
 | `mcp.write.feedback` | `ent_feedback`                                               |
-| `mcp.write.request`  | `ent_request` (`create` and `status`)                        |
+| `mcp.write.request`  | `ent_request` (`create` & `status`)                        |
 | `mcp.ext`            | All `ext_*` tools                                            |
 
-Defaults for dynamically-registered clients: `mcp.read` and `mcp.write.feedback`. Clients can request additional scopes at authorization time; the user sees the consent screen and approves.
+Defaults for dynamically-registered clients: `mcp.read` & `mcp.write.feedback`. Clients request additional scopes at authorization time; user sees consent screen & approves.
 
-Each `RegisteredTool` declares `requiredScopes`. The dispatcher checks `jwt.scope` before invoking the handler. Missing scope → `mcp.forbidden` with `details.missing_scopes` so the agent can prompt the user to re-authorize with the needed scope.
+∀ `RegisteredTool` declares `requiredScopes`. Dispatcher checks `jwt.scope` before invoking handler. Missing scope → `mcp.forbidden` with `details.missing_scopes` so agent can prompt user to re-authorize.
 
-**Why scope granularity is coarse.** Per-capability or per-plugin scopes would produce ~20 scopes and a consent screen nobody reads. Coarse outcome-oriented scopes match the tool design and the user's mental model. Finer-grained authorization, if needed later, lives at the connection level (already covered by `account:connections` from the plugin architecture doc).
+**Why scope granularity coarse.** Per-capability | per-plugin scopes → ~20 scopes & consent screen nobody reads. Coarse outcome-oriented scopes match tool design & user's mental model. Finer-grained authorization, if needed, lives at connection level (already covered by `account:connections` from plugin architecture doc).
 
-**Why `mcp.ext` is one scope in v1.** `ext_*` tools are plugin-specific and unpredictable at design time. Either the user trusts the agent to call plugin-specific tools or they don't; splitting per-plugin would explode the consent screen on every plugin install.
+**Why `mcp.ext` = one scope in v1.** `ext_*` tools = plugin-specific & unpredictable at design time. Either user trusts agent to call plugin-specific tools or not; splitting per-plugin explodes consent screen on every plugin install.
 
 ### Session state
 
-Stateless at the app level. MCP session IDs live in Postgres and Redis via whatever `CacheProvider` is configured (Redis for multi-instance deployments), handled internally by the `mcp-handler` package.
+Stateless at app level. MCP session IDs live in Postgres & Redis via `CacheProvider` configured (Redis for multi-instance), handled internally by `mcp-handler` package.
 
 ### Rate limiting
 
-Two layers:
+2 layers:
 
-1. **Better Auth's built-in per-IP rate limiting** on OAuth endpoints (`/oauth2/token`, `/oauth2/authorize`, etc.). Defaults are fine.
-2. **Per-user MCP rate limiting** on `/api/mcp`: a token bucket keyed by JWT `sub`, default 60 tool calls per minute, configurable via env. Excess returns `mcp.rate_limited` with a `retry_after` param.
+1. **Better Auth's built-in per-IP rate limiting** on OAuth endpoints (`/oauth2/token`, `/oauth2/authorize`, etc.). Defaults fine.
+2. **Per-user MCP rate limiting** on `/api/mcp`: token bucket keyed by JWT `sub`, default 60 tool calls per minute, configurable via env. Excess → `mcp.rate_limited` with `retry_after` param.
 
-The per-user limit prevents an over-eager agent from hammering the server (and transitively external APIs). Per-external-API rate limits remain the responsibility of each plugin's `ctx.fetch` enforcement.
+Per-user limit prevents over-eager agent from hammering server (& transitively external APIs). Per-external-API rate limits remain responsibility of each plugin's `ctx.fetch` enforcement.
 
 ### CORS
 
-The `/.well-known/*` endpoints have permissive CORS for local testing with the MCP Inspector (documented by Better Auth). `/api/mcp` does not — MCP clients are not browsers.
+`/.well-known/*` endpoints have permissive CORS for local testing with MCP Inspector (documented by Better Auth). `/api/mcp` does not — MCP clients ⊥ browsers.
 
 ## Error handling
 
-The MCP layer participates in the error-management pipeline from the error-management doc. No new machinery.
+MCP layer participates in error-management pipeline from error-management doc. No new machinery.
 
 ### Wire format
 
-All tool errors conform to `UserFacingError`:
+∀ tool errors conform to `UserFacingError`:
 
 ```ts
 interface UserFacingError {
@@ -817,34 +817,34 @@ interface UserFacingError {
 }
 ```
 
-The MCP dispatcher adds `requestId` from AsyncLocalStorage before returning.
+MCP dispatcher adds `requestId` from AsyncLocalStorage before returning.
 
 ### New MCP-specific codes
 
-Added to `HOST_ERROR_CODES` (adding a code forces a translation entry, preserving the error-doc's discipline):
+Added to `HOST_ERROR_CODES` (adding code forces translation entry, preserving error-doc's discipline):
 
 | Code                   | When                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `mcp.ambiguous_target` | `single`-strategy write with >1 eligible connection and no `target`                               |
-| `mcp.target_not_found` | `target` provided but not a valid connection of the user / doesn't support the capability         |
-| `mcp.forbidden`        | JWT scope doesn't grant the required tool scope                                                   |
+| `mcp.ambiguous_target` | `single`-strategy write with >1 eligible connection & no `target`                               |
+| `mcp.target_not_found` | `target` provided but ∉ valid connection of user | doesn't support capability         |
+| `mcp.forbidden`        | JWT scope doesn't grant required tool scope                                                   |
 | `mcp.invalid_id`       | Malformed media id                                                                                |
-| `mcp.not_connected`    | Capability has zero connections; tool returns a structured "no sources" response                  |
+| `mcp.not_connected`    | Capability has 0 connections; tool returns structured "no sources" response                  |
 | `mcp.rate_limited`     | Per-user MCP rate limit exceeded                                                                  |
-| `mcp.tool_not_found`   | Tool name doesn't exist in the registry                                                           |
-| `mcp.output_invalid`   | Tool handler produced output that failed `outputSchema`                                           |
-| `mcp.bad_input`        | Input failed `inputSchema` or tool-specific validation (e.g. `target` on non-rate `ent_feedback`) |
+| `mcp.tool_not_found`   | Tool name ∉ registry                                                                       |
+| `mcp.output_invalid`   | Tool handler produced output failing `outputSchema`                                           |
+| `mcp.bad_input`        | Input failed `inputSchema` | tool-specific validation (e.g. `target` on non-rate `ent_feedback`) |
 
-Plugin-emitted errors during `ext_*` calls keep their `plugin.<plugin_id>.<code>` namespace per the error doc. The MCP dispatcher passes them through unchanged — it doesn't rewrap or rename.
+Plugin-emitted errors during `ext_*` calls keep `plugin.<plugin_id>.<code>` namespace per error doc. MCP dispatcher passes through unchanged — ⊥ rewrap | rename.
 
 ### Capture
 
-Follows the same "bugs get captured, expected product behavior doesn't" rule as the error-management doc's oRPC middleware:
+Follows same "bugs get captured, expected product behavior doesn't" rule as error-management doc's oRPC middleware:
 
-- **Captured as `error`:** throws inside tool handlers, `mcp.output_invalid`, plugin-runtime errors during `ext_*` calls (already captured by the existing plugin-runtime capture path, now with the MCP request ID threaded in).
-- **Not captured:** `mcp.invalid_id`, `mcp.forbidden`, `mcp.ambiguous_target`, `mcp.target_not_found`, `mcp.not_connected`, `mcp.bad_input`, `mcp.rate_limited`. All of these are expected product behavior — the agent passed something wrong, the user hasn't connected something, etc.
+- **Captured as `error`:** throws inside tool handlers, `mcp.output_invalid`, plugin-runtime errors during `ext_*` calls (already captured by existing plugin-runtime capture path, now with MCP request ID threaded in).
+- **⊥ captured:** `mcp.invalid_id`, `mcp.forbidden`, `mcp.ambiguous_target`, `mcp.target_not_found`, `mcp.not_connected`, `mcp.bad_input`, `mcp.rate_limited`. All = expected product behavior — agent passed something wrong, user hasn't connected something, etc.
 
-The capture call signature is the same:
+Capture call signature:
 
 ```ts
 await captureError(err, {
@@ -860,21 +860,21 @@ await captureError(err, {
 
 ### Request ID propagation
 
-The MCP handler middleware reads the `X-Request-Id` header if present (for correlation with clients that set one) or generates a new UUID. It's set into AsyncLocalStorage before `dispatchTool` runs. From there:
+MCP handler middleware reads `X-Request-Id` header if present (correlation with clients that set one) | generates new UUID. Set into AsyncLocalStorage before `dispatchTool` runs. From there:
 
 - `captureError` reads it (existing behavior).
-- The plugin runtime inherits it via the call path into `MediaService` (existing behavior from docs 1 & 2).
-- The dispatcher stamps it onto `UserFacingError` before returning to the client.
+- Plugin runtime inherits it via call path into `MediaService` (existing behavior from docs 1 & 2).
+- Dispatcher stamps it onto `UserFacingError` before returning to client.
 
-A user can quote a reference ID back to an admin; the admin viewer at `/admin/errors` supports search by request ID and shows the full chain.
+User can quote reference ID back to admin; admin viewer at `/admin/errors` supports search by request ID & shows full chain.
 
 ### Scrubber
 
-No new patterns needed. Tool input doesn't contain credentials by construction — the agent never sees credentials. The existing scrubber in `server/errors/scrubber.ts` handles the rest.
+No new patterns needed. Tool input ⊥ contain credentials by construction — agent ⊥ sees credentials. Existing scrubber in `server/errors/scrubber.ts` handles rest.
 
 ## Schema additions
 
-No new database tables. Two additions to existing structures:
+No new DB tables. 2 additions to existing structures:
 
 ### Plugin manifest
 
@@ -885,7 +885,7 @@ interface PluginManifest {
 }
 ```
 
-Stored as part of the existing `plugins.manifest` JSON column.
+Stored as part of existing `plugins.manifest` JSON column.
 
 ### Capability definition
 
@@ -896,11 +896,11 @@ interface Capability {
 }
 ```
 
-Capability definitions are host-side code, not stored in the database. No migration.
+Capability definitions = host-side code, ⊥ stored in DB. No migration.
 
 ### `HOST_ERROR_CODES`
 
-Adds the `mcp.*` codes listed in §7.2. English templates live in `locales/en/errors.json`.
+Adds `mcp.*` codes listed in §7.2. English templates live in `locales/en/errors.json`.
 
 ## Layout
 
@@ -950,19 +950,19 @@ locales/
     └── errors.json                   # adds mcp.* English templates
 ```
 
-One note on `ent_details` and `ent_request` handlers: they are _referenced_ by capability definitions but live in `server/mcp/tool-handlers/` rather than inside the capability file. The capability file imports and references; the handler file is a regular module. This keeps capability definitions focused on the host→plugin contract and tool handlers focused on the MCP→host translation.
+`ent_details` & `ent_request` handlers _referenced_ by capability definitions but live in `server/mcp/tool-handlers/` rather than inside capability file. Capability file imports & references; handler file = regular module. Keeps capability definitions focused on host→plugin contract & tool handlers focused on MCP→host translation.
 
 ## Testing
 
 ### MCP tool unit tests
 
-One test file per tool or composite, exercising each code path with a mocked `MediaService`:
+1 test file per tool | composite, exercising each code path with mocked `MediaService`:
 
-- **`ent_discover`** — one test per `mode`, each verifying the right MediaService method is called with translated input and the response is compressed correctly. Empty-result cases return `mcp.not_connected`.
-- **`ent_details`** — verifies the four-way parallel fan-out; truncation to top-3 cast, top-8 keywords; TV-show progress inclusion.
-- **`ent_request`** — `create` with `target` absent and 0/1/2 eligible connections (verifying `mcp.ambiguous_target` populates candidates for the 2-case); `create` with `target` pointing to a wrong-capability connection (`mcp.target_not_found`); `status` with and without `target`.
-- **`ent_activity`** — one test per `view`, routing to the right capability.
-- **`ent_feedback`** — each `action`; `rate` with `target` absent (writes all) and with `target` (writes one); non-rate actions with `target` produce `mcp.bad_input`; partial-success from one failing rating plugin doesn't fail the whole call.
+- **`ent_discover`** — 1 test per `mode`, each verifying right `MediaService` method called with translated input & response compressed correctly. Empty-result cases → `mcp.not_connected`.
+- **`ent_details`** — verifies 4-way parallel fan-out; truncation to top-3 cast, top-8 keywords; TV-show progress inclusion.
+- **`ent_request`** — `create` with `target` absent & 0/1/2 eligible connections (verifying `mcp.ambiguous_target` populates candidates for 2-case); `create` with `target` pointing to wrong-capability connection (`mcp.target_not_found`); `status` with & without `target`.
+- **`ent_activity`** — 1 test per `view`, routing to right capability.
+- **`ent_feedback`** — each `action`; `rate` with `target` absent (writes all) & with `target` (writes one); non-rate actions with `target` → `mcp.bad_input`; partial-success from one failing rating plugin ⊥ fail whole call.
 - **`ent_account`** — populates `missing_capabilities` based on registry; reflects `is_default_for_capability` correctly.
 
 ### Registry tests
@@ -970,37 +970,37 @@ One test file per tool or composite, exercising each code path with a mocked `Me
 - Capability-owned tools register on host startup regardless of plugins installed.
 - Composite tools register unconditionally.
 - `ext_*` tools register on plugin install/enable; unregister on disable/uninstall.
-- Name collision (two capabilities declaring the same `ent_*` name) fails startup with a clear message.
+- Name collision (2 capabilities declaring same `ent_*` name) fails startup with clear message.
 - Manifest validation at install: name charset, length cap, per-plugin count cap (5), description length cap.
 
 ### Scope enforcement tests
 
-- Tool requiring `mcp.write.request` returns `mcp.forbidden` when JWT scope is `mcp.read` only.
+- Tool requiring `mcp.write.request` returns `mcp.forbidden` when JWT scope = `mcp.read` only.
 - Multi-scope tools require all scopes.
-- `mcp.forbidden` carries the missing scope list in `details`.
+- `mcp.forbidden` carries missing scope list in `details`.
 
 ### Auth integration tests
 
 - Valid JWT → tool call succeeds; `userId` populated from `sub`.
-- Expired JWT → 401 with `WWW-Authenticate` pointing at the OAuth server per the MCP spec.
+- Expired JWT → 401 with `WWW-Authenticate` pointing at OAuth server per MCP spec.
 - Missing JWT → 401, same.
 - Invalid issuer/audience → 401.
-- Dynamically-registered public client can complete authorization and call tools.
+- Dynamically-registered public client can complete authorization & call tools.
 
 ### Error integration tests
 
 - Tool handler throws → captured as `error` severity with `source: "backend"`, `route: "mcp:<tool>"`, correct request ID, correct user ID.
-- Plugin-runtime error during `ext_*` → captured by the existing plugin-runtime path, request ID threaded from MCP correctly.
-- Expected errors (`mcp.invalid_id`, `mcp.forbidden`, `mcp.ambiguous_target`, `mcp.not_connected`) → **not** captured.
+- Plugin-runtime error during `ext_*` → captured by existing plugin-runtime path, request ID threaded from MCP correctly.
+- Expected errors (`mcp.invalid_id`, `mcp.forbidden`, `mcp.ambiguous_target`, `mcp.not_connected`) → **⊥ captured**.
 - `mcp.output_invalid` → captured.
-- Request ID propagates end-to-end: MCP call → MediaService → plugin runtime; errors at each stage correlate in the admin viewer.
+- Request ID propagates end-to-end: MCP call → `MediaService` → plugin runtime; errors at each stage correlate in admin viewer.
 
 ### End-to-end MCP spec compliance
 
-- MCP Inspector (`@modelcontextprotocol/inspector`) connects successfully against a running local instance.
+- MCP Inspector (`@modelcontextprotocol/inspector`) connects successfully against running local instance.
 - Full OAuth 2.1 authorization code + PKCE flow completes.
-- `tools/list` returns all registered tools with correct schemas and descriptions.
-- `tools/call` succeeds for one tool per category (capability-owned, composite, `ext_*`).
+- `tools/list` returns all registered tools with correct schemas & descriptions.
+- `tools/call` succeeds for 1 tool per category (capability-owned, composite, `ext_*`).
 
 ### Rate limiting
 
@@ -1009,11 +1009,11 @@ One test file per tool or composite, exercising each code path with a mocked `Me
 
 ## Open questions / deferred
 
-- **Per-tool user-level enable/disable.** Scopes govern what tools the agent can call; finer granularity ("my agent can use `ent_discover` but not `ent_feedback`") is not exposed in v1. If that proves insufficient, a per-user tool-enable table is added later.
-- **Per-plugin `ext_*` scopes.** `mcp.ext` is one coarse scope in v1. Splitting per-plugin (`mcp.ext.trakt`, `mcp.ext.seerr`) is the natural next step if users want to install a plugin but not expose its tools.
-- **Streaming tool responses.** MCP supports SSE streaming. None of the six tools need it in v1. When a tool is added that benefits from streaming, the transport already supports it; only the handler changes.
-- **Personal access tokens.** Deferred. When added, PATs issue the same JWTs with the same scope structure; tool handlers don't change.
-- **MCP Resources and Prompts.** The MCP spec defines `resources` and `prompts` alongside `tools`. v1 ships tools only; resources and prompts are added if a concrete use case appears (e.g. exposing a user's watchlist as a browsable resource).
-- **Tool-level observability.** Success-path metrics (which tools are called, how often, by which clients) are out of scope per the error-doc's "product analytics is out of scope" stance. Revisit if operational needs demand it.
-- **Alerting on MCP error volume.** Same deferral as the error doc — v1 surfaces counts, thresholds come later.
-- **Plugin-contributed MCP resources.** If `ext_*` tools prove the plugin-extensibility model, plugin-contributed resources/prompts may follow. Not in v1.
+- **Per-tool user-level enable/disable.** Scopes govern what tools agent can call; finer granularity ("agent can use `ent_discover` but not `ent_feedback`") ⊥ exposed in v1. If insufficient → per-user tool-enable table added later.
+- **Per-plugin `ext_*` scopes.** `mcp.ext` = one coarse scope in v1. Splitting per-plugin (`mcp.ext.trakt`, `mcp.ext.seerr`) = natural next step if users want plugin installed but ⊥ expose its tools.
+- **Streaming tool responses.** MCP supports SSE streaming. None of 6 tools need it in v1. When tool added benefiting from streaming → transport already supports it; only handler changes.
+- **Personal access tokens.** Deferred. When added → PATs issue same JWTs with same scope structure; tool handlers ⊥ change.
+- **MCP Resources & Prompts.** MCP spec defines `resources` & `prompts` alongside `tools`. v1 ships tools only; resources & prompts added if concrete use case appears (e.g. exposing user's watchlist as browsable resource).
+- **Tool-level observability.** Success-path metrics (which tools called, how often, by which clients) out of scope per error-doc. Revisit if operational needs demand.
+- **Alerting on MCP error volume.** Same deferral as error doc — v1 surfaces counts, thresholds later.
+- **Plugin-contributed MCP resources.** If `ext_*` tools prove plugin-extensibility model → plugin-contributed resources/prompts may follow. ⊥ in v1.
