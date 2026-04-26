@@ -61,7 +61,13 @@ export interface RowFetcher {
   title: string;
   requires: PluginRequirement[];
   fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult>;
-  isEligible(userId: string, loader: RequestScopedLoader): Promise<boolean>;
+  /**
+   * Cheap presence check for `getRowContent`. Receives the inbound cursor so
+   * cursor-pinned rows (today: `becauseYouWatched`) can verify the seed
+   * still resolves before greenlighting a fetch — see design §7. Most rows
+   * ignore the cursor and check plugin presence only.
+   */
+  isEligible(userId: string, loader: RequestScopedLoader, cursor: string | null): Promise<boolean>;
 }
 
 /** First-page item budget used for inline rows in `getLayout`. */

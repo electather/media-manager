@@ -1,3 +1,9 @@
+/* eslint-disable @typescript-eslint/unbound-method --
+ * Tests temporarily swap each row fetcher's `fetch` method on the registry
+ * and restore the original after. The "unbound" pattern is intentional
+ * here — captured as a value, never invoked detached.
+ */
+
 import { describe, it, expect, vi } from "vite-plus/test";
 import { runFetch } from "../layout";
 import { ROW_FETCHERS } from "../rows/index";

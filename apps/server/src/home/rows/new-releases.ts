@@ -1,7 +1,7 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, type RawMediaItem } from "../compact";
+import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -18,8 +18,16 @@ export const newReleasesFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const page = readPage(opts.cursor);
+    const now = Date.now();
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+    // Per design §8: `release_date.gte = now - 90d`, `release_date.lte = now`,
+    // sort popularity desc. Plugins that don't recognise the filter keys
+    // fall back to native ordering — backward-compatible by SDK contract.
     const result = await ctx.mediaService.discoverFeed({
       limit: opts.limit * (page + 1),
+      releaseDateGte: now - ninetyDaysMs,
+      releaseDateLte: now,
+      sort: "popularity_desc",
     });
 
     const merged = (result.items as RawMediaItem[]).slice(
@@ -57,15 +65,7 @@ async function buildItem(
 ): Promise<CompactMediaItem | null> {
   const compact = toCompact(item);
   const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = map[compact.id];
-  if (
-    status === "available" ||
-    status === "requested" ||
-    status === "processing" ||
-    status === "unavailable" ||
-    status === "unknown"
-  ) {
-    compact.status = status;
-  }
+  const status = toStatusOrUndefined(map[compact.id]);
+  if (status) compact.status = status;
   return compact;
 }

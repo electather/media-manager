@@ -60,7 +60,7 @@ export class HomeFeedService {
       throw badRequest("home.bad_input", `unknown row id ${args.rowId}`);
     }
     const ctx = buildContext(userId);
-    const eligible = await fetcher.isEligible(userId, ctx.dataloader);
+    const eligible = await fetcher.isEligible(userId, ctx.dataloader, args.cursor);
     if (!eligible) {
       throw notFound(
         "home.row_unavailable",

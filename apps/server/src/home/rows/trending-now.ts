@@ -1,7 +1,7 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, type RawMediaItem } from "../compact";
+import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "trendingNow" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -19,7 +19,10 @@ export const trendingNowFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const page = readPage(opts.cursor);
-    const result = await ctx.mediaService.getTrendingFeed({ limit: opts.limit });
+    // Aggregate `recommendations@v1.getTrending` does not expose a page knob,
+    // so over-fetch by `(page+1) * limit` and slice client-side. Same pattern
+    // `newReleases` uses; without it pages > 0 are guaranteed empty.
+    const result = await ctx.mediaService.getTrendingFeed({ limit: opts.limit * (page + 1) });
     const slice = sliceForPage(result.items as RawMediaItem[], page, opts.limit);
     const items = await Promise.all(slice.map((item) => buildItem(ctx, item)));
     const usableItems = items.filter((item): item is CompactMediaItem => item !== null);
@@ -74,15 +77,7 @@ async function buildItem(
 ): Promise<CompactMediaItem | null> {
   const compact = toCompact(item);
   const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = map[compact.id];
-  if (
-    status === "available" ||
-    status === "requested" ||
-    status === "processing" ||
-    status === "unavailable" ||
-    status === "unknown"
-  ) {
-    compact.status = status;
-  }
+  const status = toStatusOrUndefined(map[compact.id]);
+  if (status) compact.status = status;
   return compact;
 }
