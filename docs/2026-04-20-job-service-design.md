@@ -478,17 +478,17 @@ Permission: `admin:jobs`. Parallel to `/admin/errors` in structure.
 
 ## Migration from existing jobs
 
-| Existing location                                          | Kind                  | Migration                                                                                                                                               |
-| ---------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plugin runtime — `manifest.jobs[]` (global)                | `scheduled`           | Runtime wraps plugin handler with `PluginContext` builder, calls `registerScheduled` with `name` from manifest, `capture: { source: "plugin", ... }` |
+| Existing location                                          | Kind                  | Migration                                                                                                                                             |
+| ---------------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugin runtime — `manifest.jobs[]` (global)                | `scheduled`           | Runtime wraps plugin handler with `PluginContext` builder, calls `registerScheduled` with `name` from manifest, `capture: { source: "plugin", ... }`  |
 | Plugin runtime — `manifest.jobs[]` (`perConnection: true`) | `scheduled_per_row`   | Row source = `service_connections` filtered by plugin; handler wrapper builds per-user context & invokes plugin handler                               |
-| Host `pending_auth` sweep                                  | `scheduled`           | `name: "Pending auth cleanup"`; `adminTriggerable: true`                                                                                                |
-| Host `plugin_store` expired-row sweep                      | `scheduled`           | `name: "Plugin store cleanup"`; `adminTriggerable: true`                                                                                                |
-| Host `error_records` retention sweep                       | `scheduled`           | `name: "Error record retention"`; reads retention from app config                                                                                       |
-| Daily preference rebuild (`PREFERENCE_DAILY_JOB_ID`)       | `scheduled_per_row`   | `name: "Daily preference rebuild"`; `adminTriggerable: true`                                                                                            |
-| Admin "Test connection" endpoint                           | `registerTriggerable` | `name: "Test connection"`; `scopeKey: (input) => input.connectionId`; `requiredPermission: "admin:jobs"`; `inputSchema` uses `x-picker: "connection"`   |
-| User "Test connection" on own connection                   | `registerTriggerable` | `name: "Test connection (user)"`; `requiredPermission: { kind: "feature", check }`; admin triggers on behalf of user via same job          |
-| Feature preference rebuild (`feature.preference.rebuild`)  | `registerTriggerable` | `name: "Rebuild preference profile"`; `requiredPermission: { kind: "feature", check }`; admin gets user-picker form via `x-picker: "user"`              |
+| Host `pending_auth` sweep                                  | `scheduled`           | `name: "Pending auth cleanup"`; `adminTriggerable: true`                                                                                              |
+| Host `plugin_store` expired-row sweep                      | `scheduled`           | `name: "Plugin store cleanup"`; `adminTriggerable: true`                                                                                              |
+| Host `error_records` retention sweep                       | `scheduled`           | `name: "Error record retention"`; reads retention from app config                                                                                     |
+| Daily preference rebuild (`PREFERENCE_DAILY_JOB_ID`)       | `scheduled_per_row`   | `name: "Daily preference rebuild"`; `adminTriggerable: true`                                                                                          |
+| Admin "Test connection" endpoint                           | `registerTriggerable` | `name: "Test connection"`; `scopeKey: (input) => input.connectionId`; `requiredPermission: "admin:jobs"`; `inputSchema` uses `x-picker: "connection"` |
+| User "Test connection" on own connection                   | `registerTriggerable` | `name: "Test connection (user)"`; `requiredPermission: { kind: "feature", check }`; admin triggers on behalf of user via same job                     |
+| Feature preference rebuild (`feature.preference.rebuild`)  | `registerTriggerable` | `name: "Rebuild preference profile"`; `requiredPermission: { kind: "feature", check }`; admin gets user-picker form via `x-picker: "user"`            |
 
 ⊥ behavior changes for jobs themselves. Timing, semantics, credential-rebuild on plugin token refresh, status-update on plugin-job failure — all stay as documented.
 

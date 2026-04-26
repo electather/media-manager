@@ -35,22 +35,22 @@ V6: pluggable `ErrorSink` → forward to Sentry, GlitchTip.
 
 ### Frontend
 
-| trigger | action |
-|---------|--------|
-| React error boundary (root + routes) | catch render → POST `/api/errors` → fallback UI with request ID |
-| `window.error` & `unhandledrejection` events | catch outside React tree |
-| `reportError(err, severity, context?)` | explicit capture (fetch failed but fallback OK) |
-| oRPC non-2xx | tag `warning` frontend-only; backend holds authoritative record |
+| trigger                                      | action                                                          |
+| -------------------------------------------- | --------------------------------------------------------------- |
+| React error boundary (root + routes)         | catch render → POST `/api/errors` → fallback UI with request ID |
+| `window.error` & `unhandledrejection` events | catch outside React tree                                        |
+| `reportError(err, severity, context?)`       | explicit capture (fetch failed but fallback OK)                 |
+| oRPC non-2xx                                 | tag `warning` frontend-only; backend holds authoritative record |
 
 ### Backend
 
 oRPC middleware wraps ∀ handler:
 
-| response | action |
-|----------|--------|
-| `5xx` throw | `error` severity, request ID stamp, rethrow |
-| `4xx` handler bug | `error` (validation fail outgoing data, unexpected state) |
-| `4xx` user input | ⊥ captured (auth denied, 404, bad input = product behavior) |
+| response          | action                                                      |
+| ----------------- | ----------------------------------------------------------- |
+| `5xx` throw       | `error` severity, request ID stamp, rethrow                 |
+| `4xx` handler bug | `error` (validation fail outgoing data, unexpected state)   |
+| `4xx` user input  | ⊥ captured (auth denied, 404, bad input = product behavior) |
 
 Cron failures: wrapper logs job + exception.
 
@@ -58,11 +58,11 @@ Cron failures: wrapper logs job + exception.
 
 Via sandbox error path (§Plugin runtime):
 
-| event | severity |
-|-------|----------|
+| event             | severity                                                                        |
+| ----------------- | ------------------------------------------------------------------------------- |
 | throws in sandbox | `error`, record source + pluginId + stack + request ID, mark connection errored |
-| output fails Zod | `warning` (host → empty results, event recorded) |
-| OOM \| timeout | `error` with cause |
+| output fails Zod  | `warning` (host → empty results, event recorded)                                |
+| OOM \| timeout    | `error` with cause                                                              |
 
 ## Severity Model
 
@@ -100,12 +100,12 @@ Decision "store at severity X" → one place. ⊥ ritual `severity: "error"` ∀
 
 ∀ error tagged `requestId` (UUID). Sources:
 
-| surface | generation |
-|---------|-----------|
-| Frontend | once per page load or oRPC call, sent `X-Request-Id` header |
-| Backend | read header \| generate if absent, available via AsyncLocalStorage, pass to plugin runtime |
-| Plugin | tag `ctx.log`, stamp error record |
-| Cron | generate @ job start |
+| surface  | generation                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------ |
+| Frontend | once per page load or oRPC call, sent `X-Request-Id` header                                |
+| Backend  | read header \| generate if absent, available via AsyncLocalStorage, pass to plugin runtime |
+| Plugin   | tag `ctx.log`, stamp error record                                                          |
+| Cron     | generate @ job start                                                                       |
 
 User → error toast/boundary/card → display `Ref: 7f3a2b1c`. Admin viewer search by request ID → user copy-paste → admin finds chain.
 
@@ -130,6 +130,7 @@ interface UserFacingError {
 ```
 
 `code` namespaced:
+
 - Host: `connection.test_failed`, `plugin.timeout`, `oauth.state_expired`.
 - Plugin: `plugin.<id>.<code>` e.g. `plugin.trakt.rate_limited`.
 
@@ -279,14 +280,14 @@ Permission: `admin:plugins` (no sprawl).
 
 ### Filters
 
-| filter | options |
-|--------|---------|
-| Severity | default `error` only; toggle `warning` & `info` (multi-select) |
-| Source | frontend \| backend \| plugin \| cron (multi-select) |
-| Plugin | dropdown installed (meaningful when source = plugin) |
-| Date range | 24h \| 7d \| 30d \| custom (date pickers) |
-| Request ID | exact match |
-| Search | free-text `code` & `dev_message` |
+| filter     | options                                                        |
+| ---------- | -------------------------------------------------------------- |
+| Severity   | default `error` only; toggle `warning` & `info` (multi-select) |
+| Source     | frontend \| backend \| plugin \| cron (multi-select)           |
+| Plugin     | dropdown installed (meaningful when source = plugin)           |
+| Date range | 24h \| 7d \| 30d \| custom (date pickers)                      |
+| Request ID | exact match                                                    |
+| Search     | free-text `code` & `dev_message`                               |
 
 Debounced apply. State → URL (shareable).
 
@@ -351,20 +352,20 @@ Posts `/api/errors` with request ID, severity, JSON-safe error, context. Endpoin
 
 ## Testing
 
-| test | coverage |
-|------|----------|
-| Unit | scrubber vs credentials/tokens/nested. ∀ sensitive removed. |
+| test        | coverage                                                     |
+| ----------- | ------------------------------------------------------------ |
+| Unit        | scrubber vs credentials/tokens/nested. ∀ sensitive removed.  |
 | Integration | oRPC middleware: 5xx captured, expected 4xx user ⊥ captured. |
-| Integration | plugin runtime: throw → record source + pluginId + stack. |
-| E2E | frontend error → viewer with request ID → searchable. |
-| Integration | retention sweep: insert range → run → verify deletions. |
+| Integration | plugin runtime: throw → record source + pluginId + stack.    |
+| E2E         | frontend error → viewer with request ID → searchable.        |
+| Integration | retention sweep: insert range → run → verify deletions.      |
 
 ## Open Questions / Deferred
 
-| question | status | note |
-|----------|--------|------|
-| Alerting thresholds | v2 | "errors last hour > baseline" deferred. v1 = count; admins decide. |
-| Error grouping | v2 | Sentry-style "400× same" deferred. v1 = raw; fingerprint column later. |
-| External sinks | v2 | Interface v1; ⊥ concrete (DB only). Sentry/GlitchTip/webhook on demand. |
-| Incident pages | v2 | "We know" banner across plugin breaks deferred. Connection card state OK v1. |
-| Rate limiting | v2? | v1 assumes moderate. Add if volume high. |
+| question            | status | note                                                                         |
+| ------------------- | ------ | ---------------------------------------------------------------------------- |
+| Alerting thresholds | v2     | "errors last hour > baseline" deferred. v1 = count; admins decide.           |
+| Error grouping      | v2     | Sentry-style "400× same" deferred. v1 = raw; fingerprint column later.       |
+| External sinks      | v2     | Interface v1; ⊥ concrete (DB only). Sentry/GlitchTip/webhook on demand.      |
+| Incident pages      | v2     | "We know" banner across plugin breaks deferred. Connection card state OK v1. |
+| Rate limiting       | v2?    | v1 assumes moderate. Add if volume high.                                     |

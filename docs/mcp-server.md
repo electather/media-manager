@@ -289,13 +289,13 @@ Outcome-oriented search, recommendations, similar titles, trending & filtered di
 }
 ```
 
-| Mode        | MediaService call                                                   | Notes                                                                   |
-| ----------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `search`    | `metadata@v1.search`                                                | Filters passed through where supported                                  |
-| `recommend` | `recommendations@v1.getRecommendations` + preference-engine re-rank | Merged results re-ranked against user's preference profile              |
+| Mode        | MediaService call                                                   | Notes                                                                 |
+| ----------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `search`    | `metadata@v1.search`                                                | Filters passed through where supported                                |
+| `recommend` | `recommendations@v1.getRecommendations` + preference-engine re-rank | Merged results re-ranked against user's preference profile            |
 | `similar`   | `metadata@v1.getSimilar`                                            | If `query` isn't id → handler first resolves via `metadata@v1.search` |
-| `trending`  | `recommendations@v1.getTrending`                                    | New method on capability (non-breaking addition)                    |
-| `discover`  | `metadata@v1.discover`                                              | New method on capability (non-breaking addition)                    |
+| `trending`  | `recommendations@v1.getTrending`                                    | New method on capability (non-breaking addition)                      |
+| `discover`  | `metadata@v1.discover`                                              | New method on capability (non-breaking addition)                      |
 
 Adding `getTrending` to `recommendations@v1` & `discover` to `metadata@v1` = backward-compatible additions: plugins not implementing them silently skipped in `aggregate`; in `primary_with_enrichment`, absence means feature unavailable for users whose primary doesn't support them. Avoids inventing `discovery@v1` mega-capability.
 
@@ -770,7 +770,7 @@ Scopes express "what can agent do on behalf of user." Vocabulary deliberately co
 | -------------------- | ------------------------------------------------------------ |
 | `mcp.read`           | `ent_discover`, `ent_details`, `ent_activity`, `ent_account` |
 | `mcp.write.feedback` | `ent_feedback`                                               |
-| `mcp.write.request`  | `ent_request` (`create` & `status`)                        |
+| `mcp.write.request`  | `ent_request` (`create` & `status`)                          |
 | `mcp.ext`            | All `ext_*` tools                                            |
 
 Defaults for dynamically-registered clients: `mcp.read` & `mcp.write.feedback`. Clients request additional scopes at authorization time; user sees consent screen & approves.
@@ -823,17 +823,17 @@ MCP dispatcher adds `requestId` from AsyncLocalStorage before returning.
 
 Added to `HOST_ERROR_CODES` (adding code forces translation entry, preserving error-doc's discipline):
 
-| Code                   | When                                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `mcp.ambiguous_target` | `single`-strategy write with >1 eligible connection & no `target`                               |
-| `mcp.target_not_found` | `target` provided but ∉ valid connection of user | doesn't support capability         |
-| `mcp.forbidden`        | JWT scope doesn't grant required tool scope                                                   |
-| `mcp.invalid_id`       | Malformed media id                                                                                |
-| `mcp.not_connected`    | Capability has 0 connections; tool returns structured "no sources" response                  |
-| `mcp.rate_limited`     | Per-user MCP rate limit exceeded                                                                  |
-| `mcp.tool_not_found`   | Tool name ∉ registry                                                                       |
-| `mcp.output_invalid`   | Tool handler produced output failing `outputSchema`                                           |
-| `mcp.bad_input`        | Input failed `inputSchema` | tool-specific validation (e.g. `target` on non-rate `ent_feedback`) |
+| Code                   | When                                                                        |
+| ---------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `mcp.ambiguous_target` | `single`-strategy write with >1 eligible connection & no `target`           |
+| `mcp.target_not_found` | `target` provided but ∉ valid connection of user                            | doesn't support capability                                          |
+| `mcp.forbidden`        | JWT scope doesn't grant required tool scope                                 |
+| `mcp.invalid_id`       | Malformed media id                                                          |
+| `mcp.not_connected`    | Capability has 0 connections; tool returns structured "no sources" response |
+| `mcp.rate_limited`     | Per-user MCP rate limit exceeded                                            |
+| `mcp.tool_not_found`   | Tool name ∉ registry                                                        |
+| `mcp.output_invalid`   | Tool handler produced output failing `outputSchema`                         |
+| `mcp.bad_input`        | Input failed `inputSchema`                                                  | tool-specific validation (e.g. `target` on non-rate `ent_feedback`) |
 
 Plugin-emitted errors during `ext_*` calls keep `plugin.<plugin_id>.<code>` namespace per error doc. MCP dispatcher passes through unchanged — ⊥ rewrap | rename.
 

@@ -9,10 +9,12 @@
 ## Summary
 
 ⊥ admin control over plugin network behavior post-install. `manifest.allowedHosts` sole gate — insufficient for:
+
 - Self-hosted plugins w/ `["*"]` manifest (portable but unconstrained).
 - Corporate envs requiring gateway headers on every outbound call.
 
 Spec adds **Advanced** collapsible (admin-only) per plugin on `/admin/plugins`:
+
 - **Admin host allowlist** — intersection w/ `manifest.allowedHosts`. Static only; `x-allowed-host` (user-supplied URLs) unaffected.
 - **Admin custom headers** — `Record<string, string>` merged into every `ctx.fetch`. Admin wins on conflict. Encrypted at rest. ⊥ returned in API responses.
 
@@ -73,6 +75,7 @@ export const plugins = sqliteTable("plugins", {
 - `["api.trakt.tv", "*.tmdb.org", "*"]` → intersection candidates. Semantics match `manifest.allowedHosts`. Bare `"*"` = allow everything manifest allows — explicit acknowledgement vs `null`.
 
 Validation on write:
+
 - Entries lowercase. UI & API lowercase on submit.
 - Entry ∈ `"*"` | valid hostname | `*.` + valid hostname.
 - Duplicates → `plugin.input_invalid`. UI dedupes; API rejects.
@@ -85,6 +88,7 @@ Encrypted blob = `Record<string, string>`. Names case-insensitive per RFC 7230; 
 Encryption reuses AES-256-GCM helper from `plugin_shared_credentials` (`packages/server/src/plugin-runtime/shared-credentials.ts`). Ciphertext & IV stored as separate base64 columns, matching `sharedCredentials` encoding. Plaintext ⊥ written to DB, ⊥ logged; decrypted copy lives only in memory inside `buildContext` for lifetime of single `ctx.fetch` call chain.
 
 Validation on write:
+
 - Header names must match `^[a-zA-Z0-9!#$%&'*+\-.^_\`|~]+$` (RFC 7230 token).
 - Values reject CR/LF (header-injection prevention).
 - Reserved hop-by-hop headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Upgrade`, `Keep-Alive`, `TE`, `Trailer`, `Proxy-Authorization`, `Proxy-Authenticate`) → rejected. Runtime manages these.
@@ -169,6 +173,7 @@ interface BuildContextArgs {
 ∀ sites building `PluginContext` → load admin policy from `plugins` row alongside manifest load. `testConnection` failing under admin policy must fail there too, ⊥ silently pass then break at capability call time.
 
 Sites covered:
+
 - `pluginRuntime.invokeCapability` — capability dispatch (common path).
 - `pluginRuntime.testConnection` / `pluginRuntime.testSharedCredential` — admin UI test buttons.
 - `pluginRuntime.startAuth` / `completeAuth` / `pollAuth` / `refreshAuth` — auth ceremony.
@@ -274,6 +279,7 @@ Admin-only. User-facing surfaces untouched: `PluginSummary` to `/connections` ca
 Lives in `packages/client/src/routes/_authenticated/admin/plugins.tsx`. Rendered inside each plugin card as shadcn `Collapsible` at bottom of card body, below shared-credentials table & `personalKeyFallback` control. Closed by default.
 
 Collapsible header:
+
 - Label: `Advanced`.
 - Badge count: # configured restrictions (allowlist-set bit + header count). Hidden when both default.
 - Chevron toggle.
@@ -283,6 +289,7 @@ Collapsible header:
 ### Sub-panel 1 — Host allowlist override
 
 Layout:
+
 - Read-only "Manifest allowlist": `manifest.allowedHosts` muted chips.
 - Radio group:
   - `Inherit manifest (default)` — when `adminAllowlist === null`.
@@ -291,12 +298,14 @@ Layout:
 - Warning banner when intersection empty: `"Plugin will make no network calls with this configuration. User-supplied server URLs (x-allowed-host) are unaffected."`
 
 Submit path:
+
 - Radio → `Inherit manifest` → PUT `{ allowlist: null }`.
 - Save admin list → PUT `{ allowlist: [...] }`.
 
 ### Sub-panel 2 — Custom headers
 
 Layout:
+
 - Table of header names:
   | Name | Value | |
   |-------------|---------|--------------|
@@ -308,6 +317,7 @@ Layout:
   - `Value` — masked input, empty on open. `Preserve existing value` checkbox (default: checked). Uncheck enables input; checked → omission on PUT.
 
 Submit path:
+
 - Add: PUT `{ headers: { [name]: value } }`.
 - Edit w/ preserve checked & ⊥ other changes: ⊥ request fired.
 - Edit w/ new value: PUT `{ headers: { [name]: value } }`.

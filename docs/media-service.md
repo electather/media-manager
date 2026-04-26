@@ -85,15 +85,15 @@ Capability declares dispatch strategy host-side. `MediaService` reads from regis
 
 ```ts
 type Strategy =
-  | "single"                    // 1 connection; fail = total fail
-  | "aggregate"                 // call all, merge (union semantics)
-  | "primary_with_enrichment";  // user picks primary; others fill nulls
+  | "single" // 1 connection; fail = total fail
+  | "aggregate" // call all, merge (union semantics)
+  | "primary_with_enrichment"; // user picks primary; others fill nulls
 
 export const MetadataV1 = defineCapability({
   id: "metadata",
   version: "v1",
   strategy: "primary_with_enrichment",
-  defaultCacheTtlSec: 60 * 60 * 24,  // 24h
+  defaultCacheTtlSec: 60 * 60 * 24, // 24h
   methods: {
     getById: {
       input: z.object({ tmdb_id: z.string(), media_type: MediaTypeEnum }),
@@ -111,28 +111,30 @@ export const MetadataV1 = defineCapability({
 });
 ```
 
-|Capability|Strategy|Rationale|
-|---|---|---|
-|`metadata@v1`|`primary_with_enrichment`|User picks primary per type; others fill gaps|
-|`watchHistory@v1`|`aggregate`|Merge from all trackers|
-|`watchlist@v1`|`aggregate`|Union all|
-|`ratings@v1`|`aggregate`|Union, newest wins per item|
-|`recommendations@v1`|`aggregate`|Merge & dedupe by tmdb_id|
-|`calendar@v1`|`aggregate`|Merge upcoming from all|
-|`mediaRequest@v1`|`single`|Route to user's default Seerr|
-|`idResolve@v1`|Internal|Fill `id_map` gaps|
+| Capability           | Strategy                  | Rationale                                     |
+| -------------------- | ------------------------- | --------------------------------------------- |
+| `metadata@v1`        | `primary_with_enrichment` | User picks primary per type; others fill gaps |
+| `watchHistory@v1`    | `aggregate`               | Merge from all trackers                       |
+| `watchlist@v1`       | `aggregate`               | Union all                                     |
+| `ratings@v1`         | `aggregate`               | Union, newest wins per item                   |
+| `recommendations@v1` | `aggregate`               | Merge & dedupe by tmdb_id                     |
+| `calendar@v1`        | `aggregate`               | Merge upcoming from all                       |
+| `mediaRequest@v1`    | `single`                  | Route to user's default Seerr                 |
+| `idResolve@v1`       | Internal                  | Fill `id_map` gaps                            |
 
 Strategy = capability-level property, not per-method. Methods disagreeing on strategy → really 2 capabilities, split.
 
 ### Strategy Dispatch Semantics
 
 **`single`:**
+
 - Resolve 1 connection (user's default for plugin, or sole plugin with capability)
 - No connection → empty (read) or throw `NoConnectionError` (write/request)
 - Plugin failure = operation failure. No fan-out retry.
 - Plugin-level transient retry still applies (per Q3)
 
 **`aggregate`:**
+
 - Resolve all user connections matching capability, all plugins
 - Fan-out parallel, per-call timeout default 15s (configurable per capability)
 - Results: success | permanent error | transient error (post-retry) | timeout
@@ -141,6 +143,7 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 - Response: merged data + `errors: [{connectionId, pluginId, code, message}]`. Caller decides presentation.
 
 **`primary_with_enrichment`:**
+
 - User designates primary connection per dimension (metadata: per media type). Stored in `user_preferences`.
 - Primary = base. Enrichment fills null/missing fields.
 - Enrichment order = stable by plugin install date
@@ -151,14 +154,14 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 
 Capability defines `defaultCacheTtlSec`. Admin overrides per-capability via `/admin/plugins` (future UI):
 
-|Capability|Default TTL|Notes|
-|---|---|---|
-|`metadata@v1`|24h|Stable titles/overviews|
-|`watchHistory@v1`|5m|User expects near-real-time|
-|`watchlist@v1`|5m|Same|
-|`ratings@v1`|15m||
-|`recommendations@v1`|6h||
-|`calendar@v1`|1h|Provider-side schedule updates|
+| Capability           | Default TTL | Notes                          |
+| -------------------- | ----------- | ------------------------------ |
+| `metadata@v1`        | 24h         | Stable titles/overviews        |
+| `watchHistory@v1`    | 5m          | User expects near-real-time    |
+| `watchlist@v1`       | 5m          | Same                           |
+| `ratings@v1`         | 15m         |                                |
+| `recommendations@v1` | 6h          |                                |
+| `calendar@v1`        | 1h          | Provider-side schedule updates |
 
 ## Caching
 
@@ -169,6 +172,7 @@ Capability defines `defaultCacheTtlSec`. Admin overrides per-capability via `/ad
 ### Key Composition
 
 Canonicalized string:
+
 ```
 mv:{capability}:{version}:{method}:{scope}:{argsHash}
 ```
@@ -180,6 +184,7 @@ mv:{capability}:{version}:{method}:{scope}:{argsHash}
 ### Backend
 
 `CacheProvider` interface:
+
 ```ts
 interface CacheProvider {
   get<T>(key: string): Promise<T | null>;
@@ -190,6 +195,7 @@ interface CacheProvider {
 ```
 
 Implementations:
+
 - `LruCacheProvider` — in-process, default single-instance
 - `RedisCacheProvider` — shared, multi-instance
 
@@ -215,26 +221,26 @@ Reserved codes: `{ status: "error", code, message }`
 
 ```ts
 type PluginErrorCode =
-  | "token_expired"      // OAuth token expired; trigger refresh
-  | "bad_credentials"    // Invalid creds; connection → "error"
-  | "rate_limited"       // API rate limit hit; retry w/ backoff
-  | "transient_network"  // Network fail or 5xx; retry once
-  | "not_found"          // Resource missing; null result, no error in aggregate
-  | "bad_input"          // Caller-side error; surface as-is
-  | "internal";          // Plugin bug or unexpected state
+  | "token_expired" // OAuth token expired; trigger refresh
+  | "bad_credentials" // Invalid creds; connection → "error"
+  | "rate_limited" // API rate limit hit; retry w/ backoff
+  | "transient_network" // Network fail or 5xx; retry once
+  | "not_found" // Resource missing; null result, no error in aggregate
+  | "bad_input" // Caller-side error; surface as-is
+  | "internal"; // Plugin bug or unexpected state
 ```
 
 Host behavior:
 
-|Code|Retry?|Update Status?|Propagate?|
-|---|---|---|---|
-|`token_expired`|Trigger refresh, retry once|→ `expired` if refresh fails|If final failure|
-|`bad_credentials`|No|→ `error` w/ message|Yes|
-|`rate_limited`|Yes, Retry-After or 2s backoff, once|No|If retry fails|
-|`transient_network`|Yes, 1s backoff, once|No|If retry fails|
-|`not_found`|No|No|Null (`single`), skip (`aggregate`)|
-|`bad_input`|No|No|Yes|
-|`internal`|No|→ `error` w/ message|Yes|
+| Code                | Retry?                               | Update Status?               | Propagate?                          |
+| ------------------- | ------------------------------------ | ---------------------------- | ----------------------------------- |
+| `token_expired`     | Trigger refresh, retry once          | → `expired` if refresh fails | If final failure                    |
+| `bad_credentials`   | No                                   | → `error` w/ message         | Yes                                 |
+| `rate_limited`      | Yes, Retry-After or 2s backoff, once | No                           | If retry fails                      |
+| `transient_network` | Yes, 1s backoff, once                | No                           | If retry fails                      |
+| `not_found`         | No                                   | No                           | Null (`single`), skip (`aggregate`) |
+| `bad_input`         | No                                   | No                           | Yes                                 |
+| `internal`          | No                                   | → `error` w/ message         | Yes                                 |
 
 ### Timeouts
 
@@ -243,10 +249,11 @@ Per-call default 15s, overridable per capability. Treated as `transient_network`
 ### Partial Failure (Aggregate)
 
 Response shape when plugin fails in `aggregate` or `primary_with_enrichment`:
+
 ```ts
 interface AggregateResult<T> {
   data: T;
-  errors: [{connectionId, pluginId, code, message}];
+  errors: [{ connectionId; pluginId; code; message }];
 }
 ```
 
@@ -268,12 +275,14 @@ const MediaItemSchema = z.object({
   media_type: MediaTypeEnum,
   title: z.string(),
   // ... fields
-  ids: z.object({
-    imdb_id: z.string().optional(),
-    tvdb_id: z.string().optional(),
-    trakt_id: z.string().optional(),
-    trakt_slug: z.string().optional(),
-  }).optional(),
+  ids: z
+    .object({
+      imdb_id: z.string().optional(),
+      tvdb_id: z.string().optional(),
+      trakt_id: z.string().optional(),
+      trakt_slug: z.string().optional(),
+    })
+    .optional(),
 });
 ```
 
@@ -282,6 +291,7 @@ Post-success, `MediaService` walks items, extracts `ids`, upserts to `id_map` vi
 ### Explicit Gap-Fill (Path B)
 
 When `MediaService` has `tmdb_id` but needs other ID (e.g. Trakt needs `trakt_slug`):
+
 1. Check `id_map` for existing mapping
 2. On miss, find plugins declaring `idResolve@v1`, call first match
 3. Cache result via opportunistic write
@@ -291,6 +301,7 @@ When `MediaService` has `tmdb_id` but needs other ID (e.g. Trakt needs `trakt_sl
 ### Conflict Resolution (First-Writer for imdb_id)
 
 Ownership mapping:
+
 ```ts
 export const ID_OWNERSHIP: Record<IdField, string | "first_writer"> = {
   tmdb_id: "tmdb",
@@ -302,6 +313,7 @@ export const ID_OWNERSHIP: Record<IdField, string | "first_writer"> = {
 ```
 
 Upsert rules:
+
 - Field owner = specific plugin → only that plugin overwrites. Others ignored.
 - Field owner = `first_writer` → first non-null wins, contradictions logged (debug), ignored.
 - Owner plugin not installed → any plugin populates field (first-writer fallback, avoid empty maps).
@@ -319,6 +331,7 @@ type ResolvedConnection =
 ```
 
 Resolution:
+
 1. User has personal connections for plugin → return all as `kind: "user"` (multiple instances = multiple entries)
 2. Else plugin declares `allowsSharedCredentials: true` AND admin set shared creds → single `kind: "shared"` entry
 3. Else empty
@@ -434,6 +447,7 @@ Form field once; same value in both encrypted blobs. Fine — different lifecycl
 ### Auth Flow
 
 Per plugin architecture §6:
+
 - `authKind: "form"` → user fills API key, host calls `startAuth`, plugin tests `/authentication`, returns `{ status: "completed", credentials }`
 - `testConnection(ctx)` hits same endpoint w/ stored creds
 - No `refreshAuth` needed (API keys don't expire)
@@ -490,6 +504,7 @@ Host updates `last_verified_at` on ok, sets `status="error"` on `bad_credentials
 ## Schema Revision: `shared_credentials`
 
 Add to `plugins` table:
+
 ```
 plugins
   ...
@@ -498,6 +513,7 @@ plugins
 ```
 
 New manifest field: `allowsSharedCredentials: boolean`. When true:
+
 - Admin UI shows "Shared credentials" section, rendered from `credentialsSchema`
 - `plugin.setSharedCredentials` endpoint writes encrypted blob + iv
 - `plugin.listAvailable` returns `hasSharedConfig: boolean` (supersedes "global_config populated" check)

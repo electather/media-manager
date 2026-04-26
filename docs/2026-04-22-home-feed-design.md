@@ -224,11 +224,11 @@ Absent fields omitted, not null. Same compression discipline as `ent_discover`.
 
 New codes in `HOST_ERROR_CODES`:
 
-| Code                   | When                                                                                                    | Captured? |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- | --------- |
-| `home.bad_input`       | Invalid `rowId`, malformed cursor, cursor/rowId mismatch                                                | No        |
-| `home.row_unavailable` | `getRowContent` called for row user no longer qualifies for (e.g. connection removed mid-session)       | No        |
-| `home.internal`        | Thrown inside handler; underlying error propagated for admin viewer                                     | Yes       |
+| Code                   | When                                                                                              | Captured? |
+| ---------------------- | ------------------------------------------------------------------------------------------------- | --------- |
+| `home.bad_input`       | Invalid `rowId`, malformed cursor, cursor/rowId mismatch                                          | No        |
+| `home.row_unavailable` | `getRowContent` called for row user no longer qualifies for (e.g. connection removed mid-session) | No        |
+| `home.internal`        | Thrown inside handler; underlying error propagated for admin viewer                               | Yes       |
 
 Row-level partial failures (some plugins erroring during aggregate) ⊥ errors — surface as `partial: true`. Full-row failure (zero items from all sources) ⊥ error — degrades to row-omit during `getLayout`, returns `{ items: [], cursor: null }` during `getRowContent` for scroll consistency.
 
@@ -611,12 +611,12 @@ Cursors = untrusted client input. ∀ decodes run Zod schema **before any busine
 - Variant-appropriate fields: `p` non-negative integer capped at `maxItems / pageSize`; `o` non-negative integer capped at `maxItems`; `a` & `s` match `movie:NNN`/`tv:NNN` pattern; `ts` positive integer ms epoch; `x` string array with `items <= maxItems` (60), each entry matching media-id pattern.
 - No extra keys (strict parsing).
 
-| Outcome                                                     | Result                                                      |
-| ----------------------------------------------------------- | ----------------------------------------------------------- |
-| Malformed base64 / non-JSON / fails Zod validation          | `home.bad_input`                                            |
-| Cursor's `r` doesn't match `rowId` in request input         | `home.bad_input`                                            |
-| Decoded page/offset lies beyond `maxItems`                  | `{ items: [], cursor: null }` — graceful stop, not error    |
-| Decoded position past end of underlying data                | same graceful stop                                          |
+| Outcome                                             | Result                                                   |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| Malformed base64 / non-JSON / fails Zod validation  | `home.bad_input`                                         |
+| Cursor's `r` doesn't match `rowId` in request input | `home.bad_input`                                         |
+| Decoded page/offset lies beyond `maxItems`          | `{ items: [], cursor: null }` — graceful stop, not error |
+| Decoded position past end of underlying data        | same graceful stop                                       |
 
 Decode-side cap on `x[]` & `p`/`o` load-bearing: crafted cursor with 10k entries in `x` → O(candidates × 10k) filter. Zod rejects before allocation/dispatch.
 
@@ -649,13 +649,13 @@ Single `getLayout` fans out ≤7 aggregate calls, each potentially hitting multi
 
 ### User-state taxonomy
 
-| State                                              | Rows that render                                                                                                                                         |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No plugins, no shared creds**                    | `rows: []` — client renders onboarding empty state                                                                                                       |
-| **TMDB via shared admin key only** (day-zero)      | `newReleases` always; `becauseYouWatched` if feedback seed exists                                                                                        |
-| **TMDB + feedback signal but no trackers**         | `newReleases`, `becauseYouWatched`, and `recommendedForYou` (thin profile → low-confidence re-rank) if plugin implementing `recommendations@v1` exists    |
-| **TMDB + tracker (e.g. Trakt)**                    | All seven rows eligible, subject to per-row content checks                                                                                               |
-| **Full install (TMDB + Trakt + Seerr + calendar)** | All seven rows                                                                                                                                           |
+| State                                              | Rows that render                                                                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **No plugins, no shared creds**                    | `rows: []` — client renders onboarding empty state                                                                                                     |
+| **TMDB via shared admin key only** (day-zero)      | `newReleases` always; `becauseYouWatched` if feedback seed exists                                                                                      |
+| **TMDB + feedback signal but no trackers**         | `newReleases`, `becauseYouWatched`, and `recommendedForYou` (thin profile → low-confidence re-rank) if plugin implementing `recommendations@v1` exists |
+| **TMDB + tracker (e.g. Trakt)**                    | All seven rows eligible, subject to per-row content checks                                                                                             |
+| **Full install (TMDB + Trakt + Seerr + calendar)** | All seven rows                                                                                                                                         |
 
 Each transition driven by signal computation & candidate filter §5. Nothing special-cases "user just connected X" — next `getLayout` picks it up.
 
@@ -671,22 +671,22 @@ Client responsible for empty-state UX. Already knows user's connection state via
 
 ### Degradation matrix
 
-| Failure mode                                           | Row behavior                                                                                                                    |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Required capability has zero connected plugins         | Row filtered out in candidate selection (pre-fetch)                                                                             |
-| Cheap-signal count is zero                             | Row filtered out in candidate selection                                                                                         |
-| Aggregate with partial plugin failure                  | Row renders with returned data + `partial: true`                                                                                |
-| Aggregate with all plugins failing                     | Row empty; drop-empty removes it (including `upcomingForYou` — see below)                                                       |
-| Aggregate returning zero items (all plugins succeeded) | Row dropped by drop-empty, **except** `upcomingForYou` retained with `items: []` (meaningful "you're caught up" state)          |
-| Primary-with-enrichment primary fails                  | Row empty; dropped                                                                                                              |
-| `becauseYouWatched` seed doesn't resolve in metadata   | Row dropped; signal clears seed for subsequent calls                                                                            |
-| Per-row 3s timeout exceeded                            | Row treated as empty; dropped                                                                                                   |
-| `PreferenceEngine.explainMatch` fails for item         | `matchReason` omitted on that item; row otherwise unaffected                                                                    |
-| `PreferenceEngine.rankCandidates` fails                | Fall back to upstream aggregate order; log; row still renders                                                                   |
-| Signal computation partial failure                     | Failing signal defaults (0 / `"none"`); log; layout proceeds                                                                    |
-| Signal computation total failure (DB down)             | `getLayout` throws `home.internal` (captured)                                                                                   |
-| `mediaRequest@v1.getStatusBatch` fails                 | `status` omitted on items; rows otherwise unaffected                                                                            |
-| `PreferenceEngine` entirely unavailable                | `recommendedForYou` renders via upstream order; `matchReason` absent                                                            |
+| Failure mode                                           | Row behavior                                                                                                           |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Required capability has zero connected plugins         | Row filtered out in candidate selection (pre-fetch)                                                                    |
+| Cheap-signal count is zero                             | Row filtered out in candidate selection                                                                                |
+| Aggregate with partial plugin failure                  | Row renders with returned data + `partial: true`                                                                       |
+| Aggregate with all plugins failing                     | Row empty; drop-empty removes it (including `upcomingForYou` — see below)                                              |
+| Aggregate returning zero items (all plugins succeeded) | Row dropped by drop-empty, **except** `upcomingForYou` retained with `items: []` (meaningful "you're caught up" state) |
+| Primary-with-enrichment primary fails                  | Row empty; dropped                                                                                                     |
+| `becauseYouWatched` seed doesn't resolve in metadata   | Row dropped; signal clears seed for subsequent calls                                                                   |
+| Per-row 3s timeout exceeded                            | Row treated as empty; dropped                                                                                          |
+| `PreferenceEngine.explainMatch` fails for item         | `matchReason` omitted on that item; row otherwise unaffected                                                           |
+| `PreferenceEngine.rankCandidates` fails                | Fall back to upstream aggregate order; log; row still renders                                                          |
+| Signal computation partial failure                     | Failing signal defaults (0 / `"none"`); log; layout proceeds                                                           |
+| Signal computation total failure (DB down)             | `getLayout` throws `home.internal` (captured)                                                                          |
+| `mediaRequest@v1.getStatusBatch` fails                 | `status` omitted on items; rows otherwise unaffected                                                                   |
+| `PreferenceEngine` entirely unavailable                | `recommendedForYou` renders via upstream order; `matchReason` absent                                                   |
 
 Principle: **degrade silently at row level, fail loudly at infra level.** Plugin down = product behavior; DB down = incident.
 

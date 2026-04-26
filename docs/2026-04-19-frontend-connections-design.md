@@ -13,6 +13,7 @@
 Connections UI rework: fully manifest-driven. Old page hardcoded Trakt, Seerr, TMDB, TVDB. New model: frontend knows ⊥ specific services. Renders sections, forms, auth flows, capability badges from oRPC layer data. Page stays honest as plugins added/removed/updated. ⊥ frontend change when new integration lands.
 
 Two surfaces:
+
 - `/connections` — user-facing, manages authenticated user's connections.
 - `/admin/plugins` — admin-only, manages installed plugins & global config.
 
@@ -113,9 +114,11 @@ Unknown capabilities → `titleize(id)` + generic icon. Page ⊥ breaks.
 ### Alert banner (conditional)
 
 Rendered above connection list when ∃ connection with `status` `error` | `expired`. Uses shadcn `Alert`:
+
 - `variant="destructive"` for errors, `variant="warning"` for expired.
 
 Copy:
+
 - Error: `{n} connection{s} need attention. Click a card below to fix.`
 - Expired (no errors): `{n} connection{s} need re-authentication.`
 
@@ -143,6 +146,7 @@ Section order: `plugin.name` alphabetical, except plugins with error/expired con
 Section bottom, muted heading `"Available to Connect"` + collapsible chevron (defaults expanded first visit, localStorage persists).
 
 Each card:
+
 - Plugin name (primary).
 - One-line description (muted, truncated).
 - Capability badges (smaller, same visual language).
@@ -154,16 +158,19 @@ Layout: responsive grid, 3 cols `lg`, 2 `md`, 1 `sm`.
 ### Connected instance card
 
 **Card header:**
+
 - `displayName` (primary) or plugin name if unset.
 - Status badge — `Connected` (green), `Expired` (yellow), `Error` (red), `Disabled` (muted secondary).
 - Multiple instances: small outline "Default" badge on default instance only.
 
 **Card body:**
+
 - `lastVerifiedAt` relative timestamp, muted.
 - `status` = `error` | `expired`: `errorMessage` in muted destructive text.
 - `displayFields` as small definition list (label + value). Mono-rendered fields (URLs, IPs) use `font-mono`. Plugins with ⊥ display fields → section omitted.
 
 **Card actions:**
+
 - Promoted `Reconnect` button when `status` = `error` | `expired`. Branches on `authKind`:
   - `oauth_redirect` | `oauth_device`: re-runs auth flow.
   - `form`: opens edit modal.
@@ -176,11 +183,13 @@ Test result: inline on card (checkmark + "Verified" | short error), auto-dismiss
 ### Empty state
 
 Zero connections → centered empty state:
+
 - Heading: "No services connected"
 - Muted: "Connect your media services to start tracking what you watch, requesting downloads, and getting personalized recommendations."
 - Below: compact grid of all enabled plugins (same card shape as "Available to Connect").
 
 ⊥ plugins installed (fresh server):
+
 - "No plugins installed yet."
 - Muted: "Ask your administrator to install plugins to connect external services."
 - Admins: primary `Manage Plugins →` → `/admin/plugins`.
@@ -198,23 +207,27 @@ shadcn `Dialog`. Title: `"Add {plugin.name} Connection"` | `"Edit {plugin.name} 
 ### Shared header
 
 ∀ variants:
+
 - Plugin name, version (muted small), one-line description.
 - `Display name` text field (optional, placeholder suggests plugin name | instance-appropriate default).
 
 ### Body by auth kind
 
 **`authKind: "form"`** (e.g. Seerr):
+
 - Renders `userConfigSchema` through schema form renderer.
 - `Test connection` button below form.
 - Before test passes: `Save` disabled. After: `Save` enabled + success badge next to test button.
 - Test fail: error in muted destructive text between form and buttons.
 
 **`authKind: "oauth_redirect"`**:
+
 - Short explainer + single primary `Connect with {plugin.name}` button.
 - Button → `connection.initiateOAuth` → `{ redirectUrl, nonce }` → `window.location.assign(redirectUrl)`.
 - Nonce held in current route so callback page can complete flow.
 
 **`authKind: "oauth_device"`** (e.g. Trakt):
+
 - Same explainer.
 - `Connect with {plugin.name}` → `connection.initiateDeviceAuth` → `{ userCode, verifyUrl, nonce, intervalSec, expiresAt }`.
 - Modal body swaps to device-code panel:
@@ -226,6 +239,7 @@ shadcn `Dialog`. Title: `"Add {plugin.name} Connection"` | `"Edit {plugin.name} 
 - Modal stays open while polling. Cancel aborts polling + closes modal; `pending_auth` row expires server-side via TTL.
 
 **`authKind: "none"`**:
+
 - Modal exists only for plugins needing `userConfig` ⊥ auth (rare). If ⊥ auth & ⊥ user config → `Add Connection` on card creates connection directly, ⊥ modal.
 
 ### Edit mode

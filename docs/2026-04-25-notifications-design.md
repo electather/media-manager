@@ -37,17 +37,17 @@ Ships with single `notifications.emit()` entry point. v2 → replace body with g
 
 ## Design decisions
 
-|                          | Decision                                         | Rationale                                                                               |
-| ------------------------ | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Audience                 | Users & admins                                   | Same dispatcher, different audience descriptor per event                                |
-| Emission model           | "B+" — typed registry + single `emit()` seam     | v2 bus migration mechanical; no premature pub/sub                                       |
-| Subscription granularity | Category-based (4), RBAC-gated                   | Simple grid UI; permissions reuse `PERMISSIONS`                                         |
-| Plugin contract          | `notificationDelivery@v1`                        | Reuses capability machinery; plugin can be notifier + something else                    |
-| Plugin payload           | Pre-rendered `NotificationMessage` & raw event   | Zero-churn default for new event types; opt-in rich rendering                           |
-| Channel config schema    | Reuse `userConfigSchema`                         | connection = channel v1; no new SDK surface                                             |
-| Schema format            | JSON Schema                                      | Matches manifest convention; serialises to UI form                                      |
-| Delivery semantics       | Job-backed, exponential retry                    | Reuses job runner & history; durable; cross-instance safe                               |
-| In-app inbox             | Built-in plugin                                  | Same dispatch path; doubles as audit + zero-config default                              |
+|                          | Decision                                       | Rationale                                                            |
+| ------------------------ | ---------------------------------------------- | -------------------------------------------------------------------- |
+| Audience                 | Users & admins                                 | Same dispatcher, different audience descriptor per event             |
+| Emission model           | "B+" — typed registry + single `emit()` seam   | v2 bus migration mechanical; no premature pub/sub                    |
+| Subscription granularity | Category-based (4), RBAC-gated                 | Simple grid UI; permissions reuse `PERMISSIONS`                      |
+| Plugin contract          | `notificationDelivery@v1`                      | Reuses capability machinery; plugin can be notifier + something else |
+| Plugin payload           | Pre-rendered `NotificationMessage` & raw event | Zero-churn default for new event types; opt-in rich rendering        |
+| Channel config schema    | Reuse `userConfigSchema`                       | connection = channel v1; no new SDK surface                          |
+| Schema format            | JSON Schema                                    | Matches manifest convention; serialises to UI form                   |
+| Delivery semantics       | Job-backed, exponential retry                  | Reuses job runner & history; durable; cross-instance safe            |
+| In-app inbox             | Built-in plugin                                | Same dispatch path; doubles as audit + zero-config default           |
 
 ## Architecture overview
 
@@ -720,14 +720,14 @@ Permission: `ADMIN_SERVER`.
 
 ### Frontend route → API mapping
 
-| Page                                      | Routes                                                                                                                                                                                                            |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page                                      | Routes                                                                                                                                                                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/settings/notifications` (list + matrix) | `GET /api/notifications/{plugins,channels,categories,subscriptions}`, `PUT /api/notifications/subscriptions/:c/:cat`, `POST /api/notifications/channels/:id/test`. Mutations through `/api/connections`. |
-| Add-channel modal                         | `GET /api/notifications/plugins`, `POST /api/connections`, `POST /api/notifications/channels/:id/test`                                                                                                            |
-| `/notifications` (inbox)                  | `GET /api/notifications/inbox`, `POST /api/notifications/inbox/{mark-read,mark-unread,mark-all-read}`, `DELETE /api/notifications/inbox`, `DELETE /api/notifications/inbox/all`                                   |
-| Nav badge                                 | `GET /api/notifications/inbox/unread-count`                                                                                                                                                                       |
-| `/admin/notifications/deliveries`         | `GET /api/admin/notifications/deliveries`, `GET /api/admin/notifications/deliveries/:id`, `POST /api/admin/notifications/deliveries/:id/retry`                                                                    |
-| `/admin/settings/notifications`           | `GET/PATCH /api/admin/notifications/settings`                                                                                                                                                                     |
+| Add-channel modal                         | `GET /api/notifications/plugins`, `POST /api/connections`, `POST /api/notifications/channels/:id/test`                                                                                                   |
+| `/notifications` (inbox)                  | `GET /api/notifications/inbox`, `POST /api/notifications/inbox/{mark-read,mark-unread,mark-all-read}`, `DELETE /api/notifications/inbox`, `DELETE /api/notifications/inbox/all`                          |
+| Nav badge                                 | `GET /api/notifications/inbox/unread-count`                                                                                                                                                              |
+| `/admin/notifications/deliveries`         | `GET /api/admin/notifications/deliveries`, `GET /api/admin/notifications/deliveries/:id`, `POST /api/admin/notifications/deliveries/:id/retry`                                                           |
+| `/admin/settings/notifications`           | `GET/PATCH /api/admin/notifications/settings`                                                                                                                                                            |
 
 ### Shared schemas
 

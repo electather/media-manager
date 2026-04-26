@@ -143,11 +143,11 @@ interface PluginManifest {
 
 Applied at manifest install:
 
-| Plugin shape              | `auth.kind` (user ceremony) | `sharedCredentialsSchema`         | `credentialsSchema` | `userConfigSchema` | `poolable` allowed |
-| ------------------------- | --------------------------- | --------------------------------- | ------------------- | ------------------ | ------------------ |
-| All capabilities `global` | must be `"none"`            | typically required (e.g. API key) | must be **absent**  | must be **absent** | yes                |
-| Any capability `user`     | must not be `"none"`        | optional (e.g. OAuth client creds)| **required**        | optional           | yes                |
-| Mixed (both scopes)       | must not be `"none"`        | typically required                | **required**        | optional           | yes                |
+| Plugin shape              | `auth.kind` (user ceremony) | `sharedCredentialsSchema`          | `credentialsSchema` | `userConfigSchema` | `poolable` allowed |
+| ------------------------- | --------------------------- | ---------------------------------- | ------------------- | ------------------ | ------------------ |
+| All capabilities `global` | must be `"none"`            | typically required (e.g. API key)  | must be **absent**  | must be **absent** | yes                |
+| Any capability `user`     | must not be `"none"`        | optional (e.g. OAuth client creds) | **required**        | optional           | yes                |
+| Mixed (both scopes)       | must not be `"none"`        | typically required                 | **required**        | optional           | yes                |
 
 Scope change between versions (global → user on capability) = breaking change; host rejects minor/patch bumps that alter scope.
 

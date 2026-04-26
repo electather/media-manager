@@ -91,6 +91,7 @@ V6: top-level "Connections" sidebar entry removed. Connections reachable only vi
 **Name.** `<Input>` bound to local draft. Save enabled when dirty. Save → `authClient.updateUser({ name })`. Success: toast "Name updated"; invalidate session. Error: inline error under field, draft preserved.
 
 **Email.**
+
 - `emailEnabled = true`: `<Input>` + "Change email" button. Submit → `authClient.changeEmail({ newEmail, callbackURL: '/settings/profile' })`. Better Auth sends verification link to current email. UI → confirmation state ("We've sent a link to `current@x` — click it to complete the change"). `user.email` updates only after old-address click; `user.emailVerified` → false on switch. Post-switch notification → old address.
 - `emailEnabled = false`: email input + "Change email" button + inline warning _"No verification email will be sent — make sure the new address is correct."_ Submit → deliberate-action confirmation dialog (no password field). On confirm → `authClient.changeEmail({ newEmail })`. With Better Auth `sendChangeEmailConfirmation` hook unset, address flips immediately. Dialog guards accidental clicks only — user already authenticated, 2nd password prompt adds no security. No notification to old address.
 
@@ -102,13 +103,13 @@ V6: top-level "Connections" sidebar entry removed. Connections reachable only vi
 
 ### Error states
 
-| Failure | Surface |
-| --- | --- |
-| Name update fails | Inline field error, draft preserved |
-| Email in use | Inline error under email field (Better Auth 409) |
-| Email rate-limited | Toast with retry-after |
-| Resend verification rate-limited | Toast; countdown jumps to server retry-after |
-| Role fetch failure | Hide row entirely |
+| Failure                          | Surface                                          |
+| -------------------------------- | ------------------------------------------------ |
+| Name update fails                | Inline field error, draft preserved              |
+| Email in use                     | Inline error under email field (Better Auth 409) |
+| Email rate-limited               | Toast with retry-after                           |
+| Resend verification rate-limited | Toast; countdown jumps to server retry-after     |
+| Role fetch failure               | Hide row entirely                                |
 
 Password field → moved to Security tab.
 
@@ -122,6 +123,7 @@ Password field → moved to Security tab.
 ### Change password
 
 Collapsed by default. Expanded: current password, new password, confirm new. Client validation: min 12 chars, confirm matches new. Submit → `authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true })`.
+
 - Success: form collapses, toast "Password updated — other sessions signed out", session list refetches.
 - Wrong current password: inline error under that field; other fields retained.
 - Server validation (password policy): inline under new-password.
@@ -129,6 +131,7 @@ Collapsed by default. Expanded: current password, new password, confirm new. Cli
 ### Active sessions
 
 Sorted by `updatedAt` desc. Each row:
+
 - Device line: `${browser} on ${os}` via `ua-parser-js` (e.g. "Chrome 135 on macOS"). Raw UA in tooltip.
 - Meta line: `${ipAddress} · Signed in ${relativeTime(createdAt)} · Last active ${relativeTime(updatedAt)}`.
 - Current session: "This device" badge, no revoke button.
@@ -214,6 +217,7 @@ Rationale: revoke = "remove my authorization". Cascading → destroy every other
 **MCP endpoint.** Read-only `InputGroup` with `${window.location.origin}/mcp` + copy button.
 
 **App list.** Row per app:
+
 - Primary line: `name` (bold), fallback to `clientId`.
 - `clientId` mono below, full & selectable.
 - Meta: `Connected ${relativeTime(connectedAt)} · Last active ${lastUsedAt ? relativeTime(lastUsedAt) : 'never'}`.
@@ -224,10 +228,10 @@ Rationale: revoke = "remove my authorization". Cascading → destroy every other
 
 ### Error states
 
-| Failure | Surface |
-| --- | --- |
-| Fetch failure | Standard retry surface |
-| Revoke failure | Toast error; row stays. Tx = all-or-nothing |
+| Failure                          | Surface                                       |
+| -------------------------------- | --------------------------------------------- |
+| Fetch failure                    | Standard retry surface                        |
+| Revoke failure                   | Toast error; row stays. Tx = all-or-nothing   |
 | Concurrent revoke (already gone) | 404 → toast "Already revoked", list refetches |
 
 ## Danger zone tab (`/settings/danger`)
@@ -264,6 +268,7 @@ Table names map to schema in `packages/server/src/db/schema/`: `user`, `session`
 **Server impl.** Stream ZIP with `jszip` in memory — self-hosted, per-user data small, no temp files. All reads in single tx for point-in-time-consistent snapshot. Schema-version in README. Use `zip.generateAsync({ type: "uint8array" })` | `"arraybuffer"` — default `nodebuffer` not Workers-compatible.
 
 **Failure modes.**
+
 - Auth missing → 401; existing middleware → login.
 - Tx error → 500. Anchor-nav errors don't bubble through `window.error` → silent failure accepted v1. User sees browser "download failed" UI + can retry. v2 path = async job + token-protected download link. Not worth building now.
 - Very large user (hypothetical): not optimized v1.
@@ -273,11 +278,13 @@ Table names map to schema in `packages/server/src/db/schema/`: `user`, `session`
 **Copy.** _"Permanently delete your account and all associated data — connections, taste profile, feedback history, and preferences. This cannot be undone."_
 
 **Action.** "Delete account" → confirmation dialog. Dialog:
+
 - Email-typed input (must match current email exactly).
 - Password input.
 - "Delete my account" button, disabled until both valid.
 
 **Submit.** `POST /api/me/delete` with `{ confirmEmail, currentPassword }`. Server:
+
 1. Verify password via Better Auth password helper; fail → 401 "Incorrect password".
 2. Verify `confirmEmail === user.email`; fail → 400.
 3. `deleteUser(user.id)`. Single `DELETE` on `user` — FK cascades handle rest: `session`, `account`, `oauthClient` (user-owned only), `oauthAccessToken`, `oauthRefreshToken`, `oauthConsent`, `userRoles`, `primaryConnections`, `serviceConnections` (+ encrypted credentials), `preferenceProfiles`, `feedback`. `jobRuns.triggeredByUserId` → `SET NULL` — history survives, anonymized.
@@ -304,13 +311,13 @@ export const meApp = new Hono()
 
 Client RPC: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"].revoke.$post({ param: { clientId } })`, `api.me.delete.$post({ json: { ... } })`. Export → anchor nav, not RPC client.
 
-| Route | Method | Body / Params | Returns |
-| --- | --- | --- | --- |
-| `/me/role` | GET | — | `{ role: { name, description } \| null }` — always HTTP 200 |
-| `/me/apps` | GET | — | `AuthorizedApp[]` |
-| `/me/apps/:clientId/revoke` | POST | — | `{ ok: true }` |
-| `/me/export` | GET | — | `application/zip` stream |
-| `/me/delete` | POST | `{ confirmEmail, currentPassword }` | `{ ok: true }` \| 401/400 |
+| Route                       | Method | Body / Params                       | Returns                                                     |
+| --------------------------- | ------ | ----------------------------------- | ----------------------------------------------------------- |
+| `/me/role`                  | GET    | —                                   | `{ role: { name, description } \| null }` — always HTTP 200 |
+| `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                           |
+| `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                              |
+| `/me/export`                | GET    | —                                   | `application/zip` stream                                    |
+| `/me/delete`                | POST   | `{ confirmEmail, currentPassword }` | `{ ok: true }` \| 401/400                                   |
 
 ### `configPublicApp`
 
@@ -327,6 +334,7 @@ Client call: `api.config.public.$get()`.
 `emailEnabled` derived in `env.ts` — Better Auth wiring & this endpoint share same source.
 
 New env var:
+
 - `EMAIL_PROVIDER_CONFIGURED: boolean` — default `false`. When `true`, Better Auth's `sendVerificationEmail` / `sendChangeEmailConfirmation` / `sendResetPassword` hooks wired to transactional-email sender. When `false`, hooks = no-ops; settings UI falls back to degraded paths.
 
 Add to `packages/server/src/env.ts`: `z.coerce.boolean().default(false)`.
@@ -342,6 +350,7 @@ Config knobs only, no custom code. Verify installed version ≥ 1.2; bump in sam
 ### Shared types
 
 Extend `packages/shared/src/users/`:
+
 - `AuthorizedApp` type.
 - `RoleSummary` type `{ name: string; description: string | null }`.
 - `DeleteAccountBody` zod schema `{ confirmEmail: string, currentPassword: string }`.
@@ -359,7 +368,7 @@ Must land before | alongside main PR:
    - `oauth_access_token_user_client_idx` on `oauth_access_token(user_id, client_id)`.
    - `oauth_refresh_token_user_client_idx` on `oauth_refresh_token(user_id, client_id)`.
    - `oauth_consent_user_client_idx` on `oauth_consent(user_id, client_id)` (confirmed: only PK on `id` exists in `db/schema/auth.ts`).
-   All 3 tables have nullable `userId`; queries filter `WHERE user_id = ?` → naturally excludes nulls.
+     All 3 tables have nullable `userId`; queries filter `WHERE user_id = ?` → naturally excludes nulls.
 
 3. **`EMAIL_PROVIDER_CONFIGURED` env var** in `packages/server/src/env.ts`, `z.coerce.boolean().default(false)`. Document in `docs/2026-04-24-deployment-design.md` in same PR.
 
@@ -373,15 +382,15 @@ Must land before | alongside main PR:
 
 Handlers throw through existing `errorHandler` in `router.ts`. All map to existing `HttpError` subtype in `packages/server/src/errors/` — no new error classes.
 
-| Failure | HTTP | Client surface |
-| --- | --- | --- |
-| Auth missing / expired | 401 | Redirect to login (existing middleware) |
-| Validation failure | 400 | Inline field errors from zod issues |
-| Wrong current password (change-password, delete) | 401 | Inline error under password field |
-| Email already in use | 409 | Inline error under email field |
-| Rate-limited (resend / change-email) | 429 | Toast with retry-after |
-| Concurrent revoke (already gone) | 404 | Toast "Already revoked", list refetches |
-| Unexpected | 500 | Standard app error toast with request id |
+| Failure                                          | HTTP | Client surface                           |
+| ------------------------------------------------ | ---- | ---------------------------------------- |
+| Auth missing / expired                           | 401  | Redirect to login (existing middleware)  |
+| Validation failure                               | 400  | Inline field errors from zod issues      |
+| Wrong current password (change-password, delete) | 401  | Inline error under password field        |
+| Email already in use                             | 409  | Inline error under email field           |
+| Rate-limited (resend / change-email)             | 429  | Toast with retry-after                   |
+| Concurrent revoke (already gone)                 | 404  | Toast "Already revoked", list refetches  |
+| Unexpected                                       | 500  | Standard app error toast with request id |
 
 ## Testing
 
