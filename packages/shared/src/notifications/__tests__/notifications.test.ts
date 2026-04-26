@@ -1,4 +1,5 @@
 import { expect, test } from "vite-plus/test";
+import type { NotificationEvent, NotificationEventType } from "../index";
 import {
   NOTIFICATION_CATEGORIES,
   NOTIFICATION_EVENT_TYPES,
@@ -6,10 +7,19 @@ import {
   notificationAudienceSchema,
 } from "../index";
 
+// Compile-time exhaustiveness check: if any NotificationEventType is missing from the union,
+// this will fail to compile. Each event type must have exactly one matching discriminated union member.
+type AssertExhaustiveEvents = {
+  [T in NotificationEventType]: Extract<NotificationEvent, { type: T }> extends never
+    ? ["MISSING_FROM_UNION", T]
+    : T;
+}[NotificationEventType];
+
+void (true as AssertExhaustiveEvents extends NotificationEventType ? true : false);
+
 test("event registry exhaustiveness — all NOTIFICATION_EVENT_TYPES have corresponding event union members", () => {
-  // Verify each event type can be extracted from the discriminated union.
-  // This is a compile-time check: if any event type is missing from NotificationEvent,
-  // TypeScript would error. At runtime, we verify the list is non-empty.
+  // Verify the list is complete and non-empty.
+  // Compile-time check above enforces each type has a union member.
   expect(NOTIFICATION_EVENT_TYPES.length).toBeGreaterThan(0);
   expect(NOTIFICATION_EVENT_TYPES).toContain("job.run.failed");
   expect(NOTIFICATION_EVENT_TYPES).toContain("connection.auth.expired");
