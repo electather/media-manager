@@ -26,14 +26,15 @@ export const inboxPlugin = definePlugin({
   capabilities: {
     notificationDelivery: {
       deliver: async (ctx, args) => {
-        const { message, event, deliveryId } = args as {
+        const { message, deliveryId, recipientUserId } = args as {
           message: NotificationMessage;
-          event: NotificationEvent;
+          event?: NotificationEvent;
           deliveryId?: string;
+          recipientUserId?: string;
           channelConfig: unknown;
         };
 
-        const userId = event.audience.kind === "user" ? event.audience.userId : "unknown";
+        const userId = recipientUserId || "unknown";
 
         await (ctx as any).inbox.insert({
           userId,

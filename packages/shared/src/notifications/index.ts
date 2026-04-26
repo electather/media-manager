@@ -1,4 +1,8 @@
 export * from "./enums";
 export * from "./types";
 export * from "./events";
-export * from "./schemas";
+export {
+  notificationEventSchema,
+  notificationMessageSchema,
+  notificationAudienceSchema,
+} from "./schemas";

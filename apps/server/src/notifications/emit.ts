@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { env } from "../env";
 import { getDb } from "../db/client";
 import type { NotificationEvent, BaseEvent } from "@ent-mcp/shared/notifications";
+import { notificationEventSchema } from "@ent-mcp/shared/notifications";
 import { notificationDeliveries } from "../db/schema/notifications";
 import { resolveRecipients } from "./resolve-recipients";
 import { find } from "../jobs/registry";
@@ -18,7 +19,9 @@ export async function emit(
     ...event,
   } as NotificationEvent;
 
-  const recipients = await resolveRecipients(enriched);
+  const validated = notificationEventSchema.parse(enriched) as NotificationEvent;
+
+  const recipients = await resolveRecipients(validated);
 
   const db = getDb();
   const deliveryIds: string[] = [];
@@ -29,14 +32,14 @@ export async function emit(
       deliveryIds.push(id);
       return {
         id,
-        eventId: enriched.id,
-        eventType: enriched.type,
-        eventPayload: JSON.stringify(enriched),
+        eventId: validated.id,
+        eventType: validated.type,
+        eventPayload: JSON.stringify(validated),
         recipientConnectionId: r.connectionId,
         recipientUserId: r.userId,
         status: "pending" as const,
         attemptCount: 0,
-        correlationKey: enriched.correlationKey ?? null,
+        correlationKey: validated.correlationKey ?? null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
@@ -47,13 +50,16 @@ export async function emit(
   const jobEntry = find("notification.deliver");
   if (!jobEntry?.triggerFromApi) return;
 
-  for (const deliveryId of deliveryIds) {
-    await jobEntry.triggerFromApi(
-      { deliveryId },
-      {
-        triggeredBy: "admin",
-        requestId: newRequestId(),
-      },
-    );
-  }
+  const triggerApi = jobEntry.triggerFromApi;
+  await Promise.all(
+    deliveryIds.map((deliveryId) =>
+      triggerApi(
+        { deliveryId },
+        {
+          triggeredBy: "admin",
+          requestId: newRequestId(),
+        },
+      ),
+    ),
+  );
 }

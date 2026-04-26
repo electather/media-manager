@@ -24,6 +24,7 @@ export function registerStalePendingSweep() {
             lt(notificationDeliveries.updatedAt, twoMinutesAgo),
           ),
         )
+        .limit(100)
         .all();
 
       const jobEntry = find("notification.deliver");

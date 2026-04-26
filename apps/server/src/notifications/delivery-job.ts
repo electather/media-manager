@@ -73,6 +73,7 @@ export function registerDeliveryJob() {
           event,
           channelConfig: conn.userConfig,
           deliveryId,
+          recipientUserId: delivery.recipientUserId,
         } as any);
         const providerMessageId =
           result && typeof result === "object" && "providerMessageId" in result
@@ -88,7 +89,7 @@ export function registerDeliveryJob() {
 
 async function handleDeliveryFailure(
   deliveryId: string,
-  delivery: any,
+  delivery: typeof notificationDeliveries.$inferSelect,
   error: unknown,
 ): Promise<void> {
   const isRetryable =

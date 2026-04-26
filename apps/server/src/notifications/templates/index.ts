@@ -25,7 +25,6 @@ export function renderTemplate(event: NotificationEvent, _locale: "en"): Notific
         body: "Your requested media is now available.",
         severity: "info",
         category: "media",
-        actionUrl: event.payload.posterUrl,
       };
     case "media.request.denied":
       return {
