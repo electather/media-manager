@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { canonicalMetadata } from "../db/schema/catalog";
+import { canonicalMetadata, discoverSnapshots } from "../db/schema/catalog";
 import { idMap } from "../db/schema/id-map";
 import { candidateId } from "./features";
 import type {
@@ -153,11 +153,22 @@ export class CatalogService {
   }
 
   async getDiscoverFeed(
-    _kind: DiscoverFeedKind,
-    _sort: DiscoverSort,
-    _day: number,
+    kind: DiscoverFeedKind,
+    sort: DiscoverSort,
+    day: number,
   ): Promise<MetadataKey[] | null> {
-    return null;
+    const row = await this.db
+      .select({ items: discoverSnapshots.items })
+      .from(discoverSnapshots)
+      .where(
+        and(
+          eq(discoverSnapshots.feedKind, kind),
+          eq(discoverSnapshots.sort, sort),
+          eq(discoverSnapshots.day, day),
+        ),
+      )
+      .get();
+    return row?.items ?? null;
   }
 
   async getRecommendations(
@@ -184,12 +195,19 @@ export class CatalogService {
   }
 
   async writeDiscoverSnapshot(
-    _kind: DiscoverFeedKind,
-    _sort: DiscoverSort,
-    _day: number,
-    _items: MetadataKey[],
+    kind: DiscoverFeedKind,
+    sort: DiscoverSort,
+    day: number,
+    items: MetadataKey[],
   ): Promise<void> {
-    return;
+    const generatedAt = Date.now();
+    await this.db
+      .insert(discoverSnapshots)
+      .values({ feedKind: kind, sort, day, items, generatedAt })
+      .onConflictDoUpdate({
+        target: [discoverSnapshots.feedKind, discoverSnapshots.sort, discoverSnapshots.day],
+        set: { items, generatedAt },
+      });
   }
 
   async writeRecommendationList(
@@ -230,8 +248,13 @@ export class CatalogService {
     return { deleted: 0 };
   }
 
-  async pruneOldDiscoverSnapshots(_olderThanDays: number): Promise<{ deleted: number }> {
-    return { deleted: 0 };
+  async pruneOldDiscoverSnapshots(olderThanDays: number): Promise<{ deleted: number }> {
+    const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
+    const deleted = await this.db
+      .delete(discoverSnapshots)
+      .where(lt(discoverSnapshots.day, cutoff))
+      .returning({ day: discoverSnapshots.day });
+    return { deleted: deleted.length };
   }
 }
 

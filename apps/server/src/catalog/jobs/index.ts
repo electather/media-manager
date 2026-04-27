@@ -1,4 +1,5 @@
 import { getCatalogService } from "..";
+import { registerCatalogDiscoverSnapshotJob } from "./discover-snapshot";
 import { registerCatalogMetadataRefreshJob } from "./metadata-refresh";
 
 /**
@@ -8,7 +9,10 @@ import { registerCatalogMetadataRefreshJob } from "./metadata-refresh";
  * `recordAccess` throttle) stays consistent with the preference engine.
  */
 export function registerCatalogJobs(): void {
-  registerCatalogMetadataRefreshJob({ catalog: getCatalogService() });
+  const catalog = getCatalogService();
+  registerCatalogMetadataRefreshJob({ catalog });
+  registerCatalogDiscoverSnapshotJob({ catalog });
 }
 
 export { CATALOG_METADATA_REFRESH_JOB_ID } from "./metadata-refresh";
+export { CATALOG_DISCOVER_SNAPSHOT_JOB_ID } from "./discover-snapshot";
