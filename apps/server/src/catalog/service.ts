@@ -1,8 +1,15 @@
 import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { canonicalMetadata, discoverSnapshots, recommendationLists } from "../db/schema/catalog";
+import {
+  canonicalMetadata,
+  discoverSnapshots,
+  recommendationLists,
+  userHistoryMirror,
+  userRatingsMirror,
+} from "../db/schema/catalog";
 import { idMap } from "../db/schema/id-map";
 import { candidateId } from "./features";
+import { PerUserMutex } from "./mutex";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,
@@ -34,6 +41,7 @@ export class CatalogService {
   readonly recordAccessThrottleMs: number;
 
   private readonly db: Db;
+  private readonly mirrorMutex = new PerUserMutex();
 
   constructor(db: Db, opts: CatalogServiceOptions = {}) {
     this.db = db;
@@ -188,20 +196,40 @@ export class CatalogService {
     };
   }
 
-  async getUserHistory(_userId: string): Promise<HistoryEvent[]> {
-    return [];
+  async getUserHistory(userId: string): Promise<HistoryEvent[]> {
+    const row = await this.db
+      .select({ events: userHistoryMirror.events })
+      .from(userHistoryMirror)
+      .where(eq(userHistoryMirror.userId, userId))
+      .get();
+    return row?.events ?? [];
   }
 
-  async getUserRatings(_userId: string): Promise<RatingEvent[]> {
-    return [];
+  async getUserRatings(userId: string): Promise<RatingEvent[]> {
+    const row = await this.db
+      .select({ events: userRatingsMirror.events })
+      .from(userRatingsMirror)
+      .where(eq(userRatingsMirror.userId, userId))
+      .get();
+    return row?.events ?? [];
   }
 
-  async getHistoryCursors(_userId: string): Promise<PluginCursors> {
-    return {};
+  async getHistoryCursors(userId: string): Promise<PluginCursors> {
+    const row = await this.db
+      .select({ pluginCursors: userHistoryMirror.pluginCursors })
+      .from(userHistoryMirror)
+      .where(eq(userHistoryMirror.userId, userId))
+      .get();
+    return row?.pluginCursors ?? {};
   }
 
-  async getRatingsCursors(_userId: string): Promise<PluginCursors> {
-    return {};
+  async getRatingsCursors(userId: string): Promise<PluginCursors> {
+    const row = await this.db
+      .select({ pluginCursors: userRatingsMirror.pluginCursors })
+      .from(userRatingsMirror)
+      .where(eq(userRatingsMirror.userId, userId))
+      .get();
+    return row?.pluginCursors ?? {};
   }
 
   async writeDiscoverSnapshot(
@@ -237,21 +265,59 @@ export class CatalogService {
   }
 
   async appendUserHistory(
-    _userId: string,
-    _events: HistoryEvent[],
-    _connectionId: string,
-    _cursorTs: number,
+    userId: string,
+    events: HistoryEvent[],
+    connectionId: string,
+    cursorTs: number,
   ): Promise<void> {
-    return;
+    if (events.length === 0) return;
+    await this.mirrorMutex.run(userId, () =>
+      this.db.transaction(async (tx) => {
+        const existing = await tx
+          .select()
+          .from(userHistoryMirror)
+          .where(eq(userHistoryMirror.userId, userId))
+          .get();
+        const merged = mergeHistory(existing?.events ?? [], events);
+        const cursors = mergeCursor(existing?.pluginCursors ?? {}, connectionId, cursorTs);
+        const lastSyncedAt = Date.now();
+        await tx
+          .insert(userHistoryMirror)
+          .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
+          .onConflictDoUpdate({
+            target: [userHistoryMirror.userId],
+            set: { events: merged, pluginCursors: cursors, lastSyncedAt },
+          });
+      }),
+    );
   }
 
   async appendUserRatings(
-    _userId: string,
-    _events: RatingEvent[],
-    _connectionId: string,
-    _cursorTs: number,
+    userId: string,
+    events: RatingEvent[],
+    connectionId: string,
+    cursorTs: number,
   ): Promise<void> {
-    return;
+    if (events.length === 0) return;
+    await this.mirrorMutex.run(userId, () =>
+      this.db.transaction(async (tx) => {
+        const existing = await tx
+          .select()
+          .from(userRatingsMirror)
+          .where(eq(userRatingsMirror.userId, userId))
+          .get();
+        const merged = mergeRatings(existing?.events ?? [], events);
+        const cursors = mergeCursor(existing?.pluginCursors ?? {}, connectionId, cursorTs);
+        const lastSyncedAt = Date.now();
+        await tx
+          .insert(userRatingsMirror)
+          .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
+          .onConflictDoUpdate({
+            target: [userRatingsMirror.userId],
+            set: { events: merged, pluginCursors: cursors, lastSyncedAt },
+          });
+      }),
+    );
   }
 
   recordAccess(_items: MetadataKey[]): void {
@@ -285,4 +351,65 @@ function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
     traktId: row.traktId ?? null,
     traktSlug: row.traktSlug ?? null,
   };
+}
+
+/**
+ * Append-only merge for the history mirror. Dedupe key is
+ * `(tmdbId, mediaType, sourceConnectionId, watchedAt, episodeKey ?? '')`
+ * so re-syncing the same plugin window is idempotent. Existing events keep
+ * their original ordering; new events append in arrival order.
+ */
+function mergeHistory(prior: HistoryEvent[], next: HistoryEvent[]): HistoryEvent[] {
+  const seen = new Set<string>();
+  const out: HistoryEvent[] = [];
+  for (const event of prior) {
+    const key = historyKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(event);
+  }
+  for (const event of next) {
+    const key = historyKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(event);
+  }
+  return out;
+}
+
+function mergeRatings(prior: RatingEvent[], next: RatingEvent[]): RatingEvent[] {
+  const seen = new Set<string>();
+  const out: RatingEvent[] = [];
+  for (const event of prior) {
+    const key = ratingKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(event);
+  }
+  for (const event of next) {
+    const key = ratingKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(event);
+  }
+  return out;
+}
+
+function historyKey(event: HistoryEvent): string {
+  return `${event.tmdbId}|${event.mediaType}|${event.sourceConnectionId}|${event.watchedAt}|${event.episodeKey ?? ""}`;
+}
+
+function ratingKey(event: RatingEvent): string {
+  return `${event.tmdbId}|${event.mediaType}|${event.sourceConnectionId}|${event.ratedAt}`;
+}
+
+/**
+ * Cursor merge: per V39 the cursor advances monotonically per connection.
+ * `max(prior, incoming)` so a sync that lands an older window cannot
+ * rewind a connection's progress, even if events themselves are
+ * out-of-order.
+ */
+function mergeCursor(prior: PluginCursors, connectionId: string, cursorTs: number): PluginCursors {
+  const previous = prior[connectionId] ?? 0;
+  return { ...prior, [connectionId]: Math.max(previous, cursorTs) };
 }

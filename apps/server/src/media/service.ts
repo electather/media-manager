@@ -125,6 +125,40 @@ export class MediaService {
     return result.data ?? null;
   }
 
+  /**
+   * Aggregate `watchHistory@v1.getHistory` for the catalog mirror sync.
+   * The optional `pluginId` narrows the dispatch to a single plugin so the
+   * per-connection cursor advancement stays accurate when a user has
+   * multiple history-emitting plugins. The dispatcher itself has no
+   * `connectionId` filter; callers that need finer-grained narrowing run
+   * one mirror-sync row per `(userId, pluginId)` and tag events with the
+   * connection identity at the application layer.
+   */
+  async getAllHistory(pluginId?: string): Promise<unknown[]> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "watchHistory",
+      version: "v1",
+      method: "getHistory",
+      input: {},
+      ...(pluginId ? { pluginId } : {}),
+    });
+    return result.data ?? [];
+  }
+
+  /** Aggregate `ratings@v1.getRatings` — same shape as `getAllHistory`. */
+  async getAllRatings(pluginId?: string): Promise<unknown[]> {
+    const result = await dispatchAggregate<unknown[]>({
+      userId: this.userId,
+      capability: "ratings",
+      version: "v1",
+      method: "getRatings",
+      input: {},
+      ...(pluginId ? { pluginId } : {}),
+    });
+    return result.data ?? [];
+  }
+
   async similar(idOrCombined: string, type?: "movie" | "tv") {
     const [parsedType, parsedId] =
       type === undefined && idOrCombined.includes(":")

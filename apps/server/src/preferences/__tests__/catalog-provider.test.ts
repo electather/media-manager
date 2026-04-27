@@ -92,7 +92,7 @@ describe("CatalogPreferenceProvider", () => {
     expect(writeSpy).toHaveBeenCalled();
   });
 
-  it("delegates history, ratings, watchlist, and comments unchanged", async () => {
+  it("falls back to the live provider for history when the mirror is empty", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
     const history: HistorySignal[] = [
       { tmdbId: "1", mediaType: "movie", watchedAt: 1, progress: 1 },
@@ -102,8 +102,50 @@ describe("CatalogPreferenceProvider", () => {
 
     expect(await provider.getHistory("u1")).toHaveLength(1);
     expect(fallback.getHistory).toHaveBeenCalledWith("u1");
-    expect(await provider.getAllRatings("u1")).toEqual([]);
+  });
+
+  it("serves history from the catalog mirror when populated", async () => {
+    const db = await createInMemoryDb();
+    const catalog = new CatalogService(db);
+    await db.insert((await import("../../db/schema/auth")).user).values({
+      id: "u1",
+      name: "u1",
+      email: "u1@test",
+      emailVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    await catalog.appendUserHistory(
+      "u1",
+      [
+        {
+          tmdbId: "42",
+          mediaType: "movie",
+          watchedAt: 100,
+          sourceConnectionId: "trakt",
+          episodeKey: null,
+          progress: 1,
+        },
+      ],
+      "trakt",
+      100,
+    );
+    const fallback = makeFallback();
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
+    const history = await provider.getHistory("u1");
+    expect(history).toEqual([{ tmdbId: "42", mediaType: "movie", watchedAt: 100, progress: 1 }]);
+    expect(fallback.getHistory).not.toHaveBeenCalled();
+  });
+
+  it("delegates watchlist and comments unchanged", async () => {
+    const catalog = new CatalogService(await createInMemoryDb());
+    const fallback = makeFallback();
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
     expect(await provider.getWatchlist("u1")).toEqual([]);
     expect(await provider.getComments("u1")).toEqual([]);
+    expect(fallback.getWatchlist).toHaveBeenCalledWith("u1");
+    expect(fallback.getComments).toHaveBeenCalledWith("u1");
   });
 });

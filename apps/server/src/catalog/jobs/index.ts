@@ -2,6 +2,7 @@ import { getCatalogService } from "..";
 import { registerCatalogDiscoverSnapshotJob } from "./discover-snapshot";
 import { registerCatalogMetadataRefreshJob } from "./metadata-refresh";
 import { registerCatalogRecommendationBuildJob } from "./recommendation-build";
+import { registerCatalogUserMirrorSyncJob } from "./user-mirror-sync";
 
 /**
  * Registers every host-internal catalog job. Each job consumes the
@@ -14,6 +15,7 @@ export function registerCatalogJobs(): void {
   registerCatalogMetadataRefreshJob({ catalog });
   registerCatalogDiscoverSnapshotJob({ catalog });
   registerCatalogRecommendationBuildJob({ catalog });
+  registerCatalogUserMirrorSyncJob({ catalog });
 }
 
 export { CATALOG_METADATA_REFRESH_JOB_ID } from "./metadata-refresh";
@@ -22,3 +24,4 @@ export {
   CATALOG_RECOMMENDATION_BUILD_JOB_ID,
   writeRecommendationsForUser,
 } from "./recommendation-build";
+export { CATALOG_USER_MIRROR_SYNC_JOB_ID } from "./user-mirror-sync";
