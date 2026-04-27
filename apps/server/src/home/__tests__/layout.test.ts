@@ -5,10 +5,11 @@
  */
 
 import { describe, it, expect, vi } from "vite-plus/test";
-import { runFetch } from "../layout";
+import { buildRowStubs, fetchHero, runFetch } from "../layout";
 import { ROW_FETCHERS } from "../rows/index";
 import { AllPluginsFailedError } from "../../media/errors";
 import type { RowFetchContext } from "../rows/index";
+import type { LayoutSignals } from "../signals";
 
 /**
  * `runFetch` is the only place `FetchOutcome` is computed. Each branch is
@@ -138,6 +139,105 @@ describe("runFetch outcome classification", () => {
       expect(received).toBeLessThanOrEqual(before + 5_100);
     } finally {
       ROW_FETCHERS.trendingNow.fetch = original;
+    }
+  });
+});
+
+const baseSignals: LayoutSignals = {
+  hasWatchHistoryPlugin: false,
+  hasWatchlistPlugin: false,
+  hasCalendarPlugin: false,
+  hasRecommendationsPlugin: false,
+  inProgressCount: 0,
+  watchlistCount: 0,
+  calendarProgressCount: 0,
+  profileConfidence: "none",
+  recentSeed: null,
+};
+
+describe("buildRowStubs", () => {
+  it("builds a stub for every rowId in order with null initialCursor by default", () => {
+    const stubs = buildRowStubs(["trendingNow", "newReleases"], baseSignals);
+    expect(stubs.map((s) => s.rowId)).toEqual(["trendingNow", "newReleases"]);
+    expect(stubs.every((s) => s.initialCursor === null)).toBe(true);
+  });
+
+  it("sets a seed-pinned initialCursor and subtitle for becauseYouWatched", () => {
+    const signals: LayoutSignals = {
+      ...baseSignals,
+      recentSeed: {
+        id: "movie:550",
+        tmdbId: "550",
+        mediaType: "movie",
+        title: "Fight Club",
+        reason: "liked",
+      },
+    };
+    const stubs = buildRowStubs(["becauseYouWatched"], signals);
+    expect(stubs[0]?.initialCursor).not.toBeNull();
+    expect(stubs[0]?.subtitle).toBe("Because you watched Fight Club");
+  });
+
+  it("sets null initialCursor for becauseYouWatched when recentSeed is absent", () => {
+    const stubs = buildRowStubs(["becauseYouWatched"], baseSignals);
+    expect(stubs[0]?.initialCursor).toBeNull();
+  });
+});
+
+describe("fetchHero", () => {
+  it("returns null hero when candidates list is empty", async () => {
+    const ctx = makeStubCtx();
+    const result = await fetchHero([], ctx);
+    expect(result.hero).toBeNull();
+    expect(result.heroSource).toBeNull();
+    expect(result.heroCursor).toBeNull();
+  });
+
+  it("picks the first candidate that returns a non-empty item", async () => {
+    const original = ROW_FETCHERS.trendingNow.fetch;
+    ROW_FETCHERS.trendingNow.fetch = async () => ({
+      items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "x" }],
+      cursor: "c1",
+    });
+    try {
+      const ctx = makeStubCtx();
+      const result = await fetchHero(["trendingNow"], ctx);
+      expect(result.hero?.source).toBe("trendingNow");
+      expect(result.hero?.reason).toBe("trending");
+      expect(result.heroCursor).toBe("c1");
+    } finally {
+      ROW_FETCHERS.trendingNow.fetch = original;
+    }
+  });
+
+  it("falls back to the next candidate when the first returns empty", async () => {
+    const origCW = ROW_FETCHERS.continueWatching.fetch;
+    const origTrending = ROW_FETCHERS.trendingNow.fetch;
+    ROW_FETCHERS.continueWatching.fetch = async () => ({ items: [], cursor: null });
+    ROW_FETCHERS.trendingNow.fetch = async () => ({
+      items: [{ id: "movie:3", tmdbId: "3", mediaType: "movie", title: "y" }],
+      cursor: null,
+    });
+    try {
+      const ctx = makeStubCtx();
+      const result = await fetchHero(["continueWatching", "trendingNow"], ctx);
+      expect(result.heroSource).toBe("trendingNow");
+    } finally {
+      ROW_FETCHERS.continueWatching.fetch = origCW;
+      ROW_FETCHERS.trendingNow.fetch = origTrending;
+    }
+  });
+
+  it("returns null when all candidates are empty", async () => {
+    const orig = ROW_FETCHERS.trendingNow.fetch;
+    ROW_FETCHERS.trendingNow.fetch = async () => ({ items: [], cursor: null });
+    try {
+      const ctx = makeStubCtx();
+      const result = await fetchHero(["trendingNow"], ctx);
+      expect(result.hero).toBeNull();
+      expect(result.heroCursor).toBeNull();
+    } finally {
+      ROW_FETCHERS.trendingNow.fetch = orig;
     }
   });
 });

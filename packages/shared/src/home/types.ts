@@ -61,9 +61,21 @@ export interface LayoutHero {
   resumeUrl: string | null;
 }
 
+/** Row structure returned by `getLayout`. Contains no items — use `getRowContent` to load them. */
+export interface HomeRowStub {
+  rowId: RowKind;
+  title: string;
+  titleOverride?: string;
+  subtitle?: string;
+  /** Cursor to pass as the first `getRowContent` call. Null means first page; non-null pins a seed (e.g. `becauseYouWatched`). */
+  initialCursor: string | null;
+  /** Set when the hero fetch returned partial data for this row's source. */
+  partial?: true;
+}
+
 export interface HomeLayoutResponse {
   hero: LayoutHero | null;
-  rows: HomeRow[];
+  rows: HomeRowStub[];
   /** Server clock at response assembly, ms epoch. */
   generatedAt: number;
 }

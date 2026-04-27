@@ -3,8 +3,10 @@ import {
   applyHeroExclusion,
   candidateRows,
   dropEmpty,
+  makeHero,
   orderRows,
   resolveHero,
+  resolveHeroCandidates,
   resolveLayoutOrder,
   type FetchedRow,
 } from "../rules";
@@ -223,6 +225,51 @@ describe("home rules", () => {
         resumeUrl: null,
       };
       expect(applyHeroExclusion(rows, hero)).toEqual(rows);
+    });
+  });
+
+  describe("resolveHeroCandidates", () => {
+    it("returns empty when no hero-eligible rows are in order", () => {
+      expect(resolveHeroCandidates(baseSignals, ["newReleases", "yourWatchlist"])).toEqual([]);
+    });
+
+    it("includes trendingNow when present", () => {
+      expect(resolveHeroCandidates(baseSignals, ["trendingNow", "newReleases"])).toContain(
+        "trendingNow",
+      );
+    });
+
+    it("excludes recommendedForYou when profile confidence is low/none", () => {
+      const order: FetchedRow["rowId"][] = ["recommendedForYou", "trendingNow"];
+      const candidates = resolveHeroCandidates(withSignals({ profileConfidence: "low" }), order);
+      expect(candidates).not.toContain("recommendedForYou");
+      expect(candidates).toContain("trendingNow");
+    });
+
+    it("includes recommendedForYou when profile confidence is medium or high", () => {
+      const order: FetchedRow["rowId"][] = ["continueWatching", "recommendedForYou", "trendingNow"];
+      const medium = resolveHeroCandidates(withSignals({ profileConfidence: "medium" }), order);
+      expect(medium).toContain("recommendedForYou");
+      const high = resolveHeroCandidates(withSignals({ profileConfidence: "high" }), order);
+      expect(high).toContain("recommendedForYou");
+    });
+
+    it("returns candidates in priority order: continueWatching, rfy, trending", () => {
+      const order: FetchedRow["rowId"][] = ["continueWatching", "recommendedForYou", "trendingNow"];
+      const candidates = resolveHeroCandidates(withSignals({ profileConfidence: "high" }), order);
+      expect(candidates).toEqual(["continueWatching", "recommendedForYou", "trendingNow"]);
+    });
+  });
+
+  describe("makeHero", () => {
+    it("builds a LayoutHero with resumeUrl null", () => {
+      const hero = makeHero(sampleItem, "trendingNow", "trending");
+      expect(hero).toEqual({
+        item: sampleItem,
+        source: "trendingNow",
+        reason: "trending",
+        resumeUrl: null,
+      });
     });
   });
 

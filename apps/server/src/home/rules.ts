@@ -128,7 +128,7 @@ export function resolveHero(
   return null;
 }
 
-function makeHero(
+export function makeHero(
   item: CompactMediaItem,
   source: RowKind,
   reason: LayoutHero["reason"],
@@ -143,6 +143,30 @@ function makeHero(
     resumeUrl: null,
   };
 }
+
+const HERO_REASONS: Partial<Record<RowKind, LayoutHero["reason"]>> = {
+  continueWatching: "continue_watching",
+  recommendedForYou: "recommended",
+  trendingNow: "trending",
+};
+
+/**
+ * Returns the subset of hero-eligible rows present in `order`, in priority
+ * order: continueWatching wins; recommendedForYou only when profile is
+ * confident; trendingNow is the last resort. Drives which rows `fetchHero`
+ * tries before giving up.
+ */
+export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]): RowKind[] {
+  const inOrder = new Set(order);
+  const out: RowKind[] = [];
+  if (inOrder.has("continueWatching")) out.push("continueWatching");
+  const confident = signals.profileConfidence === "medium" || signals.profileConfidence === "high";
+  if (inOrder.has("recommendedForYou") && confident) out.push("recommendedForYou");
+  if (inOrder.has("trendingNow")) out.push("trendingNow");
+  return out;
+}
+
+export { HERO_REASONS };
 
 /**
  * Removes the hero item from its source row and stamps the matching title
