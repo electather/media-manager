@@ -11,6 +11,7 @@ export { registerCoalesced } from "./coalesced";
 export type { TriggerableJobHandle, CoalescedJobHandle, JobRunContext } from "./types";
 export { jobErrors } from "./errors";
 export { recentRuns, recentRunsFiltered, getRunDetail } from "./history";
+export { isRunning, anyRunning } from "./runner";
 
 /** Removes a registered job. Cron entry is stopped; in-flight runs finish naturally. */
 export function unregister(jobId: string): void {

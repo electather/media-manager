@@ -55,6 +55,23 @@ export function isRunning(jobId: string, scopeKey?: string | null): boolean {
   return active.has(activeKey(jobId, scopeKey));
 }
 
+/**
+ * Returns true if any of the named jobs has an active run regardless of
+ * scope. Used by `host.catalog.prune` to skip a sweep while the rec-build
+ * jobs (nightly + manual rebuild) are still writing — eviction would
+ * otherwise race their in-flight catalog references.
+ */
+export function anyRunning(jobIds: readonly string[]): boolean {
+  if (jobIds.length === 0) return false;
+  const wanted = new Set(jobIds);
+  for (const key of active.keys()) {
+    const sep = key.indexOf("::");
+    const id = sep >= 0 ? key.slice(0, sep) : key;
+    if (wanted.has(id)) return true;
+  }
+  return false;
+}
+
 /** Requests cancellation of a running (jobId, scopeKey). Returns true iff there was something to cancel. */
 export function requestCancel(jobId: string, scopeKey?: string | null): boolean {
   const controller = active.get(activeKey(jobId, scopeKey));
