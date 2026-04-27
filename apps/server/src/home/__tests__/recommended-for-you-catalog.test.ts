@@ -30,9 +30,21 @@ function buildCanonical(key: MetadataKey, title: string): CanonicalMetadata {
   };
 }
 
+interface RawMediaItemFixture {
+  id: string;
+  type: "movie" | "tv";
+  title: string;
+  ids: { tmdb_id: string };
+}
+
 function makeMediaServiceStub() {
   return {
-    getRecommendationsFeed: vi.fn(async () => ({ items: [], partial: false })),
+    getRecommendationsFeed: vi.fn(
+      async (): Promise<{ items: RawMediaItemFixture[]; partial: boolean }> => ({
+        items: [],
+        partial: false,
+      }),
+    ),
   };
 }
 
@@ -131,6 +143,53 @@ describe("recommendedForYou catalog hydration", () => {
 
     expect(result.items).toHaveLength(20);
     expect(result.items[0]?.id).toBe("movie:0");
+  });
+
+  it("starts at page 0 when a v2 catalog cursor arrives but the rec list is gone", async () => {
+    // Regression: a stale v2 cursor (`{ p, pv }`) decoded by the live-path
+    // reader used to carry its `p` counter forward, instantly tripping the
+    // `MAX_ITEMS / opts.limit - 1` cap and emitting a null next-cursor —
+    // pagination dead-ended on the page the user just loaded. Live path
+    // must reset to `p = 0` when it sees a v2 cursor.
+    const media = makeMediaServiceStub();
+    const candidateItems: RawMediaItemFixture[] = Array.from({ length: 60 }, (_, i) => ({
+      id: `movie:${i}`,
+      type: "movie" as const,
+      title: `Item ${i}`,
+      ids: { tmdb_id: String(i) },
+    }));
+    media.getRecommendationsFeed = vi.fn(async () => ({ items: candidateItems, partial: false }));
+    const ctx = makeCtx(media, { list: null, rows: {} });
+    // Override the rank stub so the live path produces enough items to
+    // emit a non-null next cursor — the real assertion is on `p` rolling
+    // forward from 0, not on whether ranking produced output.
+    ctx.preferenceEngine = {
+      rankCandidates: async (_userId: string, candidates: unknown[]) =>
+        (candidates as Array<unknown>).map((item) => ({
+          item,
+          score: 1,
+          features: {},
+          topContributors: [],
+        })),
+      explainRanked: async () => null,
+    } as unknown as RowFetchContext["preferenceEngine"];
+    const staleCursor = encodeCursor("recommendedForYou", {
+      v: 1,
+      r: "recommendedForYou",
+      p: 5,
+      pv: 3,
+    });
+
+    const result = await recommendedForYouFetcher.fetch(ctx, {
+      cursor: staleCursor,
+      limit: 20,
+    });
+
+    expect(media.getRecommendationsFeed).toHaveBeenCalledOnce();
+    expect(result.cursor).not.toBeNull();
+    const decoded = decodeCursor("recommendedForYou", result.cursor!);
+    expect(decoded.p).toBe(1);
+    expect("x" in decoded).toBe(true);
   });
 
   it("flags partial when the metadata batch is missing rows", async () => {

@@ -58,13 +58,15 @@ function readCatalogCursor(cursor: string | null): { page: number; pv: number | 
 /**
  * Live-fallback page reader. v2 cursors don't roundtrip through the live
  * path — if a catalog cursor lands here mid-flight (rec list expired), we
- * start fresh rather than carry a meaningless exclusion list.
+ * start fresh rather than carry the catalog page counter into the live
+ * cap guard, which would otherwise short-circuit pagination on the first
+ * page the user sees.
  */
 function readLiveCursor(cursor: string | null): { page: number; exclusion: string[] } {
   if (!cursor) return { page: 0, exclusion: [] };
   const decoded = decodeCursor(ROW_ID, cursor);
   if ("x" in decoded) return { page: decoded.p, exclusion: decoded.x };
-  return { page: decoded.p, exclusion: [] };
+  return { page: 0, exclusion: [] };
 }
 
 async function hydrateFromCatalog(

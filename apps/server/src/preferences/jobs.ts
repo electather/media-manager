@@ -34,7 +34,13 @@ export function registerPreferenceJobs(): void {
     id: PREFERENCE_DAILY_JOB_ID,
     name: "Daily preference rebuild",
     description: "Rebuilds preference profiles for users with stale or missing profiles.",
-    schedule: "0 2 * * *",
+    // Offset behind `host.catalog.recommendation_build` (02:00) so the two
+    // jobs do not race `profile_version` on the same user set. The catalog
+    // rec build already rebuilds profiles before writing its list; this
+    // sweep stays as the safety net for users the catalog job did not touch
+    // (e.g. row-source mid-flight failure) and runs once the rec window has
+    // settled.
+    schedule: "0 3 * * *",
     adminTriggerable: true,
     rowSource: listUsersNeedingRebuild,
     handler: async (ctx, row) => {
