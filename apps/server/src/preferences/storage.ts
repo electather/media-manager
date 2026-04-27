@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type {
   PreferenceProfile,
   ProfileFeatures,
@@ -8,8 +8,26 @@ import { getDb } from "../db/client";
 import { preferenceProfiles } from "../db/schema";
 import { deriveConfidence, emptyFeatures } from "./types";
 
+/**
+ * Server-internal extension of `PreferenceProfile` carrying the monotonic
+ * `version` column. The version coordinates rec-list freshness (V43) and is
+ * intentionally absent from the shared `PreferenceProfile` type to keep
+ * `@ent-mcp/shared` server-internal-state-free per V12.
+ */
+export interface StoredPreferenceProfile extends PreferenceProfile {
+  version: number;
+}
+
+export interface WriteProfileOptions {
+  /**
+   * When set, increments `preference_profiles.version` atomically as part of
+   * the write. Reserved for full rebuilds (V43); incremental updates omit it.
+   */
+  bumpVersion?: boolean;
+}
+
 export const profileStorage = {
-  async read(userId: string, mediaType: ProfileMediaType): Promise<PreferenceProfile | null> {
+  async read(userId: string, mediaType: ProfileMediaType): Promise<StoredPreferenceProfile | null> {
     const row = await getDb()
       .select()
       .from(preferenceProfiles)
@@ -21,7 +39,7 @@ export const profileStorage = {
     return toProfile(row);
   },
 
-  async write(profile: PreferenceProfile): Promise<void> {
+  async write(profile: PreferenceProfile, opts: WriteProfileOptions = {}): Promise<void> {
     const payload = {
       userId: profile.userId,
       mediaType: profile.mediaType,
@@ -32,24 +50,31 @@ export const profileStorage = {
       lastUpdatedAt: profile.lastUpdatedAt,
       embedding: null,
       embeddingModel: null,
+      // Initial-insert version: bumping callers start at 1 so the first
+      // rebuild is observable as a non-zero `profile_version` on rec lists.
+      version: opts.bumpVersion ? 1 : 0,
     };
+    const set: Record<string, unknown> = {
+      features: payload.features,
+      sampleSize: payload.sampleSize,
+      confidence: payload.confidence,
+      lastRebuiltAt: payload.lastRebuiltAt,
+      lastUpdatedAt: payload.lastUpdatedAt,
+    };
+    if (opts.bumpVersion) {
+      set.version = sql`${preferenceProfiles.version} + 1`;
+    }
     await getDb()
       .insert(preferenceProfiles)
       .values(payload)
       .onConflictDoUpdate({
         target: [preferenceProfiles.userId, preferenceProfiles.mediaType],
-        set: {
-          features: payload.features,
-          sampleSize: payload.sampleSize,
-          confidence: payload.confidence,
-          lastRebuiltAt: payload.lastRebuiltAt,
-          lastUpdatedAt: payload.lastUpdatedAt,
-        },
+        set,
       });
   },
 };
 
-function toProfile(row: typeof preferenceProfiles.$inferSelect): PreferenceProfile {
+function toProfile(row: typeof preferenceProfiles.$inferSelect): StoredPreferenceProfile {
   return {
     userId: row.userId,
     mediaType: row.mediaType,
@@ -58,6 +83,7 @@ function toProfile(row: typeof preferenceProfiles.$inferSelect): PreferenceProfi
     confidence: row.confidence,
     lastRebuiltAt: row.lastRebuiltAt,
     lastUpdatedAt: row.lastUpdatedAt,
+    version: row.version,
   };
 }
 

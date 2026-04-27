@@ -17,6 +17,7 @@ export const preferenceProfiles = sqliteTable(
     lastUpdatedAt: integer("last_updated_at").notNull(),
     embedding: blob("embedding"),
     embeddingModel: text("embedding_model"),
+    version: integer("version").notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.mediaType] })],
 );

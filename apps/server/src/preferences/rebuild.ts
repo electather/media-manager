@@ -81,7 +81,7 @@ export async function rebuildProfile(
     lastRebuiltAt: now,
     lastUpdatedAt: now,
   };
-  await profileStorage.write(profile);
+  await profileStorage.write(profile, { bumpVersion: true });
   const topEntries = (dict: Record<string, number>, n: number) =>
     Object.entries(dict)
       .sort((a, b) => b[1] - a[1])

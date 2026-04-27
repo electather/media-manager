@@ -1,4 +1,5 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+import type { CatalogService } from "../../catalog";
 import type { MediaService } from "../../media/service";
 import type { PreferenceEngine } from "../../preferences";
 import type { RequestScopedLoader, PluginRequirement } from "../dataloader";
@@ -32,6 +33,7 @@ import { yourWatchlistFetcher } from "./your-watchlist";
 export interface RowFetchContext {
   userId: string;
   mediaService: MediaService;
+  catalogService: CatalogService;
   preferenceEngine: PreferenceEngine;
   dataloader: RequestScopedLoader;
   logger: RowLogger;
