@@ -78,4 +78,84 @@ describe("HomeFeed branches", () => {
       expect(screen.getByText("New releases")).toBeTruthy();
     });
   });
+
+  it("renders the top-zone composition when hero and sidebar are both present", async () => {
+    apiMock.getLayout.mockResolvedValueOnce(
+      jsonResponse({
+        hero: {
+          item: {
+            id: "movie:550",
+            tmdbId: "550",
+            mediaType: "movie",
+            title: "Fight Club",
+            backdrop: "b",
+          },
+          source: "trendingNow",
+          reason: "trending",
+          resumeUrl: null,
+        },
+        rows: [
+          {
+            rowId: "upcomingForYou",
+            title: "Upcoming",
+            items: [
+              {
+                id: "tv:1",
+                tmdbId: "1",
+                mediaType: "tv",
+                title: "Show",
+                episode: { season: 1, episode: 2, airsAt: Date.UTC(2026, 4, 1) },
+              },
+            ],
+            cursor: null,
+          },
+          { rowId: "trendingNow", title: "Trending now", items: [], cursor: null },
+        ],
+        generatedAt: 1,
+      } satisfies HomeLayoutResponse),
+    );
+    renderFeed();
+    await waitFor(() => {
+      expect(screen.getByTestId("top-zone")).toBeTruthy();
+      expect(screen.getByTestId("home-hero")).toBeTruthy();
+      expect(screen.getByTestId("sidebar-title")).toBeTruthy();
+    });
+  });
+
+  it("promotes the sidebar row into the main feed when the hero is absent", async () => {
+    apiMock.getLayout.mockResolvedValueOnce(
+      jsonResponse({
+        hero: null,
+        rows: [
+          {
+            rowId: "upcomingForYou",
+            title: "Upcoming",
+            items: [
+              {
+                id: "tv:1",
+                tmdbId: "1",
+                mediaType: "tv",
+                title: "Show",
+                episode: { season: 1, episode: 2, airsAt: Date.UTC(2026, 4, 1) },
+              },
+            ],
+            cursor: null,
+          },
+          { rowId: "trendingNow", title: "Trending now", items: [], cursor: null },
+        ],
+        generatedAt: 1,
+      } satisfies HomeLayoutResponse),
+    );
+    renderFeed();
+    // No hero + no sidebar partner → TopZone short-circuits to null.
+    await waitFor(() => expect(screen.getByText("Upcoming")).toBeTruthy());
+    expect(screen.queryByTestId("top-zone")).toBeNull();
+    expect(screen.queryByTestId("home-hero")).toBeNull();
+    // Sidebar row title now appears as a regular row heading.
+    const headings = screen.getAllByTestId("row-title").map((el) => el.textContent);
+    expect(headings).toContain("Upcoming");
+    expect(headings).toContain("Trending now");
+    // And it leads — promoted to the head of the rows array.
+    expect(headings[0]).toBe("Upcoming");
+  });
 });

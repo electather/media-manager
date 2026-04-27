@@ -11,7 +11,6 @@ export interface CenteredStateProps {
 export function CenteredState({ title, body, action, className }: CenteredStateProps) {
   return (
     <div
-      role="status"
       className={cn(
         "mx-auto flex w-full max-w-[420px] flex-col items-center gap-3 px-4 py-16 text-center",
         className,

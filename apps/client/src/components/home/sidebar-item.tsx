@@ -16,7 +16,7 @@ export function SidebarItem({ item }: { item: CompactMediaItem }) {
     });
   }
 
-  const episodeLine = item.episode ? `E${item.episode.episode} - S${item.episode.season}` : null;
+  const episodeLine = item.episode ? `S${item.episode.season} E${item.episode.episode}` : null;
   const dateLine = item.episode ? formatRelativeAirDate(item.episode.airsAt) : null;
   const art = item.backdrop ?? item.poster;
 

@@ -45,16 +45,26 @@ function HomeFeedContent({ data }: ContentProps) {
     [data.rows, removedRows],
   );
 
+  // When hero is absent, the sidebar has no top-zone partner to balance it,
+  // so promote it to a regular row at the head of the feed (design doc
+  // §States: "Sidebar collapses, renders as horizontal-scroll row at top of
+  // rows[]"). TopZone short-circuits when its hero prop is null below.
+  const heroAbsent = data.hero === null;
+  const promotedSidebar = heroAbsent ? sidebarRow : null;
+  const topSidebar = heroAbsent ? null : sidebarRow;
+
   const mainRows = useMemo(
     () =>
       data.rows.filter((r) => ROW_DISPLAY[r.rowId].slot === "main" && !removedRows.has(r.rowId)),
     [data.rows, removedRows],
   );
 
+  const orderedRows = promotedSidebar ? [promotedSidebar, ...mainRows] : mainRows;
+
   return (
     <div className="flex flex-col gap-6 py-4 md:gap-8 md:py-6">
-      <TopZone hero={data.hero} sidebarRow={sidebarRow} />
-      {mainRows.map((row) => (
+      <TopZone hero={data.hero} sidebarRow={topSidebar} />
+      {orderedRows.map((row) => (
         <Row
           key={row.rowId}
           row={row}

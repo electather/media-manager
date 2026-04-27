@@ -28,7 +28,7 @@ describe("SidebarItem", () => {
     };
     render(<SidebarItem item={item} />);
     expect(screen.getByText("Euphoria")).toBeTruthy();
-    expect(screen.getByText("E3 - S5")).toBeTruthy();
+    expect(screen.getByText("S5 E3")).toBeTruthy();
     expect(screen.getByText(/Tomorrow|Today/)).toBeTruthy();
   });
 

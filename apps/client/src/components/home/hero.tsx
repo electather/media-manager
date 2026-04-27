@@ -1,7 +1,6 @@
 import type { MouseEvent } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { LayoutHero } from "@ent-mcp/shared/home";
-import { Card } from "./card";
 
 export function Hero({ hero }: { hero: LayoutHero }) {
   const router = useRouter();
@@ -78,6 +77,3 @@ export function Hero({ hero }: { hero: LayoutHero }) {
     </a>
   );
 }
-
-// Re-export Card so callers can use the same dispatch when no hero exists yet.
-export { Card };

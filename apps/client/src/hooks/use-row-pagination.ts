@@ -13,7 +13,11 @@ export interface UseRowPaginationArgs {
 export const homeRowQueryKey = (rowId: RowKind) => ["home", "row", rowId] as const;
 
 const INITIAL_PAGE_SENTINEL = Symbol("initial-page");
-type PageParam = string | null | typeof INITIAL_PAGE_SENTINEL;
+// TanStack Query treats a `null`/`undefined` from `getNextPageParam` as the
+// "no next page" signal and stops calling `queryFn`, so the only param the
+// query function ever receives is either the initial sentinel or a real
+// cursor string.
+type PageParam = string | typeof INITIAL_PAGE_SENTINEL;
 
 interface RowPage {
   items: CompactMediaItem[];
@@ -48,7 +52,10 @@ export function useRowPagination({
     queryKey: homeRowQueryKey(rowId),
     initialPageParam: INITIAL_PAGE_SENTINEL,
     queryFn: async ({ pageParam }) => {
-      if (pageParam === INITIAL_PAGE_SENTINEL || pageParam === null) {
+      // `getNextPageParam` returns `last.cursor`; TanStack Query stops calling
+      // `queryFn` when that resolves to `null`, so the only non-string param
+      // we ever receive is the initial sentinel.
+      if (pageParam === INITIAL_PAGE_SENTINEL) {
         return { items: initialItems, cursor: initialCursor };
       }
       return fetchRowPage(rowId, pageParam);

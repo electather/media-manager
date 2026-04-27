@@ -40,14 +40,20 @@ function progressPercent(progress: { watched: number; total: number }): number {
   return Math.min(100, Math.max(0, (progress.watched / progress.total) * 100));
 }
 
+// `toLocaleTimeString` is only spec-bound to render time fields; passing
+// `weekday` is a V8 extension other engines may drop. `Intl.DateTimeFormat`
+// formats whatever combination of fields the options object names, so the
+// weekday + time output is portable across engines.
+const EPISODE_TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+  weekday: "short",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 function formatEpisodeLine(item: CompactMediaItem): string | null {
   if (!item.episode) return null;
   const { season, episode, airsAt } = item.episode;
-  const time = new Date(airsAt).toLocaleTimeString(undefined, {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const time = EPISODE_TIME_FORMAT.format(new Date(airsAt));
   return `S${season} E${episode} · ${time}`;
 }
 
@@ -77,6 +83,7 @@ export function Card({ item, rowId, size = "row", className }: CardProps) {
       href={`/media/${item.id}`}
       onClick={handleClick}
       data-testid="home-card"
+      data-card-link
       data-treatment={treatment}
       data-size={size}
       data-aspect={display.aspectRatio}
