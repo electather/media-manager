@@ -196,11 +196,11 @@ interface CompactMediaItem {
   mediaType: "movie" | "tv";
   title: string;
   year?: number;
-  poster?: string; // fanart.tv preferred, TMDB fallback (comment update)
-  backdrop?: string; // fanart.tv preferred, TMDB fallback (comment update)
-  clearLogo?: string; // NEW: fanart.tv hdmovielogo / hdtvlogo
-  progress?: { watched: number; total: number }; // existing; semantics clarify: within-content (movie OR episode)
-  episodeProgress?: { watched: number; total: number }; // NEW: TV-only season position; "2/12 watched"  backdrop?: string; // TMDB proxied URL; rows that want large art
+  // Image fields (poster/backdrop/clearLogo) intentionally absent — client
+  // resolves artwork via `artwork.get` RPC. See
+  // `docs/2026-04-26-plugin-fanart-design.md`.
+  progress?: { watched: number; total: number }; // within-content (movie OR episode)
+  episodeProgress?: { watched: number; total: number }; // TV-only season position; "2/12 watched"
   overview?: string; // truncated to ~240 chars
   genres?: string[]; // top 3
   rating?: number; // aggregated; omitted when no source
@@ -351,7 +351,7 @@ resumeUrl resolution — new subsection. Decide before implementation: extend wa
 Per-row updates — continueWatching:
 
 Populate episodeProgress for TV items from watchHistory's season-level state.
-compact.ts mapper prefers fanart.tv assets (poster, backdrop, clearLogo) with TMDB fallback.
+compact.ts mapper drops every image field. Client resolves artwork via `artwork.get` RPC after layout response. See `docs/2026-04-26-plugin-fanart-design.md`.
 
 ```ts
 function resolveHero(
@@ -929,5 +929,5 @@ One test per user-state fixture:
 - **Dashboard rate limiting.** ⊥ introduced here. Extend same token-bucket primitive used for MCP to RPC if needed.
 - **A/B variants on rule table.** Pure-function shape built for it; no experiment infra wired v1.
 - **MCP equivalent.** MCP agents already get home-equivalent via `ent_discover`; dedicated `ent_home` would duplicate surface — ⊥ planned.
-- Add: fanart.tv access. Rate limits, language-tagged asset selection, fallback chain. Own subspec or metadata-capability extension.
+- ~~Add: fanart.tv access. Rate limits, language-tagged asset selection, fallback chain. Own subspec or metadata-capability extension.~~ **Resolved** by `docs/2026-04-26-plugin-fanart-design.md` — new `artwork@v1` capability + `@ent-mcp/plugin-fanart` plugin + `artwork.get` RPC. Image fields removed from `CompactMediaItem`; client resolves artwork via lazy-loaded `artwork.get` calls.
 - Add: resumeUrl capability owner. watchHistory@v1 extension vs new playback@v1. Decide before implementation.

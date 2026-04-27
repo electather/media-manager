@@ -375,6 +375,7 @@ Runtime enforcement on every invocation:
 - `continueWatching@v1` — server-computed "pick up where you left off" feed with Next Up episode stitching. Typically `user`. Distinct from `playback@v1` (raw positions) — server's own ranking with Next Up logic already joined.
 - `libraryAdmin@v1` — trigger library scan / metadata refresh on demand. Typically `user`, but called by host after `mediaRequest@v1` fulfils so new file lands immediately. App-layer auth may restrict to admins.
 - `notificationDelivery@v1` — send notification to 3rd-party service (ntfy, Telegram, Discord) | built-in in-app inbox. Typically `user`. Extra manifest field `supportsKinds: NotificationContentKind[]` so host knows if plugin can render images, markdown, inline actions. See `docs/2026-04-25-notifications-design.md`.
+- `artwork@v1` — HD posters, backdrops, clear logos, thumbs per item. Typically `global`. Aggregate per-kind merge across providers w/ `providerPriority` (lower = higher). Extra manifest fields `supportedIdTypes: { movie, tv }` (which id types each provider can serve) + `providerPriority`. Strategy = `aggregate_per_kind` (new variant). See `docs/2026-04-26-plugin-fanart-design.md`.
 
 **Capability discipline.** Plugin declaring capability ! implement every method — loader rejects plugins with missing implementations. Service not natively supporting method → (a) don't declare that capability, or (b) degrade gracefully (empty array | `{ ok: false }`). ⊥ silent ignore. Routing matrix boolean — callers assume "plugin claims watchHistory" ≡ every watchHistory method works.
 
@@ -429,6 +430,10 @@ _Media-server backings (added this revision):_ Plex `GET /:/scrobble` + `GET /:/
 **`idResolve@v1`** (mixed — see §idResolve below for mixed-scope routing rules)
 
 - `resolve({ from, id, type })` → partial id bundle.
+
+**`artwork@v1`** (global, _new_)
+
+- `getArtwork({ ids: { tmdb?, imdb?, tvdb? }, type, languages? })` → `ArtworkBundle` — `{ poster, backdrop, clearLogo, thumb }` each ranked `ArtworkVariant[]` (≤5 per kind) sorted by language preference then likes. Default `languages: ["en", "00"]`. Aggregate-strategy `aggregate_per_kind` merges per-kind across providers in priority order; first non-empty wins per kind. See `docs/2026-04-26-plugin-fanart-design.md`.
 
 **`userComments@v1`** (user)
 
@@ -567,25 +572,26 @@ V1: provider enumeration & cache-keying ! agree on resolved scope for same reque
 
 ### Built-in Plugin Coverage
 
-| Capability               | TMDB     | Trakt    | Seerr  | TVDB     | Plex   | Jellyfin |
-| ------------------------ | -------- | -------- | ------ | -------- | ------ | -------- |
-| `metadata@v1`            | ✓ global |          |        |          |        |          |
-| `idResolve@v1`           | ✓ global | ✓ global |        | ✓ global | ✓ user | ✓ user   |
-| `watchHistory@v1`        |          | ✓ user   |        |          | ✓ user | ✓ user   |
-| `watchlist@v1`           |          | ✓ user   |        |          |        |          |
-| `ratings@v1`             |          | ✓ user   |        |          |        |          |
-| `recommendations@v1`     |          | ✓ user   |        |          |        |          |
-| `calendar@v1`            |          | ✓ user   |        |          |        |          |
-| `mediaRequest@v1`        |          |          | ✓ user |          |        |          |
-| `userComments@v1`        |          | ✓ user   |        |          |        |          |
-| `watchProviders@v1`      | ✓ global |          |        |          |        |          |
-| `trailers@v1`            | ✓ global |          |        |          |        |          |
-| `playback@v1`            |          | ✓ user   |        |          | ✓ user | ✓ user   |
-| `collection@v1`          |          | ✓ user   |        |          |        |          |
-| `libraryAvailability@v1` |          |          |        |          | ✓ user | ✓ user   |
-| `playbackSessions@v1`    |          |          |        |          | ✓ user | ✓ user   |
-| `continueWatching@v1`    |          |          |        |          | ✓ user | ✓ user   |
-| `libraryAdmin@v1`        |          |          |        |          | ✓ user | ✓ user   |
+| Capability               | TMDB     | Trakt    | Seerr  | TVDB     | Plex   | Jellyfin | Fanart   |
+| ------------------------ | -------- | -------- | ------ | -------- | ------ | -------- | -------- |
+| `metadata@v1`            | ✓ global |          |        |          |        |          |          |
+| `idResolve@v1`           | ✓ global | ✓ global |        | ✓ global | ✓ user | ✓ user   |          |
+| `watchHistory@v1`        |          | ✓ user   |        |          | ✓ user | ✓ user   |          |
+| `watchlist@v1`           |          | ✓ user   |        |          |        |          |          |
+| `ratings@v1`             |          | ✓ user   |        |          |        |          |          |
+| `recommendations@v1`     |          | ✓ user   |        |          |        |          |          |
+| `calendar@v1`            |          | ✓ user   |        |          |        |          |          |
+| `mediaRequest@v1`        |          |          | ✓ user |          |        |          |          |
+| `userComments@v1`        |          | ✓ user   |        |          |        |          |          |
+| `watchProviders@v1`      | ✓ global |          |        |          |        |          |          |
+| `trailers@v1`            | ✓ global |          |        |          |        |          |          |
+| `playback@v1`            |          | ✓ user   |        |          | ✓ user | ✓ user   |          |
+| `collection@v1`          |          | ✓ user   |        |          |        |          |          |
+| `libraryAvailability@v1` |          |          |        |          | ✓ user | ✓ user   |          |
+| `playbackSessions@v1`    |          |          |        |          | ✓ user | ✓ user   |          |
+| `continueWatching@v1`    |          |          |        |          | ✓ user | ✓ user   |          |
+| `libraryAdmin@v1`        |          |          |        |          | ✓ user | ✓ user   |          |
+| `artwork@v1`             | ✓ global |          |        |          |        |          | ✓ global |
 
 `notificationDelivery@v1` coverage lives in dedicated notification plugins (`ntfy`, `telegram`, `discord`, built-in `inbox`). Existing media-integration plugins ⊥ implement notification delivery; notification plugins implement only `notificationDelivery@v1`. See `docs/2026-04-25-notifications-design.md`.
 
