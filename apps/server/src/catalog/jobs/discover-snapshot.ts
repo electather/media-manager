@@ -25,8 +25,10 @@ interface SnapshotTuple {
 interface DiscoverFilters {
   releaseDateGte?: number;
   releaseDateLte?: number;
-  sort: DiscoverSort | "popularity_asc" | "release_date_desc";
+  sort: DiscoverSort;
 }
+
+const TRENDING_WINDOW_DAYS = 30;
 
 /** Tuples land verbatim on `(feedKind, sort, day)` keys per V42. */
 function tuplesForDay(today: number): SnapshotTuple[] {
@@ -41,9 +43,18 @@ function tuplesForDay(today: number): SnapshotTuple[] {
       },
     },
     {
+      // Trending = popularity-sorted within a recent-release window so the
+      // tuple captures momentum rather than catalog-wide popularity. Without
+      // the window the trending and popular tuples would collapse to the
+      // same dispatch + same persisted items, which is what the follow-up
+      // row reconciliation will need to differentiate.
       kind: "trending",
       sort: "popularity_desc",
-      filters: { sort: "popularity_desc" },
+      filters: {
+        releaseDateGte: today - TRENDING_WINDOW_DAYS * DAY_MS,
+        releaseDateLte: today + DAY_MS,
+        sort: "popularity_desc",
+      },
     },
     {
       kind: "upcoming",
@@ -131,8 +142,12 @@ function collectPairs(items: RawCanonicalSource[]): CanonicalPair[] {
 }
 
 function asKey(item: RawCanonicalSource): MetadataKey | null {
-  const tmdbId = item.ids?.tmdb_id ?? splitFromCombined(item.id)?.id;
-  const type = item.type ?? splitFromCombined(item.id)?.type;
+  // Only fall back to splitting the combined `id` string when one of the
+  // explicit fields is missing — saves a parse on the typical TMDB payload
+  // path where both `ids.tmdb_id` and `type` are populated.
+  const split = !item.ids?.tmdb_id || !item.type ? splitFromCombined(item.id) : null;
+  const tmdbId = item.ids?.tmdb_id ?? split?.id;
+  const type = item.type ?? split?.type;
   if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
   return { tmdbId, type };
 }
