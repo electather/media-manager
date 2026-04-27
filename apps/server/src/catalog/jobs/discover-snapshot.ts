@@ -3,11 +3,11 @@ import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";
 import { toCanonicalRow, type RawCanonicalSource } from "../canonical";
-import type { CanonicalMetadata, DiscoverFeedKind, DiscoverSort, MetadataKey } from "../types";
+import type { DiscoverFeedKind, DiscoverSort, MetadataKey } from "../types";
+import { SYSTEM_USER_ID } from "./constants";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SNAPSHOT_LIMIT = 60;
-const SYSTEM_USER_ID = "__system__";
 
 export const CATALOG_DISCOVER_SNAPSHOT_JOB_ID = "host.catalog.discover_snapshot";
 
@@ -95,44 +95,39 @@ export async function runCatalogDiscoverSnapshot(
       ...tuple.filters,
       limit: SNAPSHOT_LIMIT,
     });
-    const items = result.items as RawCanonicalSource[];
-    const refs = collectRefs(items);
-    if (refs.length === 0) {
+    const pairs = collectPairs(result.items as RawCanonicalSource[]);
+    if (pairs.length === 0) {
       ctx.logger.debug(`[catalog:discover-snapshot] empty result for ${tuple.kind}/${tuple.sort}`);
       continue;
     }
-    const canonical = collectCanonical(refs, items);
-    if (canonical.length > 0) await deps.catalog.writeMetadata(canonical);
-    await deps.catalog.writeDiscoverSnapshot(tuple.kind, tuple.sort, today, refs);
+    await deps.catalog.writeMetadata(pairs.map(({ key, item }) => toCanonicalRow(key, item)));
+    await deps.catalog.writeDiscoverSnapshot(
+      tuple.kind,
+      tuple.sort,
+      today,
+      pairs.map(({ key }) => key),
+    );
     snapshots += 1;
   }
 
   ctx.logger.info(`[catalog:discover-snapshot] wrote ${snapshots} of 4 daily snapshots`);
 }
 
-/**
- * Pairs each plugin item with the matching canonical row, dropping any item
- * that has no resolvable `(tmdbId, mediaType)` so the snapshot stays ref-
- * able by the downstream metadata batcher.
- */
-function collectRefs(items: RawCanonicalSource[]): MetadataKey[] {
-  const refs: MetadataKey[] = [];
-  for (const item of items) {
-    const key = asKey(item);
-    if (key) refs.push(key);
-  }
-  return refs;
+interface CanonicalPair {
+  key: MetadataKey;
+  item: RawCanonicalSource;
 }
 
-function collectCanonical(refs: MetadataKey[], items: RawCanonicalSource[]): CanonicalMetadata[] {
-  const out: CanonicalMetadata[] = [];
-  for (let i = 0; i < refs.length; i++) {
-    const ref = refs[i];
-    const item = items[i];
-    if (!ref || !item) continue;
-    out.push(toCanonicalRow(ref, item));
-  }
-  return out;
+/**
+ * Pairs each plugin item with its `(tmdbId, mediaType)` key, dropping any
+ * item that has no resolvable key so the ref + canonical lists stay
+ * index-aligned by construction.
+ */
+function collectPairs(items: RawCanonicalSource[]): CanonicalPair[] {
+  return items.flatMap((item) => {
+    const key = asKey(item);
+    return key ? [{ key, item }] : [];
+  });
 }
 
 function asKey(item: RawCanonicalSource): MetadataKey | null {

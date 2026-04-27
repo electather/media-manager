@@ -86,4 +86,29 @@ describe("host.catalog.discover_snapshot handler", () => {
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
     expect(await catalog.getDiscoverFeed("newReleases", "popularity_desc", today)).toBeNull();
   });
+
+  // Regression: a previous implementation collected refs and canonical rows
+  // in two passes, then paired them by index. When any item failed key
+  // resolution (no `tmdb_id`), the refs array shifted but the canonical
+  // pairing did not, persisting rows with misaligned IDs and titles.
+  it("aligns refs with their canonical rows when an item lacks a tmdb_id", async () => {
+    const catalog = new CatalogService(await createInMemoryDb());
+    discoverFeedMock.mockReset().mockResolvedValue({
+      items: [
+        // First item has no resolvable id and must be dropped.
+        { id: "movie:", type: "movie", title: "Dropped", ids: {} },
+        { id: "movie:7", type: "movie", title: "Item Seven", ids: { tmdb_id: "7" } },
+      ],
+      partial: false,
+    });
+
+    await runCatalogDiscoverSnapshot({ catalog }, buildJobCtx());
+
+    const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+    const refs = await catalog.getDiscoverFeed("newReleases", "popularity_desc", today);
+    expect(refs).toEqual([{ tmdbId: "7", type: "movie" }]);
+
+    const persisted = await catalog.getMetadata("7", "movie");
+    expect(persisted?.title).toBe("Item Seven");
+  });
 });

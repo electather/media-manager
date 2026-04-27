@@ -4,6 +4,7 @@ import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";
 import { toCanonicalRow, type RawCanonicalSource } from "../canonical";
 import type { CanonicalMetadata, MetadataKey } from "../types";
+import { SYSTEM_USER_ID } from "./constants";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -12,10 +13,6 @@ export const CATALOG_METADATA_REFRESH_JOB_ID = "host.catalog.metadata_refresh";
 const STALE_AFTER_MS = 30 * DAY_MS;
 const BATCH_LIMIT = 500;
 const BATCH_SIZE = 25;
-// `metadata@v1` is global-scope, so the user-id passed to MediaService is
-// only used for telemetry — the dispatcher routes through admin-pool
-// credentials regardless. We pin a sentinel so the value is searchable.
-const SYSTEM_USER_ID = "__system__";
 
 export interface CatalogMetadataRefreshDeps {
   catalog: CatalogService;

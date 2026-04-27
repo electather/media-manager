@@ -3,8 +3,6 @@ import { newReleasesFetcher } from "../rows/new-releases";
 import type { RowFetchContext } from "../rows/index";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 function makeMediaServiceStub() {
   return {
     discoverFeed: vi.fn(async () => ({
@@ -107,8 +105,6 @@ describe("newReleases fetcher catalog hydration", () => {
 
   it("ends pagination cleanly when the snapshot is exhausted", async () => {
     const media = makeMediaServiceStub();
-    const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
-    void today;
     const key: MetadataKey = { tmdbId: "1", type: "movie" };
     const ctx = makeCtx(media, {
       snapshot: [key],
@@ -116,6 +112,18 @@ describe("newReleases fetcher catalog hydration", () => {
     });
 
     const result = await newReleasesFetcher.fetch(ctx, { cursor: null, limit: 20 });
+    expect(result.cursor).toBeNull();
+    expect(media.discoverFeed).not.toHaveBeenCalled();
+  });
+
+  it("emits an empty page with partial=true when every metadata batch row is cold", async () => {
+    const media = makeMediaServiceStub();
+    const key: MetadataKey = { tmdbId: "999", type: "movie" };
+    const ctx = makeCtx(media, { snapshot: [key], rows: {} });
+
+    const result = await newReleasesFetcher.fetch(ctx, { cursor: null, limit: 20 });
+    expect(result.items).toEqual([]);
+    expect(result.partial).toBe(true);
     expect(result.cursor).toBeNull();
     expect(media.discoverFeed).not.toHaveBeenCalled();
   });
