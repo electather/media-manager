@@ -195,8 +195,19 @@ export interface CapabilityMethodSpec<
   optional?: boolean;
 }
 
-/** Dispatch strategy. See `docs/media-service.md` §capability-strategies. */
-export type CapabilityStrategy = "single" | "aggregate" | "primary_with_enrichment";
+/**
+ * Dispatch strategy. Tagged union so variants can carry their own
+ * configuration (e.g. `aggregate_per_kind`'s `perKindFields`). See
+ * `docs/media-service.md` §capability-strategies.
+ */
+export type CapabilityStrategy =
+  | { kind: "single" }
+  | { kind: "aggregate" }
+  | { kind: "primary_with_enrichment" }
+  | { kind: "aggregate_per_kind"; perKindFields: readonly string[] };
+
+/** Lookup helper — narrows a strategy variant by its discriminator. */
+export type CapabilityStrategyKind = CapabilityStrategy["kind"];
 
 /** Capability-owned MCP tool — handler is a host-side function. */
 export interface CapabilityMcpTool {

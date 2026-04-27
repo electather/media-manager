@@ -1,3 +1,4 @@
+export * from "./artwork";
 export * from "./auth";
 export * from "./common";
 export * from "./connections";
