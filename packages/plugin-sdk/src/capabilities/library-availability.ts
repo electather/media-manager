@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { libraryItemSchema, LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
+import { libraryItemSchema } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "../define";
-import { MIN } from "./shared-schemas";
+import { MIN, libraryItemQueryType } from "./shared-schemas";
 
 /**
  * Id-type accepted by `libraryAvailability@v1.checkAvailability`. Covers the
@@ -10,13 +10,6 @@ import { MIN } from "./shared-schemas";
  * can skip the resolve step.
  */
 const libraryAvailabilityIdType = z.enum(["tmdb", "imdb", "tvdb", "plex", "jellyfin"]);
-
-// Inputs across libraryAvailability@v1 / continueWatching@v1 use
-// LIBRARY_ITEM_QUERY_TYPES (`"movie" | "show"`) rather than the cross-service
-// `mediaType` ("movie" | "tv") so the input vocabulary matches the
-// LIBRARY_ITEM_TYPES the output schema uses. Episodes are an output-only
-// granularity — callers filter at the title level.
-export const libraryItemQueryType = z.enum(LIBRARY_ITEM_QUERY_TYPES);
 
 const checkInput = z.object({
   /** Identifier value; its flavour is tagged by `idType`. */

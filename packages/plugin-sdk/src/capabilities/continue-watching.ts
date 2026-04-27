@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { libraryItemSchema } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "../define";
-import { MIN } from "./shared-schemas";
-import { libraryItemQueryType } from "./library-availability";
+import { MIN, libraryItemQueryType } from "./shared-schemas";
 
 const continueWatchingInput = z.object({
   type: libraryItemQueryType.optional(),

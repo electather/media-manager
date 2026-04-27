@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
 
 export const MIN = 60;
 export const HOUR = 60 * MIN;
@@ -48,6 +49,12 @@ export const watchlistEntry = z.object({
   item: mediaItem,
   addedAt: z.string(),
 });
+
+// Used by both libraryAvailability@v1 and continueWatching@v1. Uses
+// LIBRARY_ITEM_QUERY_TYPES ("movie" | "show") rather than the cross-service
+// mediaType ("movie" | "tv") so input vocabulary matches output LIBRARY_ITEM_TYPES.
+// Episodes are output-only granularity — callers filter at the title level.
+export const libraryItemQueryType = z.enum(LIBRARY_ITEM_QUERY_TYPES);
 
 export const inProgressEntry = z.object({
   item: mediaItem,
