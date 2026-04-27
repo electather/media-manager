@@ -15,6 +15,10 @@ export interface RankedCandidate {
   profileScore: number;
   confidence: Confidence;
   topContributors: FeatureContribution[];
+  // Feature payload that produced this score. Carrying it on the ranked
+  // entry lets `explainRanked` reuse it instead of re-fetching metadata,
+  // which would saturate the TMDB rate limit for top-N explanations.
+  features: CandidateFeatures;
 }
 
 export interface UserItemFeedback {

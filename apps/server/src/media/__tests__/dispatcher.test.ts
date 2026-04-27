@@ -413,6 +413,65 @@ describe("dispatchPrimary", () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]!.code).toBe("plugin.upstream_error");
   });
+
+  it("negative-caches the empty result at NEGATIVE_TTL_MS when every provider fails", async () => {
+    listProvidersMock.mockReturnValue(["tmdb"]);
+    resolveConnectionsMock.mockResolvedValue([userConn("tmdb")]);
+    getPrimaryMock.mockResolvedValue(null);
+    invokeMock
+      .mockRejectedValueOnce(new PluginError("plugin.upstream_error", "down"))
+      .mockRejectedValueOnce(new PluginError("plugin.upstream_error", "still down"));
+
+    const cache = new MemoryCache();
+    const setSpy = vi.spyOn(cache, "set");
+    setCacheProviderForTest(cache);
+
+    vi.useFakeTimers();
+    const promise = dispatchPrimary({
+      userId: "u1",
+      capability: "metadata",
+      version: "v1",
+      method: "getDetails",
+      input: { id: "1", type: "movie" },
+      mediaType: "movie",
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await promise;
+    vi.useRealTimers();
+
+    // Short TTL — keeps a transient TMDB outage from poisoning the 24h
+    // positive cache while still throttling repeat retries within the window.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy.mock.calls[0]![2]).toBe(60 * 1000);
+  });
+
+  it("uses ttlMsFor when every provider succeeds with empty data (stable absence)", async () => {
+    listProvidersMock.mockReturnValue(["tmdb"]);
+    resolveConnectionsMock.mockResolvedValue([userConn("tmdb")]);
+    getPrimaryMock.mockResolvedValue(null);
+    // success path with data:null is treated as a stable negative; it is
+    // filtered out of `successes`, leaves `errors` empty, and uses the
+    // capability's regular TTL — not the short negative window.
+    invokeMock.mockResolvedValueOnce(null);
+
+    const cache = new MemoryCache();
+    const setSpy = vi.spyOn(cache, "set");
+    setCacheProviderForTest(cache);
+
+    await dispatchPrimary({
+      userId: "u1",
+      capability: "metadata",
+      version: "v1",
+      method: "getDetails",
+      input: { id: "1", type: "movie" },
+      mediaType: "movie",
+    });
+
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    // Anything other than the 60s negative window is fine here — the contract
+    // is "do not use the negative TTL for stable-absence outcomes".
+    expect(setSpy.mock.calls[0]![2]).not.toBe(60 * 1000);
+  });
 });
 
 describe("id harvest", () => {

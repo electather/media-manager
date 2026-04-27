@@ -10,13 +10,15 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: navigateMock }) };
 });
 
-// Stub the artwork batching hook so Card tests stay focused on layout/click
-// behaviour. With no `data`, Card falls back to the inline `item.poster` /
-// `item.backdrop` / `item.clearLogo` fields exactly as it did before the hook
-// landed.
+const useArtworkMock = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
 vi.mock("@/hooks/use-artwork", () => ({
-  useArtwork: () => ({ data: undefined }),
+  useArtwork: useArtworkMock,
   EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
+}));
+
+const useInViewMock = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/use-in-view", () => ({
+  useInView: useInViewMock,
 }));
 
 import { Card } from "../card";
@@ -31,7 +33,13 @@ const baseItem: CompactMediaItem = {
   backdrop: "b.jpg",
 };
 
-beforeEach(() => navigateMock.mockReset());
+beforeEach(() => {
+  navigateMock.mockReset();
+  useArtworkMock.mockReset();
+  useArtworkMock.mockReturnValue({ data: undefined });
+  useInViewMock.mockReset();
+  useInViewMock.mockReturnValue(false);
+});
 afterEach(() => cleanup());
 
 describe("Card treatment dispatch (V31)", () => {
@@ -87,5 +95,36 @@ describe("Card link behaviour (V33)", () => {
     await user.click(screen.getByTestId("home-card"));
     await user.keyboard("{/Meta}");
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Card priority + viewport gating", () => {
+  function lastEnabled(): boolean | undefined {
+    const calls = useArtworkMock.mock.calls;
+    if (calls.length === 0) return undefined;
+    const lastCall = calls[calls.length - 1] as unknown as [unknown, { enabled?: boolean }?];
+    return lastCall[1]?.enabled;
+  }
+
+  it("requests artwork eagerly when priority is set, regardless of intersection", () => {
+    useInViewMock.mockReturnValue(false);
+    render(<Card item={baseItem} rowId="trendingNow" priority />);
+    expect(lastEnabled()).toBe(true);
+  });
+
+  it("defers artwork until intersection when priority is not set", () => {
+    useInViewMock.mockReturnValue(false);
+    const { rerender } = render(<Card item={baseItem} rowId="trendingNow" />);
+    expect(lastEnabled()).toBe(false);
+
+    useInViewMock.mockReturnValue(true);
+    rerender(<Card item={baseItem} rowId="trendingNow" />);
+    expect(lastEnabled()).toBe(true);
+  });
+
+  it("attaches a ref to the rendered anchor element so the observer can watch it", () => {
+    render(<Card item={baseItem} rowId="trendingNow" />);
+    const link = screen.getByTestId("home-card");
+    expect(link.tagName).toBe("A");
   });
 });

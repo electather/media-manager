@@ -5,6 +5,7 @@ import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * `metadata@v1.discover` with a recent-release filter. Always eligible —
@@ -18,15 +19,15 @@ export const newReleasesFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const page = readPage(opts.cursor);
-    const now = Date.now();
-    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-    // Per design §8: `release_date.gte = now - 90d`, `release_date.lte = now`,
-    // sort popularity desc. Plugins that don't recognise the filter keys
-    // fall back to native ordering — backward-compatible by SDK contract.
+    // Round to the calendar day so the dispatcher's 24h positive cache key
+    // is stable across requests within the same day. The upper bound is
+    // `today + DAY_MS` (exclusive end-of-day) so titles released today are
+    // still visible — switching to `today` would silently hide them.
+    const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
     const result = await ctx.mediaService.discoverFeed({
       limit: opts.limit * (page + 1),
-      releaseDateGte: now - ninetyDaysMs,
-      releaseDateLte: now,
+      releaseDateGte: today - 90 * DAY_MS,
+      releaseDateLte: today + DAY_MS,
       sort: "popularity_desc",
       deadlineMs: ctx.deadlineMs,
     });

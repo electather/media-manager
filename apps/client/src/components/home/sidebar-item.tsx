@@ -19,11 +19,15 @@ export function SidebarItem({ item }: { item: CompactMediaItem }) {
 
   const episodeLine = item.episode ? `S${item.episode.season} E${item.episode.episode}` : null;
   const dateLine = item.episode ? formatRelativeAirDate(item.episode.airsAt) : null;
-  const artwork = useArtwork({
-    key: item.id,
-    ids: { tmdb: item.tmdbId },
-    type: item.mediaType,
-  });
+  // Sidebar is always above the fold — fetch eagerly, never gate on viewport.
+  const artwork = useArtwork(
+    {
+      key: item.id,
+      ids: { tmdb: item.tmdbId },
+      type: item.mediaType,
+    },
+    { enabled: true },
+  );
   const art =
     artwork.data?.backdrop[0]?.url ?? item.backdrop ?? artwork.data?.poster[0]?.url ?? item.poster;
 

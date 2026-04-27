@@ -13,3 +13,4 @@ apps/client/dist/
 test-server.ts
 .claude/worktrees/
 .token-savior-cache.json
+plan/

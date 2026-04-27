@@ -1,9 +1,10 @@
-import type { MouseEvent } from "react";
+import { useRef, type MouseEvent } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import { ROW_DISPLAY } from "@/lib/home-display";
 import { cn } from "@/lib/utils";
 import { useArtwork } from "@/hooks/use-artwork";
+import { useInView } from "@/hooks/use-in-view";
 import { StatusPill } from "./status-pill";
 import { RatingBadge } from "./rating-badge";
 import { MatchReason } from "./match-reason";
@@ -12,6 +13,12 @@ export interface CardProps {
   item: CompactMediaItem;
   rowId: RowKind;
   size?: "row" | "hero" | "sidebar";
+  /**
+   * When true, the card is treated as above-the-fold and fetches artwork
+   * eagerly. Below-fold cards defer until they intersect the viewport so
+   * a single slow image upstream cannot block the rest of the row.
+   */
+  priority?: boolean;
   className?: string;
 }
 
@@ -58,17 +65,22 @@ function formatEpisodeLine(item: CompactMediaItem): string | null {
   return `S${season} E${episode} · ${time}`;
 }
 
-export function Card({ item, rowId, size = "row", className }: CardProps) {
+export function Card({ item, rowId, size = "row", priority, className }: CardProps) {
   const router = useRouter();
   const display = ROW_DISPLAY[rowId];
   const treatment = pickTreatment(item);
   const aspect = display.aspectRatio === "poster" ? "aspect-[2/3]" : "aspect-video";
 
-  const artwork = useArtwork({
-    key: item.id,
-    ids: { tmdb: item.tmdbId },
-    type: item.mediaType,
-  });
+  const anchorRef = useRef<HTMLAnchorElement>(null);
+  const isInView = useInView(anchorRef);
+  const artwork = useArtwork(
+    {
+      key: item.id,
+      ids: { tmdb: item.tmdbId },
+      type: item.mediaType,
+    },
+    { enabled: Boolean(priority) || isInView },
+  );
   const posterUrl = artwork.data?.poster[0]?.url ?? item.poster;
   const backdropUrl = artwork.data?.backdrop[0]?.url ?? item.backdrop ?? posterUrl;
   const clearLogoUrl = artwork.data?.clearLogo[0]?.url ?? item.clearLogo;
@@ -90,6 +102,7 @@ export function Card({ item, rowId, size = "row", className }: CardProps) {
 
   return (
     <a
+      ref={anchorRef}
       href={`/media/${item.id}`}
       onClick={handleClick}
       data-testid="home-card"

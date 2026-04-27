@@ -51,6 +51,16 @@ export class PreferenceEngine {
     return explainAgainstProfile(features, profile);
   }
 
+  /**
+   * Explain a candidate that has already been ranked. Reuses the features
+   * captured on the RankedCandidate so the explanation does not trigger a
+   * second metadata fetch.
+   */
+  async explainRanked(userId: string, ranked: RankedCandidate): Promise<string | null> {
+    const profile = await this.resolveProfileForMedia(userId, ranked.item.type);
+    return explainAgainstProfile(ranked.features, profile);
+  }
+
   async previewFeedbackEffect(
     userId: string,
     item: MediaItem,

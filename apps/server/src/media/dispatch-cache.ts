@@ -26,15 +26,20 @@ export async function readCache<T>(
   return cached.v;
 }
 
+// Matches the existing 1 * MIN negativeCacheTtlSec precedent used by
+// watchHistory@v1, watchlist@v1, and ratings@v1 capabilities.
+export const NEGATIVE_TTL_MS = 60 * 1000;
+
 export async function writeCache<T>(
   req: DispatchRequest,
   capability: CapabilityDefinition,
   scope: ResolvedCapabilityScope,
   value: T,
+  ttlOverrideMs?: number,
 ): Promise<void> {
   if (req.skipCache) return;
   const key = await cacheKeyFor(req, scope);
-  const ttl = ttlMsFor(capability, value);
+  const ttl = ttlOverrideMs ?? ttlMsFor(capability, value);
   await getCacheProvider().set(key, { v: value }, ttl);
 }
 

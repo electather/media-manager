@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { HomeRowStub } from "@ent-mcp/shared/home";
 
@@ -16,6 +16,14 @@ vi.mock("@/hooks/use-artwork", () => ({
 const paginationMock = vi.hoisted(() => ({ value: { isPending: false } as unknown }));
 vi.mock("@/hooks/use-row-pagination", () => ({
   useRowPagination: () => paginationMock.value,
+}));
+
+const cardSpy = vi.hoisted(() => vi.fn());
+vi.mock("../card", () => ({
+  Card: (props: { priority?: boolean }) => {
+    cardSpy(props);
+    return <div data-testid="card-stub">{props.priority ? "priority" : "normal"}</div>;
+  },
 }));
 
 import { Row } from "../row";
@@ -39,10 +47,11 @@ const stub: HomeRowStub = {
   initialCursor: null,
 };
 
-function renderRow(stubOverride: Partial<HomeRowStub> = {}) {
-  return render(<Row row={{ ...stub, ...stubOverride }} onRowUnavailable={vi.fn()} />);
+function renderRow(stubOverride: Partial<HomeRowStub> = {}, props: { isFirstRow?: boolean } = {}) {
+  return render(<Row row={{ ...stub, ...stubOverride }} onRowUnavailable={vi.fn()} {...props} />);
 }
 
+beforeEach(() => cardSpy.mockReset());
 afterEach(() => cleanup());
 
 describe("Row partial indicator", () => {
@@ -68,5 +77,36 @@ describe("Row partial indicator", () => {
     setPagination({ items: [], isPartial: true });
     renderRow();
     expect(screen.queryByText(/all caught up on upcoming episodes/i)).toBeNull();
+  });
+});
+
+describe("Row priority propagation", () => {
+  // The single-backdrop path renders one Card directly; covers the
+  // non-carousel branch of Row's render tree.
+  const singleItem = {
+    id: "movie:1",
+    tmdbId: "1",
+    mediaType: "movie",
+    title: "x",
+  };
+
+  it("propagates priority=true to every rendered Card when isFirstRow is true", () => {
+    setPagination({ items: [singleItem] });
+    renderRow({ rowId: "continueWatching" }, { isFirstRow: true });
+    const priorities = cardSpy.mock.calls.map(
+      (call) => (call[0] as { priority?: boolean }).priority,
+    );
+    expect(priorities.length).toBeGreaterThan(0);
+    for (const p of priorities) expect(p).toBe(true);
+  });
+
+  it("does not mark cards as priority when isFirstRow is false or omitted", () => {
+    setPagination({ items: [singleItem] });
+    renderRow({ rowId: "continueWatching" });
+    const priorities = cardSpy.mock.calls.map(
+      (call) => (call[0] as { priority?: boolean }).priority,
+    );
+    expect(priorities.length).toBeGreaterThan(0);
+    for (const p of priorities) expect(p).toBeFalsy();
   });
 });

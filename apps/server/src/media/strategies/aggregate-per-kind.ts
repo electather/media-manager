@@ -8,7 +8,7 @@ const perKindInputSchema = z.object({
 });
 import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
-import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
+import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { invokeOne } from "../invoke";
 import { PluginCallError } from "../errors";
 import type { DispatchRequest } from "../types";
@@ -192,11 +192,12 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
     }
   }
 
-  // All-fail (every provider threw or errored) is treated as a transient
-  // miss; do not cache. All-empty (every provider returned empty bundle)
-  // is a stable negative — cache it so we stop hammering upstream.
+  // All-fail (every provider threw or errored) is treated as transient and
+  // cached at a short NEGATIVE_TTL_MS so retries do not amplify pressure on
+  // upstreams. All-empty (every provider returned empty bundle) is a stable
+  // negative cached at the capability's regular TTL.
+  await writeCache(req, capability, scope, bundle as T, allFailed ? NEGATIVE_TTL_MS : undefined);
   if (!allFailed) {
-    await writeCache(req, capability, scope, bundle as T);
     // Intentionally no harvestFromOutcomes — artwork bundles carry URLs and
     // language tags, not cross-service id mappings, so there's nothing to
     // contribute to id_map.

@@ -386,7 +386,7 @@ describe("dispatchAggregatePerKind", () => {
     expect(invokeMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not cache when every eligible provider fails (all-fail vs all-empty)", async () => {
+  it("negative-caches an empty bundle at NEGATIVE_TTL_MS when every provider fails", async () => {
     mockRegistry([
       {
         pluginId: "fanart",
@@ -396,6 +396,12 @@ describe("dispatchAggregatePerKind", () => {
     ]);
     invokeMock.mockRejectedValue(new Error("upstream down"));
 
+    // Spy on the cache provider's `set` so we can assert the TTL the
+    // dispatcher chose for the all-fail outcome.
+    const cache = new MemoryCache();
+    const setSpy = vi.spyOn(cache, "set");
+    setCacheProviderForTest(cache);
+
     const req = {
       userId: "u1",
       capability: "artwork",
@@ -403,13 +409,16 @@ describe("dispatchAggregatePerKind", () => {
       method: "getArtwork",
       input: { ids: { tmdb: "550" }, type: "movie" as const },
     };
-    await dispatchAggregatePerKind(req);
+    const first = await dispatchAggregatePerKind(req);
+    expect(first).toEqual(emptyBundle());
     const callsAfterFirst = invokeMock.mock.calls.length;
-    await dispatchAggregatePerKind(req);
-    const callsAfterSecond = invokeMock.mock.calls.length;
 
-    // Second dispatch redrives upstream because all-fail outcomes aren't
-    // cached — a cache hit would leave the call count unchanged.
-    expect(callsAfterSecond).toBeGreaterThan(callsAfterFirst);
+    // Cache write happened, and the TTL is the short negative window so a
+    // transient TMDB outage doesn't poison the 24h positive cache.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy.mock.calls[0]![2]).toBe(60 * 1000);
+
+    await dispatchAggregatePerKind(req);
+    expect(invokeMock.mock.calls.length).toBe(callsAfterFirst);
   });
 });

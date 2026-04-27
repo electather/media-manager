@@ -26,11 +26,15 @@ export function Hero({ hero }: { hero: LayoutHero }) {
   const remaining = progress ? Math.max(progress.total - progress.watched, 0) : null;
   const percent = progress && progress.total > 0 ? (progress.watched / progress.total) * 100 : 0;
 
-  const artwork = useArtwork({
-    key: item.id,
-    ids: { tmdb: item.tmdbId },
-    type: item.mediaType,
-  });
+  // Hero is always above the fold — fetch eagerly, never gate on viewport.
+  const artwork = useArtwork(
+    {
+      key: item.id,
+      ids: { tmdb: item.tmdbId },
+      type: item.mediaType,
+    },
+    { enabled: true },
+  );
   const backdropUrl =
     artwork.data?.backdrop[0]?.url ?? item.backdrop ?? artwork.data?.poster[0]?.url ?? item.poster;
   const clearLogoUrl = artwork.data?.clearLogo[0]?.url ?? item.clearLogo;

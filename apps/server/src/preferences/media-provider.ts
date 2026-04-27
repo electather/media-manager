@@ -73,7 +73,6 @@ export class MediaServicePreferenceProvider implements PreferenceDataProvider {
         method: "getDetails",
         input: { id: tmdbId, type: mediaType },
         mediaType,
-        skipCache: true,
       });
       if (!result.data) return null;
       return toCandidateFeatures({ ...result.data, type: mediaType, ids: { tmdb_id: tmdbId } });

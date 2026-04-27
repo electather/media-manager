@@ -1,7 +1,7 @@
 import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { getPrimaryConnection } from "../primary-preference";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
-import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
+import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { invokeOne, harvestFromOutcomes } from "../invoke";
 import type { ResolvedConnection } from "../resolve-connection";
 import type { InvocationOutcome } from "../errors";
@@ -122,7 +122,17 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
     const empty: AggregateResult<T> = { data: null as T, errors, attempted: outcomes.length };
-    await writeCache(req, capability, scope, empty);
+    // Distinguish two no-data cases. All-fail (every provider errored) is
+    // transient — a TMDB rate-limit storm should not poison the 24h positive
+    // cache. All-succeed-with-no-data is a stable absence and uses the
+    // capability's normal TTL via ttlMsFor.
+    //
+    // `errors` excludes `plugin.item_not_found` (see filter above), so a
+    // provider that returns "no such item" does not count toward all-fail —
+    // that outcome is a stable absence, not a transient failure, and should
+    // use the capability's regular TTL.
+    const isAllFail = outcomes.length > 0 && errors.length === outcomes.length;
+    await writeCache(req, capability, scope, empty, isAllFail ? NEGATIVE_TTL_MS : undefined);
     return empty;
   }
 

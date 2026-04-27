@@ -12,12 +12,21 @@ export interface RowCarouselProps {
   hasMore: boolean;
   isFetching: boolean;
   onNearEnd: () => void;
+  /** Pass-through to every rendered card; see Card.priority. */
+  priority?: boolean;
 }
 
 const NEAR_END_THRESHOLD = 0.75;
 const NEAR_END_DEBOUNCE_MS = 150;
 
-export function RowCarousel({ rowId, items, hasMore, isFetching, onNearEnd }: RowCarouselProps) {
+export function RowCarousel({
+  rowId,
+  items,
+  hasMore,
+  isFetching,
+  onNearEnd,
+  priority,
+}: RowCarouselProps) {
   // Slide width is keyed off the row's display config (V30: ROW_DISPLAY is
   // the single source of truth for layout), not per-item shape.
   const aspectRatio = ROW_DISPLAY[rowId].aspectRatio;
@@ -112,7 +121,7 @@ export function RowCarousel({ rowId, items, hasMore, isFetching, onNearEnd }: Ro
               className="shrink-0 basis-[128px] sm:basis-[140px] md:basis-[160px] xl:basis-[180px] data-[aspect=backdrop]:basis-[220px] data-[aspect=backdrop]:md:basis-[250px] data-[aspect=backdrop]:xl:basis-[280px]"
               data-aspect={aspectRatio === "backdrop" ? "backdrop" : undefined}
             >
-              <Card item={item} rowId={rowId} size="row" />
+              <Card item={item} rowId={rowId} size="row" priority={priority} />
             </div>
           ))}
           {isFetching ? (

@@ -85,10 +85,11 @@ function compositeId(item: RawMediaItem): string | null {
 
 /**
  * Calls `PreferenceEngine.rankCandidates` once for the union, takes the
- * top-N, then runs `explainMatch` only for the survivors. A profile that
- * is too thin to score returns the items in upstream order with no
- * `matchReason`, which is the design's "row renders, signal omitted"
- * degradation path.
+ * top-N, then runs `explainRanked` only for the survivors. `explainRanked`
+ * reuses the features that `rankCandidates` already fetched, so the
+ * top-N explanation pass does not trigger a second metadata fetch per
+ * item. A profile that is too thin to score returns the items in upstream
+ * order with no `matchReason`.
  */
 async function rankCandidates(
   ctx: RowFetchContext,
@@ -103,21 +104,15 @@ async function rankCandidates(
     return Promise.all(
       top.map(async (entry) => {
         const item = entry.item as unknown as RawMediaItem;
-        const reason = await safeExplain(ctx, item);
+        const reason = await ctx.preferenceEngine
+          .explainRanked(ctx.userId, entry)
+          .catch(() => null);
         return { item, matchReason: reason };
       }),
     );
   } catch (err) {
     ctx.logger.warn("[home/rfy] rank failed; falling back to upstream order:", err);
     return candidates.slice(0, limit).map((item) => ({ item, matchReason: null }));
-  }
-}
-
-async function safeExplain(ctx: RowFetchContext, item: RawMediaItem): Promise<string | null> {
-  try {
-    return await ctx.preferenceEngine.explainMatch(ctx.userId, toPreferenceMediaItem(item));
-  } catch {
-    return null;
   }
 }
 

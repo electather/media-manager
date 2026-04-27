@@ -20,6 +20,17 @@ export const auth = betterAuth({
       ...schema,
     },
   }),
+  // Cache the resolved session in a signed cookie for 5 minutes so per-call
+  // auth checks (e.g. one per artwork RPC) don't fan out into a DB round
+  // trip. Permission checks still hit the DB via requirePermission.
+  //
+  // Tradeoff: a session revoked or invalidated mid-window stays valid until
+  // the cookie expires (`maxAge` seconds). `requirePermission` still
+  // validates against the DB, so elevated operations cannot ride a stale
+  // cache; only the basic authenticated check trails by up to 5 minutes.
+  session: {
+    cookieCache: { enabled: true, maxAge: 5 * 60 },
+  },
   emailAndPassword: {
     enabled: true,
   },
