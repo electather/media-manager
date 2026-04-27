@@ -1,5 +1,5 @@
 import { capabilityRegistry } from "../../plugin-runtime/registry";
-import { resolveConnections, type ResolvedConnection } from "../resolve-connection";
+import { resolveConnections } from "../resolve-connection";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
 import { invokeOne, harvestFromOutcomes } from "../invoke";
@@ -16,11 +16,13 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
   if (cached !== undefined) return cached;
 
   const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
-  const candidates: Array<{ pluginId: string; conn: ResolvedConnection }> = [];
-  for (const pluginId of providers) {
-    const connections = await resolveConnections(req.userId, pluginId);
-    for (const conn of connections) candidates.push({ pluginId, conn });
-  }
+  const perPlugin = await Promise.all(
+    providers.map(async (pluginId) => {
+      const connections = await resolveConnections(req.userId, pluginId);
+      return connections.map((conn) => ({ pluginId, conn }));
+    }),
+  );
+  const candidates = perPlugin.flat();
 
   const outcomes = await Promise.all(
     candidates.map(({ pluginId, conn }) =>

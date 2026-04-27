@@ -1,6 +1,11 @@
 import { consola } from "consola";
 import { z } from "zod";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
+
+const perKindInputSchema = z.object({
+  ids: z.record(z.string(), z.unknown()).optional(),
+  type: z.enum(["movie", "tv"]).optional(),
+});
 import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
@@ -84,11 +89,7 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   const cached = await readCache<T>(req, scope);
   if (cached !== undefined) return cached;
 
-  const inputSchema = z.object({
-    ids: z.record(z.string(), z.unknown()).optional(),
-    type: z.enum(["movie", "tv"]).optional(),
-  });
-  const parsed = inputSchema.safeParse(req.input ?? {});
+  const parsed = perKindInputSchema.safeParse(req.input ?? {});
   if (!parsed.success || parsed.data.type === undefined) {
     throw new PluginCallError(
       "artwork.bad_input",
@@ -195,10 +196,10 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   // is a stable negative — cache it so we stop hammering upstream.
   if (!allFailed) {
     await writeCache(req, capability, scope, bundle as T);
+    // Intentionally no harvestFromOutcomes — artwork bundles carry URLs and
+    // language tags, not cross-service id mappings, so there's nothing to
+    // contribute to id_map.
+    await applyInvalidations(req, capability);
   }
-  // Intentionally no harvestFromOutcomes — artwork bundles carry URLs and
-  // language tags, not cross-service id mappings, so there's nothing to
-  // contribute to id_map.
-  await applyInvalidations(req, capability);
   return bundle as T;
 }

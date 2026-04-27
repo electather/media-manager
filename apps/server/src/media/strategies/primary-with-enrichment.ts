@@ -54,7 +54,7 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
   if (Array.isArray(first.data) || typeof first.data !== "object") {
     return first.data as T;
   }
-  const base: Record<string, unknown> = JSON.parse(JSON.stringify(first.data));
+  const base: Record<string, unknown> = structuredClone(first.data as Record<string, unknown>);
   for (const outcome of successes.slice(1)) {
     if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
       fillGaps(base, outcome.data as Record<string, unknown>);
