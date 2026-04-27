@@ -52,6 +52,44 @@ describe("RowCarousel slide width (V30)", () => {
     );
     expect(container.querySelectorAll("div.shrink-0[data-aspect]").length).toBe(0);
   });
+
+  it("renders the loading skeleton with backdrop sizing for backdrop rows", () => {
+    const { container } = render(
+      <RowCarousel
+        rowId="continueWatching"
+        items={items}
+        hasMore={true}
+        isFetching={true}
+        onNearEnd={() => {}}
+      />,
+    );
+    // Skeleton slide is the only slide that does not contain a Card link.
+    const slides = Array.from(container.querySelectorAll<HTMLDivElement>("div.shrink-0"));
+    const skeletonSlide = slides.find((s) => !s.querySelector("a[data-card-link]"));
+    expect(skeletonSlide).toBeDefined();
+    expect(skeletonSlide!.getAttribute("data-aspect")).toBe("backdrop");
+    const inner = skeletonSlide!.firstElementChild as HTMLElement;
+    expect(inner.className).toContain("aspect-video");
+    expect(inner.className).not.toContain("aspect-[2/3]");
+  });
+
+  it("renders the loading skeleton with poster sizing for poster rows", () => {
+    const { container } = render(
+      <RowCarousel
+        rowId="trendingNow"
+        items={items}
+        hasMore={true}
+        isFetching={true}
+        onNearEnd={() => {}}
+      />,
+    );
+    const slides = Array.from(container.querySelectorAll<HTMLDivElement>("div.shrink-0"));
+    const skeletonSlide = slides.find((s) => !s.querySelector("a[data-card-link]"));
+    expect(skeletonSlide).toBeDefined();
+    expect(skeletonSlide!.hasAttribute("data-aspect")).toBe(false);
+    const inner = skeletonSlide!.firstElementChild as HTMLElement;
+    expect(inner.className).toContain("aspect-[2/3]");
+  });
 });
 
 describe("RowCarousel arrow accessibility (T23)", () => {

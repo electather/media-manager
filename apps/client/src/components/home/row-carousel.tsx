@@ -116,8 +116,16 @@ export function RowCarousel({ rowId, items, hasMore, isFetching, onNearEnd }: Ro
             </div>
           ))}
           {isFetching ? (
-            <div className="shrink-0 basis-[128px] sm:basis-[140px] md:basis-[160px] xl:basis-[180px]">
-              <div className="aspect-[2/3] w-full animate-pulse rounded-md bg-muted/40" />
+            <div
+              className="shrink-0 basis-[128px] sm:basis-[140px] md:basis-[160px] xl:basis-[180px] data-[aspect=backdrop]:basis-[220px] data-[aspect=backdrop]:md:basis-[250px] data-[aspect=backdrop]:xl:basis-[280px]"
+              data-aspect={aspectRatio === "backdrop" ? "backdrop" : undefined}
+            >
+              <div
+                className={cn(
+                  "w-full animate-pulse rounded-md bg-muted/40",
+                  aspectRatio === "backdrop" ? "aspect-video" : "aspect-[2/3]",
+                )}
+              />
             </div>
           ) : null}
         </div>
