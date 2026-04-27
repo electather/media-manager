@@ -129,6 +129,8 @@ artwork:
   providerPriority:       20
 ```
 
+**Asymmetric id support.** TMDB's `supportedIdTypes` is `tmdb`-only — fanart accepts imdb for movies, TMDB does not. Movie items carrying only `imdb` ⊥ have a fallback when fanart 404s. Edge case covered in §"Open Questions / Deferred" → "IMDB-only movie items".
+
 Existing `globalConfigSchema.imageBaseUrl` (already on TMDB plugin manifest, default `"https://image.tmdb.org/t/p"`) reused — ⊥ new field. `artworkSizes` block adds:
 
 ```
@@ -236,9 +238,14 @@ dispatch(call, providers):
   if eligible.empty:
     throw hostError("artwork.unsupported_id_combo")
 
+  # Sort = merge-priority ordering only. Dispatch itself is parallel —
+  # all eligible providers fire concurrently regardless of priority.
+  # Priority decides who wins per-kind during merge, not who runs first.
   eligible.sortBy(p → p.manifestSpec.providerPriority asc)
 
-  results = parallel: ∀ p ∈ eligible → p.invoke(call.input)        # allSettled
+  # Promise.allSettled — one provider throwing must NOT propagate; merge
+  # walks fulfilled results in priority order, skips rejections.
+  results = await Promise.allSettled(eligible.map(p → p.invoke(call.input)))
   bundle  = { poster: [], backdrop: [], clearLogo: [], thumb: [] }
 
   ∀ kind ∈ ["poster", "backdrop", "clearLogo", "thumb"]:

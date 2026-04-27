@@ -179,16 +179,19 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 
 ### Cache TTL Defaults
 
-Capability defines `defaultCacheTtlSec`. Admin overrides per-capability via `/admin/plugins` (future UI):
+Capability defines `defaultCacheTtlSec` (and optional `defaultNegativeCacheTtlSec`). Admin overrides per-capability via `/admin/plugins` (future UI):
 
-| Capability           | Default TTL | Notes                          |
-| -------------------- | ----------- | ------------------------------ |
-| `metadata@v1`        | 24h         | Stable titles/overviews        |
-| `watchHistory@v1`    | 5m          | User expects near-real-time    |
-| `watchlist@v1`       | 5m          | Same                           |
-| `ratings@v1`         | 15m         |                                |
-| `recommendations@v1` | 6h          |                                |
-| `calendar@v1`        | 1h          | Provider-side schedule updates |
+| Capability           | Positive TTL | Negative TTL | Notes                                                                                                                                                                               |
+| -------------------- | ------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata@v1`        | 24h          | 5m (default) | Stable titles/overviews                                                                                                                                                             |
+| `watchHistory@v1`    | 5m           | 5m (default) | User expects near-real-time                                                                                                                                                         |
+| `watchlist@v1`       | 5m           | 5m (default) | Same                                                                                                                                                                                |
+| `ratings@v1`         | 15m          | 5m (default) |                                                                                                                                                                                     |
+| `recommendations@v1` | 6h           | 5m (default) |                                                                                                                                                                                     |
+| `calendar@v1`        | 1h           | 5m (default) | Provider-side schedule updates                                                                                                                                                      |
+| `artwork@v1`         | 24h          | 6h           | Negative TTL deliberately longer than system default — niche titles legitimately have no fanart-quality art; refresh hourly = waste. See `docs/2026-04-26-plugin-fanart-design.md`. |
+
+Capabilities can override the system 5m negative TTL via `defaultNegativeCacheTtlSec`. Use sparingly — longer negative TTL trades freshness for upstream-call savings; only justified when the negative result is truly stable (e.g. an item ⊥ in a third-party catalog).
 
 ## Caching
 
@@ -207,6 +210,7 @@ mv:{capability}:{version}:{method}:{scope}:{argsHash}
 - `scope` = `global` (user-independent, e.g. metadata) or `user:{userId}` (user-scoped)
 - `argsHash` = `sha256(JSON.stringify(canonicalize(input)))` truncated 16 hex. Canonicalization = sort keys recursively.
 - Capability-level scope declared in definition (`userScoped: boolean`)
+- **Per-capability `argsHash` decomposition (optional).** A capability may decompose `argsHash` into multiple human-readable segments when separation aids readability of cache keys, prefix-flush patterns, or debugging. E.g. `artwork@v1` uses `<idsHash>:<type>:<langPrefHash>` so logs surface the type + lang preference inline rather than burying them in an opaque hash. Decomposed segments still hash any free-form payload (so `idsHash` covers the `{ tmdb?, imdb?, tvdb? }` map). Capabilities that don't decompose stay on the single-hash default. See `docs/2026-04-26-plugin-fanart-design.md` §"Cache key" for an example.
 
 ### Backend
 
@@ -246,7 +250,7 @@ Each mutating method declares its invalidation prefix pattern; non-mutating read
 
 ### Negative Caching
 
-Null results (nonexistent tmdb_id) cached shorter TTL (default 5m) to prevent hammering external APIs for bad inputs. Errors not cached.
+Null results (nonexistent tmdb_id) cached shorter TTL (system default 5m) to prevent hammering external APIs for bad inputs. Errors not cached. Capabilities can override system default via `defaultNegativeCacheTtlSec` in `defineCapability` — see §"Cache TTL Defaults" table.
 
 ## Error Handling
 
