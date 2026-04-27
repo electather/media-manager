@@ -1,5 +1,7 @@
 import { consola } from "consola";
+import type { ArtworkBundle } from "@ent-mcp/shared/artwork";
 import type { CatalogService } from "../catalog";
+import { fetchArtworkBundle } from "../catalog/artwork-fetch";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog/canonical";
 import { toCandidateFeatures } from "../catalog/features";
 import type {
@@ -32,13 +34,19 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
     const cached = await this.catalog.getMetadata(tmdbId, mediaType);
     if (cached?.features) return toCandidateFeatures(cached);
 
-    const features = await this.fallback.getItemFeatures(userId, tmdbId, mediaType);
+    // Per V46: dispatch the metadata fallback and the `artwork@v1` lookup in
+    // parallel. `fetchArtworkBundle` catches its own failures and resolves to
+    // `null`, so the metadata write proceeds on artwork failure (degrade-quiet).
+    const [features, bundle] = await Promise.all([
+      this.fallback.getItemFeatures(userId, tmdbId, mediaType),
+      fetchArtworkBundle(userId, { tmdbId, type: mediaType }, { tmdb: tmdbId }),
+    ]);
     if (!features) return null;
 
     // Detached cold-fill write-back. Reads ⊥ block on the persist; write
     // failures are logged and dropped so a transient DB hiccup never poisons
     // a rebuild. `void … .catch` avoids the floating-promise lint.
-    void this.coldFill({ tmdbId, type: mediaType }, features).catch((err) => {
+    void this.coldFill({ tmdbId, type: mediaType }, features, bundle).catch((err) => {
       consola.warn("[catalog:provider] cold-fill write-back failed", err);
     });
     return features;
@@ -81,6 +89,7 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
   private async coldFill(
     key: { tmdbId: string; type: "movie" | "tv" },
     features: CandidateFeatures,
+    bundle: ArtworkBundle | null,
   ): Promise<void> {
     // Cold-fill projects the PE-side `CandidateFeatures` back onto the
     // catalog row shape via the canonical serializer. We use the same
@@ -100,6 +109,6 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
       originalLanguage: features.originalLanguage ?? null,
       ids: { tmdb_id: key.tmdbId },
     };
-    await this.catalog.writeMetadata([toCanonicalRow(key, raw)]);
+    await this.catalog.writeMetadata([toCanonicalRow(key, raw, Date.now(), bundle)]);
   }
 }

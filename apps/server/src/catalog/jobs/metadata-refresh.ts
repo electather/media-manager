@@ -1,7 +1,9 @@
+import type { ArtworkBundle } from "@ent-mcp/shared/artwork";
 import { MediaService } from "../../media/service";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";
+import { fetchArtworkBundle, toArtworkIds } from "../artwork-fetch";
 import { toCanonicalRow, type RawCanonicalSource } from "../canonical";
 import type { CanonicalMetadata, MetadataKey } from "../types";
 import { SYSTEM_USER_ID } from "./constants";
@@ -52,7 +54,9 @@ export async function runCatalogMetadataRefresh(
   for (let i = 0; i < stale.length; i += BATCH_SIZE) {
     ctx.abortSignal.throwIfAborted();
     const slice = stale.slice(i, i + BATCH_SIZE);
-    const results = await Promise.allSettled(slice.map((key) => fetchOne(media, key)));
+    const results = await Promise.allSettled(
+      slice.map((key) => fetchOne(media, deps.catalog, key)),
+    );
     const fresh = collectFresh(slice, results, ctx);
     if (fresh.length > 0) {
       await deps.catalog.writeMetadata(fresh);
@@ -69,11 +73,30 @@ export async function runCatalogMetadataRefresh(
 interface FetchResult {
   key: MetadataKey;
   data: RawCanonicalSource | null;
+  bundle: ArtworkBundle | null;
 }
 
-async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchResult> {
-  const data = await media.getMetadata(key.tmdbId, key.type);
-  return { key, data };
+/**
+ * Per V46 the refresh job fires `metadata@v1.getDetails` and
+ * `artwork@v1.getArtwork` in parallel for each stale row. Cross-provider ids
+ * (`imdb`, `tvdb`) are read off the joined `id_map` row so fanart.tv and
+ * TVDB-backed providers can serve clear logos and thumbs once
+ * `idResolve@v1` has populated the row — this is the second pass referenced
+ * by V46. A fresh row with no `id_map` entry dispatches with `tmdb` only,
+ * matching the first-pass narrative.
+ */
+async function fetchOne(
+  media: MediaService,
+  catalog: CatalogService,
+  key: MetadataKey,
+): Promise<FetchResult> {
+  const joined = await catalog.getMetadataWithIds(key.tmdbId, key.type);
+  const artworkIds = toArtworkIds(key.tmdbId, joined?.ids ?? null);
+  const [data, bundle] = await Promise.all([
+    media.getMetadata(key.tmdbId, key.type),
+    fetchArtworkBundle(SYSTEM_USER_ID, key, artworkIds),
+  ]);
+  return { key, data, bundle };
 }
 
 function collectFresh(
@@ -94,7 +117,7 @@ function collectFresh(
     }
     const data = result.value.data;
     if (!data) continue;
-    out.push(toCanonicalRow(key, data));
+    out.push(toCanonicalRow(key, data, Date.now(), result.value.bundle));
   }
   return out;
 }

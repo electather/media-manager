@@ -2,11 +2,26 @@
  * Tests assert on `vi.fn()` spies hung off a fallback record. The "unbound"
  * warning is noise — the spies are read as values, never invoked detached.
  */
-import { afterAll, describe, expect, it, vi } from "vite-plus/test";
-import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
-import { CatalogService } from "../../catalog/service";
-import { toCanonicalRow } from "../../catalog/canonical";
-import { CatalogPreferenceProvider } from "../catalog-provider";
+import type { ArtworkBundle } from "@ent-mcp/shared/artwork";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+vi.mock("../../env", () => ({
+  env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
+}));
+
+const fetchArtworkBundleMock = vi
+  .fn<(...args: unknown[]) => Promise<ArtworkBundle | null>>()
+  .mockResolvedValue(null);
+vi.mock("../../catalog/artwork-fetch", () => ({
+  fetchArtworkBundle: (...args: unknown[]) => fetchArtworkBundleMock(...args),
+  toArtworkIds: () => ({ tmdb: "0" }),
+}));
+
+const { cleanupInMemoryDbs, createInMemoryDb } =
+  await import("../../__tests__/helpers/in-memory-db");
+const { CatalogService } = await import("../../catalog/service");
+const { toCanonicalRow } = await import("../../catalog/canonical");
+const { CatalogPreferenceProvider } = await import("../catalog-provider");
 import type { HistorySignal, PreferenceDataProvider } from "../provider";
 import type { CandidateFeatures } from "../types";
 
@@ -39,6 +54,12 @@ function makeFallback(overrides: Partial<PreferenceDataProvider> = {}): Preferen
 }
 
 describe("CatalogPreferenceProvider", () => {
+  beforeEach(() => {
+    // Default: artwork dispatch unavailable in this test env. Individual
+    // bundle tests override the mock themselves.
+    fetchArtworkBundleMock.mockReset().mockResolvedValue(null);
+  });
+
   it("serves features from the catalog without invoking the fallback", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
     await catalog.writeMetadata([
@@ -144,6 +165,73 @@ describe("CatalogPreferenceProvider", () => {
     const history = await provider.getHistory("u1");
     expect(history).toEqual([{ tmdbId: "42", mediaType: "movie", watchedAt: 100, progress: 1 }]);
     expect(fallback.getHistory).not.toHaveBeenCalled();
+  });
+
+  it("merges the artwork@v1 bundle into the cold-fill row (V46)", async () => {
+    const bundle: ArtworkBundle = {
+      poster: [{ url: "https://art/poster.jpg", language: "en" }],
+      backdrop: [{ url: "https://art/backdrop.jpg", language: "00" }],
+      clearLogo: [{ url: "https://art/logo.png", language: "en" }],
+      thumb: [{ url: "https://art/thumb.jpg", language: "en" }],
+    };
+    fetchArtworkBundleMock.mockResolvedValueOnce(bundle);
+    const catalog = new CatalogService(await createInMemoryDb());
+    const fallback = makeFallback();
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
+    await provider.getItemFeatures("u1", "550", "movie");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const persisted = await catalog.getMetadata("550", "movie");
+    expect(persisted?.posterUrl).toBe("https://art/poster.jpg");
+    expect(persisted?.backdropUrl).toBe("https://art/backdrop.jpg");
+    expect(persisted?.clearLogoUrl).toBe("https://art/logo.png");
+    expect(persisted?.thumbUrl).toBe("https://art/thumb.jpg");
+  });
+
+  it("writes a metadata-only row when the artwork dispatch fails (V46 — degrade-quiet)", async () => {
+    fetchArtworkBundleMock.mockResolvedValueOnce(null);
+    const catalog = new CatalogService(await createInMemoryDb());
+    const fallback = makeFallback();
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
+    const features = await provider.getItemFeatures("u1", "550", "movie");
+    expect(features?.title).toBe("Fight Club");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const persisted = await catalog.getMetadata("550", "movie");
+    expect(persisted?.features?.director).toBe("David Fincher");
+    expect(persisted?.posterUrl).toBeNull();
+    expect(persisted?.clearLogoUrl).toBeNull();
+  });
+
+  it("dispatches the metadata fallback and artwork lookup in parallel (V46)", async () => {
+    const order: string[] = [];
+    fetchArtworkBundleMock.mockReset().mockImplementation(async () => {
+      order.push("artwork:start");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      order.push("artwork:end");
+      return null;
+    });
+    const fallback = makeFallback({
+      getItemFeatures: vi.fn(async () => {
+        order.push("metadata:start");
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        order.push("metadata:end");
+        return FALLBACK_FEATURES;
+      }),
+    });
+    const catalog = new CatalogService(await createInMemoryDb());
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
+    await provider.getItemFeatures("u1", "550", "movie");
+
+    expect(fetchArtworkBundleMock).toHaveBeenCalledOnce();
+    // Both should start before either ends — parallel dispatch shape.
+    expect(order.indexOf("metadata:start")).toBeLessThan(order.indexOf("artwork:end"));
+    expect(order.indexOf("artwork:start")).toBeLessThan(order.indexOf("metadata:end"));
   });
 
   it("delegates watchlist and comments unchanged", async () => {
