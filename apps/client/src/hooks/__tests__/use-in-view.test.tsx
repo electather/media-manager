@@ -86,4 +86,15 @@ describe("useInView", () => {
     });
     expect(observers[0]!.disconnect).toHaveBeenCalled();
   });
+
+  it("disconnects on unmount even if no intersection has fired", () => {
+    // Covers the effect's cleanup path: if the element never enters the
+    // viewport before the component unmounts, the observer must still be
+    // torn down so it doesn't leak past the host element's lifetime.
+    const { unmount } = render(<Probe />);
+    expect(observers).toHaveLength(1);
+    expect(observers[0]!.disconnect).not.toHaveBeenCalled();
+    unmount();
+    expect(observers[0]!.disconnect).toHaveBeenCalledTimes(1);
+  });
 });

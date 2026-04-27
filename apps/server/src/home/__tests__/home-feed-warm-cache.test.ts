@@ -54,6 +54,7 @@ vi.mock("../../db/client", () => ({ getDb: () => dbStub }));
 const { MemoryCache } = await import("../../cache/memory");
 const { setCacheProviderForTest } = await import("../../media/cache");
 const { MediaServicePreferenceProvider } = await import("../../preferences/media-provider");
+const { dispatchPrimary, dispatchAggregatePerKind } = await import("../../media/dispatcher");
 
 beforeEach(() => {
   invokeMock.mockReset();
@@ -104,5 +105,84 @@ describe("home feed warm cache (regression)", () => {
     const second = await provider.getItemFeatures("u1", "603", "movie");
     expect(second).not.toBeNull();
     expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("newReleases discoverFeed reuses the cache for same-day requests", async () => {
+    // Regression for the previous `Date.now()`-keyed `releaseDateLte` that
+    // changed every millisecond. The row now rounds to the calendar day so
+    // two calls inside the same UTC day must produce the same dispatcher
+    // cache key and therefore the same single plugin invocation.
+    invokeMock.mockResolvedValue([
+      { id: "movie:603", title: "The Matrix", type: "movie", ids: { tmdb_id: "603" } },
+    ]);
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+    const req = {
+      userId: "u1",
+      capability: "metadata",
+      version: "v1",
+      method: "discover",
+      input: {
+        limit: 20,
+        releaseDateGte: today - 90 * DAY_MS,
+        releaseDateLte: today + DAY_MS,
+        sort: "popularity_desc" as const,
+      },
+    };
+
+    await dispatchPrimary(req);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+
+    await dispatchPrimary(req);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("artwork.get all-fail outcome does not re-invoke within NEGATIVE_TTL_MS", async () => {
+    // Regression for the cascade where every `useArtwork` re-invoked TMDB on
+    // every render after a transient outage. The dispatcher writes a short
+    // negative cache when every provider fails so retries are throttled.
+    listProvidersMock.mockReturnValue(["fanart"]);
+    registryGetMock.mockImplementation(() => ({
+      pluginId: "fanart",
+      enabled: true,
+      module: {
+        manifest: {
+          capabilities: {
+            artwork: {
+              version: "v1",
+              scope: "global",
+              supportedIdTypes: { movie: ["tmdb"], tv: ["tmdb"] },
+              providerPriority: 10,
+            },
+          },
+        },
+      },
+    }));
+    resolveConnectionsMock.mockResolvedValue([
+      {
+        kind: "shared",
+        pluginId: "fanart",
+        connectionId: null,
+        credentials: { apiKey: "k" },
+        userConfig: null,
+      },
+    ]);
+    invokeMock.mockRejectedValue(new Error("upstream down"));
+
+    const req = {
+      userId: "u1",
+      capability: "artwork",
+      version: "v1",
+      method: "getArtwork",
+      input: { ids: { tmdb: "603" }, type: "movie" as const },
+    };
+
+    await dispatchAggregatePerKind(req);
+    const callsAfterFirst = invokeMock.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    await dispatchAggregatePerKind(req);
+    expect(invokeMock.mock.calls.length).toBe(callsAfterFirst);
   });
 });

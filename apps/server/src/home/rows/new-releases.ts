@@ -5,6 +5,7 @@ import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * `metadata@v1.discover` with a recent-release filter. Always eligible —
@@ -22,7 +23,6 @@ export const newReleasesFetcher: RowFetcher = {
     // is stable across requests within the same day. The upper bound is
     // `today + DAY_MS` (exclusive end-of-day) so titles released today are
     // still visible — switching to `today` would silently hide them.
-    const DAY_MS = 24 * 60 * 60 * 1000;
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
     const result = await ctx.mediaService.discoverFeed({
       limit: opts.limit * (page + 1),

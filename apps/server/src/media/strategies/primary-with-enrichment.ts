@@ -126,6 +126,11 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
     // transient — a TMDB rate-limit storm should not poison the 24h positive
     // cache. All-succeed-with-no-data is a stable absence and uses the
     // capability's normal TTL via ttlMsFor.
+    //
+    // `errors` excludes `plugin.item_not_found` (see filter above), so a
+    // provider that returns "no such item" does not count toward all-fail —
+    // that outcome is a stable absence, not a transient failure, and should
+    // use the capability's regular TTL.
     const isAllFail = outcomes.length > 0 && errors.length === outcomes.length;
     await writeCache(req, capability, scope, empty, isAllFail ? NEGATIVE_TTL_MS : undefined);
     return empty;
