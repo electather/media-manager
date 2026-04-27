@@ -51,7 +51,10 @@ function makeCtx(media: MediaServiceShape): RowFetchContext {
   return {
     userId: "u1",
     mediaService: media as unknown as RowFetchContext["mediaService"],
-    catalogService: {} as RowFetchContext["catalogService"],
+    catalogService: {
+      getDiscoverFeed: async () => null,
+      getMetadataBatch: async () => ({}),
+    } as unknown as RowFetchContext["catalogService"],
     preferenceEngine: {
       rankCandidates: async (_userId: string, candidates: unknown[]) =>
         (candidates as Array<unknown>).map((item) => ({ item })),

@@ -1,5 +1,6 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
+import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
@@ -9,8 +10,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * `metadata@v1.discover` with a recent-release filter. Always eligible —
- * even a TMDB-only install renders this row. Mixes movies and TV; the
- * dashboard can client-side filter by `mediaType` later if it wants.
+ * even a TMDB-only install renders this row. The catalog's daily
+ * discover snapshot is consulted first; on a snapshot miss the row falls
+ * back to the live plugin path so behavior stays identical pre-warm.
  */
 export const newReleasesFetcher: RowFetcher = {
   rowId: ROW_ID,
@@ -19,33 +21,18 @@ export const newReleasesFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const page = readPage(opts.cursor);
-    // Round to the calendar day so the dispatcher's 24h positive cache key
-    // is stable across requests within the same day. The upper bound is
-    // `today + DAY_MS` (exclusive end-of-day) so titles released today are
-    // still visible — switching to `today` would silently hide them.
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
-    const result = await ctx.mediaService.discoverFeed({
-      limit: opts.limit * (page + 1),
-      releaseDateGte: today - 90 * DAY_MS,
-      releaseDateLte: today + DAY_MS,
-      sort: "popularity_desc",
-      deadlineMs: ctx.deadlineMs,
-    });
 
-    const merged = (result.items as RawMediaItem[]).slice(
-      page * opts.limit,
-      (page + 1) * opts.limit,
+    const snapshot = await ctx.catalogService.getDiscoverFeed(
+      "newReleases",
+      "popularity_desc",
+      today,
     );
-    const items = await Promise.all(merged.map((item) => buildItem(ctx, item)));
-    const usable = items.filter((item): item is CompactMediaItem => item !== null);
+    if (snapshot && snapshot.length > 0) {
+      return hydrateFromSnapshot(ctx, snapshot, page, opts.limit);
+    }
 
-    const nextPage = page + 1;
-    const reachedCap = nextPage * opts.limit >= MAX_ITEMS;
-    const cursor =
-      usable.length === 0 || reachedCap || merged.length < opts.limit
-        ? null
-        : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: nextPage });
-    return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
+    return fetchFromLivePath(ctx, page, opts.limit, today);
   },
 
   async isEligible(): Promise<boolean> {
@@ -55,6 +42,68 @@ export const newReleasesFetcher: RowFetcher = {
     return true;
   },
 };
+
+async function hydrateFromSnapshot(
+  ctx: RowFetchContext,
+  refs: MetadataKey[],
+  page: number,
+  limit: number,
+): Promise<RowFetchResult> {
+  const start = page * limit;
+  const slice = refs.slice(start, start + limit);
+  if (slice.length === 0) {
+    return { items: [], cursor: null };
+  }
+  const rows = await ctx.catalogService.getMetadataBatch(slice);
+  const hydrated: Array<CanonicalMetadata | null> = slice.map(
+    (ref) => rows[`${ref.type}:${ref.tmdbId}`] ?? null,
+  );
+  const isPartial = hydrated.some((row) => row === null);
+  const present = hydrated.filter((row): row is CanonicalMetadata => row !== null);
+
+  const items = await Promise.all(present.map((row) => buildFromCanonical(ctx, row)));
+  const usable = items.filter((item): item is CompactMediaItem => item !== null);
+
+  const nextStart = start + limit;
+  const reachedCap = nextStart >= MAX_ITEMS;
+  const exhausted = nextStart >= refs.length;
+  const cursor =
+    exhausted || reachedCap || usable.length === 0
+      ? null
+      : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: page + 1 });
+  return isPartial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
+}
+
+async function fetchFromLivePath(
+  ctx: RowFetchContext,
+  page: number,
+  limit: number,
+  today: number,
+): Promise<RowFetchResult> {
+  // Round to the calendar day so the dispatcher's 24h positive cache key
+  // is stable across requests within the same day. The upper bound is
+  // `today + DAY_MS` (exclusive end-of-day) so titles released today are
+  // still visible — switching to `today` would silently hide them.
+  const result = await ctx.mediaService.discoverFeed({
+    limit: limit * (page + 1),
+    releaseDateGte: today - 90 * DAY_MS,
+    releaseDateLte: today + DAY_MS,
+    sort: "popularity_desc",
+    deadlineMs: ctx.deadlineMs,
+  });
+
+  const merged = (result.items as RawMediaItem[]).slice(page * limit, (page + 1) * limit);
+  const items = await Promise.all(merged.map((item) => buildItem(ctx, item)));
+  const usable = items.filter((item): item is CompactMediaItem => item !== null);
+
+  const nextPage = page + 1;
+  const reachedCap = nextPage * limit >= MAX_ITEMS;
+  const cursor =
+    usable.length === 0 || reachedCap || merged.length < limit
+      ? null
+      : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: nextPage });
+  return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
+}
 
 function readPage(cursor: string | null): number {
   if (!cursor) return 0;
@@ -70,4 +119,26 @@ async function buildItem(
   const status = toStatusOrUndefined(map[compact.id]);
   if (status) compact.status = status;
   return compact;
+}
+
+async function buildFromCanonical(
+  ctx: RowFetchContext,
+  row: CanonicalMetadata,
+): Promise<CompactMediaItem | null> {
+  // Reconstitute the raw plugin shape `toCompact` expects from the
+  // canonical columns so the wire shape stays identical whether we
+  // came from snapshot or from the live plugin path.
+  const raw: RawMediaItem = {
+    id: `${row.mediaType}:${row.tmdbId}`,
+    type: row.mediaType,
+    title: row.title,
+    year: row.year ?? undefined,
+    genres: row.genres ?? [],
+    overview: row.overview ?? undefined,
+    posterUrl: row.posterUrl ?? undefined,
+    backdropUrl: row.backdropUrl ?? undefined,
+    clearLogoUrl: row.clearLogoUrl ?? undefined,
+    ids: { tmdb_id: row.tmdbId },
+  };
+  return buildItem(ctx, raw);
 }
