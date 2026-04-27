@@ -61,9 +61,18 @@ function HomeFeedContent({ data }: ContentProps) {
 
   const orderedRows = promotedSidebar ? [promotedSidebar, ...mainRows] : mainRows;
 
+  const sidebarTitle = topSidebar?.title;
+  const handleSidebarUnavailable = topSidebar
+    ? (rowId: RowKind) => handleRowUnavailable(rowId, sidebarTitle ?? rowId)
+    : undefined;
+
   return (
     <div className="flex flex-col gap-6 py-4 md:gap-8 md:py-6">
-      <TopZone hero={data.hero} sidebarRow={topSidebar} />
+      <TopZone
+        hero={data.hero}
+        sidebarRow={topSidebar}
+        onSidebarRowUnavailable={handleSidebarUnavailable}
+      />
       {orderedRows.map((row) => (
         <Row
           key={row.rowId}

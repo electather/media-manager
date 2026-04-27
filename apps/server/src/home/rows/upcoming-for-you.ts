@@ -20,10 +20,11 @@ interface UpcomingEntry {
  * episodes of the same show share `tmdbId` but differ on air time, so the
  * cursor must carry both halves to avoid skipping or duplicating episodes.
  *
- * Per `dropEmpty`'s exemption (rules.ts), this row is the only one that
- * survives an empty fetch — "you're caught up" is meaningful info, not
- * absence of data — but only when the fetch genuinely succeeded
- * (`outcome === "ok_empty"`). Timeouts/all-fail still drop normally.
+ * Unique among rows: an empty fetch is meaningful info ("you're caught up"),
+ * not absence of data. The client renders empty-state copy for this row when
+ * `RowContentResponse.partial` is unset; degraded outcomes (timeout,
+ * all_failed) are promoted to `partial: true` by `getRowContent` so the copy
+ * stays suppressed during a calendar plugin outage.
  */
 export const upcomingForYouFetcher: RowFetcher = {
   rowId: ROW_ID,

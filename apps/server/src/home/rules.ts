@@ -98,35 +98,6 @@ export interface FetchedRow {
   partial?: true;
 }
 
-/**
- * Picks at most one hero across the populated row set. Continue Watching
- * wins when present; otherwise Recommended For You is allowed only when the
- * user's profile is confident (avoids "you'll love this" headlines built
- * from a single feedback event); Trending takes anything else; null when
- * every contender is empty.
- */
-export function resolveHero(
-  signals: LayoutSignals,
-  rowResults: Map<RowKind, FetchedRow>,
-): LayoutHero | null {
-  const cw = rowResults.get("continueWatching");
-  if (cw && cw.items.length > 0) {
-    return makeHero(cw.items[0]!, "continueWatching", "continue_watching");
-  }
-
-  const confident = signals.profileConfidence === "medium" || signals.profileConfidence === "high";
-  const rfy = rowResults.get("recommendedForYou");
-  if (rfy && rfy.items.length > 0 && confident) {
-    return makeHero(rfy.items[0]!, "recommendedForYou", "recommended");
-  }
-
-  const trending = rowResults.get("trendingNow");
-  if (trending && trending.items.length > 0) {
-    return makeHero(trending.items[0]!, "trendingNow", "trending");
-  }
-  return null;
-}
-
 export function makeHero(
   item: CompactMediaItem,
   source: RowKind,
@@ -166,34 +137,3 @@ export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]):
 }
 
 export { HERO_REASONS };
-
-/**
- * Removes the hero item from its source row and rewrites `title` to the
- * post-exclusion copy. Runs before `dropEmpty` so a row that was a single-item
- * hero candidate disappears when the hero is taken from it.
- */
-export function applyHeroExclusion(rows: FetchedRow[], hero: LayoutHero | null): FetchedRow[] {
-  if (!hero) return rows;
-  return rows.map((row) => {
-    if (row.rowId !== hero.source) return row;
-    const filtered = row.items.filter((i) => i.id !== hero.item.id);
-    return {
-      ...row,
-      items: filtered,
-      title: TITLE_OVERRIDE_MAP[row.rowId] ?? row.title,
-    };
-  });
-}
-
-/**
- * Drops rows whose `items` array is empty after fetch + hero exclusion.
- * `upcomingForYou` is exempt only when the fetch itself genuinely returned
- * no items (`outcome === "ok_empty"`); a timeout or aggregate failure is
- * treated like any other row and dropped — the design's "you're caught up"
- * empty-state copy must not render during a calendar plugin outage.
- */
-export function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
-  return rows.filter(
-    (r) => r.items.length > 0 || (r.rowId === "upcomingForYou" && r.outcome === "ok_empty"),
-  );
-}

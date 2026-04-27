@@ -1,8 +1,13 @@
-import type { HomeRowStub } from "@ent-mcp/shared/home";
+import type { HomeRowStub, RowKind } from "@ent-mcp/shared/home";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useRowPagination } from "@/hooks/use-row-pagination";
 import { SidebarItem } from "./sidebar-item";
+
+export interface SidebarColumnProps {
+  row: HomeRowStub;
+  onRowUnavailable?: (rowId: RowKind) => void;
+}
 
 /**
  * Sidebar column for the top zone. Layout switches via container query
@@ -18,11 +23,12 @@ import { SidebarItem } from "./sidebar-item";
  * - `@[768px]+` (top-zone container `≥768px`, sidebar slot has dedicated
  *   width): traditional vertical list.
  */
-export function SidebarColumn({ row }: { row: HomeRowStub }) {
+export function SidebarColumn({ row, onRowUnavailable }: SidebarColumnProps) {
   const title = row.title;
   const { items, isPending } = useRowPagination({
     rowId: row.rowId,
     initialCursor: row.initialCursor,
+    onUnavailable: onRowUnavailable ? () => onRowUnavailable(row.rowId) : undefined,
   });
 
   return (

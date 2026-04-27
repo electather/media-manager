@@ -93,8 +93,7 @@ export async function fetchHero(
  *   3. Fetch one item from the hero-candidate row only.
  *   4. Stamp the final title and `initialCursor` onto the hero source stub.
  *   5. Drop the hero source stub when `heroCursor` is null (hero consumed the
- *      only item in that row — equivalent to the old `applyHeroExclusion` +
- *      `dropEmpty` behavior).
+ *      only item in that row, so paginating it would yield an empty list).
  */
 export async function runLayoutPipeline(
   signals: LayoutSignals,

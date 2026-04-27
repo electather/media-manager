@@ -194,6 +194,41 @@ describe("HomeFeedService", () => {
     });
     expect(result.items).toHaveLength(1);
   });
+
+  it("getRowContent for upcomingForYou marks partial on per-row timeout", async () => {
+    vi.spyOn(MediaService.prototype, "hasCapabilityProvider").mockResolvedValue(true);
+    // Fetcher hangs past PER_ROW_TIMEOUT_MS so runFetch resolves with
+    // outcome === "timeout". The wire response must carry partial: true so the
+    // client suppresses the "you're caught up" empty-state copy.
+    ROW_FETCHERS.upcomingForYou.fetch = () => new Promise(() => {});
+    vi.useFakeTimers();
+    try {
+      const promise = new HomeFeedService().getRowContent("u", {
+        rowId: "upcomingForYou",
+        cursor: null,
+      });
+      await vi.advanceTimersByTimeAsync(5_001);
+      const result = await promise;
+      expect(result.items).toEqual([]);
+      expect(result.partial).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("getRowContent marks partial when every plugin fails", async () => {
+    vi.spyOn(MediaService.prototype, "hasCapabilityProvider").mockResolvedValue(true);
+    const { AllPluginsFailedError } = await import("../../media/errors");
+    ROW_FETCHERS.upcomingForYou.fetch = async () => {
+      throw new AllPluginsFailedError("calendar@v1", []);
+    };
+    const result = await new HomeFeedService().getRowContent("u", {
+      rowId: "upcomingForYou",
+      cursor: null,
+    });
+    expect(result.items).toEqual([]);
+    expect(result.partial).toBe(true);
+  });
 });
 
 function stubSignals(overrides: Partial<signalsModule.LayoutSignals>): void {

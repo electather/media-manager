@@ -9,6 +9,15 @@
 
 Server-side surface behind dashboard's Netflix-style home page. Stack of themed rows (Continue Watching, Recommended For You, Trending Now, etc.) composed from plugin capabilities, re-ranked against user preference profile. Two RPC procedures (`home.getLayout` & `home.getRowContent`), `HomeFeedService` orchestrating existing `MediaService` & `PreferenceEngine` into uniform row catalog. Caching/pagination/degradation behaviors included.
 
+> **Update 2026-04-27 — skeleton layout (PR #143).** `home.getLayout` no longer
+> fetches per-row items in parallel. It returns row **stubs** (`HomeRowStub`,
+> shape only — `rowId`, `title`, `subtitle?`, `initialCursor`) plus a single
+> targeted hero fetch (`limit: 1` against the highest-priority hero candidate).
+> The client fires `home.getRowContent` per visible row after layout arrives.
+> Sections below that describe the old "fetch everything in parallel" pipeline
+> (resolveHero/applyHeroExclusion/dropEmpty, the t=~30ms parallel-fetch
+> timeline) are historical context — see `plan/architecture-home-skeleton-layout-1.md`.
+
 Scope: server-side only — endpoints, backing logic, data shapes, behavioral rules. Frontend = separate spec.
 
 Follows MCP spec discipline: thin translation layer over `MediaService`, no new dispatch/runtime/credential/cache infra below it. Seven rows ship v1. Layout decisions = pure functions of cheap signal snapshot — swappable for A/B without touching fetch code.
@@ -90,7 +99,9 @@ interface RowFetcher {
     ctx: RowFetchContext,
     opts: { cursor: string | null; limit: number },
   ): Promise<{ items: CompactMediaItem[]; cursor: string | null; partial?: true }>;
-  isEligible(userId: string, loader: RequestScopedLoader): Promise<boolean>;
+  // 2026-04-27 — third arg added for `becauseYouWatched`, which validates the
+  // cursor's seed (`s` field) is still resolvable. Other rows ignore it.
+  isEligible(userId: string, loader: RequestScopedLoader, cursor: string | null): Promise<boolean>;
 }
 ```
 
@@ -140,24 +151,32 @@ Two RPC procedures under `server/api/routes/home.ts`, authenticated-user-only (s
 
 ### `home.getLayout`
 
+Returns the skeleton — row stubs (no items) and a resolved hero. Item
+fetching is delegated to `home.getRowContent`, called per visible row after
+the skeleton arrives.
+
 ```ts
 interface HomeLayoutResponse {
-  hero: LayoutHero | null; // NEW
-  rows: HomeRow[];
+  hero: LayoutHero | null;
+  rows: HomeRowStub[];
   generatedAt: number;
 }
 
-interface HomeRow {
+// 2026-04-27 — replaces HomeRow on the wire. Stubs carry no items.
+// `title` already reflects any post-hero override (e.g. "Also watching" when
+// the hero came from continueWatching) — the server stamps the override
+// before sending; the client renders `title` verbatim.
+// `initialCursor` is non-null only when the layout pipeline has pre-state to
+// pin into the first scroll page: `becauseYouWatched`'s seed-bearing cursor,
+// or the cursor *after* the hero item on the row that supplied the hero
+// (so the first `getRowContent` page skips that already-shown item).
+interface HomeRowStub {
   rowId: RowKind;
   title: string;
-  titleOverride?: string; // NEW: set when hero exclusion changed row meaning
   subtitle?: string;
-  items: CompactMediaItem[];
-  cursor: string | null;
-  partial?: true;
+  initialCursor: string | null;
 }
 
-// NEW
 interface LayoutHero {
   item: CompactMediaItem;
   source: RowKind;
@@ -165,6 +184,11 @@ interface LayoutHero {
   resumeUrl: string | null; // server-resolved deep link; null when no playable source
 }
 ```
+
+> **Historical (pre-2026-04-27):** the response previously inlined `items` on
+> each row (`HomeRow { items: CompactMediaItem[]; cursor; partial?; titleOverride? }`)
+> with first-page content. That shape is gone — clients receive stubs and
+> paginate every row through `getRowContent`.
 
 ### `home.getRowContent`
 
@@ -346,6 +370,24 @@ function orderRows(candidates: RowKind[], signals: LayoutSignals): RowKind[] {
 
 ### Layout decision logic
 
+> **2026-04-27 — superseded by skeleton layout (PR #143).** The old pipeline
+> (fetch all rows → `resolveHero` → `applyHeroExclusion` → `dropEmpty` → ship)
+> was replaced. Current pipeline:
+>
+> 1. Compute candidate row order (`resolveLayoutOrder`, pure).
+> 2. Build row stubs without fetching items (`buildRowStubs`, pure). The
+>    `becauseYouWatched` stub carries a seed-pinned `initialCursor`.
+> 3. Resolve hero candidates (`resolveHeroCandidates`, pure) and `fetchHero`
+>    walks them in priority order, fetching `limit: 1` from each until one
+>    returns a non-empty result. The hero's source row receives the
+>    post-hero cursor as its `initialCursor` and the override title (e.g.
+>    "Also watching"); when `heroCursor === null` (the hero consumed the
+>    only item) the source stub is **dropped** entirely.
+>
+> `resolveHero`, `applyHeroExclusion`, and `dropEmpty` are no longer in the
+> production pipeline. The "drop-empty safety net" subsection below describes
+> the old behavior and is retained as design context only.
+
 resolveHero runs after row fetches complete, before dropEmpty. Pure function over (signals, rowResults). Pipeline: fetch all rows → resolveHero → applyHeroExclusion → dropEmpty → ship.
 resumeUrl resolution — new subsection. Decide before implementation: extend watchHistory@v1 with getResumeUrl(mediaId), or new playback@v1 capability. Server resolves from the plugin that supplied progress for that item.
 Per-row updates — continueWatching:
@@ -465,17 +507,25 @@ Everything upstream of fetch pure. Variant = different `resolveLayoutOrder`; exp
 
 ### Timeline
 
+> **2026-04-27 — skeleton layout.** Old timeline (parallel fetches gating
+> response on slowest row) is replaced. Current timeline:
+
 ```
 t=0      start
 t=~30ms  signal snapshot complete (parallel reads)
 t=~30ms  candidateRows + orderRows computed (synchronous)
-t=~30ms  per-row fetches dispatched in parallel through dataloader
-t=~???   slowest row completes (typically 200–800ms for aggregate rows)
-         ← response bounded by slowest row
-t=~???   dropEmpty + response assembly (<5ms)
+t=~30ms  buildRowStubs (synchronous; no fetch)
+t=~30ms  fetchHero dispatched (single fetch, limit: 1, hero candidate row)
+t=~???   hero fetch completes (typically 200–800ms; 5s hard cap)
+t=~???   stub stamping (<5ms): override title + initialCursor, drop hero
+         source stub when heroCursor is null
+         ← response bounded by hero fetch only, not slowest row
 ```
 
-Hard per-row fetch timeout: 3s. Timeout → treated as empty → drop-empty applies.
+Per-row fetch timeout: 5s (bumped from 3s in #135 for `invokeOne`'s
+rate-limit retry headroom). Hero timeout → `hero: null`, no row dropped.
+Per-row content fetches happen in `home.getRowContent`, called by the
+client per visible row after the skeleton arrives.
 
 ## Row catalog
 
@@ -684,9 +734,9 @@ Bounds: exclusion list capped at `maxItems` (60), enforced on **both encode & de
 
 ### Timeouts
 
-- **Per-row fetch:** 3s hard cap. On timeout → treated as empty → drop-empty applies.
-- **`getLayout` overall:** bounded by slowest row (≤3s) + minor overhead.
-- **`getRowContent`:** 3s flat. On timeout → `{ items: [], cursor: null }` — same graceful end-of-pagination shape as "decoded position past end" & "all plugins errored." Timeout logged, ⊥ promoted to `home.internal`.
+- **Per-row fetch:** 5s hard cap (bumped from 3s in #135 — see `layout.ts:31`).
+- **`getLayout` overall:** bounded by the single hero fetch (≤5s) + minor overhead, since rows are no longer fetched at layout time.
+- **`getRowContent`:** 5s flat. On timeout or "all plugins failed" → `{ items: [], cursor: null, partial: true }`. The `partial: true` is load-bearing for `upcomingForYou` — without it, the client renders "you're all caught up" copy during a calendar-plugin outage. Timeout logged, ⊥ promoted to `home.internal`.
 
 ### Concurrency and fairness
 

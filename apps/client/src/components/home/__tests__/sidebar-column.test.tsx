@@ -57,11 +57,11 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function renderSidebar(stub: HomeRowStub) {
+function renderSidebar(stub: HomeRowStub, onRowUnavailable?: (rowId: string) => void) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <SidebarColumn row={stub} />
+      <SidebarColumn row={stub} onRowUnavailable={onRowUnavailable} />
     </QueryClientProvider>,
   );
 }
@@ -112,6 +112,17 @@ describe("SidebarColumn", () => {
       items.forEach((item) => {
         expect(item.parentElement!.className).toContain("@[768px]:w-auto");
       });
+    });
+  });
+
+  it("invokes onRowUnavailable when getRowContent returns home.row_unavailable", async () => {
+    apiMock.getRowContent.mockResolvedValueOnce(
+      jsonResponse({ code: "home.row_unavailable", message: "gone" }, 404),
+    );
+    const onRowUnavailable = vi.fn();
+    renderSidebar(row, onRowUnavailable);
+    await waitFor(() => {
+      expect(onRowUnavailable).toHaveBeenCalledWith("upcomingForYou");
     });
   });
 });

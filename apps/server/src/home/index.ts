@@ -46,7 +46,7 @@ export class HomeFeedService {
   /**
    * Paginated scroll for a single row. A null cursor means first page.
    * Re-uses the same `RowFetcher.fetch` the layout handler calls, including
-   * its 3s timeout. Eligibility runs before the fetch so plugin removals
+   * its 5s timeout. Eligibility runs before the fetch so plugin removals
    * between sessions surface as `home.row_unavailable` rather than an empty
    * payload.
    */
@@ -73,7 +73,13 @@ export class HomeFeedService {
         limit: 20,
       });
       const out: RowContentResponse = { items: fetched.items, cursor: fetched.cursor };
-      if (fetched.partial) out.partial = true;
+      // Promote degraded outcomes to `partial` on the wire. Without this, a
+      // calendar timeout for `upcomingForYou` returns `{ items: [] }` indistinguishable
+      // from a genuine "you're caught up" empty fetch — the client renders the
+      // empty-state copy during a plugin outage. See docs §5 dropEmpty rule.
+      if (fetched.partial || fetched.outcome === "timeout" || fetched.outcome === "all_failed") {
+        out.partial = true;
+      }
       return out;
     } catch (err) {
       consola.error("[home] getRowContent failed:", err);

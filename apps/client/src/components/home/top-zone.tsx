@@ -1,13 +1,14 @@
-import type { HomeRowStub, LayoutHero } from "@ent-mcp/shared/home";
+import type { HomeRowStub, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import { Hero } from "./hero";
 import { SidebarColumn } from "./sidebar-column";
 
 export interface TopZoneProps {
   hero: LayoutHero | null;
   sidebarRow: HomeRowStub | null;
+  onSidebarRowUnavailable?: (rowId: RowKind) => void;
 }
 
-export function TopZone({ hero, sidebarRow }: TopZoneProps) {
+export function TopZone({ hero, sidebarRow, onSidebarRowUnavailable }: TopZoneProps) {
   if (!hero && !sidebarRow) return null;
 
   return (
@@ -16,7 +17,7 @@ export function TopZone({ hero, sidebarRow }: TopZoneProps) {
         {hero ? <Hero hero={hero} /> : null}
         {sidebarRow ? (
           <div className="@[768px]:block">
-            <SidebarColumn row={sidebarRow} />
+            <SidebarColumn row={sidebarRow} onRowUnavailable={onSidebarRowUnavailable} />
           </div>
         ) : null}
       </div>

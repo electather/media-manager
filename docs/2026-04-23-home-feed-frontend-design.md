@@ -8,7 +8,13 @@
 
 ## Summary
 
-Netflix-style home page rendering two RPC procedures from companion backend spec. Single `home.getLayout` call → full page at first paint, rows inlined with first items page. Horizontal scroll → `home.getRowContent`. Card click → detail modal via `peek` search param; `/media/$id` = real-route deep link for shares & deep navigation.
+Netflix-style home page rendering two RPC procedures from companion backend spec. `home.getLayout` returns the skeleton — row stubs (no items) + a resolved hero — and the page paints structure immediately; each visible row then fires its own `home.getRowContent` to load its first page lazily, with skeleton placeholders shown until the row resolves. Horizontal scroll → further `home.getRowContent` pages. Card click → detail modal via `peek` search param; `/media/$id` = real-route deep link for shares & deep navigation.
+
+> **Update 2026-04-27 — skeleton layout (PR #143).** Replaces the prior
+> "single `getLayout` call → full page at first paint, rows inlined with
+> first items page" model. Rows now arrive as `HomeRowStub` (no items); each
+> row component owns its own `home.getRowContent` request. See
+> `plan/architecture-home-skeleton-layout-1.md`.
 
 Scope: client-side only — route, component tree, row scroll, card visuals, detail-modal, non-happy-path states. Server behavior out of scope, unchanged from backend spec.
 
@@ -69,14 +75,16 @@ All wire types imported verbatim from `@ent-mcp/shared/home`:
 ```ts
 import type {
   RowKind,
-  HomeRow,
+  HomeRowStub,
   HomeLayoutResponse,
   RowContentResponse,
   CompactMediaItem,
 } from "@ent-mcp/shared/home";
 ```
 
-No type mirroring, no re-declaration.
+No type mirroring, no re-declaration. `HomeRowStub` carries `rowId`, `title`,
+`subtitle?`, and `initialCursor` — items are absent, fetched per row via
+`home.getRowContent`.
 
 ### Client-only types
 
@@ -170,7 +178,7 @@ packages/client/src/
 
 - **`useHomeLayout()`** — single tanstack-query call against `home.getLayout`. Cache key: `["home", "layout"]`. Stale time: 60s. Background revalidate on window focus after 60s while keeping current layout on screen.
   - **`HomeLayoutResponse.generatedAt` v1:** received, intentionally unused. 60s staleTime anchored on tanstack-query's fetch-completion timestamp. `generatedAt` retained in wire type (backend spec calls it client-facing) so future "Last updated X ago" affordance can adopt without contract change. No component reads it v1.
-- **`useRowPagination(rowId, initialCursor, initialItems)`** — internal to `Row`. State: `{ items: CompactMediaItem[], cursor: string | null, isFetching: boolean }`. Initial items & cursor from `HomeRow` inline. When `RowCarousel` signals "near end" (≥75% scroll progress, debounced 150ms) → fires `home.getRowContent` → appends. Stops when cursor `null`. On `home.row_unavailable` → signals parent to remove row.
+- **`useRowPagination({ rowId, initialCursor, onUnavailable? })`** — wraps tanstack-query's `useInfiniteQuery`, keyed on `["home", "row", rowId]`. `initialPageParam` is `initialCursor` from the stub, so the first `getRowContent` call uses any pre-state the layout pinned (e.g. `becauseYouWatched`'s seed cursor, or the post-hero cursor on the row that supplied the hero). Subsequent pages drive off the previous response's `cursor`; `getNextPageParam` returns `last.cursor ?? undefined` and the row terminates when the cursor goes null. While `isPending` (first page in flight) the row renders a `RowSkeleton`. When `RowCarousel` signals "near end" → calls `fetchNext`. On `home.row_unavailable` (returned as `code` on the error body) → invokes `onUnavailable` so the parent can remove the row.
 - Detail fetch out of scope — `MediaDetailBody` has own data-shape spec in later doc.
 
 ### What lives where
@@ -483,7 +491,7 @@ One file per component, colocated.
 ### Hook tests
 
 - `use-home-layout.test.ts`: fetches `home.getLayout`, caches under `["home", "layout"]`, revalidates background after 60s stale; error state on `home.internal`.
-- `use-row-pagination.test.ts`: initial items from `HomeRow.items`; `fetchNext` appends on success; terminal cursor → `hasMore = false`; `home.row_unavailable` triggers row-removal callback; partial failures during scroll-fetch silently drop skeleton card.
+- `use-row-pagination.test.ts`: first page fetched lazily with `initialPageParam` = stub's `initialCursor` (null or the layout-pinned seed/post-hero cursor); `isPending` true until first page resolves; `fetchNext` appends on success; terminal cursor → `hasMore = false`; `home.row_unavailable` invokes `onUnavailable` callback; partial failures during scroll-fetch silently drop skeleton card.
 
 ### Integration tests
 
