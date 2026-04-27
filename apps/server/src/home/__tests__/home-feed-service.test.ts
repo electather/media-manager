@@ -104,7 +104,7 @@ describe("HomeFeedService", () => {
     expect(result.hero?.source).toBe("continueWatching");
   });
 
-  it("stamps titleOverride and initialCursor on the hero source stub", async () => {
+  it("stamps overridden title and initialCursor on the hero source stub", async () => {
     stubSignals({
       hasWatchHistoryPlugin: true,
       inProgressCount: 2,
@@ -116,7 +116,7 @@ describe("HomeFeedService", () => {
     const result = await new HomeFeedService().getLayout("user-hero");
     const stub = result.rows.find((r) => r.rowId === "continueWatching");
     expect(stub?.initialCursor).toBe("cursor-after-hero");
-    expect(stub?.titleOverride).toBe("Also watching");
+    expect(stub?.title).toBe("Also watching");
     expect(result.hero?.source).toBe("continueWatching");
   });
 

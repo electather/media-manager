@@ -33,7 +33,7 @@ function RowInner({ row, onRowUnavailable }: RowProps) {
   });
 
   const display = ROW_DISPLAY[row.rowId];
-  const title = row.titleOverride ?? row.title;
+  const title = row.title;
 
   if (pagination.isPending) {
     return <RowSkeleton title={title} aspectRatio={display.aspectRatio} />;

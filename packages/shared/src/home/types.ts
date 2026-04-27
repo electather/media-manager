@@ -41,10 +41,7 @@ export interface CompactMediaItem {
 
 export interface HomeRow {
   rowId: RowKind;
-  /** Default copy for the row. */
   title: string;
-  /** Set when hero exclusion changed the row's meaning (e.g. "Also watching"). */
-  titleOverride?: string;
   subtitle?: string;
   items: CompactMediaItem[];
   /** Opaque cursor for the next page; null at end of pagination. */
@@ -65,7 +62,6 @@ export interface LayoutHero {
 export interface HomeRowStub {
   rowId: RowKind;
   title: string;
-  titleOverride?: string;
   subtitle?: string;
   /** Cursor to pass as the first `getRowContent` call. Null means first page; non-null pins a seed (e.g. `becauseYouWatched`). */
   initialCursor: string | null;

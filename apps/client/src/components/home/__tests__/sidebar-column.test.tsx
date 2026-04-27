@@ -73,10 +73,7 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("SidebarColumn", () => {
-  it("renders titleOverride when present, otherwise the row title", () => {
-    renderSidebar({ ...row, titleOverride: "Up next" });
-    expect(screen.getByTestId("sidebar-title").textContent).toBe("Up next");
-    cleanup();
+  it("renders the row title", () => {
     renderSidebar(row);
     expect(screen.getByTestId("sidebar-title").textContent).toBe("Upcoming");
   });

@@ -19,7 +19,7 @@ import { SidebarItem } from "./sidebar-item";
  *   width): traditional vertical list.
  */
 export function SidebarColumn({ row }: { row: HomeRowStub }) {
-  const title = row.titleOverride ?? row.title;
+  const title = row.title;
   const { items, isPending } = useRowPagination({
     rowId: row.rowId,
     initialCursor: row.initialCursor,

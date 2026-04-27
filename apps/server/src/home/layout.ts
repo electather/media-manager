@@ -91,7 +91,7 @@ export async function fetchHero(
  *   1. Compute candidate row order (pure).
  *   2. Build row stubs without fetching items (pure).
  *   3. Fetch one item from the hero-candidate row only.
- *   4. Stamp `titleOverride` and `initialCursor` onto the hero source stub.
+ *   4. Stamp the final title and `initialCursor` onto the hero source stub.
  *   5. Drop the hero source stub when `heroCursor` is null (hero consumed the
  *      only item in that row — equivalent to the old `applyHeroExclusion` +
  *      `dropEmpty` behavior).
@@ -112,7 +112,7 @@ export async function runLayoutPipeline(
       return {
         ...stub,
         initialCursor: heroCursor,
-        titleOverride: TITLE_OVERRIDE_MAP[stub.rowId],
+        title: TITLE_OVERRIDE_MAP[stub.rowId] ?? stub.title,
       };
     })
     .filter((s): s is HomeRowStub => s !== null);

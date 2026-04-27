@@ -203,7 +203,7 @@ describe("home rules", () => {
       const hero = resolveHero(baseSignals, new Map([["continueWatching", rows[0]!]]));
       const out = applyHeroExclusion(rows, hero);
       expect(out[0]?.items).toEqual([second]);
-      expect(out[0]?.titleOverride).toBe("Also watching");
+      expect(out[0]?.title).toBe("Also watching");
     });
 
     it("filters by id, not by reference", () => {

@@ -68,7 +68,7 @@ function HomeFeedContent({ data }: ContentProps) {
         <Row
           key={row.rowId}
           row={row}
-          onRowUnavailable={(rowId) => handleRowUnavailable(rowId, row.titleOverride ?? row.title)}
+          onRowUnavailable={(rowId) => handleRowUnavailable(rowId, row.title)}
         />
       ))}
     </div>

@@ -96,7 +96,6 @@ export interface FetchedRow {
   cursor: string | null;
   outcome: FetchOutcome;
   partial?: true;
-  titleOverride?: string;
 }
 
 /**
@@ -169,9 +168,9 @@ export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]):
 export { HERO_REASONS };
 
 /**
- * Removes the hero item from its source row and stamps the matching title
- * override. Runs before `dropEmpty` so a row that was a single-item hero
- * candidate disappears when the hero is taken from it.
+ * Removes the hero item from its source row and rewrites `title` to the
+ * post-exclusion copy. Runs before `dropEmpty` so a row that was a single-item
+ * hero candidate disappears when the hero is taken from it.
  */
 export function applyHeroExclusion(rows: FetchedRow[], hero: LayoutHero | null): FetchedRow[] {
   if (!hero) return rows;
@@ -181,7 +180,7 @@ export function applyHeroExclusion(rows: FetchedRow[], hero: LayoutHero | null):
     return {
       ...row,
       items: filtered,
-      titleOverride: TITLE_OVERRIDE_MAP[row.rowId],
+      title: TITLE_OVERRIDE_MAP[row.rowId] ?? row.title,
     };
   });
 }
