@@ -38,6 +38,7 @@ export const becauseYouWatchedFetcher: RowFetcher = {
     const result = await ctx.mediaService.getSimilarFeed({
       id: seed.tmdbId,
       type: seed.mediaType,
+      deadlineMs: ctx.deadlineMs,
     });
     const inProgress = await ctx.dataloader.getInProgressSet();
     const candidates = (result.items as RawMediaItem[]).filter((item) => {

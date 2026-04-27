@@ -204,6 +204,47 @@ describe("dispatchSingle", () => {
     expect(invokeMock).toHaveBeenCalledTimes(2);
   });
 
+  it("skips the rate_limited retry when deadline cannot fit the backoff (#135)", async () => {
+    // Regression for #135: a slow first call eats the per-row budget. A 2s
+    // backoff retry would overrun the deadline, so `invokeOne` returns the
+    // original error instead of sleeping past the budget.
+    listProvidersMock.mockReturnValue(["seerr"]);
+    resolveConnectionsMock.mockResolvedValue([userConn("seerr")]);
+    invokeMock.mockRejectedValueOnce(new PluginError("plugin.rate_limited", "throttled"));
+    await expect(
+      dispatchAggregate({
+        userId: "u1",
+        capability: "watchHistory",
+        version: "v1",
+        method: "getInProgress",
+        input: {},
+        deadlineMs: Date.now() + 500,
+      }),
+    ).resolves.toMatchObject({
+      errors: [expect.objectContaining({ code: "plugin.rate_limited" })],
+    });
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the transient retry when deadline cannot fit the backoff (#135)", async () => {
+    listProvidersMock.mockReturnValue(["seerr"]);
+    resolveConnectionsMock.mockResolvedValue([userConn("seerr")]);
+    invokeMock.mockRejectedValueOnce(new PluginError("plugin.upstream_error", "5xx"));
+    await expect(
+      dispatchAggregate({
+        userId: "u1",
+        capability: "watchHistory",
+        version: "v1",
+        method: "getInProgress",
+        input: {},
+        deadlineMs: Date.now() + 200,
+      }),
+    ).resolves.toMatchObject({
+      errors: [expect.objectContaining({ code: "plugin.upstream_error" })],
+    });
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshes credentials on token_expired and retries once", async () => {
     listProvidersMock.mockReturnValue(["seerr"]);
     resolveConnectionsMock.mockResolvedValue([userConn("seerr")]);

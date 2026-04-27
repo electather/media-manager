@@ -28,6 +28,7 @@ export const newReleasesFetcher: RowFetcher = {
       releaseDateGte: now - ninetyDaysMs,
       releaseDateLte: now,
       sort: "popularity_desc",
+      deadlineMs: ctx.deadlineMs,
     });
 
     const merged = (result.items as RawMediaItem[]).slice(

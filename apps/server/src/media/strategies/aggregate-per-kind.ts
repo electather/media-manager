@@ -146,6 +146,7 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
           method: req.method,
           input: req.input,
           timeoutMs: capability.defaultTimeoutMs,
+          deadlineMs: req.deadlineMs,
         },
         conn,
       );

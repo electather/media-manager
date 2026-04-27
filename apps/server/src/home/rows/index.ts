@@ -35,6 +35,13 @@ export interface RowFetchContext {
   preferenceEngine: PreferenceEngine;
   dataloader: RequestScopedLoader;
   logger: RowLogger;
+  /**
+   * Wall-clock deadline (ms-epoch) for this fetch. `runFetch` injects it as
+   * `runFetch start + PER_ROW_TIMEOUT_MS` so downstream `MediaService`
+   * methods can short-circuit retry backoffs that would overrun the budget
+   * (#135). Optional so direct unit tests can omit it.
+   */
+  deadlineMs?: number;
 }
 
 export interface RowFetchResult {

@@ -85,12 +85,59 @@ describe("runFetch outcome classification", () => {
       new Promise(() => {});
     try {
       const promise = runFetch("trendingNow", ctx, { cursor: null, limit: 20 });
-      await vi.advanceTimersByTimeAsync(3_001);
+      await vi.advanceTimersByTimeAsync(5_001);
       const row = await promise;
       expect(row.outcome).toBe("timeout");
     } finally {
       ROW_FETCHERS.trendingNow.fetch = original;
       vi.useRealTimers();
+    }
+  });
+
+  it("keeps a row alive when the fetcher finishes within the bumped 5s budget (#135)", async () => {
+    // Regression for #135: under the old 3s budget a fetcher that needed
+    // ~3.4s (one upstream call + a single rate-limit retry) timed out and
+    // its row was silently dropped from the layout. The bumped 5s budget
+    // gives `invokeOne`'s retry path the headroom it needs.
+    const original = ROW_FETCHERS.newReleases.fetch;
+    const ctx = makeStubCtx();
+    vi.useFakeTimers();
+    ROW_FETCHERS.newReleases.fetch = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 4_000));
+      return {
+        items: [{ id: "movie:42", tmdbId: "42", mediaType: "movie", title: "ok" }],
+        cursor: null,
+      };
+    };
+    try {
+      const promise = runFetch("newReleases", ctx, { cursor: null, limit: 20 });
+      await vi.advanceTimersByTimeAsync(4_001);
+      const row = await promise;
+      expect(row.outcome).toBe("ok_items");
+      expect(row.items).toHaveLength(1);
+    } finally {
+      ROW_FETCHERS.newReleases.fetch = original;
+      vi.useRealTimers();
+    }
+  });
+
+  it("threads a deadline into the fetch ctx so MediaService can short-circuit retries (#135)", async () => {
+    const original = ROW_FETCHERS.trendingNow.fetch;
+    const ctx = makeStubCtx();
+    let received: number | undefined;
+    ROW_FETCHERS.trendingNow.fetch = async (innerCtx) => {
+      received = innerCtx.deadlineMs;
+      return { items: [], cursor: null };
+    };
+    try {
+      const before = Date.now();
+      await runFetch("trendingNow", ctx, { cursor: null, limit: 20 });
+      // `runFetch` injects `Date.now() + PER_ROW_TIMEOUT_MS`. Allow a small
+      // jitter window for clock drift between the assertion bookends.
+      expect(received).toBeGreaterThanOrEqual(before + 4_900);
+      expect(received).toBeLessThanOrEqual(before + 5_100);
+    } finally {
+      ROW_FETCHERS.trendingNow.fetch = original;
     }
   });
 });

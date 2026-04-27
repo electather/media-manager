@@ -99,6 +99,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
           method: req.method,
           input: req.input,
           timeoutMs: capability.defaultTimeoutMs,
+          deadlineMs: req.deadlineMs,
         },
         conn,
       ),

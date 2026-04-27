@@ -20,7 +20,15 @@ import {
   type RowFetcher,
 } from "./rows/index";
 
-const PER_ROW_TIMEOUT_MS = 3_000;
+/**
+ * Per-row wall-clock budget for the layout pipeline. Bumped from 3s after
+ * #135: a single ~1.2s upstream call followed by `invokeOne`'s rate-limit
+ * retry (2s sleep + 1.2s retry) overran the original 3s and dropped the
+ * row from the layout entirely. Paired with `deadlineMs` on `InvokeRequest`
+ * so `invokeOne` skips a retry when the remaining budget cannot fit it,
+ * surfacing the original error as `partial: true` instead of a hard timeout.
+ */
+const PER_ROW_TIMEOUT_MS = 5_000;
 
 /**
  * Result of running a single fetcher under the orchestrator's timeout +
@@ -90,7 +98,7 @@ const TIMEOUT_SENTINEL: unique symbol = Symbol("home-row-timeout");
  *   - `ok_items`  — fetch succeeded with at least one item.
  *   - `ok_empty`  — fetch succeeded with zero items, no plugin errors.
  *   - `partial`   — fetch succeeded but at least one peer plugin errored.
- *   - `timeout`   — exceeded the 3s per-row budget.
+ *   - `timeout`   — exceeded the 5s per-row budget.
  *   - `all_failed` — every contributing provider errored
  *                    (`AllPluginsFailedError` from `MediaService`).
  *
@@ -108,9 +116,16 @@ export async function runFetch(
   const timeoutPromise = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
     timer = setTimeout(() => resolve(TIMEOUT_SENTINEL), PER_ROW_TIMEOUT_MS);
   });
+  // Inherit any caller-supplied deadline (e.g. tests) but default to the
+  // per-row budget so `invokeOne` can short-circuit retry backoffs that
+  // would otherwise overrun the wall-clock timer above.
+  const deadlineCtx: RowFetchContext = {
+    ...ctx,
+    deadlineMs: ctx.deadlineMs ?? Date.now() + PER_ROW_TIMEOUT_MS,
+  };
   try {
     const raced = await Promise.race<RowFetchResult | typeof TIMEOUT_SENTINEL>([
-      fetcher.fetch(ctx, opts),
+      fetcher.fetch(deadlineCtx, opts),
       timeoutPromise,
     ]);
     if (raced === TIMEOUT_SENTINEL) return emptyRow(fetcher, "timeout");

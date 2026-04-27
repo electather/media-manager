@@ -20,6 +20,7 @@ import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authen
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/_app/index'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
+import { Route as AuthenticatedMediaIdRouteImport } from './routes/_authenticated/media.$id'
 import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
 import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
 import { Route as AuthenticatedAppTasteRouteImport } from './routes/_authenticated/_app/taste'
@@ -92,6 +93,11 @@ const AuthInviteTokenRoute = AuthInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthenticatedMediaIdRoute = AuthenticatedMediaIdRouteImport.update({
+  id: '/media/$id',
+  path: '/media/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsSetupRoute =
   AuthenticatedSettingsSetupRouteImport.update({
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/taste': typeof AuthenticatedAppTasteRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
+  '/media/$id': typeof AuthenticatedMediaIdRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
   '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/taste': typeof AuthenticatedAppTasteRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
+  '/media/$id': typeof AuthenticatedMediaIdRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
   '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/taste': typeof AuthenticatedAppTasteRoute
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
+  '/_authenticated/media/$id': typeof AuthenticatedMediaIdRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/_settings/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
     | '/taste'
     | '/oauth-callback'
     | '/setup'
+    | '/media/$id'
     | '/auth/invite/$token'
     | '/admin/jobs'
     | '/admin/logs'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/taste'
     | '/oauth-callback'
     | '/setup'
+    | '/media/$id'
     | '/auth/invite/$token'
     | '/admin/jobs'
     | '/admin/logs'
@@ -373,6 +384,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/taste'
     | '/_authenticated/_settings/oauth-callback'
     | '/_authenticated/_settings/setup'
+    | '/_authenticated/media/$id'
     | '/auth/invite/$token'
     | '/_authenticated/_app/'
     | '/_authenticated/_settings/admin/jobs'
@@ -473,6 +485,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/invite/$token'
       preLoaderRoute: typeof AuthInviteTokenRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/_authenticated/media/$id': {
+      id: '/_authenticated/media/$id'
+      path: '/media/$id'
+      fullPath: '/media/$id'
+      preLoaderRoute: typeof AuthenticatedMediaIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/_settings/setup': {
       id: '/_authenticated/_settings/setup'
@@ -685,11 +704,13 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedMediaIdRoute: typeof AuthenticatedMediaIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedMediaIdRoute: AuthenticatedMediaIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

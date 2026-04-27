@@ -78,9 +78,9 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - `home.getLayout` → `HomeLayoutResponse { hero: LayoutHero|null, rows: HomeRow[], generatedAt }`.
 - `home.getRowContent(rowId, cursor)` → `RowContentResponse { items, cursor, partial? }`.
   Seven row kinds: `continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`.
-  `LayoutHero { item: CompactMediaItem, source: RowKind, reason, resumeUrl: string|null }`.
+  `LayoutHero { item: CompactMediaItem, source: RowKind, reason, resumeUrl: string|null }`. `resumeUrl` null = ⊥ playable; consumer ! `!= null` check (empty-string truthy = wrong).
   `HomeRow.titleOverride` set when hero exclusion shifts row meaning.
-  Error codes: `home.bad_input` (invalid rowId/cursor), `home.row_unavailable` (row no longer eligible mid-session), `home.internal` (captured infra fault).
+  Error codes: `home.bad_input` (invalid rowId/cursor), `home.row_unavailable` (row no longer eligible mid-session — frontend drops row + toasts), `home.internal` (captured infra fault).
 
 ## §V Invariants
 
@@ -113,31 +113,42 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V27. OAuth 2.1 JWT validated before MCP tool dispatch. ∀ tool handler unreachable w/o valid token. Auth check ∈ transport layer; runs before tool routing — ⊥ handler reachable unauthenticated.
 - V28. `config.public` sole unauthenticated endpoint. ∀ other routes & procedures → valid session | JWT required. ⊥ accidental info leak when adding new routes.
 - V29. `me.accountDelete` cascades ∀ user-owned rows: connections, `notification_deliveries`, preferences, activity, watchlist, ratings, feedback, errors. ⊥ orphaned user data post-deletion.
+- V30. Row presentation single source = `ROW_DISPLAY` map at `packages/client/src/lib/home-display.ts`. ∀ row-specific visual decisions (slot, aspectRatio, showMatchReasonInline) read from it. ⊥ row-id branching elsewhere in page tree. Adding row = one entry; rest of code untouched.
+- V31. Single `Card` component. Treatment dispatch from item shape: progress→continue-watching, episode→upcoming, neither→default. Aspect from `ROW_DISPLAY[rowId].aspectRatio`. Size from `@container` query (hero/row/sidebar). ⊥ duplicate card variants.
+- V32. Modal open uses `router.navigate({ search, replace: false })` (push). Close uses default `replace: true` (rewrite). Net: one browser-back dismisses modal + lands on prior page. Inverting either breaks history flow — back-press would skip past modal or stack two entries.
+- V33. Cards render as `<a href={`/media/${id}`}>`. Click handler `preventDefault` + sets `peek` search param; modifier-clicks (middle / Cmd / Ctrl) fall through to real URL. ⊥ `<button>` — breaks open-in-new-tab + share.
+- V34. `MediaDetailModal` mounted at `_authenticated` layout — ⊥ home route. ∀ authed routes get peek-modal free. `peekSchema` declared on route `validateSearch`; invalid stripped before reaching component. ⊥ defensive parsing inside modal.
+- V35. Sidebar→main slot override at narrow widths via `@container` query, ⊥ `useMediaQuery`. Hydration-safe when SSR lands. `clearLogo` overlay rendered only at hero container size; ⊥ at row/sidebar sizes (title text rules there).
+- V36. Frontend treats `HomeRow.cursor` + `getRowContent` cursor opaque. ⊥ parse, ⊥ inspect, ⊥ version-check. Backend owns format per V15.
 
 ## §T Tasks
 
-| id  | status | desc                                                                                                              | cites                 |
-| --- | ------ | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
-| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch                                                     | I.plugin              |
-| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk                                                | I.plugin,C8           |
-| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                                                              | I.api,V1              |
-| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                                                             | I.mcp,V1              |
-| T5  | ✓      | Error management — capture, codes, correlation, admin viewer                                                      | V5,V6                 |
-| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                                                            | I.api                 |
-| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job                                                      | V8,C1                 |
-| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`)                                          | I.api,I.plugin        |
-| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                                                           | V2,V3,V4,I.api        |
-| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord                                                 | I.notifications,V15   |
-| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)                                                  | I.api                 |
-| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                                                         | I.deploy,C6           |
-| T13 | ✓      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures                                                | I.home,V9,V10,V11,V12 |
-| T14 | .      | Home feed frontend — Netflix-style rows, hero, card, detail modal                                                 | I.home,T13,T16        |
-| T15 | ✓      | `home` subpath export in `@ent-mcp/shared`                                                                        | V12,T13               |
-| T16 | .      | Decide `resumeUrl` capability: `watchHistory@v1` ext vs new `playback@v1`                                         | I.home,T13            |
-| T17 | .      | `@ent-mcp/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                    | C8,V23                |
-| T18 | .      | Per-plugin extraction — TVDB, TMDB, Seerr, Trakt, Plex, Jellyfin → `packages/plugins/<id>/`; delete builtin/ husk | C8,V22,V23,V24        |
-| T19 | .      | Boundary lint + SDK-compat CI checks wired into `vp check`                                                        | V24,V25               |
-| T20 | .      | Release workflow — GHCR Docker push (server), `dist/*` assets on plugin + SDK GitHub Releases                     | I.deploy              |
+| id  | status | desc                                                                                                               | cites                                      |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch                                                      | I.plugin                                   |
+| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk                                                 | I.plugin,C8                                |
+| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                                                               | I.api,V1                                   |
+| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                                                              | I.mcp,V1                                   |
+| T5  | ✓      | Error management — capture, codes, correlation, admin viewer                                                       | V5,V6                                      |
+| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                                                             | I.api                                      |
+| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job                                                       | V8,C1                                      |
+| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`)                                           | I.api,I.plugin                             |
+| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                                                            | V2,V3,V4,I.api                             |
+| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord                                                  | I.notifications,V15                        |
+| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)                                                   | I.api                                      |
+| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                                                          | I.deploy,C6                                |
+| T13 | ✓      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures                                                 | I.home,V9,V10,V11,V12                      |
+| T14 | x      | Home feed frontend — route, single-source `ROW_DISPLAY`, single `Card`, layout-level peek modal                    | I.home,T13,T16,V30,V31,V32,V33,V34,V35,V36 |
+| T15 | ✓      | `home` subpath export in `@ent-mcp/shared`                                                                         | V12,T13                                    |
+| T16 | .      | Decide `resumeUrl` capability: `watchHistory@v1` ext vs new `playback@v1`                                          | I.home,T13                                 |
+| T17 | .      | `@ent-mcp/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                     | C8,V23                                     |
+| T18 | .      | Per-plugin extraction — TVDB, TMDB, Seerr, Trakt, Plex, Jellyfin → `packages/plugins/<id>/`; delete builtin/ husk  | C8,V22,V23,V24                             |
+| T19 | .      | Boundary lint + SDK-compat CI checks wired into `vp check`                                                         | V24,V25                                    |
+| T20 | .      | Release workflow — GHCR Docker push (server), `dist/*` assets on plugin + SDK GitHub Releases                      | I.deploy                                   |
+| T21 | x      | Per-`Row` error boundary — bad item / unhandled card render error hides single row, ⊥ crash whole feed             | T14                                        |
+| T22 | x      | `CenteredState` primitive shared by `home-feed-empty` + `home-feed-error` (title + body + action button)           | T14                                        |
+| T23 | x      | Carousel keyboard pattern — arrows out of Tab order; cards in Tab; `ArrowLeft`/`Right` scroll within row           | T14                                        |
+| T24 | x      | Progress-bar color token `--color-progress-watched`; ⊥ reuse `--color-text-danger` (text role on non-text surface) | T14                                        |
 
 ## §B Bugs
 

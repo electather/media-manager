@@ -44,6 +44,7 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
       method: req.method,
       input: req.input,
       timeoutMs: capability.defaultTimeoutMs,
+      deadlineMs: req.deadlineMs,
     },
     conn,
   );
