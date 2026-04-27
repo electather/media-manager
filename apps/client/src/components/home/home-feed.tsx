@@ -73,10 +73,11 @@ function HomeFeedContent({ data }: ContentProps) {
         sidebarRow={topSidebar}
         onSidebarRowUnavailable={handleSidebarUnavailable}
       />
-      {orderedRows.map((row) => (
+      {orderedRows.map((row, index) => (
         <Row
           key={row.rowId}
           row={row}
+          isFirstRow={index === 0}
           onRowUnavailable={(rowId) => handleRowUnavailable(rowId, row.title)}
         />
       ))}

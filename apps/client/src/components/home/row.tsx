@@ -11,21 +11,27 @@ import { RowErrorBoundary } from "./row-error-boundary";
 export interface RowProps {
   row: HomeRowStub;
   onRowUnavailable: (rowId: HomeRowStub["rowId"]) => void;
+  /**
+   * Treat every card in this row as above-the-fold. Used for the first row
+   * on the home feed so its artwork starts loading immediately instead of
+   * waiting on intersection.
+   */
+  isFirstRow?: boolean;
 }
 
 const EMPTY_RETAINED_COPY: Partial<Record<HomeRowStub["rowId"], string>> = {
   upcomingForYou: "You're all caught up on upcoming episodes.",
 };
 
-export function Row({ row, onRowUnavailable }: RowProps) {
+export function Row({ row, onRowUnavailable, isFirstRow }: RowProps) {
   return (
     <RowErrorBoundary>
-      <RowInner row={row} onRowUnavailable={onRowUnavailable} />
+      <RowInner row={row} onRowUnavailable={onRowUnavailable} isFirstRow={isFirstRow} />
     </RowErrorBoundary>
   );
 }
 
-function RowInner({ row, onRowUnavailable }: RowProps) {
+function RowInner({ row, onRowUnavailable, isFirstRow }: RowProps) {
   const pagination = useRowPagination({
     rowId: row.rowId,
     initialCursor: row.initialCursor,
@@ -79,7 +85,7 @@ function RowInner({ row, onRowUnavailable }: RowProps) {
           display.aspectRatio === "backdrop" &&
           pagination.items[0] ? (
           <div className="max-w-md">
-            <Card item={pagination.items[0]} rowId={row.rowId} size="row" />
+            <Card item={pagination.items[0]} rowId={row.rowId} size="row" priority={isFirstRow} />
           </div>
         ) : (
           <RowCarousel
@@ -88,6 +94,7 @@ function RowInner({ row, onRowUnavailable }: RowProps) {
             hasMore={pagination.hasMore}
             isFetching={pagination.isFetching}
             onNearEnd={pagination.fetchNext}
+            priority={isFirstRow}
           />
         )}
       </div>
