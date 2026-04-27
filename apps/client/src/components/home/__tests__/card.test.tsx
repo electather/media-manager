@@ -10,6 +10,15 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: navigateMock }) };
 });
 
+// Stub the artwork batching hook so Card tests stay focused on layout/click
+// behaviour. With no `data`, Card falls back to the inline `item.poster` /
+// `item.backdrop` / `item.clearLogo` fields exactly as it did before the hook
+// landed.
+vi.mock("@/hooks/use-artwork", () => ({
+  useArtwork: () => ({ data: undefined }),
+  EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
+}));
+
 import { Card } from "../card";
 
 const baseItem: CompactMediaItem = {

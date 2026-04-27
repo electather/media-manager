@@ -98,7 +98,7 @@ const TIMEOUT_SENTINEL: unique symbol = Symbol("home-row-timeout");
  *   - `ok_items`  — fetch succeeded with at least one item.
  *   - `ok_empty`  — fetch succeeded with zero items, no plugin errors.
  *   - `partial`   — fetch succeeded but at least one peer plugin errored.
- *   - `timeout`   — exceeded the 3s per-row budget.
+ *   - `timeout`   — exceeded the 5s per-row budget.
  *   - `all_failed` — every contributing provider errored
  *                    (`AllPluginsFailedError` from `MediaService`).
  *

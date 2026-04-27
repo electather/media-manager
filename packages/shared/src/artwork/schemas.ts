@@ -52,3 +52,14 @@ export const artworkGetResponseSchema = z.object({
   errors: z.record(z.string(), artworkErrorSchema).optional(),
   generatedAt: z.number().int().nonnegative(),
 });
+
+/**
+ * Input schema for the `artwork.get` RPC. The 50-item upper bound matches a
+ * typical viewport batch — any larger and the client should split into
+ * multiple calls. `languages` falls back to the server default (`["en", "00"]`)
+ * when omitted, so user-locale signal is opt-in.
+ */
+export const artworkGetInputSchema = z.object({
+  items: z.array(artworkRequestItemSchema).min(1).max(50),
+  languages: z.array(z.string().min(2).max(8)).max(8).optional(),
+});

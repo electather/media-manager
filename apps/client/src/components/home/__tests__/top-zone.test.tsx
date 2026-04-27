@@ -8,6 +8,11 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: vi.fn() }) };
 });
 
+vi.mock("@/hooks/use-artwork", () => ({
+  useArtwork: () => ({ data: undefined }),
+  EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
+}));
+
 import { TopZone } from "../top-zone";
 
 afterEach(() => cleanup());

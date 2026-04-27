@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import { ROW_DISPLAY } from "@/lib/home-display";
 import { cn } from "@/lib/utils";
+import { useArtwork } from "@/hooks/use-artwork";
 import { StatusPill } from "./status-pill";
 import { RatingBadge } from "./rating-badge";
 import { MatchReason } from "./match-reason";
@@ -62,9 +63,18 @@ export function Card({ item, rowId, size = "row", className }: CardProps) {
   const display = ROW_DISPLAY[rowId];
   const treatment = pickTreatment(item);
   const aspect = display.aspectRatio === "poster" ? "aspect-[2/3]" : "aspect-video";
-  const art = display.aspectRatio === "poster" ? item.poster : (item.backdrop ?? item.poster);
 
-  const showClearLogo = size === "hero" && treatment === "continue" && item.clearLogo;
+  const artwork = useArtwork({
+    key: item.id,
+    ids: { tmdb: item.tmdbId },
+    type: item.mediaType,
+  });
+  const posterUrl = artwork.data?.poster[0]?.url ?? item.poster;
+  const backdropUrl = artwork.data?.backdrop[0]?.url ?? item.backdrop ?? posterUrl;
+  const clearLogoUrl = artwork.data?.clearLogo[0]?.url ?? item.clearLogo;
+  const art = display.aspectRatio === "poster" ? posterUrl : backdropUrl;
+
+  const showClearLogo = size === "hero" && treatment === "continue" && clearLogoUrl;
   const showMatchReason =
     size !== "hero" && display.showMatchReasonInline && item.matchReason && treatment === "default";
 
@@ -107,10 +117,10 @@ export function Card({ item, rowId, size = "row", className }: CardProps) {
           </div>
         )}
 
-        {showClearLogo ? (
+        {showClearLogo && clearLogoUrl ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-[8%]">
             <img
-              src={item.clearLogo}
+              src={clearLogoUrl}
               alt={item.title}
               className="max-h-[60%] max-w-[70%] object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
             />

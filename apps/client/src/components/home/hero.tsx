@@ -1,6 +1,7 @@
 import type { MouseEvent } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { LayoutHero } from "@ent-mcp/shared/home";
+import { useArtwork } from "@/hooks/use-artwork";
 
 export function Hero({ hero }: { hero: LayoutHero }) {
   const router = useRouter();
@@ -25,6 +26,15 @@ export function Hero({ hero }: { hero: LayoutHero }) {
   const remaining = progress ? Math.max(progress.total - progress.watched, 0) : null;
   const percent = progress && progress.total > 0 ? (progress.watched / progress.total) * 100 : 0;
 
+  const artwork = useArtwork({
+    key: item.id,
+    ids: { tmdb: item.tmdbId },
+    type: item.mediaType,
+  });
+  const backdropUrl =
+    artwork.data?.backdrop[0]?.url ?? item.backdrop ?? artwork.data?.poster[0]?.url ?? item.poster;
+  const clearLogoUrl = artwork.data?.clearLogo[0]?.url ?? item.clearLogo;
+
   return (
     <a
       href={isResumable ? hero.resumeUrl! : `/media/${item.id}`}
@@ -35,19 +45,19 @@ export function Hero({ hero }: { hero: LayoutHero }) {
       className="group/hero flex flex-col gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-video w-full overflow-hidden rounded-md bg-muted/40">
-        {item.backdrop ? (
+        {backdropUrl ? (
           <img
-            src={item.backdrop}
+            src={backdropUrl}
             alt=""
             loading="eager"
             decoding="async"
             className="h-full w-full object-cover"
           />
         ) : null}
-        {item.clearLogo ? (
+        {clearLogoUrl ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-[6%]">
             <img
-              src={item.clearLogo}
+              src={clearLogoUrl}
               alt={item.title}
               className="max-h-[55%] max-w-[70%] object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
             />

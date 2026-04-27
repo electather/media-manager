@@ -1,0 +1,1 @@
+export { ArtworkService } from "./service";

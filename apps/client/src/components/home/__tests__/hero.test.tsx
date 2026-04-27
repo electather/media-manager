@@ -10,6 +10,11 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: navigateMock }) };
 });
 
+vi.mock("@/hooks/use-artwork", () => ({
+  useArtwork: () => ({ data: undefined }),
+  EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
+}));
+
 import { Hero } from "../hero";
 
 const baseHero: LayoutHero = {

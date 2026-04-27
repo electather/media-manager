@@ -2,6 +2,7 @@ import type { MouseEvent } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { formatRelativeAirDate } from "@/lib/relative-date";
+import { useArtwork } from "@/hooks/use-artwork";
 
 export function SidebarItem({ item }: { item: CompactMediaItem }) {
   const router = useRouter();
@@ -18,7 +19,13 @@ export function SidebarItem({ item }: { item: CompactMediaItem }) {
 
   const episodeLine = item.episode ? `S${item.episode.season} E${item.episode.episode}` : null;
   const dateLine = item.episode ? formatRelativeAirDate(item.episode.airsAt) : null;
-  const art = item.backdrop ?? item.poster;
+  const artwork = useArtwork({
+    key: item.id,
+    ids: { tmdb: item.tmdbId },
+    type: item.mediaType,
+  });
+  const art =
+    artwork.data?.backdrop[0]?.url ?? item.backdrop ?? artwork.data?.poster[0]?.url ?? item.poster;
 
   return (
     <a

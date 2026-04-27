@@ -4,12 +4,15 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
 
-const apiMock = vi.hoisted(() => ({ getLayout: vi.fn() }));
+const apiMock = vi.hoisted(() => ({ getLayout: vi.fn(), getArtwork: vi.fn() }));
 vi.mock("@/lib/api", () => ({
   api: {
     home: {
       getLayout: { $post: (args: unknown) => apiMock.getLayout(args) },
       getRowContent: { $post: vi.fn() },
+    },
+    artwork: {
+      get: { $post: (args: unknown) => apiMock.getArtwork(args) },
     },
   },
 }));
@@ -41,7 +44,13 @@ function renderFeed() {
   );
 }
 
-beforeEach(() => apiMock.getLayout.mockReset());
+beforeEach(() => {
+  apiMock.getLayout.mockReset();
+  apiMock.getArtwork.mockReset();
+  // Default: artwork.get resolves to an empty results map so cards fall back
+  // to inline poster/backdrop fields. Per-test overrides via mockResolvedValue.
+  apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
+});
 afterEach(() => cleanup());
 
 describe("HomeFeed branches", () => {
