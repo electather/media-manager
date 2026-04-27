@@ -198,7 +198,7 @@ Called when user scrolls row horizontally past inlined first page. Same per-row 
 // Input
 z.object({
   rowId: z.enum([...ROW_KINDS]),
-  cursor: z.string(), // opaque; came from HomeRow.cursor
+  cursor: z.string().nullable(), // opaque; null = first page, otherwise echoed from previous response
 }).strict();
 
 // Output

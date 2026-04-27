@@ -39,17 +39,6 @@ export interface CompactMediaItem {
   };
 }
 
-export interface HomeRow {
-  rowId: RowKind;
-  title: string;
-  subtitle?: string;
-  items: CompactMediaItem[];
-  /** Opaque cursor for the next page; null at end of pagination. */
-  cursor: string | null;
-  /** Set when an aggregate plugin set returned partial data. */
-  partial?: true;
-}
-
 export interface LayoutHero {
   item: CompactMediaItem;
   source: RowKind;
