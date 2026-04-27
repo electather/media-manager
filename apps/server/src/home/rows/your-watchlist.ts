@@ -23,7 +23,7 @@ export const yourWatchlistFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const offset = readOffset(opts.cursor);
-    const result = await ctx.mediaService.getWatchlistFeed();
+    const result = await ctx.mediaService.getWatchlistFeed({ deadlineMs: ctx.deadlineMs });
     const data = result.items as WatchlistEntry[];
     const sorted = [...data].sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt));
     const slice = sorted.slice(offset, offset + opts.limit);

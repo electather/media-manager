@@ -22,7 +22,10 @@ export const continueWatchingFetcher: RowFetcher = {
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const offset = readOffset(opts.cursor);
-    const result = await ctx.mediaService.getInProgress({ limit: MAX_ITEMS });
+    const result = await ctx.mediaService.getInProgress({
+      limit: MAX_ITEMS,
+      deadlineMs: ctx.deadlineMs,
+    });
     const merged = mergeAndDedupe(result.items as InProgressEntry[]);
     const slice = merged.slice(offset, offset + opts.limit);
     const items = slice.map(mapToCompact);

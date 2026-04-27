@@ -26,7 +26,10 @@ export const recommendedForYouFetcher: RowFetcher = {
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const { page, exclusion } = readCursor(opts.cursor);
     const overFetchLimit = opts.limit * OVER_FETCH_FACTOR;
-    const result = await ctx.mediaService.getRecommendationsFeed({ limit: overFetchLimit });
+    const result = await ctx.mediaService.getRecommendationsFeed({
+      limit: overFetchLimit,
+      deadlineMs: ctx.deadlineMs,
+    });
     const candidates = filterCandidates(result.items as RawMediaItem[], exclusion);
 
     const ranked = await rankCandidates(ctx, candidates, opts.limit);

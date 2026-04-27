@@ -18,6 +18,14 @@ export interface InvokeRequest {
   method: string;
   input: unknown;
   timeoutMs: number;
+  /**
+   * Wall-clock deadline in ms-epoch. When set, the rate-limit / transient
+   * retry path skips its backoff sleep if the remaining budget is shorter
+   * than the planned backoff plus a small call buffer. Caller (layout
+   * orchestrator) sets this so a slow first call cannot cascade into a
+   * timeout that drops the whole row from the response.
+   */
+  deadlineMs?: number;
 }
 
 type RetryDecision = "refresh" | "rate-limit" | "transient" | "fail";
@@ -28,6 +36,13 @@ interface RetryState {
   triedTransient: boolean;
   isUserConnection: boolean;
 }
+
+const RATE_LIMIT_BACKOFF_MS = 2_000;
+const TRANSIENT_BACKOFF_MS = 1_000;
+// Bare-minimum headroom for the retry call itself once the backoff sleep
+// elapses. Anything tighter would land us back in the same timeout that
+// motivated #135.
+const RETRY_CALL_BUFFER_MS = 200;
 
 function decideRetry(errorCode: string, state: RetryState): RetryDecision {
   if (errorCode === "plugin.token_expired" && !state.triedRefresh && state.isUserConnection) {
@@ -43,6 +58,12 @@ function decideRetry(errorCode: string, state: RetryState): RetryDecision {
     return "transient";
   }
   return "fail";
+}
+
+function deadlineAllowsRetry(deadlineMs: number | undefined, backoffMs: number): boolean {
+  if (deadlineMs === undefined) return true;
+  const remaining = deadlineMs - Date.now();
+  return remaining >= backoffMs + RETRY_CALL_BUFFER_MS;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -149,13 +170,29 @@ export async function invokeOne<T>(
 
       if (decision === "rate-limit") {
         state.triedRateLimit = true;
-        await sleep(2_000);
+        if (!deadlineAllowsRetry(req.deadlineMs, RATE_LIMIT_BACKOFF_MS)) {
+          return {
+            pluginId: req.pluginId,
+            connectionId: conn.kind === "user" ? conn.connectionId : null,
+            shared: conn.kind === "shared",
+            error: normalized,
+          };
+        }
+        await sleep(RATE_LIMIT_BACKOFF_MS);
         continue;
       }
 
       if (decision === "transient") {
         state.triedTransient = true;
-        await sleep(1_000);
+        if (!deadlineAllowsRetry(req.deadlineMs, TRANSIENT_BACKOFF_MS)) {
+          return {
+            pluginId: req.pluginId,
+            connectionId: conn.kind === "user" ? conn.connectionId : null,
+            shared: conn.kind === "shared",
+            error: normalized,
+          };
+        }
+        await sleep(TRANSIENT_BACKOFF_MS);
         continue;
       }
 

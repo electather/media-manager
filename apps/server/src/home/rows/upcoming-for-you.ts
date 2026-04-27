@@ -33,7 +33,7 @@ export const upcomingForYouFetcher: RowFetcher = {
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const after = readAfter(opts.cursor);
     const [result, inProgress] = await Promise.all([
-      ctx.mediaService.getUpcomingFeed(),
+      ctx.mediaService.getUpcomingFeed({ deadlineMs: ctx.deadlineMs }),
       ctx.dataloader.getInProgressSet(),
     ]);
     const entries = (result.items as UpcomingEntry[])

@@ -245,13 +245,16 @@ export class MediaService {
    * least one peer errored. Throws `AllPluginsFailedError` only when every
    * resolved provider errored, so the row can be flagged `all_failed`.
    */
-  async getInProgress(opts: { limit?: number } = {}): Promise<HomeAggregate<unknown[]>> {
+  async getInProgress(
+    opts: { limit?: number; deadlineMs?: number } = {},
+  ): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
       capability: "watchHistory",
       version: "v1",
       method: "getInProgress",
       input: { limit: opts.limit },
+      deadlineMs: opts.deadlineMs,
     });
     return interpretAggregate("watchHistory@v1", result);
   }
@@ -343,13 +346,16 @@ export class MediaService {
     releaseDateGte?: number;
     releaseDateLte?: number;
     sort?: "popularity_desc" | "popularity_asc" | "release_date_desc" | "release_date_asc";
+    deadlineMs?: number;
   }): Promise<HomeAggregate<unknown[]>> {
+    const { deadlineMs, ...input } = filters;
     const result = await dispatchPrimary<unknown[]>({
       userId: this.userId,
       capability: "metadata",
       version: "v1",
       method: "discover",
-      input: filters,
+      input,
+      deadlineMs,
     });
     return interpretAggregate("metadata@v1", result);
   }
@@ -361,14 +367,17 @@ export class MediaService {
   async getSimilarFeed(input: {
     id: string;
     type: "movie" | "tv";
+    deadlineMs?: number;
   }): Promise<HomeAggregate<unknown[]>> {
+    const { deadlineMs, ...rest } = input;
     const result = await dispatchPrimary<unknown[]>({
       userId: this.userId,
       capability: "metadata",
       version: "v1",
       method: "getSimilar",
-      input,
-      mediaType: input.type,
+      input: rest,
+      mediaType: rest.type,
+      deadlineMs,
     });
     return interpretAggregate("metadata@v1", result);
   }
@@ -379,13 +388,14 @@ export class MediaService {
    * flag and an `AllPluginsFailedError` so the home feed orchestrator can
    * classify the row outcome correctly.
    */
-  async getUpcomingFeed(): Promise<HomeAggregate<unknown[]>> {
+  async getUpcomingFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
       capability: "calendar",
       version: "v1",
       method: "getUpcoming",
       input: {},
+      deadlineMs: opts.deadlineMs,
     });
     return interpretAggregate("calendar@v1", result);
   }
@@ -395,13 +405,14 @@ export class MediaService {
    * row. Surfaces partial-failure signalling that the legacy `getWatchlist`
    * getter swallows.
    */
-  async getWatchlistFeed(): Promise<HomeAggregate<unknown[]>> {
+  async getWatchlistFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
       capability: "watchlist",
       version: "v1",
       method: "getWatchlist",
       input: {},
+      deadlineMs: opts.deadlineMs,
     });
     return interpretAggregate("watchlist@v1", result);
   }
@@ -410,6 +421,7 @@ export class MediaService {
   async getTrendingFeed(opts: {
     mediaType?: "movie" | "tv";
     limit?: number;
+    deadlineMs?: number;
   }): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -417,6 +429,7 @@ export class MediaService {
       version: "v1",
       method: "getTrending",
       input: { type: opts.mediaType, limit: opts.limit },
+      deadlineMs: opts.deadlineMs,
     });
     return interpretAggregate("recommendations@v1", result);
   }
@@ -425,6 +438,7 @@ export class MediaService {
   async getRecommendationsFeed(opts: {
     mediaType?: "movie" | "tv";
     limit?: number;
+    deadlineMs?: number;
   }): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -432,6 +446,7 @@ export class MediaService {
       version: "v1",
       method: "getRecommendations",
       input: { type: opts.mediaType, limit: opts.limit },
+      deadlineMs: opts.deadlineMs,
     });
     return interpretAggregate("recommendations@v1", result);
   }

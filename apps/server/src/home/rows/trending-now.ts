@@ -22,7 +22,10 @@ export const trendingNowFetcher: RowFetcher = {
     // Aggregate `recommendations@v1.getTrending` does not expose a page knob,
     // so over-fetch by `(page+1) * limit` and slice client-side. Same pattern
     // `newReleases` uses; without it pages > 0 are guaranteed empty.
-    const result = await ctx.mediaService.getTrendingFeed({ limit: opts.limit * (page + 1) });
+    const result = await ctx.mediaService.getTrendingFeed({
+      limit: opts.limit * (page + 1),
+      deadlineMs: ctx.deadlineMs,
+    });
     const slice = sliceForPage(result.items as RawMediaItem[], page, opts.limit);
     const items = await Promise.all(slice.map((item) => buildItem(ctx, item)));
     const usableItems = items.filter((item): item is CompactMediaItem => item !== null);

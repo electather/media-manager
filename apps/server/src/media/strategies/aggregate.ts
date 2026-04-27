@@ -35,6 +35,7 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
           method: req.method,
           input: req.input,
           timeoutMs: capability.defaultTimeoutMs,
+          deadlineMs: req.deadlineMs,
         },
         conn,
       ),

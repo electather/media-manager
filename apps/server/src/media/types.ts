@@ -12,6 +12,13 @@ export interface DispatchRequest {
   mediaType?: "movie" | "tv";
   /** Skip cache read/write (e.g. for mutations or forced refresh). */
   skipCache?: boolean;
+  /**
+   * Wall-clock deadline in ms-epoch. When set, `invokeOne` skips a backoff
+   * retry if the remaining budget is shorter than the backoff plus a small
+   * call buffer. Aggregate dispatch then surfaces the original error so the
+   * row stays in the layout as `partial: true` rather than disappearing.
+   */
+  deadlineMs?: number;
 }
 
 export interface AggregateResult<T> {

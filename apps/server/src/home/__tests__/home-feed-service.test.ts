@@ -137,7 +137,9 @@ describe("HomeFeedService", () => {
     ROW_FETCHERS.upcomingForYou.fetch = () => new Promise(() => {});
     try {
       const promise = new HomeFeedService().getLayout("user-cal-timeout");
-      await vi.advanceTimersByTimeAsync(3_001);
+      // PER_ROW_TIMEOUT_MS bumped to 5s in #135 fix; advance past it so the
+      // never-resolving fetcher hits the timeout sentinel and the row drops.
+      await vi.advanceTimersByTimeAsync(5_001);
       const result = await promise;
       expect(result.rows.map((r) => r.rowId)).not.toContain("upcomingForYou");
     } finally {
