@@ -49,7 +49,9 @@ const dbStub = {
 vi.mock("../../db/client", () => ({ getDb: () => dbStub }));
 
 const { dispatchAggregatePerKind } = await import("../dispatcher");
-const { PluginCallError } = await import("../errors");
+const errorsModule = await import("../errors");
+const { PluginCallError } = errorsModule;
+type PluginCallErrorType = InstanceType<typeof errorsModule.PluginCallError>;
 
 interface ProviderShape {
   pluginId: string;
@@ -195,15 +197,17 @@ describe("dispatchAggregatePerKind", () => {
       },
     ]);
 
-    await expect(
-      dispatchAggregatePerKind({
-        userId: "u1",
-        capability: "artwork",
-        version: "v1",
-        method: "getArtwork",
-        input: { ids: { imdb: "tt0944947" }, type: "tv" },
-      }),
-    ).rejects.toBeInstanceOf(PluginCallError);
+    const err = await dispatchAggregatePerKind({
+      userId: "u1",
+      capability: "artwork",
+      version: "v1",
+      method: "getArtwork",
+      input: { ids: { imdb: "tt0944947" }, type: "tv" },
+    }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PluginCallError);
+    // Verify the error code so a regression that throws the wrong typed
+    // error (e.g. plugin.input_invalid) doesn't slip through.
+    expect((err as PluginCallErrorType).code).toBe("artwork.unsupported_id_combo");
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
@@ -262,6 +266,67 @@ describe("dispatchAggregatePerKind", () => {
       input: { ids: { tmdb: "550" }, type: "movie" },
     });
 
+    expect(result.poster).toEqual([{ url: "https://tmdb/p.jpg", language: "en", likes: 1 }]);
+  });
+
+  it("excludes a provider whose manifest extras fail schema validation", async () => {
+    // Plugin claims artwork but ships a malformed manifest (negative
+    // priority + missing supportedIdTypes.tv). The dispatcher must skip it
+    // rather than panic — and crucially, the plugin must not silently win
+    // dispatch with bogus values like priority -1.
+    listProvidersMock.mockReturnValue(["broken", "tmdb"]);
+    registryGetMock.mockImplementation((pluginId: string) => {
+      if (pluginId === "broken") {
+        return {
+          pluginId,
+          enabled: true,
+          module: {
+            manifest: {
+              capabilities: {
+                artwork: {
+                  version: "v1",
+                  scope: "global",
+                  supportedIdTypes: { movie: ["tmdb"] }, // missing `tv`
+                  providerPriority: -1,
+                },
+              },
+            },
+          },
+        };
+      }
+      return {
+        pluginId,
+        enabled: true,
+        module: {
+          manifest: {
+            capabilities: {
+              artwork: {
+                version: "v1",
+                scope: "global",
+                supportedIdTypes: { movie: ["tmdb"], tv: ["tmdb"] },
+                providerPriority: 20,
+              },
+            },
+          },
+        },
+      };
+    });
+    invokeMock.mockResolvedValue({
+      ...emptyBundle(),
+      poster: [{ url: "https://tmdb/p.jpg", language: "en", likes: 1 }],
+    });
+
+    const result = await dispatchAggregatePerKind<{ poster: unknown[] }>({
+      userId: "u1",
+      capability: "artwork",
+      version: "v1",
+      method: "getArtwork",
+      input: { ids: { tmdb: "550" }, type: "movie" },
+    });
+
+    // Only TMDB invoked — broken plugin filtered out by schema validation.
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock.mock.calls[0]![0]).toMatchObject({ pluginId: "tmdb" });
     expect(result.poster).toEqual([{ url: "https://tmdb/p.jpg", language: "en", likes: 1 }]);
   });
 

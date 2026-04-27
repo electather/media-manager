@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { artworkBundleSchema, artworkIdMapSchema, ARTWORK_KINDS } from "@ent-mcp/shared/artwork";
+import {
+  artworkBundleSchema,
+  artworkIdMapSchema,
+  ARTWORK_KINDS,
+  ARTWORK_ID_TYPES,
+} from "@ent-mcp/shared/artwork";
 import { defineCapability, method } from "../define";
 
 /**
@@ -33,20 +38,24 @@ export const ArtworkV1 = defineCapability({
 });
 
 /**
- * Manifest-level shape every artwork@v1 provider declares. Validated at plugin
- * install — see `validatePluginModule` in the SDK.
+ * Manifest-level shape every artwork@v1 provider declares. The Zod schema
+ * is the runtime source of truth — install-time validation and dispatcher
+ * eligibility checks both go through it. The TypeScript interface is
+ * derived so plugin authors keep static-type guidance.
  */
-export interface ArtworkV1ManifestExtras {
-  version: "v1";
-  scope: "global";
+export const artworkV1ManifestExtrasSchema = z.object({
+  version: z.literal("v1"),
+  scope: z.literal("global"),
   /** Id types this provider can serve per media type. The dispatcher's
    *  `canServe` filter drops the provider when no overlap with the call's
    *  `ids` exists. */
-  supportedIdTypes: {
-    movie: readonly ("tmdb" | "imdb" | "tvdb")[];
-    tv: readonly ("tmdb" | "imdb" | "tvdb")[];
-  };
+  supportedIdTypes: z.object({
+    movie: z.array(z.enum(ARTWORK_ID_TYPES)).min(1),
+    tv: z.array(z.enum(ARTWORK_ID_TYPES)).min(1),
+  }),
   /** Merge priority. Lower = higher priority; ties broken alphabetical by
    *  plugin id. Recommended: 10 for primary providers, 20+ for fallbacks. */
-  providerPriority: number;
-}
+  providerPriority: z.number().int().min(0).max(1000),
+});
+
+export type ArtworkV1ManifestExtras = z.infer<typeof artworkV1ManifestExtrasSchema>;

@@ -275,6 +275,54 @@ describe("tmdb capability contract", () => {
     ).rejects.toThrow();
   });
 
+  it("artwork.getArtwork: hits /tv/{id}/images for tv items", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        posters: [{ file_path: "/tv-p.jpg", iso_639_1: "en", vote_average: 9 }],
+        backdrops: [{ file_path: "/tv-b.jpg", iso_639_1: null, vote_average: 7 }],
+        logos: [{ file_path: "/tv-l.png", iso_639_1: "en", vote_average: 5 }],
+      }),
+    ]);
+    const out = await tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+      ids: { tmdb: "1399" },
+      type: "tv",
+      languages: ["en", "00"],
+    });
+    expect(ctx.calls[0]?.url).toContain("/tv/1399/images");
+    expect(ArtworkV1.methods.getArtwork.output.safeParse(out).success).toBe(true);
+    const bundle = out as { poster: Array<{ url: string }>; backdrop: Array<{ url: string }> };
+    expect(bundle.poster[0]?.url).toContain("/w780/tv-p.jpg");
+    expect(bundle.backdrop[0]?.url).toContain("/w1280/tv-b.jpg");
+  });
+
+  it("artwork.getArtwork: include_image_language honors the caller's languages preference", async () => {
+    // Regression test for a bug where the param was hard-coded to "null,en"
+    // regardless of the `languages` arg, silently dropping non-English variants.
+    const ctx = makeCtx([jsonRes({ posters: [], backdrops: [], logos: [] })]);
+    await tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+      ids: { tmdb: "550" },
+      type: "movie",
+      languages: ["fr", "en", "00"],
+    });
+    const url = ctx.calls[0]!.url;
+    // TMDB writes textless variants under "null"; "00" maps to that.
+    expect(url).toContain("include_image_language=fr%2Cen%2Cnull");
+  });
+
+  it("artwork.getArtwork: include_image_language always includes 'null' even when caller omits textless", async () => {
+    // Textless art is a meaningful fallback when the caller's preferred
+    // languages have no localised variants, so the plugin always appends
+    // "null". Without this, a caller passing ["en"] would never see textless
+    // art even when no English art exists for the item.
+    const ctx = makeCtx([jsonRes({ posters: [], backdrops: [], logos: [] })]);
+    await tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+      ids: { tmdb: "550" },
+      type: "movie",
+      languages: ["en"],
+    });
+    expect(ctx.calls[0]?.url).toContain("include_image_language=en%2Cnull");
+  });
+
   it("artwork.getArtwork: respects custom artworkSizes config", async () => {
     const ctx = makeCtx(
       [jsonRes({ posters: [{ file_path: "/p.jpg", iso_639_1: "en", vote_average: 1 }] })],

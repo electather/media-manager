@@ -487,14 +487,17 @@ export default definePlugin({
           throw pluginError("plugin.input_invalid", "TMDB artwork requires ids.tmdb");
         }
         const langs = languages ?? ["en", "00"];
+        // Build TMDB's `include_image_language` filter from the caller's
+        // language preferences so a request for `["fr","en","00"]` doesn't
+        // silently come back English-only. TMDB uses the literal string
+        // "null" for textless variants; map "00" → "null" and always include
+        // it so textless art can fall through when localised art is missing.
+        const includeImageLanguage = buildIncludeImageLanguage(langs);
         // /images is unauthenticated for v3 keys but accepts the same auth
         // shape as the rest of the API; use tmdbGet so 401/403/429 paths are
         // shared.
         const data = (await tmdbGet(c, `/${type}/${tmdbId}/images`, {
-          // Empty include_image_language guarantees TMDB returns every
-          // language plus textless. We sort client-side; do not rely on the
-          // server's locale filter.
-          include_image_language: "null,en",
+          include_image_language: includeImageLanguage,
         })) as {
           posters?: TmdbImage[];
           backdrops?: TmdbImage[];
@@ -576,6 +579,29 @@ function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette
     default:
       return "other";
   }
+}
+
+/**
+ * Translates the capability's `languages` preference list into TMDB's
+ * `include_image_language` query string. TMDB writes textless ("no
+ * language") variants under the literal string "null"; the caller's "00"
+ * convention maps to that. Always includes "null" so textless art is a
+ * valid fallback when localised art is missing.
+ *
+ * Example: `["fr", "en", "00"]` → `"fr,en,null"`.
+ *          `["en"]`            → `"en,null"`.
+ */
+function buildIncludeImageLanguage(langs: string[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const lang of langs) {
+    const mapped = lang === "00" ? "null" : lang;
+    if (seen.has(mapped)) continue;
+    seen.add(mapped);
+    out.push(mapped);
+  }
+  if (!seen.has("null")) out.push("null");
+  return out.join(",");
 }
 
 function buildVideoUrl(site: string, key: string): string | null {

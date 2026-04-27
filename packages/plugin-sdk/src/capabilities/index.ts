@@ -956,4 +956,4 @@ export function listCapabilities(): Array<(typeof CAPABILITY_CATALOG)[Capability
 }
 
 export type { NotificationDeliveryCapabilityV1 } from "./notification-delivery";
-export { ArtworkV1, type ArtworkV1ManifestExtras } from "./artwork";
+export { ArtworkV1, artworkV1ManifestExtrasSchema, type ArtworkV1ManifestExtras } from "./artwork";

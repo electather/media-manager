@@ -4,7 +4,7 @@ import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { pluginRuntime } from "../plugin-runtime/runtime";
-import { getCapability } from "@ent-mcp/plugin-sdk";
+import { getCapability, artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
 import { encryptJson } from "../crypto/helpers";
 import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
@@ -619,17 +619,24 @@ interface PerKindProvider {
 function readPerKindProvider(pluginId: string, capability: string): PerKindProvider | null {
   const extras = readCapabilityExtras(pluginId, capability);
   if (!extras) return null;
-  const supported = extras.supportedIdTypes as
-    | { movie?: readonly string[]; tv?: readonly string[] }
-    | undefined;
-  if (!supported || !Array.isArray(supported.movie) || !Array.isArray(supported.tv)) {
+  // artwork@v1 is the only aggregate_per_kind capability today, so its schema
+  // defines the manifest contract. Future per-kind capabilities can dispatch
+  // on `capability` here when they land.
+  const parsed = artworkV1ManifestExtrasSchema.safeParse(extras);
+  if (!parsed.success) {
+    consola.warn(
+      `[dispatcher] plugin ${pluginId} declares ${capability}@v1 with malformed manifest extras; ` +
+        `excluded from dispatch. Errors: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+    );
     return null;
   }
-  const priority = extras.providerPriority;
   return {
     pluginId,
-    supportedIdTypes: { movie: supported.movie, tv: supported.tv },
-    providerPriority: typeof priority === "number" && Number.isFinite(priority) ? priority : 1000,
+    supportedIdTypes: {
+      movie: parsed.data.supportedIdTypes.movie,
+      tv: parsed.data.supportedIdTypes.tv,
+    },
+    providerPriority: parsed.data.providerPriority,
   };
 }
 
@@ -775,6 +782,9 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   if (!allFailed) {
     await writeCache(req, capability, scope, bundle as T);
   }
+  // Intentionally no harvestFromOutcomes — artwork bundles carry URLs and
+  // language tags, not cross-service id mappings, so there's nothing to
+  // contribute to id_map.
   await applyInvalidations(req, capability);
   return bundle as T;
 }
