@@ -90,18 +90,22 @@ describe("CatalogService canonical_metadata", () => {
     expect(await catalog.getMetadataBatch([])).toEqual({});
   });
 
-  it("orders listStaleMetadata oldest-first and includes feature-NULL rows", async () => {
+  it("surfaces NULL-features rows ahead of time-stale rows", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
     const now = Date.now();
-    const stale = buildRow(KEY_FIGHT_CLUB, { lastRefreshedAt: now - 60 * 24 * 60 * 60 * 1000 });
+    // KEY_FIGHT_CLUB is time-stale; KEY_TWIN_PEAKS has fresh refresh time
+    // but NULL features (a typical Phase 3 discover-snapshot side-effect).
+    // The NULL-features row must surface first so it actually gets enriched
+    // when many rows are queued ahead of it.
+    const timeStale = buildRow(KEY_FIGHT_CLUB, { lastRefreshedAt: now - 60 * 24 * 60 * 60 * 1000 });
     const nullFeatures = buildRow(KEY_TWIN_PEAKS, { features: null, lastRefreshedAt: now });
-    await catalog.writeMetadata([stale, nullFeatures]);
+    await catalog.writeMetadata([timeStale, nullFeatures]);
 
     const keys = await catalog.listStaleMetadata(30 * 24 * 60 * 60 * 1000, 10);
     const fightClubIdx = keys.findIndex((k) => k.tmdbId === "550" && k.type === "movie");
     const twinPeaksIdx = keys.findIndex((k) => k.tmdbId === "1400" && k.type === "tv");
     expect(fightClubIdx).toBeGreaterThanOrEqual(0);
     expect(twinPeaksIdx).toBeGreaterThanOrEqual(0);
-    expect(fightClubIdx).toBeLessThan(twinPeaksIdx);
+    expect(twinPeaksIdx).toBeLessThan(fightClubIdx);
   });
 });

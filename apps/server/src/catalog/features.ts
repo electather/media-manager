@@ -1,6 +1,7 @@
 import type { CandidateFeatures } from "../preferences/types";
 import type { RawMediaItem } from "../preferences/provider";
 import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "./types";
+import { dedupeStrings, nullableString } from "./util";
 
 /**
  * Single source for projecting a plugin metadata payload onto the catalog
@@ -11,7 +12,7 @@ export function extractFeatures(item: RawMediaItem): CanonicalFeatures {
   return {
     keywords: dedupeStrings(item.keywords),
     cast: dedupeStrings(item.cast),
-    director: nullableString(item.director ?? null),
+    director: nullableString(item.director),
     writers: dedupeStrings(item.writers),
     creators: dedupeStrings(item.creators),
   };
@@ -42,24 +43,4 @@ export function toCandidateFeatures(row: CanonicalMetadata): CandidateFeatures {
 
 export function candidateId(key: MetadataKey): string {
   return `${key.type}:${key.tmdbId}`;
-}
-
-function dedupeStrings(values: string[] | undefined): string[] {
-  if (!values || values.length === 0) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of values) {
-    if (typeof raw !== "string") continue;
-    const trimmed = raw.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
-}
-
-function nullableString(raw: string | null): string | null {
-  if (typeof raw !== "string") return null;
-  const trimmed = raw.trim();
-  return trimmed.length === 0 ? null : trimmed;
 }

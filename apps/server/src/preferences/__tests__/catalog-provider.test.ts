@@ -4,7 +4,7 @@
  */
 import { afterAll, describe, expect, it, vi } from "vite-plus/test";
 import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
-import { CatalogService } from "../../catalog";
+import { CatalogService } from "../../catalog/service";
 import { toCanonicalRow } from "../../catalog/canonical";
 import { CatalogPreferenceProvider } from "../catalog-provider";
 import type { HistorySignal, PreferenceDataProvider } from "../provider";

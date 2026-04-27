@@ -2,6 +2,7 @@ import type { MediaType } from "@ent-mcp/shared/media";
 import type { RawMediaItem } from "../preferences/provider";
 import { extractFeatures } from "./features";
 import type { CanonicalMetadata, MetadataKey } from "./types";
+import { dedupeStrings, nullableString } from "./util";
 
 /**
  * Optional artwork fields lifted off whatever shape the plugin returned.
@@ -47,9 +48,9 @@ export function toCanonicalRow(
     backdropUrl: pickArtwork(raw.backdropUrl, raw.backdrop),
     clearLogoUrl: pickArtwork(raw.clearLogoUrl, raw.clearLogo),
     thumbUrl: pickArtwork(raw.thumbUrl, raw.thumb),
-    overview: nullableString(raw.overview ?? null),
-    originalLanguage: nullableString(raw.originalLanguage ?? null),
-    genres: dedupeStrings(raw.genres),
+    overview: nullableString(raw.overview),
+    originalLanguage: nullableString(raw.originalLanguage),
+    genres: emptyToNull(dedupeStrings(raw.genres)),
     features: extractFeatures(raw),
     lastRefreshedAt: now,
     lastAccessedAt: now,
@@ -63,28 +64,12 @@ export function asMetadataKey(tmdbId: string, type: MediaType): MetadataKey {
 
 function pickArtwork(...candidates: Array<string | null | undefined>): string | null {
   for (const c of candidates) {
-    const value = nullableString(c ?? null);
+    const value = nullableString(c);
     if (value) return value;
   }
   return null;
 }
 
-function nullableString(raw: string | null): string | null {
-  if (typeof raw !== "string") return null;
-  const trimmed = raw.trim();
-  return trimmed.length === 0 ? null : trimmed;
-}
-
-function dedupeStrings(values: string[] | undefined): string[] | null {
-  if (!values || values.length === 0) return null;
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of values) {
-    if (typeof raw !== "string") continue;
-    const trimmed = raw.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out.length > 0 ? out : null;
+function emptyToNull<T>(values: T[]): T[] | null {
+  return values.length > 0 ? values : null;
 }

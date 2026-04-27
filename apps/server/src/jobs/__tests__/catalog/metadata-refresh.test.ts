@@ -99,8 +99,8 @@ describe("host.catalog.metadata_refresh handler", () => {
     await expect(
       runCatalogMetadataRefresh({ catalog }, buildJobCtx({ abortSignal: aborter.signal })),
     ).rejects.toThrow();
-    // First batch may dispatch up to BATCH_SIZE; the second iteration sees
-    // the aborted signal and throws before issuing more dispatches.
-    expect(getMetadataMock.mock.calls.length).toBeLessThanOrEqual(25);
+    // The signal is aborted before the loop runs, so `throwIfAborted` fires
+    // on the first iteration before any dispatch can be issued.
+    expect(getMetadataMock).not.toHaveBeenCalled();
   });
 });

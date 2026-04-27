@@ -1,5 +1,4 @@
-import { CatalogService } from "../catalog";
-import { getDb } from "../db/client";
+import { getCatalogService } from "../catalog";
 import { CatalogPreferenceProvider } from "./catalog-provider";
 import { PreferenceEngine } from "./engine";
 import { MediaServicePreferenceProvider } from "./media-provider";
@@ -16,10 +15,9 @@ let instance: PreferenceEngine | undefined;
  */
 export function getPreferenceEngine(): PreferenceEngine {
   if (!instance) {
-    const catalog = new CatalogService(getDb());
     const fallback = new MediaServicePreferenceProvider();
     instance = new PreferenceEngine({
-      provider: new CatalogPreferenceProvider(catalog, fallback),
+      provider: new CatalogPreferenceProvider(getCatalogService(), fallback),
     });
   }
   return instance;

@@ -141,7 +141,13 @@ export class CatalogService {
           sql`${canonicalMetadata.features} IS NULL`,
         ),
       )
-      .orderBy(asc(canonicalMetadata.lastRefreshedAt))
+      .orderBy(
+        // NULL-feature rows come from a side-effect warm and have a fresh
+        // `last_refreshed_at`; they would otherwise sort last and miss
+        // refresh cycles when 500+ time-stale rows are queued ahead.
+        asc(sql`CASE WHEN ${canonicalMetadata.features} IS NULL THEN 0 ELSE 1 END`),
+        asc(canonicalMetadata.lastRefreshedAt),
+      )
       .limit(limit);
     return rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
   }
