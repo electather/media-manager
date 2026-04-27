@@ -1,7 +1,6 @@
 import { consola } from "consola";
 import type { HomeLayoutResponse, RowContentResponse, RowKind } from "@ent-mcp/shared/home";
-import { CatalogService } from "../catalog";
-import { getDb } from "../db/client";
+import { getCatalogService } from "../catalog";
 import { MediaService } from "../media/service";
 import { getPreferenceEngine } from "../preferences";
 import { badRequest, notFound, internal } from "../errors/http-errors";
@@ -90,13 +89,6 @@ export class HomeFeedService {
   }
 }
 
-let catalogServiceInstance: CatalogService | undefined;
-
-function getCatalogService(): CatalogService {
-  if (!catalogServiceInstance) catalogServiceInstance = new CatalogService(getDb());
-  return catalogServiceInstance;
-}
-
 function buildContext(userId: string) {
   const mediaService = new MediaService(userId);
   const dataloader = new RequestScopedLoader(mediaService, userId);
@@ -121,5 +113,4 @@ export function getHomeFeedService(): HomeFeedService {
 /** Test helper: drop the singleton so the next `get` rebuilds from scratch. */
 export function resetHomeFeedServiceForTest(): void {
   instance = undefined;
-  catalogServiceInstance = undefined;
 }

@@ -47,6 +47,14 @@ const NOTE_KEYWORD_BOOST = 0.3;
 export interface RebuildDeps {
   provider: PreferenceDataProvider;
   abortSignal?: AbortSignal;
+  /**
+   * Wall-clock deadline (ms-epoch) for cold-fill plugin dispatch inside
+   * `collectContributions`. Items processed past the deadline are dropped
+   * without invoking the provider so a fully cold catalog can't run a
+   * rebuild past its job timeout. `undefined` disables the bound — used by
+   * incremental updates which are short and debounced.
+   */
+  deadlineMs?: number;
 }
 
 export async function rebuildProfile(
@@ -193,9 +201,13 @@ async function collectContributions(
   const output = new Map<string, ItemContribution>();
   for (let i = 0; i < candidates.length; i += CONCURRENCY) {
     deps.abortSignal?.throwIfAborted();
+    if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) break;
     const batch = candidates.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
       batch.map(async ([key, signals]) => {
+        if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) {
+          return { key, signals, weight: resolveItemWeight(signals), candidate: null };
+        }
         const weight = resolveItemWeight(signals);
         const candidate = await deps.provider.getItemFeatures(
           userId,

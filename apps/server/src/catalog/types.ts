@@ -33,12 +33,19 @@ export interface CanonicalMetadata {
   createdAt: number;
 }
 
+/**
+ * Scoring-only projection persisted on `canonical_metadata.features`.
+ * Display fields (title, year, runtime, genres, originalLanguage) live on
+ * their own columns; this blob carries the fields the preference engine
+ * needs to derive feature contributions. `getItemFeatures` reconstitutes a
+ * PE `CandidateFeatures` by merging row columns with this blob.
+ */
 export interface CanonicalFeatures {
   keywords: string[];
-  people: string[];
-  decades: string[];
-  runtimeBucket: string | null;
-  language: string | null;
+  cast: string[];
+  director: string | null;
+  writers: string[];
+  creators: string[];
 }
 
 export interface IdMap {

@@ -14,6 +14,7 @@ import {
   getPrimaryConnection,
   setPrimaryConnection,
 } from "./primary-preference";
+import type { RawCanonicalSource } from "../catalog/canonical";
 import { callExtension } from "../mcp/extension-dispatch";
 import { resolveConnections } from "./resolve-connection";
 
@@ -102,6 +103,24 @@ export class MediaService {
       method: "getDetails",
       input: { id: parsedId, type: parsedType },
       mediaType: parsedType,
+    });
+    return result.data ?? null;
+  }
+
+  /**
+   * Typed `metadata@v1.getDetails` wrapper used by the catalog cold-fill
+   * provider and the nightly metadata-refresh job. Returns `null` when no
+   * primary plugin is available or the dispatch yields no data — callers
+   * fall back to other paths in that case rather than throwing.
+   */
+  async getMetadata(tmdbId: string, type: "movie" | "tv"): Promise<RawCanonicalSource | null> {
+    const result = await dispatchPrimary<RawCanonicalSource>({
+      userId: this.userId,
+      capability: "metadata",
+      version: "v1",
+      method: "getDetails",
+      input: { id: tmdbId, type },
+      mediaType: type,
     });
     return result.data ?? null;
   }

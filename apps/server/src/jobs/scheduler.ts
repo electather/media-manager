@@ -2,6 +2,7 @@ import { consola } from "consola";
 import { sweepExpiredStore } from "../plugin-runtime/host-bridge";
 import { sweepPendingAuth } from "../connections/service";
 import { sweepExpiredErrors } from "../errors/retention";
+import { registerCatalogJobs } from "../catalog/jobs";
 import { registerPreferenceJobs } from "../preferences/jobs";
 import { cacheCleanupJob } from "./cache-cleanup";
 import { registerAllPluginJobs } from "./plugin-jobs";
@@ -60,6 +61,7 @@ export const scheduler = {
     });
 
     registerPreferenceJobs();
+    registerCatalogJobs();
 
     const pluginCount = await registerAllPluginJobs();
     const total = (await list()).length;
