@@ -54,6 +54,7 @@ Migrate persistent media data to SQLite. Cache shrinks → live plugin calls onl
 `CatalogService` = peer of `MediaService`. Lives `apps/server/src/catalog/`. Injected into `RowFetchContext`.
 
 Boundary rule:
+
 - "we own a copy" → CatalogService.
 - "we proxy live" → MediaService.
 - Jobs = sole catalog writer. Exception: bounded cold-fill on PE miss; write-back fire-and-forget so a failed write ⊥ block read; metric tracked.
@@ -121,6 +122,7 @@ user_ratings_mirror
 `preference_profiles` (existing) gains a `version` column (monotonic int, bumps on rebuild) → references from `recommendation_lists.profile_version` (V43). One-line migration.
 
 Sizes (rough):
+
 - metadata row ≈ 3KB display + 5KB features = 8KB
 - 20K items × 8KB ≈ 160MB
 - rec list 60×~150B ≈ 10KB/user
@@ -128,6 +130,7 @@ Sizes (rough):
 - 100 users + 20K items ≈ 200MB DB
 
 Eviction:
+
 - `canonical_metadata` → drop if `last_accessed_at < now - 90d` AND ⊥ ref by any `recommendation_lists.items` AND ⊥ ref by `discover_snapshots` within 7d retention.
 - Implementation: prune builds an in-memory `Set<id_key>` of referenced ids in one pass over `recommendation_lists` + last-7d `discover_snapshots`, then table-scans `canonical_metadata` filtering against the set + access threshold. Single pass; memory bound = referenced-id count (≤ users × 60 + 4 × 60 ≈ 6K-key set for 100-user install). Avoids JSON-substring per row.
 - `discover_snapshots` → drop `day < now - 7d`.
@@ -241,6 +244,7 @@ CatalogPreferenceProvider impls PreferenceDataProvider {
 ```
 
 Per-item read concurrency:
+
 - `rebuild.ts:192` already uses `CONCURRENCY=10` loop. Catalog hits sub-ms; OK.
 - `enrichCandidates` (engine.ts:129) uses unbounded `Promise.all(candidates.map(...))`. For 180-candidate `rankCandidates`, every catalog hit = sub-ms, ⊥ issue. Cold-fill misses fan out → could storm TMDB. PR 2 adds same `CONCURRENCY=10` cap to cold-fill plugin dispatch in the provider (the catalog read itself stays fan-out — fast either way).
 - `incremental.ts:64` — single item per call inside coalesced loop; ⊥ concern.
@@ -248,6 +252,7 @@ Per-item read concurrency:
 Engine deadline propagation: `PreferenceEngine.rankCandidates(userId, candidates, opts)` already accepts opts; add `opts.deadlineMs?`. Engine threads to provider call as elapsed-time check before each cold-fill plugin dispatch (already-cached items skip the check). Out-of-budget remaining items return `null` features → engine handles thin features as today (lowered confidence).
 
 Wiring sites (3):
+
 - `apps/server/src/preferences/engine.ts:149` — `enrichCandidates` from `rankCandidates` path; threads `opts.deadlineMs` through.
 - `apps/server/src/preferences/rebuild.ts:200` — full rebuild from nightly job; threads `opts.deadlineMs` through (rebuild handler passes its own deadline derived from `runTimeoutSec`).
 - `apps/server/src/preferences/incremental.ts:64` — coalesced `host.preference.incremental_update`; **bypasses deadline** (already short, debounced, ⊥ user-facing). Pass `undefined` explicitly so any miss cold-fills fully.
@@ -350,29 +355,32 @@ host.catalog.prune                        (scheduled, 07:00 daily; runTimeoutSec
 ```
 
 Schedule rationale + contention:
+
 - Slots: 02 / 04 / 06 / 07 daily. 2h gap between rec_build (90m bound) and metadata_refresh (60m bound). discover_snapshot (30m bound) at 06 → ≥ 1h after metadata_refresh deadline. prune at 07 → ≥ 30m after discover_snapshot deadline.
 - ⊥ overlap by construction. Job-service skip-if-running covers self-overlap.
 - Cross-job concurrent reads safe: SQLite WAL = readers never block writers. Cross-job concurrent writes serialized by SQLite single-writer lock; jobs work on distinct rows so contention is at storage layer not logical.
 - `recommendation_build` cold-fill writes are append-or-replace on `canonical_metadata` PK; concurrent with `metadata_refresh` they win-on-write order, no corruption.
 
 Existing jobs preserved:
+
 - `host.preference.incremental_update` (coalesced) → updates profile incrementally on `ent_feedback`. ⊥ regenerate rec list (next nightly picks up).
 - `feature.preference.rebuild` (triggerable, user-scoped) → extended to also write rec list. Same body as `recommendation_build` scoped to one user; reuses `scopeKey: userId` to serialize against nightly per-user run.
 
 Refresh policy summary:
 
-| data                  | lazy-fill                                   | scheduled refresh                    | eviction                              |
-| --------------------- | ------------------------------------------- | ------------------------------------ | ------------------------------------- |
-| canonical_metadata    | PE miss + home-row first sight              | nightly stale-sweep (>30d, batch 25) | nightly unused 90d AND unreferenced   |
-| metadata.features     | piggyback on metadata fill                  | piggyback                            | piggyback                             |
-| artwork URLs (single) | piggyback on metadata fill (fanart > tmdb)  | piggyback                            | piggyback                             |
-| discover_snapshots    | ⊥ lazy; null → live `discoverFeed`          | nightly per (kind, sort, today)      | nightly drop `day < now - 7d`         |
-| recommendation_lists  | ⊥ lazy; null → live rank-on-request         | nightly per active user              | replaced; never dropped               |
-| history/ratings       | ⊥ lazy                                      | every 6h per connection              | never (append-only)                   |
+| data                  | lazy-fill                                  | scheduled refresh                    | eviction                            |
+| --------------------- | ------------------------------------------ | ------------------------------------ | ----------------------------------- |
+| canonical_metadata    | PE miss + home-row first sight             | nightly stale-sweep (>30d, batch 25) | nightly unused 90d AND unreferenced |
+| metadata.features     | piggyback on metadata fill                 | piggyback                            | piggyback                           |
+| artwork URLs (single) | piggyback on metadata fill (fanart > tmdb) | piggyback                            | piggyback                           |
+| discover_snapshots    | ⊥ lazy; null → live `discoverFeed`         | nightly per (kind, sort, today)      | nightly drop `day < now - 7d`       |
+| recommendation_lists  | ⊥ lazy; null → live rank-on-request        | nightly per active user              | replaced; never dropped             |
+| history/ratings       | ⊥ lazy                                     | every 6h per connection              | never (append-only)                 |
 
 ## Concurrency
 
 Append-only mirror writes use per-user mutex (in-process Map<userId, Promise>) + SQLite `BEGIN IMMEDIATE` transaction per write. Two paths can target one user's blob:
+
 - Nightly `user_mirror_sync` for that user's connection
 - User-triggered `feature.preference.rebuild` (reads mirrors but ⊥ writes mirror tables; does write `recommendation_lists` + cold-fill `canonical_metadata` — those have own concurrency story per V37/§Concurrency above)
 - Future webhook ingestion (out of scope v1)
@@ -423,6 +431,7 @@ after:
 ```
 
 Decisions:
+
 - `mv:` cache stays. Scope shrinks → live MediaService calls only (watchlist, idResolve, fan-out writes).
 - ⊥ memoization layer above Catalog. SQLite indexed PK = sub-ms; in-mem LRU buys nothing + adds invalidation surface.
 - `dispatch-cache` `NEGATIVE_TTL_MS` + `ttlOverrideMs` (per `2026-04-27-home-feed-perf-design.md`) retained — useful for plugin failures on live path.
@@ -485,22 +494,24 @@ Snapshot pagination capped at stored 60 (matches existing `MAX_ITEMS = 60` in ro
 
 Sequential PRs. Each ships independent; rollback = revert one PR. Each adds one new job + one new read site; old code continues if job disabled via `job_config`.
 
-| PR | adds                                                                                                                                                                  |
-| -- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1  | schema migration + CatalogService scaffold (empty methods, drizzle tables, ⊥ jobs); `preference_profiles.version` column (`integer NOT NULL DEFAULT 0`); `rebuild.ts` reads current version, increments, calls `profileStorage.write({ ..., version })`; `applyIncrementalUpdate` ⊥ touches it |
-| 2  | `MediaService.getMetadata`; canonical_metadata + features blob writes; `CatalogPreferenceProvider` w/ cold-fill; PE `opts.deadlineMs` wiring; `metadata_refresh` job   |
-| 3  | discover_snapshots + `discover_snapshot` job; `newReleases`/`trendingNow`/`upcomingForYou` row hydration (live fallback)                                              |
-| 4  | recommendation_lists + `recommendation_build` job; `recommendedForYou` row hydration (live fallback); `feature.preference.rebuild` extended to write rec list         |
-| 5  | `MediaService.getAllHistory` + `getAllRatings`; user_history_mirror + user_ratings_mirror + `user_mirror_sync` job; `CatalogPreferenceProvider` switches to mirror reads (provider swap = server bootstrap DI; `rebuild.ts` + `incremental.ts` consume `deps.provider` polymorphically) |
-| 6  | `prune` job + `recordAccess` bookkeeping wired into row reads; **JobService surface additions**: re-export `isRunning(jobId, scopeKey?)` from `apps/server/src/jobs/index.ts` + add `anyRunning(jobIds[]) → boolean` helper (trivial `.some(isRunning)`); `prune` job consumes it |
-| 7  | cleanup: drop redundant `mv:` TTLs catalog now owns (e.g. discover snapshot caching path)                                                                              |
+| PR  | adds                                                                                                                                                                                                                                                                                           |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | schema migration + CatalogService scaffold (empty methods, drizzle tables, ⊥ jobs); `preference_profiles.version` column (`integer NOT NULL DEFAULT 0`); `rebuild.ts` reads current version, increments, calls `profileStorage.write({ ..., version })`; `applyIncrementalUpdate` ⊥ touches it |
+| 2   | `MediaService.getMetadata`; canonical_metadata + features blob writes; `CatalogPreferenceProvider` w/ cold-fill; PE `opts.deadlineMs` wiring; `metadata_refresh` job                                                                                                                           |
+| 3   | discover_snapshots + `discover_snapshot` job; `newReleases`/`trendingNow`/`upcomingForYou` row hydration (live fallback)                                                                                                                                                                       |
+| 4   | recommendation_lists + `recommendation_build` job; `recommendedForYou` row hydration (live fallback); `feature.preference.rebuild` extended to write rec list                                                                                                                                  |
+| 5   | `MediaService.getAllHistory` + `getAllRatings`; user_history_mirror + user_ratings_mirror + `user_mirror_sync` job; `CatalogPreferenceProvider` switches to mirror reads (provider swap = server bootstrap DI; `rebuild.ts` + `incremental.ts` consume `deps.provider` polymorphically)        |
+| 6   | `prune` job + `recordAccess` bookkeeping wired into row reads; **JobService surface additions**: re-export `isRunning(jobId, scopeKey?)` from `apps/server/src/jobs/index.ts` + add `anyRunning(jobIds[]) → boolean` helper (trivial `.some(isRunning)`); `prune` job consumes it              |
+| 7   | cleanup: drop redundant `mv:` TTLs catalog now owns (e.g. discover snapshot caching path)                                                                                                                                                                                                      |
 
 Rollout invariants:
+
 - ∀ catalog read = "DB hit OR live fallback to existing code." Enabling catalog ⊥ break; only short-circuit slow path.
 - ⊥ feature flag. Each PR = additive.
 - Schema migrations follow existing Drizzle pattern.
 
 Changesets per PR (per CLAUDE.md):
+
 - `@ent-mcp/server` → `minor` (PR 2–5: new persistence model affects user-visible warm-cache behavior). PR 1 = empty frontmatter (schema migration + scaffold = internal-only). PR 6 = `patch` (prune + recordAccess = visible perf). PR 7 = empty frontmatter (cleanup, no behavior change).
 - `@ent-mcp/shared` → ⊥ touched unless new shared types added.
 - `@ent-mcp/client` → ⊥ touched.

@@ -132,32 +132,39 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 
 ## §T Tasks
 
-| id  | status | desc                                                                                                               | cites                                      |
-| --- | ------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch                                                      | I.plugin                                   |
-| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk                                                 | I.plugin,C8                                |
-| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                                                               | I.api,V1                                   |
-| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                                                              | I.mcp,V1                                   |
-| T5  | ✓      | Error management — capture, codes, correlation, admin viewer                                                       | V5,V6                                      |
-| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                                                             | I.api                                      |
-| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job                                                       | V8,C1                                      |
-| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`)                                           | I.api,I.plugin                             |
-| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                                                            | V2,V3,V4,I.api                             |
-| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord                                                  | I.notifications,V15                        |
-| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)                                                   | I.api                                      |
-| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                                                          | I.deploy,C6                                |
-| T13 | ✓      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures                                                 | I.home,V9,V10,V11,V12                      |
-| T14 | x      | Home feed frontend — route, single-source `ROW_DISPLAY`, single `Card`, layout-level peek modal                    | I.home,T13,T16,V30,V31,V32,V33,V34,V35,V36 |
-| T15 | ✓      | `home` subpath export in `@ent-mcp/shared`                                                                         | V12,T13                                    |
-| T16 | .      | Decide `resumeUrl` capability: `watchHistory@v1` ext vs new `playback@v1`                                          | I.home,T13                                 |
-| T17 | .      | `@ent-mcp/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                     | C8,V23                                     |
-| T18 | .      | Per-plugin extraction — TVDB, TMDB, Seerr, Trakt, Plex, Jellyfin → `packages/plugins/<id>/`; delete builtin/ husk  | C8,V22,V23,V24                             |
-| T19 | .      | Boundary lint + SDK-compat CI checks wired into `vp check`                                                         | V24,V25                                    |
-| T20 | .      | Release workflow — GHCR Docker push (server), `dist/*` assets on plugin + SDK GitHub Releases                      | I.deploy                                   |
-| T21 | x      | Per-`Row` error boundary — bad item / unhandled card render error hides single row, ⊥ crash whole feed             | T14                                        |
-| T22 | x      | `CenteredState` primitive shared by `home-feed-empty` + `home-feed-error` (title + body + action button)           | T14                                        |
-| T23 | x      | Carousel keyboard pattern — arrows out of Tab order; cards in Tab; `ArrowLeft`/`Right` scroll within row           | T14                                        |
-| T24 | x      | Progress-bar color token `--color-progress-watched`; ⊥ reuse `--color-text-danger` (text role on non-text surface) | T14                                        |
+| id  | status | desc                                                                                                                                                          | cites                                      |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| T1  | ✓      | Plugin architecture — manifest, capabilities, scope, dispatch                                                                                                 | I.plugin                                   |
+| T2  | ✓      | Plugin monorepo layout — `apps/`, `packages/plugins/*`, plugin-sdk                                                                                            | I.plugin,C8                                |
+| T3  | ✓      | MediaService + TMDB reference plugin (`metadata@v1`)                                                                                                          | I.api,V1                                   |
+| T4  | ✓      | MCP server — 6 tools, OAuth 2.1, dispatcher, registry                                                                                                         | I.mcp,V1                                   |
+| T5  | ✓      | Error management — capture, codes, correlation, admin viewer                                                                                                  | V5,V6                                      |
+| T6  | ✓      | Job service — 4 kinds, scheduler, run-logger, admin UI                                                                                                        | I.api                                      |
+| T7  | ✓      | Preference engine — scoring, incremental update, rebuild job                                                                                                  | V8,C1                                      |
+| T8  | ✓      | Connections backend + manifest-driven frontend (`/settings/connections`)                                                                                      | I.api,I.plugin                             |
+| T9  | ✓      | Plugin advanced admin — host allowlist + custom headers                                                                                                       | V2,V3,V4,I.api                             |
+| T10 | ✓      | Notifications — emit, delivery job, inbox + ntfy/telegram/discord                                                                                             | I.notifications,V15                        |
+| T11 | ✓      | User settings (5 tabs: profile/security/connections/apps/danger)                                                                                              | I.api                                      |
+| T12 | ✓      | Deployment — CF Workers `worker.ts`, Docker, CI workflows                                                                                                     | I.deploy,C6                                |
+| T13 | ✓      | Home feed server — `HomeFeedService`, 7 row fetchers, 2 procedures                                                                                            | I.home,V9,V10,V11,V12                      |
+| T14 | x      | Home feed frontend — route, single-source `ROW_DISPLAY`, single `Card`, layout-level peek modal                                                               | I.home,T13,T16,V30,V31,V32,V33,V34,V35,V36 |
+| T15 | ✓      | `home` subpath export in `@ent-mcp/shared`                                                                                                                    | V12,T13                                    |
+| T16 | .      | Decide `resumeUrl` capability: `watchHistory@v1` ext vs new `playback@v1`                                                                                     | I.home,T13                                 |
+| T17 | .      | `@ent-mcp/plugin-sdk/testing` — `makeTestContext`, fetch helpers, fixtures from contract tests                                                                | C8,V23                                     |
+| T18 | .      | Per-plugin extraction — TVDB, TMDB, Seerr, Trakt, Plex, Jellyfin → `packages/plugins/<id>/`; delete builtin/ husk                                             | C8,V22,V23,V24                             |
+| T19 | .      | Boundary lint + SDK-compat CI checks wired into `vp check`                                                                                                    | V24,V25                                    |
+| T20 | .      | Release workflow — GHCR Docker push (server), `dist/*` assets on plugin + SDK GitHub Releases                                                                 | I.deploy                                   |
+| T21 | x      | Per-`Row` error boundary — bad item / unhandled card render error hides single row, ⊥ crash whole feed                                                        | T14                                        |
+| T22 | x      | `CenteredState` primitive shared by `home-feed-empty` + `home-feed-error` (title + body + action button)                                                      | T14                                        |
+| T23 | x      | Carousel keyboard pattern — arrows out of Tab order; cards in Tab; `ArrowLeft`/`Right` scroll within row                                                      | T14                                        |
+| T24 | x      | Progress-bar color token `--color-progress-watched`; ⊥ reuse `--color-text-danger` (text role on non-text surface)                                            | T14                                        |
+| T25 | x      | Catalog Phase 1 — 5 catalog tables + `preference_profiles.version` + empty `CatalogService` shell + `RowFetchContext` extended                                | V37,V12                                    |
+| T26 | .      | Catalog Phase 2 — `canonical_metadata` r/w + features extract + `CatalogPreferenceProvider` cold-fill + `host.catalog.metadata_refresh` job + PE deadline     | V37,V38,V44,V45                            |
+| T27 | .      | Catalog Phase 3 — `discover_snapshots` + `host.catalog.discover_snapshot` job + hydrate `newReleases`/`trendingNow`/`upcomingForYou`                          | V37,V38,V42                                |
+| T28 | .      | Catalog Phase 4 — `recommendation_lists` + `host.catalog.recommendation_build` job + `recommendedForYou` hydration + cursor v2 `{p,pv}` + ext rebuild handler | V37,V38,V43,V15                            |
+| T29 | .      | Catalog Phase 5 — `user_history_mirror` + `user_ratings_mirror` + per-user mutex + `host.catalog.user_mirror_sync` job + PE mirror reads                      | V37,V39,V40                                |
+| T30 | .      | Catalog Phase 6 — `host.catalog.prune` job + `recordAccess` throttle + `JobService.{isRunning,anyRunning}` re-exports                                         | V37                                        |
+| T31 | .      | Catalog Phase 7 — drop redundant `mv:` capability-level cache TTLs; preserve live capability TTLs + `NEGATIVE_TTL_MS`                                         | T26,T27,T28                                |
 
 ## §B Bugs
 
