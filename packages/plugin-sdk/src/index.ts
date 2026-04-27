@@ -42,6 +42,7 @@ export {
   ARTWORK_KINDS,
   ARTWORK_ID_TYPES,
   ARTWORK_ERROR_CODES,
+  MAX_VARIANTS_PER_KIND,
 } from "@ent-mcp/shared/artwork";
 export type {
   ArtworkVariant,

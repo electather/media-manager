@@ -1,6 +1,6 @@
 import { definePlugin } from "@ent-mcp/plugin-sdk";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { pluginError, toErrorMessage } from "@ent-mcp/plugin-sdk";
+import { pluginError, toErrorMessage, MAX_VARIANTS_PER_KIND } from "@ent-mcp/plugin-sdk";
 import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
 
 interface TmdbSharedCreds {
@@ -10,20 +10,24 @@ interface TmdbUserCreds {
   apiKey?: string;
 }
 interface TmdbUserCfg {}
+// Config keys mirror the artwork@v1 bundle field names so admins reading
+// config alongside a response see the same vocabulary in both places.
 interface TmdbGlobalCfg {
   imageBaseUrl?: string;
   artworkSizes?: {
     poster?: string;
     backdrop?: string;
-    logo?: string;
+    clearLogo?: string;
   };
 }
 
 const DEFAULT_ARTWORK_SIZES = {
   poster: "w780",
   backdrop: "w1280",
-  logo: "w500",
+  clearLogo: "w500",
 } as const;
+
+type ArtworkSizeKind = keyof typeof DEFAULT_ARTWORK_SIZES;
 
 function artworkBase(ctx: Ctx): string {
   // Strip any size segment baked into imageBaseUrl so artwork URL
@@ -35,7 +39,7 @@ function artworkBase(ctx: Ctx): string {
   return base.replace(/\/(w\d+|original)\/?$/, "").replace(/\/$/, "");
 }
 
-function artworkSize(ctx: Ctx, kind: "poster" | "backdrop" | "logo"): string {
+function artworkSize(ctx: Ctx, kind: ArtworkSizeKind): string {
   const override = ctx.config.global?.artworkSizes?.[kind];
   return override ?? DEFAULT_ARTWORK_SIZES[kind];
 }
@@ -261,11 +265,11 @@ export default definePlugin({
           type: "object",
           title: "Artwork size buckets",
           description:
-            "Path segments used by `artwork@v1.getArtwork`. Override when serving via a CDN that uses different size names.",
+            "Path segments used by `artwork@v1.getArtwork`. Keys mirror the bundle field names so admins see the same vocabulary in config and response. Override when serving via a CDN that uses different size names.",
           properties: {
             poster: { type: "string", default: "w780" },
             backdrop: { type: "string", default: "w1280" },
-            logo: { type: "string", default: "w500" },
+            clearLogo: { type: "string", default: "w500" },
           },
           additionalProperties: false,
         },
@@ -507,12 +511,12 @@ export default definePlugin({
         const base = artworkBase(c);
         const posterSize = artworkSize(c, "poster");
         const backdropSize = artworkSize(c, "backdrop");
-        const logoSize = artworkSize(c, "logo");
+        const clearLogoSize = artworkSize(c, "clearLogo");
 
         return {
           poster: mapTmdbImages(data.posters, base, posterSize, langs),
           backdrop: mapTmdbImages(data.backdrops, base, backdropSize, langs),
-          clearLogo: mapTmdbImages(data.logos, base, logoSize, langs),
+          clearLogo: mapTmdbImages(data.logos, base, clearLogoSize, langs),
           // TMDB has no thumb concept; empty array lets the per-kind merge
           // fall through to fanart.
           thumb: [],
@@ -563,7 +567,7 @@ function mapTmdbImages(
       if (aRank !== bRank) return aRank - bRank;
       return b.likes - a.likes;
     })
-    .slice(0, 5);
+    .slice(0, MAX_VARIANTS_PER_KIND);
 }
 
 function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette" | "other" {

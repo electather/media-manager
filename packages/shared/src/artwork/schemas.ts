@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ARTWORK_ERROR_CODES } from "./enums";
+import { ARTWORK_ERROR_CODES, MAX_VARIANTS_PER_KIND } from "./enums";
 
 /**
  * Schemas for artwork wire types. Used by the SDK capability definition
@@ -17,10 +17,10 @@ export const artworkVariantSchema = z.object({
 });
 
 export const artworkBundleSchema = z.object({
-  poster: z.array(artworkVariantSchema).max(5),
-  backdrop: z.array(artworkVariantSchema).max(5),
-  clearLogo: z.array(artworkVariantSchema).max(5),
-  thumb: z.array(artworkVariantSchema).max(5),
+  poster: z.array(artworkVariantSchema).max(MAX_VARIANTS_PER_KIND),
+  backdrop: z.array(artworkVariantSchema).max(MAX_VARIANTS_PER_KIND),
+  clearLogo: z.array(artworkVariantSchema).max(MAX_VARIANTS_PER_KIND),
+  thumb: z.array(artworkVariantSchema).max(MAX_VARIANTS_PER_KIND),
 });
 
 export const artworkIdMapSchema = z

@@ -325,10 +325,18 @@ describe("tmdb capability contract", () => {
 
   it("artwork.getArtwork: respects custom artworkSizes config", async () => {
     const ctx = makeCtx(
-      [jsonRes({ posters: [{ file_path: "/p.jpg", iso_639_1: "en", vote_average: 1 }] })],
+      [
+        jsonRes({
+          posters: [{ file_path: "/p.jpg", iso_639_1: "en", vote_average: 1 }],
+          backdrops: [],
+          // Config keys mirror the bundle field names; `clearLogo` (not
+          // `logo`) overrides the size used for logos.
+          logos: [{ file_path: "/l.png", iso_639_1: "en", vote_average: 1 }],
+        }),
+      ],
       {
         config: {
-          global: { artworkSizes: { poster: "original" } },
+          global: { artworkSizes: { poster: "original", clearLogo: "w300" } },
           user: undefined,
         },
       },
@@ -338,7 +346,11 @@ describe("tmdb capability contract", () => {
       type: "movie",
       languages: ["en", "00"],
     });
-    const bundle = out as { poster: Array<{ url: string }> };
+    const bundle = out as {
+      poster: Array<{ url: string }>;
+      clearLogo: Array<{ url: string }>;
+    };
     expect(bundle.poster[0]?.url).toContain("/original/p.jpg");
+    expect(bundle.clearLogo[0]?.url).toContain("/w300/l.png");
   });
 });

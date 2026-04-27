@@ -7,6 +7,14 @@ export const ARTWORK_KINDS = ["poster", "backdrop", "clearLogo", "thumb"] as con
 export type ArtworkKind = (typeof ARTWORK_KINDS)[number];
 
 /**
+ * Maximum number of variants a provider may return per asset kind. Enforced
+ * by the bundle Zod schema and used by plugin authors to cap their own
+ * sort/slice logic before returning a bundle. Single source of truth so
+ * raising the cap is a one-line change.
+ */
+export const MAX_VARIANTS_PER_KIND = 5;
+
+/**
  * Id types accepted on the `getArtwork` request map. Each provider declares
  * which subset it can serve per media type via `manifestSpec.supportedIdTypes`.
  */
