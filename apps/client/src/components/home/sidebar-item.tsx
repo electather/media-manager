@@ -19,17 +19,19 @@ export function SidebarItem({ item }: { item: CompactMediaItem }) {
 
   const episodeLine = item.episode ? `S${item.episode.season} E${item.episode.episode}` : null;
   const dateLine = item.episode ? formatRelativeAirDate(item.episode.airsAt) : null;
-  // Sidebar is always above the fold — fetch eagerly, never gate on viewport.
+  // Per V47: prefer the canonical URLs already inlined on the wire item.
+  // Sidebar is always above the fold; only fire when inline data is missing.
+  const needsArtwork = item.backdrop == null && item.poster == null;
   const artwork = useArtwork(
     {
       key: item.id,
       ids: { tmdb: item.tmdbId },
       type: item.mediaType,
     },
-    { enabled: true },
+    { enabled: needsArtwork },
   );
   const art =
-    artwork.data?.backdrop[0]?.url ?? item.backdrop ?? artwork.data?.poster[0]?.url ?? item.poster;
+    item.backdrop ?? item.poster ?? artwork.data?.backdrop[0]?.url ?? artwork.data?.poster[0]?.url;
 
   return (
     <a

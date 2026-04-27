@@ -73,17 +73,26 @@ export function Card({ item, rowId, size = "row", priority, className }: CardPro
 
   const anchorRef = useRef<HTMLAnchorElement>(null);
   const isInView = useInView(anchorRef);
+  // Per V47: prefer the canonical URLs the server already wrote onto the
+  // wire item; only fire `artwork.get` when something we'd actually render
+  // is missing. The hook is still gated on viewport/priority so the call
+  // doesn't fire for cards below the fold even when inline data is sparse.
+  const needsPrimary =
+    display.aspectRatio === "poster" ? item.poster == null : item.backdrop == null;
+  const needsClearLogoFetch =
+    size === "hero" && pickTreatment(item) === "continue" && item.clearLogo == null;
+  const needsArtwork = needsPrimary || needsClearLogoFetch;
   const artwork = useArtwork(
     {
       key: item.id,
       ids: { tmdb: item.tmdbId },
       type: item.mediaType,
     },
-    { enabled: Boolean(priority) || isInView },
+    { enabled: needsArtwork && (Boolean(priority) || isInView) },
   );
-  const posterUrl = artwork.data?.poster[0]?.url ?? item.poster;
-  const backdropUrl = artwork.data?.backdrop[0]?.url ?? item.backdrop ?? posterUrl;
-  const clearLogoUrl = artwork.data?.clearLogo[0]?.url ?? item.clearLogo;
+  const posterUrl = item.poster ?? artwork.data?.poster[0]?.url;
+  const backdropUrl = item.backdrop ?? artwork.data?.backdrop[0]?.url ?? posterUrl;
+  const clearLogoUrl = item.clearLogo ?? artwork.data?.clearLogo[0]?.url;
   const art = display.aspectRatio === "poster" ? posterUrl : backdropUrl;
 
   const showClearLogo = size === "hero" && treatment === "continue" && clearLogoUrl;

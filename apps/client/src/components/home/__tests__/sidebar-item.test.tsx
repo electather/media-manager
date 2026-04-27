@@ -8,14 +8,26 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: vi.fn() }) };
 });
 
+const useArtworkMock = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
 vi.mock("@/hooks/use-artwork", () => ({
-  useArtwork: () => ({ data: undefined }),
+  useArtwork: useArtworkMock,
   EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
 }));
 
 import { SidebarItem } from "../sidebar-item";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  useArtworkMock.mockReset();
+  useArtworkMock.mockReturnValue({ data: undefined });
+});
+
+function lastEnabled(): boolean | undefined {
+  const calls = useArtworkMock.mock.calls;
+  if (calls.length === 0) return undefined;
+  const lastCall = calls[calls.length - 1] as unknown as [unknown, { enabled?: boolean }?];
+  return lastCall[1]?.enabled;
+}
 
 describe("SidebarItem", () => {
   it("renders title, episode line, and a relative date when episode is present", () => {
@@ -47,5 +59,32 @@ describe("SidebarItem", () => {
     };
     render(<SidebarItem item={item} />);
     expect(screen.getByTestId("sidebar-item").getAttribute("href")).toBe("/media/tv:42");
+  });
+
+  it("renders inline backdrop without firing artwork.get (V47)", () => {
+    const item: CompactMediaItem = {
+      id: "tv:7",
+      tmdbId: "7",
+      mediaType: "tv",
+      title: "Show",
+      backdrop: "b.jpg",
+      episode: { season: 1, episode: 1, airsAt: Date.now() },
+    };
+    render(<SidebarItem item={item} />);
+    expect(lastEnabled()).toBe(false);
+    const img = screen.getByTestId("sidebar-item").querySelector("img");
+    expect(img?.getAttribute("src")).toBe("b.jpg");
+  });
+
+  it("fires artwork.get when no inline canonical URL is present (V47)", () => {
+    const item: CompactMediaItem = {
+      id: "tv:8",
+      tmdbId: "8",
+      mediaType: "tv",
+      title: "Show",
+      episode: { season: 1, episode: 1, airsAt: Date.now() },
+    };
+    render(<SidebarItem item={item} />);
+    expect(lastEnabled()).toBe(true);
   });
 });

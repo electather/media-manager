@@ -26,18 +26,22 @@ export function Hero({ hero }: { hero: LayoutHero }) {
   const remaining = progress ? Math.max(progress.total - progress.watched, 0) : null;
   const percent = progress && progress.total > 0 ? (progress.watched / progress.total) * 100 : 0;
 
-  // Hero is always above the fold — fetch eagerly, never gate on viewport.
+  // Per V47: prefer the canonical URLs already inlined on the wire item.
+  // Hero is always above the fold, so the only gate is whether we still
+  // need anything — fetch only when an inline field that hero renders is
+  // missing.
+  const needsArtwork = item.backdrop == null || item.clearLogo == null;
   const artwork = useArtwork(
     {
       key: item.id,
       ids: { tmdb: item.tmdbId },
       type: item.mediaType,
     },
-    { enabled: true },
+    { enabled: needsArtwork },
   );
   const backdropUrl =
-    artwork.data?.backdrop[0]?.url ?? item.backdrop ?? artwork.data?.poster[0]?.url ?? item.poster;
-  const clearLogoUrl = artwork.data?.clearLogo[0]?.url ?? item.clearLogo;
+    item.backdrop ?? item.poster ?? artwork.data?.backdrop[0]?.url ?? artwork.data?.poster[0]?.url;
+  const clearLogoUrl = item.clearLogo ?? artwork.data?.clearLogo[0]?.url;
 
   return (
     <a

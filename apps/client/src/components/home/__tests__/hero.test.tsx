@@ -10,8 +10,9 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: navigateMock }) };
 });
 
+const useArtworkMock = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
 vi.mock("@/hooks/use-artwork", () => ({
-  useArtwork: () => ({ data: undefined }),
+  useArtwork: useArtworkMock,
   EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
 }));
 
@@ -31,8 +32,19 @@ const baseHero: LayoutHero = {
   resumeUrl: null,
 };
 
-beforeEach(() => navigateMock.mockReset());
+beforeEach(() => {
+  navigateMock.mockReset();
+  useArtworkMock.mockReset();
+  useArtworkMock.mockReturnValue({ data: undefined });
+});
 afterEach(() => cleanup());
+
+function lastEnabled(): boolean | undefined {
+  const calls = useArtworkMock.mock.calls;
+  if (calls.length === 0) return undefined;
+  const lastCall = calls[calls.length - 1] as unknown as [unknown, { enabled?: boolean }?];
+  return lastCall[1]?.enabled;
+}
 
 describe("Hero (V32, resumeUrl null check)", () => {
   it("opens the peek modal when resumeUrl is null", async () => {
@@ -61,5 +73,28 @@ describe("Hero (V32, resumeUrl null check)", () => {
     render(<Hero hero={hero} />);
     await user.click(screen.getByTestId("home-hero"));
     expect(navigateMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Hero inline canonical URL preference (V47)", () => {
+  it("renders inline backdrop and clearLogo without firing artwork.get", () => {
+    const hero: LayoutHero = {
+      ...baseHero,
+      item: { ...baseHero.item, backdrop: "b.jpg", clearLogo: "l.png" },
+    };
+    render(<Hero hero={hero} />);
+    expect(lastEnabled()).toBe(false);
+    const imgs = Array.from(document.querySelectorAll("img"));
+    expect(imgs.some((img) => img.getAttribute("src") === "b.jpg")).toBe(true);
+    expect(imgs.some((img) => img.getAttribute("src") === "l.png")).toBe(true);
+  });
+
+  it("fires artwork.get when an inline canonical URL is missing", () => {
+    const hero: LayoutHero = {
+      ...baseHero,
+      item: { ...baseHero.item, backdrop: "b.jpg", clearLogo: undefined },
+    };
+    render(<Hero hero={hero} />);
+    expect(lastEnabled()).toBe(true);
   });
 });

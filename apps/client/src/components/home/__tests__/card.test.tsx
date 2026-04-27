@@ -99,6 +99,12 @@ describe("Card link behaviour (V33)", () => {
 });
 
 describe("Card priority + viewport gating", () => {
+  // V47: cards only fetch when an inline canonical URL is missing. The
+  // priority/viewport gate then composes on top of that. Tests that probe
+  // the priority/viewport behaviour must therefore start from an item
+  // *without* inline poster/backdrop so the V47 gate is open.
+  const itemWithoutArt: CompactMediaItem = { ...baseItem, poster: undefined, backdrop: undefined };
+
   function lastEnabled(): boolean | undefined {
     const calls = useArtworkMock.mock.calls;
     if (calls.length === 0) return undefined;
@@ -108,17 +114,17 @@ describe("Card priority + viewport gating", () => {
 
   it("requests artwork eagerly when priority is set, regardless of intersection", () => {
     useInViewMock.mockReturnValue(false);
-    render(<Card item={baseItem} rowId="trendingNow" priority />);
+    render(<Card item={itemWithoutArt} rowId="trendingNow" priority />);
     expect(lastEnabled()).toBe(true);
   });
 
   it("defers artwork until intersection when priority is not set", () => {
     useInViewMock.mockReturnValue(false);
-    const { rerender } = render(<Card item={baseItem} rowId="trendingNow" />);
+    const { rerender } = render(<Card item={itemWithoutArt} rowId="trendingNow" />);
     expect(lastEnabled()).toBe(false);
 
     useInViewMock.mockReturnValue(true);
-    rerender(<Card item={baseItem} rowId="trendingNow" />);
+    rerender(<Card item={itemWithoutArt} rowId="trendingNow" />);
     expect(lastEnabled()).toBe(true);
   });
 
@@ -126,5 +132,38 @@ describe("Card priority + viewport gating", () => {
     render(<Card item={baseItem} rowId="trendingNow" />);
     const link = screen.getByTestId("home-card");
     expect(link.tagName).toBe("A");
+  });
+});
+
+describe("Card inline canonical URL preference (V47)", () => {
+  function lastEnabled(): boolean | undefined {
+    const calls = useArtworkMock.mock.calls;
+    if (calls.length === 0) return undefined;
+    const lastCall = calls[calls.length - 1] as unknown as [unknown, { enabled?: boolean }?];
+    return lastCall[1]?.enabled;
+  }
+
+  it("renders inline poster without firing artwork.get on a poster-aspect row", () => {
+    useInViewMock.mockReturnValue(true);
+    render(<Card item={baseItem} rowId="trendingNow" priority />);
+    expect(lastEnabled()).toBe(false);
+    const img = screen.getByTestId("home-card").querySelector("img");
+    expect(img?.getAttribute("src")).toBe("p.jpg");
+  });
+
+  it("renders inline backdrop without firing artwork.get on a backdrop-aspect row", () => {
+    useInViewMock.mockReturnValue(true);
+    const item = { ...baseItem, progress: { watched: 30, total: 60 } };
+    render(<Card item={item} rowId="continueWatching" priority />);
+    expect(lastEnabled()).toBe(false);
+    const img = screen.getByTestId("home-card").querySelector("img");
+    expect(img?.getAttribute("src")).toBe("b.jpg");
+  });
+
+  it("fires artwork.get when the relevant inline canonical URL is missing", () => {
+    useInViewMock.mockReturnValue(true);
+    const item: CompactMediaItem = { ...baseItem, poster: undefined };
+    render(<Card item={item} rowId="trendingNow" priority />);
+    expect(lastEnabled()).toBe(true);
   });
 });
