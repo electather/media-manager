@@ -131,6 +131,7 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V45. `PreferenceEngine.getItemFeatures` reads from `canonical_metadata.features`. ⊥ `skipCache: true` plugin path. Miss → cold-fill writes back to catalog.
 - V46. Canon art (`poster|backdrop|clear_logo|thumb_url`) ← merge `metadata@v1.getDetails` ⊕ `artwork@v1.getArtwork` via `Promise.allSettled`. Sites: cold-fill (`CatalogPreferenceProvider`) ∧ refresh job (`host.catalog.metadata_refresh`). Pick `bundle.<kind>[0]?.url ?? null` (host-merged by `providerPriority`). `artwork@v1` fail (incl `artwork.unsupported_id_combo`, dispatcher fault) ⊥ block metadata write; absent kinds = null. 2-pass: 1st (fresh tmdbId, empty `id_map`) → poster/backdrop only; 2nd (post-`idResolve@v1`) → logos/thumbs.
 - V47. FE reads `CompactMediaItem.{poster,backdrop,clearLogo}` 1st. `artwork.get` RPC ⇔ inline = null (cold-fill path for pre-catalog items). ⊥ unconditional per-row RPC.
+- V48. Drizzle migration journal (`drizzle/meta/_journal.json`) `when` values monotonically ↑ in idx order. Drizzle libsql migrator gates each migration by `migration.folderMillis > lastDb.created_at`; out-of-order `when` strands later entries (recorded baseline jumps past their `when`) and re-runs earlier entries on re-collapsed DBs.
 
 ## §T Tasks
 
@@ -172,5 +173,6 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 
 ## §B Bugs
 
-| id  | date | cause | fix |
-| --- | ---- | ----- | --- |
+| id  | date       | cause                                                                                                                                                                                                                                                | fix |
+| --- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| B1  | 2026-04-27 | `_journal.json` idx 4 (`0004_notification_retention`) `when=1777800000000` > idx 5+6 `when`. Drizzle libsql migrator gates by `folderMillis > lastDb.created_at`; users w/ collapsed pre-state retry 0004 → `duplicate column inbox_retention_days`. | V48 |
