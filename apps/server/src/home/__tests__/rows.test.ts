@@ -167,7 +167,17 @@ describe("trendingNow fetcher", () => {
 });
 
 describe("newReleases fetcher", () => {
-  it("passes 90-day release window and popularity_desc sort", async () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function captureArg(spy: ReturnType<typeof vi.fn>) {
+    return (
+      spy.mock.calls[0] as unknown as [
+        { releaseDateGte: number; releaseDateLte: number; sort: string },
+      ]
+    )[0];
+  }
+
+  it("passes a 91-day window (90 days back, exclusive end-of-day upper bound) and popularity_desc sort", async () => {
     const spy = vi.fn(async () => ({
       items: [rawItem("movie:1")],
       partial: false,
@@ -175,14 +185,71 @@ describe("newReleases fetcher", () => {
     const media = makeMediaServiceStub({ discoverFeed: spy });
     await newReleasesFetcher.fetch(makeCtx(media), { cursor: null, limit: 20 });
     expect(spy).toHaveBeenCalledOnce();
-    const arg = (
-      spy.mock.calls[0] as unknown as [
-        { releaseDateGte: number; releaseDateLte: number; sort: string },
-      ]
-    )[0];
-    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-    expect(arg.releaseDateLte - arg.releaseDateGte).toBe(ninetyDaysMs);
+    const arg = captureArg(spy);
+    expect(arg.releaseDateLte - arg.releaseDateGte).toBe(91 * DAY_MS);
     expect(arg.sort).toBe("popularity_desc");
+  });
+
+  it("uses today + DAY_MS as the upper bound so today's releases stay visible", async () => {
+    // Bug regression: a previous implementation set the upper bound to
+    // `Date.now()` which silently dropped any title released earlier today.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-27T15:30:00Z"));
+    try {
+      const spy = vi.fn(async () => ({ items: [], partial: false }));
+      const media = makeMediaServiceStub({ discoverFeed: spy });
+      await newReleasesFetcher.fetch(makeCtx(media), { cursor: null, limit: 20 });
+      const arg = captureArg(spy);
+      const today = Math.floor(Date.parse("2026-04-27T15:30:00Z") / DAY_MS) * DAY_MS;
+      expect(arg.releaseDateLte).toBe(today + DAY_MS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("two calls within the same calendar day produce identical bounds (cache key stable)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-27T08:00:00Z"));
+    try {
+      const spy = vi.fn(async () => ({ items: [], partial: false }));
+      const media = makeMediaServiceStub({ discoverFeed: spy });
+      await newReleasesFetcher.fetch(makeCtx(media), { cursor: null, limit: 20 });
+      const first = captureArg(spy);
+
+      // Advance ten hours — still 2026-04-27 in UTC.
+      vi.setSystemTime(new Date("2026-04-27T18:00:00Z"));
+      await newReleasesFetcher.fetch(makeCtx(media), { cursor: null, limit: 20 });
+      const second = (
+        spy.mock.calls[1] as unknown as [{ releaseDateGte: number; releaseDateLte: number }]
+      )[0];
+
+      expect(second.releaseDateGte).toBe(first.releaseDateGte);
+      expect(second.releaseDateLte).toBe(first.releaseDateLte);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("crossing UTC midnight rolls the bounds forward by a day", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-27T23:30:00Z"));
+    try {
+      const spy = vi.fn(async () => ({ items: [], partial: false }));
+      const media = makeMediaServiceStub({ discoverFeed: spy });
+      await newReleasesFetcher.fetch(makeCtx(media), { cursor: null, limit: 20 });
+      const before = captureArg(spy);
+
+      vi.setSystemTime(new Date("2026-04-28T00:30:00Z"));
+      await newReleasesFetcher.fetch(makeCtx(media), { cursor: null, limit: 20 });
+      const after = (
+        spy.mock.calls[1] as unknown as [{ releaseDateGte: number; releaseDateLte: number }]
+      )[0];
+
+      expect(after.releaseDateGte - before.releaseDateGte).toBe(DAY_MS);
+      expect(after.releaseDateLte - before.releaseDateLte).toBe(DAY_MS);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("isEligible returns true unconditionally — metadata@v1 is host-assumed", async () => {
