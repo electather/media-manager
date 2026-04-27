@@ -44,18 +44,36 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
     return features;
   }
 
-  getHistory(userId: string): Promise<HistorySignal[]> {
-    return this.fallback.getHistory(userId);
+  async getHistory(userId: string): Promise<HistorySignal[]> {
+    const events = await this.catalog.getUserHistory(userId);
+    if (events.length === 0) return this.fallback.getHistory(userId);
+    return events.map((event) => ({
+      tmdbId: event.tmdbId,
+      mediaType: event.mediaType,
+      watchedAt: event.watchedAt,
+      progress: event.progress ?? null,
+    }));
   }
 
-  getAllRatings(userId: string): Promise<RatingSignal[]> {
-    return this.fallback.getAllRatings(userId);
+  async getAllRatings(userId: string): Promise<RatingSignal[]> {
+    const events = await this.catalog.getUserRatings(userId);
+    if (events.length === 0) return this.fallback.getAllRatings(userId);
+    return events.map((event) => ({
+      tmdbId: event.tmdbId,
+      mediaType: event.mediaType,
+      rating: event.rating,
+      ratedAt: event.ratedAt,
+    }));
   }
 
+  // V40: watchlist is volatile and intentionally not mirrored. Always
+  // dispatch live so feedback rebuilds see the current set.
   getWatchlist(userId: string): Promise<WatchlistSignal[]> {
     return this.fallback.getWatchlist(userId);
   }
 
+  // Comments mirror is out of scope for v1; keep delegating to the
+  // fallback so the surface stays unchanged.
   getComments(userId: string): Promise<CommentSignal[]> {
     return this.fallback.getComments(userId);
   }

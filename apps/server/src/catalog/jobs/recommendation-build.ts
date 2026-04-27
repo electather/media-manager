@@ -81,8 +81,20 @@ export async function writeRecommendationsForUser(
 ): Promise<void> {
   const engine = getPreferenceEngine();
   abortSignal.throwIfAborted();
+  // Capture the profile version *before* ranking so a concurrent rebuild
+  // (manual `feature.preference.rebuild` or a future webhook ingestion)
+  // cannot bump the version mid-flight and leave the rec list referencing
+  // a profile state it was not actually ranked against. The rec list now
+  // pins the exact version that drove the ranking.
+  const profile = await profileStorage.read(userId, "combined");
+  const profileVersion = profile?.version ?? 0;
+
   const media = new MediaService(userId);
   const candidates = await media.getRecommendationsFeed({ limit: CANDIDATE_LIMIT });
+  // The dispatcher does not consume an abort signal yet; the wall-clock
+  // `perRowTimeoutSec` cap guards runaway plugin calls. Re-checking here
+  // shortens the window where a cancelled job still does post-fetch work.
+  abortSignal.throwIfAborted();
   const candidateItems = candidates.items as Array<{
     id?: string;
     type?: "movie" | "tv";
@@ -102,6 +114,7 @@ export async function writeRecommendationsForUser(
 
   const deadlineMs = Date.now() + PER_ROW_DEADLINE_SEC * 1000;
   const ranked = await engine.rankCandidates(userId, adapted, { deadlineMs });
+  abortSignal.throwIfAborted();
   const topN = ranked.slice(0, TOP_N);
   if (topN.length === 0) return;
 
@@ -119,8 +132,7 @@ export async function writeRecommendationsForUser(
   const validItems = recItems.filter((entry) => entry.tmdbId.length > 0);
   if (validItems.length === 0) return;
 
-  const profile = await profileStorage.read(userId, "combined");
-  const profileVersion = profile?.version ?? 0;
+  abortSignal.throwIfAborted();
   await deps.catalog.writeRecommendationList(userId, "default", validItems, profileVersion);
   log(
     `[catalog:recommendation-build] user=${userId} wrote ${validItems.length} recs (pv=${profileVersion})`,

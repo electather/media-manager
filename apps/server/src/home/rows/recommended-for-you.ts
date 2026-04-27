@@ -97,10 +97,18 @@ async function hydrateFromCatalog(
     }),
   );
   const isPartial = hydrated.some(({ canonical }) => canonical === null);
+  const present = hydrated.filter(
+    (entry): entry is { canonical: CanonicalMetadata; rec: RecItem } => entry.canonical !== null,
+  );
+  // Single batched status lookup for the whole hydrated page — replaces
+  // the per-item `getStatusBatch([compact.id])` round-trips that the
+  // live path also pays. We collect every compact id once and apply the
+  // resolved status when shaping the wire row.
+  const compactIds = present.map(({ canonical }) => `${canonical.mediaType}:${canonical.tmdbId}`);
+  const statusMap = compactIds.length > 0 ? await ctx.dataloader.getStatusBatch(compactIds) : {};
   const items: CompactMediaItem[] = [];
-  for (const { canonical, rec } of hydrated) {
-    if (!canonical) continue;
-    const compact = await buildFromCanonical(ctx, canonical, rec.matchReason);
+  for (const { canonical, rec } of present) {
+    const compact = buildFromCanonical(canonical, rec.matchReason, statusMap);
     if (compact) items.push(compact);
   }
 
@@ -145,11 +153,11 @@ async function fetchFromLivePath(
   return result.partial ? { items, cursor, partial: true } : { items, cursor };
 }
 
-async function buildFromCanonical(
-  ctx: RowFetchContext,
+function buildFromCanonical(
   row: CanonicalMetadata,
   matchReason: string | null,
-): Promise<CompactMediaItem | null> {
+  statusMap: Record<string, string>,
+): CompactMediaItem | null {
   const raw: RawMediaItem = {
     id: `${row.mediaType}:${row.tmdbId}`,
     type: row.mediaType,
@@ -162,7 +170,10 @@ async function buildFromCanonical(
     clearLogoUrl: row.clearLogoUrl ?? undefined,
     ids: { tmdb_id: row.tmdbId },
   };
-  return buildItem(ctx, raw, matchReason);
+  const compact = toCompact(raw, matchReason ? { matchReason } : {});
+  const status = toStatusOrUndefined(statusMap[compact.id]);
+  if (status) compact.status = status;
+  return compact;
 }
 
 function filterCandidates(items: RawMediaItem[], exclusion: string[]): RawMediaItem[] {
