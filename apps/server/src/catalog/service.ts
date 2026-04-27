@@ -109,6 +109,7 @@ export class CatalogService {
       .where(and(eq(canonicalMetadata.tmdbId, tmdbId), eq(canonicalMetadata.mediaType, type)))
       .get();
     if (!row) return null;
+    this.recordAccess([{ tmdbId, type }]);
     return { ...row.canonical, ids: toIdMap(row.ids) };
   }
 
@@ -389,37 +390,43 @@ export class CatalogService {
   async pruneUnusedMetadata(
     unusedAfterMs: number,
     refSet?: Set<string>,
+    snapshotRetentionDays = 7,
   ): Promise<{ deleted: number }> {
     const cutoff = Date.now() - unusedAfterMs;
-    const refs = refSet ?? (await this.buildPruneRefSet());
+    const refs = refSet ?? (await this.buildPruneRefSet(snapshotRetentionDays));
     const candidates = await this.db
       .select({ tmdbId: canonicalMetadata.tmdbId, mediaType: canonicalMetadata.mediaType })
       .from(canonicalMetadata)
       .where(lt(canonicalMetadata.lastAccessedAt, cutoff));
-    let deleted = 0;
+    // Bucket non-referenced ids by media type so each type drops in a
+    // single statement. Per-row DELETEs would hold the SQLite WAL for
+    // the entire sweep; bucketed DELETEs collapse to one commit per type.
+    const toDelete = new Map<"movie" | "tv", string[]>();
     for (const row of candidates) {
       const key = candidateId({ tmdbId: row.tmdbId, type: row.mediaType });
       if (refs.has(key)) continue;
+      const list = toDelete.get(row.mediaType);
+      if (list) list.push(row.tmdbId);
+      else toDelete.set(row.mediaType, [row.tmdbId]);
+    }
+    let deleted = 0;
+    for (const [type, ids] of toDelete) {
+      if (ids.length === 0) continue;
       await this.db
         .delete(canonicalMetadata)
-        .where(
-          and(
-            eq(canonicalMetadata.tmdbId, row.tmdbId),
-            eq(canonicalMetadata.mediaType, row.mediaType),
-          ),
-        );
-      deleted += 1;
+        .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
+      deleted += ids.length;
     }
     return { deleted };
   }
 
   /**
    * Builds the in-memory reference set used by `pruneUnusedMetadata`. Pulls
-   * every id from `recommendation_lists.items` plus the last-7d
-   * `discover_snapshots.items` so a row can be cold-by-access yet still
-   * pinned by an active rec list or recent snapshot.
+   * every id from `recommendation_lists.items` plus discover snapshots
+   * within the configured retention window so a row can be cold-by-access
+   * yet still pinned by an active rec list or recent snapshot.
    */
-  private async buildPruneRefSet(): Promise<Set<string>> {
+  private async buildPruneRefSet(snapshotRetentionDays: number): Promise<Set<string>> {
     const refs = new Set<string>();
     const lists = await this.db
       .select({ items: recommendationLists.items })
@@ -429,11 +436,11 @@ export class CatalogService {
         refs.add(candidateId({ tmdbId: item.tmdbId, type: item.mediaType }));
       }
     }
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - snapshotRetentionDays * 24 * 60 * 60 * 1000;
     const snapshots = await this.db
       .select({ items: discoverSnapshots.items })
       .from(discoverSnapshots)
-      .where(sql`${discoverSnapshots.day} >= ${sevenDaysAgo}`);
+      .where(sql`${discoverSnapshots.day} >= ${cutoff}`);
     for (const snapshot of snapshots) {
       for (const ref of snapshot.items) {
         refs.add(candidateId(ref));

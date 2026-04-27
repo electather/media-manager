@@ -1,13 +1,13 @@
 import { anyRunning } from "../../jobs";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
+import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences/jobs";
 import type { CatalogService } from "../../catalog";
 import { CATALOG_RECOMMENDATION_BUILD_JOB_ID } from "./recommendation-build";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UNUSED_AFTER_DAYS = 90;
 const SNAPSHOT_RETENTION_DAYS = 7;
-const PREFERENCE_MANUAL_REBUILD_JOB_ID = "feature.preference.rebuild";
 
 export const CATALOG_PRUNE_JOB_ID = "host.catalog.prune";
 
@@ -43,7 +43,11 @@ export async function runCatalogPrune(deps: CatalogPruneDeps, ctx: JobRunContext
     return;
   }
   ctx.abortSignal.throwIfAborted();
-  const metadata = await deps.catalog.pruneUnusedMetadata(UNUSED_AFTER_DAYS * DAY_MS);
+  const metadata = await deps.catalog.pruneUnusedMetadata(
+    UNUSED_AFTER_DAYS * DAY_MS,
+    undefined,
+    SNAPSHOT_RETENTION_DAYS,
+  );
   ctx.abortSignal.throwIfAborted();
   const snapshots = await deps.catalog.pruneOldDiscoverSnapshots(SNAPSHOT_RETENTION_DAYS);
   ctx.logger.info(

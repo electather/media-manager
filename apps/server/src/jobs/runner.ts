@@ -63,10 +63,11 @@ export function isRunning(jobId: string, scopeKey?: string | null): boolean {
  */
 export function anyRunning(jobIds: readonly string[]): boolean {
   if (jobIds.length === 0) return false;
+  const wanted = new Set(jobIds);
   for (const key of active.keys()) {
     const sep = key.indexOf("::");
     const id = sep >= 0 ? key.slice(0, sep) : key;
-    if (jobIds.includes(id)) return true;
+    if (wanted.has(id)) return true;
   }
   return false;
 }

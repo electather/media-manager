@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it, vi } from "vite-plus/test";
+import { afterAll, describe, expect, it } from "vite-plus/test";
 import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
 import { toCanonicalRow } from "../canonical";
@@ -8,37 +8,31 @@ afterAll(() => cleanupInMemoryDbs());
 const KEY = { tmdbId: "1", type: "movie" } as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-async function withSeededRow(now = Date.now()) {
+async function withSeededRow(seedTs: number) {
   const db = await createInMemoryDb();
   const catalog = new CatalogService(db, { recordAccessThrottleMs: 1_000 });
-  const row = toCanonicalRow(
-    KEY,
-    { title: "Item", type: "movie", ids: { tmdb_id: "1" } },
-    now - 10 * DAY_MS,
-  );
+  const row = toCanonicalRow(KEY, { title: "Item", type: "movie", ids: { tmdb_id: "1" } }, seedTs);
   await catalog.writeMetadata([row]);
-  return { catalog };
+  return { catalog, seedTs };
 }
 
 describe("CatalogService.recordAccess throttle", () => {
-  it("bumps last_accessed_at on the first access", async () => {
-    const { catalog } = await withSeededRow();
-    const before = (await catalog.getMetadata(KEY.tmdbId, KEY.type))?.lastAccessedAt ?? 0;
-    // The first read inside getMetadata triggers the throttle; wait one
-    // tick so the detached UPDATE settles.
+  it("bumps last_accessed_at past the seed value on the first access", async () => {
+    // Seed 10 days in the past so the post-access value is unambiguously
+    // newer than the original row state, not just `>= seedTs`.
+    const seedTs = Date.now() - 10 * DAY_MS;
+    const { catalog } = await withSeededRow(seedTs);
+
+    await catalog.getMetadata(KEY.tmdbId, KEY.type);
+    // Wait one macrotask so the detached UPDATE settles.
     await new Promise((resolve) => setTimeout(resolve, 0));
     const after = (await catalog.getMetadata(KEY.tmdbId, KEY.type))?.lastAccessedAt ?? 0;
-    expect(after).toBeGreaterThanOrEqual(before);
+
+    expect(after).toBeGreaterThan(seedTs);
   });
 
   it("skips the UPDATE while the throttle window is still open", async () => {
-    const { catalog } = await withSeededRow();
-    const updateSpy = vi.spyOn(
-      catalog as unknown as { db: { update: () => unknown } },
-      "db",
-      "get",
-    );
-    void updateSpy; // we instead assert via the in-memory map
+    const { catalog } = await withSeededRow(Date.now() - 10 * DAY_MS);
 
     catalog.recordAccess([KEY]);
     catalog.recordAccess([KEY]); // second call inside the 1s window — no enqueue
