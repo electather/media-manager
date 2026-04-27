@@ -5,19 +5,20 @@ import { api } from "@/lib/api";
 
 export interface UseRowPaginationArgs {
   rowId: RowKind;
-  initialItems: CompactMediaItem[];
+  /** Cursor to use for the first `getRowContent` call. Null means first page. */
   initialCursor: string | null;
   onUnavailable?: () => void;
 }
 
-export const homeRowQueryKey = (rowId: RowKind) => ["home", "row", rowId] as const;
-
-const INITIAL_PAGE_SENTINEL = Symbol("initial-page");
-// TanStack Query treats a `null`/`undefined` from `getNextPageParam` as the
-// "no next page" signal and stops calling `queryFn`, so the only param the
-// query function ever receives is either the initial sentinel or a real
-// cursor string.
-type PageParam = string | typeof INITIAL_PAGE_SENTINEL;
+/**
+ * Cache key includes `initialCursor` so a layout refetch that returns a new
+ * seed-pinned cursor (currently only `becauseYouWatched` after the seed item
+ * changes) invalidates the row's stored pageParams. Without this the row
+ * would refetch using the stale initial pageParam and render content from a
+ * different seed than the stub subtitle describes.
+ */
+export const homeRowQueryKey = (rowId: RowKind, initialCursor: string | null) =>
+  ["home", "row", rowId, initialCursor] as const;
 
 interface RowPage {
   items: CompactMediaItem[];
@@ -25,7 +26,7 @@ interface RowPage {
   partial?: true;
 }
 
-async function fetchRowPage(rowId: RowKind, cursor: string): Promise<RowPage> {
+async function fetchRowPage(rowId: RowKind, cursor: string | null): Promise<RowPage> {
   const res = await api.home.getRowContent.$post({ json: { rowId, cursor } });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { code?: string } | null;
@@ -36,35 +37,18 @@ async function fetchRowPage(rowId: RowKind, cursor: string): Promise<RowPage> {
   return (await res.json()) as RowContentResponse;
 }
 
-export function useRowPagination({
-  rowId,
-  initialItems,
-  initialCursor,
-  onUnavailable,
-}: UseRowPaginationArgs) {
+export function useRowPagination({ rowId, initialCursor, onUnavailable }: UseRowPaginationArgs) {
   const query = useInfiniteQuery<
     RowPage,
     Error & { code?: string },
-    { pages: RowPage[]; pageParams: PageParam[] },
+    { pages: RowPage[]; pageParams: (string | null)[] },
     ReturnType<typeof homeRowQueryKey>,
-    PageParam
+    string | null
   >({
-    queryKey: homeRowQueryKey(rowId),
-    initialPageParam: INITIAL_PAGE_SENTINEL,
-    queryFn: async ({ pageParam }) => {
-      // `getNextPageParam` returns `last.cursor`; TanStack Query stops calling
-      // `queryFn` when that resolves to `null`, so the only non-string param
-      // we ever receive is the initial sentinel.
-      if (pageParam === INITIAL_PAGE_SENTINEL) {
-        return { items: initialItems, cursor: initialCursor };
-      }
-      return fetchRowPage(rowId, pageParam);
-    },
-    getNextPageParam: (last) => last.cursor,
-    initialData: {
-      pages: [{ items: initialItems, cursor: initialCursor }],
-      pageParams: [INITIAL_PAGE_SENTINEL],
-    },
+    queryKey: homeRowQueryKey(rowId, initialCursor),
+    initialPageParam: initialCursor,
+    queryFn: ({ pageParam }) => fetchRowPage(rowId, pageParam),
+    getNextPageParam: (last) => last.cursor ?? undefined,
     staleTime: 60_000,
   });
 
@@ -73,15 +57,18 @@ export function useRowPagination({
     if (errorCode === "home.row_unavailable") onUnavailable?.();
   }, [errorCode, onUnavailable]);
 
-  const items = query.data?.pages.flatMap((p) => p.items) ?? initialItems;
+  const items = query.data?.pages.flatMap((p) => p.items) ?? [];
   const lastPage = query.data?.pages.at(-1);
-  const cursor = lastPage ? lastPage.cursor : initialCursor;
+  const cursor = lastPage?.cursor ?? null;
+  const isPartial = query.data?.pages.some((p) => p.partial) ?? false;
 
   return {
     items,
     cursor,
     hasMore: cursor !== null,
-    isFetching: query.isFetchingNextPage,
+    isFetching: query.isFetching,
+    isPending: query.isPending,
+    isPartial,
     fetchNext: query.fetchNextPage,
   } as const;
 }

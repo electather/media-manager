@@ -1,19 +1,19 @@
 import { consola } from "consola";
-import type { CompactMediaItem, HomeRow, RowKind } from "@ent-mcp/shared/home";
+import type { HomeRowStub, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import { AllPluginsFailedError } from "../media/errors";
 import { encodeCursor } from "./cursor";
+import type { LayoutSignals } from "./signals";
 import {
+  HERO_REASONS,
   ROW_TITLES,
-  applyHeroExclusion,
-  dropEmpty,
-  resolveHero,
+  TITLE_OVERRIDE_MAP,
+  makeHero,
+  resolveHeroCandidates,
   resolveLayoutOrder,
   type FetchOutcome,
   type FetchedRow,
 } from "./rules";
-import type { LayoutSignals } from "./signals";
 import {
-  FIRST_PAGE_LIMIT,
   ROW_FETCHERS,
   type RowFetchContext,
   type RowFetchResult,
@@ -31,80 +31,126 @@ import {
 const PER_ROW_TIMEOUT_MS = 5_000;
 
 /**
- * Result of running a single fetcher under the orchestrator's timeout +
- * outcome-classification wrapper. `outcome` discriminates the reason the row
- * may be empty so `dropEmpty` and the hero pipeline can treat each case
- * correctly. The wire-level `partial` mirrors `outcome === "partial"`.
+ * Global wall-clock budget for `fetchHero`. Each candidate's `runFetch` carries
+ * its own 5s budget; without a pipeline-level cap, three hero candidates all
+ * hitting timeout would compound to ~15s before `getLayout` returns. The cap
+ * preserves the design-doc claim that `getLayout` is bounded by a single hero
+ * fetch in the worst case.
  */
-export type LayoutFetchedRow = FetchedRow;
+const HERO_DEADLINE_MS = 7_000;
 
 export interface LayoutPipelineResult {
-  hero: ReturnType<typeof resolveHero>;
-  rows: LayoutFetchedRow[];
+  hero: LayoutHero | null;
+  stubs: HomeRowStub[];
 }
 
 /**
- * Runs the full layout pipeline against a precomputed signal snapshot:
+ * Builds a stub for each row in `order` without fetching any items. The
+ * `initialCursor` is null for most rows; `becauseYouWatched` gets a
+ * seed-pinned cursor so subsequent `getRowContent` calls stay bound to the
+ * same seed item across the scroll session.
+ */
+export function buildRowStubs(order: RowKind[], signals: LayoutSignals): HomeRowStub[] {
+  return order.map((rowId) => {
+    const stub: HomeRowStub = {
+      rowId,
+      title: ROW_TITLES[rowId],
+      initialCursor:
+        rowId === "becauseYouWatched" && signals.recentSeed
+          ? encodeCursor("becauseYouWatched", {
+              v: 1,
+              r: "becauseYouWatched",
+              p: 1,
+              s: signals.recentSeed.id,
+            })
+          : null,
+    };
+    if (rowId === "becauseYouWatched" && signals.recentSeed) {
+      stub.subtitle = `Because you watched ${signals.recentSeed.title}`;
+    }
+    return stub;
+  });
+}
+
+type HeroResult = {
+  hero: LayoutHero | null;
+  heroSource: RowKind | null;
+  heroCursor: string | null;
+};
+
+const HERO_NULL: HeroResult = { hero: null, heroSource: null, heroCursor: null };
+
+/**
+ * Tries each candidate row in priority order, fetching a single item. Stops
+ * at the first row that returns a non-empty result and builds the hero from
+ * it. Returns `heroCursor` — the cursor after that one item — which the
+ * caller stamps onto the source row stub so clients skip the hero item when
+ * they paginate. Bounded by `HERO_DEADLINE_MS` so the serial loop cannot
+ * compound multiple per-row timeouts.
+ */
+export async function fetchHero(candidates: RowKind[], ctx: RowFetchContext): Promise<HeroResult> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const deadline = new Promise<HeroResult>((resolve) => {
+    timer = setTimeout(() => resolve(HERO_NULL), HERO_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([fetchHeroLoop(candidates, ctx), deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function fetchHeroLoop(candidates: RowKind[], ctx: RowFetchContext): Promise<HeroResult> {
+  for (const rowId of candidates) {
+    const result = await runFetch(rowId, ctx, { cursor: null, limit: 1 });
+    if (result.items.length === 0) continue;
+    const item = result.items[0]!;
+    const reason = HERO_REASONS[rowId];
+    if (!reason) continue;
+    const hero = makeHero(item, rowId, reason);
+    return { hero, heroSource: rowId, heroCursor: result.cursor };
+  }
+  return HERO_NULL;
+}
+
+/**
+ * Runs the layout pipeline:
  *   1. Compute candidate row order (pure).
- *   2. Dispatch every row's fetch in parallel through `runFetch`.
- *   3. Resolve a hero from the populated rows.
- *   4. Apply hero exclusion (drops the picked item from its source row).
- *   5. Drop empty rows except for `upcomingForYou`'s `ok_empty` exemption.
+ *   2. Build row stubs without fetching items (pure).
+ *   3. Fetch one item from the hero-candidate row only.
+ *   4. Stamp the final title and `initialCursor` onto the hero source stub.
+ *   5. Drop the hero source stub when `heroCursor` is null (hero consumed the
+ *      only item in that row, so paginating it would yield an empty list).
  */
 export async function runLayoutPipeline(
   signals: LayoutSignals,
   ctx: RowFetchContext,
 ): Promise<LayoutPipelineResult> {
   const order = resolveLayoutOrder(signals);
-  const fetched = await Promise.all(
-    order.map((rowId) => runFetch(rowId, ctx, buildLayoutOpts(rowId, signals))),
-  );
-  const indexed = new Map<RowKind, LayoutFetchedRow>(fetched.map((row) => [row.rowId, row]));
-  const hero = resolveHero(signals, indexed);
-  const heroApplied = applyHeroExclusion(fetched, hero);
-  const rows = dropEmpty(heroApplied);
-  return { hero, rows };
-}
+  const stubs = buildRowStubs(order, signals);
+  const candidates = resolveHeroCandidates(signals, order);
+  const { hero, heroSource, heroCursor } = await fetchHero(candidates, ctx);
 
-/**
- * Builds the per-row first-page options. Most rows pass `null` for cursor;
- * `becauseYouWatched` requires a layout-time synthesised initial cursor that
- * pins the seed for the entire scroll session (V11).
- */
-function buildLayoutOpts(
-  rowId: RowKind,
-  signals: LayoutSignals,
-): { cursor: string | null; limit: number } {
-  if (rowId === "becauseYouWatched" && signals.recentSeed) {
-    return {
-      cursor: encodeCursor("becauseYouWatched", {
-        v: 1,
-        r: "becauseYouWatched",
-        p: 1,
-        s: signals.recentSeed.id,
-      }),
-      limit: FIRST_PAGE_LIMIT,
-    };
-  }
-  return { cursor: null, limit: FIRST_PAGE_LIMIT };
+  const finalStubs = stubs
+    .map((stub) => {
+      if (stub.rowId !== heroSource) return stub;
+      if (heroCursor === null) return null; // hero took the only item
+      return {
+        ...stub,
+        initialCursor: heroCursor,
+        title: TITLE_OVERRIDE_MAP[stub.rowId] ?? stub.title,
+      };
+    })
+    .filter((s): s is HomeRowStub => s !== null);
+
+  return { hero, stubs: finalStubs };
 }
 
 const TIMEOUT_SENTINEL: unique symbol = Symbol("home-row-timeout");
 
 /**
- * Single dispatch wrapper for a fetcher. This is the only place
- * `FetchOutcome` is computed — row implementations cannot lie about whether
- * they timed out. The classification rules:
- *   - `ok_items`  — fetch succeeded with at least one item.
- *   - `ok_empty`  — fetch succeeded with zero items, no plugin errors.
- *   - `partial`   — fetch succeeded but at least one peer plugin errored.
- *   - `timeout`   — exceeded the 5s per-row budget.
- *   - `all_failed` — every contributing provider errored
- *                    (`AllPluginsFailedError` from `MediaService`).
- *
- * Order matters: `partial` wins over `ok_empty` when items is empty but
- * peers errored — otherwise `upcomingForYou`'s drop-empty exemption would
- * render "you're caught up" copy during a calendar plugin outage.
+ * Single dispatch wrapper for a fetcher. `FetchOutcome` is computed here so
+ * row implementations cannot misreport their own status.
  */
 export async function runFetch(
   rowId: RowKind,
@@ -116,9 +162,6 @@ export async function runFetch(
   const timeoutPromise = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
     timer = setTimeout(() => resolve(TIMEOUT_SENTINEL), PER_ROW_TIMEOUT_MS);
   });
-  // Inherit any caller-supplied deadline (e.g. tests) but default to the
-  // per-row budget so `invokeOne` can short-circuit retry backoffs that
-  // would otherwise overrun the wall-clock timer above.
   const deadlineCtx: RowFetchContext = {
     ...ctx,
     deadlineMs: ctx.deadlineMs ?? Date.now() + PER_ROW_TIMEOUT_MS,
@@ -138,6 +181,8 @@ export async function runFetch(
     if (timer) clearTimeout(timer);
   }
 }
+
+export type LayoutFetchedRow = FetchedRow;
 
 function classify(fetcher: RowFetcher, result: RowFetchResult): LayoutFetchedRow {
   const outcome: FetchOutcome = result.partial
@@ -165,37 +210,5 @@ function emptyRow(fetcher: RowFetcher, outcome: FetchOutcome): LayoutFetchedRow 
   };
 }
 
-/**
- * Strips internal-only fields (`outcome`) when projecting a `FetchedRow`
- * onto the wire. Callers see only the fields documented in
- * `@ent-mcp/shared/home`.
- */
-export function toHomeRow(row: LayoutFetchedRow): HomeRow {
-  const out: HomeRow = {
-    rowId: row.rowId,
-    title: row.title,
-    items: row.items,
-    cursor: row.cursor,
-  };
-  if (row.subtitle) out.subtitle = row.subtitle;
-  if (row.titleOverride) out.titleOverride = row.titleOverride;
-  if (row.partial) out.partial = true;
-  return out;
-}
-
-/** Subtitle support — `becauseYouWatched` is the only dynamic case today. */
-export function applyDynamicSubtitles(
-  rows: LayoutFetchedRow[],
-  signals: LayoutSignals,
-): LayoutFetchedRow[] {
-  return rows.map((row) => {
-    if (row.rowId === "becauseYouWatched" && signals.recentSeed) {
-      return { ...row, subtitle: `Because you watched ${signals.recentSeed.title}` };
-    }
-    return row;
-  });
-}
-
-/** Convenience for tests: re-export the outcome alphabet at the boundary. */
 export type { FetchOutcome } from "./rules";
-export type { CompactMediaItem };
+export type { CompactMediaItem } from "@ent-mcp/shared/home";

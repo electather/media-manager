@@ -1,10 +1,9 @@
 import { describe, it, expect } from "vite-plus/test";
 import {
-  applyHeroExclusion,
   candidateRows,
-  dropEmpty,
+  makeHero,
   orderRows,
-  resolveHero,
+  resolveHeroCandidates,
   resolveLayoutOrder,
   type FetchedRow,
 } from "../rules";
@@ -33,14 +32,6 @@ const sampleItem: CompactMediaItem = {
   mediaType: "movie",
   title: "Fight Club",
 };
-
-function fetched(
-  rowId: FetchedRow["rowId"],
-  items: CompactMediaItem[],
-  outcome: FetchedRow["outcome"] = "ok_items",
-): FetchedRow {
-  return { rowId, title: rowId, items, cursor: null, outcome };
-}
 
 /**
  * `candidateRows` and `orderRows` are pure: every test runs in microseconds
@@ -161,89 +152,48 @@ describe("home rules", () => {
     });
   });
 
-  describe("resolveHero", () => {
-    const map = (rows: FetchedRow[]) => new Map(rows.map((r) => [r.rowId, r] as const));
-
-    it("picks the first continueWatching item when present", () => {
-      const hero = resolveHero(baseSignals, map([fetched("continueWatching", [sampleItem])]));
-      expect(hero?.source).toBe("continueWatching");
-      expect(hero?.reason).toBe("continue_watching");
+  describe("resolveHeroCandidates", () => {
+    it("returns empty when no hero-eligible rows are in order", () => {
+      expect(resolveHeroCandidates(baseSignals, ["newReleases", "yourWatchlist"])).toEqual([]);
     });
 
-    it("falls through to RFY only when profile confidence is medium/high", () => {
-      const lowSignals = withSignals({ profileConfidence: "low" });
-      const lowHero = resolveHero(lowSignals, map([fetched("recommendedForYou", [sampleItem])]));
-      expect(lowHero).toBeNull();
-
-      const highSignals = withSignals({ profileConfidence: "high" });
-      const highHero = resolveHero(highSignals, map([fetched("recommendedForYou", [sampleItem])]));
-      expect(highHero?.source).toBe("recommendedForYou");
-    });
-
-    it("falls through to trending when neither continueWatching nor confident RFY exists", () => {
-      const hero = resolveHero(
-        baseSignals,
-        map([fetched("recommendedForYou", []), fetched("trendingNow", [sampleItem])]),
+    it("includes trendingNow when present", () => {
+      expect(resolveHeroCandidates(baseSignals, ["trendingNow", "newReleases"])).toContain(
+        "trendingNow",
       );
-      expect(hero?.source).toBe("trendingNow");
     });
 
-    it("returns null when every contender is empty", () => {
-      const hero = resolveHero(baseSignals, map([fetched("trendingNow", [])]));
-      expect(hero).toBeNull();
+    it("excludes recommendedForYou when profile confidence is low/none", () => {
+      const order: FetchedRow["rowId"][] = ["recommendedForYou", "trendingNow"];
+      const candidates = resolveHeroCandidates(withSignals({ profileConfidence: "low" }), order);
+      expect(candidates).not.toContain("recommendedForYou");
+      expect(candidates).toContain("trendingNow");
+    });
+
+    it("includes recommendedForYou when profile confidence is medium or high", () => {
+      const order: FetchedRow["rowId"][] = ["continueWatching", "recommendedForYou", "trendingNow"];
+      const medium = resolveHeroCandidates(withSignals({ profileConfidence: "medium" }), order);
+      expect(medium).toContain("recommendedForYou");
+      const high = resolveHeroCandidates(withSignals({ profileConfidence: "high" }), order);
+      expect(high).toContain("recommendedForYou");
+    });
+
+    it("returns candidates in priority order: continueWatching, rfy, trending", () => {
+      const order: FetchedRow["rowId"][] = ["continueWatching", "recommendedForYou", "trendingNow"];
+      const candidates = resolveHeroCandidates(withSignals({ profileConfidence: "high" }), order);
+      expect(candidates).toEqual(["continueWatching", "recommendedForYou", "trendingNow"]);
     });
   });
 
-  describe("applyHeroExclusion", () => {
-    it("removes the hero item from its source row and stamps the override title", () => {
-      const second = { ...sampleItem, id: "tv:9999" };
-      const rows = [fetched("continueWatching", [sampleItem, second])];
-      const hero = resolveHero(baseSignals, new Map([["continueWatching", rows[0]!]]));
-      const out = applyHeroExclusion(rows, hero);
-      expect(out[0]?.items).toEqual([second]);
-      expect(out[0]?.titleOverride).toBe("Also watching");
-    });
-
-    it("filters by id, not by reference", () => {
-      const ref = { ...sampleItem };
-      const dup = { ...sampleItem };
-      const rows = [fetched("trendingNow", [ref, dup])];
-      const hero = resolveHero(baseSignals, new Map([["trendingNow", rows[0]!]]));
-      const out = applyHeroExclusion(rows, hero);
-      // Both ref and dup share id; both are removed.
-      expect(out[0]?.items).toHaveLength(0);
-    });
-
-    it("is a no-op when the hero source is not in the row set", () => {
-      const rows = [fetched("trendingNow", [sampleItem])];
-      const hero = {
+  describe("makeHero", () => {
+    it("builds a LayoutHero with resumeUrl null", () => {
+      const hero = makeHero(sampleItem, "trendingNow", "trending");
+      expect(hero).toEqual({
         item: sampleItem,
-        source: "continueWatching" as const,
-        reason: "continue_watching" as const,
+        source: "trendingNow",
+        reason: "trending",
         resumeUrl: null,
-      };
-      expect(applyHeroExclusion(rows, hero)).toEqual(rows);
-    });
-  });
-
-  describe("dropEmpty", () => {
-    it("drops empty rows except an upcomingForYou ok_empty", () => {
-      const rows: FetchedRow[] = [
-        fetched("trendingNow", []),
-        fetched("upcomingForYou", [], "ok_empty"),
-        fetched("newReleases", [sampleItem]),
-      ];
-      expect(dropEmpty(rows).map((r) => r.rowId)).toEqual(["upcomingForYou", "newReleases"]);
-    });
-
-    it("does not exempt upcomingForYou when the outcome was a timeout", () => {
-      const rows: FetchedRow[] = [fetched("upcomingForYou", [], "timeout")];
-      expect(dropEmpty(rows)).toHaveLength(0);
-    });
-
-    it("does not exempt upcomingForYou when the outcome was partial-empty", () => {
-      const rows: FetchedRow[] = [fetched("upcomingForYou", [], "partial")];
-      expect(dropEmpty(rows)).toHaveLength(0);
+      });
     });
   });
 });

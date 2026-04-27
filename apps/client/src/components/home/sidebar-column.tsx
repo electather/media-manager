@@ -1,6 +1,13 @@
-import type { HomeRow } from "@ent-mcp/shared/home";
+import type { HomeRowStub, RowKind } from "@ent-mcp/shared/home";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useRowPagination } from "@/hooks/use-row-pagination";
 import { SidebarItem } from "./sidebar-item";
+
+export interface SidebarColumnProps {
+  row: HomeRowStub;
+  onRowUnavailable?: (rowId: RowKind) => void;
+}
 
 /**
  * Sidebar column for the top zone. Layout switches via container query
@@ -16,8 +23,14 @@ import { SidebarItem } from "./sidebar-item";
  * - `@[768px]+` (top-zone container `≥768px`, sidebar slot has dedicated
  *   width): traditional vertical list.
  */
-export function SidebarColumn({ row }: { row: HomeRow }) {
-  const title = row.titleOverride ?? row.title;
+export function SidebarColumn({ row, onRowUnavailable }: SidebarColumnProps) {
+  const title = row.title;
+  const { items, isPending } = useRowPagination({
+    rowId: row.rowId,
+    initialCursor: row.initialCursor,
+    onUnavailable: onRowUnavailable ? () => onRowUnavailable(row.rowId) : undefined,
+  });
+
   return (
     <section
       aria-labelledby={`sidebar-${row.rowId}`}
@@ -38,11 +51,17 @@ export function SidebarColumn({ row }: { row: HomeRow }) {
           "@[768px]:flex-col @[768px]:gap-2 @[768px]:overflow-visible @[768px]:pb-0",
         )}
       >
-        {row.items.map((item) => (
-          <div key={item.id} className="shrink-0 w-[280px] @[768px]:w-auto @[768px]:shrink">
-            <SidebarItem item={item} />
-          </div>
-        ))}
+        {isPending
+          ? Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="shrink-0 w-[280px] @[768px]:w-auto @[768px]:shrink">
+                <Skeleton className="aspect-video w-full" />
+              </div>
+            ))
+          : items.map((item) => (
+              <div key={item.id} className="shrink-0 w-[280px] @[768px]:w-auto @[768px]:shrink">
+                <SidebarItem item={item} />
+              </div>
+            ))}
       </div>
     </section>
   );

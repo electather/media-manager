@@ -96,39 +96,9 @@ export interface FetchedRow {
   cursor: string | null;
   outcome: FetchOutcome;
   partial?: true;
-  titleOverride?: string;
 }
 
-/**
- * Picks at most one hero across the populated row set. Continue Watching
- * wins when present; otherwise Recommended For You is allowed only when the
- * user's profile is confident (avoids "you'll love this" headlines built
- * from a single feedback event); Trending takes anything else; null when
- * every contender is empty.
- */
-export function resolveHero(
-  signals: LayoutSignals,
-  rowResults: Map<RowKind, FetchedRow>,
-): LayoutHero | null {
-  const cw = rowResults.get("continueWatching");
-  if (cw && cw.items.length > 0) {
-    return makeHero(cw.items[0]!, "continueWatching", "continue_watching");
-  }
-
-  const confident = signals.profileConfidence === "medium" || signals.profileConfidence === "high";
-  const rfy = rowResults.get("recommendedForYou");
-  if (rfy && rfy.items.length > 0 && confident) {
-    return makeHero(rfy.items[0]!, "recommendedForYou", "recommended");
-  }
-
-  const trending = rowResults.get("trendingNow");
-  if (trending && trending.items.length > 0) {
-    return makeHero(trending.items[0]!, "trendingNow", "trending");
-  }
-  return null;
-}
-
-function makeHero(
+export function makeHero(
   item: CompactMediaItem,
   source: RowKind,
   reason: LayoutHero["reason"],
@@ -144,33 +114,24 @@ function makeHero(
   };
 }
 
-/**
- * Removes the hero item from its source row and stamps the matching title
- * override. Runs before `dropEmpty` so a row that was a single-item hero
- * candidate disappears when the hero is taken from it.
- */
-export function applyHeroExclusion(rows: FetchedRow[], hero: LayoutHero | null): FetchedRow[] {
-  if (!hero) return rows;
-  return rows.map((row) => {
-    if (row.rowId !== hero.source) return row;
-    const filtered = row.items.filter((i) => i.id !== hero.item.id);
-    return {
-      ...row,
-      items: filtered,
-      titleOverride: TITLE_OVERRIDE_MAP[row.rowId],
-    };
-  });
-}
+export const HERO_REASONS: Partial<Record<RowKind, LayoutHero["reason"]>> = {
+  continueWatching: "continue_watching",
+  recommendedForYou: "recommended",
+  trendingNow: "trending",
+};
 
 /**
- * Drops rows whose `items` array is empty after fetch + hero exclusion.
- * `upcomingForYou` is exempt only when the fetch itself genuinely returned
- * no items (`outcome === "ok_empty"`); a timeout or aggregate failure is
- * treated like any other row and dropped — the design's "you're caught up"
- * empty-state copy must not render during a calendar plugin outage.
+ * Returns the subset of hero-eligible rows present in `order`, in priority
+ * order: continueWatching wins; recommendedForYou only when profile is
+ * confident; trendingNow is the last resort. Drives which rows `fetchHero`
+ * tries before giving up.
  */
-export function dropEmpty(rows: FetchedRow[]): FetchedRow[] {
-  return rows.filter(
-    (r) => r.items.length > 0 || (r.rowId === "upcomingForYou" && r.outcome === "ok_empty"),
-  );
+export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]): RowKind[] {
+  const inOrder = new Set(order);
+  const out: RowKind[] = [];
+  if (inOrder.has("continueWatching")) out.push("continueWatching");
+  const confident = signals.profileConfidence === "medium" || signals.profileConfidence === "high";
+  if (inOrder.has("recommendedForYou") && confident) out.push("recommendedForYou");
+  if (inOrder.has("trendingNow")) out.push("trendingNow");
+  return out;
 }

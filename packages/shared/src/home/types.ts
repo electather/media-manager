@@ -39,20 +39,6 @@ export interface CompactMediaItem {
   };
 }
 
-export interface HomeRow {
-  rowId: RowKind;
-  /** Default copy for the row. */
-  title: string;
-  /** Set when hero exclusion changed the row's meaning (e.g. "Also watching"). */
-  titleOverride?: string;
-  subtitle?: string;
-  items: CompactMediaItem[];
-  /** Opaque cursor for the next page; null at end of pagination. */
-  cursor: string | null;
-  /** Set when an aggregate plugin set returned partial data. */
-  partial?: true;
-}
-
 export interface LayoutHero {
   item: CompactMediaItem;
   source: RowKind;
@@ -61,9 +47,18 @@ export interface LayoutHero {
   resumeUrl: string | null;
 }
 
+/** Row structure returned by `getLayout`. Contains no items — use `getRowContent` to load them. */
+export interface HomeRowStub {
+  rowId: RowKind;
+  title: string;
+  subtitle?: string;
+  /** Cursor to pass as the first `getRowContent` call. Null means first page; non-null pins a seed (e.g. `becauseYouWatched`). */
+  initialCursor: string | null;
+}
+
 export interface HomeLayoutResponse {
   hero: LayoutHero | null;
-  rows: HomeRow[];
+  rows: HomeRowStub[];
   /** Server clock at response assembly, ms epoch. */
   generatedAt: number;
 }

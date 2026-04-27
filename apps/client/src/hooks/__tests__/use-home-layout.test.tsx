@@ -45,7 +45,10 @@ describe("useHomeLayout", () => {
     apiMock.getLayout.mockResolvedValueOnce(
       jsonResponse({
         hero: null,
-        rows: [{ rowId: "trendingNow" }, { rowId: "newReleases" }],
+        rows: [
+          { rowId: "trendingNow", title: "Trending Now", initialCursor: null },
+          { rowId: "newReleases", title: "New Releases", initialCursor: null },
+        ],
         generatedAt: 1,
       }),
     );

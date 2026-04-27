@@ -6,14 +6,13 @@ export const homeGetLayoutInputSchema = z.object({}).strict();
 
 /**
  * `home.getRowContent` input: client supplies a row id and the opaque cursor
- * it received on the previous page. Decoding/validating the cursor itself is
- * server-internal and lives outside `@ent-mcp/shared` (cursor schemas are not
- * exposed across the boundary).
+ * from the previous page. Null cursor means first page. Decoding/validating
+ * the cursor itself is server-internal and lives outside `@ent-mcp/shared`.
  */
 export const homeGetRowContentInputSchema = z
   .object({
     rowId: z.enum(ROW_KINDS),
-    cursor: z.string().min(1),
+    cursor: z.string().nullable(),
   })
   .strict();
 

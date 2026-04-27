@@ -37,6 +37,8 @@ function Probe(props: Parameters<typeof useRowPagination>[0]) {
       <div data-testid="items">{r.items.map((i) => i.id).join(",")}</div>
       <div data-testid="cursor">{r.cursor ?? "null"}</div>
       <div data-testid="has-more">{String(r.hasMore)}</div>
+      <div data-testid="pending">{String(r.isPending)}</div>
+      <div data-testid="partial">{String(r.isPartial)}</div>
       <button type="button" onClick={() => r.fetchNext()}>
         next
       </button>
@@ -56,28 +58,43 @@ function renderProbe(props: Parameters<typeof useRowPagination>[0]) {
 beforeEach(() => apiMock.getRowContent.mockReset());
 afterEach(() => cleanup());
 
-describe("useRowPagination (V36 opaque cursor)", () => {
-  it("seeds from initial items and exposes the inline cursor", () => {
-    renderProbe({
-      rowId: "trendingNow",
-      initialItems: [item("movie:1"), item("movie:2")],
-      initialCursor: "c1",
+describe("useRowPagination", () => {
+  it("fetches first page on mount with null cursor", async () => {
+    apiMock.getRowContent.mockResolvedValueOnce(
+      jsonResponse({ items: [item("movie:1"), item("movie:2")], cursor: "c1" }),
+    );
+    renderProbe({ rowId: "trendingNow", initialCursor: null });
+    await waitFor(() => {
+      expect(screen.getByTestId("items").textContent).toBe("movie:1,movie:2");
+      expect(screen.getByTestId("cursor").textContent).toBe("c1");
+      expect(screen.getByTestId("has-more").textContent).toBe("true");
     });
-    expect(screen.getByTestId("items").textContent).toBe("movie:1,movie:2");
-    expect(screen.getByTestId("cursor").textContent).toBe("c1");
-    expect(screen.getByTestId("has-more").textContent).toBe("true");
+    expect(apiMock.getRowContent).toHaveBeenCalledWith(
+      expect.objectContaining({ json: { rowId: "trendingNow", cursor: null } }),
+    );
   });
 
-  it("appends the next page on fetchNext and stops when the cursor is null", async () => {
+  it("fetches first page on mount with a seed cursor (becauseYouWatched)", async () => {
+    const seedCursor = "seed-cursor-abc";
     apiMock.getRowContent.mockResolvedValueOnce(
-      jsonResponse({ items: [item("movie:3")], cursor: null }),
+      jsonResponse({ items: [item("movie:5")], cursor: null }),
     );
-    const user = userEvent.setup();
-    renderProbe({
-      rowId: "trendingNow",
-      initialItems: [item("movie:1")],
-      initialCursor: "c1",
+    renderProbe({ rowId: "becauseYouWatched", initialCursor: seedCursor });
+    await waitFor(() => {
+      expect(screen.getByTestId("items").textContent).toBe("movie:5");
     });
+    expect(apiMock.getRowContent).toHaveBeenCalledWith(
+      expect.objectContaining({ json: { rowId: "becauseYouWatched", cursor: seedCursor } }),
+    );
+  });
+
+  it("appends the next page on fetchNext and stops when cursor is null", async () => {
+    apiMock.getRowContent
+      .mockResolvedValueOnce(jsonResponse({ items: [item("movie:1")], cursor: "c1" }))
+      .mockResolvedValueOnce(jsonResponse({ items: [item("movie:3")], cursor: null }));
+    const user = userEvent.setup();
+    renderProbe({ rowId: "trendingNow", initialCursor: null });
+    await waitFor(() => expect(screen.getByTestId("items").textContent).toBe("movie:1"));
     await user.click(screen.getByText("next"));
     await waitFor(() => {
       expect(screen.getByTestId("items").textContent).toBe("movie:1,movie:3");
@@ -85,19 +102,46 @@ describe("useRowPagination (V36 opaque cursor)", () => {
     });
   });
 
+  it("surfaces isPartial when any page returns partial: true", async () => {
+    apiMock.getRowContent.mockResolvedValueOnce(
+      jsonResponse({ items: [item("tv:1")], cursor: null, partial: true }),
+    );
+    renderProbe({ rowId: "upcomingForYou", initialCursor: null });
+    await waitFor(() => {
+      expect(screen.getByTestId("partial").textContent).toBe("true");
+    });
+  });
+
+  it("refetches with the new initialCursor when the seed cursor changes (becauseYouWatched)", async () => {
+    apiMock.getRowContent
+      .mockResolvedValueOnce(jsonResponse({ items: [item("movie:A")], cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [item("movie:B")], cursor: null }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={qc}>
+        <Probe rowId="becauseYouWatched" initialCursor="seed-A" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("items").textContent).toBe("movie:A"));
+
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <Probe rowId="becauseYouWatched" initialCursor="seed-B" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("items").textContent).toBe("movie:B"));
+    expect(apiMock.getRowContent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ json: { rowId: "becauseYouWatched", cursor: "seed-B" } }),
+    );
+  });
+
   it("calls onUnavailable when the server returns home.row_unavailable", async () => {
     apiMock.getRowContent.mockResolvedValueOnce(
       jsonResponse({ code: "home.row_unavailable", message: "gone" }, 404),
     );
     const onUnavailable = vi.fn();
-    const user = userEvent.setup();
-    renderProbe({
-      rowId: "trendingNow",
-      initialItems: [item("movie:1")],
-      initialCursor: "c1",
-      onUnavailable,
-    });
-    await user.click(screen.getByText("next"));
+    renderProbe({ rowId: "trendingNow", initialCursor: null, onUnavailable });
     await waitFor(() => expect(onUnavailable).toHaveBeenCalledTimes(1));
   });
 });

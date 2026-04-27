@@ -1,5 +1,6 @@
 import { TriangleAlertIcon } from "lucide-react";
-import type { HomeRow } from "@ent-mcp/shared/home";
+import type { HomeRowStub } from "@ent-mcp/shared/home";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRowPagination } from "@/hooks/use-row-pagination";
 import { ROW_DISPLAY } from "@/lib/home-display";
@@ -8,11 +9,11 @@ import { RowCarousel } from "./row-carousel";
 import { RowErrorBoundary } from "./row-error-boundary";
 
 export interface RowProps {
-  row: HomeRow;
-  onRowUnavailable: (rowId: HomeRow["rowId"]) => void;
+  row: HomeRowStub;
+  onRowUnavailable: (rowId: HomeRowStub["rowId"]) => void;
 }
 
-const EMPTY_RETAINED_COPY: Partial<Record<HomeRow["rowId"], string>> = {
+const EMPTY_RETAINED_COPY: Partial<Record<HomeRowStub["rowId"], string>> = {
   upcomingForYou: "You're all caught up on upcoming episodes.",
 };
 
@@ -27,14 +28,21 @@ export function Row({ row, onRowUnavailable }: RowProps) {
 function RowInner({ row, onRowUnavailable }: RowProps) {
   const pagination = useRowPagination({
     rowId: row.rowId,
-    initialItems: row.items,
-    initialCursor: row.cursor,
+    initialCursor: row.initialCursor,
     onUnavailable: () => onRowUnavailable(row.rowId),
   });
 
   const display = ROW_DISPLAY[row.rowId];
-  const title = row.titleOverride ?? row.title;
-  const isEmptyRetained = pagination.items.length === 0 && EMPTY_RETAINED_COPY[row.rowId];
+  const title = row.title;
+
+  if (pagination.isPending) {
+    return <RowSkeleton title={title} aspectRatio={display.aspectRatio} />;
+  }
+
+  // Suppress the "caught up" copy when partial data means the row might
+  // actually have content that failed to load.
+  const isEmptyRetained =
+    pagination.items.length === 0 && !pagination.isPartial && EMPTY_RETAINED_COPY[row.rowId];
 
   return (
     <section className="flex flex-col gap-2" aria-labelledby={`row-${row.rowId}`}>
@@ -46,7 +54,7 @@ function RowInner({ row, onRowUnavailable }: RowProps) {
         >
           {title}
         </h2>
-        {row.partial ? (
+        {pagination.isPartial ? (
           <Tooltip>
             <TooltipTrigger
               aria-label="Some sources didn't respond"
@@ -82,6 +90,33 @@ function RowInner({ row, onRowUnavailable }: RowProps) {
             onNearEnd={pagination.fetchNext}
           />
         )}
+      </div>
+    </section>
+  );
+}
+
+interface RowSkeletonProps {
+  title: string;
+  aspectRatio: "poster" | "backdrop";
+}
+
+function RowSkeleton({ title, aspectRatio }: RowSkeletonProps) {
+  return (
+    <section className="flex flex-col gap-2" aria-busy>
+      <div className="px-4 lg:px-6">
+        <p className="text-[15px] font-medium text-foreground">{title}</p>
+      </div>
+      <div className="flex gap-3 overflow-hidden px-4 lg:px-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            className={
+              aspectRatio === "poster"
+                ? "aspect-[2/3] w-[140px] shrink-0 md:w-[160px] xl:w-[180px]"
+                : "aspect-video w-[220px] shrink-0 md:w-[250px] xl:w-[280px]"
+            }
+          />
+        ))}
       </div>
     </section>
   );

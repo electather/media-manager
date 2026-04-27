@@ -24,6 +24,9 @@ import { MediaService } from "../../media/service";
  * The MediaService surface is mocked via `vi.spyOn` so the test runs without
  * any plugin runtime, DB, or HTTP. The signal snapshot is also stubbed so
  * each test fixture controls exactly which rows are eligible.
+ *
+ * `getLayout` now returns row stubs (no items). Item loading moved to
+ * `getRowContent`. Tests verify row structure and hero resolution only.
  */
 describe("HomeFeedService", () => {
   let originalFetchers: Map<string, (typeof ROW_FETCHERS)[keyof typeof ROW_FETCHERS]["fetch"]>;
@@ -42,7 +45,7 @@ describe("HomeFeedService", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns rows: [] for a user with no plugins", async () => {
+  it("returns trendingNow and newReleases stubs for a fresh install with no plugins", async () => {
     stubSignals({
       hasWatchHistoryPlugin: false,
       hasRecommendationsPlugin: false,
@@ -51,22 +54,20 @@ describe("HomeFeedService", () => {
     });
     stubAllFetchersEmpty();
     const result = await new HomeFeedService().getLayout("user-no-plugins");
-    expect(result.rows).toEqual([]);
+    // Stubs are built from signals; trendingNow and newReleases are always eligible.
+    expect(result.rows.map((r) => r.rowId)).toEqual(["trendingNow", "newReleases"]);
     expect(result.hero).toBeNull();
   });
 
-  it("renders only newReleases for a TMDB-only install", async () => {
+  it("returns stubs for trendingNow and newReleases for a TMDB-only install", async () => {
     stubSignals({});
     stubAllFetchersEmpty();
-    ROW_FETCHERS.newReleases.fetch = async () => ({
-      items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "Recent" }],
-      cursor: null,
-    });
     const result = await new HomeFeedService().getLayout("user-tmdb");
-    expect(result.rows.map((r) => r.rowId)).toEqual(["newReleases"]);
+    expect(result.rows.map((r) => r.rowId)).toContain("trendingNow");
+    expect(result.rows.map((r) => r.rowId)).toContain("newReleases");
   });
 
-  it("orders rows correctly for a confident full install", async () => {
+  it("orders stubs correctly for a confident full install", async () => {
     stubSignals({
       hasWatchHistoryPlugin: true,
       hasRecommendationsPlugin: true,
@@ -84,20 +85,12 @@ describe("HomeFeedService", () => {
         reason: "liked",
       },
     });
-    // Two items so the hero pick still leaves continueWatching non-empty.
+    // Hero fetch only needs continueWatching. Return a non-null cursor so the
+    // stub is retained after hero exclusion.
     ROW_FETCHERS.continueWatching.fetch = async () => ({
-      items: [
-        { id: "movie:1", tmdbId: "1", mediaType: "movie", title: "x" },
-        { id: "movie:11", tmdbId: "11", mediaType: "movie", title: "y" },
-      ],
-      cursor: null,
+      items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "x" }],
+      cursor: "cursor-after-hero",
     });
-    stubFetcherReturning("recommendedForYou", "movie:2");
-    stubFetcherReturning("trendingNow", "movie:3");
-    stubFetcherReturning("becauseYouWatched", "movie:4");
-    stubFetcherReturning("yourWatchlist", "movie:5");
-    stubFetcherReturning("newReleases", "movie:6");
-    stubFetcherReturning("upcomingForYou", "tv:7");
     const result = await new HomeFeedService().getLayout("user-full");
     expect(result.rows.map((r) => r.rowId)).toEqual([
       "continueWatching",
@@ -111,47 +104,69 @@ describe("HomeFeedService", () => {
     expect(result.hero?.source).toBe("continueWatching");
   });
 
-  it("retains upcomingForYou with items: [] when the fetch genuinely returns empty", async () => {
+  it("stamps overridden title and initialCursor on the hero source stub", async () => {
     stubSignals({
-      hasCalendarPlugin: true,
       hasWatchHistoryPlugin: true,
-      calendarProgressCount: 1,
+      inProgressCount: 2,
     });
-    stubAllFetchersEmpty();
-    // upcomingForYou succeeds but with zero items — outcome=ok_empty.
-    ROW_FETCHERS.upcomingForYou.fetch = async () => ({ items: [], cursor: null });
-    const result = await new HomeFeedService().getLayout("user-caught-up");
-    expect(result.rows.map((r) => r.rowId)).toContain("upcomingForYou");
-    const row = result.rows.find((r) => r.rowId === "upcomingForYou");
-    expect(row?.items).toEqual([]);
+    ROW_FETCHERS.continueWatching.fetch = async () => ({
+      items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "x" }],
+      cursor: "cursor-after-hero",
+    });
+    const result = await new HomeFeedService().getLayout("user-hero");
+    const stub = result.rows.find((r) => r.rowId === "continueWatching");
+    expect(stub?.initialCursor).toBe("cursor-after-hero");
+    expect(stub?.title).toBe("Also watching");
+    expect(result.hero?.source).toBe("continueWatching");
   });
 
-  it("drops upcomingForYou when the fetcher times out", async () => {
+  it("drops the hero source stub when the hero fetch cursor is null (only one item)", async () => {
+    stubSignals({
+      hasWatchHistoryPlugin: true,
+      inProgressCount: 1,
+    });
+    ROW_FETCHERS.continueWatching.fetch = async () => ({
+      items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "x" }],
+      cursor: null, // only one item — hero consumed it
+    });
+    const result = await new HomeFeedService().getLayout("user-solo-hero");
+    expect(result.rows.map((r) => r.rowId)).not.toContain("continueWatching");
+    expect(result.hero?.source).toBe("continueWatching");
+  });
+
+  it("includes upcomingForYou stub when calendar signals are present", async () => {
     stubSignals({
       hasCalendarPlugin: true,
       hasWatchHistoryPlugin: true,
       calendarProgressCount: 1,
     });
     stubAllFetchersEmpty();
-    vi.useFakeTimers();
-    ROW_FETCHERS.upcomingForYou.fetch = () => new Promise(() => {});
-    try {
-      const promise = new HomeFeedService().getLayout("user-cal-timeout");
-      // PER_ROW_TIMEOUT_MS bumped to 5s in #135 fix; advance past it so the
-      // never-resolving fetcher hits the timeout sentinel and the row drops.
-      await vi.advanceTimersByTimeAsync(5_001);
-      const result = await promise;
-      expect(result.rows.map((r) => r.rowId)).not.toContain("upcomingForYou");
-    } finally {
-      vi.useRealTimers();
-    }
+    const result = await new HomeFeedService().getLayout("user-caught-up");
+    expect(result.rows.map((r) => r.rowId)).toContain("upcomingForYou");
+    // Stubs have no items field; items are loaded lazily via getRowContent.
+    expect("items" in (result.rows.find((r) => r.rowId === "upcomingForYou") ?? {})).toBe(false);
+  });
+
+  it("sets becauseYouWatched subtitle from the recent seed title", async () => {
+    stubSignals({
+      recentSeed: {
+        id: "tv:1396",
+        tmdbId: "1396",
+        mediaType: "tv",
+        title: "Breaking Bad",
+        reason: "high_rating",
+      },
+    });
+    stubAllFetchersEmpty();
+    const result = await new HomeFeedService().getLayout("user-seed");
+    const stub = result.rows.find((r) => r.rowId === "becauseYouWatched");
+    expect(stub?.subtitle).toBe("Because you watched Breaking Bad");
   });
 
   it("getRowContent returns home.row_unavailable when eligibility fails", async () => {
     vi.spyOn(MediaService.prototype, "hasCapabilityProvider").mockResolvedValue(false);
-    const cursor = "anything";
     await expect(
-      new HomeFeedService().getRowContent("u", { rowId: "continueWatching", cursor }),
+      new HomeFeedService().getRowContent("u", { rowId: "continueWatching", cursor: null }),
     ).rejects.toMatchObject({ code: "home.row_unavailable" });
   });
 
@@ -159,9 +174,60 @@ describe("HomeFeedService", () => {
     await expect(
       new HomeFeedService().getRowContent("u", {
         rowId: "doesNotExist" as never,
-        cursor: "x",
+        cursor: null,
       }),
     ).rejects.toMatchObject({ code: "home.bad_input" });
+  });
+
+  it("getRowContent accepts a null cursor and treats it as first page", async () => {
+    vi.spyOn(MediaService.prototype, "hasCapabilityProvider").mockResolvedValue(true);
+    ROW_FETCHERS.trendingNow.fetch = async (_ctx, opts) => {
+      expect(opts.cursor).toBeNull();
+      return {
+        items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "x" }],
+        cursor: null,
+      };
+    };
+    const result = await new HomeFeedService().getRowContent("u", {
+      rowId: "trendingNow",
+      cursor: null,
+    });
+    expect(result.items).toHaveLength(1);
+  });
+
+  it("getRowContent for upcomingForYou marks partial on per-row timeout", async () => {
+    vi.spyOn(MediaService.prototype, "hasCapabilityProvider").mockResolvedValue(true);
+    // Fetcher hangs past PER_ROW_TIMEOUT_MS so runFetch resolves with
+    // outcome === "timeout". The wire response must carry partial: true so the
+    // client suppresses the "you're caught up" empty-state copy.
+    ROW_FETCHERS.upcomingForYou.fetch = () => new Promise(() => {});
+    vi.useFakeTimers();
+    try {
+      const promise = new HomeFeedService().getRowContent("u", {
+        rowId: "upcomingForYou",
+        cursor: null,
+      });
+      await vi.advanceTimersByTimeAsync(5_001);
+      const result = await promise;
+      expect(result.items).toEqual([]);
+      expect(result.partial).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("getRowContent marks partial when every plugin fails", async () => {
+    vi.spyOn(MediaService.prototype, "hasCapabilityProvider").mockResolvedValue(true);
+    const { AllPluginsFailedError } = await import("../../media/errors");
+    ROW_FETCHERS.upcomingForYou.fetch = async () => {
+      throw new AllPluginsFailedError("calendar@v1", []);
+    };
+    const result = await new HomeFeedService().getRowContent("u", {
+      rowId: "upcomingForYou",
+      cursor: null,
+    });
+    expect(result.items).toEqual([]);
+    expect(result.partial).toBe(true);
   });
 });
 
@@ -184,14 +250,4 @@ function stubAllFetchersEmpty(): void {
   for (const fetcher of Object.values(ROW_FETCHERS)) {
     fetcher.fetch = async () => ({ items: [], cursor: null });
   }
-}
-
-function stubFetcherReturning(rowId: keyof typeof ROW_FETCHERS, itemId: string): void {
-  ROW_FETCHERS[rowId].fetch = async () => {
-    const [mediaType, tmdbId] = itemId.split(":") as ["movie" | "tv", string];
-    return {
-      items: [{ id: itemId, tmdbId, mediaType, title: itemId }],
-      cursor: null,
-    };
-  };
 }

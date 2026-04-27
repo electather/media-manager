@@ -5,7 +5,7 @@ import { getPreferenceEngine } from "../preferences";
 import { badRequest, notFound, internal } from "../errors/http-errors";
 import { RequestScopedLoader } from "./dataloader";
 import { captureSignals } from "./signals";
-import { applyDynamicSubtitles, runFetch, runLayoutPipeline, toHomeRow } from "./layout";
+import { runFetch, runLayoutPipeline } from "./layout";
 import { ROW_FETCHERS } from "./rows/index";
 
 /**
@@ -19,9 +19,9 @@ import { ROW_FETCHERS } from "./rows/index";
  */
 export class HomeFeedService {
   /**
-   * Builds the inline layout — signal snapshot, candidate row order, every
-   * row's first page, hero pick, hero exclusion, drop-empty. Wraps any
-   * thrown error in `home.internal` and lets RPC surface it to the user.
+   * Returns the skeleton layout: row stubs (no items) and a resolved hero.
+   * Item fetching is delegated to `getRowContent`, which the client calls
+   * per row after receiving the skeleton.
    */
   async getLayout(userId: string): Promise<HomeLayoutResponse> {
     try {
@@ -31,11 +31,10 @@ export class HomeFeedService {
         mediaService: ctx.mediaService,
         loader: ctx.dataloader,
       });
-      const result = await runLayoutPipeline(signals, ctx);
-      const annotated = applyDynamicSubtitles(result.rows, signals);
+      const { hero, stubs } = await runLayoutPipeline(signals, ctx);
       return {
-        hero: result.hero,
-        rows: annotated.map(toHomeRow),
+        hero,
+        rows: stubs,
         generatedAt: Date.now(),
       };
     } catch (err) {
@@ -45,15 +44,15 @@ export class HomeFeedService {
   }
 
   /**
-   * Paginated scroll for a single row. Re-uses the same `RowFetcher.fetch`
-   * the layout handler called, including its 3s timeout. Eligibility runs
-   * before the fetch so plugin removals between sessions surface as
-   * `home.row_unavailable` rather than an empty payload that the dashboard
-   * cannot distinguish from "no more content".
+   * Paginated scroll for a single row. A null cursor means first page.
+   * Re-uses the same `RowFetcher.fetch` the layout handler calls, including
+   * its 5s timeout. Eligibility runs before the fetch so plugin removals
+   * between sessions surface as `home.row_unavailable` rather than an empty
+   * payload.
    */
   async getRowContent(
     userId: string,
-    args: { rowId: RowKind; cursor: string },
+    args: { rowId: RowKind; cursor: string | null },
   ): Promise<RowContentResponse> {
     const fetcher = ROW_FETCHERS[args.rowId];
     if (!fetcher) {
@@ -74,7 +73,13 @@ export class HomeFeedService {
         limit: 20,
       });
       const out: RowContentResponse = { items: fetched.items, cursor: fetched.cursor };
-      if (fetched.partial) out.partial = true;
+      // Promote degraded outcomes to `partial` on the wire. Without this, a
+      // calendar timeout for `upcomingForYou` returns `{ items: [] }` indistinguishable
+      // from a genuine "you're caught up" empty fetch — the client renders the
+      // empty-state copy during a plugin outage. See docs §5 dropEmpty rule.
+      if (fetched.partial || fetched.outcome === "timeout" || fetched.outcome === "all_failed") {
+        out.partial = true;
+      }
       return out;
     } catch (err) {
       consola.error("[home] getRowContent failed:", err);
