@@ -30,6 +30,27 @@ export async function readCache<T>(
 // watchHistory@v1, watchlist@v1, and ratings@v1 capabilities.
 export const NEGATIVE_TTL_MS = 60 * 1000;
 
+/**
+ * Catalog ownership notes (Phase 7 cleanup):
+ *
+ * - `metadata@v1.getDetails` / `metadata@v1.discover` are now served from
+ *   `canonical_metadata` and `discover_snapshots` first; the dispatcher
+ *   only runs them when the catalog returns nothing (cold-fill path).
+ * - `recommendations@v1.getRecommendations` is served from
+ *   `recommendation_lists` first; the dispatcher only runs it when the
+ *   list is empty for that user.
+ * - `watchHistory@v1.getHistory` / `ratings@v1.getRatings` are served
+ *   from the per-user mirror first; the dispatcher only runs them when
+ *   the mirror is empty (bootstrap window).
+ *
+ * The `mv:` cache layer is intentionally retained for those capabilities
+ * even though catalog serves the warm path: it still covers the cold-fill
+ * fallback so a transient plugin failure during catalog miss does not
+ * fall through to the upstream rate limit. Live-only capabilities
+ * (watchlist, idResolve, etc.) are unaffected — catalog never serves
+ * them and the cache is the only short-circuit.
+ */
+
 export async function writeCache<T>(
   req: DispatchRequest,
   capability: CapabilityDefinition,

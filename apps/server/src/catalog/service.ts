@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import {
   canonicalMetadata,
@@ -440,7 +440,7 @@ export class CatalogService {
     const snapshots = await this.db
       .select({ items: discoverSnapshots.items })
       .from(discoverSnapshots)
-      .where(sql`${discoverSnapshots.day} >= ${cutoff}`);
+      .where(gte(discoverSnapshots.day, cutoff));
     for (const snapshot of snapshots) {
       for (const ref of snapshot.items) {
         refs.add(candidateId(ref));
