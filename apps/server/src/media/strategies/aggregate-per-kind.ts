@@ -1,4 +1,5 @@
 import { consola } from "consola";
+import { z } from "zod";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
@@ -83,10 +84,12 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   const cached = await readCache<T>(req, scope);
   if (cached !== undefined) return cached;
 
-  const input = (req.input ?? {}) as { ids?: Record<string, unknown>; type?: "movie" | "tv" };
-  const ids = input.ids ?? {};
-  const mediaType = input.type;
-  if (mediaType !== "movie" && mediaType !== "tv") {
+  const inputSchema = z.object({
+    ids: z.record(z.string(), z.unknown()).optional(),
+    type: z.enum(["movie", "tv"]).optional(),
+  });
+  const parsed = inputSchema.safeParse(req.input ?? {});
+  if (!parsed.success || parsed.data.type === undefined) {
     throw new PluginCallError(
       "artwork.bad_input",
       `aggregate_per_kind input must include type: "movie" | "tv"`,
@@ -94,6 +97,8 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
       null,
     );
   }
+  const ids = parsed.data.ids ?? {};
+  const mediaType = parsed.data.type;
 
   const providerIds = capabilityRegistry.listProviders(req.capability, req.version, scope);
   const providers: PerKindProvider[] = [];

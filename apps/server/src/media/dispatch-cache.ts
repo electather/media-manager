@@ -55,10 +55,12 @@ export async function applyInvalidations(
 /**
  * Clears every `mv:` cache entry. Called on connection create/update/delete/
  * enable/disable since most scoped keys depend on the active connection set.
- * The memory cache does not support non-prefix matching, so a broad sweep is
- * simpler and correctness-preserving. Redis could later scan by user prefix.
+ *
+ * `userId` is accepted for API symmetry but not used for scoping: the memory
+ * cache provider supports only prefix-based clearing and `mv:` keys are not
+ * namespaced by user in the key format today, so a full sweep is the only
+ * correct option. A Redis-backed provider could later narrow to a user prefix.
  */
-export async function invalidateUserCache(userId: string): Promise<void> {
+export async function invalidateUserCache(_userId: string): Promise<void> {
   await getCacheProvider().clear(`mv:`);
-  void userId;
 }

@@ -116,7 +116,10 @@ export async function invokeOne<T>(
       const normalized = normalizeError(err);
       const decision = decideRetry(normalized.code, state);
 
-      if (decision === "refresh" && conn.kind === "user") {
+      if (decision === "refresh") {
+        // decideRetry only returns "refresh" when state.isUserConnection is
+        // true, derived from conn.kind === "user" at construction time.
+        const userConn = conn as Extract<ResolvedConnection, { kind: "user" }>;
         state.triedRefresh = true;
         try {
           const refreshed = await pluginRuntime.refreshAuth(
@@ -124,20 +127,20 @@ export async function invokeOne<T>(
             req.userId,
             activeConn.credentials,
           );
-          await persistRefreshedCredentials(conn.connectionId, refreshed);
+          await persistRefreshedCredentials(userConn.connectionId, refreshed);
           activeConn = { ...activeConn, credentials: refreshed };
           continue;
         } catch (refreshErr) {
           const refreshMsg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
-          await markConnectionStatus(conn.connectionId, "expired", refreshMsg);
+          await markConnectionStatus(userConn.connectionId, "expired", refreshMsg);
           await emitAuthExpired({
-            connectionId: conn.connectionId,
+            connectionId: userConn.connectionId,
             pluginId: req.pluginId,
             userId: req.userId,
           });
           return {
             pluginId: req.pluginId,
-            connectionId: conn.connectionId,
+            connectionId: userConn.connectionId,
             shared: false,
             error: { code: "plugin.token_expired", devMessage: refreshMsg },
           };
