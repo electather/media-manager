@@ -5,6 +5,8 @@ import {
 } from "@ent-mcp/shared/preferences";
 import { consola } from "consola";
 import { and, eq, gt, sql } from "drizzle-orm";
+import { getCatalogService } from "../catalog";
+import { writeRecommendationsForUser } from "../catalog/jobs";
 import { getDb } from "../db/client";
 import { feedback, preferenceProfiles } from "../db/schema";
 import { registerCoalesced } from "../jobs/coalesced";
@@ -114,6 +116,25 @@ export function registerPreferenceJobs(): void {
             sampleSize: result.sampleSize,
             confidence: result.confidence,
           });
+        }
+
+        // Mirror the nightly catalog rec build so the manual trigger surfaces
+        // a fresh recommendation list immediately rather than waiting for the
+        // next 02:00 sweep. The per-partition rebuild above already bumped
+        // `profile_version`; `writeRecommendationsForUser` skips the rebuild
+        // step and only writes the rec list against the freshly-versioned
+        // profile.
+        try {
+          await writeRecommendationsForUser(
+            { catalog: getCatalogService() },
+            userId,
+            ctx.abortSignal,
+            (msg) => consola.debug(msg),
+          );
+        } catch (recErr) {
+          warnings.push(
+            `Recommendation list write failed: ${recErr instanceof Error ? recErr.message : String(recErr)}`,
+          );
         }
 
         const durationMs = Math.round(performance.now() - startTime);

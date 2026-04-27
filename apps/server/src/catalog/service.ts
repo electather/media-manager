@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
-import { canonicalMetadata, discoverSnapshots } from "../db/schema/catalog";
+import { canonicalMetadata, discoverSnapshots, recommendationLists } from "../db/schema/catalog";
 import { idMap } from "../db/schema/id-map";
 import { candidateId } from "./features";
 import type {
@@ -172,10 +172,20 @@ export class CatalogService {
   }
 
   async getRecommendations(
-    _userId: string,
-    _kind: RecommendationListKind = "default",
+    userId: string,
+    kind: RecommendationListKind = "default",
   ): Promise<RecommendationList | null> {
-    return null;
+    const row = await this.db
+      .select()
+      .from(recommendationLists)
+      .where(and(eq(recommendationLists.userId, userId), eq(recommendationLists.listKind, kind)))
+      .get();
+    if (!row) return null;
+    return {
+      items: row.items,
+      profileVersion: row.profileVersion,
+      generatedAt: row.generatedAt,
+    };
   }
 
   async getUserHistory(_userId: string): Promise<HistoryEvent[]> {
@@ -211,12 +221,19 @@ export class CatalogService {
   }
 
   async writeRecommendationList(
-    _userId: string,
-    _kind: RecommendationListKind,
-    _items: RecItem[],
-    _profileVersion: number,
+    userId: string,
+    kind: RecommendationListKind,
+    items: RecItem[],
+    profileVersion: number,
   ): Promise<void> {
-    return;
+    const generatedAt = Date.now();
+    await this.db
+      .insert(recommendationLists)
+      .values({ userId, listKind: kind, items, profileVersion, generatedAt })
+      .onConflictDoUpdate({
+        target: [recommendationLists.userId, recommendationLists.listKind],
+        set: { items, profileVersion, generatedAt },
+      });
   }
 
   async appendUserHistory(

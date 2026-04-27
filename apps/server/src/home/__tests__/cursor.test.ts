@@ -46,7 +46,19 @@ describe("home cursor codec", () => {
       p: 2,
       x: ids,
     });
-    expect(decodeCursor("recommendedForYou", encoded).x).toEqual(ids);
+    const decoded = decodeCursor("recommendedForYou", encoded);
+    expect("x" in decoded ? decoded.x : null).toEqual(ids);
+  });
+
+  it("round-trips a page+profileVersion cursor", () => {
+    const encoded = encodeCursor("recommendedForYou", {
+      v: 1,
+      r: "recommendedForYou",
+      p: 2,
+      pv: 7,
+    });
+    const decoded = decodeCursor("recommendedForYou", encoded);
+    expect("pv" in decoded ? decoded.pv : null).toBe(7);
   });
 
   it("round-trips an afterTmdbId cursor", () => {
