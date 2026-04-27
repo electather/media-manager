@@ -12,6 +12,32 @@ interface TmdbUserCreds {
 interface TmdbUserCfg {}
 interface TmdbGlobalCfg {
   imageBaseUrl?: string;
+  artworkSizes?: {
+    poster?: string;
+    backdrop?: string;
+    logo?: string;
+  };
+}
+
+const DEFAULT_ARTWORK_SIZES = {
+  poster: "w780",
+  backdrop: "w1280",
+  logo: "w500",
+} as const;
+
+function artworkBase(ctx: Ctx): string {
+  // Strip any size segment baked into imageBaseUrl so artwork URL
+  // construction stays self-contained — `getArtwork` builds per-kind size
+  // segments itself rather than reusing the poster default.
+  const override = ctx.config.global?.imageBaseUrl;
+  const base = override ?? "https://image.tmdb.org/t/p";
+  // Drop trailing "/w<NNN>" or "/original" suffix if user set the full URL.
+  return base.replace(/\/(w\d+|original)\/?$/, "").replace(/\/$/, "");
+}
+
+function artworkSize(ctx: Ctx, kind: "poster" | "backdrop" | "logo"): string {
+  const override = ctx.config.global?.artworkSizes?.[kind];
+  return override ?? DEFAULT_ARTWORK_SIZES[kind];
 }
 
 type Ctx = PluginContext<TmdbUserCreds, TmdbSharedCreds, TmdbUserCfg, TmdbGlobalCfg>;
@@ -231,6 +257,18 @@ export default definePlugin({
           description: "Override the default TMDB image CDN if needed.",
           default: "https://image.tmdb.org/t/p/",
         },
+        artworkSizes: {
+          type: "object",
+          title: "Artwork size buckets",
+          description:
+            "Path segments used by `artwork@v1.getArtwork`. Override when serving via a CDN that uses different size names.",
+          properties: {
+            poster: { type: "string", default: "w780" },
+            backdrop: { type: "string", default: "w1280" },
+            logo: { type: "string", default: "w500" },
+          },
+          additionalProperties: false,
+        },
       },
       required: [],
     },
@@ -251,6 +289,16 @@ export default definePlugin({
       idResolve: { version: "v1", scope: "global" },
       watchProviders: { version: "v1", scope: "global" },
       trailers: { version: "v1", scope: "global" },
+      artwork: {
+        version: "v1",
+        scope: "global",
+        // TMDB only resolves art for items it knows by tmdb id. IMDB-only
+        // movie items fall through to no provider — see fanart spec
+        // §"Open Questions / Deferred" → "IMDB-only movie items".
+        supportedIdTypes: { movie: ["tmdb"], tv: ["tmdb"] },
+        // Lower = higher merge priority. TMDB acts as fallback so 20.
+        providerPriority: 20,
+      },
     },
     poolable: true,
   },
@@ -423,8 +471,97 @@ export default definePlugin({
         }));
       },
     },
+
+    artwork: {
+      async getArtwork(ctx, input) {
+        const c = ctx as Ctx;
+        const { ids, type, languages } = input as {
+          ids: { tmdb?: string; imdb?: string; tvdb?: string };
+          type: "movie" | "tv";
+          languages?: string[];
+        };
+        const tmdbId = ids.tmdb;
+        if (!tmdbId) {
+          // Defensive — dispatcher's canServe filter should drop us before
+          // invoke. Keeps the plugin honest for direct unit tests too.
+          throw pluginError("plugin.input_invalid", "TMDB artwork requires ids.tmdb");
+        }
+        const langs = languages ?? ["en", "00"];
+        // /images is unauthenticated for v3 keys but accepts the same auth
+        // shape as the rest of the API; use tmdbGet so 401/403/429 paths are
+        // shared.
+        const data = (await tmdbGet(c, `/${type}/${tmdbId}/images`, {
+          // Empty include_image_language guarantees TMDB returns every
+          // language plus textless. We sort client-side; do not rely on the
+          // server's locale filter.
+          include_image_language: "null,en",
+        })) as {
+          posters?: TmdbImage[];
+          backdrops?: TmdbImage[];
+          logos?: TmdbImage[];
+        };
+
+        const base = artworkBase(c);
+        const posterSize = artworkSize(c, "poster");
+        const backdropSize = artworkSize(c, "backdrop");
+        const logoSize = artworkSize(c, "logo");
+
+        return {
+          poster: mapTmdbImages(data.posters, base, posterSize, langs),
+          backdrop: mapTmdbImages(data.backdrops, base, backdropSize, langs),
+          clearLogo: mapTmdbImages(data.logos, base, logoSize, langs),
+          // TMDB has no thumb concept; empty array lets the per-kind merge
+          // fall through to fanart.
+          thumb: [],
+        };
+      },
+    },
   },
 });
+
+interface TmdbImage {
+  file_path: string;
+  iso_639_1: string | null;
+  vote_average: number | null;
+  width?: number | null;
+  height?: number | null;
+}
+
+function mapTmdbImages(
+  images: TmdbImage[] | undefined,
+  base: string,
+  size: string,
+  languages: string[],
+): Array<{
+  url: string;
+  language: string;
+  likes: number;
+  width?: number;
+  height?: number;
+}> {
+  const TAIL_INDEX = languages.length;
+  return (images ?? [])
+    .map((i) => ({
+      url: `${base}/${size}${i.file_path}`,
+      // TMDB uses null for textless; map to fanart's "00" convention so the
+      // aggregate dispatch sees a consistent language space across providers.
+      language: i.iso_639_1 ?? "00",
+      // Approximate fanart's `likes` from TMDB's `vote_average` (0-10) so the
+      // sort keys align across providers.
+      likes: Math.round(((i.vote_average ?? 0) as number) * 10),
+      ...(typeof i.width === "number" ? { width: i.width } : {}),
+      ...(typeof i.height === "number" ? { height: i.height } : {}),
+    }))
+    .sort((a, b) => {
+      const ai = languages.indexOf(a.language);
+      const bi = languages.indexOf(b.language);
+      const aRank = ai === -1 ? TAIL_INDEX : ai;
+      const bRank = bi === -1 ? TAIL_INDEX : bi;
+      if (aRank !== bRank) return aRank - bRank;
+      return b.likes - a.likes;
+    })
+    .slice(0, 5);
+}
 
 function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette" | "other" {
   switch (type) {

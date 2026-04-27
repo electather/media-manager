@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { libraryItemSchema, LIBRARY_ITEM_QUERY_TYPES } from "@ent-mcp/shared/plugins/library";
 import { defineCapability, method } from "../define";
+import { ArtworkV1 } from "./artwork";
 
 const mediaType = z.enum(["movie", "tv"]);
 
@@ -198,7 +199,7 @@ const DAY = 24 * HOUR;
 export const MetadataV1 = defineCapability({
   id: "metadata",
   version: "v1",
-  strategy: "primary_with_enrichment",
+  strategy: { kind: "primary_with_enrichment" },
   scope: "global",
   defaultCacheTtlSec: DAY,
   negativeCacheTtlSec: 5 * MIN,
@@ -269,7 +270,7 @@ export const MetadataV1 = defineCapability({
 export const WatchHistoryV1 = defineCapability({
   id: "watchHistory",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -303,7 +304,7 @@ export const WatchHistoryV1 = defineCapability({
 export const WatchlistV1 = defineCapability({
   id: "watchlist",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -322,7 +323,7 @@ export const WatchlistV1 = defineCapability({
 export const RatingsV1 = defineCapability({
   id: "ratings",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 15 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -343,7 +344,7 @@ export const RatingsV1 = defineCapability({
 export const RecommendationsV1 = defineCapability({
   id: "recommendations",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 6 * HOUR,
   negativeCacheTtlSec: 5 * MIN,
@@ -367,7 +368,7 @@ export const RecommendationsV1 = defineCapability({
 export const CalendarV1 = defineCapability({
   id: "calendar",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: HOUR,
   negativeCacheTtlSec: 5 * MIN,
@@ -381,7 +382,7 @@ export const CalendarV1 = defineCapability({
 export const MediaRequestV1 = defineCapability({
   id: "mediaRequest",
   version: "v1",
-  strategy: "single",
+  strategy: { kind: "single" },
   scope: "user",
   defaultCacheTtlSec: 1 * MIN,
   negativeCacheTtlSec: 30,
@@ -528,7 +529,7 @@ export const MediaRequestV1 = defineCapability({
 export const IdResolveV1 = defineCapability({
   id: "idResolve",
   version: "v1",
-  strategy: "single",
+  strategy: { kind: "single" },
   scope: "mixed",
   scopeForInput: (input: unknown) => {
     // `from` is validated by `idResolveInput` before this runs (see
@@ -556,7 +557,7 @@ export const IdResolveV1 = defineCapability({
 export const UserCommentsV1 = defineCapability({
   id: "userComments",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 15 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -577,7 +578,7 @@ export const UserCommentsV1 = defineCapability({
 export const WatchProvidersV1 = defineCapability({
   id: "watchProviders",
   version: "v1",
-  strategy: "single",
+  strategy: { kind: "single" },
   scope: "global",
   defaultCacheTtlSec: DAY,
   negativeCacheTtlSec: HOUR,
@@ -599,7 +600,7 @@ export const WatchProvidersV1 = defineCapability({
 export const TrailersV1 = defineCapability({
   id: "trailers",
   version: "v1",
-  strategy: "single",
+  strategy: { kind: "single" },
   scope: "global",
   defaultCacheTtlSec: DAY,
   negativeCacheTtlSec: HOUR,
@@ -613,7 +614,7 @@ export const TrailersV1 = defineCapability({
 export const PlaybackV1 = defineCapability({
   id: "playback",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 1 * MIN,
   negativeCacheTtlSec: 30,
@@ -691,7 +692,7 @@ const libraryAvailabilitySearchInput = z.object({
 export const LibraryAvailabilityV1 = defineCapability({
   id: "libraryAvailability",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -742,7 +743,7 @@ export type ContinueWatchingEntry = z.infer<typeof continueWatchingEntry>;
 export const ContinueWatchingV1 = defineCapability({
   id: "continueWatching",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 5 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -828,7 +829,7 @@ const stopSessionOutput = z.object({
 export const PlaybackSessionsV1 = defineCapability({
   id: "playbackSessions",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 30,
   negativeCacheTtlSec: 15,
@@ -878,7 +879,7 @@ const refreshOutput = z.object({ ok: z.boolean() });
 export const LibraryAdminV1 = defineCapability({
   id: "libraryAdmin",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 30,
   negativeCacheTtlSec: 15,
@@ -893,7 +894,7 @@ export const LibraryAdminV1 = defineCapability({
 export const CollectionV1 = defineCapability({
   id: "collection",
   version: "v1",
-  strategy: "aggregate",
+  strategy: { kind: "aggregate" },
   scope: "user",
   defaultCacheTtlSec: 15 * MIN,
   negativeCacheTtlSec: 1 * MIN,
@@ -930,6 +931,7 @@ export const CAPABILITY_CATALOG = {
   "continueWatching@v1": ContinueWatchingV1,
   "playbackSessions@v1": PlaybackSessionsV1,
   "libraryAdmin@v1": LibraryAdminV1,
+  "artwork@v1": ArtworkV1,
 } as const;
 
 export type CapabilityKey = keyof typeof CAPABILITY_CATALOG;
@@ -954,3 +956,4 @@ export function listCapabilities(): Array<(typeof CAPABILITY_CATALOG)[Capability
 }
 
 export type { NotificationDeliveryCapabilityV1 } from "./notification-delivery";
+export { ArtworkV1, type ArtworkV1ManifestExtras } from "./artwork";

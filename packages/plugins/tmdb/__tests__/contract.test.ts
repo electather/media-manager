@@ -5,6 +5,7 @@ import {
   IdResolveV1,
   WatchProvidersV1,
   TrailersV1,
+  ArtworkV1,
   validatePluginModule,
 } from "@ent-mcp/plugin-sdk";
 import { jsonRes, makeTestContext, type TestContext } from "@ent-mcp/plugin-sdk/testing";
@@ -223,5 +224,73 @@ describe("tmdb capability contract", () => {
     const videos = out as Array<{ kind: string; url: string | null }>;
     expect(videos[0]?.url).toBe("https://www.youtube.com/watch?v=abc123");
     expect(videos[1]?.url).toBe("https://vimeo.com/xyz789");
+  });
+
+  it("artwork.getArtwork: hits /{type}/{id}/images and maps to bundle", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        posters: [
+          { file_path: "/p-en.jpg", iso_639_1: "en", vote_average: 8, width: 780, height: 1170 },
+          { file_path: "/p-textless.jpg", iso_639_1: null, vote_average: 9 },
+          { file_path: "/p-fr.jpg", iso_639_1: "fr", vote_average: 7 },
+        ],
+        backdrops: [
+          { file_path: "/b.jpg", iso_639_1: null, vote_average: 6, width: 1280, height: 720 },
+        ],
+        logos: [{ file_path: "/l.png", iso_639_1: "en", vote_average: 5 }],
+      }),
+    ]);
+    const out = await tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+      ids: { tmdb: "550" },
+      type: "movie",
+      languages: ["en", "00"],
+    });
+    expect(ctx.calls[0]?.url).toContain("/movie/550/images");
+    expect(ArtworkV1.methods.getArtwork.output.safeParse(out).success).toBe(true);
+    const bundle = out as {
+      poster: Array<{ url: string; language: string; likes: number }>;
+      backdrop: Array<{ url: string; language: string }>;
+      clearLogo: Array<{ url: string }>;
+      thumb: unknown[];
+    };
+    // English variant ranks above textless, both rank above French.
+    expect(bundle.poster[0]?.language).toBe("en");
+    expect(bundle.poster[0]?.url).toContain("/w780/p-en.jpg");
+    expect(bundle.poster[1]?.language).toBe("00");
+    expect(bundle.poster[2]?.language).toBe("fr");
+    expect(bundle.backdrop[0]?.url).toContain("/w1280/b.jpg");
+    expect(bundle.clearLogo[0]?.url).toContain("/w500/l.png");
+    // TMDB has no thumb concept.
+    expect(bundle.thumb).toEqual([]);
+  });
+
+  it("artwork.getArtwork: throws plugin.input_invalid without tmdb id (defensive guard)", async () => {
+    const ctx = makeCtx([]);
+    await expect(
+      tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+        ids: { imdb: "tt0137523" },
+        type: "movie",
+        languages: ["en", "00"],
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("artwork.getArtwork: respects custom artworkSizes config", async () => {
+    const ctx = makeCtx(
+      [jsonRes({ posters: [{ file_path: "/p.jpg", iso_639_1: "en", vote_average: 1 }] })],
+      {
+        config: {
+          global: { artworkSizes: { poster: "original" } },
+          user: undefined,
+        },
+      },
+    );
+    const out = await tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+      ids: { tmdb: "550" },
+      type: "movie",
+      languages: ["en", "00"],
+    });
+    const bundle = out as { poster: Array<{ url: string }> };
+    expect(bundle.poster[0]?.url).toContain("/original/p.jpg");
   });
 });
