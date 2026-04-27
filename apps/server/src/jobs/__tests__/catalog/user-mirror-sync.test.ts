@@ -114,17 +114,56 @@ describe("host.catalog.user_mirror_sync handler", () => {
     expect(await catalog.getUserHistory("u1")).toHaveLength(1);
   });
 
-  it("aborts before issuing dispatch when the signal is pre-aborted", async () => {
+  it("propagates the abort error to the job runner instead of swallowing it", async () => {
     const { catalog } = await seed();
     const aborter = new AbortController();
     aborter.abort(new Error("cancelled"));
 
-    await syncUserPluginPair({ catalog }, buildJobCtx({ abortSignal: aborter.signal }), {
-      userId: "u1",
-      pluginId: "trakt",
-    });
+    await expect(
+      syncUserPluginPair({ catalog }, buildJobCtx({ abortSignal: aborter.signal }), {
+        userId: "u1",
+        pluginId: "trakt",
+      }),
+    ).rejects.toThrow();
 
     expect(getAllHistoryMock).not.toHaveBeenCalled();
     expect(getAllRatingsMock).not.toHaveBeenCalled();
+  });
+
+  it("re-throws when the signal fires between the history and ratings blocks", async () => {
+    const { catalog } = await seed();
+    const aborter = new AbortController();
+    getAllHistoryMock.mockImplementation(async () => {
+      // Cancel mid-flight so the next abort check between blocks fires.
+      aborter.abort(new Error("cancelled"));
+      return [];
+    });
+    getAllRatingsMock.mockResolvedValue([]);
+
+    await expect(
+      syncUserPluginPair({ catalog }, buildJobCtx({ abortSignal: aborter.signal }), {
+        userId: "u1",
+        pluginId: "trakt",
+      }),
+    ).rejects.toThrow();
+
+    expect(getAllHistoryMock).toHaveBeenCalledOnce();
+    expect(getAllRatingsMock).not.toHaveBeenCalled();
+  });
+
+  it("drops rating events with a missing ratedAt to keep the dedupe key stable", async () => {
+    const { catalog } = await seed();
+    getAllHistoryMock.mockResolvedValue([]);
+    getAllRatingsMock.mockResolvedValue([
+      {
+        item: { id: "movie:1", type: "movie", ids: { tmdb_id: "1" } },
+        rating: 9,
+        // ratedAt intentionally missing — must be dropped, not assigned Date.now().
+      },
+    ]);
+
+    await syncUserPluginPair({ catalog }, buildJobCtx(), { userId: "u1", pluginId: "trakt" });
+
+    expect(await catalog.getUserRatings("u1")).toEqual([]);
   });
 });

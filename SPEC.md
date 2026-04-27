@@ -163,7 +163,7 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 | T27 | x      | Catalog Phase 3 — `discover_snapshots` + `host.catalog.discover_snapshot` job + hydrate `newReleases` (trendingNow/upcomingForYou deferred — semantic mismatch) | V37,V38,V42                                |
 | T28 | x      | Catalog Phase 4 — `recommendation_lists` + `host.catalog.recommendation_build` job + `recommendedForYou` hydration + cursor v2 `{p,pv}` + ext rebuild handler   | V37,V38,V43,V15                            |
 | T29 | x      | Catalog Phase 5 — `user_history_mirror` + `user_ratings_mirror` + per-user mutex + `host.catalog.user_mirror_sync` job + PE mirror reads                        | V37,V39,V40                                |
-| T30 | .      | Catalog Phase 6 — `host.catalog.prune` job + `recordAccess` throttle + `JobService.{isRunning,anyRunning}` re-exports                                           | V37                                        |
+| T30 | x      | Catalog Phase 6 — `host.catalog.prune` job + `recordAccess` throttle + `JobService.{isRunning,anyRunning}` re-exports                                           | V37                                        |
 | T31 | .      | Catalog Phase 7 — drop redundant `mv:` capability-level cache TTLs; preserve live capability TTLs + `NEGATIVE_TTL_MS`                                           | T26,T27,T28                                |
 
 ## §B Bugs

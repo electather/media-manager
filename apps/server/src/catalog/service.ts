@@ -42,6 +42,10 @@ export class CatalogService {
 
   private readonly db: Db;
   private readonly mirrorMutex = new PerUserMutex();
+  // In-process throttle keyed by `${type}:${tmdbId}`. Each entry is the
+  // last-seen monotonic timestamp; a fresh `recordAccess` only enqueues
+  // the row for an UPDATE if `now - prior >= recordAccessThrottleMs`.
+  private readonly accessThrottle = new Map<string, number>();
 
   constructor(db: Db, opts: CatalogServiceOptions = {}) {
     this.db = db;
@@ -54,6 +58,7 @@ export class CatalogService {
       .from(canonicalMetadata)
       .where(and(eq(canonicalMetadata.tmdbId, tmdbId), eq(canonicalMetadata.mediaType, type)))
       .get();
+    if (row) this.recordAccess([{ tmdbId, type }]);
     return row ?? null;
   }
 
@@ -69,6 +74,7 @@ export class CatalogService {
       else buckets.set(item.type, [item.tmdbId]);
     }
     const out: Record<string, CanonicalMetadata> = {};
+    const accessed: MetadataKey[] = [];
     for (const [type, ids] of buckets) {
       const rows = await this.db
         .select()
@@ -76,8 +82,10 @@ export class CatalogService {
         .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
       for (const row of rows) {
         out[candidateId({ tmdbId: row.tmdbId, type: row.mediaType })] = row;
+        accessed.push({ tmdbId: row.tmdbId, type: row.mediaType });
       }
     }
+    if (accessed.length > 0) this.recordAccess(accessed);
     return out;
   }
 
@@ -274,7 +282,7 @@ export class CatalogService {
   async appendUserHistory(
     userId: string,
     events: HistoryEvent[],
-    connectionId: string,
+    pluginId: string,
     cursorTs: number,
   ): Promise<void> {
     if (events.length === 0) return;
@@ -286,7 +294,7 @@ export class CatalogService {
           .where(eq(userHistoryMirror.userId, userId))
           .get();
         const merged = mergeHistory(existing?.events ?? [], events);
-        const cursors = mergeCursor(existing?.pluginCursors ?? {}, connectionId, cursorTs);
+        const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
         const lastSyncedAt = Date.now();
         await tx
           .insert(userHistoryMirror)
@@ -302,7 +310,7 @@ export class CatalogService {
   async appendUserRatings(
     userId: string,
     events: RatingEvent[],
-    connectionId: string,
+    pluginId: string,
     cursorTs: number,
   ): Promise<void> {
     if (events.length === 0) return;
@@ -314,7 +322,7 @@ export class CatalogService {
           .where(eq(userRatingsMirror.userId, userId))
           .get();
         const merged = mergeRatings(existing?.events ?? [], events);
-        const cursors = mergeCursor(existing?.pluginCursors ?? {}, connectionId, cursorTs);
+        const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
         const lastSyncedAt = Date.now();
         await tx
           .insert(userRatingsMirror)
@@ -327,15 +335,111 @@ export class CatalogService {
     );
   }
 
-  recordAccess(_items: MetadataKey[]): void {
-    return;
+  recordAccess(items: MetadataKey[]): void {
+    if (items.length === 0) return;
+    const now = Date.now();
+    const dueByType = new Map<"movie" | "tv", string[]>();
+    for (const item of items) {
+      const key = candidateId(item);
+      const prior = this.accessThrottle.get(key);
+      if (prior !== undefined && now - prior < this.recordAccessThrottleMs) continue;
+      this.accessThrottle.set(key, now);
+      const list = dueByType.get(item.type);
+      if (list) list.push(item.tmdbId);
+      else dueByType.set(item.type, [item.tmdbId]);
+    }
+    if (dueByType.size === 0) return;
+    // Detached batch update — reads must not block on the write. Failures
+    // log and drop; the next access cycle picks the row back up.
+    void this.flushAccessUpdates(dueByType, now);
+    this.evictStaleThrottleEntries(now);
+  }
+
+  private async flushAccessUpdates(
+    dueByType: Map<"movie" | "tv", string[]>,
+    now: number,
+  ): Promise<void> {
+    for (const [type, ids] of dueByType) {
+      try {
+        await this.db
+          .update(canonicalMetadata)
+          .set({ lastAccessedAt: now })
+          .where(
+            and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)),
+          );
+      } catch (err) {
+        // Per V37, the catalog tolerates a dropped access bump; the next
+        // read for the same row will re-enqueue it.
+        // eslint-disable-next-line no-console
+        console.warn("[catalog:recordAccess] update failed:", err);
+      }
+    }
+  }
+
+  private evictStaleThrottleEntries(now: number): void {
+    // Cap memory by dropping entries that have aged past 2× the throttle
+    // window — long enough to absorb back-to-back access bursts but
+    // bounded so the map cannot grow without limit on long-lived processes.
+    const cutoff = now - this.recordAccessThrottleMs * 2;
+    for (const [key, ts] of this.accessThrottle) {
+      if (ts < cutoff) this.accessThrottle.delete(key);
+    }
   }
 
   async pruneUnusedMetadata(
-    _unusedAfterMs: number,
-    _refSet?: Set<string>,
+    unusedAfterMs: number,
+    refSet?: Set<string>,
   ): Promise<{ deleted: number }> {
-    return { deleted: 0 };
+    const cutoff = Date.now() - unusedAfterMs;
+    const refs = refSet ?? (await this.buildPruneRefSet());
+    const candidates = await this.db
+      .select({ tmdbId: canonicalMetadata.tmdbId, mediaType: canonicalMetadata.mediaType })
+      .from(canonicalMetadata)
+      .where(lt(canonicalMetadata.lastAccessedAt, cutoff));
+    let deleted = 0;
+    for (const row of candidates) {
+      const key = candidateId({ tmdbId: row.tmdbId, type: row.mediaType });
+      if (refs.has(key)) continue;
+      await this.db
+        .delete(canonicalMetadata)
+        .where(
+          and(
+            eq(canonicalMetadata.tmdbId, row.tmdbId),
+            eq(canonicalMetadata.mediaType, row.mediaType),
+          ),
+        );
+      deleted += 1;
+    }
+    return { deleted };
+  }
+
+  /**
+   * Builds the in-memory reference set used by `pruneUnusedMetadata`. Pulls
+   * every id from `recommendation_lists.items` plus the last-7d
+   * `discover_snapshots.items` so a row can be cold-by-access yet still
+   * pinned by an active rec list or recent snapshot.
+   */
+  private async buildPruneRefSet(): Promise<Set<string>> {
+    const refs = new Set<string>();
+    const lists = await this.db
+      .select({ items: recommendationLists.items })
+      .from(recommendationLists);
+    for (const row of lists) {
+      for (const item of row.items) {
+        refs.add(candidateId({ tmdbId: item.tmdbId, type: item.mediaType }));
+      }
+    }
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const snapshots = await this.db
+      .select({ items: discoverSnapshots.items })
+      .from(discoverSnapshots)
+      .where(sql`${discoverSnapshots.day} >= ${sevenDaysAgo}`);
+    for (const snapshot of snapshots) {
+      for (const ref of snapshot.items) {
+        refs.add(candidateId(ref));
+      }
+    }
+    return refs;
   }
 
   async pruneOldDiscoverSnapshots(olderThanDays: number): Promise<{ deleted: number }> {
@@ -416,7 +520,7 @@ function ratingKey(event: RatingEvent): string {
  * rewind a connection's progress, even if events themselves are
  * out-of-order.
  */
-function mergeCursor(prior: PluginCursors, connectionId: string, cursorTs: number): PluginCursors {
-  const previous = prior[connectionId] ?? 0;
-  return { ...prior, [connectionId]: Math.max(previous, cursorTs) };
+function mergeCursor(prior: PluginCursors, pluginId: string, cursorTs: number): PluginCursors {
+  const previous = prior[pluginId] ?? 0;
+  return { ...prior, [pluginId]: Math.max(previous, cursorTs) };
 }
