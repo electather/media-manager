@@ -120,6 +120,15 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V34. `MediaDetailModal` mounted at `_authenticated` layout — ⊥ home route. ∀ authed routes get peek-modal free. `peekSchema` declared on route `validateSearch`; invalid stripped before reaching component. ⊥ defensive parsing inside modal.
 - V35. Sidebar→main slot override at narrow widths via `@container` query, ⊥ `useMediaQuery`. Hydration-safe when SSR lands. `clearLogo` overlay rendered only at hero container size; ⊥ at row/sidebar sizes (title text rules there).
 - V36. Frontend treats `HomeRow.cursor` + `getRowContent` cursor opaque. ⊥ parse, ⊥ inspect, ⊥ version-check. Backend owns format per V15.
+- V37. CatalogService sole owner of `canonical_metadata`, `discover_snapshots`, `recommendation_lists`, `user_history_mirror`, `user_ratings_mirror`. Row fetchers, MediaService, plugins ⊥ touch those tables direct.
+- V38. Catalog writes via jobs only. Serve path ⊥ write catalog except bounded cold-fill on `PreferenceEngine.getItemFeatures` miss (metric tracked).
+- V39. User history + ratings mirrors append-only. Sync job ⊥ delete events. Plugin = source of truth; mirror = read projection for rebuild + serve.
+- V40. Watchlist ⊥ mirrored. ∀ watchlist read via MediaService live plugin dispatch.
+- V41. `id_map` ⊥ denormalized onto `canonical_metadata`. Cross-provider IDs read via JOIN through `Catalog.getMetadataWithIds`. ⊥ duplicate ID writers.
+- V42. Discover snapshots keyed `(feed_kind, sort, day)`, `day = floor(now / DAY_MS) * DAY_MS`. Day-rounded for stable cache key.
+- V43. `recommendation_lists.profile_version` bumps on profile rebuild. Stale rec list → eligible for rebuild trigger; ⊥ served as fresh.
+- V44. Single canonical artwork URL per kind on `canonical_metadata` (`poster_url`, `backdrop_url`, `clear_logo_url`, `thumb_url`). Plugin live fetch ⊥ on serve unless column NULL.
+- V45. `PreferenceEngine.getItemFeatures` reads from `canonical_metadata.features`. ⊥ `skipCache: true` plugin path. Miss → cold-fill writes back to catalog.
 
 ## §T Tasks
 
