@@ -147,7 +147,7 @@ No new capability files. No new DB migrations. Only `MediaService` additions: th
 
 Two RPC procedures under `server/api/routes/home.ts`, authenticated-user-only (scope: `ctx.user.id`). No admin variants. Errors use `UserFacingError` from error-management doc.
 
-**Shared types in `@ent-mcp/shared/home`.** Per repo shared-package rules (`CLAUDE.md`): types crossing server/client boundary live in `packages/shared/src/home/`, exported via subpath in `packages/shared/package.json`. Types that qualify: `RowKind` (const tuple + derived type), `HomeRow`, `HomeLayoutResponse`, `RowContentResponse`, `CompactMediaItem`. `FetchedRow`/`FetchOutcome` types (§5) = host-internal, stay in `server/home/`. Cursor Zod schemas stay server-internal (cursors opaque on wire; client ⊥ decodes).
+**Shared types in `@ent-mcp/shared/home`.** Per repo shared-package rules (`CLAUDE.md`): types crossing server/client boundary live in `packages/shared/src/home/`, exported via subpath in `packages/shared/package.json`. Types that qualify: `RowKind` (const tuple + derived type), `HomeRowStub`, `LayoutHero`, `HomeLayoutResponse`, `RowContentResponse`, `CompactMediaItem`. `FetchedRow`/`FetchOutcome` types (§5) = host-internal, stay in `server/home/`. Cursor Zod schemas stay server-internal (cursors opaque on wire; client ⊥ decodes).
 
 ### `home.getLayout`
 

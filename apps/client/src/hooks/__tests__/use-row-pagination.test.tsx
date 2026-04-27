@@ -112,6 +112,30 @@ describe("useRowPagination", () => {
     });
   });
 
+  it("refetches with the new initialCursor when the seed cursor changes (becauseYouWatched)", async () => {
+    apiMock.getRowContent
+      .mockResolvedValueOnce(jsonResponse({ items: [item("movie:A")], cursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ items: [item("movie:B")], cursor: null }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={qc}>
+        <Probe rowId="becauseYouWatched" initialCursor="seed-A" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("items").textContent).toBe("movie:A"));
+
+    view.rerender(
+      <QueryClientProvider client={qc}>
+        <Probe rowId="becauseYouWatched" initialCursor="seed-B" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("items").textContent).toBe("movie:B"));
+    expect(apiMock.getRowContent).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ json: { rowId: "becauseYouWatched", cursor: "seed-B" } }),
+    );
+  });
+
   it("calls onUnavailable when the server returns home.row_unavailable", async () => {
     apiMock.getRowContent.mockResolvedValueOnce(
       jsonResponse({ code: "home.row_unavailable", message: "gone" }, 404),

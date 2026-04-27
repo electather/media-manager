@@ -10,7 +10,15 @@ export interface UseRowPaginationArgs {
   onUnavailable?: () => void;
 }
 
-export const homeRowQueryKey = (rowId: RowKind) => ["home", "row", rowId] as const;
+/**
+ * Cache key includes `initialCursor` so a layout refetch that returns a new
+ * seed-pinned cursor (currently only `becauseYouWatched` after the seed item
+ * changes) invalidates the row's stored pageParams. Without this the row
+ * would refetch using the stale initial pageParam and render content from a
+ * different seed than the stub subtitle describes.
+ */
+export const homeRowQueryKey = (rowId: RowKind, initialCursor: string | null) =>
+  ["home", "row", rowId, initialCursor] as const;
 
 interface RowPage {
   items: CompactMediaItem[];
@@ -37,7 +45,7 @@ export function useRowPagination({ rowId, initialCursor, onUnavailable }: UseRow
     ReturnType<typeof homeRowQueryKey>,
     string | null
   >({
-    queryKey: homeRowQueryKey(rowId),
+    queryKey: homeRowQueryKey(rowId, initialCursor),
     initialPageParam: initialCursor,
     queryFn: ({ pageParam }) => fetchRowPage(rowId, pageParam),
     getNextPageParam: (last) => last.cursor ?? undefined,
