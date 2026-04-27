@@ -102,7 +102,12 @@ globalConfigSchema:
 sharedCredentialsSchema:
   apiKey:                 string  ! required  x-secret: true
                           personal API key; project key (paid) optional —
-                          register additional pool entry for fresher data
+                          register additional pool entry for higher rate
+                          quota. Note: pool rotation policy v1 = round-robin
+                          on rate-limit signal; project keys do NOT auto-
+                          preference. "Prefer project key when configured"
+                          = open question (see §"Open Questions" — fanart
+                          project-key vs personal-key freshness).
 
 capabilities:
   artwork:
@@ -322,7 +327,12 @@ Per-item errors ⊥ break batch. Top-level RPC stays 200 except for input-shape 
 class ArtworkService:
   constructor(mediaService, logger): …
 
-  getArtwork(userId, items, languages = ["en", "00"]):
+  getArtwork(items, languages = ["en", "00"]):
+    # No userId param — artwork@v1 is global-scope, cache keys ⊥ user-scoped.
+    # Auth verification + per-user logging context handled at the RPC route
+    # layer (apps/server/src/api/routes/artwork.ts) before reaching service.
+    # Future locale-aware default would resolve user pref at the route layer
+    # and pass through `languages` arg, keeping ArtworkService user-agnostic.
     # 1. Dedup by canonical (idsHash + type). Multiple client keys may
     #    reference same logical item across rows.
     canonical = Map<canonicalKey, { ids, type, clientKeys: [] }>
@@ -336,12 +346,19 @@ class ArtworkService:
     # 3. Dispatch artwork@v1 per canonical entry. mediaService.getArtwork is
     #    new typed method on MediaService (see §"MediaService additions").
     #    Reads aggregate cache → on miss, dispatches artwork@v1 → writes cache.
+    #    allSettled semantics: one entry throwing must NOT propagate; every
+    #    canonical entry resolves into either results[ck] or errors[ck].
     results = {}, errors = {}
-    parallel ∀ entry ∈ canonical.values():
-      try:
-        bundle = mediaService.getArtwork({ ids: entry.ids, type: entry.type, languages })
-        ∀ ck ∈ entry.clientKeys: results[ck] = bundle
-      catch err:
+    settled = await Promise.allSettled(
+      canonical.values().map(entry → mediaService.getArtwork({
+        ids: entry.ids, type: entry.type, languages,
+      }))
+    )
+    ∀ (entry, outcome) ∈ zip(canonical.values(), settled):
+      if outcome.fulfilled:
+        ∀ ck ∈ entry.clientKeys: results[ck] = outcome.value
+      else:
+        err = outcome.reason
         if isHostError(err, "artwork.unsupported_id_combo"):
           ∀ ck: errors[ck] = { code: "unsupported_id_combo", message: err.message }
         else:
@@ -402,8 +419,10 @@ Both methods land in `apps/server/src/media-service/` alongside existing methods
 
 ### Cache key
 
+Adopts canonical `MediaService` cache key shape from `media-service.md` §"Key Composition": `mv:{capability}:{version}:{method}:{scope}:{argsHash}`. `argsHash` extends to include the type discriminator + language preference hash:
+
 ```
-artwork:v1:getArtwork:<idsHash>:<type>:<langPrefHash>
+mv:artwork:v1:getArtwork:global:<idsHash>:<type>:<langPrefHash>
 
 idsHash:       canonical hash of sorted-key id map
                { tmdb: "550" }                  → hash A
@@ -428,9 +447,9 @@ Empty bundle = `{ poster: [], backdrop: [], clearLogo: [], thumb: [] }`. Cached 
 
 Failed dispatch (all eligible providers throw) ⊥ cached. Next call retries. Prevents transient outage from poisoning cache for 6h.
 
-### Connection-change invalidation
+### Plugin-state-change invalidation
 
-Admin `plugin.enable` | `plugin.disable` for fanart | tmdb → flush `artwork@v1` keyspace from MediaService cache. Single hook into existing plugin-state-change pipeline. Per-user invalidation ⊥ needed (`artwork@v1` is global-scope).
+`artwork@v1` = global-scope, so connection-level invalidation = wrong trigger (cache entries serve every user). Admin `plugin.enable` | `plugin.disable` for fanart | tmdb fires `plugin:state-changed` event from `apps/server/src/plugin-runtime/` per `media-service.md` §Invalidation; cache layer iterates capabilities declared by the plugin manifest and calls `cache.deleteByPrefix("mv:artwork:v1:*")`. Single event, both providers' contributions flushed; next request re-dispatches against the surviving provider set. TMDB plugin disabled → fanart-only path; fanart plugin disabled → TMDB-only path. ⊥ new mechanism — reuses existing plugin-state-change pipeline documented in `media-service.md`.
 
 ## Plugin Implementations
 
@@ -441,7 +460,12 @@ plugin.capabilities.artwork.getArtwork(ctx, { ids, type, languages }):
   # Pick id this provider can use.
   id = type == "movie" ? (ids.tmdb ?? ids.imdb) : ids.tvdb
   if ⊥ id:
-    # Defensive — dispatcher's canServe should filter before invoke.
+    # Defensive — dispatcher's canServe filter + this guard together form
+    # the safety contract. canServe (§Aggregate Strategy) drops ineligible
+    # providers before invoke; this throw catches dispatcher bugs that
+    # bypass canServe. Either alone is insufficient: canServe alone trusts
+    # the dispatcher; guard alone makes every plugin re-implement
+    # eligibility logic.
     throw pluginError("plugin.input_invalid",
       { message: "fanart cannot serve <type> w/o tvdb|tmdb|imdb id",
         retryable: false })
@@ -488,10 +512,13 @@ shapeBundle(json, type, languages, ctx):
 
 
 byLanguageThenLikes(languages):
+  TAIL_INDEX = languages.length     # any value > max valid index works;
+                                    # using length keeps it self-documenting
+                                    # vs magic sentinel (99, Infinity, etc.)
   return (a, b) →
     # Match-tier first (preferred index ascending; -1 → tail).
     ai = languages.indexOf(a.language); bi = languages.indexOf(b.language)
-    if ai != bi: return (ai == -1 ? 99 : ai) - (bi == -1 ? 99 : bi)
+    if ai != bi: return (ai == -1 ? TAIL_INDEX : ai) - (bi == -1 ? TAIL_INDEX : bi)
     # Within tier, more likes first.
     return b.likes - a.likes
 ```
@@ -653,7 +680,7 @@ Plugin monorepo refactor (`2026-04-25-plugin-monorepo-design.md`) must merge fir
 
 **Fanart down/key revoked.** Aggregate dispatcher logs error from fanart provider, merges remaining TMDB result. Client sees TMDB-quality art only. ⊥ top-level RPC failure. Admin gets standard plugin-error notification per existing infra.
 
-**Locale infra lands.** `ArtworkService` reads `ctx.user.locale` → passes as `languages: [locale, "en", "00"]`. Cache key already locale-aware via `langPrefHash` → ⊥ migration. Existing cached entries stay valid for `["en", "00"]` callers; new locale picks up cache misses naturally.
+**Locale infra lands.** RPC route reads `ctx.user.locale` → passes as `languages: [locale, "en", "00"]` arg through `ArtworkService.getArtwork`. Cache key already locale-aware via `langPrefHash` → ⊥ migration. Existing cached entries stay valid for `["en", "00"]` callers; new locale picks up cache misses naturally. `ArtworkService` itself stays user-agnostic.
 
 ## Testing
 
@@ -746,7 +773,7 @@ After step 7 (CompactMediaItem field drop):
 
 ## Open Questions / Deferred
 
-- **Locale-aware language preference.** `["en", "00"]` server default v1. Once user-locale infra lands, `ArtworkService` reads from user pref, passes as `languages` input. Cache keying already locale-aware via `langPrefHash` — additive change.
+- **Locale-aware language preference.** `["en", "00"]` server default v1. Once user-locale infra lands, RPC route resolves user pref + passes as `languages` arg through `ArtworkService.getArtwork`. Cache keying already locale-aware via `langPrefHash` — additive change. `ArtworkService` stays user-agnostic; user-pref resolution lives at route layer.
 - **Image proxy / CDN-fronting.** Direct CDN URLs only v1. If TMDB/fanart latency | CORS becomes user-visible problem → add `/api/artwork/img` proxy w/ Cloudflare cache layer. Plugin output unchanged — proxy rewrites URLs at RPC-response time.
 - **Per-render-context size negotiation.** TMDB serves arbitrary sizes via path segment (`w500`, `w780`, `original`). Client requests larger via URL swap when needed. Capability output v1 ships single size per kind (admin-config-driven). Future: response carries size variants array, client picks.
 - **Third-party artwork providers.** `artwork@v1` capability designed for plugin-author extension. Future plugins (`clearart-collective`, `themoviedb-fanart-bridge`, etc.) implement same shape, declare `supportedIdTypes` + `providerPriority`. Aggregate dispatcher absorbs them w/o `ArtworkService` change.
@@ -758,6 +785,8 @@ After step 7 (CompactMediaItem field drop):
 - **Fanart project-key (paid) vs personal-key freshness.** Personal keys serve ~1-week-stale data per fanart docs. Pool-rotation treats both key types identically v1. Future: per-key metadata letting host prefer project-key when admin configured both. Out of scope here.
 - **Image variant moderation.** Fanart payloads include user-uploaded art; some titles have NSFW | low-quality variants. v1 takes top-likes ranking as proxy for quality. Future: admin block-list per item | per-uploader-id. Cache keying agnostic to filter — additive.
 - **TMDB attribution requirement.** TMDB ToS requires attribution when using their images. Frontend follow-up must surface "this product uses the TMDB API" line on pages rendering TMDB-sourced artwork. Out of scope this doc but flagged.
+- **IMDB-only movie items.** Movie w/ only `imdb` id (no `tmdb`) → fanart eligible (accepts imdb), TMDB ineligible (needs tmdb). Fanart 404 → fall through fails because no second provider can serve. `preflightTvdbResolution` handles tv-side gap (tmdb → tvdb); ⊥ symmetric `preflightTmdbResolution(imdb)` for movies. In practice rare — `id_map` opportunistic population means most items carry both ids by the time they reach client. Edge case lives on fresh installs | items never fetched via `metadata@v1`. If signal grows: add imdb→tmdb preflight branch alongside tmdb→tvdb.
+- **Thundering-herd on cache flush.** Plugin enable/disable flushes whole `mv:artwork:v1:*` keyspace. Concurrent in-flight + immediately-subsequent requests all miss cache simultaneously → spike to fanart/TMDB. Pool rotation handles rate-limit reactively (`pool.markExhausted` w/ retry-after) but ⊥ proactively. Mitigations if signal grows: (a) staggered TTL re-warm via background job, (b) request coalescing at MediaService layer (single-flight key → multiple awaiters share one upstream call). Neither needed v1; capability flush events = rare admin actions.
 
 ## References
 

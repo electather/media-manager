@@ -157,12 +157,13 @@ Unlike plugin packages (use `development`/`default`/`types` conditional, see bel
 
 These already cross client/server boundary. Stay in shared (consumed by client UI, server validation, plugins via SDK).
 
-| Symbol                                                                                         | Canonical home                                                 | SDK behaviour                              |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------ |
-| `pluginManifestSchema`, `PluginManifest` type                                                  | `packages/shared/src/plugins/schemas.ts` + `types.ts`          | Re-export from SDK for third-party access. |
-| `JSONSchema` type, `McpToolAnnotations`, library types under `@ent-mcp/shared/plugins/library` | `packages/shared/src/plugins/library.ts` + `types.ts`          | Re-export from SDK.                        |
-| `HostErrorCode` union                                                                          | `packages/shared/src/errors/codes.ts` (after issue #106 lands) | Re-export from SDK.                        |
-| Connection / job / preference enums plugins reference (lazy: add as plugins require)           | `packages/shared/src/{jobs,connections,…}/enums.ts`            | Re-export only ones plugins actually need. |
+| Symbol                                                                                         | Canonical home                                                 | SDK behaviour                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pluginManifestSchema`, `PluginManifest` type                                                  | `packages/shared/src/plugins/schemas.ts` + `types.ts`          | Re-export from SDK for third-party access.                                                                                                                 |
+| `JSONSchema` type, `McpToolAnnotations`, library types under `@ent-mcp/shared/plugins/library` | `packages/shared/src/plugins/library.ts` + `types.ts`          | Re-export from SDK.                                                                                                                                        |
+| `HostErrorCode` union                                                                          | `packages/shared/src/errors/codes.ts` (after issue #106 lands) | Re-export from SDK.                                                                                                                                        |
+| `ArtworkBundle`, `ArtworkVariant`, `ArtworkIdMap` types                                        | `packages/shared/src/artwork/`                                 | Re-export from SDK so plugin authors implementing `artwork@v1` get the bundle / variant / id-map types via `@ent-mcp/plugin-sdk` w/o reaching into shared. |
+| Connection / job / preference enums plugins reference (lazy: add as plugins require)           | `packages/shared/src/{jobs,connections,…}/enums.ts`            | Re-export only ones plugins actually need.                                                                                                                 |
 
 #### STAYS in server (not exported from SDK)
 

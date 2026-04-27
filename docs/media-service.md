@@ -230,9 +230,19 @@ Config via env: `CACHE_BACKEND=lru|redis`, `REDIS_URL=...`
 
 ### Invalidation
 
-- Mutations (e.g. `addToHistory`) call `cache.deleteByPrefix("mv:watchHistory:v1:*:user:{userId}:*")` post-success
-- Each mutating method declares invalidation prefix pattern
-- Connection changes (create/update/delete/enable/disable) invalidate all user caches for affected capabilities. Event-driven from connections layer.
+Three event sources, each with own cache scope:
+
+| Event source                                                     | Scope flushed                                                        | Mechanism                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mutating capability call (e.g. `addToHistory`)                   | Affected user's keyspace for that capability                         | `cache.deleteByPrefix("mv:{cap}:{ver}:*:user:{userId}:*")` post-success                                                                                                                                                     |
+| Connection change (create / update / delete / enable / disable)  | Affected user's keyspace for capabilities the plugin implements      | Event-driven from connections layer                                                                                                                                                                                         |
+| Plugin enable/disable (admin `plugin.enable` / `plugin.disable`) | All keyspaces for capabilities the plugin implements (global + user) | Event-driven from plugin-state-change pipeline; emits `plugin:state-changed` event w/ `pluginId` payload; cache layer iterates capabilities the plugin declares + calls `cache.deleteByPrefix("mv:{cap}:{ver}:*")` for each |
+
+Each mutating method declares its invalidation prefix pattern; non-mutating reads ⊥ trigger invalidation.
+
+**Plugin-level events for global-scope capabilities.** Connection-level invalidation is per-user — wrong trigger for global-scope capabilities (e.g. `metadata@v1`, `watchProviders@v1`, `trailers@v1`, `artwork@v1`) where cache entries serve every user. Plugin enable/disable = the only event that should flush global keyspaces. Pipeline lives in `apps/server/src/plugin-runtime/` and emits the event in same code path that adds/removes the plugin from the dispatch registry.
+
+**Cross-capability flush from one plugin event.** Plugins implementing multiple capabilities (e.g. TMDB implements `metadata@v1`, `idResolve@v1`, `watchProviders@v1`, `trailers@v1`, `artwork@v1`) → single `plugin:state-changed` event flushes all five keyspaces. Cache layer reads capability list from plugin manifest; ⊥ remember registration history.
 
 ### Negative Caching
 
@@ -388,7 +398,9 @@ Per plugin call:
 
 ## TMDB Plugin
 
-Reference impl, builtin. Location: `server/plugins/builtin/tmdb/`
+Reference impl, builtin. Location: `server/plugins/builtin/tmdb/` (will move to `packages/plugins/tmdb/` per `docs/2026-04-25-plugin-monorepo-design.md`).
+
+> **Pre-migration snapshot.** The manifest block below = original 2026-04-19 shape using `allowsSharedCredentials` + `auth: "form"` + per-user `api_key`. Current authoritative TMDB manifest moved to pure-global pattern: `auth: { kind: "none" }`, `poolable: true`, `sharedCredentialsSchema: { apiKey }`, `capabilities` includes `metadata@v1`, `idResolve@v1`, `watchProviders@v1`, `trailers@v1`, `artwork@v1`. See `docs/2026-04-19-plugin-architecture-design.md` §"Concrete Plugin Mappings" + `docs/2026-04-26-plugin-fanart-design.md` §"`@ent-mcp/plugin-tmdb` delta" for current fields. Block kept for historical context — illustrates dispatch + caching patterns; manifest detail does ⊥ reflect repo state.
 
 ### Manifest
 
