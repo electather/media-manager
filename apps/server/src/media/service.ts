@@ -106,6 +106,27 @@ export class MediaService {
     return result.data ?? null;
   }
 
+  /**
+   * Typed `metadata@v1.getDetails` wrapper used by the catalog cold-fill
+   * provider and the nightly metadata-refresh job. Returns `null` when no
+   * primary plugin is available or the dispatch yields no data — callers
+   * fall back to other paths in that case rather than throwing.
+   */
+  async getMetadata(
+    tmdbId: string,
+    type: "movie" | "tv",
+  ): Promise<import("../catalog/canonical").RawCanonicalSource | null> {
+    const result = await dispatchPrimary<import("../catalog/canonical").RawCanonicalSource>({
+      userId: this.userId,
+      capability: "metadata",
+      version: "v1",
+      method: "getDetails",
+      input: { id: tmdbId, type },
+      mediaType: type,
+    });
+    return result.data ?? null;
+  }
+
   async similar(idOrCombined: string, type?: "movie" | "tv") {
     const [parsedType, parsedId] =
       type === undefined && idOrCombined.includes(":")

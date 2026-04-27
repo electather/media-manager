@@ -40,8 +40,8 @@ export const canonicalMetadata = sqliteTable(
     thumbUrl: text("thumb_url"),
     overview: text("overview"),
     originalLanguage: text("original_language"),
-    genres: text("genres").$type<string[] | null>(),
-    features: text("features").$type<CanonicalFeatures | null>(),
+    genres: text("genres", { mode: "json" }).$type<string[] | null>(),
+    features: text("features", { mode: "json" }).$type<CanonicalFeatures | null>(),
     lastRefreshedAt: integer("last_refreshed_at").notNull(),
     lastAccessedAt: integer("last_accessed_at").notNull(),
     createdAt: integer("created_at").notNull(),
@@ -62,7 +62,7 @@ export const discoverSnapshots = sqliteTable(
     feedKind: text("feed_kind", { enum: DISCOVER_FEED_KINDS }).notNull(),
     sort: text("sort", { enum: DISCOVER_SORTS }).notNull(),
     day: integer("day").notNull(),
-    items: text("items").$type<MetadataKey[]>().notNull(),
+    items: text("items", { mode: "json" }).$type<MetadataKey[]>().notNull(),
     generatedAt: integer("generated_at").notNull(),
   },
   (table) => [
@@ -81,7 +81,7 @@ export const recommendationLists = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     listKind: text("list_kind", { enum: RECOMMENDATION_LIST_KINDS }).notNull(),
-    items: text("items").$type<RecItem[]>().notNull(),
+    items: text("items", { mode: "json" }).$type<RecItem[]>().notNull(),
     profileVersion: integer("profile_version").notNull(),
     generatedAt: integer("generated_at").notNull(),
   },
@@ -95,8 +95,8 @@ export const userHistoryMirror = sqliteTable("user_history_mirror", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  events: text("events").$type<HistoryEvent[]>().notNull(),
-  pluginCursors: text("plugin_cursors").$type<PluginCursors>().notNull(),
+  events: text("events", { mode: "json" }).$type<HistoryEvent[]>().notNull(),
+  pluginCursors: text("plugin_cursors", { mode: "json" }).$type<PluginCursors>().notNull(),
   lastSyncedAt: integer("last_synced_at").notNull(),
 });
 
@@ -107,8 +107,8 @@ export const userRatingsMirror = sqliteTable("user_ratings_mirror", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  events: text("events").$type<RatingEvent[]>().notNull(),
-  pluginCursors: text("plugin_cursors").$type<PluginCursors>().notNull(),
+  events: text("events", { mode: "json" }).$type<RatingEvent[]>().notNull(),
+  pluginCursors: text("plugin_cursors", { mode: "json" }).$type<PluginCursors>().notNull(),
   lastSyncedAt: integer("last_synced_at").notNull(),
 });
 

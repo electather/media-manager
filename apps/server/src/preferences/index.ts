@@ -1,3 +1,6 @@
+import { CatalogService } from "../catalog";
+import { getDb } from "../db/client";
+import { CatalogPreferenceProvider } from "./catalog-provider";
 import { PreferenceEngine } from "./engine";
 import { MediaServicePreferenceProvider } from "./media-provider";
 import type { PreferenceDataProvider } from "./provider";
@@ -7,11 +10,17 @@ let instance: PreferenceEngine | undefined;
 /**
  * Returns the singleton engine. Lazily constructed on first call so the
  * module can be safely imported before `bootstrap()` runs (tests, jobs
- * registering at module-load time).
+ * registering at module-load time). The default provider reads features
+ * from the catalog and falls back to the live media dispatcher on miss
+ * (V45); cold-fill misses persist back via a detached write-back.
  */
 export function getPreferenceEngine(): PreferenceEngine {
   if (!instance) {
-    instance = new PreferenceEngine({ provider: new MediaServicePreferenceProvider() });
+    const catalog = new CatalogService(getDb());
+    const fallback = new MediaServicePreferenceProvider();
+    instance = new PreferenceEngine({
+      provider: new CatalogPreferenceProvider(catalog, fallback),
+    });
   }
   return instance;
 }

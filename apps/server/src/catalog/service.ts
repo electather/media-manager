@@ -1,10 +1,15 @@
+import { and, asc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
+import { canonicalMetadata } from "../db/schema/catalog";
+import { idMap } from "../db/schema/id-map";
+import { candidateId } from "./features";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,
   DiscoverFeedKind,
   DiscoverSort,
   HistoryEvent,
+  IdMap,
   MetadataKey,
   PluginCursors,
   RatingEvent,
@@ -24,41 +29,121 @@ export interface CatalogServiceOptions {
  * discover_snapshots, recommendation_lists, user_history_mirror and
  * user_ratings_mirror tables (V37). Reads serve sub-ms PK lookups; writes
  * are jobs-only except bounded cold-fill from the preference engine (V38).
- *
- * Phase 1 (T25): scaffold only. Every method returns a placeholder so DI
- * wiring and tests can compile against the final surface. Implementations
- * land phase-by-phase in T26-T30.
  */
 export class CatalogService {
   readonly recordAccessThrottleMs: number;
 
-  // The Drizzle handle is unused while the surface is stubbed (T25). Phase
-  // 2 onward consumes it from every read/write method, so capture it now and
-  // keep the constructor signature stable for downstream DI wiring.
   private readonly db: Db;
 
   constructor(db: Db, opts: CatalogServiceOptions = {}) {
     this.db = db;
     this.recordAccessThrottleMs = opts.recordAccessThrottleMs ?? DEFAULT_RECORD_ACCESS_THROTTLE_MS;
-    // `noUnusedLocals` flags the field as unread until Phase 2 wires it
-    // through the methods. Reading it here once is the cheapest way to keep
-    // the visibility correct (`private`) without leaking it to subclasses.
-    void this.db;
   }
 
-  async getMetadata(_tmdbId: string, _type: "movie" | "tv"): Promise<CanonicalMetadata | null> {
-    return null;
+  async getMetadata(tmdbId: string, type: "movie" | "tv"): Promise<CanonicalMetadata | null> {
+    const row = await this.db
+      .select()
+      .from(canonicalMetadata)
+      .where(and(eq(canonicalMetadata.tmdbId, tmdbId), eq(canonicalMetadata.mediaType, type)))
+      .get();
+    return row ?? null;
   }
 
-  async getMetadataBatch(_items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
-    return {};
+  async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
+    if (items.length === 0) return {};
+    // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
+    // `mediaType` and union the results. Two queries max in practice;
+    // the composite PK serves both lookups via index.
+    const buckets = new Map<"movie" | "tv", string[]>();
+    for (const item of items) {
+      const list = buckets.get(item.type);
+      if (list) list.push(item.tmdbId);
+      else buckets.set(item.type, [item.tmdbId]);
+    }
+    const out: Record<string, CanonicalMetadata> = {};
+    for (const [type, ids] of buckets) {
+      const rows = await this.db
+        .select()
+        .from(canonicalMetadata)
+        .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
+      for (const row of rows) {
+        out[candidateId({ tmdbId: row.tmdbId, type: row.mediaType })] = row;
+      }
+    }
+    return out;
   }
 
   async getMetadataWithIds(
-    _tmdbId: string,
-    _type: "movie" | "tv",
+    tmdbId: string,
+    type: "movie" | "tv",
   ): Promise<CanonicalMetadataWithIds | null> {
-    return null;
+    const row = await this.db
+      .select({
+        canonical: canonicalMetadata,
+        ids: idMap,
+      })
+      .from(canonicalMetadata)
+      .leftJoin(
+        idMap,
+        and(
+          eq(idMap.tmdbId, canonicalMetadata.tmdbId),
+          eq(idMap.mediaType, canonicalMetadata.mediaType),
+        ),
+      )
+      .where(and(eq(canonicalMetadata.tmdbId, tmdbId), eq(canonicalMetadata.mediaType, type)))
+      .get();
+    if (!row) return null;
+    return { ...row.canonical, ids: toIdMap(row.ids) };
+  }
+
+  async writeMetadata(rows: CanonicalMetadata[]): Promise<void> {
+    if (rows.length === 0) return;
+    // INSERT-OR-REPLACE. `created_at` is preserved on update via SQL
+    // `COALESCE(existing, incoming)`; `last_refreshed_at` always advances
+    // to the incoming value so `listStaleMetadata` stays accurate.
+    for (const row of rows) {
+      await this.db
+        .insert(canonicalMetadata)
+        .values(row)
+        .onConflictDoUpdate({
+          target: [canonicalMetadata.tmdbId, canonicalMetadata.mediaType],
+          set: {
+            title: row.title,
+            year: row.year,
+            runtimeMinutes: row.runtimeMinutes,
+            posterUrl: row.posterUrl,
+            backdropUrl: row.backdropUrl,
+            clearLogoUrl: row.clearLogoUrl,
+            thumbUrl: row.thumbUrl,
+            overview: row.overview,
+            originalLanguage: row.originalLanguage,
+            genres: row.genres,
+            features: row.features,
+            lastRefreshedAt: row.lastRefreshedAt,
+            lastAccessedAt: row.lastAccessedAt,
+            createdAt: sql`COALESCE(${canonicalMetadata.createdAt}, ${row.createdAt})`,
+          },
+        });
+    }
+  }
+
+  async listStaleMetadata(staleAfterMs: number, limit: number): Promise<MetadataKey[]> {
+    const cutoff = Date.now() - staleAfterMs;
+    const rows = await this.db
+      .select({ tmdbId: canonicalMetadata.tmdbId, mediaType: canonicalMetadata.mediaType })
+      .from(canonicalMetadata)
+      .where(
+        or(
+          lt(canonicalMetadata.lastRefreshedAt, cutoff),
+          // `features` is NULL when a row was warm-written by the discover
+          // snapshot side-effect but never enriched; treat that as stale
+          // so the next refresh picks it up.
+          sql`${canonicalMetadata.features} IS NULL`,
+        ),
+      )
+      .orderBy(asc(canonicalMetadata.lastRefreshedAt))
+      .limit(limit);
+    return rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
   }
 
   async getDiscoverFeed(
@@ -90,10 +175,6 @@ export class CatalogService {
 
   async getRatingsCursors(_userId: string): Promise<PluginCursors> {
     return {};
-  }
-
-  async writeMetadata(_rows: CanonicalMetadata[]): Promise<void> {
-    return;
   }
 
   async writeDiscoverSnapshot(
@@ -136,10 +217,6 @@ export class CatalogService {
     return;
   }
 
-  async listStaleMetadata(_staleAfterMs: number, _limit: number): Promise<MetadataKey[]> {
-    return [];
-  }
-
   async pruneUnusedMetadata(
     _unusedAfterMs: number,
     _refSet?: Set<string>,
@@ -150,4 +227,16 @@ export class CatalogService {
   async pruneOldDiscoverSnapshots(_olderThanDays: number): Promise<{ deleted: number }> {
     return { deleted: 0 };
   }
+}
+
+function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
+  if (!row) return null;
+  return {
+    tmdbId: row.tmdbId,
+    mediaType: row.mediaType,
+    imdbId: row.imdbId ?? null,
+    tvdbId: row.tvdbId ?? null,
+    traktId: row.traktId ?? null,
+    traktSlug: row.traktSlug ?? null,
+  };
 }

@@ -23,7 +23,17 @@ export interface PreferenceEngineDeps {
 export interface RankOptions {
   alpha?: number;
   mediaType?: "movie" | "tv" | "any";
+  /**
+   * Wall-clock deadline (ms-epoch) for cold-fill plugin dispatch inside
+   * `enrichCandidates`. Catalog reads stay unbounded since they're sub-ms;
+   * the deadline only short-circuits the per-item plugin fallback path.
+   * Items past the deadline drop out with no features (engine treats the
+   * thinned set as lower confidence).
+   */
+  deadlineMs?: number;
 }
+
+const COLD_FILL_CONCURRENCY = 10;
 
 /**
  * Host-owned engine. Owns profile read/write, scoring, explanation, and both
@@ -40,7 +50,7 @@ export class PreferenceEngine {
   ): Promise<RankedCandidate[]> {
     if (candidates.length === 0) return [];
     const profile = await this.resolveProfileForMedia(userId, opts.mediaType);
-    const enriched = await this.enrichCandidates(userId, candidates);
+    const enriched = await this.enrichCandidates(userId, candidates, opts.deadlineMs);
     return rankCandidatesAgainst(enriched, profile, { alpha: opts.alpha });
   }
 
@@ -125,17 +135,29 @@ export class PreferenceEngine {
   private async enrichCandidates(
     userId: string,
     candidates: ReadonlyArray<MediaItem>,
+    deadlineMs: number | undefined,
   ): Promise<Array<{ item: MediaItem; features: CandidateFeatures }>> {
-    const results = await Promise.all(
-      candidates.map(async (candidate) => {
-        const features = await this.featuresForCandidate(userId, candidate);
-        if (!features) return null;
-        return { item: candidate, features };
-      }),
-    );
-    return results.filter(
-      (entry): entry is { item: MediaItem; features: CandidateFeatures } => entry !== null,
-    );
+    const enriched: Array<{ item: MediaItem; features: CandidateFeatures }> = [];
+    // Bound cold-fill fan-out so a fully cold catalog can't storm the
+    // upstream metadata plugin. Catalog hits inside `featuresForCandidate`
+    // remain effectively unbounded — a sub-ms PK lookup is cheap, and
+    // chunking buys nothing on the warm path.
+    for (let i = 0; i < candidates.length; i += COLD_FILL_CONCURRENCY) {
+      if (deadlineMs !== undefined && Date.now() > deadlineMs) break;
+      const slice = candidates.slice(i, i + COLD_FILL_CONCURRENCY);
+      const results = await Promise.all(
+        slice.map(async (candidate) => {
+          if (deadlineMs !== undefined && Date.now() > deadlineMs) return null;
+          const features = await this.featuresForCandidate(userId, candidate);
+          if (!features) return null;
+          return { item: candidate, features };
+        }),
+      );
+      for (const entry of results) {
+        if (entry) enriched.push(entry);
+      }
+    }
+    return enriched;
   }
 
   private async featuresForCandidate(
