@@ -114,6 +114,20 @@ describe("rankCandidatesAgainst", () => {
     const results = rankCandidatesAgainst(makeEntries([{ id: "x", genres: [] }]), p);
     expect(results[0]!.confidence).toBe("low");
   });
+
+  it("propagates the candidate features onto every ranked entry", () => {
+    // Threading features through RankedCandidate is what lets explainRanked
+    // skip a second metadata fetch — the test pins the contract.
+    const entries = makeEntries([
+      { id: "movie:1", genres: ["Thriller"] },
+      { id: "movie:2", genres: ["Drama"] },
+    ]);
+    const results = rankCandidatesAgainst(entries, null);
+    for (const result of results) {
+      const matched = entries.find((e) => e.item.id === result.item.id)!;
+      expect(result.features).toEqual(matched.features);
+    }
+  });
 });
 
 describe("effectiveAlpha", () => {

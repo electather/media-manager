@@ -55,6 +55,7 @@ function makeCtx(media: MediaServiceShape): RowFetchContext {
       rankCandidates: async (_userId: string, candidates: unknown[]) =>
         (candidates as Array<unknown>).map((item) => ({ item })),
       explainMatch: async () => null,
+      explainRanked: async () => null,
     } as unknown as RowFetchContext["preferenceEngine"],
     dataloader: {
       getMetadata: async () => null,

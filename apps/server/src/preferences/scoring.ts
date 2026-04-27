@@ -132,6 +132,7 @@ export function rankCandidatesAgainst(
         profileScore: entry.profileScore,
         confidence,
         topContributors: entry.contributors.slice(0, TOP_CONTRIBUTORS),
+        features: candidate.features,
       };
     })
     .sort((a, b) => b.score - a.score);
