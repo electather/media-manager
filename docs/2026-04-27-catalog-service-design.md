@@ -441,7 +441,7 @@ after:
 
 Decisions:
 
-- `mv:` cache stays. Scope shrinks → live MediaService calls only (watchlist, idResolve, fan-out writes).
+- `mv:` cache stays. Live MediaService calls (watchlist, idResolve, fan-out writes) keep it as the sole short-circuit. Catalog-owned methods (`metadata@v1`, `recommendations@v1`, `watchHistory@v1`, `ratings@v1`) also retain it as a cold-fill fallback — a transient plugin failure during catalog miss still short-circuits before the upstream rate limit.
 - ⊥ memoization layer above Catalog. SQLite indexed PK = sub-ms; in-mem LRU buys nothing + adds invalidation surface.
 - `dispatch-cache` `NEGATIVE_TTL_MS` + `ttlOverrideMs` (per `2026-04-27-home-feed-perf-design.md`) retained — useful for plugin failures on live path.
 - Redis stays optional. Persistence in DB → Redis = pure latency optimization, ⊥ correctness requirement.
@@ -511,7 +511,7 @@ Sequential PRs. Each ships independent; rollback = revert one PR. Each adds one 
 | 4   | recommendation_lists + `recommendation_build` job; `recommendedForYou` row hydration (live fallback); `feature.preference.rebuild` extended to write rec list                                                                                                                                                                                                                                                                                                  |
 | 5   | `MediaService.getAllHistory` + `getAllRatings`; user_history_mirror + user_ratings_mirror + `user_mirror_sync` job; `CatalogPreferenceProvider` switches to mirror reads (provider swap = server bootstrap DI; `rebuild.ts` + `incremental.ts` consume `deps.provider` polymorphically)                                                                                                                                                                        |
 | 6   | `prune` job + `recordAccess` bookkeeping wired into row reads; **JobService surface additions**: re-export `isRunning(jobId, scopeKey?)` from `apps/server/src/jobs/index.ts` + add `anyRunning(jobIds[]) → boolean` helper (trivial `.some(isRunning)`); `prune` job consumes it                                                                                                                                                                              |
-| 7   | cleanup: drop redundant `mv:` TTLs catalog now owns (e.g. discover snapshot caching path)                                                                                                                                                                                                                                                                                                                                                                      |
+| 7   | cleanup: audit `mv:` cache; retained as cold-fill safety net for catalog-owned methods (`metadata@v1`, `recommendations@v1`, `watchHistory@v1`, `ratings@v1`); `dispatch-cache.ts` header comment documents ownership map; `buildPruneRefSet` style cleanup (`gte` helper)                                                                                                                                                                                     |
 
 Rollout invariants:
 
