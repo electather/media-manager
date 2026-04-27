@@ -50,6 +50,20 @@ describe("catalog phase 1 scaffold", () => {
     expect(await catalog.pruneOldDiscoverSnapshots(0)).toEqual({ deleted: 0 });
   });
 
+  it("write stubs resolve without throwing on the empty surface", async () => {
+    const db = await createInMemoryDb();
+    const catalog = new CatalogService(db);
+
+    expect(await catalog.writeMetadata([])).toBeUndefined();
+    expect(
+      await catalog.writeDiscoverSnapshot("trending", "popularity_desc", 0, []),
+    ).toBeUndefined();
+    expect(await catalog.writeRecommendationList("u1", "default", [], 0)).toBeUndefined();
+    expect(await catalog.appendUserHistory("u1", [], "conn-1", 0)).toBeUndefined();
+    expect(await catalog.appendUserRatings("u1", [], "conn-1", 0)).toBeUndefined();
+    expect(catalog.recordAccess([{ tmdbId: "1", type: "movie" }])).toBeUndefined();
+  });
+
   it("exposes a configurable record-access throttle", async () => {
     const db = await createInMemoryDb();
     const defaultCatalog = new CatalogService(db);

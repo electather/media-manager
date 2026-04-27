@@ -7,7 +7,7 @@ import type {
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
 import { rebuildProfile } from "./rebuild";
-import { profileStorage } from "./storage";
+import { profileStorage, type StoredPreferenceProfile } from "./storage";
 import type { PreferenceDataProvider } from "./provider";
 import { deriveConfidence } from "./types";
 
@@ -41,9 +41,9 @@ export async function applyIncrementalUpdate(
 ): Promise<UpdateResult> {
   const partitions: ProfileMediaType[] = ["movie", "tv", "combined"];
   const profiles = await Promise.all(partitions.map((m) => profileStorage.read(userId, m)));
-  const existing = new Map<ProfileMediaType, PreferenceProfile | null>();
+  const existing = new Map<ProfileMediaType, StoredPreferenceProfile | null>();
   partitions.forEach((m, i) => existing.set(m, profiles[i] ?? null));
-  const anyProfile = profiles.find((p): p is PreferenceProfile => p !== null);
+  const anyProfile = profiles.find((p): p is StoredPreferenceProfile => p !== null);
   if (!anyProfile) {
     // No profile exists yet — bootstrap all three partitions via a full rebuild
     // so that the first feedback creates a profile rather than silently doing nothing.
@@ -54,7 +54,7 @@ export async function applyIncrementalUpdate(
   }
 
   const oldest = Math.min(
-    ...profiles.filter((p): p is PreferenceProfile => p !== null).map((p) => p.lastUpdatedAt),
+    ...profiles.filter((p): p is StoredPreferenceProfile => p !== null).map((p) => p.lastUpdatedAt),
   );
   const records = await feedbackLog.readSince(userId, oldest);
   if (records.length === 0) return { userId, applied: 0 };

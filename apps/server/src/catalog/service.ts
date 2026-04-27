@@ -35,11 +35,15 @@ export class CatalogService {
   // The Drizzle handle is unused while the surface is stubbed (T25). Phase
   // 2 onward consumes it from every read/write method, so capture it now and
   // keep the constructor signature stable for downstream DI wiring.
-  protected readonly db: Db;
+  private readonly db: Db;
 
   constructor(db: Db, opts: CatalogServiceOptions = {}) {
     this.db = db;
     this.recordAccessThrottleMs = opts.recordAccessThrottleMs ?? DEFAULT_RECORD_ACCESS_THROTTLE_MS;
+    // `noUnusedLocals` flags the field as unread until Phase 2 wires it
+    // through the methods. Reading it here once is the cheapest way to keep
+    // the visibility correct (`private`) without leaking it to subclasses.
+    void this.db;
   }
 
   async getMetadata(_tmdbId: string, _type: "movie" | "tv"): Promise<CanonicalMetadata | null> {

@@ -1,7 +1,13 @@
 import type { MediaType } from "@ent-mcp/shared/media";
-import type { DiscoverFeedKind, DiscoverSort, RecommendationListKind } from "../db/schema/catalog";
 
-export type { DiscoverFeedKind, DiscoverSort, RecommendationListKind };
+export const DISCOVER_FEED_KINDS = ["newReleases", "trending", "upcoming", "popular"] as const;
+export type DiscoverFeedKind = (typeof DISCOVER_FEED_KINDS)[number];
+
+export const DISCOVER_SORTS = ["popularity_desc", "release_date_asc"] as const;
+export type DiscoverSort = (typeof DISCOVER_SORTS)[number];
+
+export const RECOMMENDATION_LIST_KINDS = ["default"] as const;
+export type RecommendationListKind = (typeof RECOMMENDATION_LIST_KINDS)[number];
 
 export interface MetadataKey {
   tmdbId: string;

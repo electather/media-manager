@@ -2,16 +2,30 @@ import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlit
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { MEDIA_TYPES } from "@ent-mcp/shared/media";
 import { user } from "./auth";
+import {
+  DISCOVER_FEED_KINDS,
+  DISCOVER_SORTS,
+  RECOMMENDATION_LIST_KINDS,
+  type CanonicalFeatures,
+  type HistoryEvent,
+  type MetadataKey,
+  type PluginCursors,
+  type RatingEvent,
+  type RecItem,
+} from "../../catalog/types";
 
-export const DISCOVER_FEED_KINDS = ["newReleases", "trending", "upcoming", "popular"] as const;
-export type DiscoverFeedKind = (typeof DISCOVER_FEED_KINDS)[number];
+export {
+  DISCOVER_FEED_KINDS,
+  DISCOVER_SORTS,
+  RECOMMENDATION_LIST_KINDS,
+  type DiscoverFeedKind,
+  type DiscoverSort,
+  type RecommendationListKind,
+} from "../../catalog/types";
 
-export const DISCOVER_SORTS = ["popularity_desc", "release_date_asc"] as const;
-export type DiscoverSort = (typeof DISCOVER_SORTS)[number];
-
-export const RECOMMENDATION_LIST_KINDS = ["default"] as const;
-export type RecommendationListKind = (typeof RECOMMENDATION_LIST_KINDS)[number];
-
+// JSON columns store text on disk but carry a richer TS shape.
+// `$type<T>()` documents the serialization contract at the schema level so
+// drizzle-zod inference and downstream consumers see the parsed type.
 export const canonicalMetadata = sqliteTable(
   "canonical_metadata",
   {
@@ -26,8 +40,8 @@ export const canonicalMetadata = sqliteTable(
     thumbUrl: text("thumb_url"),
     overview: text("overview"),
     originalLanguage: text("original_language"),
-    genres: text("genres"),
-    features: text("features"),
+    genres: text("genres").$type<string[] | null>(),
+    features: text("features").$type<CanonicalFeatures | null>(),
     lastRefreshedAt: integer("last_refreshed_at").notNull(),
     lastAccessedAt: integer("last_accessed_at").notNull(),
     createdAt: integer("created_at").notNull(),
@@ -48,7 +62,7 @@ export const discoverSnapshots = sqliteTable(
     feedKind: text("feed_kind", { enum: DISCOVER_FEED_KINDS }).notNull(),
     sort: text("sort", { enum: DISCOVER_SORTS }).notNull(),
     day: integer("day").notNull(),
-    items: text("items").notNull(),
+    items: text("items").$type<MetadataKey[]>().notNull(),
     generatedAt: integer("generated_at").notNull(),
   },
   (table) => [
@@ -67,7 +81,7 @@ export const recommendationLists = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     listKind: text("list_kind", { enum: RECOMMENDATION_LIST_KINDS }).notNull(),
-    items: text("items").notNull(),
+    items: text("items").$type<RecItem[]>().notNull(),
     profileVersion: integer("profile_version").notNull(),
     generatedAt: integer("generated_at").notNull(),
   },
@@ -81,8 +95,8 @@ export const userHistoryMirror = sqliteTable("user_history_mirror", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  events: text("events").notNull(),
-  pluginCursors: text("plugin_cursors").notNull(),
+  events: text("events").$type<HistoryEvent[]>().notNull(),
+  pluginCursors: text("plugin_cursors").$type<PluginCursors>().notNull(),
   lastSyncedAt: integer("last_synced_at").notNull(),
 });
 
@@ -93,8 +107,8 @@ export const userRatingsMirror = sqliteTable("user_ratings_mirror", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  events: text("events").notNull(),
-  pluginCursors: text("plugin_cursors").notNull(),
+  events: text("events").$type<RatingEvent[]>().notNull(),
+  pluginCursors: text("plugin_cursors").$type<PluginCursors>().notNull(),
   lastSyncedAt: integer("last_synced_at").notNull(),
 });
 
