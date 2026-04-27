@@ -64,6 +64,11 @@ export const HOST_ERROR_CODES = {
   "media.no_connection": { severity: "info" },
   "media.primary_unavailable": { severity: "warning" },
 
+  // Artwork capability and RPC.
+  "artwork.bad_input": { severity: "info" },
+  "artwork.unsupported_id_combo": { severity: "info" },
+  "artwork.internal": { severity: "error" },
+
   // OAuth flow.
   "oauth.state_expired": { severity: "info" },
   "oauth.polling_timeout": { severity: "info" },

@@ -1,6 +1,6 @@
 import { definePlugin } from "@ent-mcp/plugin-sdk";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { pluginError, toErrorMessage } from "@ent-mcp/plugin-sdk";
+import { pluginError, toErrorMessage, MAX_VARIANTS_PER_KIND } from "@ent-mcp/plugin-sdk";
 import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
 
 interface TmdbSharedCreds {
@@ -10,8 +10,38 @@ interface TmdbUserCreds {
   apiKey?: string;
 }
 interface TmdbUserCfg {}
+// Config keys mirror the artwork@v1 bundle field names so admins reading
+// config alongside a response see the same vocabulary in both places.
 interface TmdbGlobalCfg {
   imageBaseUrl?: string;
+  artworkSizes?: {
+    poster?: string;
+    backdrop?: string;
+    clearLogo?: string;
+  };
+}
+
+const DEFAULT_ARTWORK_SIZES = {
+  poster: "w780",
+  backdrop: "w1280",
+  clearLogo: "w500",
+} as const;
+
+type ArtworkSizeKind = keyof typeof DEFAULT_ARTWORK_SIZES;
+
+function artworkBase(ctx: Ctx): string {
+  // Strip any size segment baked into imageBaseUrl so artwork URL
+  // construction stays self-contained — `getArtwork` builds per-kind size
+  // segments itself rather than reusing the poster default.
+  const override = ctx.config.global?.imageBaseUrl;
+  const base = override ?? "https://image.tmdb.org/t/p";
+  // Drop trailing "/w<NNN>" or "/original" suffix if user set the full URL.
+  return base.replace(/\/(w\d+|original)\/?$/, "").replace(/\/$/, "");
+}
+
+function artworkSize(ctx: Ctx, kind: ArtworkSizeKind): string {
+  const override = ctx.config.global?.artworkSizes?.[kind];
+  return override ?? DEFAULT_ARTWORK_SIZES[kind];
 }
 
 type Ctx = PluginContext<TmdbUserCreds, TmdbSharedCreds, TmdbUserCfg, TmdbGlobalCfg>;
@@ -231,6 +261,18 @@ export default definePlugin({
           description: "Override the default TMDB image CDN if needed.",
           default: "https://image.tmdb.org/t/p/",
         },
+        artworkSizes: {
+          type: "object",
+          title: "Artwork size buckets",
+          description:
+            "Path segments used by `artwork@v1.getArtwork`. Keys mirror the bundle field names so admins see the same vocabulary in config and response. Override when serving via a CDN that uses different size names.",
+          properties: {
+            poster: { type: "string", default: "w780" },
+            backdrop: { type: "string", default: "w1280" },
+            clearLogo: { type: "string", default: "w500" },
+          },
+          additionalProperties: false,
+        },
       },
       required: [],
     },
@@ -251,6 +293,16 @@ export default definePlugin({
       idResolve: { version: "v1", scope: "global" },
       watchProviders: { version: "v1", scope: "global" },
       trailers: { version: "v1", scope: "global" },
+      artwork: {
+        version: "v1",
+        scope: "global",
+        // TMDB only resolves art for items it knows by tmdb id. IMDB-only
+        // movie items fall through to no provider — see fanart spec
+        // §"Open Questions / Deferred" → "IMDB-only movie items".
+        supportedIdTypes: { movie: ["tmdb"], tv: ["tmdb"] },
+        // Lower = higher merge priority. TMDB acts as fallback so 20.
+        providerPriority: 20,
+      },
     },
     poolable: true,
   },
@@ -423,8 +475,100 @@ export default definePlugin({
         }));
       },
     },
+
+    artwork: {
+      async getArtwork(ctx, input) {
+        const c = ctx as Ctx;
+        const { ids, type, languages } = input as {
+          ids: { tmdb?: string; imdb?: string; tvdb?: string };
+          type: "movie" | "tv";
+          languages?: string[];
+        };
+        const tmdbId = ids.tmdb;
+        if (!tmdbId) {
+          // Defensive — dispatcher's canServe filter should drop us before
+          // invoke. Keeps the plugin honest for direct unit tests too.
+          throw pluginError("plugin.input_invalid", "TMDB artwork requires ids.tmdb");
+        }
+        const langs = languages ?? ["en", "00"];
+        // Build TMDB's `include_image_language` filter from the caller's
+        // language preferences so a request for `["fr","en","00"]` doesn't
+        // silently come back English-only. TMDB uses the literal string
+        // "null" for textless variants; map "00" → "null" and always include
+        // it so textless art can fall through when localised art is missing.
+        const includeImageLanguage = buildIncludeImageLanguage(langs);
+        // /images is unauthenticated for v3 keys but accepts the same auth
+        // shape as the rest of the API; use tmdbGet so 401/403/429 paths are
+        // shared.
+        const data = (await tmdbGet(c, `/${type}/${tmdbId}/images`, {
+          include_image_language: includeImageLanguage,
+        })) as {
+          posters?: TmdbImage[];
+          backdrops?: TmdbImage[];
+          logos?: TmdbImage[];
+        };
+
+        const base = artworkBase(c);
+        const posterSize = artworkSize(c, "poster");
+        const backdropSize = artworkSize(c, "backdrop");
+        const clearLogoSize = artworkSize(c, "clearLogo");
+
+        return {
+          poster: mapTmdbImages(data.posters, base, posterSize, langs),
+          backdrop: mapTmdbImages(data.backdrops, base, backdropSize, langs),
+          clearLogo: mapTmdbImages(data.logos, base, clearLogoSize, langs),
+          // TMDB has no thumb concept; empty array lets the per-kind merge
+          // fall through to fanart.
+          thumb: [],
+        };
+      },
+    },
   },
 });
+
+interface TmdbImage {
+  file_path: string;
+  iso_639_1: string | null;
+  vote_average: number | null;
+  width?: number | null;
+  height?: number | null;
+}
+
+function mapTmdbImages(
+  images: TmdbImage[] | undefined,
+  base: string,
+  size: string,
+  languages: string[],
+): Array<{
+  url: string;
+  language: string;
+  likes: number;
+  width?: number;
+  height?: number;
+}> {
+  const TAIL_INDEX = languages.length;
+  return (images ?? [])
+    .map((i) => ({
+      url: `${base}/${size}${i.file_path}`,
+      // TMDB uses null for textless; map to fanart's "00" convention so the
+      // aggregate dispatch sees a consistent language space across providers.
+      language: i.iso_639_1 ?? "00",
+      // Approximate fanart's `likes` from TMDB's `vote_average` (0-10) so the
+      // sort keys align across providers.
+      likes: Math.round(((i.vote_average ?? 0) as number) * 10),
+      ...(typeof i.width === "number" ? { width: i.width } : {}),
+      ...(typeof i.height === "number" ? { height: i.height } : {}),
+    }))
+    .sort((a, b) => {
+      const ai = languages.indexOf(a.language);
+      const bi = languages.indexOf(b.language);
+      const aRank = ai === -1 ? TAIL_INDEX : ai;
+      const bRank = bi === -1 ? TAIL_INDEX : bi;
+      if (aRank !== bRank) return aRank - bRank;
+      return b.likes - a.likes;
+    })
+    .slice(0, MAX_VARIANTS_PER_KIND);
+}
 
 function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette" | "other" {
   switch (type) {
@@ -439,6 +583,29 @@ function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette
     default:
       return "other";
   }
+}
+
+/**
+ * Translates the capability's `languages` preference list into TMDB's
+ * `include_image_language` query string. TMDB writes textless ("no
+ * language") variants under the literal string "null"; the caller's "00"
+ * convention maps to that. Always includes "null" so textless art is a
+ * valid fallback when localised art is missing.
+ *
+ * Example: `["fr", "en", "00"]` → `"fr,en,null"`.
+ *          `["en"]`            → `"en,null"`.
+ */
+function buildIncludeImageLanguage(langs: string[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const lang of langs) {
+    const mapped = lang === "00" ? "null" : lang;
+    if (seen.has(mapped)) continue;
+    seen.add(mapped);
+    out.push(mapped);
+  }
+  if (!seen.has("null")) out.push("null");
+  return out.join(",");
 }
 
 function buildVideoUrl(site: string, key: string): string | null {

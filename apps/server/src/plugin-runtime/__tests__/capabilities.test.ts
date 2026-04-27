@@ -25,6 +25,7 @@ describe("capability catalog", () => {
     const keys = Object.keys(CAPABILITY_CATALOG).sort();
     expect(keys).toEqual(
       [
+        "artwork@v1",
         "calendar@v1",
         "collection@v1",
         "continueWatching@v1",

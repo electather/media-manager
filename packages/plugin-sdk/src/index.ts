@@ -33,6 +33,29 @@ export type {
 export type { JSONSchema } from "@ent-mcp/shared/common";
 export type { HostErrorCode } from "@ent-mcp/shared/errors";
 export {
+  artworkVariantSchema,
+  artworkBundleSchema,
+  artworkIdMapSchema,
+  artworkRequestItemSchema,
+  artworkErrorSchema,
+  artworkGetResponseSchema,
+  ARTWORK_KINDS,
+  ARTWORK_ID_TYPES,
+  ARTWORK_ERROR_CODES,
+  MAX_VARIANTS_PER_KIND,
+} from "@ent-mcp/shared/artwork";
+export type {
+  ArtworkVariant,
+  ArtworkBundle,
+  ArtworkIdMap,
+  ArtworkRequestItem,
+  ArtworkError,
+  ArtworkGetResponse,
+  ArtworkKind,
+  ArtworkIdType,
+  ArtworkErrorCode,
+} from "@ent-mcp/shared/artwork";
+export {
   libraryItemSchema,
   libraryItemQualitySchema,
   LIBRARY_ITEM_TYPES,

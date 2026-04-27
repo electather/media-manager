@@ -138,7 +138,7 @@ vi.mock("@ent-mcp/plugin-sdk", async (orig) => {
     getCapability: () => ({
       id: "library",
       version: "v1",
-      strategy: "single",
+      strategy: { kind: "single" },
       scope: "user",
       defaultCacheTtlSec: 60,
       negativeCacheTtlSec: 30,

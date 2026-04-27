@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./artwork": "./src/artwork/index.ts",
     "./auth": "./src/auth/index.ts",
     "./common": "./src/common/index.ts",
     "./connections": "./src/connections/index.ts",
