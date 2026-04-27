@@ -109,30 +109,37 @@ export class CatalogService {
     // INSERT-OR-REPLACE. `created_at` is preserved on update via SQL
     // `COALESCE(existing, incoming)`; `last_refreshed_at` always advances
     // to the incoming value so `listStaleMetadata` stays accurate.
-    for (const row of rows) {
-      await this.db
-        .insert(canonicalMetadata)
-        .values(row)
-        .onConflictDoUpdate({
-          target: [canonicalMetadata.tmdbId, canonicalMetadata.mediaType],
-          set: {
-            title: row.title,
-            year: row.year,
-            runtimeMinutes: row.runtimeMinutes,
-            posterUrl: row.posterUrl,
-            backdropUrl: row.backdropUrl,
-            clearLogoUrl: row.clearLogoUrl,
-            thumbUrl: row.thumbUrl,
-            overview: row.overview,
-            originalLanguage: row.originalLanguage,
-            genres: row.genres,
-            features: row.features,
-            lastRefreshedAt: row.lastRefreshedAt,
-            lastAccessedAt: row.lastAccessedAt,
-            createdAt: sql`COALESCE(${canonicalMetadata.createdAt}, ${row.createdAt})`,
-          },
-        });
-    }
+    // The `COALESCE` on `created_at` blocks a single multi-row upsert
+    // (the SET clause references the existing column), so we still issue
+    // one statement per row but bundle them inside a single transaction
+    // — collapses 25 individual WAL commits to one and amortizes the
+    // round-trip cost of the metadata-refresh batch.
+    await this.db.transaction(async (tx) => {
+      for (const row of rows) {
+        await tx
+          .insert(canonicalMetadata)
+          .values(row)
+          .onConflictDoUpdate({
+            target: [canonicalMetadata.tmdbId, canonicalMetadata.mediaType],
+            set: {
+              title: row.title,
+              year: row.year,
+              runtimeMinutes: row.runtimeMinutes,
+              posterUrl: row.posterUrl,
+              backdropUrl: row.backdropUrl,
+              clearLogoUrl: row.clearLogoUrl,
+              thumbUrl: row.thumbUrl,
+              overview: row.overview,
+              originalLanguage: row.originalLanguage,
+              genres: row.genres,
+              features: row.features,
+              lastRefreshedAt: row.lastRefreshedAt,
+              lastAccessedAt: row.lastAccessedAt,
+              createdAt: sql`COALESCE(${canonicalMetadata.createdAt}, ${row.createdAt})`,
+            },
+          });
+      }
+    });
   }
 
   async listStaleMetadata(staleAfterMs: number, limit: number): Promise<MetadataKey[]> {

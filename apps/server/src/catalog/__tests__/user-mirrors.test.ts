@@ -122,4 +122,24 @@ describe("CatalogService user mirrors", () => {
     await catalog.appendUserRatings("u1", [ratingEvent()], "trakt", 2_000);
     expect(await catalog.getUserRatings("u1")).toHaveLength(1);
   });
+
+  it("serializes concurrent rating appends for the same user via the per-user mutex", async () => {
+    const a: RatingEvent[] = [
+      ratingEvent({ tmdbId: "1", ratedAt: 100 }),
+      ratingEvent({ tmdbId: "2", ratedAt: 200 }),
+    ];
+    const b: RatingEvent[] = [
+      ratingEvent({ tmdbId: "3", ratedAt: 300 }),
+      ratingEvent({ tmdbId: "4", ratedAt: 400 }),
+    ];
+
+    await Promise.all([
+      catalog.appendUserRatings("u1", a, "trakt", 200),
+      catalog.appendUserRatings("u1", b, "trakt", 400),
+    ]);
+
+    const events = await catalog.getUserRatings("u1");
+    const ids = events.map((e) => e.tmdbId).sort();
+    expect(ids).toEqual(["1", "2", "3", "4"]);
+  });
 });

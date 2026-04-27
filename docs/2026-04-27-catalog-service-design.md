@@ -156,10 +156,13 @@ CatalogService {
   writeMetadata(rows[])
   writeDiscoverSnapshot(kind, sort, day, items[])
   writeRecommendationList(userId, kind, items[], profileVersion)
-  appendUserHistory(userId, events[], connId: string, cursorTs: integer-ms)
+  appendUserHistory(userId, events[], pluginId: string, cursorTs: integer-ms)
                                                        -- per-user mutex; BEGIN IMMEDIATE;
                                                        -- merges cursor slot via max(prior, cursorTs) inside tx
-  appendUserRatings(userId, events[], connId: string, cursorTs: integer-ms)
+                                                       -- arg name kept as `connId` on prior revisions; v1 ships
+                                                       -- with `pluginId` since the dispatcher has no
+                                                       -- `connectionId` filter (see migration §PR 5 note)
+  appendUserRatings(userId, events[], pluginId: string, cursorTs: integer-ms)
                                                        -- same shape
 
   // ── access bookkeeping ──
@@ -275,8 +278,8 @@ MediaService {
   // NEW (PR 5). Wraps dispatchAggregate; same shape as PE provider's getHistory/getAllRatings today.
   // Plugin contract unchanged: full-list fetch. Incremental = host diff against mirror.
   // Per-user instance: `new MediaService(userId)` per row in `user_mirror_sync`.
-  getAllHistory(connId?)  → HistoryItem[]                 -- optional connId narrows to one connection
-  getAllRatings(connId?)  → RatingItem[]
+  getAllHistory(pluginId?)  → HistoryItem[]               -- optional pluginId narrows to one plugin
+  getAllRatings(pluginId?)  → RatingItem[]                -- (dispatcher has no connectionId filter v1)
 }
 ```
 
@@ -315,31 +318,37 @@ host.catalog.discover_snapshot            (scheduled, 06:00 daily; runTimeoutSec
 
 host.catalog.user_mirror_sync             (scheduled_per_row, every 6h; runTimeoutSec = 30 * 60)
   rows = active connections w/ watchHistory@v1 | ratings@v1
-  per (userId, connId):
+  -- Phase 5 ships per (userId, pluginId). The dispatcher exposes
+  -- `pluginId` filtering but no `connectionId` filter, so users with
+  -- multiple connections to the same plugin share a per-row sync. Events
+  -- still tag `sourceConnectionId = pluginId`. A future refinement that
+  -- adds dispatcher-level `connectionId` filtering can switch the row
+  -- shape to `(userId, connectionId)` without changing the sync body.
+  per (userId, pluginId):
     ms = new MediaService(userId)                                  -- per-user instance for plugin dispatch
     -- HISTORY (independent table, independent cursor blob)
     try:
-      full     = ms.getAllHistory(connId)
-      existing = catalog.getUserHistory(userId)                    -- all events; filter to connId next
-      seen     = new Set(existing.filter(e => e.source_connection_id == connId)
+      full     = ms.getAllHistory(pluginId)
+      existing = catalog.getUserHistory(userId)                    -- all events; filter to pluginId next
+      seen     = new Set(existing.filter(e => e.source_connection_id == pluginId)
                                  .map(e => key(e)))
                                                                    -- key: (tmdbId, mediaType, watched_at, episode_key ?? '')
       newHist  = full.filter(e => !seen.has(key(e)))
       if newHist.length > 0:
-        catalog.appendUserHistory(userId, newHist, connId, maxTs(newHist))
+        catalog.appendUserHistory(userId, newHist, pluginId, maxTs(newHist))
                                                                    -- atomic merge inside tx: read prior cursor blob,
-                                                                   -- write events ++, update only this connId's
+                                                                   -- write events ++, update only this pluginId's
                                                                    -- slot to max(prior_slot, cursorTs)
     catch: log + ⊥ advance history cursor
     -- RATINGS (independent table, independent cursor blob)
     try:
-      full     = ms.getAllRatings(connId)
+      full     = ms.getAllRatings(pluginId)
       existing = catalog.getUserRatings(userId)
-      seen     = new Set(existing.filter(e => e.source_connection_id == connId)
+      seen     = new Set(existing.filter(e => e.source_connection_id == pluginId)
                                  .map(e => key(e)))                -- key: (tmdbId, mediaType, rated_at)
       newRate  = full.filter(e => !seen.has(key(e)))
       if newRate.length > 0:
-        catalog.appendUserRatings(userId, newRate, connId, maxTs(newRate))
+        catalog.appendUserRatings(userId, newRate, pluginId, maxTs(newRate))
     catch: log + ⊥ advance ratings cursor
 
 host.catalog.prune                        (scheduled, 07:00 daily; runTimeoutSec = 30 * 60)

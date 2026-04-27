@@ -52,31 +52,42 @@ export async function syncUserPluginPair(
 ): Promise<void> {
   const media = new MediaService(row.userId);
 
+  ctx.abortSignal.throwIfAborted();
   try {
-    ctx.abortSignal.throwIfAborted();
     const events = await collectHistoryEvents(media, row.pluginId);
     if (events.length > 0) {
       const cursorTs = events.reduce((max, ev) => Math.max(max, ev.watchedAt), 0);
       await deps.catalog.appendUserHistory(row.userId, events, row.pluginId, cursorTs);
     }
   } catch (err) {
+    // Cancellation must propagate; any other failure on this capability
+    // logs a warning and lets the ratings block still run so a transient
+    // history-plugin error does not block ratings sync.
+    if (isAbortError(err, ctx)) throw err;
     ctx.logger.warn(
       `[catalog:user-mirror-sync] history dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
     );
   }
 
+  ctx.abortSignal.throwIfAborted();
   try {
-    ctx.abortSignal.throwIfAborted();
     const events = await collectRatingEvents(media, row.pluginId);
     if (events.length > 0) {
       const cursorTs = events.reduce((max, ev) => Math.max(max, ev.ratedAt), 0);
       await deps.catalog.appendUserRatings(row.userId, events, row.pluginId, cursorTs);
     }
   } catch (err) {
+    if (isAbortError(err, ctx)) throw err;
     ctx.logger.warn(
       `[catalog:user-mirror-sync] ratings dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
     );
   }
+}
+
+function isAbortError(err: unknown, ctx: JobRunContext): boolean {
+  if (ctx.abortSignal.aborted) return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
 }
 
 async function collectHistoryEvents(
@@ -136,7 +147,11 @@ function toRatingEvent(
 ): RatingEvent[] {
   const identity = identify(entry.item);
   if (!identity || typeof entry.rating !== "number") return [];
-  const ratedAt = parseDate(entry.ratedAt) ?? Date.now();
+  // The dedupe key includes `ratedAt`; falling back to `Date.now()` would
+  // mint a fresh key every sync run and let the same plugin entry land
+  // repeatedly. Drop malformed events instead, mirroring the history path.
+  const ratedAt = parseDate(entry.ratedAt);
+  if (ratedAt === null) return [];
   return [
     {
       tmdbId: identity.tmdbId,

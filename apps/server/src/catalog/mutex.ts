@@ -15,6 +15,11 @@ export class PerUserMutex {
    */
   async run<T>(userId: string, task: () => Promise<T>): Promise<T> {
     const previous = this.chains.get(userId) ?? Promise.resolve();
+    // The slot only ever holds a `tracked` promise that swallows
+    // rejections (see below), so the rejection branch of `then(task, task)`
+    // is currently unreachable. We pass `task` for both branches so that
+    // if a future caller stores a raw rejecting promise, the next link
+    // still runs instead of deadlocking on the prior failure.
     const next = previous.then(task, task);
     // Track the next-in-line promise (swallowed so the chain stays
     // unresolved on rejection). When this call drains, only clear the slot

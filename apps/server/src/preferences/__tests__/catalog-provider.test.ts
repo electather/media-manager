@@ -65,7 +65,11 @@ describe("CatalogPreferenceProvider", () => {
     expect(fallback.getItemFeatures).toHaveBeenCalledOnce();
 
     // Wait one tick so the detached cold-fill `void writeMetadata(...)` runs.
-    await new Promise((resolve) => setImmediate(resolve));
+    // Yield two macrotask turns so the detached `void coldFill(...).catch(log)`
+    // chain settles. `setTimeout(0)` is portable across Node, Bun, and the
+    // Vitest browser runner; `setImmediate` is Node-only.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const persisted = await catalog.getMetadata("550", "movie");
     expect(persisted?.features?.director).toBe("David Fincher");
@@ -88,7 +92,11 @@ describe("CatalogPreferenceProvider", () => {
 
     const features = await provider.getItemFeatures("u1", "550", "movie");
     expect(features?.title).toBe("Fight Club");
-    await new Promise((resolve) => setImmediate(resolve));
+    // Yield two macrotask turns so the detached `void coldFill(...).catch(log)`
+    // chain settles. `setTimeout(0)` is portable across Node, Bun, and the
+    // Vitest browser runner; `setImmediate` is Node-only.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(writeSpy).toHaveBeenCalled();
   });
 
