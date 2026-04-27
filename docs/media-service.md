@@ -58,6 +58,12 @@ class MediaService {
   getMetadata(userId: string, id: MediaId): Promise<MediaItem | null>;
   searchMetadata(userId: string, query: string, opts?: SearchOpts): Promise<MediaItem[]>;
   getSimilar(userId: string, id: MediaId): Promise<MediaItem[]>;
+  getArtwork(opts: {
+    ids: ArtworkIdMap;
+    type: MediaType;
+    languages?: string[];
+  }): Promise<ArtworkBundle>;
+  resolveIds(requests: Array<{ from: string; id: string; type: MediaType }>): Promise<IdBundle[]>;
   // ... future
 
   // health/ops — jobs & admin
@@ -66,13 +72,17 @@ class MediaService {
 }
 ```
 
+`getArtwork` = cache-first wrapper around `artwork@v1` aggregate dispatch. Reads capability-layer cache keyed on `(idsHash, type, langPrefHash)`; on miss runs `aggregate_per_kind` strategy, writes cache, returns bundle. Throws `artwork.unsupported_id_combo` when no provider eligible. Returns empty bundle (cached negative) when all eligible providers return empty | throw. See `docs/2026-04-26-plugin-fanart-design.md`.
+
+`resolveIds` = batched wrapper over existing host-internal `idResolver`. Returns array aligned to input; each element = whatever ids resolved (tmdb/imdb/tvdb keys present where known). Empty bundle = no resolution found. Reads existing `id_map` cache. Adopts `idResolve@v1` mixed-scope rules per architecture-doc.
+
 Thin facade. Each method:
 
 1. Look up capability strategy in registry
 2. Build cache key: capability + method + args + (user_id if user-scoped)
 3. Cache hit → return
 4. Cache miss → resolve connections (which plugins, which creds)
-5. Dispatch via strategy (single / aggregate / primary_with_enrichment)
+5. Dispatch via strategy (single / aggregate / primary_with_enrichment / aggregate_per_kind)
 6. Harvest `id_map` from successful responses
 7. Store merged result in cache with capability TTL
 8. Return
@@ -84,15 +94,21 @@ New capability = 1 method here, 1 strategy decl, strategy-specific logic. No new
 Capability declares dispatch strategy host-side. `MediaService` reads from registry & dispatches.
 
 ```ts
+// Tagged-union shape — extensible via discriminated `kind`. Earlier draft used
+// flat enum; widened when artwork@v1 introduced the per-kind merge variant.
 type Strategy =
-  | "single" // 1 connection; fail = total fail
-  | "aggregate" // call all, merge (union semantics)
-  | "primary_with_enrichment"; // user picks primary; others fill nulls
+  | { kind: "single" } // 1 connection; fail = total fail
+  | { kind: "aggregate" } // call all, merge (union semantics)
+  | { kind: "primary_with_enrichment"; primary: PluginId; enrich: PluginId[] }
+  // user picks primary; others fill nulls
+  | { kind: "aggregate_per_kind"; perKindFields: string[] };
+// call all, first non-empty wins per declared
+// bundle field. Used by artwork@v1.
 
 export const MetadataV1 = defineCapability({
   id: "metadata",
   version: "v1",
-  strategy: "primary_with_enrichment",
+  strategy: { kind: "primary_with_enrichment" },
   defaultCacheTtlSec: 60 * 60 * 24, // 24h
   methods: {
     getById: {
@@ -111,16 +127,17 @@ export const MetadataV1 = defineCapability({
 });
 ```
 
-| Capability           | Strategy                  | Rationale                                     |
-| -------------------- | ------------------------- | --------------------------------------------- |
-| `metadata@v1`        | `primary_with_enrichment` | User picks primary per type; others fill gaps |
-| `watchHistory@v1`    | `aggregate`               | Merge from all trackers                       |
-| `watchlist@v1`       | `aggregate`               | Union all                                     |
-| `ratings@v1`         | `aggregate`               | Union, newest wins per item                   |
-| `recommendations@v1` | `aggregate`               | Merge & dedupe by tmdb_id                     |
-| `calendar@v1`        | `aggregate`               | Merge upcoming from all                       |
-| `mediaRequest@v1`    | `single`                  | Route to user's default Seerr                 |
-| `idResolve@v1`       | Internal                  | Fill `id_map` gaps                            |
+| Capability           | Strategy                  | Rationale                                      |
+| -------------------- | ------------------------- | ---------------------------------------------- |
+| `metadata@v1`        | `primary_with_enrichment` | User picks primary per type; others fill gaps  |
+| `watchHistory@v1`    | `aggregate`               | Merge from all trackers                        |
+| `watchlist@v1`       | `aggregate`               | Union all                                      |
+| `ratings@v1`         | `aggregate`               | Union, newest wins per item                    |
+| `recommendations@v1` | `aggregate`               | Merge & dedupe by tmdb_id                      |
+| `calendar@v1`        | `aggregate`               | Merge upcoming from all                        |
+| `mediaRequest@v1`    | `single`                  | Route to user's default Seerr                  |
+| `idResolve@v1`       | Internal                  | Fill `id_map` gaps                             |
+| `artwork@v1`         | `aggregate_per_kind`      | Fanart preferred, TMDB fallback per asset kind |
 
 Strategy = capability-level property, not per-method. Methods disagreeing on strategy → really 2 capabilities, split.
 
@@ -149,6 +166,16 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 - Enrichment order = stable by plugin install date
 - Primary failure → operation returns enrichment-only data (treated as partial aggregate result)
 - All failures update connection `status` (per Q3)
+
+**`aggregate_per_kind`:**
+
+- Resolve all eligible providers (capability extras like `supportedIdTypes` filter ineligible providers up-front; see capability docs).
+- Order eligible providers by capability-declared `providerPriority` (lower = higher priority); ties broken alphabetical by plugin id.
+- Fan-out parallel, per-call timeout default 15s.
+- Merge per-kind: for each field listed in `strategy.perKindFields`, walk results in priority order, take first non-empty array.
+- All eligible providers fulfilled w/ empty | all eligible providers throw → return empty bundle (every kind empty array). All-empty cached as negative; all-fail ⊥ cached.
+- Zero eligible providers (no provider can serve given input) → throw capability-specific `unsupported` error (e.g. `artwork.unsupported_id_combo`).
+- Failed provider calls update connection `status`; ⊥ poison merged result.
 
 ### Cache TTL Defaults
 
@@ -623,7 +650,7 @@ docs/
 
 ### MediaService Unit Tests
 
-- Strategy dispatch: `single`, `aggregate`, `primary_with_enrichment` w/ mocked runtime (success, permanent error, transient error, timeout)
+- Strategy dispatch: `single`, `aggregate`, `primary_with_enrichment`, `aggregate_per_kind` w/ mocked runtime (success, permanent error, transient error, timeout)
 - Cache behavior: hit, miss, TTL expiry, invalidation by prefix, negative cache
 - Connection resolution: user-only, shared-only, user-with-shared-fallback-disabled, both
 - `id_map` harvesting: opportunistic path, gap-fill path, ownership enforcement, first-writer for `imdb_id`
