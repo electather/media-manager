@@ -58,6 +58,12 @@ class MediaService {
   getMetadata(userId: string, id: MediaId): Promise<MediaItem | null>;
   searchMetadata(userId: string, query: string, opts?: SearchOpts): Promise<MediaItem[]>;
   getSimilar(userId: string, id: MediaId): Promise<MediaItem[]>;
+  getArtwork(opts: {
+    ids: ArtworkIdMap;
+    type: MediaType;
+    languages?: string[];
+  }): Promise<ArtworkBundle>;
+  resolveIds(requests: Array<{ from: string; id: string; type: MediaType }>): Promise<IdBundle[]>;
   // ... future
 
   // health/ops — jobs & admin
@@ -66,13 +72,17 @@ class MediaService {
 }
 ```
 
+`getArtwork` = cache-first wrapper around `artwork@v1` aggregate dispatch. Reads capability-layer cache keyed on `(idsHash, type, langPrefHash)`; on miss runs `aggregate_per_kind` strategy, writes cache, returns bundle. Throws `artwork.unsupported_id_combo` when no provider eligible. Returns empty bundle (cached negative) when all eligible providers return empty | throw. See `docs/2026-04-26-plugin-fanart-design.md`.
+
+`resolveIds` = batched wrapper over existing host-internal `idResolver`. Returns array aligned to input; each element = whatever ids resolved (tmdb/imdb/tvdb keys present where known). Empty bundle = no resolution found. Reads existing `id_map` cache. Adopts `idResolve@v1` mixed-scope rules per architecture-doc.
+
 Thin facade. Each method:
 
 1. Look up capability strategy in registry
 2. Build cache key: capability + method + args + (user_id if user-scoped)
 3. Cache hit → return
 4. Cache miss → resolve connections (which plugins, which creds)
-5. Dispatch via strategy (single / aggregate / primary_with_enrichment)
+5. Dispatch via strategy (single / aggregate / primary_with_enrichment / aggregate_per_kind)
 6. Harvest `id_map` from successful responses
 7. Store merged result in cache with capability TTL
 8. Return
@@ -84,15 +94,21 @@ New capability = 1 method here, 1 strategy decl, strategy-specific logic. No new
 Capability declares dispatch strategy host-side. `MediaService` reads from registry & dispatches.
 
 ```ts
+// Tagged-union shape — extensible via discriminated `kind`. Earlier draft used
+// flat enum; widened when artwork@v1 introduced the per-kind merge variant.
 type Strategy =
-  | "single" // 1 connection; fail = total fail
-  | "aggregate" // call all, merge (union semantics)
-  | "primary_with_enrichment"; // user picks primary; others fill nulls
+  | { kind: "single" } // 1 connection; fail = total fail
+  | { kind: "aggregate" } // call all, merge (union semantics)
+  | { kind: "primary_with_enrichment"; primary: PluginId; enrich: PluginId[] }
+  // user picks primary; others fill nulls
+  | { kind: "aggregate_per_kind"; perKindFields: string[] };
+// call all, first non-empty wins per declared
+// bundle field. Used by artwork@v1.
 
 export const MetadataV1 = defineCapability({
   id: "metadata",
   version: "v1",
-  strategy: "primary_with_enrichment",
+  strategy: { kind: "primary_with_enrichment" },
   defaultCacheTtlSec: 60 * 60 * 24, // 24h
   methods: {
     getById: {
@@ -111,16 +127,17 @@ export const MetadataV1 = defineCapability({
 });
 ```
 
-| Capability           | Strategy                  | Rationale                                     |
-| -------------------- | ------------------------- | --------------------------------------------- |
-| `metadata@v1`        | `primary_with_enrichment` | User picks primary per type; others fill gaps |
-| `watchHistory@v1`    | `aggregate`               | Merge from all trackers                       |
-| `watchlist@v1`       | `aggregate`               | Union all                                     |
-| `ratings@v1`         | `aggregate`               | Union, newest wins per item                   |
-| `recommendations@v1` | `aggregate`               | Merge & dedupe by tmdb_id                     |
-| `calendar@v1`        | `aggregate`               | Merge upcoming from all                       |
-| `mediaRequest@v1`    | `single`                  | Route to user's default Seerr                 |
-| `idResolve@v1`       | Internal                  | Fill `id_map` gaps                            |
+| Capability           | Strategy                  | Rationale                                      |
+| -------------------- | ------------------------- | ---------------------------------------------- |
+| `metadata@v1`        | `primary_with_enrichment` | User picks primary per type; others fill gaps  |
+| `watchHistory@v1`    | `aggregate`               | Merge from all trackers                        |
+| `watchlist@v1`       | `aggregate`               | Union all                                      |
+| `ratings@v1`         | `aggregate`               | Union, newest wins per item                    |
+| `recommendations@v1` | `aggregate`               | Merge & dedupe by tmdb_id                      |
+| `calendar@v1`        | `aggregate`               | Merge upcoming from all                        |
+| `mediaRequest@v1`    | `single`                  | Route to user's default Seerr                  |
+| `idResolve@v1`       | Internal                  | Fill `id_map` gaps                             |
+| `artwork@v1`         | `aggregate_per_kind`      | Fanart preferred, TMDB fallback per asset kind |
 
 Strategy = capability-level property, not per-method. Methods disagreeing on strategy → really 2 capabilities, split.
 
@@ -150,18 +167,31 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 - Primary failure → operation returns enrichment-only data (treated as partial aggregate result)
 - All failures update connection `status` (per Q3)
 
+**`aggregate_per_kind`:**
+
+- Resolve all eligible providers (capability extras like `supportedIdTypes` filter ineligible providers up-front; see capability docs).
+- Order eligible providers by capability-declared `providerPriority` (lower = higher priority); ties broken alphabetical by plugin id.
+- Fan-out parallel, per-call timeout default 15s.
+- Merge per-kind: for each field listed in `strategy.perKindFields`, walk results in priority order, take first non-empty array.
+- All eligible providers fulfilled w/ empty | all eligible providers throw → return empty bundle (every kind empty array). All-empty cached as negative; all-fail ⊥ cached.
+- Zero eligible providers (no provider can serve given input) → throw capability-specific `unsupported` error (e.g. `artwork.unsupported_id_combo`).
+- Failed provider calls update connection `status`; ⊥ poison merged result.
+
 ### Cache TTL Defaults
 
-Capability defines `defaultCacheTtlSec`. Admin overrides per-capability via `/admin/plugins` (future UI):
+Capability defines `defaultCacheTtlSec` (and optional `defaultNegativeCacheTtlSec`). Admin overrides per-capability via `/admin/plugins` (future UI):
 
-| Capability           | Default TTL | Notes                          |
-| -------------------- | ----------- | ------------------------------ |
-| `metadata@v1`        | 24h         | Stable titles/overviews        |
-| `watchHistory@v1`    | 5m          | User expects near-real-time    |
-| `watchlist@v1`       | 5m          | Same                           |
-| `ratings@v1`         | 15m         |                                |
-| `recommendations@v1` | 6h          |                                |
-| `calendar@v1`        | 1h          | Provider-side schedule updates |
+| Capability           | Positive TTL | Negative TTL | Notes                                                                                                                                                                               |
+| -------------------- | ------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata@v1`        | 24h          | 5m (default) | Stable titles/overviews                                                                                                                                                             |
+| `watchHistory@v1`    | 5m           | 5m (default) | User expects near-real-time                                                                                                                                                         |
+| `watchlist@v1`       | 5m           | 5m (default) | Same                                                                                                                                                                                |
+| `ratings@v1`         | 15m          | 5m (default) |                                                                                                                                                                                     |
+| `recommendations@v1` | 6h           | 5m (default) |                                                                                                                                                                                     |
+| `calendar@v1`        | 1h           | 5m (default) | Provider-side schedule updates                                                                                                                                                      |
+| `artwork@v1`         | 24h          | 6h           | Negative TTL deliberately longer than system default — niche titles legitimately have no fanart-quality art; refresh hourly = waste. See `docs/2026-04-26-plugin-fanart-design.md`. |
+
+Capabilities can override the system 5m negative TTL via `defaultNegativeCacheTtlSec`. Use sparingly — longer negative TTL trades freshness for upstream-call savings; only justified when the negative result is truly stable (e.g. an item ⊥ in a third-party catalog).
 
 ## Caching
 
@@ -180,6 +210,7 @@ mv:{capability}:{version}:{method}:{scope}:{argsHash}
 - `scope` = `global` (user-independent, e.g. metadata) or `user:{userId}` (user-scoped)
 - `argsHash` = `sha256(JSON.stringify(canonicalize(input)))` truncated 16 hex. Canonicalization = sort keys recursively.
 - Capability-level scope declared in definition (`userScoped: boolean`)
+- **Per-capability `argsHash` decomposition (optional).** A capability may decompose `argsHash` into multiple human-readable segments when separation aids readability of cache keys, prefix-flush patterns, or debugging. E.g. `artwork@v1` uses `<idsHash>:<type>:<langPrefHash>` so logs surface the type + lang preference inline rather than burying them in an opaque hash. Decomposed segments still hash any free-form payload (so `idsHash` covers the `{ tmdb?, imdb?, tvdb? }` map). Capabilities that don't decompose stay on the single-hash default. See `docs/2026-04-26-plugin-fanart-design.md` §"Cache key" for an example.
 
 ### Backend
 
@@ -203,13 +234,23 @@ Config via env: `CACHE_BACKEND=lru|redis`, `REDIS_URL=...`
 
 ### Invalidation
 
-- Mutations (e.g. `addToHistory`) call `cache.deleteByPrefix("mv:watchHistory:v1:*:user:{userId}:*")` post-success
-- Each mutating method declares invalidation prefix pattern
-- Connection changes (create/update/delete/enable/disable) invalidate all user caches for affected capabilities. Event-driven from connections layer.
+Three event sources, each with own cache scope:
+
+| Event source                                                     | Scope flushed                                                        | Mechanism                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mutating capability call (e.g. `addToHistory`)                   | Affected user's keyspace for that capability                         | `cache.deleteByPrefix("mv:{cap}:{ver}:*:user:{userId}:*")` post-success                                                                                                                                                     |
+| Connection change (create / update / delete / enable / disable)  | Affected user's keyspace for capabilities the plugin implements      | Event-driven from connections layer                                                                                                                                                                                         |
+| Plugin enable/disable (admin `plugin.enable` / `plugin.disable`) | All keyspaces for capabilities the plugin implements (global + user) | Event-driven from plugin-state-change pipeline; emits `plugin:state-changed` event w/ `pluginId` payload; cache layer iterates capabilities the plugin declares + calls `cache.deleteByPrefix("mv:{cap}:{ver}:*")` for each |
+
+Each mutating method declares its invalidation prefix pattern; non-mutating reads ⊥ trigger invalidation.
+
+**Plugin-level events for global-scope capabilities.** Connection-level invalidation is per-user — wrong trigger for global-scope capabilities (e.g. `metadata@v1`, `watchProviders@v1`, `trailers@v1`, `artwork@v1`) where cache entries serve every user. Plugin enable/disable = the only event that should flush global keyspaces. Pipeline lives in `apps/server/src/plugin-runtime/` and emits the event in same code path that adds/removes the plugin from the dispatch registry.
+
+**Cross-capability flush from one plugin event.** Plugins implementing multiple capabilities (e.g. TMDB implements `metadata@v1`, `idResolve@v1`, `watchProviders@v1`, `trailers@v1`, `artwork@v1`) → single `plugin:state-changed` event flushes all five keyspaces. Cache layer reads capability list from plugin manifest; ⊥ remember registration history.
 
 ### Negative Caching
 
-Null results (nonexistent tmdb_id) cached shorter TTL (default 5m) to prevent hammering external APIs for bad inputs. Errors not cached.
+Null results (nonexistent tmdb_id) cached shorter TTL (system default 5m) to prevent hammering external APIs for bad inputs. Errors not cached. Capabilities can override system default via `defaultNegativeCacheTtlSec` in `defineCapability` — see §"Cache TTL Defaults" table.
 
 ## Error Handling
 
@@ -361,7 +402,9 @@ Per plugin call:
 
 ## TMDB Plugin
 
-Reference impl, builtin. Location: `server/plugins/builtin/tmdb/`
+Reference impl, builtin. Location: `server/plugins/builtin/tmdb/` (will move to `packages/plugins/tmdb/` per `docs/2026-04-25-plugin-monorepo-design.md`).
+
+> **Pre-migration snapshot.** The manifest block below = original 2026-04-19 shape using `allowsSharedCredentials` + `auth: "form"` + per-user `api_key`. Current authoritative TMDB manifest moved to pure-global pattern: `auth: { kind: "none" }`, `poolable: true`, `sharedCredentialsSchema: { apiKey }`, `capabilities` includes `metadata@v1`, `idResolve@v1`, `watchProviders@v1`, `trailers@v1`, `artwork@v1`. See `docs/2026-04-19-plugin-architecture-design.md` §"Concrete Plugin Mappings" + `docs/2026-04-26-plugin-fanart-design.md` §"`@ent-mcp/plugin-tmdb` delta" for current fields. Block kept for historical context — illustrates dispatch + caching patterns; manifest detail does ⊥ reflect repo state.
 
 ### Manifest
 
@@ -623,7 +666,7 @@ docs/
 
 ### MediaService Unit Tests
 
-- Strategy dispatch: `single`, `aggregate`, `primary_with_enrichment` w/ mocked runtime (success, permanent error, transient error, timeout)
+- Strategy dispatch: `single`, `aggregate`, `primary_with_enrichment`, `aggregate_per_kind` w/ mocked runtime (success, permanent error, transient error, timeout)
 - Cache behavior: hit, miss, TTL expiry, invalidation by prefix, negative cache
 - Connection resolution: user-only, shared-only, user-with-shared-fallback-disabled, both
 - `id_map` harvesting: opportunistic path, gap-fill path, ownership enforcement, first-writer for `imdb_id`

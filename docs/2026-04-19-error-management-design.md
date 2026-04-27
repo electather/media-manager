@@ -82,6 +82,9 @@ export const HOST_ERROR_CODES = {
   "plugin.bad_credentials": { severity: "info" },
   "plugin.upstream_error": { severity: "error" },
   "plugin.output_invalid": { severity: "warning" },
+  "artwork.bad_input": { severity: "info" },
+  "artwork.unsupported_id_combo": { severity: "info" },
+  "artwork.internal": { severity: "error" },
   // ...
 } as const satisfies Record<string, ErrorCodeSpec>;
 ```
@@ -156,6 +159,9 @@ export const HOST_ERROR_CODES = {
   "plugin.disabled": { severity: "info" },
   "oauth.state_expired": { severity: "info" },
   "oauth.polling_timeout": { severity: "info" },
+  "artwork.bad_input": { severity: "info" },
+  "artwork.unsupported_id_combo": { severity: "info" },
+  "artwork.internal": { severity: "error" },
   // ...
 } as const satisfies Record<string, ErrorCodeSpec>;
 

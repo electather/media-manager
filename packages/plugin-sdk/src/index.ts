@@ -10,6 +10,30 @@ export * from "./errors/plugin-error";
 export * from "./utils/http-status";
 export * from "./utils/credentials";
 export * from "./capabilities";
+export { MetadataV1 } from "./capabilities/metadata";
+export { WatchHistoryV1 } from "./capabilities/watch-history";
+export { WatchlistV1 } from "./capabilities/watchlist";
+export { RatingsV1 } from "./capabilities/ratings";
+export { RecommendationsV1 } from "./capabilities/recommendations";
+export { CalendarV1 } from "./capabilities/calendar";
+export { MediaRequestV1 } from "./capabilities/media-request";
+export { IdResolveV1 } from "./capabilities/id-resolve";
+export type { IdResolveKind } from "./capabilities/id-resolve";
+export { UserCommentsV1 } from "./capabilities/user-comments";
+export { WatchProvidersV1 } from "./capabilities/watch-providers";
+export { TrailersV1 } from "./capabilities/trailers";
+export { PlaybackV1 } from "./capabilities/playback";
+export { CollectionV1 } from "./capabilities/collection";
+export { LibraryAvailabilityV1 } from "./capabilities/library-availability";
+export { ContinueWatchingV1 } from "./capabilities/continue-watching";
+export type { ContinueWatchingEntry } from "./capabilities/continue-watching";
+export { PlaybackSessionsV1 } from "./capabilities/playback-sessions";
+export type { SessionEntry } from "./capabilities/playback-sessions";
+export { LibraryAdminV1 } from "./capabilities/library-admin";
+export { ArtworkV1, artworkV1ManifestExtrasSchema } from "./capabilities/artwork";
+export type { ArtworkV1ManifestExtras } from "./capabilities/artwork";
+export type { NotificationDeliveryCapabilityV1 } from "./capabilities/notification-delivery";
+export type { MediaItemShape } from "./capabilities/shared-schemas";
 export * from "./validate";
 export * from "./version";
 
@@ -32,6 +56,29 @@ export type {
 } from "@ent-mcp/shared/plugins";
 export type { JSONSchema } from "@ent-mcp/shared/common";
 export type { HostErrorCode } from "@ent-mcp/shared/errors";
+export {
+  artworkVariantSchema,
+  artworkBundleSchema,
+  artworkIdMapSchema,
+  artworkRequestItemSchema,
+  artworkErrorSchema,
+  artworkGetResponseSchema,
+  ARTWORK_KINDS,
+  ARTWORK_ID_TYPES,
+  ARTWORK_ERROR_CODES,
+  MAX_VARIANTS_PER_KIND,
+} from "@ent-mcp/shared/artwork";
+export type {
+  ArtworkVariant,
+  ArtworkBundle,
+  ArtworkIdMap,
+  ArtworkRequestItem,
+  ArtworkError,
+  ArtworkGetResponse,
+  ArtworkKind,
+  ArtworkIdType,
+  ArtworkErrorCode,
+} from "@ent-mcp/shared/artwork";
 export {
   libraryItemSchema,
   libraryItemQualitySchema,
