@@ -65,8 +65,6 @@ export interface HomeRowStub {
   subtitle?: string;
   /** Cursor to pass as the first `getRowContent` call. Null means first page; non-null pins a seed (e.g. `becauseYouWatched`). */
   initialCursor: string | null;
-  /** Set when the hero fetch returned partial data for this row's source. */
-  partial?: true;
 }
 
 export interface HomeLayoutResponse {

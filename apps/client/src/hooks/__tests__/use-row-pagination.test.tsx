@@ -38,6 +38,7 @@ function Probe(props: Parameters<typeof useRowPagination>[0]) {
       <div data-testid="cursor">{r.cursor ?? "null"}</div>
       <div data-testid="has-more">{String(r.hasMore)}</div>
       <div data-testid="pending">{String(r.isPending)}</div>
+      <div data-testid="partial">{String(r.isPartial)}</div>
       <button type="button" onClick={() => r.fetchNext()}>
         next
       </button>
@@ -98,6 +99,16 @@ describe("useRowPagination", () => {
     await waitFor(() => {
       expect(screen.getByTestId("items").textContent).toBe("movie:1,movie:3");
       expect(screen.getByTestId("has-more").textContent).toBe("false");
+    });
+  });
+
+  it("surfaces isPartial when any page returns partial: true", async () => {
+    apiMock.getRowContent.mockResolvedValueOnce(
+      jsonResponse({ items: [item("tv:1")], cursor: null, partial: true }),
+    );
+    renderProbe({ rowId: "upcomingForYou", initialCursor: null });
+    await waitFor(() => {
+      expect(screen.getByTestId("partial").textContent).toBe("true");
     });
   });
 

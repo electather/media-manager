@@ -523,9 +523,11 @@ t=~???   stub stamping (<5ms): override title + initialCursor, drop hero
 ```
 
 Per-row fetch timeout: 5s (bumped from 3s in #135 for `invokeOne`'s
-rate-limit retry headroom). Hero timeout → `hero: null`, no row dropped.
-Per-row content fetches happen in `home.getRowContent`, called by the
-client per visible row after the skeleton arrives.
+rate-limit retry headroom). `fetchHero` walks candidates serially, so a
+pipeline-level deadline (`HERO_DEADLINE_MS = 7s`) caps the total budget
+even when multiple candidates time out. Hero timeout → `hero: null`, no
+row dropped. Per-row content fetches happen in `home.getRowContent`,
+called by the client per visible row after the skeleton arrives.
 
 ## Row catalog
 

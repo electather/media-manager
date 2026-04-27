@@ -114,7 +114,7 @@ export function makeHero(
   };
 }
 
-const HERO_REASONS: Partial<Record<RowKind, LayoutHero["reason"]>> = {
+export const HERO_REASONS: Partial<Record<RowKind, LayoutHero["reason"]>> = {
   continueWatching: "continue_watching",
   recommendedForYou: "recommended",
   trendingNow: "trending",
@@ -135,5 +135,3 @@ export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]):
   if (inOrder.has("trendingNow")) out.push("trendingNow");
   return out;
 }
-
-export { HERO_REASONS };

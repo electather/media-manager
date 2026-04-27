@@ -30,6 +30,15 @@ import {
  */
 const PER_ROW_TIMEOUT_MS = 5_000;
 
+/**
+ * Global wall-clock budget for `fetchHero`. Each candidate's `runFetch` carries
+ * its own 5s budget; without a pipeline-level cap, three hero candidates all
+ * hitting timeout would compound to ~15s before `getLayout` returns. The cap
+ * preserves the design-doc claim that `getLayout` is bounded by a single hero
+ * fetch in the worst case.
+ */
+const HERO_DEADLINE_MS = 7_000;
+
 export interface LayoutPipelineResult {
   hero: LayoutHero | null;
   stubs: HomeRowStub[];
@@ -63,17 +72,35 @@ export function buildRowStubs(order: RowKind[], signals: LayoutSignals): HomeRow
   });
 }
 
+type HeroResult = {
+  hero: LayoutHero | null;
+  heroSource: RowKind | null;
+  heroCursor: string | null;
+};
+
+const HERO_NULL: HeroResult = { hero: null, heroSource: null, heroCursor: null };
+
 /**
  * Tries each candidate row in priority order, fetching a single item. Stops
  * at the first row that returns a non-empty result and builds the hero from
  * it. Returns `heroCursor` — the cursor after that one item — which the
  * caller stamps onto the source row stub so clients skip the hero item when
- * they paginate.
+ * they paginate. Bounded by `HERO_DEADLINE_MS` so the serial loop cannot
+ * compound multiple per-row timeouts.
  */
-export async function fetchHero(
-  candidates: RowKind[],
-  ctx: RowFetchContext,
-): Promise<{ hero: LayoutHero | null; heroSource: RowKind | null; heroCursor: string | null }> {
+export async function fetchHero(candidates: RowKind[], ctx: RowFetchContext): Promise<HeroResult> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const deadline = new Promise<HeroResult>((resolve) => {
+    timer = setTimeout(() => resolve(HERO_NULL), HERO_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([fetchHeroLoop(candidates, ctx), deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function fetchHeroLoop(candidates: RowKind[], ctx: RowFetchContext): Promise<HeroResult> {
   for (const rowId of candidates) {
     const result = await runFetch(rowId, ctx, { cursor: null, limit: 1 });
     if (result.items.length === 0) continue;
@@ -83,7 +110,7 @@ export async function fetchHero(
     const hero = makeHero(item, rowId, reason);
     return { hero, heroSource: rowId, heroCursor: result.cursor };
   }
-  return { hero: null, heroSource: null, heroCursor: null };
+  return HERO_NULL;
 }
 
 /**

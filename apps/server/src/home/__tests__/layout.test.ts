@@ -240,6 +240,34 @@ describe("fetchHero", () => {
       ROW_FETCHERS.trendingNow.fetch = orig;
     }
   });
+
+  it("respects the global hero deadline so per-row timeouts do not compound", async () => {
+    // Three hero candidates each hitting the 5s per-row timeout would compound
+    // to ~15s without a pipeline-level cap. The 7s global deadline returns a
+    // null hero before the third candidate can finish timing out.
+    const origCW = ROW_FETCHERS.continueWatching.fetch;
+    const origRFY = ROW_FETCHERS.recommendedForYou.fetch;
+    const origTrending = ROW_FETCHERS.trendingNow.fetch;
+    const hang = () => new Promise<never>(() => {});
+    ROW_FETCHERS.continueWatching.fetch = hang;
+    ROW_FETCHERS.recommendedForYou.fetch = hang;
+    ROW_FETCHERS.trendingNow.fetch = hang;
+    vi.useFakeTimers();
+    try {
+      const ctx = makeStubCtx();
+      const promise = fetchHero(["continueWatching", "recommendedForYou", "trendingNow"], ctx);
+      await vi.advanceTimersByTimeAsync(7_001);
+      const result = await promise;
+      expect(result.hero).toBeNull();
+      expect(result.heroSource).toBeNull();
+      expect(result.heroCursor).toBeNull();
+    } finally {
+      ROW_FETCHERS.continueWatching.fetch = origCW;
+      ROW_FETCHERS.recommendedForYou.fetch = origRFY;
+      ROW_FETCHERS.trendingNow.fetch = origTrending;
+      vi.useRealTimers();
+    }
+  });
 });
 
 function makeStubCtx(): RowFetchContext {

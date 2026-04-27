@@ -54,7 +54,7 @@ function RowInner({ row, onRowUnavailable }: RowProps) {
         >
           {title}
         </h2>
-        {row.partial ? (
+        {pagination.isPartial ? (
           <Tooltip>
             <TooltipTrigger
               aria-label="Some sources didn't respond"
