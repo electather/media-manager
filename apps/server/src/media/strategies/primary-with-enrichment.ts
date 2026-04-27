@@ -3,9 +3,16 @@ import { getPrimaryConnection } from "../primary-preference";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
 import { invokeOne, harvestFromOutcomes } from "../invoke";
+import type { ResolvedConnection } from "../resolve-connection";
+import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
 
-function mergeObjects(base: Record<string, unknown>, extra: Record<string, unknown>): void {
+interface Candidate {
+  pluginId: string;
+  conn: ResolvedConnection;
+}
+
+function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
     const current = base[key];
     const isGap =
@@ -25,9 +32,35 @@ function mergeObjects(base: Record<string, unknown>, extra: Record<string, unkno
       !Array.isArray(value) &&
       value !== null
     ) {
-      mergeObjects(current as Record<string, unknown>, value as Record<string, unknown>);
+      fillGaps(current as Record<string, unknown>, value as Record<string, unknown>);
     }
   }
+}
+
+async function resolveOrderedCandidates(
+  userId: string,
+  orderedPluginIds: string[],
+): Promise<Candidate[]> {
+  const candidates: Candidate[] = [];
+  for (const pluginId of orderedPluginIds) {
+    const conn = await pickSingleConnection(userId, pluginId);
+    if (conn) candidates.push({ pluginId, conn });
+  }
+  return candidates;
+}
+
+function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
+  const first = successes[0]!;
+  if (Array.isArray(first.data) || typeof first.data !== "object") {
+    return first.data as T;
+  }
+  const base: Record<string, unknown> = JSON.parse(JSON.stringify(first.data));
+  for (const outcome of successes.slice(1)) {
+    if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
+      fillGaps(base, outcome.data as Record<string, unknown>);
+    }
+  }
+  return base as T;
 }
 
 /**
@@ -53,16 +86,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   });
   const primaryPlugin = primary?.pluginId ?? providers[0]!;
   const ordered = [primaryPlugin, ...providers.filter((p) => p !== primaryPlugin)];
-
-  const candidates: Array<{
-    pluginId: string;
-    conn: NonNullable<Awaited<ReturnType<typeof pickSingleConnection>>>;
-  }> = [];
-  for (const pluginId of ordered) {
-    const conn = await pickSingleConnection(req.userId, pluginId);
-    if (!conn) continue;
-    candidates.push({ pluginId, conn });
-  }
+  const candidates = await resolveOrderedCandidates(req.userId, ordered);
 
   const outcomes = await Promise.all(
     candidates.map(({ pluginId, conn }) =>
@@ -96,31 +120,13 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
 
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
-    const empty: AggregateResult<T> = {
-      data: null as T,
-      errors,
-      attempted: outcomes.length,
-    };
+    const empty: AggregateResult<T> = { data: null as T, errors, attempted: outcomes.length };
     await writeCache(req, capability, scope, empty);
     return empty;
   }
 
-  const first = successes[0]!;
-  let merged: T;
-  if (Array.isArray(first.data) || typeof first.data !== "object") {
-    merged = first.data as T;
-  } else {
-    const base: Record<string, unknown> = JSON.parse(JSON.stringify(first.data));
-    for (const outcome of successes.slice(1)) {
-      if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
-        mergeObjects(base, outcome.data as Record<string, unknown>);
-      }
-    }
-    merged = base as T;
-  }
-
   const result: AggregateResult<T> = {
-    data: merged,
+    data: mergeEnrichedResults(successes),
     errors,
     attempted: outcomes.length,
   };

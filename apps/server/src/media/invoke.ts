@@ -20,6 +20,31 @@ export interface InvokeRequest {
   timeoutMs: number;
 }
 
+type RetryDecision = "refresh" | "rate-limit" | "transient" | "fail";
+
+interface RetryState {
+  triedRefresh: boolean;
+  triedRateLimit: boolean;
+  triedTransient: boolean;
+  isUserConnection: boolean;
+}
+
+function decideRetry(errorCode: string, state: RetryState): RetryDecision {
+  if (errorCode === "plugin.token_expired" && !state.triedRefresh && state.isUserConnection) {
+    return "refresh";
+  }
+  if (errorCode === "plugin.rate_limited" && !state.triedRateLimit) {
+    return "rate-limit";
+  }
+  if (
+    (errorCode === "plugin.upstream_error" || errorCode === "plugin.timeout") &&
+    !state.triedTransient
+  ) {
+    return "transient";
+  }
+  return "fail";
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -71,9 +96,12 @@ export async function invokeOne<T>(
   conn: ResolvedConnection,
 ): Promise<InvocationOutcome<T>> {
   let activeConn = conn;
-  let triedRefresh = false;
-  let triedRateLimit = false;
-  let triedTransient = false;
+  const state: RetryState = {
+    triedRefresh: false,
+    triedRateLimit: false,
+    triedTransient: false,
+    isUserConnection: conn.kind === "user",
+  };
 
   while (true) {
     try {
@@ -86,8 +114,10 @@ export async function invokeOne<T>(
       };
     } catch (err) {
       const normalized = normalizeError(err);
-      if (normalized.code === "plugin.token_expired" && !triedRefresh && conn.kind === "user") {
-        triedRefresh = true;
+      const decision = decideRetry(normalized.code, state);
+
+      if (decision === "refresh" && conn.kind === "user") {
+        state.triedRefresh = true;
         try {
           const refreshed = await pluginRuntime.refreshAuth(
             req.pluginId,
@@ -113,19 +143,19 @@ export async function invokeOne<T>(
           };
         }
       }
-      if (normalized.code === "plugin.rate_limited" && !triedRateLimit) {
-        triedRateLimit = true;
+
+      if (decision === "rate-limit") {
+        state.triedRateLimit = true;
         await sleep(2_000);
         continue;
       }
-      if (
-        (normalized.code === "plugin.upstream_error" || normalized.code === "plugin.timeout") &&
-        !triedTransient
-      ) {
-        triedTransient = true;
+
+      if (decision === "transient") {
+        state.triedTransient = true;
         await sleep(1_000);
         continue;
       }
+
       if (
         normalized.code === "plugin.bad_credentials" ||
         normalized.code === "plugin.upstream_error"
