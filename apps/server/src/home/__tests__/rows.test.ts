@@ -54,6 +54,7 @@ function makeCtx(media: MediaServiceShape): RowFetchContext {
     catalogService: {
       getDiscoverFeed: async () => null,
       getMetadataBatch: async () => ({}),
+      getRecommendations: async () => null,
     } as unknown as RowFetchContext["catalogService"],
     preferenceEngine: {
       rankCandidates: async (_userId: string, candidates: unknown[]) =>

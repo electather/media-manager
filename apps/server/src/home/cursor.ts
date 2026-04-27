@@ -50,7 +50,7 @@ const pageSeedCursor = z
   })
   .strict();
 
-/** `recommendedForYou` — page plus IDs returned on prior pages (cap = 60). */
+/** `recommendedForYou` (live fallback) — page plus IDs returned on prior pages (cap = 60). */
 const pageExclusionCursor = z
   .object({
     ...baseFields,
@@ -58,6 +58,27 @@ const pageExclusionCursor = z
     x: z.array(z.string().regex(MEDIA_ID_PATTERN)).max(60),
   })
   .strict();
+
+/**
+ * `recommendedForYou` (catalog hydration, V43) — page plus the rec list's
+ * profile version. A mismatch between cursor `pv` and the current rec list
+ * means the profile rebuilt mid-scroll; the fetcher resets to `p = 0` so
+ * the next page is rebuilt from a coherent ranking.
+ */
+const pageVersionCursor = z
+  .object({
+    ...baseFields,
+    p: z.number().int().nonnegative(),
+    pv: z.number().int().nonnegative(),
+  })
+  .strict();
+
+/**
+ * `recommendedForYou` accepts either v1 (live fallback) or v2 (catalog
+ * hydration). Decoder narrows by shape; encoder picks a single variant per
+ * call so cursors do not cross paths mid-session.
+ */
+const recommendedForYouCursor = z.union([pageExclusionCursor, pageVersionCursor]);
 
 /** `upcomingForYou` — last `(tmdbId, airsAt)` pair for stable ordering. */
 const afterTmdbIdCursor = z
@@ -74,7 +95,7 @@ const ROW_TO_SCHEMA = {
   trendingNow: pageCursor,
   newReleases: pageCursor,
   becauseYouWatched: pageSeedCursor,
-  recommendedForYou: pageExclusionCursor,
+  recommendedForYou: recommendedForYouCursor,
   upcomingForYou: afterTmdbIdCursor,
 } satisfies Record<RowKind, z.ZodTypeAny>;
 
@@ -82,6 +103,8 @@ export type OffsetCursor = z.infer<typeof offsetCursor>;
 export type PageCursor = z.infer<typeof pageCursor>;
 export type PageSeedCursor = z.infer<typeof pageSeedCursor>;
 export type PageExclusionCursor = z.infer<typeof pageExclusionCursor>;
+export type PageVersionCursor = z.infer<typeof pageVersionCursor>;
+export type RecommendedForYouCursor = z.infer<typeof recommendedForYouCursor>;
 export type AfterTmdbIdCursor = z.infer<typeof afterTmdbIdCursor>;
 
 /**
@@ -98,7 +121,7 @@ export type CursorFor<R extends RowKind> = R extends "continueWatching" | "yourW
     : R extends "becauseYouWatched"
       ? PageSeedCursor
       : R extends "recommendedForYou"
-        ? PageExclusionCursor
+        ? RecommendedForYouCursor
         : R extends "upcomingForYou"
           ? AfterTmdbIdCursor
           : never;

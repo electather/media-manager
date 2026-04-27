@@ -54,11 +54,14 @@ describe("catalog phase 1 scaffold", () => {
     const db = await createInMemoryDb();
     const catalog = new CatalogService(db);
 
+    // `writeRecommendationList` exercises an FK to `user`, so it lives in the
+    // dedicated `recommendation-lists.test.ts` suite where a user is seeded.
+    // Same shape for `appendUserHistory` / `appendUserRatings` once Phase 5
+    // wires them — left out here to keep the scaffold suite FK-free.
     expect(await catalog.writeMetadata([])).toBeUndefined();
     expect(
       await catalog.writeDiscoverSnapshot("trending", "popularity_desc", 0, []),
     ).toBeUndefined();
-    expect(await catalog.writeRecommendationList("u1", "default", [], 0)).toBeUndefined();
     expect(await catalog.appendUserHistory("u1", [], "conn-1", 0)).toBeUndefined();
     expect(await catalog.appendUserRatings("u1", [], "conn-1", 0)).toBeUndefined();
     expect(catalog.recordAccess([{ tmdbId: "1", type: "movie" }])).toBeUndefined();

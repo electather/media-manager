@@ -1,6 +1,7 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { MediaItem } from "@ent-mcp/shared/media";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
+import type { CanonicalMetadata, MetadataKey, RecItem } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
@@ -24,32 +25,11 @@ export const recommendedForYouFetcher: RowFetcher = {
   requires: ["recommendations@v1"],
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
-    const { page, exclusion } = readCursor(opts.cursor);
-    const overFetchLimit = opts.limit * OVER_FETCH_FACTOR;
-    const result = await ctx.mediaService.getRecommendationsFeed({
-      limit: overFetchLimit,
-      deadlineMs: ctx.deadlineMs,
-    });
-    const candidates = filterCandidates(result.items as RawMediaItem[], exclusion);
-
-    const ranked = await rankCandidates(ctx, candidates, opts.limit);
-
-    const shownIds = new Set<string>();
-    const items: CompactMediaItem[] = [];
-    for (const ranked_item of ranked) {
-      const compact = await buildItem(ctx, ranked_item.item, ranked_item.matchReason);
-      if (!compact) continue;
-      items.push(compact);
-      shownIds.add(compact.id);
+    const list = await ctx.catalogService.getRecommendations(ctx.userId, "default");
+    if (list && list.items.length > 0) {
+      return hydrateFromCatalog(ctx, list.items, list.profileVersion, opts);
     }
-
-    const nextExclusion = capExclusion([...exclusion, ...shownIds]);
-    const reachedCap = page >= MAX_ITEMS / opts.limit - 1;
-    const cursor =
-      items.length === 0 || reachedCap
-        ? null
-        : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: page + 1, x: nextExclusion });
-    return result.partial ? { items, cursor, partial: true } : { items, cursor };
+    return fetchFromLivePath(ctx, opts);
   },
 
   async isEligible(_userId, loader) {
@@ -62,10 +42,127 @@ interface RankedItem {
   matchReason: string | null;
 }
 
-function readCursor(cursor: string | null): { page: number; exclusion: string[] } {
+/**
+ * Catalog-hydration page reader. v2 cursors carry a `pv` (profile version)
+ * so a profile rebuild mid-scroll resets pagination cleanly. v1 cursors
+ * (live fallback) drop their exclusion list when we land in the catalog
+ * path — the catalog list is pre-deduped, exclusion is unnecessary.
+ */
+function readCatalogCursor(cursor: string | null): { page: number; pv: number | null } {
+  if (!cursor) return { page: 0, pv: null };
+  const decoded = decodeCursor(ROW_ID, cursor);
+  if ("pv" in decoded) return { page: decoded.p, pv: decoded.pv };
+  return { page: decoded.p, pv: null };
+}
+
+/**
+ * Live-fallback page reader. v2 cursors don't roundtrip through the live
+ * path — if a catalog cursor lands here mid-flight (rec list expired), we
+ * start fresh rather than carry the catalog page counter into the live
+ * cap guard, which would otherwise short-circuit pagination on the first
+ * page the user sees.
+ */
+function readLiveCursor(cursor: string | null): { page: number; exclusion: string[] } {
   if (!cursor) return { page: 0, exclusion: [] };
   const decoded = decodeCursor(ROW_ID, cursor);
-  return { page: decoded.p, exclusion: decoded.x };
+  if ("x" in decoded) return { page: decoded.p, exclusion: decoded.x };
+  return { page: 0, exclusion: [] };
+}
+
+async function hydrateFromCatalog(
+  ctx: RowFetchContext,
+  recItems: RecItem[],
+  profileVersion: number,
+  opts: RowFetchOptions,
+): Promise<RowFetchResult> {
+  const { page: requestedPage, pv } = readCatalogCursor(opts.cursor);
+  // Profile rebuilt mid-scroll: drop the cursor and serve page 0 of the
+  // freshly-versioned list. UX trade-off documented in the design's "Open
+  // Questions"; consumers see this as a silent jump-to-top.
+  const page = pv !== null && pv !== profileVersion ? 0 : requestedPage;
+
+  const start = page * opts.limit;
+  const slice = recItems.slice(start, start + opts.limit);
+  if (slice.length === 0) return { items: [], cursor: null };
+
+  const keys: MetadataKey[] = slice.map((entry) => ({
+    tmdbId: entry.tmdbId,
+    type: entry.mediaType,
+  }));
+  const rows = await ctx.catalogService.getMetadataBatch(keys);
+  const hydrated: Array<{ canonical: CanonicalMetadata | null; rec: RecItem }> = slice.map(
+    (rec) => ({
+      canonical: rows[`${rec.mediaType}:${rec.tmdbId}`] ?? null,
+      rec,
+    }),
+  );
+  const isPartial = hydrated.some(({ canonical }) => canonical === null);
+  const items: CompactMediaItem[] = [];
+  for (const { canonical, rec } of hydrated) {
+    if (!canonical) continue;
+    const compact = await buildFromCanonical(ctx, canonical, rec.matchReason);
+    if (compact) items.push(compact);
+  }
+
+  const nextStart = start + opts.limit;
+  const exhausted = nextStart >= recItems.length;
+  const reachedCap = nextStart >= MAX_ITEMS;
+  const cursor =
+    exhausted || reachedCap || items.length === 0
+      ? null
+      : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: page + 1, pv: profileVersion });
+  return isPartial ? { items, cursor, partial: true } : { items, cursor };
+}
+
+async function fetchFromLivePath(
+  ctx: RowFetchContext,
+  opts: RowFetchOptions,
+): Promise<RowFetchResult> {
+  const { page, exclusion } = readLiveCursor(opts.cursor);
+  const overFetchLimit = opts.limit * OVER_FETCH_FACTOR;
+  const result = await ctx.mediaService.getRecommendationsFeed({
+    limit: overFetchLimit,
+    deadlineMs: ctx.deadlineMs,
+  });
+  const candidates = filterCandidates(result.items as RawMediaItem[], exclusion);
+  const ranked = await rankCandidates(ctx, candidates, opts.limit);
+
+  const shownIds = new Set<string>();
+  const items: CompactMediaItem[] = [];
+  for (const ranked_item of ranked) {
+    const compact = await buildItem(ctx, ranked_item.item, ranked_item.matchReason);
+    if (!compact) continue;
+    items.push(compact);
+    shownIds.add(compact.id);
+  }
+
+  const nextExclusion = capExclusion([...exclusion, ...shownIds]);
+  const reachedCap = page >= MAX_ITEMS / opts.limit - 1;
+  const cursor =
+    items.length === 0 || reachedCap
+      ? null
+      : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: page + 1, x: nextExclusion });
+  return result.partial ? { items, cursor, partial: true } : { items, cursor };
+}
+
+async function buildFromCanonical(
+  ctx: RowFetchContext,
+  row: CanonicalMetadata,
+  matchReason: string | null,
+): Promise<CompactMediaItem | null> {
+  const raw: RawMediaItem = {
+    id: `${row.mediaType}:${row.tmdbId}`,
+    type: row.mediaType,
+    title: row.title,
+    year: row.year ?? undefined,
+    genres: row.genres ?? [],
+    overview: row.overview ?? undefined,
+    posterUrl: row.posterUrl ?? undefined,
+    backdropUrl: row.backdropUrl ?? undefined,
+    clearLogoUrl: row.clearLogoUrl ?? undefined,
+    ids: { tmdb_id: row.tmdbId },
+  };
+  return buildItem(ctx, raw, matchReason);
 }
 
 function filterCandidates(items: RawMediaItem[], exclusion: string[]): RawMediaItem[] {
