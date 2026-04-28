@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, ready_for_review, reopened]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,11 +16,17 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  quality-and-test:
-    name: Quality Checks & Tests
+  ci:
+    name: CI
     runs-on: [media-manager, sandboxed]
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+      issues: read
+      id-token: write
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -29,13 +36,26 @@ jobs:
         with:
           cache: true
 
-      - name: Check Code Quality (Lint, Format, Types)
+      - name: Check code quality (lint, format, types)
         run: vp check
 
-      - name: Run Tests
+      - name: Run tests
         run: vp test
 
-      - name: Require at least one changeset
+      - name: Fallow analysis (dead code, dupes, health)
+        uses: fallow-rs/fallow@v2
+        with:
+          format: sarif
+          comment: true
+          annotations: true
+
+      - name: Upload Fallow results to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: fallow-results.sarif
+
+      - name: Require changeset
         if: github.event_name == 'pull_request'
         run: |
           if ! vp dlx changeset status --since=origin/${{ github.base_ref }}; then
