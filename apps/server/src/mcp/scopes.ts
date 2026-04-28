@@ -12,12 +12,6 @@ export const MCP_SCOPES = [
 
 export type McpScope = (typeof MCP_SCOPES)[number];
 
-/**
- * Defaults applied to dynamically-registered public clients. `mcp.ext` and
- * `mcp.write.request` must be requested explicitly on the authorization call.
- */
-export const MCP_DEFAULT_SCOPES: McpScope[] = ["mcp.read", "mcp.write.feedback"];
-
 export function parseScopes(raw: string | null | undefined): string[] {
   if (!raw) return [];
   return raw

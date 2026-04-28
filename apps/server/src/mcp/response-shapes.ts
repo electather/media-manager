@@ -70,12 +70,6 @@ export function compactMediaItem(input: unknown, options: ShapeOptions = {}): Co
   return out;
 }
 
-export interface DiscoverResponse {
-  results: CompactMediaResult[];
-  total: number;
-  has_more: boolean;
-}
-
 /**
  * Assembles a `results` array from plugin dispatch output. Handles both plain
  * MediaItems and `{ item, score }` search-result wrappers transparently.

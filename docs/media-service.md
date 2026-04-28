@@ -669,7 +669,7 @@ docs/
 - Strategy dispatch: `single`, `aggregate`, `primary_with_enrichment`, `aggregate_per_kind` w/ mocked runtime (success, permanent error, transient error, timeout)
 - Cache behavior: hit, miss, TTL expiry, invalidation by prefix, negative cache
 - Connection resolution: user-only, shared-only, user-with-shared-fallback-disabled, both
-- `id_map` harvesting: opportunistic path, gap-fill path, ownership enforcement, first-writer for `imdb_id`
+- `id_map` harvesting: opportunistic path, ownership enforcement, first-writer for `imdb_id`
 - Error code mapping: each `PluginErrorCode` → right retry/status-update behavior
 
 ### TMDB Plugin Contract Tests

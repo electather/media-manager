@@ -1,45 +1,15 @@
 import {
-  dispatch,
   dispatchAggregate,
   dispatchPrimary,
   dispatchSingle,
-  invalidateUserCache,
   type AggregateResult,
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
-import {
-  clearPrimaryConnection,
-  getPrimaryConnection,
-  setPrimaryConnection,
-} from "./primary-preference";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { callExtension } from "../mcp/extension-dispatch";
 import { resolveConnections } from "./resolve-connection";
-
-/**
- * Functional facade exposing capability-driven dispatch. Most callers should use
- * the per-user `MediaService` class below; this object is what that class
- * delegates to internally and what tests/jobs can call without a user binding.
- */
-export const mediaService = {
-  async listProviders(
-    capability: string,
-    version: string,
-    scope: CapabilityScope,
-  ): Promise<string[]> {
-    return capabilityRegistry.listProviders(capability, version, scope);
-  },
-  dispatch,
-  dispatchSingle,
-  dispatchAggregate,
-  dispatchPrimary,
-  invalidateUserCache,
-  getPrimaryConnection,
-  setPrimaryConnection,
-  clearPrimaryConnection,
-};
 
 /**
  * Per-user facade. Constructed per-request with the authenticated user id;

@@ -102,8 +102,6 @@ const ROW_TO_SCHEMA = {
 export type OffsetCursor = z.infer<typeof offsetCursor>;
 export type PageCursor = z.infer<typeof pageCursor>;
 export type PageSeedCursor = z.infer<typeof pageSeedCursor>;
-export type PageExclusionCursor = z.infer<typeof pageExclusionCursor>;
-export type PageVersionCursor = z.infer<typeof pageVersionCursor>;
 export type RecommendedForYouCursor = z.infer<typeof recommendedForYouCursor>;
 export type AfterTmdbIdCursor = z.infer<typeof afterTmdbIdCursor>;
 

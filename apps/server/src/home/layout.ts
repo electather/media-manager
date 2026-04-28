@@ -211,4 +211,3 @@ function emptyRow(fetcher: RowFetcher, outcome: FetchOutcome): LayoutFetchedRow 
 }
 
 export type { FetchOutcome } from "./rules";
-export type { CompactMediaItem } from "@ent-mcp/shared/home";

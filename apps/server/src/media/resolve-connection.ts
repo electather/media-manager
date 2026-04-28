@@ -76,12 +76,3 @@ export async function resolveConnections(
     },
   ];
 }
-
-/** Resolves just the default/single connection, preferring personal → shared. */
-export async function resolveDefaultConnection(
-  userId: string,
-  pluginId: string,
-): Promise<ResolvedConnection | null> {
-  const all = await resolveConnections(userId, pluginId);
-  return all[0] ?? null;
-}

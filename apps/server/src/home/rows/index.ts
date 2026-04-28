@@ -79,9 +79,6 @@ export interface RowFetcher {
   isEligible(userId: string, loader: RequestScopedLoader, cursor: string | null): Promise<boolean>;
 }
 
-/** First-page item budget used for inline rows in `getLayout`. */
-export const FIRST_PAGE_LIMIT = 20;
-
 /**
  * Registry indexed by `RowKind`. Built once at module load — the layout
  * orchestrator and the row-content procedure share the same registry so a
