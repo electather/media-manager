@@ -8,7 +8,7 @@ import type {
   RawMediaItem,
   WatchlistSignal,
 } from "./provider";
-import { toCandidateFeatures } from "./provider";
+import { rawItemToCandidateFeatures } from "./provider";
 import type { CandidateFeatures } from "./types";
 
 interface HistoryItem {
@@ -75,7 +75,11 @@ export class MediaServicePreferenceProvider implements PreferenceDataProvider {
         mediaType,
       });
       if (!result.data) return null;
-      return toCandidateFeatures({ ...result.data, type: mediaType, ids: { tmdb_id: tmdbId } });
+      return rawItemToCandidateFeatures({
+        ...result.data,
+        type: mediaType,
+        ids: { tmdb_id: tmdbId },
+      });
     } catch (err) {
       consola.debug("[preference] getItemFeatures failed", err);
       return null;

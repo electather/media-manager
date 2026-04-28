@@ -7,7 +7,7 @@ import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
 import { isSyncJob, pluginIdFromJobId } from "./sync-classifier";
 import type { JobKind, JobRunStatus, JobTriggeredBy } from "@ent-mcp/shared/jobs";
-import type { CaptureMeta, JobRunContext } from "./types";
+import type { JobCaptureMeta, JobRunContext } from "./types";
 
 const DEFAULT_TIMEOUT_SEC = 300;
 
@@ -19,7 +19,7 @@ export interface RunRequest {
   triggeredByUserId?: string | null;
   requestId?: string;
   timeoutSec?: number;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
   coalescedCount?: number | null;
   handler: (ctx: JobRunContext) => Promise<unknown>;
   /** Overrides the status derived from handler outcome. Used by per-row runs. */

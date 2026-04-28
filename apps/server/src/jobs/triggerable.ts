@@ -9,7 +9,7 @@ import { register, type RegistryEntry } from "./registry";
 import { isRunning, requestCancel, run } from "./runner";
 import type {
   AdminOrFeaturePermission,
-  CaptureMeta,
+  JobCaptureMeta,
   JobRunContext,
   TriggerableJobHandle,
   TriggerSource,
@@ -27,7 +27,7 @@ export interface RegisterTriggerableOptions<TInput, TResult> {
   timeoutSec?: number;
   inputSchema?: Record<string, unknown>;
   requiredPermission: AdminOrFeaturePermission;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
 }
 
 export function registerTriggerable<TInput = unknown, TResult = unknown>(

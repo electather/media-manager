@@ -14,7 +14,7 @@ export const notificationSeveritySchema = z.enum(NOTIFICATION_SEVERITIES);
 export const notificationDeliveryStatusSchema = z.enum(NOTIFICATION_DELIVERY_STATUSES);
 export const notificationContentKindSchema = z.enum(NOTIFICATION_CONTENT_KINDS);
 
-export const notificationActionSchema = z.object({
+const notificationActionSchema = z.object({
   label: z.string(),
   url: z.string().url(),
   style: z.enum(["default", "primary", "danger"]).optional(),
@@ -92,7 +92,7 @@ export const subscriptionUpdateBodySchema = z.object({ enabled: z.boolean() });
 // Upper-bound applied to the wire shape to bound parser memory; the route
 // returns 413 for `length > SUBSCRIPTION_BULK_LIMIT` (200) per the design
 // doc, so this ceiling sits above the application limit.
-export const SUBSCRIPTIONS_BULK_HARD_CEILING = 1000;
+const SUBSCRIPTIONS_BULK_HARD_CEILING = 1000;
 
 export const subscriptionsBulkBodySchema = z.object({
   updates: z

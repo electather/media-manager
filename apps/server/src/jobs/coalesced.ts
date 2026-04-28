@@ -1,7 +1,7 @@
 import { getConfig } from "./config";
 import { register, type RegistryEntry } from "./registry";
 import { requestCancel, run } from "./runner";
-import type { CaptureMeta, CoalescedJobHandle, JobRunContext } from "./types";
+import type { JobCaptureMeta, CoalescedJobHandle, JobRunContext } from "./types";
 
 const DEFAULT_MAX_WAIT_MS = 60_000;
 
@@ -14,7 +14,7 @@ export interface RegisterCoalescedOptions {
   scopeKey: (input: unknown) => string;
   handler: (ctx: JobRunContext, triggerCount: number, scopeKey: string) => Promise<void>;
   timeoutSec?: number;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
 }
 
 interface PendingBurst {

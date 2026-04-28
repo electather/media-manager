@@ -6,7 +6,7 @@ import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
 import { isRunning, run } from "./runner";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
-import type { CaptureMeta, JobRunContext } from "./types";
+import type { JobCaptureMeta, JobRunContext } from "./types";
 
 export interface RegisterScheduledOptions {
   id: string;
@@ -16,7 +16,7 @@ export interface RegisterScheduledOptions {
   handler: (ctx: JobRunContext) => Promise<void>;
   timeoutSec?: number;
   adminTriggerable?: boolean;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
 }
 
 export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {

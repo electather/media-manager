@@ -5,7 +5,7 @@ import type { NotificationEvent, BaseEvent } from "@ent-mcp/shared/notifications
 import { notificationEventSchema } from "@ent-mcp/shared/notifications";
 import { notificationDeliveries } from "../db/schema/notifications";
 import { resolveRecipients } from "./resolve-recipients";
-import { find } from "../jobs/registry";
+import { findEntry } from "../jobs/registry";
 import { newRequestId } from "../errors/request-context";
 
 export async function emit(
@@ -47,7 +47,7 @@ export async function emit(
     await tx.insert(notificationDeliveries).values(values);
   });
 
-  const jobEntry = find("notification.deliver");
+  const jobEntry = findEntry("notification.deliver");
   if (!jobEntry?.triggerFromApi) return;
 
   const triggerApi = jobEntry.triggerFromApi;

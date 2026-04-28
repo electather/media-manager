@@ -13,7 +13,7 @@ import { rebuildProfile } from "./rebuild";
 import { profileStorage } from "./storage";
 import { rankCandidatesAgainst, resolveEffectiveProfile } from "./scoring";
 import type { PreferenceDataProvider } from "./provider";
-import { toCandidateFeatures, type RawMediaItem } from "./provider";
+import { rawItemToCandidateFeatures, type RawMediaItem } from "./provider";
 import type { CandidateFeatures, RankedCandidate, UserItemFeedback } from "./types";
 
 export interface PreferenceEngineDeps {
@@ -164,7 +164,7 @@ export class PreferenceEngine {
     userId: string,
     candidate: MediaItem,
   ): Promise<CandidateFeatures | null> {
-    const direct = toCandidateFeatures(candidate as RawMediaItem);
+    const direct = rawItemToCandidateFeatures(candidate as RawMediaItem);
     if (direct && hasRichFeatures(direct)) return direct;
     const [, tmdbId] = candidate.id.split(":");
     if (!tmdbId) return direct ?? null;

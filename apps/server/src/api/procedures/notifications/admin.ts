@@ -13,7 +13,7 @@ import { notificationDeliveries } from "../../../db/schema";
 import { conflict, notFound } from "../../../errors/http-errors";
 import { newRequestId } from "../../../errors/request-context";
 import { zValidator } from "../../../errors/validator";
-import { find } from "../../../jobs/registry";
+import { findEntry } from "../../../jobs/registry";
 import {
   deliveryRowToDto,
   listDeliveries,
@@ -87,7 +87,7 @@ export const adminNotificationsApp = new Hono()
       );
     }
 
-    const jobEntry = find("notification.deliver");
+    const jobEntry = findEntry("notification.deliver");
     let rescheduled = false;
     if (jobEntry?.triggerFromApi) {
       await jobEntry.triggerFromApi(

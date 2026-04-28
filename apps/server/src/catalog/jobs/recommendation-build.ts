@@ -1,5 +1,5 @@
 import type { ProfileMediaType } from "@ent-mcp/shared/preferences";
-import { listUsersNeedingRebuild, type RebuildRow } from "../../preferences/jobs";
+import { listUsersNeedingRebuild, type RebuildRow } from "../../preferences/rebuild-row-source";
 import { getPreferenceEngine } from "../../preferences";
 import { profileStorage } from "../../preferences/storage";
 import { MediaService } from "../../media/service";
