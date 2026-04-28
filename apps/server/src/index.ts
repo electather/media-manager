@@ -11,7 +11,7 @@ import {
   oauthProtectedResourceHandler,
 } from "./mcp/server";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
-import { getDb } from "./db/client";
+import { getDb, initDb } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { scheduler } from "./jobs/scheduler";
 import { markOrphanedRunsFailed } from "./jobs/history";
@@ -24,6 +24,7 @@ import { NotificationErrorSink } from "./notifications/error-sink";
 
 async function bootstrap(): Promise<void> {
   getDb();
+  await initDb();
   // Run pending migrations before accepting traffic. Self-hosters deploying
   // via `docker compose pull && docker compose up -d` get the schema applied
   // automatically; the Cloudflare workflow runs migrations as a pre-deploy
