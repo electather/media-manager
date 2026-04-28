@@ -15,9 +15,7 @@
     "@ent-mcp/plugin-ntfy",
     "@ent-mcp/plugin-telegram"
   ],
-  "entry": [
-    "apps/server/src/worker.ts"
-  ],
+  "entry": ["apps/server/src/worker.ts"],
   "ignorePatterns": [
     "**/*.test.ts",
     "**/*.test.ts",
@@ -45,9 +43,6 @@
     "maxCyclomatic": 20,
     "maxCognitive": 15,
     "maxCrap": 30,
-    "ignore": [
-      "**/*.test.ts",
-      "**/*.spec.ts"
-    ]
+    "ignore": ["**/*.test.ts", "**/*.spec.ts"]
   }
 }

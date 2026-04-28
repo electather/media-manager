@@ -40,10 +40,12 @@ jobs:
         run: vp check
 
       - name: Run tests
+        if: always()
         run: vp test
 
       - name: Fallow analysis (dead code, dupes, health)
         uses: fallow-rs/fallow@v2
+        if: always()
         with:
           format: sarif
           comment: true
