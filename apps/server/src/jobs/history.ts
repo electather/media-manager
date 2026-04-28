@@ -1,17 +1,10 @@
-import { and, asc, desc, eq, notInArray } from "drizzle-orm";
+import { and, desc, eq, notInArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { jobRuns } from "../db/schema/jobs";
 import type { JobRunStatus, JobRunSummary, JobTriggeredBy } from "@ent-mcp/shared/jobs";
 
 const RESULT_MAX_BYTES = 4096;
 const SUCCESS_RETENTION_PER_JOB = 50;
-const NON_SUCCESS_STATUSES: JobRunStatus[] = [
-  "partial_failure",
-  "failed",
-  "skipped",
-  "timed_out",
-  "cancelled",
-];
 
 interface StartRunInput {
   id: string;
@@ -207,23 +200,6 @@ export async function markOrphanedRunsFailed(now: number = Date.now()): Promise<
   return result.length;
 }
 
-/** Returns whether any run for (jobId, scopeKey) is currently in `running` state. */
-export async function hasRunningRow(jobId: string, scopeKey: string | null): Promise<boolean> {
-  const filters = [eq(jobRuns.jobId, jobId), eq(jobRuns.status, "running")];
-  const row = await getDb()
-    .select({ id: jobRuns.id })
-    .from(jobRuns)
-    .where(and(...filters, scopeKey !== null ? eq(jobRuns.scopeKey, scopeKey) : undefined))
-    .orderBy(asc(jobRuns.startedAt))
-    .get();
-  return Boolean(row);
-}
-
-/** Returns true if the given status is a non-success status (retained indefinitely). */
-export function isRetainedFailure(status: JobRunStatus): boolean {
-  return NON_SUCCESS_STATUSES.includes(status);
-}
-
 function serializeResult(result: unknown): string | null {
   if (result === undefined || result === null) return null;
   let text: string;
@@ -258,9 +234,3 @@ function toSummary(row: typeof jobRuns.$inferSelect): JobRunSummary {
     coalescedCount: row.coalescedCount,
   };
 }
-
-/** Used by tests to keep retention decisions expressive. */
-export const retention = {
-  successPerJob: SUCCESS_RETENTION_PER_JOB,
-  resultMaxBytes: RESULT_MAX_BYTES,
-};

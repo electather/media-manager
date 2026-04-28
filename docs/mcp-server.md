@@ -739,7 +739,6 @@ oauthProvider({
   allowUnauthenticatedClientRegistration: true, // MCP clients self-register
   validAudiences: [BASE_URL, `${BASE_URL}/api/mcp`],
   scopes: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
-  clientRegistrationDefaultScopes: MCP_DEFAULT_SCOPES,
   clientRegistrationAllowedScopes: MCP_SCOPES,
 });
 ```
@@ -910,7 +909,7 @@ server/
 │   ├── index.ts                      # registerMcpRoutes(app)
 │   ├── registry.ts                   # tool registry, lifecycle
 │   ├── dispatch.ts                   # input/output validation, scope check, error shaping
-│   ├── scopes.ts                     # MCP_SCOPES, MCP_DEFAULT_SCOPES
+│   ├── scopes.ts                     # MCP_SCOPES
 │   ├── rate-limit.ts                 # per-user token bucket
 │   ├── composite-tools/
 │   │   ├── ent-discover.ts           # handler + schema
