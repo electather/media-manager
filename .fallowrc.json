@@ -18,7 +18,7 @@
   "entry": ["apps/server/src/worker.ts"],
   "ignorePatterns": [
     "**/*.test.ts",
-    "**/*.test.ts",
+    "**/*.spec.ts",
     "**/*.gen.ts",
     "**/dist/**",
     "**/node_modules/**",
