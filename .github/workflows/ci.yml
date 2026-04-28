@@ -19,12 +19,6 @@ jobs:
   ci:
     name: CI
     runs-on: [media-manager, sandboxed]
-    permissions:
-      contents: read
-      pull-requests: write
-      security-events: write
-      issues: read
-      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
