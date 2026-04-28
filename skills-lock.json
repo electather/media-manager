@@ -26,6 +26,12 @@
       "sourceType": "github",
       "computedHash": "74bf6ded4f61ddcb593e7a29beb96c284f888cbe0639ad6e23710447c36ff19a"
     },
+    "fallow": {
+      "source": "fallow-rs/fallow-skills",
+      "sourceType": "github",
+      "skillPath": "fallow/skills/fallow/SKILL.md",
+      "computedHash": "6dc4babee504d16dd7596b3210432a26c7a89c3d1f0a3744ff1afce572eac960"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",
