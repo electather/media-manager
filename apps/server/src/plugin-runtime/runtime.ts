@@ -203,19 +203,12 @@ export class PluginRuntime {
    * dispatch) should use `invokeWithCredentials` instead.
    */
   async invoke<T = unknown>(args: InvokeArgs): Promise<T> {
-    const methodSpec = this.requireMethodSpec(args);
-    const module = await this.getModule(args.pluginId);
-    const impl = module.capabilities[args.capability];
-    const fn = impl?.[args.method];
-    if (typeof fn !== "function") {
-      throw new PluginError(
-        "plugin.missing_method",
-        `plugin ${args.pluginId} does not implement ${args.method}`,
-      );
-    }
-
-    const row = await this.getPluginRow(args.pluginId);
-    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const { methodSpec, module, fn, row, globalConfig } = await this.loadInvocationSetup(
+      args.pluginId,
+      args.capability,
+      args.version,
+      args.method,
+    );
     const adminPolicy = await loadPluginPolicy(args.pluginId);
     const plan = await this.buildCredentialPlan(args, row);
     if (plan.length === 0) {
@@ -288,22 +281,11 @@ export class PluginRuntime {
 
       try {
         const result = await fn(ctx, inputParsed.data);
-        const outputParsed = methodSpec.output.safeParse(result);
-        if (!outputParsed.success) {
-          await captureError(outputParsed.error, {
-            severity: "warning",
-            source: "plugin",
-            code: "plugin.output_invalid",
-            pluginId: args.pluginId,
-            userId: args.userId,
-            context: { capability: args.capability, method: args.method, version: args.version },
-          });
-          throw new PluginError(
-            "plugin.output_invalid",
-            `plugin ${args.pluginId} returned invalid output: ${outputParsed.error.message}`,
-          );
-        }
-        return outputParsed.data as T;
+        return await this.validateOutput<T>(result, methodSpec, args.pluginId, args.userId, {
+          capability: args.capability,
+          method: args.method,
+          version: args.version,
+        });
       } catch (err) {
         const shouldRotate =
           !!exhaustedReport || (isPluginError(err) && err.code === "plugin.rate_limited");
@@ -315,18 +297,11 @@ export class PluginRuntime {
           nextRetryAfterSec = retryAfterSec;
           continue;
         }
-        if (isPluginError(err)) throw err;
-        const message = err instanceof Error ? err.message : String(err);
-        consola.error(`[plugin:${args.pluginId}] ${args.method} threw:`, err);
-        await captureError(err, {
-          severity: "error",
-          source: "plugin",
-          code: pluginCode(args.pluginId, "upstream_error"),
-          pluginId: args.pluginId,
-          userId: args.userId,
-          context: { capability: args.capability, method: args.method, version: args.version },
+        await this.throwUpstreamError(err, args.pluginId, args.method, args.userId, {
+          capability: args.capability,
+          method: args.method,
+          version: args.version,
         });
-        throw new PluginError("plugin.upstream_error", message);
       }
     }
 
@@ -348,18 +323,12 @@ export class PluginRuntime {
    * `invoke()`, which is the rotation-aware entry point.
    */
   async invokeWithCredentials<T = unknown>(args: InvokeWithCredentialsArgs): Promise<T> {
-    const methodSpec = this.requireMethodSpec(args);
-    const module = await this.getModule(args.pluginId);
-    const impl = module.capabilities[args.capability];
-    const fn = impl?.[args.method];
-    if (typeof fn !== "function") {
-      throw new PluginError(
-        "plugin.missing_method",
-        `plugin ${args.pluginId} does not implement ${args.method}`,
-      );
-    }
-    const row = await this.getPluginRow(args.pluginId);
-    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    const { methodSpec, module, fn, globalConfig } = await this.loadInvocationSetup(
+      args.pluginId,
+      args.capability,
+      args.version,
+      args.method,
+    );
 
     const inputParsed = methodSpec.input.safeParse(args.input);
     if (!inputParsed.success) {
@@ -392,36 +361,18 @@ export class PluginRuntime {
     try {
       result = await fn(ctx, inputParsed.data);
     } catch (err) {
-      if (isPluginError(err)) throw err;
-      const message = err instanceof Error ? err.message : String(err);
-      consola.error(`[plugin:${args.pluginId}] ${args.method} threw:`, err);
-      await captureError(err, {
-        severity: "error",
-        source: "plugin",
-        code: pluginCode(args.pluginId, "upstream_error"),
-        pluginId: args.pluginId,
-        userId: args.userId,
-        context: { capability: args.capability, method: args.method, version: args.version },
+      return this.throwUpstreamError(err, args.pluginId, args.method, args.userId, {
+        capability: args.capability,
+        method: args.method,
+        version: args.version,
       });
-      throw new PluginError("plugin.upstream_error", message);
     }
 
-    const outputParsed = methodSpec.output.safeParse(result);
-    if (!outputParsed.success) {
-      await captureError(outputParsed.error, {
-        severity: "warning",
-        source: "plugin",
-        code: "plugin.output_invalid",
-        pluginId: args.pluginId,
-        userId: args.userId,
-        context: { capability: args.capability, method: args.method, version: args.version },
-      });
-      throw new PluginError(
-        "plugin.output_invalid",
-        `plugin ${args.pluginId} returned invalid output: ${outputParsed.error.message}`,
-      );
-    }
-    return outputParsed.data as T;
+    return await this.validateOutput<T>(result, methodSpec, args.pluginId, args.userId, {
+      capability: args.capability,
+      method: args.method,
+      version: args.version,
+    });
   }
 
   /** Runs a plugin-declared auth function. No Zod validation — AuthResult is the contract. */
@@ -613,17 +564,9 @@ export class PluginRuntime {
     try {
       return (await fn(ctx, args.input)) as T;
     } catch (err) {
-      if (isPluginError(err)) throw err;
-      const message = err instanceof Error ? err.message : String(err);
-      await captureError(err, {
-        severity: "error",
-        source: "plugin",
-        code: pluginCode(args.pluginId, "upstream_error"),
-        pluginId: args.pluginId,
-        userId: args.userId,
-        context: { mcpTool: args.handlerKey },
+      return this.throwUpstreamError(err, args.pluginId, args.handlerKey, args.userId, {
+        mcpTool: args.handlerKey,
       });
-      throw new PluginError("plugin.upstream_error", message);
     }
   }
 
@@ -649,6 +592,80 @@ export class PluginRuntime {
     }
     const ctx = await this.buildAuxContext(pluginId, userId, credentials);
     return module.refreshAuth(ctx, credentials);
+  }
+
+  private async loadInvocationSetup(
+    pluginId: string,
+    capability: string,
+    version: string,
+    method: string,
+  ): Promise<{
+    methodSpec: { input: CapabilitySpec["input"]; output: CapabilitySpec["output"] };
+    module: PluginModule;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    fn: Function;
+    row: PluginRow;
+    globalConfig: unknown;
+  }> {
+    const methodSpec = this.requireMethodSpec({ capability, version, method });
+    const module = await this.getModule(pluginId);
+    const impl = module.capabilities[capability];
+    const fn = impl?.[method];
+    if (typeof fn !== "function") {
+      throw new PluginError(
+        "plugin.missing_method",
+        `plugin ${pluginId} does not implement ${method}`,
+      );
+    }
+    const row = await this.getPluginRow(pluginId);
+    const globalConfig = row.globalConfig ? JSON.parse(row.globalConfig) : null;
+    return { methodSpec, module, fn, row, globalConfig };
+  }
+
+  private async throwUpstreamError(
+    err: unknown,
+    pluginId: string,
+    logLabel: string,
+    userId: string | null,
+    context: Record<string, string>,
+  ): Promise<never> {
+    if (isPluginError(err)) throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    consola.error(`[plugin:${pluginId}] ${logLabel} threw:`, err);
+    await captureError(err, {
+      severity: "error",
+      source: "plugin",
+      code: pluginCode(pluginId, "upstream_error"),
+      pluginId,
+      userId,
+      context,
+    });
+    throw new PluginError("plugin.upstream_error", message);
+  }
+
+  private async validateOutput<T>(
+    result: unknown,
+    methodSpec: { output: CapabilitySpec["output"] },
+    pluginId: string,
+    userId: string | null,
+    context: { capability: string; method: string; version: string },
+  ): Promise<T> {
+    const outputParsed = methodSpec.output.safeParse(result);
+    if (!outputParsed.success) {
+      await captureError(outputParsed.error, {
+        severity: "warning",
+        source: "plugin",
+        code: "plugin.output_invalid",
+        pluginId,
+        userId,
+        context,
+      });
+      throw new PluginError(
+        "plugin.output_invalid",
+        `plugin ${pluginId} returned invalid output: ${outputParsed.error.message}`,
+      );
+    }
+    return outputParsed.data as T;
   }
 
   private async buildAuxContext(
