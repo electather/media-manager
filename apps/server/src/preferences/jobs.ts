@@ -12,8 +12,7 @@ import { registerTriggerable } from "../jobs/triggerable";
 import { getPreferenceEngine } from "./index";
 import { listUsersNeedingDailyRebuild, type RebuildRow } from "./rebuild-row-source";
 
-export type { RebuildRow } from "./rebuild-row-source";
-export { listUsersNeedingDailyRebuild, listUsersNeedingRebuild } from "./rebuild-row-source";
+export { listUsersNeedingDailyRebuild } from "./rebuild-row-source";
 
 export const PREFERENCE_DAILY_JOB_ID = "host.preference.daily_rebuild";
 export const PREFERENCE_INCREMENTAL_JOB_ID = "host.preference.incremental_update";

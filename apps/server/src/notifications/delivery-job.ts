@@ -119,12 +119,10 @@ async function loadPluginAndContext(
     return null;
   }
 
-  // Inject host-privileged context fields for plugins on the privilege
-  // allowlist. The privilege gate is `isHostPrivilegedPlugin` so a
-  // future host-privileged plugin only needs to be added to the set
-  // once; this block branches per-plugin id to attach the right shape
-  // (today only inbox needs `ctx.inbox.insert`).
-  if (isHostPrivilegedPlugin(conn.pluginId) && conn.pluginId === "inbox") {
+  // Inbox is the only host-privileged plugin that needs an extended context.
+  // When a second privileged plugin is added, restore the nested-if pattern
+  // and branch here per plugin id.
+  if (conn.pluginId === "inbox" && isHostPrivilegedPlugin(conn.pluginId)) {
     pluginCtx = {
       ...pluginCtx,
       inbox: {
