@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { consola } from "consola";
 import type { McpToolAnnotations } from "@ent-mcp/shared";
-import { dispatchForMcpHandler, dispatchTool } from "./dispatch";
+import { dispatchForMcpHandler } from "./dispatch";
 import { mcpToolRegistry } from "./registry";
 import { withOAuthAuth } from "./auth";
 import { jsonRpcResponse, jsonRpcError, type JsonRpcRequest } from "./jsonrpc";
@@ -125,13 +125,4 @@ export function createMcpHandler() {
       }
     });
   };
-}
-
-/** Exported for testing — runs a tool call without the HTTP envelope. */
-export async function runToolForTests(
-  name: string,
-  input: unknown,
-  caller: { userId: string; scopes: string[] },
-) {
-  return dispatchTool(name, { ...caller, requestId: newRequestId() }, input);
 }

@@ -16,19 +16,6 @@ import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../jobs/triggerable";
 import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";
 
-// Re-export pure-policy symbols so callers and tests can import from a
-// single module while the IO-bound delivery handler still lives here.
-export {
-  BACKOFF_INTERVALS_MS,
-  MAX_ATTEMPTS,
-  buildDeliverArgs,
-  decideFailure,
-  isHostPrivilegedPlugin,
-  pickRetryDelayMs,
-  readFailureSignals,
-  type FailureDecision,
-} from "./delivery-policy";
-
 export function registerDeliveryJob() {
   registerTriggerable<{ deliveryId: string }, void>({
     id: "notification.deliver",
