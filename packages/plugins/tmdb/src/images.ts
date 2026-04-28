@@ -27,6 +27,11 @@ export function buildPosterUrl(ctx: Ctx, path: string | null): string | null {
   return path ? `${imageBase(ctx)}${path}` : null;
 }
 
+export function buildBackdropUrl(ctx: Ctx, path: string | null): string | null {
+  if (!path) return null;
+  return `${artworkBase(ctx)}/${artworkSize(ctx, "backdrop")}${path}`;
+}
+
 export function mapTmdbImages(
   images: TmdbImage[] | undefined,
   base: string,

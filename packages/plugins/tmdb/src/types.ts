@@ -60,6 +60,7 @@ export interface MovieRaw {
   vote_average?: number | null;
   overview?: string;
   poster_path?: string | null;
+  backdrop_path?: string | null;
   external_ids?: { imdb_id?: string | null; tvdb_id?: number | null };
   imdb_id?: string | null;
   credits?: Credits;
@@ -78,6 +79,7 @@ export interface TvRaw {
   vote_average?: number | null;
   overview?: string;
   poster_path?: string | null;
+  backdrop_path?: string | null;
   external_ids?: { imdb_id?: string | null; tvdb_id?: number | null };
   created_by?: Array<{ name: string }>;
   credits?: Credits;

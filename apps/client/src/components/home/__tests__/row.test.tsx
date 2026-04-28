@@ -10,6 +10,7 @@ vi.mock("@tanstack/react-router", async (orig) => {
 
 vi.mock("@/hooks/use-artwork", () => ({
   useArtwork: () => ({ data: undefined }),
+  useArtworkIfMissing: () => ({ data: undefined }),
   EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
 }));
 

@@ -19,7 +19,6 @@ function buildCanonical(key: MetadataKey, title: string): CanonicalMetadata {
     posterUrl: null,
     backdropUrl: null,
     clearLogoUrl: null,
-    thumbUrl: null,
     overview: null,
     originalLanguage: "en",
     genres: [],

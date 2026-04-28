@@ -3,6 +3,7 @@ import { artworkGetInputSchema } from "@ent-mcp/shared/artwork";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { zValidator } from "../../errors/validator";
 import { ArtworkService } from "../../artwork";
+import { getCatalogService } from "../../catalog";
 
 /**
  * `artwork.*` RPC procedures. Authenticated-user-only — no anon access since
@@ -15,7 +16,7 @@ export const artworkApp = new Hono()
   .post("/get", zValidator("json", artworkGetInputSchema), async (c) => {
     const userId = sessionUserId(c);
     const { items, languages } = c.req.valid("json");
-    const service = new ArtworkService(userId);
+    const service = new ArtworkService(userId, getCatalogService());
     const result = await service.getArtwork(items, languages);
     return c.json(result);
   });

@@ -1,6 +1,20 @@
+import { useMemo } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import { api } from "@/lib/api";
+
+export type ArtworkSlot = "poster" | "backdrop" | "clearLogo";
+
+/**
+ * Subset of `CompactMediaItem` the client uses for the slot-aware artwork
+ * lookup. Only the URL fields the inline write-back path can fill are
+ * declared here; consumers spread their richer item type into this shape.
+ */
+export interface InlineArtworkItem {
+  poster?: string | null;
+  backdrop?: string | null;
+  clearLogo?: string | null;
+}
 
 /**
  * Empty bundle returned while a real fetch is in flight, on error, or for
@@ -53,4 +67,42 @@ export function useArtwork(
     gcTime: 4 * 60 * 60 * 1000,
     retry: 1,
   });
+}
+
+/**
+ * Slot-aware variant of `useArtwork`. Skips the network call when every
+ * `requiredSlots` entry is already present on the row payload (V44 inline
+ * serve). When a required slot is missing the hook delegates to `useArtwork`,
+ * preserving its query key + stale window so detail-page consumers keep
+ * sharing the same cache entry as card consumers.
+ */
+export function useArtworkIfMissing(
+  item: ArtworkRequestItem & InlineArtworkItem,
+  requiredSlots: ReadonlyArray<ArtworkSlot>,
+  opts: UseArtworkOptions = {},
+): UseQueryResult<ArtworkBundle> {
+  const haveAll = requiredSlots.every((slot) => Boolean(item[slot]));
+  const query = useArtwork(item, { enabled: (opts.enabled ?? true) && !haveAll });
+  const synth = useMemo(() => synthFromItem(item), [item.poster, item.backdrop, item.clearLogo]);
+  if (!haveAll) return query;
+  return {
+    ...query,
+    data: synth,
+    isLoading: false,
+    isFetching: false,
+    isPending: false,
+    isError: false,
+    isSuccess: true,
+    status: "success",
+    error: null,
+  } as UseQueryResult<ArtworkBundle>;
+}
+
+function synthFromItem(item: InlineArtworkItem): ArtworkBundle {
+  return {
+    poster: item.poster ? [{ url: item.poster, language: "en" }] : [],
+    backdrop: item.backdrop ? [{ url: item.backdrop, language: "en" }] : [],
+    clearLogo: item.clearLogo ? [{ url: item.clearLogo, language: "en" }] : [],
+    thumb: [],
+  };
 }

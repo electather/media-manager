@@ -1,5 +1,5 @@
 import type { Ctx, MovieRaw, TvRaw, Genre, Credits } from "./types";
-import { buildPosterUrl } from "./images";
+import { buildBackdropUrl, buildPosterUrl } from "./images";
 
 export function mapGenres(genres: Genre[] | undefined, genreIds: number[] | undefined): string[] {
   if (genres && genres.length > 0) return genres.map((g) => g.name);
@@ -45,6 +45,7 @@ export function mapMovie(ctx: Ctx, m: MovieRaw): unknown {
     rating: m.vote_average ?? null,
     overview: m.overview ?? "",
     posterUrl: buildPosterUrl(ctx, m.poster_path ?? null),
+    backdropUrl: buildBackdropUrl(ctx, m.backdrop_path ?? null),
     ids: {
       tmdb_id: String(m.id),
       imdb_id: imdb || undefined,
@@ -70,6 +71,7 @@ export function mapShow(ctx: Ctx, s: TvRaw): unknown {
     rating: s.vote_average ?? null,
     overview: s.overview ?? "",
     posterUrl: buildPosterUrl(ctx, s.poster_path ?? null),
+    backdropUrl: buildBackdropUrl(ctx, s.backdrop_path ?? null),
     ids: {
       tmdb_id: String(s.id),
       imdb_id: imdb || undefined,

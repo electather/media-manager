@@ -11,8 +11,10 @@ vi.mock("@tanstack/react-router", async (orig) => {
 });
 
 const useArtworkMock = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
+const useArtworkIfMissingMock = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
 vi.mock("@/hooks/use-artwork", () => ({
   useArtwork: useArtworkMock,
+  useArtworkIfMissing: useArtworkIfMissingMock,
   EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
 }));
 
@@ -37,6 +39,8 @@ beforeEach(() => {
   navigateMock.mockReset();
   useArtworkMock.mockReset();
   useArtworkMock.mockReturnValue({ data: undefined });
+  useArtworkIfMissingMock.mockReset();
+  useArtworkIfMissingMock.mockReturnValue({ data: undefined });
   useInViewMock.mockReset();
   useInViewMock.mockReturnValue(false);
 });
@@ -100,10 +104,14 @@ describe("Card link behaviour (V33)", () => {
 
 describe("Card priority + viewport gating", () => {
   function lastEnabled(): boolean | undefined {
-    const calls = useArtworkMock.mock.calls;
+    const calls = useArtworkIfMissingMock.mock.calls;
     if (calls.length === 0) return undefined;
-    const lastCall = calls[calls.length - 1] as unknown as [unknown, { enabled?: boolean }?];
-    return lastCall[1]?.enabled;
+    const lastCall = calls[calls.length - 1] as unknown as [
+      unknown,
+      unknown,
+      { enabled?: boolean }?,
+    ];
+    return lastCall[2]?.enabled;
   }
 
   it("requests artwork eagerly when priority is set, regardless of intersection", () => {
@@ -126,5 +134,14 @@ describe("Card priority + viewport gating", () => {
     render(<Card item={baseItem} rowId="trendingNow" />);
     const link = screen.getByTestId("home-card");
     expect(link.tagName).toBe("A");
+  });
+
+  it("declares poster as the required slot when calling useArtworkIfMissing", () => {
+    useInViewMock.mockReturnValue(true);
+    render(<Card item={baseItem} rowId="trendingNow" />);
+    const lastCall = useArtworkIfMissingMock.mock.calls.at(-1) as
+      | [unknown, string[], unknown?]
+      | undefined;
+    expect(lastCall?.[1]).toEqual(["poster"]);
   });
 });

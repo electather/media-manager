@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import type { ArtworkBundle } from "@ent-mcp/shared/artwork";
+import type { CatalogService } from "../../catalog";
 
 // `vi.mock` is hoisted above any module-scope `const`, so `dispatchMock` has
 // to be hoisted alongside it — otherwise the factory closure captures
@@ -23,6 +24,17 @@ function bundle(overrides: Partial<ArtworkBundle> = {}): ArtworkBundle {
   };
 }
 
+function makeCatalogStub(): { stub: CatalogService; patchArtwork: ReturnType<typeof vi.fn> } {
+  const patchArtwork = vi.fn().mockResolvedValue(undefined);
+  const stub = { patchArtwork } as unknown as CatalogService;
+  return { stub, patchArtwork };
+}
+
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 beforeEach(() => dispatchMock.mockReset());
 
 describe("ArtworkService", () => {
@@ -30,7 +42,8 @@ describe("ArtworkService", () => {
     dispatchMock.mockResolvedValue(
       bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }),
     );
-    const service = new ArtworkService("u1");
+    const { stub } = makeCatalogStub();
+    const service = new ArtworkService("u1", stub);
     // Two distinct client keys map to the same canonical entry — service must
     // collapse them into a single dispatch but still return both keys in the
     // results map.
@@ -59,7 +72,8 @@ describe("ArtworkService", () => {
           null,
         ),
       );
-    const service = new ArtworkService("u1");
+    const { stub } = makeCatalogStub();
+    const service = new ArtworkService("u1", stub);
     const result = await service.getArtwork([
       { key: "ok", ids: { tmdb: "550" }, type: "movie" },
       { key: "bad", ids: { imdb: "tt1" }, type: "tv" },
@@ -75,7 +89,8 @@ describe("ArtworkService", () => {
 
   it("maps unexpected dispatch failures to a generic 'internal' per-item error", async () => {
     dispatchMock.mockRejectedValueOnce(new Error("registry blew up"));
-    const service = new ArtworkService("u1");
+    const { stub } = makeCatalogStub();
+    const service = new ArtworkService("u1", stub);
     const result = await service.getArtwork([{ key: "k", ids: { tmdb: "550" }, type: "movie" }]);
     expect(result.results["k"]).toBeUndefined();
     expect(result.errors?.["k"]?.code).toBe("internal");
@@ -83,7 +98,8 @@ describe("ArtworkService", () => {
 
   it("forwards the caller's languages preference into the dispatch input", async () => {
     dispatchMock.mockResolvedValue(bundle());
-    await new ArtworkService("u1").getArtwork(
+    const { stub } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork(
       [{ key: "k", ids: { tmdb: "550" }, type: "movie" }],
       ["fr", "en", "00"],
     );
@@ -94,9 +110,108 @@ describe("ArtworkService", () => {
 
   it("defaults languages to ['en', '00'] when the caller omits it", async () => {
     dispatchMock.mockResolvedValue(bundle());
-    await new ArtworkService("u1").getArtwork([{ key: "k", ids: { tmdb: "550" }, type: "movie" }]);
+    const { stub } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "k", ids: { tmdb: "550" }, type: "movie" },
+    ]);
     expect(dispatchMock.mock.calls[0]![0]).toMatchObject({
       input: { languages: ["en", "00"] },
     });
+  });
+});
+
+describe("ArtworkService write-back", () => {
+  it("patches canonical with top1 URLs per resolved key", async () => {
+    dispatchMock.mockResolvedValue(
+      bundle({
+        poster: [
+          { url: "https://x/p1.jpg", language: "en" },
+          { url: "https://x/p2.jpg", language: "00" },
+        ],
+        backdrop: [{ url: "https://x/bd.jpg", language: "00" }],
+        clearLogo: [{ url: "https://x/cl.png", language: "en" }],
+      }),
+    );
+    const { stub, patchArtwork } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "k", ids: { tmdb: "550" }, type: "movie" },
+    ]);
+
+    expect(patchArtwork).toHaveBeenCalledTimes(1);
+    expect(patchArtwork).toHaveBeenCalledWith(
+      { tmdbId: "550", type: "movie" },
+      {
+        posterUrl: "https://x/p1.jpg",
+        backdropUrl: "https://x/bd.jpg",
+        clearLogoUrl: "https://x/cl.png",
+      },
+    );
+  });
+
+  it("skips patch when entry has no tmdb id", async () => {
+    dispatchMock.mockResolvedValue(bundle());
+    const { stub, patchArtwork } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "k", ids: { imdb: "tt1" }, type: "movie" },
+    ]);
+    expect(patchArtwork).not.toHaveBeenCalled();
+  });
+
+  it("does not patch for rejected dispatches", async () => {
+    dispatchMock
+      .mockResolvedValueOnce(bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }))
+      .mockRejectedValueOnce(new Error("dispatch fail"));
+    const { stub, patchArtwork } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "ok", ids: { tmdb: "550" }, type: "movie" },
+      { key: "bad", ids: { tmdb: "1396" }, type: "tv" },
+    ]);
+    expect(patchArtwork).toHaveBeenCalledTimes(1);
+    expect(patchArtwork).toHaveBeenCalledWith(
+      { tmdbId: "550", type: "movie" },
+      expect.objectContaining({ posterUrl: "https://x/p.jpg" }),
+    );
+  });
+
+  it("returns 200 even when patchArtwork rejects", async () => {
+    dispatchMock.mockResolvedValue(
+      bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }),
+    );
+    const patchArtwork = vi.fn().mockRejectedValue(new Error("db down"));
+    const stub = { patchArtwork } as unknown as CatalogService;
+
+    const result = await new ArtworkService("u1", stub).getArtwork([
+      { key: "k", ids: { tmdb: "550" }, type: "movie" },
+    ]);
+    expect(result.results["k"]).toBeDefined();
+    expect(result.errors).toBeUndefined();
+    // Allow the swallowed rejection's microtask to settle so an unhandled
+    // rejection cannot leak into the next test's harness.
+    await flushMicrotasks();
+    expect(patchArtwork).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls patch once per canonical key even with multiple client keys", async () => {
+    dispatchMock.mockResolvedValue(
+      bundle({ poster: [{ url: "https://x/p.jpg", language: "en" }] }),
+    );
+    const { stub, patchArtwork } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "row1", ids: { tmdb: "550" }, type: "movie" },
+      { key: "row2", ids: { tmdb: "550" }, type: "movie" },
+    ]);
+    expect(patchArtwork).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes top1 nulls when bundle is empty", async () => {
+    dispatchMock.mockResolvedValue(bundle());
+    const { stub, patchArtwork } = makeCatalogStub();
+    await new ArtworkService("u1", stub).getArtwork([
+      { key: "k", ids: { tmdb: "550" }, type: "movie" },
+    ]);
+    expect(patchArtwork).toHaveBeenCalledWith(
+      { tmdbId: "550", type: "movie" },
+      { posterUrl: null, backdropUrl: null, clearLogoUrl: null },
+    );
   });
 });

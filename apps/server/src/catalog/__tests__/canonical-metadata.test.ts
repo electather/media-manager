@@ -90,6 +90,39 @@ describe("CatalogService canonical_metadata", () => {
     expect(await catalog.getMetadataBatch([])).toEqual({});
   });
 
+  it("toCanonicalRow lifts backdropUrl from raw shape", () => {
+    const row = toCanonicalRow(KEY_FIGHT_CLUB, {
+      title: "Fight Club",
+      type: "movie",
+      keywords: [],
+      cast: [],
+      director: null,
+      writers: [],
+      creators: [],
+      genres: [],
+      ids: { tmdb_id: "550" },
+      posterUrl: "https://image.tmdb.org/t/p/w500/p.jpg",
+      backdropUrl: "https://image.tmdb.org/t/p/w1280/bd.jpg",
+    });
+    expect(row.posterUrl).toBe("https://image.tmdb.org/t/p/w500/p.jpg");
+    expect(row.backdropUrl).toBe("https://image.tmdb.org/t/p/w1280/bd.jpg");
+  });
+
+  it("toCanonicalRow leaves backdropUrl null when raw lacks it", () => {
+    const row = toCanonicalRow(KEY_FIGHT_CLUB, {
+      title: "Fight Club",
+      type: "movie",
+      keywords: [],
+      cast: [],
+      director: null,
+      writers: [],
+      creators: [],
+      genres: [],
+      ids: { tmdb_id: "550" },
+    });
+    expect(row.backdropUrl).toBeNull();
+  });
+
   it("surfaces NULL-features rows ahead of time-stale rows", async () => {
     const catalog = new CatalogService(await createInMemoryDb());
     const now = Date.now();

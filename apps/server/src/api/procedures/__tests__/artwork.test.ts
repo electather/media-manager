@@ -31,9 +31,16 @@ vi.mock("../../../auth/middleware", () => ({
 const getArtworkSpy = vi.fn();
 vi.mock("../../../artwork", () => ({
   ArtworkService: class {
-    constructor(public readonly userId: string) {}
+    constructor(
+      public readonly userId: string,
+      public readonly catalogService: unknown,
+    ) {}
     getArtwork = getArtworkSpy;
   },
+}));
+
+vi.mock("../../../catalog", () => ({
+  getCatalogService: () => ({ patchArtwork: vi.fn() }),
 }));
 
 const { artworkApp } = await import("../artwork");

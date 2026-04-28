@@ -23,7 +23,6 @@ export interface CanonicalMetadata {
   posterUrl: string | null;
   backdropUrl: string | null;
   clearLogoUrl: string | null;
-  thumbUrl: string | null;
   overview: string | null;
   originalLanguage: string | null;
   genres: string[] | null;

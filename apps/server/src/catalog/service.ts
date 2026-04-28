@@ -136,8 +136,12 @@ export class CatalogService {
               runtimeMinutes: row.runtimeMinutes,
               posterUrl: row.posterUrl,
               backdropUrl: row.backdropUrl,
+              // Plain assignment, not COALESCE: TMDB metadata never returns
+              // clearLogo, so a 30-day nightly refresh resets the value to
+              // null and the next render re-runs `/artwork.get` to refill
+              // it. Accepted per design failure-semantics; `patchArtwork`
+              // owns the COALESCE-preserving write path.
               clearLogoUrl: row.clearLogoUrl,
-              thumbUrl: row.thumbUrl,
               overview: row.overview,
               originalLanguage: row.originalLanguage,
               genres: row.genres,
@@ -149,6 +153,36 @@ export class CatalogService {
           });
       }
     });
+  }
+
+  /**
+   * COALESCE-only artwork patch (V47/V48). Each non-null arg fills the
+   * matching column when it is currently null; filled columns are never
+   * overwritten. Row absent → 0 rows affected, no throw — `/artwork.get`
+   * may resolve before the cold-fill metadata write lands. Always bumps
+   * `last_refreshed_at` so a patched row counts as fresh against the
+   * nightly refresh cutoff.
+   */
+  async patchArtwork(
+    key: MetadataKey,
+    urls: {
+      posterUrl?: string | null;
+      backdropUrl?: string | null;
+      clearLogoUrl?: string | null;
+    },
+  ): Promise<void> {
+    const now = Date.now();
+    await this.db
+      .update(canonicalMetadata)
+      .set({
+        posterUrl: sql`COALESCE(${canonicalMetadata.posterUrl}, ${urls.posterUrl ?? null})`,
+        backdropUrl: sql`COALESCE(${canonicalMetadata.backdropUrl}, ${urls.backdropUrl ?? null})`,
+        clearLogoUrl: sql`COALESCE(${canonicalMetadata.clearLogoUrl}, ${urls.clearLogoUrl ?? null})`,
+        lastRefreshedAt: now,
+      })
+      .where(
+        and(eq(canonicalMetadata.tmdbId, key.tmdbId), eq(canonicalMetadata.mediaType, key.type)),
+      );
   }
 
   async listStaleMetadata(staleAfterMs: number, limit: number): Promise<MetadataKey[]> {

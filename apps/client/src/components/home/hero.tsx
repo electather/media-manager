@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { LayoutHero } from "@ent-mcp/shared/home";
-import { useArtwork } from "@/hooks/use-artwork";
+import { useArtworkIfMissing } from "@/hooks/use-artwork";
 
 export function Hero({ hero }: { hero: LayoutHero }) {
   const router = useRouter();
@@ -27,12 +27,16 @@ export function Hero({ hero }: { hero: LayoutHero }) {
   const percent = progress && progress.total > 0 ? (progress.watched / progress.total) * 100 : 0;
 
   // Hero is always above the fold — fetch eagerly, never gate on viewport.
-  const artwork = useArtwork(
+  const artwork = useArtworkIfMissing(
     {
       key: item.id,
       ids: { tmdb: item.tmdbId },
       type: item.mediaType,
+      poster: item.poster,
+      backdrop: item.backdrop,
+      clearLogo: item.clearLogo,
     },
+    ["backdrop", "clearLogo"],
     { enabled: true },
   );
   const backdropUrl =

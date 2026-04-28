@@ -13,7 +13,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-const { useArtwork } = await import("../use-artwork");
+const { useArtwork, useArtworkIfMissing } = await import("../use-artwork");
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -122,5 +122,104 @@ describe("useArtwork per-item dispatch", () => {
     apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
     renderWithClient(<Probe id="99" />);
     await waitFor(() => expect(screen.getByTestId("art-99").textContent).toBe("(none)"));
+  });
+});
+
+function MissingProbe({
+  id,
+  type = "movie" as "movie" | "tv",
+  poster,
+  backdrop,
+  clearLogo,
+  required,
+  enabled,
+}: {
+  id: string;
+  type?: "movie" | "tv";
+  poster?: string | null;
+  backdrop?: string | null;
+  clearLogo?: string | null;
+  required: Array<"poster" | "backdrop" | "clearLogo">;
+  enabled?: boolean;
+}) {
+  const result = useArtworkIfMissing(
+    { key: `${type}:${id}`, ids: { tmdb: id }, type, poster, backdrop, clearLogo },
+    required,
+    { enabled },
+  );
+  if (result.isFetching) return <span data-testid={`mp-${id}`}>fetching</span>;
+  const url = result.data?.poster[0]?.url ?? "(none)";
+  const bd = result.data?.backdrop[0]?.url ?? "(none)";
+  const cl = result.data?.clearLogo[0]?.url ?? "(none)";
+  return <span data-testid={`mp-${id}`}>{`${url}|${bd}|${cl}`}</span>;
+}
+
+describe("useArtworkIfMissing", () => {
+  it("synthesizes the bundle from inline slots without firing a request", async () => {
+    apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
+    renderWithClient(
+      <MissingProbe
+        id="1"
+        poster="https://x/p.jpg"
+        backdrop="https://x/bd.jpg"
+        clearLogo="https://x/cl.png"
+        required={["poster", "backdrop", "clearLogo"]}
+      />,
+    );
+    await Promise.resolve();
+    expect(apiMock.getArtwork).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("mp-1").textContent).toBe(
+        "https://x/p.jpg|https://x/bd.jpg|https://x/cl.png",
+      ),
+    );
+  });
+
+  it("fires the network call when one required slot is missing", async () => {
+    apiMock.getArtwork.mockResolvedValue(
+      jsonResponse({
+        results: {
+          "movie:2": bundle({
+            poster: [{ url: "https://x/fetched.jpg", language: "en" }],
+            backdrop: [{ url: "https://x/fetched-bd.jpg", language: "en" }],
+            clearLogo: [{ url: "https://x/fetched-cl.png", language: "en" }],
+          }),
+        },
+        generatedAt: 1,
+      }),
+    );
+    renderWithClient(
+      <MissingProbe id="2" poster="https://x/inline-p.jpg" required={["poster", "backdrop"]} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("mp-2").textContent).toContain("https://x/fetched.jpg"),
+    );
+    expect(apiMock.getArtwork).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects enabled=false even when slots are missing", async () => {
+    apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
+    renderWithClient(<MissingProbe id="3" required={["poster"]} enabled={false} />);
+    await Promise.resolve();
+    expect(apiMock.getArtwork).not.toHaveBeenCalled();
+  });
+
+  it("synthesizes a bundle with empty arrays for slots not declared required", async () => {
+    apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
+    renderWithClient(<MissingProbe id="4" poster="https://x/only-p.jpg" required={["poster"]} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("mp-4").textContent).toBe("https://x/only-p.jpg|(none)|(none)"),
+    );
+    expect(apiMock.getArtwork).not.toHaveBeenCalled();
+  });
+
+  it("does not fetch when requiredSlots is empty even if every inline slot is null", async () => {
+    apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
+    renderWithClient(<MissingProbe id="5" required={[]} />);
+    await Promise.resolve();
+    expect(apiMock.getArtwork).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("mp-5").textContent).toBe("(none)|(none)|(none)"),
+    );
   });
 });

@@ -3,7 +3,7 @@ import { useRouter } from "@tanstack/react-router";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import { ROW_DISPLAY } from "@/lib/home-display";
 import { cn } from "@/lib/utils";
-import { useArtwork } from "@/hooks/use-artwork";
+import { useArtworkIfMissing } from "@/hooks/use-artwork";
 import { useInView } from "@/hooks/use-in-view";
 import { StatusPill } from "./status-pill";
 import { RatingBadge } from "./rating-badge";
@@ -73,12 +73,16 @@ export function Card({ item, rowId, size = "row", priority, className }: CardPro
 
   const anchorRef = useRef<HTMLAnchorElement>(null);
   const isInView = useInView(anchorRef);
-  const artwork = useArtwork(
+  const artwork = useArtworkIfMissing(
     {
       key: item.id,
       ids: { tmdb: item.tmdbId },
       type: item.mediaType,
+      poster: item.poster,
+      backdrop: item.backdrop,
+      clearLogo: item.clearLogo,
     },
+    ["poster"],
     { enabled: Boolean(priority) || isInView },
   );
   const posterUrl = artwork.data?.poster[0]?.url ?? item.poster;
