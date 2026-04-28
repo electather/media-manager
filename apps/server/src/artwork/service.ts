@@ -76,8 +76,14 @@ export class ArtworkService {
 
   private writeBack(entry: CanonicalEntry, bundle: ArtworkBundle): void {
     if (!entry.ids.tmdb) return;
+    const urls = top1(bundle);
+    // Skip when the plugin returned no art at all. Patching with all-null
+    // values is a no-op for the COALESCE write itself but still bumps
+    // `lastRefreshedAt`, which would defer nightly `listStaleMetadata`
+    // re-pickup for rows that legitimately have nothing yet.
+    if (!urls.posterUrl && !urls.backdropUrl && !urls.clearLogoUrl) return;
     void this.catalogService
-      .patchArtwork({ tmdbId: entry.ids.tmdb, type: entry.type }, top1(bundle))
+      .patchArtwork({ tmdbId: entry.ids.tmdb, type: entry.type }, urls)
       .catch((err) => {
         consola.error("[artwork] patch failed", err);
       });
