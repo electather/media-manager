@@ -17,11 +17,14 @@ env:
 
 jobs:
   ci:
-    name: CI
+    permissions:
+      contents: read
+      pull-requests: write      # fallow comment: true
+      security-events: write    # upload-sarif    name: CI
     runs-on: [media-manager, sandboxed]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
