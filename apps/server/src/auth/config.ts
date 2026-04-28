@@ -121,5 +121,3 @@ export const auth = betterAuth({
     joins: true,
   },
 });
-
-export type Auth = typeof auth;

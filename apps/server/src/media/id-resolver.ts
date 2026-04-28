@@ -108,23 +108,6 @@ export async function upsertIdBundle(
     .where(and(eq(idMap.tmdbId, bundle.tmdb_id), eq(idMap.mediaType, mediaType)));
 }
 
-export async function getIdBundle(tmdbId: string, mediaType: MediaType): Promise<IdBundle | null> {
-  const db = getDb();
-  const row = await db
-    .select()
-    .from(idMap)
-    .where(and(eq(idMap.tmdbId, tmdbId), eq(idMap.mediaType, mediaType)))
-    .get();
-  if (!row) return null;
-  return {
-    tmdb_id: row.tmdbId,
-    imdb_id: row.imdbId ?? undefined,
-    tvdb_id: row.tvdbId ?? undefined,
-    trakt_id: row.traktId ?? undefined,
-    trakt_slug: row.traktSlug ?? undefined,
-  };
-}
-
 /**
  * Extracts an id bundle from a plugin-produced MediaItem.
  */

@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "bun --env-file=../../.env x drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env src/db/migrate.ts",
-    "test": "vp test"
+    "test": "vp test",
+    "prune": "bash scripts/ts-prune.sh"
   },
   "dependencies": {
     "@better-auth/oauth-provider": "catalog:",

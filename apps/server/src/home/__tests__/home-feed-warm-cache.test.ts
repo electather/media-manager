@@ -30,8 +30,6 @@ vi.mock("../../media/resolve-connection", () => ({
 
 vi.mock("../../media/primary-preference", () => ({
   getPrimaryConnection: vi.fn().mockResolvedValue(null),
-  setPrimaryConnection: vi.fn(),
-  clearPrimaryConnection: vi.fn(),
 }));
 
 vi.mock("../../media/id-resolver", () => ({

@@ -30,11 +30,6 @@ interface RunLogContext {
 
 const storage = new AsyncLocalStorage<RunLogContext>();
 
-/** Returns the active run's log context, or null when called outside a run. */
-export function currentRunLogContext(): RunLogContext | null {
-  return storage.getStore() ?? null;
-}
-
 /** Tags subsequent log entries within this call with a row identifier. */
 export function setCurrentRow(row: string | undefined): void {
   const ctx = storage.getStore();

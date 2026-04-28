@@ -10,8 +10,6 @@ export const MCP_SCOPES = [
   "mcp.ext",
 ] as const;
 
-export type McpScope = (typeof MCP_SCOPES)[number];
-
 export function parseScopes(raw: string | null | undefined): string[] {
   if (!raw) return [];
   return raw

@@ -30,8 +30,6 @@ vi.mock("../resolve-connection", () => ({
 
 vi.mock("../primary-preference", () => ({
   getPrimaryConnection: (...args: unknown[]) => getPrimaryMock(...args),
-  setPrimaryConnection: vi.fn(),
-  clearPrimaryConnection: vi.fn(),
 }));
 
 vi.mock("../id-resolver", () => ({

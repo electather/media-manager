@@ -27,8 +27,6 @@ vi.mock("../resolve-connection", () => ({
 
 vi.mock("../primary-preference", () => ({
   getPrimaryConnection: vi.fn().mockResolvedValue(null),
-  setPrimaryConnection: vi.fn(),
-  clearPrimaryConnection: vi.fn(),
 }));
 
 vi.mock("../id-resolver", () => ({
