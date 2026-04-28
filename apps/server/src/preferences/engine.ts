@@ -43,6 +43,7 @@ const COLD_FILL_CONCURRENCY = 10;
 export class PreferenceEngine {
   constructor(private readonly deps: PreferenceEngineDeps) {}
 
+  // fallow-ignore-next-line unused-class-member
   async rankCandidates(
     userId: string,
     candidates: ReadonlyArray<MediaItem>,
@@ -59,11 +60,13 @@ export class PreferenceEngine {
    * captured on the RankedCandidate so the explanation does not trigger a
    * second metadata fetch.
    */
+  // fallow-ignore-next-line unused-class-member
   async explainRanked(userId: string, ranked: RankedCandidate): Promise<string | null> {
     const profile = await this.resolveProfileForMedia(userId, ranked.item.type);
     return explainAgainstProfile(ranked.features, profile);
   }
 
+  // fallow-ignore-next-line unused-class-member
   async previewFeedbackEffect(
     userId: string,
     item: MediaItem,
@@ -80,6 +83,7 @@ export class PreferenceEngine {
     });
   }
 
+  // fallow-ignore-next-line unused-class-member
   rebuildProfile(
     userId: string,
     mediaType: ProfileMediaType,
@@ -88,14 +92,17 @@ export class PreferenceEngine {
     return rebuildProfile({ provider: this.deps.provider, abortSignal }, userId, mediaType);
   }
 
+  // fallow-ignore-next-line unused-class-member
   applyIncrementalUpdate(userId: string): Promise<UpdateResult> {
     return applyIncrementalUpdate({ provider: this.deps.provider }, userId);
   }
 
+  // fallow-ignore-next-line unused-class-member
   getProfile(userId: string, mediaType: ProfileMediaType): Promise<PreferenceProfile | null> {
     return profileStorage.read(userId, mediaType);
   }
 
+  // fallow-ignore-next-line unused-class-member
   getUserFeedbackFor(
     userId: string,
     tmdbId: string,
@@ -105,6 +112,7 @@ export class PreferenceEngine {
   }
 
   /** Exposed so tests can verify the rendered reason string without ranking. */
+  // fallow-ignore-next-line unused-class-member
   renderMatchReason(contribution: RankedCandidate): string | null {
     return renderMatchReason(contribution.topContributors);
   }

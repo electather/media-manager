@@ -8,7 +8,6 @@ import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
-import { callExtension } from "../mcp/extension-dispatch";
 import { resolveConnections } from "./resolve-connection";
 
 /**
@@ -20,6 +19,7 @@ import { resolveConnections } from "./resolve-connection";
 export class MediaService {
   constructor(public readonly userId: string) {}
 
+  // fallow-ignore-next-line unused-class-member
   async search(query: string, type?: "movie" | "tv", limit?: number) {
     const result = await dispatchPrimary<Array<{ item: unknown; score?: number }>>({
       userId: this.userId,
@@ -32,6 +32,7 @@ export class MediaService {
     return result.data ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async trending(type?: "movie" | "tv", limit?: number) {
     const result = await dispatchPrimary<unknown[]>({
       userId: this.userId,
@@ -44,6 +45,7 @@ export class MediaService {
     return result.data ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async discover(filters: {
     genres?: string[];
     yearMin?: number;
@@ -129,6 +131,7 @@ export class MediaService {
     return result.data ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async similar(idOrCombined: string, type?: "movie" | "tv") {
     const [parsedType, parsedId] =
       type === undefined && idOrCombined.includes(":")
@@ -145,10 +148,12 @@ export class MediaService {
     return result.data ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async recommend(limit?: number) {
     return this.getRecommendations(undefined, limit);
   }
 
+  // fallow-ignore-next-line unused-class-member
   async requestDownload(idOrCombined: string, seasons?: string) {
     const [parsedType, parsedId] = idOrCombined.includes(":")
       ? (idOrCombined.split(":") as ["movie" | "tv", string])
@@ -175,6 +180,7 @@ export class MediaService {
     }
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getRequests() {
     try {
       const result = await dispatchSingle<unknown[]>({
@@ -190,6 +196,7 @@ export class MediaService {
     }
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getProgress(): Promise<unknown[]> {
     // Progress is derived from watchHistory + metadata at the host layer; no
     // plugin capability covers it in v1. Returning empty keeps the MCP tool
@@ -197,6 +204,7 @@ export class MediaService {
     return [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async recordFeedback(
     _id: string,
     _action: "like" | "dislike" | "rate" | "note",
@@ -207,6 +215,7 @@ export class MediaService {
     // The plugin layer does not mediate it, so this is a no-op for now.
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getHistory(limit?: number) {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -218,6 +227,7 @@ export class MediaService {
     return result.data ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getWatchlist(type?: "movie" | "tv") {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -229,6 +239,7 @@ export class MediaService {
     return result.data ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getUpcoming() {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -387,6 +398,7 @@ export class MediaService {
    * Primary `metadata@v1.getSimilar` — used by `becauseYouWatched` keyed on
    * the cursor-pinned seed media id.
    */
+  // fallow-ignore-next-line unused-class-member
   async getSimilarFeed(input: {
     id: string;
     type: "movie" | "tv";
@@ -411,6 +423,7 @@ export class MediaService {
    * flag and an `AllPluginsFailedError` so the home feed orchestrator can
    * classify the row outcome correctly.
    */
+  // fallow-ignore-next-line unused-class-member
   async getUpcomingFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -428,6 +441,7 @@ export class MediaService {
    * row. Surfaces partial-failure signalling that the legacy `getWatchlist`
    * getter swallows.
    */
+  // fallow-ignore-next-line unused-class-member
   async getWatchlistFeed(opts: { deadlineMs?: number } = {}): Promise<HomeAggregate<unknown[]>> {
     const result = await dispatchAggregate<unknown[]>({
       userId: this.userId,
@@ -441,6 +455,7 @@ export class MediaService {
   }
 
   /** Aggregate `recommendations@v1.getTrending`. */
+  // fallow-ignore-next-line unused-class-member
   async getTrendingFeed(opts: {
     mediaType?: "movie" | "tv";
     limit?: number;
@@ -492,27 +507,6 @@ export class MediaService {
       if (conns.length > 0) return true;
     }
     return false;
-  }
-
-  /**
-   * Invokes a plugin-contributed `ext_*` MCP tool. Resolves the user's
-   * connection for the given plugin, decrypts credentials, and runs the
-   * plugin's `mcpTools[handlerKey]` under its sandbox. Used by the MCP
-   * extension-dispatch wrapper.
-   */
-  async callExtension<T = unknown>(args: {
-    pluginId: string;
-    handlerKey: string;
-    input: unknown;
-    connectionId?: string;
-  }): Promise<T> {
-    return callExtension<T>({
-      userId: this.userId,
-      pluginId: args.pluginId,
-      handlerKey: args.handlerKey,
-      input: args.input,
-      connectionId: args.connectionId,
-    });
   }
 }
 

@@ -62,6 +62,7 @@ export class CatalogService {
     return row ?? null;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
@@ -89,6 +90,7 @@ export class CatalogService {
     return out;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getMetadataWithIds(
     tmdbId: string,
     type: "movie" | "tv",
@@ -185,6 +187,7 @@ export class CatalogService {
       );
   }
 
+  // fallow-ignore-next-line unused-class-member
   async listStaleMetadata(staleAfterMs: number, limit: number): Promise<MetadataKey[]> {
     const cutoff = Date.now() - staleAfterMs;
     const rows = await this.db
@@ -210,6 +213,7 @@ export class CatalogService {
     return rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getDiscoverFeed(
     kind: DiscoverFeedKind,
     sort: DiscoverSort,
@@ -229,6 +233,7 @@ export class CatalogService {
     return row?.items ?? null;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getRecommendations(
     userId: string,
     kind: RecommendationListKind = "default",
@@ -264,6 +269,7 @@ export class CatalogService {
     return row?.events ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getHistoryCursors(userId: string): Promise<PluginCursors> {
     const row = await this.db
       .select({ pluginCursors: userHistoryMirror.pluginCursors })
@@ -273,6 +279,7 @@ export class CatalogService {
     return row?.pluginCursors ?? {};
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getRatingsCursors(userId: string): Promise<PluginCursors> {
     const row = await this.db
       .select({ pluginCursors: userRatingsMirror.pluginCursors })
@@ -282,6 +289,7 @@ export class CatalogService {
     return row?.pluginCursors ?? {};
   }
 
+  // fallow-ignore-next-line unused-class-member
   async writeDiscoverSnapshot(
     kind: DiscoverFeedKind,
     sort: DiscoverSort,
@@ -298,6 +306,7 @@ export class CatalogService {
       });
   }
 
+  // fallow-ignore-next-line unused-class-member
   async writeRecommendationList(
     userId: string,
     kind: RecommendationListKind,
@@ -314,6 +323,7 @@ export class CatalogService {
       });
   }
 
+  // fallow-ignore-next-line unused-class-member
   async appendUserHistory(
     userId: string,
     events: HistoryEvent[],
@@ -342,6 +352,7 @@ export class CatalogService {
     );
   }
 
+  // fallow-ignore-next-line unused-class-member
   async appendUserRatings(
     userId: string,
     events: RatingEvent[],
@@ -421,6 +432,7 @@ export class CatalogService {
     }
   }
 
+  // fallow-ignore-next-line unused-class-member
   async pruneUnusedMetadata(
     unusedAfterMs: number,
     refSet?: Set<string>,
@@ -483,6 +495,7 @@ export class CatalogService {
     return refs;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async pruneOldDiscoverSnapshots(olderThanDays: number): Promise<{ deleted: number }> {
     const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
     const deleted = await this.db

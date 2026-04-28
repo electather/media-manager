@@ -59,7 +59,6 @@ interface MetadataPayload extends RawMediaItem {
  * Every method is best-effort: an empty result is acceptable, a thrown error
  * is swallowed into an empty set so one bad plugin doesn't poison a rebuild.
  */
-// fallow-ignore-file unused-class-member
 export class MediaServicePreferenceProvider implements PreferenceDataProvider {
   async getItemFeatures(
     userId: string,
