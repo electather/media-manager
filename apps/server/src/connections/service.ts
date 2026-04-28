@@ -1,11 +1,11 @@
 import { and, desc, eq, lt } from "drizzle-orm";
-import { getDb } from "../db/client";
+import { getDb, type Db } from "../db/client";
 import { serviceConnections, pendingAuth, plugins } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
 import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
-import type { ConnectionListItem } from "@ent-mcp/shared/connections";
+import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { invalidateUserCache } from "../media/dispatcher";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
@@ -52,6 +52,49 @@ function capabilitiesAtScope(
   return entries
     .filter(([, cap]) => cap.scope === scope)
     .map(([id, cap]) => ({ id, version: cap.version }));
+}
+
+function buildPluginSummary(
+  pluginId: string,
+  manifest: StoredManifest,
+  adminSharedAvailable: boolean,
+): PluginSummary {
+  return {
+    id: pluginId,
+    name: manifest.name,
+    version: manifest.version,
+    description: manifest.description ?? "",
+    logoUrl: manifest.logoUrl,
+    authKind: manifest.auth.kind,
+    poolable: manifest.poolable ?? false,
+    userScopedCapabilities: capabilitiesAtScope(manifest, "user"),
+    globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
+    userConfigSchema: (manifest.userConfigSchema as Record<string, unknown>) ?? null,
+    credentialsSchema: (manifest.credentialsSchema as Record<string, unknown>) ?? null,
+    adminSharedAvailable,
+  };
+}
+
+async function requireConnection(db: Db, connectionId: string, userId: string) {
+  const row = await db
+    .select()
+    .from(serviceConnections)
+    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+    .get();
+  if (!row) throw notFound("connection.not_found", "connection not found");
+  return row;
+}
+
+async function updateConnectionWhere(
+  db: Db,
+  userId: string,
+  connectionId: string,
+  patch: Partial<typeof serviceConnections.$inferInsert>,
+): Promise<void> {
+  await db
+    .update(serviceConnections)
+    .set({ ...patch, updatedAt: Date.now() })
+    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
 }
 
 export const connectionsService = {
@@ -116,20 +159,7 @@ export const connectionsService = {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         displayFields: computeDisplayFields(manifest.userConfigSchema, userConfig),
-        plugin: {
-          id: pluginRow.id,
-          name: manifest.name,
-          version: manifest.version,
-          description: manifest.description ?? "",
-          logoUrl: manifest.logoUrl,
-          authKind: manifest.auth.kind,
-          poolable: manifest.poolable ?? false,
-          userScopedCapabilities: capabilitiesAtScope(manifest, "user"),
-          globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
-          userConfigSchema: (manifest.userConfigSchema as Record<string, unknown>) ?? null,
-          credentialsSchema: (manifest.credentialsSchema as Record<string, unknown>) ?? null,
-          adminSharedAvailable,
-        },
+        plugin: buildPluginSummary(pluginRow.id, manifest, adminSharedAvailable),
       });
     }
     return result;
@@ -137,12 +167,7 @@ export const connectionsService = {
 
   async getUserConfig(userId: string, connectionId: string): Promise<unknown> {
     const db = getDb();
-    const row = await db
-      .select()
-      .from(serviceConnections)
-      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
-      .get();
-    if (!row) throw notFound("connection.not_found", "connection not found");
+    const row = await requireConnection(db, connectionId, userId);
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
     // An orphaned connection (its plugin was uninstalled) must not return its
     // `userConfig`: without the manifest we cannot identify which fields carry
@@ -157,17 +182,7 @@ export const connectionsService = {
 
   async setDefault(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    const row = await db
-      .select()
-      .from(serviceConnections)
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      )
-      .get();
-    if (!row) throw notFound("connection.not_found", "connection not found");
+    const row = await requireConnection(db, args.connectionId, args.userId);
     await promoteToDefault(args.userId, row.pluginId, args.connectionId);
     await invalidateUserCache(args.userId);
   },
@@ -178,15 +193,9 @@ export const connectionsService = {
     enabled: boolean;
   }): Promise<void> {
     const db = getDb();
-    await db
-      .update(serviceConnections)
-      .set({ enabled: args.enabled ? 1 : 0, updatedAt: Date.now() })
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      );
+    await updateConnectionWhere(db, args.userId, args.connectionId, {
+      enabled: args.enabled ? 1 : 0,
+    });
     await invalidateUserCache(args.userId);
   },
 
@@ -196,15 +205,9 @@ export const connectionsService = {
     displayName: string;
   }): Promise<void> {
     const db = getDb();
-    await db
-      .update(serviceConnections)
-      .set({ displayName: args.displayName, updatedAt: Date.now() })
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      );
+    await updateConnectionWhere(db, args.userId, args.connectionId, {
+      displayName: args.displayName,
+    });
   },
 
   async updateUserConfig(args: {
@@ -213,17 +216,7 @@ export const connectionsService = {
     userConfig: unknown;
   }): Promise<void> {
     const db = getDb();
-    const row = await db
-      .select()
-      .from(serviceConnections)
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      )
-      .get();
-    if (!row) throw notFound("connection.not_found", "connection not found");
+    const row = await requireConnection(db, args.connectionId, args.userId);
     const pluginRow = await db.select().from(plugins).where(eq(plugins.id, row.pluginId)).get();
     if (!pluginRow) throw badRequest("connection.plugin_missing", "plugin not installed");
     const manifest = parseManifest(pluginRow.manifest);
@@ -239,10 +232,10 @@ export const connectionsService = {
       (row.userConfig ? (JSON.parse(row.userConfig) as Record<string, unknown>) : null) ?? {};
     const sanitizedIncoming = (stripRequestFields(manifest.userConfigSchema, args.userConfig) ??
       {}) as Record<string, unknown>;
-    const merged = {
-      ...(prior as Record<string, unknown>),
-      ...sanitizedIncoming,
-    };
+    const merged = { ...prior, ...sanitizedIncoming };
+
+    let configToSave: unknown = merged;
+    let credentialsPatch: { encryptedCredentials: string; credentialsIv: string } | undefined;
 
     if (manifest.auth.kind === "form") {
       // Re-run startAuth so credentials stay synced with userConfig changes
@@ -277,35 +270,31 @@ export const connectionsService = {
       // server-resolved identifiers without the client having to round-trip.
       // `null` patch values mean "delete this key" — used to strip secrets
       // that the plugin has promoted into the encrypted credentials blob.
-      const patched = applyUserConfigPatch(merged, result.userConfigPatch);
       const credEnc = await encryptJson(result.credentials);
-      await db
-        .update(serviceConnections)
-        .set({
-          userConfig: JSON.stringify(patched),
-          encryptedCredentials: credEnc.data,
-          credentialsIv: credEnc.iv,
-          lastVerifiedAt: Date.now(),
-          updatedAt: Date.now(),
-        })
-        .where(eq(serviceConnections.id, args.connectionId));
-      await invalidateUserCache(args.userId);
-      return;
+      configToSave = applyUserConfigPatch(merged, result.userConfigPatch);
+      credentialsPatch = { encryptedCredentials: credEnc.data, credentialsIv: credEnc.iv };
+    } else {
+      const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+      const test = await pluginRuntime.testConnection(
+        row.pluginId,
+        args.userId,
+        credentials,
+        merged,
+      );
+      if (!test.ok) {
+        throw unprocessable(
+          "connection.verify_failed",
+          `config did not verify: ${test.message ?? "unknown"}`,
+          { message: test.message ?? "unknown" },
+        );
+      }
     }
 
-    const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
-    const test = await pluginRuntime.testConnection(row.pluginId, args.userId, credentials, merged);
-    if (!test.ok) {
-      throw unprocessable(
-        "connection.verify_failed",
-        `config did not verify: ${test.message ?? "unknown"}`,
-        { message: test.message ?? "unknown" },
-      );
-    }
     await db
       .update(serviceConnections)
       .set({
-        userConfig: JSON.stringify(merged),
+        userConfig: JSON.stringify(configToSave),
+        ...credentialsPatch,
         lastVerifiedAt: Date.now(),
         updatedAt: Date.now(),
       })
@@ -392,45 +381,17 @@ export const connectionsService = {
    * at least one user-scoped capability — pure-global plugins (TMDB v2, TVDB
    * v2) have no user-side surface and are excluded.
    */
-  async listAvailablePlugins(): Promise<
-    Array<{
-      id: string;
-      name: string;
-      version: string;
-      description: string;
-      logoUrl?: string;
-      authKind: PluginManifest["auth"]["kind"];
-      poolable: boolean;
-      adminSharedAvailable: boolean;
-      userScopedCapabilities: Array<{ id: string; version: string }>;
-      globalScopedCapabilities: Array<{ id: string; version: string }>;
-      userConfigSchema: Record<string, unknown> | null;
-      credentialsSchema: Record<string, unknown> | null;
-    }>
-  > {
+  async listAvailablePlugins(): Promise<PluginSummary[]> {
     const db = getDb();
     const rows = await db.select().from(plugins).where(eq(plugins.enabled, 1)).all();
-    const out: Awaited<ReturnType<typeof connectionsService.listAvailablePlugins>> = [];
+    const out: PluginSummary[] = [];
     for (const row of rows) {
       if (!capabilityRegistry.get(row.id)) continue;
       const manifest = parseManifest(row.manifest);
       const userScoped = capabilitiesAtScope(manifest, "user");
       if (userScoped.length === 0) continue;
       const adminSharedAvailable = (await sharedCredentialsService.countEnabled(row.id)) > 0;
-      out.push({
-        id: row.id,
-        name: manifest.name,
-        version: manifest.version,
-        description: manifest.description ?? "",
-        logoUrl: manifest.logoUrl,
-        authKind: manifest.auth.kind,
-        poolable: manifest.poolable ?? false,
-        adminSharedAvailable,
-        userScopedCapabilities: userScoped,
-        globalScopedCapabilities: capabilitiesAtScope(manifest, "global"),
-        userConfigSchema: (manifest.userConfigSchema as Record<string, unknown>) ?? null,
-        credentialsSchema: (manifest.credentialsSchema as Record<string, unknown>) ?? null,
-      });
+      out.push(buildPluginSummary(row.id, manifest, adminSharedAvailable));
     }
     return out;
   },
