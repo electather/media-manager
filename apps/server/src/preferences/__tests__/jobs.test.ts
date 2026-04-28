@@ -25,7 +25,7 @@ vi.mock("../../catalog", () => ({
   getCatalogService: vi.fn(() => ({})),
 }));
 
-vi.mock("../../catalog/jobs", () => ({
+vi.mock("../../catalog/jobs/recommendation-build", () => ({
   writeRecommendationsForUser: vi.fn(async () => undefined),
 }));
 
