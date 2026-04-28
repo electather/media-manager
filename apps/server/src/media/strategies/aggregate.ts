@@ -2,7 +2,8 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { resolveConnections } from "../resolve-connection";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
-import { invokeOne, harvestFromOutcomes } from "../invoke";
+import { harvestFromOutcomes } from "../invoke";
+import { invokeAll, collectErrors } from "./shared";
 import type { DispatchRequest, AggregateResult } from "../types";
 
 /**
@@ -24,44 +25,20 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
   );
   const candidates = perPlugin.flat();
 
-  const outcomes = await Promise.all(
-    candidates.map(({ pluginId, conn }) =>
-      invokeOne<T>(
-        {
-          userId: req.userId,
-          pluginId,
-          capability: req.capability,
-          version: req.version,
-          method: req.method,
-          input: req.input,
-          timeoutMs: capability.defaultTimeoutMs,
-          deadlineMs: req.deadlineMs,
-        },
-        conn,
-      ),
-    ),
-  );
+  const outcomes = await invokeAll<T>(candidates, req, capability);
   await harvestFromOutcomes(outcomes, req.mediaType);
 
+  const errors = collectErrors(outcomes);
   const data: unknown[] = [];
-  const errors: AggregateResult<T>["errors"] = [];
   for (const outcome of outcomes) {
-    if (outcome.error) {
-      if (outcome.error.code === "plugin.item_not_found") continue;
-      errors.push({
-        pluginId: outcome.pluginId,
-        connectionId: outcome.connectionId,
-        code: outcome.error.code,
-        devMessage: outcome.error.devMessage,
-      });
-      continue;
-    }
+    if (outcome.error) continue;
     if (Array.isArray(outcome.data)) {
       data.push(...outcome.data);
     } else if (outcome.data !== null && outcome.data !== undefined) {
       data.push(outcome.data);
     }
   }
+
   const result: AggregateResult<T> = {
     data: data as T,
     errors,

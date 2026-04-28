@@ -2,15 +2,10 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { getPrimaryConnection } from "../primary-preference";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
-import { invokeOne, harvestFromOutcomes } from "../invoke";
-import type { ResolvedConnection } from "../resolve-connection";
+import { harvestFromOutcomes } from "../invoke";
 import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
-
-interface Candidate {
-  pluginId: string;
-  conn: ResolvedConnection;
-}
+import { invokeAll, collectErrors, type Candidate } from "./shared";
 
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
@@ -88,37 +83,10 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const ordered = [primaryPlugin, ...providers.filter((p) => p !== primaryPlugin)];
   const candidates = await resolveOrderedCandidates(req.userId, ordered);
 
-  const outcomes = await Promise.all(
-    candidates.map(({ pluginId, conn }) =>
-      invokeOne<T>(
-        {
-          userId: req.userId,
-          pluginId,
-          capability: req.capability,
-          version: req.version,
-          method: req.method,
-          input: req.input,
-          timeoutMs: capability.defaultTimeoutMs,
-          deadlineMs: req.deadlineMs,
-        },
-        conn,
-      ),
-    ),
-  );
+  const outcomes = await invokeAll<T>(candidates, req, capability);
   await harvestFromOutcomes(outcomes, req.mediaType);
 
-  const errors: AggregateResult<T>["errors"] = [];
-  for (const outcome of outcomes) {
-    if (outcome.error && outcome.error.code !== "plugin.item_not_found") {
-      errors.push({
-        pluginId: outcome.pluginId,
-        connectionId: outcome.connectionId,
-        code: outcome.error.code,
-        devMessage: outcome.error.devMessage,
-      });
-    }
-  }
-
+  const errors = collectErrors(outcomes);
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
     const empty: AggregateResult<T> = { data: null as T, errors, attempted: outcomes.length };
