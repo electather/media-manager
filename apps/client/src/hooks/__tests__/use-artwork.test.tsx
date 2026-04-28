@@ -212,4 +212,14 @@ describe("useArtworkIfMissing", () => {
     );
     expect(apiMock.getArtwork).not.toHaveBeenCalled();
   });
+
+  it("does not fetch when requiredSlots is empty even if every inline slot is null", async () => {
+    apiMock.getArtwork.mockResolvedValue(jsonResponse({ results: {}, generatedAt: 1 }));
+    renderWithClient(<MissingProbe id="5" required={[]} />);
+    await Promise.resolve();
+    expect(apiMock.getArtwork).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("mp-5").textContent).toBe("(none)|(none)|(none)"),
+    );
+  });
 });

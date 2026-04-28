@@ -136,6 +136,11 @@ export class CatalogService {
               runtimeMinutes: row.runtimeMinutes,
               posterUrl: row.posterUrl,
               backdropUrl: row.backdropUrl,
+              // Plain assignment, not COALESCE: TMDB metadata never returns
+              // clearLogo, so a 30-day nightly refresh resets the value to
+              // null and the next render re-runs `/artwork.get` to refill
+              // it. Accepted per design failure-semantics; `patchArtwork`
+              // owns the COALESCE-preserving write path.
               clearLogoUrl: row.clearLogoUrl,
               overview: row.overview,
               originalLanguage: row.originalLanguage,
