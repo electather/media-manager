@@ -10,8 +10,10 @@ vi.mock("@tanstack/react-router", async (orig) => {
   return { ...actual, useRouter: () => ({ navigate: navigateMock }) };
 });
 
+const useArtworkIfMissingMock = vi.hoisted(() => vi.fn(() => ({ data: undefined })));
 vi.mock("@/hooks/use-artwork", () => ({
   useArtwork: () => ({ data: undefined }),
+  useArtworkIfMissing: useArtworkIfMissingMock,
   EMPTY_BUNDLE: { poster: [], backdrop: [], clearLogo: [], thumb: [] },
 }));
 
@@ -31,7 +33,11 @@ const baseHero: LayoutHero = {
   resumeUrl: null,
 };
 
-beforeEach(() => navigateMock.mockReset());
+beforeEach(() => {
+  navigateMock.mockReset();
+  useArtworkIfMissingMock.mockReset();
+  useArtworkIfMissingMock.mockReturnValue({ data: undefined });
+});
 afterEach(() => cleanup());
 
 describe("Hero (V32, resumeUrl null check)", () => {
@@ -61,5 +67,13 @@ describe("Hero (V32, resumeUrl null check)", () => {
     render(<Hero hero={hero} />);
     await user.click(screen.getByTestId("home-hero"));
     expect(navigateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("requests both backdrop and clearLogo as required slots", () => {
+    render(<Hero hero={baseHero} />);
+    const lastCall = useArtworkIfMissingMock.mock.calls.at(-1) as
+      | [unknown, string[], unknown?]
+      | undefined;
+    expect(lastCall?.[1]).toEqual(["backdrop", "clearLogo"]);
   });
 });

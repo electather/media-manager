@@ -166,7 +166,7 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 | T29 | x      | Catalog Phase 5 — `user_history_mirror` + `user_ratings_mirror` + per-user mutex + `host.catalog.user_mirror_sync` job + PE mirror reads                                                                                        | V37,V39,V40                                |
 | T30 | x      | Catalog Phase 6 — `host.catalog.prune` job + `recordAccess` throttle + `JobService.{isRunning,anyRunning}` re-exports                                                                                                           | V37                                        |
 | T31 | x      | Catalog Phase 7 — audit redundant `mv:` capability-level cache (kept as live-fallback safety net); preserve live cap TTLs + `NEGATIVE_TTL_MS`                                                                                   | T26,T27,T28                                |
-| T32 | .      | Artwork inline + write-back — TMDB mapper lifts `backdrop_path`; drop `thumb_url` col; `catalog.patchArtwork` COALESCE update; `artwork.service` dispatch→patch; client `useArtworkIfMissing`; swap card/hero/sidebar consumers | V44,V46,V47,V48                            |
+| T32 | x      | Artwork inline + write-back — TMDB mapper lifts `backdrop_path`; drop `thumb_url` col; `catalog.patchArtwork` COALESCE update; `artwork.service` dispatch→patch; client `useArtworkIfMissing`; swap card/hero/sidebar consumers | V44,V46,V47,V48                            |
 
 ## §B Bugs
 

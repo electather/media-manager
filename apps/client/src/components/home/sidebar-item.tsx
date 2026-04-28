@@ -2,7 +2,7 @@ import type { MouseEvent } from "react";
 import { useRouter } from "@tanstack/react-router";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { formatRelativeAirDate } from "@/lib/relative-date";
-import { useArtwork } from "@/hooks/use-artwork";
+import { useArtworkIfMissing } from "@/hooks/use-artwork";
 
 export function SidebarItem({ item }: { item: CompactMediaItem }) {
   const router = useRouter();
@@ -20,12 +20,16 @@ export function SidebarItem({ item }: { item: CompactMediaItem }) {
   const episodeLine = item.episode ? `S${item.episode.season} E${item.episode.episode}` : null;
   const dateLine = item.episode ? formatRelativeAirDate(item.episode.airsAt) : null;
   // Sidebar is always above the fold — fetch eagerly, never gate on viewport.
-  const artwork = useArtwork(
+  const artwork = useArtworkIfMissing(
     {
       key: item.id,
       ids: { tmdb: item.tmdbId },
       type: item.mediaType,
+      poster: item.poster,
+      backdrop: item.backdrop,
+      clearLogo: item.clearLogo,
     },
+    ["poster"],
     { enabled: true },
   );
   const art =

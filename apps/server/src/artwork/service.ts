@@ -6,6 +6,7 @@ import type {
   ArtworkIdMap,
   ArtworkRequestItem,
 } from "@ent-mcp/shared/artwork";
+import type { CatalogService } from "../catalog";
 import { dispatchAggregatePerKind } from "../media/strategies/aggregate-per-kind";
 import { PluginCallError } from "../media/errors";
 
@@ -17,18 +18,27 @@ import { PluginCallError } from "../media/errors";
  * `aggregate_per_kind` strategy. Per-item errors are captured on the response
  * so a single bad item never breaks the batch — top-level RPC stays 200
  * unless the wrapping zod schema rejects the input.
+ *
+ * Per V47 every fulfilled dispatch is fanned back into
+ * `CatalogService.patchArtwork` so the canonical row picks up any newly
+ * resolved URL. The patch is fire-and-forget — it must not slow the RPC
+ * response down or surface errors to the caller.
  */
 export class ArtworkService {
-  constructor(public readonly userId: string) {}
+  constructor(
+    public readonly userId: string,
+    private readonly catalogService: CatalogService,
+  ) {}
 
   async getArtwork(
     items: ArtworkRequestItem[],
     languages: string[] = [...DEFAULT_LANGUAGES],
   ): Promise<ArtworkGetResponse> {
     const canonical = dedupeByCanonicalKey(items);
+    const entries = [...canonical.values()];
 
     const settled = await Promise.allSettled(
-      [...canonical.values()].map((entry) =>
+      entries.map((entry) =>
         dispatchAggregatePerKind<ArtworkBundle>({
           userId: this.userId,
           capability: "artwork",
@@ -41,11 +51,13 @@ export class ArtworkService {
 
     const results: Record<string, ArtworkBundle> = {};
     const errors: Record<string, ArtworkError> = {};
-    let i = 0;
-    for (const entry of canonical.values()) {
-      const outcome = settled[i++]!;
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i]!;
+      const outcome = settled[i]!;
       if (outcome.status === "fulfilled") {
         for (const key of entry.clientKeys) results[key] = outcome.value;
+        this.writeBack(entry, outcome.value);
         continue;
       }
       const err = mapDispatchError(outcome.reason);
@@ -61,6 +73,27 @@ export class ArtworkService {
     if (Object.keys(errors).length > 0) out.errors = errors;
     return out;
   }
+
+  private writeBack(entry: CanonicalEntry, bundle: ArtworkBundle): void {
+    if (!entry.ids.tmdb) return;
+    void this.catalogService
+      .patchArtwork({ tmdbId: entry.ids.tmdb, type: entry.type }, top1(bundle))
+      .catch((err) => {
+        consola.error("[artwork] patch failed", err);
+      });
+  }
+}
+
+function top1(bundle: ArtworkBundle): {
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  clearLogoUrl: string | null;
+} {
+  return {
+    posterUrl: bundle.poster[0]?.url ?? null,
+    backdropUrl: bundle.backdrop[0]?.url ?? null,
+    clearLogoUrl: bundle.clearLogo[0]?.url ?? null,
+  };
 }
 
 const DEFAULT_LANGUAGES = ["en", "00"] as const;

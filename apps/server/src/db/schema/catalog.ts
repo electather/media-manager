@@ -37,7 +37,6 @@ export const canonicalMetadata = sqliteTable(
     posterUrl: text("poster_url"),
     backdropUrl: text("backdrop_url"),
     clearLogoUrl: text("clear_logo_url"),
-    thumbUrl: text("thumb_url"),
     overview: text("overview"),
     originalLanguage: text("original_language"),
     genres: text("genres", { mode: "json" }).$type<string[] | null>(),

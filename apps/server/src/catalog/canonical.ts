@@ -16,8 +16,6 @@ export interface RawArtwork {
   backdrop?: string | null;
   clearLogoUrl?: string | null;
   clearLogo?: string | null;
-  thumbUrl?: string | null;
-  thumb?: string | null;
   overview?: string | null;
 }
 
@@ -47,7 +45,6 @@ export function toCanonicalRow(
     posterUrl: pickArtwork(raw.posterUrl, raw.poster),
     backdropUrl: pickArtwork(raw.backdropUrl, raw.backdrop),
     clearLogoUrl: pickArtwork(raw.clearLogoUrl, raw.clearLogo),
-    thumbUrl: pickArtwork(raw.thumbUrl, raw.thumb),
     overview: nullableString(raw.overview),
     originalLanguage: nullableString(raw.originalLanguage),
     genres: emptyToNull(dedupeStrings(raw.genres)),
