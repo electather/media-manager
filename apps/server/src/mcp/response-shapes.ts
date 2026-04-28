@@ -1,26 +1,32 @@
+import { z } from "zod";
 import type { MediaItemShape } from "@ent-mcp/plugin-sdk";
 
-export type AvailabilityStatus =
-  | "available"
-  | "requested"
-  | "processing"
-  | "unavailable"
-  | "unknown";
+const availabilityStatusSchema = z.enum([
+  "available",
+  "requested",
+  "processing",
+  "unavailable",
+  "unknown",
+]);
+
+export type AvailabilityStatus = z.infer<typeof availabilityStatusSchema>;
 
 /** Compact agent-facing item. Absent fields are omitted, never null. */
-export interface CompactMediaResult {
-  id: string;
-  title: string;
-  year?: number;
-  type: "movie" | "tv";
-  genres?: string[];
-  rating?: number;
-  overview?: string;
-  poster?: string;
-  status?: AvailabilityStatus;
-  user_rated?: number;
-  match_reason?: string;
-}
+export const compactMediaResultSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.enum(["movie", "tv"]),
+  year: z.number().int().optional(),
+  genres: z.array(z.string()).optional(),
+  rating: z.number().optional(),
+  overview: z.string().optional(),
+  poster: z.string().optional(),
+  status: availabilityStatusSchema.optional(),
+  user_rated: z.number().int().optional(),
+  match_reason: z.string().optional(),
+});
+
+export type CompactMediaResult = z.infer<typeof compactMediaResultSchema>;
 
 interface ShapeOptions {
   status?: AvailabilityStatus;

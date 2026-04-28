@@ -38,7 +38,13 @@
     "mode": "semantic",
     "minTokens": 50,
     "minLines": 5,
-    "ignoreImports": true
+    "ignoreImports": true,
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.spec.ts",
+      // ignore frontend for now
+      "**/*.tsx"
+    ]
   },
   "health": {
     "maxCyclomatic": 20,

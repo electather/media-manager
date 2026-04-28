@@ -1,6 +1,13 @@
+import { z } from "zod";
+import { zodToItemSchema } from "@ent-mcp/shared/common";
 import { dispatchAggregate } from "../../media/dispatcher";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
-import { compactList, type AvailabilityStatus, type CompactMediaResult } from "../response-shapes";
+import {
+  compactList,
+  compactMediaResultSchema,
+  type AvailabilityStatus,
+  type CompactMediaResult,
+} from "../response-shapes";
 import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
 
@@ -233,30 +240,13 @@ export const entActivityRegistration: Omit<ToolRegistration, "source"> & { id: s
     properties: {
       results: {
         type: "array",
-        items: {
-          type: "object",
-          properties: {
-            id: { type: "string" },
-            title: { type: "string" },
-            type: { type: "string", enum: ["movie", "tv"] },
-            year: { type: "integer" },
-            genres: { type: "array", items: { type: "string" } },
-            rating: { type: "number" },
-            overview: { type: "string" },
-            poster: { type: "string" },
-            status: {
-              type: "string",
-              enum: ["available", "requested", "processing", "unavailable", "unknown"],
-            },
-            user_rated: { type: "integer" },
-            match_reason: { type: "string" },
-            watched_at: { type: "string" },
-            airs_at: { type: "string" },
-            progress: { type: "number" },
-          },
-          required: ["id", "title", "type"],
-          additionalProperties: false,
-        },
+        items: zodToItemSchema(
+          compactMediaResultSchema.extend({
+            watched_at: z.string().optional(),
+            airs_at: z.string().optional(),
+            progress: z.number().optional(),
+          }),
+        ),
       },
       total: { type: "integer" },
       has_more: { type: "boolean" },
