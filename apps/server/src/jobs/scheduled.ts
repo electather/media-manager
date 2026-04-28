@@ -1,7 +1,6 @@
-import { consola } from "consola";
-import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
-import { getConfig, effectiveSchedule } from "./config";
+import { assertValidSchedule, scheduleCron, unscheduleCron } from "./croner-adapter";
 import { register, type RegistryEntry } from "./registry";
+import { buildJobHandle, scheduleJobFromConfig } from "./schedule-helpers";
 import { isRunning, run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
@@ -53,11 +52,11 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
         }
       : undefined,
     onScheduleChange(schedule) {
-      scheduleCron(opts.id, schedule, () => void onTick(schedule));
+      scheduleCron(opts.id, schedule, () => void onTick());
     },
     onEnabledChange(enabled) {
       if (enabled) {
-        void scheduleFromConfig();
+        void scheduleJobFromConfig(opts.id, opts.schedule, () => void onTick());
       } else {
         unscheduleCron(opts.id);
       }
@@ -65,7 +64,7 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
   };
   register(entry);
 
-  async function onTick(_schedule: string): Promise<void> {
+  async function onTick(): Promise<void> {
     if (await shouldSkipTick(opts.id)) return;
     await run({
       jobId: opts.id,
@@ -77,37 +76,7 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
     });
   }
 
-  async function scheduleFromConfig(): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) {
-      unscheduleCron(opts.id);
-      return;
-    }
-    const schedule = effectiveSchedule(opts.schedule, cfg.scheduleOverride);
-    if (!schedule) return;
-    try {
-      assertValidSchedule(schedule);
-    } catch (err) {
-      consola.warn(
-        `[job:${opts.id}] invalid schedule override, falling back: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      scheduleCron(opts.id, opts.schedule, () => void onTick(opts.schedule));
-      return;
-    }
-    scheduleCron(opts.id, schedule, () => void onTick(schedule));
-  }
+  void scheduleJobFromConfig(opts.id, opts.schedule, () => void onTick());
 
-  void scheduleFromConfig();
-
-  return {
-    id: opts.id,
-    name: opts.name,
-    description: opts.description,
-    kind: "scheduled",
-    enabled: true,
-    adminTriggerable,
-    userTriggerable: false,
-    schedule: opts.schedule,
-    nextRun: nextFireTime(opts.id) ?? undefined,
-  };
+  return buildJobHandle(opts, "scheduled", adminTriggerable);
 }
