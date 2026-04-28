@@ -203,15 +203,15 @@ describe("ArtworkService write-back", () => {
     expect(patchArtwork).toHaveBeenCalledTimes(1);
   });
 
-  it("passes top1 nulls when bundle is empty", async () => {
+  it("skips patch when bundle is fully empty", async () => {
+    // Empty bundle → all-null `top1` → patch would only bump
+    // `lastRefreshedAt` without writing any URL. Skip so the row stays
+    // visible to the nightly stale sweep.
     dispatchMock.mockResolvedValue(bundle());
     const { stub, patchArtwork } = makeCatalogStub();
     await new ArtworkService("u1", stub).getArtwork([
       { key: "k", ids: { tmdb: "550" }, type: "movie" },
     ]);
-    expect(patchArtwork).toHaveBeenCalledWith(
-      { tmdbId: "550", type: "movie" },
-      { posterUrl: null, backdropUrl: null, clearLogoUrl: null },
-    );
+    expect(patchArtwork).not.toHaveBeenCalled();
   });
 });

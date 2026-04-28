@@ -83,7 +83,14 @@ export function useArtworkIfMissing(
 ): UseQueryResult<ArtworkBundle> {
   const haveAll = requiredSlots.every((slot) => Boolean(item[slot]));
   const query = useArtwork(item, { enabled: (opts.enabled ?? true) && !haveAll });
-  const synth = useMemo(() => synthFromItem(item), [item.poster, item.backdrop, item.clearLogo]);
+  // Destructure the URL fields so the dep array tracks exactly what
+  // `synthFromItem` reads. Listing fields off `item` made the closure look
+  // like it captured the full object, hiding the real reactive surface.
+  const { poster, backdrop, clearLogo } = item;
+  const synth = useMemo(
+    () => synthFromItem({ poster, backdrop, clearLogo }),
+    [poster, backdrop, clearLogo],
+  );
   if (!haveAll) return query;
   return {
     ...query,
