@@ -139,7 +139,7 @@ export async function writeRecommendationsForUser(
   );
 }
 
-function adaptCandidate(item: {
+type RawCandidate = {
   id?: string;
   type?: "movie" | "tv";
   title?: string;
@@ -148,7 +148,16 @@ function adaptCandidate(item: {
   overview?: string;
   posterUrl?: string | null;
   rating?: number | null;
-}): {
+};
+
+function parseIdentity(item: RawCandidate): { id: string; type: "movie" | "tv" } | null {
+  const tmdbId = item.ids?.tmdb_id ?? extractTmdbId(item.id);
+  const type = item.type ?? extractType(item.id);
+  if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
+  return { id: `${type}:${tmdbId}`, type };
+}
+
+function adaptCandidate(item: RawCandidate): {
   id: string;
   title: string;
   year: number;
@@ -161,15 +170,13 @@ function adaptCandidate(item: {
   userRating: null;
   matchReason: null;
 } | null {
-  const tmdbId = item.ids?.tmdb_id ?? extractTmdbId(item.id);
-  const type = item.type ?? extractType(item.id);
-  if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
-  const id = `${type}:${tmdbId}`;
+  const identity = parseIdentity(item);
+  if (!identity) return null;
   return {
-    id,
-    title: item.title ?? id,
+    id: identity.id,
+    title: item.title ?? identity.id,
     year: typeof item.year === "number" ? item.year : 0,
-    type,
+    type: identity.type,
     genres: [],
     rating: item.rating ?? null,
     overview: item.overview ?? "",

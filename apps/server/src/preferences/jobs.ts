@@ -91,32 +91,8 @@ export function registerPreferenceJobs(): void {
         timestamp: startedAt,
       });
 
-      const engine = getPreferenceEngine();
-      const results: Partial<Record<ProfileMediaType, RebuildResult>> = {};
-      const warnings: string[] = [];
-
       try {
-        for (const mediaType of PROFILE_MEDIA_TYPES) {
-          const typeStartTime = performance.now();
-          const result = await engine.rebuildProfile(userId, mediaType, ctx.abortSignal);
-          const typeDurationMs = Math.round(performance.now() - typeStartTime);
-
-          results[mediaType] = result;
-
-          if (result.sampleSize === 0) {
-            warnings.push(`Profile for ${mediaType} was rebuilt with 0 sample size`);
-          } else if (result.confidence === "low") {
-            warnings.push(`Profile for ${mediaType} has low confidence (insufficient data points)`);
-          }
-
-          consola.debug(`[job:feature.preference.rebuild] Processed media type: ${mediaType}`, {
-            userId,
-            mediaType,
-            durationMs: typeDurationMs,
-            sampleSize: result.sampleSize,
-            confidence: result.confidence,
-          });
-        }
+        const { results, warnings } = await rebuildPartitions(userId, ctx.abortSignal);
 
         // Mirror the nightly catalog rec build so the manual trigger surfaces
         // a fresh recommendation list immediately rather than waiting for the
@@ -142,21 +118,12 @@ export function registerPreferenceJobs(): void {
         if (warnings.length > 0) {
           consola.warn(
             `[job:feature.preference.rebuild] Completed with warnings for user ${userId}`,
-            {
-              userId,
-              durationMs,
-              warnings,
-              results,
-            },
+            { userId, durationMs, warnings, results },
           );
         } else {
           consola.success(
             `[job:feature.preference.rebuild] Completed successfully for user ${userId}`,
-            {
-              userId,
-              durationMs,
-              results,
-            },
+            { userId, durationMs, results },
           );
         }
 
@@ -196,4 +163,32 @@ export function registerPreferenceJobs(): void {
   });
 
   consola.debug("[preference] registered daily, incremental, and manual-rebuild jobs");
+}
+
+async function rebuildPartitions(
+  userId: string,
+  abortSignal: AbortSignal,
+): Promise<{ results: Partial<Record<ProfileMediaType, RebuildResult>>; warnings: string[] }> {
+  const engine = getPreferenceEngine();
+  const results: Partial<Record<ProfileMediaType, RebuildResult>> = {};
+  const warnings: string[] = [];
+  for (const mediaType of PROFILE_MEDIA_TYPES) {
+    const typeStartTime = performance.now();
+    const result = await engine.rebuildProfile(userId, mediaType, abortSignal);
+    const typeDurationMs = Math.round(performance.now() - typeStartTime);
+    results[mediaType] = result;
+    if (result.sampleSize === 0) {
+      warnings.push(`Profile for ${mediaType} was rebuilt with 0 sample size`);
+    } else if (result.confidence === "low") {
+      warnings.push(`Profile for ${mediaType} has low confidence (insufficient data points)`);
+    }
+    consola.debug(`[job:feature.preference.rebuild] Processed media type: ${mediaType}`, {
+      userId,
+      mediaType,
+      durationMs: typeDurationMs,
+      sampleSize: result.sampleSize,
+      confidence: result.confidence,
+    });
+  }
+  return { results, warnings };
 }

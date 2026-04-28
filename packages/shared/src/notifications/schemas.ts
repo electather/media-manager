@@ -56,6 +56,12 @@ export const notificationEventSchema = z.object({
 
 const idsBodySchema = z.object({ ids: z.array(z.string().min(1)).min(1).max(500) });
 
+const paginatedLimitField = z
+  .union([z.number(), z.string()])
+  .optional()
+  .transform((v) => (v === undefined ? 50 : typeof v === "string" ? Number(v) : v))
+  .pipe(z.number().int().min(1).max(200));
+
 export const inboxMarkBodySchema = idsBodySchema;
 export const inboxDeleteBodySchema = idsBodySchema;
 
@@ -79,11 +85,7 @@ export const inboxListQuerySchema = z
     category: notificationCategorySchema.optional(),
     severity: notificationSeveritySchema.optional(),
     cursor: z.string().optional(),
-    limit: z
-      .union([z.number(), z.string()])
-      .optional()
-      .transform((v) => (v === undefined ? 50 : typeof v === "string" ? Number(v) : v))
-      .pipe(z.number().int().min(1).max(200)),
+    limit: paginatedLimitField,
   })
   .strict();
 
@@ -126,11 +128,7 @@ export const adminDeliveriesQuerySchema = z
     from: optionalEpochMs,
     to: optionalEpochMs,
     cursor: z.string().optional(),
-    limit: z
-      .union([z.number(), z.string()])
-      .optional()
-      .transform((v) => (v === undefined ? 50 : typeof v === "string" ? Number(v) : v))
-      .pipe(z.number().int().min(1).max(200)),
+    limit: paginatedLimitField,
   })
   .strict();
 

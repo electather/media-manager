@@ -1,12 +1,11 @@
 import Ajv, { type ValidateFunction } from "ajv";
 import { consola } from "consola";
-import { newRequestId } from "../errors/request-context";
 import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
 import { getConfig, effectiveSchedule } from "./config";
 import { jobErrors } from "./errors";
-import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
 import { isRunning, requestCancel, run } from "./runner";
+import { shouldSkipTick } from "./tick-guard";
 import type {
   AdminOrFeaturePermission,
   JobCaptureMeta,
@@ -102,18 +101,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
   }
 
   async function onTick(): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) return;
-    if (isRunning(opts.id)) {
-      await recordSkipped({
-        id: crypto.randomUUID(),
-        jobId: opts.id,
-        triggeredBy: "cron",
-        requestId: newRequestId(),
-        tickAt: Date.now(),
-      });
-      return;
-    }
+    if (await shouldSkipTick(opts.id)) return;
     await run({
       jobId: opts.id,
       kind: "triggerable",

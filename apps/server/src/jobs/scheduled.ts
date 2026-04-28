@@ -1,10 +1,9 @@
 import { consola } from "consola";
-import { newRequestId } from "../errors/request-context";
 import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
 import { getConfig, effectiveSchedule } from "./config";
-import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
 import { isRunning, run } from "./runner";
+import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
 
@@ -67,18 +66,7 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
   register(entry);
 
   async function onTick(_schedule: string): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) return;
-    if (isRunning(opts.id)) {
-      await recordSkipped({
-        id: crypto.randomUUID(),
-        jobId: opts.id,
-        triggeredBy: "cron",
-        requestId: newRequestId(),
-        tickAt: Date.now(),
-      });
-      return;
-    }
+    if (await shouldSkipTick(opts.id)) return;
     await run({
       jobId: opts.id,
       kind: "scheduled",

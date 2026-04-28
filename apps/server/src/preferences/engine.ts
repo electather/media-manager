@@ -54,13 +54,6 @@ export class PreferenceEngine {
     return rankCandidatesAgainst(enriched, profile, { alpha: opts.alpha });
   }
 
-  async explainMatch(userId: string, candidate: MediaItem): Promise<string | null> {
-    const profile = await this.resolveProfileForMedia(userId, candidate.type);
-    const features = await this.featuresForCandidate(userId, candidate);
-    if (!features) return null;
-    return explainAgainstProfile(features, profile);
-  }
-
   /**
    * Explain a candidate that has already been ranked. Reuses the features
    * captured on the RankedCandidate so the explanation does not trigger a

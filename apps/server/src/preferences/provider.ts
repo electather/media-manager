@@ -1,4 +1,4 @@
-import type { CandidateFeatures } from "./types";
+import type { CandidateFeatures, MediaItemFields } from "./types";
 
 /**
  * Narrow facade the engine depends on. Keeps the engine decoupled from the
@@ -48,19 +48,9 @@ export interface CommentSignal {
   createdAt: number;
 }
 
-export interface RawMediaItem {
+export interface RawMediaItem extends MediaItemFields {
   id?: string;
   type?: "movie" | "tv";
-  title?: string;
-  year?: number | null;
-  runtime?: number | null;
-  genres?: string[];
-  keywords?: string[];
-  cast?: string[];
-  director?: string | null;
-  writers?: string[];
-  creators?: string[];
-  originalLanguage?: string | null;
   ids?: { tmdb_id?: string };
 }
 

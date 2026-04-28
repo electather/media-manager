@@ -73,95 +73,120 @@ export function registerDeliveryJob() {
         return;
       }
 
-      let plugin;
-      try {
-        plugin = await pluginRuntime.getModule(conn.pluginId);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        await markDeliveryFailed(deliveryId, "plugin_load_failed", msg);
-        return;
-      }
+      const loaded = await loadPluginAndContext(deliveryId, conn, delivery);
+      if (!loaded) return;
 
-      // Use the same context-building path as job handlers: it pulls the
-      // plugin's `manifest.allowedHosts`, resolves dynamic `x-allowed-host`
-      // entries from the user's channel config, and intersects against the
-      // admin allowlist + headers. Building a bare context with an empty
-      // allowlist would block every outbound HTTP call.
-      let pluginCtx;
-      try {
-        pluginCtx = await pluginRuntime.buildJobContext(
-          conn.pluginId,
-          conn.userId,
-          null,
-          conn.userConfig,
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        await markDeliveryFailed(deliveryId, "context_build_failed", msg);
-        return;
-      }
-
-      // Inject host-privileged context fields for plugins on the privilege
-      // allowlist. The privilege gate is `isHostPrivilegedPlugin` so a
-      // future host-privileged plugin only needs to be added to the set
-      // once; this block branches per-plugin id to attach the right shape
-      // (today only inbox needs `ctx.inbox.insert`).
-      if (isHostPrivilegedPlugin(conn.pluginId)) {
-        if (conn.pluginId === "inbox") {
-          pluginCtx = {
-            ...pluginCtx,
-            inbox: {
-              insert: (
-                row: Pick<
-                  InsertInboxItemInput,
-                  "title" | "body" | "severity" | "category" | "actionUrl" | "imageUrl" | "imageAlt"
-                >,
-              ) =>
-                insertInboxItem({
-                  id: randomUUID(),
-                  userId: delivery.recipientUserId,
-                  deliveryId,
-                  ...row,
-                }),
-            },
-          } as typeof pluginCtx;
-        }
-      }
-
-      try {
-        if (!plugin.capabilities?.notificationDelivery?.deliver) {
-          await markDeliveryFailed(
-            deliveryId,
-            "missing_capability",
-            "plugin missing notificationDelivery.deliver",
-          );
-          return;
-        }
-
-        // Third-party plugins get the SDK-typed args only. Host-privileged
-        // plugins receive an extended shape so the inbox can persist with
-        // the right user id and delivery linkage.
-        const deliverArgs = buildDeliverArgs(
-          conn.pluginId,
-          { message, event, channelConfig: conn.userConfig },
-          { deliveryId, recipientUserId: delivery.recipientUserId },
-        );
-        const result = await plugin.capabilities.notificationDelivery.deliver(
-          pluginCtx,
-          deliverArgs as Parameters<
-            NonNullable<typeof plugin.capabilities.notificationDelivery>["deliver"]
-          >[1],
-        );
-        const providerMessageId =
-          result && typeof result === "object" && "providerMessageId" in result
-            ? ((result as { providerMessageId?: string }).providerMessageId ?? null)
-            : null;
-        await updateDeliveryStatus(deliveryId, "succeeded", providerMessageId);
-      } catch (err) {
-        await handleDeliveryFailure(deliveryId, delivery, err);
-      }
+      await executeDelivery(deliveryId, delivery, loaded, message, event, conn);
     },
   });
+}
+
+type PluginModule = Awaited<ReturnType<typeof pluginRuntime.getModule>>;
+type PluginContext = Awaited<ReturnType<typeof pluginRuntime.buildJobContext>>;
+type ServiceConnection = typeof serviceConnections.$inferSelect;
+type DeliveryRow = typeof notificationDeliveries.$inferSelect;
+
+async function loadPluginAndContext(
+  deliveryId: string,
+  conn: ServiceConnection,
+  delivery: DeliveryRow,
+): Promise<{ plugin: PluginModule; pluginCtx: PluginContext } | null> {
+  let plugin: PluginModule;
+  try {
+    plugin = await pluginRuntime.getModule(conn.pluginId);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await markDeliveryFailed(deliveryId, "plugin_load_failed", msg);
+    return null;
+  }
+
+  // Use the same context-building path as job handlers: it pulls the
+  // plugin's `manifest.allowedHosts`, resolves dynamic `x-allowed-host`
+  // entries from the user's channel config, and intersects against the
+  // admin allowlist + headers. Building a bare context with an empty
+  // allowlist would block every outbound HTTP call.
+  let pluginCtx: PluginContext;
+  try {
+    pluginCtx = await pluginRuntime.buildJobContext(
+      conn.pluginId,
+      conn.userId,
+      null,
+      conn.userConfig,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await markDeliveryFailed(deliveryId, "context_build_failed", msg);
+    return null;
+  }
+
+  // Inject host-privileged context fields for plugins on the privilege
+  // allowlist. The privilege gate is `isHostPrivilegedPlugin` so a
+  // future host-privileged plugin only needs to be added to the set
+  // once; this block branches per-plugin id to attach the right shape
+  // (today only inbox needs `ctx.inbox.insert`).
+  if (isHostPrivilegedPlugin(conn.pluginId) && conn.pluginId === "inbox") {
+    pluginCtx = {
+      ...pluginCtx,
+      inbox: {
+        insert: (
+          row: Pick<
+            InsertInboxItemInput,
+            "title" | "body" | "severity" | "category" | "actionUrl" | "imageUrl" | "imageAlt"
+          >,
+        ) =>
+          insertInboxItem({
+            id: randomUUID(),
+            userId: delivery.recipientUserId,
+            deliveryId,
+            ...row,
+          }),
+      },
+    } as typeof pluginCtx;
+  }
+
+  return { plugin, pluginCtx };
+}
+
+async function executeDelivery(
+  deliveryId: string,
+  delivery: DeliveryRow,
+  { plugin, pluginCtx }: { plugin: PluginModule; pluginCtx: PluginContext },
+  message: ReturnType<typeof renderTemplate>,
+  event: NotificationEvent,
+  conn: ServiceConnection,
+): Promise<void> {
+  try {
+    if (!plugin.capabilities?.notificationDelivery?.deliver) {
+      await markDeliveryFailed(
+        deliveryId,
+        "missing_capability",
+        "plugin missing notificationDelivery.deliver",
+      );
+      return;
+    }
+
+    // Third-party plugins get the SDK-typed args only. Host-privileged
+    // plugins receive an extended shape so the inbox can persist with
+    // the right user id and delivery linkage.
+    const deliverArgs = buildDeliverArgs(
+      conn.pluginId,
+      { message, event, channelConfig: conn.userConfig },
+      { deliveryId, recipientUserId: delivery.recipientUserId },
+    );
+    const result = await plugin.capabilities.notificationDelivery.deliver(
+      pluginCtx,
+      deliverArgs as Parameters<
+        NonNullable<typeof plugin.capabilities.notificationDelivery>["deliver"]
+      >[1],
+    );
+    const providerMessageId =
+      result && typeof result === "object" && "providerMessageId" in result
+        ? ((result as { providerMessageId?: string }).providerMessageId ?? null)
+        : null;
+    await updateDeliveryStatus(deliveryId, "succeeded", providerMessageId);
+  } catch (err) {
+    await handleDeliveryFailure(deliveryId, delivery, err);
+  }
 }
 
 async function handleDeliveryFailure(
