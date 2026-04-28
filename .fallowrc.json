@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "publicPackages": [
+    "@ent-mcp/client",
+    "@ent-mcp/server",
+    "@ent-mcp/plugin-sdk",
+    "@ent-mcp/plugin-trakt",
+    "@ent-mcp/plugin-tmdb",
+    "@ent-mcp/plugin-tvdb",
+    "@ent-mcp/plugin-seerr",
+    "@ent-mcp/plugin-plex",
+    "@ent-mcp/plugin-jellyfin",
+    "@ent-mcp/plugin-discord",
+    "@ent-mcp/plugin-inbox",
+    "@ent-mcp/plugin-ntfy",
+    "@ent-mcp/plugin-telegram"
+  ],
+  "entry": ["apps/server/src/worker.ts"],
+  "ignorePatterns": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.gen.ts",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/.claude/**",
+    "**/plan/**",
+    "**/docs/**",
+    "**/docker/**"
+  ],
+  "rules": {
+    "unused-files": "error",
+    "unused-exports": "error",
+    "unused-types": "warn",
+    "unused-deps": "warn",
+    "circular-deps": "warn"
+  },
+  "duplicates": {
+    "mode": "mild",
+    "minTokens": 50,
+    "minLines": 5
+  },
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
+    "maxCrap": 30,
+    "ignore": ["**/*.test.ts", "**/*.spec.ts"]
+  }
+}
