@@ -35,14 +35,18 @@
     "circular-deps": "warn"
   },
   "duplicates": {
-    "mode": "mild",
+    "mode": "semantic",
     "minTokens": 50,
-    "minLines": 5
+    "minLines": 5,
+    "ignoreImports": true
   },
   "health": {
     "maxCyclomatic": 20,
     "maxCognitive": 15,
     "maxCrap": 30,
     "ignore": ["**/*.test.ts", "**/*.spec.ts"]
+  },
+  "boundaries": {
+    "preset": "bulletproof"
   }
 }
