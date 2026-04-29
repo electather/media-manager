@@ -1,4 +1,4 @@
-import { traktJson, traktJsonWrite } from "../client";
+import { traktJson } from "../client";
 import { toSyncBody, mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow, TraktMediaItemRef } from "../types";
 
@@ -20,15 +20,20 @@ export const watchlist = {
         show?: TraktShow;
       }>
     >(c, path);
-    return data.map((row) => ({
-      item: row.movie ? mapMovie(row.movie) : mapShow(row.show!),
-      addedAt: row.listed_at,
-    }));
+    // Skip rows missing both movie and show; matches watch-history.ts so a
+    // malformed Trakt row drops out instead of throwing on a non-null assertion.
+    const results = [];
+    for (const row of data) {
+      const item = row.movie ? mapMovie(row.movie) : row.show ? mapShow(row.show) : null;
+      if (!item) continue;
+      results.push({ item, addedAt: row.listed_at });
+    }
+    return results;
   },
 
   async addToWatchlist(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const body = await traktJsonWrite<{ added?: { movies?: number; shows?: number } }>(
+    const body = await traktJson<{ added?: { movies?: number; shows?: number } }>(
       c,
       "/sync/watchlist",
       { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },
@@ -38,7 +43,7 @@ export const watchlist = {
 
   async removeFromWatchlist(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const body = await traktJsonWrite<{ deleted?: { movies?: number; shows?: number } }>(
+    const body = await traktJson<{ deleted?: { movies?: number; shows?: number } }>(
       c,
       "/sync/watchlist/remove",
       { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },

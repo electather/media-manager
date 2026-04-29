@@ -1,4 +1,4 @@
-import { traktJson, traktJsonWrite } from "../client";
+import { traktJson } from "../client";
 import { toSyncBody, mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow, TraktMediaItemRef } from "../types";
 
@@ -33,7 +33,7 @@ export const collection = {
 
   async addToCollection(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const body = await traktJsonWrite<{ added?: { movies?: number; episodes?: number } }>(
+    const body = await traktJson<{ added?: { movies?: number; episodes?: number } }>(
       c,
       "/sync/collection",
       { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },
@@ -43,7 +43,7 @@ export const collection = {
 
   async removeFromCollection(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const body = await traktJsonWrite<{ deleted?: { movies?: number; episodes?: number } }>(
+    const body = await traktJson<{ deleted?: { movies?: number; episodes?: number } }>(
       c,
       "/sync/collection/remove",
       { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },

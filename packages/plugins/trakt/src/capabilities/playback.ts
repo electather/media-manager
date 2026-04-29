@@ -1,4 +1,4 @@
-import { pluginError } from "@ent-mcp/plugin-sdk";
+import { handleHttpStatus, pluginError } from "@ent-mcp/plugin-sdk";
 import { traktFetch, traktJson } from "../client";
 import { mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow } from "../types";
@@ -51,11 +51,10 @@ export const playback = {
     const { playbackId } = input as { playbackId: string };
     const res = await traktFetch(c, `/sync/playback/${playbackId}`, { method: "DELETE" });
     // 404 means the row is already cleared — treat as idempotent success.
-    // handleHttpStatus would throw on 404, so error signals are checked manually.
-    if (res.status === 401) throw pluginError("plugin.token_expired", "Trakt auth rejected (401)");
-    if (res.status === 429) throw pluginError("plugin.rate_limited", "Trakt rate limited (429)");
-    if (res.status >= 500)
-      throw pluginError("plugin.upstream_error", `Trakt server error (${res.status})`);
-    return { ok: res.ok || res.status === 404 };
+    if (res.status === 404) return { ok: true };
+    handleHttpStatus(res, "Trakt", { on401: "plugin.token_expired" });
+    if (!res.ok)
+      throw pluginError("plugin.upstream_error", `Trakt ${res.status}: ${await res.text()}`);
+    return { ok: true };
   },
 };

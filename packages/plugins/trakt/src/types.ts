@@ -12,8 +12,8 @@ export interface TraktSharedCreds {
   clientSecret: string;
 }
 
-export interface TraktUserCfg {}
-export interface TraktGlobalCfg {}
+export type TraktUserCfg = Record<string, never>;
+export type TraktGlobalCfg = Record<string, never>;
 
 export type Ctx = PluginContext<TraktCreds, TraktSharedCreds, TraktUserCfg, TraktGlobalCfg>;
 

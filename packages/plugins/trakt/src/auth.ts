@@ -37,7 +37,12 @@ async function doTokenRefresh(
       redirect_uri: "urn:ietf:wg:oauth:2.0:oob",
     }),
   });
-  if (!res.ok) throw pluginError("plugin.token_expired", `Trakt refresh ${res.status}`);
+  if (!res.ok) {
+    // Distinguish bad/expired refresh tokens (4xx) from transient upstream
+    // failures (5xx) so a flaky Trakt does not force users back through auth.
+    const code = res.status >= 500 ? "plugin.upstream_error" : "plugin.token_expired";
+    throw pluginError(code, `Trakt refresh ${res.status}`);
+  }
   return parseTokenBody((await res.json()) as TokenBody);
 }
 
@@ -124,7 +129,7 @@ export async function refreshAuth(ctx: unknown, credentials: unknown): Promise<T
   if (!shared?.clientId || !shared?.clientSecret) {
     throw pluginError("plugin.bad_credentials", "Trakt client not configured");
   }
-  return doTokenRefresh(c.fetch.bind(c), creds.refreshToken, shared as TraktSharedCreds);
+  return doTokenRefresh(c.fetch.bind(c), creds.refreshToken, shared);
 }
 
 export async function testConnection(ctx: unknown) {
@@ -148,5 +153,5 @@ export async function refreshTokensJob(ctx: unknown): Promise<TraktCreds | null>
   if (!aboutToExpire) return null;
   const shared = c.sharedCredentials as TraktSharedCreds | null;
   if (!shared?.clientId || !shared?.clientSecret) return null;
-  return doTokenRefresh(c.fetch.bind(c), creds.refreshToken, shared as TraktSharedCreds);
+  return doTokenRefresh(c.fetch.bind(c), creds.refreshToken, shared);
 }

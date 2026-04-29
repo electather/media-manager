@@ -1,5 +1,5 @@
 import { pluginError } from "@ent-mcp/plugin-sdk";
-import { traktJson, traktJsonWrite } from "../client";
+import { traktJson } from "../client";
 import { parseTraktId, mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow, TraktMediaItemRef } from "../types";
 
@@ -21,11 +21,15 @@ export const ratings = {
         show?: TraktShow;
       }>
     >(c, path);
-    return data.map((row) => ({
-      item: row.movie ? mapMovie(row.movie) : mapShow(row.show!),
-      rating: row.rating,
-      ratedAt: row.rated_at,
-    }));
+    // Skip rows missing both movie and show; matches watch-history.ts so a
+    // malformed Trakt row drops out instead of throwing on a non-null assertion.
+    const results = [];
+    for (const row of data) {
+      const item = row.movie ? mapMovie(row.movie) : row.show ? mapShow(row.show) : null;
+      if (!item) continue;
+      results.push({ item, rating: row.rating, ratedAt: row.rated_at });
+    }
+    return results;
   },
 
   async setRating(ctx: unknown, input: unknown) {
@@ -39,7 +43,7 @@ export const ratings = {
       item.type === "movie"
         ? { movies: [{ rating, ids: { trakt: traktId } }] }
         : { shows: [{ rating, ids: { trakt: traktId } }] };
-    await traktJsonWrite(c, "/sync/ratings", { method: "POST", body: JSON.stringify(body) });
+    await traktJson(c, "/sync/ratings", { method: "POST", body: JSON.stringify(body) });
     return { ok: true };
   },
 
@@ -54,7 +58,7 @@ export const ratings = {
       item.type === "movie"
         ? { movies: [{ ids: { trakt: traktId } }] }
         : { shows: [{ ids: { trakt: traktId } }] };
-    await traktJsonWrite(c, "/sync/ratings/remove", { method: "POST", body: JSON.stringify(body) });
+    await traktJson(c, "/sync/ratings/remove", { method: "POST", body: JSON.stringify(body) });
     return { ok: true };
   },
 };
