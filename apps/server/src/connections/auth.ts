@@ -147,6 +147,21 @@ async function loadPendingAuth(
   return { found: true, row, state };
 }
 
+async function runStartAuth<S extends "redirect" | "display_code">(
+  pluginId: string,
+  userId: string,
+  expectedStatus: S,
+  failLabel: string,
+): Promise<Extract<AuthResult, { status: S }>> {
+  const result = (await pluginRuntime.runAuth(pluginId, "startAuth", userId, null)) as AuthResult;
+  if (result.status !== expectedStatus) {
+    const message =
+      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
+    throw unprocessable("oauth.init_failed", `${failLabel}: ${message}`, { message });
+  }
+  return result as Extract<AuthResult, { status: S }>;
+}
+
 /** Writes a connection row and deletes the consumed `pendingAuth` record. */
 async function writeAndCleanupPendingAuth(
   db: ReturnType<typeof getDb>,
@@ -248,17 +263,12 @@ export async function initiateRedirectAuth(args: {
   pluginId: string;
 }): Promise<{ redirectUrl: string; nonce: string }> {
   const db = getDb();
-  const result = (await pluginRuntime.runAuth(
+  const result = await runStartAuth(
     args.pluginId,
-    "startAuth",
     args.userId,
-    null,
-  )) as AuthResult;
-  if (result.status !== "redirect") {
-    const message =
-      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    throw unprocessable("oauth.init_failed", `redirect auth init failed: ${message}`, { message });
-  }
+    "redirect",
+    "redirect auth init failed",
+  );
   const nonce = await storePendingAuth(db, args, result.state);
   return { redirectUrl: result.url, nonce };
 }
@@ -308,17 +318,12 @@ export async function initiateDeviceAuth(args: { userId: string; pluginId: strin
   expiresAt: number;
 }> {
   const db = getDb();
-  const result = (await pluginRuntime.runAuth(
+  const result = await runStartAuth(
     args.pluginId,
-    "startAuth",
     args.userId,
-    null,
-  )) as AuthResult;
-  if (result.status !== "display_code") {
-    const message =
-      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    throw unprocessable("oauth.init_failed", `device auth init failed: ${message}`, { message });
-  }
+    "display_code",
+    "device auth init failed",
+  );
   const nonce = await storePendingAuth(db, args, result.pollState);
   return {
     userCode: result.code,

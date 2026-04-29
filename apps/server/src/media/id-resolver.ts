@@ -36,10 +36,20 @@ function shouldOverwrite(field: IdField, ctx: HarvestContext, existing: string |
   const owner = ID_OWNERSHIP[field];
   if (owner === "first_writer") return existing === null || existing === undefined;
   if (!ctx.installedPlugins.has(owner)) {
-    // Owner plugin absent: fall back to first-writer so id_map stays populated.
     return existing === null || existing === undefined;
   }
   return ctx.pluginId === owner;
+}
+
+function assignIdField(
+  updates: Record<string, string | number>,
+  key: string,
+  value: string | undefined,
+  field: IdField,
+  ctx: HarvestContext,
+  existing: string | null,
+): void {
+  if (value && shouldOverwrite(field, ctx, existing)) updates[key] = value;
 }
 
 /**
@@ -73,29 +83,20 @@ export async function upsertIdBundle(
     return;
   }
 
-  const updates: Partial<{
-    imdbId: string | null;
-    tvdbId: string | null;
-    traktId: string | null;
-    traktSlug: string | null;
-    updatedAt: number;
-  }> = {};
+  const updates: Record<string, string | number> = {};
 
-  if (bundle.imdb_id && shouldOverwrite("imdb_id", ctx, existing.imdbId)) {
-    if (existing.imdbId && existing.imdbId !== bundle.imdb_id) {
+  if (bundle.imdb_id) {
+    if (!existing.imdbId) {
+      updates.imdbId = bundle.imdb_id;
+    } else if (existing.imdbId !== bundle.imdb_id) {
       consola.debug(
         `[id-map] imdb_id conflict for tmdb_id=${bundle.tmdb_id} ignored (first-writer wins)`,
       );
-    } else {
-      updates.imdbId = bundle.imdb_id;
     }
   }
-  if (bundle.tvdb_id && shouldOverwrite("tvdb_id", ctx, existing.tvdbId))
-    updates.tvdbId = bundle.tvdb_id;
-  if (bundle.trakt_id && shouldOverwrite("trakt_id", ctx, existing.traktId))
-    updates.traktId = bundle.trakt_id;
-  if (bundle.trakt_slug && shouldOverwrite("trakt_slug", ctx, existing.traktSlug))
-    updates.traktSlug = bundle.trakt_slug;
+  assignIdField(updates, "tvdbId", bundle.tvdb_id, "tvdb_id", ctx, existing.tvdbId);
+  assignIdField(updates, "traktId", bundle.trakt_id, "trakt_id", ctx, existing.traktId);
+  assignIdField(updates, "traktSlug", bundle.trakt_slug, "trakt_slug", ctx, existing.traktSlug);
 
   if (Object.keys(updates).length === 0) return;
   updates.updatedAt = now;

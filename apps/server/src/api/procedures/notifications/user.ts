@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { last, uniq } from "es-toolkit/array";
 import { and, eq } from "drizzle-orm";
 import {
   NOTIFICATION_CATEGORIES,
@@ -171,8 +172,8 @@ export const notificationsApp = new Hono()
           `at most ${SUBSCRIPTION_BULK_LIMIT} updates per request`,
         );
       }
-      await assertOwnsConnections(userId, [...new Set(updates.map((u) => u.connectionId))]);
-      await assertCanWriteCategories(userId, [...new Set(updates.map((u) => u.category))]);
+      await assertOwnsConnections(userId, uniq(updates.map((u) => u.connectionId)));
+      await assertCanWriteCategories(userId, uniq(updates.map((u) => u.category)));
       for (const u of updates) {
         await upsertSubscription(u.connectionId, u.category, u.enabled);
       }
@@ -190,10 +191,8 @@ export const notificationsApp = new Hono()
       q.limit,
     );
     const unreadCount = await getUnreadCount(userId);
-    const nextCursor =
-      items.length === q.limit && items.length > 0
-        ? encodeKeysetCursor(items[items.length - 1]!.createdAt, items[items.length - 1]!.id)
-        : undefined;
+    const lastItem = items.length === q.limit ? last(items) : undefined;
+    const nextCursor = lastItem ? encodeKeysetCursor(lastItem.createdAt, lastItem.id) : undefined;
     return c.json({
       items: items.map(inboxRowToDto),
       ...(nextCursor !== undefined ? { nextCursor } : {}),

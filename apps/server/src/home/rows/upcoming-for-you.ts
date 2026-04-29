@@ -1,3 +1,4 @@
+import { last } from "es-toolkit/array";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
@@ -43,19 +44,19 @@ export const upcomingForYouFetcher: RowFetcher = {
     const sliced = entries.filter((entry) => isAfter(entry, after)).slice(0, opts.limit);
     const items = sliced.map(mapToCompact);
 
-    const last = sliced[sliced.length - 1];
-    const lastAnchor = last ? compositeId(last) : null;
+    const lastEntry = last(sliced);
+    const lastAnchor = lastEntry ? compositeId(lastEntry) : null;
     // No anchor available → end pagination cleanly. A synthetic "tv:0"
     // would let the cursor encode but produce a nonsensical starting point
     // for the next page, breaking the (tmdbId, airsAt) ordering.
     const cursor =
-      !last || !lastAnchor || items.length < opts.limit || items.length >= MAX_ITEMS
+      !lastEntry || !lastAnchor || items.length < opts.limit || items.length >= MAX_ITEMS
         ? null
         : encodeCursor(ROW_ID, {
             v: 1,
             r: ROW_ID,
             a: lastAnchor,
-            ts: Date.parse(last.airsAt),
+            ts: Date.parse(lastEntry.airsAt),
           });
     return result.partial ? { items, cursor, partial: true } : { items, cursor };
   },

@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { uniq } from "es-toolkit/array";
 import { getDb } from "../../db/client";
 import { plugins, primaryConnections, serviceConnections } from "../../db/schema";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
@@ -62,7 +63,7 @@ async function primaryConnectionKeysFor(userId: string, connectionId: string): P
       and(eq(primaryConnections.userId, userId), eq(primaryConnections.connectionId, connectionId)),
     )
     .all();
-  return [...new Set(rows.map((r) => r.capabilityKey))];
+  return uniq(rows.map((r) => r.capabilityKey));
 }
 
 export const entAccountHandler: ToolHandler = async (ctx) => {

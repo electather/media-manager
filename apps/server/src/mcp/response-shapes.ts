@@ -40,23 +40,14 @@ function looksLikeMediaItem(input: unknown): input is Partial<MediaItemShape> {
   return typeof rec.id === "string" && typeof rec.title === "string";
 }
 
-/**
- * Normalizes an arbitrary plugin-shaped MediaItem (or wrapper with `item`)
- * into the compact surface. Drops null/empty fields so they do not waste
- * tokens in the agent's context window.
- */
-export function compactMediaItem(input: unknown, options: ShapeOptions = {}): CompactMediaResult {
-  const source = looksLikeMediaItem((input as { item?: unknown })?.item)
-    ? ((input as { item: MediaItemShape }).item as Partial<MediaItemShape>)
-    : looksLikeMediaItem(input)
-      ? (input as Partial<MediaItemShape>)
-      : ({} as Partial<MediaItemShape>);
+function resolveSource(input: unknown): Partial<MediaItemShape> {
+  const wrapper = input as { item?: unknown } | null | undefined;
+  if (looksLikeMediaItem(wrapper?.item)) return wrapper!.item as Partial<MediaItemShape>;
+  if (looksLikeMediaItem(input)) return input as Partial<MediaItemShape>;
+  return {};
+}
 
-  const out: CompactMediaResult = {
-    id: String(source.id ?? ""),
-    title: String(source.title ?? ""),
-    type: (source.type as "movie" | "tv") ?? "movie",
-  };
+function applySourceFields(out: CompactMediaResult, source: Partial<MediaItemShape>): void {
   if (typeof source.year === "number") out.year = source.year;
   if (Array.isArray(source.genres) && source.genres.length > 0)
     out.genres = source.genres.slice(0, 6);
@@ -67,12 +58,30 @@ export function compactMediaItem(input: unknown, options: ShapeOptions = {}): Co
   }
   if (typeof source.posterUrl === "string" && source.posterUrl.length > 0)
     out.poster = source.posterUrl;
+}
+
+function applyShapeOptions(out: CompactMediaResult, options: ShapeOptions): void {
   if (options.status && options.status !== "unknown") out.status = options.status;
   if (typeof options.userRated === "number" && options.userRated > 0)
     out.user_rated = options.userRated;
-  if (typeof options.matchReason === "string" && options.matchReason.length > 0) {
+  if (typeof options.matchReason === "string" && options.matchReason.length > 0)
     out.match_reason = options.matchReason;
-  }
+}
+
+/**
+ * Normalizes an arbitrary plugin-shaped MediaItem (or wrapper with `item`)
+ * into the compact surface. Drops null/empty fields so they do not waste
+ * tokens in the agent's context window.
+ */
+export function compactMediaItem(input: unknown, options: ShapeOptions = {}): CompactMediaResult {
+  const source = resolveSource(input);
+  const out: CompactMediaResult = {
+    id: String(source.id ?? ""),
+    title: String(source.title ?? ""),
+    type: (source.type as "movie" | "tv") ?? "movie",
+  };
+  applySourceFields(out, source);
+  applyShapeOptions(out, options);
   return out;
 }
 

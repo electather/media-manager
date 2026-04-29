@@ -1,3 +1,4 @@
+import { head } from "es-toolkit/array";
 import { getCapability } from "@ent-mcp/plugin-sdk";
 import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
@@ -49,5 +50,5 @@ export async function pickSingleConnection(
   pluginId: string,
 ): Promise<ResolvedConnection | null> {
   const all = await resolveConnections(userId, pluginId);
-  return all[0] ?? null;
+  return head(all) ?? null;
 }

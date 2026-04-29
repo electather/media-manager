@@ -9,7 +9,7 @@ import type {
   RebuildResult,
 } from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
-import { SCORERS, isDictScorer } from "./features";
+import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
 import { profileStorage } from "./storage";
 import { normalizeProfile } from "./scoring";
 import type { PreferenceDataProvider } from "./provider";
@@ -216,8 +216,10 @@ function buildPerItemSignals(
   return perItem;
 }
 
-function countSignals(perItem: Map<string, PerItemSignals>) {
-  const counts = {
+type SignalCounts = ReturnType<typeof initSignalCounts>;
+
+function initSignalCounts() {
+  return {
     rateHigh: 0,
     rateMid: 0,
     rateLow: 0,
@@ -228,20 +230,26 @@ function countSignals(perItem: Map<string, PerItemSignals>) {
     watchlist: 0,
     comment: 0,
   };
-  for (const s of perItem.values()) {
-    if (s.rate) {
-      const w = rateBucketWeight(s.rate.rating);
-      if (w > 0) counts.rateHigh++;
-      else if (w < 0) counts.rateLow++;
-      else counts.rateMid++;
-    }
-    if (s.like) counts.like++;
-    if (s.dislike) counts.dislike++;
-    if (s.note) counts.note++;
-    if (s.completed) counts.completed++;
-    if (s.watchlisted) counts.watchlist++;
-    if (s.comment) counts.comment++;
+}
+
+function tallySignals(counts: SignalCounts, s: PerItemSignals): void {
+  if (s.rate) {
+    const w = rateBucketWeight(s.rate.rating);
+    if (w > 0) counts.rateHigh++;
+    else if (w < 0) counts.rateLow++;
+    else counts.rateMid++;
   }
+  if (s.like) counts.like++;
+  if (s.dislike) counts.dislike++;
+  if (s.note) counts.note++;
+  if (s.completed) counts.completed++;
+  if (s.watchlisted) counts.watchlist++;
+  if (s.comment) counts.comment++;
+}
+
+function countSignals(perItem: Map<string, PerItemSignals>): SignalCounts {
+  const counts = initSignalCounts();
+  for (const s of perItem.values()) tallySignals(counts, s);
   return counts;
 }
 
@@ -317,29 +325,28 @@ function signalsFor(
   return created;
 }
 
+function isNewer(existing: { at: number } | undefined, at: number): boolean {
+  return !existing || at > existing.at;
+}
+
 function mergeFeedback(perItem: Map<string, PerItemSignals>, record: FeedbackRecord): void {
   const entry = signalsFor(perItem, record.tmdbId, record.mediaType, record.createdAt);
+  const at = record.createdAt;
   switch (record.action) {
     case "rate":
-      if (record.rating !== null && (!entry.rate || record.createdAt > entry.rate.at)) {
-        entry.rate = { rating: record.rating, at: record.createdAt };
+      if (record.rating !== null && isNewer(entry.rate, at)) {
+        entry.rate = { rating: record.rating, at };
       }
       break;
     case "like":
-      if (!entry.like || record.createdAt > entry.like.at) {
-        entry.like = { at: record.createdAt };
-      }
+      if (isNewer(entry.like, at)) entry.like = { at };
       break;
     case "dislike":
-      if (!entry.dislike || record.createdAt > entry.dislike.at) {
-        entry.dislike = { at: record.createdAt };
-      }
+      if (isNewer(entry.dislike, at)) entry.dislike = { at };
       break;
     case "note": {
       const sentiment = record.noteSentiment ?? "neutral";
-      if (!entry.note || record.createdAt > entry.note.at) {
-        entry.note = { sentiment, at: record.createdAt };
-      }
+      if (isNewer(entry.note, at)) entry.note = { sentiment, at };
       for (const keyword of record.noteKeywords ?? []) {
         entry.noteKeywords.add(keyword);
       }
@@ -353,7 +360,7 @@ function mergeRating(
   rating: { tmdbId: string; mediaType: "movie" | "tv"; rating: number; ratedAt: number },
 ): void {
   const entry = signalsFor(perItem, rating.tmdbId, rating.mediaType, rating.ratedAt);
-  if (!entry.rate || rating.ratedAt > entry.rate.at) {
+  if (isNewer(entry.rate, rating.ratedAt)) {
     entry.rate = { rating: rating.rating, at: rating.ratedAt };
   }
 }
@@ -365,9 +372,7 @@ function mergeHistory(
   const isCompleted = entry.progress === null || entry.progress >= 0.8;
   if (!isCompleted) return;
   const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.watchedAt);
-  if (!signals.completed || entry.watchedAt > signals.completed.at) {
-    signals.completed = { at: entry.watchedAt };
-  }
+  if (isNewer(signals.completed, entry.watchedAt)) signals.completed = { at: entry.watchedAt };
 }
 
 function mergeWatchlist(
@@ -375,9 +380,7 @@ function mergeWatchlist(
   entry: { tmdbId: string; mediaType: "movie" | "tv"; addedAt: number },
 ): void {
   const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.addedAt);
-  if (!signals.watchlisted || entry.addedAt > signals.watchlisted.at) {
-    signals.watchlisted = { at: entry.addedAt };
-  }
+  if (isNewer(signals.watchlisted, entry.addedAt)) signals.watchlisted = { at: entry.addedAt };
 }
 
 function mergeComment(
@@ -386,9 +389,8 @@ function mergeComment(
 ): void {
   const sentiment = classifySentiment(entry.text);
   const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.createdAt);
-  if (!signals.comment || entry.createdAt > signals.comment.at) {
+  if (isNewer(signals.comment, entry.createdAt))
     signals.comment = { sentiment, at: entry.createdAt };
-  }
 }
 
 /** Combines the per-source weights into a single signed weight per item. */
@@ -427,6 +429,23 @@ function includesMediaType(itemType: "movie" | "tv", partition: ProfileMediaType
   return itemType === partition;
 }
 
+function accumulateScorerFeatures(
+  features: ProfileFeatures,
+  scorer: FeatureScorer,
+  contribution: ItemContribution,
+  decay: number,
+): void {
+  if (!isDictScorer(scorer)) return;
+  const dict = scorer.extract(contribution.candidate);
+  const weight = contribution.weight * (DECAY_CATEGORIES.has(scorer.id) ? decay : 1);
+  const bucket = features[scorer.id];
+  for (const [feature, rawValue] of Object.entries(dict)) {
+    const value = rawValue * weight;
+    if (value === 0) continue;
+    bucket[feature] = (bucket[feature] ?? 0) + value;
+  }
+}
+
 /**
  * Folds the per-item contributions into category dicts, applying the recency
  * decay for genres and keywords.
@@ -435,18 +454,7 @@ function aggregate(contributions: Map<string, ItemContribution>, now: number): P
   const features = emptyFeatures();
   for (const contribution of contributions.values()) {
     const decay = recencyMultiplier(now, contribution.timestamp);
-    for (const scorer of SCORERS) {
-      if (!isDictScorer(scorer)) continue;
-      const dict = scorer.extract(contribution.candidate);
-      const shouldDecay = DECAY_CATEGORIES.has(scorer.id);
-      const weight = contribution.weight * (shouldDecay ? decay : 1);
-      for (const [feature, rawValue] of Object.entries(dict)) {
-        const value = rawValue * weight;
-        if (value === 0) continue;
-        const bucket = features[scorer.id];
-        bucket[feature] = (bucket[feature] ?? 0) + value;
-      }
-    }
+    for (const scorer of SCORERS) accumulateScorerFeatures(features, scorer, contribution, decay);
     for (const keyword of contribution.noteKeywords) {
       const value =
         NOTE_KEYWORD_BOOST * contribution.weight * recencyMultiplier(now, contribution.timestamp);

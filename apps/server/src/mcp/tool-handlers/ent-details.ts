@@ -72,6 +72,42 @@ async function readAvailability(
   }
 }
 
+type MetadataShape = {
+  title?: string;
+  year?: number | null;
+  genres?: string[];
+  overview?: string;
+  posterUrl?: string | null;
+  rating?: number | null;
+  runtime?: number;
+  director?: string;
+  cast?: string[];
+  keywords?: string[];
+  trailerUrl?: string;
+  streamingOn?: string[];
+  ids?: Record<string, string | undefined>;
+};
+
+type OwnFeedback = { rating: number | null; liked?: boolean; noted?: boolean };
+
+function applyExtendedMetadata(
+  out: DetailsResponse,
+  metadata: MetadataShape,
+  ownFeedback: OwnFeedback,
+  type: "movie" | "tv",
+): void {
+  if (typeof ownFeedback.rating === "number" && ownFeedback.rating > 0)
+    out.user_rated = ownFeedback.rating;
+  if (typeof metadata.runtime === "number") out.runtime = metadata.runtime;
+  if (typeof metadata.director === "string") out.director = metadata.director;
+  if (Array.isArray(metadata.cast)) out.cast = truncate(metadata.cast, 3);
+  if (Array.isArray(metadata.keywords)) out.keywords = truncate(metadata.keywords, 8);
+  if (typeof metadata.trailerUrl === "string") out.trailer = metadata.trailerUrl;
+  if (Array.isArray(metadata.streamingOn) && metadata.streamingOn.length > 0)
+    out.streaming = metadata.streamingOn;
+  if (type === "tv") out.watch_progress = null;
+}
+
 async function readAggregatedRatings(
   userId: string,
   tmdbId: string,
@@ -119,21 +155,7 @@ export const entDetailsHandler: ToolHandler = async (ctx: ToolCallContext, input
     throw notConnected("metadata@v1");
   }
 
-  const metadata = metadataResult.data as {
-    title?: string;
-    year?: number | null;
-    genres?: string[];
-    overview?: string;
-    posterUrl?: string | null;
-    rating?: number | null;
-    runtime?: number;
-    director?: string;
-    cast?: string[];
-    keywords?: string[];
-    trailerUrl?: string;
-    streamingOn?: string[];
-    ids?: Record<string, string | undefined>;
-  };
+  const metadata = metadataResult.data as MetadataShape;
 
   const [availability, aggregatedRatings, ownFeedback] = await Promise.all([
     readAvailability(ctx.userId, parsed.tmdbId, parsed.type),
@@ -161,17 +183,6 @@ export const entDetailsHandler: ToolHandler = async (ctx: ToolCallContext, input
   if (compact.poster) out.poster = compact.poster;
   if (availability) out.status = availability;
   if (Object.keys(ratings).length > 0) out.ratings = ratings;
-  if (typeof ownFeedback.rating === "number" && ownFeedback.rating > 0) {
-    out.user_rated = ownFeedback.rating;
-  }
-  if (typeof metadata.runtime === "number") out.runtime = metadata.runtime;
-  if (typeof metadata.director === "string") out.director = metadata.director;
-  if (Array.isArray(metadata.cast)) out.cast = truncate(metadata.cast, 3);
-  if (Array.isArray(metadata.keywords)) out.keywords = truncate(metadata.keywords, 8);
-  if (typeof metadata.trailerUrl === "string") out.trailer = metadata.trailerUrl;
-  if (Array.isArray(metadata.streamingOn) && metadata.streamingOn.length > 0) {
-    out.streaming = metadata.streamingOn;
-  }
-  if (parsed.type === "tv") out.watch_progress = null;
+  applyExtendedMetadata(out, metadata, ownFeedback, parsed.type);
   return out;
 };

@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { compact } from "es-toolkit/array";
 import type { AuthorizedApp } from "@ent-mcp/shared/users";
 import {
   oauthAccessToken,
@@ -63,7 +64,7 @@ function parseScopes(raw: unknown): string[] {
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string") : [];
   } catch {
-    return raw.split(/[\s,]+/).filter(Boolean);
+    return compact(raw.split(/[\s,]+/));
   }
 }
 

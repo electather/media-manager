@@ -104,6 +104,70 @@ async function updateConnectionWhere(
     .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
 }
 
+type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
+
+async function verifyFormAuthConfig(
+  row: Pick<ConnRow, "pluginId" | "credentialsIv" | "encryptedCredentials">,
+  userId: string,
+  merged: Record<string, unknown>,
+): Promise<{
+  configToSave: unknown;
+  credentialsPatch: { encryptedCredentials: string; credentialsIv: string };
+}> {
+  // Re-run startAuth so credentials stay synced with userConfig changes
+  // (e.g. apiKey rotation). startAuth validates upstream and returns the
+  // fresh credentials blob to persist alongside. Decrypt prior credentials
+  // and pass them into runAuth so plugins that keep secrets out of
+  // userConfig (e.g. Jellyfin's password lives in the encrypted
+  // credentials blob) can rehydrate them via ctx.credentials on re-auth.
+  const priorCredentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+  const result = (await pluginRuntime.runAuth(
+    row.pluginId,
+    "startAuth",
+    userId,
+    merged,
+    undefined,
+    priorCredentials,
+  )) as AuthResult;
+  if (result.status !== "completed") {
+    const message =
+      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
+    const field =
+      result.status === "error" && typeof result.params?.field === "string"
+        ? result.params.field
+        : undefined;
+    throw unprocessable("connection.verify_failed", `config did not verify: ${message}`, {
+      message,
+      ...(field ? { field } : {}),
+    });
+  }
+  // Merge any plugin-returned patch (e.g. Jellyfin's `userId` from `/Users/Me`) on
+  // top of the incoming userConfig so re-auth refreshes server-resolved identifiers
+  // without the client having to round-trip. `null` patch values mean "delete this
+  // key" — used to strip secrets promoted into the encrypted credentials blob.
+  const credEnc = await encryptJson(result.credentials);
+  return {
+    configToSave: applyUserConfigPatch(merged, result.userConfigPatch),
+    credentialsPatch: { encryptedCredentials: credEnc.data, credentialsIv: credEnc.iv },
+  };
+}
+
+async function verifyNonFormAuthConfig(
+  row: Pick<ConnRow, "pluginId" | "credentialsIv" | "encryptedCredentials">,
+  userId: string,
+  merged: Record<string, unknown>,
+): Promise<void> {
+  const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+  const test = await pluginRuntime.testConnection(row.pluginId, userId, credentials, merged);
+  if (!test.ok) {
+    throw unprocessable(
+      "connection.verify_failed",
+      `config did not verify: ${test.message ?? "unknown"}`,
+      { message: test.message ?? "unknown" },
+    );
+  }
+}
+
 export const connectionsService = {
   verifyConfig,
   createFormConnection,
@@ -245,56 +309,11 @@ export const connectionsService = {
     let credentialsPatch: { encryptedCredentials: string; credentialsIv: string } | undefined;
 
     if (manifest.auth.kind === "form") {
-      // Re-run startAuth so credentials stay synced with userConfig changes
-      // (e.g. apiKey rotation). startAuth validates upstream and returns the
-      // fresh credentials blob to persist alongside. Decrypt prior credentials
-      // and pass them into runAuth so plugins that keep secrets out of
-      // userConfig (e.g. Jellyfin's password lives in the encrypted
-      // credentials blob) can rehydrate them via ctx.credentials on re-auth.
-      const priorCredentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
-      const result = (await pluginRuntime.runAuth(
-        row.pluginId,
-        "startAuth",
-        args.userId,
-        merged,
-        undefined,
-        priorCredentials,
-      )) as AuthResult;
-      if (result.status !== "completed") {
-        const message =
-          result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-        const field =
-          result.status === "error" && typeof result.params?.field === "string"
-            ? result.params.field
-            : undefined;
-        throw unprocessable("connection.verify_failed", `config did not verify: ${message}`, {
-          message,
-          ...(field ? { field } : {}),
-        });
-      }
-      // Merge any plugin-returned patch (e.g. Jellyfin's `userId` from
-      // `/Users/Me`) on top of the incoming userConfig so re-auth refreshes
-      // server-resolved identifiers without the client having to round-trip.
-      // `null` patch values mean "delete this key" — used to strip secrets
-      // that the plugin has promoted into the encrypted credentials blob.
-      const credEnc = await encryptJson(result.credentials);
-      configToSave = applyUserConfigPatch(merged, result.userConfigPatch);
-      credentialsPatch = { encryptedCredentials: credEnc.data, credentialsIv: credEnc.iv };
+      const verified = await verifyFormAuthConfig(row, args.userId, merged);
+      configToSave = verified.configToSave;
+      credentialsPatch = verified.credentialsPatch;
     } else {
-      const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
-      const test = await pluginRuntime.testConnection(
-        row.pluginId,
-        args.userId,
-        credentials,
-        merged,
-      );
-      if (!test.ok) {
-        throw unprocessable(
-          "connection.verify_failed",
-          `config did not verify: ${test.message ?? "unknown"}`,
-          { message: test.message ?? "unknown" },
-        );
-      }
+      await verifyNonFormAuthConfig(row, args.userId, merged);
     }
 
     await db
