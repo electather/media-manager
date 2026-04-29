@@ -19,7 +19,11 @@ import {
 } from "@/shared/ui/dialog";
 import { Field, FieldDescription, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
-import { CapabilityBadges, capabilityListSummary, type CapabilityEntry } from "@/shared/lib/capabilities";
+import {
+  CapabilityBadges,
+  capabilityListSummary,
+  type CapabilityEntry,
+} from "@/shared/lib/capabilities";
 import { api } from "@/shared/lib/api";
 import {
   parseFormErrorResponse,
@@ -29,7 +33,12 @@ import {
 } from "@/shared/lib/errors/form-errors";
 
 import type { JSONSchema } from "@ent-mcp/shared";
-import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "@/shared/components/schema-form";
+import {
+  SchemaForm,
+  defaultsFromSchema,
+  stripEmptySecrets,
+  validateSchema,
+} from "@/shared/components/schema-form";
 
 /**
  * Shape the modal needs to render the create/edit dialog. Mirrors the

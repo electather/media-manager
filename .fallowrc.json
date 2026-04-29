@@ -68,7 +68,10 @@
     "zones": [
       { "name": "client-routes", "patterns": ["apps/client/src/routes/**"] },
       { "name": "client-app", "patterns": ["apps/client/src/app/**"] },
-      { "name": "client-features-legacy", "patterns": ["apps/client/src/components/**", "apps/client/src/lib/**"] },
+      {
+        "name": "client-features-legacy",
+        "patterns": ["apps/client/src/components/**", "apps/client/src/lib/**"]
+      },
       { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
       { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
       { "name": "client-shared-hooks", "patterns": ["apps/client/src/shared/hooks/**"] },

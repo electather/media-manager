@@ -76,30 +76,30 @@ apps/client/src/
 
 ## File map
 
-| Current | Target |
-|---|---|
-| `components/app-shell/*` | `app/*` |
-| `components/settings/settings-layout.tsx` | `app/settings-layout.tsx` |
-| `components/ui/*` | `shared/ui/*` |
-| `components/error-boundary.tsx` | `shared/components/error-boundary.tsx` |
-| `components/logo.tsx` | `shared/components/logo.tsx` |
-| `components/not-found.tsx` | `shared/components/not-found.tsx` |
-| `components/user-avatar.tsx` | `shared/components/user-avatar.tsx` |
-| `components/log-viewer.tsx` | `shared/components/log-viewer.tsx` |
-| `components/json-viewer.tsx` | `shared/components/json-viewer.tsx` |
-| `components/pickers.tsx` | `shared/components/pickers.tsx` |
-| `components/cron-schedule.tsx` | `shared/components/cron-schedule.tsx` |
-| `components/connections/*` | `features/connections/components/*` |
-| `components/settings/{authorized-app-row,session-row}.tsx` | `features/settings/components/*` |
-| `components/admin/*` | `features/admin/components/*` |
-| `components/jobs/*` | `features/jobs/components/*` |
-| `components/auth-shell/` | **delete** (empty, unused) |
-| `__tests__/settings/*` | `features/settings/__tests__/*` |
-| `hooks/use-now.ts` | `shared/hooks/use-now.ts` |
-| `lib/{api,auth,themes,utils,capabilities,relative-time,anchor-download,user-agent}.*` | `shared/lib/*` |
-| `lib/errors/` | `shared/lib/errors/` |
-| `lib/__tests__/*` | `shared/lib/__tests__/*` |
-| `lib/home-display.ts` | `features/home/lib/home-display.ts` (transient — home-feed design kills it) |
+| Current                                                                               | Target                                                                      |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `components/app-shell/*`                                                              | `app/*`                                                                     |
+| `components/settings/settings-layout.tsx`                                             | `app/settings-layout.tsx`                                                   |
+| `components/ui/*`                                                                     | `shared/ui/*`                                                               |
+| `components/error-boundary.tsx`                                                       | `shared/components/error-boundary.tsx`                                      |
+| `components/logo.tsx`                                                                 | `shared/components/logo.tsx`                                                |
+| `components/not-found.tsx`                                                            | `shared/components/not-found.tsx`                                           |
+| `components/user-avatar.tsx`                                                          | `shared/components/user-avatar.tsx`                                         |
+| `components/log-viewer.tsx`                                                           | `shared/components/log-viewer.tsx`                                          |
+| `components/json-viewer.tsx`                                                          | `shared/components/json-viewer.tsx`                                         |
+| `components/pickers.tsx`                                                              | `shared/components/pickers.tsx`                                             |
+| `components/cron-schedule.tsx`                                                        | `shared/components/cron-schedule.tsx`                                       |
+| `components/connections/*`                                                            | `features/connections/components/*`                                         |
+| `components/settings/{authorized-app-row,session-row}.tsx`                            | `features/settings/components/*`                                            |
+| `components/admin/*`                                                                  | `features/admin/components/*`                                               |
+| `components/jobs/*`                                                                   | `features/jobs/components/*`                                                |
+| `components/auth-shell/`                                                              | **delete** (empty, unused)                                                  |
+| `__tests__/settings/*`                                                                | `features/settings/__tests__/*`                                             |
+| `hooks/use-now.ts`                                                                    | `shared/hooks/use-now.ts`                                                   |
+| `lib/{api,auth,themes,utils,capabilities,relative-time,anchor-download,user-agent}.*` | `shared/lib/*`                                                              |
+| `lib/errors/`                                                                         | `shared/lib/errors/`                                                        |
+| `lib/__tests__/*`                                                                     | `shared/lib/__tests__/*`                                                    |
+| `lib/home-display.ts`                                                                 | `features/home/lib/home-display.ts` (transient — home-feed design kills it) |
 
 ## Fallow zones
 
@@ -109,38 +109,41 @@ Replace existing `client-*` zones in `.fallowrc.json`. Per-feature zone material
 {
   "boundaries": {
     "zones": [
-      { "name": "client-routes",            "patterns": ["apps/client/src/routes/**"] },
-      { "name": "client-app",               "patterns": ["apps/client/src/app/**"] },
+      { "name": "client-routes", "patterns": ["apps/client/src/routes/**"] },
+      { "name": "client-app", "patterns": ["apps/client/src/app/**"] },
 
-      { "name": "client-feat-home",         "patterns": ["apps/client/src/features/home/**"] },
-      { "name": "client-feat-connections",  "patterns": ["apps/client/src/features/connections/**"] },
-      { "name": "client-feat-settings",     "patterns": ["apps/client/src/features/settings/**"] },
-      { "name": "client-feat-admin",        "patterns": ["apps/client/src/features/admin/**"] },
-      { "name": "client-feat-jobs",         "patterns": ["apps/client/src/features/jobs/**"] },
+      { "name": "client-feat-home", "patterns": ["apps/client/src/features/home/**"] },
+      {
+        "name": "client-feat-connections",
+        "patterns": ["apps/client/src/features/connections/**"],
+      },
+      { "name": "client-feat-settings", "patterns": ["apps/client/src/features/settings/**"] },
+      { "name": "client-feat-admin", "patterns": ["apps/client/src/features/admin/**"] },
+      { "name": "client-feat-jobs", "patterns": ["apps/client/src/features/jobs/**"] },
 
-      { "name": "client-shared-ui",         "patterns": ["apps/client/src/shared/ui/**"] },
+      { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
       { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
-      { "name": "client-shared-hooks",      "patterns": ["apps/client/src/shared/hooks/**"] },
-      { "name": "client-shared-lib",        "patterns": ["apps/client/src/shared/lib/**"] },
+      { "name": "client-shared-hooks", "patterns": ["apps/client/src/shared/hooks/**"] },
+      { "name": "client-shared-lib", "patterns": ["apps/client/src/shared/lib/**"] },
 
-      { "name": "client-root",              "patterns": ["apps/client/src/*.*"] }
-    ]
-  }
+      { "name": "client-root", "patterns": ["apps/client/src/*.*"] },
+    ],
+  },
 }
 ```
 
 ### Allow rules
 
-| From | Allow |
-|---|---|
-| `client-root` | `client-routes`, `client-app`, `client-feat-*`, `client-shared-*`, `shared-pkg` |
-| `client-routes` | `client-app`, `client-feat-*`, `client-shared-*`, `shared-pkg` |
-| `client-app` | `client-shared-*`, `shared-pkg` |
-| `client-feat-<x>` | `client-shared-*`, `shared-pkg` |
-| `client-shared-components` | `client-shared-{ui,hooks,lib}`, `shared-pkg` |
-| `client-shared-hooks` | `client-shared-lib`, `shared-pkg` |
-| `client-shared-ui` | `client-shared-lib`, `shared-pkg` |
-| `client-shared-lib` | `shared-pkg`, `server-api`, `server-root` |
+| From                       | Allow                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| `client-root`              | `client-routes`, `client-app`, `client-feat-*`, `client-shared-*`, `shared-pkg` |
+| `client-routes`            | `client-app`, `client-feat-*`, `client-shared-*`, `shared-pkg`                  |
+| `client-app`               | `client-shared-*`, `shared-pkg`                                                 |
+| `client-feat-<x>`          | `client-shared-*`, `shared-pkg`                                                 |
+| `client-shared-components` | `client-shared-{ui,hooks,lib}`, `shared-pkg`                                    |
+| `client-shared-hooks`      | `client-shared-lib`, `shared-pkg`                                               |
+| `client-shared-ui`         | `client-shared-lib`, `shared-pkg`                                               |
+| `client-shared-lib`        | `shared-pkg`, `server-api`, `server-root`                                       |
 
 Critical invariants:
 
@@ -171,12 +174,12 @@ Add to `tsconfig.json` + `vite.config.ts` resolve:
 {
   "compilerOptions": {
     "paths": {
-      "@/app/*":       ["apps/client/src/app/*"],
-      "@/features/*":  ["apps/client/src/features/*"],
-      "@/shared/*":    ["apps/client/src/shared/*"],
-      "@/routes/*":    ["apps/client/src/routes/*"]
-    }
-  }
+      "@/app/*": ["apps/client/src/app/*"],
+      "@/features/*": ["apps/client/src/features/*"],
+      "@/shared/*": ["apps/client/src/shared/*"],
+      "@/routes/*": ["apps/client/src/routes/*"],
+    },
+  },
 }
 ```
 

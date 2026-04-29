@@ -10,13 +10,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/shared/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Textarea } from "@/shared/ui/textarea";
 import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";

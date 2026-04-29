@@ -8,14 +8,7 @@ import { Badge } from "@/shared/ui/badge";
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { CopyButton } from "@/shared/ui/copy-button";
 import { api } from "@/shared/lib/api";
 import { shortRequestId } from "@/shared/lib/errors/request-id";
