@@ -9,7 +9,7 @@ export function parseTraktId(id: string | undefined): number | null {
 
 // Splits a mixed movie/tv array into the Trakt request-body shape.
 // Items with missing or non-numeric trakt ids are dropped — null ids produce 4xx errors.
-export function splitByType(items: TraktMediaItemRef[]): {
+function splitByType(items: TraktMediaItemRef[]): {
   movies: Array<{ ids: { trakt: number } }>;
   shows: Array<{ ids: { trakt: number } }>;
 } {

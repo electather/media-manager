@@ -2,7 +2,7 @@ import { pluginError, handleHttpStatus } from "@ent-mcp/plugin-sdk";
 import type { Ctx } from "./types";
 import { BASE } from "./constants";
 
-export function traktHeaders(ctx: Ctx): Record<string, string> {
+function traktHeaders(ctx: Ctx): Record<string, string> {
   const clientId = ctx.sharedCredentials?.clientId;
   if (!clientId) {
     throw pluginError("plugin.bad_credentials", "Trakt clientId not configured by admin");
