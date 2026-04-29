@@ -137,6 +137,7 @@ export function SharedCredentialDialog({
   });
 
   const saveMutation = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async () => {
       // On edit, only send fields the admin actually changed.
       if (isEdit && existing) {

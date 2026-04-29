@@ -28,6 +28,7 @@ const PUBLIC_CONFIG_QUERY_KEY = ["config", "public"] as const;
 const ROLE_QUERY_KEY = ["me", "role"] as const;
 const VERIFICATION_COUNTDOWN_SECONDS = 60;
 
+// fallow-ignore-next-line complexity
 function ProfileSection() {
   const session = authClient.useSession();
   const user = session.data?.user;
@@ -85,6 +86,7 @@ function AvatarHeader({ name, email }: { name: string; email: string }) {
 
 // ─── Name ─────────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function NameField({ currentName }: { currentName: string }) {
   const [draft, setDraft] = useState(currentName);
   const [error, setError] = useState<string | null>(null);

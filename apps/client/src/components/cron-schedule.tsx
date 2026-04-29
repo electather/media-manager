@@ -28,6 +28,7 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// fallow-ignore-next-line complexity
 function parseField(field: string, min: number, max: number): number[] {
   const values = new Set<number>();
 

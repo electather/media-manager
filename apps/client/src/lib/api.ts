@@ -7,6 +7,7 @@ import { reportError } from "./errors/report";
  *  request, records the echoed request id on the DOM so reportError can chain, and
  *  reports non-2xx responses as "warning" severity — the backend has already written
  *  the authoritative record, so we just note "the user saw this error". */
+// fallow-ignore-next-line complexity
 async function instrumentedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},

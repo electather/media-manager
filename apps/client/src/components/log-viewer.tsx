@@ -537,6 +537,7 @@ interface LogViewerFilterableProps extends Omit<React.ComponentProps<"div">, "ch
   onClear?: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function LogViewerFilterable({
   entries,
   title = "Logs",

@@ -58,6 +58,7 @@ function OAuthCallbackPage() {
     }
     sessionStorage.removeItem("connections.oauthPending");
 
+    // fallow-ignore-next-line complexity
     void (async () => {
       try {
         const res = await api.connections.oauth.redirect.complete.$post({

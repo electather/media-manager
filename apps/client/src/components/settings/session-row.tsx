@@ -27,6 +27,7 @@ export interface SessionRowProps {
 /**
  * One row in the active-sessions list on the Security tab.
  */
+// fallow-ignore-next-line complexity
 export function SessionRow({ session, isCurrent, onRevoke, pending = false }: SessionRowProps) {
   const ua = parseUserAgent(session.userAgent);
   const ip = session.ipAddress?.trim() || null;

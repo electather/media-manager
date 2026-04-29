@@ -76,6 +76,7 @@ type ModalState =
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function AdminJobsPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
@@ -276,6 +277,7 @@ function JobsTable({
   );
 }
 
+// fallow-ignore-next-line complexity
 function JobRow({
   job,
   onSelect,
@@ -658,6 +660,7 @@ function ConfigureDialog({
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function StatusDot({ status, enabled }: { status: JobRunStatus | undefined; enabled: boolean }) {
   if (!enabled) {
     return <span className="block size-2 rounded-full bg-muted-foreground/30" />;

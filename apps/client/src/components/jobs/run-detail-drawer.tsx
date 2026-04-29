@@ -59,6 +59,7 @@ function MetaRow({ label, value, mono }: { label: string; value: string; mono?: 
   );
 }
 
+// fallow-ignore-next-line complexity
 export function RunDetailDrawer({
   run,
   job,

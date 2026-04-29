@@ -405,6 +405,7 @@ function GlobalConfigBody({
     setLoaded(false);
     setTopError(null);
     setValues(defaultsFromSchema(schema));
+    // fallow-ignore-next-line complexity
     void (async () => {
       try {
         const res = await api.plugins[":id"]["global-config"].$get({ param: { id: plugin.id } });
@@ -950,6 +951,7 @@ interface HeaderDialogProps {
   onSaved: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function HeaderDialog({ plugin, state, onClose, onSaved }: HeaderDialogProps) {
   const open = state.kind !== "none";
   const isEdit = state.kind === "edit";

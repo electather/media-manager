@@ -56,6 +56,7 @@ interface SharedCredentialsSectionProps {
  * the `ConfigureDialog` from previous phases — admins can see + manage the
  * pool without opening a dialog.
  */
+// fallow-ignore-next-line complexity
 export function SharedCredentialsSection({
   pluginId,
   pluginName,

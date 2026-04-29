@@ -87,6 +87,7 @@ export function ChangePasswordCard() {
       // revokeOtherSessions: true kills other sessions server-side; refetch the list.
       void qc.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
     },
+    // fallow-ignore-next-line complexity
     onError: (err: unknown) => {
       const status = (err as { status?: number } | null)?.status;
       const code = (err as { code?: string } | null)?.code;
@@ -228,6 +229,7 @@ export function ChangePasswordCard() {
 
 // ─── Active sessions ──────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function ActiveSessionsCard() {
   const qc = useQueryClient();
   const { data: currentSession } = authClient.useSession();

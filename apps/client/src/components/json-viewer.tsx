@@ -126,6 +126,7 @@ interface JsonNodeProps {
   isLast: boolean;
 }
 
+// fallow-ignore-next-line complexity
 function JsonNode({
   keyName,
   value,

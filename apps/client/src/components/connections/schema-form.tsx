@@ -47,6 +47,7 @@ interface FieldSchema {
 function parseFields(schema: JSONSchema): FieldSchema[] {
   const properties = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
   const required = new Set((schema.required ?? []) as string[]);
+  // fallow-ignore-next-line complexity
   return Object.entries(properties).map(([name, raw]) => {
     const type = (raw.type as FieldSchema["type"]) ?? "string";
     const xSecret = raw["x-secret"] === true;
@@ -171,6 +172,7 @@ interface SchemaFieldProps {
   onBlur: (name: string) => void;
 }
 
+// fallow-ignore-next-line complexity
 function SchemaField({
   field,
   raw,

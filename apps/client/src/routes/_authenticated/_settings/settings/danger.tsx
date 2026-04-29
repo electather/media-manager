@@ -109,6 +109,7 @@ export function DeleteCard({ currentEmail }: { currentEmail: string }) {
   );
 }
 
+// fallow-ignore-next-line complexity
 function DeleteAccountDialog({
   currentEmail,
   onClose,

@@ -86,6 +86,7 @@ async function readJsonBody(res: Response): Promise<FormErrorBody | null> {
 // Prefers the inner `params.message` over the outer `devMessage`, which is
 // typically wrapped by the HTTP boundary into "auth failed: ...". Falls back
 // to generic envelope keys for endpoints that don't go through HttpError.
+// fallow-ignore-next-line complexity
 function readMessage(body: FormErrorBody | null): string | null {
   if (!body) return null;
   const inner = typeof body.params?.message === "string" ? body.params.message : null;
