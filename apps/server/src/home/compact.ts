@@ -1,4 +1,5 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CanonicalMetadata } from "../catalog/types";
 
 const VALID_STATUSES: ReadonlySet<NonNullable<CompactMediaItem["status"]>> = new Set([
   "available",
@@ -75,6 +76,22 @@ export function toCompact(
   if (typeof item.rating === "number") out.rating = item.rating;
   if (typeof item.userRating === "number") out.userRating = item.userRating;
   return Object.assign(out, stripUndefined(extras));
+}
+
+/** Builds a `RawMediaItem` from a canonical metadata row for row fetchers. */
+export function canonicalToRaw(row: CanonicalMetadata): RawMediaItem {
+  return {
+    id: `${row.mediaType}:${row.tmdbId}`,
+    type: row.mediaType,
+    title: row.title,
+    year: row.year ?? undefined,
+    genres: row.genres ?? [],
+    overview: row.overview ?? undefined,
+    posterUrl: row.posterUrl ?? undefined,
+    backdropUrl: row.backdropUrl ?? undefined,
+    clearLogoUrl: row.clearLogoUrl ?? undefined,
+    ids: { tmdb_id: row.tmdbId },
+  };
 }
 
 /** Composes `"movie:550"` / `"tv:1396"` from `(type, tmdbId)`. */

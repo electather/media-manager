@@ -1,17 +1,17 @@
 import { capabilityRegistry } from "../../plugin-runtime/registry";
-import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
+import { pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
 import { invokeOne, harvestFromOutcomes } from "../invoke";
 import { PluginCallError } from "../errors";
 import type { DispatchRequest } from "../types";
+import { resolveCapabilityScope } from "./shared";
 
 /**
  * `single` strategy: one connection, no fan-out. Returns the plugin's data or
  * `null` (for `not_found`); throws `PluginCallError` on any other failure.
  */
 export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null> {
-  const capability = requireCapability(req.capability, req.version);
-  const scope = scopeForRequest(capability, req.input);
+  const { capability, scope } = resolveCapabilityScope(req);
   const cached = await readCache<T | null>(req, scope);
   if (cached !== undefined) return cached;
 

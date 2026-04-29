@@ -3,7 +3,7 @@ import type { MediaItem } from "@ent-mcp/shared/media";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import type { CanonicalMetadata, MetadataKey, RecItem } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { canonicalToRaw, toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "recommendedForYou" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -158,19 +158,7 @@ function buildFromCanonical(
   matchReason: string | null,
   statusMap: Record<string, string>,
 ): CompactMediaItem | null {
-  const raw: RawMediaItem = {
-    id: `${row.mediaType}:${row.tmdbId}`,
-    type: row.mediaType,
-    title: row.title,
-    year: row.year ?? undefined,
-    genres: row.genres ?? [],
-    overview: row.overview ?? undefined,
-    posterUrl: row.posterUrl ?? undefined,
-    backdropUrl: row.backdropUrl ?? undefined,
-    clearLogoUrl: row.clearLogoUrl ?? undefined,
-    ids: { tmdb_id: row.tmdbId },
-  };
-  const compact = toCompact(raw, matchReason ? { matchReason } : {});
+  const compact = toCompact(canonicalToRaw(row), matchReason ? { matchReason } : {});
   const status = toStatusOrUndefined(statusMap[compact.id]);
   if (status) compact.status = status;
   return compact;

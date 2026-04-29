@@ -16,6 +16,13 @@ import { resolveConnections } from "./resolve-connection";
  * the plugin layer directly. Shapes results so the MCP tools and RPC
  * procedures can consume arrays/objects directly.
  */
+function parseCombinedId(idOrCombined: string, type?: "movie" | "tv"): ["movie" | "tv", string] {
+  if (type === undefined && idOrCombined.includes(":")) {
+    return idOrCombined.split(":") as ["movie" | "tv", string];
+  }
+  return [type ?? "movie", idOrCombined];
+}
+
 export class MediaService {
   constructor(public readonly userId: string) {}
 
@@ -64,10 +71,7 @@ export class MediaService {
   }
 
   async getDetails(idOrCombined: string, type?: "movie" | "tv") {
-    const [parsedType, parsedId] =
-      type === undefined && idOrCombined.includes(":")
-        ? (idOrCombined.split(":") as ["movie" | "tv", string])
-        : [type ?? "movie", idOrCombined];
+    const [parsedType, parsedId] = parseCombinedId(idOrCombined, type);
     const result = await dispatchPrimary<unknown>({
       userId: this.userId,
       capability: "metadata",
@@ -133,10 +137,7 @@ export class MediaService {
 
   // fallow-ignore-next-line unused-class-member
   async similar(idOrCombined: string, type?: "movie" | "tv") {
-    const [parsedType, parsedId] =
-      type === undefined && idOrCombined.includes(":")
-        ? (idOrCombined.split(":") as ["movie" | "tv", string])
-        : [type ?? "movie", idOrCombined];
+    const [parsedType, parsedId] = parseCombinedId(idOrCombined, type);
     const result = await dispatchPrimary<unknown[]>({
       userId: this.userId,
       capability: "metadata",

@@ -1,8 +1,15 @@
 import type { CapabilityDefinition } from "@ent-mcp/plugin-sdk";
+import { requireCapability, scopeForRequest } from "../capability-lookup";
 import type { InvocationOutcome } from "../errors";
 import type { ResolvedConnection } from "../resolve-connection";
 import type { DispatchRequest, AggregateResult } from "../types";
 import { invokeOne } from "../invoke";
+
+export function resolveCapabilityScope(req: DispatchRequest) {
+  const capability = requireCapability(req.capability, req.version);
+  const scope = scopeForRequest(capability, req.input);
+  return { capability, scope };
+}
 
 export interface Candidate {
   pluginId: string;

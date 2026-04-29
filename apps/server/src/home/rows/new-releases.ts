@@ -2,7 +2,7 @@ import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { canonicalToRaw, toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -125,20 +125,5 @@ async function buildFromCanonical(
   ctx: RowFetchContext,
   row: CanonicalMetadata,
 ): Promise<CompactMediaItem | null> {
-  // Reconstitute the raw plugin shape `toCompact` expects from the
-  // canonical columns so the wire shape stays identical whether we
-  // came from snapshot or from the live plugin path.
-  const raw: RawMediaItem = {
-    id: `${row.mediaType}:${row.tmdbId}`,
-    type: row.mediaType,
-    title: row.title,
-    year: row.year ?? undefined,
-    genres: row.genres ?? [],
-    overview: row.overview ?? undefined,
-    posterUrl: row.posterUrl ?? undefined,
-    backdropUrl: row.backdropUrl ?? undefined,
-    clearLogoUrl: row.clearLogoUrl ?? undefined,
-    ids: { tmdb_id: row.tmdbId },
-  };
-  return buildItem(ctx, raw);
+  return buildItem(ctx, canonicalToRaw(row));
 }

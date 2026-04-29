@@ -28,6 +28,15 @@ export interface Genre {
   name: string;
 }
 
+export interface MediaInput {
+  id: string;
+  type: "movie" | "tv";
+}
+
+export function parseMediaInput(input: unknown): MediaInput {
+  return input as MediaInput;
+}
+
 export interface CastMember {
   name: string;
   order: number;
