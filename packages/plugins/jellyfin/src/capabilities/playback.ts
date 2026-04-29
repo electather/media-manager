@@ -19,6 +19,13 @@ export const playback = {
       typedCtx,
       `/Users/${userId}/Items?${params.toString()}`,
     );
+    // `playback@v1` returns the cross-service `MediaItemShape` (not a
+    // server-local `LibraryItem`), so we build the minimum set of
+    // fields the capability schema requires and attach the Jellyfin
+    // item id as a namespaced playbackId. `pausedAt` falls back to
+    // the epoch when the server did not record a `LastPlayedDate` —
+    // the schema requires a string, and "epoch" reads as "unknown"
+    // more honestly than an empty string.
     const results: Array<{
       item: MediaItemShape;
       progress: number;
@@ -50,6 +57,11 @@ export const playback = {
       ? playbackId.slice("jellyfin:".length)
       : playbackId;
     const userId = getUserId(typedCtx);
+    // Jellyfin clears the resume point when the user-data row is
+    // deleted. `/Sessions/Playing/Stopped` would be cleaner but
+    // requires an active session id; `DELETE /Users/{id}/Items/{id}`
+    // only removes user metadata (not the library item) and works
+    // without one.
     const res = await jellyfinFetch(typedCtx, `/Users/${userId}/Items/${itemId}`, {
       method: "DELETE",
     });

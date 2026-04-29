@@ -12,6 +12,9 @@ export const libraryAvailability = {
       type: "movie" | "show";
     };
     if (idType === "jellyfin") {
+      // Server-local id: hit the item endpoint directly. A missing
+      // server-local id is an empty result, not an error — the
+      // caller's cached id may have been deleted upstream.
       try {
         const item = await jellyfinJson<JellyfinItem>(typedCtx, `/Items/${id}`);
         const entry = mapLibraryItem(item, getExternalBase(getUserCfg(typedCtx)));
@@ -21,8 +24,12 @@ export const libraryAvailability = {
         throw err;
       }
     }
+    // Cross-server ids can't be resolved without going through a
+    // metadata provider first, which is a deliberate caller
+    // responsibility per the capability design.
     if (idType === "plex") return { items: [] };
     const provider = toJfProvider(idType);
+    if (!provider) return { items: [] };
     const jfType = type === "movie" ? "Movie" : "Series";
     const userId = getUserId(typedCtx);
     const params = new URLSearchParams({
@@ -54,6 +61,11 @@ export const libraryAvailability = {
       cursor?: string;
     };
     const userId = getUserId(typedCtx);
+    // Jellyfin's /Latest endpoint does not expose a cursor but
+    // accepts a `Limit`. Callers paginate by treating `cursor` as a
+    // 1-based page index. Cap at MAX_PAGE so a caller passing
+    // `cursor: "50000"` cannot ask the server for millions of rows in
+    // a single round-trip.
     const MAX_PAGE = 50;
     const page = cursor ? Math.min(Math.max(parseInt(cursor, 10) || 1, 1), MAX_PAGE) : 1;
     const safeLimit = Math.min(Math.max(limit, 1), 200);

@@ -5,7 +5,8 @@ export interface JellyfinCreds {
   password: string;
 }
 
-export interface JellyfinSharedCreds {}
+// Pure user-scoped plugin: no shared/global config shapes.
+export type JellyfinSharedCreds = Record<string, never>;
 
 export interface JellyfinUserCfg {
   externalServerUrl: string;
@@ -14,7 +15,7 @@ export interface JellyfinUserCfg {
   userId?: string;
 }
 
-export interface JellyfinGlobalCfg {}
+export type JellyfinGlobalCfg = Record<string, never>;
 
 export type Ctx = PluginContext<
   JellyfinCreds,
@@ -23,6 +24,13 @@ export type Ctx = PluginContext<
   JellyfinGlobalCfg
 >;
 
+/**
+ * Cross-service media item shape returned by capabilities like
+ * `playback@v1` and `watchHistory@v1` — distinct from the richer
+ * server-local `LibraryItem` that leaks Jellyfin-only fields. Kept at
+ * file scope so the two emitters (`getPositions` and `getHistory`)
+ * cannot drift.
+ */
 export interface MediaItemShape {
   id: string;
   title: string;

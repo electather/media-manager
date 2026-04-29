@@ -1,3 +1,4 @@
+import type { LibraryItem } from "@ent-mcp/plugin-sdk";
 import { handleHttpStatus } from "@ent-mcp/plugin-sdk";
 import type { Ctx, JellyfinSession } from "../types";
 import { getUserCfg, getUserId, getExternalBase, jellyfinJson, jellyfinFetch } from "../client";
@@ -9,6 +10,12 @@ export const playbackSessions = {
     const cfg = getUserCfg(typedCtx);
     const cachedUserId = getUserId(typedCtx);
     const externalBase = getExternalBase(cfg);
+    // Server-side filter so large servers don't return every session
+    // over the wire. This is a payload-size hint only — the per-row
+    // `session.UserId !== cachedUserId` check below remains the
+    // privacy guarantee, because the server's behaviour when the
+    // filter is ignored or extra entries are returned must not leak
+    // other users' sessions.
     const sessions = await jellyfinJson<JellyfinSession[]>(
       typedCtx,
       `/Sessions?controllableByUserId=${encodeURIComponent(cachedUserId)}`,
@@ -18,7 +25,7 @@ export const playbackSessions = {
       deviceName: string;
       clientName?: string;
       user: { id: string; name: string };
-      item: ReturnType<typeof mapLibraryItem>;
+      item: LibraryItem;
       progressMs: number;
       durationMs: number;
       state: "playing" | "paused" | "buffering";
@@ -31,6 +38,9 @@ export const playbackSessions = {
       startedAt: string;
     }> = [];
     for (const session of sessions ?? []) {
+      // Privacy: `/Sessions` returns server-wide sessions for admin
+      // tokens; drop any session that does not belong to the cached
+      // user. Treat this as a guarantee, not an optimisation.
       if (!session.UserId || session.UserId !== cachedUserId) continue;
       if (!session.NowPlayingItem) continue;
       const item = mapLibraryItem(session.NowPlayingItem, externalBase);
@@ -88,6 +98,10 @@ export const playbackSessions = {
       method: "POST",
     });
     handleHttpStatus(res, "Jellyfin", { on401: "plugin.token_expired" });
+    // Jellyfin stops are remote-control commands — the server always
+    // accepts and forwards the request; an offline client may never
+    // honour it. Surface that as `semantics: "requested"` so UIs do
+    // not promise an immediate hard stop.
     return { ok: res.ok, semantics: "requested" as const };
   },
 };

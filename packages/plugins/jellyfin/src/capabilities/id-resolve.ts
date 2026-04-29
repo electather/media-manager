@@ -21,11 +21,12 @@ export const idResolve = {
       }
     }
 
-    if (from === "plex:ratingKey" || from === "trakt") {
-      return {};
-    }
-
-    const provider = toJfProvider(from as "tmdb" | "imdb" | "tvdb");
+    // Cross-service handles Jellyfin can't resolve (plex ratingKey,
+    // trakt) fall through `toJfProvider` returning null and yield an
+    // empty result — preserves the original behaviour without an
+    // unsafe cast and stays exhaustive if `from` gains new variants.
+    const provider = toJfProvider(from);
+    if (!provider) return {};
     const userId = getUserId(typedCtx);
     const jfType = type === "movie" ? "Movie" : "Series";
     const params = new URLSearchParams({

@@ -3,8 +3,10 @@ import { pluginError } from "@ent-mcp/plugin-sdk";
 import type { JellyfinItem, JellyfinProviderIds, MediaItemShape } from "./types";
 import { TICKS_PER_SECOND } from "./constants";
 
+const TICKS_PER_MS = TICKS_PER_SECOND / 1000;
+
 export function ticksToMs(ticks: number | undefined): number {
-  return Math.floor((ticks ?? 0) / 10_000);
+  return Math.floor((ticks ?? 0) / TICKS_PER_MS);
 }
 
 export function ticksToSeconds(ticks: number | undefined): number | undefined {
@@ -132,10 +134,16 @@ export function extractIds(
   >;
 }
 
-export function toJfProvider(id: "tmdb" | "imdb" | "tvdb"): "Tmdb" | "Imdb" | "Tvdb" {
+// Maps a cross-service provider id name to Jellyfin's `ProviderIds` key.
+// Non-Jellyfin-resolvable sources (e.g. plex, trakt) return null so callers
+// can short-circuit without an unsafe cast — extending the input union later
+// will surface a TypeScript error here rather than silently bucketing into
+// "Tvdb".
+export function toJfProvider(id: string): "Tmdb" | "Imdb" | "Tvdb" | null {
   if (id === "tmdb") return "Tmdb";
   if (id === "imdb") return "Imdb";
-  return "Tvdb";
+  if (id === "tvdb") return "Tvdb";
+  return null;
 }
 
 export function requireJellyfinItemIds(

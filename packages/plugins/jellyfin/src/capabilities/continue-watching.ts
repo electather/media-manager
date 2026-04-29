@@ -42,6 +42,9 @@ export const continueWatching = {
       if (row.UserData?.LastPlayedDate) entry.lastPlayedAt = row.UserData.LastPlayedDate;
       entries.push(entry);
     }
+    // Resume covers in-progress items across movies + episodes; NextUp
+    // adds the newest unwatched episodes per show. Only fire NextUp
+    // when the caller did not pin the result set to movies.
     if (type !== "movie") {
       const nextUpParams = new URLSearchParams({
         UserId: userId,
@@ -55,6 +58,8 @@ export const continueWatching = {
       for (const row of nextUp.Items ?? []) {
         const item = mapLibraryItem(row, externalBase);
         if (!item) continue;
+        // Skip episodes already surfaced via Resume so the feed does
+        // not double-count them.
         if (entries.some((e) => e.item.id === item.id)) continue;
         entries.push({ item });
       }

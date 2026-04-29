@@ -7,6 +7,11 @@ export const watchHistory = {
   async getHistory(ctx: unknown, _input: unknown) {
     const typedCtx = ctx as Ctx;
     const userId = getUserId(typedCtx);
+    // Hard cap of 200 items: the capability contract does not yet
+    // carry pagination, and 200 is large enough for the current
+    // home-feed UX without pulling multi-megabyte responses from
+    // large libraries. Users with bigger histories see the 200 most
+    // recently played.
     const params = new URLSearchParams({
       Recursive: "true",
       IsPlayed: "true",

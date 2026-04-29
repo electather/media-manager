@@ -1,6 +1,12 @@
 import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
-import { pickFetchBase, authHeader, getUserCfg, getAccessToken } from "./client";
+import {
+  pickFetchBase,
+  authHeader,
+  unauthenticatedAuthHeader,
+  getUserCfg,
+  getAccessToken,
+} from "./client";
 import { libraryAvailability } from "./capabilities/library-availability";
 import { playback } from "./capabilities/playback";
 import { playbackSessions } from "./capabilities/playback-sessions";
@@ -9,7 +15,6 @@ import { watchHistory } from "./capabilities/watch-history";
 import { libraryAdmin } from "./capabilities/library-admin";
 import { idResolve } from "./capabilities/id-resolve";
 import type { JellyfinCreds, JellyfinUserCfg, Ctx } from "./types";
-import { CLIENT_NAME, CLIENT_VERSION, DEVICE_NAME, DEVICE_ID } from "./constants";
 
 export default definePlugin({
   manifest: {
@@ -107,7 +112,7 @@ export default definePlugin({
       headers: {
         "content-type": "application/json",
         accept: "application/json",
-        Authorization: `MediaBrowser Client="${CLIENT_NAME}", Device="${DEVICE_NAME}", DeviceId="${DEVICE_ID}", Version="${CLIENT_VERSION}"`,
+        Authorization: unauthenticatedAuthHeader(),
       },
       body: JSON.stringify({ Username: cfg.username, Pw: password }),
     });
