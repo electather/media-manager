@@ -12,7 +12,7 @@
     },
     "apps/client": {
       "name": "@ent-mcp/client",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@base-ui/react": "^1.4.1",
         "@better-auth/oauth-provider": "catalog:",
@@ -24,7 +24,6 @@
         "better-auth": "catalog:",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
-        "embla-carousel-react": "^8.6.0",
         "es-toolkit": "catalog:",
         "hono": "catalog:",
         "lucide-react": "^1.8.0",
@@ -58,7 +57,7 @@
     },
     "apps/server": {
       "name": "@ent-mcp/server",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@better-auth/oauth-provider": "catalog:",
         "@ent-mcp/plugin-discord": "workspace:*",
@@ -99,7 +98,7 @@
     },
     "packages/plugin-sdk": {
       "name": "@ent-mcp/plugin-sdk",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/shared": "workspace:*",
         "zod": "catalog:",
@@ -111,7 +110,7 @@
     },
     "packages/plugins/discord": {
       "name": "@ent-mcp/plugin-discord",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
         "@ent-mcp/shared": "workspace:*",
@@ -123,7 +122,7 @@
     },
     "packages/plugins/inbox": {
       "name": "@ent-mcp/plugin-inbox",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
         "@ent-mcp/shared": "workspace:*",
@@ -135,7 +134,7 @@
     },
     "packages/plugins/jellyfin": {
       "name": "@ent-mcp/plugin-jellyfin",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
@@ -146,7 +145,7 @@
     },
     "packages/plugins/ntfy": {
       "name": "@ent-mcp/plugin-ntfy",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
         "@ent-mcp/shared": "workspace:*",
@@ -158,7 +157,7 @@
     },
     "packages/plugins/plex": {
       "name": "@ent-mcp/plugin-plex",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
@@ -169,7 +168,7 @@
     },
     "packages/plugins/seerr": {
       "name": "@ent-mcp/plugin-seerr",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
@@ -180,7 +179,7 @@
     },
     "packages/plugins/telegram": {
       "name": "@ent-mcp/plugin-telegram",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
         "@ent-mcp/shared": "workspace:*",
@@ -192,7 +191,7 @@
     },
     "packages/plugins/tmdb": {
       "name": "@ent-mcp/plugin-tmdb",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
@@ -203,7 +202,7 @@
     },
     "packages/plugins/trakt": {
       "name": "@ent-mcp/plugin-trakt",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
@@ -214,7 +213,7 @@
     },
     "packages/plugins/tvdb": {
       "name": "@ent-mcp/plugin-tvdb",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
@@ -225,7 +224,7 @@
     },
     "packages/shared": {
       "name": "@ent-mcp/shared",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -935,12 +934,6 @@
     "drizzle-zod": ["drizzle-zod@0.8.3", "", { "peerDependencies": { "drizzle-orm": ">=0.36.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-66yVOuvGhKJnTdiqj1/Xaaz9/qzOdRJADpDa68enqS6g3t0kpNkwNYjUuaeXgZfO/UWuIM9HIhSlJ6C5ZraMww=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.336", "", {}, "sha512-AbH9q9J455r/nLmdNZes0G0ZKcRX73FicwowalLs6ijwOmCJSRRrLX63lcAlzy9ux3dWK1w1+1nsBJEWN11hcQ=="],
-
-    "embla-carousel": ["embla-carousel@8.6.0", "", {}, "sha512-SjWyZBHJPbqxHOzckOfo8lHisEaJWmwd23XppYFYVh10bU66/Pn5tkVkbkCMZVdbUE5eTCI2nD8OyIP4Z+uwkA=="],
-
-    "embla-carousel-react": ["embla-carousel-react@8.6.0", "", { "dependencies": { "embla-carousel": "8.6.0", "embla-carousel-reactive-utils": "8.6.0" }, "peerDependencies": { "react": "^16.8.0 || ^17.0.1 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" } }, "sha512-0/PjqU7geVmo6F734pmPqpyHqiM99olvyecY7zdweCw+6tKEXnrE90pBiBbMMU8s5tICemzpQ3hi5EpxzGW+JA=="],
-
-    "embla-carousel-reactive-utils": ["embla-carousel-reactive-utils@8.6.0", "", { "peerDependencies": { "embla-carousel": "8.6.0" } }, "sha512-fMVUDUEx0/uIEDM0Mz3dHznDhfX+znCCDCeIophYb1QGVM7YThSWX+wz11zlYwWFOr74b4QLGg0hrGPJeG2s4A=="],
 
     "enhanced-resolve": ["enhanced-resolve@5.20.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.0" } }, "sha512-Qohcme7V1inbAfvjItgw0EaxVX5q2rdVEZHRBrEQdRZTssLDGsL8Lwrznl8oQ/6kuTJONLaDcGjkNP247XEhcA=="],
 
