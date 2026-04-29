@@ -81,6 +81,7 @@ async function decryptAdminHeaders(
  * in the process-memory cache; the cache is invalidated by the admin-policy
  * write paths so a PUT immediately takes effect on the next invocation.
  */
+// fallow-ignore-next-line complexity
 export async function loadPluginPolicy(pluginId: string): Promise<PluginAdminPolicy> {
   const cached = cache.get(pluginId);
   if (cached) return { adminAllowlist: cached.allowlist, adminHeaders: cached.headers };

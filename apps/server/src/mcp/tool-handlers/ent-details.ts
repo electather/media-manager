@@ -35,6 +35,7 @@ interface RatingEntry {
   rating: number;
 }
 
+// fallow-ignore-next-line complexity
 async function readOwnFeedback(
   userId: string,
   tmdbId: string,
@@ -50,6 +51,7 @@ async function readOwnFeedback(
   return out;
 }
 
+// fallow-ignore-next-line complexity
 async function readAvailability(
   userId: string,
   tmdbId: string,

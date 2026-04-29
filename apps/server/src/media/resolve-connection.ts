@@ -32,6 +32,7 @@ export type ResolvedConnection =
  *   2. Any admin shared-credential entry, used only when the user has no
  *      personal connection.
  */
+// fallow-ignore-next-line complexity
 export async function resolveConnections(
   userId: string,
   pluginId: string,

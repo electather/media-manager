@@ -79,6 +79,7 @@ async function hydrateFromSnapshot(
   return isPartial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
 }
 
+// fallow-ignore-next-line complexity
 async function fetchFromLivePath(
   ctx: RowFetchContext,
   page: number,

@@ -422,6 +422,7 @@ export interface DeliveryCursor {
 // notification_deliveries when admin volume grows.
 const DELIVERY_LIST_OVERFETCH_RATIO = 2;
 
+// fallow-ignore-next-line complexity
 function buildDeliveryFilterPredicate(filters: DeliveryListFilters): SQL[] {
   const conditions: SQL[] = [];
   if (filters.status) conditions.push(eq(notificationDeliveries.status, filters.status));

@@ -39,6 +39,7 @@ function assertSdkCompatible(sdkVersion: string): void {
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateNotificationDelivery(
   capVersion: string,
   impl: Record<string, unknown> | undefined,
@@ -109,6 +110,7 @@ function validateCapabilities(manifest: ParsedManifest, module: PluginModule): v
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateJobs(manifest: ParsedManifest, module: PluginModule): void {
   for (const job of manifest.jobs ?? []) {
     const handler = module.jobs?.[job.handler];

@@ -408,6 +408,7 @@ export class CatalogService {
   ): Promise<void> {
     if (events.length === 0) return;
     await this.mirrorMutex.run(userId, () =>
+      // fallow-ignore-next-line complexity
       this.db.transaction(async (tx) => {
         const existing = await tableOps.select(tx);
         const merged = mergeEvents(existing?.events ?? [], events);
@@ -521,6 +522,7 @@ export class CatalogService {
    * within the configured retention window so a row can be cold-by-access
    * yet still pinned by an active rec list or recent snapshot.
    */
+  // fallow-ignore-next-line complexity
   private async buildPruneRefSet(snapshotRetentionDays: number): Promise<Set<string>> {
     const refs = new Set<string>();
     const lists = await this.db

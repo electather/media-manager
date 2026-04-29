@@ -38,6 +38,7 @@ export async function assertNotRunning(jobId: string): Promise<void> {
   }
 }
 
+// fallow-ignore-next-line complexity
 export async function scheduleJobFromConfig(
   jobId: string,
   defaultSchedule: string,

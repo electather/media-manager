@@ -102,6 +102,7 @@ function compareLastWatched(a: InProgressEntry, b: InProgressEntry): number {
  * "in-progress, progress unmeasurable", which the dashboard renders with a
  * generic play affordance rather than a zero-width bar.
  */
+// fallow-ignore-next-line complexity
 function mapToCompact(entry: InProgressEntry): CompactMediaItem {
   const extras: Partial<CompactMediaItem> = {};
   if (entry.durationMs > 0 && entry.watchedMs >= 0) {

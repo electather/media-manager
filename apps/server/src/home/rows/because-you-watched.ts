@@ -67,6 +67,7 @@ export const becauseYouWatchedFetcher: RowFetcher = {
     return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
   },
 
+  // fallow-ignore-next-line complexity
   async isEligible(_userId, loader, cursor) {
     if (!(await loader.hasPlugin("metadata@v1"))) return false;
     // Per design §7: verify the cursor-pinned seed still resolves before

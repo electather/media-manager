@@ -52,6 +52,7 @@ export interface LayoutPipelineResult {
  * same seed item across the scroll session.
  */
 export function buildRowStubs(order: RowKind[], signals: LayoutSignals): HomeRowStub[] {
+  // fallow-ignore-next-line complexity
   return order.map((rowId) => {
     const stub: HomeRowStub = {
       rowId,

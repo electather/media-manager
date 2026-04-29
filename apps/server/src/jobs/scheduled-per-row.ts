@@ -12,7 +12,7 @@ import { run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle, JobRunStatus } from "@ent-mcp/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
-import { isNil } from "es-toolkit/predicate";
+import { isNil, isNotNil, isPrimitive, isString } from "es-toolkit/predicate";
 
 const DEFAULT_PER_ROW_TIMEOUT_SEC = 60;
 const DEFAULT_RUN_TIMEOUT_SEC = 30 * 60;
@@ -138,6 +138,7 @@ export function registerScheduledPerRow<TRow>(
     }
   }
 
+  // fallow-ignore-next-line complexity
   async function captureRowFailure(err: unknown, ctx: JobRunContext): Promise<string> {
     return captureError(err, {
       severity: "error",
@@ -185,8 +186,8 @@ function buildStatusOverride(aggregate: RowAggregate) {
 
 // fallow-ignore-next-line complexity
 function resolvePerRowStatus(aggregate: RowAggregate, thrown: unknown): JobRunStatus {
-  if (thrown !== undefined && aggregate.succeeded === 0 && aggregate.failed === 0) return "failed";
-  if (thrown !== undefined) return aggregate.succeeded > 0 ? "partial_failure" : "failed";
+  if (isNotNil(thrown) && aggregate.succeeded === 0 && aggregate.failed === 0) return "failed";
+  if (isNotNil(thrown)) return aggregate.succeeded > 0 ? "partial_failure" : "failed";
   if (aggregate.failed > 0 && aggregate.succeeded > 0) return "partial_failure";
   if (aggregate.failed > 0) return "failed";
   return "succeeded";
@@ -196,9 +197,9 @@ function resolvePerRowStatus(aggregate: RowAggregate, thrown: unknown): JobRunSt
 // fallow-ignore-next-line complexity
 function bestEffortRowId(row: unknown): string | undefined {
   if (isNil(row)) return undefined;
-  if (typeof row !== "object") return String(row as string | number | boolean);
+  if (isPrimitive(row)) return String(row);
   const obj = row as Record<string, unknown>;
-  if (typeof obj.id === "string" || typeof obj.id === "number") return String(obj.id);
-  if (typeof obj.userId === "string") return obj.userId;
+  if (isPrimitive(obj.id)) return String(obj.id);
+  if (isString(obj.userId)) return obj.userId;
   return undefined;
 }

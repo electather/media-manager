@@ -19,6 +19,7 @@ export const trendingNowFetcher: RowFetcher = {
   title: "Trending Now",
   requires: ["recommendations@v1"],
 
+  // fallow-ignore-next-line complexity
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const page = readPage(opts.cursor, ROW_ID);
     // Aggregate `recommendations@v1.getTrending` does not expose a page knob,

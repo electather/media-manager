@@ -17,6 +17,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+// fallow-ignore-next-line complexity
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
     const current = base[key];

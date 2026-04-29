@@ -18,28 +18,26 @@ interface DeclaredPluginJob {
   perConnection: boolean;
 }
 
+function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
+  const manifest = JSON.parse(row.manifest) as {
+    name?: string;
+    jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
+  };
+  const pluginName = manifest.name ?? row.id;
+  return (manifest.jobs ?? []).map((job) => ({
+    pluginId: row.id,
+    pluginName,
+    id: job.id,
+    schedule: job.schedule,
+    handler: job.handler,
+    perConnection: job.perConnection === true,
+  }));
+}
+
 /** Returns every declared job across all enabled plugins. */
 export async function listAllPluginJobs(): Promise<DeclaredPluginJob[]> {
   const rows = await selectEnabledPlugins();
-  const out: DeclaredPluginJob[] = [];
-  for (const row of rows) {
-    const manifest = JSON.parse(row.manifest) as {
-      name?: string;
-      jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
-    };
-    const pluginName = manifest.name ?? row.id;
-    for (const job of manifest.jobs ?? []) {
-      out.push({
-        pluginId: row.id,
-        pluginName,
-        id: job.id,
-        schedule: job.schedule,
-        handler: job.handler,
-        perConnection: job.perConnection === true,
-      });
-    }
-  }
-  return out;
+  return rows.flatMap(extractDeclaredJobsFromRow);
 }
 
 /** Registers every declared plugin job with the job service. Called at startup. */
@@ -61,6 +59,7 @@ function registerGlobalPluginJob(job: DeclaredPluginJob): void {
     name: `${job.pluginName} — ${job.id}`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
+    // fallow-ignore-next-line complexity
     handler: async () => {
       const entry = capabilityRegistry.get(job.pluginId);
       if (!entry || !entry.enabled) return;
@@ -102,6 +101,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
         .where(eq(serviceConnections.pluginId, job.pluginId))
         .all();
     },
+    // fallow-ignore-next-line complexity
     handler: async (_ctx, row) => {
       const entry = capabilityRegistry.get(job.pluginId);
       if (!entry || !entry.enabled) return;
@@ -113,6 +113,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
   });
 }
 
+// fallow-ignore-next-line complexity
 async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;

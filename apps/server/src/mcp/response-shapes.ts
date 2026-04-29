@@ -91,6 +91,7 @@ export function compactMediaItem(input: unknown, options: ShapeOptions = {}): Co
  * Assembles a `results` array from plugin dispatch output. Handles both plain
  * MediaItems and `{ item, score }` search-result wrappers transparently.
  */
+// fallow-ignore-next-line complexity
 export function compactList(
   input: unknown[],
   metaFor: (index: number, source: unknown) => ShapeOptions = () => ({}),

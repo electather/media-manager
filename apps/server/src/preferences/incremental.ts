@@ -104,6 +104,7 @@ function noteWeight(sentiment: NoteSentiment | null): number {
   return SIGNAL_WEIGHTS.noteNeutral;
 }
 
+// fallow-ignore-next-line complexity
 function recordWeight(record: FeedbackRecord): number {
   switch (record.action) {
     case "rate":

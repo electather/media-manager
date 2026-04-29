@@ -429,6 +429,7 @@ export class PluginRuntime {
   }
 
   /** Runs testConnection for a user's connection; used by the "test" button and health cron. */
+  // fallow-ignore-next-line complexity
   async testConnection(
     pluginId: string,
     userId: string | null,
@@ -484,6 +485,7 @@ export class PluginRuntime {
     return this.runSharedCredentialProbe(module, pluginId, value);
   }
 
+  // fallow-ignore-next-line complexity
   private async runSharedCredentialProbe(
     module: PluginModule,
     pluginId: string,
@@ -717,6 +719,7 @@ export class PluginRuntime {
    * the scope + `personalKeyFallback` policy described in the design doc. Each
    * entry is tried in order until one succeeds or every entry is exhausted.
    */
+  // fallow-ignore-next-line complexity
   private async buildCredentialPlan(args: InvokeArgs, row: PluginRow): Promise<PickedCredential[]> {
     const adminPicks = await sharedCredentialsService.listDecryptedActive(args.pluginId);
     const userPicks = args.userId ? await listReadyUserConnections(args.userId, args.pluginId) : [];

@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { consola, type ConsolaInstance, type LogType } from "consola";
 import { scrub } from "../errors/scrubber";
 import type { LogLevel } from "@ent-mcp/shared/jobs";
+import { isPrimitive } from "es-toolkit/predicate";
 
 const BUFFER_MAX_BYTES = 500 * 1024;
 
@@ -175,19 +176,18 @@ function extractMessageAndMeta(args: unknown[]): {
   return { msg: parts.join(" "), meta };
 }
 
+function formatCause(cause: unknown): unknown {
+  if (cause instanceof Error) return flattenError(cause);
+  if (isPrimitive(cause)) String(cause);
+  return JSON.stringify(cause);
+}
+
 function flattenError(err: Error): Record<string, unknown> {
   const result: Record<string, unknown> = {
     message: err.message,
     stack: err.stack ?? null,
   };
-  if (err.cause) {
-    result.cause =
-      err.cause instanceof Error
-        ? flattenError(err.cause)
-        : typeof err.cause === "object"
-          ? JSON.stringify(err.cause)
-          : String(err.cause as string | number | boolean);
-  }
+  if (err.cause) result.cause = formatCause(err.cause);
   return result;
 }
 
