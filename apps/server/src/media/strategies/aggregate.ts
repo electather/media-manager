@@ -29,15 +29,11 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
   await harvestFromOutcomes(outcomes, req.mediaType);
 
   const errors = collectErrors(outcomes);
-  const data: unknown[] = [];
-  for (const outcome of outcomes) {
-    if (outcome.error) continue;
-    if (Array.isArray(outcome.data)) {
-      data.push(...outcome.data);
-    } else if (outcome.data !== null && outcome.data !== undefined) {
-      data.push(outcome.data);
-    }
-  }
+  const data = outcomes.flatMap((outcome): unknown[] => {
+    if (outcome.error) return [];
+    if (Array.isArray(outcome.data)) return outcome.data as unknown[];
+    return outcome.data != null ? [outcome.data as unknown] : [];
+  });
 
   const result: AggregateResult<T> = {
     data: data as T,

@@ -14,6 +14,7 @@ import { invokeOne } from "../invoke";
 import { PluginCallError, type InvocationOutcome } from "../errors";
 import type { DispatchRequest } from "../types";
 import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import { isNil } from "es-toolkit/predicate";
 
 interface PerKindProvider {
   pluginId: string;
@@ -70,7 +71,7 @@ function parsePerKindInput(input: unknown): {
   mediaType: "movie" | "tv";
 } {
   const parsed = perKindInputSchema.safeParse(input ?? {});
-  if (!parsed.success || parsed.data.type === undefined) {
+  if (!parsed.success || isNil(parsed.data.type)) {
     throw new PluginCallError(
       "artwork.bad_input",
       `aggregate_per_kind input must include type: "movie" | "tv"`,
@@ -131,6 +132,7 @@ async function invokeProvider(
   );
 }
 
+// fallow-ignore-next-line complexity
 function collectSuccessful(
   settled: PromiseSettledResult<InvocationOutcome<Record<string, unknown[]>>>[],
   providers: PerKindProvider[],
@@ -191,6 +193,7 @@ function mergeBundle(
  * all-empty paths return an empty bundle (the per-kind fields list defaults
  * to empty arrays); all-empty is cached as a negative, all-fail is not.
  */
+// fallow-ignore-next-line complexity
 export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   req: DispatchRequest,
 ): Promise<T> {

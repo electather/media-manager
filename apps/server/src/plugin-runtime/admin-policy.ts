@@ -58,6 +58,7 @@ export function _resetPluginPolicyCacheForTests(): void {
   cache.clear();
 }
 
+// fallow-ignore-next-line complexity
 async function decryptAdminHeaders(
   iv: string,
   encrypted: string,

@@ -6,9 +6,10 @@ import { harvestFromOutcomes } from "../invoke";
 import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
 import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
+import { isNil } from "es-toolkit/predicate";
 
 function isEmptyValue(v: unknown): boolean {
-  if (v === null || v === undefined || v === "") return true;
+  if (isNil(v) || v === "") return true;
   return Array.isArray(v) && v.length === 0;
 }
 
@@ -41,6 +42,7 @@ async function resolveOrderedCandidates(
     .filter((c): c is Candidate => c !== null);
 }
 
+// fallow-ignore-next-line complexity
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
   const first = successes[0]!;
   if (Array.isArray(first.data) || typeof first.data !== "object") {

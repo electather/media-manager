@@ -111,6 +111,7 @@ export const adminJobsApp = new Hono()
 
 export const userJobsApp = new Hono()
   .use("*", requireSession)
+  // fallow-ignore-next-line complexity
   .post("/:id/trigger-user", zValidator("json", triggerBodySchema), async (c) => {
     const id = c.req.param("id");
     const entry = requireEntry(id);

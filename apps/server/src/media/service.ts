@@ -9,6 +9,7 @@ import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { resolveConnections } from "./resolve-connection";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Per-user facade. Constructed per-request with the authenticated user id;
@@ -17,7 +18,7 @@ import { resolveConnections } from "./resolve-connection";
  * procedures can consume arrays/objects directly.
  */
 function parseCombinedId(idOrCombined: string, type?: "movie" | "tv"): ["movie" | "tv", string] {
-  if (type === undefined && idOrCombined.includes(":")) {
+  if (isNil(type) && idOrCombined.includes(":")) {
     return idOrCombined.split(":") as ["movie" | "tv", string];
   }
   return [type ?? "movie", idOrCombined];

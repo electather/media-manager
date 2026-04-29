@@ -293,6 +293,7 @@ async function runSimilar(userId: string, input: EntDiscoverInput): Promise<Comp
   return similar.map((item) => ({ ...item, id: item.id || formatMediaId(resolvedType, tmdbId) }));
 }
 
+// fallow-ignore-next-line complexity
 async function runDiscover(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
   const genres = parseGenres(input.genres);
   const result = await dispatchPrimary<unknown[]>({

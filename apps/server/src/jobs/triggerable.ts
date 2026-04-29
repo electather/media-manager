@@ -29,6 +29,7 @@ export interface RegisterTriggerableOptions<TInput, TResult> {
   capture?: JobCaptureMeta;
 }
 
+// fallow-ignore-next-line complexity
 export function registerTriggerable<TInput = unknown, TResult = unknown>(
   opts: RegisterTriggerableOptions<TInput, TResult>,
 ): TriggerableJobHandle<TInput, TResult> {

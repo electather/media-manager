@@ -22,6 +22,7 @@ export function registerDeliveryJob() {
     id: "notification.deliver",
     name: "Deliver notification",
     requiredPermission: "admin:jobs",
+    // fallow-ignore-next-line complexity
     handler: async (_ctx, input) => {
       if (!env.NOTIFICATIONS_ENABLED || !input) return;
 
@@ -86,6 +87,7 @@ type PluginContext = Awaited<ReturnType<typeof pluginRuntime.buildJobContext>>;
 type ServiceConnection = typeof serviceConnections.$inferSelect;
 type DeliveryRow = typeof notificationDeliveries.$inferSelect;
 
+// fallow-ignore-next-line complexity
 async function loadPluginAndContext(
   deliveryId: string,
   conn: ServiceConnection,

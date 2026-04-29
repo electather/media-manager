@@ -4,6 +4,7 @@ import { consola } from "consola";
 import { captureError } from "../errors/capture";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 import type { PluginLogger } from "@ent-mcp/plugin-sdk";
+import { isNil } from "es-toolkit/predicate";
 
 /** Matches a hostname against an allowlist entry. Supports "*.domain.com" wildcards and bare "*" for allow-all. */
 export function isHostAllowed(hostname: string, allowedHosts: string[]): boolean {
@@ -96,10 +97,7 @@ export function buildFetch(
     }
     const hostname = parsed.hostname;
     const inManifest = isHostAllowed(hostname, allowedHosts);
-    const inAdmin =
-      adminAllowlist === null || adminAllowlist === undefined
-        ? true
-        : isHostAllowed(hostname, adminAllowlist);
+    const inAdmin = isNil(adminAllowlist) ? true : isHostAllowed(hostname, adminAllowlist);
     const staticAllowed = inManifest && inAdmin;
     const dynamicAllowed = dynamicHosts ? dynamicHosts.has(hostname.toLowerCase()) : false;
     if (!staticAllowed && !dynamicAllowed) {

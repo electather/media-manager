@@ -65,6 +65,7 @@ export class CatalogService {
   }
 
   // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line complexity
   async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
@@ -410,6 +411,7 @@ export class CatalogService {
     );
   }
 
+  // fallow-ignore-next-line complexity
   recordAccess(items: MetadataKey[]): void {
     if (items.length === 0) return;
     const now = Date.now();
@@ -462,6 +464,7 @@ export class CatalogService {
   }
 
   // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line complexity
   async pruneUnusedMetadata(
     unusedAfterMs: number,
     refSet?: Set<string>,

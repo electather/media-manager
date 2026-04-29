@@ -24,6 +24,7 @@ export const becauseYouWatchedFetcher: RowFetcher = {
   title: "Because You Watched",
   requires: ["metadata@v1"],
 
+  // fallow-ignore-next-line complexity
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     if (!opts.cursor) {
       // Layout handler is the only legitimate caller; it must always

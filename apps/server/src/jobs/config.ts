@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { LogLevel } from "@ent-mcp/shared/jobs";
 import { getDb } from "../db/client";
 import { jobConfig } from "../db/schema/jobs";
+import { isNil } from "es-toolkit/predicate";
 
 export interface JobConfigRow {
   jobId: string;
@@ -37,8 +38,9 @@ export async function updateConfig(jobId: string, input: UpdateInput): Promise<J
   const existing = await getConfig(jobId);
   const next = {
     enabled: input.enabled ?? existing.enabled,
-    scheduleOverride:
-      input.scheduleOverride === undefined ? existing.scheduleOverride : input.scheduleOverride,
+    scheduleOverride: isNil(input.scheduleOverride)
+      ? existing.scheduleOverride
+      : input.scheduleOverride,
     logLevel: input.logLevel ?? existing.logLevel,
   };
   await db

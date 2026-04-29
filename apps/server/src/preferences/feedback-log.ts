@@ -5,6 +5,7 @@ import { getDb } from "../db/client";
 import { feedback } from "../db/schema";
 import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
 import type { UserItemFeedback } from "./types";
+import { isNil } from "es-toolkit/predicate";
 
 export interface RecordFeedbackInput {
   userId: string;
@@ -168,10 +169,10 @@ function aggregateForItem(records: FeedbackRecord[]): UserItemFeedback {
   const first = records[0];
   if (first) out.latestAt = first.createdAt;
   for (const record of records) {
-    if (out.rated === undefined && record.action === "rate" && record.rating !== null) {
+    if (isNil(out.rated) && record.action === "rate" && record.rating !== null) {
       out.rated = record.rating;
     }
-    if (out.liked === undefined && (record.action === "like" || record.action === "dislike")) {
+    if (isNil(out.liked) && (record.action === "like" || record.action === "dislike")) {
       out.liked = record.action === "like";
     }
     if (!out.noted && record.action === "note") out.noted = true;

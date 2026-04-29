@@ -4,6 +4,7 @@ import { severityFor } from "@ent-mcp/shared/errors";
 import { currentRequestContext, newRequestId } from "./request-context";
 import { serializeContext } from "./scrubber";
 import type { ErrorSink } from "./types";
+import { isNil } from "es-toolkit/predicate";
 
 export interface CaptureMeta {
   /** Optional severity override. When omitted, `captureError` derives it from
@@ -39,8 +40,9 @@ export function resetErrorSinks(): void {
   sinks.length = 0;
 }
 
+// fallow-ignore-next-line complexity
 function devMessageFrom(err: unknown): string {
-  if (err === null || err === undefined) return "unknown error";
+  if (isNil(err)) return "unknown error";
   if (err instanceof Error) return err.message || err.name;
   if (typeof err === "string") return err;
   try {

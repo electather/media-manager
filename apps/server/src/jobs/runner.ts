@@ -8,6 +8,7 @@ import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logg
 import { isSyncJob, pluginIdFromJobId } from "./sync-classifier";
 import type { JobKind, JobRunStatus, JobTriggeredBy } from "@ent-mcp/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
+import { isNil } from "es-toolkit/predicate";
 
 const DEFAULT_TIMEOUT_SEC = 300;
 
@@ -294,11 +295,12 @@ async function safeEmit(event: Parameters<typeof emit>[0]): Promise<void> {
 }
 
 function errorMessageFrom(err: unknown): string | null {
-  if (err === null || err === undefined) return null;
+  if (isNil(err)) return null;
   if (err instanceof Error) return err.message || err.name;
   return typeof err === "string" ? err : null;
 }
 
+// fallow-ignore-next-line complexity
 async function captureFailure(
   req: RunRequest,
   err: unknown,

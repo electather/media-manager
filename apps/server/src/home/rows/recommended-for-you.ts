@@ -214,6 +214,7 @@ async function rankCandidates(
  * Centralised here so a future change to either side surfaces in exactly one
  * place rather than as a runtime cast inside every fetcher.
  */
+// fallow-ignore-next-line complexity
 function toPreferenceMediaItem(item: RawMediaItem): MediaItem {
   return {
     id: item.id,

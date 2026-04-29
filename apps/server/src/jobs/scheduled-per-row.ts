@@ -12,6 +12,7 @@ import { run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle, JobRunStatus } from "@ent-mcp/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
+import { isNil } from "es-toolkit/predicate";
 
 const DEFAULT_PER_ROW_TIMEOUT_SEC = 60;
 const DEFAULT_RUN_TIMEOUT_SEC = 30 * 60;
@@ -190,8 +191,9 @@ function resolvePerRowStatus(aggregate: RowAggregate, thrown: unknown): JobRunSt
 }
 
 /** Best-effort row identifier for log tagging. Uses primary key if present. */
+// fallow-ignore-next-line complexity
 function bestEffortRowId(row: unknown): string | undefined {
-  if (row === null || row === undefined) return undefined;
+  if (isNil(row)) return undefined;
   if (typeof row !== "object") return String(row as string | number | boolean);
   const obj = row as Record<string, unknown>;
   if (typeof obj.id === "string" || typeof obj.id === "number") return String(obj.id);

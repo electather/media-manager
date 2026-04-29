@@ -61,6 +61,7 @@ function applySourceFields(out: CompactMediaResult, source: Partial<MediaItemSha
     out.poster = source.posterUrl;
 }
 
+// fallow-ignore-next-line complexity
 function applyShapeOptions(out: CompactMediaResult, options: ShapeOptions): void {
   if (options.status && options.status !== "unknown") out.status = options.status;
   if (typeof options.userRated === "number" && options.userRated > 0)

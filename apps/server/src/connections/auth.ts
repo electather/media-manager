@@ -5,6 +5,7 @@ import { pluginRuntime } from "../plugin-runtime/runtime";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.
@@ -71,7 +72,7 @@ function firstBlankRequiredField(schema: unknown, value: unknown): string | unde
     const def = obj.properties?.[key];
     if (def?.["x-plugin-resolved"] === true) continue;
     const v = valueObj[key];
-    if (v === undefined || v === null || v === "") return key;
+    if (isNil(v) || v === "") return key;
   }
   return undefined;
 }

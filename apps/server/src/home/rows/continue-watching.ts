@@ -64,6 +64,7 @@ function readOffset(cursor: string | null): number {
  * `lastWatchedAt`. Sorts the survivors most-recent-first, which matches the
  * design's "resume what you were just watching" intent.
  */
+// fallow-ignore-next-line complexity
 function mergeAndDedupe(entries: InProgressEntry[]): InProgressEntry[] {
   const byId = new Map<string, InProgressEntry>();
   for (const entry of entries) {

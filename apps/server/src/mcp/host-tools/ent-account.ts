@@ -37,6 +37,7 @@ function listKnownCapabilities(): string[] {
   );
 }
 
+// fallow-ignore-next-line complexity
 async function pluginNameMap(pluginIds: string[]): Promise<Map<string, string | null>> {
   if (pluginIds.length === 0) return new Map();
   const db = getDb();

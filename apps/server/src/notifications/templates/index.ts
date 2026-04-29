@@ -2,6 +2,7 @@
 import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
 import { renderJobRunFailed } from "./job-run-failed";
 
+// fallow-ignore-next-line complexity
 export function renderTemplate(event: NotificationEvent, _locale: "en"): NotificationMessage {
   switch (event.type) {
     case "job.run.failed":

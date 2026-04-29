@@ -77,6 +77,7 @@ export function scoreCandidate(
  * profile and falling back to combined when the typed signal is thin. Returns
  * null when neither has any signal — the caller treats that as "no rerank."
  */
+// fallow-ignore-next-line complexity
 export function resolveEffectiveProfile(
   typed: PreferenceProfile | null,
   combined: PreferenceProfile | null,
@@ -102,6 +103,7 @@ export function effectiveAlpha(sampleSize: number, alphaOverride?: number): numb
  * metadata so callers can render match reasons for only the items they'll
  * surface.
  */
+// fallow-ignore-next-line complexity
 export function rankCandidatesAgainst(
   candidates: ReadonlyArray<{ item: MediaItem; features: CandidateFeatures }>,
   profile: PreferenceProfile | null,

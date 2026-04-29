@@ -5,6 +5,7 @@ import { env } from "../env";
 import { encrypt, decrypt } from "../crypto/vault";
 import { internal } from "../errors/http-errors";
 import { invalidateUserCache } from "../media/dispatcher";
+import { isNil, isPrimitive } from "es-toolkit/predicate";
 
 function split(combined: string): { iv: string; data: string } {
   const [iv, ...rest] = combined.split(":");
@@ -171,15 +172,13 @@ function titleizeFieldName(name: string): string {
 
 // fallow-ignore-next-line complexity
 function stringifyDisplayValue(v: unknown): string {
-  if (v === undefined || v === null) return "";
+  if (isNil(v)) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number") return String(v);
   if (typeof v === "boolean") return v ? "Yes" : "No";
   if (Array.isArray(v)) {
-    const primitives = v.filter(
-      (x) => typeof x === "string" || typeof x === "number" || typeof x === "boolean",
-    );
-    if (primitives.length === v.length) return primitives.map((x) => String(x)).join(", ");
+    const primitives = v.filter(isPrimitive);
+    if (primitives.length === v.length) return primitives.map(stringifyDisplayValue).join(", ");
     return "";
   }
   return "";
@@ -236,7 +235,7 @@ async function ensureDefaultIfFirst(
  * is a "parked" connection under the new rules (see design doc).
  */
 function hasRealCredentials(credentials: unknown): boolean {
-  if (credentials === null || credentials === undefined) return false;
+  if (isNil(credentials)) return false;
   if (typeof credentials !== "object") return true;
   return Object.keys(credentials as Record<string, unknown>).length > 0;
 }

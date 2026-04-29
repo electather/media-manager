@@ -1,5 +1,6 @@
 import type { JSONSchema } from "@ent-mcp/shared";
 import { PluginError } from "@ent-mcp/plugin-sdk";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Marker for the `x-allowed-host` JSON Schema extension. Plugins set this on
@@ -184,7 +185,7 @@ function walk(
   if (!schemaObj) return;
 
   if (schemaObj[X_ALLOWED_HOST] === true) {
-    if (value === undefined || value === null || value === "") return;
+    if (isNil(value) || value === "") return;
     out.add(hostnameFromValue(pluginId, path, value));
     // `x-allowed-host` is a leaf marker — don't recurse through the value.
     return;

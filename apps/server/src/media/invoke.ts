@@ -9,6 +9,7 @@ import {
   markConnectionStatus,
   emitAuthExpired,
 } from "./connection-lifecycle";
+import { isNil } from "es-toolkit/predicate";
 
 export interface InvokeRequest {
   userId: string;
@@ -62,7 +63,7 @@ function decideRetry(errorCode: string, state: RetryState): RetryDecision {
 }
 
 function deadlineAllowsRetry(deadlineMs: number | undefined, backoffMs: number): boolean {
-  if (deadlineMs === undefined) return true;
+  if (isNil(deadlineMs)) return true;
   const remaining = deadlineMs - Date.now();
   return remaining >= backoffMs + RETRY_CALL_BUFFER_MS;
 }

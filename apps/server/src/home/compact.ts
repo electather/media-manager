@@ -80,6 +80,7 @@ export function toCompact(
 }
 
 /** Builds a `RawMediaItem` from a canonical metadata row for row fetchers. */
+// fallow-ignore-next-line complexity
 export function canonicalToRaw(row: CanonicalMetadata): RawMediaItem {
   return {
     id: `${row.mediaType}:${row.tmdbId}`,

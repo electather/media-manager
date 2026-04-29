@@ -2,6 +2,7 @@ import { and, desc, eq, notInArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { jobRuns } from "../db/schema/jobs";
 import type { JobRunStatus, JobRunSummary, JobTriggeredBy } from "@ent-mcp/shared/jobs";
+import { isNil } from "es-toolkit/predicate";
 
 const RESULT_MAX_BYTES = 4096;
 const SUCCESS_RETENTION_PER_JOB = 50;
@@ -202,7 +203,7 @@ export async function markOrphanedRunsFailed(now: number = Date.now()): Promise<
 }
 
 function serializeResult(result: unknown): string | null {
-  if (result === undefined || result === null) return null;
+  if (isNil(result)) return null;
   let text: string;
   try {
     text = JSON.stringify(result);

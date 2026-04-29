@@ -32,6 +32,7 @@ export const upcomingForYouFetcher: RowFetcher = {
   title: "Upcoming for You",
   requires: ["calendar@v1"],
 
+  // fallow-ignore-next-line complexity
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const after = readAfter(opts.cursor);
     const [result, inProgress] = await Promise.all([

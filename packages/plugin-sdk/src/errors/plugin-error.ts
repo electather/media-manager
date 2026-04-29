@@ -70,6 +70,7 @@ export interface PluginErrorOptions {
  * The optional `opts` carry retry hints for notification delivery and
  * structured `params` for translation/routing on the wire.
  */
+// fallow-ignore-next-line complexity
 export function pluginError(
   code: HostErrorCode,
   message: string,

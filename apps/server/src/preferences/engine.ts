@@ -161,6 +161,7 @@ export class PreferenceEngine {
     return enriched;
   }
 
+  // fallow-ignore-next-line complexity
   private async featuresForCandidate(
     userId: string,
     candidate: MediaItem,

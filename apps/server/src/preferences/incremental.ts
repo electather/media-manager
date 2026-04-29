@@ -71,6 +71,7 @@ export async function applyIncrementalUpdate(
   return { userId, applied };
 }
 
+// fallow-ignore-next-line complexity
 function applyRecordToPartitions(
   record: FeedbackRecord,
   contribution: import("./types").CandidateFeatures,

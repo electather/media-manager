@@ -11,6 +11,7 @@ import { hasAllScopes, missingScopes } from "./scopes";
 import { forbidden } from "./errors";
 import { mcpToolRegistry, type RegisteredTool, type ToolCallContext } from "./registry";
 import { defaultMcpLimiter } from "./rate-limit";
+import { isNil } from "es-toolkit/predicate";
 
 export interface DispatchCaller {
   userId: string;
@@ -108,7 +109,7 @@ export async function dispatchTool(
           return { ok: false, error: limited.toUserFacing(requestId) };
         }
 
-        const input = rawInput === undefined || rawInput === null ? {} : rawInput;
+        const input = isNil(rawInput) ? {} : rawInput;
         const inputOk = tool.validateInput(input);
         if (!inputOk) {
           const err = badInput(tool.name, formatAjvErrors(tool.validateInput.errors));
