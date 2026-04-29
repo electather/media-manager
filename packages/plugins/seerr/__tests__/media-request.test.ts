@@ -1,14 +1,8 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { MediaRequestV1, validatePluginModule } from "@ent-mcp/plugin-sdk";
+import { MediaRequestV1 } from "@ent-mcp/plugin-sdk";
 import { jsonRes, makeTestContext, statusRes, type TestContext } from "@ent-mcp/plugin-sdk/testing";
 import seerrPlugin from "../src/plugin";
-
-// Contract tests: drive every declared capability method end-to-end with a
-// stubbed ctx and confirm the plugin's return value parses against the
-// capability's Zod output schema. Detailed error-path regressions for
-// cancelRequest live in `__tests__/capability-behavior.test.ts`; this file
-// covers the happy path for each declared method.
 
 function makeCtx(
   responses: Array<Response | Error>,
@@ -24,12 +18,11 @@ function makeCtx(
   });
 }
 
-describe("seerr plugin passes loader validation", () => {
-  it("validates against the manifest + capability catalog", async () => {
-    expect(validatePluginModule(seerrPlugin)).toBeDefined();
-  });
-});
-
+// Contract tests: drive every declared capability method end-to-end with a
+// stubbed ctx and confirm the plugin's return value parses against the
+// capability's Zod output schema. Auth-lifecycle and loader validation
+// regressions live in `__tests__/plugin.test.ts`; this file covers the
+// happy path for each declared method.
 describe("seerr capability contract", () => {
   it("mediaRequest.checkAvailability: hits /movie/{tmdbId} and maps status", async () => {
     const ctx = makeCtx([jsonRes({ mediaInfo: { status: 5 } })]);
@@ -38,6 +31,26 @@ describe("seerr capability contract", () => {
       type: "movie",
     });
     expect(ctx.calls[0]?.url).toContain("/api/v1/movie/550");
+    expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.checkAvailability: returns unavailable when mediaInfo absent", async () => {
+    const ctx = makeCtx([jsonRes({})]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+    });
+    expect(out).toEqual({ status: "unavailable" });
+    expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.checkAvailability: collapses 404 into unknown", async () => {
+    const ctx = makeCtx([statusRes(404)]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+    });
+    expect(out).toEqual({ status: "unknown" });
     expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
   });
 
@@ -82,6 +95,15 @@ describe("seerr capability contract", () => {
     });
     expect(ctx.calls[0]?.url).toContain("/api/v1/request/42");
     expect(ctx.calls[0]?.init?.method).toBe("DELETE");
+    expect(MediaRequestV1.methods.cancelRequest.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.cancelRequest: treats 404 as idempotent success", async () => {
+    const ctx = makeCtx([statusRes(404)]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.cancelRequest!(ctx, {
+      requestId: "999",
+    });
+    expect(out).toEqual({ ok: true });
     expect(MediaRequestV1.methods.cancelRequest.output.safeParse(out).success).toBe(true);
   });
 
