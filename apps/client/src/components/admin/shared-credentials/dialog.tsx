@@ -21,7 +21,7 @@ import {
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
-} from "@/components/connections/schema-form";
+} from "@/shared/components/schema-form";
 import { api } from "@/shared/lib/api";
 import {
   parseFormErrorResponse,

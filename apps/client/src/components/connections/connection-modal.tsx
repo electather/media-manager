@@ -29,7 +29,7 @@ import {
 } from "@/shared/lib/errors/form-errors";
 
 import type { JSONSchema } from "@ent-mcp/shared";
-import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "./schema-form";
+import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "@/shared/components/schema-form";
 
 /**
  * Shape the modal needs to render the create/edit dialog. Mirrors the

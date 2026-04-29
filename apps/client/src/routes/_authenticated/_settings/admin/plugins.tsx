@@ -52,7 +52,7 @@ import {
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
-} from "@/components/connections/schema-form";
+} from "@/shared/components/schema-form";
 import { PersonalKeyFallbackControl } from "@/components/admin/personal-key-fallback-control";
 import { SharedCredentialsSection } from "@/components/admin/shared-credentials/section";
 import { safeJson } from "@/shared/lib/errors/safe-json";
