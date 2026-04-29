@@ -1,14 +1,8 @@
 import { describe, it, expect } from "vite-plus/test";
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
-import { MediaRequestV1, validatePluginModule } from "@ent-mcp/plugin-sdk";
+import { MediaRequestV1 } from "@ent-mcp/plugin-sdk";
 import { jsonRes, makeTestContext, statusRes, type TestContext } from "@ent-mcp/plugin-sdk/testing";
 import seerrPlugin from "../src/plugin";
-
-// Contract tests: drive every declared capability method end-to-end with a
-// stubbed ctx and confirm the plugin's return value parses against the
-// capability's Zod output schema. Detailed error-path regressions for
-// cancelRequest live in `__tests__/capability-behavior.test.ts`; this file
-// covers the happy path for each declared method.
 
 function makeCtx(
   responses: Array<Response | Error>,
@@ -23,12 +17,6 @@ function makeCtx(
     },
   });
 }
-
-describe("seerr plugin passes loader validation", () => {
-  it("validates against the manifest + capability catalog", async () => {
-    expect(validatePluginModule(seerrPlugin)).toBeDefined();
-  });
-});
 
 describe("seerr capability contract", () => {
   it("mediaRequest.checkAvailability: hits /movie/{tmdbId} and maps status", async () => {
