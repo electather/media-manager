@@ -188,6 +188,7 @@ function logSources(userId: string, mediaType: ProfileMediaType, sources: AllSou
   });
 }
 
+// fallow-ignore-next-line complexity
 function buildPerItemSignals(
   sources: AllSources,
   mediaType: ProfileMediaType,

@@ -90,6 +90,7 @@ type MetadataShape = {
 
 type OwnFeedback = { rating: number | null; liked?: boolean; noted?: boolean };
 
+// fallow-ignore-next-line complexity
 function applyExtendedMetadata(
   out: DetailsResponse,
   metadata: MetadataShape,

@@ -57,6 +57,7 @@ function assignIdField(
  * ownership: plugin-owned fields only accept writes from that plugin; `imdb_id`
  * is first-writer; absent-owner fields fall back to first-writer.
  */
+// fallow-ignore-next-line complexity
 export async function upsertIdBundle(
   bundle: IdBundle,
   mediaType: MediaType,

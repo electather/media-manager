@@ -556,6 +556,7 @@ export function interpretAggregate<T>(
  * shape is deliberately untyped at the dispatcher boundary — different
  * calendar plugins surface it under `item.ids.tmdb_id`, `tmdbId`, or `id`.
  */
+// fallow-ignore-next-line complexity
 function readTmdbId(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;

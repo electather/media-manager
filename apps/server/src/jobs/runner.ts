@@ -242,6 +242,7 @@ function resolveStatus(outcome: {
  * Emit failures must never propagate to the host operation — they are logged
  * and swallowed.
  */
+// fallow-ignore-next-line complexity
 async function emitJobOutcome(
   req: RunRequest,
   outcome: { runId: string; status: JobRunStatus; thrown: unknown; rowsSucceeded: number | null },

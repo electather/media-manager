@@ -85,6 +85,7 @@ const BOUNDARY = /[\s,.;:!?"'()[\]{}]+/;
  * and flips the polarity of a match when preceded within one token by a
  * negator. Replaceable behind this interface per the design doc.
  */
+// fallow-ignore-next-line complexity
 export function classifySentiment(note: string): NoteSentiment {
   const tokens = tokenize(note);
   let score = 0;

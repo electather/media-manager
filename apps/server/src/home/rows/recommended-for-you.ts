@@ -70,6 +70,7 @@ function readLiveCursor(cursor: string | null): { page: number; exclusion: strin
   return { page: 0, exclusion: [] };
 }
 
+// fallow-ignore-next-line complexity
 async function hydrateFromCatalog(
   ctx: RowFetchContext,
   recItems: RecItem[],

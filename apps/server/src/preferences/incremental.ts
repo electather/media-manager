@@ -1,5 +1,6 @@
 import type {
   FeedbackRecord,
+  NoteSentiment,
   PreferenceProfile,
   ProfileMediaType,
   UpdateResult,
@@ -89,21 +90,29 @@ function applyRecordToPartitions(
   return applied;
 }
 
+function rateWeight(rating: number | null): number {
+  if (rating === null) return 0;
+  if (rating >= 8) return SIGNAL_WEIGHTS.rateHigh;
+  if (rating <= 3) return SIGNAL_WEIGHTS.rateLow;
+  return SIGNAL_WEIGHTS.rateMid;
+}
+
+function noteWeight(sentiment: NoteSentiment | null): number {
+  if (sentiment === "positive") return SIGNAL_WEIGHTS.notePositive;
+  if (sentiment === "negative") return SIGNAL_WEIGHTS.noteNegative;
+  return SIGNAL_WEIGHTS.noteNeutral;
+}
+
 function recordWeight(record: FeedbackRecord): number {
   switch (record.action) {
     case "rate":
-      if (record.rating === null) return 0;
-      if (record.rating >= 8) return SIGNAL_WEIGHTS.rateHigh;
-      if (record.rating <= 3) return SIGNAL_WEIGHTS.rateLow;
-      return SIGNAL_WEIGHTS.rateMid;
+      return rateWeight(record.rating);
     case "like":
       return SIGNAL_WEIGHTS.like;
     case "dislike":
       return SIGNAL_WEIGHTS.dislike;
     case "note":
-      if (record.noteSentiment === "positive") return SIGNAL_WEIGHTS.notePositive;
-      if (record.noteSentiment === "negative") return SIGNAL_WEIGHTS.noteNegative;
-      return SIGNAL_WEIGHTS.noteNeutral;
+      return noteWeight(record.noteSentiment);
   }
 }
 

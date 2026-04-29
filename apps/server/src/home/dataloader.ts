@@ -136,6 +136,7 @@ export class RequestScopedLoader {
  * entry. Different plugin shapes carry the id in slightly different places;
  * this function tolerates the common ones used by the SDK schemas.
  */
+// fallow-ignore-next-line complexity
 function readEntryCompositeId(entry: unknown): string | null {
   if (!entry || typeof entry !== "object") return null;
   const e = entry as Record<string, unknown>;

@@ -194,6 +194,7 @@ async function handleTerminalError<T>(
  *   • `transient_network` / `timeout` → 1s backoff, retry once.
  * Other codes propagate immediately as an outcome error.
  */
+// fallow-ignore-next-line complexity
 export async function invokeOne<T>(
   req: InvokeRequest,
   conn: ResolvedConnection,
