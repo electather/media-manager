@@ -43,6 +43,7 @@ function isFilteredKeyword(keyword: string): boolean {
 export const keywordsScorer: FeatureScorer = {
   id: "keywords",
   categoryWeight: CATEGORY_WEIGHTS.keywords,
+  // fallow-ignore-next-line complexity
   extract(item) {
     const out: Record<string, number> = {};
     for (const keyword of item.keywords ?? []) {

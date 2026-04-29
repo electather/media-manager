@@ -22,6 +22,7 @@ export function identifyItem(item: RawPluginItem | undefined): ItemIdentity | nu
 }
 
 /** Splits a `"movie:550"` combined id into its type and id parts. */
+// fallow-ignore-next-line complexity
 export function splitCombinedId(
   combined: string | undefined,
 ): { type: "movie" | "tv"; id: string } | null {

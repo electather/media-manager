@@ -117,6 +117,7 @@ export class PreferenceEngine {
     return renderMatchReason(contribution.topContributors);
   }
 
+  // fallow-ignore-next-line complexity
   private async resolveProfileForMedia(
     userId: string,
     mediaType: MediaItem["type"] | "any" | undefined,

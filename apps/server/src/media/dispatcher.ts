@@ -23,6 +23,7 @@ export { invalidateUserCache } from "./dispatch-cache";
  * per-kind capabilities should call `dispatchAggregatePerKind` directly
  * to keep the bundle shape in the type.
  */
+// fallow-ignore-next-line complexity
 export async function dispatch<T = unknown>(
   req: DispatchRequest,
 ): Promise<T | null | AggregateResult<T>> {

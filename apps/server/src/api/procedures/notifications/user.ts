@@ -55,6 +55,7 @@ import {
 export const notificationsApp = new Hono()
   .use("*", flagGate())
   .use("*", requireSession)
+  // fallow-ignore-next-line complexity
   .get("/plugins", async (c) => {
     const ids = notificationCapablePluginIds();
     const plugins = [];

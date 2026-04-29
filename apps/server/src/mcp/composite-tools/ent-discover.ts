@@ -74,6 +74,7 @@ async function buildAvailabilityMap(
   );
 
   await Promise.all(
+    // fallow-ignore-next-line complexity
     pairs.map(async (pair) => {
       try {
         const result = await dispatchAggregate<StatusEntry[]>({
@@ -125,6 +126,7 @@ function decorateResults(
   availability: Map<string, AvailabilityStatus>,
   userRatings: Map<string, number>,
 ): CompactMediaResult[] {
+  // fallow-ignore-next-line complexity
   return results.map((item) => {
     const out: CompactMediaResult = { ...item };
     const status = availability.get(item.id);

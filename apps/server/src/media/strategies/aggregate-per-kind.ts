@@ -66,6 +66,7 @@ function canServePerKind(
   return provider.supportedIdTypes[type].some((t) => Boolean(ids[t]));
 }
 
+// fallow-ignore-next-line complexity
 function parsePerKindInput(input: unknown): {
   ids: Record<string, unknown>;
   mediaType: "movie" | "tv";

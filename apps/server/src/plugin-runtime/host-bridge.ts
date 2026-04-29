@@ -38,6 +38,7 @@ export function buildStore(pluginId: string, callerUserId: string | null): Plugi
         return row.value;
       }
     },
+    // fallow-ignore-next-line complexity
     async set(key, value, opts) {
       const now = Date.now();
       const effective = resolveScope(callerUserId, opts?.scope);

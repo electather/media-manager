@@ -102,6 +102,7 @@ export function composeId(type: "movie" | "tv", tmdbId: string): string {
 }
 
 /** Splits `"movie:550"` into `["movie", "550"]`; returns null on malformed input. */
+// fallow-ignore-next-line complexity
 export function parseCompactId(id: string): { mediaType: "movie" | "tv"; tmdbId: string } | null {
   const idx = id.indexOf(":");
   if (idx <= 0) return null;

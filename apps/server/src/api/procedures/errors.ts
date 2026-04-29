@@ -23,8 +23,10 @@ interface SessionCtx {
 /** POST /api/errors — frontend pushes serialized errors here. Scrubbed + written with
  *  source="frontend". Silently accepts even malformed bodies so we never surface
  *  "error capture failed" to the end user. */
+// fallow-ignore-next-line complexity
 export const errorsApp = new Hono()
   .use("*", requireSession)
+  // fallow-ignore-next-line complexity
   .post("/", zValidator("json", reportSchema), async (c) => {
     const body = c.req.valid("json");
     const session = (

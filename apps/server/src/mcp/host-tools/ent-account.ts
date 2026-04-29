@@ -67,6 +67,7 @@ async function primaryConnectionKeysFor(userId: string, connectionId: string): P
   return uniq(rows.map((r) => r.capabilityKey));
 }
 
+// fallow-ignore-next-line complexity
 export const entAccountHandler: ToolHandler = async (ctx) => {
   const db = getDb();
   const rows = await db

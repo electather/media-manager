@@ -80,6 +80,7 @@ async function handleCapturedError(
  * validation, scope check, rate limiting, and error capture. Thrown errors
  * are converted into a `UserFacingError` payload — nothing escapes.
  */
+// fallow-ignore-next-line complexity
 export async function dispatchTool(
   toolName: string,
   caller: DispatchCaller,

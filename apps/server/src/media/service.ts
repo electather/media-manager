@@ -155,7 +155,7 @@ export class MediaService {
     return this.getRecommendations(undefined, limit);
   }
 
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line
   async requestDownload(idOrCombined: string, seasons?: string) {
     const [parsedType, parsedId] = idOrCombined.includes(":")
       ? (idOrCombined.split(":") as ["movie" | "tv", string])

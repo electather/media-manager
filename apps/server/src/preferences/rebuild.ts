@@ -452,6 +452,17 @@ function accumulateScorerFeatures(
   }
 }
 
+function accumulateKeywords(
+  features: ProfileFeatures,
+  contribution: ItemContribution,
+  decay: number,
+): void {
+  for (const keyword of contribution.noteKeywords) {
+    const value = NOTE_KEYWORD_BOOST * contribution.weight * decay;
+    features.keywords[keyword] = (features.keywords[keyword] ?? 0) + value;
+  }
+}
+
 /**
  * Folds the per-item contributions into category dicts, applying the recency
  * decay for genres and keywords.
@@ -461,11 +472,7 @@ function aggregate(contributions: Map<string, ItemContribution>, now: number): P
   for (const contribution of contributions.values()) {
     const decay = recencyMultiplier(now, contribution.timestamp);
     for (const scorer of SCORERS) accumulateScorerFeatures(features, scorer, contribution, decay);
-    for (const keyword of contribution.noteKeywords) {
-      const value =
-        NOTE_KEYWORD_BOOST * contribution.weight * recencyMultiplier(now, contribution.timestamp);
-      features.keywords[keyword] = (features.keywords[keyword] ?? 0) + value;
-    }
+    accumulateKeywords(features, contribution, decay);
   }
   return features;
 }

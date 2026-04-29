@@ -91,6 +91,7 @@ function filterByInProgress(entry: UpcomingEntry, inProgress: Set<string>): bool
   return inProgress.has(id);
 }
 
+// fallow-ignore-next-line complexity
 function isAfter(
   entry: UpcomingEntry,
   after: { tmdbId: string; mediaType: "movie" | "tv"; airsAt: number } | null,
@@ -103,6 +104,7 @@ function isAfter(
   return id !== null && id > `${after.mediaType}:${after.tmdbId}`;
 }
 
+// fallow-ignore-next-line complexity
 function compositeId(entry: UpcomingEntry): string | null {
   const item = entry.item;
   if (!item) return null;

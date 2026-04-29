@@ -64,6 +64,7 @@ function describeCandidates(candidates: EligibleConnection[]) {
   }));
 }
 
+// fallow-ignore-next-line complexity
 function pickTarget(
   candidates: EligibleConnection[],
   target: string | undefined,

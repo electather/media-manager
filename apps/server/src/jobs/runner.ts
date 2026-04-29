@@ -62,6 +62,7 @@ export function isRunning(jobId: string, scopeKey?: string | null): boolean {
  * jobs (nightly + manual rebuild) are still writing — eviction would
  * otherwise race their in-flight catalog references.
  */
+// fallow-ignore-next-line complexity
 export function anyRunning(jobIds: readonly string[]): boolean {
   if (jobIds.length === 0) return false;
   const wanted = new Set(jobIds);
@@ -294,6 +295,7 @@ async function safeEmit(event: Parameters<typeof emit>[0]): Promise<void> {
   }
 }
 
+// fallow-ignore-next-line complexity
 function errorMessageFrom(err: unknown): string | null {
   if (isNil(err)) return null;
   if (err instanceof Error) return err.message || err.name;

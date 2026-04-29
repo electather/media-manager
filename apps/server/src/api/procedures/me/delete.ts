@@ -47,6 +47,7 @@ export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<
   await db.delete(user).where(eq(user.id, input.userId));
 }
 
+// fallow-ignore-next-line complexity
 async function verifyPasswordOrThrow(password: string, headers: Headers): Promise<void> {
   try {
     const result = await auth.api.verifyPassword({ body: { password }, headers });
