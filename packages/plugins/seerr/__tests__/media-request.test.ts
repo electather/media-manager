@@ -34,6 +34,26 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
   });
 
+  it("mediaRequest.checkAvailability: returns unavailable when mediaInfo absent", async () => {
+    const ctx = makeCtx([jsonRes({})]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+    });
+    expect(out).toEqual({ status: "unavailable" });
+    expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.checkAvailability: collapses 404 into unknown", async () => {
+    const ctx = makeCtx([statusRes(404)]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+    });
+    expect(out).toEqual({ status: "unknown" });
+    expect(MediaRequestV1.methods.checkAvailability.output.safeParse(out).success).toBe(true);
+  });
+
   it("mediaRequest.checkAvailability: hits /tv/{tmdbId} for tv input", async () => {
     const ctx = makeCtx([jsonRes({ mediaInfo: { status: 2 } })]);
     const out = await seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
@@ -75,6 +95,15 @@ describe("seerr capability contract", () => {
     });
     expect(ctx.calls[0]?.url).toContain("/api/v1/request/42");
     expect(ctx.calls[0]?.init?.method).toBe("DELETE");
+    expect(MediaRequestV1.methods.cancelRequest.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.cancelRequest: treats 404 as idempotent success", async () => {
+    const ctx = makeCtx([statusRes(404)]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.cancelRequest!(ctx, {
+      requestId: "999",
+    });
+    expect(out).toEqual({ ok: true });
     expect(MediaRequestV1.methods.cancelRequest.output.safeParse(out).success).toBe(true);
   });
 

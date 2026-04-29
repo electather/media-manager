@@ -72,12 +72,11 @@ export const mediaRequest = {
       if (!data.mediaInfo) return { status: "unavailable" };
       return { status: mapMediaStatus(data.mediaInfo.status) };
     } catch (err) {
-      if (
-        isPluginError(err) &&
-        (err.code === "internal" || err.code === "transient_network" || err.code === "not_found")
-      ) {
-        return { status: "unknown" };
-      }
+      // Token expiry, bad creds, and rate limits must escape so the host
+      // can refresh or back off. Everything else (404, upstream 5xx,
+      // timeout, …) collapses to a "unknown" availability hint.
+      if (isHostActionable(err)) throw err;
+      if (isPluginError(err)) return { status: "unknown" };
       throw err;
     }
   },

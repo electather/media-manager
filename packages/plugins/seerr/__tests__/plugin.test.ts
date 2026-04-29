@@ -65,6 +65,23 @@ describe("seerr auth lifecycle", () => {
     }
   });
 
+  it("startAuth: returns error on 403", async () => {
+    const ctx = makeTestContext({
+      responses: [statusRes(403)],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, {
+      username: "u@example.com",
+      password: "bad",
+    });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.code).toBe("plugin.bad_credentials");
+    }
+  });
+
   it("testConnection: returns ok true on 200", async () => {
     const ctx = makeTestContext({
       responses: [statusRes(200)],
