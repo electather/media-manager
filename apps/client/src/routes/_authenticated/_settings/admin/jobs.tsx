@@ -20,8 +20,8 @@ import {
   FilterIcon,
 } from "lucide-react";
 
-import { DynamicTriggerDialog } from "@/components/jobs/trigger-dialog";
-import { RunDetailDrawer } from "@/components/jobs/run-detail-drawer";
+import { DynamicTriggerDialog } from "@/features/jobs";
+import { RunDetailDrawer } from "@/features/jobs";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";

@@ -16,7 +16,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { SessionRow, type SessionListItem } from "@/components/settings/session-row";
+import { SessionRow, type SessionListItem } from "@/features/settings";
 import { authClient } from "@/shared/lib/auth";
 
 // ─── Route ────────────────────────────────────────────────────────────────────

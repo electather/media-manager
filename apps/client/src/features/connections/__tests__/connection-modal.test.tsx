@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { ConnectionModal, type PluginSummary } from "../connection-modal";
+import { ConnectionModal, type PluginSummary } from "../components/connection-modal";
 
 afterEach(() => {
   cleanup();

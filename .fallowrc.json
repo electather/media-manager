@@ -69,8 +69,24 @@
       { "name": "client-routes", "patterns": ["apps/client/src/routes/**"] },
       { "name": "client-app", "patterns": ["apps/client/src/app/**"] },
       {
+        "name": "client-feat-connections",
+        "patterns": ["apps/client/src/features/connections/**"]
+      },
+      {
+        "name": "client-feat-settings",
+        "patterns": ["apps/client/src/features/settings/**"]
+      },
+      {
+        "name": "client-feat-admin",
+        "patterns": ["apps/client/src/features/admin/**"]
+      },
+      {
+        "name": "client-feat-jobs",
+        "patterns": ["apps/client/src/features/jobs/**"]
+      },
+      {
         "name": "client-features-legacy",
-        "patterns": ["apps/client/src/components/**", "apps/client/src/lib/**"]
+        "patterns": ["apps/client/src/lib/**"]
       },
       { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
       { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
@@ -119,6 +135,10 @@
         "allow": [
           "client-routes",
           "client-app",
+          "client-feat-connections",
+          "client-feat-settings",
+          "client-feat-admin",
+          "client-feat-jobs",
           "client-features-legacy",
           "client-shared-ui",
           "client-shared-components",
@@ -131,7 +151,51 @@
         "from": "client-routes",
         "allow": [
           "client-app",
+          "client-feat-connections",
+          "client-feat-settings",
+          "client-feat-admin",
+          "client-feat-jobs",
           "client-features-legacy",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-connections",
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-settings",
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-admin",
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-jobs",
+        "allow": [
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

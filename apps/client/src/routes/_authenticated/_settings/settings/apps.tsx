@@ -22,7 +22,7 @@ import {
   InputGroupInput,
 } from "@/shared/ui/input-group";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { AuthorizedAppRow } from "@/components/settings/authorized-app-row";
+import { AuthorizedAppRow } from "@/features/settings";
 import { api } from "@/shared/lib/api";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/apps")({
