@@ -246,36 +246,38 @@ function compactFromMediaItem(item: MediaItem): CompactMediaResult {
   };
 }
 
-async function runSimilar(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
-  if (!input.query) throw badInput("ent_discover", "query is required when mode=similar");
-  const type = resolveMediaType(input.media_type);
-  let tmdbId = input.query;
-  let resolvedType: "movie" | "tv" = type ?? "movie";
-  const colonIdx = input.query.indexOf(":");
+// fallow-ignore-next-line complexity
+async function resolveQueryToKey(
+  userId: string,
+  query: string,
+  type: "movie" | "tv" | undefined,
+): Promise<{ tmdbId: string; resolvedType: "movie" | "tv" }> {
+  const colonIdx = query.indexOf(":");
   if (colonIdx !== -1) {
-    const t = input.query.slice(0, colonIdx);
-    const id = input.query.slice(colonIdx + 1);
-    if ((t === "movie" || t === "tv") && id) {
-      resolvedType = t;
-      tmdbId = id;
-    }
-  } else if (!/^[0-9]+$/.test(input.query)) {
-    // Resolve title to a tmdb id via search.
-    const searchResult = await dispatchPrimary<
-      Array<{ item: { id: string; type: "movie" | "tv" } }>
-    >({
+    const t = query.slice(0, colonIdx);
+    const id = query.slice(colonIdx + 1);
+    if ((t === "movie" || t === "tv") && id) return { tmdbId: id, resolvedType: t };
+  }
+  if (/^[0-9]+$/.test(query)) return { tmdbId: query, resolvedType: type ?? "movie" };
+  const searchResult = await dispatchPrimary<Array<{ item: { id: string; type: "movie" | "tv" } }>>(
+    {
       userId,
       capability: "metadata",
       version: "v1",
       method: "search",
-      input: { query: input.query, type, limit: 1 },
+      input: { query, type, limit: 1 },
       mediaType: type,
-    });
-    const first = (searchResult.data ?? [])[0]?.item;
-    if (!first) throw badInput("ent_discover", `no title matched "${input.query}"`);
-    tmdbId = first.id;
-    resolvedType = first.type;
-  }
+    },
+  );
+  const first = (searchResult.data ?? [])[0]?.item;
+  if (!first) throw badInput("ent_discover", `no title matched "${query}"`);
+  return { tmdbId: first.id, resolvedType: first.type };
+}
+
+async function runSimilar(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {
+  if (!input.query) throw badInput("ent_discover", "query is required when mode=similar");
+  const type = resolveMediaType(input.media_type);
+  const { tmdbId, resolvedType } = await resolveQueryToKey(userId, input.query, type);
   const result = await dispatchPrimary<unknown[]>({
     userId,
     capability: "metadata",

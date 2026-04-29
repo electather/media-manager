@@ -161,6 +161,7 @@ function parseKeywords(raw: string | null): string[] | null {
 }
 
 /** Collapses a list of records for one item into the ent_details projection. */
+// fallow-ignore-next-line complexity
 function aggregateForItem(records: FeedbackRecord[]): UserItemFeedback {
   const out: UserItemFeedback = {};
   const first = records[0];

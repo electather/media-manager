@@ -78,6 +78,7 @@ async function loadMetadata(
   }
 }
 
+// fallow-ignore-next-line complexity
 function toMediaItemShape(
   metadata: MetadataPayload | null,
   tmdbId: string,

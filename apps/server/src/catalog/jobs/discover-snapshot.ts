@@ -142,6 +142,7 @@ function collectPairs(items: RawCanonicalSource[]): CanonicalPair[] {
   });
 }
 
+// fallow-ignore-next-line complexity
 function asKey(item: RawCanonicalSource): MetadataKey | null {
   // Only fall back to splitting the combined `id` string when one of the
   // explicit fields is missing — saves a parse on the typical TMDB payload

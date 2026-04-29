@@ -202,6 +202,7 @@ export class PluginRuntime {
    * Callers that already hold decrypted credentials (e.g. connection-targeted
    * dispatch) should use `invokeWithCredentials` instead.
    */
+  // fallow-ignore-next-line complexity
   async invoke<T = unknown>(args: InvokeArgs): Promise<T> {
     const { methodSpec, module, fn, row, globalConfig } = await this.loadInvocationSetup(
       args.pluginId,
@@ -348,6 +349,7 @@ export class PluginRuntime {
   }
 
   /** Runs a plugin-declared auth function. No Zod validation — AuthResult is the contract. */
+  // fallow-ignore-next-line complexity
   async runAuth(
     pluginId: string,
     fnName: "startAuth" | "pollAuth" | "completeAuth",

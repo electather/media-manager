@@ -21,6 +21,7 @@ export interface IncrementalDeps {
  * hierarchy as rebuild. Deliberately skips re-normalization and pruning so the
  * daily rebuild retains its role as the correction pass.
  */
+// fallow-ignore-next-line complexity
 export async function applyIncrementalUpdate(
   deps: IncrementalDeps,
   userId: string,

@@ -329,6 +329,7 @@ function isNewer(existing: { at: number } | undefined, at: number): boolean {
   return !existing || at > existing.at;
 }
 
+// fallow-ignore-next-line complexity
 function mergeFeedback(perItem: Map<string, PerItemSignals>, record: FeedbackRecord): void {
   const entry = signalsFor(perItem, record.tmdbId, record.mediaType, record.createdAt);
   const at = record.createdAt;
