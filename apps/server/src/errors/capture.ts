@@ -75,6 +75,7 @@ export async function captureError(err: unknown, meta: CaptureMeta): Promise<str
 
 // fallow-ignore-next-line complexity
 function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
+  // Explicit `meta.severity` wins (callers bump recovered paths to `warning`); otherwise use the code's registered classification.
   const severity = meta.severity ?? severityFor(meta.code ?? "");
   const ctx = currentRequestContext();
   return {

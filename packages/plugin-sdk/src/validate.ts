@@ -160,6 +160,12 @@ function validateMcpTools(manifest: ParsedManifest, module: PluginModule): void 
   }
 }
 
+/**
+ * Validates a plugin module against the host's plugin contract: manifest
+ * shape, SDK compatibility, capability/method coverage, exported job and
+ * MCP-tool handlers, and `testConnection` for non-`none` auth. Throws
+ * `PluginError` on any failure.
+ */
 export function validatePluginModule(module: PluginModule): ValidatedPlugin {
   const manifest = parseManifest(module);
   assertSdkCompatible(manifest.sdkVersion);

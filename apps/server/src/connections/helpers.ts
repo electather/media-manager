@@ -5,7 +5,7 @@ import { env } from "../env";
 import { encrypt, decrypt } from "../crypto/vault";
 import { internal } from "../errors/http-errors";
 import { invalidateUserCache } from "../media/dispatcher";
-import { isNil, isPrimitive } from "es-toolkit/predicate";
+import { isNil } from "es-toolkit/predicate";
 
 function split(combined: string): { iv: string; data: string } {
   const [iv, ...rest] = combined.split(":");
@@ -177,8 +177,10 @@ function stringifyDisplayValue(v: unknown): string {
   if (typeof v === "number") return String(v);
   if (typeof v === "boolean") return v ? "Yes" : "No";
   if (Array.isArray(v)) {
-    const primitives = v.filter(isPrimitive);
-    if (primitives.length === v.length) return primitives.map(stringifyDisplayValue).join(", ");
+    const primitives = v.filter(
+      (x) => typeof x === "string" || typeof x === "number" || typeof x === "boolean",
+    );
+    if (primitives.length === v.length) return primitives.map((x) => String(x)).join(", ");
     return "";
   }
   return "";

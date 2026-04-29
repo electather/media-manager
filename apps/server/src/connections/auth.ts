@@ -26,7 +26,7 @@ export function applyUserConfigPatch(
       ? { ...(userConfig as Record<string, unknown>) }
       : ({} as Record<string, unknown>);
   for (const [key, value] of Object.entries(patch)) {
-    if (isNil(value)) delete base[key];
+    if (value === null) delete base[key];
     else base[key] = value;
   }
   return base;

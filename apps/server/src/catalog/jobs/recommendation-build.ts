@@ -6,6 +6,7 @@ import { MediaService } from "../../media/service";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
+import { identifyItem, splitCombinedId } from "../../media/parse-item";
 import type { RecItem } from "../types";
 
 const TOP_N = 60;
@@ -123,7 +124,7 @@ export async function writeRecommendationsForUser(
     topN.map(async (entry) => {
       const reason = await engine.explainRanked(userId, entry).catch(() => null);
       return {
-        tmdbId: extractTmdbId(entry.item.id) ?? "",
+        tmdbId: splitCombinedId(entry.item.id)?.id ?? "",
         mediaType: entry.item.type,
         matchReason: reason,
         score: entry.score,
@@ -151,12 +152,10 @@ type RawCandidate = {
   rating?: number | null;
 };
 
-// fallow-ignore-next-line complexity
 function parseIdentity(item: RawCandidate): { id: string; type: "movie" | "tv" } | null {
-  const tmdbId = item.ids?.tmdb_id ?? extractTmdbId(item.id);
-  const type = item.type ?? extractType(item.id);
-  if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
-  return { id: `${type}:${tmdbId}`, type };
+  const identity = identifyItem(item);
+  if (!identity) return null;
+  return { id: `${identity.type}:${identity.tmdbId}`, type: identity.type };
 }
 
 // fallow-ignore-next-line complexity
@@ -188,16 +187,4 @@ function adaptCandidate(item: RawCandidate): {
     userRating: null,
     matchReason: null,
   };
-}
-
-function extractTmdbId(combined: string | undefined): string | undefined {
-  if (!combined) return undefined;
-  const [, id] = combined.split(":");
-  return id || undefined;
-}
-
-function extractType(combined: string | undefined): "movie" | "tv" | undefined {
-  if (!combined) return undefined;
-  const [type] = combined.split(":");
-  return type === "movie" || type === "tv" ? type : undefined;
 }

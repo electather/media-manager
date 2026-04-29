@@ -12,11 +12,15 @@ let instance: Db | undefined;
 
 const isRemoteUrl = (url: string) => /^(libsql|wss?|https?):/.test(url);
 
-const url = env.SQLITE_PATH ?? "file:./data/ent-mcp.db";
+function resolveDbUrl(): string {
+  return env.SQLITE_PATH ?? "file:./data/ent-mcp.db";
+}
+
 /** Returns a singleton Drizzle instance backed by libSQL/SQLite. */
 export function getDb(): Db {
   if (instance) return instance;
 
+  const url = resolveDbUrl();
   // Only create the parent directory when the URL points at a local SQLite
   // file. Hosted libSQL (Turso) URLs use http/https/libsql/ws schemes and
   // have no local path.
@@ -35,7 +39,7 @@ export function getDb(): Db {
  * immediately with SQLITE_BUSY.
  */
 export async function initDb(): Promise<void> {
-  if (isRemoteUrl(url)) return;
+  if (isRemoteUrl(resolveDbUrl())) return;
   const db = getDb();
   await db.run(sql`PRAGMA journal_mode=WAL`);
   await db.run(sql`PRAGMA busy_timeout=5000`);

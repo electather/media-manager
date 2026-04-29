@@ -8,6 +8,9 @@ import {
   oauthProtectedResourceHandler,
 } from "../mcp/server";
 
+// CORS for MCP and OAuth discovery — required for browser-based MCP clients.
+// Allowed origins are sourced from BETTER_AUTH_TRUSTED_ORIGINS (comma-separated)
+// so a single env variable governs both auth and MCP access.
 // MCP auth is Bearer-token-based, so any origin is safe to allow.
 // Origin restrictions would provide no security benefit here.
 const mcpCors = cors({

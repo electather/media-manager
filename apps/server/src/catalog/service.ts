@@ -1,8 +1,6 @@
 import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { groupBy, uniqBy } from "es-toolkit/array";
 import type { Db } from "../db/client";
-
-type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 import {
   canonicalMetadata,
   discoverSnapshots,
@@ -27,6 +25,8 @@ import type {
   RecommendationList,
   RecommendationListKind,
 } from "./types";
+
+type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
