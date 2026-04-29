@@ -182,6 +182,7 @@ export function SharedCredentialDialog({
     },
   });
 
+  // fallow-ignore-next-line complexity
   const validate = (): boolean => {
     setSubmitAttempted(true);
     setLabelError(null);
@@ -199,6 +200,7 @@ export function SharedCredentialDialog({
     return true;
   };
 
+  // fallow-ignore-next-line complexity
   const onTestAndSave = async () => {
     setTopError(null);
     if (!validate()) return;

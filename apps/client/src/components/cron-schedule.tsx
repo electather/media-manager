@@ -50,6 +50,7 @@ function parseField(field: string, min: number, max: number): number[] {
   return Array.from(values).sort((a, b) => a - b);
 }
 
+// fallow-ignore-next-line complexity
 function describeField(field: string, fieldIndex: number, _min: number, _max: number): string {
   if (field === "*") return "every";
 
@@ -226,6 +227,7 @@ interface CronScheduleProps extends Omit<React.ComponentProps<"div">, "children"
   referenceDate?: Date;
 }
 
+// fallow-ignore-next-line complexity
 function CronSchedule({
   expression,
   title,

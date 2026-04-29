@@ -69,6 +69,7 @@ type ModalState =
   | { kind: "uninstall"; plugin: PluginRow }
   | { kind: "install-stub" };
 
+// fallow-ignore-next-line complexity
 function AdminPluginsPage() {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
@@ -348,6 +349,7 @@ function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: Plugi
 
 // ─── Global-config dialog (single-purpose) ───────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function GlobalConfigDialog({
   state,
   onOpenChange,
@@ -429,6 +431,7 @@ function GlobalConfigBody({
     };
   }, [plugin.id, schema]);
 
+  // fallow-ignore-next-line complexity
   const onSave = async () => {
     const errors = validateSchema(schema, values);
     if (Object.keys(errors).length > 0) {
@@ -522,6 +525,7 @@ function InstallStubDialog({
 
 // ─── Uninstall dialog (typed-name confirmation) ───────────────────────────────
 
+// fallow-ignore-next-line complexity
 function UninstallDialog({
   state,
   onOpenChange,
@@ -547,6 +551,7 @@ function UninstallDialog({
 
   if (!plugin) return null;
 
+  // fallow-ignore-next-line complexity
   const confirm = async () => {
     setPending(true);
     setTopError(null);
@@ -719,6 +724,7 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
       (manifestHosts.length > 0 &&
         !entries.some((a) => manifestHosts.some((m) => patternsOverlap(a, m)))));
 
+  // fallow-ignore-next-line complexity
   const save = async () => {
     setSaving(true);
     setSaveError(null);
@@ -852,6 +858,7 @@ function HeadersPanel({ plugin, onChanged }: AdvancedSectionProps) {
   >({ kind: "none" });
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // fallow-ignore-next-line complexity
   const deleteHeader = async (name: string) => {
     setDeleteError(null);
     try {

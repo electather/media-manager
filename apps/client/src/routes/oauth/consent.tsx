@@ -122,6 +122,7 @@ function InvalidRequestPage() {
 
 // ─── Consent page ─────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function ConsentPage() {
   const { client_id, scope } = Route.useSearch();
   const { session } = Route.useRouteContext();

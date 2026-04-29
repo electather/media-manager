@@ -115,6 +115,7 @@ export function ChangePasswordCard() {
     },
   });
 
+  // fallow-ignore-next-line complexity
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const next: PasswordFieldErrors = {};

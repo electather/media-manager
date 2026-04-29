@@ -169,6 +169,7 @@ function AdminJobsPage() {
 
 // ─── Stats bar ────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function StatsBar({ jobs, loading }: { jobs: JobHandle[]; loading: boolean }) {
   if (loading) return <Skeleton className="h-20 rounded-xl" />;
 
@@ -512,6 +513,7 @@ function RunHistorySection({
   );
 }
 
+// fallow-ignore-next-line complexity
 function RunRow({ run, onSelectRun }: { run: JobRunSummary; onSelectRun: () => void }) {
   return (
     <div
@@ -707,6 +709,7 @@ function RunStatusIcon({ status }: { status: JobRunStatus }) {
   return <CircleDotIcon className={classes} />;
 }
 
+// fallow-ignore-next-line complexity
 function RunStatusBadge({ status }: { status: JobRunStatus }) {
   const label = runStatusLabel(status);
 

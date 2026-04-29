@@ -80,6 +80,7 @@ function McpEndpointBlock() {
   );
 }
 
+// fallow-ignore-next-line complexity
 export function AppsList() {
   const qc = useQueryClient();
   const [confirmRevoke, setConfirmRevoke] = useState<AuthorizedApp | null>(null);

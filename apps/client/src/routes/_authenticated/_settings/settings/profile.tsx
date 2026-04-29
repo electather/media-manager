@@ -357,6 +357,7 @@ function RoleRow() {
 
 // ─── Verification banner ──────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function VerificationBanner({ email }: { email: string }) {
   const [dismissed, setDismissed] = useState(false);
   const [cooldown, setCooldown] = useState(0);

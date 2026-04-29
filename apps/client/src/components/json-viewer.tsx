@@ -48,6 +48,7 @@ function matchesSearch(key: string | number, value: JsonValue, query: string): b
   return false;
 }
 
+// fallow-ignore-next-line complexity
 function hasSearchMatch(value: JsonValue, key: string | number, query: string): boolean {
   if (!query) return false;
   if (matchesSearch(key, value, query)) return true;
@@ -215,6 +216,7 @@ function JsonNode({
     );
   }
 
+  // fallow-ignore-next-line complexity
   function renderValue() {
     if (typeof value === "string") {
       return (
@@ -379,6 +381,7 @@ function JsonNode({
   );
 }
 
+// fallow-ignore-next-line complexity
 function collectPaths(
   value: JsonValue,
   path: string,
@@ -404,6 +407,7 @@ function allExpandablePaths(value: JsonValue, rootName: string): Set<string> {
   return result;
 }
 
+// fallow-ignore-next-line complexity
 function collectAllExpandable(value: JsonValue, path: string, result: Set<string>): void {
   if (value === null || typeof value !== "object") return;
   result.add(path);

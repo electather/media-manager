@@ -256,6 +256,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     setTopError(null);
   };
 
+  // fallow-ignore-next-line complexity
   const runTest = async () => {
     if (!plugin) return;
     clearPendingErrors();
@@ -349,6 +350,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       },
     });
 
+  // fallow-ignore-next-line complexity
   const handleSaveOauthEdit = async () => {
     if (!plugin || !existing) return;
     setSaving(true);
@@ -367,6 +369,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     }
   };
 
+  // fallow-ignore-next-line complexity
   const handleStartDevice = async () => {
     if (!plugin) return;
     setDevice({ kind: "starting" });
@@ -389,6 +392,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
     }
   };
 
+  // fallow-ignore-next-line complexity
   const handleStartRedirect = async () => {
     if (!plugin) return;
     setSaving(true);

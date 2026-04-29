@@ -3,6 +3,7 @@ import { LoaderCircleIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { relativeTime } from "@/lib/relative-time";
 import { parseUserAgent } from "@/lib/user-agent";
 
 export interface SessionListItem {
@@ -94,15 +95,4 @@ export function SessionRow({ session, isCurrent, onRevoke, pending = false }: Se
 function toDate(input: string | number | Date): Date {
   if (input instanceof Date) return input;
   return new Date(input);
-}
-
-/** Coarse relative-time formatter, mirroring the helper used by the jobs page. */
-function relativeTime(d: Date): string {
-  const ts = d.getTime();
-  if (!Number.isFinite(ts)) return "just now";
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
 }

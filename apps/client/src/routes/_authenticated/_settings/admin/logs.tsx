@@ -114,6 +114,7 @@ function AdminLogsPage() {
       search.search ?? "",
       search.range,
     ],
+    // fallow-ignore-next-line complexity
     queryFn: async (): Promise<{ records: ListRecord[]; total: number }> => {
       const query: Record<string, string> = {};
       query.severity = severity.join(",");

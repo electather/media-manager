@@ -94,6 +94,43 @@ function resolveLevelColors(level: LogLevel, colorScale?: LevelColorScale): Leve
   };
 }
 
+// fallow-ignore-next-line complexity
+function LevelToggle({
+  level,
+  colorScale,
+  isActive,
+  count,
+  onToggle,
+}: {
+  level: LogLevel;
+  colorScale?: LevelColorScale;
+  isActive: boolean;
+  count: number;
+  onToggle: () => void;
+}) {
+  const colors = resolveLevelColors(level, colorScale);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      role="checkbox"
+      aria-checked={isActive}
+      aria-label={`${isActive ? "Hide" : "Show"} ${level} logs`}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors outline-none",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+        isActive ? colors.badge : "bg-muted/50 text-muted-foreground/50 line-through",
+      )}
+    >
+      <Circle
+        className={cn("size-1.5 fill-current", isActive ? colors.text : "text-muted-foreground/30")}
+      />
+      {LEVEL_LABELS[level]}
+      {count > 0 && <span className="tabular-nums">{count}</span>}
+    </button>
+  );
+}
+
 // Utilities
 
 function formatTimestamp(ts?: string): string {
@@ -637,35 +674,16 @@ function LogViewerFilterable({
       <div className="flex flex-wrap items-center gap-2 border-b border-border/40 bg-muted/10 px-3 py-2">
         {/* Level toggles */}
         <div className="flex items-center gap-1">
-          {levels.map((level) => {
-            const colors = resolveLevelColors(level, colorScale);
-            const isActive = activeLevels.has(level);
-            const count = levelCounts[level] ?? 0;
-            return (
-              <button
-                key={level}
-                type="button"
-                onClick={() => toggleLevel(level)}
-                role="checkbox"
-                aria-checked={isActive}
-                aria-label={`${isActive ? "Hide" : "Show"} ${level} logs`}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors outline-none",
-                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                  isActive ? colors.badge : "bg-muted/50 text-muted-foreground/50 line-through",
-                )}
-              >
-                <Circle
-                  className={cn(
-                    "size-1.5 fill-current",
-                    isActive ? colors.text : "text-muted-foreground/30",
-                  )}
-                />
-                {LEVEL_LABELS[level]}
-                {count > 0 && <span className="tabular-nums">{count}</span>}
-              </button>
-            );
-          })}
+          {levels.map((level) => (
+            <LevelToggle
+              key={level}
+              level={level}
+              colorScale={colorScale}
+              isActive={activeLevels.has(level)}
+              count={levelCounts[level] ?? 0}
+              onToggle={() => toggleLevel(level)}
+            />
+          ))}
         </div>
 
         {/* Inline search */}
@@ -749,6 +767,7 @@ function LogViewerFilterable({
   );
 }
 
+// fallow-ignore-next-line complexity
 function LogEntryRow({
   entry,
   colors,

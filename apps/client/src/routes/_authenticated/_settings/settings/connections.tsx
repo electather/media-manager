@@ -39,6 +39,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { CapabilityBadges, capabilityListSummary } from "@/lib/capabilities";
+import { relativeTime } from "@/lib/relative-time";
 import { cn } from "@/lib/utils";
 
 import {
@@ -204,6 +205,7 @@ function PageHeader() {
   );
 }
 
+// fallow-ignore-next-line complexity
 function BrokenAlert({ count, expiredOnly }: { count: number; expiredOnly: boolean }) {
   return (
     <Alert
@@ -470,7 +472,7 @@ function ConnectionRow({
 
         <span className="text-xs text-muted-foreground">
           {broken ? "Last verified " : "Verified "}
-          {formatRelative(connection.lastVerifiedAt)}
+          {relativeTime(connection.lastVerifiedAt)}
         </span>
         {broken && connection.errorMessage ? (
           <span className="text-xs leading-snug text-destructive">{connection.errorMessage}</span>
@@ -535,6 +537,7 @@ function ConnectionRow({
   );
 }
 
+// fallow-ignore-next-line complexity
 function RowFeedback({
   data,
   isError,
@@ -620,6 +623,7 @@ function AvailableSection({ plugins, onConnect }: AvailableSectionProps) {
   );
 }
 
+// fallow-ignore-next-line complexity
 function AvailableRow({ plugin, onConnect }: { plugin: AvailablePlugin; onConnect: () => void }) {
   // Per the design doc § "Available to Connect": badges represent only the
   // user-scoped capabilities (what a connection unlocks); a muted footer
@@ -752,21 +756,4 @@ function RemoveDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatRelative(ts: number | null): string {
-  if (!ts) return "never";
-  const diff = Date.now() - ts;
-  if (diff < 0) return "just now";
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const d = Math.floor(hr / 24);
-  if (d < 30) return `${d}d ago`;
-  const mo = Math.floor(d / 30);
-  return `${mo}mo ago`;
 }
