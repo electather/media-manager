@@ -37,6 +37,7 @@
     "croner": "^10.0.1",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
+    "es-toolkit": "catalog:",
     "hono": "catalog:",
     "ioredis": "^5.10.1",
     "jszip": "catalog:",
