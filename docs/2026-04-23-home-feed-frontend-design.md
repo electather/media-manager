@@ -1,146 +1,305 @@
 # Home Feed — Frontend Design
 
 **Status:** Draft
-**Date:** 2026-04-23
+**Date:** 2026-04-23 (rev 2026-04-29)
 **Author:** Omid Astaraki
-**Companion:** `2026-04-22-home-feed-design.md` (backend spec)
+**Companion:** `2026-04-22-home-feed-design.md` (backend)
 **Deps:** `2026-04-22-frontend-plugin-connections-design.md`, `2026-04-19-error-management-design.md`, `2026-04-20-preference-engine-design.md`
 
 ## Summary
 
-Netflix-style home page rendering two RPC procedures from companion backend spec. `home.getLayout` returns the skeleton — row stubs (no items) + a resolved hero — and the page paints structure immediately; each visible row then fires its own `home.getRowContent` to load its first page lazily, with skeleton placeholders shown until the row resolves. Horizontal scroll → further `home.getRowContent` pages. Card click → detail modal via `peek` search param; `/media/$id` = real-route deep link for shares & deep navigation.
+Netflix-style home. ∀ media surface — hero, upcoming-stack item, row card — = same `Card`. Layout/aspect/treatment auto-derived: nothing passed in to pick variant. `Hero`, `SidebarColumn`, `SidebarItem` ⊥ exist.
 
-> **Update 2026-04-27 — skeleton layout (PR #143).** Replaces the prior
-> "single `getLayout` call → full page at first paint, rows inlined with
-> first items page" model. Rows now arrive as `HomeRowStub` (no items); each
-> row component owns its own `home.getRowContent` request. See
-> `plan/architecture-home-skeleton-layout-1.md`.
+Client data layer = TanStack DB on top of RPC. `getRowContent` res → split client-side: per-row ordered entries + global `media` collection. Rows render via live query joining two. Mutations (mark-watched, watchlist) → dedicated endpoints + DB optimistic state.
 
-Scope: client-side only — route, component tree, row scroll, card visuals, detail-modal, non-happy-path states. Server behavior out of scope, unchanged from backend spec.
+Backend endpoint shapes unchanged save one additive field (`updatedAt` on `CompactMediaItem`).
 
-No row-specific branching in page code — rows driven by `rowId` & `HomeRow` shape. Single source of truth for row-specific visual config (`ROW_DISPLAY`).
+`resumeUrl` ⊥ `Card`'s problem. ∀ card click → peek modal. Resume = detail body's job.
+
+Hero never null (server guarantees). Upcoming = optional vertical stack of 3-4, inlined in `getLayout`, not a row.
 
 ## Goals
 
-- Render 7-row layout from `home.getLayout` with zero row-specific branching in page code.
-- Match visual language of `/connections` & `/taste`: shadcn/ui, typography-driven, flat surfaces, no gradients/ornament.
-- Card click feels instant; feed scroll position preserved when modal closes.
-- Horizontal scroll works with trackpad, mouse drag, touch swipe, keyboard; arrow buttons surface on hover.
-- Degrade honestly across same user-state spectrum as backend.
-- Single Card component. Treatment data-driven from item shape (progress → continue-watching, episode → upcoming, neither → default). Aspect ratio row-driven via ROW_DISPLAY. Size driven by container queries.
+- One component renders ∀ media surface.
+- Card adapts to container without consumer telling it.
+- Hover anim feels polished, ⊥ gimmicky.
+- Mark-watched / watchlist mutations propagate everywhere instantly via DB optimistic state.
+- Future Library / Search / Detail reuse same `media` collection.
 
 ## Non-goals
 
-- Netflix-style hover-preview card — deferred v2.
-- Infinite vertical scroll of rows — row set small & fixed by layout endpoint.
-- SSR — current client = Vite SPA; TanStack Start needed, out of scope.
-- Client-side row reordering or drag-to-customize.
-- Row-level user preferences — all ordering lives server-side in `rules.ts`.
-- Impression/engagement telemetry — matches PreferenceEngine spec's "no things-we-showed-this-user tracking."
+- Backend endpoint reshape. Same contracts, one additive field.
+- Sync engine (Electric/PowerSync). REST + DB cache for v1.
+- Hover-preview card. v2.
+- Library / Search / Detail pages. Mentioned only because data model scales there.
+- Row-specific user preferences. Server.
+- Impression telemetry. Per PreferenceEngine spec.
 
 ## Stack
 
-- TanStack Router (file-based routes under `packages/client/src/routes/`).
-- React + TypeScript, Vite.
-- shadcn/ui, `lucide-react` icons (matches `/connections` & `/taste`).
-- RPC client + tanstack-query (existing pattern).
-- `embla-carousel-react` for row horizontal scroll — ~10kb, maintained, battle-tested. Drag + snap + arrow-button hooks without rolling pointer-event handling.
-- Shared types from `@ent-mcp/shared/home` per backend spec's shared-package rule.
-- Tailwind container queries plugin (`@tailwindcss/container-queries`) for hero/card/sidebar adaptive sizing.
+- TanStack Router. File-based routes under `packages/client/src/routes/`.
+- React + TS, Vite.
+- shadcn/ui, `lucide-react`.
+- RPC client.
+- **TanStack DB** (`@tanstack/db`) — reactive client store. Wraps RPC via `queryCollectionOptions`.
+- `embla-carousel-react` for row horizontal scroll.
+- Shared types from `@ent-mcp/shared/home`.
+- Tailwind container queries (`@tailwindcss/container-queries`).
 
-Dashboard shell (sidebar nav, header, theme toggle) already exists. Design covers page content only.
+Dashboard shell already exists.
 
-## Route and entry point
+## Route + entry
 
-**Route:** `/` — home feed = root authenticated route. Login lands here.
+- **Route:** `/` = home. Login lands here. File: `routes/_authenticated/index.tsx`.
+- **Detail deep link:** `routes/_authenticated/media.$id.tsx`. Matches `/media/movie:550` & `/media/tv:1396`. Zod on `params` (`^(movie|tv):\d+$`) → invalid `$id` = framework error boundary.
+- **Sidebar nav:** "Home", `lucide-react` `Home` icon, above Connections + Taste.
+- **Page title:** ⊥ visible `h1`. Browser tab via TanStack Router meta: `"Home · {App}"`.
+- **Auth:** inherited from `_authenticated`.
 
-**Route file:** `packages/client/src/routes/_authenticated/index.tsx`.
+## Wire-type changes (additive only)
 
-Prior root displaced — redirect from prior root = one-line migration if needed.
-
-**Deep-link detail route:** `packages/client/src/routes/_authenticated/media.$id.tsx`. Matches `/media/movie:550` & `/media/tv:1396`; `id` param = composite `MediaId`.
-
-Route declares Zod schema on `params` (same `^(movie|tv):\d+$` regex `peek` uses) via TanStack Router's `params.parse`. Invalid `$id` → framework error boundary → same "Not found" surface as not-resolved upstream. One error surface, zero defensive parsing in modal.
-
-**Sidebar nav:** new item "Home", positioned above "Connections" & "Taste profile." `lucide-react` `Home` icon. Shell's active-route highlighting handles selected state.
-
-**Page title:** no visible `h1` — streaming-service homes don't render "Home" as heading, row titles carry hierarchy. Browser tab title via TanStack Router `meta`: `"Home · {App name}"`.
-
-**Auth:** inherited from `_authenticated` layout. Unauthenticated → redirect to login.
-
-## Core data model on frontend
-
-All wire types imported verbatim from `@ent-mcp/shared/home`:
-
-```ts
-import type {
-  RowKind,
-  HomeRowStub,
-  HomeLayoutResponse,
-  RowContentResponse,
-  CompactMediaItem,
-} from "@ent-mcp/shared/home";
+```
+CompactMediaItem += updatedAt: ISO8601
+HomeLayoutResponse.hero: never null     # was nullable
+HomeLayoutResponse.upcoming?: {
+  items: CompactMediaItem[]             # 3-4, inlined
+  showMoreLink?: string                 # /upcoming or similar
+}
 ```
 
-No type mirroring, no re-declaration. `HomeRowStub` carries `rowId`, `title`,
-`subtitle?`, and `initialCursor` — items are absent, fetched per row via
-`home.getRowContent`.
+`updatedAt` enables last-write-wins on `media` collection. Server stamps on every entity emit.
 
-### Client-only types
+`hero` non-null = server picks something always (continueWatching, watchNext, trending fallback). "hero null" branch dies in frontend.
 
-```ts
-// Maps rowId → how the row renders. The ONLY place row-specific visual
-// decisions live. Everything else reads from HomeRow and CompactMediaItem.
-type RowDisplayConfig = {
-  slot: "main" | "sidebar"; // sidebar overrides to "main" at <md
-  aspectRatio: "poster" | "backdrop";
-  showMatchReasonInline: boolean;
-};
+`upcoming` = inlined, ⊥ a row, no pagination. If absent → no upcoming column. Server decides count + showMoreLink presence.
 
-const ROW_DISPLAY: Record<RowKind, RowDisplayConfig> = {
-  continueWatching: { slot: "main", aspectRatio: "backdrop", showMatchReasonInline: false },
-  upcomingForYou: { slot: "sidebar", aspectRatio: "backdrop", showMatchReasonInline: false },
-  recommendedForYou: { slot: "main", aspectRatio: "poster", showMatchReasonInline: true },
-  becauseYouWatched: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
-  trendingNow: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
-  newReleases: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
-  yourWatchlist: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
-};
+## Client data layer (TanStack DB)
 
-// Search-param schema for the detail-modal peek.
-const peekSchema = z.object({
-  peek: z
-    .string()
-    .regex(/^(movie|tv):\d+$/)
-    .optional(),
-});
+Three collections. Live queries join.
+
+```
+mediaCollection = createCollection({
+  schema: CompactMediaItem,
+  getKey: (item) => item.id,            # MediaId, e.g. "movie:550"
+  conflict: lastWriteWins(updatedAt),
+})
+
+rowEntriesCollection = createCollection({
+  schema: RowEntry { rowId, position, mediaId, score, matchReason? },
+  getKey: (e) => `${e.rowId}:${e.position}`,
+})
+
+progressCollection = createCollection({
+  schema: Progress { mediaId, secondsLeft, watchedCount, totalCount, updatedAt },
+  getKey: (p) => p.mediaId,
+})
 ```
 
-`ROW_DISPLAY` = only place row-specific presentation logic exists. Adding row on backend → add one entry here; rest of page code untouched. Single `Card` component handles all shapes — treatment dispatched from item shape, aspect from `ROW_DISPLAY`.
+### Splitting `getRowContent` res client-side
 
-### Cursors are opaque
+```
+onRowContentSuccess(rowId, page):
+  for (i, item) in page.items:
+    mediaCollection.upsert(item)        # by id, lastWriteWins on updatedAt
+    rowEntriesCollection.insert({ rowId, position: nextPos++, mediaId: item.id, score: item.score, matchReason: item.matchReason })
+  cursor[rowId] = page.cursor
+```
 
-Frontend treats `HomeRow.cursor` & `getRowContent` return as black-box strings. No parsing, inspection, version-checking — backend's job per companion spec.
+`getLayout.upcoming.items` + layout-pinned hero same treatment: items → `mediaCollection`. Hero stored as separate ref `layoutHero = { mediaId, source }`. Upcoming items → `rowEntriesCollection` under synthetic rowId `"upcoming"` for live-query symmetry.
 
-## Page architecture
+### Live query (Row render)
 
-### Component tree
+```
+useLiveQuery(q =>
+  q.from({ row: rowEntriesCollection })
+   .where(eq(row.rowId, props.rowId))
+   .innerJoin({ media: mediaCollection }, on(row.mediaId, media.id))
+   .leftJoin({ prog: progressCollection }, on(row.mediaId, prog.mediaId))
+   .orderBy(row.position)
+   .select({ ...media, progress: prog })
+)
+```
+
+Sub-ms re-render on entity update. Mark-watched on one item → flickers across ∀ rows displaying it, ⊥ refetch.
+
+### Mutations
+
+Dedicated RPC endpoints. ∀ wrap with `createOptimisticAction`:
+
+- `media.markWatched(mediaId)`
+- `media.markUnwatched(mediaId)`
+- `media.addToWatchlist(mediaId)`
+- `media.removeFromWatchlist(mediaId)`
+- `media.requestAvailable(mediaId)` (Seerr passthrough)
+
+```
+markWatched = createOptimisticAction({
+  onMutate: (id) => {
+    mediaCollection.update(id, m => { m.watchedAt = now(); m.progress = null })
+    progressCollection.delete(id)
+  },
+  mutationFn: (id) => rpc.media.markWatched({ mediaId: id }),
+})
+```
+
+Failure → DB auto-rollback. UI ⊥ knows.
+
+### Why ⊥ entity-shaped endpoints
+
+Considered: backend returns `{ entries: [{mediaId, position, score}], cursor }`, client fetches entities via `media.byIds`. Rejected: 2 roundtrips/row first paint, server-side ranking already row-shaped, `getRowContent` res naturally carries entity data. Client-side split = same wire bytes, full DB benefits.
+
+## Card model
+
+Three knobs, ∀ derived. Nothing passed in to pick variant.
+
+### Layout — container query
+
+- **Vertical** (default): image top, metadata below.
+- **Horizontal-thumb**: small image left, metadata stacked right. When container narrow+tall.
+
+Trigger: `@container (max-width: var(--card-thumb-threshold))`. Threshold = CSS var, single source. Start `320px`.
+
+### Aspect — item shape + container
+
+Backdrop (16:9) when ANY:
+
+- `progress != null` (progress + still img > poster)
+- item is layout hero (`item.id === layoutHero.mediaId`)
+- horizontal-thumb layout (16:9 reads better in wide-short thumb)
+
+Else: poster (2:3).
+
+Aspect logic ⊥ leak out. No `aspectRatio` prop. No `ROW_DISPLAY` lookup. `<Card item={...} />` figures it.
+
+### Treatment — item shape
+
+- `progress != null` → **continue-watching**: progress bar pinned to bottom edge of img. "Xmin left" + "X/X watched" captions side-by-side directly below img. Both ∀ time.
+- `episode != null && progress == null` → **upcoming**: episode line ("S2 E4") + relative date ("Tomorrow", "In 5 days", "Thursday 12 May") under title.
+- neither → **default**: title + year + optional status pill + optional rating badge.
+
+### `clearLogo`
+
+When backdrop mode AND `item.clearLogo != null`: render `<img>` bottom-right, inside img frame, on top of backdrop. ⊥ size gating, ⊥ hero-only. Sizes scale w/ container (max 30% of img width).
+
+### Card pseudocode
+
+```
+Card({ item }):
+  treatment = item.progress ? "cw" : item.episode ? "upc" : "default"
+  isHero = item.id === layoutHero?.mediaId
+  isThumb = container < 320px              # via @container
+  aspect = (item.progress || isHero || isThumb) ? "16/9" : "2/3"
+
+  return (
+    <a href={`/media/${item.id}`} onClick={openPeek}>
+      <Frame aspect={aspect} layout={isThumb ? "horiz" : "vert"}>
+        <Image src={item.image[aspect]} />
+        {aspect === "16/9" && item.clearLogo && <ClearLogo src={item.clearLogo} />}
+        {treatment === "cw" && <ProgressBar value={item.progress} />}
+        <StatusPill if={item.status} />
+        <RatingBadge if={item.userRating} />
+      </Frame>
+      <Meta>
+        <Title>{item.title}</Title>
+        {treatment === "cw" && <CaptionRow><Left>{minLeft}</Left><Right>{watched}/{total}</Right></CaptionRow>}
+        {treatment === "upc" && <UpcomingLine>{episode} · {relDate}</UpcomingLine>}
+        {treatment === "default" && <Year>{item.year}</Year>}
+        <MatchReason if={item.matchReason && container >= 240px} />
+      </Meta>
+    </a>
+  )
+```
+
+Click ∀ paths → peek modal. ⊥ resumeUrl branch. Detail body owns resume.
+
+### Shared rules
+
+- Imgs `loading="lazy"` + `decoding="async"`. ⊥ blur-up.
+- ∀ cards = `<a href={`/media/${item.id}`}>`. Middle-click / Cmd-click / "Open in new tab" work natively. Click handler `preventDefault` + writes `peek` search param.
+- `StatusPill`, `RatingBadge`, `MatchReason` = sub-components. Shared.
+
+## Hover anim
+
+Default (vertical layout):
+
+- Img scales `1.0 → 1.05` inside fixed frame, `250ms ease-out`. Frame ⊥ move, neighbors ⊥ shift.
+- Ring fades in: `1px solid var(--color-border-strong)`, `200ms`.
+- Title brightens: `--color-text-secondary → --color-text-primary`, `150ms`.
+- Cursor `pointer`.
+
+Horizontal-thumb variant:
+
+- Skip img zoom (img too small, looks weird).
+- Background `--color-bg-subtle`, `200ms`.
+- Ring + title brighten same.
+
+`prefers-reduced-motion`:
+
+- Kill ∀ transitions.
+- Keep ring + brightness changes (instant, ⊥ animated).
+
+⊥ proposed: outer scale (overlap neighbors), translateY lift (gimmicky on grids), info reveal / overview fade-in (= v2 hover-preview).
+
+## Top zone
+
+Always rendered. Hero never null.
+
+CSS Grid. Template swaps based on Upcoming presence:
+
+```
+.top-zone {
+  display: grid;
+  gap: 16px;
+}
+
+.top-zone:has(.upcoming) {
+  grid-template-columns: 1fr minmax(280px, 360px);
+}
+
+.top-zone:not(:has(.upcoming)) {
+  grid-template-columns: 1fr;
+}
+
+@container (max-width: 768px) {
+  .top-zone { grid-template-columns: 1fr !important; }
+  .upcoming { /* renders below hero */ }
+}
+```
+
+Hero cell = `<Card item={layoutHero} />`. Card auto-picks backdrop + continue-watching/default treatment from item.
+
+Upcoming cell = `<UpcomingStack items={layout.upcoming.items} showMoreLink={layout.upcoming.showMoreLink} />`. Vertical flex of `<Card>` instances. Container is narrow → cards auto-pick horizontal-thumb layout via container query. ⊥ pagination. Conditional "Show more →" rendered when `showMoreLink` present.
+
+At `<md` (mobile): grid collapses 1 col. Upcoming stacks below hero. Cards inside Upcoming inherit narrower container → still horizontal-thumb (or vertical if container exceeds thumb threshold).
+
+## Row
+
+Horizontal carousel. Always. ⊥ fluid. One job.
+
+- `embla-carousel-react`, config: `dragFree: true, containScroll: "trimSnaps", slidesToScroll: "auto", align: "start", loop: false`.
+- Arrows: hidden at rest, revealed on row-hover or focus-within. ⊥ rendered on `(hover: none)`. `Previous` disabled at scroll start. `Next` disabled when end + cursor null.
+- Keyboard: arrows out of Tab order. Cards in Tab. `ArrowLeft`/`ArrowRight` on focused card → moves focus + scrolls. Arrows SR-discoverable via role/label.
+- Pagination: scroll progress ≥ 75% + cursor ≠ null + ⊥ in flight → `useRowPagination.fetchNext()`. Loading: skeleton card at end. Failure: silent drop.
+
+## Component tree
 
 ```
 HomeFeedPage
 ├── HomeFeedSkeleton
 ├── HomeFeedEmpty
+├── HomeFeedError
 └── HomeFeedContent
-    ├── TopZone                       (renders when hero or sidebar rows exist)
-    │   ├── Hero                      (LayoutHero or null)
-    │   └── SidebarColumn             (rows where slot === "sidebar")
-    │       └── SidebarItem[]
-    └── Row[]                         (slot === "main", plus sidebar rows at <md)
-        ├── RowHeader                 (uses titleOverride ?? title)
+    ├── TopZone                         # CSS Grid, hero always, upcoming optional
+    │   ├── Card item={layoutHero}      # hero cell
+    │   └── UpcomingStack?              # if layout.upcoming
+    │       ├── Card[] item={...}       # 3-4, container narrow → horiz-thumb
+    │       └── ShowMoreLink?           # if showMoreLink
+    └── Row[]                           # ∀ rows from layout
+        ├── RowHeader                   # title + partial indicator
         └── RowCarousel
-            └── Card[]                (single component; treatment + size data-driven)
+            └── Card[] item={...}       # vertical, mix of poster/backdrop per item shape
 
-MediaDetailModal (unchanged)
+MediaDetailModal                        # at _authenticated layout level
 ```
 
 ### File layout
@@ -148,404 +307,355 @@ MediaDetailModal (unchanged)
 ```
 packages/client/src/
 ├── routes/_authenticated/
-│   ├── index.tsx                    # HomeFeedPage — route component
-│   └── media.$id.tsx                # MediaDetailPage — full-route deep link
+│   ├── index.tsx                       # HomeFeedPage
+│   └── media.$id.tsx                   # MediaDetailPage
 ├── components/home/
-│   ├── home-feed.tsx                # picks skeleton / empty / content / error
-│   ├── row.tsx                      # RowHeader + RowCarousel + pagination glue
-│   ├── row-carousel.tsx             # embla wrapper: scroll, arrows, snap, "near end" signal
-│   ├── top-zone.tsx                 # composes hero + sidebar; handles mobile stack
-│   ├── hero.tsx                     # LayoutHero render; click → resumeUrl OR peek
-│   ├── sidebar-column.tsx           # vertical list at md+, horizontal row at <md
-│   ├── sidebar-item.tsx             # thumb + title + episode + relative date
-│   ├── card.tsx                     # treatment dispatch from item shape; aspect from ROW_DISPLAY
-│   ├── status-pill.tsx              # requested / processing / unavailable
-│   ├── rating-badge.tsx             # user rating corner badge
-│   ├── match-reason.tsx             # muted multi-line reason under title
-│   ├── home-feed-skeleton.tsx       # includes top-zone skeleton
+│   ├── home-feed.tsx                   # picks skeleton/empty/content/error
+│   ├── home-feed-skeleton.tsx
 │   ├── home-feed-empty.tsx
-│   ├── home-feed-error.tsx
-│   ├── media-detail-modal.tsx       # dialog wrapper; reads ?peek from search
-│   └── media-detail-body.tsx        # content body, shared with full-route page
+│   ├── home-feed-error.tsx             # shares CenteredState w/ empty
+│   ├── top-zone.tsx                    # CSS Grid, hero + optional upcoming
+│   ├── upcoming-stack.tsx              # vertical flex of Cards + ShowMore
+│   ├── row.tsx                         # RowHeader + RowCarousel + pagination
+│   ├── row-carousel.tsx                # embla wrapper
+│   ├── card.tsx                        # the one
+│   ├── progress-bar.tsx                # shared CW component
+│   ├── status-pill.tsx
+│   ├── rating-badge.tsx
+│   ├── match-reason.tsx
+│   ├── media-detail-modal.tsx
+│   └── media-detail-body.tsx
 ├── lib/
-│   └── home-display.ts              # ROW_DISPLAY + peekSchema
+│   └── collections/
+│       ├── media-collection.ts         # global entity store
+│       ├── row-entries-collection.ts
+│       ├── progress-collection.ts
+│       └── mutations.ts                # markWatched, watchlist, etc.
 └── hooks/
-    ├── use-home-layout.ts           # tanstack-query wrapper for home.getLayout
-    └── use-row-pagination.ts        # internal hook for home.getRowContent
+    ├── use-home-layout.ts              # RPC wrapper, hydrates collections
+    ├── use-row-pagination.ts           # RPC wrapper, appends to collections
+    └── use-row-items.ts                # live query hook for Row render
 ```
 
-### Data flow
-
-- **`useHomeLayout()`** — single tanstack-query call against `home.getLayout`. Cache key: `["home", "layout"]`. Stale time: 60s. Background revalidate on window focus after 60s while keeping current layout on screen.
-  - **`HomeLayoutResponse.generatedAt` v1:** received, intentionally unused. 60s staleTime anchored on tanstack-query's fetch-completion timestamp. `generatedAt` retained in wire type (backend spec calls it client-facing) so future "Last updated X ago" affordance can adopt without contract change. No component reads it v1.
-- **`useRowPagination({ rowId, initialCursor, onUnavailable? })`** — wraps tanstack-query's `useInfiniteQuery`, keyed on `["home", "row", rowId]`. `initialPageParam` is `initialCursor` from the stub, so the first `getRowContent` call uses any pre-state the layout pinned (e.g. `becauseYouWatched`'s seed cursor, or the post-hero cursor on the row that supplied the hero). Subsequent pages drive off the previous response's `cursor`; `getNextPageParam` returns `last.cursor ?? undefined` and the row terminates when the cursor goes null. While `isPending` (first page in flight) the row renders a `RowSkeleton`. When `RowCarousel` signals "near end" → calls `fetchNext`. On `home.row_unavailable` (returned as `code` on the error body) → invokes `onUnavailable` so the parent can remove the row.
-- Detail fetch out of scope — `MediaDetailBody` has own data-shape spec in later doc.
+Dies from prior doc: `hero.tsx`, `sidebar-column.tsx`, `sidebar-item.tsx`, `lib/home-display.ts` (ROW_DISPLAY).
 
 ### What lives where
 
-- `index.tsx` thin: calls `useHomeLayout`, picks top-level branch (skeleton/empty/content/error), renders. ~40 lines.
-- `row.tsx` owns row-local pagination state. ⊥ knows card treatment — `card.tsx`'s job.
-- `card.tsx` dispatches treatment from item shape (progress/episode/neither), reads `ROW_DISPLAY[rowId].aspectRatio` for frame. No row logic beyond that.
-- `ROW_DISPLAY` in `lib/home-display.ts` = single source of truth for row-specific visual behavior.
+- `index.tsx` thin: `useHomeLayout` → branch (skeleton/empty/content/error) → render. ~40 lines.
+- `home-feed.tsx` owns top-level state branch.
+- `top-zone.tsx` owns Grid template logic. ⊥ knows about Card internals.
+- `upcoming-stack.tsx` owns vertical layout + ShowMore. Children = Cards.
+- `row.tsx` owns row-local pagination. ⊥ knows Card treatment.
+- `card.tsx` owns ∀ visual logic — layout, aspect, treatment, hover. The one.
+- Collections own data shape + reactivity. ⊥ render.
+- Mutations live in `lib/collections/mutations.ts`. Imported by detail body, card menus, etc.
 
-### What doesn't exist
+### What ⊥ exist
 
-- No shared "CarouselRow" abstraction with generic knobs — `RowCarousel` specific to home feed; extract if second feature needs it.
-- No virtualization inside row — each row caps ~40–60 items; regular DOM handles fine. Revisit if `recommendedForYou` grows unbounded.
-
-## Row behaviour
-
-### Embla configuration per row
-
-```ts
-{
-  dragFree: true,              // free pan; no forced page-by-page snap
-  containScroll: "trimSnaps",  // no empty space past first/last card
-  slidesToScroll: "auto",      // arrow clicks advance by ~viewport width
-  align: "start",              // visible slice starts at a card boundary
-  loop: false,
-}
-```
-
-Free drag with inertia for touch & trackpad; arrow clicks move viewport-width cards. Disney+ / HBO interaction pattern.
-
-### Arrow buttons
-
-- Hidden at rest on hover-capable pointer devices.
-- Revealed on row hover **or** when any card/arrow inside row has focus — keyboard users see without needing pointer.
-- ⊥ rendered on touch-primary devices — `@media (hover: none)`, ⊥ user-agent sniffing.
-- `Previous` disabled at scroll start. `Next` disabled when scrolled to end **& `cursor === null`** (no more pages).
-- Positioned absolutely at row edges, vertically centered against card area only (⊥ including title/metadata block).
-
-### Pagination trigger
-
-Each `RowCarousel` listens to embla's `scroll` event (debounced 150ms). When scroll progress ≥75% of rendered slides & `cursor !== null` & ⊥ fetch in flight → calls `useRowPagination.fetchNext()`.
-
-While fetch in flight: single skeleton card at end of row. On success: replaced by new cards. On failure: disappears silently.
-
-### Keyboard navigation
-
-- `Tab` lands on row's `Previous` arrow, then first visible card, then cards in order, then `Next` arrow.
-- `Enter`/`Space` on focused card → opens detail modal (navigates with `peek=<id>` search param).
-- `ArrowLeft`/`ArrowRight` on focused card → moves focus & scrolls row to keep focused card in view.
-- `Escape` ⊥ applies at row level — modal's concern.
-
-### Snap and scroll restoration
-
-- Horizontal snap: embla's default elastic snap on drag end.
-- Modal close: home page ⊥ unmounted — row horizontal positions persist naturally.
-- Full-route navigation back from `/media/$id`: TanStack Router restores vertical scroll by default. **Horizontal row positions ⊥ restored across full-page navigation.** Modal path (common click target) ⊥ has this problem. Deferred v2.
-
-### Touch and pointer specifics
-
-- Tap-to-open vs drag-to-scroll disambiguation: embla's responsibility.
-- ⊥ custom long-press behavior v1.
-
-## Card designs
-
-### Treatment (data-driven, from item shape)
-
-- **progress present → continue-watching:** progress bar pinned to bottom edge of art, "Xmin left" caption, `clearLogo` overlay rendered only at hero container size.
-- **episode present, no progress → upcoming:** "S2 E4 · Fri 9pm" detail line, no progress bar.
-- **neither → default:** title + year + optional status pill + optional rating badge.
-
-### Aspect (row-driven)
-
-- `ROW_DISPLAY[rowId].aspectRatio === "poster"` → 2:3 frame.
-- `"backdrop"` → 16:9 frame.
-
-### Size (container-driven, via `@container`)
-
-- **Hero size:** ~70% main column at md+, full-width <md. `clearLogo` overlay enabled.
-- **Row card:** rendered inside `RowCarousel`.
-- **Sidebar item:** rendered inside `SidebarColumn`.
-
-Same `Card` component, three sizes. `StatusPill` / `RatingBadge` / `MatchReason` primitives unchanged.
-
-### Shared rules
-
-- Images `loading="lazy"` + `decoding="async"`. ⊥ custom blur-up — neutral background fill while loading is enough.
-- ∀ cards rendered as `<a href={`/media/${item.id}`}>`, not `<button>`. Middle-click, Cmd/Ctrl-click, "Open in new tab" work naturally. Click handler intercepts default, updates `peek` search param; modifier-clicks fall through to real URL.
-- Card component signature: `<Card item={...} rowId={...} />`. Treatment from item shape; aspect from `ROW_DISPLAY[rowId].aspectRatio`. No other row-specific branching in card code.
-- `StatusPill`, `RatingBadge`, `MatchReason` in dedicated sub-components — shared across all card sizes.
+- Generic carousel abstraction. `RowCarousel` specific. Extract if 2nd feature needs.
+- Virtualization in row. Caps ~40-60 items. Revisit if `recommendedForYou` grows unbounded.
+- Per-row scroll restoration across full-page nav. Modal path = primary, ⊥ has problem.
 
 ## Detail modal
 
-Two surfaces, one body. `peek` search param drives overlay; real route = deep link.
+Two surfaces, one body. `peek` search param drives overlay. Real route = deep link.
 
 ### Trigger
 
-- `<Card>`'s click handler calls `event.preventDefault()`, updates search: `router.navigate({ search: (prev) => ({ ...prev, peek: item.id }), replace: false })`. `replace: false` load-bearing — TanStack Router default for search updates = `replace: true`, which ⊥ pushes history entry → browser-back would skip past modal dismiss (see Implementation review notes).
-- Middle-click/Cmd+click/"Open in new tab" fall through to native `<a href="/media/<id>">`.
-- `peek` param validated via `peekSchema` on route definition. Invalid values stripped by TanStack Router before reaching components — no defensive parsing in modal.
+`Card` click handler: `event.preventDefault(); router.navigate({ search: prev => ({ ...prev, peek: item.id }), replace: false })`.
 
-### Where modal lives
+`replace: false` load-bearing — TanStack Router default = `replace: true`, would skip history → browser-back skips dismiss. Dismiss uses default `replace: true` (rewrite, ⊥ stack).
 
-At `_authenticated` layout level, **not** home route. ∀ authenticated routes setting `peek` get modal free. Future `/search`, `/library`, etc. get overlay without re-implementing it.
+Middle-click / Cmd-click / "Open in new tab" → fall through to `<a href="/media/<id>">`.
 
-Layout reads search via `useSearch({ strict: false })`.
+`peek` validated via `peekSchema` (`^(movie|tv):\d+$`) at route def. Invalid stripped before component.
 
-### Component structure
+### Modal location
 
-```tsx
-// MediaDetailModal — rendered by the _authenticated layout
-function MediaDetailModal() {
-  const { peek } = useSearch({ strict: false });
-  const router = useRouter();
-  // Close uses the default `replace: true` — we want the dismiss to replace
-  // the "peek open" history entry, not push a new one on top of it. That way
-  // one browser-back dismisses and the preceding entry is whatever the user
-  // was on before opening the modal.
-  const close = () => router.navigate({ search: (prev) => ({ ...prev, peek: undefined }) });
+At `_authenticated` layout level, ⊥ home route. ∀ authenticated routes setting `peek` = modal free.
 
+Layout reads via `useSearch({ strict: false })`. Either declare `peek` on `_authenticated` search schema (child routes inherit) OR re-validate via `peekSchema.safeParse` in modal. Pick one, document.
+
+### Pseudocode
+
+```
+MediaDetailModal:
+  peek = useSearch({ strict: false }).peek
+  close = () => router.navigate({ search: prev => ({ ...prev, peek: undefined }) })
   return (
-    <Dialog open={!!peek} onOpenChange={(open) => !open && close()}>
-      <DialogContent className="max-w-3xl">
+    <Dialog open={!!peek} onOpenChange={o => !o && close()}>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] [<sm: w-full h-[100dvh] max-w-none rounded-none]">
         {peek && <MediaDetailBody id={peek} inModal />}
       </DialogContent>
     </Dialog>
-  );
-}
+  )
 
-// MediaDetailPage — route at /media/$id
-function MediaDetailPage() {
-  const { id } = Route.useParams();
-  return <MediaDetailBody id={id} inModal={false} />;
-}
+MediaDetailPage:                       # /media/$id
+  id = Route.useParams().id
+  return <MediaDetailBody id={id} inModal={false} />
 ```
 
 ### `MediaDetailBody`
 
-- Single component, two contexts: `id` + `inModal`.
-- `inModal: true` — no page-level header, no back button (modal's close affordance handles dismiss), fits dialog's width constraint.
-- `inModal: false` — page-level header with back button (`router.history.go(-1)`, or `/` fallback when no history).
-- Detail view's data model & layout out of scope — later doc owns media detail.
+- `inModal=true`: ⊥ page header, ⊥ back button. Fits dialog width.
+- `inModal=false`: page header + back button (`router.history.go(-1)` or `/` fallback).
+- Detail data model + layout = own spec, later doc.
+- Resume playback button lives here. Uses `item.resumeUrl` if non-null.
 
-### Close behaviour
+### Close
 
-- Click outside → dismiss (shadcn Dialog default).
-- `Escape` → dismiss.
-- Browser back → dismiss. Card open-transition uses `replace: false` (push); close call uses default `replace: true` (rewrite). Net: one back-press = "modal open" → "home feed without peek."
-- Close button (top-right `X`) → dismiss.
+- Outside click → dismiss (shadcn default).
+- Escape → dismiss.
+- Browser back → dismiss (open uses `replace: false`, close uses default `replace: true`).
+- `X` button → dismiss.
 
-∀ paths route through same `close()` function: clear `peek` param. Scroll position & row state untouched — home route ⊥ unmounted.
+∀ paths → same `close()` fn. Scroll position + row state untouched (home ⊥ unmounted).
 
-### Focus, scroll lock, accessibility
+### A11y
 
-All handled by shadcn `Dialog` primitive: focus trap, focus return to triggering card on close, body scroll lock, `aria-modal`, proper labelling. No custom a11y code.
+shadcn `Dialog` primitive: focus trap, focus return on close, body scroll lock, `aria-modal`, labelling. ⊥ custom a11y code.
 
-### Animations
+### Anim
 
 shadcn Dialog default fade + subtle scale.
 
 ## States
 
-### First load (no cache)
+### First load (cold cache)
 
-While `home.getLayout` in flight on cold cache: skeleton layout — 4 skeleton rows, each with narrow bar for row title + ~6 card-shaped skeletons. Alternate skeleton card shape across 4 rows (poster/backdrop/poster/backdrop) so shimmer matches eventual shape mix. Use shadcn `Skeleton`.
+`getLayout` in flight → skeleton. 4 skeleton rows + top-zone skeleton (hero cell + maybe upcoming cell). Skeleton card mix = expected mix for typical layout (2 backdrop + 2 poster). shadcn `Skeleton`.
 
-### Revalidation (warm cache)
+### Revalidation (warm)
 
-Cached layout renders immediately. Background refetch fires when stale (>60s) on focus. No spinner; no layout shift.
+Cached layout renders immediately. Background refetch on focus after 60s stale. ⊥ spinner, ⊥ layout shift.
 
 ### Empty layout (`rows: []`)
 
-Centered layout, max-width ~420px:
+Centered, max-w 420px:
 
-- Title (h2, 18px, weight 500): "Nothing to show yet."
-- Body (muted): "Connect a service to start seeing your media."
-- Primary button: `Connect a service →` → `/connections`.
+- "Nothing to show yet."
+- "Connect a service to start seeing your media."
+- Button: `Connect a service →` → `/connections`.
 
-No illustration, no icon — matches typography-driven tone of `/connections` & `/taste`.
+⊥ illustration. Typography-driven. `CenteredState` primitive shared w/ error.
 
 ### Full fetch error (`home.internal` or network)
 
-- Title: "Couldn't load your home feed."
-- Body: "Something went wrong. Give it a moment and try again."
-- Primary button: `Retry` — calls tanstack-query's `refetch()`.
+- "Couldn't load your home feed."
+- "Something went wrong. Give it a moment and try again."
+- Button: `Retry` → `refetch()`.
 
-No raw error message shown.
+⊥ raw error msg.
 
 ### Partial row indicator
 
-`HomeRow.partial === true` → small muted `AlertTriangle` icon (14px, `--color-text-tertiary`) right of row title. shadcn `Tooltip`: "Some sources didn't respond — showing what we could fetch." Row renders cards normally. Ambient, ⊥ intrusive.
+`HomeRow.partial === true` → 14px `AlertTriangle`, `--color-text-tertiary`, right of row title. shadcn `Tooltip`: "Some sources didn't respond — showing what we could fetch."
 
 ### Row unavailable mid-session (`home.row_unavailable`)
 
-`useRowPagination` catches error, signals parent to remove row from local state. Single shadcn `Toast`: "{Row title} is no longer available." No retry affordance — row genuinely ⊥ fetchable; full page reload gets fresh layout.
+`useRowPagination` catches → callback to `HomeFeedContent` → removes row from local state. Single shadcn `Toast`: "{Row title} is no longer available." ⊥ retry.
 
-### Empty-retained row (`upcomingForYou` + `ok_empty`)
+### Empty-retained row (`upcomingForYou` + `ok_empty`) — **no longer applies**
 
-Row header renders normally. Card area: single muted line "You're all caught up on upcoming episodes." Centered vertically in row's card-area height.
+Upcoming ⊥ a row, inlined in `getLayout`. If `upcoming` field absent → no upcoming column. ⊥ "all caught up" empty state in v1 (⊥ a row to render empty into).
 
-### End of row (cursor `null`, scrolled to end)
+### End of row
 
-No visual indicator. Row ends; `Next` arrow disables.
+⊥ visual indicator. Row ends. `Next` disables.
 
-### Loading more (cursor ≠ null, fetch in flight)
+### Loading more
 
-Single skeleton card at end of row. Replaced by real cards on success, removed on failure without inline error.
+Single skeleton card at end. Replaced on success, removed on failure.
 
-### Top zone present (hero + sidebar)
+### Top zone
 
-Two-column at md+: hero left ~70%, sidebar right ~30%.
-
-### Sidebar empty (no calendar plugin or `calendarProgressCount === 0`)
-
-Sidebar collapses. Hero expands to full main-column width.
-
-### Hero null, sidebar present
-
-Sidebar collapses, renders as horizontal-scroll row at top of `rows[]`.
-
-### Both null
-
-Top zone removed. `rows[]` renders from top.
+- Hero always present.
+- Upcoming present → 2-col grid.
+- Upcoming absent → 1-col grid, hero full width.
+- `<md` → 1-col, upcoming below hero.
 
 ### Hero click
 
-- `source === "continueWatching"` && `resumeUrl != null` → open `resumeUrl` (anchor with `target=_blank`).
-- otherwise → open detail modal via `peek` search param, same as cards.
+`<Card>` click → peek modal. ∀ paths same. Resume in detail body.
 
-`resumeUrl` null check is explicit `!= null` (server returns `null` when no playable source).
+### Mutation states
 
-## Responsive treatment
+- Optimistic: DB updates immediately. UI flickers across ∀ rows displaying item.
+- Pending: ⊥ visual change (mutation already applied optimistically).
+- Failure: DB rolls back. shadcn `Toast`: "Couldn't mark watched. Try again."
+- Success: ⊥ visual change (optimistic state already correct).
 
-Breakpoints follow existing Tailwind convention: `sm` (640px), `md` (768px), `lg` (1024px), `xl` (1280px).
+## Responsive
 
-### Card dimensions
+Tailwind: `sm` (640px), `md` (768px), `lg` (1024px), `xl` (1280px).
 
-| Viewport | Poster    | Backdrop  | Hero       | Sidebar item |
-| -------- | --------- | --------- | ---------- | ------------ |
-| `xl`+    | 180 × 270 | 280 × 158 | full-col   | 280 × 80     |
-| `lg`     | 160 × 240 | 250 × 141 | full-col   | 250 × 72     |
-| `md`     | 140 × 210 | 220 × 124 | full-col   | 220 × 64     |
-| `<md`    | 128 × 192 | 220 × 124 | full-width | n/a (row)    |
+### Card sizing — purely container-driven
 
-Heights auto-derive from aspect ratio — driving widths, ⊥ fixed pixel boxes. Tailwind responsive prefixes on `flex-basis`.
+`Card` has ⊥ viewport-keyed CSS. Sizes from container.
 
-### Row gutters and page padding
+```
+.card {
+  --thumb-threshold: 320px;
+  width: 100%;
+}
+
+@container (max-width: var(--thumb-threshold)) {
+  /* horizontal-thumb layout */
+}
+
+@container (min-width: var(--thumb-threshold)) {
+  /* vertical layout */
+}
+```
+
+Parent (Row, UpcomingStack, TopZone hero cell) decides container width via flex-basis or grid track. Card renders accordingly.
+
+### Reference container widths
+
+| Surface         | Container width target         |
+| --------------- | ------------------------------ |
+| Hero cell `xl`+ | ~700-900px                     |
+| Hero cell `<md` | full viewport - padding        |
+| Upcoming column | 280-360px                      |
+| Row card `xl`+  | 180-280px (poster vs backdrop) |
+| Row card `<md`  | 128-220px                      |
+
+### Page-level
 
 - Card gap: 12px desktop, 8px mobile.
-- Page horizontal padding: 24px (`md`+), 16px mobile.
-- Row scroll area extends past right page padding — last visible card partially cut off → signals "more to scroll." Negative margin + corresponding padding inside scroll container.
+- Page horiz padding: 24px (`md`+), 16px mobile.
+- Row scroll extends past right padding → last visible card partially cut → signals more.
 
 ### Arrows
 
-Hidden on touch-primary via `@media (hover: none)`. ⊥ user-agent sniffing.
+Hidden on `(hover: none)`. ⊥ user-agent.
 
-### Top zone responsive
+### Top zone
 
-- md+: two-column. Hero ~70%, sidebar ~30%.
-- <md: stack. Hero full-width on top. Upcoming items render as horizontal-scroll backdrop row labelled "Upcoming."
+- `md`+: 2-col when Upcoming present (`1fr minmax(280px, 360px)`), else 1-col.
+- `<md`: 1-col, Upcoming below hero. `100dvh` (⊥ `100vh`) for any full-height affordance (iOS Safari address bar).
 
-Slot override happens via container query, not viewport hook (avoids hydration mismatch when SSR lands).
+### Modal
 
-### Modal → full-screen on mobile
+shadcn `Dialog` defaults ⊥ auto fullscreen mobile. Override:
 
-shadcn `Dialog` ⊥ auto-goes-fullscreen on mobile. Override via responsive classes on `DialogContent`:
+- `sm:max-w-3xl max-h-[90vh]` desktop.
+- `<sm`: `w-full h-[100dvh] max-w-none max-h-none rounded-none`.
 
-- `sm:max-w-3xl max-h-[90vh]` on desktop (scrollable dialog).
-- Below `sm`: `w-full h-[100dvh] max-w-none max-h-none rounded-none` — covers viewport.
+### Typography
 
-Use `100dvh` (⊥ `100vh`) → iOS Safari address-bar collapse ⊥ causes layout jumps.
-
-### Typography sizing
-
-- Row titles: 15px all viewports. Already compact; shrinking further muddies hierarchy.
+- Row titles: 15px ∀ viewports.
 - Card title: 14px desktop, 13px mobile.
-- Card metadata (year, episode line, match reason): 12px desktop, 11px mobile.
+- Card metadata (year, episode, match reason, captions): 12px desktop, 11px mobile.
 
-### Touch interactions
+### ⊥ change responsively
 
-- Drag-to-scroll: native (embla's pointer handling).
+- Status pills, rating badges, progress bars: same px size ∀ sizes.
+- Row count + order: identical ∀ viewports. Layout = server-side, responsive = pure presentation.
+
+### Touch
+
+- Drag-to-scroll: native (embla).
 - Tap-to-open: `<a>` click.
-- Momentum scroll: embla inertia; ⊥ tune.
-
-### What doesn't change responsively
-
-- Status pills, user rating badges, progress bars: same absolute pixel size — already small; scaling down makes unreadable.
-- Row count & order: identical across viewports — layout rule table server-side; responsive = pure presentation.
+- Momentum: embla inertia.
 
 ## Testing
 
-Follows existing `vp test` harness & patterns from `/connections` tests.
+`vp test` harness, patterns from `/connections` tests.
 
-### Component tests
+### Component
 
 One file per component, colocated.
 
-- `row-carousel.test.tsx`: embla initializes with expected config; `Previous` disabled at scroll start; `Next` disabled when at end & cursor null; arrows hidden without hover, revealed with row focus; pagination callback fires at 75% threshold debounced; keyboard arrow nav scrolls to keep focus in view.
-- `top-zone.test.tsx`: composes Hero + SidebarColumn at md+; stacks (hero on top, sidebar as row below) at <md via mocked container size; both null → renders nothing.
-- `hero.test.tsx`: renders `LayoutHero` per source variant; `continueWatching` + `resumeUrl` → click opens `resumeUrl`; RFY source or `resumeUrl` null → click navigates to peek; `clearLogo` rendered at hero size, ⊥ at row/sidebar sizes.
-- `sidebar-column.test.tsx`: vertical list at desktop container width; horizontal scroll row at narrow container width.
-- `sidebar-item.test.tsx`: thumb + title + episode line + relative date formatting (today/tomorrow/weekday/full date).
-- `card.test.tsx`: dispatches treatment by item shape, ⊥ rowId — progress present → continue-watching treatment; episode present, no progress → upcoming treatment; neither → default.
-- `status-pill.test.tsx`: semantic color per status; visually-hidden text for screen readers ("Status: Requested").
-- `media-detail-modal.test.tsx`: opens when `peek` = valid `MediaId`; closes on Escape/outside click/close button → `peek: undefined`; malformed `peek` values ⊥ open modal.
-- `home-feed-skeleton.test.tsx`: renders 4 rows with alternating poster/backdrop skeleton shapes.
-- `home-feed-empty.test.tsx`: renders CTA with working link to `/connections`.
-- `home-feed.test.tsx`: branches correctly on loading/empty/content/error; top-zone visibility branches: hero+sidebar, hero only, sidebar only, neither.
-- `row-header.test.tsx`: uses `titleOverride` when present, falls back to `title`.
+- `card.test.tsx`: ∀ layout × aspect × treatment matrix. Container query mocked via parent width. Click → peek navigation. Hover anim classes applied (⊥ visual regression — class assertions). `prefers-reduced-motion` → reduced classes.
+- `progress-bar.test.tsx`: renders width from progress %, text rendering.
+- `top-zone.test.tsx`: 2-col when upcoming present, 1-col when absent. `<md` collapses 1-col.
+- `upcoming-stack.test.tsx`: renders 3-4 cards, ShowMore conditional.
+- `row.test.tsx`: live query hook fed by collections. Loading (no data yet), populated, partial indicator.
+- `row-carousel.test.tsx`: embla init, `Previous` disabled at start, `Next` disabled at end + cursor null, arrow visibility on hover/focus, keyboard arrow nav, pagination at 75%.
+- `home-feed.test.tsx`: branches loading/empty/content/error.
+- `media-detail-modal.test.tsx`: opens on valid `peek`, closes on Escape/outside/X → `peek: undefined`. Malformed `peek` ⊥ open.
+- `home-feed-skeleton.test.tsx`: renders top-zone skeleton + 4 row skeletons w/ expected card mix.
+- `*-empty.test.tsx`, `*-error.test.tsx`: CenteredState primitive rendered w/ correct copy + button.
+- `status-pill.test.tsx`: semantic color per status, SR text.
+- `match-reason.test.tsx`: muted multi-line under title.
 
-### Hook tests
+### Hook
 
-- `use-home-layout.test.ts`: fetches `home.getLayout`, caches under `["home", "layout"]`, revalidates background after 60s stale; error state on `home.internal`.
-- `use-row-pagination.test.ts`: first page fetched lazily with `initialPageParam` = stub's `initialCursor` (null or the layout-pinned seed/post-hero cursor); `isPending` true until first page resolves; `fetchNext` appends on success; terminal cursor → `hasMore = false`; `home.row_unavailable` invokes `onUnavailable` callback; partial failures during scroll-fetch silently drop skeleton card.
+- `use-home-layout.test.ts`: fetches `home.getLayout`, hydrates `mediaCollection` + `rowEntriesCollection` (`upcoming` + `hero`), 60s staleTime, error on `home.internal`.
+- `use-row-pagination.test.ts`: first page lazy w/ `initialCursor`, isPending until first page, `fetchNext` appends to collections, terminal cursor → `hasMore = false`, `home.row_unavailable` → `onUnavailable`, partial fetch failure silently drops skeleton.
+- `use-row-items.test.ts`: live query joins row-entries × media × progress, re-emits on entity update.
 
-### Integration tests
+### Collection
 
-(testing-library + mocked RPC client)
+- `media-collection.test.ts`: lastWriteWins on `updatedAt`, upsert idempotent.
+- `row-entries-collection.test.ts`: insert appends, delete-by-rowId clears row.
+- `progress-collection.test.ts`: upsert by mediaId.
+- `mutations.test.ts`: markWatched optimistic update, rollback on failure, RPC call shape.
 
-- Full page render with fixture `HomeLayoutResponse` (mix of rows, one `partial: true`, one `upcomingForYou` + `ok_empty`).
-- Click card → modal opens, URL shows `?peek=movie:550`, home page still mounted underneath.
-- Close modal via each path: Escape, outside click, close button, browser back — all clear `peek`, return focus to triggering card.
-- Direct-render `/media/movie:550` as full route → `MediaDetailBody` mounts without modal wrapping.
-- Scroll row past 75% → `getRowContent` called with correct `rowId` & cursor; appended items render.
-- Row with `partial: true` → muted icon next to title; tooltip copy correct on hover.
-- `rows: []` → empty state with working `/connections` link.
-- `getLayout` throws → error state with working Retry button.
-- Touch media query mocked (`hover: none`) → arrow buttons ⊥ rendered; drag still works.
+### Integration
 
-### Not tested here
+testing-library + mocked RPC.
 
-- `HomeFeedService` behavior, row fetchers, capability aggregation — server test suite.
-- `MediaDetailBody` content rendering — later media detail spec.
-- TMDB image proxy behavior — infrastructure.
-- Plugin runtime/sandbox — plugin-runtime tests.
-- Visual regression screenshots — add when UI stabilizes.
+- Full page render w/ fixture `HomeLayoutResponse`. Mix of rows, one `partial: true`. Hero set, upcoming set.
+- Click card → modal opens, URL `?peek=movie:550`, home still mounted underneath.
+- Close paths: Escape, outside, X, browser back → ∀ clear `peek`, focus returns to triggering card.
+- Direct render `/media/movie:550` → `MediaDetailBody` w/o modal wrap.
+- Scroll row past 75% → `getRowContent` called, items appended to collections, Row re-renders w/ new cards via live query.
+- Mark-watched on a card visible in 2 rows → both rows update instantly (live query).
+- Mutation failure → DB rollback, both rows revert, toast shown.
+- `partial: true` row → muted icon, tooltip on hover.
+- `rows: []` → empty CenteredState w/ working `/connections` link.
+- `getLayout` throws → error CenteredState w/ working Retry.
+- Touch media query mocked → arrows ⊥ rendered, drag works.
+- `prefers-reduced-motion` → cards render w/ static hover state classes.
+
+### ⊥ tested here
+
+- `HomeFeedService` behavior, row fetchers, capability aggregation — server suite.
+- `MediaDetailBody` content — later spec.
+- TMDB image proxy — infra.
+- Plugin runtime / sandbox — plugin-runtime tests.
+- Visual regression screenshots — add when card visuals stabilize.
 
 ## Open questions / deferred
 
-- **Hero rotation / multiple heroes.** Single static hero v1. Rotation deferred.
-- **Hero vertical height on mobile.** Measure on real devices; may compress to fixed 16:9 if aspect-driven gets too tall.
-- **Hero/billboard unit.** Additive when backend ships `layout.hero`. Frontend change = new top-slot component.
-- **Netflix-style hover preview card.** Genuine work — deferred v2.
-- **Horizontal row scroll restoration across full-page navigation.** ⊥ preserved v1. If users complain, stash per-row `scrollLeft` in Zustand store keyed on `rowId`.
-- **Prefetch media detail on card hover.** Low effort (`prefetchQuery`). Deferred until `MediaDetailBody` data spec written.
-- **"Tap to retry" on failed pagination.** Failed `getRowContent` silently drops skeleton today. Low priority.
-- **Progressive row loading (SSE).** ⊥ work until backend ships it.
-- **Row-level user preferences.** Server feature first.
-- **Impression/engagement telemetry.** Explicitly ⊥ built, matching PreferenceEngine spec.
-- **Visual regression tests.** ⊥ worth automating until card visuals stabilize.
-- **Keyboard shortcuts** (`/` for search, `j/k` between rows). ⊥ search page yet.
-- **Media detail body spec.** Own spec = prerequisite for actually shipping modal.
-- **Embla replacement.** If `dragFree` + keyboard fights at edges, `keen-slider` obvious swap. ⊥ signal yet.
+- **Hero rotation.** Single static hero v1.
+- **Hero vertical height on mobile.** Measure on real devices. May compress to fixed 16:9 if too tall.
+- **`/upcoming` page.** ShowMore link target. Deferred until upcoming has a Library-grade host page.
+- **Hover preview card.** v2.
+- **Per-row scroll restoration across full-page nav.** ⊥ preserved v1. Modal path = primary, ⊥ problem.
+- **Prefetch detail on card hover.** Low effort (`prefetchQuery`). Deferred until `MediaDetailBody` data spec.
+- **"Tap to retry" on failed pagination.** Silent drop today. Low priority.
+- **Progressive row loading (SSE).** ⊥ work until backend ships.
+- **Row-level user prefs.** Server-first.
+- **Impression telemetry.** Per PreferenceEngine spec — ⊥ built.
+- **Visual regression tests.** ⊥ worth automating until stable.
+- **Keyboard shortcuts** (`/` search, `j/k` rows). ⊥ search page yet.
+- **`MediaDetailBody` data spec.** Prerequisite for shipping modal substance.
+- **Embla swap.** If `dragFree` + keyboard fight, `keen-slider` obvious swap. ⊥ signal.
+- **Sync engine adoption (Electric/PowerSync).** Deferred. Local-first benefits real but commitment large. v2+.
+- **Cross-page mutation propagation testing.** When Library/Search/Detail land, integration suite covers home + other-page synchrony.
 
-## Implementation review notes (2026-04-23)
+## Implementation review notes (load-bearing)
 
-Load-bearing details from design review — ∀ implementing PRs must address:
+∀ implementing PRs MUST address:
 
-- **Modal history (push vs replace).** TanStack Router default for search updates = `replace: true`. Browser-back to dismiss → `peek` open transition ! explicitly opt in to `replace: false`. Dismiss can replace.
-- **`useSearch({ strict: false })` ⊥ validates.** With `strict: false`, layout-level modal receives raw search params. Either declare `peek` on `_authenticated` layout's search schema (child routes inherit) or re-validate via `peekSchema.safeParse` inside modal. Pick one, document it.
-- **Cross-component row-removal mechanism.** `useRowPagination` catches `home.row_unavailable` & "signals parent." Mechanism — callback prop `HomeFeedContent` → `Row` → `useRowPagination`, or shared reducer keyed on `rowId` — left to implementer. Must keep `Row` agnostic of layout-level state.
-- **Tab-order through arrow buttons.** 7 rows × 2 arrows = 14 extra tab stops before keyboard users reach any card. Reconsider: arrows out of Tab order, focusable via carousel pattern (cards in Tab; `ArrowLeft`/`ArrowRight` on focused cards). Arrows SR-discoverable via role/label.
-- **Skeleton card shape ratio.** "Alternate poster/backdrop across 4 rows" produces shimmer-then-settle jank for plugin-less case (all posters). Either always poster, or match expected mix for user's most likely layout.
-- **`home-feed-error.tsx` & `home-feed-empty.tsx` overlap.** Both = centered title + body + action button. Implement once as `CenteredState` primitive, use from both.
-- **Row error boundary.** Single bad item/unhandled card render error ⊥ crash whole feed. Wrap each `Row` in error boundary that hides only that row.
-- **`@media (hover: none)` + keyboard on touch devices.** iPad with keyboard matches `(hover: none)` & supports Tab. Arrow visibility rule ! be consistent with Tab-order decision above; ⊥ produce invisible tab stops.
-- **Progress bar color token.** `--color-text-danger` = text color used on non-text surface. Introduce `--color-progress-watched` or pick non-text role.
-- **`@ent-mcp/shared/home` subpath export.** Backend spec mandates this; coordinate if spec landed before export.
-- **`resumeUrl` null check.** Use `!= null`, not falsy. Empty-string URL is malformed but truthy — treating it as openable is wrong.
-- **Sidebar → main slot override at <md.** Via container query (`@container`), ⊥ `useMediaQuery`. Hydration-safe when SSR lands.
-- **`clearLogo` overlay.** Rendered at hero container size only. At row/sidebar sizes, title text rules — rendering both creates visual conflict.
+- **Modal history (push vs replace).** `replace: false` on open, default on close. Browser-back dismisses. Document.
+- **`useSearch({ strict: false })` ⊥ validates.** Either declare `peek` on `_authenticated` search schema OR `peekSchema.safeParse` in modal. Pick, document.
+- **Cross-component row removal.** `useRowPagination` `home.row_unavailable` callback up to `HomeFeedContent`. ⊥ Row knows layout-level state.
+- **Tab-order through arrow buttons.** Arrows out of Tab order. Cards in Tab. `ArrowLeft`/`Right` on cards. Arrows SR-discoverable via role/label.
+- **Skeleton card shape ratio.** Match expected layout mix (∼50/50 backdrop/poster), ⊥ alternate.
+- **`home-feed-error.tsx` + `home-feed-empty.tsx` overlap.** Implement once as `CenteredState`, use both.
+- **Row error boundary.** Single bad item ⊥ crash whole feed. Wrap each `Row` in error boundary that hides only that row.
+- **`(hover: none)` + keyboard on touch.** iPad w/ keyboard matches `(hover: none)` + supports Tab. Arrow visibility consistent w/ Tab decision. ⊥ invisible tab stops.
+- **Progress bar color token.** ⊥ `--color-text-danger`. Introduce `--color-progress-watched` or pick non-text role.
+- **`@ent-mcp/shared/home` subpath export.** Coordinate w/ backend if export ⊥ landed.
+- **`updatedAt` server stamp.** Server MUST stamp ∀ entity emit. Client rejects items w/o `updatedAt` (dev-mode assertion).
+- **`clearLogo` overlay.** Backdrop mode + item.clearLogo only. Bottom-right, max 30% img width. Z-index above progress bar? Decide — start: above progress bar but below status pill.
+- **Container query threshold = CSS var.** Single `--card-thumb-threshold` source. Tunable w/o code change.
+- **DB collection lifecycle.** Collections persist across home navigations (avoid re-hydrate). Cleared on logout. Memory cap: ⊥ explicit v1, monitor.
+- **Live query + Suspense.** TanStack DB live queries can throw on first read if collections ⊥ hydrated. Wrap Row in Suspense boundary OR use non-suspending hook variant. Pick, document.
+- **Mutation rollback toast.** Single source for ∀ mutation failures. ⊥ each mutation rolls own toast.
+- **Hero click parity.** Hero card uses same Card component — same click handler — same peek navigation. ⊥ special-case.
+- **Upcoming "Show more" target.** `/upcoming` route ⊥ exist v1. Either: hide ShowMore until route exists (server omits `showMoreLink`), OR ShowMore = no-op + console warn dev-mode. Pick one.
