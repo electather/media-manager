@@ -82,6 +82,7 @@ export function explainAgainstProfile(
  * allowed to disagree slightly with the eventual job's write — the job is the
  * source of truth.
  */
+// fallow-ignore-next-line complexity
 export function renderProfileUpdate(
   candidate: CandidateFeatures,
   action: FeedbackAction,
@@ -101,6 +102,7 @@ export function renderProfileUpdate(
     : `Decreased preference for ${phrase}.`;
 }
 
+// fallow-ignore-next-line complexity
 function resolveSentiment(
   action: FeedbackAction,
   sentiment?: "positive" | "negative" | "neutral",

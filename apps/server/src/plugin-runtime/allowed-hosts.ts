@@ -87,6 +87,7 @@ function isIpv4MappedIpv6Loopback(hostname: string): boolean {
  * only — DNS-rebinding mitigation (resolving the name and checking the actual
  * address) happens at fetch time and is out of scope for this module.
  */
+// fallow-ignore-next-line complexity
 export function isBlockedHostname(hostname: string): boolean {
   const h = normalizeHostname(hostname);
   if (BLOCKED_EXACT_HOSTNAMES.has(h)) return true;

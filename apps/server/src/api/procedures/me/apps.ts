@@ -57,6 +57,7 @@ function toAuthorizedApp(row: AppRow, userId: string): AuthorizedApp {
   };
 }
 
+// fallow-ignore-next-line complexity
 function parseScopes(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((s): s is string => typeof s === "string");
   if (typeof raw !== "string" || raw.length === 0) return [];

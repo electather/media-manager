@@ -10,6 +10,7 @@ import { ROW_FETCHERS } from "../rows/index";
 import { AllPluginsFailedError } from "../../media/errors";
 import type { RowFetchContext } from "../rows/index";
 import type { LayoutSignals } from "../signals";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * `runFetch` is the only place `FetchOutcome` is computed. Each branch is
@@ -159,7 +160,7 @@ describe("buildRowStubs", () => {
   it("builds a stub for every rowId in order with null initialCursor by default", () => {
     const stubs = buildRowStubs(["trendingNow", "newReleases"], baseSignals);
     expect(stubs.map((s) => s.rowId)).toEqual(["trendingNow", "newReleases"]);
-    expect(stubs.every((s) => s.initialCursor === null)).toBe(true);
+    expect(stubs.every((s) => isNil(s.initialCursor))).toBe(true);
   });
 
   it("sets a seed-pinned initialCursor and subtitle for becauseYouWatched", () => {

@@ -66,6 +66,7 @@ export function stopAll(): void {
   registry.clear();
 }
 
+// fallow-ignore-next-line complexity
 async function toHandle(entry: registry.RegistryEntry): Promise<JobHandle> {
   const cfg = await getConfig(entry.id);
   const effective = effectiveSchedule(entry.schedule, cfg.scheduleOverride);

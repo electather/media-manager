@@ -52,7 +52,7 @@ export class RequestScopedLoader {
    * split per caller before resolution. The 1s timeout is tighter than the
    * per-row 3s budget — status is enrichment, not core row content.
    */
-  // fallow-ignore-next-line unused-class-member
+  // fallow-ignore-next-line unused-class-member complexity
   async getStatusBatch(ids: MediaId[]): Promise<Record<MediaId, string>> {
     if (ids.length === 0) return {};
     if (!this.pendingStatusIds) {

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { jsonThemes, type JsonColorTheme, type ShikiThemeName } from "@/lib/themes";
+import { isNil, isNumber } from "es-toolkit/predicate";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -21,20 +22,20 @@ function useThemeColors(): JsonColorTheme | null {
 }
 
 function typeOf(value: JsonValue): string {
-  if (value === null) return "null";
+  if (isNil(value)) return "null";
   if (Array.isArray(value)) return "array";
   return typeof value;
 }
 
 function countEntries(value: JsonValue): number {
   if (Array.isArray(value)) return value.length;
-  if (value !== null && typeof value === "object") return Object.keys(value).length;
+  if (!isNil(value) && typeof value === "object") return Object.keys(value).length;
   return 0;
 }
 
 function buildPath(parent: string, key: string | number): string {
   if (parent === "") return String(key);
-  if (typeof key === "number") return `${parent}[${key}]`;
+  if (isNumber(key)) return `${parent}[${key}]`;
   if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) return `${parent}.${key}`;
   return `${parent}["${key}"]`;
 }

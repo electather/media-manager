@@ -5,6 +5,7 @@ import type { CanonicalMetadata, MetadataKey, RecItem } from "../../catalog/type
 import { decodeCursor, encodeCursor } from "../cursor";
 import { canonicalToRaw, toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
 import { compositeId } from "./row-utils";
+import { isNull } from "es-toolkit/predicate";
 
 const ROW_ID = "recommendedForYou" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -98,7 +99,7 @@ async function hydrateFromCatalog(
       rec,
     }),
   );
-  const isPartial = hydrated.some(({ canonical }) => canonical === null);
+  const isPartial = hydrated.some(({ canonical }) => isNull(canonical));
   const present = hydrated.filter(
     (entry): entry is { canonical: CanonicalMetadata; rec: RecItem } => entry.canonical !== null,
   );

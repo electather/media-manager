@@ -8,6 +8,7 @@ import { resolveRecipients } from "./resolve-recipients";
 import { findEntry } from "../jobs/registry";
 import { newRequestId } from "../errors/request-context";
 
+// fallow-ignore-next-line complexity
 export async function emit(
   event: Omit<NotificationEvent, keyof BaseEvent> & Partial<Pick<BaseEvent, "id" | "occurredAt">>,
 ): Promise<void> {

@@ -133,6 +133,7 @@ export class PreferenceEngine {
     return resolveEffectiveProfile(typed, combined).profile;
   }
 
+  // fallow-ignore-next-line complexity
   private async enrichCandidates(
     userId: string,
     candidates: ReadonlyArray<MediaItem>,

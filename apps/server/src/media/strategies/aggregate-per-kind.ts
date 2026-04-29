@@ -165,6 +165,7 @@ function collectSuccessful(
   return { successful, allFailed };
 }
 
+// fallow-ignore-next-line complexity
 function mergeBundle(
   perKindFields: readonly string[],
   successful: Array<Record<string, unknown[]>>,

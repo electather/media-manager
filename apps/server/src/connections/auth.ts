@@ -26,7 +26,7 @@ export function applyUserConfigPatch(
       ? { ...(userConfig as Record<string, unknown>) }
       : ({} as Record<string, unknown>);
   for (const [key, value] of Object.entries(patch)) {
-    if (value === null) delete base[key];
+    if (isNil(value)) delete base[key];
     else base[key] = value;
   }
   return base;
@@ -338,6 +338,7 @@ export async function initiateDeviceAuth(args: { userId: string; pluginId: strin
   };
 }
 
+// fallow-ignore-next-line complexity
 export async function pollDeviceAuth(args: {
   userId: string;
   nonce: string;

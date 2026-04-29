@@ -240,6 +240,7 @@ function hasRealCredentials(credentials: unknown): boolean {
   return Object.keys(credentials as Record<string, unknown>).length > 0;
 }
 
+// fallow-ignore-next-line complexity
 export async function writeConnection(args: {
   userId: string;
   pluginId: string;

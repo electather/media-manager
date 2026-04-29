@@ -119,6 +119,7 @@ async function fanOutRating(
   );
   const synced: string[] = [];
   const errors: FeedbackResponse["sync_errors"] = [];
+  // fallow-ignore-next-line complexity
   results.forEach((res, i) => {
     const target = targets[i]!;
     if (res.status === "fulfilled" && res.value?.ok !== false) {

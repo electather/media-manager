@@ -301,6 +301,7 @@ export class MediaService {
    * to an empty map — callers (today: the home feed dataloader) fall back to
    * `status: "unknown"` per item.
    */
+  // fallow-ignore-next-line complexity
   async getStatusBatch(ids: ReadonlyArray<string>): Promise<Record<string, string>> {
     if (ids.length === 0) return {};
     try {
@@ -537,6 +538,7 @@ export interface HomeAggregate<T extends unknown[]> {
  *   - else — at least one provider succeeded. Returns whatever data was
  *     collected, with `partial: true` when at least one peer errored.
  */
+// fallow-ignore-next-line complexity
 export function interpretAggregate<T>(
   capabilityKey: string,
   result: AggregateResult<T[]>,

@@ -8,6 +8,7 @@ import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
 import type { HistoryEvent, RatingEvent } from "../types";
+import { isNil } from "es-toolkit/predicate";
 
 const PER_ROW_TIMEOUT_SEC = 60;
 const RUN_TIMEOUT_SEC = 30 * 60;
@@ -162,7 +163,7 @@ function toRatingEvent(
   // mint a fresh key every sync run and let the same plugin entry land
   // repeatedly. Drop malformed events instead, mirroring the history path.
   const ratedAt = parseItemDate(entry.ratedAt);
-  if (ratedAt === null) return [];
+  if (isNil(ratedAt)) return [];
   return [
     {
       tmdbId: identity.tmdbId,

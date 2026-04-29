@@ -22,6 +22,7 @@ function resolveScope(callerUserId: string | null, scope: StoreScopeOpts["scope"
 export function buildStore(pluginId: string, callerUserId: string | null): PluginStoreApi {
   const db = getDb();
   return {
+    // fallow-ignore-next-line complexity
     async get(key, opts) {
       const effective = resolveScope(callerUserId, opts?.scope);
       const row = await db

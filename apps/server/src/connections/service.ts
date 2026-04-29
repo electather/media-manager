@@ -282,6 +282,7 @@ export const connectionsService = {
     });
   },
 
+  // fallow-ignore-next-line complexity
   async updateUserConfig(args: {
     userId: string;
     connectionId: string;

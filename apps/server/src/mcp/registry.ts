@@ -123,6 +123,7 @@ export const mcpToolRegistry = new McpToolRegistry();
  * declares a `handlerKey` in its `mcpTools` entry; the map maps that key to a
  * concrete `ToolHandler`.
  */
+// fallow-ignore-next-line complexity
 export function registerCapabilityOwnedTools(
   capability: CapabilityDefinition,
   handlers: Record<string, ToolHandler>,

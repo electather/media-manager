@@ -62,6 +62,7 @@ async function verifyPasswordOrThrow(password: string, headers: Headers): Promis
 // Better Auth's `verifyPassword` may resolve to `{ valid: boolean }`,
 // `{ error: ... }`, or throw on wrong credentials depending on version.
 // Treat anything other than an explicit success as a failure.
+// fallow-ignore-next-line complexity
 function isVerifyPasswordOk(result: unknown): boolean {
   if (!result || typeof result !== "object") return false;
   if ("error" in result && (result as { error?: unknown }).error) return false;

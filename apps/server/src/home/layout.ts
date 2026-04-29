@@ -19,6 +19,7 @@ import {
   type RowFetchResult,
   type RowFetcher,
 } from "./rows/index";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Per-row wall-clock budget for the layout pipeline. Bumped from 3s after
@@ -134,7 +135,7 @@ export async function runLayoutPipeline(
   const finalStubs = stubs
     .map((stub) => {
       if (stub.rowId !== heroSource) return stub;
-      if (heroCursor === null) return null; // hero took the only item
+      if (isNil(heroCursor)) return null; // hero took the only item
       return {
         ...stub,
         initialCursor: heroCursor,

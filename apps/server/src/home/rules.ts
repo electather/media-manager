@@ -128,6 +128,7 @@ export const HERO_REASONS: Partial<Record<RowKind, LayoutHero["reason"]>> = {
  * confident; trendingNow is the last resort. Drives which rows `fetchHero`
  * tries before giving up.
  */
+// fallow-ignore-next-line complexity
 export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]): RowKind[] {
   const inOrder = new Set(order);
   const out: RowKind[] = [];

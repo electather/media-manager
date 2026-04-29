@@ -6,6 +6,7 @@ import { encodeCursor } from "../cursor";
 import { canonicalToRaw, type RawMediaItem } from "../compact";
 import { buildItem } from "./build-item";
 import { readPage } from "./row-utils";
+import { isNil } from "es-toolkit/predicate";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -61,7 +62,7 @@ async function hydrateFromSnapshot(
   const hydrated: Array<CanonicalMetadata | null> = slice.map(
     (ref) => rows[`${ref.type}:${ref.tmdbId}`] ?? null,
   );
-  const isPartial = hydrated.some((row) => row === null);
+  const isPartial = hydrated.some(isNil);
   const present = hydrated.filter((row): row is CanonicalMetadata => row !== null);
 
   const items = await Promise.all(present.map((row) => buildFromCanonical(ctx, row)));

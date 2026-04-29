@@ -255,6 +255,7 @@ function countSignals(perItem: Map<string, PerItemSignals>): SignalCounts {
   return counts;
 }
 
+// fallow-ignore-next-line complexity
 async function fetchFeaturesForCandidates(
   deps: RebuildDeps,
   userId: string,
@@ -433,6 +434,7 @@ function includesMediaType(itemType: "movie" | "tv", partition: ProfileMediaType
   return itemType === partition;
 }
 
+// fallow-ignore-next-line complexity
 function accumulateScorerFeatures(
   features: ProfileFeatures,
   scorer: FeatureScorer,

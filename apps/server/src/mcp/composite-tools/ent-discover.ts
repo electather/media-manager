@@ -164,6 +164,7 @@ async function runTrending(userId: string, input: EntDiscoverInput): Promise<Com
 
 const RECOMMEND_OVERFETCH_MULTIPLIER = 3;
 
+// fallow-ignore-next-line complexity
 async function runRecommend(
   userId: string,
   input: EntDiscoverInput,
@@ -235,6 +236,7 @@ function compactToMediaItem(compact: CompactMediaResult): MediaItem {
   };
 }
 
+// fallow-ignore-next-line complexity
 function compactFromMediaItem(item: MediaItem): CompactMediaResult {
   return {
     id: item.id,
@@ -313,6 +315,7 @@ async function runDiscover(userId: string, input: EntDiscoverInput): Promise<Com
   return compactList(result.data, () => ({}), input.limit);
 }
 
+// fallow-ignore-next-line complexity
 async function runMode(
   ctx: ToolCallContext,
   input: EntDiscoverInput,

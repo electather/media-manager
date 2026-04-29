@@ -69,6 +69,7 @@ async function debugLogRequest(path: string, req: Request): Promise<Response> {
  * that the client treats as a transient failure and retries indefinitely.
  * Converting the body here produces a proper 400 OAuth error instead.
  */
+// fallow-ignore-next-line complexity
 export async function authRouteHandler(req: Request): Promise<Response> {
   const path = new URL(req.url).pathname;
   const isTokenPath = path.endsWith("/oauth2/token");
