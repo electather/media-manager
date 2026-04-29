@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { LoaderCircleIcon } from "lucide-react";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { api } from "@/shared/lib/api";
+import { cn } from "@/shared/lib/utils";
 
 const POLICIES: ReadonlyArray<{ value: PersonalKeyFallbackPolicy; label: string }> = [
   { value: "off", label: "Off" },
@@ -22,6 +22,92 @@ const EXPLAINERS: Record<PersonalKeyFallbackPolicy, string> = {
   "personal-first":
     "Users' own keys are tried first; admin-owned keys only fill in when the user's pool is exhausted.",
 };
+
+type PolicyEntry = (typeof POLICIES)[number];
+
+interface PolicyButtonProps {
+  entry: PolicyEntry;
+  active: boolean;
+  isPureGlobal: boolean;
+  isPending: boolean;
+  onSelect: (value: PersonalKeyFallbackPolicy) => void;
+}
+
+// fallow-ignore-next-line complexity
+function PolicyButton({ entry, active, isPureGlobal, isPending, onSelect }: PolicyButtonProps) {
+  // For pure-global plugins keep the radios reachable to assistive
+  // tech (`aria-disabled` instead of native `disabled`) — HTML
+  // `disabled` removes elements from the accessibility tree in some
+  // browsers, defeating the radiogroup announcement. Block clicks
+  // on the handler side when `isPureGlobal` is true. The pending
+  // path keeps native `disabled` since it's transient and the
+  // active button still announces via `aria-busy` semantics.
+  const ariaDisabled = isPureGlobal;
+  const nativelyDisabled = !isPureGlobal && isPending;
+  return (
+    <Button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      aria-disabled={ariaDisabled || undefined}
+      tabIndex={ariaDisabled ? -1 : undefined}
+      variant="ghost"
+      size="sm"
+      onClick={() => {
+        if (ariaDisabled) return;
+        onSelect(entry.value);
+      }}
+      disabled={nativelyDisabled}
+      className={cn(
+        "h-7 px-3 font-normal",
+        active && "bg-background shadow-sm",
+        !active && "text-muted-foreground",
+        ariaDisabled && "cursor-not-allowed",
+      )}
+    >
+      {isPending && active ? (
+        <LoaderCircleIcon className="mr-1 size-3 animate-spin" aria-hidden="true" />
+      ) : null}
+      {entry.label}
+    </Button>
+  );
+}
+
+interface SegmentedControlProps {
+  optimistic: PersonalKeyFallbackPolicy;
+  isPureGlobal: boolean;
+  isPending: boolean;
+  onSelect: (value: PersonalKeyFallbackPolicy) => void;
+}
+
+function SegmentedControl({
+  optimistic,
+  isPureGlobal,
+  isPending,
+  onSelect,
+}: SegmentedControlProps) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Personal key fallback policy"
+      className={cn(
+        "inline-flex rounded-md border border-border bg-muted/30 p-0.5 text-xs",
+        isPureGlobal && "opacity-60",
+      )}
+    >
+      {POLICIES.map((p) => (
+        <PolicyButton
+          key={p.value}
+          entry={p}
+          active={p.value === optimistic}
+          isPureGlobal={isPureGlobal}
+          isPending={isPending}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+}
 
 interface PersonalKeyFallbackControlProps {
   pluginId: string;
@@ -81,58 +167,6 @@ export function PersonalKeyFallbackControl({
     mutation.mutate(next);
   };
 
-  const segmented = (
-    <div
-      role="radiogroup"
-      aria-label="Personal key fallback policy"
-      className={cn(
-        "inline-flex rounded-md border border-border bg-muted/30 p-0.5 text-xs",
-        isPureGlobal && "opacity-60",
-      )}
-    >
-      {POLICIES.map((p) => {
-        const active = p.value === optimistic;
-        // For pure-global plugins keep the radios reachable to assistive
-        // tech (`aria-disabled` instead of native `disabled`) — HTML
-        // `disabled` removes elements from the accessibility tree in some
-        // browsers, defeating the radiogroup announcement. Block clicks
-        // on the handler side when `isPureGlobal` is true. The pending
-        // path keeps native `disabled` since it's transient and the
-        // active button still announces via `aria-busy` semantics.
-        const ariaDisabled = isPureGlobal;
-        const nativelyDisabled = !isPureGlobal && mutation.isPending;
-        return (
-          <Button
-            key={p.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-disabled={ariaDisabled || undefined}
-            tabIndex={ariaDisabled ? -1 : undefined}
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (ariaDisabled) return;
-              onSelect(p.value);
-            }}
-            disabled={nativelyDisabled}
-            className={cn(
-              "h-7 px-3 font-normal",
-              active && "bg-background shadow-sm",
-              !active && "text-muted-foreground",
-              ariaDisabled && "cursor-not-allowed",
-            )}
-          >
-            {mutation.isPending && active ? (
-              <LoaderCircleIcon className="mr-1 size-3 animate-spin" aria-hidden="true" />
-            ) : null}
-            {p.label}
-          </Button>
-        );
-      })}
-    </div>
-  );
-
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -142,7 +176,12 @@ export function PersonalKeyFallbackControl({
             <TooltipTrigger
               render={
                 <span tabIndex={0} className="inline-flex">
-                  {segmented}
+                  <SegmentedControl
+                    optimistic={optimistic}
+                    isPureGlobal={isPureGlobal}
+                    isPending={mutation.isPending}
+                    onSelect={onSelect}
+                  />
                 </span>
               }
             />
@@ -151,7 +190,12 @@ export function PersonalKeyFallbackControl({
             </TooltipContent>
           </Tooltip>
         ) : (
-          segmented
+          <SegmentedControl
+            optimistic={optimistic}
+            isPureGlobal={isPureGlobal}
+            isPending={mutation.isPending}
+            onSelect={onSelect}
+          />
         )}
       </div>
       <p className="text-xs leading-snug text-muted-foreground" aria-live="polite">

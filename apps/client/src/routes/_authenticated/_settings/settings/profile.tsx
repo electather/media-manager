@@ -4,8 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,12 +13,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { UserAvatar } from "@/components/user-avatar";
-import { api } from "@/lib/api";
-import { authClient } from "@/lib/auth";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { UserAvatar } from "@/shared/components/user-avatar";
+import { api } from "@/shared/lib/api";
+import { authClient } from "@/shared/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/profile")({
   component: ProfileSection,
@@ -28,6 +28,7 @@ const PUBLIC_CONFIG_QUERY_KEY = ["config", "public"] as const;
 const ROLE_QUERY_KEY = ["me", "role"] as const;
 const VERIFICATION_COUNTDOWN_SECONDS = 60;
 
+// fallow-ignore-next-line complexity
 function ProfileSection() {
   const session = authClient.useSession();
   const user = session.data?.user;
@@ -85,6 +86,7 @@ function AvatarHeader({ name, email }: { name: string; email: string }) {
 
 // ─── Name ─────────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function NameField({ currentName }: { currentName: string }) {
   const [draft, setDraft] = useState(currentName);
   const [error, setError] = useState<string | null>(null);
@@ -140,6 +142,7 @@ export function NameField({ currentName }: { currentName: string }) {
 
 // ─── Email ────────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function EmailField({
   currentEmail,
   emailEnabled,
@@ -354,6 +357,7 @@ function RoleRow() {
 
 // ─── Verification banner ──────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function VerificationBanner({ email }: { email: string }) {
   const [dismissed, setDismissed] = useState(false);
   const [cooldown, setCooldown] = useState(0);

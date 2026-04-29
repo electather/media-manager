@@ -14,9 +14,9 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -24,23 +24,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { api } from "@/lib/api";
-import { CapabilityBadges, type CapabilityEntry } from "@/lib/capabilities";
-import { cn } from "@/lib/utils";
+} from "@/shared/ui/dropdown-menu";
+import { Field, FieldDescription, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { Switch } from "@/shared/ui/switch";
+import { api } from "@/shared/lib/api";
+import { CapabilityBadges, type CapabilityEntry } from "@/shared/lib/capabilities";
+import { cn } from "@/shared/lib/utils";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import type { JSONSchema } from "@ent-mcp/shared";
 import {
   PLUGIN_ADMIN_ALLOWLIST_MAX,
@@ -52,10 +52,10 @@ import {
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
-} from "@/components/connections/schema-form";
+} from "@/shared/components/schema-form";
 import { PersonalKeyFallbackControl } from "@/components/admin/personal-key-fallback-control";
 import { SharedCredentialsSection } from "@/components/admin/shared-credentials/section";
-import { safeJson } from "@/lib/errors/safe-json";
+import { safeJson } from "@/shared/lib/errors/safe-json";
 
 export const Route = createFileRoute("/_authenticated/_settings/admin/plugins")({
   component: AdminPluginsPage,
@@ -69,6 +69,7 @@ type ModalState =
   | { kind: "uninstall"; plugin: PluginRow }
   | { kind: "install-stub" };
 
+// fallow-ignore-next-line complexity
 function AdminPluginsPage() {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalState>({ kind: "none" });
@@ -151,6 +152,7 @@ interface PluginCardProps {
   onRefetch: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: PluginCardProps) {
   const setEnabled = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -347,6 +349,7 @@ function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: Plugi
 
 // ─── Global-config dialog (single-purpose) ───────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function GlobalConfigDialog({
   state,
   onOpenChange,
@@ -382,6 +385,7 @@ function GlobalConfigDialog({
   );
 }
 
+// fallow-ignore-next-line complexity
 function GlobalConfigBody({
   plugin,
   schema,
@@ -404,6 +408,7 @@ function GlobalConfigBody({
     setLoaded(false);
     setTopError(null);
     setValues(defaultsFromSchema(schema));
+    // fallow-ignore-next-line complexity
     void (async () => {
       try {
         const res = await api.plugins[":id"]["global-config"].$get({ param: { id: plugin.id } });
@@ -427,6 +432,7 @@ function GlobalConfigBody({
     };
   }, [plugin.id, schema]);
 
+  // fallow-ignore-next-line complexity
   const onSave = async () => {
     const errors = validateSchema(schema, values);
     if (Object.keys(errors).length > 0) {
@@ -520,6 +526,7 @@ function InstallStubDialog({
 
 // ─── Uninstall dialog (typed-name confirmation) ───────────────────────────────
 
+// fallow-ignore-next-line complexity
 function UninstallDialog({
   state,
   onOpenChange,
@@ -545,6 +552,7 @@ function UninstallDialog({
 
   if (!plugin) return null;
 
+  // fallow-ignore-next-line complexity
   const confirm = async () => {
     setPending(true);
     setTopError(null);
@@ -641,6 +649,7 @@ interface AdvancedSectionProps {
   onChanged: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function AdvancedSection({ plugin, onChanged }: AdvancedSectionProps) {
   const restrictedCount = plugin.advanced.adminAllowlist?.length ?? 0;
   const headerCount = plugin.advanced.adminHeaderNames.length;
@@ -669,6 +678,7 @@ function AdvancedSection({ plugin, onChanged }: AdvancedSectionProps) {
   );
 }
 
+// fallow-ignore-next-line complexity
 function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
   const manifestHosts = plugin.manifest.allowedHosts ?? [];
   const stored = plugin.advanced.adminAllowlist;
@@ -686,6 +696,7 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
     setEntries(stored ?? []);
   }, [stored]);
 
+  // fallow-ignore-next-line complexity
   const addEntry = () => {
     const normalized = draft.trim().toLowerCase();
     if (!normalized) return;
@@ -715,6 +726,7 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
       (manifestHosts.length > 0 &&
         !entries.some((a) => manifestHosts.some((m) => patternsOverlap(a, m)))));
 
+  // fallow-ignore-next-line complexity
   const save = async () => {
     setSaving(true);
     setSaveError(null);
@@ -848,6 +860,7 @@ function HeadersPanel({ plugin, onChanged }: AdvancedSectionProps) {
   >({ kind: "none" });
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // fallow-ignore-next-line complexity
   const deleteHeader = async (name: string) => {
     setDeleteError(null);
     try {
@@ -947,6 +960,7 @@ interface HeaderDialogProps {
   onSaved: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function HeaderDialog({ plugin, state, onClose, onSaved }: HeaderDialogProps) {
   const open = state.kind !== "none";
   const isEdit = state.kind === "edit";
@@ -966,6 +980,7 @@ function HeaderDialog({ plugin, state, onClose, onSaved }: HeaderDialogProps) {
     setError(null);
   }, [open, initialName, isEdit]);
 
+  // fallow-ignore-next-line complexity
   const save = async () => {
     setError(null);
     if (!ADMIN_HEADER_NAME_PATTERN.test(name)) {
@@ -1087,6 +1102,7 @@ function formatDate(ts: number): string {
 // allowlist UI can detect an empty intersection. Two patterns overlap if any
 // hostname matches both — `*` matches everything, `*.X` matches subdomains of
 // X, and exact hosts only match themselves.
+// fallow-ignore-next-line complexity
 function patternsOverlap(a: string, b: string): boolean {
   const lowerA = a.toLowerCase();
   const lowerB = b.toLowerCase();

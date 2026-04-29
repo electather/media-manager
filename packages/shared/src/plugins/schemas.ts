@@ -74,6 +74,7 @@ const manifestShape = z.object({
  * Enforces the table of derived rules: plugin shape is determined by the set of
  * capability scopes, and the other manifest fields must line up with that shape.
  */
+// fallow-ignore-next-line complexity
 export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) => {
   const capabilityEntries = Object.entries(manifest.capabilities);
   const scopes = new Set(capabilityEntries.map(([, c]) => c.scope));

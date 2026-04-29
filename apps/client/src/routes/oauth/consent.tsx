@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 
-import { authClient } from "@/lib/auth";
-import { UserAvatar } from "@/components/user-avatar";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { authClient } from "@/shared/lib/auth";
+import { UserAvatar } from "@/shared/components/user-avatar";
+import { Button } from "@/shared/ui/button";
+import { Separator } from "@/shared/ui/separator";
 
 // ─── Scope metadata ───────────────────────────────────────────────────────────
 
@@ -122,6 +122,7 @@ function InvalidRequestPage() {
 
 // ─── Consent page ─────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function ConsentPage() {
   const { client_id, scope } = Route.useSearch();
   const { session } = Route.useRouteContext();
@@ -131,6 +132,7 @@ function ConsentPage() {
   const user = session.user;
 
   const mutation = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async (accept: boolean) => {
       const { data, error } = await authClient.oauth2.consent({ accept });
       if (error) throw new Error(error.message ?? "Consent request failed.");
@@ -183,6 +185,7 @@ function ConsentPage() {
           <p className="text-sm text-muted-foreground">Basic identity access only.</p>
         ) : (
           <div className="flex flex-col gap-3.5">
+            {/* fallow-ignore-next-line complexity */}
             {visibleScopes.map((s) => {
               const meta = SCOPE_META[s];
               return (

@@ -15,6 +15,10 @@ export default defineConfig({
   envDir: "../../",
   resolve: {
     alias: {
+      "@/app": new URL("./src/app", import.meta.url).pathname,
+      "@/features": new URL("./src/features", import.meta.url).pathname,
+      "@/shared": new URL("./src/shared", import.meta.url).pathname,
+      "@/routes": new URL("./src/routes", import.meta.url).pathname,
       "@": new URL("./src", import.meta.url).pathname,
     },
   },

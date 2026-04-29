@@ -1,9 +1,9 @@
 import { LoaderCircleIcon } from "lucide-react";
 import type { AuthorizedApp } from "@ent-mcp/shared/users";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { relativeTime } from "@/lib/relative-time";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { relativeTime } from "@/shared/lib/relative-time";
 
 export interface AuthorizedAppRowProps {
   app: AuthorizedApp;

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +12,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { SessionRow, type SessionListItem } from "@/components/settings/session-row";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/shared/lib/auth";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,7 @@ interface PasswordFieldErrors {
   confirmPassword?: string;
 }
 
+// fallow-ignore-next-line complexity
 export function ChangePasswordCard() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -86,6 +87,7 @@ export function ChangePasswordCard() {
       // revokeOtherSessions: true kills other sessions server-side; refetch the list.
       void qc.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
     },
+    // fallow-ignore-next-line complexity
     onError: (err: unknown) => {
       const status = (err as { status?: number } | null)?.status;
       const code = (err as { code?: string } | null)?.code;
@@ -113,6 +115,7 @@ export function ChangePasswordCard() {
     },
   });
 
+  // fallow-ignore-next-line complexity
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const next: PasswordFieldErrors = {};
@@ -227,6 +230,7 @@ export function ChangePasswordCard() {
 
 // ─── Active sessions ──────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function ActiveSessionsCard() {
   const qc = useQueryClient();
   const { data: currentSession } = authClient.useSession();

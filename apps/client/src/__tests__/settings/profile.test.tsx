@@ -10,7 +10,7 @@ const auth = vi.hoisted(() => ({
   sendVerificationEmail: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({
+vi.mock("@/shared/lib/auth", () => ({
   authClient: auth,
 }));
 

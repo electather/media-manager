@@ -1,7 +1,6 @@
 import { createFileRoute, isRedirect, Outlet, redirect } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/shared/lib/auth";
 import { peekSchema } from "@/lib/home-display";
-import { MediaDetailModal } from "@/components/home/media-detail-modal";
 
 export const Route = createFileRoute("/_authenticated")({
   validateSearch: peekSchema,
@@ -25,10 +24,5 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  return (
-    <>
-      <Outlet />
-      <MediaDetailModal />
-    </>
-  );
+  return <Outlet />;
 }

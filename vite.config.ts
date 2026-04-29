@@ -5,7 +5,7 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}", ".claude/**", ".agents/**"],
+    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}", ".claude/**", ".agents/**", "SPEC.md"],
     options: { typeAware: true, typeCheck: true },
   },
   lint: {
@@ -17,6 +17,10 @@ export default defineConfig({
   // up, so re-declare the alias here so client tests can import "@/..." paths.
   resolve: {
     alias: {
+      "@/app": new URL("./apps/client/src/app", import.meta.url).pathname,
+      "@/features": new URL("./apps/client/src/features", import.meta.url).pathname,
+      "@/shared": new URL("./apps/client/src/shared", import.meta.url).pathname,
+      "@/routes": new URL("./apps/client/src/routes", import.meta.url).pathname,
       "@": new URL("./apps/client/src", import.meta.url).pathname,
     },
   },

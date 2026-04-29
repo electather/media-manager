@@ -28,7 +28,6 @@
     "**/plan/**",
     "**/docs/**",
     "**/docker/**",
-    "apps/client/**",
     "packages/plugins/**"
   ],
   "rules": {
@@ -50,7 +49,6 @@
       "**/*.spec.tsx",
       "**/*.tsx",
       "**/plugin.ts",
-      "apps/client/**",
       "packages/plugins/**"
     ]
   },
@@ -63,7 +61,6 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "apps/client/**",
       "packages/plugins/**"
     ]
   },
@@ -71,9 +68,14 @@
     "zones": [
       { "name": "client-routes", "patterns": ["apps/client/src/routes/**"] },
       { "name": "client-app", "patterns": ["apps/client/src/app/**"] },
-      { "name": "client-components", "patterns": ["apps/client/src/components/**"] },
-      { "name": "client-hooks", "patterns": ["apps/client/src/hooks/**"] },
-      { "name": "client-lib", "patterns": ["apps/client/src/lib/**"] },
+      {
+        "name": "client-features-legacy",
+        "patterns": ["apps/client/src/components/**", "apps/client/src/lib/**"]
+      },
+      { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
+      { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
+      { "name": "client-shared-hooks", "patterns": ["apps/client/src/shared/hooks/**"] },
+      { "name": "client-shared-lib", "patterns": ["apps/client/src/shared/lib/**"] },
       { "name": "client-root", "patterns": ["apps/client/src/*.*"] },
 
       { "name": "server-api", "patterns": ["apps/server/src/api/**"] },
@@ -117,23 +119,53 @@
         "allow": [
           "client-routes",
           "client-app",
-          "client-components",
-          "client-hooks",
-          "client-lib",
+          "client-features-legacy",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
           "shared-pkg"
         ]
       },
       {
         "from": "client-routes",
-        "allow": ["client-app", "client-components", "client-hooks", "client-lib", "shared-pkg"]
+        "allow": [
+          "client-app",
+          "client-features-legacy",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
       },
       {
         "from": "client-app",
-        "allow": ["client-components", "client-hooks", "client-lib", "shared-pkg"]
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
       },
-      { "from": "client-components", "allow": ["client-hooks", "client-lib", "shared-pkg"] },
-      { "from": "client-hooks", "allow": ["client-lib", "shared-pkg"] },
-      { "from": "client-lib", "allow": ["shared-pkg", "server-api", "server-root"] },
+      {
+        "from": "client-features-legacy",
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-shared-components",
+        "allow": ["client-shared-ui", "client-shared-hooks", "client-shared-lib", "shared-pkg"]
+      },
+      { "from": "client-shared-hooks", "allow": ["client-shared-lib", "shared-pkg"] },
+      { "from": "client-shared-ui", "allow": ["client-shared-lib", "shared-pkg"] },
+      { "from": "client-shared-lib", "allow": ["shared-pkg", "server-api", "server-root"] },
 
       {
         "from": "server-root",

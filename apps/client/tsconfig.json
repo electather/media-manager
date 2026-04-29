@@ -7,6 +7,10 @@
     "rootDir": "./src",
     "types": [],
     "paths": {
+      "@/app/*": ["./src/app/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/routes/*": ["./src/routes/*"],
       "@/*": ["./src/*"]
     }
   },

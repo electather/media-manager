@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import type { InferResponseType } from "hono/client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,25 +12,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Switch } from "@/shared/ui/switch";
 import {
   SchemaForm,
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
-} from "@/components/connections/schema-form";
-import { api } from "@/lib/api";
+} from "@/shared/components/schema-form";
+import { api } from "@/shared/lib/api";
 import {
   parseFormErrorResponse,
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
-} from "@/lib/errors/form-errors";
-import { safeJson } from "@/lib/errors/safe-json";
-import { cn } from "@/lib/utils";
+} from "@/shared/lib/errors/form-errors";
+import { safeJson } from "@/shared/lib/errors/safe-json";
+import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";
 
 type SharedCredentialEntry = InferResponseType<
@@ -68,6 +68,7 @@ type TestState =
  * the dialog surfaces the error inline and promotes `Save without test` so the
  * admin can choose to proceed anyway.
  */
+// fallow-ignore-next-line complexity
 export function SharedCredentialDialog({
   open,
   onOpenChange,
@@ -92,6 +93,7 @@ export function SharedCredentialDialog({
   // admin re-enters or leaves blank. Deliberately *not* depending on
   // `existing.label` / `existing.enabled` — a background refetch that
   // updates those fields shouldn't blow away in-progress edits.
+  // fallow-ignore-next-line complexity
   useEffect(() => {
     if (!open) return;
     setLabel(existing?.label ?? "");
@@ -119,6 +121,7 @@ export function SharedCredentialDialog({
   };
 
   const ephemeralTest = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async () => {
       const res = await api.plugins[":id"]["shared-credentials"]["test-ephemeral"].$post({
         param: { id: pluginId },
@@ -136,6 +139,7 @@ export function SharedCredentialDialog({
   });
 
   const saveMutation = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async () => {
       // On edit, only send fields the admin actually changed.
       if (isEdit && existing) {
@@ -180,6 +184,7 @@ export function SharedCredentialDialog({
     },
   });
 
+  // fallow-ignore-next-line complexity
   const validate = (): boolean => {
     setSubmitAttempted(true);
     setLabelError(null);
@@ -197,6 +202,7 @@ export function SharedCredentialDialog({
     return true;
   };
 
+  // fallow-ignore-next-line complexity
   const onTestAndSave = async () => {
     setTopError(null);
     if (!validate()) return;

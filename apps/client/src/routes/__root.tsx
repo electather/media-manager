@@ -1,4 +1,4 @@
-import { NotFound } from "@/components/not-found";
+import { NotFound } from "@/shared/components/not-found";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createRootRoute({

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlayIcon, RefreshCwIcon, CircleCheckIcon } from "lucide-react";
-import { api } from "@/lib/api";
+import { api } from "@/shared/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -9,11 +9,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { FieldGroup, Field, FieldLabel, FieldContent } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { UserPicker, ConnectionPicker } from "@/components/pickers";
+} from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { FieldGroup, Field, FieldLabel, FieldContent } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 
 function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
@@ -25,6 +25,42 @@ function MetaRow({ label, value, mono }: { label: string; value: string; mono?: 
   );
 }
 
+// fallow-ignore-next-line complexity
+function FieldItem({
+  fieldKey,
+  schema,
+  value,
+  onChange,
+}: {
+  fieldKey: string;
+  schema: any;
+  value: any;
+  onChange: (v: any) => void;
+}) {
+  return (
+    <Field key={fieldKey}>
+      <FieldContent>
+        <FieldLabel htmlFor={fieldKey} className="capitalize">
+          {fieldKey.replace(/([A-Z])/g, " $1").trim()}
+        </FieldLabel>
+      </FieldContent>
+      {schema["x-picker"] === "user" ? (
+        <UserPicker value={value} onChange={onChange} />
+      ) : schema["x-picker"] === "connection" ? (
+        <ConnectionPicker value={value} onChange={onChange} />
+      ) : (
+        <Input
+          id={fieldKey}
+          type={schema.type === "number" ? "number" : "text"}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </Field>
+  );
+}
+
+// fallow-ignore-next-line complexity
 export function DynamicTriggerDialog({
   open,
   job,
@@ -92,32 +128,14 @@ export function DynamicTriggerDialog({
           <div className="py-2">
             {hasForm ? (
               <FieldGroup className="gap-4">
-                {Object.entries(properties).map(([key, schema]: [string, any]) => (
-                  <Field key={key}>
-                    <FieldContent>
-                      <FieldLabel htmlFor={key} className="capitalize">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
-                      </FieldLabel>
-                    </FieldContent>
-                    {schema["x-picker"] === "user" ? (
-                      <UserPicker
-                        value={formData[key]}
-                        onChange={(v) => setFormData({ ...formData, [key]: v })}
-                      />
-                    ) : schema["x-picker"] === "connection" ? (
-                      <ConnectionPicker
-                        value={formData[key]}
-                        onChange={(v) => setFormData({ ...formData, [key]: v })}
-                      />
-                    ) : (
-                      <Input
-                        id={key}
-                        type={schema.type === "number" ? "number" : "text"}
-                        value={formData[key] || ""}
-                        onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
-                      />
-                    )}
-                  </Field>
+                {Object.entries(properties).map(([key, schema]) => (
+                  <FieldItem
+                    key={key}
+                    fieldKey={key}
+                    schema={schema}
+                    value={formData[key]}
+                    onChange={(v) => setFormData({ ...formData, [key]: v })}
+                  />
                 ))}
               </FieldGroup>
             ) : (

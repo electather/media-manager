@@ -10,7 +10,7 @@ const apiMock = vi.hoisted(() => ({
   revoke: vi.fn(),
 }));
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/shared/lib/api", () => ({
   api: {
     me: {
       apps: Object.assign(
