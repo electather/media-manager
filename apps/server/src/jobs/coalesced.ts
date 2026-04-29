@@ -1,3 +1,5 @@
+// fallow-ignore-file complexity
+// debounce state machine: pending map + trigger + flush closures tightly coupled; extract → explicit params → noise ⊥ clarity gain
 import { getConfig } from "./config";
 import { register, type RegistryEntry } from "./registry";
 import { requestCancel, run } from "./runner";

@@ -1,4 +1,6 @@
 // fallow-ignore-file unused-file
+// fallow-ignore-file complexity
+// 3-condition OR = 1 DB round-trip by design (V18); split handler → multiple queries → atomicity lost
 import { and, eq, isNull, lt, lte, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { notificationDeliveries } from "../db/schema";
