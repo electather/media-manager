@@ -29,6 +29,15 @@ interface AvailabilityRow {
   status?: AvailabilityStatus;
 }
 
+function compactWithExtras<T>(
+  items: T[],
+  limit: number | undefined,
+  extras: (source: T) => Record<string, unknown>,
+): ActivityResponse["results"] {
+  const compacted = compactList(items, () => ({}), limit);
+  return compacted.map((row, idx) => ({ ...row, ...extras(items[idx]!) }));
+}
+
 function resolveMediaType(raw: EntActivityInput["media_type"]): "movie" | "tv" | undefined {
   if (!raw || raw === "any") return undefined;
   return raw;
@@ -109,14 +118,10 @@ async function runHistory(
     input: { limit: input.limit ?? 15 },
   });
   const filtered = filterByType(result.data ?? [], type);
-  const compacted = compactList(filtered, () => ({}), input.limit);
-  return compacted.map((row, idx) => {
-    const source = filtered[idx];
-    const extras: { watched_at?: string; progress?: number } = {};
-    if (typeof source?.watchedAt === "string") extras.watched_at = source.watchedAt;
-    if (typeof source?.progress === "number") extras.progress = source.progress;
-    return { ...row, ...extras };
-  });
+  return compactWithExtras(filtered, input.limit, (source) => ({
+    ...(typeof source?.watchedAt === "string" ? { watched_at: source.watchedAt } : {}),
+    ...(typeof source?.progress === "number" ? { progress: source.progress } : {}),
+  }));
 }
 
 async function runUpcoming(
@@ -136,14 +141,9 @@ async function runUpcoming(
   });
   const type = resolveMediaType(input.media_type);
   const filtered = filterByType(result.data ?? [], type);
-  const compacted = compactList(filtered, () => ({}), input.limit);
-  return compacted.map((row, idx) => {
-    const source = filtered[idx];
-    return {
-      ...row,
-      ...(typeof source?.airsAt === "string" ? { airs_at: source.airsAt } : {}),
-    };
-  });
+  return compactWithExtras(filtered, input.limit, (source) =>
+    typeof source?.airsAt === "string" ? { airs_at: source.airsAt } : {},
+  );
 }
 
 async function runProgress(
@@ -171,15 +171,10 @@ async function runProgress(
       row.progress > 0 &&
       row.progress < 1,
   );
-  const compacted = compactList(inProgress, () => ({}), input.limit);
-  return compacted.map((row, idx) => {
-    const source = inProgress[idx];
-    return {
-      ...row,
-      ...(typeof source?.progress === "number" ? { progress: source.progress } : {}),
-      ...(typeof source?.watchedAt === "string" ? { watched_at: source.watchedAt } : {}),
-    };
-  });
+  return compactWithExtras(inProgress, input.limit, (source) => ({
+    ...(typeof source?.progress === "number" ? { progress: source.progress } : {}),
+    ...(typeof source?.watchedAt === "string" ? { watched_at: source.watchedAt } : {}),
+  }));
 }
 
 export const entActivityHandler: ToolHandler = async (ctx, rawInput) => {

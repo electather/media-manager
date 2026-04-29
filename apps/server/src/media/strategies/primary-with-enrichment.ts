@@ -1,11 +1,10 @@
-import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { getPrimaryConnection } from "../primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
-import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
+import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { harvestFromOutcomes } from "../invoke";
 import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
-import { invokeAll, collectErrors, resolveCapabilityScope, type Candidate } from "./shared";
+import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
 
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
@@ -64,11 +63,9 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
  * (search/discover/trending) come from the primary only.
  */
 export async function dispatchPrimary<T>(req: DispatchRequest): Promise<AggregateResult<T>> {
-  const { capability, scope } = resolveCapabilityScope(req);
-  const cached = await readCache<AggregateResult<T>>(req, scope);
+  const { capability, scope, cached, providers } =
+    await resolveDispatchPreamble<AggregateResult<T>>(req);
   if (cached !== undefined) return cached;
-
-  const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   if (providers.length === 0) {
     return { data: null as T, errors: [], attempted: 0 };
   }

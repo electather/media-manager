@@ -1,5 +1,6 @@
 import { consola } from "consola";
 import { dispatchAggregate, dispatchPrimary } from "../media/dispatcher";
+import { identifyItem, parseHistoryBase, parseItemDate } from "../media/parse-item";
 import type {
   CommentSignal,
   HistorySignal,
@@ -149,24 +150,20 @@ export class MediaServicePreferenceProvider implements PreferenceDataProvider {
 }
 
 function toHistorySignal(entry: HistoryItem): HistorySignal[] {
-  const identity = identify(entry.item);
-  if (!identity) return [];
-  const watchedAt = parseDate(entry.watchedAt);
-  if (watchedAt === null) return [];
+  const base = parseHistoryBase(entry);
+  if (!base) return [];
   return [
     {
-      tmdbId: identity.tmdbId,
-      mediaType: identity.type,
-      watchedAt,
+      ...base,
       progress: typeof entry.progress === "number" ? entry.progress : null,
     },
   ];
 }
 
 function toRatingSignal(entry: RatingItem): RatingSignal[] {
-  const identity = identify(entry.item);
+  const identity = identifyItem(entry.item);
   if (!identity || typeof entry.rating !== "number") return [];
-  const ratedAt = parseDate(entry.ratedAt) ?? Date.now();
+  const ratedAt = parseItemDate(entry.ratedAt) ?? Date.now();
   return [
     {
       tmdbId: identity.tmdbId,
@@ -177,39 +174,16 @@ function toRatingSignal(entry: RatingItem): RatingSignal[] {
   ];
 }
 
-function identify(
-  item: HistoryItem["item"] | RatingItem["item"],
-): { tmdbId: string; type: "movie" | "tv" } | null {
-  if (!item) return null;
-  const tmdbId = item.ids?.tmdb_id ?? splitCombined(item.id)?.id;
-  const type = item.type ?? splitCombined(item.id)?.type;
-  if (!tmdbId || !type) return null;
-  return { tmdbId, type };
-}
-
-function splitCombined(id: string | undefined): { type: "movie" | "tv"; id: string } | null {
-  if (!id) return null;
-  const [type, value] = id.split(":");
-  if ((type !== "movie" && type !== "tv") || !value) return null;
-  return { type, id: value };
-}
-
 function toWatchlistSignal(entry: WatchlistItem): WatchlistSignal[] {
-  const identity = identify(entry.item);
+  const identity = identifyItem(entry.item);
   if (!identity) return [];
-  const addedAt = parseDate(entry.addedAt) ?? Date.now();
+  const addedAt = parseItemDate(entry.addedAt) ?? Date.now();
   return [{ tmdbId: identity.tmdbId, mediaType: identity.type, addedAt }];
 }
 
 function toCommentSignal(entry: CommentItem): CommentSignal[] {
-  const identity = identify(entry.item);
+  const identity = identifyItem(entry.item);
   if (!identity || !entry.text) return [];
-  const createdAt = parseDate(entry.createdAt) ?? Date.now();
+  const createdAt = parseItemDate(entry.createdAt) ?? Date.now();
   return [{ tmdbId: identity.tmdbId, mediaType: identity.type, text: entry.text, createdAt }];
-}
-
-function parseDate(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const ts = Date.parse(raw);
-  return Number.isFinite(ts) ? ts : null;
 }

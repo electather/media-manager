@@ -1,4 +1,5 @@
 import { MediaService } from "../../media/service";
+import { splitCombinedId } from "../../media/parse-item";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";
@@ -145,18 +146,9 @@ function asKey(item: RawCanonicalSource): MetadataKey | null {
   // Only fall back to splitting the combined `id` string when one of the
   // explicit fields is missing — saves a parse on the typical TMDB payload
   // path where both `ids.tmdb_id` and `type` are populated.
-  const split = !item.ids?.tmdb_id || !item.type ? splitFromCombined(item.id) : null;
+  const split = !item.ids?.tmdb_id || !item.type ? splitCombinedId(item.id) : null;
   const tmdbId = item.ids?.tmdb_id ?? split?.id;
   const type = item.type ?? split?.type;
   if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
   return { tmdbId, type };
-}
-
-function splitFromCombined(
-  combined: string | undefined,
-): { type: "movie" | "tv"; id: string } | null {
-  if (!combined) return null;
-  const [type, id] = combined.split(":");
-  if ((type !== "movie" && type !== "tv") || !id) return null;
-  return { type, id };
 }

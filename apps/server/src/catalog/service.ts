@@ -1,5 +1,7 @@
 import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
+
+type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 import {
   canonicalMetadata,
   discoverSnapshots,
@@ -330,25 +332,24 @@ export class CatalogService {
     pluginId: string,
     cursorTs: number,
   ): Promise<void> {
-    if (events.length === 0) return;
-    await this.mirrorMutex.run(userId, () =>
-      this.db.transaction(async (tx) => {
-        const existing = await tx
-          .select()
-          .from(userHistoryMirror)
-          .where(eq(userHistoryMirror.userId, userId))
-          .get();
-        const merged = mergeHistory(existing?.events ?? [], events);
-        const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
-        const lastSyncedAt = Date.now();
-        await tx
-          .insert(userHistoryMirror)
-          .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
-          .onConflictDoUpdate({
-            target: [userHistoryMirror.userId],
-            set: { events: merged, pluginCursors: cursors, lastSyncedAt },
-          });
-      }),
+    await this.appendMirrorRows(
+      userId,
+      events,
+      pluginId,
+      cursorTs,
+      {
+        select: (tx) =>
+          tx.select().from(userHistoryMirror).where(eq(userHistoryMirror.userId, userId)).get(),
+        upsert: (tx, merged, cursors, lastSyncedAt) =>
+          tx
+            .insert(userHistoryMirror)
+            .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
+            .onConflictDoUpdate({
+              target: [userHistoryMirror.userId],
+              set: { events: merged, pluginCursors: cursors, lastSyncedAt },
+            }),
+      },
+      mergeHistory,
     );
   }
 
@@ -359,24 +360,52 @@ export class CatalogService {
     pluginId: string,
     cursorTs: number,
   ): Promise<void> {
+    await this.appendMirrorRows(
+      userId,
+      events,
+      pluginId,
+      cursorTs,
+      {
+        select: (tx) =>
+          tx.select().from(userRatingsMirror).where(eq(userRatingsMirror.userId, userId)).get(),
+        upsert: (tx, merged, cursors, lastSyncedAt) =>
+          tx
+            .insert(userRatingsMirror)
+            .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
+            .onConflictDoUpdate({
+              target: [userRatingsMirror.userId],
+              set: { events: merged, pluginCursors: cursors, lastSyncedAt },
+            }),
+      },
+      mergeRatings,
+    );
+  }
+
+  private async appendMirrorRows<E>(
+    userId: string,
+    events: E[],
+    pluginId: string,
+    cursorTs: number,
+    tableOps: {
+      select: (
+        tx: DbTransaction,
+      ) => Promise<{ events: E[]; pluginCursors: PluginCursors } | undefined>;
+      upsert: (
+        tx: DbTransaction,
+        events: E[],
+        cursors: PluginCursors,
+        lastSyncedAt: number,
+      ) => PromiseLike<unknown>;
+    },
+    mergeEvents: (prior: E[], next: E[]) => E[],
+  ): Promise<void> {
     if (events.length === 0) return;
     await this.mirrorMutex.run(userId, () =>
       this.db.transaction(async (tx) => {
-        const existing = await tx
-          .select()
-          .from(userRatingsMirror)
-          .where(eq(userRatingsMirror.userId, userId))
-          .get();
-        const merged = mergeRatings(existing?.events ?? [], events);
+        const existing = await tableOps.select(tx);
+        const merged = mergeEvents(existing?.events ?? [], events);
         const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
-        const lastSyncedAt = Date.now();
-        await tx
-          .insert(userRatingsMirror)
-          .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
-          .onConflictDoUpdate({
-            target: [userRatingsMirror.userId],
-            set: { events: merged, pluginCursors: cursors, lastSyncedAt },
-          });
+        await tableOps.upsert(tx, merged, cursors, Date.now());
       }),
     );
   }

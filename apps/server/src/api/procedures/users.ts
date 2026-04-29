@@ -56,15 +56,18 @@ async function requireUniqueEmail(email: string, excludeUserId?: string) {
   }
 }
 
-/** Fetches all users with their assigned role. */
-async function listAllUsers() {
-  const db = getDb();
-  const rows = await db
+function buildUserWithRoleQuery(db: ReturnType<typeof getDb>) {
+  return db
     .select(userWithRoleColumns)
     .from(user)
     .leftJoin(userRoles, eq(userRoles.userId, user.id))
-    .leftJoin(roles, eq(roles.id, userRoles.roleId))
-    .all();
+    .leftJoin(roles, eq(roles.id, userRoles.roleId));
+}
+
+/** Fetches all users with their assigned role. */
+async function listAllUsers() {
+  const db = getDb();
+  const rows = await buildUserWithRoleQuery(db).all();
 
   return rows.map((r) => ({
     id: r.id,
@@ -106,13 +109,7 @@ export const adminUsersApp = new Hono()
     const id = c.req.param("id");
     const db = getDb();
 
-    const row = await db
-      .select(userWithRoleColumns)
-      .from(user)
-      .leftJoin(userRoles, eq(userRoles.userId, user.id))
-      .leftJoin(roles, eq(roles.id, userRoles.roleId))
-      .where(eq(user.id, id))
-      .get();
+    const row = await buildUserWithRoleQuery(db).where(eq(user.id, id)).get();
 
     if (!row) throw userNotFound(id);
 

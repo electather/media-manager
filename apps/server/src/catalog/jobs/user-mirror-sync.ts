@@ -3,6 +3,7 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { getDb } from "../../db/client";
 import { serviceConnections } from "../../db/schema/credentials";
 import { MediaService } from "../../media/service";
+import { identifyItem, parseHistoryBase, parseItemDate } from "../../media/parse-item";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
@@ -135,15 +136,11 @@ function toHistoryEvent(
   },
   pluginId: string,
 ): HistoryEvent[] {
-  const identity = identify(entry.item);
-  if (!identity) return [];
-  const watchedAt = parseDate(entry.watchedAt);
-  if (watchedAt === null) return [];
+  const base = parseHistoryBase(entry);
+  if (!base) return [];
   return [
     {
-      tmdbId: identity.tmdbId,
-      mediaType: identity.type,
-      watchedAt,
+      ...base,
       sourceConnectionId: pluginId,
       episodeKey: entry.episodeKey ?? null,
       progress: typeof entry.progress === "number" ? entry.progress : null,
@@ -159,12 +156,12 @@ function toRatingEvent(
   },
   pluginId: string,
 ): RatingEvent[] {
-  const identity = identify(entry.item);
+  const identity = identifyItem(entry.item);
   if (!identity || typeof entry.rating !== "number") return [];
   // The dedupe key includes `ratedAt`; falling back to `Date.now()` would
   // mint a fresh key every sync run and let the same plugin entry land
   // repeatedly. Drop malformed events instead, mirroring the history path.
-  const ratedAt = parseDate(entry.ratedAt);
+  const ratedAt = parseItemDate(entry.ratedAt);
   if (ratedAt === null) return [];
   return [
     {
@@ -175,29 +172,6 @@ function toRatingEvent(
       sourceConnectionId: pluginId,
     },
   ];
-}
-
-function identify(
-  item: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" } | undefined,
-): { tmdbId: string; type: "movie" | "tv" } | null {
-  if (!item) return null;
-  const tmdbId = item.ids?.tmdb_id ?? splitId(item.id)?.id;
-  const type = item.type ?? splitId(item.id)?.type;
-  if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
-  return { tmdbId, type };
-}
-
-function splitId(combined: string | undefined): { type: "movie" | "tv"; id: string } | null {
-  if (!combined) return null;
-  const [type, id] = combined.split(":");
-  if ((type !== "movie" && type !== "tv") || !id) return null;
-  return { type, id };
-}
-
-function parseDate(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const ts = Date.parse(raw);
-  return Number.isFinite(ts) ? ts : null;
 }
 
 function formatError(err: unknown): string {

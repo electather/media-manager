@@ -1,5 +1,7 @@
 import type { CapabilityDefinition } from "@ent-mcp/plugin-sdk";
+import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
+import { readCache } from "../dispatch-cache";
 import type { InvocationOutcome } from "../errors";
 import type { ResolvedConnection } from "../resolve-connection";
 import type { DispatchRequest, AggregateResult } from "../types";
@@ -9,6 +11,20 @@ export function resolveCapabilityScope(req: DispatchRequest) {
   const capability = requireCapability(req.capability, req.version);
   const scope = scopeForRequest(capability, req.input);
   return { capability, scope };
+}
+
+/**
+ * Resolves the capability/scope, reads the cache, and lists registered
+ * providers. Callers check `cached !== undefined` for an early return and
+ * `providers.length === 0` for a no-provider guard; both checks are
+ * intentionally left to the caller so each strategy can apply its own
+ * semantics (return vs throw).
+ */
+export async function resolveDispatchPreamble<T>(req: DispatchRequest) {
+  const { capability, scope } = resolveCapabilityScope(req);
+  const cached = await readCache<T>(req, scope);
+  const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
+  return { capability, scope, cached, providers };
 }
 
 export interface Candidate {

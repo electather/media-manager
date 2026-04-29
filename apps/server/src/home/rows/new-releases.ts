@@ -1,8 +1,10 @@
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { canonicalToRaw, toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { canonicalToRaw, type RawMediaItem } from "../compact";
+import { buildItem } from "./build-item";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -108,17 +110,6 @@ async function fetchFromLivePath(
 function readPage(cursor: string | null): number {
   if (!cursor) return 0;
   return decodeCursor(ROW_ID, cursor).p;
-}
-
-async function buildItem(
-  ctx: RowFetchContext,
-  item: RawMediaItem,
-): Promise<CompactMediaItem | null> {
-  const compact = toCompact(item);
-  const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = toStatusOrUndefined(map[compact.id]);
-  if (status) compact.status = status;
-  return compact;
 }
 
 async function buildFromCanonical(

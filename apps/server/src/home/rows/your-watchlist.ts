@@ -1,7 +1,8 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { type RawMediaItem } from "../compact";
+import { buildItem } from "./build-item";
 
 const ROW_ID = "yourWatchlist" as const satisfies RowKind;
 const MAX_ITEMS = 200;
@@ -46,15 +47,4 @@ export const yourWatchlistFetcher: RowFetcher = {
 function readOffset(cursor: string | null): number {
   if (!cursor) return 0;
   return decodeCursor(ROW_ID, cursor).o;
-}
-
-async function buildItem(
-  ctx: RowFetchContext,
-  item: RawMediaItem,
-): Promise<CompactMediaItem | null> {
-  const compact = toCompact(item);
-  const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = toStatusOrUndefined(map[compact.id]);
-  if (status) compact.status = status;
-  return compact;
 }

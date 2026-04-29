@@ -1,7 +1,8 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { type RawMediaItem } from "../compact";
+import { buildItem } from "./build-item";
 
 const ROW_ID = "trendingNow" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -72,15 +73,4 @@ function dedupeByCompositeId(items: RawMediaItem[]): RawMediaItem[] {
     out.push(item);
   }
   return out;
-}
-
-async function buildItem(
-  ctx: RowFetchContext,
-  item: RawMediaItem,
-): Promise<CompactMediaItem | null> {
-  const compact = toCompact(item);
-  const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = toStatusOrUndefined(map[compact.id]);
-  if (status) compact.status = status;
-  return compact;
 }

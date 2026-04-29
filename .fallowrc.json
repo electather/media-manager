@@ -43,7 +43,8 @@
       "**/*.test.ts",
       "**/*.spec.ts",
       // ignore frontend for now
-      "**/*.tsx"
+      "**/*.tsx",
+      "**/plugin.ts"
     ]
   },
   "health": {
