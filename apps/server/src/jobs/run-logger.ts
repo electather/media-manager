@@ -6,6 +6,46 @@ import { isPrimitive } from "es-toolkit/predicate";
 
 const BUFFER_MAX_BYTES = 500 * 1024;
 
+/**
+ * Maps a consola log type name to its numeric verbosity (lower = more
+ * severe, per `consola`'s `LogLevels` table). Mirrored locally rather than
+ * imported so this module stays cheap and avoids pulling consola's runtime
+ * for a value lookup.
+ */
+const CONSOLA_TYPE_VERBOSITY: Record<string, number> = {
+  silent: Number.NEGATIVE_INFINITY,
+  fatal: 0,
+  error: 0,
+  warn: 1,
+  log: 2,
+  info: 3,
+  success: 3,
+  fail: 3,
+  ready: 3,
+  start: 3,
+  box: 3,
+  debug: 4,
+  trace: 5,
+  verbose: Number.POSITIVE_INFINITY,
+};
+
+/**
+ * Reads `JOB_CONSOLE_LOG_LEVEL` straight from `process.env` so this
+ * low-level utility stays decoupled from `env.ts`'s validation chain
+ * (importing the typed env up-front would crash test files that do not
+ * inject the rest of the schema). Anything strictly more verbose than the
+ * configured threshold is dropped on stdout. Default `warn` so per-run
+ * completion banners don't clutter logs; buffer capture is unaffected so
+ * the dashboard still sees every entry the per-job buffer level allows.
+ */
+function loadStdoutLevelThreshold(): number {
+  const raw = (process.env.JOB_CONSOLE_LOG_LEVEL ?? "warn").trim().toLowerCase();
+  const resolved = CONSOLA_TYPE_VERBOSITY[raw];
+  return resolved ?? CONSOLA_TYPE_VERBOSITY.warn!;
+}
+
+const STDOUT_LEVEL_THRESHOLD = loadStdoutLevelThreshold();
+
 const LOG_LEVEL_ORDER: Record<string, number> = {
   debug: 0,
   info: 1,
@@ -125,6 +165,8 @@ export function createRunLogger(jobId: string, runId: string, requestId: string)
             row: ctx?.currentRow,
           };
           appendToBuffer(entry);
+          const verbosity = CONSOLA_TYPE_VERBOSITY[prop] ?? CONSOLA_TYPE_VERBOSITY.info!;
+          if (verbosity > STDOUT_LEVEL_THRESHOLD) return;
           return Reflect.get(target, prop, receiver).apply(
             target,
             args as [message: any, ...args: any[]],
@@ -139,7 +181,12 @@ export function createRunLogger(jobId: string, runId: string, requestId: string)
 }
 
 function isLogMethod(prop: string | symbol): prop is LogType {
-  return typeof prop === "string" && ["debug", "info", "warn", "error", "log"].includes(prop);
+  return (
+    typeof prop === "string" &&
+    ["debug", "info", "warn", "error", "log", "success", "fail", "ready", "start", "box"].includes(
+      prop,
+    )
+  );
 }
 
 const LEVEL_FOR_TYPE: Record<string, LogEntry["level"]> = {
@@ -148,6 +195,11 @@ const LEVEL_FOR_TYPE: Record<string, LogEntry["level"]> = {
   warn: "warn",
   error: "error",
   log: "info",
+  success: "info",
+  fail: "error",
+  ready: "info",
+  start: "info",
+  box: "info",
 };
 
 function consolaTypeToLevel(type: string): LogEntry["level"] {
