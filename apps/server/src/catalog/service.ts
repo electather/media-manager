@@ -65,7 +65,7 @@ export class CatalogService {
     return row ?? null;
   }
 
-  // fallow-ignore-next-line
+  // fallow-ignore-next-line unused-class-member
   async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
@@ -477,7 +477,7 @@ export class CatalogService {
     }
   }
 
-  // fallow-ignore-next-line
+  // fallow-ignore-next-line unused-class-member
   async pruneUnusedMetadata(
     unusedAfterMs: number,
     refSet?: Set<string>,

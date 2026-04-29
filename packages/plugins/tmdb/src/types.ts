@@ -33,7 +33,10 @@ export interface MediaInput {
   type: "movie" | "tv";
 }
 
-export function parseMediaInput(input: unknown): MediaInput {
+// Bare cast — the SDK validates input via `methodSpec.input.safeParse` before
+// dispatching to the handler, so the value is already shape-checked here. The
+// `as` prefix in the name reflects that no extra validation runs.
+export function asMediaInput(input: unknown): MediaInput {
   return input as MediaInput;
 }
 

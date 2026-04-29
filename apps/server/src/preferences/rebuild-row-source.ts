@@ -39,7 +39,7 @@ export async function listUsersNeedingRebuild(now: number = Date.now()): Promise
     .select({ userId: feedback.userId })
     .from(feedback)
     .innerJoin(preferenceProfiles, eq(preferenceProfiles.userId, feedback.userId))
-    .where(and(gt(feedback.createdAt, preferenceProfiles.lastRebuiltAt)))
+    .where(gt(feedback.createdAt, preferenceProfiles.lastRebuiltAt))
     .groupBy(feedback.userId)
     .having(sql`count(${feedback.id}) >= ${INCREMENTAL_REBUILD_THRESHOLD}`)
     .all();

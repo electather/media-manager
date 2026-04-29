@@ -1,5 +1,5 @@
 import type { Ctx } from "../types";
-import { parseMediaInput } from "../types";
+import { asMediaInput } from "../types";
 import { tmdbGet } from "../client";
 
 function mapVideoKind(type: string): "trailer" | "teaser" | "clip" | "featurette" | "other" {
@@ -34,7 +34,7 @@ function buildVideoUrl(site: string, key: string): string | null {
 export const trailers = {
   async getVideos(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { id, type } = parseMediaInput(input);
+    const { id, type } = asMediaInput(input);
     const data = (await tmdbGet(c, `/${type}/${id}/videos`)) as {
       results?: Array<{
         key: string;

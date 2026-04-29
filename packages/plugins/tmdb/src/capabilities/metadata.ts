@@ -1,5 +1,5 @@
 import type { Ctx, MovieRaw, TvRaw, DiscoverFilters } from "../types";
-import { parseMediaInput } from "../types";
+import { asMediaInput } from "../types";
 import { tmdbGet } from "../client";
 import { mapMovie, mapShow } from "../mappers";
 import { SORT_MAP_MOVIE, SORT_MAP_TV } from "../constants";
@@ -80,7 +80,7 @@ export const metadata = {
 
   async getDetails(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { id, type } = parseMediaInput(input);
+    const { id, type } = asMediaInput(input);
     const data = await tmdbGet(c, `/${type}/${id}`, {
       append_to_response: "external_ids,credits,keywords",
     });
@@ -89,7 +89,7 @@ export const metadata = {
 
   async getSimilar(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { id, type } = parseMediaInput(input);
+    const { id, type } = asMediaInput(input);
     const data = (await tmdbGet(c, `/${type}/${id}/similar`)) as { results: unknown[] };
     return (data.results as Array<MovieRaw & TvRaw>).map((r) =>
       type === "movie" ? mapMovie(c, r) : mapShow(c, r),
