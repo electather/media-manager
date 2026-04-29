@@ -146,20 +146,19 @@ function triggerIncremental(userId: string): void {
   if (typeof trigger === "function") trigger({ scopeKey: userId, userId });
 }
 
+function validateFeedbackInput(input: EntFeedbackInput): void {
+  if (!input.id || !input.action) throw badInput("ent_feedback", "id and action are required");
+  if (input.action !== "rate" && input.target)
+    throw badInput("ent_feedback", "target is only valid when action=rate");
+  if (input.action === "rate" && typeof input.rating !== "number")
+    throw badInput("ent_feedback", "rating is required when action=rate");
+  if (input.action === "note" && (typeof input.note !== "string" || input.note.length === 0))
+    throw badInput("ent_feedback", "note is required when action=note");
+}
+
 export const entFeedbackHandler: ToolHandler = async (ctx, rawInput) => {
   const input = (rawInput ?? {}) as EntFeedbackInput;
-  if (!input.id || !input.action) {
-    throw badInput("ent_feedback", "id and action are required");
-  }
-  if (input.action !== "rate" && input.target) {
-    throw badInput("ent_feedback", "target is only valid when action=rate");
-  }
-  if (input.action === "rate" && typeof input.rating !== "number") {
-    throw badInput("ent_feedback", "rating is required when action=rate");
-  }
-  if (input.action === "note" && (typeof input.note !== "string" || input.note.length === 0)) {
-    throw badInput("ent_feedback", "note is required when action=note");
-  }
+  validateFeedbackInput(input);
 
   const parsed = parseMediaId(input.id);
   const metadata = await loadMetadata(ctx.userId, parsed.tmdbId, parsed.type);

@@ -61,9 +61,20 @@ function stackFrom(err: unknown): string | null {
  *  expected user-input failures worth keeping for debug but excluded from the
  *  default dashboard view. */
 export async function captureError(err: unknown, meta: CaptureMeta): Promise<string> {
-  const severity = resolveSeverity(meta);
+  const record = buildErrorRecord(err, meta);
+  const results = await Promise.allSettled(sinks.map((sink) => sink.capture(record)));
+  for (const result of results) {
+    if (result.status === "rejected") {
+      consola.error("error sink failed:", result.reason);
+    }
+  }
+  return record.id;
+}
+
+function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
+  const severity = meta.severity ?? severityFor(meta.code ?? "");
   const ctx = currentRequestContext();
-  const record: ErrorRecord = {
+  return {
     id: crypto.randomUUID(),
     requestId: meta.requestId ?? ctx?.requestId ?? newRequestId(),
     severity,
@@ -79,17 +90,4 @@ export async function captureError(err: unknown, meta: CaptureMeta): Promise<str
     context: serializeContext(meta.context),
     createdAt: Date.now(),
   };
-
-  const results = await Promise.allSettled(sinks.map((sink) => sink.capture(record)));
-  for (const result of results) {
-    if (result.status === "rejected") {
-      consola.error("error sink failed:", result.reason);
-    }
-  }
-
-  return record.id;
-}
-
-function resolveSeverity(meta: CaptureMeta): ErrorSeverity {
-  return meta.severity ?? severityFor(meta.code ?? "");
 }

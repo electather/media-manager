@@ -123,26 +123,38 @@ export function computeDisplayFields(
     (value && typeof value === "object" ? (value as Record<string, unknown>) : null) ?? {};
   const out: Array<{ label: string; value: string; mono?: boolean }> = [];
   for (const [name, def] of Object.entries(props)) {
-    if (!def) continue;
-    if (def["x-secret"] === true) continue;
-    const isPrivate = def["x-private"] === true;
-    const label =
-      typeof def.title === "string" && def.title.length > 0 ? def.title : titleizeFieldName(name);
-    const stored = cfg[name];
-    const isUri = def.format === "uri" || def.format === "url";
-    const monoHint = def["x-mono"] === true;
-    const hasAllowedHost = def["x-allowed-host"] === true;
-    const mono = isUri || monoHint || hasAllowedHost ? true : undefined;
-    // Empty / missing `x-private` values render as "" (the unset case)
-    // rather than "••••" — there's no actual content to hide, and a
-    // redaction badge for an unset field would mislead the reader.
-    const stringValue =
-      isPrivate && stored !== undefined && stored !== null && stored !== ""
-        ? "••••"
-        : stringifyDisplayValue(stored);
-    out.push(mono ? { label, value: stringValue, mono } : { label, value: stringValue });
+    const field = buildDisplayField(name, def, cfg);
+    if (field) out.push(field);
   }
   return out;
+}
+
+function buildDisplayField(
+  name: string,
+  def: Record<string, unknown> | undefined,
+  cfg: Record<string, unknown>,
+): { label: string; value: string; mono?: boolean } | null {
+  if (!def) return null;
+  if (def["x-secret"] === true) return null;
+  const isPrivate = def["x-private"] === true;
+  const label =
+    typeof def.title === "string" && def.title.length > 0 ? def.title : titleizeFieldName(name);
+  const stored = cfg[name];
+  const mono: true | undefined =
+    def.format === "uri" ||
+    def.format === "url" ||
+    def["x-mono"] === true ||
+    def["x-allowed-host"] === true
+      ? true
+      : undefined;
+  // Empty / missing `x-private` values render as "" (the unset case)
+  // rather than "••••" — there's no actual content to hide, and a
+  // redaction badge for an unset field would mislead the reader.
+  const stringValue =
+    isPrivate && stored !== undefined && stored !== null && stored !== ""
+      ? "••••"
+      : stringifyDisplayValue(stored);
+  return mono ? { label, value: stringValue, mono } : { label, value: stringValue };
 }
 
 function titleizeFieldName(name: string): string {

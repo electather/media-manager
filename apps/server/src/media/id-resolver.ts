@@ -90,15 +90,12 @@ export async function upsertIdBundle(
       updates.imdbId = bundle.imdb_id;
     }
   }
-  if (bundle.tvdb_id && shouldOverwrite("tvdb_id", ctx, existing.tvdbId)) {
+  if (bundle.tvdb_id && shouldOverwrite("tvdb_id", ctx, existing.tvdbId))
     updates.tvdbId = bundle.tvdb_id;
-  }
-  if (bundle.trakt_id && shouldOverwrite("trakt_id", ctx, existing.traktId)) {
+  if (bundle.trakt_id && shouldOverwrite("trakt_id", ctx, existing.traktId))
     updates.traktId = bundle.trakt_id;
-  }
-  if (bundle.trakt_slug && shouldOverwrite("trakt_slug", ctx, existing.traktSlug)) {
+  if (bundle.trakt_slug && shouldOverwrite("trakt_slug", ctx, existing.traktSlug))
     updates.traktSlug = bundle.trakt_slug;
-  }
 
   if (Object.keys(updates).length === 0) return;
   updates.updatedAt = now;

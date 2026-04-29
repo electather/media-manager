@@ -5,7 +5,7 @@ import { getDb } from "../db/client";
 import { env } from "../env";
 import { plugins } from "../db/schema/plugins";
 import { resolveAllowedHostsFromSchema, unionHostSets } from "./allowed-hosts";
-import { loadPluginPolicy } from "./admin-policy";
+import { loadPluginPolicy, type PluginAdminPolicy } from "./admin-policy";
 import { buildContext } from "./context";
 import { getCapability } from "@ent-mcp/plugin-sdk";
 import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
@@ -234,49 +234,21 @@ export class PluginRuntime {
     const exhaustedAdminIds = new Set<string>();
     let nextRetryAfterSec: number | undefined;
     for (const pick of plan) {
-      // For user picks we need to inject an admin credential as sharedCredentials
-      // (e.g. Trakt's OAuth client id). Skip any admin pick already marked
-      // exhausted earlier in this loop so we don't hand a rate-limited secret
-      // to a subsequent user call.
-      const adminPick =
-        pick.side === "admin"
-          ? pick
-          : plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId));
       let exhaustedReport: { retryAfterSec?: number } | null = null;
-      const poolApi: PoolSignalingApi = {
+      const pool: PoolSignalingApi = {
         markExhausted: (opts) => {
           exhaustedReport = { retryAfterSec: opts?.retryAfterSec };
         },
       };
-      // Resolve per-invocation `x-allowed-host` hostnames from whichever
-      // config matches the current pick: user-scoped picks read
-      // `userConfigSchema` against the stored `userConfig`; admin-scoped picks
-      // read `sharedCredentialsSchema` against the chosen pool entry.
-      const dynamicAllowedHosts =
-        pick.side === "user"
-          ? resolveAllowedHostsFromSchema(
-              args.pluginId,
-              module.manifest.userConfigSchema,
-              pick.userConfig,
-            )
-          : resolveAllowedHostsFromSchema(
-              args.pluginId,
-              module.manifest.sharedCredentialsSchema,
-              pick.value,
-            );
-      const ctx = buildContext({
-        pluginId: args.pluginId,
-        allowedHosts: module.manifest.allowedHosts,
-        dynamicAllowedHosts,
-        adminAllowlist: adminPolicy.adminAllowlist,
-        adminHeaders: adminPolicy.adminHeaders,
-        userId: args.userId,
-        appBaseUrl: env.APP_EXTERNAL_URL,
-        credentials: pick.side === "user" ? pick.value : null,
-        sharedCredentials: pick.side === "admin" ? pick.value : (adminPick?.value ?? adminFallback),
-        userConfig: pick.userConfig,
+      const ctx = this.buildPickContext(pick, {
+        args,
+        plan,
+        exhaustedAdminIds,
+        adminFallback,
         globalConfig,
-        pool: poolApi,
+        module,
+        adminPolicy,
+        pool,
       });
 
       try {
@@ -769,6 +741,73 @@ export class PluginRuntime {
       default:
         return userOrdered;
     }
+  }
+
+  /**
+   * Builds a PluginContext for one credential pick in the rotation loop.
+   * Resolves the co-admin pick for user-scoped calls (e.g. Trakt needs the
+   * admin OAuth client id alongside the user's access token) and derives
+   * per-invocation `x-allowed-host` hostnames from the relevant schema.
+   */
+  private buildPickContext(
+    pick: PickedCredential,
+    opts: {
+      args: InvokeArgs;
+      plan: PickedCredential[];
+      exhaustedAdminIds: Set<string>;
+      adminFallback: unknown;
+      globalConfig: unknown;
+      module: PluginModule;
+      adminPolicy: PluginAdminPolicy;
+      pool: PoolSignalingApi;
+    },
+  ): ReturnType<typeof buildContext> {
+    const {
+      args,
+      plan,
+      exhaustedAdminIds,
+      adminFallback,
+      globalConfig,
+      module,
+      adminPolicy,
+      pool,
+    } = opts;
+    // For user picks, inject an admin credential as sharedCredentials (e.g. Trakt's
+    // OAuth client id). Skip any admin pick already marked exhausted so we don't hand
+    // a rate-limited secret to a subsequent user call.
+    const adminPick =
+      pick.side === "admin"
+        ? pick
+        : plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId));
+    // Resolve per-invocation `x-allowed-host` hostnames from whichever config
+    // matches the current pick: user-scoped picks read `userConfigSchema` against
+    // the stored `userConfig`; admin-scoped picks read `sharedCredentialsSchema`.
+    const dynamicAllowedHosts =
+      pick.side === "user"
+        ? resolveAllowedHostsFromSchema(
+            args.pluginId,
+            module.manifest.userConfigSchema,
+            pick.userConfig,
+          )
+        : resolveAllowedHostsFromSchema(
+            args.pluginId,
+            module.manifest.sharedCredentialsSchema,
+            pick.value,
+          );
+    return buildContext({
+      pluginId: args.pluginId,
+      allowedHosts: module.manifest.allowedHosts,
+      dynamicAllowedHosts,
+      adminAllowlist: adminPolicy.adminAllowlist,
+      adminHeaders: adminPolicy.adminHeaders,
+      userId: args.userId,
+      appBaseUrl: env.APP_EXTERNAL_URL,
+      credentials: pick.side === "user" ? pick.value : null,
+      sharedCredentials: pick.side === "admin" ? pick.value : (adminPick?.value ?? adminFallback),
+      userConfig: pick.userConfig,
+      globalConfig,
+      pool,
+    });
   }
 
   private async markPickExhausted(

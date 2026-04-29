@@ -154,12 +154,12 @@ export const entDetailsHandler: ToolHandler = async (ctx: ToolCallContext, input
     id: compact.id,
     title: compact.title,
     type: compact.type,
-    ...(compact.year !== undefined ? { year: compact.year } : {}),
-    ...(compact.genres ? { genres: compact.genres } : {}),
-    ...(compact.overview ? { overview: compact.overview } : {}),
-    ...(compact.poster ? { poster: compact.poster } : {}),
-    ...(availability ? { status: availability } : {}),
   };
+  if (compact.year !== undefined) out.year = compact.year;
+  if (compact.genres) out.genres = compact.genres;
+  if (compact.overview) out.overview = compact.overview;
+  if (compact.poster) out.poster = compact.poster;
+  if (availability) out.status = availability;
   if (Object.keys(ratings).length > 0) out.ratings = ratings;
   if (typeof ownFeedback.rating === "number" && ownFeedback.rating > 0) {
     out.user_rated = ownFeedback.rating;

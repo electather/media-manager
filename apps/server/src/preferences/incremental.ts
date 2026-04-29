@@ -69,14 +69,7 @@ export async function applyIncrementalUpdate(
     if (!contribution) continue;
     const weight = recordWeight(record);
     if (weight === 0 && (record.noteKeywords?.length ?? 0) === 0) continue;
-    for (const partition of partitions) {
-      const profile = existing.get(partition) ?? null;
-      if (!profile) continue;
-      if (record.createdAt <= profile.lastUpdatedAt) continue;
-      if (partition !== "combined" && partition !== record.mediaType) continue;
-      applyToProfile(profile, contribution, weight, record);
-      applied += 1;
-    }
+    applied += applyRecordToPartitions(record, contribution, weight, partitions, existing);
   }
 
   for (const partition of partitions) {
@@ -87,6 +80,25 @@ export async function applyIncrementalUpdate(
     await profileStorage.write(profile);
   }
   return { userId, applied };
+}
+
+function applyRecordToPartitions(
+  record: FeedbackRecord,
+  contribution: import("./types").CandidateFeatures,
+  weight: number,
+  partitions: ProfileMediaType[],
+  existing: Map<ProfileMediaType, StoredPreferenceProfile | null>,
+): number {
+  let applied = 0;
+  for (const partition of partitions) {
+    const profile = existing.get(partition) ?? null;
+    if (!profile) continue;
+    if (record.createdAt <= profile.lastUpdatedAt) continue;
+    if (partition !== "combined" && partition !== record.mediaType) continue;
+    applyToProfile(profile, contribution, weight, record);
+    applied += 1;
+  }
+  return applied;
 }
 
 function recordWeight(record: FeedbackRecord): number {
