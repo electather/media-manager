@@ -6,23 +6,10 @@ import type {
 } from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
-import { rebuildProfile } from "./rebuild";
+import { rebuildProfile, SIGNAL_WEIGHTS, NOTE_KEYWORD_BOOST } from "./rebuild";
 import { profileStorage, type StoredPreferenceProfile } from "./storage";
 import type { PreferenceDataProvider } from "./provider";
 import { deriveConfidence } from "./types";
-
-const SIGNAL_WEIGHTS = {
-  rateHigh: 1.0,
-  rateMid: 0,
-  rateLow: -0.8,
-  like: 0.8,
-  dislike: -1.0,
-  notePositive: 0.6,
-  noteNegative: -0.6,
-  noteNeutral: 0,
-} as const;
-
-const NOTE_KEYWORD_BOOST = 0.3;
 
 export interface IncrementalDeps {
   provider: PreferenceDataProvider;

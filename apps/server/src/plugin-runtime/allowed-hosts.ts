@@ -171,6 +171,7 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
  * descends into `properties` (objects) and `items` (arrays) — everything else
  * is treated as a leaf.
  */
+// fallow-ignore-next-line complexity
 function walk(
   pluginId: string,
   schema: unknown,

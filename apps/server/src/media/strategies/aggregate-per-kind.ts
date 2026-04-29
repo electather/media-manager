@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import { consola } from "consola";
 import { z } from "zod";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
@@ -98,12 +99,7 @@ function selectEligibleProviders(
 
 function sortByPriority(providers: PerKindProvider[]): PerKindProvider[] {
   // Tie-break alphabetical so merge order is deterministic across boots.
-  return [...providers].sort((a, b) => {
-    if (a.providerPriority !== b.providerPriority) {
-      return a.providerPriority - b.providerPriority;
-    }
-    return a.pluginId.localeCompare(b.pluginId);
-  });
+  return orderBy(providers, [(p) => p.providerPriority, (p) => p.pluginId], ["asc", "asc"]);
 }
 
 async function invokeProvider(

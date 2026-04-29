@@ -3,7 +3,7 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
 import { getDb } from "../db/client";
 import { feedback } from "../db/schema";
-import { classifySentiment, extractNoteKeywords } from "./sentiment";
+import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
 import type { UserItemFeedback } from "./types";
 
 export interface RecordFeedbackInput {
@@ -17,20 +17,46 @@ export interface RecordFeedbackInput {
   now?: number;
 }
 
+function processNoteFields(
+  raw: string | null | undefined,
+  itemKeywords: readonly string[],
+  context: { userId: string; tmdbId: string },
+): {
+  note: string | null;
+  noteSentiment: NoteSentiment | null;
+  noteKeywordsJson: string | null;
+  noteKeywordsArray: string[] | null;
+} {
+  const note = typeof raw === "string" && raw.length > 0 ? raw : null;
+  if (!note)
+    return { note: null, noteSentiment: null, noteKeywordsJson: null, noteKeywordsArray: null };
+  const noteSentiment = classifySentiment(note);
+  const keywords = extractNoteKeywords(note, itemKeywords);
+  if (note.length > 20 && keywords.length === 0) {
+    console.warn("[feedback-log] non-trivial note produced no keywords", {
+      userId: context.userId,
+      tmdbId: context.tmdbId,
+      noteLength: note.length,
+      itemKeywordCount: itemKeywords.length,
+    });
+  }
+  const hasKeywords = keywords.length > 0;
+  return {
+    note,
+    noteSentiment,
+    noteKeywordsJson: hasKeywords ? JSON.stringify(keywords) : null,
+    noteKeywordsArray: hasKeywords ? keywords : null,
+  };
+}
+
 export const feedbackLog = {
   async record(input: RecordFeedbackInput): Promise<FeedbackRecord> {
     const createdAt = input.now ?? Date.now();
-    const note = typeof input.note === "string" && input.note.length > 0 ? input.note : null;
-    const noteSentiment = note ? classifySentiment(note) : null;
-    const noteKeywords = note ? extractNoteKeywords(note, input.itemKeywords ?? []) : null;
-    if (note && note.length > 20 && (!noteKeywords || noteKeywords.length === 0)) {
-      console.warn("[feedback-log] non-trivial note produced no keywords", {
-        userId: input.userId,
-        tmdbId: input.tmdbId,
-        noteLength: note.length,
-        itemKeywordCount: (input.itemKeywords ?? []).length,
-      });
-    }
+    const { note, noteSentiment, noteKeywordsJson, noteKeywordsArray } = processNoteFields(
+      input.note,
+      input.itemKeywords ?? [],
+      { userId: input.userId, tmdbId: input.tmdbId },
+    );
     const row = {
       id: randomUUID(),
       userId: input.userId,
@@ -40,7 +66,7 @@ export const feedbackLog = {
       rating: input.action === "rate" && typeof input.rating === "number" ? input.rating : null,
       note,
       noteSentiment,
-      noteKeywords: noteKeywords && noteKeywords.length > 0 ? JSON.stringify(noteKeywords) : null,
+      noteKeywords: noteKeywordsJson,
       createdAt,
     };
     await getDb().insert(feedback).values(row);
@@ -53,7 +79,7 @@ export const feedbackLog = {
       rating: row.rating,
       note: row.note,
       noteSentiment: row.noteSentiment,
-      noteKeywords: noteKeywords ?? null,
+      noteKeywords: noteKeywordsArray,
       createdAt: row.createdAt,
     };
   },

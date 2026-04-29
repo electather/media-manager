@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
@@ -26,7 +27,7 @@ export const yourWatchlistFetcher: RowFetcher = {
     const offset = readOffset(opts.cursor);
     const result = await ctx.mediaService.getWatchlistFeed({ deadlineMs: ctx.deadlineMs });
     const data = result.items as WatchlistEntry[];
-    const sorted = [...data].sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt));
+    const sorted = orderBy(data, [(e) => Date.parse(e.addedAt)], ["desc"]);
     const slice = sorted.slice(offset, offset + opts.limit);
     const items = await Promise.all(slice.map((entry) => buildItem(ctx, entry.item)));
     const usable = items.filter((item): item is CompactMediaItem => item !== null);

@@ -129,6 +129,7 @@ export function computeDisplayFields(
   return out;
 }
 
+// fallow-ignore-next-line complexity
 function buildDisplayField(
   name: string,
   def: Record<string, unknown> | undefined,

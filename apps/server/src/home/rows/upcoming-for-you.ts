@@ -1,4 +1,4 @@
-import { last } from "es-toolkit/array";
+import { last, orderBy } from "es-toolkit/array";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
@@ -38,9 +38,10 @@ export const upcomingForYouFetcher: RowFetcher = {
       ctx.mediaService.getUpcomingFeed({ deadlineMs: ctx.deadlineMs }),
       ctx.dataloader.getInProgressSet(),
     ]);
-    const entries = (result.items as UpcomingEntry[])
-      .filter((entry) => filterByInProgress(entry, inProgress))
-      .sort(compareEntries);
+    const filtered = (result.items as UpcomingEntry[]).filter((entry) =>
+      filterByInProgress(entry, inProgress),
+    );
+    const entries = orderBy(filtered, [(e) => Date.parse(e.airsAt)], ["asc"]);
     const sliced = entries.filter((entry) => isAfter(entry, after)).slice(0, opts.limit);
     const items = sliced.map(mapToCompact);
 
@@ -99,10 +100,6 @@ function isAfter(
   if (ts < after.airsAt) return false;
   const id = compositeId(entry);
   return id !== null && id > `${after.mediaType}:${after.tmdbId}`;
-}
-
-function compareEntries(a: UpcomingEntry, b: UpcomingEntry): number {
-  return Date.parse(a.airsAt) - Date.parse(b.airsAt);
 }
 
 function compositeId(entry: UpcomingEntry): string | null {

@@ -86,6 +86,7 @@ export function requestCancel(jobId: string, scopeKey?: string | null): boolean 
  * provide the handler and the dispatch-specific policy (e.g. per-row status
  * resolution).
  */
+// fallow-ignore-next-line complexity
 export async function run(req: RunRequest): Promise<RunOutcome> {
   if (isRunning(req.jobId, req.scopeKey)) {
     return {

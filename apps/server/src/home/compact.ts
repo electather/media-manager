@@ -53,6 +53,7 @@ export interface RawMediaItem {
  * Absent values are *omitted*, never null/undefined; matches the same
  * compression discipline `ent_discover` uses on the MCP wire.
  */
+// fallow-ignore-next-line complexity
 export function toCompact(
   item: RawMediaItem,
   extras: Partial<CompactMediaItem> = {},

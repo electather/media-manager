@@ -181,8 +181,8 @@ async function runRecommend(
     // productively.
     throw notConnected("recommendations@v1");
   }
-  const compact = compactList(result.data ?? [], () => ({}));
-  return rerankCompactResults(userId, compact, type, limit);
+  const candidates = compactList(result.data ?? [], () => ({}));
+  return rerankCompactResults(userId, candidates, type, limit);
 }
 
 /**
@@ -285,8 +285,8 @@ async function runSimilar(userId: string, input: EntDiscoverInput): Promise<Comp
     mediaType: resolvedType,
   });
   if (!result.data) throw notConnected("metadata@v1");
-  const compact = compactList(result.data, () => ({}), input.limit);
-  return compact.map((item) => ({ ...item, id: item.id || formatMediaId(resolvedType, tmdbId) }));
+  const similar = compactList(result.data, () => ({}), input.limit);
+  return similar.map((item) => ({ ...item, id: item.id || formatMediaId(resolvedType, tmdbId) }));
 }
 
 async function runDiscover(userId: string, input: EntDiscoverInput): Promise<CompactMediaResult[]> {

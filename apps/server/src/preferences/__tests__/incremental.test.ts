@@ -23,9 +23,13 @@ vi.mock("../feedback-log", () => ({
   },
 }));
 
-vi.mock("../rebuild", () => ({
-  rebuildProfile: (...args: unknown[]) => rebuildProfileMock(...args),
-}));
+vi.mock("../rebuild", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../rebuild")>();
+  return {
+    ...actual,
+    rebuildProfile: (...args: unknown[]) => rebuildProfileMock(...args),
+  };
+});
 
 const { applyIncrementalUpdate } = await import("../incremental");
 import type { CandidateFeatures } from "../types";

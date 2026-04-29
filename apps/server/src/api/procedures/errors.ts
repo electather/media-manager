@@ -55,6 +55,7 @@ export const errorsApp = new Hono()
 export const adminErrorsApp = new Hono()
   .use("*", requireSession)
   .use("*", requirePermission(PERMISSIONS.ADMIN_PLUGINS))
+  // fallow-ignore-next-line complexity
   .get("/", zValidator("query", listSchema), async (c) => {
     const q = c.req.valid("query");
     const db = getDb();

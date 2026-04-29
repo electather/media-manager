@@ -71,6 +71,7 @@ export async function captureError(err: unknown, meta: CaptureMeta): Promise<str
   return record.id;
 }
 
+// fallow-ignore-next-line complexity
 function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
   const severity = meta.severity ?? severityFor(meta.code ?? "");
   const ctx = currentRequestContext();

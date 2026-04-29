@@ -53,6 +53,7 @@ function fieldFromAuthResult(result: AuthResult): string | undefined {
  * is blank in `value`, or `undefined` if every required field is populated.
  * Skips `x-plugin-resolved` fields — the plugin owns those values.
  */
+// fallow-ignore-next-line complexity
 function firstBlankRequiredField(schema: unknown, value: unknown): string | undefined {
   if (!schema || typeof schema !== "object") return undefined;
   const obj = schema as {
@@ -186,6 +187,7 @@ async function writeAndCleanupPendingAuth(
   return id;
 }
 
+// fallow-ignore-next-line complexity
 export async function verifyConfig(args: {
   userId: string;
   pluginId: string;

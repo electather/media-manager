@@ -483,4 +483,4 @@ function pruneMap(map: Record<string, number>, k: number): Record<string, number
   return Object.fromEntries(orderBy(entries, [([, v]) => Math.abs(v)], ["desc"]).slice(0, k));
 }
 
-export { SIGNAL_WEIGHTS, TOP_K, HALF_LIFE_MS, recencyMultiplier };
+export { SIGNAL_WEIGHTS, TOP_K, HALF_LIFE_MS, NOTE_KEYWORD_BOOST, recencyMultiplier };

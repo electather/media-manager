@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import type {
   FeatureCategory,
   FeedbackAction,
@@ -134,8 +135,8 @@ function pickTopFeature(
     }
   }
   if (contributions.length === 0) return null;
-  contributions.sort((a, b) => b.weight - a.weight);
-  return contributions[0] ?? null;
+  const sorted = orderBy(contributions, [(c) => c.weight], ["desc"]);
+  return sorted[0] ?? null;
 }
 
 /** Renders a contributor into a clause using the per-category template. */

@@ -1,3 +1,4 @@
+import { sortBy } from "es-toolkit/array";
 import { sha256 } from "../crypto/hash";
 import { MemoryCache } from "../cache/memory";
 import { RedisCache } from "../cache/redis";
@@ -14,9 +15,10 @@ export function canonicalize(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalize).join(",")}]`;
   }
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const unsorted = Object.entries(value as Record<string, unknown>).filter(
+    ([, v]) => v !== undefined,
+  );
+  const entries = sortBy(unsorted, [([k]) => k]);
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalize(v)}`).join(",")}}`;
 }
 
