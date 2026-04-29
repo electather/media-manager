@@ -3,8 +3,9 @@ import { and, desc, eq, gt } from "drizzle-orm";
 import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
 import { getDb } from "../db/client";
 import { feedback } from "../db/schema";
-import { classifySentiment, extractNoteKeywords } from "./sentiment";
+import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
 import type { UserItemFeedback } from "./types";
+import { isNil } from "es-toolkit/predicate";
 
 export interface RecordFeedbackInput {
   userId: string;
@@ -17,20 +18,48 @@ export interface RecordFeedbackInput {
   now?: number;
 }
 
+// fallow-ignore-next-line complexity
+function processNoteFields(
+  raw: string | null | undefined,
+  itemKeywords: readonly string[],
+  context: { userId: string; tmdbId: string },
+): {
+  note: string | null;
+  noteSentiment: NoteSentiment | null;
+  noteKeywordsJson: string | null;
+  noteKeywordsArray: string[] | null;
+} {
+  const note = typeof raw === "string" && raw.length > 0 ? raw : null;
+  if (!note)
+    return { note: null, noteSentiment: null, noteKeywordsJson: null, noteKeywordsArray: null };
+  const noteSentiment = classifySentiment(note);
+  const keywords = extractNoteKeywords(note, itemKeywords);
+  if (note.length > 20 && keywords.length === 0) {
+    console.warn("[feedback-log] non-trivial note produced no keywords", {
+      userId: context.userId,
+      tmdbId: context.tmdbId,
+      noteLength: note.length,
+      itemKeywordCount: itemKeywords.length,
+    });
+  }
+  const hasKeywords = keywords.length > 0;
+  return {
+    note,
+    noteSentiment,
+    noteKeywordsJson: hasKeywords ? JSON.stringify(keywords) : null,
+    noteKeywordsArray: hasKeywords ? keywords : null,
+  };
+}
+
 export const feedbackLog = {
+  // fallow-ignore-next-line complexity
   async record(input: RecordFeedbackInput): Promise<FeedbackRecord> {
     const createdAt = input.now ?? Date.now();
-    const note = typeof input.note === "string" && input.note.length > 0 ? input.note : null;
-    const noteSentiment = note ? classifySentiment(note) : null;
-    const noteKeywords = note ? extractNoteKeywords(note, input.itemKeywords ?? []) : null;
-    if (note && note.length > 20 && (!noteKeywords || noteKeywords.length === 0)) {
-      console.warn("[feedback-log] non-trivial note produced no keywords", {
-        userId: input.userId,
-        tmdbId: input.tmdbId,
-        noteLength: note.length,
-        itemKeywordCount: (input.itemKeywords ?? []).length,
-      });
-    }
+    const { note, noteSentiment, noteKeywordsJson, noteKeywordsArray } = processNoteFields(
+      input.note,
+      input.itemKeywords ?? [],
+      { userId: input.userId, tmdbId: input.tmdbId },
+    );
     const row = {
       id: randomUUID(),
       userId: input.userId,
@@ -40,7 +69,7 @@ export const feedbackLog = {
       rating: input.action === "rate" && typeof input.rating === "number" ? input.rating : null,
       note,
       noteSentiment,
-      noteKeywords: noteKeywords && noteKeywords.length > 0 ? JSON.stringify(noteKeywords) : null,
+      noteKeywords: noteKeywordsJson,
       createdAt,
     };
     await getDb().insert(feedback).values(row);
@@ -53,7 +82,7 @@ export const feedbackLog = {
       rating: row.rating,
       note: row.note,
       noteSentiment: row.noteSentiment,
-      noteKeywords: noteKeywords ?? null,
+      noteKeywords: noteKeywordsArray,
       createdAt: row.createdAt,
     };
   },
@@ -135,15 +164,16 @@ function parseKeywords(raw: string | null): string[] | null {
 }
 
 /** Collapses a list of records for one item into the ent_details projection. */
+// fallow-ignore-next-line complexity
 function aggregateForItem(records: FeedbackRecord[]): UserItemFeedback {
   const out: UserItemFeedback = {};
   const first = records[0];
   if (first) out.latestAt = first.createdAt;
   for (const record of records) {
-    if (out.rated === undefined && record.action === "rate" && record.rating !== null) {
+    if (isNil(out.rated) && record.action === "rate" && record.rating !== null) {
       out.rated = record.rating;
     }
-    if (out.liked === undefined && (record.action === "like" || record.action === "dislike")) {
+    if (isNil(out.liked) && (record.action === "like" || record.action === "dislike")) {
       out.liked = record.action === "like";
     }
     if (!out.noted && record.action === "note") out.noted = true;

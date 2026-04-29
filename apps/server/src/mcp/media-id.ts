@@ -9,6 +9,7 @@ export interface ParsedMediaId {
  * Canonical MCP media-id format: `{type}:{tmdb_id}` (e.g. `movie:550`, `tv:1396`).
  * Throws `McpError(mcp.invalid_id)` for anything that doesn't match.
  */
+// fallow-ignore-next-line complexity
 export function parseMediaId(raw: string): ParsedMediaId {
   if (typeof raw !== "string") throw invalidId(String(raw));
   const parts = raw.split(":");

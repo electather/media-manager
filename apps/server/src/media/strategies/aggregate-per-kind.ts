@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import { consola } from "consola";
 import { z } from "zod";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
@@ -10,8 +11,10 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { invokeOne } from "../invoke";
-import { PluginCallError } from "../errors";
+import { PluginCallError, type InvocationOutcome } from "../errors";
 import type { DispatchRequest } from "../types";
+import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
+import { isNil } from "es-toolkit/predicate";
 
 interface PerKindProvider {
   pluginId: string;
@@ -63,34 +66,13 @@ function canServePerKind(
   return provider.supportedIdTypes[type].some((t) => Boolean(ids[t]));
 }
 
-/**
- * `aggregate_per_kind`: dispatch to every eligible provider in parallel and
- * merge per-kind in priority order. First non-empty array wins per kind.
- *
- * Eligibility = manifest's `supportedIdTypes[type]` overlaps the request's
- * `ids` map. Zero eligible providers throws `artwork.unsupported_id_combo`
- * (caller-side bug — the call should never have made it here). All-fail and
- * all-empty paths return an empty bundle (the per-kind fields list defaults
- * to empty arrays); all-empty is cached as a negative, all-fail is not.
- */
-export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
-  req: DispatchRequest,
-): Promise<T> {
-  const capability = requireCapability(req.capability, req.version);
-  if (capability.strategy.kind !== "aggregate_per_kind") {
-    throw new Error(
-      `dispatchAggregatePerKind called for capability ${req.capability}@${req.version} ` +
-        `with strategy ${capability.strategy.kind}`,
-    );
-  }
-  const perKindFields = capability.strategy.perKindFields;
-  const scope = scopeForRequest(capability, req.input);
-
-  const cached = await readCache<T>(req, scope);
-  if (cached !== undefined) return cached;
-
-  const parsed = perKindInputSchema.safeParse(req.input ?? {});
-  if (!parsed.success || parsed.data.type === undefined) {
+// fallow-ignore-next-line complexity
+function parsePerKindInput(input: unknown): {
+  ids: Record<string, unknown>;
+  mediaType: "movie" | "tv";
+} {
+  const parsed = perKindInputSchema.safeParse(input ?? {});
+  if (!parsed.success || isNil(parsed.data.type)) {
     throw new PluginCallError(
       "artwork.bad_input",
       `aggregate_per_kind input must include type: "movie" | "tv"`,
@@ -98,61 +80,65 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
       null,
     );
   }
-  const ids = parsed.data.ids ?? {};
-  const mediaType = parsed.data.type;
+  return { ids: parsed.data.ids ?? {}, mediaType: parsed.data.type };
+}
 
-  const providerIds = capabilityRegistry.listProviders(req.capability, req.version, scope);
+function selectEligibleProviders(
+  capability: string,
+  version: string,
+  scope: ResolvedCapabilityScope,
+  ids: Record<string, unknown>,
+  mediaType: "movie" | "tv",
+): PerKindProvider[] {
+  const providerIds = capabilityRegistry.listProviders(capability, version, scope);
   const providers: PerKindProvider[] = [];
   for (const pid of providerIds) {
-    const provider = readPerKindProvider(pid, req.capability);
+    const provider = readPerKindProvider(pid, capability);
     if (provider && canServePerKind(provider, ids, mediaType)) providers.push(provider);
   }
-  if (providers.length === 0) {
+  return providers;
+}
+
+function sortByPriority(providers: PerKindProvider[]): PerKindProvider[] {
+  // Tie-break alphabetical so merge order is deterministic across boots.
+  return orderBy(providers, [(p) => p.providerPriority, (p) => p.pluginId], ["asc", "asc"]);
+}
+
+async function invokeProvider(
+  req: DispatchRequest,
+  provider: PerKindProvider,
+  timeoutMs: number,
+): Promise<InvocationOutcome<Record<string, unknown[]>>> {
+  const conn = await pickSingleConnection(req.userId, provider.pluginId);
+  if (!conn) {
     throw new PluginCallError(
-      "artwork.unsupported_id_combo",
-      `no provider can serve ${req.capability}@${req.version} for type=${mediaType} ` +
-        `with ids=${Object.keys(ids).join(",") || "(none)"}`,
-      "",
+      "media.no_connection",
+      `no connection available for plugin ${provider.pluginId}`,
+      provider.pluginId,
       null,
     );
   }
-  // Sort = merge-priority ordering only. Dispatch fires in parallel below
-  // regardless of order; priority decides who wins per-kind during merge.
-  // Tie-break alphabetical so the merge order is deterministic across boots.
-  providers.sort((a, b) => {
-    if (a.providerPriority !== b.providerPriority) {
-      return a.providerPriority - b.providerPriority;
-    }
-    return a.pluginId.localeCompare(b.pluginId);
-  });
-
-  const settled = await Promise.allSettled(
-    providers.map(async (p) => {
-      const conn = await pickSingleConnection(req.userId, p.pluginId);
-      if (!conn) {
-        throw new PluginCallError(
-          "media.no_connection",
-          `no connection available for plugin ${p.pluginId}`,
-          p.pluginId,
-          null,
-        );
-      }
-      return invokeOne<Record<string, unknown[]>>(
-        {
-          userId: req.userId,
-          pluginId: p.pluginId,
-          capability: req.capability,
-          version: req.version,
-          method: req.method,
-          input: req.input,
-          timeoutMs: capability.defaultTimeoutMs,
-          deadlineMs: req.deadlineMs,
-        },
-        conn,
-      );
-    }),
+  return invokeOne<Record<string, unknown[]>>(
+    {
+      userId: req.userId,
+      pluginId: provider.pluginId,
+      capability: req.capability,
+      version: req.version,
+      method: req.method,
+      input: req.input,
+      timeoutMs,
+      deadlineMs: req.deadlineMs,
+    },
+    conn,
   );
+}
 
+// fallow-ignore-next-line complexity
+function collectSuccessful(
+  settled: PromiseSettledResult<InvocationOutcome<Record<string, unknown[]>>>[],
+  providers: PerKindProvider[],
+  req: DispatchRequest,
+): { successful: Array<Record<string, unknown[]>>; allFailed: boolean } {
   const successful: Array<Record<string, unknown[]>> = [];
   let allFailed = true;
   for (const [idx, outcome] of settled.entries()) {
@@ -177,9 +163,14 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
       successful.push(result.data as Record<string, unknown[]>);
     }
   }
+  return { successful, allFailed };
+}
 
-  // Build empty bundle scaffold from declared perKindFields. First non-empty
-  // walks successful results in already-sorted (priority) order.
+// fallow-ignore-next-line complexity
+function mergeBundle(
+  perKindFields: readonly string[],
+  successful: Array<Record<string, unknown[]>>,
+): Record<string, unknown[]> {
   const bundle: Record<string, unknown[]> = {};
   for (const field of perKindFields) bundle[field] = [];
   for (const field of perKindFields) {
@@ -191,6 +182,58 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
       }
     }
   }
+  return bundle;
+}
+
+/**
+ * `aggregate_per_kind`: dispatch to every eligible provider in parallel and
+ * merge per-kind in priority order. First non-empty array wins per kind.
+ *
+ * Eligibility = manifest's `supportedIdTypes[type]` overlaps the request's
+ * `ids` map. Zero eligible providers throws `artwork.unsupported_id_combo`
+ * (caller-side bug — the call should never have made it here). All-fail and
+ * all-empty paths return an empty bundle (the per-kind fields list defaults
+ * to empty arrays); all-empty is cached as a negative, all-fail is not.
+ */
+// fallow-ignore-next-line complexity
+export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
+  req: DispatchRequest,
+): Promise<T> {
+  const capability = requireCapability(req.capability, req.version);
+  if (capability.strategy.kind !== "aggregate_per_kind") {
+    throw new Error(
+      `dispatchAggregatePerKind called for capability ${req.capability}@${req.version} ` +
+        `with strategy ${capability.strategy.kind}`,
+    );
+  }
+  const perKindFields = capability.strategy.perKindFields;
+  const scope = scopeForRequest(capability, req.input);
+
+  const cached = await readCache<T>(req, scope);
+  if (cached !== undefined) return cached;
+
+  const { ids, mediaType } = parsePerKindInput(req.input);
+
+  const eligible = selectEligibleProviders(req.capability, req.version, scope, ids, mediaType);
+  if (eligible.length === 0) {
+    throw new PluginCallError(
+      "artwork.unsupported_id_combo",
+      `no provider can serve ${req.capability}@${req.version} for type=${mediaType} ` +
+        `with ids=${Object.keys(ids).join(",") || "(none)"}`,
+      "",
+      null,
+    );
+  }
+  // Sort = merge-priority ordering only. Dispatch fires in parallel below
+  // regardless of order; priority decides who wins per-kind during merge.
+  const providers = sortByPriority(eligible);
+
+  const settled = await Promise.allSettled(
+    providers.map((p) => invokeProvider(req, p, capability.defaultTimeoutMs)),
+  );
+
+  const { successful, allFailed } = collectSuccessful(settled, providers, req);
+  const bundle = mergeBundle(perKindFields, successful);
 
   // All-fail (every provider threw or errored) is treated as transient and
   // cached at a short NEGATIVE_TTL_MS so retries do not amplify pressure on

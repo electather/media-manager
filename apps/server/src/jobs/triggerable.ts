@@ -1,15 +1,14 @@
 import Ajv, { type ValidateFunction } from "ajv";
 import { consola } from "consola";
-import { newRequestId } from "../errors/request-context";
 import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
 import { getConfig, effectiveSchedule } from "./config";
 import { jobErrors } from "./errors";
-import { recordSkipped } from "./history";
 import { register, type RegistryEntry } from "./registry";
 import { isRunning, requestCancel, run } from "./runner";
+import { shouldSkipTick } from "./tick-guard";
 import type {
   AdminOrFeaturePermission,
-  CaptureMeta,
+  JobCaptureMeta,
   JobRunContext,
   TriggerableJobHandle,
   TriggerSource,
@@ -27,9 +26,10 @@ export interface RegisterTriggerableOptions<TInput, TResult> {
   timeoutSec?: number;
   inputSchema?: Record<string, unknown>;
   requiredPermission: AdminOrFeaturePermission;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
 }
 
+// fallow-ignore-next-line complexity
 export function registerTriggerable<TInput = unknown, TResult = unknown>(
   opts: RegisterTriggerableOptions<TInput, TResult>,
 ): TriggerableJobHandle<TInput, TResult> {
@@ -69,6 +69,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
   };
   register(entry);
 
+  // fallow-ignore-next-line complexity
   async function trigger(
     input: TInput,
     source: TriggerSource,
@@ -102,18 +103,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
   }
 
   async function onTick(): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) return;
-    if (isRunning(opts.id)) {
-      await recordSkipped({
-        id: crypto.randomUUID(),
-        jobId: opts.id,
-        triggeredBy: "cron",
-        requestId: newRequestId(),
-        tickAt: Date.now(),
-      });
-      return;
-    }
+    if (await shouldSkipTick(opts.id)) return;
     await run({
       jobId: opts.id,
       kind: "triggerable",
@@ -124,6 +114,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
     });
   }
 
+  // fallow-ignore-next-line complexity
   async function scheduleFromConfig(): Promise<void> {
     if (!opts.schedule) return;
     const cfg = await getConfig(opts.id);

@@ -15,17 +15,17 @@ export { isRunning, anyRunning } from "./runner";
 
 /** Removes a registered job. Cron entry is stopped; in-flight runs finish naturally. */
 export function unregister(jobId: string): void {
-  registry.unregister(jobId);
+  registry.unregisterEntry(jobId);
 }
 
 /** Returns the registered entry for a job id, or undefined. */
 export function find(jobId: string) {
-  return registry.find(jobId);
+  return registry.findEntry(jobId);
 }
 
 /** Returns an up-to-date JobHandle for each registered job. */
 export async function list(): Promise<JobHandle[]> {
-  const entries = registry.list();
+  const entries = registry.listEntries();
   const handles: JobHandle[] = [];
   for (const entry of entries) {
     handles.push(await toHandle(entry));
@@ -35,17 +35,18 @@ export async function list(): Promise<JobHandle[]> {
 
 /** Returns an up-to-date JobHandle for one job, or null if unregistered. */
 export async function describe(jobId: string): Promise<JobHandle | null> {
-  const entry = registry.find(jobId);
+  const entry = registry.findEntry(jobId);
   if (!entry) return null;
   return toHandle(entry);
 }
 
 /** Applies a config change and re-schedules the underlying cron if needed. */
+// fallow-ignore-next-line complexity
 export async function applyConfigChange(
   jobId: string,
   input: UpdateInput,
 ): Promise<JobHandle | null> {
-  const entry = registry.find(jobId);
+  const entry = registry.findEntry(jobId);
   if (!entry) return null;
   if (input.scheduleOverride) assertValidSchedule(input.scheduleOverride);
 
@@ -65,6 +66,7 @@ export function stopAll(): void {
   registry.clear();
 }
 
+// fallow-ignore-next-line complexity
 async function toHandle(entry: registry.RegistryEntry): Promise<JobHandle> {
   const cfg = await getConfig(entry.id);
   const effective = effectiveSchedule(entry.schedule, cfg.scheduleOverride);

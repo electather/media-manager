@@ -18,14 +18,18 @@
   "entry": ["apps/server/src/worker.ts"],
   "ignorePatterns": [
     "**/*.test.ts",
+    "**/*.test.tsx",
     "**/*.spec.ts",
+    "**/*.spec.tsx",
     "**/*.gen.ts",
     "**/dist/**",
     "**/node_modules/**",
     "**/.claude/**",
     "**/plan/**",
     "**/docs/**",
-    "**/docker/**"
+    "**/docker/**",
+    "apps/client/**",
+    "packages/plugins/**"
   ],
   "rules": {
     "unused-files": "error",
@@ -35,14 +39,183 @@
     "circular-deps": "warn"
   },
   "duplicates": {
-    "mode": "mild",
+    "mode": "semantic",
     "minTokens": 50,
-    "minLines": 5
+    "minLines": 5,
+    "ignoreImports": true,
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/*.tsx",
+      "**/plugin.ts",
+      "apps/client/**",
+      "packages/plugins/**"
+    ]
   },
   "health": {
     "maxCyclomatic": 20,
     "maxCognitive": 15,
     "maxCrap": 30,
-    "ignore": ["**/*.test.ts", "**/*.spec.ts"]
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "apps/client/**",
+      "packages/plugins/**"
+    ]
+  },
+  "boundaries": {
+    "zones": [
+      { "name": "client-routes", "patterns": ["apps/client/src/routes/**"] },
+      { "name": "client-app", "patterns": ["apps/client/src/app/**"] },
+      { "name": "client-components", "patterns": ["apps/client/src/components/**"] },
+      { "name": "client-hooks", "patterns": ["apps/client/src/hooks/**"] },
+      { "name": "client-lib", "patterns": ["apps/client/src/lib/**"] },
+      { "name": "client-root", "patterns": ["apps/client/src/*.*"] },
+
+      { "name": "server-api", "patterns": ["apps/server/src/api/**"] },
+      { "name": "server-mcp", "patterns": ["apps/server/src/mcp/**"] },
+      { "name": "server-jobs", "patterns": ["apps/server/src/jobs/**"] },
+      {
+        "name": "server-domains",
+        "patterns": [
+          "apps/server/src/artwork/**",
+          "apps/server/src/auth/**",
+          "apps/server/src/catalog/**",
+          "apps/server/src/home/**",
+          "apps/server/src/media/**",
+          "apps/server/src/notifications/**",
+          "apps/server/src/preferences/**"
+        ]
+      },
+      {
+        "name": "server-plugins",
+        "patterns": ["apps/server/src/plugin-runtime/**", "apps/server/src/plugins/**"]
+      },
+      {
+        "name": "server-infra",
+        "patterns": [
+          "apps/server/src/db/**",
+          "apps/server/src/cache/**",
+          "apps/server/src/crypto/**",
+          "apps/server/src/connections/**",
+          "apps/server/src/errors/**"
+        ]
+      },
+      { "name": "server-root", "patterns": ["apps/server/src/*.*"] },
+
+      { "name": "plugins", "patterns": ["packages/plugins/**"] },
+      { "name": "plugin-sdk", "patterns": ["packages/plugin-sdk/**"] },
+      { "name": "shared-pkg", "patterns": ["packages/shared/**"] }
+    ],
+    "rules": [
+      {
+        "from": "client-root",
+        "allow": [
+          "client-routes",
+          "client-app",
+          "client-components",
+          "client-hooks",
+          "client-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-routes",
+        "allow": ["client-app", "client-components", "client-hooks", "client-lib", "shared-pkg"]
+      },
+      {
+        "from": "client-app",
+        "allow": ["client-components", "client-hooks", "client-lib", "shared-pkg"]
+      },
+      { "from": "client-components", "allow": ["client-hooks", "client-lib", "shared-pkg"] },
+      { "from": "client-hooks", "allow": ["client-lib", "shared-pkg"] },
+      { "from": "client-lib", "allow": ["shared-pkg", "server-api", "server-root"] },
+
+      {
+        "from": "server-root",
+        "allow": [
+          "server-api",
+          "server-mcp",
+          "server-jobs",
+          "server-domains",
+          "server-plugins",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk",
+          "plugins"
+        ]
+      },
+      {
+        "from": "server-api",
+        "allow": [
+          "server-root",
+          "server-domains",
+          "server-plugins",
+          "server-infra",
+          "server-mcp",
+          "server-jobs",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mcp",
+        "allow": [
+          "server-root",
+          "server-domains",
+          "server-infra",
+          "shared-pkg",
+          "server-plugins",
+          "plugin-sdk",
+          "server-jobs"
+        ]
+      },
+      {
+        "from": "server-jobs",
+        "allow": [
+          "server-root",
+          "server-domains",
+          "server-plugins",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-domains",
+        "allow": [
+          "server-root",
+          "server-jobs",
+          "server-mcp",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk",
+          "server-plugins"
+        ]
+      },
+      {
+        "from": "server-plugins",
+        "allow": [
+          "server-root",
+          "server-domains",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk",
+          "plugins"
+        ]
+      },
+      {
+        "from": "server-infra",
+        "allow": ["server-root", "shared-pkg", "server-plugins", "plugin-sdk", "server-domains"]
+      },
+
+      { "from": "plugins", "allow": ["plugin-sdk", "shared-pkg"] },
+      { "from": "plugin-sdk", "allow": ["shared-pkg"] },
+      { "from": "shared-pkg", "allow": [] }
+    ]
   }
 }

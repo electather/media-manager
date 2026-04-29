@@ -47,6 +47,7 @@ export class AllPluginsFailedError extends Error {
 }
 
 /** Normalizes a thrown value into a canonical `{ code, devMessage }` pair. */
+// fallow-ignore-next-line complexity
 export function normalizeError(err: unknown): { code: HostErrorCode; devMessage: string } {
   if (isPluginError(err)) {
     return { code: err.code as HostErrorCode, devMessage: err.message };

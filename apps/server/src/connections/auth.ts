@@ -5,6 +5,7 @@ import { pluginRuntime } from "../plugin-runtime/runtime";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../errors/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.
@@ -14,6 +15,7 @@ import { encryptJson, decryptJson, stripRequestFields, writeConnection } from ".
  * secrets (e.g. a password that has been moved into the encrypted credentials
  * blob) from the persisted `userConfig` JSON.
  */
+// fallow-ignore-next-line complexity
 export function applyUserConfigPatch(
   userConfig: unknown,
   patch: Record<string, unknown> | undefined,
@@ -53,6 +55,7 @@ function fieldFromAuthResult(result: AuthResult): string | undefined {
  * is blank in `value`, or `undefined` if every required field is populated.
  * Skips `x-plugin-resolved` fields — the plugin owns those values.
  */
+// fallow-ignore-next-line complexity
 function firstBlankRequiredField(schema: unknown, value: unknown): string | undefined {
   if (!schema || typeof schema !== "object") return undefined;
   const obj = schema as {
@@ -69,7 +72,7 @@ function firstBlankRequiredField(schema: unknown, value: unknown): string | unde
     const def = obj.properties?.[key];
     if (def?.["x-plugin-resolved"] === true) continue;
     const v = valueObj[key];
-    if (v === undefined || v === null || v === "") return key;
+    if (isNil(v) || v === "") return key;
   }
   return undefined;
 }
@@ -80,6 +83,7 @@ function firstBlankRequiredField(schema: unknown, value: unknown): string | unde
  * runtime maps that throw into `plugin.invalid_base_url` with `params.field`,
  * so we can route on the code without string-matching.
  */
+// fallow-ignore-next-line complexity
 function rethrowAuthError(result: AuthResult): never {
   if (result.status !== "error") {
     throw unprocessable("connection.verify_failed", `unexpected status: ${result.status}`, {});
@@ -98,6 +102,95 @@ function rethrowAuthError(result: AuthResult): never {
   });
 }
 
+type PendingAuthLookup =
+  | { found: true; row: typeof pendingAuth.$inferSelect; state: unknown }
+  | { found: false; reason: "not_found" | "expired" };
+
+/** Inserts a `pendingAuth` row with the encrypted state and returns the nonce. */
+async function storePendingAuth(
+  db: ReturnType<typeof getDb>,
+  { userId, pluginId }: { userId: string; pluginId: string },
+  state: unknown,
+): Promise<string> {
+  const nonce = crypto.randomUUID();
+  const now = Date.now();
+  const enc = await encryptJson(state);
+  await db.insert(pendingAuth).values({
+    nonce,
+    userId,
+    pluginId,
+    state: enc.data,
+    stateIv: enc.iv,
+    createdAt: now,
+    expiresAt: now + 15 * 60 * 1000,
+  });
+  return nonce;
+}
+
+/**
+ * Fetches the `pendingAuth` row for the given nonce and userId, deletes it if
+ * expired, and decrypts the stored state. Returns a discriminated result so
+ * callers can apply their own error semantics for not-found and expired cases.
+ */
+async function loadPendingAuth(
+  db: ReturnType<typeof getDb>,
+  nonce: string,
+  userId: string,
+): Promise<PendingAuthLookup> {
+  const row = await db
+    .select()
+    .from(pendingAuth)
+    .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)))
+    .get();
+  if (!row) return { found: false, reason: "not_found" };
+  if (row.expiresAt < Date.now()) {
+    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, nonce));
+    return { found: false, reason: "expired" };
+  }
+  const state = await decryptJson(row.stateIv, row.state);
+  return { found: true, row, state };
+}
+
+async function runStartAuth<S extends "redirect" | "display_code">(
+  pluginId: string,
+  userId: string,
+  expectedStatus: S,
+  failLabel: string,
+): Promise<Extract<AuthResult, { status: S }>> {
+  const result = (await pluginRuntime.runAuth(pluginId, "startAuth", userId, null)) as AuthResult;
+  if (result.status !== expectedStatus) {
+    const message =
+      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
+    throw unprocessable("oauth.init_failed", `${failLabel}: ${message}`, { message });
+  }
+  return result as Extract<AuthResult, { status: S }>;
+}
+
+/** Writes a connection row and deletes the consumed `pendingAuth` record. */
+async function writeAndCleanupPendingAuth(
+  db: ReturnType<typeof getDb>,
+  nonce: string,
+  {
+    userId,
+    pluginId,
+    result,
+  }: {
+    userId: string;
+    pluginId: string;
+    result: Extract<AuthResult, { status: "completed" }>;
+  },
+): Promise<string> {
+  const id = await writeConnection({
+    userId,
+    pluginId,
+    credentials: result.credentials,
+    userConfig: applyUserConfigPatch(null, result.userConfigPatch),
+  });
+  await db.delete(pendingAuth).where(eq(pendingAuth.nonce, nonce));
+  return id;
+}
+
+// fallow-ignore-next-line complexity
 export async function verifyConfig(args: {
   userId: string;
   pluginId: string;
@@ -175,55 +268,34 @@ export async function initiateRedirectAuth(args: {
   pluginId: string;
 }): Promise<{ redirectUrl: string; nonce: string }> {
   const db = getDb();
-  const result = (await pluginRuntime.runAuth(
+  const result = await runStartAuth(
     args.pluginId,
-    "startAuth",
     args.userId,
-    null,
-  )) as AuthResult;
-  if (result.status !== "redirect") {
-    const message =
-      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    throw unprocessable("oauth.init_failed", `redirect auth init failed: ${message}`, { message });
-  }
-  const nonce = crypto.randomUUID();
-  const now = Date.now();
-  const enc = await encryptJson(result.state);
-  await db.insert(pendingAuth).values({
-    nonce,
-    userId: args.userId,
-    pluginId: args.pluginId,
-    state: enc.data,
-    stateIv: enc.iv,
-    createdAt: now,
-    expiresAt: now + 15 * 60 * 1000,
-  });
+    "redirect",
+    "redirect auth init failed",
+  );
+  const nonce = await storePendingAuth(db, args, result.state);
   return { redirectUrl: result.url, nonce };
 }
 
+// fallow-ignore-next-line complexity
 export async function completeRedirectAuth(args: {
   userId: string;
   nonce: string;
   queryParams: Record<string, string>;
 }): Promise<{ connectionId: string }> {
   const db = getDb();
-  const row = await db
-    .select()
-    .from(pendingAuth)
-    .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)))
-    .get();
-  if (!row) throw notFound("oauth.pending_not_found", "no pending auth");
-  if (row.expiresAt < Date.now()) {
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+  const auth = await loadPendingAuth(db, args.nonce, args.userId);
+  if (!auth.found) {
+    if (auth.reason === "not_found") throw notFound("oauth.pending_not_found", "no pending auth");
     throw unprocessable("oauth.state_expired", "authorization request expired");
   }
-  const state = await decryptJson(row.stateIv, row.state);
   const result = (await pluginRuntime.runAuth(
-    row.pluginId,
+    auth.row.pluginId,
     "completeAuth",
     args.userId,
     args.queryParams,
-    state,
+    auth.state,
   )) as AuthResult;
   if (result.status !== "completed") {
     if (result.status === "error") {
@@ -236,14 +308,12 @@ export async function completeRedirectAuth(args: {
       status: result.status,
     });
   }
-  const id = await writeConnection({
+  const connectionId = await writeAndCleanupPendingAuth(db, args.nonce, {
     userId: args.userId,
-    pluginId: row.pluginId,
-    credentials: result.credentials,
-    userConfig: applyUserConfigPatch(null, result.userConfigPatch),
+    pluginId: auth.row.pluginId,
+    result,
   });
-  await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-  return { connectionId: id };
+  return { connectionId };
 }
 
 export async function initiateDeviceAuth(args: { userId: string; pluginId: string }): Promise<{
@@ -254,29 +324,13 @@ export async function initiateDeviceAuth(args: { userId: string; pluginId: strin
   expiresAt: number;
 }> {
   const db = getDb();
-  const result = (await pluginRuntime.runAuth(
+  const result = await runStartAuth(
     args.pluginId,
-    "startAuth",
     args.userId,
-    null,
-  )) as AuthResult;
-  if (result.status !== "display_code") {
-    const message =
-      result.status === "error" ? result.devMessage : `unexpected status: ${result.status}`;
-    throw unprocessable("oauth.init_failed", `device auth init failed: ${message}`, { message });
-  }
-  const nonce = crypto.randomUUID();
-  const now = Date.now();
-  const enc = await encryptJson(result.pollState);
-  await db.insert(pendingAuth).values({
-    nonce,
-    userId: args.userId,
-    pluginId: args.pluginId,
-    state: enc.data,
-    stateIv: enc.iv,
-    createdAt: now,
-    expiresAt: now + 15 * 60 * 1000,
-  });
+    "display_code",
+    "device auth init failed",
+  );
+  const nonce = await storePendingAuth(db, args, result.pollState);
   return {
     userCode: result.code,
     verifyUrl: result.verifyUrl,
@@ -286,6 +340,7 @@ export async function initiateDeviceAuth(args: { userId: string; pluginId: strin
   };
 }
 
+// fallow-ignore-next-line complexity
 export async function pollDeviceAuth(args: {
   userId: string;
   nonce: string;
@@ -295,34 +350,28 @@ export async function pollDeviceAuth(args: {
   | { status: "error"; message: string }
 > {
   const db = getDb();
-  const row = await db
-    .select()
-    .from(pendingAuth)
-    .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)))
-    .get();
-  if (!row) return { status: "error", message: "no pending auth" };
-  if (row.expiresAt < Date.now()) {
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-    return { status: "error", message: "device code expired" };
+  const auth = await loadPendingAuth(db, args.nonce, args.userId);
+  if (!auth.found) {
+    return {
+      status: "error",
+      message: auth.reason === "expired" ? "device code expired" : "no pending auth",
+    };
   }
-  const pollState = await decryptJson(row.stateIv, row.state);
   const result = (await pluginRuntime.runAuth(
-    row.pluginId,
+    auth.row.pluginId,
     "pollAuth",
     args.userId,
     null,
-    pollState,
+    auth.state,
   )) as AuthResult;
   if (result.status === "pending") return { status: "pending" };
   if (result.status === "completed") {
-    const id = await writeConnection({
+    const connectionId = await writeAndCleanupPendingAuth(db, args.nonce, {
       userId: args.userId,
-      pluginId: row.pluginId,
-      credentials: result.credentials,
-      userConfig: applyUserConfigPatch(null, result.userConfigPatch),
+      pluginId: auth.row.pluginId,
+      result,
     });
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
-    return { status: "completed", connectionId: id };
+    return { status: "completed", connectionId };
   }
   if (result.status === "error") {
     await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));

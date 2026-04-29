@@ -4,22 +4,11 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
-import { user } from "../../db/schema/auth";
 import { CatalogService } from "../service";
 import type { HistoryEvent, RatingEvent } from "../types";
+import { seedUser } from "./helpers";
 
 afterAll(() => cleanupInMemoryDbs());
-
-async function seedUser(db: Db, userId: string): Promise<void> {
-  await db.insert(user).values({
-    id: userId,
-    name: userId,
-    email: `${userId}@test`,
-    emailVerified: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-}
 
 function historyEvent(overrides: Partial<HistoryEvent> = {}): HistoryEvent {
   return {

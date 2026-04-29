@@ -5,7 +5,7 @@ import type { JobHandle, JobTriggeredBy } from "@ent-mcp/shared/jobs";
 
 export type CaptureSource = "cron" | "plugin";
 
-export interface CaptureMeta {
+export interface JobCaptureMeta {
   source?: CaptureSource;
   pluginId?: string;
 }

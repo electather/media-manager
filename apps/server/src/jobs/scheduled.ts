@@ -1,12 +1,15 @@
-import { consola } from "consola";
-import { newRequestId } from "../errors/request-context";
-import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
-import { getConfig, effectiveSchedule } from "./config";
-import { recordSkipped } from "./history";
+import { assertValidSchedule } from "./croner-adapter";
 import { register, type RegistryEntry } from "./registry";
-import { isRunning, run } from "./runner";
+import {
+  assertNotRunning,
+  buildJobHandle,
+  buildScheduledCallbacks,
+  scheduleJobFromConfig,
+} from "./schedule-helpers";
+import { run } from "./runner";
+import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
-import type { CaptureMeta, JobRunContext } from "./types";
+import type { JobCaptureMeta, JobRunContext } from "./types";
 
 export interface RegisterScheduledOptions {
   id: string;
@@ -16,7 +19,7 @@ export interface RegisterScheduledOptions {
   handler: (ctx: JobRunContext) => Promise<void>;
   timeoutSec?: number;
   adminTriggerable?: boolean;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
 }
 
 export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
@@ -31,15 +34,10 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
     kind: "scheduled",
     schedule: opts.schedule,
     capture: opts.capture,
-    dispose() {
-      unscheduleCron(opts.id);
-    },
+    ...buildScheduledCallbacks(opts, onTick),
     triggerFromApi: adminTriggerable
       ? async (_input, source) => {
-          if (isRunning(opts.id)) {
-            const { jobErrors } = await import("./errors");
-            throw jobErrors.alreadyRunning(opts.id);
-          }
+          await assertNotRunning(opts.id);
           const outcome = await run({
             jobId: opts.id,
             kind: "scheduled",
@@ -53,32 +51,11 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
           return { runId: outcome.runId, result: undefined };
         }
       : undefined,
-    onScheduleChange(schedule) {
-      scheduleCron(opts.id, schedule, () => void onTick(schedule));
-    },
-    onEnabledChange(enabled) {
-      if (enabled) {
-        void scheduleFromConfig();
-      } else {
-        unscheduleCron(opts.id);
-      }
-    },
   };
   register(entry);
 
-  async function onTick(_schedule: string): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) return;
-    if (isRunning(opts.id)) {
-      await recordSkipped({
-        id: crypto.randomUUID(),
-        jobId: opts.id,
-        triggeredBy: "cron",
-        requestId: newRequestId(),
-        tickAt: Date.now(),
-      });
-      return;
-    }
+  async function onTick(): Promise<void> {
+    if (await shouldSkipTick(opts.id)) return;
     await run({
       jobId: opts.id,
       kind: "scheduled",
@@ -89,37 +66,7 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
     });
   }
 
-  async function scheduleFromConfig(): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) {
-      unscheduleCron(opts.id);
-      return;
-    }
-    const schedule = effectiveSchedule(opts.schedule, cfg.scheduleOverride);
-    if (!schedule) return;
-    try {
-      assertValidSchedule(schedule);
-    } catch (err) {
-      consola.warn(
-        `[job:${opts.id}] invalid schedule override, falling back: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      scheduleCron(opts.id, opts.schedule, () => void onTick(opts.schedule));
-      return;
-    }
-    scheduleCron(opts.id, schedule, () => void onTick(schedule));
-  }
+  void scheduleJobFromConfig(opts.id, opts.schedule, () => void onTick());
 
-  void scheduleFromConfig();
-
-  return {
-    id: opts.id,
-    name: opts.name,
-    description: opts.description,
-    kind: "scheduled",
-    enabled: true,
-    adminTriggerable,
-    userTriggerable: false,
-    schedule: opts.schedule,
-    nextRun: nextFireTime(opts.id) ?? undefined,
-  };
+  return buildJobHandle(opts, "scheduled", adminTriggerable);
 }

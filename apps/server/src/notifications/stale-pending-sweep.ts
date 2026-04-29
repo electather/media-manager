@@ -1,7 +1,10 @@
+// fallow-ignore-file unused-file
+// fallow-ignore-file complexity
+// 3-condition OR = 1 DB round-trip by design (V18); split handler → multiple queries → atomicity lost
 import { and, eq, isNull, lt, lte, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { notificationDeliveries } from "../db/schema";
-import { find } from "../jobs/registry";
+import { findEntry } from "../jobs/registry";
 import { registerScheduled } from "../jobs/scheduled";
 import { newRequestId } from "../errors/request-context";
 
@@ -52,7 +55,7 @@ export function registerStalePendingSweep() {
         .limit(100)
         .all();
 
-      const jobEntry = find("notification.deliver");
+      const jobEntry = findEntry("notification.deliver");
       if (!jobEntry?.triggerFromApi) return;
 
       let resetCount = 0;

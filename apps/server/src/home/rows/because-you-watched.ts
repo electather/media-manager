@@ -2,6 +2,7 @@ import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { toCompact, toStatusOrUndefined, parseCompactId, type RawMediaItem } from "../compact";
+import { compositeId } from "./row-utils";
 
 const ROW_ID = "becauseYouWatched" as const satisfies RowKind;
 // `metadata@v1.getSimilar` does not expose a page knob, so the host can
@@ -23,6 +24,7 @@ export const becauseYouWatchedFetcher: RowFetcher = {
   title: "Because You Watched",
   requires: ["metadata@v1"],
 
+  // fallow-ignore-next-line complexity
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     if (!opts.cursor) {
       // Layout handler is the only legitimate caller; it must always
@@ -65,6 +67,7 @@ export const becauseYouWatchedFetcher: RowFetcher = {
     return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
   },
 
+  // fallow-ignore-next-line complexity
   async isEligible(_userId, loader, cursor) {
     if (!(await loader.hasPlugin("metadata@v1"))) return false;
     // Per design §7: verify the cursor-pinned seed still resolves before
@@ -87,12 +90,6 @@ export const becauseYouWatchedFetcher: RowFetcher = {
     }
   },
 };
-
-function compositeId(item: RawMediaItem): string | null {
-  const tmdbId = item.ids?.tmdb_id ?? null;
-  if (!tmdbId) return null;
-  return `${item.type}:${tmdbId}`;
-}
 
 async function buildItem(
   ctx: RowFetchContext,

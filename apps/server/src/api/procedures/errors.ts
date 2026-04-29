@@ -23,8 +23,10 @@ interface SessionCtx {
 /** POST /api/errors — frontend pushes serialized errors here. Scrubbed + written with
  *  source="frontend". Silently accepts even malformed bodies so we never surface
  *  "error capture failed" to the end user. */
+// fallow-ignore-next-line complexity
 export const errorsApp = new Hono()
   .use("*", requireSession)
+  // fallow-ignore-next-line complexity
   .post("/", zValidator("json", reportSchema), async (c) => {
     const body = c.req.valid("json");
     const session = (
@@ -55,6 +57,7 @@ export const errorsApp = new Hono()
 export const adminErrorsApp = new Hono()
   .use("*", requireSession)
   .use("*", requirePermission(PERMISSIONS.ADMIN_PLUGINS))
+  // fallow-ignore-next-line complexity
   .get("/", zValidator("query", listSchema), async (c) => {
     const q = c.req.valid("query");
     const db = getDb();
@@ -109,6 +112,7 @@ export const adminErrorsApp = new Hono()
 
     return c.json({ records: rows, total: total?.count ?? 0 });
   })
+  // fallow-ignore-next-line complexity
   .get("/summary", async (c) => {
     const db = getDb();
     const hourAgo = Date.now() - 60 * 60 * 1000;

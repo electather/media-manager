@@ -160,7 +160,7 @@ vi.mock("../../../connections/service", () => ({
 }));
 
 vi.mock("../../../jobs/registry", () => ({
-  find: () => undefined,
+  findEntry: () => undefined,
 }));
 
 const { notificationsApp, adminNotificationsApp } = await import("../notifications");

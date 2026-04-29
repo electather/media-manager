@@ -55,6 +55,7 @@ export const pluginStore = sqliteTable(
 );
 
 /** Short-lived OAuth state, keyed by nonce, with 15-minute TTL. */
+// fallow-ignore-next-line code-duplication
 export const pendingAuth = sqliteTable("pending_auth", {
   nonce: text("nonce").primaryKey(),
   userId: text("user_id")

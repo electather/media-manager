@@ -81,6 +81,15 @@ describe("computeDisplayFields", () => {
     expect(fields.find((f) => f.label === "Tags")?.value).toBe("a, b, 3");
   });
 
+  it("renders boolean array elements as true/false, not Yes/No", () => {
+    // Regression: an earlier refactor recursed into `stringifyDisplayValue`
+    // for each array element, which routed booleans through the Yes/No
+    // branch reserved for top-level boolean fields. Array elements should
+    // serialize via `String(x)` so `[true, false]` reads as `"true, false"`.
+    const fields = computeDisplayFields(SCHEMA, { tags: [true, false] });
+    expect(fields.find((f) => f.label === "Tags")?.value).toBe("true, false");
+  });
+
   it("titleizes property name when title is missing", () => {
     const fields = computeDisplayFields(SCHEMA, { libraryFilter: "Movies" });
     expect(fields.find((f) => f.value === "Movies")?.label).toBe("Library Filter");

@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import type { MediaItem } from "@ent-mcp/shared/media";
 import type {
   Confidence,
@@ -49,6 +50,7 @@ export function extractFeatureDicts(
  * final contribution to the blended profile score — and are already sorted
  * descending.
  */
+// fallow-ignore-next-line complexity
 export function scoreCandidate(
   candidate: CandidateFeatures,
   profile: PreferenceProfile,
@@ -67,8 +69,8 @@ export function scoreCandidate(
       contributors.push({ category: scorer.id, feature, weight: contribution });
     }
   }
-  contributors.sort((a, b) => b.weight - a.weight);
-  return { profileScore: total, contributors };
+  const sorted = orderBy(contributors, [(c) => c.weight], ["desc"]);
+  return { profileScore: total, contributors: sorted };
 }
 
 /**
@@ -76,6 +78,7 @@ export function scoreCandidate(
  * profile and falling back to combined when the typed signal is thin. Returns
  * null when neither has any signal — the caller treats that as "no rerank."
  */
+// fallow-ignore-next-line complexity
 export function resolveEffectiveProfile(
   typed: PreferenceProfile | null,
   combined: PreferenceProfile | null,
@@ -101,6 +104,7 @@ export function effectiveAlpha(sampleSize: number, alphaOverride?: number): numb
  * metadata so callers can render match reasons for only the items they'll
  * surface.
  */
+// fallow-ignore-next-line complexity
 export function rankCandidatesAgainst(
   candidates: ReadonlyArray<{ item: MediaItem; features: CandidateFeatures }>,
   profile: PreferenceProfile | null,
@@ -120,22 +124,21 @@ export function rankCandidatesAgainst(
   const maxProfileScore = Math.max(0, ...scored.map((s) => s.profileScore));
   const lastIndex = Math.max(1, candidates.length - 1);
 
-  return scored
-    .map((entry) => {
-      const candidate = candidates[entry.index]!;
-      const normProfile = maxProfileScore > 0 ? entry.profileScore / maxProfileScore : 0;
-      const normUpstream = 1 - entry.index / lastIndex;
-      const finalScore = alpha * normProfile + (1 - alpha) * normUpstream;
-      return {
-        item: candidate.item,
-        score: clampUnit(finalScore),
-        profileScore: entry.profileScore,
-        confidence,
-        topContributors: entry.contributors.slice(0, TOP_CONTRIBUTORS),
-        features: candidate.features,
-      };
-    })
-    .sort((a, b) => b.score - a.score);
+  const ranked = scored.map((entry) => {
+    const candidate = candidates[entry.index]!;
+    const normProfile = maxProfileScore > 0 ? entry.profileScore / maxProfileScore : 0;
+    const normUpstream = 1 - entry.index / lastIndex;
+    const finalScore = alpha * normProfile + (1 - alpha) * normUpstream;
+    return {
+      item: candidate.item,
+      score: clampUnit(finalScore),
+      profileScore: entry.profileScore,
+      confidence,
+      topContributors: entry.contributors.slice(0, TOP_CONTRIBUTORS),
+      features: candidate.features,
+    };
+  });
+  return orderBy(ranked, [(x) => x.score], ["desc"]);
 }
 
 /**

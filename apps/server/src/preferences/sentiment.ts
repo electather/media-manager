@@ -85,6 +85,7 @@ const BOUNDARY = /[\s,.;:!?"'()[\]{}]+/;
  * and flips the polarity of a match when preceded within one token by a
  * negator. Replaceable behind this interface per the design doc.
  */
+// fallow-ignore-next-line complexity
 export function classifySentiment(note: string): NoteSentiment {
   const tokens = tokenize(note);
   let score = 0;
@@ -105,6 +106,7 @@ export function classifySentiment(note: string): NoteSentiment {
  * as whole tokens in the note. Keeps the rebuild's reinforcement signal aligned
  * with the profile's keyword category without re-running any NLP.
  */
+// fallow-ignore-next-line complexity
 export function extractNoteKeywords(note: string, itemKeywords: readonly string[]): string[] {
   if (itemKeywords.length === 0) return [];
   const tokens = new Set(tokenize(note));

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineCapability, method } from "../define";
-import { mediaType, mediaItem, DAY, MIN } from "./shared-schemas";
+import { mediaListQuery, mediaType, mediaItem, DAY, MIN } from "./shared-schemas";
 
 const searchResult = z.object({
   item: mediaItem,
@@ -47,10 +47,7 @@ export const MetadataV1 = defineCapability({
     ),
     getDetails: method(z.object({ id: z.string(), type: mediaType }), mediaItem),
     getSimilar: method(z.object({ id: z.string(), type: mediaType }), z.array(mediaItem)),
-    getTrending: method(
-      z.object({ type: mediaType.optional(), limit: z.number().optional() }),
-      z.array(mediaItem),
-    ),
+    getTrending: method(mediaListQuery, z.array(mediaItem)),
     discover: method(discoverFilters, z.array(mediaItem)),
   },
   mcpTools: [

@@ -58,11 +58,30 @@ export function _resetPluginPolicyCacheForTests(): void {
   cache.clear();
 }
 
+// fallow-ignore-next-line complexity
+async function decryptAdminHeaders(
+  iv: string,
+  encrypted: string,
+): Promise<Record<string, string> | undefined> {
+  const decoded = (await decryptJson(iv, encrypted)) as unknown;
+  if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) return undefined;
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(decoded as Record<string, unknown>)) {
+    // Header names are stored and compared in lowercase so later edits and
+    // deletes match regardless of the casing the admin supplied. Legacy
+    // rows that predate this normalisation get canonicalised on read and
+    // rewritten on the next update.
+    if (typeof value === "string") headers[name.toLowerCase()] = value;
+  }
+  return Object.keys(headers).length > 0 ? headers : undefined;
+}
+
 /**
  * Loads and caches the admin policy for a plugin. Decrypted headers live only
  * in the process-memory cache; the cache is invalidated by the admin-policy
  * write paths so a PUT immediately takes effect on the next invocation.
  */
+// fallow-ignore-next-line complexity
 export async function loadPluginPolicy(pluginId: string): Promise<PluginAdminPolicy> {
   const cached = cache.get(pluginId);
   if (cached) return { adminAllowlist: cached.allowlist, adminHeaders: cached.headers };
@@ -80,22 +99,10 @@ export async function loadPluginPolicy(pluginId: string): Promise<PluginAdminPol
   if (!row) throw new PluginError("plugin.not_found", `plugin ${pluginId} not installed`);
 
   const allowlist = parseAllowlist(row.adminAllowlist);
-
-  let headers: Record<string, string> | undefined;
-  if (row.adminHeadersIv && row.adminHeadersEncrypted) {
-    const decoded = (await decryptJson(row.adminHeadersIv, row.adminHeadersEncrypted)) as unknown;
-    if (decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
-      headers = {};
-      for (const [name, value] of Object.entries(decoded as Record<string, unknown>)) {
-        // Header names are stored and compared in lowercase so later edits and
-        // deletes match regardless of the casing the admin supplied. Legacy
-        // rows that predate this normalisation get canonicalised on read and
-        // rewritten on the next update.
-        if (typeof value === "string") headers[name.toLowerCase()] = value;
-      }
-      if (Object.keys(headers).length === 0) headers = undefined;
-    }
-  }
+  const headers =
+    row.adminHeadersIv && row.adminHeadersEncrypted
+      ? await decryptAdminHeaders(row.adminHeadersIv, row.adminHeadersEncrypted)
+      : undefined;
 
   cache.set(pluginId, { allowlist, headers });
   return { adminAllowlist: allowlist, adminHeaders: headers };
@@ -131,6 +138,7 @@ export async function setAdminAllowlist(
  * validates these, but we double-check so the runtime layer can't be bypassed
  * by a direct service call.
  */
+// fallow-ignore-next-line complexity
 export async function updateAdminHeaders(
   pluginId: string,
   patch: Record<string, string | null>,

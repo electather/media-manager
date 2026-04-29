@@ -26,6 +26,7 @@ export class McpError extends Error {
     this.params = options.params;
   }
 
+  // fallow-ignore-next-line unused-class-member
   toUserFacing(requestId?: string): UserFacingError {
     return {
       code: this.code,

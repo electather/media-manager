@@ -1,4 +1,6 @@
+// fallow-ignore-file complexity
 import { Hono } from "hono";
+import { last } from "es-toolkit/array";
 import { consola } from "consola";
 import { eq } from "drizzle-orm";
 import {
@@ -13,7 +15,7 @@ import { notificationDeliveries } from "../../../db/schema";
 import { conflict, notFound } from "../../../errors/http-errors";
 import { newRequestId } from "../../../errors/request-context";
 import { zValidator } from "../../../errors/validator";
-import { find } from "../../../jobs/registry";
+import { findEntry } from "../../../jobs/registry";
 import {
   deliveryRowToDto,
   listDeliveries,
@@ -41,9 +43,11 @@ export const adminNotificationsApp = new Hono()
       cursor,
       q.limit,
     );
-    const last = rows[rows.length - 1];
+    const lastRow = last(rows);
     const nextCursor =
-      rows.length === q.limit && last ? encodeKeysetCursor(last.createdAt, last.id) : undefined;
+      rows.length === q.limit && lastRow
+        ? encodeKeysetCursor(lastRow.createdAt, lastRow.id)
+        : undefined;
     return c.json({
       deliveries: rows.map(deliveryRowToDto),
       ...(nextCursor !== undefined ? { nextCursor } : {}),
@@ -87,7 +91,7 @@ export const adminNotificationsApp = new Hono()
       );
     }
 
-    const jobEntry = find("notification.deliver");
+    const jobEntry = findEntry("notification.deliver");
     let rescheduled = false;
     if (jobEntry?.triggerFromApi) {
       await jobEntry.triggerFromApi(

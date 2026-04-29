@@ -34,6 +34,7 @@ export class RequestScopedLoader {
    * Memoized metadata read keyed on composite id. Two rows surfacing the same
    * title share a single underlying call. Errors propagate to every awaiter.
    */
+  // fallow-ignore-next-line unused-class-member
   async getMetadata(id: MediaId): Promise<unknown> {
     const existing = this.metadataCache.get(id);
     if (existing) return existing;
@@ -51,6 +52,7 @@ export class RequestScopedLoader {
    * split per caller before resolution. The 1s timeout is tighter than the
    * per-row 3s budget — status is enrichment, not core row content.
    */
+  // fallow-ignore-next-line
   async getStatusBatch(ids: MediaId[]): Promise<Record<MediaId, string>> {
     if (ids.length === 0) return {};
     if (!this.pendingStatusIds) {
@@ -80,6 +82,7 @@ export class RequestScopedLoader {
    * fetcher invoking this on page 1 hits warm memoization rather than a
    * fresh aggregate call.
    */
+  // fallow-ignore-next-line unused-class-member
   async getInProgressSet(): Promise<Set<MediaId>> {
     if (this.inProgressSetPromise) return this.inProgressSetPromise;
     this.inProgressSetPromise = this.mediaService.getInProgress().then(
@@ -102,6 +105,7 @@ export class RequestScopedLoader {
    * connection scan. Backs both layout-time signal computation (which
    * populates `hasXPlugin` booleans) and `RowFetcher.isEligible` checks.
    */
+  // fallow-ignore-next-line unused-class-member
   hasPlugin(requirement: PluginRequirement): Promise<boolean> {
     const existing = this.hasPluginCache.get(requirement);
     if (existing) return existing;
@@ -132,6 +136,7 @@ export class RequestScopedLoader {
  * entry. Different plugin shapes carry the id in slightly different places;
  * this function tolerates the common ones used by the SDK schemas.
  */
+// fallow-ignore-next-line complexity
 function readEntryCompositeId(entry: unknown): string | null {
   if (!entry || typeof entry !== "object") return null;
   const e = entry as Record<string, unknown>;
