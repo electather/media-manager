@@ -1,4 +1,4 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import { compact } from "es-toolkit/array";
 import { isNil } from "es-toolkit/predicate";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
 import { canonicalToRaw } from "../compact";
@@ -38,10 +38,10 @@ export async function hydrateFromSnapshot(
     (ref) => rows[`${ref.type}:${ref.tmdbId}`] ?? null,
   );
   const isPartial = hydrated.some(isNil);
-  const present = hydrated.filter((row): row is CanonicalMetadata => row !== null);
+  const present = compact(hydrated);
 
   const items = await Promise.all(present.map((row) => buildItem(ctx, canonicalToRaw(row))));
-  const usable = items.filter((item): item is CompactMediaItem => item !== null);
+  const usable = compact(items);
 
   const nextStart = start + limit;
   const reachedCap = nextStart >= maxItems;

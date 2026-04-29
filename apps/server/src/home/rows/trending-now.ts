@@ -1,4 +1,5 @@
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@ent-mcp/shared/home";
+import { compact } from "es-toolkit/array";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { encodeCursor } from "../cursor";
 import { type RawMediaItem } from "../compact";
@@ -52,7 +53,7 @@ export const trendingNowFetcher: RowFetcher = {
     });
     const slice = sliceForPage(result.items as RawMediaItem[], page, opts.limit);
     const items = await Promise.all(slice.map((item) => buildItem(ctx, item)));
-    const usableItems = items.filter((item): item is CompactMediaItem => item !== null);
+    const usableItems = compact(items);
 
     const nextPage = page + 1;
     const reachedCap = nextPage * opts.limit >= MAX_ITEMS;

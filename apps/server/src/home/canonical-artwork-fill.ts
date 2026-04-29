@@ -1,4 +1,5 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import { uniqBy } from "es-toolkit/array";
 import type { CatalogService } from "../catalog";
 import type { CanonicalMetadata, MetadataKey } from "../catalog/types";
 
@@ -39,14 +40,10 @@ function isArtworkIncomplete(item: CompactMediaItem): boolean {
 }
 
 function uniqueLookupKeys(items: CompactMediaItem[]): MetadataKey[] {
-  const seen = new Set<string>();
-  const keys: MetadataKey[] = [];
-  for (const item of items) {
-    if (seen.has(item.id)) continue;
-    seen.add(item.id);
-    keys.push({ tmdbId: item.tmdbId, type: item.mediaType });
-  }
-  return keys;
+  return uniqBy(items, (item) => item.id).map((item) => ({
+    tmdbId: item.tmdbId,
+    type: item.mediaType,
+  }));
 }
 
 function applyCanonicalArtwork(item: CompactMediaItem, row: CanonicalMetadata | undefined): void {
