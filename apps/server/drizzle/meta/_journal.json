@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1776861564887,
-      "tag": "0000_gray_fat_cobra",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1777033335986,
-      "tag": "0001_pink_red_hulk",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1777068271022,
-      "tag": "0002_vengeful_randall_flagg",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1777194666360,
-      "tag": "0003_outstanding_vulcan",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1777800000000,
-      "tag": "0004_notification_retention",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1777207624405,
-      "tag": "0005_late_annihilus",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1777312647123,
-      "tag": "0006_smart_wiccan",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1777368626656,
-      "tag": "0007_nervous_synch",
+      "when": 1777383062117,
+      "tag": "0000_mean_drax",
       "breakpoints": true
     }
   ]

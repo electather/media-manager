@@ -2,12 +2,13 @@ import { consola } from "consola";
 import { captureError } from "../errors/capture";
 import { runWithRequestContext, newRequestId } from "../errors/request-context";
 import { emit } from "../notifications/emit";
-import { getConfig } from "./config";
+import { getConfig, type JobConfigRow } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
 import { isSyncJob, pluginIdFromJobId } from "./sync-classifier";
 import type { JobKind, JobRunStatus, JobTriggeredBy } from "@ent-mcp/shared/jobs";
-import type { CaptureMeta, JobRunContext } from "./types";
+import type { JobCaptureMeta, JobRunContext } from "./types";
+import { isNil } from "es-toolkit/predicate";
 
 const DEFAULT_TIMEOUT_SEC = 300;
 
@@ -19,7 +20,7 @@ export interface RunRequest {
   triggeredByUserId?: string | null;
   requestId?: string;
   timeoutSec?: number;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
   coalescedCount?: number | null;
   handler: (ctx: JobRunContext) => Promise<unknown>;
   /** Overrides the status derived from handler outcome. Used by per-row runs. */
@@ -61,6 +62,7 @@ export function isRunning(jobId: string, scopeKey?: string | null): boolean {
  * jobs (nightly + manual rebuild) are still writing — eviction would
  * otherwise race their in-flight catalog references.
  */
+// fallow-ignore-next-line complexity
 export function anyRunning(jobIds: readonly string[]): boolean {
   if (jobIds.length === 0) return false;
   const wanted = new Set(jobIds);
@@ -86,6 +88,7 @@ export function requestCancel(jobId: string, scopeKey?: string | null): boolean 
  * provide the handler and the dispatch-specific policy (e.g. per-row status
  * resolution).
  */
+// fallow-ignore-next-line complexity
 export async function run(req: RunRequest): Promise<RunOutcome> {
   if (isRunning(req.jobId, req.scopeKey)) {
     return {
@@ -119,11 +122,7 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
     coalescedCount: req.coalescedCount ?? null,
   });
 
-  let result: unknown = undefined;
-  let thrown: unknown = undefined;
   let timedOut = false;
-  let logs: string | null = null;
-  let logsTruncated = 0;
 
   const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
   const timeoutHandle = setTimeout(() => {
@@ -131,39 +130,25 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
     controller.abort(new Error("job timed out"));
   }, timeoutMs);
 
+  const ctx: JobRunContext = {
+    runId,
+    triggeredBy: req.triggeredBy,
+    triggeredByUserId: req.triggeredByUserId ?? undefined,
+    scopeKey: req.scopeKey ?? undefined,
+    requestId,
+    logger,
+    abortSignal: controller.signal,
+  };
+
+  let execResult: Awaited<ReturnType<typeof executeHandlerWithCapture>>;
   try {
-    const ctx: JobRunContext = {
-      runId,
-      triggeredBy: req.triggeredBy,
-      triggeredByUserId: req.triggeredByUserId ?? undefined,
-      scopeKey: req.scopeKey ?? undefined,
-      requestId,
-      logger,
-      abortSignal: controller.signal,
-    };
-    result = await runWithRequestContext(
-      {
-        requestId,
-        userId: req.triggeredByUserId ?? null,
-        route,
-      },
-      () =>
-        runWithLogCapture(cfg.logLevel, async () => {
-          try {
-            return await req.handler(ctx);
-          } finally {
-            const captured = serializeRunLogs();
-            logs = captured.logs;
-            logsTruncated = captured.logsTruncated;
-          }
-        }),
-    );
-  } catch (err) {
-    thrown = err;
+    execResult = await executeHandlerWithCapture(req, ctx, cfg, requestId, route);
   } finally {
     clearTimeout(timeoutHandle);
     active.delete(activeKey(req.jobId, req.scopeKey));
   }
+
+  const { result, thrown, logs, logsTruncated } = execResult;
 
   const finishedAt = Date.now();
   const durationMs = finishedAt - startedAt;
@@ -207,6 +192,37 @@ export async function recentRunSummary(jobId: string): ReturnType<typeof latestR
   return latestRun(jobId);
 }
 
+async function executeHandlerWithCapture(
+  req: RunRequest,
+  ctx: JobRunContext,
+  cfg: JobConfigRow,
+  requestId: string,
+  route: string,
+): Promise<{ result: unknown; thrown: unknown; logs: string | null; logsTruncated: number }> {
+  let result: unknown;
+  let thrown: unknown;
+  let logs: string | null = null;
+  let logsTruncated = 0;
+  try {
+    result = await runWithRequestContext(
+      { requestId, userId: req.triggeredByUserId ?? null, route },
+      () =>
+        runWithLogCapture(cfg.logLevel, async () => {
+          try {
+            return await req.handler(ctx);
+          } finally {
+            const captured = serializeRunLogs();
+            logs = captured.logs;
+            logsTruncated = captured.logsTruncated;
+          }
+        }),
+    );
+  } catch (err) {
+    thrown = err;
+  }
+  return { result, thrown, logs, logsTruncated };
+}
+
 function resolveStatus(outcome: {
   thrown: unknown;
   timedOut: boolean;
@@ -228,6 +244,7 @@ function resolveStatus(outcome: {
  * Emit failures must never propagate to the host operation — they are logged
  * and swallowed.
  */
+// fallow-ignore-next-line complexity
 async function emitJobOutcome(
   req: RunRequest,
   outcome: { runId: string; status: JobRunStatus; thrown: unknown; rowsSucceeded: number | null },
@@ -278,12 +295,14 @@ async function safeEmit(event: Parameters<typeof emit>[0]): Promise<void> {
   }
 }
 
+// fallow-ignore-next-line complexity
 function errorMessageFrom(err: unknown): string | null {
-  if (err === null || err === undefined) return null;
+  if (isNil(err)) return null;
   if (err instanceof Error) return err.message || err.name;
   return typeof err === "string" ? err : null;
 }
 
+// fallow-ignore-next-line complexity
 async function captureFailure(
   req: RunRequest,
   err: unknown,

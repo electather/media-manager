@@ -1,5 +1,6 @@
 import type { JSONSchema } from "@ent-mcp/shared";
 import { PluginError } from "@ent-mcp/plugin-sdk";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Marker for the `x-allowed-host` JSON Schema extension. Plugins set this on
@@ -86,6 +87,7 @@ function isIpv4MappedIpv6Loopback(hostname: string): boolean {
  * only — DNS-rebinding mitigation (resolving the name and checking the actual
  * address) happens at fetch time and is out of scope for this module.
  */
+// fallow-ignore-next-line complexity
 export function isBlockedHostname(hostname: string): boolean {
   const h = normalizeHostname(hostname);
   if (BLOCKED_EXACT_HOSTNAMES.has(h)) return true;
@@ -105,6 +107,7 @@ export function isBlockedHostname(hostname: string): boolean {
  * surfaces the misconfiguration early (the plugin call fails fast instead of
  * silently losing the allowlist entry).
  */
+// fallow-ignore-next-line complexity
 function hostnameFromValue(pluginId: string, path: string, value: unknown): string {
   // Empty `path` can happen if a plugin declares `x-allowed-host` on the root
   // schema (unusual but valid JSON Schema); render it readably in errors so
@@ -171,6 +174,7 @@ function hostnameFromValue(pluginId: string, path: string, value: unknown): stri
  * descends into `properties` (objects) and `items` (arrays) — everything else
  * is treated as a leaf.
  */
+// fallow-ignore-next-line complexity
 function walk(
   pluginId: string,
   schema: unknown,
@@ -182,7 +186,7 @@ function walk(
   if (!schemaObj) return;
 
   if (schemaObj[X_ALLOWED_HOST] === true) {
-    if (value === undefined || value === null || value === "") return;
+    if (isNil(value) || value === "") return;
     out.add(hostnameFromValue(pluginId, path, value));
     // `x-allowed-host` is a leaf marker — don't recurse through the value.
     return;

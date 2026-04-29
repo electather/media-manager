@@ -17,13 +17,7 @@ vi.mock("../storage", () => ({
 const { PreferenceEngine } = await import("../engine");
 const { emptyFeatures } = await import("../types");
 import type { CandidateFeatures } from "../types";
-import type {
-  PreferenceDataProvider,
-  HistorySignal,
-  RatingSignal,
-  WatchlistSignal,
-  CommentSignal,
-} from "../provider";
+import { NullPreferenceDataProvider } from "./helpers";
 
 function profile(overrides: Partial<PreferenceProfile> = {}): PreferenceProfile {
   return {
@@ -73,7 +67,7 @@ function richFeatures(tmdbId: string): CandidateFeatures {
   };
 }
 
-class CountingProvider implements PreferenceDataProvider {
+class CountingProvider extends NullPreferenceDataProvider {
   calls = 0;
   callsPerId = new Map<string, number>();
 
@@ -85,18 +79,6 @@ class CountingProvider implements PreferenceDataProvider {
     this.calls += 1;
     this.callsPerId.set(tmdbId, (this.callsPerId.get(tmdbId) ?? 0) + 1);
     return richFeatures(tmdbId);
-  }
-  async getHistory(): Promise<HistorySignal[]> {
-    return [];
-  }
-  async getAllRatings(): Promise<RatingSignal[]> {
-    return [];
-  }
-  async getWatchlist(): Promise<WatchlistSignal[]> {
-    return [];
-  }
-  async getComments(): Promise<CommentSignal[]> {
-    return [];
   }
 }
 

@@ -1,38 +1,32 @@
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { cloneDeep } from "es-toolkit/object";
 import { getPrimaryConnection } from "../primary-preference";
-import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
-import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
-import { invokeOne, harvestFromOutcomes } from "../invoke";
-import type { ResolvedConnection } from "../resolve-connection";
+import { pickSingleConnection } from "../capability-lookup";
+import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
+import { harvestFromOutcomes } from "../invoke";
 import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
+import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
+import { isNil } from "es-toolkit/predicate";
 
-interface Candidate {
-  pluginId: string;
-  conn: ResolvedConnection;
+function isEmptyValue(v: unknown): boolean {
+  if (isNil(v) || v === "") return true;
+  return Array.isArray(v) && v.length === 0;
 }
 
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+// fallow-ignore-next-line complexity
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
     const current = base[key];
-    const isGap =
-      current === null ||
-      current === undefined ||
-      current === "" ||
-      (Array.isArray(current) && current.length === 0);
-    if (isGap) {
+    if (isEmptyValue(current)) {
       base[key] = value;
       continue;
     }
-    if (
-      typeof current === "object" &&
-      !Array.isArray(current) &&
-      current !== null &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      value !== null
-    ) {
-      fillGaps(current as Record<string, unknown>, value as Record<string, unknown>);
+    if (isPlainObject(current) && isPlainObject(value)) {
+      fillGaps(current, value);
     }
   }
 }
@@ -41,20 +35,21 @@ async function resolveOrderedCandidates(
   userId: string,
   orderedPluginIds: string[],
 ): Promise<Candidate[]> {
-  const candidates: Candidate[] = [];
-  for (const pluginId of orderedPluginIds) {
-    const conn = await pickSingleConnection(userId, pluginId);
-    if (conn) candidates.push({ pluginId, conn });
-  }
-  return candidates;
+  const conns = await Promise.all(
+    orderedPluginIds.map((pluginId) => pickSingleConnection(userId, pluginId)),
+  );
+  return orderedPluginIds
+    .map((pluginId, i) => (conns[i] ? { pluginId, conn: conns[i]! } : null))
+    .filter((c): c is Candidate => c !== null);
 }
 
+// fallow-ignore-next-line complexity
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
   const first = successes[0]!;
   if (Array.isArray(first.data) || typeof first.data !== "object") {
     return first.data as T;
   }
-  const base: Record<string, unknown> = structuredClone(first.data as Record<string, unknown>);
+  const base: Record<string, unknown> = cloneDeep(first.data as Record<string, unknown>);
   for (const outcome of successes.slice(1)) {
     if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
       fillGaps(base, outcome.data as Record<string, unknown>);
@@ -68,13 +63,11 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
  * providers fill missing scalar fields and deep-merge the `ids` bundle. Lists
  * (search/discover/trending) come from the primary only.
  */
+// fallow-ignore-next-line complexity
 export async function dispatchPrimary<T>(req: DispatchRequest): Promise<AggregateResult<T>> {
-  const capability = requireCapability(req.capability, req.version);
-  const scope = scopeForRequest(capability, req.input);
-  const cached = await readCache<AggregateResult<T>>(req, scope);
+  const { capability, scope, cached, providers } =
+    await resolveDispatchPreamble<AggregateResult<T>>(req);
   if (cached !== undefined) return cached;
-
-  const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   if (providers.length === 0) {
     return { data: null as T, errors: [], attempted: 0 };
   }
@@ -88,37 +81,10 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
   const ordered = [primaryPlugin, ...providers.filter((p) => p !== primaryPlugin)];
   const candidates = await resolveOrderedCandidates(req.userId, ordered);
 
-  const outcomes = await Promise.all(
-    candidates.map(({ pluginId, conn }) =>
-      invokeOne<T>(
-        {
-          userId: req.userId,
-          pluginId,
-          capability: req.capability,
-          version: req.version,
-          method: req.method,
-          input: req.input,
-          timeoutMs: capability.defaultTimeoutMs,
-          deadlineMs: req.deadlineMs,
-        },
-        conn,
-      ),
-    ),
-  );
+  const outcomes = await invokeAll<T>(candidates, req, capability);
   await harvestFromOutcomes(outcomes, req.mediaType);
 
-  const errors: AggregateResult<T>["errors"] = [];
-  for (const outcome of outcomes) {
-    if (outcome.error && outcome.error.code !== "plugin.item_not_found") {
-      errors.push({
-        pluginId: outcome.pluginId,
-        connectionId: outcome.connectionId,
-        code: outcome.error.code,
-        devMessage: outcome.error.devMessage,
-      });
-    }
-  }
-
+  const errors = collectErrors(outcomes);
   const successes = outcomes.filter((o) => !o.error && o.data !== null && o.data !== undefined);
   if (successes.length === 0) {
     const empty: AggregateResult<T> = { data: null as T, errors, attempted: outcomes.length };

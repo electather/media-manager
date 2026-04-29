@@ -21,41 +21,23 @@ vi.mock("../feedback-log", () => ({
 }));
 
 const { rebuildProfile } = await import("../rebuild");
-import type {
-  PreferenceDataProvider,
-  HistorySignal,
-  RatingSignal,
-  WatchlistSignal,
-  CommentSignal,
-} from "../provider";
+import type { RatingSignal } from "../provider";
 import type { CandidateFeatures } from "../types";
+import { NullPreferenceDataProvider } from "./helpers";
 
-class FakeProvider implements PreferenceDataProvider {
+class FakeProvider extends NullPreferenceDataProvider {
   featureCalls = 0;
-  constructor(private readonly features: CandidateFeatures) {}
+  constructor(private readonly features: CandidateFeatures) {
+    super();
+  }
 
   async getItemFeatures(): Promise<CandidateFeatures | null> {
     this.featureCalls += 1;
     return this.features;
   }
-  async getHistory(): Promise<HistorySignal[]> {
-    return [];
-  }
-  async getAllRatings(): Promise<RatingSignal[]> {
-    return [
-      {
-        tmdbId: "603",
-        mediaType: "movie",
-        rating: 9,
-        ratedAt: Date.now(),
-      },
-    ];
-  }
-  async getWatchlist(): Promise<WatchlistSignal[]> {
-    return [];
-  }
-  async getComments(): Promise<CommentSignal[]> {
-    return [];
+
+  override async getAllRatings(): Promise<RatingSignal[]> {
+    return [{ tmdbId: "603", mediaType: "movie", rating: 9, ratedAt: Date.now() }];
   }
 }
 

@@ -4,25 +4,14 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
-import { user } from "../../db/schema/auth";
 import { CatalogService } from "../service";
 import { toCanonicalRow } from "../canonical";
 import type { MetadataKey, RecItem } from "../types";
+import { seedUser } from "./helpers";
 
 afterAll(() => cleanupInMemoryDbs());
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-async function seedUser(db: Db, userId: string): Promise<void> {
-  await db.insert(user).values({
-    id: userId,
-    name: userId,
-    email: `${userId}@test`,
-    emailVerified: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-}
 
 describe("CatalogService.pruneUnusedMetadata", () => {
   let catalog: CatalogService;

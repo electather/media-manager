@@ -1,5 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
+import { queryEnabledConnectionsForPlugin } from "../db/queries";
 import { serviceConnections } from "../db/schema";
 import { decryptField } from "../crypto/helpers";
 import { pluginRuntime } from "../plugin-runtime/runtime";
@@ -25,19 +26,8 @@ async function pickConnectionForPlugin(
   userId: string,
   pluginId: string,
 ): Promise<ConnectionRow | null> {
-  const db = getDb();
-  const row = await db
-    .select()
-    .from(serviceConnections)
-    .where(
-      and(
-        eq(serviceConnections.userId, userId),
-        eq(serviceConnections.pluginId, pluginId),
-        eq(serviceConnections.enabled, 1),
-      ),
-    )
-    .orderBy(desc(serviceConnections.isDefault), desc(serviceConnections.createdAt))
-    .get();
+  const rows = await queryEnabledConnectionsForPlugin(getDb(), userId, pluginId);
+  const row = rows[0];
   if (!row) return null;
   return {
     id: row.id,

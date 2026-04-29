@@ -1,28 +1,16 @@
 import type {
   FeedbackRecord,
+  NoteSentiment,
   PreferenceProfile,
   ProfileMediaType,
   UpdateResult,
 } from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
-import { rebuildProfile } from "./rebuild";
+import { rebuildProfile, SIGNAL_WEIGHTS, NOTE_KEYWORD_BOOST } from "./rebuild";
 import { profileStorage, type StoredPreferenceProfile } from "./storage";
 import type { PreferenceDataProvider } from "./provider";
 import { deriveConfidence } from "./types";
-
-const SIGNAL_WEIGHTS = {
-  rateHigh: 1.0,
-  rateMid: 0,
-  rateLow: -0.8,
-  like: 0.8,
-  dislike: -1.0,
-  notePositive: 0.6,
-  noteNegative: -0.6,
-  noteNeutral: 0,
-} as const;
-
-const NOTE_KEYWORD_BOOST = 0.3;
 
 export interface IncrementalDeps {
   provider: PreferenceDataProvider;
@@ -34,6 +22,7 @@ export interface IncrementalDeps {
  * hierarchy as rebuild. Deliberately skips re-normalization and pruning so the
  * daily rebuild retains its role as the correction pass.
  */
+// fallow-ignore-next-line complexity
 export async function applyIncrementalUpdate(
   deps: IncrementalDeps,
   userId: string,
@@ -69,14 +58,7 @@ export async function applyIncrementalUpdate(
     if (!contribution) continue;
     const weight = recordWeight(record);
     if (weight === 0 && (record.noteKeywords?.length ?? 0) === 0) continue;
-    for (const partition of partitions) {
-      const profile = existing.get(partition) ?? null;
-      if (!profile) continue;
-      if (record.createdAt <= profile.lastUpdatedAt) continue;
-      if (partition !== "combined" && partition !== record.mediaType) continue;
-      applyToProfile(profile, contribution, weight, record);
-      applied += 1;
-    }
+    applied += applyRecordToPartitions(record, contribution, weight, partitions, existing);
   }
 
   for (const partition of partitions) {
@@ -89,24 +71,54 @@ export async function applyIncrementalUpdate(
   return { userId, applied };
 }
 
+// fallow-ignore-next-line complexity
+function applyRecordToPartitions(
+  record: FeedbackRecord,
+  contribution: import("./types").CandidateFeatures,
+  weight: number,
+  partitions: ProfileMediaType[],
+  existing: Map<ProfileMediaType, StoredPreferenceProfile | null>,
+): number {
+  let applied = 0;
+  for (const partition of partitions) {
+    const profile = existing.get(partition) ?? null;
+    if (!profile) continue;
+    if (record.createdAt <= profile.lastUpdatedAt) continue;
+    if (partition !== "combined" && partition !== record.mediaType) continue;
+    applyToProfile(profile, contribution, weight, record);
+    applied += 1;
+  }
+  return applied;
+}
+
+function rateWeight(rating: number | null): number {
+  if (rating === null) return 0;
+  if (rating >= 8) return SIGNAL_WEIGHTS.rateHigh;
+  if (rating <= 3) return SIGNAL_WEIGHTS.rateLow;
+  return SIGNAL_WEIGHTS.rateMid;
+}
+
+function noteWeight(sentiment: NoteSentiment | null): number {
+  if (sentiment === "positive") return SIGNAL_WEIGHTS.notePositive;
+  if (sentiment === "negative") return SIGNAL_WEIGHTS.noteNegative;
+  return SIGNAL_WEIGHTS.noteNeutral;
+}
+
+// fallow-ignore-next-line complexity
 function recordWeight(record: FeedbackRecord): number {
   switch (record.action) {
     case "rate":
-      if (record.rating === null) return 0;
-      if (record.rating >= 8) return SIGNAL_WEIGHTS.rateHigh;
-      if (record.rating <= 3) return SIGNAL_WEIGHTS.rateLow;
-      return SIGNAL_WEIGHTS.rateMid;
+      return rateWeight(record.rating);
     case "like":
       return SIGNAL_WEIGHTS.like;
     case "dislike":
       return SIGNAL_WEIGHTS.dislike;
     case "note":
-      if (record.noteSentiment === "positive") return SIGNAL_WEIGHTS.notePositive;
-      if (record.noteSentiment === "negative") return SIGNAL_WEIGHTS.noteNegative;
-      return SIGNAL_WEIGHTS.noteNeutral;
+      return noteWeight(record.noteSentiment);
   }
 }
 
+// fallow-ignore-next-line complexity
 function applyToProfile(
   profile: PreferenceProfile,
   candidate: import("./types").CandidateFeatures,

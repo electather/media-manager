@@ -19,8 +19,8 @@ jobs:
   ci:
     permissions:
       contents: read
-      pull-requests: write      # fallow comment: true
-      security-events: write    # upload-sarif    name: CI
+      pull-requests: write # fallow comment: true
+      security-events: write # upload-sarif    name: CI
     runs-on: [media-manager, sandboxed]
     steps:
       - name: Checkout repository
@@ -47,10 +47,21 @@ jobs:
           format: sarif
           comment: true
           annotations: true
+          # Severity is governed by .fallowrc.json (e.g. duplicates default to
+          # `warn`). Let the action surface findings via SARIF + PR comment
+          # without turning warnings into a hard CI gate; errors still fail
+          # via fallow's own non-zero exit.
+          fail-on-issues: false
 
       - name: Upload Fallow results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4
         if: always()
+        # Code Scanning (GitHub Advanced Security) is not enabled on this
+        # repository, so the upload returns "Resource not accessible by
+        # integration". Surface the failure as a warning rather than a
+        # hard CI gate — the fallow job summary and PR comment carry the
+        # same findings.
+        continue-on-error: true
         with:
           sarif_file: fallow-results.sarif
 

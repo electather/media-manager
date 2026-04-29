@@ -16,6 +16,7 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 - C8. Plugins depend only on `@ent-mcp/plugin-sdk`. Never on `@ent-mcp/shared` direct, never on server, never on each other.
 - C9. Credentials never logged, never stored plaintext. AES-256-GCM at rest.
 - C10. Preference engine host-owned. No plugin surface, no outbound calls.
+- C11. ∀ utility code (array, object, string, fn, predicate) → `es-toolkit` submodule. ⊥ custom re-impl of `compact`/`merge`/`cloneDeep`/`sortBy`/`orderBy`/`debounce`/`throttle`/`uniq`/`invariant`. Import from `es-toolkit/array`, `es-toolkit/object`, `es-toolkit/string`, `es-toolkit/function`, `es-toolkit/predicate`, `es-toolkit/util`. Patterns: `.agents/skills/es-toolkit/references/patterns.md`.
 
 ## §I Interfaces
 
@@ -132,6 +133,8 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V46. TMDB `metadata@v1` mapper lifts `backdrop_path` → `backdropUrl` ∀ `mapMovie`/`mapShow` paths. Cold-fill row carries poster + backdrop + overview from one dispatch. ⊥ second plugin call for backdrop.
 - V47. `/artwork.get` always dispatches `artwork@v1` via `mv:` cache layer. ⊥ canonical lookup. Plugin response → `catalog.patchArtwork(key, top1(bundle))` fire-forget. Next row read serves slot inline → ⊥ further `/artwork.get` for that key.
 - V48. `catalog.patchArtwork` UPDATE w/ `COALESCE(col, ?)` ∀ artwork cols. ⊥ overwrite filled URL. Row absent → 0 rows affected, ⊥ throw. Concurrent patches → first-writer-wins on null cols, ⊥ clobber on filled.
+- V49. MCP tool `outputSchema` item shapes → Zod schema via `zodToItemSchema`. ⊥ hand-written JSON Schema literals for typed item shapes. Zod schema = single source: `z.infer` → TS type, `zodToItemSchema` → JSON Schema. `zodToItemSchema` ∈ `@ent-mcp/shared/common`; strips `$schema` URI meta field emitted by `z.toJSONSchema`.
+- V50. ∀ server utility code → `es-toolkit` submodule import (C11). ⊥ `compact`, `merge`, `cloneDeep`, `orderBy`, `sortBy`, `uniq`, `debounce`, `throttle`, `invariant` reimplemented inline. `.filter(Boolean)` → `compact`. `structuredClone` on plain objects → `cloneDeep`. `.sort((a,b)=>...)` for ordering → `orderBy`/`sortBy`. Violation detectable via fallow unused-dep signal inversed: if `es-toolkit` unused → new utility code added without consulting it.
 
 | id  | status | desc                                                                                                                                                                                                                            | cites                                      |
 | --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |

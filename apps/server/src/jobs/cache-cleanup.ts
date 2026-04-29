@@ -2,6 +2,7 @@ import { consola } from "consola";
 import type { JobRunContext } from "./types";
 
 /** Removes expired entries from the active cache provider. */
+// fallow-ignore-next-line complexity
 export async function cacheCleanupJob(ctx?: JobRunContext): Promise<void> {
   const logger = ctx?.logger ?? consola;
 

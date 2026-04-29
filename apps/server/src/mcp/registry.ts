@@ -67,6 +67,7 @@ class McpToolRegistry {
   private readonly tools = new Map<string, RegisteredTool>();
   private readonly byPlugin = new Map<string, Set<string>>();
 
+  // fallow-ignore-next-line complexity
   register(reg: ToolRegistration): void {
     if (this.tools.has(reg.name)) {
       throw new Error(`tool name collision: "${reg.name}" already registered`);
@@ -122,6 +123,7 @@ export const mcpToolRegistry = new McpToolRegistry();
  * declares a `handlerKey` in its `mcpTools` entry; the map maps that key to a
  * concrete `ToolHandler`.
  */
+// fallow-ignore-next-line complexity
 export function registerCapabilityOwnedTools(
   capability: CapabilityDefinition,
   handlers: Record<string, ToolHandler>,

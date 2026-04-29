@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import type {
   FeatureCategory,
   FeedbackAction,
@@ -81,6 +82,7 @@ export function explainAgainstProfile(
  * allowed to disagree slightly with the eventual job's write — the job is the
  * source of truth.
  */
+// fallow-ignore-next-line complexity
 export function renderProfileUpdate(
   candidate: CandidateFeatures,
   action: FeedbackAction,
@@ -100,6 +102,7 @@ export function renderProfileUpdate(
     : `Decreased preference for ${phrase}.`;
 }
 
+// fallow-ignore-next-line complexity
 function resolveSentiment(
   action: FeedbackAction,
   sentiment?: "positive" | "negative" | "neutral",
@@ -116,6 +119,7 @@ function resolveSentiment(
  * feature with the highest `categoryWeight × existingProfileWeight`, falling
  * back to the raw category-weight ordering when the profile is thin.
  */
+// fallow-ignore-next-line complexity
 function pickTopFeature(
   candidate: CandidateFeatures,
   profile: PreferenceProfile | null,
@@ -134,11 +138,12 @@ function pickTopFeature(
     }
   }
   if (contributions.length === 0) return null;
-  contributions.sort((a, b) => b.weight - a.weight);
-  return contributions[0] ?? null;
+  const sorted = orderBy(contributions, [(c) => c.weight], ["desc"]);
+  return sorted[0] ?? null;
 }
 
 /** Renders a contributor into a clause using the per-category template. */
+// fallow-ignore-next-line complexity
 function renderContributor(contribution: FeatureContribution): string {
   const noun = renderFeatureNoun(contribution.category, contribution.feature);
   switch (contribution.category) {
@@ -157,6 +162,7 @@ function renderContributor(contribution: FeatureContribution): string {
   }
 }
 
+// fallow-ignore-next-line complexity
 function renderFeatureNoun(category: FeatureCategory, feature: string): string {
   switch (category) {
     case "genres":

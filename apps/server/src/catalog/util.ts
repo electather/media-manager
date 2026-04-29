@@ -1,3 +1,5 @@
+import { uniq } from "es-toolkit/array";
+
 /**
  * Trims and dedupes a list of strings preserving first-seen order. Returns
  * an empty array when the input is missing or has no surviving values.
@@ -6,16 +8,12 @@
  */
 export function dedupeStrings(values: readonly string[] | undefined): string[] {
   if (!values || values.length === 0) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of values) {
-    if (typeof raw !== "string") continue;
-    const trimmed = raw.trim();
-    if (!trimmed || seen.has(trimmed)) continue;
-    seen.add(trimmed);
-    out.push(trimmed);
-  }
-  return out;
+  return uniq(
+    values
+      .filter((v): v is string => typeof v === "string")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+  );
 }
 
 /** Trims and returns null when the result is empty. */

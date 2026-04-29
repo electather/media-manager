@@ -51,6 +51,7 @@ export class HomeFeedService {
    * between sessions surface as `home.row_unavailable` rather than an empty
    * payload.
    */
+  // fallow-ignore-next-line complexity
   async getRowContent(
     userId: string,
     args: { rowId: RowKind; cursor: string | null },

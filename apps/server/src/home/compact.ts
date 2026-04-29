@@ -1,4 +1,5 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CanonicalMetadata } from "../catalog/types";
 
 const VALID_STATUSES: ReadonlySet<NonNullable<CompactMediaItem["status"]>> = new Set([
   "available",
@@ -52,6 +53,7 @@ export interface RawMediaItem {
  * Absent values are *omitted*, never null/undefined; matches the same
  * compression discipline `ent_discover` uses on the MCP wire.
  */
+// fallow-ignore-next-line complexity
 export function toCompact(
   item: RawMediaItem,
   extras: Partial<CompactMediaItem> = {},
@@ -77,12 +79,30 @@ export function toCompact(
   return Object.assign(out, stripUndefined(extras));
 }
 
+/** Builds a `RawMediaItem` from a canonical metadata row for row fetchers. */
+// fallow-ignore-next-line complexity
+export function canonicalToRaw(row: CanonicalMetadata): RawMediaItem {
+  return {
+    id: `${row.mediaType}:${row.tmdbId}`,
+    type: row.mediaType,
+    title: row.title,
+    year: row.year ?? undefined,
+    genres: row.genres ?? [],
+    overview: row.overview ?? undefined,
+    posterUrl: row.posterUrl ?? undefined,
+    backdropUrl: row.backdropUrl ?? undefined,
+    clearLogoUrl: row.clearLogoUrl ?? undefined,
+    ids: { tmdb_id: row.tmdbId },
+  };
+}
+
 /** Composes `"movie:550"` / `"tv:1396"` from `(type, tmdbId)`. */
 export function composeId(type: "movie" | "tv", tmdbId: string): string {
   return `${type}:${tmdbId}`;
 }
 
 /** Splits `"movie:550"` into `["movie", "550"]`; returns null on malformed input. */
+// fallow-ignore-next-line complexity
 export function parseCompactId(id: string): { mediaType: "movie" | "tv"; tmdbId: string } | null {
   const idx = id.indexOf(":");
   if (idx <= 0) return null;

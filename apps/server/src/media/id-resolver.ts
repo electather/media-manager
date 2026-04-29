@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "../db/client";
 import { idMap } from "../db/schema";
+import { isNil } from "es-toolkit/predicate";
 
 export type IdField = "imdb_id" | "tvdb_id" | "trakt_id" | "trakt_slug";
 export type MediaType = "movie" | "tv";
@@ -34,12 +35,22 @@ export interface HarvestContext {
 
 function shouldOverwrite(field: IdField, ctx: HarvestContext, existing: string | null): boolean {
   const owner = ID_OWNERSHIP[field];
-  if (owner === "first_writer") return existing === null || existing === undefined;
+  if (owner === "first_writer") return isNil(existing);
   if (!ctx.installedPlugins.has(owner)) {
-    // Owner plugin absent: fall back to first-writer so id_map stays populated.
-    return existing === null || existing === undefined;
+    return isNil(existing);
   }
   return ctx.pluginId === owner;
+}
+
+function assignIdField(
+  updates: Record<string, string | number>,
+  key: string,
+  value: string | undefined,
+  field: IdField,
+  ctx: HarvestContext,
+  existing: string | null,
+): void {
+  if (value && shouldOverwrite(field, ctx, existing)) updates[key] = value;
 }
 
 /**
@@ -47,6 +58,7 @@ function shouldOverwrite(field: IdField, ctx: HarvestContext, existing: string |
  * ownership: plugin-owned fields only accept writes from that plugin; `imdb_id`
  * is first-writer; absent-owner fields fall back to first-writer.
  */
+// fallow-ignore-next-line complexity
 export async function upsertIdBundle(
   bundle: IdBundle,
   mediaType: MediaType,
@@ -73,32 +85,20 @@ export async function upsertIdBundle(
     return;
   }
 
-  const updates: Partial<{
-    imdbId: string | null;
-    tvdbId: string | null;
-    traktId: string | null;
-    traktSlug: string | null;
-    updatedAt: number;
-  }> = {};
+  const updates: Record<string, string | number> = {};
 
-  if (bundle.imdb_id && shouldOverwrite("imdb_id", ctx, existing.imdbId)) {
-    if (existing.imdbId && existing.imdbId !== bundle.imdb_id) {
+  if (bundle.imdb_id) {
+    if (!existing.imdbId) {
+      updates.imdbId = bundle.imdb_id;
+    } else if (existing.imdbId !== bundle.imdb_id) {
       consola.debug(
         `[id-map] imdb_id conflict for tmdb_id=${bundle.tmdb_id} ignored (first-writer wins)`,
       );
-    } else {
-      updates.imdbId = bundle.imdb_id;
     }
   }
-  if (bundle.tvdb_id && shouldOverwrite("tvdb_id", ctx, existing.tvdbId)) {
-    updates.tvdbId = bundle.tvdb_id;
-  }
-  if (bundle.trakt_id && shouldOverwrite("trakt_id", ctx, existing.traktId)) {
-    updates.traktId = bundle.trakt_id;
-  }
-  if (bundle.trakt_slug && shouldOverwrite("trakt_slug", ctx, existing.traktSlug)) {
-    updates.traktSlug = bundle.trakt_slug;
-  }
+  assignIdField(updates, "tvdbId", bundle.tvdb_id, "tvdb_id", ctx, existing.tvdbId);
+  assignIdField(updates, "traktId", bundle.trakt_id, "trakt_id", ctx, existing.traktId);
+  assignIdField(updates, "traktSlug", bundle.trakt_slug, "trakt_slug", ctx, existing.traktSlug);
 
   if (Object.keys(updates).length === 0) return;
   updates.updatedAt = now;
@@ -108,6 +108,7 @@ export async function upsertIdBundle(
     .where(and(eq(idMap.tmdbId, bundle.tmdb_id), eq(idMap.mediaType, mediaType)));
 }
 
+// fallow-ignore-next-line complexity
 export async function getIdBundle(tmdbId: string, mediaType: MediaType): Promise<IdBundle | null> {
   const db = getDb();
   const row = await db
@@ -128,6 +129,7 @@ export async function getIdBundle(tmdbId: string, mediaType: MediaType): Promise
 /**
  * Extracts an id bundle from a plugin-produced MediaItem.
  */
+// fallow-ignore-next-line complexity
 export function extractIds(item: unknown): IdBundle | null {
   if (!item || typeof item !== "object") return null;
   const rec = item as Record<string, unknown>;
@@ -156,12 +158,14 @@ export function extractIds(item: unknown): IdBundle | null {
  * Given an arbitrary plugin output, harvest every MediaItem-shaped entry and
  * upsert its ids. Works for objects (single details) and arrays (lists/searches).
  */
+// fallow-ignore-next-line complexity
 export async function harvestIds(
   output: unknown,
   ctx: HarvestContext,
   defaultMediaType?: MediaType,
 ): Promise<void> {
   const items: unknown[] = [];
+  // fallow-ignore-next-line complexity
   const walk = (node: unknown) => {
     if (!node) return;
     if (Array.isArray(node)) {

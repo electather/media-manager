@@ -1,7 +1,9 @@
+import { orderBy } from "es-toolkit/array";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { type RawMediaItem } from "../compact";
+import { buildItem } from "./build-item";
 
 const ROW_ID = "yourWatchlist" as const satisfies RowKind;
 const MAX_ITEMS = 200;
@@ -25,7 +27,7 @@ export const yourWatchlistFetcher: RowFetcher = {
     const offset = readOffset(opts.cursor);
     const result = await ctx.mediaService.getWatchlistFeed({ deadlineMs: ctx.deadlineMs });
     const data = result.items as WatchlistEntry[];
-    const sorted = [...data].sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt));
+    const sorted = orderBy(data, [(e) => Date.parse(e.addedAt)], ["desc"]);
     const slice = sorted.slice(offset, offset + opts.limit);
     const items = await Promise.all(slice.map((entry) => buildItem(ctx, entry.item)));
     const usable = items.filter((item): item is CompactMediaItem => item !== null);
@@ -46,15 +48,4 @@ export const yourWatchlistFetcher: RowFetcher = {
 function readOffset(cursor: string | null): number {
   if (!cursor) return 0;
   return decodeCursor(ROW_ID, cursor).o;
-}
-
-async function buildItem(
-  ctx: RowFetchContext,
-  item: RawMediaItem,
-): Promise<CompactMediaItem | null> {
-  const compact = toCompact(item);
-  const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = toStatusOrUndefined(map[compact.id]);
-  if (status) compact.status = status;
-  return compact;
 }
