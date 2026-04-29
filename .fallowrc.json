@@ -85,8 +85,8 @@
         "patterns": ["apps/client/src/features/jobs/**"]
       },
       {
-        "name": "client-features-legacy",
-        "patterns": ["apps/client/src/lib/**"]
+        "name": "client-feat-home",
+        "patterns": ["apps/client/src/features/home/**"]
       },
       { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
       { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
@@ -139,7 +139,7 @@
           "client-feat-settings",
           "client-feat-admin",
           "client-feat-jobs",
-          "client-features-legacy",
+          "client-feat-home",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",
@@ -155,7 +155,7 @@
           "client-feat-settings",
           "client-feat-admin",
           "client-feat-jobs",
-          "client-features-legacy",
+          "client-feat-home",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",
@@ -214,7 +214,7 @@
         ]
       },
       {
-        "from": "client-features-legacy",
+        "from": "client-feat-home",
         "allow": [
           "client-shared-ui",
           "client-shared-components",
