@@ -1,9 +1,14 @@
 import { captureError } from "../errors/capture";
-import { assertValidSchedule, scheduleCron, unscheduleCron } from "./croner-adapter";
+import { assertValidSchedule } from "./croner-adapter";
 import { register, type RegistryEntry } from "./registry";
-import { buildJobHandle, scheduleJobFromConfig } from "./schedule-helpers";
+import {
+  assertNotRunning,
+  buildJobHandle,
+  buildScheduledCallbacks,
+  scheduleJobFromConfig,
+} from "./schedule-helpers";
 import { setCurrentRow } from "./run-logger";
-import { isRunning, run } from "./runner";
+import { run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle, JobRunStatus } from "@ent-mcp/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
@@ -49,15 +54,10 @@ export function registerScheduledPerRow<TRow>(
     kind: "scheduled_per_row",
     schedule: opts.schedule,
     capture: opts.capture,
-    dispose() {
-      unscheduleCron(opts.id);
-    },
+    ...buildScheduledCallbacks(opts, onTick),
     triggerFromApi: adminTriggerable
       ? async (_input, source) => {
-          if (isRunning(opts.id)) {
-            const { jobErrors } = await import("./errors");
-            throw jobErrors.alreadyRunning(opts.id);
-          }
+          await assertNotRunning(opts.id);
           const aggregate: RowAggregate = {
             total: 0,
             succeeded: 0,
@@ -78,13 +78,6 @@ export function registerScheduledPerRow<TRow>(
           return { runId: outcome.runId, result: undefined };
         }
       : undefined,
-    onScheduleChange(schedule) {
-      scheduleCron(opts.id, schedule, () => void onTick());
-    },
-    onEnabledChange(enabled) {
-      if (enabled) void scheduleJobFromConfig(opts.id, opts.schedule, () => void onTick());
-      else unscheduleCron(opts.id);
-    },
   };
   register(entry);
 

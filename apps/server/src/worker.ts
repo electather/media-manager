@@ -1,12 +1,5 @@
 import { Hono } from "hono";
-import { cors } from "hono/cors";
-import { appRouter } from "./api/router";
-import { authRouteHandler } from "./auth/oauth-handler";
-import {
-  createMcpHandler,
-  oauthAuthorizationServerHandler,
-  oauthProtectedResourceHandler,
-} from "./mcp/server";
+import { registerApiRoutes } from "./api/register-routes";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { registerBuiltinPlugins } from "./plugins/registry";
@@ -62,37 +55,12 @@ function ensureRuntimeReady(): Promise<void> {
 
 const app = new Hono();
 
-const mcpCors = cors({
-  origin: "*",
-  allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowHeaders: ["Authorization", "Content-Type", "Mcp-Session-Id", "Mcp-Protocol-Version"],
-  exposeHeaders: ["Mcp-Session-Id"],
-  maxAge: 86400,
-});
-
 app.use(async (_c, next) => {
   await ensureRuntimeReady();
   await next();
 });
 
-app.use("/api/auth/*", mcpCors);
-app.use("/.well-known/oauth-authorization-server/*", mcpCors);
-app.use("/.well-known/oauth-authorization-server", mcpCors);
-app.use("/.well-known/oauth-protected-resource/*", mcpCors);
-app.use("/.well-known/oauth-protected-resource", mcpCors);
-app.use("/mcp", mcpCors);
-
-app.on(["GET", "POST"], "/api/auth/*", (c) => authRouteHandler(c.req.raw));
-app.route("/api", appRouter);
-app.get("/.well-known/oauth-authorization-server/*", (c) =>
-  oauthAuthorizationServerHandler(c.req.raw),
-);
-app.get("/.well-known/oauth-authorization-server", (c) =>
-  oauthAuthorizationServerHandler(c.req.raw),
-);
-app.get("/.well-known/oauth-protected-resource/*", (c) => oauthProtectedResourceHandler(c.req.raw));
-app.get("/.well-known/oauth-protected-resource", (c) => oauthProtectedResourceHandler(c.req.raw));
-app.all("/mcp", createMcpHandler());
+registerApiRoutes(app);
 
 app.onError(errorHandler);
 

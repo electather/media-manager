@@ -1,6 +1,7 @@
 import { and, desc, eq, lt } from "drizzle-orm";
 import { getDb, type Db } from "../db/client";
 import { serviceConnections, pendingAuth, plugins } from "../db/schema";
+import { selectEnabledPlugins } from "../db/queries";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
@@ -382,8 +383,7 @@ export const connectionsService = {
    * v2) have no user-side surface and are excluded.
    */
   async listAvailablePlugins(): Promise<PluginSummary[]> {
-    const db = getDb();
-    const rows = await db.select().from(plugins).where(eq(plugins.enabled, 1)).all();
+    const rows = await selectEnabledPlugins();
     const out: PluginSummary[] = [];
     for (const row of rows) {
       if (!capabilityRegistry.get(row.id)) continue;

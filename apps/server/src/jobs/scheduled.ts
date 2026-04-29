@@ -1,7 +1,12 @@
-import { assertValidSchedule, scheduleCron, unscheduleCron } from "./croner-adapter";
+import { assertValidSchedule } from "./croner-adapter";
 import { register, type RegistryEntry } from "./registry";
-import { buildJobHandle, scheduleJobFromConfig } from "./schedule-helpers";
-import { isRunning, run } from "./runner";
+import {
+  assertNotRunning,
+  buildJobHandle,
+  buildScheduledCallbacks,
+  scheduleJobFromConfig,
+} from "./schedule-helpers";
+import { run } from "./runner";
 import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 import type { JobCaptureMeta, JobRunContext } from "./types";
@@ -29,15 +34,10 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
     kind: "scheduled",
     schedule: opts.schedule,
     capture: opts.capture,
-    dispose() {
-      unscheduleCron(opts.id);
-    },
+    ...buildScheduledCallbacks(opts, onTick),
     triggerFromApi: adminTriggerable
       ? async (_input, source) => {
-          if (isRunning(opts.id)) {
-            const { jobErrors } = await import("./errors");
-            throw jobErrors.alreadyRunning(opts.id);
-          }
+          await assertNotRunning(opts.id);
           const outcome = await run({
             jobId: opts.id,
             kind: "scheduled",
@@ -51,16 +51,6 @@ export function registerScheduled(opts: RegisterScheduledOptions): JobHandle {
           return { runId: outcome.runId, result: undefined };
         }
       : undefined,
-    onScheduleChange(schedule) {
-      scheduleCron(opts.id, schedule, () => void onTick());
-    },
-    onEnabledChange(enabled) {
-      if (enabled) {
-        void scheduleJobFromConfig(opts.id, opts.schedule, () => void onTick());
-      } else {
-        unscheduleCron(opts.id);
-      }
-    },
   };
   register(entry);
 

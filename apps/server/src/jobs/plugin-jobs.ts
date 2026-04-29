@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { plugins, serviceConnections } from "../db/schema";
+import { serviceConnections } from "../db/schema";
+import { selectEnabledPlugins } from "../db/queries";
 import { encryptJson, decryptJson } from "../crypto/helpers";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { pluginRuntime } from "../plugin-runtime/runtime";
@@ -19,8 +20,7 @@ interface DeclaredPluginJob {
 
 /** Returns every declared job across all enabled plugins. */
 export async function listAllPluginJobs(): Promise<DeclaredPluginJob[]> {
-  const db = getDb();
-  const rows = await db.select().from(plugins).where(eq(plugins.enabled, 1)).all();
+  const rows = await selectEnabledPlugins();
   const out: DeclaredPluginJob[] = [];
   for (const row of rows) {
     const manifest = JSON.parse(row.manifest) as {

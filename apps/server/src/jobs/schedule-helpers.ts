@@ -1,6 +1,7 @@
 import { consola } from "consola";
 import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
 import { effectiveSchedule, getConfig } from "./config";
+import { isRunning } from "./runner";
 import type { JobHandle, JobKind } from "@ent-mcp/shared/jobs";
 
 interface BaseJobOpts {
@@ -8,6 +9,33 @@ interface BaseJobOpts {
   name: string;
   description?: string;
   schedule: string;
+}
+
+interface ScheduledCallbackOpts {
+  id: string;
+  schedule: string;
+}
+
+export function buildScheduledCallbacks(opts: ScheduledCallbackOpts, onTick: () => void) {
+  return {
+    dispose() {
+      unscheduleCron(opts.id);
+    },
+    onScheduleChange(schedule: string) {
+      scheduleCron(opts.id, schedule, () => onTick());
+    },
+    onEnabledChange(enabled: boolean) {
+      if (enabled) void scheduleJobFromConfig(opts.id, opts.schedule, () => onTick());
+      else unscheduleCron(opts.id);
+    },
+  };
+}
+
+export async function assertNotRunning(jobId: string): Promise<void> {
+  if (isRunning(jobId)) {
+    const { jobErrors } = await import("./errors");
+    throw jobErrors.alreadyRunning(jobId);
+  }
 }
 
 export async function scheduleJobFromConfig(
