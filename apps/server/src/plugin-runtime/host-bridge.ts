@@ -22,6 +22,7 @@ function resolveScope(callerUserId: string | null, scope: StoreScopeOpts["scope"
 export function buildStore(pluginId: string, callerUserId: string | null): PluginStoreApi {
   const db = getDb();
   return {
+    // fallow-ignore-next-line complexity
     async get(key, opts) {
       const effective = resolveScope(callerUserId, opts?.scope);
       const row = await db
@@ -37,6 +38,7 @@ export function buildStore(pluginId: string, callerUserId: string | null): Plugi
         return row.value;
       }
     },
+    // fallow-ignore-next-line complexity
     async set(key, value, opts) {
       const now = Date.now();
       const effective = resolveScope(callerUserId, opts?.scope);

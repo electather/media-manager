@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineCapability, method } from "../define";
-import { mediaType, mediaItem, HOUR, MIN } from "./shared-schemas";
+import { mediaListQuery, mediaItem, HOUR, MIN } from "./shared-schemas";
 
 export const RecommendationsV1 = defineCapability({
   id: "recommendations",
@@ -11,17 +11,8 @@ export const RecommendationsV1 = defineCapability({
   negativeCacheTtlSec: 5 * MIN,
   defaultTimeoutMs: 15_000,
   methods: {
-    getRecommendations: method(
-      z.object({ type: mediaType.optional(), limit: z.number().optional() }),
-      z.array(mediaItem),
-    ),
-    getTrending: method(
-      z.object({ type: mediaType.optional(), limit: z.number().optional() }),
-      z.array(mediaItem),
-    ),
-    getAnticipated: method(
-      z.object({ type: mediaType.optional(), limit: z.number().optional() }),
-      z.array(mediaItem),
-    ),
+    getRecommendations: method(mediaListQuery, z.array(mediaItem)),
+    getTrending: method(mediaListQuery, z.array(mediaItem)),
+    getAnticipated: method(mediaListQuery, z.array(mediaItem)),
   },
 });

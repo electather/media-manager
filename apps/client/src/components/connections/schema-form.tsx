@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";
+import { isNil } from "es-toolkit/predicate";
 
 interface FieldSchema {
   name: string;
@@ -80,11 +81,11 @@ export function defaultsFromSchema(schema: JSONSchema): Record<string, unknown> 
 }
 
 function isBlank(v: unknown): boolean {
-  return v === undefined || v === null || v === "";
+  return isNil(v) || v === "";
 }
 
 function stringifyScalar(v: unknown): string {
-  if (v === undefined || v === null) return "";
+  if (isNil(v)) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";

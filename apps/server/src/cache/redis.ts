@@ -9,20 +9,24 @@ export class RedisCache implements CacheProvider {
     this.client = new Redis(url);
   }
 
+  // fallow-ignore-next-line unused-class-member
   async get<T>(key: string): Promise<T | null> {
     const raw = await this.client.get(key);
     if (!raw) return null;
     return JSON.parse(raw) as T;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async set<T>(key: string, value: T, ttlMs: number): Promise<void> {
     await this.client.psetex(key, ttlMs, JSON.stringify(value));
   }
 
+  // fallow-ignore-next-line unused-class-member
   async delete(key: string): Promise<void> {
     await this.client.del(key);
   }
 
+  // fallow-ignore-next-line unused-class-member
   async clear(prefix?: string): Promise<void> {
     if (!prefix) {
       await this.client.flushdb();

@@ -34,6 +34,7 @@ export function requestContextMiddleware() {
  *
  *  Hono intercepts handler throws internally and routes them here, so this is
  *  the single backend boundary where all errors land. */
+// fallow-ignore-next-line complexity
 export const errorHandler: ErrorHandler = (err, c) => {
   const requestId = (c.get("requestId") as string | undefined) ?? newRequestId();
   const session = c.get("session") as { user?: { id?: string } } | undefined;

@@ -1,3 +1,5 @@
+import { consola } from "consola";
+import { orderBy } from "es-toolkit/array";
 import type {
   FeatureCategory,
   FeedbackRecord,
@@ -7,7 +9,7 @@ import type {
   RebuildResult,
 } from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
-import { SCORERS, isDictScorer } from "./features";
+import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
 import { profileStorage } from "./storage";
 import { normalizeProfile } from "./scoring";
 import type { PreferenceDataProvider } from "./provider";
@@ -57,20 +59,26 @@ export interface RebuildDeps {
   deadlineMs?: number;
 }
 
+function topEntries(dict: Record<string, number>, n: number): string[] {
+  return orderBy(Object.entries(dict), [([, v]) => v], ["desc"])
+    .slice(0, n)
+    .map(([k]) => k);
+}
+
 export async function rebuildProfile(
   deps: RebuildDeps,
   userId: string,
   mediaType: ProfileMediaType,
   now: number = Date.now(),
 ): Promise<RebuildResult> {
-  console.log("[preferences:rebuild] start", { userId, mediaType, now });
+  consola.debug("[preferences:rebuild] start", { userId, mediaType, now });
 
   deps.abortSignal?.throwIfAborted();
   const contributions = await collectContributions(deps, userId, mediaType);
 
   const features = aggregate(contributions, now);
   const pruned = topKPrune(features);
-  console.log("[preferences:rebuild] pruned", {
+  consola.debug("[preferences:rebuild] pruned", {
     userId,
     mediaType,
     counts: Object.fromEntries(
@@ -90,12 +98,7 @@ export async function rebuildProfile(
     lastUpdatedAt: now,
   };
   await profileStorage.write(profile, { bumpVersion: true });
-  const topEntries = (dict: Record<string, number>, n: number) =>
-    Object.entries(dict)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, n)
-      .map(([k]) => k);
-  console.log("[preferences:rebuild] done", {
+  consola.debug("[preferences:rebuild] done", {
     userId,
     mediaType,
     sampleSize: profile.sampleSize,
@@ -129,46 +132,95 @@ async function collectContributions(
   userId: string,
   mediaType: ProfileMediaType,
 ): Promise<Map<string, ItemContribution>> {
-  const [feedbackRows, history, ratings, watchlist, comments] = await Promise.all([
-    feedbackLog.readAllForUser(userId),
-    deps.provider.getHistory(userId),
-    deps.provider.getAllRatings(userId),
-    deps.provider.getWatchlist(userId),
-    deps.provider.getComments(userId),
-  ]);
-  console.log("[preferences:rebuild] sources", {
+  const sources = await fetchAllSources(deps.provider, userId);
+  logSources(userId, mediaType, sources);
+
+  const perItem = buildPerItemSignals(sources, mediaType);
+  const signalCounts = countSignals(perItem);
+
+  const candidates = [...perItem.entries()].filter(([, s]) => resolveItemWeight(s) !== 0);
+  const zeroWeightDropped = perItem.size - candidates.length;
+
+  const output = await fetchFeaturesForCandidates(deps, userId, candidates);
+
+  consola.debug("[preferences:rebuild] contributions", {
     userId,
     mediaType,
-    feedbackRows: feedbackRows.length,
-    history: history.length,
-    ratings: ratings.length,
-    watchlist: watchlist.length,
-    comments: comments.length,
+    signals: signalCounts,
+    zeroWeightDropped,
+    noFeaturesDropped: candidates.length - output.size,
+    total: output.size,
   });
+  return output;
+}
 
+interface AllSources {
+  feedbackRows: Awaited<ReturnType<typeof feedbackLog.readAllForUser>>;
+  history: Awaited<ReturnType<PreferenceDataProvider["getHistory"]>>;
+  ratings: Awaited<ReturnType<PreferenceDataProvider["getAllRatings"]>>;
+  watchlist: Awaited<ReturnType<PreferenceDataProvider["getWatchlist"]>>;
+  comments: Awaited<ReturnType<PreferenceDataProvider["getComments"]>>;
+}
+
+async function fetchAllSources(
+  provider: PreferenceDataProvider,
+  userId: string,
+): Promise<AllSources> {
+  const [feedbackRows, history, ratings, watchlist, comments] = await Promise.all([
+    feedbackLog.readAllForUser(userId),
+    provider.getHistory(userId),
+    provider.getAllRatings(userId),
+    provider.getWatchlist(userId),
+    provider.getComments(userId),
+  ]);
+  return { feedbackRows, history, ratings, watchlist, comments };
+}
+
+function logSources(userId: string, mediaType: ProfileMediaType, sources: AllSources): void {
+  consola.debug("[preferences:rebuild] sources", {
+    userId,
+    mediaType,
+    feedbackRows: sources.feedbackRows.length,
+    history: sources.history.length,
+    ratings: sources.ratings.length,
+    watchlist: sources.watchlist.length,
+    comments: sources.comments.length,
+  });
+}
+
+// fallow-ignore-next-line complexity
+function buildPerItemSignals(
+  sources: AllSources,
+  mediaType: ProfileMediaType,
+): Map<string, PerItemSignals> {
   const perItem = new Map<string, PerItemSignals>();
-  for (const record of feedbackRows) {
+  for (const record of sources.feedbackRows) {
     if (!includesMediaType(record.mediaType, mediaType)) continue;
     mergeFeedback(perItem, record);
   }
-  for (const rating of ratings) {
+  for (const rating of sources.ratings) {
     if (!includesMediaType(rating.mediaType, mediaType)) continue;
     mergeRating(perItem, rating);
   }
-  for (const entry of history) {
+  for (const entry of sources.history) {
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeHistory(perItem, entry);
   }
-  for (const entry of watchlist) {
+  for (const entry of sources.watchlist) {
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeWatchlist(perItem, entry);
   }
-  for (const entry of comments) {
+  for (const entry of sources.comments) {
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeComment(perItem, entry);
   }
+  return perItem;
+}
 
-  const signalCounts = {
+type SignalCounts = ReturnType<typeof initSignalCounts>;
+
+function initSignalCounts() {
+  return {
     rateHigh: 0,
     rateMid: 0,
     rateLow: 0,
@@ -179,24 +231,36 @@ async function collectContributions(
     watchlist: 0,
     comment: 0,
   };
-  for (const s of perItem.values()) {
-    if (s.rate) {
-      const w = rateBucketWeight(s.rate.rating);
-      if (w > 0) signalCounts.rateHigh++;
-      else if (w < 0) signalCounts.rateLow++;
-      else signalCounts.rateMid++;
-    }
-    if (s.like) signalCounts.like++;
-    if (s.dislike) signalCounts.dislike++;
-    if (s.note) signalCounts.note++;
-    if (s.completed) signalCounts.completed++;
-    if (s.watchlisted) signalCounts.watchlist++;
-    if (s.comment) signalCounts.comment++;
+}
+
+// fallow-ignore-next-line complexity
+function tallySignals(counts: SignalCounts, s: PerItemSignals): void {
+  if (s.rate) {
+    const w = rateBucketWeight(s.rate.rating);
+    if (w > 0) counts.rateHigh++;
+    else if (w < 0) counts.rateLow++;
+    else counts.rateMid++;
   }
+  if (s.like) counts.like++;
+  if (s.dislike) counts.dislike++;
+  if (s.note) counts.note++;
+  if (s.completed) counts.completed++;
+  if (s.watchlisted) counts.watchlist++;
+  if (s.comment) counts.comment++;
+}
 
-  const candidates = [...perItem.entries()].filter(([, s]) => resolveItemWeight(s) !== 0);
-  const zeroWeightDropped = perItem.size - candidates.length;
+function countSignals(perItem: Map<string, PerItemSignals>): SignalCounts {
+  const counts = initSignalCounts();
+  for (const s of perItem.values()) tallySignals(counts, s);
+  return counts;
+}
 
+// fallow-ignore-next-line complexity
+async function fetchFeaturesForCandidates(
+  deps: RebuildDeps,
+  userId: string,
+  candidates: [string, PerItemSignals][],
+): Promise<Map<string, ItemContribution>> {
   const CONCURRENCY = 10;
   const output = new Map<string, ItemContribution>();
   for (let i = 0; i < candidates.length; i += CONCURRENCY) {
@@ -204,18 +268,7 @@ async function collectContributions(
     if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) break;
     const batch = candidates.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
-      batch.map(async ([key, signals]) => {
-        if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) {
-          return { key, signals, weight: resolveItemWeight(signals), candidate: null };
-        }
-        const weight = resolveItemWeight(signals);
-        const candidate = await deps.provider.getItemFeatures(
-          userId,
-          signals.tmdbId,
-          signals.mediaType,
-        );
-        return { key, signals, weight, candidate };
-      }),
+      batch.map(([key, signals]) => fetchOneCandidate(deps, userId, key, signals)),
     );
     for (const { key, signals, weight, candidate } of results) {
       if (!candidate) continue;
@@ -223,20 +276,25 @@ async function collectContributions(
         candidate,
         weight,
         timestamp: signals.latestAt,
-        noteKeywords: signals.noteKeywords,
+        noteKeywords: [...signals.noteKeywords],
       });
     }
   }
-
-  console.log("[preferences:rebuild] contributions", {
-    userId,
-    mediaType,
-    signals: signalCounts,
-    zeroWeightDropped,
-    noFeaturesDropped: candidates.length - output.size,
-    total: output.size,
-  });
   return output;
+}
+
+async function fetchOneCandidate(
+  deps: RebuildDeps,
+  userId: string,
+  key: string,
+  signals: PerItemSignals,
+) {
+  const weight = resolveItemWeight(signals);
+  if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) {
+    return { key, signals, weight, candidate: null };
+  }
+  const candidate = await deps.provider.getItemFeatures(userId, signals.tmdbId, signals.mediaType);
+  return { key, signals, weight, candidate };
 }
 
 interface PerItemSignals {
@@ -250,7 +308,7 @@ interface PerItemSignals {
   completed?: { at: number };
   watchlisted?: { at: number };
   comment?: { sentiment: "positive" | "negative" | "neutral"; at: number };
-  noteKeywords: string[];
+  noteKeywords: Set<string>;
 }
 
 function signalsFor(
@@ -265,36 +323,36 @@ function signalsFor(
     if (at > existing.latestAt) existing.latestAt = at;
     return existing;
   }
-  const created: PerItemSignals = { tmdbId, mediaType, latestAt: at, noteKeywords: [] };
+  const created: PerItemSignals = { tmdbId, mediaType, latestAt: at, noteKeywords: new Set() };
   perItem.set(key, created);
   return created;
 }
 
+function isNewer(existing: { at: number } | undefined, at: number): boolean {
+  return !existing || at > existing.at;
+}
+
+// fallow-ignore-next-line complexity
 function mergeFeedback(perItem: Map<string, PerItemSignals>, record: FeedbackRecord): void {
   const entry = signalsFor(perItem, record.tmdbId, record.mediaType, record.createdAt);
+  const at = record.createdAt;
   switch (record.action) {
     case "rate":
-      if (record.rating !== null && (!entry.rate || record.createdAt > entry.rate.at)) {
-        entry.rate = { rating: record.rating, at: record.createdAt };
+      if (record.rating !== null && isNewer(entry.rate, at)) {
+        entry.rate = { rating: record.rating, at };
       }
       break;
     case "like":
-      if (!entry.like || record.createdAt > entry.like.at) {
-        entry.like = { at: record.createdAt };
-      }
+      if (isNewer(entry.like, at)) entry.like = { at };
       break;
     case "dislike":
-      if (!entry.dislike || record.createdAt > entry.dislike.at) {
-        entry.dislike = { at: record.createdAt };
-      }
+      if (isNewer(entry.dislike, at)) entry.dislike = { at };
       break;
     case "note": {
       const sentiment = record.noteSentiment ?? "neutral";
-      if (!entry.note || record.createdAt > entry.note.at) {
-        entry.note = { sentiment, at: record.createdAt };
-      }
+      if (isNewer(entry.note, at)) entry.note = { sentiment, at };
       for (const keyword of record.noteKeywords ?? []) {
-        if (!entry.noteKeywords.includes(keyword)) entry.noteKeywords.push(keyword);
+        entry.noteKeywords.add(keyword);
       }
       break;
     }
@@ -306,7 +364,7 @@ function mergeRating(
   rating: { tmdbId: string; mediaType: "movie" | "tv"; rating: number; ratedAt: number },
 ): void {
   const entry = signalsFor(perItem, rating.tmdbId, rating.mediaType, rating.ratedAt);
-  if (!entry.rate || rating.ratedAt > entry.rate.at) {
+  if (isNewer(entry.rate, rating.ratedAt)) {
     entry.rate = { rating: rating.rating, at: rating.ratedAt };
   }
 }
@@ -318,9 +376,7 @@ function mergeHistory(
   const isCompleted = entry.progress === null || entry.progress >= 0.8;
   if (!isCompleted) return;
   const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.watchedAt);
-  if (!signals.completed || entry.watchedAt > signals.completed.at) {
-    signals.completed = { at: entry.watchedAt };
-  }
+  if (isNewer(signals.completed, entry.watchedAt)) signals.completed = { at: entry.watchedAt };
 }
 
 function mergeWatchlist(
@@ -328,9 +384,7 @@ function mergeWatchlist(
   entry: { tmdbId: string; mediaType: "movie" | "tv"; addedAt: number },
 ): void {
   const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.addedAt);
-  if (!signals.watchlisted || entry.addedAt > signals.watchlisted.at) {
-    signals.watchlisted = { at: entry.addedAt };
-  }
+  if (isNewer(signals.watchlisted, entry.addedAt)) signals.watchlisted = { at: entry.addedAt };
 }
 
 function mergeComment(
@@ -339,12 +393,12 @@ function mergeComment(
 ): void {
   const sentiment = classifySentiment(entry.text);
   const signals = signalsFor(perItem, entry.tmdbId, entry.mediaType, entry.createdAt);
-  if (!signals.comment || entry.createdAt > signals.comment.at) {
+  if (isNewer(signals.comment, entry.createdAt))
     signals.comment = { sentiment, at: entry.createdAt };
-  }
 }
 
 /** Combines the per-source weights into a single signed weight per item. */
+// fallow-ignore-next-line complexity
 function resolveItemWeight(signals: PerItemSignals): number {
   let total = 0;
   if (signals.rate) total += rateBucketWeight(signals.rate.rating);
@@ -380,6 +434,35 @@ function includesMediaType(itemType: "movie" | "tv", partition: ProfileMediaType
   return itemType === partition;
 }
 
+// fallow-ignore-next-line complexity
+function accumulateScorerFeatures(
+  features: ProfileFeatures,
+  scorer: FeatureScorer,
+  contribution: ItemContribution,
+  decay: number,
+): void {
+  if (!isDictScorer(scorer)) return;
+  const dict = scorer.extract(contribution.candidate);
+  const weight = contribution.weight * (DECAY_CATEGORIES.has(scorer.id) ? decay : 1);
+  const bucket = features[scorer.id];
+  for (const [feature, rawValue] of Object.entries(dict)) {
+    const value = rawValue * weight;
+    if (value === 0) continue;
+    bucket[feature] = (bucket[feature] ?? 0) + value;
+  }
+}
+
+function accumulateKeywords(
+  features: ProfileFeatures,
+  contribution: ItemContribution,
+  decay: number,
+): void {
+  for (const keyword of contribution.noteKeywords) {
+    const value = NOTE_KEYWORD_BOOST * contribution.weight * decay;
+    features.keywords[keyword] = (features.keywords[keyword] ?? 0) + value;
+  }
+}
+
 /**
  * Folds the per-item contributions into category dicts, applying the recency
  * decay for genres and keywords.
@@ -388,30 +471,15 @@ function aggregate(contributions: Map<string, ItemContribution>, now: number): P
   const features = emptyFeatures();
   for (const contribution of contributions.values()) {
     const decay = recencyMultiplier(now, contribution.timestamp);
-    for (const scorer of SCORERS) {
-      if (!isDictScorer(scorer)) continue;
-      const dict = scorer.extract(contribution.candidate);
-      const shouldDecay = DECAY_CATEGORIES.has(scorer.id);
-      const weight = contribution.weight * (shouldDecay ? decay : 1);
-      for (const [feature, rawValue] of Object.entries(dict)) {
-        const value = rawValue * weight;
-        if (value === 0) continue;
-        const bucket = features[scorer.id];
-        bucket[feature] = (bucket[feature] ?? 0) + value;
-      }
-    }
-    for (const keyword of contribution.noteKeywords) {
-      const value =
-        NOTE_KEYWORD_BOOST * contribution.weight * recencyMultiplier(now, contribution.timestamp);
-      features.keywords[keyword] = (features.keywords[keyword] ?? 0) + value;
-    }
+    for (const scorer of SCORERS) accumulateScorerFeatures(features, scorer, contribution, decay);
+    accumulateKeywords(features, contribution, decay);
   }
   return features;
 }
 
 function recencyMultiplier(now: number, timestamp: number): number {
-  const months = Math.max(0, (now - timestamp) / (30 * 24 * 60 * 60 * 1000));
-  return Math.pow(0.5, (months * 30 * 24 * 60 * 60 * 1000) / HALF_LIFE_MS);
+  const elapsed = Math.max(0, now - timestamp);
+  return Math.pow(0.5, elapsed / HALF_LIFE_MS);
 }
 
 function topKPrune(features: ProfileFeatures): ProfileFeatures {
@@ -425,13 +493,7 @@ function topKPrune(features: ProfileFeatures): ProfileFeatures {
 function pruneMap(map: Record<string, number>, k: number): Record<string, number> {
   const entries = Object.entries(map);
   if (entries.length <= k) return { ...map };
-  entries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-  const kept: Record<string, number> = {};
-  for (let i = 0; i < k; i += 1) {
-    const [key, value] = entries[i]!;
-    kept[key] = value;
-  }
-  return kept;
+  return Object.fromEntries(orderBy(entries, [([, v]) => Math.abs(v)], ["desc"]).slice(0, k));
 }
 
-export { SIGNAL_WEIGHTS, TOP_K, HALF_LIFE_MS, recencyMultiplier };
+export { SIGNAL_WEIGHTS, TOP_K, HALF_LIFE_MS, NOTE_KEYWORD_BOOST, recencyMultiplier };

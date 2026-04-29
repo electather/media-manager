@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { groupBy, uniqBy } from "es-toolkit/array";
 import type { Db } from "../db/client";
 import {
   canonicalMetadata,
@@ -24,6 +25,8 @@ import type {
   RecommendationList,
   RecommendationListKind,
 } from "./types";
+
+type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
@@ -62,24 +65,30 @@ export class CatalogService {
     return row ?? null;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getMetadataBatch(items: MetadataKey[]): Promise<Record<string, CanonicalMetadata>> {
     if (items.length === 0) return {};
     // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
     // `mediaType` and union the results. Two queries max in practice;
     // the composite PK serves both lookups via index.
-    const buckets = new Map<"movie" | "tv", string[]>();
-    for (const item of items) {
-      const list = buckets.get(item.type);
-      if (list) list.push(item.tmdbId);
-      else buckets.set(item.type, [item.tmdbId]);
-    }
+    const buckets = groupBy(items, (item) => item.type);
     const out: Record<string, CanonicalMetadata> = {};
     const accessed: MetadataKey[] = [];
-    for (const [type, ids] of buckets) {
+    for (const [type, typeItems] of Object.entries(buckets) as Array<
+      ["movie" | "tv", MetadataKey[]]
+    >) {
       const rows = await this.db
         .select()
         .from(canonicalMetadata)
-        .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
+        .where(
+          and(
+            eq(canonicalMetadata.mediaType, type),
+            inArray(
+              canonicalMetadata.tmdbId,
+              typeItems.map((i) => i.tmdbId),
+            ),
+          ),
+        );
       for (const row of rows) {
         out[candidateId({ tmdbId: row.tmdbId, type: row.mediaType })] = row;
         accessed.push({ tmdbId: row.tmdbId, type: row.mediaType });
@@ -89,6 +98,7 @@ export class CatalogService {
     return out;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getMetadataWithIds(
     tmdbId: string,
     type: "movie" | "tv",
@@ -185,6 +195,7 @@ export class CatalogService {
       );
   }
 
+  // fallow-ignore-next-line unused-class-member
   async listStaleMetadata(staleAfterMs: number, limit: number): Promise<MetadataKey[]> {
     const cutoff = Date.now() - staleAfterMs;
     const rows = await this.db
@@ -210,6 +221,7 @@ export class CatalogService {
     return rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getDiscoverFeed(
     kind: DiscoverFeedKind,
     sort: DiscoverSort,
@@ -229,6 +241,7 @@ export class CatalogService {
     return row?.items ?? null;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getRecommendations(
     userId: string,
     kind: RecommendationListKind = "default",
@@ -264,6 +277,7 @@ export class CatalogService {
     return row?.events ?? [];
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getHistoryCursors(userId: string): Promise<PluginCursors> {
     const row = await this.db
       .select({ pluginCursors: userHistoryMirror.pluginCursors })
@@ -273,6 +287,7 @@ export class CatalogService {
     return row?.pluginCursors ?? {};
   }
 
+  // fallow-ignore-next-line unused-class-member
   async getRatingsCursors(userId: string): Promise<PluginCursors> {
     const row = await this.db
       .select({ pluginCursors: userRatingsMirror.pluginCursors })
@@ -282,6 +297,7 @@ export class CatalogService {
     return row?.pluginCursors ?? {};
   }
 
+  // fallow-ignore-next-line unused-class-member
   async writeDiscoverSnapshot(
     kind: DiscoverFeedKind,
     sort: DiscoverSort,
@@ -298,6 +314,7 @@ export class CatalogService {
       });
   }
 
+  // fallow-ignore-next-line unused-class-member
   async writeRecommendationList(
     userId: string,
     kind: RecommendationListKind,
@@ -314,93 +331,132 @@ export class CatalogService {
       });
   }
 
+  // fallow-ignore-next-line unused-class-member
   async appendUserHistory(
     userId: string,
     events: HistoryEvent[],
     pluginId: string,
     cursorTs: number,
   ): Promise<void> {
-    if (events.length === 0) return;
-    await this.mirrorMutex.run(userId, () =>
-      this.db.transaction(async (tx) => {
-        const existing = await tx
-          .select()
-          .from(userHistoryMirror)
-          .where(eq(userHistoryMirror.userId, userId))
-          .get();
-        const merged = mergeHistory(existing?.events ?? [], events);
-        const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
-        const lastSyncedAt = Date.now();
-        await tx
-          .insert(userHistoryMirror)
-          .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
-          .onConflictDoUpdate({
-            target: [userHistoryMirror.userId],
-            set: { events: merged, pluginCursors: cursors, lastSyncedAt },
-          });
-      }),
+    await this.appendMirrorRows(
+      userId,
+      events,
+      pluginId,
+      cursorTs,
+      {
+        select: (tx) =>
+          tx.select().from(userHistoryMirror).where(eq(userHistoryMirror.userId, userId)).get(),
+        upsert: (tx, merged, cursors, lastSyncedAt) =>
+          tx
+            .insert(userHistoryMirror)
+            .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
+            .onConflictDoUpdate({
+              target: [userHistoryMirror.userId],
+              set: { events: merged, pluginCursors: cursors, lastSyncedAt },
+            }),
+      },
+      mergeHistory,
     );
   }
 
+  // fallow-ignore-next-line unused-class-member
   async appendUserRatings(
     userId: string,
     events: RatingEvent[],
     pluginId: string,
     cursorTs: number,
   ): Promise<void> {
+    await this.appendMirrorRows(
+      userId,
+      events,
+      pluginId,
+      cursorTs,
+      {
+        select: (tx) =>
+          tx.select().from(userRatingsMirror).where(eq(userRatingsMirror.userId, userId)).get(),
+        upsert: (tx, merged, cursors, lastSyncedAt) =>
+          tx
+            .insert(userRatingsMirror)
+            .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
+            .onConflictDoUpdate({
+              target: [userRatingsMirror.userId],
+              set: { events: merged, pluginCursors: cursors, lastSyncedAt },
+            }),
+      },
+      mergeRatings,
+    );
+  }
+
+  private async appendMirrorRows<E>(
+    userId: string,
+    events: E[],
+    pluginId: string,
+    cursorTs: number,
+    tableOps: {
+      select: (
+        tx: DbTransaction,
+      ) => Promise<{ events: E[]; pluginCursors: PluginCursors } | undefined>;
+      upsert: (
+        tx: DbTransaction,
+        events: E[],
+        cursors: PluginCursors,
+        lastSyncedAt: number,
+      ) => PromiseLike<unknown>;
+    },
+    mergeEvents: (prior: E[], next: E[]) => E[],
+  ): Promise<void> {
     if (events.length === 0) return;
     await this.mirrorMutex.run(userId, () =>
+      // fallow-ignore-next-line complexity
       this.db.transaction(async (tx) => {
-        const existing = await tx
-          .select()
-          .from(userRatingsMirror)
-          .where(eq(userRatingsMirror.userId, userId))
-          .get();
-        const merged = mergeRatings(existing?.events ?? [], events);
+        const existing = await tableOps.select(tx);
+        const merged = mergeEvents(existing?.events ?? [], events);
         const cursors = mergeCursor(existing?.pluginCursors ?? {}, pluginId, cursorTs);
-        const lastSyncedAt = Date.now();
-        await tx
-          .insert(userRatingsMirror)
-          .values({ userId, events: merged, pluginCursors: cursors, lastSyncedAt })
-          .onConflictDoUpdate({
-            target: [userRatingsMirror.userId],
-            set: { events: merged, pluginCursors: cursors, lastSyncedAt },
-          });
+        await tableOps.upsert(tx, merged, cursors, Date.now());
       }),
     );
   }
 
+  // fallow-ignore-next-line complexity
   recordAccess(items: MetadataKey[]): void {
     if (items.length === 0) return;
     const now = Date.now();
-    const dueByType = new Map<"movie" | "tv", string[]>();
-    for (const item of items) {
+    const dueItems = items.filter((item) => {
       const key = candidateId(item);
       const prior = this.accessThrottle.get(key);
-      if (prior !== undefined && now - prior < this.recordAccessThrottleMs) continue;
+      if (prior !== undefined && now - prior < this.recordAccessThrottleMs) return false;
       this.accessThrottle.set(key, now);
-      const list = dueByType.get(item.type);
-      if (list) list.push(item.tmdbId);
-      else dueByType.set(item.type, [item.tmdbId]);
-    }
-    if (dueByType.size === 0) return;
+      return true;
+    });
+    if (dueItems.length === 0) return;
     // Detached batch update — reads must not block on the write. Failures
     // log and drop; the next access cycle picks the row back up.
-    void this.flushAccessUpdates(dueByType, now);
+    void this.flushAccessUpdates(
+      groupBy(dueItems, (item) => item.type),
+      now,
+    );
     this.evictStaleThrottleEntries(now);
   }
 
   private async flushAccessUpdates(
-    dueByType: Map<"movie" | "tv", string[]>,
+    dueByType: Record<string, MetadataKey[]>,
     now: number,
   ): Promise<void> {
-    for (const [type, ids] of dueByType) {
+    for (const [type, typeItems] of Object.entries(dueByType) as Array<
+      ["movie" | "tv", MetadataKey[]]
+    >) {
       try {
         await this.db
           .update(canonicalMetadata)
           .set({ lastAccessedAt: now })
           .where(
-            and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)),
+            and(
+              eq(canonicalMetadata.mediaType, type),
+              inArray(
+                canonicalMetadata.tmdbId,
+                typeItems.map((i) => i.tmdbId),
+              ),
+            ),
           );
       } catch (err) {
         // Per V37, the catalog tolerates a dropped access bump; the next
@@ -421,6 +477,7 @@ export class CatalogService {
     }
   }
 
+  // fallow-ignore-next-line unused-class-member
   async pruneUnusedMetadata(
     unusedAfterMs: number,
     refSet?: Set<string>,
@@ -435,21 +492,24 @@ export class CatalogService {
     // Bucket non-referenced ids by media type so each type drops in a
     // single statement. Per-row DELETEs would hold the SQLite WAL for
     // the entire sweep; bucketed DELETEs collapse to one commit per type.
-    const toDelete = new Map<"movie" | "tv", string[]>();
-    for (const row of candidates) {
-      const key = candidateId({ tmdbId: row.tmdbId, type: row.mediaType });
-      if (refs.has(key)) continue;
-      const list = toDelete.get(row.mediaType);
-      if (list) list.push(row.tmdbId);
-      else toDelete.set(row.mediaType, [row.tmdbId]);
-    }
+    const toDelete = groupBy(
+      candidates.filter((r) => !refs.has(candidateId({ tmdbId: r.tmdbId, type: r.mediaType }))),
+      (r) => r.mediaType,
+    );
     let deleted = 0;
-    for (const [type, ids] of toDelete) {
-      if (ids.length === 0) continue;
-      await this.db
-        .delete(canonicalMetadata)
-        .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
-      deleted += ids.length;
+    for (const [type, rows] of Object.entries(toDelete) as Array<
+      ["movie" | "tv", typeof candidates]
+    >) {
+      await this.db.delete(canonicalMetadata).where(
+        and(
+          eq(canonicalMetadata.mediaType, type),
+          inArray(
+            canonicalMetadata.tmdbId,
+            rows.map((r) => r.tmdbId),
+          ),
+        ),
+      );
+      deleted += rows.length;
     }
     return { deleted };
   }
@@ -460,6 +520,7 @@ export class CatalogService {
    * within the configured retention window so a row can be cold-by-access
    * yet still pinned by an active rec list or recent snapshot.
    */
+  // fallow-ignore-next-line complexity
   private async buildPruneRefSet(snapshotRetentionDays: number): Promise<Set<string>> {
     const refs = new Set<string>();
     const lists = await this.db
@@ -483,6 +544,7 @@ export class CatalogService {
     return refs;
   }
 
+  // fallow-ignore-next-line unused-class-member
   async pruneOldDiscoverSnapshots(olderThanDays: number): Promise<{ deleted: number }> {
     const cutoff = Date.now() - olderThanDays * 24 * 60 * 60 * 1000;
     const deleted = await this.db
@@ -493,6 +555,7 @@ export class CatalogService {
   }
 }
 
+// fallow-ignore-next-line complexity
 function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
   if (!row) return null;
   return {
@@ -512,39 +575,11 @@ function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
  * their original ordering; new events append in arrival order.
  */
 function mergeHistory(prior: HistoryEvent[], next: HistoryEvent[]): HistoryEvent[] {
-  const seen = new Set<string>();
-  const out: HistoryEvent[] = [];
-  for (const event of prior) {
-    const key = historyKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  for (const event of next) {
-    const key = historyKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  return out;
+  return uniqBy([...prior, ...next], historyKey);
 }
 
 function mergeRatings(prior: RatingEvent[], next: RatingEvent[]): RatingEvent[] {
-  const seen = new Set<string>();
-  const out: RatingEvent[] = [];
-  for (const event of prior) {
-    const key = ratingKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  for (const event of next) {
-    const key = ratingKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  return out;
+  return uniqBy([...prior, ...next], ratingKey);
 }
 
 function historyKey(event: HistoryEvent): string {

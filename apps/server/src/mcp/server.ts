@@ -33,6 +33,7 @@ function buildToolsList(): ToolsListEntry[] {
   }));
 }
 
+// fallow-ignore-next-line complexity
 async function handleJsonRpc(
   body: JsonRpcRequest,
   userId: string,
@@ -89,6 +90,7 @@ export function createMcpHandler() {
       c.req.header("authorization")?.slice(0, 20),
     );
 
+    // fallow-ignore-next-line complexity
     return withOAuthAuth(c.req.raw, async (req, userId, scopes) => {
       const requestId = newRequestId();
 

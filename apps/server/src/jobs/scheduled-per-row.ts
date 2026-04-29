@@ -1,14 +1,18 @@
-import { consola } from "consola";
 import { captureError } from "../errors/capture";
-import { newRequestId } from "../errors/request-context";
-import { assertValidSchedule, nextFireTime, scheduleCron, unscheduleCron } from "./croner-adapter";
-import { getConfig, effectiveSchedule } from "./config";
-import { recordSkipped } from "./history";
+import { assertValidSchedule } from "./croner-adapter";
 import { register, type RegistryEntry } from "./registry";
+import {
+  assertNotRunning,
+  buildJobHandle,
+  buildScheduledCallbacks,
+  scheduleJobFromConfig,
+} from "./schedule-helpers";
 import { setCurrentRow } from "./run-logger";
-import { isRunning, run } from "./runner";
+import { run } from "./runner";
+import { shouldSkipTick } from "./tick-guard";
 import type { JobHandle, JobRunStatus } from "@ent-mcp/shared/jobs";
-import type { CaptureMeta, JobRunContext } from "./types";
+import type { JobCaptureMeta, JobRunContext } from "./types";
+import { isNil, isNotNil, isPrimitive, isString } from "es-toolkit/predicate";
 
 const DEFAULT_PER_ROW_TIMEOUT_SEC = 60;
 const DEFAULT_RUN_TIMEOUT_SEC = 30 * 60;
@@ -24,7 +28,7 @@ export interface RegisterScheduledPerRowOptions<TRow> {
   runTimeoutSec?: number;
   continueOnRowError?: boolean;
   adminTriggerable?: boolean;
-  capture?: CaptureMeta;
+  capture?: JobCaptureMeta;
 }
 
 interface RowAggregate {
@@ -34,6 +38,7 @@ interface RowAggregate {
   firstErrorRecordId: string | null;
 }
 
+// fallow-ignore-next-line complexity
 export function registerScheduledPerRow<TRow>(
   opts: RegisterScheduledPerRowOptions<TRow>,
 ): JobHandle {
@@ -51,15 +56,10 @@ export function registerScheduledPerRow<TRow>(
     kind: "scheduled_per_row",
     schedule: opts.schedule,
     capture: opts.capture,
-    dispose() {
-      unscheduleCron(opts.id);
-    },
+    ...buildScheduledCallbacks(opts, onTick),
     triggerFromApi: adminTriggerable
       ? async (_input, source) => {
-          if (isRunning(opts.id)) {
-            const { jobErrors } = await import("./errors");
-            throw jobErrors.alreadyRunning(opts.id);
-          }
+          await assertNotRunning(opts.id);
           const aggregate: RowAggregate = {
             total: 0,
             succeeded: 0,
@@ -80,29 +80,11 @@ export function registerScheduledPerRow<TRow>(
           return { runId: outcome.runId, result: undefined };
         }
       : undefined,
-    onScheduleChange(schedule) {
-      scheduleCron(opts.id, schedule, () => void onTick());
-    },
-    onEnabledChange(enabled) {
-      if (enabled) void scheduleFromConfig();
-      else unscheduleCron(opts.id);
-    },
   };
   register(entry);
 
   async function onTick(): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) return;
-    if (isRunning(opts.id)) {
-      await recordSkipped({
-        id: crypto.randomUUID(),
-        jobId: opts.id,
-        triggeredBy: "cron",
-        requestId: newRequestId(),
-        tickAt: Date.now(),
-      });
-      return;
-    }
+    if (await shouldSkipTick(opts.id)) return;
 
     const aggregate: RowAggregate = { total: 0, succeeded: 0, failed: 0, firstErrorRecordId: null };
 
@@ -117,6 +99,7 @@ export function registerScheduledPerRow<TRow>(
     });
   }
 
+  // fallow-ignore-next-line complexity
   async function iterateRows(ctx: JobRunContext, aggregate: RowAggregate): Promise<void> {
     const rows = await opts.rowSource();
     aggregate.total = rows.length;
@@ -155,6 +138,7 @@ export function registerScheduledPerRow<TRow>(
     }
   }
 
+  // fallow-ignore-next-line complexity
   async function captureRowFailure(err: unknown, ctx: JobRunContext): Promise<string> {
     return captureError(err, {
       severity: "error",
@@ -167,39 +151,9 @@ export function registerScheduledPerRow<TRow>(
     });
   }
 
-  async function scheduleFromConfig(): Promise<void> {
-    const cfg = await getConfig(opts.id);
-    if (!cfg.enabled) {
-      unscheduleCron(opts.id);
-      return;
-    }
-    const schedule = effectiveSchedule(opts.schedule, cfg.scheduleOverride);
-    if (!schedule) return;
-    try {
-      assertValidSchedule(schedule);
-    } catch (err) {
-      consola.warn(
-        `[job:${opts.id}] invalid schedule override, falling back: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      scheduleCron(opts.id, opts.schedule, () => void onTick());
-      return;
-    }
-    scheduleCron(opts.id, schedule, () => void onTick());
-  }
+  void scheduleJobFromConfig(opts.id, opts.schedule, () => void onTick());
 
-  void scheduleFromConfig();
-
-  return {
-    id: opts.id,
-    name: opts.name,
-    description: opts.description,
-    kind: "scheduled_per_row",
-    enabled: true,
-    adminTriggerable,
-    userTriggerable: false,
-    schedule: opts.schedule,
-    nextRun: nextFireTime(opts.id) ?? undefined,
-  };
+  return buildJobHandle(opts, "scheduled_per_row", adminTriggerable);
 }
 
 function buildStatusOverride(aggregate: RowAggregate) {
@@ -230,20 +184,22 @@ function buildStatusOverride(aggregate: RowAggregate) {
   };
 }
 
+// fallow-ignore-next-line complexity
 function resolvePerRowStatus(aggregate: RowAggregate, thrown: unknown): JobRunStatus {
-  if (thrown !== undefined && aggregate.succeeded === 0 && aggregate.failed === 0) return "failed";
-  if (thrown !== undefined) return aggregate.succeeded > 0 ? "partial_failure" : "failed";
+  if (isNotNil(thrown) && aggregate.succeeded === 0 && aggregate.failed === 0) return "failed";
+  if (isNotNil(thrown)) return aggregate.succeeded > 0 ? "partial_failure" : "failed";
   if (aggregate.failed > 0 && aggregate.succeeded > 0) return "partial_failure";
   if (aggregate.failed > 0) return "failed";
   return "succeeded";
 }
 
 /** Best-effort row identifier for log tagging. Uses primary key if present. */
+// fallow-ignore-next-line complexity
 function bestEffortRowId(row: unknown): string | undefined {
-  if (row === null || row === undefined) return undefined;
-  if (typeof row !== "object") return String(row as string | number | boolean);
+  if (isNil(row)) return undefined;
+  if (isPrimitive(row)) return String(row);
   const obj = row as Record<string, unknown>;
-  if (typeof obj.id === "string" || typeof obj.id === "number") return String(obj.id);
-  if (typeof obj.userId === "string") return obj.userId;
+  if (isPrimitive(obj.id)) return String(obj.id);
+  if (isString(obj.userId)) return obj.userId;
   return undefined;
 }

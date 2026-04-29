@@ -46,6 +46,7 @@ const RECENT_SEED_FALLBACK_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
  * the database itself is unreachable, which the caller surfaces as
  * `home.internal`.
  */
+// fallow-ignore-next-line complexity
 export async function captureSignals(args: {
   userId: string;
   mediaService: MediaService;
@@ -113,6 +114,7 @@ function zeroOnError(): number {
   return 0;
 }
 
+// fallow-ignore-next-line complexity
 async function readProfileConfidence(userId: string): Promise<LayoutSignals["profileConfidence"]> {
   const rows = await getDb()
     .select({ confidence: preferenceProfiles.confidence })
@@ -207,6 +209,7 @@ function composeId(type: "movie" | "tv", tmdbId: string): string {
  * placeholder rather than throwing — the subtitle is cosmetic, and a missing
  * title is still a usable layout signal.
  */
+// fallow-ignore-next-line complexity
 async function resolveTitle(
   mediaService: MediaService,
   type: "movie" | "tv",

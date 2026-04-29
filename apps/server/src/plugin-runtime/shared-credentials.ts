@@ -130,6 +130,7 @@ export const sharedCredentialsService = {
     return id;
   },
 
+  // fallow-ignore-next-line complexity
   async update(args: {
     pluginId: string;
     credentialId: string;

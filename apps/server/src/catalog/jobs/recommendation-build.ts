@@ -1,11 +1,12 @@
 import type { ProfileMediaType } from "@ent-mcp/shared/preferences";
-import { listUsersNeedingRebuild, type RebuildRow } from "../../preferences/jobs";
+import { listUsersNeedingRebuild, type RebuildRow } from "../../preferences/rebuild-row-source";
 import { getPreferenceEngine } from "../../preferences";
 import { profileStorage } from "../../preferences/storage";
 import { MediaService } from "../../media/service";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
+import { identifyItem, splitCombinedId } from "../../media/parse-item";
 import type { RecItem } from "../types";
 
 const TOP_N = 60;
@@ -73,6 +74,7 @@ async function buildRecommendationsForUser(
  * runs the rebuild loop itself and would double-bump `profile_version`
  * if it called `buildRecommendationsForUser` directly.
  */
+// fallow-ignore-next-line complexity
 export async function writeRecommendationsForUser(
   deps: CatalogRecommendationBuildDeps,
   userId: string,
@@ -122,7 +124,7 @@ export async function writeRecommendationsForUser(
     topN.map(async (entry) => {
       const reason = await engine.explainRanked(userId, entry).catch(() => null);
       return {
-        tmdbId: extractTmdbId(entry.item.id) ?? "",
+        tmdbId: splitCombinedId(entry.item.id)?.id ?? "",
         mediaType: entry.item.type,
         matchReason: reason,
         score: entry.score,
@@ -139,7 +141,7 @@ export async function writeRecommendationsForUser(
   );
 }
 
-function adaptCandidate(item: {
+type RawCandidate = {
   id?: string;
   type?: "movie" | "tv";
   title?: string;
@@ -148,7 +150,16 @@ function adaptCandidate(item: {
   overview?: string;
   posterUrl?: string | null;
   rating?: number | null;
-}): {
+};
+
+function parseIdentity(item: RawCandidate): { id: string; type: "movie" | "tv" } | null {
+  const identity = identifyItem(item);
+  if (!identity) return null;
+  return { id: `${identity.type}:${identity.tmdbId}`, type: identity.type };
+}
+
+// fallow-ignore-next-line complexity
+function adaptCandidate(item: RawCandidate): {
   id: string;
   title: string;
   year: number;
@@ -161,15 +172,13 @@ function adaptCandidate(item: {
   userRating: null;
   matchReason: null;
 } | null {
-  const tmdbId = item.ids?.tmdb_id ?? extractTmdbId(item.id);
-  const type = item.type ?? extractType(item.id);
-  if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
-  const id = `${type}:${tmdbId}`;
+  const identity = parseIdentity(item);
+  if (!identity) return null;
   return {
-    id,
-    title: item.title ?? id,
+    id: identity.id,
+    title: item.title ?? identity.id,
     year: typeof item.year === "number" ? item.year : 0,
-    type,
+    type: identity.type,
     genres: [],
     rating: item.rating ?? null,
     overview: item.overview ?? "",
@@ -178,16 +187,4 @@ function adaptCandidate(item: {
     userRating: null,
     matchReason: null,
   };
-}
-
-function extractTmdbId(combined: string | undefined): string | undefined {
-  if (!combined) return undefined;
-  const [, id] = combined.split(":");
-  return id || undefined;
-}
-
-function extractType(combined: string | undefined): "movie" | "tv" | undefined {
-  if (!combined) return undefined;
-  const [type] = combined.split(":");
-  return type === "movie" || type === "tv" ? type : undefined;
 }

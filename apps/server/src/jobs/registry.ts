@@ -37,18 +37,18 @@ export function register(entry: RegistryEntry): void {
   entries.set(entry.id, entry);
 }
 
-export function unregister(jobId: string): void {
+export function unregisterEntry(jobId: string): void {
   const entry = entries.get(jobId);
   if (!entry) return;
   entry.dispose();
   entries.delete(jobId);
 }
 
-export function find(jobId: string): RegistryEntry | undefined {
+export function findEntry(jobId: string): RegistryEntry | undefined {
   return entries.get(jobId);
 }
 
-export function list(): RegistryEntry[] {
+export function listEntries(): RegistryEntry[] {
   return Array.from(entries.values());
 }
 

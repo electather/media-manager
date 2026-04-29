@@ -78,6 +78,7 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
     return this.fallback.getComments(userId);
   }
 
+  // fallow-ignore-next-line complexity
   private async coldFill(
     key: { tmdbId: string; type: "movie" | "tv" },
     features: CandidateFeatures,

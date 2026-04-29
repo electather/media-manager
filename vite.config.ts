@@ -5,11 +5,11 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}", ".claude/**"],
+    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}", ".claude/**", ".agents/**"],
     options: { typeAware: true, typeCheck: true },
   },
   lint: {
-    ignorePatterns: ["dist/**", ".claude/**"],
+    ignorePatterns: ["dist/**", ".claude/**", ".agents/**"],
     options: { typeAware: true, typeCheck: true },
   },
   // The client uses an "@/" path alias defined in apps/client/vite.config.ts.

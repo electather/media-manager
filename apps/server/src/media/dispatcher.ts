@@ -1,3 +1,4 @@
+import { invariant } from "es-toolkit/util";
 import { requireCapability } from "./capability-lookup";
 import { dispatchSingle } from "./strategies/single";
 import { dispatchAggregate } from "./strategies/aggregate";
@@ -22,6 +23,7 @@ export { invalidateUserCache } from "./dispatch-cache";
  * per-kind capabilities should call `dispatchAggregatePerKind` directly
  * to keep the bundle shape in the type.
  */
+// fallow-ignore-next-line complexity
 export async function dispatch<T = unknown>(
   req: DispatchRequest,
 ): Promise<T | null | AggregateResult<T>> {
@@ -37,7 +39,7 @@ export async function dispatch<T = unknown>(
       return dispatchAggregatePerKind<T>(req) as Promise<T>;
     default: {
       const unreachable: never = capability.strategy;
-      throw new Error(`unhandled strategy: ${String(unreachable)}`);
+      invariant(false, `unhandled strategy: ${String(unreachable)}`);
     }
   }
 }

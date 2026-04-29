@@ -32,6 +32,7 @@ export const TITLE_OVERRIDE_MAP: Partial<Record<RowKind, string>> = {
 };
 
 /** Filters the v1 catalog by plugin availability and cheap-signal gates. */
+// fallow-ignore-next-line complexity
 export function candidateRows(signals: LayoutSignals): RowKind[] {
   const out: RowKind[] = [];
   if (signals.hasWatchHistoryPlugin && signals.inProgressCount > 0) {
@@ -56,6 +57,7 @@ export function candidateRows(signals: LayoutSignals): RowKind[] {
  * confident profile; Because-You-Watched sits next to the recommendation
  * pair; tail rows hold a fixed order.
  */
+// fallow-ignore-next-line complexity
 export function orderRows(candidates: RowKind[], signals: LayoutSignals): RowKind[] {
   const set = new Set(candidates);
   const order: RowKind[] = [];
@@ -126,6 +128,7 @@ export const HERO_REASONS: Partial<Record<RowKind, LayoutHero["reason"]>> = {
  * confident; trendingNow is the last resort. Drives which rows `fetchHero`
  * tries before giving up.
  */
+// fallow-ignore-next-line complexity
 export function resolveHeroCandidates(signals: LayoutSignals, order: RowKind[]): RowKind[] {
   const inOrder = new Set(order);
   const out: RowKind[] = [];

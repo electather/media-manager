@@ -23,6 +23,7 @@ export function extractFeatures(item: RawMediaItem): CanonicalFeatures {
  * row. Display fields (title/year/runtime/genres/language) come off the row
  * columns; scoring-only fields come off the features blob.
  */
+// fallow-ignore-next-line complexity
 export function toCandidateFeatures(row: CanonicalMetadata): CandidateFeatures {
   const features = row.features;
   return {

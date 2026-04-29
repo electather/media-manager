@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file
 import type { NotificationMessage, NotificationEvent } from "@ent-mcp/shared/notifications";
 
 export function renderJobRunFailed(

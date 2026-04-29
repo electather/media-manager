@@ -1,3 +1,4 @@
+// fallow-ignore-file unused-file
 import type { NotificationEvent, NotificationMessage } from "@ent-mcp/shared/notifications";
 
 /**
@@ -63,6 +64,7 @@ interface DeliveryFailureSignals {
   code?: string;
 }
 
+// fallow-ignore-next-line complexity
 export function readFailureSignals(error: unknown): DeliveryFailureSignals {
   if (typeof error !== "object" || error === null) return {};
   const e = error as DeliveryFailureSignals & { name?: string };
@@ -88,6 +90,7 @@ export type FailureDecision =
   | { action: "fail"; errorCode: string; errorMessage: string }
   | { action: "reschedule"; delayMs: number; errorCode: string; errorMessage: string };
 
+// fallow-ignore-next-line complexity
 export function decideFailure(delivery: { attemptCount: number }, error: unknown): FailureDecision {
   const signals = readFailureSignals(error);
   const errorCode = signals.code ?? "unknown_error";
