@@ -4,6 +4,19 @@ import { seerrGet, seerrPost, seerrDeleteRaw, fetchAllRequests, isHostActionable
 import { mapMediaStatus, mapRequestStatus } from "../mappers";
 import { REQUEST_STATUS_STORE_KEY } from "../constants";
 
+/**
+ * Per-connection job that detects request-status transitions in Seerr and
+ * emits `media.request.available` / `media.request.denied` events.
+ *
+ * State is kept in `ctx.store` keyed per connection (the host scopes the
+ * store by user automatically). On the first run for a connection no events
+ * fire — the job simply records the baseline. Subsequent runs emit when a
+ * request transitions into the `available` or `failed` terminal states.
+ *
+ * Emits run via `ctx.notify` so the host's `emit()` handles enrichment,
+ * permission gating, and delivery scheduling. Emit failures are logged by
+ * the host wrapper and do not break the sweep.
+ */
 export async function syncRequestStatuses(ctx: Ctx): Promise<void> {
   if (!ctx.userId) return;
 
@@ -90,6 +103,8 @@ export const mediaRequest = {
       const data = await seerrPost<{ id: number }>(c, "/request", body);
       return { success: true, requestId: String(data.id) };
     } catch (err) {
+      // Token expiry and rate limits must escape so the host can refresh
+      // credentials or back off — swallowing them strands the session.
       if (isHostActionable(err)) throw err;
       if (isPluginError(err)) return { success: false, message: err.message };
       return { success: false, message: String(err) };
@@ -100,6 +115,10 @@ export const mediaRequest = {
     const c = ctx as Ctx;
     const { requestId } = input as { requestId: string };
     try {
+      // Use seerrDeleteRaw so 404 is not converted into a thrown error —
+      // Seerr returns 204 on success and 404 when the row has already
+      // been removed. Both are idempotent success from the caller's
+      // perspective. 401/429/5xx still throw via the helper.
       const res = await seerrDeleteRaw(c, `/request/${requestId}`);
       if (res.ok || res.status === 404) return { ok: true };
       return { ok: false, message: `Seerr ${res.status}` };

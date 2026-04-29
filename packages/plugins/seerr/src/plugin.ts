@@ -13,6 +13,7 @@ export default definePlugin({
       "Media request management via Seerr. Admins set the server URL; users sign in with their Seerr email and password and the plugin keeps a session cookie per user.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
+    // Allow-all because the host is admin-configurable at runtime.
     allowedHosts: ["*"],
     globalConfigSchema: {
       type: "object",
@@ -57,6 +58,8 @@ export default definePlugin({
     jobs: [
       {
         id: "requestStatusSync",
+        // Every 5 minutes; matches the polling cadence the design assumes for
+        // request status notifications.
         schedule: "*/5 * * * *",
         handler: "syncRequestStatuses",
         perConnection: true,

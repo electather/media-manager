@@ -2,6 +2,9 @@ import { pluginError, handleHttpStatus, isPluginError } from "@ent-mcp/plugin-sd
 import type { Ctx, SeerrRequestRow } from "./types";
 import { SESSION_COOKIE_NAME } from "./constants";
 
+// Error codes the host layer reacts to (token refresh, backoff, credential
+// reconfig). Plugin methods that otherwise absorb errors into a graceful
+// { ok: false } contract must still let these escape so the host can act.
 const HOST_ACTIONABLE_CODES = new Set([
   "plugin.token_expired",
   "plugin.bad_credentials",
@@ -25,6 +28,9 @@ export function getSessionCookie(ctx: Ctx): string {
   return cookie;
 }
 
+// Extracts the `connect.sid=<value>` pair from the Set-Cookie headers returned
+// by Seerr's auth endpoint. Seerr sessions are opaque to the host; we store
+// the pair verbatim and replay it on every request.
 export function extractSessionCookie(res: Response): string | null {
   const list = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : null;
   const candidates =
@@ -70,6 +76,9 @@ export async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promi
   return res.json() as Promise<T>;
 }
 
+// DELETE helper that does NOT throw on 404 — callers that treat 404 as
+// idempotent success (e.g. cancelRequest) need to inspect the status themselves.
+// 401 still translates to plugin.token_expired so auth refresh triggers.
 export async function seerrDeleteRaw(ctx: Ctx, path: string): Promise<Response> {
   const res = await ctx.fetch(`${getBaseUrl(ctx)}/api/v1${path}`, {
     method: "DELETE",
@@ -82,6 +91,10 @@ export async function seerrDeleteRaw(ctx: Ctx, path: string): Promise<Response> 
   return res;
 }
 
+/**
+ * Fetches every request page from Seerr. Shared between the `listRequests`
+ * capability and the per-connection sync job.
+ */
 export async function fetchAllRequests(ctx: Ctx): Promise<SeerrRequestRow[]> {
   const PAGE_SIZE = 100;
   const all: SeerrRequestRow[] = [];

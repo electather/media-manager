@@ -1,3 +1,4 @@
+// Seerr media status: 1=unknown, 2=pending, 3=processing, 4=partial, 5=available.
 export function mapMediaStatus(
   status: number,
 ): "available" | "requested" | "processing" | "unavailable" | "unknown" {
@@ -5,7 +6,6 @@ export function mapMediaStatus(
     case 5:
       return "available";
     case 4:
-      return "processing";
     case 3:
       return "processing";
     case 2:
@@ -17,6 +17,7 @@ export function mapMediaStatus(
   }
 }
 
+// Seerr request status: 1=pending, 2=approved, 3=declined, 4=available.
 export function mapRequestStatus(
   status: number,
 ): "pending" | "approved" | "processing" | "available" | "failed" {

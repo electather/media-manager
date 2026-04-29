@@ -10,6 +10,11 @@ describe("seerr plugin passes loader validation", () => {
 });
 
 describe("seerr auth lifecycle", () => {
+  it("plugin exposes startAuth and testConnection", () => {
+    expect(typeof seerrPlugin.startAuth).toBe("function");
+    expect(typeof seerrPlugin.testConnection).toBe("function");
+  });
+
   it("startAuth: returns completed with credentials on success", async () => {
     const ctx = makeTestContext({
       responses: [

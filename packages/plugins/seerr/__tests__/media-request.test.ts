@@ -18,6 +18,11 @@ function makeCtx(
   });
 }
 
+// Contract tests: drive every declared capability method end-to-end with a
+// stubbed ctx and confirm the plugin's return value parses against the
+// capability's Zod output schema. Auth-lifecycle and loader validation
+// regressions live in `__tests__/plugin.test.ts`; this file covers the
+// happy path for each declared method.
 describe("seerr capability contract", () => {
   it("mediaRequest.checkAvailability: hits /movie/{tmdbId} and maps status", async () => {
     const ctx = makeCtx([jsonRes({ mediaInfo: { status: 5 } })]);
