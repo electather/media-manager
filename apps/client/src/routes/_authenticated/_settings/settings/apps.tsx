@@ -5,7 +5,7 @@ import { CheckIcon, CopyIcon, LoaderCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { AuthorizedApp } from "@ent-mcp/shared/users";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,17 +13,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldTitle } from "@/shared/ui/field";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/shared/ui/input-group";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { AuthorizedAppRow } from "@/components/settings/authorized-app-row";
-import { api } from "@/lib/api";
+import { api } from "@/shared/lib/api";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/apps")({
   component: AuthorizedAppsSection,

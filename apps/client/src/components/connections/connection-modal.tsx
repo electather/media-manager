@@ -7,8 +7,8 @@ import {
   TriangleAlertIcon,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/ui/copy-button";
+import { Button } from "@/shared/ui/button";
+import { CopyButton } from "@/shared/ui/copy-button";
 import {
   Dialog,
   DialogContent,
@@ -16,17 +16,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { CapabilityBadges, capabilityListSummary, type CapabilityEntry } from "@/lib/capabilities";
-import { api } from "@/lib/api";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { CapabilityBadges, capabilityListSummary, type CapabilityEntry } from "@/shared/lib/capabilities";
+import { api } from "@/shared/lib/api";
 import {
   parseFormErrorResponse,
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
-} from "@/lib/errors/form-errors";
+} from "@/shared/lib/errors/form-errors";
 
 import type { JSONSchema } from "@ent-mcp/shared";
 import { SchemaForm, defaultsFromSchema, stripEmptySecrets, validateSchema } from "./schema-form";

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const apiMock = vi.hoisted(() => ({ delete: vi.fn() }));
-vi.mock("@/lib/api", () => ({
+vi.mock("@/shared/lib/api", () => ({
   api: {
     me: {
       delete: { $post: (args: unknown) => apiMock.delete(args) },
@@ -17,7 +17,7 @@ const auth = vi.hoisted(() => ({
   signOut: vi.fn(),
   useSession: vi.fn(),
 }));
-vi.mock("@/lib/auth", () => ({ authClient: auth }));
+vi.mock("@/shared/lib/auth", () => ({ authClient: auth }));
 
 const navigateMock = vi.hoisted(() => vi.fn());
 vi.mock("@tanstack/react-router", async (orig) => {
@@ -29,7 +29,7 @@ const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi
 vi.mock("sonner", () => ({ toast: toastMock }));
 
 const downloadMock = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/anchor-download", () => ({ triggerAnchorDownload: downloadMock }));
+vi.mock("@/shared/lib/anchor-download", () => ({ triggerAnchorDownload: downloadMock }));
 
 import { DeleteCard, ExportCard } from "@/routes/_authenticated/_settings/settings/danger";
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlayIcon, RefreshCwIcon, CircleCheckIcon } from "lucide-react";
-import { api } from "@/lib/api";
+import { api } from "@/shared/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -9,11 +9,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { FieldGroup, Field, FieldLabel, FieldContent } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { UserPicker, ConnectionPicker } from "@/components/pickers";
+} from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { FieldGroup, Field, FieldLabel, FieldContent } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 
 function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

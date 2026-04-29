@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type CSSProperties } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { APP_NAV_ITEMS } from "./nav-items";
 
 const HIDE_THRESHOLD_PX = 200;

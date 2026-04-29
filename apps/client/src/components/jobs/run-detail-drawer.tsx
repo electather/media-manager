@@ -1,12 +1,12 @@
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/shared/ui/drawer";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import { ScrollArea } from "@/shared/ui/scroll-area";
+import { Badge } from "@/shared/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/shared/ui/alert";
 import { TriangleAlertIcon, Logs } from "lucide-react";
 import type { JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
-import { LogViewerFilterable, type LogEntry } from "@/components/log-viewer";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
+import { LogViewerFilterable, type LogEntry } from "@/shared/components/log-viewer";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
 
 const RAW_LOG_CLASS =
   "bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border";

@@ -1,8 +1,8 @@
 import { Link, Outlet } from "@tanstack/react-router";
 import { TvIcon, XIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@/shared/ui/button";
+import { Separator } from "@/shared/ui/separator";
 
 const ACCOUNT_NAV = [
   { to: "/settings/profile", label: "Profile" },

@@ -14,9 +14,9 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -24,23 +24,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Field, FieldDescription, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { api } from "@/lib/api";
-import { CapabilityBadges, type CapabilityEntry } from "@/lib/capabilities";
-import { cn } from "@/lib/utils";
+} from "@/shared/ui/dropdown-menu";
+import { Field, FieldDescription, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { Switch } from "@/shared/ui/switch";
+import { api } from "@/shared/lib/api";
+import { CapabilityBadges, type CapabilityEntry } from "@/shared/lib/capabilities";
+import { cn } from "@/shared/lib/utils";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import type { JSONSchema } from "@ent-mcp/shared";
 import {
   PLUGIN_ADMIN_ALLOWLIST_MAX,
@@ -55,7 +55,7 @@ import {
 } from "@/components/connections/schema-form";
 import { PersonalKeyFallbackControl } from "@/components/admin/personal-key-fallback-control";
 import { SharedCredentialsSection } from "@/components/admin/shared-credentials/section";
-import { safeJson } from "@/lib/errors/safe-json";
+import { safeJson } from "@/shared/lib/errors/safe-json";
 
 export const Route = createFileRoute("/_authenticated/_settings/admin/plugins")({
   component: AdminPluginsPage,

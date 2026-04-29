@@ -1,7 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { LogOutIcon, Settings2Icon } from "lucide-react";
-import { authClient } from "@/lib/auth";
-import { UserAvatar } from "@/components/user-avatar";
+import { authClient } from "@/shared/lib/auth";
+import { UserAvatar } from "@/shared/components/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 
 export interface ProfileDropdownUser {
   name: string;

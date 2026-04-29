@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import type { InferResponseType } from "hono/client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,25 +12,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Switch } from "@/shared/ui/switch";
 import {
   SchemaForm,
   defaultsFromSchema,
   stripEmptySecrets,
   validateSchema,
 } from "@/components/connections/schema-form";
-import { api } from "@/lib/api";
+import { api } from "@/shared/lib/api";
 import {
   parseFormErrorResponse,
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
-} from "@/lib/errors/form-errors";
-import { safeJson } from "@/lib/errors/safe-json";
-import { cn } from "@/lib/utils";
+} from "@/shared/lib/errors/form-errors";
+import { safeJson } from "@/shared/lib/errors/safe-json";
+import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";
 
 type SharedCredentialEntry = InferResponseType<

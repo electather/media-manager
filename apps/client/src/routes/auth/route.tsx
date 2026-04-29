@@ -1,5 +1,5 @@
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/shared/lib/auth";
 import { AuthLayout } from "@/components/app-shell/auth-layout";
 
 export const Route = createFileRoute("/auth")({

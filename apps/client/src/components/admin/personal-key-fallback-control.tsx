@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { LoaderCircleIcon } from "lucide-react";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { api } from "@/shared/lib/api";
+import { cn } from "@/shared/lib/utils";
 
 const POLICIES: ReadonlyArray<{ value: PersonalKeyFallbackPolicy; label: string }> = [
   { value: "off", label: "Off" },

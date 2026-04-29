@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { TriangleAlertIcon, CircleAlertIcon, ExternalLinkIcon } from "lucide-react";
 import { z } from "zod";
 
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Badge } from "@/shared/ui/badge";
+import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import {
   Table,
   TableBody,
@@ -15,11 +15,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { CopyButton } from "@/components/ui/copy-button";
-import { api } from "@/lib/api";
-import { shortRequestId } from "@/lib/errors/request-id";
-import { cn } from "@/lib/utils";
+} from "@/shared/ui/table";
+import { CopyButton } from "@/shared/ui/copy-button";
+import { api } from "@/shared/lib/api";
+import { shortRequestId } from "@/shared/lib/errors/request-id";
+import { cn } from "@/shared/lib/utils";
 
 const severityValues = ["error", "warning"] as const;
 const sourceValues = ["frontend", "backend", "plugin", "cron"] as const;

@@ -4,11 +4,11 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import "./globals.css";
-import { TooltipProvider } from "./components/ui/tooltip";
-import { Toaster } from "./components/ui/sonner";
+import { TooltipProvider } from "./shared/ui/tooltip";
+import { Toaster } from "./shared/ui/sonner";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { ErrorBoundary } from "./components/error-boundary";
-import { installGlobalErrorHandlers } from "./lib/errors/global-handlers";
+import { ErrorBoundary } from "./shared/components/error-boundary";
+import { installGlobalErrorHandlers } from "./shared/lib/errors/global-handlers";
 
 installGlobalErrorHandlers();
 

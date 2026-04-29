@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { api } from "@/lib/api";
+import { Button } from "@/shared/ui/button";
+import { api } from "@/shared/lib/api";
 
 export const Route = createFileRoute("/_authenticated/_settings/oauth-callback")({
   component: OAuthCallbackPage,

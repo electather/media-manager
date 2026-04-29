@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +12,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { triggerAnchorDownload } from "@/lib/anchor-download";
-import { api } from "@/lib/api";
-import { authClient } from "@/lib/auth";
+} from "@/shared/ui/dialog";
+import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { triggerAnchorDownload } from "@/shared/lib/anchor-download";
+import { api } from "@/shared/lib/api";
+import { authClient } from "@/shared/lib/auth";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/danger")({
   component: DangerZoneSection,

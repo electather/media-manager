@@ -18,9 +18,9 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -28,19 +28,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
-import { CapabilityBadges, capabilityListSummary } from "@/lib/capabilities";
-import { relativeTime } from "@/lib/relative-time";
-import { cn } from "@/lib/utils";
+} from "@/shared/ui/dropdown-menu";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { api } from "@/shared/lib/api";
+import { CapabilityBadges, capabilityListSummary } from "@/shared/lib/capabilities";
+import { relativeTime } from "@/shared/lib/relative-time";
+import { cn } from "@/shared/lib/utils";
 
 import {
   ConnectionModal,

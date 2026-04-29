@@ -1,24 +1,24 @@
 import { useMemo, useState } from "react";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@/components/ui/input-group";
+} from "@/shared/ui/input-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+} from "@/shared/ui/select";
+import { Textarea } from "@/shared/ui/textarea";
+import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";
 import { isNil } from "es-toolkit/predicate";
 

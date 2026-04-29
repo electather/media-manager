@@ -23,8 +23,8 @@ import {
 import { DynamicTriggerDialog } from "@/components/jobs/trigger-dialog";
 import { RunDetailDrawer } from "@/components/jobs/run-detail-drawer";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -32,25 +32,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   Field,
   FieldContent,
   FieldDescription,
   FieldLabel,
   FieldTitle,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
+} from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { Switch } from "@/shared/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/shared/ui/select";
 import {
   Table,
   TableBody,
@@ -58,10 +58,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { CronSchedule } from "@/components/cron-schedule";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+} from "@/shared/ui/table";
+import { CronSchedule } from "@/shared/components/cron-schedule";
+import { api } from "@/shared/lib/api";
+import { cn } from "@/shared/lib/utils";
 
 import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
 

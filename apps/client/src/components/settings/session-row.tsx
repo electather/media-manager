@@ -1,10 +1,10 @@
 import { LoaderCircleIcon } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { relativeTime } from "@/lib/relative-time";
-import { parseUserAgent } from "@/lib/user-agent";
+import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { relativeTime } from "@/shared/lib/relative-time";
+import { parseUserAgent } from "@/shared/lib/user-agent";
 
 export interface SessionListItem {
   id: string;

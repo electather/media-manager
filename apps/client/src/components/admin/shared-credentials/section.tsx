@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { InferResponseType } from "hono/client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -21,18 +21,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/shared/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { api } from "@/lib/api";
-import { useNow } from "@/hooks/use-now";
+} from "@/shared/ui/dropdown-menu";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { Switch } from "@/shared/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { api } from "@/shared/lib/api";
+import { useNow } from "@/shared/hooks/use-now";
 import type { JSONSchema } from "@ent-mcp/shared";
 
 import { SharedCredentialDialog } from "./dialog";

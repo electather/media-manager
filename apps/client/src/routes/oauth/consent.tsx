@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 
-import { authClient } from "@/lib/auth";
-import { UserAvatar } from "@/components/user-avatar";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { authClient } from "@/shared/lib/auth";
+import { UserAvatar } from "@/shared/components/user-avatar";
+import { Button } from "@/shared/ui/button";
+import { Separator } from "@/shared/ui/separator";
 
 // ─── Scope metadata ───────────────────────────────────────────────────────────
 

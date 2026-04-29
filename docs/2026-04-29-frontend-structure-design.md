@@ -139,7 +139,7 @@ Replace existing `client-*` zones in `.fallowrc.json`. Per-feature zone material
 | `client-feat-<x>` | `client-shared-*`, `shared-pkg` |
 | `client-shared-components` | `client-shared-{ui,hooks,lib}`, `shared-pkg` |
 | `client-shared-hooks` | `client-shared-lib`, `shared-pkg` |
-| `client-shared-ui` | `shared-pkg` |
+| `client-shared-ui` | `client-shared-lib`, `shared-pkg` |
 | `client-shared-lib` | `shared-pkg`, `server-api`, `server-root` |
 
 Critical invariants:

@@ -1,6 +1,6 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { authClient } from "@/lib/auth";
-import { Logo } from "@/components/logo";
+import { authClient } from "@/shared/lib/auth";
+import { Logo } from "@/shared/components/logo";
 import { BottomNav } from "./bottom-nav";
 import { ProfileDropdown, type ProfileDropdownUser } from "./profile-dropdown";
 

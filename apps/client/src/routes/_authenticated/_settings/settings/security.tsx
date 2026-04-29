@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +12,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/shared/ui/dialog";
+import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { SessionRow, type SessionListItem } from "@/components/settings/session-row";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/shared/lib/auth";
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
