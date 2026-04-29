@@ -47,6 +47,11 @@ jobs:
           format: sarif
           comment: true
           annotations: true
+          # Severity is governed by .fallowrc.json (e.g. duplicates default to
+          # `warn`). Let the action surface findings via SARIF + PR comment
+          # without turning warnings into a hard CI gate; errors still fail
+          # via fallow's own non-zero exit.
+          fail-on-issues: false
 
       - name: Upload Fallow results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4

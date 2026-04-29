@@ -39,6 +39,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@ent-mcp/server": "workspace:*",
         "@tailwindcss/vite": "^4.2.3",
         "@tanstack/react-form": "^1.29.0",
         "@tanstack/router-plugin": "^1.167.22",
