@@ -275,7 +275,9 @@ function makeStubCtx(): RowFetchContext {
   return {
     userId: "u1",
     mediaService: {} as RowFetchContext["mediaService"],
-    catalogService: {} as RowFetchContext["catalogService"],
+    catalogService: {
+      getMetadataBatch: async () => ({}),
+    } as unknown as RowFetchContext["catalogService"],
     preferenceEngine: {} as RowFetchContext["preferenceEngine"],
     dataloader: {} as RowFetchContext["dataloader"],
     logger: { debug() {}, info() {}, warn() {}, error() {} },

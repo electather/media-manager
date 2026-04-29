@@ -4,15 +4,23 @@ import { encodeCursor } from "../cursor";
 import { type RawMediaItem } from "../compact";
 import { buildItem } from "./build-item";
 import { compositeId, readPage } from "./row-utils";
+import { hydrateFromSnapshot } from "./snapshot-hydration";
 
 const ROW_ID = "trendingNow" as const satisfies RowKind;
 const MAX_ITEMS = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Aggregate `recommendations@v1.getTrending`. Distinct from
  * `recommendedForYou`: trending items are the "everyone agrees" headline,
  * surfaced as-is — no PreferenceEngine re-rank, no `matchReason`. The row
  * still works on a fresh install with TMDB-only credentials.
+ *
+ * The catalog's daily discover snapshot is consulted first so canonical
+ * artwork (poster / backdrop / clearLogo) flows through even when the
+ * underlying `recommendations@v1` provider returns image-less items
+ * (e.g. Trakt). On a snapshot miss the row falls back to the live plugin
+ * path so behavior stays identical pre-warm.
  */
 export const trendingNowFetcher: RowFetcher = {
   rowId: ROW_ID,
@@ -22,6 +30,19 @@ export const trendingNowFetcher: RowFetcher = {
   // fallow-ignore-next-line complexity
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const page = readPage(opts.cursor, ROW_ID);
+    const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
+
+    const snapshot = await ctx.catalogService.getDiscoverFeed("trending", "popularity_desc", today);
+    if (snapshot && snapshot.length > 0) {
+      return hydrateFromSnapshot(ctx, {
+        rowId: ROW_ID,
+        refs: snapshot,
+        page,
+        limit: opts.limit,
+        maxItems: MAX_ITEMS,
+      });
+    }
+
     // Aggregate `recommendations@v1.getTrending` does not expose a page knob,
     // so over-fetch by `(page+1) * limit` and slice client-side. Same pattern
     // `newReleases` uses; without it pages > 0 are guaranteed empty.
