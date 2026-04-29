@@ -1,3 +1,4 @@
+import { cloneDeep } from "es-toolkit/object";
 import { getPrimaryConnection } from "../primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
@@ -6,27 +7,24 @@ import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
 import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
 
+function isEmptyValue(v: unknown): boolean {
+  if (v === null || v === undefined || v === "") return true;
+  return Array.isArray(v) && v.length === 0;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
     const current = base[key];
-    const isGap =
-      current === null ||
-      current === undefined ||
-      current === "" ||
-      (Array.isArray(current) && current.length === 0);
-    if (isGap) {
+    if (isEmptyValue(current)) {
       base[key] = value;
       continue;
     }
-    if (
-      typeof current === "object" &&
-      !Array.isArray(current) &&
-      current !== null &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      value !== null
-    ) {
-      fillGaps(current as Record<string, unknown>, value as Record<string, unknown>);
+    if (isPlainObject(current) && isPlainObject(value)) {
+      fillGaps(current, value);
     }
   }
 }
@@ -35,12 +33,12 @@ async function resolveOrderedCandidates(
   userId: string,
   orderedPluginIds: string[],
 ): Promise<Candidate[]> {
-  const candidates: Candidate[] = [];
-  for (const pluginId of orderedPluginIds) {
-    const conn = await pickSingleConnection(userId, pluginId);
-    if (conn) candidates.push({ pluginId, conn });
-  }
-  return candidates;
+  const conns = await Promise.all(
+    orderedPluginIds.map((pluginId) => pickSingleConnection(userId, pluginId)),
+  );
+  return orderedPluginIds
+    .map((pluginId, i) => (conns[i] ? { pluginId, conn: conns[i]! } : null))
+    .filter((c): c is Candidate => c !== null);
 }
 
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
@@ -48,7 +46,7 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
   if (Array.isArray(first.data) || typeof first.data !== "object") {
     return first.data as T;
   }
-  const base: Record<string, unknown> = structuredClone(first.data as Record<string, unknown>);
+  const base: Record<string, unknown> = cloneDeep(first.data as Record<string, unknown>);
   for (const outcome of successes.slice(1)) {
     if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
       fillGaps(base, outcome.data as Record<string, unknown>);

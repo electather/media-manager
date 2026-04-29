@@ -188,20 +188,23 @@ export async function promoteToDefault(
   connectionId: string,
 ): Promise<void> {
   const db = getDb();
-  await db
-    .update(serviceConnections)
-    .set({ isDefault: 0, updatedAt: Date.now() })
-    .where(
-      and(
-        eq(serviceConnections.userId, userId),
-        eq(serviceConnections.pluginId, pluginId),
-        ne(serviceConnections.id, connectionId),
-      ),
-    );
-  await db
-    .update(serviceConnections)
-    .set({ isDefault: 1, updatedAt: Date.now() })
-    .where(eq(serviceConnections.id, connectionId));
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(serviceConnections)
+      .set({ isDefault: 0, updatedAt: now })
+      .where(
+        and(
+          eq(serviceConnections.userId, userId),
+          eq(serviceConnections.pluginId, pluginId),
+          ne(serviceConnections.id, connectionId),
+        ),
+      );
+    await tx
+      .update(serviceConnections)
+      .set({ isDefault: 1, updatedAt: now })
+      .where(eq(serviceConnections.id, connectionId));
+  });
 }
 
 async function ensureDefaultIfFirst(

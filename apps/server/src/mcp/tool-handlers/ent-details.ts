@@ -89,9 +89,9 @@ async function readAggregatedRatings(
     });
     const out: Record<string, number> = {};
     for (const row of result.data ?? []) {
-      const ids = row.item?.ids ?? {};
-      const matches = ids.tmdb_id === tmdbId || row.item.id === `${type}:${tmdbId}`;
-      if (matches && typeof row.rating === "number") {
+      const byExternalId = row.item?.ids?.tmdb_id === tmdbId;
+      const byCompositeId = row.item.id === `${type}:${tmdbId}`;
+      if ((byExternalId || byCompositeId) && typeof row.rating === "number") {
         // Mark with a generic key — we don't know which plugin wrote this under
         // aggregate. The design doc's per-plugin ratings key requires a helper
         // that tracks outcome-by-plugin; v1 surfaces the most-recent value.

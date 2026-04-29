@@ -1,3 +1,4 @@
+import { compact } from "es-toolkit/array";
 import { zodToItemSchema } from "@ent-mcp/shared/common";
 import { dispatchAggregate, dispatchPrimary } from "../../media/dispatcher";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
@@ -64,13 +65,13 @@ async function buildAvailabilityMap(
   const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
   if (providers.length === 0 || items.length === 0) return new Map();
   const map = new Map<string, AvailabilityStatus>();
-  const pairs = items
-    .map((item) => {
+  const pairs = compact(
+    items.map((item) => {
       const [type, tmdbId] = item.id.split(":");
       if (!type || !tmdbId) return null;
       return { id: item.id, tmdbId, type: type as "movie" | "tv" };
-    })
-    .filter((v): v is { id: string; tmdbId: string; type: "movie" | "tv" } => v !== null);
+    }),
+  );
 
   await Promise.all(
     pairs.map(async (pair) => {
@@ -250,8 +251,10 @@ async function runSimilar(userId: string, input: EntDiscoverInput): Promise<Comp
   const type = resolveMediaType(input.media_type);
   let tmdbId = input.query;
   let resolvedType: "movie" | "tv" = type ?? "movie";
-  if (input.query.includes(":")) {
-    const [t, id] = input.query.split(":");
+  const colonIdx = input.query.indexOf(":");
+  if (colonIdx !== -1) {
+    const t = input.query.slice(0, colonIdx);
+    const id = input.query.slice(colonIdx + 1);
     if ((t === "movie" || t === "tv") && id) {
       resolvedType = t;
       tmdbId = id;

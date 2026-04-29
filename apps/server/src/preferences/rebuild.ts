@@ -1,3 +1,5 @@
+import { consola } from "consola";
+import { orderBy } from "es-toolkit/array";
 import type {
   FeatureCategory,
   FeedbackRecord,
@@ -57,20 +59,26 @@ export interface RebuildDeps {
   deadlineMs?: number;
 }
 
+function topEntries(dict: Record<string, number>, n: number): string[] {
+  return orderBy(Object.entries(dict), [([, v]) => v], ["desc"])
+    .slice(0, n)
+    .map(([k]) => k);
+}
+
 export async function rebuildProfile(
   deps: RebuildDeps,
   userId: string,
   mediaType: ProfileMediaType,
   now: number = Date.now(),
 ): Promise<RebuildResult> {
-  console.log("[preferences:rebuild] start", { userId, mediaType, now });
+  consola.debug("[preferences:rebuild] start", { userId, mediaType, now });
 
   deps.abortSignal?.throwIfAborted();
   const contributions = await collectContributions(deps, userId, mediaType);
 
   const features = aggregate(contributions, now);
   const pruned = topKPrune(features);
-  console.log("[preferences:rebuild] pruned", {
+  consola.debug("[preferences:rebuild] pruned", {
     userId,
     mediaType,
     counts: Object.fromEntries(
@@ -90,12 +98,7 @@ export async function rebuildProfile(
     lastUpdatedAt: now,
   };
   await profileStorage.write(profile, { bumpVersion: true });
-  const topEntries = (dict: Record<string, number>, n: number) =>
-    Object.entries(dict)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, n)
-      .map(([k]) => k);
-  console.log("[preferences:rebuild] done", {
+  consola.debug("[preferences:rebuild] done", {
     userId,
     mediaType,
     sampleSize: profile.sampleSize,
@@ -140,7 +143,7 @@ async function collectContributions(
 
   const output = await fetchFeaturesForCandidates(deps, userId, candidates);
 
-  console.log("[preferences:rebuild] contributions", {
+  consola.debug("[preferences:rebuild] contributions", {
     userId,
     mediaType,
     signals: signalCounts,
@@ -174,7 +177,7 @@ async function fetchAllSources(
 }
 
 function logSources(userId: string, mediaType: ProfileMediaType, sources: AllSources): void {
-  console.log("[preferences:rebuild] sources", {
+  consola.debug("[preferences:rebuild] sources", {
     userId,
     mediaType,
     feedbackRows: sources.feedbackRows.length,
@@ -262,7 +265,7 @@ async function fetchFeaturesForCandidates(
         candidate,
         weight,
         timestamp: signals.latestAt,
-        noteKeywords: signals.noteKeywords,
+        noteKeywords: [...signals.noteKeywords],
       });
     }
   }
@@ -294,7 +297,7 @@ interface PerItemSignals {
   completed?: { at: number };
   watchlisted?: { at: number };
   comment?: { sentiment: "positive" | "negative" | "neutral"; at: number };
-  noteKeywords: string[];
+  noteKeywords: Set<string>;
 }
 
 function signalsFor(
@@ -309,7 +312,7 @@ function signalsFor(
     if (at > existing.latestAt) existing.latestAt = at;
     return existing;
   }
-  const created: PerItemSignals = { tmdbId, mediaType, latestAt: at, noteKeywords: [] };
+  const created: PerItemSignals = { tmdbId, mediaType, latestAt: at, noteKeywords: new Set() };
   perItem.set(key, created);
   return created;
 }
@@ -338,7 +341,7 @@ function mergeFeedback(perItem: Map<string, PerItemSignals>, record: FeedbackRec
         entry.note = { sentiment, at: record.createdAt };
       }
       for (const keyword of record.noteKeywords ?? []) {
-        if (!entry.noteKeywords.includes(keyword)) entry.noteKeywords.push(keyword);
+        entry.noteKeywords.add(keyword);
       }
       break;
     }
@@ -454,8 +457,8 @@ function aggregate(contributions: Map<string, ItemContribution>, now: number): P
 }
 
 function recencyMultiplier(now: number, timestamp: number): number {
-  const months = Math.max(0, (now - timestamp) / (30 * 24 * 60 * 60 * 1000));
-  return Math.pow(0.5, (months * 30 * 24 * 60 * 60 * 1000) / HALF_LIFE_MS);
+  const elapsed = Math.max(0, now - timestamp);
+  return Math.pow(0.5, elapsed / HALF_LIFE_MS);
 }
 
 function topKPrune(features: ProfileFeatures): ProfileFeatures {
@@ -469,13 +472,7 @@ function topKPrune(features: ProfileFeatures): ProfileFeatures {
 function pruneMap(map: Record<string, number>, k: number): Record<string, number> {
   const entries = Object.entries(map);
   if (entries.length <= k) return { ...map };
-  entries.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-  const kept: Record<string, number> = {};
-  for (let i = 0; i < k; i += 1) {
-    const [key, value] = entries[i]!;
-    kept[key] = value;
-  }
-  return kept;
+  return Object.fromEntries(orderBy(entries, [([, v]) => Math.abs(v)], ["desc"]).slice(0, k));
 }
 
 export { SIGNAL_WEIGHTS, TOP_K, HALF_LIFE_MS, recencyMultiplier };
