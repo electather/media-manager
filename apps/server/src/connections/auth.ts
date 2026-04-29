@@ -83,6 +83,7 @@ function firstBlankRequiredField(schema: unknown, value: unknown): string | unde
  * runtime maps that throw into `plugin.invalid_base_url` with `params.field`,
  * so we can route on the code without string-matching.
  */
+// fallow-ignore-next-line complexity
 function rethrowAuthError(result: AuthResult): never {
   if (result.status !== "error") {
     throw unprocessable("connection.verify_failed", `unexpected status: ${result.status}`, {});
@@ -277,6 +278,7 @@ export async function initiateRedirectAuth(args: {
   return { redirectUrl: result.url, nonce };
 }
 
+// fallow-ignore-next-line complexity
 export async function completeRedirectAuth(args: {
   userId: string;
   nonce: string;

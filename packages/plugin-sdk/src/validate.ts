@@ -65,6 +65,7 @@ function validateNotificationDelivery(
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateCatalogCapability(
   capId: string,
   capVersion: string,

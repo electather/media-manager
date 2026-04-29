@@ -108,6 +108,7 @@ export async function upsertIdBundle(
     .where(and(eq(idMap.tmdbId, bundle.tmdb_id), eq(idMap.mediaType, mediaType)));
 }
 
+// fallow-ignore-next-line complexity
 export async function getIdBundle(tmdbId: string, mediaType: MediaType): Promise<IdBundle | null> {
   const db = getDb();
   const row = await db

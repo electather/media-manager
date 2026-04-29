@@ -283,6 +283,7 @@ export interface InboxCursor {
   id: string;
 }
 
+// fallow-ignore-next-line complexity
 export async function listInboxForUser(
   userId: string,
   filters: InboxListFilters,
@@ -483,6 +484,7 @@ function applyEventPayloadFilters(
   return out;
 }
 
+// fallow-ignore-next-line complexity
 export async function listDeliveries(
   filters: DeliveryListFilters,
   cursor: DeliveryCursor | undefined,

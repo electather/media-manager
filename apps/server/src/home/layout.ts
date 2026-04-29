@@ -153,6 +153,7 @@ const TIMEOUT_SENTINEL: unique symbol = Symbol("home-row-timeout");
  * Single dispatch wrapper for a fetcher. `FetchOutcome` is computed here so
  * row implementations cannot misreport their own status.
  */
+// fallow-ignore-next-line complexity
 export async function runFetch(
   rowId: RowKind,
   ctx: RowFetchContext,

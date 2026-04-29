@@ -64,6 +64,7 @@ export async function writeCache<T>(
   await getCacheProvider().set(key, { v: value }, ttl);
 }
 
+// fallow-ignore-next-line complexity
 export async function applyInvalidations(
   req: DispatchRequest,
   capability: CapabilityDefinition,

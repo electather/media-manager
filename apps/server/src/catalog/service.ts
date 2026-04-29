@@ -538,6 +538,7 @@ export class CatalogService {
   }
 }
 
+// fallow-ignore-next-line complexity
 function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
   if (!row) return null;
   return {

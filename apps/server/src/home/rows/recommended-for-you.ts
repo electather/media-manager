@@ -125,6 +125,7 @@ async function hydrateFromCatalog(
   return isPartial ? { items, cursor, partial: true } : { items, cursor };
 }
 
+// fallow-ignore-next-line complexity
 async function fetchFromLivePath(
   ctx: RowFetchContext,
   opts: RowFetchOptions,

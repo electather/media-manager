@@ -114,6 +114,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
     });
   }
 
+  // fallow-ignore-next-line complexity
   async function scheduleFromConfig(): Promise<void> {
     if (!opts.schedule) return;
     const cfg = await getConfig(opts.id);

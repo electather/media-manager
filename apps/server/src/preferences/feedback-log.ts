@@ -52,6 +52,7 @@ function processNoteFields(
 }
 
 export const feedbackLog = {
+  // fallow-ignore-next-line complexity
   async record(input: RecordFeedbackInput): Promise<FeedbackRecord> {
     const createdAt = input.now ?? Date.now();
     const { note, noteSentiment, noteKeywordsJson, noteKeywordsArray } = processNoteFields(

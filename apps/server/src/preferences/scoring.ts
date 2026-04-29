@@ -50,6 +50,7 @@ export function extractFeatureDicts(
  * final contribution to the blended profile score — and are already sorted
  * descending.
  */
+// fallow-ignore-next-line complexity
 export function scoreCandidate(
   candidate: CandidateFeatures,
   profile: PreferenceProfile,

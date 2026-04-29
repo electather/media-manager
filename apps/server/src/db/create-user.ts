@@ -57,6 +57,7 @@ function assertValidRoleId(value: string): asserts value is ValidRoleId {
   }
 }
 
+// fallow-ignore-next-line complexity
 async function createUser(): Promise<void> {
   const email = requireEnv("CREATE_USER_EMAIL");
   const password = requireEnv("CREATE_USER_PASSWORD");

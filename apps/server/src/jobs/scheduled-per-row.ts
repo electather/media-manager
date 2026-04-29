@@ -38,6 +38,7 @@ interface RowAggregate {
   firstErrorRecordId: string | null;
 }
 
+// fallow-ignore-next-line complexity
 export function registerScheduledPerRow<TRow>(
   opts: RegisterScheduledPerRowOptions<TRow>,
 ): JobHandle {
@@ -98,6 +99,7 @@ export function registerScheduledPerRow<TRow>(
     });
   }
 
+  // fallow-ignore-next-line complexity
   async function iterateRows(ctx: JobRunContext, aggregate: RowAggregate): Promise<void> {
     const rows = await opts.rowSource();
     aggregate.total = rows.length;

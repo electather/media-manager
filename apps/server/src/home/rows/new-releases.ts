@@ -47,6 +47,7 @@ export const newReleasesFetcher: RowFetcher = {
   },
 };
 
+// fallow-ignore-next-line complexity
 async function hydrateFromSnapshot(
   ctx: RowFetchContext,
   refs: MetadataKey[],

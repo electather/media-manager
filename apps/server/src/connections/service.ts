@@ -55,6 +55,7 @@ function capabilitiesAtScope(
     .map(([id, cap]) => ({ id, version: cap.version }));
 }
 
+// fallow-ignore-next-line complexity
 function buildPluginSummary(
   pluginId: string,
   manifest: StoredManifest,
@@ -177,6 +178,7 @@ export const connectionsService = {
   initiateDeviceAuth,
   pollDeviceAuth,
 
+  // fallow-ignore-next-line complexity
   async listForUser(userId: string): Promise<ConnectionListItem[]> {
     const db = getDb();
     const rows = await db

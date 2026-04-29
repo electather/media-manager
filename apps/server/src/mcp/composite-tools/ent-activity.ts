@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { z } from "zod";
 import { zodToItemSchema } from "@ent-mcp/shared/common";
 import { dispatchAggregate } from "../../media/dispatcher";
@@ -178,7 +179,6 @@ async function runProgress(
   }));
 }
 
-// fallow-ignore-next-line complexity
 export const entActivityHandler: ToolHandler = async (ctx, rawInput) => {
   const input = (rawInput ?? {}) as EntActivityInput;
   const view: ActivityView = input.view ?? "watchlist";

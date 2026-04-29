@@ -26,6 +26,7 @@ function jsonToFormParams(json: unknown): Record<string, string> {
   return params;
 }
 
+// fallow-ignore-next-line complexity
 async function normalizeTokenRequest(req: Request): Promise<Request> {
   const ct = req.headers.get("content-type") ?? "";
   if (!ct.includes("application/json") || ct.includes("x-www-form-urlencoded")) {

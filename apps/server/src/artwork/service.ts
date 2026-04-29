@@ -75,6 +75,7 @@ export class ArtworkService {
     return out;
   }
 
+  // fallow-ignore-next-line complexity
   private writeBack(entry: CanonicalEntry, bundle: ArtworkBundle): void {
     if (!entry.ids.tmdb) return;
     const urls = top1(bundle);

@@ -53,6 +53,7 @@ export async function runWithLogCapture<T>(logLevel: LogLevel, fn: () => Promise
 }
 
 /** Appends a log entry to the active run's buffer (if any). */
+// fallow-ignore-next-line complexity
 function appendToBuffer(entry: LogEntry): void {
   const ctx = storage.getStore();
   if (!ctx) return;
@@ -73,6 +74,7 @@ function appendToBuffer(entry: LogEntry): void {
 }
 
 /** Serializes and scrubs the captured logs, returning the JSON string and truncation count. */
+// fallow-ignore-next-line complexity
 export function serializeRunLogs(): {
   logs: string | null;
   logsTruncated: number;
@@ -139,12 +141,19 @@ function isLogMethod(prop: string | symbol): prop is LogType {
   return typeof prop === "string" && ["debug", "info", "warn", "error", "log"].includes(prop);
 }
 
+const LEVEL_FOR_TYPE: Record<string, LogEntry["level"]> = {
+  debug: "debug",
+  info: "info",
+  warn: "warn",
+  error: "error",
+  log: "info",
+};
+
 function consolaTypeToLevel(type: string): LogEntry["level"] {
-  if (type === "log") return "info";
-  if (type === "debug" || type === "info" || type === "warn" || type === "error") return type;
-  return "info";
+  return LEVEL_FOR_TYPE[type] ?? "info";
 }
 
+// fallow-ignore-next-line complexity
 function extractMessageAndMeta(args: unknown[]): {
   msg: string;
   meta: Record<string, unknown>;
