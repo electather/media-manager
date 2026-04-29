@@ -28,7 +28,6 @@
     "**/plan/**",
     "**/docs/**",
     "**/docker/**",
-    "apps/client/**",
     "packages/plugins/**"
   ],
   "rules": {
@@ -50,7 +49,6 @@
       "**/*.spec.tsx",
       "**/*.tsx",
       "**/plugin.ts",
-      "apps/client/**",
       "packages/plugins/**"
     ]
   },
@@ -63,7 +61,6 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "apps/client/**",
       "packages/plugins/**"
     ]
   },
