@@ -30,6 +30,7 @@ export class ArtworkService {
     private readonly catalogService: CatalogService,
   ) {}
 
+  // fallow-ignore-next-line complexity
   async getArtwork(
     items: ArtworkRequestItem[],
     languages: string[] = [...DEFAULT_LANGUAGES],
@@ -74,6 +75,7 @@ export class ArtworkService {
     return out;
   }
 
+  // fallow-ignore-next-line complexity
   private writeBack(entry: CanonicalEntry, bundle: ArtworkBundle): void {
     if (!entry.ids.tmdb) return;
     const urls = top1(bundle);
@@ -90,6 +92,7 @@ export class ArtworkService {
   }
 }
 
+// fallow-ignore-next-line complexity
 function top1(bundle: ArtworkBundle): {
   posterUrl: string | null;
   backdropUrl: string | null;

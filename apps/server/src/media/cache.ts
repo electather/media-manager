@@ -1,10 +1,11 @@
+import { sortBy } from "es-toolkit/array";
 import { sha256 } from "../crypto/hash";
 import { MemoryCache } from "../cache/memory";
 import { RedisCache } from "../cache/redis";
 import type { CacheProvider } from "../cache/types";
 import { env } from "../env";
 import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
-
+import { isNil } from "es-toolkit/predicate";
 /**
  * Canonicalizes a value so the cache key is insensitive to object key order.
  * Returns a sorted-key JSON string.
@@ -14,9 +15,10 @@ export function canonicalize(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalize).join(",")}]`;
   }
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const unsorted = Object.entries(value as Record<string, unknown>).filter(
+    ([, v]) => v !== undefined,
+  );
+  const entries = sortBy(unsorted, [([k]) => k]);
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalize(v)}`).join(",")}}`;
 }
 
@@ -74,16 +76,14 @@ export function setCacheProviderForTest(p: CacheProvider): void {
   provider = p;
 }
 
+function isEmptyResult(value: unknown): boolean {
+  if (isNil(value)) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  return typeof value === "object" && Object.keys(value as object).length === 0;
+}
+
 /** Chooses a TTL given the emitted value. Null / empty array → negative-cache TTL. */
 export function ttlMsFor(capability: CapabilityDefinition, value: unknown): number {
-  const isEmpty =
-    value === null ||
-    value === undefined ||
-    (Array.isArray(value) && value.length === 0) ||
-    (typeof value === "object" &&
-      !Array.isArray(value) &&
-      value !== null &&
-      Object.keys(value as object).length === 0);
-  const sec = isEmpty ? capability.negativeCacheTtlSec : capability.defaultCacheTtlSec;
+  const sec = isEmptyResult(value) ? capability.negativeCacheTtlSec : capability.defaultCacheTtlSec;
   return sec * 1000;
 }

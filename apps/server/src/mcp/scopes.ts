@@ -1,3 +1,5 @@
+import { compact } from "es-toolkit/array";
+
 /**
  * Coarse, outcome-oriented MCP scopes. See `docs/mcp-server.md` §6.4.
  * Tools map 1:N to scopes; the dispatcher rejects calls whose JWT scope claim
@@ -14,10 +16,7 @@ export type McpScope = (typeof MCP_SCOPES)[number];
 
 export function parseScopes(raw: string | null | undefined): string[] {
   if (!raw) return [];
-  return raw
-    .split(/\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return compact(raw.split(/\s+/).map((s) => s.trim()));
 }
 
 export function hasAllScopes(granted: readonly string[], required: readonly string[]): boolean {

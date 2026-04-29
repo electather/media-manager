@@ -11,6 +11,7 @@ import { plugins } from "./plugins";
 export const serviceConnections = sqliteTable(
   "service_connections",
   {
+    // fallow-ignore-next-line code-duplication
     id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()

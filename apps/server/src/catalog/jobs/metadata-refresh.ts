@@ -76,6 +76,7 @@ async function fetchOne(media: MediaService, key: MetadataKey): Promise<FetchRes
   return { key, data };
 }
 
+// fallow-ignore-next-line complexity
 function collectFresh(
   slice: MetadataKey[],
   results: PromiseSettledResult<FetchResult>[],

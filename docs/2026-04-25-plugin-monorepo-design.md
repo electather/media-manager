@@ -109,7 +109,6 @@ packages/plugin-sdk/
       index.ts               capability schema definitions (WatchHistoryV1, IdResolveV1, …)
     validate.ts              validatePluginModule (used by server boot AND contract tests)
     version.ts               SDK_VERSION constant + isSdkCompatible(range)
-    manifest.ts              re-exports pluginManifestSchema and PluginManifest from @ent-mcp/shared
 ```
 
 ### `package.json` exports

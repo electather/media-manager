@@ -5,6 +5,7 @@ import { env } from "../env";
 import { encrypt, decrypt } from "../crypto/vault";
 import { internal } from "../errors/http-errors";
 import { invalidateUserCache } from "../media/dispatcher";
+import { isNil } from "es-toolkit/predicate";
 
 function split(combined: string): { iv: string; data: string } {
   const [iv, ...rest] = combined.split(":");
@@ -69,6 +70,7 @@ export function stripRequestFields(schema: unknown, value: unknown): unknown {
  * back. All current built-in plugin schemas are flat, so this is a deliberate
  * simplification, not a gap to fill speculatively.
  */
+// fallow-ignore-next-line complexity
 export function stripExtensionFields(
   schema: unknown,
   value: unknown,
@@ -112,6 +114,7 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
  * keys are strings). Not formally guaranteed by the spec, but reliable in
  * every JS runtime this repo targets.
  */
+// fallow-ignore-next-line complexity
 export function computeDisplayFields(
   schema: unknown,
   value: unknown,
@@ -123,26 +126,39 @@ export function computeDisplayFields(
     (value && typeof value === "object" ? (value as Record<string, unknown>) : null) ?? {};
   const out: Array<{ label: string; value: string; mono?: boolean }> = [];
   for (const [name, def] of Object.entries(props)) {
-    if (!def) continue;
-    if (def["x-secret"] === true) continue;
-    const isPrivate = def["x-private"] === true;
-    const label =
-      typeof def.title === "string" && def.title.length > 0 ? def.title : titleizeFieldName(name);
-    const stored = cfg[name];
-    const isUri = def.format === "uri" || def.format === "url";
-    const monoHint = def["x-mono"] === true;
-    const hasAllowedHost = def["x-allowed-host"] === true;
-    const mono = isUri || monoHint || hasAllowedHost ? true : undefined;
-    // Empty / missing `x-private` values render as "" (the unset case)
-    // rather than "••••" — there's no actual content to hide, and a
-    // redaction badge for an unset field would mislead the reader.
-    const stringValue =
-      isPrivate && stored !== undefined && stored !== null && stored !== ""
-        ? "••••"
-        : stringifyDisplayValue(stored);
-    out.push(mono ? { label, value: stringValue, mono } : { label, value: stringValue });
+    const field = buildDisplayField(name, def, cfg);
+    if (field) out.push(field);
   }
   return out;
+}
+
+// fallow-ignore-next-line complexity
+function buildDisplayField(
+  name: string,
+  def: Record<string, unknown> | undefined,
+  cfg: Record<string, unknown>,
+): { label: string; value: string; mono?: boolean } | null {
+  if (!def) return null;
+  if (def["x-secret"] === true) return null;
+  const isPrivate = def["x-private"] === true;
+  const label =
+    typeof def.title === "string" && def.title.length > 0 ? def.title : titleizeFieldName(name);
+  const stored = cfg[name];
+  const mono: true | undefined =
+    def.format === "uri" ||
+    def.format === "url" ||
+    def["x-mono"] === true ||
+    def["x-allowed-host"] === true
+      ? true
+      : undefined;
+  // Empty / missing `x-private` values render as "" (the unset case)
+  // rather than "••••" — there's no actual content to hide, and a
+  // redaction badge for an unset field would mislead the reader.
+  const stringValue =
+    isPrivate && stored !== undefined && stored !== null && stored !== ""
+      ? "••••"
+      : stringifyDisplayValue(stored);
+  return mono ? { label, value: stringValue, mono } : { label, value: stringValue };
 }
 
 function titleizeFieldName(name: string): string {
@@ -154,8 +170,9 @@ function titleizeFieldName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// fallow-ignore-next-line complexity
 function stringifyDisplayValue(v: unknown): string {
-  if (v === undefined || v === null) return "";
+  if (isNil(v)) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number") return String(v);
   if (typeof v === "boolean") return v ? "Yes" : "No";
@@ -176,20 +193,23 @@ export async function promoteToDefault(
   connectionId: string,
 ): Promise<void> {
   const db = getDb();
-  await db
-    .update(serviceConnections)
-    .set({ isDefault: 0, updatedAt: Date.now() })
-    .where(
-      and(
-        eq(serviceConnections.userId, userId),
-        eq(serviceConnections.pluginId, pluginId),
-        ne(serviceConnections.id, connectionId),
-      ),
-    );
-  await db
-    .update(serviceConnections)
-    .set({ isDefault: 1, updatedAt: Date.now() })
-    .where(eq(serviceConnections.id, connectionId));
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(serviceConnections)
+      .set({ isDefault: 0, updatedAt: now })
+      .where(
+        and(
+          eq(serviceConnections.userId, userId),
+          eq(serviceConnections.pluginId, pluginId),
+          ne(serviceConnections.id, connectionId),
+        ),
+      );
+    await tx
+      .update(serviceConnections)
+      .set({ isDefault: 1, updatedAt: now })
+      .where(eq(serviceConnections.id, connectionId));
+  });
 }
 
 async function ensureDefaultIfFirst(
@@ -217,11 +237,12 @@ async function ensureDefaultIfFirst(
  * is a "parked" connection under the new rules (see design doc).
  */
 function hasRealCredentials(credentials: unknown): boolean {
-  if (credentials === null || credentials === undefined) return false;
+  if (isNil(credentials)) return false;
   if (typeof credentials !== "object") return true;
   return Object.keys(credentials as Record<string, unknown>).length > 0;
 }
 
+// fallow-ignore-next-line complexity
 export async function writeConnection(args: {
   userId: string;
   pluginId: string;

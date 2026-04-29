@@ -1,1 +1,0 @@
-ALTER TABLE `canonical_metadata` DROP COLUMN `thumb_url`;

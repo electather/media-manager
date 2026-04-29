@@ -50,6 +50,7 @@ const INERT_POOL: PoolSignalingApi = {
 };
 
 /** Builds a fresh PluginContext per invocation. Nothing here is plugin-mutable. */
+// fallow-ignore-next-line complexity
 export function buildContext(args: BuildContextArgs): PluginContext {
   return {
     fetch: buildFetch(

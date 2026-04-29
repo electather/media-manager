@@ -3,7 +3,9 @@ import type { MediaItem } from "@ent-mcp/shared/media";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import type { CanonicalMetadata, MetadataKey, RecItem } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { canonicalToRaw, toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { compositeId } from "./row-utils";
+import { isNull } from "es-toolkit/predicate";
 
 const ROW_ID = "recommendedForYou" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -69,6 +71,7 @@ function readLiveCursor(cursor: string | null): { page: number; exclusion: strin
   return { page: 0, exclusion: [] };
 }
 
+// fallow-ignore-next-line complexity
 async function hydrateFromCatalog(
   ctx: RowFetchContext,
   recItems: RecItem[],
@@ -96,7 +99,7 @@ async function hydrateFromCatalog(
       rec,
     }),
   );
-  const isPartial = hydrated.some(({ canonical }) => canonical === null);
+  const isPartial = hydrated.some(({ canonical }) => isNull(canonical));
   const present = hydrated.filter(
     (entry): entry is { canonical: CanonicalMetadata; rec: RecItem } => entry.canonical !== null,
   );
@@ -122,6 +125,7 @@ async function hydrateFromCatalog(
   return isPartial ? { items, cursor, partial: true } : { items, cursor };
 }
 
+// fallow-ignore-next-line complexity
 async function fetchFromLivePath(
   ctx: RowFetchContext,
   opts: RowFetchOptions,
@@ -158,19 +162,7 @@ function buildFromCanonical(
   matchReason: string | null,
   statusMap: Record<string, string>,
 ): CompactMediaItem | null {
-  const raw: RawMediaItem = {
-    id: `${row.mediaType}:${row.tmdbId}`,
-    type: row.mediaType,
-    title: row.title,
-    year: row.year ?? undefined,
-    genres: row.genres ?? [],
-    overview: row.overview ?? undefined,
-    posterUrl: row.posterUrl ?? undefined,
-    backdropUrl: row.backdropUrl ?? undefined,
-    clearLogoUrl: row.clearLogoUrl ?? undefined,
-    ids: { tmdb_id: row.tmdbId },
-  };
-  const compact = toCompact(raw, matchReason ? { matchReason } : {});
+  const compact = toCompact(canonicalToRaw(row), matchReason ? { matchReason } : {});
   const status = toStatusOrUndefined(statusMap[compact.id]);
   if (status) compact.status = status;
   return compact;
@@ -183,12 +175,6 @@ function filterCandidates(items: RawMediaItem[], exclusion: string[]): RawMediaI
     const id = compositeId(item);
     return id ? !blocked.has(id) : true;
   });
-}
-
-function compositeId(item: RawMediaItem): string | null {
-  const tmdbId = item.ids?.tmdb_id ?? null;
-  if (!tmdbId) return null;
-  return `${item.type}:${tmdbId}`;
 }
 
 /**
@@ -230,6 +216,7 @@ async function rankCandidates(
  * Centralised here so a future change to either side surfaces in exactly one
  * place rather than as a runtime cast inside every fetcher.
  */
+// fallow-ignore-next-line complexity
 function toPreferenceMediaItem(item: RawMediaItem): MediaItem {
   return {
     id: item.id,

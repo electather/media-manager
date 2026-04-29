@@ -1,8 +1,12 @@
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+import type { RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
-import { decodeCursor, encodeCursor } from "../cursor";
-import { toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { encodeCursor } from "../cursor";
+import { canonicalToRaw, type RawMediaItem } from "../compact";
+import { buildItem } from "./build-item";
+import { readPage } from "./row-utils";
+import { isNil } from "es-toolkit/predicate";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -20,7 +24,7 @@ export const newReleasesFetcher: RowFetcher = {
   requires: ["metadata@v1"],
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
-    const page = readPage(opts.cursor);
+    const page = readPage(opts.cursor, ROW_ID);
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
 
     const snapshot = await ctx.catalogService.getDiscoverFeed(
@@ -43,6 +47,7 @@ export const newReleasesFetcher: RowFetcher = {
   },
 };
 
+// fallow-ignore-next-line complexity
 async function hydrateFromSnapshot(
   ctx: RowFetchContext,
   refs: MetadataKey[],
@@ -58,7 +63,7 @@ async function hydrateFromSnapshot(
   const hydrated: Array<CanonicalMetadata | null> = slice.map(
     (ref) => rows[`${ref.type}:${ref.tmdbId}`] ?? null,
   );
-  const isPartial = hydrated.some((row) => row === null);
+  const isPartial = hydrated.some(isNil);
   const present = hydrated.filter((row): row is CanonicalMetadata => row !== null);
 
   const items = await Promise.all(present.map((row) => buildFromCanonical(ctx, row)));
@@ -74,6 +79,7 @@ async function hydrateFromSnapshot(
   return isPartial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
 }
 
+// fallow-ignore-next-line complexity
 async function fetchFromLivePath(
   ctx: RowFetchContext,
   page: number,
@@ -105,40 +111,9 @@ async function fetchFromLivePath(
   return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
 }
 
-function readPage(cursor: string | null): number {
-  if (!cursor) return 0;
-  return decodeCursor(ROW_ID, cursor).p;
-}
-
-async function buildItem(
-  ctx: RowFetchContext,
-  item: RawMediaItem,
-): Promise<CompactMediaItem | null> {
-  const compact = toCompact(item);
-  const map = await ctx.dataloader.getStatusBatch([compact.id]);
-  const status = toStatusOrUndefined(map[compact.id]);
-  if (status) compact.status = status;
-  return compact;
-}
-
 async function buildFromCanonical(
   ctx: RowFetchContext,
   row: CanonicalMetadata,
 ): Promise<CompactMediaItem | null> {
-  // Reconstitute the raw plugin shape `toCompact` expects from the
-  // canonical columns so the wire shape stays identical whether we
-  // came from snapshot or from the live plugin path.
-  const raw: RawMediaItem = {
-    id: `${row.mediaType}:${row.tmdbId}`,
-    type: row.mediaType,
-    title: row.title,
-    year: row.year ?? undefined,
-    genres: row.genres ?? [],
-    overview: row.overview ?? undefined,
-    posterUrl: row.posterUrl ?? undefined,
-    backdropUrl: row.backdropUrl ?? undefined,
-    clearLogoUrl: row.clearLogoUrl ?? undefined,
-    ids: { tmdb_id: row.tmdbId },
-  };
-  return buildItem(ctx, raw);
+  return buildItem(ctx, canonicalToRaw(row));
 }

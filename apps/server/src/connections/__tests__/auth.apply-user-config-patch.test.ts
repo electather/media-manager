@@ -44,6 +44,17 @@ describe("applyUserConfigPatch", () => {
     expect(Object.keys(result as Record<string, unknown>)).not.toContain("password");
   });
 
+  it("preserves the existing key when a patch value is undefined", () => {
+    // Regression: an earlier refactor used `isNil` for the delete sentinel,
+    // which conflated `undefined` with `null` and silently stripped keys
+    // for patches that left a value unset to mean "no change".
+    const result = applyUserConfigPatch({ host: "a", username: "alice" }, {
+      username: undefined,
+    } as Record<string, unknown>);
+    expect(result).toEqual({ host: "a", username: undefined });
+    expect(Object.keys(result as Record<string, unknown>)).toContain("username");
+  });
+
   it("does not mutate the input userConfig", () => {
     const cfg = { host: "a", password: "secret" };
     applyUserConfigPatch(cfg, { password: null });

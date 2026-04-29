@@ -3,10 +3,12 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { getDb } from "../../db/client";
 import { serviceConnections } from "../../db/schema/credentials";
 import { MediaService } from "../../media/service";
+import { identifyItem, parseHistoryBase, parseItemDate } from "../../media/parse-item";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
 import type { HistoryEvent, RatingEvent } from "../types";
+import { isNil } from "es-toolkit/predicate";
 
 const PER_ROW_TIMEOUT_SEC = 60;
 const RUN_TIMEOUT_SEC = 30 * 60;
@@ -45,6 +47,29 @@ export function registerCatalogUserMirrorSyncJob(deps: CatalogUserMirrorSyncDeps
   });
 }
 
+async function syncMirrorEvents<E>(
+  ctx: JobRunContext,
+  label: string,
+  row: SyncRow,
+  collect: () => Promise<E[]>,
+  getTimestamp: (event: E) => number,
+  append: (events: E[], cursorTs: number) => Promise<void>,
+): Promise<void> {
+  ctx.abortSignal.throwIfAborted();
+  try {
+    const events = await collect();
+    if (events.length > 0) {
+      const cursorTs = events.reduce((max, ev) => Math.max(max, getTimestamp(ev)), 0);
+      await append(events, cursorTs);
+    }
+  } catch (err) {
+    if (isAbortError(err, ctx)) throw err;
+    ctx.logger.warn(
+      `[catalog:user-mirror-sync] ${label} dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
+    );
+  }
+}
+
 export async function syncUserPluginPair(
   deps: CatalogUserMirrorSyncDeps,
   ctx: JobRunContext,
@@ -52,36 +77,27 @@ export async function syncUserPluginPair(
 ): Promise<void> {
   const media = new MediaService(row.userId);
 
-  ctx.abortSignal.throwIfAborted();
-  try {
-    const events = await collectHistoryEvents(media, row.pluginId);
-    if (events.length > 0) {
-      const cursorTs = events.reduce((max, ev) => Math.max(max, ev.watchedAt), 0);
-      await deps.catalog.appendUserHistory(row.userId, events, row.pluginId, cursorTs);
-    }
-  } catch (err) {
-    // Cancellation must propagate; any other failure on this capability
-    // logs a warning and lets the ratings block still run so a transient
-    // history-plugin error does not block ratings sync.
-    if (isAbortError(err, ctx)) throw err;
-    ctx.logger.warn(
-      `[catalog:user-mirror-sync] history dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
-    );
-  }
-
-  ctx.abortSignal.throwIfAborted();
-  try {
-    const events = await collectRatingEvents(media, row.pluginId);
-    if (events.length > 0) {
-      const cursorTs = events.reduce((max, ev) => Math.max(max, ev.ratedAt), 0);
-      await deps.catalog.appendUserRatings(row.userId, events, row.pluginId, cursorTs);
-    }
-  } catch (err) {
-    if (isAbortError(err, ctx)) throw err;
-    ctx.logger.warn(
-      `[catalog:user-mirror-sync] ratings dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
-    );
-  }
+  // Cancellation must propagate; any other failure on one capability logs a
+  // warning and lets the other block still run so a transient error on one
+  // plugin does not block the sibling sync.
+  await syncMirrorEvents(
+    ctx,
+    "history",
+    row,
+    () => collectHistoryEvents(media, row.pluginId),
+    (ev) => ev.watchedAt,
+    (events, cursorTs) =>
+      deps.catalog.appendUserHistory(row.userId, events, row.pluginId, cursorTs),
+  );
+  await syncMirrorEvents(
+    ctx,
+    "ratings",
+    row,
+    () => collectRatingEvents(media, row.pluginId),
+    (ev) => ev.ratedAt,
+    (events, cursorTs) =>
+      deps.catalog.appendUserRatings(row.userId, events, row.pluginId, cursorTs),
+  );
 }
 
 function isAbortError(err: unknown, ctx: JobRunContext): boolean {
@@ -121,15 +137,11 @@ function toHistoryEvent(
   },
   pluginId: string,
 ): HistoryEvent[] {
-  const identity = identify(entry.item);
-  if (!identity) return [];
-  const watchedAt = parseDate(entry.watchedAt);
-  if (watchedAt === null) return [];
+  const base = parseHistoryBase(entry);
+  if (!base) return [];
   return [
     {
-      tmdbId: identity.tmdbId,
-      mediaType: identity.type,
-      watchedAt,
+      ...base,
       sourceConnectionId: pluginId,
       episodeKey: entry.episodeKey ?? null,
       progress: typeof entry.progress === "number" ? entry.progress : null,
@@ -145,13 +157,13 @@ function toRatingEvent(
   },
   pluginId: string,
 ): RatingEvent[] {
-  const identity = identify(entry.item);
+  const identity = identifyItem(entry.item);
   if (!identity || typeof entry.rating !== "number") return [];
   // The dedupe key includes `ratedAt`; falling back to `Date.now()` would
   // mint a fresh key every sync run and let the same plugin entry land
   // repeatedly. Drop malformed events instead, mirroring the history path.
-  const ratedAt = parseDate(entry.ratedAt);
-  if (ratedAt === null) return [];
+  const ratedAt = parseItemDate(entry.ratedAt);
+  if (isNil(ratedAt)) return [];
   return [
     {
       tmdbId: identity.tmdbId,
@@ -161,29 +173,6 @@ function toRatingEvent(
       sourceConnectionId: pluginId,
     },
   ];
-}
-
-function identify(
-  item: { ids?: { tmdb_id?: string }; id?: string; type?: "movie" | "tv" } | undefined,
-): { tmdbId: string; type: "movie" | "tv" } | null {
-  if (!item) return null;
-  const tmdbId = item.ids?.tmdb_id ?? splitId(item.id)?.id;
-  const type = item.type ?? splitId(item.id)?.type;
-  if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
-  return { tmdbId, type };
-}
-
-function splitId(combined: string | undefined): { type: "movie" | "tv"; id: string } | null {
-  if (!combined) return null;
-  const [type, id] = combined.split(":");
-  if ((type !== "movie" && type !== "tv") || !id) return null;
-  return { type, id };
-}
-
-function parseDate(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const ts = Date.parse(raw);
-  return Number.isFinite(ts) ? ts : null;
 }
 
 function formatError(err: unknown): string {

@@ -1,21 +1,10 @@
-import type { MouseEvent } from "react";
-import { useRouter } from "@tanstack/react-router";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { formatRelativeAirDate } from "@/lib/relative-date";
 import { useArtworkIfMissing } from "@/hooks/use-artwork";
+import { usePeekClick } from "@/hooks/use-peek-click";
 
 export function SidebarItem({ item }: { item: CompactMediaItem }) {
-  const router = useRouter();
-
-  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
-    event.preventDefault();
-    void router.navigate({
-      to: ".",
-      search: (prev) => ({ ...(prev as Record<string, unknown>), peek: item.id }),
-      replace: false,
-    });
-  }
+  const handleClick = usePeekClick(item.id);
 
   const episodeLine = item.episode ? `S${item.episode.season} E${item.episode.episode}` : null;
   const dateLine = item.episode ? formatRelativeAirDate(item.episode.airsAt) : null;

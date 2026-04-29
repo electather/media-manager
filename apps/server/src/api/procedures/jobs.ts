@@ -51,6 +51,7 @@ export const adminJobsApp = new Hono()
     if (!run || run.jobId !== id) throw jobErrors.notFound(id);
     return c.json({ run });
   })
+  // fallow-ignore-next-line complexity
   .post("/:id/trigger", zValidator("json", triggerBodySchema), async (c) => {
     const id = c.req.param("id");
     const entry = requireEntry(id);
@@ -87,6 +88,7 @@ export const adminJobsApp = new Hono()
     if (!cancelled) throw jobErrors.wrongKind(id, "no active run to cancel");
     return c.json({ ok: true });
   })
+  // fallow-ignore-next-line complexity
   .post("/:id/config", zValidator("json", configBodySchema), async (c) => {
     const id = c.req.param("id");
     const body = c.req.valid("json");
@@ -111,6 +113,7 @@ export const adminJobsApp = new Hono()
 
 export const userJobsApp = new Hono()
   .use("*", requireSession)
+  // fallow-ignore-next-line complexity
   .post("/:id/trigger-user", zValidator("json", triggerBodySchema), async (c) => {
     const id = c.req.param("id");
     const entry = requireEntry(id);

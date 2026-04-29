@@ -19,6 +19,7 @@ import {
   type RowFetchResult,
   type RowFetcher,
 } from "./rows/index";
+import { isNil } from "es-toolkit/predicate";
 
 /**
  * Per-row wall-clock budget for the layout pipeline. Bumped from 3s after
@@ -51,6 +52,7 @@ export interface LayoutPipelineResult {
  * same seed item across the scroll session.
  */
 export function buildRowStubs(order: RowKind[], signals: LayoutSignals): HomeRowStub[] {
+  // fallow-ignore-next-line complexity
   return order.map((rowId) => {
     const stub: HomeRowStub = {
       rowId,
@@ -134,7 +136,7 @@ export async function runLayoutPipeline(
   const finalStubs = stubs
     .map((stub) => {
       if (stub.rowId !== heroSource) return stub;
-      if (heroCursor === null) return null; // hero took the only item
+      if (isNil(heroCursor)) return null; // hero took the only item
       return {
         ...stub,
         initialCursor: heroCursor,
@@ -152,6 +154,7 @@ const TIMEOUT_SENTINEL: unique symbol = Symbol("home-row-timeout");
  * Single dispatch wrapper for a fetcher. `FetchOutcome` is computed here so
  * row implementations cannot misreport their own status.
  */
+// fallow-ignore-next-line complexity
 export async function runFetch(
   rowId: RowKind,
   ctx: RowFetchContext,

@@ -4,10 +4,10 @@ import { session, user } from "../../../db/schema/auth";
 import { feedback } from "../../../db/schema/feedback";
 import { jobRuns } from "../../../db/schema/jobs";
 import { preferenceProfiles } from "../../../db/schema/preferences";
-import { roles, userRoles } from "../../../db/schema/roles";
 import { primaryConnections } from "../../../db/schema/user-preferences";
 import { serviceConnections } from "../../../db/schema/credentials";
 import type { Db } from "../../../db/client";
+import { fetchUserRole } from "./queries";
 import { notFound } from "../../../errors/http-errors";
 import { listAuthorizedApps } from "./apps";
 
@@ -62,12 +62,7 @@ async function readUserSnapshot(db: Db, userId: string): Promise<UserSnapshot> {
       throw notFound("me.export.user_not_found", "user not found", { userId });
     }
 
-    const roleRow = await tx
-      .select({ name: roles.name, description: roles.description })
-      .from(userRoles)
-      .innerJoin(roles, eq(roles.id, userRoles.roleId))
-      .where(eq(userRoles.userId, userId))
-      .get();
+    const roleRow = await fetchUserRole(tx as unknown as Db, userId);
 
     const sessions = await tx
       .select({

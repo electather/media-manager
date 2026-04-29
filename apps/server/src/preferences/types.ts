@@ -28,14 +28,8 @@ export interface UserItemFeedback {
   latestAt?: number;
 }
 
-/**
- * The denormalized shape the feature extractors read. Callers should map
- * whatever metadata they have — plugin MediaItem or the richer MediaDetails —
- * into this before invoking extraction.
- */
-export interface CandidateFeatures {
-  id: string;
-  type: "movie" | "tv";
+/** Common optional metadata fields shared by CandidateFeatures and RawMediaItem. */
+export interface MediaItemFields {
   title?: string;
   year?: number | null;
   runtime?: number | null;
@@ -46,6 +40,16 @@ export interface CandidateFeatures {
   writers?: string[];
   creators?: string[];
   originalLanguage?: string | null;
+}
+
+/**
+ * The denormalized shape the feature extractors read. Callers should map
+ * whatever metadata they have — plugin MediaItem or the richer MediaDetails —
+ * into this before invoking extraction.
+ */
+export interface CandidateFeatures extends MediaItemFields {
+  id: string;
+  type: "movie" | "tv";
 }
 
 /** Score dictionary projection for the six categories. */

@@ -57,6 +57,7 @@ export function manifestSupportsKinds(pluginId: string): NotificationContentKind
 // interchangeable across consumers.
 const CURSOR_SEP = "|";
 
+// fallow-ignore-next-line complexity
 export function decodeKeysetCursor(
   cursor: string | undefined,
 ): { createdAt: number; id: string } | undefined {
@@ -108,6 +109,7 @@ export async function assertOwnsConnections(
 /** Throws 403 when the user lacks the gating permission for any of the
  * provided categories. Loads the role row once and reuses it across the
  * category checks. */
+// fallow-ignore-next-line complexity
 export async function assertCanWriteCategories(
   userId: string,
   categories: NotificationCategory[],

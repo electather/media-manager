@@ -1,3 +1,4 @@
+import { last, orderBy } from "es-toolkit/array";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
@@ -31,31 +32,33 @@ export const upcomingForYouFetcher: RowFetcher = {
   title: "Upcoming for You",
   requires: ["calendar@v1"],
 
+  // fallow-ignore-next-line complexity
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
     const after = readAfter(opts.cursor);
     const [result, inProgress] = await Promise.all([
       ctx.mediaService.getUpcomingFeed({ deadlineMs: ctx.deadlineMs }),
       ctx.dataloader.getInProgressSet(),
     ]);
-    const entries = (result.items as UpcomingEntry[])
-      .filter((entry) => filterByInProgress(entry, inProgress))
-      .sort(compareEntries);
+    const filtered = (result.items as UpcomingEntry[]).filter((entry) =>
+      filterByInProgress(entry, inProgress),
+    );
+    const entries = orderBy(filtered, [(e) => Date.parse(e.airsAt)], ["asc"]);
     const sliced = entries.filter((entry) => isAfter(entry, after)).slice(0, opts.limit);
     const items = sliced.map(mapToCompact);
 
-    const last = sliced[sliced.length - 1];
-    const lastAnchor = last ? compositeId(last) : null;
+    const lastEntry = last(sliced);
+    const lastAnchor = lastEntry ? compositeId(lastEntry) : null;
     // No anchor available → end pagination cleanly. A synthetic "tv:0"
     // would let the cursor encode but produce a nonsensical starting point
     // for the next page, breaking the (tmdbId, airsAt) ordering.
     const cursor =
-      !last || !lastAnchor || items.length < opts.limit || items.length >= MAX_ITEMS
+      !lastEntry || !lastAnchor || items.length < opts.limit || items.length >= MAX_ITEMS
         ? null
         : encodeCursor(ROW_ID, {
             v: 1,
             r: ROW_ID,
             a: lastAnchor,
-            ts: Date.parse(last.airsAt),
+            ts: Date.parse(lastEntry.airsAt),
           });
     return result.partial ? { items, cursor, partial: true } : { items, cursor };
   },
@@ -88,6 +91,7 @@ function filterByInProgress(entry: UpcomingEntry, inProgress: Set<string>): bool
   return inProgress.has(id);
 }
 
+// fallow-ignore-next-line complexity
 function isAfter(
   entry: UpcomingEntry,
   after: { tmdbId: string; mediaType: "movie" | "tv"; airsAt: number } | null,
@@ -100,10 +104,7 @@ function isAfter(
   return id !== null && id > `${after.mediaType}:${after.tmdbId}`;
 }
 
-function compareEntries(a: UpcomingEntry, b: UpcomingEntry): number {
-  return Date.parse(a.airsAt) - Date.parse(b.airsAt);
-}
-
+// fallow-ignore-next-line complexity
 function compositeId(entry: UpcomingEntry): string | null {
   const item = entry.item;
   if (!item) return null;

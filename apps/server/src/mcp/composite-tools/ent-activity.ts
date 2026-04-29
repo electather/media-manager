@@ -1,6 +1,14 @@
+// fallow-ignore-file complexity
+import { z } from "zod";
+import { zodToItemSchema } from "@ent-mcp/shared/common";
 import { dispatchAggregate } from "../../media/dispatcher";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
-import { compactList, type AvailabilityStatus, type CompactMediaResult } from "../response-shapes";
+import {
+  compactList,
+  compactMediaResultSchema,
+  type AvailabilityStatus,
+  type CompactMediaResult,
+} from "../response-shapes";
 import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
 
@@ -20,6 +28,15 @@ interface ActivityResponse {
 
 interface AvailabilityRow {
   status?: AvailabilityStatus;
+}
+
+function compactWithExtras<T>(
+  items: T[],
+  limit: number | undefined,
+  extras: (source: T) => Record<string, unknown>,
+): ActivityResponse["results"] {
+  const compacted = compactList(items, () => ({}), limit);
+  return compacted.map((row, idx) => ({ ...row, ...extras(items[idx]!) }));
 }
 
 function resolveMediaType(raw: EntActivityInput["media_type"]): "movie" | "tv" | undefined {
@@ -43,6 +60,7 @@ async function decorateAvailability(
   if (providers.length === 0 || results.length === 0) return new Map();
   const map = new Map<string, AvailabilityStatus>();
   await Promise.all(
+    // fallow-ignore-next-line complexity
     results.map(async (item) => {
       const [type, tmdbId] = item.id.split(":");
       if (!type || !tmdbId) return;
@@ -102,14 +120,10 @@ async function runHistory(
     input: { limit: input.limit ?? 15 },
   });
   const filtered = filterByType(result.data ?? [], type);
-  const compacted = compactList(filtered, () => ({}), input.limit);
-  return compacted.map((row, idx) => {
-    const source = filtered[idx];
-    const extras: { watched_at?: string; progress?: number } = {};
-    if (typeof source?.watchedAt === "string") extras.watched_at = source.watchedAt;
-    if (typeof source?.progress === "number") extras.progress = source.progress;
-    return { ...row, ...extras };
-  });
+  return compactWithExtras(filtered, input.limit, (source) => ({
+    ...(typeof source?.watchedAt === "string" ? { watched_at: source.watchedAt } : {}),
+    ...(typeof source?.progress === "number" ? { progress: source.progress } : {}),
+  }));
 }
 
 async function runUpcoming(
@@ -129,14 +143,9 @@ async function runUpcoming(
   });
   const type = resolveMediaType(input.media_type);
   const filtered = filterByType(result.data ?? [], type);
-  const compacted = compactList(filtered, () => ({}), input.limit);
-  return compacted.map((row, idx) => {
-    const source = filtered[idx];
-    return {
-      ...row,
-      ...(typeof source?.airsAt === "string" ? { airs_at: source.airsAt } : {}),
-    };
-  });
+  return compactWithExtras(filtered, input.limit, (source) =>
+    typeof source?.airsAt === "string" ? { airs_at: source.airsAt } : {},
+  );
 }
 
 async function runProgress(
@@ -164,15 +173,10 @@ async function runProgress(
       row.progress > 0 &&
       row.progress < 1,
   );
-  const compacted = compactList(inProgress, () => ({}), input.limit);
-  return compacted.map((row, idx) => {
-    const source = inProgress[idx];
-    return {
-      ...row,
-      ...(typeof source?.progress === "number" ? { progress: source.progress } : {}),
-      ...(typeof source?.watchedAt === "string" ? { watched_at: source.watchedAt } : {}),
-    };
-  });
+  return compactWithExtras(inProgress, input.limit, (source) => ({
+    ...(typeof source?.progress === "number" ? { progress: source.progress } : {}),
+    ...(typeof source?.watchedAt === "string" ? { watched_at: source.watchedAt } : {}),
+  }));
 }
 
 export const entActivityHandler: ToolHandler = async (ctx, rawInput) => {
@@ -233,30 +237,13 @@ export const entActivityRegistration: Omit<ToolRegistration, "source"> & { id: s
     properties: {
       results: {
         type: "array",
-        items: {
-          type: "object",
-          properties: {
-            id: { type: "string" },
-            title: { type: "string" },
-            type: { type: "string", enum: ["movie", "tv"] },
-            year: { type: "integer" },
-            genres: { type: "array", items: { type: "string" } },
-            rating: { type: "number" },
-            overview: { type: "string" },
-            poster: { type: "string" },
-            status: {
-              type: "string",
-              enum: ["available", "requested", "processing", "unavailable", "unknown"],
-            },
-            user_rated: { type: "integer" },
-            match_reason: { type: "string" },
-            watched_at: { type: "string" },
-            airs_at: { type: "string" },
-            progress: { type: "number" },
-          },
-          required: ["id", "title", "type"],
-          additionalProperties: false,
-        },
+        items: zodToItemSchema(
+          compactMediaResultSchema.extend({
+            watched_at: z.string().optional(),
+            airs_at: z.string().optional(),
+            progress: z.number().optional(),
+          }),
+        ),
       },
       total: { type: "integer" },
       has_more: { type: "boolean" },

@@ -1,11 +1,10 @@
 import { Hono } from "hono";
-import { eq } from "drizzle-orm";
 import { zValidator } from "@hono/zod-validator";
 import type { RoleSummary } from "@ent-mcp/shared/users";
 import { deleteAccountSchema } from "@ent-mcp/shared/users";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { getDb } from "../../db/client";
-import { roles, userRoles } from "../../db/schema/roles";
+import { fetchUserRole } from "./me/queries";
 import { listAuthorizedApps, revokeAuthorizedApp } from "./me/apps";
 import { buildUserExport } from "./me/export";
 import { deleteAccount } from "./me/delete";
@@ -14,13 +13,7 @@ export const meApp = new Hono()
   .use("*", requireSession)
   .get("/role", async (c) => {
     const userId = sessionUserId(c);
-    const row = await getDb()
-      .select({ name: roles.name, description: roles.description })
-      .from(userRoles)
-      .innerJoin(roles, eq(roles.id, userRoles.roleId))
-      .where(eq(userRoles.userId, userId))
-      .get();
-
+    const row = await fetchUserRole(getDb(), userId);
     const role: RoleSummary | null = row ? { name: row.name, description: row.description } : null;
     return c.json({ role });
   })

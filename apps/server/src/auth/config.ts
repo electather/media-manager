@@ -7,6 +7,7 @@ import { env } from "../env";
 import { MCP_SCOPES } from "../mcp/scopes";
 import * as schema from "../db/schema/index";
 import { sendEmail } from "./email";
+import { isNil } from "es-toolkit/predicate";
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
@@ -82,7 +83,7 @@ export const auth = betterAuth({
         // accessor.
         after: async (user, ctx) => {
           const previousEmail = ctx?.context?.session?.user?.email;
-          if (previousEmail === undefined) {
+          if (isNil(previousEmail)) {
             console.warn(
               "[auth.databaseHooks.user.update] previous email unavailable from ctx; " +
                 "old-address notification skipped. Likely an admin-driven update or a " +

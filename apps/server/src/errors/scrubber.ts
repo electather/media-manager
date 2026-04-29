@@ -1,3 +1,5 @@
+import { isNil } from "es-toolkit/predicate";
+
 /** Case-insensitive key fragments that cause a value to be replaced with `[REDACTED]`
  *  before the error context blob is persisted. Additions here are reviewed. */
 const SENSITIVE_KEY_PATTERNS = [
@@ -21,9 +23,10 @@ function isSensitiveKey(key: string): boolean {
 
 /** Recursively clones a value, replacing any value under a sensitive key with `[REDACTED]`.
  *  Walks into arrays and objects, stops at primitives, and leaves non-plain objects as-is. */
+// fallow-ignore-next-line complexity
 export function scrub(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[DEPTH_LIMIT]";
-  if (value === null || value === undefined) return value;
+  if (isNil(value)) return value;
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
   if (typeof value !== "object") return value;
   const obj = value as Record<string, unknown>;

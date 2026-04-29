@@ -56,6 +56,12 @@ export const watchlistEntry = z.object({
 // Episodes are output-only granularity — callers filter at the title level.
 export const libraryItemQueryType = z.enum(LIBRARY_ITEM_QUERY_TYPES);
 
+/** Input schema shared by list-style methods that accept an optional type filter and page limit. */
+export const mediaListQuery = z.object({
+  type: mediaType.optional(),
+  limit: z.number().optional(),
+});
+
 export const inProgressEntry = z.object({
   item: mediaItem,
   /** Within-content position. Episodes for TV, the movie itself for movies. */

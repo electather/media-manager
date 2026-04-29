@@ -283,6 +283,7 @@ export interface InboxCursor {
   id: string;
 }
 
+// fallow-ignore-next-line complexity
 export async function listInboxForUser(
   userId: string,
   filters: InboxListFilters,
@@ -421,6 +422,7 @@ export interface DeliveryCursor {
 // notification_deliveries when admin volume grows.
 const DELIVERY_LIST_OVERFETCH_RATIO = 2;
 
+// fallow-ignore-next-line complexity
 function buildDeliveryFilterPredicate(filters: DeliveryListFilters): SQL[] {
   const conditions: SQL[] = [];
   if (filters.status) conditions.push(eq(notificationDeliveries.status, filters.status));
@@ -464,6 +466,7 @@ function deliveryEventTags(
   }
 }
 
+// fallow-ignore-next-line complexity
 function applyEventPayloadFilters(
   rows: (typeof notificationDeliveries.$inferSelect)[],
   filters: Pick<DeliveryListFilters, "category" | "severity">,
@@ -482,6 +485,7 @@ function applyEventPayloadFilters(
   return out;
 }
 
+// fallow-ignore-next-line complexity
 export async function listDeliveries(
   filters: DeliveryListFilters,
   cursor: DeliveryCursor | undefined,

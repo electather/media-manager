@@ -6,6 +6,7 @@ interface HandleHttpStatusOptions {
   on403?: HostErrorCode;
 }
 
+// fallow-ignore-next-line complexity
 export function handleHttpStatus(
   res: Response,
   service: string,

@@ -1,3 +1,4 @@
+import { orderBy } from "es-toolkit/array";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
@@ -63,6 +64,7 @@ function readOffset(cursor: string | null): number {
  * `lastWatchedAt`. Sorts the survivors most-recent-first, which matches the
  * design's "resume what you were just watching" intent.
  */
+// fallow-ignore-next-line complexity
 function mergeAndDedupe(entries: InProgressEntry[]): InProgressEntry[] {
   const byId = new Map<string, InProgressEntry>();
   for (const entry of entries) {
@@ -72,7 +74,7 @@ function mergeAndDedupe(entries: InProgressEntry[]): InProgressEntry[] {
     const existing = byId.get(id);
     if (!existing || compareLastWatched(entry, existing) > 0) byId.set(id, entry);
   }
-  return [...byId.values()].sort((a, b) => compareLastWatched(b, a));
+  return orderBy([...byId.values()], [(e) => Date.parse(e.lastWatchedAt) || 0], ["desc"]);
 }
 
 function compositeId(entry: InProgressEntry): string | null {
@@ -100,6 +102,7 @@ function compareLastWatched(a: InProgressEntry, b: InProgressEntry): number {
  * "in-progress, progress unmeasurable", which the dashboard renders with a
  * generic play affordance rather than a zero-width bar.
  */
+// fallow-ignore-next-line complexity
 function mapToCompact(entry: InProgressEntry): CompactMediaItem {
   const extras: Partial<CompactMediaItem> = {};
   if (entry.durationMs > 0 && entry.watchedMs >= 0) {

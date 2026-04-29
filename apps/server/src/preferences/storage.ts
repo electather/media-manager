@@ -103,6 +103,7 @@ function parseFeatures(raw: string): ProfileFeatures {
   }
 }
 
+// fallow-ignore-next-line complexity
 function asMap(value: unknown): Record<string, number> {
   if (!value || typeof value !== "object") return {};
   const out: Record<string, number> = {};

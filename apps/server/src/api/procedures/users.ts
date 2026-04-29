@@ -12,6 +12,18 @@ import { auth } from "../../auth/config";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const userWithRoleColumns = {
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  emailVerified: user.emailVerified,
+  image: user.image,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+  roleId: userRoles.roleId,
+  roleName: roles.name,
+} as const;
+
 function userNotFound(userId: string) {
   return notFound("users.not_found", `user ${userId} not found`, { userId });
 }
@@ -44,25 +56,18 @@ async function requireUniqueEmail(email: string, excludeUserId?: string) {
   }
 }
 
+function buildUserWithRoleQuery(db: ReturnType<typeof getDb>) {
+  return db
+    .select(userWithRoleColumns)
+    .from(user)
+    .leftJoin(userRoles, eq(userRoles.userId, user.id))
+    .leftJoin(roles, eq(roles.id, userRoles.roleId));
+}
+
 /** Fetches all users with their assigned role. */
 async function listAllUsers() {
   const db = getDb();
-  const rows = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      image: user.image,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      roleId: userRoles.roleId,
-      roleName: roles.name,
-    })
-    .from(user)
-    .leftJoin(userRoles, eq(userRoles.userId, user.id))
-    .leftJoin(roles, eq(roles.id, userRoles.roleId))
-    .all();
+  const rows = await buildUserWithRoleQuery(db).all();
 
   return rows.map((r) => ({
     id: r.id,
@@ -104,23 +109,7 @@ export const adminUsersApp = new Hono()
     const id = c.req.param("id");
     const db = getDb();
 
-    const row = await db
-      .select({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        image: user.image,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        roleId: userRoles.roleId,
-        roleName: roles.name,
-      })
-      .from(user)
-      .leftJoin(userRoles, eq(userRoles.userId, user.id))
-      .leftJoin(roles, eq(roles.id, userRoles.roleId))
-      .where(eq(user.id, id))
-      .get();
+    const row = await buildUserWithRoleQuery(db).where(eq(user.id, id)).get();
 
     if (!row) throw userNotFound(id);
 

@@ -8,6 +8,14 @@ function normalizeMediaType(mediaType: string | null | undefined): string {
   return mediaType ?? NO_MEDIA_TYPE;
 }
 
+function primaryConnectionWhere(userId: string, capabilityKey: string, mediaType: string) {
+  return and(
+    eq(primaryConnections.userId, userId),
+    eq(primaryConnections.capabilityKey, capabilityKey),
+    eq(primaryConnections.mediaType, mediaType),
+  );
+}
+
 /**
  * Returns the user's stored primary connection for a capability, or `null` when none
  * is set. Resolves the backing `service_connections` row so the caller can dispatch
@@ -28,11 +36,7 @@ export async function getPrimaryConnection(args: {
     .from(primaryConnections)
     .innerJoin(serviceConnections, eq(primaryConnections.connectionId, serviceConnections.id))
     .where(
-      and(
-        eq(primaryConnections.userId, args.userId),
-        eq(primaryConnections.capabilityKey, args.capabilityKey),
-        eq(primaryConnections.mediaType, normalizeMediaType(args.mediaType)),
-      ),
+      primaryConnectionWhere(args.userId, args.capabilityKey, normalizeMediaType(args.mediaType)),
     )
     .get();
   if (!row || row.enabled !== 1) return null;
@@ -51,25 +55,13 @@ export async function setPrimaryConnection(args: {
   const existing = await db
     .select({ connectionId: primaryConnections.connectionId })
     .from(primaryConnections)
-    .where(
-      and(
-        eq(primaryConnections.userId, args.userId),
-        eq(primaryConnections.capabilityKey, args.capabilityKey),
-        eq(primaryConnections.mediaType, mediaType),
-      ),
-    )
+    .where(primaryConnectionWhere(args.userId, args.capabilityKey, mediaType))
     .get();
   if (existing) {
     await db
       .update(primaryConnections)
       .set({ connectionId: args.connectionId, updatedAt: now })
-      .where(
-        and(
-          eq(primaryConnections.userId, args.userId),
-          eq(primaryConnections.capabilityKey, args.capabilityKey),
-          eq(primaryConnections.mediaType, mediaType),
-        ),
-      );
+      .where(primaryConnectionWhere(args.userId, args.capabilityKey, mediaType));
   } else {
     await db.insert(primaryConnections).values({
       userId: args.userId,
@@ -90,10 +82,6 @@ export async function clearPrimaryConnection(args: {
   await db
     .delete(primaryConnections)
     .where(
-      and(
-        eq(primaryConnections.userId, args.userId),
-        eq(primaryConnections.capabilityKey, args.capabilityKey),
-        eq(primaryConnections.mediaType, normalizeMediaType(args.mediaType)),
-      ),
+      primaryConnectionWhere(args.userId, args.capabilityKey, normalizeMediaType(args.mediaType)),
     );
 }

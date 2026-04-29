@@ -1,0 +1,488 @@
+CREATE TABLE `account` (
+	`id` text PRIMARY KEY NOT NULL,
+	`account_id` text NOT NULL,
+	`provider_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`access_token` text,
+	`refresh_token` text,
+	`id_token` text,
+	`access_token_expires_at` integer,
+	`refresh_token_expires_at` integer,
+	`scope` text,
+	`password` text,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `account_userId_idx` ON `account` (`user_id`);--> statement-breakpoint
+CREATE TABLE `jwks` (
+	`id` text PRIMARY KEY NOT NULL,
+	`public_key` text NOT NULL,
+	`private_key` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`expires_at` integer
+);
+--> statement-breakpoint
+CREATE TABLE `oauth_access_token` (
+	`id` text PRIMARY KEY NOT NULL,
+	`token` text NOT NULL,
+	`client_id` text NOT NULL,
+	`session_id` text,
+	`user_id` text,
+	`reference_id` text,
+	`refresh_id` text,
+	`expires_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	`scopes` text NOT NULL,
+	FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`refresh_id`) REFERENCES `oauth_refresh_token`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `oauth_access_token_token_unique` ON `oauth_access_token` (`token`);--> statement-breakpoint
+CREATE INDEX `oauth_access_token_user_client_idx` ON `oauth_access_token` (`user_id`,`client_id`);--> statement-breakpoint
+CREATE TABLE `oauth_client` (
+	`id` text PRIMARY KEY NOT NULL,
+	`client_id` text NOT NULL,
+	`client_secret` text,
+	`disabled` integer DEFAULT false,
+	`skip_consent` integer,
+	`enable_end_session` integer,
+	`subject_type` text,
+	`scopes` text,
+	`user_id` text,
+	`created_at` integer,
+	`updated_at` integer,
+	`name` text,
+	`uri` text,
+	`icon` text,
+	`contacts` text,
+	`tos` text,
+	`policy` text,
+	`software_id` text,
+	`software_version` text,
+	`software_statement` text,
+	`redirect_uris` text NOT NULL,
+	`post_logout_redirect_uris` text,
+	`token_endpoint_auth_method` text,
+	`grant_types` text,
+	`response_types` text,
+	`public` integer,
+	`type` text,
+	`require_pkce` integer,
+	`reference_id` text,
+	`metadata` text,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `oauth_client_client_id_unique` ON `oauth_client` (`client_id`);--> statement-breakpoint
+CREATE TABLE `oauth_consent` (
+	`id` text PRIMARY KEY NOT NULL,
+	`client_id` text NOT NULL,
+	`user_id` text,
+	`reference_id` text,
+	`scopes` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `oauth_consent_user_client_idx` ON `oauth_consent` (`user_id`,`client_id`);--> statement-breakpoint
+CREATE TABLE `oauth_refresh_token` (
+	`id` text PRIMARY KEY NOT NULL,
+	`token` text NOT NULL,
+	`client_id` text NOT NULL,
+	`session_id` text,
+	`user_id` text NOT NULL,
+	`reference_id` text,
+	`expires_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	`revoked` integer,
+	`auth_time` integer,
+	`scopes` text NOT NULL,
+	FOREIGN KEY (`client_id`) REFERENCES `oauth_client`(`client_id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`session_id`) REFERENCES `session`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `oauth_refresh_token_user_client_idx` ON `oauth_refresh_token` (`user_id`,`client_id`);--> statement-breakpoint
+CREATE TABLE `session` (
+	`id` text PRIMARY KEY NOT NULL,
+	`expires_at` integer NOT NULL,
+	`token` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	`updated_at` integer NOT NULL,
+	`ip_address` text,
+	`user_agent` text,
+	`user_id` text NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `session_token_unique` ON `session` (`token`);--> statement-breakpoint
+CREATE INDEX `session_userId_idx` ON `session` (`user_id`);--> statement-breakpoint
+CREATE TABLE `user` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`email` text NOT NULL,
+	`email_verified` integer DEFAULT false NOT NULL,
+	`image` text,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);--> statement-breakpoint
+CREATE TABLE `verification` (
+	`id` text PRIMARY KEY NOT NULL,
+	`identifier` text NOT NULL,
+	`value` text NOT NULL,
+	`expires_at` integer NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `verification_identifier_idx` ON `verification` (`identifier`);--> statement-breakpoint
+CREATE TABLE `pending_auth` (
+	`nonce` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`plugin_id` text NOT NULL,
+	`state` text NOT NULL,
+	`state_iv` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`expires_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`plugin_id`) REFERENCES `plugins`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `plugin_store` (
+	`plugin_id` text NOT NULL,
+	`user_id` text,
+	`key` text NOT NULL,
+	`value` text NOT NULL,
+	`expires_at` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	PRIMARY KEY(`plugin_id`, `user_id`, `key`),
+	FOREIGN KEY (`plugin_id`) REFERENCES `plugins`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `plugin_store_expires_idx` ON `plugin_store` (`expires_at`);--> statement-breakpoint
+CREATE TABLE `plugins` (
+	`id` text PRIMARY KEY NOT NULL,
+	`version` text NOT NULL,
+	`source_url` text NOT NULL,
+	`source_type` text NOT NULL,
+	`checksum` text NOT NULL,
+	`manifest` text NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	`global_config` text,
+	`personal_key_fallback` text DEFAULT 'off' NOT NULL,
+	`admin_allowlist` text,
+	`admin_headers_encrypted` text,
+	`admin_headers_iv` text,
+	`installed_by` text,
+	`installed_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`installed_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE TABLE `plugin_shared_credentials` (
+	`id` text PRIMARY KEY NOT NULL,
+	`plugin_id` text NOT NULL,
+	`label` text NOT NULL,
+	`encrypted_value` text NOT NULL,
+	`iv` text NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	`last_exhausted_at` integer,
+	`retry_after` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`plugin_id`) REFERENCES `plugins`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `psc_plugin_enabled_idx` ON `plugin_shared_credentials` (`plugin_id`,`enabled`);--> statement-breakpoint
+CREATE TABLE `service_connections` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`plugin_id` text NOT NULL,
+	`status` text NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	`is_default` integer DEFAULT 0 NOT NULL,
+	`display_name` text,
+	`user_config` text,
+	`encrypted_credentials` text,
+	`credentials_iv` text,
+	`token_expires_at` integer,
+	`last_verified_at` integer,
+	`last_exhausted_at` integer,
+	`retry_after` integer,
+	`error_message` text,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`plugin_id`) REFERENCES `plugins`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `service_connections_user_plugin_idx` ON `service_connections` (`user_id`,`plugin_id`);--> statement-breakpoint
+CREATE TABLE `feedback` (
+	`id` text PRIMARY KEY NOT NULL,
+	`user_id` text NOT NULL,
+	`tmdb_id` text NOT NULL,
+	`media_type` text NOT NULL,
+	`action` text NOT NULL,
+	`rating` integer,
+	`note` text,
+	`note_sentiment` text,
+	`note_keywords` text,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `feedback_user_created_at_idx` ON `feedback` (`user_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `feedback_user_item_idx` ON `feedback` (`user_id`,`tmdb_id`,`media_type`);--> statement-breakpoint
+CREATE TABLE `preference_profiles` (
+	`user_id` text NOT NULL,
+	`media_type` text NOT NULL,
+	`features` text NOT NULL,
+	`sample_size` integer NOT NULL,
+	`confidence` text NOT NULL,
+	`last_rebuilt_at` integer NOT NULL,
+	`last_updated_at` integer NOT NULL,
+	`embedding` blob,
+	`embedding_model` text,
+	`version` integer DEFAULT 0 NOT NULL,
+	PRIMARY KEY(`user_id`, `media_type`),
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `id_map` (
+	`tmdb_id` text NOT NULL,
+	`media_type` text NOT NULL,
+	`imdb_id` text,
+	`tvdb_id` text,
+	`trakt_id` text,
+	`trakt_slug` text,
+	`updated_at` integer NOT NULL,
+	PRIMARY KEY(`tmdb_id`, `media_type`)
+);
+--> statement-breakpoint
+CREATE INDEX `id_map_imdb_idx` ON `id_map` (`imdb_id`);--> statement-breakpoint
+CREATE INDEX `id_map_tvdb_idx` ON `id_map` (`tvdb_id`);--> statement-breakpoint
+CREATE INDEX `id_map_trakt_idx` ON `id_map` (`trakt_id`);--> statement-breakpoint
+CREATE TABLE `role_permissions` (
+	`role_id` text NOT NULL,
+	`permission` text NOT NULL,
+	PRIMARY KEY(`role_id`, `permission`),
+	FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `roles` (
+	`id` text PRIMARY KEY NOT NULL,
+	`name` text NOT NULL,
+	`description` text,
+	`is_system` integer DEFAULT 0 NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `roles_name_unique` ON `roles` (`name`);--> statement-breakpoint
+CREATE TABLE `user_roles` (
+	`user_id` text NOT NULL,
+	`role_id` text NOT NULL,
+	`assigned_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `user_roles_user_id_unique` ON `user_roles` (`user_id`);--> statement-breakpoint
+CREATE TABLE `app_config` (
+	`id` text PRIMARY KEY NOT NULL,
+	`error_retention_days` integer DEFAULT 30 NOT NULL,
+	`inbox_retention_days` integer DEFAULT 90 NOT NULL,
+	`delivery_retention_days` integer DEFAULT 30 NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `error_records` (
+	`id` text PRIMARY KEY NOT NULL,
+	`request_id` text NOT NULL,
+	`severity` text NOT NULL,
+	`source` text NOT NULL,
+	`code` text,
+	`dev_message` text NOT NULL,
+	`stack` text,
+	`user_id` text,
+	`plugin_id` text,
+	`connection_id` text,
+	`route` text,
+	`http_status` integer,
+	`context` text,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`plugin_id`) REFERENCES `plugins`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`connection_id`) REFERENCES `service_connections`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `error_records_created_idx` ON `error_records` (`created_at`);--> statement-breakpoint
+CREATE INDEX `error_records_request_id_idx` ON `error_records` (`request_id`);--> statement-breakpoint
+CREATE INDEX `error_records_plugin_created_idx` ON `error_records` (`plugin_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `error_records_severity_created_idx` ON `error_records` (`severity`,`created_at`);--> statement-breakpoint
+CREATE TABLE `primary_connections` (
+	`user_id` text NOT NULL,
+	`capability_key` text NOT NULL,
+	`media_type` text DEFAULT '_' NOT NULL,
+	`connection_id` text NOT NULL,
+	`updated_at` integer NOT NULL,
+	PRIMARY KEY(`user_id`, `capability_key`, `media_type`),
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`connection_id`) REFERENCES `service_connections`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `job_config` (
+	`job_id` text PRIMARY KEY NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	`schedule_override` text,
+	`log_level` text DEFAULT 'info' NOT NULL,
+	`updated_by` text,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`updated_by`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE TABLE `job_runs` (
+	`id` text PRIMARY KEY NOT NULL,
+	`job_id` text NOT NULL,
+	`scope_key` text,
+	`status` text NOT NULL,
+	`triggered_by` text NOT NULL,
+	`triggered_by_user_id` text,
+	`started_at` integer NOT NULL,
+	`finished_at` integer,
+	`duration_ms` integer,
+	`request_id` text NOT NULL,
+	`rows_total` integer,
+	`rows_succeeded` integer,
+	`rows_failed` integer,
+	`error_record_id` text,
+	`result` text,
+	`logs` text,
+	`logs_truncated` integer DEFAULT 0,
+	`coalesced_count` integer,
+	FOREIGN KEY (`triggered_by_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`error_record_id`) REFERENCES `error_records`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE INDEX `job_runs_job_started_idx` ON `job_runs` (`job_id`,`started_at`);--> statement-breakpoint
+CREATE INDEX `job_runs_started_idx` ON `job_runs` (`started_at`);--> statement-breakpoint
+CREATE INDEX `job_runs_status_started_idx` ON `job_runs` (`status`,`started_at`);--> statement-breakpoint
+CREATE INDEX `job_runs_request_idx` ON `job_runs` (`request_id`);--> statement-breakpoint
+CREATE INDEX `job_runs_scope_key_idx` ON `job_runs` (`scope_key`);--> statement-breakpoint
+CREATE TABLE `notification_deliveries` (
+	`id` text PRIMARY KEY NOT NULL,
+	`event_id` text NOT NULL,
+	`event_type` text NOT NULL,
+	`event_payload` text NOT NULL,
+	`recipient_connection_id` text,
+	`recipient_user_id` text NOT NULL,
+	`status` text NOT NULL,
+	`attempt_count` integer DEFAULT 0 NOT NULL,
+	`last_error` text,
+	`last_error_code` text,
+	`provider_message_id` text,
+	`correlation_key` text,
+	`next_attempt_at` integer,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`recipient_connection_id`) REFERENCES `service_connections`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`recipient_user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `notification_deliveries_user_created_idx` ON `notification_deliveries` (`recipient_user_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `notification_deliveries_status_updated_idx` ON `notification_deliveries` (`status`,`updated_at`);--> statement-breakpoint
+CREATE INDEX `notification_deliveries_correlation_key_idx` ON `notification_deliveries` (`correlation_key`);--> statement-breakpoint
+CREATE INDEX `notification_deliveries_next_attempt_idx` ON `notification_deliveries` (`next_attempt_at`);--> statement-breakpoint
+CREATE TABLE `notification_subscriptions` (
+	`connection_id` text NOT NULL,
+	`category` text NOT NULL,
+	`enabled` integer DEFAULT 1 NOT NULL,
+	PRIMARY KEY(`connection_id`, `category`),
+	FOREIGN KEY (`connection_id`) REFERENCES `service_connections`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `notifications_inbox` (
+	`id` text PRIMARY KEY NOT NULL,
+	`delivery_id` text,
+	`user_id` text NOT NULL,
+	`title` text NOT NULL,
+	`body` text NOT NULL,
+	`severity` text NOT NULL,
+	`category` text NOT NULL,
+	`action_url` text,
+	`image_url` text,
+	`image_alt` text,
+	`read_at` integer,
+	`created_at` integer NOT NULL,
+	FOREIGN KEY (`delivery_id`) REFERENCES `notification_deliveries`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `notifications_inbox_user_created_idx` ON `notifications_inbox` (`user_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `notifications_inbox_user_read_created_idx` ON `notifications_inbox` (`user_id`,`read_at`,`created_at`);--> statement-breakpoint
+CREATE TABLE `canonical_metadata` (
+	`tmdb_id` text NOT NULL,
+	`media_type` text NOT NULL,
+	`title` text NOT NULL,
+	`year` integer,
+	`runtime_minutes` integer,
+	`poster_url` text,
+	`backdrop_url` text,
+	`clear_logo_url` text,
+	`overview` text,
+	`original_language` text,
+	`genres` text,
+	`features` text,
+	`last_refreshed_at` integer NOT NULL,
+	`last_accessed_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	PRIMARY KEY(`tmdb_id`, `media_type`)
+);
+--> statement-breakpoint
+CREATE INDEX `canonical_metadata_last_refreshed_idx` ON `canonical_metadata` (`last_refreshed_at`);--> statement-breakpoint
+CREATE INDEX `canonical_metadata_last_accessed_idx` ON `canonical_metadata` (`last_accessed_at`);--> statement-breakpoint
+CREATE TABLE `discover_snapshots` (
+	`feed_kind` text NOT NULL,
+	`sort` text NOT NULL,
+	`day` integer NOT NULL,
+	`items` text NOT NULL,
+	`generated_at` integer NOT NULL,
+	PRIMARY KEY(`feed_kind`, `sort`, `day`)
+);
+--> statement-breakpoint
+CREATE INDEX `discover_snapshots_day_idx` ON `discover_snapshots` (`day`);--> statement-breakpoint
+CREATE TABLE `recommendation_lists` (
+	`user_id` text NOT NULL,
+	`list_kind` text NOT NULL,
+	`items` text NOT NULL,
+	`profile_version` integer NOT NULL,
+	`generated_at` integer NOT NULL,
+	PRIMARY KEY(`user_id`, `list_kind`),
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `user_history_mirror` (
+	`user_id` text PRIMARY KEY NOT NULL,
+	`events` text NOT NULL,
+	`plugin_cursors` text NOT NULL,
+	`last_synced_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `user_ratings_mirror` (
+	`user_id` text PRIMARY KEY NOT NULL,
+	`events` text NOT NULL,
+	`plugin_cursors` text NOT NULL,
+	`last_synced_at` integer NOT NULL,
+	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
+);

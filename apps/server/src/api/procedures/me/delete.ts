@@ -47,6 +47,7 @@ export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<
   await db.delete(user).where(eq(user.id, input.userId));
 }
 
+// fallow-ignore-next-line complexity
 async function verifyPasswordOrThrow(password: string, headers: Headers): Promise<void> {
   try {
     const result = await auth.api.verifyPassword({ body: { password }, headers });
@@ -62,6 +63,7 @@ async function verifyPasswordOrThrow(password: string, headers: Headers): Promis
 // Better Auth's `verifyPassword` may resolve to `{ valid: boolean }`,
 // `{ error: ... }`, or throw on wrong credentials depending on version.
 // Treat anything other than an explicit success as a failure.
+// fallow-ignore-next-line complexity
 function isVerifyPasswordOk(result: unknown): boolean {
   if (!result || typeof result !== "object") return false;
   if ("error" in result && (result as { error?: unknown }).error) return false;

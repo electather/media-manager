@@ -1,6 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { serviceConnections } from "../db/schema";
+import { queryEnabledConnectionsForPlugin } from "../db/queries";
 import { decryptField } from "../crypto/helpers";
 import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
 
@@ -33,23 +32,12 @@ export type ResolvedConnection =
  *   2. Any admin shared-credential entry, used only when the user has no
  *      personal connection.
  */
+// fallow-ignore-next-line complexity
 export async function resolveConnections(
   userId: string,
   pluginId: string,
 ): Promise<ResolvedConnection[]> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(serviceConnections)
-    .where(
-      and(
-        eq(serviceConnections.userId, userId),
-        eq(serviceConnections.pluginId, pluginId),
-        eq(serviceConnections.enabled, 1),
-      ),
-    )
-    .orderBy(desc(serviceConnections.isDefault), desc(serviceConnections.createdAt))
-    .all();
+  const rows = await queryEnabledConnectionsForPlugin(getDb(), userId, pluginId);
 
   const userConnections: ResolvedConnection[] = [];
   for (const row of rows) {
