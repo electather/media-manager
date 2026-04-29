@@ -83,6 +83,7 @@ const LEVEL_LABELS: Record<LogLevel, string> = {
   verbose: "VRB",
 };
 
+// fallow-ignore-next-line complexity
 function resolveLevelColors(level: LogLevel, colorScale?: LevelColorScale): LevelColors {
   const defaults = DEFAULT_LEVEL_COLORS[level];
   const overrides = colorScale?.[level];

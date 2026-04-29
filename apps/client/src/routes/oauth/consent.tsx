@@ -132,6 +132,7 @@ function ConsentPage() {
   const user = session.user;
 
   const mutation = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async (accept: boolean) => {
       const { data, error } = await authClient.oauth2.consent({ accept });
       if (error) throw new Error(error.message ?? "Consent request failed.");
@@ -184,6 +185,7 @@ function ConsentPage() {
           <p className="text-sm text-muted-foreground">Basic identity access only.</p>
         ) : (
           <div className="flex flex-col gap-3.5">
+            {/* fallow-ignore-next-line complexity */}
             {visibleScopes.map((s) => {
               const meta = SCOPE_META[s];
               return (

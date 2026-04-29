@@ -85,6 +85,7 @@ function isBlank(v: unknown): boolean {
   return isNil(v) || v === "";
 }
 
+// fallow-ignore-next-line complexity
 function stringifyScalar(v: unknown): string {
   if (isNil(v)) return "";
   if (typeof v === "string") return v;

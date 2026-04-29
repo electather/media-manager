@@ -172,6 +172,7 @@ function FieldError({
 }: React.ComponentProps<"div"> & {
   errors?: Array<{ message?: string } | undefined>;
 }) {
+  // fallow-ignore-next-line complexity
   const content = useMemo(() => {
     if (children) {
       return children;

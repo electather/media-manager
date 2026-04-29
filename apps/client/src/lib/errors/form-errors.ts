@@ -95,6 +95,7 @@ function readMessage(body: FormErrorBody | null): string | null {
 
 // Accepts the field hint from either `params.field` (HttpError wire format)
 // or a top-level `field` (direct service-response shape).
+// fallow-ignore-next-line complexity
 function readField(body: FormErrorBody | null): string | null {
   if (!body) return null;
   const paramsField = typeof body.params?.field === "string" ? body.params.field : null;

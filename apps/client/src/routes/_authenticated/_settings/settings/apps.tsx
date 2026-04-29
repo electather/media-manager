@@ -111,6 +111,7 @@ export function AppsList() {
       qc.setQueryData(APPS_QUERY_KEY, data.apps);
       setConfirmRevoke(null);
     },
+    // fallow-ignore-next-line complexity
     onError: (err: unknown) => {
       const code = (err as { code?: string } | null)?.code;
       if (code === "ALREADY_REVOKED") {

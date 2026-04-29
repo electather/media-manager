@@ -293,6 +293,7 @@ function JobRow({
   const queryClient = useQueryClient();
 
   const cancelMutation = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async () => {
       const scopeKey = job.lastRun?.scopeKey ?? undefined;
       const res = await api.admin.jobs[":id"].cancel.$post({

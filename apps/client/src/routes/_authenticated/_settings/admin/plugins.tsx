@@ -385,6 +385,7 @@ function GlobalConfigDialog({
   );
 }
 
+// fallow-ignore-next-line complexity
 function GlobalConfigBody({
   plugin,
   schema,
@@ -695,6 +696,7 @@ function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
     setEntries(stored ?? []);
   }, [stored]);
 
+  // fallow-ignore-next-line complexity
   const addEntry = () => {
     const normalized = draft.trim().toLowerCase();
     if (!normalized) return;

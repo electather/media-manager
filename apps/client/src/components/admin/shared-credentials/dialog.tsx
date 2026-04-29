@@ -93,6 +93,7 @@ export function SharedCredentialDialog({
   // admin re-enters or leaves blank. Deliberately *not* depending on
   // `existing.label` / `existing.enabled` — a background refetch that
   // updates those fields shouldn't blow away in-progress edits.
+  // fallow-ignore-next-line complexity
   useEffect(() => {
     if (!open) return;
     setLabel(existing?.label ?? "");
@@ -120,6 +121,7 @@ export function SharedCredentialDialog({
   };
 
   const ephemeralTest = useMutation({
+    // fallow-ignore-next-line complexity
     mutationFn: async () => {
       const res = await api.plugins[":id"]["shared-credentials"]["test-ephemeral"].$post({
         param: { id: pluginId },

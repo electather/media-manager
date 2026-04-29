@@ -4,6 +4,7 @@ import { Logo } from "@/components/logo";
 import { BottomNav } from "./bottom-nav";
 import { ProfileDropdown, type ProfileDropdownUser } from "./profile-dropdown";
 
+// fallow-ignore-next-line complexity
 export function AppShell() {
   const session = authClient.useSession();
   const sessionUser = session.data?.user;

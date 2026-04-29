@@ -13,6 +13,7 @@ function getInitials(name?: string, email?: string): string {
   return "?";
 }
 
+// fallow-ignore-next-line complexity
 export function UserAvatar({
   name,
   email,

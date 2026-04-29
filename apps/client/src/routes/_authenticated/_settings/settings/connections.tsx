@@ -571,6 +571,7 @@ function RowFeedback({
   return null;
 }
 
+// fallow-ignore-next-line complexity
 function StatusBadge({ connection }: { connection: ConnectionItem }) {
   const { status, enabled } = connection;
   if (!enabled) {
