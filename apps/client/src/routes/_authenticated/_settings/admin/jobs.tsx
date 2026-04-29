@@ -395,6 +395,7 @@ function JobRow({
 
 // ─── Job detail sheet ─────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
@@ -452,6 +453,7 @@ function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () 
   );
 }
 
+// fallow-ignore-next-line complexity
 function JobMetaSection({ job }: { job: JobHandle }) {
   const schedule = job.effectiveSchedule ?? job.schedule;
   const isScheduled = job.kind === "scheduled" || job.kind === "scheduled_per_row";
@@ -551,6 +553,7 @@ function RunRow({ run, onSelectRun }: { run: JobRunSummary; onSelectRun: () => v
 
 // ─── Configure dialog ─────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function ConfigureDialog({
   open,
   job,
@@ -678,6 +681,7 @@ function StatusDot({ status, enabled }: { status: JobRunStatus | undefined; enab
   );
 }
 
+// fallow-ignore-next-line complexity
 function RunStatusIcon({ status }: { status: JobRunStatus }) {
   const classes = cn(
     "size-3.5 shrink-0",

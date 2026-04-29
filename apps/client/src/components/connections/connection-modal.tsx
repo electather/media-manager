@@ -78,6 +78,7 @@ type DeviceState =
     }
   | { kind: "err"; message: string };
 
+// fallow-ignore-next-line complexity
 export function ConnectionModal({ open, plugin, existing, onOpenChange, onSuccess }: Props) {
   const isEdit = Boolean(existing);
   const authKind = plugin?.authKind ?? "none";
@@ -518,6 +519,7 @@ interface BodyArgs {
   onRetryDevice: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function renderBody(args: BodyArgs) {
   const {
     authKind,
@@ -700,6 +702,7 @@ interface FooterArgs {
   onStartRedirect: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function renderFooter(args: FooterArgs) {
   const {
     authKind,

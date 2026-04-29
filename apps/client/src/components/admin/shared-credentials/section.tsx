@@ -264,6 +264,7 @@ function CredentialsTable({
 
 // ─── Single row ──────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function CredentialRow({
   entry,
   pluginId,

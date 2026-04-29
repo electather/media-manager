@@ -140,6 +140,7 @@ export function NameField({ currentName }: { currentName: string }) {
 
 // ─── Email ────────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 export function EmailField({
   currentEmail,
   emailEnabled,

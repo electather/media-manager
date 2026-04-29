@@ -8,6 +8,48 @@ import type { JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
 import { LogViewerFilterable, type LogEntry } from "@/components/log-viewer";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
 
+const RAW_LOG_CLASS =
+  "bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border";
+
+function RunLogs({ run }: { run: JobRunSummary }) {
+  if (!run.logs) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Logs />
+          </EmptyMedia>
+          <EmptyTitle>No Logs captured</EmptyTitle>
+          <EmptyDescription>This job run has no logs.</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  try {
+    const parsed = JSON.parse(run.logs) as unknown;
+    if (Array.isArray(parsed)) {
+      const entries: LogEntry[] = (
+        parsed as Array<{ level: LogEntry["level"]; msg: string; ts: string; meta?: unknown }>
+      ).map((log) => ({
+        level: log.level,
+        message: log.msg,
+        timestamp: new Date(log.ts).toISOString(),
+        metadata: log.meta,
+      }));
+      return (
+        <div className="border border-border rounded-lg overflow-hidden shadow-sm">
+          <LogViewerFilterable entries={entries} maxHeight={500} />
+        </div>
+      );
+    }
+  } catch {
+    // Fall through to raw display.
+  }
+
+  return <pre className={RAW_LOG_CLASS}>{run.logs}</pre>;
+}
+
 function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
@@ -94,48 +136,7 @@ export function RunDetailDrawer({
                     </AlertDescription>
                   </Alert>
                 ) : null}
-
-                {run.logs ? (
-                  (() => {
-                    try {
-                      const parsed = JSON.parse(run.logs);
-                      if (Array.isArray(parsed)) {
-                        const entries: LogEntry[] = parsed.map((log) => ({
-                          level: log.level,
-                          message: log.msg,
-                          timestamp: new Date(log.ts).toISOString(),
-                          metadata: log.meta,
-                        }));
-                        return (
-                          <div className="border border-border rounded-lg overflow-hidden shadow-sm">
-                            <LogViewerFilterable entries={entries} maxHeight={500} />
-                          </div>
-                        );
-                      }
-                      return (
-                        <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border">
-                          {run.logs}
-                        </pre>
-                      );
-                    } catch {
-                      return (
-                        <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border">
-                          {run.logs}
-                        </pre>
-                      );
-                    }
-                  })()
-                ) : (
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <Logs />
-                      </EmptyMedia>
-                      <EmptyTitle>No Logs captured</EmptyTitle>
-                      <EmptyDescription>This job run has no logs.</EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                )}
+                <RunLogs run={run} />
               </TabsContent>
             </ScrollArea>
           </Tabs>

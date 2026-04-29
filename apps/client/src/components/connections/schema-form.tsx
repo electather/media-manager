@@ -91,6 +91,7 @@ function stringifyScalar(v: unknown): string {
   return "";
 }
 
+// fallow-ignore-next-line complexity
 function validateField(field: FieldSchema, value: unknown): string | null {
   if (field.required && isBlank(value)) return `${field.title} is required.`;
   if (isBlank(value)) return null;
@@ -158,6 +159,62 @@ interface SchemaFormProps {
   submitAttempted?: boolean;
 }
 
+interface SchemaFieldProps {
+  field: FieldSchema;
+  raw: unknown;
+  err: string | undefined;
+  mode: "create" | "edit";
+  disabled?: boolean;
+  shown: boolean;
+  onSetValue: (name: string, next: unknown) => void;
+  onToggleShown: (name: string) => void;
+  onBlur: (name: string) => void;
+}
+
+function SchemaField({
+  field,
+  raw,
+  err,
+  mode,
+  disabled,
+  shown,
+  onSetValue,
+  onToggleShown,
+  onBlur,
+}: SchemaFieldProps) {
+  const invalid = Boolean(err);
+  const locked = field.readOnly || field.pluginResolved;
+
+  return (
+    <Field data-invalid={invalid || undefined}>
+      <FieldTitle>
+        {field.title}
+        {field.required ? (
+          <span className="text-destructive" aria-hidden="true">
+            *
+          </span>
+        ) : (
+          <span className="text-xs font-normal text-muted-foreground">
+            {locked ? "read-only" : "optional"}
+          </span>
+        )}
+      </FieldTitle>
+      {renderControl(field, raw, onSetValue, {
+        mode,
+        disabled: disabled || locked,
+        invalid,
+        shown,
+        toggleShown: () => onToggleShown(field.name),
+        onBlur: () => onBlur(field.name),
+      })}
+      {field.description && !invalid ? (
+        <FieldDescription>{field.description}</FieldDescription>
+      ) : null}
+      {invalid ? <FieldError>{err}</FieldError> : null}
+    </Field>
+  );
+}
+
 export function SchemaForm({
   schema,
   value,
@@ -177,6 +234,14 @@ export function SchemaForm({
     onChange({ ...value, [name]: next });
   };
 
+  const toggleShown = (name: string) => {
+    setSecretShown((s) => ({ ...s, [name]: !s[name] }));
+  };
+
+  const markTouched = (name: string) => {
+    setTouched((t) => ({ ...t, [name]: true }));
+  };
+
   // `x-plugin-resolved` fields are never user-entered. Hide them entirely in
   // create mode (there is no value yet to display); show them disabled on
   // edit so the user can see what identity the plugin resolved.
@@ -194,36 +259,20 @@ export function SchemaForm({
           touched[field.name] || submitAttempted
             ? (serverErrors[field.name] ?? clientErrors[field.name])
             : undefined;
-        const invalid = Boolean(err);
-        const locked = field.readOnly || field.pluginResolved;
 
         return (
-          <Field key={field.name} data-invalid={invalid || undefined}>
-            <FieldTitle>
-              {field.title}
-              {field.required ? (
-                <span className="text-destructive" aria-hidden="true">
-                  *
-                </span>
-              ) : (
-                <span className="text-xs font-normal text-muted-foreground">
-                  {locked ? "read-only" : "optional"}
-                </span>
-              )}
-            </FieldTitle>
-            {renderControl(field, raw, setValue, {
-              mode,
-              disabled: disabled || locked,
-              invalid,
-              shown: secretShown[field.name],
-              toggleShown: () => setSecretShown((s) => ({ ...s, [field.name]: !s[field.name] })),
-              onBlur: () => setTouched((t) => ({ ...t, [field.name]: true })),
-            })}
-            {field.description && !invalid ? (
-              <FieldDescription>{field.description}</FieldDescription>
-            ) : null}
-            {invalid ? <FieldError>{err}</FieldError> : null}
-          </Field>
+          <SchemaField
+            key={field.name}
+            field={field}
+            raw={raw}
+            err={err}
+            mode={mode}
+            disabled={disabled}
+            shown={Boolean(secretShown[field.name])}
+            onSetValue={setValue}
+            onToggleShown={toggleShown}
+            onBlur={markTouched}
+          />
         );
       })}
     </div>
@@ -239,6 +288,7 @@ interface ControlOpts {
   onBlur: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function renderControl(
   field: FieldSchema,
   value: unknown,

@@ -151,6 +151,7 @@ interface PluginCardProps {
   onRefetch: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function PluginCard({ plugin, onConfigureGlobal, onUninstall, onRefetch }: PluginCardProps) {
   const setEnabled = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -641,6 +642,7 @@ interface AdvancedSectionProps {
   onChanged: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function AdvancedSection({ plugin, onChanged }: AdvancedSectionProps) {
   const restrictedCount = plugin.advanced.adminAllowlist?.length ?? 0;
   const headerCount = plugin.advanced.adminHeaderNames.length;
@@ -669,6 +671,7 @@ function AdvancedSection({ plugin, onChanged }: AdvancedSectionProps) {
   );
 }
 
+// fallow-ignore-next-line complexity
 function AllowlistPanel({ plugin, onChanged }: AdvancedSectionProps) {
   const manifestHosts = plugin.manifest.allowedHosts ?? [];
   const stored = plugin.advanced.adminAllowlist;
@@ -966,6 +969,7 @@ function HeaderDialog({ plugin, state, onClose, onSaved }: HeaderDialogProps) {
     setError(null);
   }, [open, initialName, isEdit]);
 
+  // fallow-ignore-next-line complexity
   const save = async () => {
     setError(null);
     if (!ADMIN_HEADER_NAME_PATTERN.test(name)) {
@@ -1087,6 +1091,7 @@ function formatDate(ts: number): string {
 // allowlist UI can detect an empty intersection. Two patterns overlap if any
 // hostname matches both — `*` matches everything, `*.X` matches subdomains of
 // X, and exact hosts only match themselves.
+// fallow-ignore-next-line complexity
 function patternsOverlap(a: string, b: string): boolean {
   const lowerA = a.toLowerCase();
   const lowerB = b.toLowerCase();

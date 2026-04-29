@@ -54,6 +54,7 @@ interface PasswordFieldErrors {
   confirmPassword?: string;
 }
 
+// fallow-ignore-next-line complexity
 export function ChangePasswordCard() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);

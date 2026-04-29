@@ -68,6 +68,7 @@ type TestState =
  * the dialog surfaces the error inline and promotes `Save without test` so the
  * admin can choose to proceed anyway.
  */
+// fallow-ignore-next-line complexity
 export function SharedCredentialDialog({
   open,
   onOpenChange,

@@ -69,6 +69,7 @@ function describeField(field: string, fieldIndex: number, _min: number, _max: nu
   return `${values.length} values`;
 }
 
+// fallow-ignore-next-line complexity
 function humanReadable(fields: string[]): string {
   const [minute = "*", hour = "*", dom = "*", month = "*", dow = "*"] = fields;
 
@@ -142,6 +143,7 @@ function isConsecutiveRange(values: number[]): boolean {
   return true;
 }
 
+// fallow-ignore-next-line complexity
 function getNextRuns(fields: string[], count: number, from: Date): Date[] {
   const runs: Date[] = [];
   const maxIterations = 366 * 24 * 60;

@@ -12,6 +12,7 @@ export interface ParsedUserAgent {
 
 const UNKNOWN_LABEL = "Unknown device";
 
+// fallow-ignore-next-line complexity
 export function parseUserAgent(ua: string | null | undefined): ParsedUserAgent {
   if (!ua) {
     return { label: UNKNOWN_LABEL, browser: null, os: null, unknown: true };

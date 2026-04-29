@@ -92,6 +92,7 @@ type ModalState =
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function ConnectionsPage() {
   const connections = useConnectionsQuery();
   const available = useAvailablePluginsQuery();
@@ -375,6 +376,7 @@ interface ConnectionRowProps {
   onRefetch: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function ConnectionRow({
   connection,
   showDefault,

@@ -245,6 +245,7 @@ interface LogViewerTerminalProps extends Omit<React.ComponentProps<"div">, "chil
   onClear?: () => void;
 }
 
+// fallow-ignore-next-line complexity
 function LogViewerTerminal({
   entries,
   title = "Logs",

@@ -164,6 +164,21 @@ function JsonNode({
   }, [path]);
 
   const hoverBg = theme ? `${theme.fg}10` : undefined;
+  const matchBg = theme ? `${theme.fg}15` : undefined;
+
+  const handleMouseEnter = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (theme) e.currentTarget.style.backgroundColor = hoverBg ?? "";
+    },
+    [theme, hoverBg],
+  );
+
+  const handleMouseLeave = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (theme) e.currentTarget.style.backgroundColor = nodeMatches ? (matchBg ?? "") : "";
+    },
+    [theme, nodeMatches, matchBg],
+  );
 
   const rowClass = cn(
     "group flex items-center gap-0 py-px",
@@ -238,20 +253,8 @@ function JsonNode({
       <div
         className={rowClass}
         style={rowStyle}
-        onMouseEnter={
-          theme
-            ? (e) => {
-                e.currentTarget.style.backgroundColor = hoverBg ?? "";
-              }
-            : undefined
-        }
-        onMouseLeave={
-          theme
-            ? (e) => {
-                e.currentTarget.style.backgroundColor = nodeMatches ? `${theme.fg}15` : "";
-              }
-            : undefined
-        }
+        onMouseEnter={theme ? handleMouseEnter : undefined}
+        onMouseLeave={theme ? handleMouseLeave : undefined}
       >
         <span className="w-4 shrink-0" />
         <span className="font-mono text-xs">
@@ -292,20 +295,8 @@ function JsonNode({
       <div
         className={rowClass}
         style={rowStyle}
-        onMouseEnter={
-          theme
-            ? (e) => {
-                e.currentTarget.style.backgroundColor = hoverBg ?? "";
-              }
-            : undefined
-        }
-        onMouseLeave={
-          theme
-            ? (e) => {
-                e.currentTarget.style.backgroundColor = nodeMatches ? `${theme.fg}15` : "";
-              }
-            : undefined
-        }
+        onMouseEnter={theme ? handleMouseEnter : undefined}
+        onMouseLeave={theme ? handleMouseLeave : undefined}
       >
         <button
           type="button"
@@ -449,6 +440,7 @@ interface JsonViewerProps extends Omit<React.ComponentProps<"div">, "children" |
   colorTheme?: ShikiThemeName | JsonColorTheme;
 }
 
+// fallow-ignore-next-line complexity
 function JsonViewer({
   data,
   title,

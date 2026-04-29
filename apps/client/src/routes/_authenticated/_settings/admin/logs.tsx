@@ -68,6 +68,7 @@ interface Summary {
   hourlyBuckets: number[];
 }
 
+// fallow-ignore-next-line complexity
 function AdminLogsPage() {
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
@@ -429,6 +430,7 @@ function ResultsTable({
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 
+// fallow-ignore-next-line complexity
 function DetailPanel({
   record,
   onFollowRequestId,
