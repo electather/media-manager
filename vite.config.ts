@@ -5,7 +5,7 @@ export default defineConfig({
     "*": "vp check --fix",
   },
   fmt: {
-    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}", ".claude/**", ".agents/**"],
+    ignorePatterns: ["dist/**", "**/*.gen.{ts,tsx}", ".claude/**", ".agents/**", "SPEC.md"],
     options: { typeAware: true, typeCheck: true },
   },
   lint: {
