@@ -1,5 +1,28 @@
 # @ent-mcp/client
 
+## 0.2.0
+
+### Minor Changes
+
+- 8849c1b: Unified the admin and account settings pages under a shared sidebar layout.
+- 249a4f1: Introduced a new app shell with a top profile menu and a bottom navigation bar across all screen sizes for the home, activity, requests, taste, and profile pages.
+- 0a9807f: Reduced repeat artwork lookups on the home feed by serving inline artwork URLs whenever they are already known and only fetching from external services when a slot is missing.
+- db2b076: Added a batched artwork lookup so the home feed loads high-resolution posters and backdrops once cards are visible, with a graceful fallback to inline thumbnails while the lookup is in flight.
+- 8849c1b: Refreshed the bottom navigation as a floating glass pill with horizontal labels and added a Library tab.
+- eb22017: Refreshed the dark theme to use the Figma-sampled palette and locked the sans typeface to Geist Variable across all surfaces.
+- db2b076: Added a Netflix-style home feed with a continue-watching hero, an upcoming sidebar, and recommendation rows that scroll horizontally. Clicking any item opens a quick-look detail overlay without leaving the feed.
+- 77ed7b0: Home feed layout now loads row structure instantly and fetches row items lazily per row.
+
+### Patch Changes
+
+- 5986e73: Cleaned up the admin Plugins page so plugins like Trakt no longer show an empty actions menu or a fallback policy control that didn't apply.
+- ca50c56: Artwork now loads per card with above-the-fold prioritization, so a single slow image no longer delays the rest of the row.
+- db2b076: Fixed the home feed layout when there is no hero so the upcoming-episodes column slides into the main feed instead of stacking as a full-width list, and made card sizes within a row consistent regardless of which items happen to have progress or episode metadata.
+- e9b915f: Reorganise the workspace so plugin authors have a single dedicated SDK to depend on. No user-visible behaviour change.
+- Updated dependencies [db2b076]
+- Updated dependencies [986fb74]
+  - @ent-mcp/shared@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

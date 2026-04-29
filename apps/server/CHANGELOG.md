@@ -1,5 +1,53 @@
 # @ent-mcp/server
 
+## 0.2.0
+
+### Minor Changes
+
+- 0a9807f: Reduced repeat artwork lookups on the home feed by serving inline artwork URLs whenever they are already known and only fetching from external services when a slot is missing.
+- db2b076: Added a batched artwork lookup so the home feed loads high-resolution posters and backdrops once cards are visible, with a graceful fallback to inline thumbnails while the lookup is in flight.
+- aa85d35: The New Releases row on the home feed now serves from a daily snapshot, eliminating the cold-load latency users saw on every page visit.
+- 84030cb: Recommendation rebuilds now read item features from a local catalog instead of TMDB on every run, removing the rate-limit pressure that slowed home loads.
+- 36e2739: Personalized recommendations are now built nightly and served instantly, removing the wait users saw on every fresh visit.
+- 1a8245a: Watch history and ratings now sync to a local copy in the background, so recommendations rebuild without re-querying every connected service.
+- fc371c1: Added a Netflix-style home feed with seven curated rows, hero pick, opaque-cursor pagination, and graceful row-level degradation when plugins are missing or slow.
+- 77ed7b0: Home feed layout now loads row structure instantly and fetches row items lazily per row.
+- 3743af3: Added the in-app notification inbox so users can review activity alerts from one place.
+
+### Patch Changes
+
+- 986fb74: Added the foundation for high-quality artwork on the home feed: TMDB now returns posters, backdrops, and clear logos through a new artwork capability that future plugins can extend.
+- 5f8d685: Catalog now trims unused entries automatically, keeping the local database lean over time.
+- ca50c56: Recovered home feed performance — recommendations row, new releases row, and artwork batch now serve from cache on warm loads.
+- db2b076: Fixed the home feed shrinking to a single row when one of its providers was slow or rate-limited. Slow rows now stay in the layout with a partial-content marker instead of disappearing.
+- e9b915f: Each built-in integration (Trakt, TMDB, TVDB, Seerr, Plex, Jellyfin) is now its own package, so each one can be released and tracked on its own.
+- e9b915f: Reorganise the workspace so plugin authors have a single dedicated SDK to depend on. No user-visible behaviour change.
+- Updated dependencies [db2b076]
+- Updated dependencies [986fb74]
+- Updated dependencies [fc371c1]
+- Updated dependencies [6cc984c]
+- Updated dependencies [6cc984c]
+- Updated dependencies [3743af3]
+- Updated dependencies [6cc984c]
+- Updated dependencies [e9b915f]
+- Updated dependencies [b55a04b]
+- Updated dependencies [e9b915f]
+- Updated dependencies [e340f9d]
+- Updated dependencies [db2b076]
+- Updated dependencies [e92154f]
+  - @ent-mcp/shared@0.1.1
+  - @ent-mcp/plugin-sdk@0.2.0
+  - @ent-mcp/plugin-tmdb@0.2.0
+  - @ent-mcp/plugin-discord@0.2.0
+  - @ent-mcp/plugin-ntfy@0.2.0
+  - @ent-mcp/plugin-inbox@0.2.0
+  - @ent-mcp/plugin-telegram@0.2.0
+  - @ent-mcp/plugin-jellyfin@0.2.0
+  - @ent-mcp/plugin-plex@0.2.0
+  - @ent-mcp/plugin-seerr@0.2.0
+  - @ent-mcp/plugin-trakt@0.2.0
+  - @ent-mcp/plugin-tvdb@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @ent-mcp/shared
 
+## 0.1.1
+
+### Patch Changes
+
+- db2b076: Added a batched artwork lookup so the home feed loads high-resolution posters and backdrops once cards are visible, with a graceful fallback to inline thumbnails while the lookup is in flight.
+- 986fb74: Added the foundation for high-quality artwork on the home feed: TMDB now returns posters, backdrops, and clear logos through a new artwork capability that future plugins can extend.
+
 ## 0.1.0
 
 ### Minor Changes
