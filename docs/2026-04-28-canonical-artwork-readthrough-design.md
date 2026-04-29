@@ -64,18 +64,20 @@ UPDATE canonical_metadata
 
 ## Components
 
-| File                                                        | Change                                                                           |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `packages/plugins/tmdb/src/mappers.ts`                      | `mapMovie`/`mapShow` lift `backdrop_path` → `backdropUrl`                        |
-| `packages/plugins/tmdb/src/images.ts`                       | `buildBackdropUrl(ctx, path)` (TMDB `original` size or w1280)                    |
-| `apps/server/src/catalog/canonical.ts`                      | drop `thumbUrl` field from `toCanonicalRow` output                               |
-| `apps/server/src/db/schema/catalog.ts`                      | drop `thumb_url` col, drizzle migration                                          |
-| `apps/server/src/catalog/types.ts`                          | `CanonicalMetadata` drop `thumbUrl`                                              |
-| `apps/server/src/catalog/service.ts`                        | new `patchArtwork(key, urls)` w/ COALESCE update                                 |
-| `packages/shared/src/artwork/schemas.ts`                    | unchanged (no mode param)                                                        |
-| `apps/server/src/artwork/service.ts`                        | `getArtwork`: dispatch (mv-cache) → fire-forget patchArtwork. No canonical read. |
-| `apps/client/src/hooks/use-artwork.ts`                      | add `useArtworkIfMissing(item, requiredSlots, opts)`                             |
-| `apps/client/src/components/home/{card,hero,sidebar-*}.tsx` | swap `useArtwork` → `useArtworkIfMissing` w/ explicit slot list                  |
+| File                                                        | Change                                                                                                                                                                     |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/plugins/tmdb/src/mappers.ts`                      | `mapMovie`/`mapShow` lift `backdrop_path` → `backdropUrl`                                                                                                                  |
+| `packages/plugins/tmdb/src/images.ts`                       | `buildBackdropUrl(ctx, path)` (TMDB `original` size or w1280)                                                                                                              |
+| `apps/server/src/catalog/canonical.ts`                      | drop `thumbUrl` field from `toCanonicalRow` output                                                                                                                         |
+| `apps/server/src/db/schema/catalog.ts`                      | drop `thumb_url` col, drizzle migration                                                                                                                                    |
+| `apps/server/src/catalog/types.ts`                          | `CanonicalMetadata` drop `thumbUrl`                                                                                                                                        |
+| `apps/server/src/catalog/service.ts`                        | new `patchArtwork(key, urls)` w/ COALESCE update                                                                                                                           |
+| `packages/shared/src/artwork/schemas.ts`                    | unchanged (no mode param)                                                                                                                                                  |
+| `apps/server/src/artwork/service.ts`                        | `getArtwork`: dispatch (mv-cache) → fire-forget patchArtwork. No canonical read.                                                                                           |
+| `apps/server/src/home/canonical-artwork-fill.ts`            | new `fillMissingArtwork(catalog, items)` — batched canonical lookup, in-place fill of `poster`/`backdrop`/`clearLogo`                                                      |
+| `apps/server/src/home/layout.ts`                            | `runFetch` calls `fillMissingArtwork` after every successful row fetch so upstream-only items (Trakt `recommendations@v1`, etc.) inherit canonical artwork before the wire |
+| `apps/client/src/hooks/use-artwork.ts`                      | add `useArtworkIfMissing(item, requiredSlots, opts)`                                                                                                                       |
+| `apps/client/src/components/home/{card,hero,sidebar-*}.tsx` | swap `useArtwork` → `useArtworkIfMissing` w/ explicit slot list                                                                                                            |
 
 ## Data flow
 
@@ -87,7 +89,12 @@ COLD HOME ROW
     media.discoverFeed → metadata@v1 → writeMetadata(toCanonicalRow)
                                           poster, backdrop ◄ TMDB
                                           clearLogo = null
-  server → CompactMediaItem { poster, backdrop, overview, [clearLogo if hot] }
+    runFetch (home/layout.ts) → fillMissingArtwork(catalog, items)
+                                  // batched getMetadataBatch over (mediaType,tmdbId)
+                                  // backfills poster/backdrop/clearLogo from canonical
+                                  // for rows whose upstream plugin (e.g. Trakt
+                                  // recommendations@v1) supplied no artwork
+  server → CompactMediaItem { poster, backdrop, overview, [clearLogo if canonical has it] }
 
 CARD RENDER
   needs = ["poster", "backdrop", "clearLogo"]   // hero

@@ -44,6 +44,10 @@ function loadStdoutLevelThreshold(): number {
   return resolved ?? CONSOLA_TYPE_VERBOSITY.warn!;
 }
 
+// Frozen at module load — `JOB_CONSOLE_LOG_LEVEL` set after the first import
+// of this file (e.g. inside a test that mutates `process.env`) is ignored for
+// the rest of the worker. Tests that need a non-default threshold must set
+// the env var before importing `run-logger`.
 const STDOUT_LEVEL_THRESHOLD = loadStdoutLevelThreshold();
 
 const LOG_LEVEL_ORDER: Record<string, number> = {
@@ -230,7 +234,7 @@ function extractMessageAndMeta(args: unknown[]): {
 
 function formatCause(cause: unknown): unknown {
   if (cause instanceof Error) return flattenError(cause);
-  if (isPrimitive(cause)) String(cause);
+  if (isPrimitive(cause)) return String(cause);
   return JSON.stringify(cause);
 }
 

@@ -70,10 +70,9 @@ export const trendingNowFetcher: RowFetcher = {
   },
 };
 
-function sliceForPage<T>(items: T[], page: number, limit: number): T[] {
-  const raw = items as unknown as RawMediaItem[];
+function sliceForPage(items: RawMediaItem[], page: number, limit: number): RawMediaItem[] {
   const seen = new Set<string>();
-  const dedup = raw.filter((item) => {
+  const dedup = items.filter((item) => {
     const id = compositeId(item);
     if (!id) return true;
     if (seen.has(id)) return false;
@@ -81,5 +80,5 @@ function sliceForPage<T>(items: T[], page: number, limit: number): T[] {
     return true;
   });
   const start = page * limit;
-  return dedup.slice(start, start + limit) as unknown as T[];
+  return dedup.slice(start, start + limit);
 }

@@ -83,4 +83,16 @@ describe("createRunLogger ring-buffer capture", () => {
     expect(entries[0]?.msg).toBe("Completed");
     expect(entries[0]?.meta).toEqual({ userId: "u1", durationMs: 42 });
   });
+
+  it("flattens an Error's primitive `cause` to the raw string, not a JSON-quoted one", async () => {
+    const logger = createRunLogger("test-job", "cccccccc11111111", "cccccccc22222222");
+    const entries = await captureWith(() => {
+      const err = new Error("upload failed", { cause: "disk full" });
+      logger.error(err);
+    });
+
+    expect(entries).toHaveLength(1);
+    const error = entries[0]?.meta?.error as { cause?: unknown } | undefined;
+    expect(error?.cause).toBe("disk full");
+  });
 });
