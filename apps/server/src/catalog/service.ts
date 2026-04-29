@@ -1,4 +1,5 @@
 import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { groupBy, uniqBy } from "es-toolkit/array";
 import type { Db } from "../db/client";
 
 type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -71,19 +72,24 @@ export class CatalogService {
     // SQLite has no row-tuple `IN ((a,b), …)` form, so we batch per
     // `mediaType` and union the results. Two queries max in practice;
     // the composite PK serves both lookups via index.
-    const buckets = new Map<"movie" | "tv", string[]>();
-    for (const item of items) {
-      const list = buckets.get(item.type);
-      if (list) list.push(item.tmdbId);
-      else buckets.set(item.type, [item.tmdbId]);
-    }
+    const buckets = groupBy(items, (item) => item.type);
     const out: Record<string, CanonicalMetadata> = {};
     const accessed: MetadataKey[] = [];
-    for (const [type, ids] of buckets) {
+    for (const [type, typeItems] of Object.entries(buckets) as Array<
+      ["movie" | "tv", MetadataKey[]]
+    >) {
       const rows = await this.db
         .select()
         .from(canonicalMetadata)
-        .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
+        .where(
+          and(
+            eq(canonicalMetadata.mediaType, type),
+            inArray(
+              canonicalMetadata.tmdbId,
+              typeItems.map((i) => i.tmdbId),
+            ),
+          ),
+        );
       for (const row of rows) {
         out[candidateId({ tmdbId: row.tmdbId, type: row.mediaType })] = row;
         accessed.push({ tmdbId: row.tmdbId, type: row.mediaType });
@@ -415,34 +421,42 @@ export class CatalogService {
   recordAccess(items: MetadataKey[]): void {
     if (items.length === 0) return;
     const now = Date.now();
-    const dueByType = new Map<"movie" | "tv", string[]>();
-    for (const item of items) {
+    const dueItems = items.filter((item) => {
       const key = candidateId(item);
       const prior = this.accessThrottle.get(key);
-      if (prior !== undefined && now - prior < this.recordAccessThrottleMs) continue;
+      if (prior !== undefined && now - prior < this.recordAccessThrottleMs) return false;
       this.accessThrottle.set(key, now);
-      const list = dueByType.get(item.type);
-      if (list) list.push(item.tmdbId);
-      else dueByType.set(item.type, [item.tmdbId]);
-    }
-    if (dueByType.size === 0) return;
+      return true;
+    });
+    if (dueItems.length === 0) return;
     // Detached batch update — reads must not block on the write. Failures
     // log and drop; the next access cycle picks the row back up.
-    void this.flushAccessUpdates(dueByType, now);
+    void this.flushAccessUpdates(
+      groupBy(dueItems, (item) => item.type),
+      now,
+    );
     this.evictStaleThrottleEntries(now);
   }
 
   private async flushAccessUpdates(
-    dueByType: Map<"movie" | "tv", string[]>,
+    dueByType: Record<string, MetadataKey[]>,
     now: number,
   ): Promise<void> {
-    for (const [type, ids] of dueByType) {
+    for (const [type, typeItems] of Object.entries(dueByType) as Array<
+      ["movie" | "tv", MetadataKey[]]
+    >) {
       try {
         await this.db
           .update(canonicalMetadata)
           .set({ lastAccessedAt: now })
           .where(
-            and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)),
+            and(
+              eq(canonicalMetadata.mediaType, type),
+              inArray(
+                canonicalMetadata.tmdbId,
+                typeItems.map((i) => i.tmdbId),
+              ),
+            ),
           );
       } catch (err) {
         // Per V37, the catalog tolerates a dropped access bump; the next
@@ -479,21 +493,24 @@ export class CatalogService {
     // Bucket non-referenced ids by media type so each type drops in a
     // single statement. Per-row DELETEs would hold the SQLite WAL for
     // the entire sweep; bucketed DELETEs collapse to one commit per type.
-    const toDelete = new Map<"movie" | "tv", string[]>();
-    for (const row of candidates) {
-      const key = candidateId({ tmdbId: row.tmdbId, type: row.mediaType });
-      if (refs.has(key)) continue;
-      const list = toDelete.get(row.mediaType);
-      if (list) list.push(row.tmdbId);
-      else toDelete.set(row.mediaType, [row.tmdbId]);
-    }
+    const toDelete = groupBy(
+      candidates.filter((r) => !refs.has(candidateId({ tmdbId: r.tmdbId, type: r.mediaType }))),
+      (r) => r.mediaType,
+    );
     let deleted = 0;
-    for (const [type, ids] of toDelete) {
-      if (ids.length === 0) continue;
-      await this.db
-        .delete(canonicalMetadata)
-        .where(and(eq(canonicalMetadata.mediaType, type), inArray(canonicalMetadata.tmdbId, ids)));
-      deleted += ids.length;
+    for (const [type, rows] of Object.entries(toDelete) as Array<
+      ["movie" | "tv", typeof candidates]
+    >) {
+      await this.db.delete(canonicalMetadata).where(
+        and(
+          eq(canonicalMetadata.mediaType, type),
+          inArray(
+            canonicalMetadata.tmdbId,
+            rows.map((r) => r.tmdbId),
+          ),
+        ),
+      );
+      deleted += rows.length;
     }
     return { deleted };
   }
@@ -558,39 +575,11 @@ function toIdMap(row: typeof idMap.$inferSelect | null): IdMap | null {
  * their original ordering; new events append in arrival order.
  */
 function mergeHistory(prior: HistoryEvent[], next: HistoryEvent[]): HistoryEvent[] {
-  const seen = new Set<string>();
-  const out: HistoryEvent[] = [];
-  for (const event of prior) {
-    const key = historyKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  for (const event of next) {
-    const key = historyKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  return out;
+  return uniqBy([...prior, ...next], historyKey);
 }
 
 function mergeRatings(prior: RatingEvent[], next: RatingEvent[]): RatingEvent[] {
-  const seen = new Set<string>();
-  const out: RatingEvent[] = [];
-  for (const event of prior) {
-    const key = ratingKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  for (const event of next) {
-    const key = ratingKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(event);
-  }
-  return out;
+  return uniqBy([...prior, ...next], ratingKey);
 }
 
 function historyKey(event: HistoryEvent): string {
