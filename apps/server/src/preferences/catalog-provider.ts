@@ -103,6 +103,7 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
    * rebuild job) snapshot per partition so end-of-run logs can show the
    * canonical hit ratio for each partition independently.
    */
+  // fallow-ignore-next-line unused-class-member
   consumeFeatureCacheMetrics(): FeatureCacheMetrics {
     const snapshot: FeatureCacheMetrics = {
       hits: this.hits,

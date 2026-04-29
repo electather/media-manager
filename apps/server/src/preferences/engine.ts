@@ -49,6 +49,7 @@ export class PreferenceEngine {
    * surfaces such as `consumeFeatureCacheMetrics`. Engine itself stays
    * provider-agnostic; the optional surface is read at the call site.
    */
+  // fallow-ignore-next-line unused-class-member
   get provider(): PreferenceDataProvider {
     return this.deps.provider;
   }

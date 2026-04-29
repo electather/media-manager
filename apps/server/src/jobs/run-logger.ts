@@ -157,6 +157,7 @@ export function createRunLogger(jobId: string, runId: string, requestId: string)
   const handler: ProxyHandler<ConsolaInstance> = {
     get(target, prop, receiver) {
       if (isLogMethod(prop)) {
+        // fallow-ignore-next-line complexity
         return (...args: unknown[]) => {
           const level = consolaTypeToLevel(prop);
           const { msg, meta } = extractMessageAndMeta(args);

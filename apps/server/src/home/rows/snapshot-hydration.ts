@@ -21,6 +21,7 @@ interface SnapshotHydrationOptions {
  * backdrop / clearLogo URLs flow onto the wire even when the live plugin
  * for the row never returns artwork.
  */
+// fallow-ignore-next-line complexity
 export async function hydrateFromSnapshot(
   ctx: RowFetchContext,
   opts: SnapshotHydrationOptions,

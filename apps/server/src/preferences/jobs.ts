@@ -217,6 +217,7 @@ interface PartitionSummary {
   profileVersion: number | null;
 }
 
+// fallow-ignore-next-line complexity
 function summarisePartitions(
   results: Partial<Record<ProfileMediaType, RebuildResult>>,
   traces: Partial<Record<ProfileMediaType, PartitionTrace>>,
@@ -249,6 +250,7 @@ interface PartitionTrace {
   profileVersion: number | null;
 }
 
+// fallow-ignore-next-line complexity
 async function rebuildPartitions(
   userId: string,
   ctx: JobRunContext,
