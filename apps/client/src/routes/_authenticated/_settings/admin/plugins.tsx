@@ -53,8 +53,7 @@ import {
   stripEmptySecrets,
   validateSchema,
 } from "@/shared/components/schema-form";
-import { PersonalKeyFallbackControl } from "@/features/admin";
-import { SharedCredentialsSection } from "@/features/admin";
+import { PersonalKeyFallbackControl, SharedCredentialsSection } from "@/features/admin";
 import { safeJson } from "@/shared/lib/errors/safe-json";
 
 export const Route = createFileRoute("/_authenticated/_settings/admin/plugins")({
