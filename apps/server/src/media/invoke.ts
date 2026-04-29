@@ -105,6 +105,88 @@ export async function invokeWithTimeout<T>(
   }
 }
 
+function connectionId(conn: ResolvedConnection): string | null {
+  return conn.kind === "user" ? conn.connectionId : null;
+}
+
+function successOutcome<T>(
+  req: InvokeRequest,
+  conn: ResolvedConnection,
+  data: T,
+): InvocationOutcome<T> {
+  return {
+    pluginId: req.pluginId,
+    connectionId: connectionId(conn),
+    shared: conn.kind === "shared",
+    data,
+  };
+}
+
+function errorOutcome<T>(
+  req: InvokeRequest,
+  conn: ResolvedConnection,
+  error: { code: string; devMessage: string },
+): InvocationOutcome<T> {
+  return {
+    pluginId: req.pluginId,
+    connectionId: connectionId(conn),
+    shared: conn.kind === "shared",
+    error: error as InvocationOutcome<T>["error"],
+  };
+}
+
+async function handleRefresh<T>(
+  req: InvokeRequest,
+  conn: ResolvedConnection,
+  activeConn: ResolvedConnection,
+  state: RetryState,
+): Promise<{ refreshed: ResolvedConnection } | InvocationOutcome<T>> {
+  // decideRetry only returns "refresh" when state.isUserConnection is true,
+  // derived from conn.kind === "user" at construction time.
+  const userConn = conn as Extract<ResolvedConnection, { kind: "user" }>;
+  state.triedRefresh = true;
+  try {
+    const refreshed = await pluginRuntime.refreshAuth(
+      req.pluginId,
+      req.userId,
+      activeConn.credentials,
+    );
+    await persistRefreshedCredentials(userConn.connectionId, refreshed);
+    return { refreshed: { ...activeConn, credentials: refreshed } };
+  } catch (refreshErr) {
+    const refreshMsg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
+    await markConnectionStatus(userConn.connectionId, "expired", refreshMsg);
+    await emitAuthExpired({
+      connectionId: userConn.connectionId,
+      pluginId: req.pluginId,
+      userId: req.userId,
+    });
+    return {
+      pluginId: req.pluginId,
+      connectionId: userConn.connectionId,
+      shared: false,
+      error: { code: "plugin.token_expired", devMessage: refreshMsg },
+    };
+  }
+}
+
+async function handleBackoff(deadlineMs: number | undefined, backoffMs: number): Promise<boolean> {
+  if (!deadlineAllowsRetry(deadlineMs, backoffMs)) return false;
+  await sleep(backoffMs);
+  return true;
+}
+
+async function handleTerminalError<T>(
+  req: InvokeRequest,
+  conn: ResolvedConnection,
+  normalized: { code: string; devMessage: string },
+): Promise<InvocationOutcome<T>> {
+  if (normalized.code === "plugin.bad_credentials" || normalized.code === "plugin.upstream_error") {
+    await markConnectionStatus(connectionId(conn), "error", normalized.devMessage);
+  }
+  return errorOutcome(req, conn, normalized);
+}
+
 /**
  * Invokes a single plugin with retry/refresh logic:
  *   • `token_expired` → refresh credentials, retry once.
@@ -127,91 +209,35 @@ export async function invokeOne<T>(
   while (true) {
     try {
       const data = await invokeWithTimeout<T>(req, activeConn);
-      return {
-        pluginId: req.pluginId,
-        connectionId: conn.kind === "user" ? conn.connectionId : null,
-        shared: conn.kind === "shared",
-        data,
-      };
+      return successOutcome(req, conn, data);
     } catch (err) {
       const normalized = normalizeError(err);
       const decision = decideRetry(normalized.code, state);
 
       if (decision === "refresh") {
-        // decideRetry only returns "refresh" when state.isUserConnection is
-        // true, derived from conn.kind === "user" at construction time.
-        const userConn = conn as Extract<ResolvedConnection, { kind: "user" }>;
-        state.triedRefresh = true;
-        try {
-          const refreshed = await pluginRuntime.refreshAuth(
-            req.pluginId,
-            req.userId,
-            activeConn.credentials,
-          );
-          await persistRefreshedCredentials(userConn.connectionId, refreshed);
-          activeConn = { ...activeConn, credentials: refreshed };
+        const result = await handleRefresh<T>(req, conn, activeConn, state);
+        if ("refreshed" in result) {
+          activeConn = result.refreshed;
           continue;
-        } catch (refreshErr) {
-          const refreshMsg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
-          await markConnectionStatus(userConn.connectionId, "expired", refreshMsg);
-          await emitAuthExpired({
-            connectionId: userConn.connectionId,
-            pluginId: req.pluginId,
-            userId: req.userId,
-          });
-          return {
-            pluginId: req.pluginId,
-            connectionId: userConn.connectionId,
-            shared: false,
-            error: { code: "plugin.token_expired", devMessage: refreshMsg },
-          };
         }
+        return result;
       }
 
       if (decision === "rate-limit") {
         state.triedRateLimit = true;
-        if (!deadlineAllowsRetry(req.deadlineMs, RATE_LIMIT_BACKOFF_MS)) {
-          return {
-            pluginId: req.pluginId,
-            connectionId: conn.kind === "user" ? conn.connectionId : null,
-            shared: conn.kind === "shared",
-            error: normalized,
-          };
-        }
-        await sleep(RATE_LIMIT_BACKOFF_MS);
+        const canRetry = await handleBackoff(req.deadlineMs, RATE_LIMIT_BACKOFF_MS);
+        if (!canRetry) return errorOutcome(req, conn, normalized);
         continue;
       }
 
       if (decision === "transient") {
         state.triedTransient = true;
-        if (!deadlineAllowsRetry(req.deadlineMs, TRANSIENT_BACKOFF_MS)) {
-          return {
-            pluginId: req.pluginId,
-            connectionId: conn.kind === "user" ? conn.connectionId : null,
-            shared: conn.kind === "shared",
-            error: normalized,
-          };
-        }
-        await sleep(TRANSIENT_BACKOFF_MS);
+        const canRetry = await handleBackoff(req.deadlineMs, TRANSIENT_BACKOFF_MS);
+        if (!canRetry) return errorOutcome(req, conn, normalized);
         continue;
       }
 
-      if (
-        normalized.code === "plugin.bad_credentials" ||
-        normalized.code === "plugin.upstream_error"
-      ) {
-        await markConnectionStatus(
-          conn.kind === "user" ? conn.connectionId : null,
-          "error",
-          normalized.devMessage,
-        );
-      }
-      return {
-        pluginId: req.pluginId,
-        connectionId: conn.kind === "user" ? conn.connectionId : null,
-        shared: conn.kind === "shared",
-        error: normalized,
-      };
+      return handleTerminalError(req, conn, normalized);
     }
   }
 }

@@ -10,8 +10,9 @@ import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { invokeOne } from "../invoke";
-import { PluginCallError } from "../errors";
+import { PluginCallError, type InvocationOutcome } from "../errors";
 import type { DispatchRequest } from "../types";
+import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 
 interface PerKindProvider {
   pluginId: string;
@@ -63,6 +64,127 @@ function canServePerKind(
   return provider.supportedIdTypes[type].some((t) => Boolean(ids[t]));
 }
 
+function parsePerKindInput(input: unknown): {
+  ids: Record<string, unknown>;
+  mediaType: "movie" | "tv";
+} {
+  const parsed = perKindInputSchema.safeParse(input ?? {});
+  if (!parsed.success || parsed.data.type === undefined) {
+    throw new PluginCallError(
+      "artwork.bad_input",
+      `aggregate_per_kind input must include type: "movie" | "tv"`,
+      "",
+      null,
+    );
+  }
+  return { ids: parsed.data.ids ?? {}, mediaType: parsed.data.type };
+}
+
+function selectEligibleProviders(
+  capability: string,
+  version: string,
+  scope: ResolvedCapabilityScope,
+  ids: Record<string, unknown>,
+  mediaType: "movie" | "tv",
+): PerKindProvider[] {
+  const providerIds = capabilityRegistry.listProviders(capability, version, scope);
+  const providers: PerKindProvider[] = [];
+  for (const pid of providerIds) {
+    const provider = readPerKindProvider(pid, capability);
+    if (provider && canServePerKind(provider, ids, mediaType)) providers.push(provider);
+  }
+  return providers;
+}
+
+function sortByPriority(providers: PerKindProvider[]): PerKindProvider[] {
+  // Tie-break alphabetical so merge order is deterministic across boots.
+  return [...providers].sort((a, b) => {
+    if (a.providerPriority !== b.providerPriority) {
+      return a.providerPriority - b.providerPriority;
+    }
+    return a.pluginId.localeCompare(b.pluginId);
+  });
+}
+
+async function invokeProvider(
+  req: DispatchRequest,
+  provider: PerKindProvider,
+  timeoutMs: number,
+): Promise<InvocationOutcome<Record<string, unknown[]>>> {
+  const conn = await pickSingleConnection(req.userId, provider.pluginId);
+  if (!conn) {
+    throw new PluginCallError(
+      "media.no_connection",
+      `no connection available for plugin ${provider.pluginId}`,
+      provider.pluginId,
+      null,
+    );
+  }
+  return invokeOne<Record<string, unknown[]>>(
+    {
+      userId: req.userId,
+      pluginId: provider.pluginId,
+      capability: req.capability,
+      version: req.version,
+      method: req.method,
+      input: req.input,
+      timeoutMs,
+      deadlineMs: req.deadlineMs,
+    },
+    conn,
+  );
+}
+
+function collectSuccessful(
+  settled: PromiseSettledResult<InvocationOutcome<Record<string, unknown[]>>>[],
+  providers: PerKindProvider[],
+  req: DispatchRequest,
+): { successful: Array<Record<string, unknown[]>>; allFailed: boolean } {
+  const successful: Array<Record<string, unknown[]>> = [];
+  let allFailed = true;
+  for (const [idx, outcome] of settled.entries()) {
+    const provider = providers[idx]!;
+    if (outcome.status !== "fulfilled") {
+      consola.debug(
+        `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} rejected:`,
+        outcome.reason,
+      );
+      continue;
+    }
+    const result = outcome.value;
+    if (result.error) {
+      consola.debug(
+        `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} errored:`,
+        result.error.code,
+      );
+      continue;
+    }
+    allFailed = false;
+    if (result.data && typeof result.data === "object" && !Array.isArray(result.data)) {
+      successful.push(result.data as Record<string, unknown[]>);
+    }
+  }
+  return { successful, allFailed };
+}
+
+function mergeBundle(
+  perKindFields: readonly string[],
+  successful: Array<Record<string, unknown[]>>,
+): Record<string, unknown[]> {
+  const bundle: Record<string, unknown[]> = {};
+  for (const field of perKindFields) bundle[field] = [];
+  for (const field of perKindFields) {
+    for (const result of successful) {
+      const arr = result[field];
+      if (Array.isArray(arr) && arr.length > 0) {
+        bundle[field] = arr;
+        break;
+      }
+    }
+  }
+  return bundle;
+}
+
 /**
  * `aggregate_per_kind`: dispatch to every eligible provider in parallel and
  * merge per-kind in priority order. First non-empty array wins per kind.
@@ -89,25 +211,10 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   const cached = await readCache<T>(req, scope);
   if (cached !== undefined) return cached;
 
-  const parsed = perKindInputSchema.safeParse(req.input ?? {});
-  if (!parsed.success || parsed.data.type === undefined) {
-    throw new PluginCallError(
-      "artwork.bad_input",
-      `aggregate_per_kind input must include type: "movie" | "tv"`,
-      "",
-      null,
-    );
-  }
-  const ids = parsed.data.ids ?? {};
-  const mediaType = parsed.data.type;
+  const { ids, mediaType } = parsePerKindInput(req.input);
 
-  const providerIds = capabilityRegistry.listProviders(req.capability, req.version, scope);
-  const providers: PerKindProvider[] = [];
-  for (const pid of providerIds) {
-    const provider = readPerKindProvider(pid, req.capability);
-    if (provider && canServePerKind(provider, ids, mediaType)) providers.push(provider);
-  }
-  if (providers.length === 0) {
+  const eligible = selectEligibleProviders(req.capability, req.version, scope, ids, mediaType);
+  if (eligible.length === 0) {
     throw new PluginCallError(
       "artwork.unsupported_id_combo",
       `no provider can serve ${req.capability}@${req.version} for type=${mediaType} ` +
@@ -118,79 +225,14 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   }
   // Sort = merge-priority ordering only. Dispatch fires in parallel below
   // regardless of order; priority decides who wins per-kind during merge.
-  // Tie-break alphabetical so the merge order is deterministic across boots.
-  providers.sort((a, b) => {
-    if (a.providerPriority !== b.providerPriority) {
-      return a.providerPriority - b.providerPriority;
-    }
-    return a.pluginId.localeCompare(b.pluginId);
-  });
+  const providers = sortByPriority(eligible);
 
   const settled = await Promise.allSettled(
-    providers.map(async (p) => {
-      const conn = await pickSingleConnection(req.userId, p.pluginId);
-      if (!conn) {
-        throw new PluginCallError(
-          "media.no_connection",
-          `no connection available for plugin ${p.pluginId}`,
-          p.pluginId,
-          null,
-        );
-      }
-      return invokeOne<Record<string, unknown[]>>(
-        {
-          userId: req.userId,
-          pluginId: p.pluginId,
-          capability: req.capability,
-          version: req.version,
-          method: req.method,
-          input: req.input,
-          timeoutMs: capability.defaultTimeoutMs,
-          deadlineMs: req.deadlineMs,
-        },
-        conn,
-      );
-    }),
+    providers.map((p) => invokeProvider(req, p, capability.defaultTimeoutMs)),
   );
 
-  const successful: Array<Record<string, unknown[]>> = [];
-  let allFailed = true;
-  for (const [idx, outcome] of settled.entries()) {
-    const provider = providers[idx]!;
-    if (outcome.status !== "fulfilled") {
-      consola.debug(
-        `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} rejected:`,
-        outcome.reason,
-      );
-      continue;
-    }
-    const result = outcome.value;
-    if (result.error) {
-      consola.debug(
-        `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} errored:`,
-        result.error.code,
-      );
-      continue;
-    }
-    allFailed = false;
-    if (result.data && typeof result.data === "object" && !Array.isArray(result.data)) {
-      successful.push(result.data as Record<string, unknown[]>);
-    }
-  }
-
-  // Build empty bundle scaffold from declared perKindFields. First non-empty
-  // walks successful results in already-sorted (priority) order.
-  const bundle: Record<string, unknown[]> = {};
-  for (const field of perKindFields) bundle[field] = [];
-  for (const field of perKindFields) {
-    for (const result of successful) {
-      const arr = result[field];
-      if (Array.isArray(arr) && arr.length > 0) {
-        bundle[field] = arr;
-        break;
-      }
-    }
-  }
+  const { successful, allFailed } = collectSuccessful(settled, providers, req);
+  const bundle = mergeBundle(perKindFields, successful);
 
   // All-fail (every provider threw or errored) is treated as transient and
   // cached at a short NEGATIVE_TTL_MS so retries do not amplify pressure on

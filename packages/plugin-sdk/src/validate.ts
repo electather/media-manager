@@ -1,8 +1,11 @@
 import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
+import type { z } from "zod";
 import { getCapability } from "./capabilities";
 import { PluginError } from "./errors/plugin-error";
 import type { PluginModule } from "./types";
 import { isSdkCompatible } from "./version";
+
+type ParsedManifest = z.infer<typeof pluginManifestSchema>;
 
 /**
  * Pure validation result returned by `validatePluginModule`. Contains the
@@ -15,22 +18,7 @@ export interface ValidatedPlugin {
   manifestJson: string;
 }
 
-/**
- * Validates a plugin module against the host's plugin contract:
- *
- * - manifest parses against `pluginManifestSchema`
- * - declared `sdkVersion` is compatible with this SDK
- * - every declared capability exists in the SDK catalog at the declared version
- * - every declared capability method has an implementation
- * - every declared job references an exported handler
- * - plugins with `auth.kind !== "none"` export `testConnection`
- * - declared MCP tools have unique names, do not start with `ext_`, fit the
- *   64-char prefixed-name budget, and reference an exported handler
- *
- * Throws `PluginError` on any failure. Used by the server boot loader and by
- * per-plugin contract tests.
- */
-export function validatePluginModule(module: PluginModule): ValidatedPlugin {
+function parseManifest(module: PluginModule): ParsedManifest {
   const parsed = pluginManifestSchema.safeParse(module.manifest);
   if (!parsed.success) {
     // Manifest authoring failure — plugin author supplied invalid input. Use
@@ -39,68 +27,89 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
     // mistakes from runtime malformed-output bugs.
     throw new PluginError("plugin.input_invalid", parsed.error.message);
   }
-  if (!isSdkCompatible(parsed.data.sdkVersion)) {
+  return parsed.data;
+}
+
+function assertSdkCompatible(sdkVersion: string): void {
+  if (!isSdkCompatible(sdkVersion)) {
     throw new PluginError(
       "plugin.input_invalid",
-      `plugin targets sdkVersion ${parsed.data.sdkVersion} incompatible with host`,
+      `plugin targets sdkVersion ${sdkVersion} incompatible with host`,
     );
   }
+}
 
-  for (const [capId, cap] of Object.entries(parsed.data.capabilities)) {
+function validateNotificationDelivery(
+  capVersion: string,
+  impl: Record<string, unknown> | undefined,
+): void {
+  if (capVersion !== "v1") {
+    throw new PluginError(
+      "plugin.missing_method",
+      `unknown notificationDelivery version ${capVersion}`,
+    );
+  }
+  if (!impl) {
+    throw new PluginError(
+      "plugin.missing_method",
+      `plugin manifest claims notificationDelivery but exports no implementation`,
+    );
+  }
+  for (const methodName of ["deliver", "testDelivery"]) {
+    if (typeof impl[methodName] !== "function") {
+      throw new PluginError(
+        "plugin.missing_method",
+        `notificationDelivery@${capVersion}.${methodName} not implemented`,
+      );
+    }
+  }
+}
+
+function validateCatalogCapability(
+  capId: string,
+  capVersion: string,
+  impl: Record<string, unknown> | undefined,
+): void {
+  const spec = getCapability(capId, capVersion);
+  if (!spec) {
+    throw new PluginError(
+      "plugin.missing_method",
+      `plugin declares unknown capability ${capId}@${capVersion}`,
+    );
+  }
+  if (!impl) {
+    throw new PluginError(
+      "plugin.missing_method",
+      `plugin manifest claims ${capId} but exports no implementation`,
+    );
+  }
+  for (const [methodName, methodSpec] of Object.entries(spec.methods)) {
+    if (typeof impl[methodName] === "function") continue;
+    if (methodSpec.optional) continue;
+    throw new PluginError(
+      "plugin.missing_method",
+      `${capId}@${capVersion}.${methodName} not implemented`,
+    );
+  }
+}
+
+function validateCapabilities(manifest: ParsedManifest, module: PluginModule): void {
+  for (const [capId, cap] of Object.entries(manifest.capabilities)) {
+    const impl = module.capabilities[capId] as Record<string, unknown> | undefined;
     // notificationDelivery is delivery-side, not a dispatched capability — its
     // methods are TypeScript-typed (NotificationMessage, NotificationEvent)
     // rather than zod-validated, so it lives outside the dispatch catalog.
     // Validate the impl shape inline.
     if (capId === "notificationDelivery") {
-      if (cap.version !== "v1") {
-        throw new PluginError(
-          "plugin.missing_method",
-          `unknown notificationDelivery version ${cap.version}`,
-        );
-      }
-      const impl = module.capabilities[capId];
-      if (!impl) {
-        throw new PluginError(
-          "plugin.missing_method",
-          `plugin manifest claims notificationDelivery but exports no implementation`,
-        );
-      }
-      for (const methodName of ["deliver", "testDelivery"]) {
-        if (typeof impl[methodName] !== "function") {
-          throw new PluginError(
-            "plugin.missing_method",
-            `notificationDelivery@${cap.version}.${methodName} not implemented`,
-          );
-        }
-      }
-      continue;
-    }
-
-    const spec = getCapability(capId, cap.version);
-    if (!spec) {
-      throw new PluginError(
-        "plugin.missing_method",
-        `plugin declares unknown capability ${capId}@${cap.version}`,
-      );
-    }
-    const impl = module.capabilities[capId];
-    if (!impl) {
-      throw new PluginError(
-        "plugin.missing_method",
-        `plugin manifest claims ${capId} but exports no implementation`,
-      );
-    }
-    for (const [methodName, methodSpec] of Object.entries(spec.methods)) {
-      if (typeof impl[methodName] === "function") continue;
-      if (methodSpec.optional) continue;
-      throw new PluginError(
-        "plugin.missing_method",
-        `${capId}@${cap.version}.${methodName} not implemented`,
-      );
+      validateNotificationDelivery(cap.version, impl);
+    } else {
+      validateCatalogCapability(capId, cap.version, impl);
     }
   }
+}
 
-  for (const job of parsed.data.jobs ?? []) {
+function validateJobs(manifest: ParsedManifest, module: PluginModule): void {
+  for (const job of manifest.jobs ?? []) {
     const handler = module.jobs?.[job.handler];
     if (typeof handler !== "function") {
       throw new PluginError(
@@ -109,13 +118,17 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
       );
     }
   }
+}
 
-  if (parsed.data.auth.kind !== "none" && typeof module.testConnection !== "function") {
+function validateAuth(manifest: ParsedManifest, module: PluginModule): void {
+  if (manifest.auth.kind !== "none" && typeof module.testConnection !== "function") {
     throw new PluginError("plugin.missing_auth_fn", "plugins with auth require testConnection");
   }
+}
 
+function validateMcpTools(manifest: ParsedManifest, module: PluginModule): void {
   const seenNames = new Set<string>();
-  for (const tool of parsed.data.mcpTools ?? []) {
+  for (const tool of manifest.mcpTools ?? []) {
     if (tool.name.startsWith("ext_")) {
       throw new PluginError(
         "plugin.input_invalid",
@@ -126,7 +139,7 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
       throw new PluginError("plugin.input_invalid", `duplicate mcpTool name "${tool.name}"`);
     }
     seenNames.add(tool.name);
-    const prefixed = `ext_${parsed.data.id}_${tool.name}`;
+    const prefixed = `ext_${manifest.id}_${tool.name}`;
     if (prefixed.length > 64) {
       throw new PluginError(
         "plugin.input_invalid",
@@ -141,9 +154,14 @@ export function validatePluginModule(module: PluginModule): ValidatedPlugin {
       );
     }
   }
+}
 
-  return {
-    module,
-    manifestJson: JSON.stringify(parsed.data),
-  };
+export function validatePluginModule(module: PluginModule): ValidatedPlugin {
+  const manifest = parseManifest(module);
+  assertSdkCompatible(manifest.sdkVersion);
+  validateCapabilities(manifest, module);
+  validateJobs(manifest, module);
+  validateAuth(manifest, module);
+  validateMcpTools(manifest, module);
+  return { module, manifestJson: JSON.stringify(manifest) };
 }

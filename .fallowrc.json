@@ -25,7 +25,9 @@
     "**/.claude/**",
     "**/plan/**",
     "**/docs/**",
-    "**/docker/**"
+    "**/docker/**",
+    "apps/client/**",
+    "packages/plugins/**"
   ],
   "rules": {
     "unused-files": "error",
@@ -42,16 +44,17 @@
     "ignore": [
       "**/*.test.ts",
       "**/*.spec.ts",
-      // ignore frontend for now
       "**/*.tsx",
-      "**/plugin.ts"
+      "**/plugin.ts",
+      "apps/client/**",
+      "packages/plugins/**"
     ]
   },
   "health": {
     "maxCyclomatic": 20,
     "maxCognitive": 15,
     "maxCrap": 30,
-    "ignore": ["**/*.test.ts", "**/*.spec.ts"]
+    "ignore": ["**/*.test.ts", "**/*.spec.ts", "apps/client/**", "packages/plugins/**"]
   },
   "boundaries": {
     "zones": [

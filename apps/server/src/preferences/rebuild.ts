@@ -129,46 +129,92 @@ async function collectContributions(
   userId: string,
   mediaType: ProfileMediaType,
 ): Promise<Map<string, ItemContribution>> {
+  const sources = await fetchAllSources(deps.provider, userId);
+  logSources(userId, mediaType, sources);
+
+  const perItem = buildPerItemSignals(sources, mediaType);
+  const signalCounts = countSignals(perItem);
+
+  const candidates = [...perItem.entries()].filter(([, s]) => resolveItemWeight(s) !== 0);
+  const zeroWeightDropped = perItem.size - candidates.length;
+
+  const output = await fetchFeaturesForCandidates(deps, userId, candidates);
+
+  console.log("[preferences:rebuild] contributions", {
+    userId,
+    mediaType,
+    signals: signalCounts,
+    zeroWeightDropped,
+    noFeaturesDropped: candidates.length - output.size,
+    total: output.size,
+  });
+  return output;
+}
+
+interface AllSources {
+  feedbackRows: Awaited<ReturnType<typeof feedbackLog.readAllForUser>>;
+  history: Awaited<ReturnType<PreferenceDataProvider["getHistory"]>>;
+  ratings: Awaited<ReturnType<PreferenceDataProvider["getAllRatings"]>>;
+  watchlist: Awaited<ReturnType<PreferenceDataProvider["getWatchlist"]>>;
+  comments: Awaited<ReturnType<PreferenceDataProvider["getComments"]>>;
+}
+
+async function fetchAllSources(
+  provider: PreferenceDataProvider,
+  userId: string,
+): Promise<AllSources> {
   const [feedbackRows, history, ratings, watchlist, comments] = await Promise.all([
     feedbackLog.readAllForUser(userId),
-    deps.provider.getHistory(userId),
-    deps.provider.getAllRatings(userId),
-    deps.provider.getWatchlist(userId),
-    deps.provider.getComments(userId),
+    provider.getHistory(userId),
+    provider.getAllRatings(userId),
+    provider.getWatchlist(userId),
+    provider.getComments(userId),
   ]);
+  return { feedbackRows, history, ratings, watchlist, comments };
+}
+
+function logSources(userId: string, mediaType: ProfileMediaType, sources: AllSources): void {
   console.log("[preferences:rebuild] sources", {
     userId,
     mediaType,
-    feedbackRows: feedbackRows.length,
-    history: history.length,
-    ratings: ratings.length,
-    watchlist: watchlist.length,
-    comments: comments.length,
+    feedbackRows: sources.feedbackRows.length,
+    history: sources.history.length,
+    ratings: sources.ratings.length,
+    watchlist: sources.watchlist.length,
+    comments: sources.comments.length,
   });
+}
 
+function buildPerItemSignals(
+  sources: AllSources,
+  mediaType: ProfileMediaType,
+): Map<string, PerItemSignals> {
   const perItem = new Map<string, PerItemSignals>();
-  for (const record of feedbackRows) {
+  for (const record of sources.feedbackRows) {
     if (!includesMediaType(record.mediaType, mediaType)) continue;
     mergeFeedback(perItem, record);
   }
-  for (const rating of ratings) {
+  for (const rating of sources.ratings) {
     if (!includesMediaType(rating.mediaType, mediaType)) continue;
     mergeRating(perItem, rating);
   }
-  for (const entry of history) {
+  for (const entry of sources.history) {
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeHistory(perItem, entry);
   }
-  for (const entry of watchlist) {
+  for (const entry of sources.watchlist) {
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeWatchlist(perItem, entry);
   }
-  for (const entry of comments) {
+  for (const entry of sources.comments) {
     if (!includesMediaType(entry.mediaType, mediaType)) continue;
     mergeComment(perItem, entry);
   }
+  return perItem;
+}
 
-  const signalCounts = {
+function countSignals(perItem: Map<string, PerItemSignals>) {
+  const counts = {
     rateHigh: 0,
     rateMid: 0,
     rateLow: 0,
@@ -182,21 +228,25 @@ async function collectContributions(
   for (const s of perItem.values()) {
     if (s.rate) {
       const w = rateBucketWeight(s.rate.rating);
-      if (w > 0) signalCounts.rateHigh++;
-      else if (w < 0) signalCounts.rateLow++;
-      else signalCounts.rateMid++;
+      if (w > 0) counts.rateHigh++;
+      else if (w < 0) counts.rateLow++;
+      else counts.rateMid++;
     }
-    if (s.like) signalCounts.like++;
-    if (s.dislike) signalCounts.dislike++;
-    if (s.note) signalCounts.note++;
-    if (s.completed) signalCounts.completed++;
-    if (s.watchlisted) signalCounts.watchlist++;
-    if (s.comment) signalCounts.comment++;
+    if (s.like) counts.like++;
+    if (s.dislike) counts.dislike++;
+    if (s.note) counts.note++;
+    if (s.completed) counts.completed++;
+    if (s.watchlisted) counts.watchlist++;
+    if (s.comment) counts.comment++;
   }
+  return counts;
+}
 
-  const candidates = [...perItem.entries()].filter(([, s]) => resolveItemWeight(s) !== 0);
-  const zeroWeightDropped = perItem.size - candidates.length;
-
+async function fetchFeaturesForCandidates(
+  deps: RebuildDeps,
+  userId: string,
+  candidates: [string, PerItemSignals][],
+): Promise<Map<string, ItemContribution>> {
   const CONCURRENCY = 10;
   const output = new Map<string, ItemContribution>();
   for (let i = 0; i < candidates.length; i += CONCURRENCY) {
@@ -204,18 +254,7 @@ async function collectContributions(
     if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) break;
     const batch = candidates.slice(i, i + CONCURRENCY);
     const results = await Promise.all(
-      batch.map(async ([key, signals]) => {
-        if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) {
-          return { key, signals, weight: resolveItemWeight(signals), candidate: null };
-        }
-        const weight = resolveItemWeight(signals);
-        const candidate = await deps.provider.getItemFeatures(
-          userId,
-          signals.tmdbId,
-          signals.mediaType,
-        );
-        return { key, signals, weight, candidate };
-      }),
+      batch.map(([key, signals]) => fetchOneCandidate(deps, userId, key, signals)),
     );
     for (const { key, signals, weight, candidate } of results) {
       if (!candidate) continue;
@@ -227,16 +266,21 @@ async function collectContributions(
       });
     }
   }
-
-  console.log("[preferences:rebuild] contributions", {
-    userId,
-    mediaType,
-    signals: signalCounts,
-    zeroWeightDropped,
-    noFeaturesDropped: candidates.length - output.size,
-    total: output.size,
-  });
   return output;
+}
+
+async function fetchOneCandidate(
+  deps: RebuildDeps,
+  userId: string,
+  key: string,
+  signals: PerItemSignals,
+) {
+  const weight = resolveItemWeight(signals);
+  if (deps.deadlineMs !== undefined && Date.now() > deps.deadlineMs) {
+    return { key, signals, weight, candidate: null };
+  }
+  const candidate = await deps.provider.getItemFeatures(userId, signals.tmdbId, signals.mediaType);
+  return { key, signals, weight, candidate };
 }
 
 interface PerItemSignals {
