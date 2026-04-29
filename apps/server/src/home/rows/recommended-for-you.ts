@@ -4,6 +4,7 @@ import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } fro
 import type { CanonicalMetadata, MetadataKey, RecItem } from "../../catalog/types";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { canonicalToRaw, toCompact, toStatusOrUndefined, type RawMediaItem } from "../compact";
+import { compositeId } from "./row-utils";
 
 const ROW_ID = "recommendedForYou" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -171,12 +172,6 @@ function filterCandidates(items: RawMediaItem[], exclusion: string[]): RawMediaI
     const id = compositeId(item);
     return id ? !blocked.has(id) : true;
   });
-}
-
-function compositeId(item: RawMediaItem): string | null {
-  const tmdbId = item.ids?.tmdb_id ?? null;
-  if (!tmdbId) return null;
-  return `${item.type}:${tmdbId}`;
 }
 
 /**

@@ -23,6 +23,13 @@ export const PREFERENCE_MANUAL_REBUILD_JOB_ID = "feature.preference.rebuild";
  * startup alongside other scheduler registrations.
  */
 export function registerPreferenceJobs(): void {
+  registerDailyRebuildJob();
+  registerIncrementalUpdateJob();
+  registerManualRebuildJob();
+  consola.debug("[preference] registered daily, incremental, and manual-rebuild jobs");
+}
+
+function registerDailyRebuildJob(): void {
   registerScheduledPerRow<RebuildRow>({
     id: PREFERENCE_DAILY_JOB_ID,
     name: "Daily preference rebuild",
@@ -46,7 +53,9 @@ export function registerPreferenceJobs(): void {
     runTimeoutSec: 60 * 60,
     continueOnRowError: true,
   });
+}
 
+function registerIncrementalUpdateJob(): void {
   registerCoalesced({
     id: PREFERENCE_INCREMENTAL_JOB_ID,
     name: "Incremental preference update",
@@ -60,7 +69,9 @@ export function registerPreferenceJobs(): void {
     },
     timeoutSec: 60,
   });
+}
 
+function registerManualRebuildJob(): void {
   registerTriggerable<
     { userId: string },
     {
@@ -126,13 +137,7 @@ export function registerPreferenceJobs(): void {
           );
         }
 
-        return {
-          startedAt,
-          rebuiltAt: new Date().toISOString(),
-          durationMs,
-          results,
-          warnings,
-        };
+        return { startedAt, rebuiltAt: new Date().toISOString(), durationMs, results, warnings };
       } catch (error) {
         const durationMs = Math.round(performance.now() - startTime);
         consola.error(`[job:feature.preference.rebuild] Failed for user ${userId}`, {
@@ -160,8 +165,6 @@ export function registerPreferenceJobs(): void {
     },
     timeoutSec: 600,
   });
-
-  consola.debug("[preference] registered daily, incremental, and manual-rebuild jobs");
 }
 
 async function rebuildPartitions(

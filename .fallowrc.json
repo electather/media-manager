@@ -18,7 +18,9 @@
   "entry": ["apps/server/src/worker.ts"],
   "ignorePatterns": [
     "**/*.test.ts",
+    "**/*.test.tsx",
     "**/*.spec.ts",
+    "**/*.spec.tsx",
     "**/*.gen.ts",
     "**/dist/**",
     "**/node_modules/**",
@@ -43,7 +45,9 @@
     "ignoreImports": true,
     "ignore": [
       "**/*.test.ts",
+      "**/*.test.tsx",
       "**/*.spec.ts",
+      "**/*.spec.tsx",
       "**/*.tsx",
       "**/plugin.ts",
       "apps/client/**",
@@ -54,7 +58,14 @@
     "maxCyclomatic": 20,
     "maxCognitive": 15,
     "maxCrap": 30,
-    "ignore": ["**/*.test.ts", "**/*.spec.ts", "apps/client/**", "packages/plugins/**"]
+    "ignore": [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "apps/client/**",
+      "packages/plugins/**"
+    ]
   },
   "boundaries": {
     "zones": [

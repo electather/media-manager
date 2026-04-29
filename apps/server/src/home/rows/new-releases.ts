@@ -2,9 +2,10 @@ import type { RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
-import { decodeCursor, encodeCursor } from "../cursor";
+import { encodeCursor } from "../cursor";
 import { canonicalToRaw, type RawMediaItem } from "../compact";
 import { buildItem } from "./build-item";
+import { readPage } from "./row-utils";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -22,7 +23,7 @@ export const newReleasesFetcher: RowFetcher = {
   requires: ["metadata@v1"],
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
-    const page = readPage(opts.cursor);
+    const page = readPage(opts.cursor, ROW_ID);
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
 
     const snapshot = await ctx.catalogService.getDiscoverFeed(
@@ -105,11 +106,6 @@ async function fetchFromLivePath(
       ? null
       : encodeCursor(ROW_ID, { v: 1, r: ROW_ID, p: nextPage });
   return result.partial ? { items: usable, cursor, partial: true } : { items: usable, cursor };
-}
-
-function readPage(cursor: string | null): number {
-  if (!cursor) return 0;
-  return decodeCursor(ROW_ID, cursor).p;
 }
 
 async function buildFromCanonical(

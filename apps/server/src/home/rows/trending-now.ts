@@ -1,8 +1,9 @@
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
-import { decodeCursor, encodeCursor } from "../cursor";
+import { encodeCursor } from "../cursor";
 import { type RawMediaItem } from "../compact";
 import { buildItem } from "./build-item";
+import { compositeId, readPage } from "./row-utils";
 
 const ROW_ID = "trendingNow" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -19,7 +20,7 @@ export const trendingNowFetcher: RowFetcher = {
   requires: ["recommendations@v1"],
 
   async fetch(ctx: RowFetchContext, opts: RowFetchOptions): Promise<RowFetchResult> {
-    const page = readPage(opts.cursor);
+    const page = readPage(opts.cursor, ROW_ID);
     // Aggregate `recommendations@v1.getTrending` does not expose a page knob,
     // so over-fetch by `(page+1) * limit` and slice client-side. Same pattern
     // `newReleases` uses; without it pages > 0 are guaranteed empty.
@@ -47,30 +48,16 @@ export const trendingNowFetcher: RowFetcher = {
   },
 };
 
-function readPage(cursor: string | null): number {
-  if (!cursor) return 0;
-  return decodeCursor(ROW_ID, cursor).p;
-}
-
 function sliceForPage<T>(items: T[], page: number, limit: number): T[] {
-  const dedup = dedupeByCompositeId(items as unknown as RawMediaItem[]);
+  const raw = items as unknown as RawMediaItem[];
+  const seen = new Set<string>();
+  const dedup = raw.filter((item) => {
+    const id = compositeId(item);
+    if (!id) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
   const start = page * limit;
   return dedup.slice(start, start + limit) as unknown as T[];
-}
-
-function dedupeByCompositeId(items: RawMediaItem[]): RawMediaItem[] {
-  const seen = new Set<string>();
-  const out: RawMediaItem[] = [];
-  for (const item of items) {
-    const id = item.ids?.tmdb_id ?? null;
-    if (!id) {
-      out.push(item);
-      continue;
-    }
-    const key = `${item.type}:${id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(item);
-  }
-  return out;
 }

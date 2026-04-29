@@ -1,10 +1,10 @@
-import { useRef, type MouseEvent } from "react";
-import { useRouter } from "@tanstack/react-router";
+import { useRef } from "react";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import { ROW_DISPLAY } from "@/lib/home-display";
 import { cn } from "@/lib/utils";
 import { useArtworkIfMissing } from "@/hooks/use-artwork";
 import { useInView } from "@/hooks/use-in-view";
+import { usePeekClick } from "@/hooks/use-peek-click";
 import { StatusPill } from "./status-pill";
 import { RatingBadge } from "./rating-badge";
 import { MatchReason } from "./match-reason";
@@ -66,7 +66,6 @@ function formatEpisodeLine(item: CompactMediaItem): string | null {
 }
 
 export function Card({ item, rowId, size = "row", priority, className }: CardProps) {
-  const router = useRouter();
   const display = ROW_DISPLAY[rowId];
   const treatment = pickTreatment(item);
   const aspect = display.aspectRatio === "poster" ? "aspect-[2/3]" : "aspect-video";
@@ -94,15 +93,7 @@ export function Card({ item, rowId, size = "row", priority, className }: CardPro
   const showMatchReason =
     size !== "hero" && display.showMatchReasonInline && item.matchReason && treatment === "default";
 
-  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
-    event.preventDefault();
-    void router.navigate({
-      to: ".",
-      search: (prev) => ({ ...(prev as Record<string, unknown>), peek: item.id }),
-      replace: false,
-    });
-  }
+  const handleClick = usePeekClick(item.id);
 
   return (
     <a

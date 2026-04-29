@@ -29,14 +29,8 @@ vi.mock("../rebuild", () => ({
 
 const { applyIncrementalUpdate } = await import("../incremental");
 import type { CandidateFeatures } from "../types";
-import type {
-  PreferenceDataProvider,
-  HistorySignal,
-  RatingSignal,
-  WatchlistSignal,
-  CommentSignal,
-} from "../provider";
 import { emptyFeatures } from "../types";
+import { NullPreferenceDataProvider } from "./helpers";
 import type { StoredPreferenceProfile } from "../storage";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -88,22 +82,12 @@ const matrixFeatures: CandidateFeatures = {
   originalLanguage: "en",
 };
 
-class FakeProvider implements PreferenceDataProvider {
-  constructor(private readonly features: CandidateFeatures | null = matrixFeatures) {}
+class FakeProvider extends NullPreferenceDataProvider {
+  constructor(private readonly features: CandidateFeatures | null = matrixFeatures) {
+    super();
+  }
   async getItemFeatures(): Promise<CandidateFeatures | null> {
     return this.features;
-  }
-  async getHistory(): Promise<HistorySignal[]> {
-    return [];
-  }
-  async getAllRatings(): Promise<RatingSignal[]> {
-    return [];
-  }
-  async getWatchlist(): Promise<WatchlistSignal[]> {
-    return [];
-  }
-  async getComments(): Promise<CommentSignal[]> {
-    return [];
   }
 }
 

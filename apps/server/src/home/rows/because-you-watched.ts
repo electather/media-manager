@@ -2,6 +2,7 @@ import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { RowFetcher, RowFetchContext, RowFetchOptions, RowFetchResult } from "./index";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { toCompact, toStatusOrUndefined, parseCompactId, type RawMediaItem } from "../compact";
+import { compositeId } from "./row-utils";
 
 const ROW_ID = "becauseYouWatched" as const satisfies RowKind;
 // `metadata@v1.getSimilar` does not expose a page knob, so the host can
@@ -87,12 +88,6 @@ export const becauseYouWatchedFetcher: RowFetcher = {
     }
   },
 };
-
-function compositeId(item: RawMediaItem): string | null {
-  const tmdbId = item.ids?.tmdb_id ?? null;
-  if (!tmdbId) return null;
-  return `${item.type}:${tmdbId}`;
-}
 
 async function buildItem(
   ctx: RowFetchContext,
