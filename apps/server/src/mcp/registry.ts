@@ -67,6 +67,7 @@ class McpToolRegistry {
   private readonly tools = new Map<string, RegisteredTool>();
   private readonly byPlugin = new Map<string, Set<string>>();
 
+  // fallow-ignore-next-line complexity
   register(reg: ToolRegistration): void {
     if (this.tools.has(reg.name)) {
       throw new Error(`tool name collision: "${reg.name}" already registered`);

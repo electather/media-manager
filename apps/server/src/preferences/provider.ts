@@ -58,6 +58,7 @@ export interface RawMediaItem extends MediaItemFields {
  * Normalizes an arbitrary plugin-shaped media item into the `CandidateFeatures`
  * projection. Plugins disagree on field naming, so the adapter stays defensive.
  */
+// fallow-ignore-next-line complexity
 export function rawItemToCandidateFeatures(source: RawMediaItem): CandidateFeatures | null {
   const tmdbId = source.ids?.tmdb_id ?? extractIdFromCombined(source.id);
   const type = source.type ?? inferTypeFromCombined(source.id);

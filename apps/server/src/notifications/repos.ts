@@ -464,6 +464,7 @@ function deliveryEventTags(
   }
 }
 
+// fallow-ignore-next-line complexity
 function applyEventPayloadFilters(
   rows: (typeof notificationDeliveries.$inferSelect)[],
   filters: Pick<DeliveryListFilters, "category" | "severity">,

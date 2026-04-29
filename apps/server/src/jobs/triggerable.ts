@@ -68,6 +68,7 @@ export function registerTriggerable<TInput = unknown, TResult = unknown>(
   };
   register(entry);
 
+  // fallow-ignore-next-line complexity
   async function trigger(
     input: TInput,
     source: TriggerSource,

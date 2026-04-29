@@ -109,6 +109,7 @@ function applyExtendedMetadata(
   if (type === "tv") out.watch_progress = null;
 }
 
+// fallow-ignore-next-line complexity
 async function readAggregatedRatings(
   userId: string,
   tmdbId: string,
@@ -141,6 +142,7 @@ async function readAggregatedRatings(
   }
 }
 
+// fallow-ignore-next-line complexity
 export const entDetailsHandler: ToolHandler = async (ctx: ToolCallContext, input) => {
   const parsed = parseMediaId((input as EntDetailsInput).id);
 

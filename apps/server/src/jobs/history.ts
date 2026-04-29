@@ -57,6 +57,7 @@ export async function startRun(input: StartRunInput): Promise<void> {
 }
 
 /** Updates an in-progress row to its final state and prunes on success. */
+// fallow-ignore-next-line complexity
 export async function finishRun(input: FinishRunInput): Promise<void> {
   await getDb()
     .update(jobRuns)

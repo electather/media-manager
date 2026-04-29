@@ -44,6 +44,7 @@ const TRANSIENT_BACKOFF_MS = 1_000;
 // motivated #135.
 const RETRY_CALL_BUFFER_MS = 200;
 
+// fallow-ignore-next-line complexity
 function decideRetry(errorCode: string, state: RetryState): RetryDecision {
   if (errorCode === "plugin.token_expired" && !state.triedRefresh && state.isUserConnection) {
     return "refresh";

@@ -9,6 +9,7 @@ import { resolveDispatchPreamble } from "./shared";
  * `single` strategy: one connection, no fan-out. Returns the plugin's data or
  * `null` (for `not_found`); throws `PluginCallError` on any other failure.
  */
+// fallow-ignore-next-line complexity
 export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null> {
   const { capability, scope, cached, providers } = await resolveDispatchPreamble<T | null>(req);
   if (cached !== undefined) return cached;

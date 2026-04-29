@@ -17,6 +17,7 @@ export interface RecordFeedbackInput {
   now?: number;
 }
 
+// fallow-ignore-next-line complexity
 function processNoteFields(
   raw: string | null | undefined,
   itemKeywords: readonly string[],

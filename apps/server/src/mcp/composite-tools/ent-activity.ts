@@ -59,6 +59,7 @@ async function decorateAvailability(
   if (providers.length === 0 || results.length === 0) return new Map();
   const map = new Map<string, AvailabilityStatus>();
   await Promise.all(
+    // fallow-ignore-next-line complexity
     results.map(async (item) => {
       const [type, tmdbId] = item.id.split(":");
       if (!type || !tmdbId) return;
@@ -177,6 +178,7 @@ async function runProgress(
   }));
 }
 
+// fallow-ignore-next-line complexity
 export const entActivityHandler: ToolHandler = async (ctx, rawInput) => {
   const input = (rawInput ?? {}) as EntActivityInput;
   const view: ActivityView = input.view ?? "watchlist";

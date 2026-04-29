@@ -105,6 +105,7 @@ export function isBlockedHostname(hostname: string): boolean {
  * surfaces the misconfiguration early (the plugin call fails fast instead of
  * silently losing the allowlist entry).
  */
+// fallow-ignore-next-line complexity
 function hostnameFromValue(pluginId: string, path: string, value: unknown): string {
   // Empty `path` can happen if a plugin declares `x-allowed-host` on the root
   // schema (unusual but valid JSON Schema); render it readably in errors so

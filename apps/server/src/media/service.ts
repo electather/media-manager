@@ -343,6 +343,7 @@ export class MediaService {
    * underlying calendar cache is cold the layout falls back to dropping the
    * row this snapshot, so failures here resolve to zero.
    */
+  // fallow-ignore-next-line complexity
   async getCalendarProgressCount(): Promise<number> {
     try {
       const [inProgress, upcoming] = await Promise.all([

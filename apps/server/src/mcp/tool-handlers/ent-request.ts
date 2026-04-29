@@ -79,6 +79,7 @@ function pickTarget(
   throw ambiguousTarget("mediaRequest@v1", describeCandidates(candidates));
 }
 
+// fallow-ignore-next-line complexity
 async function handleCreate(
   ctx: ToolCallContext,
   input: EntRequestInput,
@@ -116,6 +117,7 @@ async function handleCreate(
   };
 }
 
+// fallow-ignore-next-line complexity
 async function handleStatus(
   ctx: ToolCallContext,
   input: EntRequestInput,

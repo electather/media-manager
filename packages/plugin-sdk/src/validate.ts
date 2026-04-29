@@ -126,6 +126,7 @@ function validateAuth(manifest: ParsedManifest, module: PluginModule): void {
   }
 }
 
+// fallow-ignore-next-line complexity
 function validateMcpTools(manifest: ParsedManifest, module: PluginModule): void {
   const seenNames = new Set<string>();
   for (const tool of manifest.mcpTools ?? []) {

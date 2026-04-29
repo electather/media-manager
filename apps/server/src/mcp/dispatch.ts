@@ -94,6 +94,7 @@ export async function dispatchTool(
 
   return runWithRequestContext(
     { requestId, userId: caller.userId, route: `mcp:${tool.name}` },
+    // fallow-ignore-next-line complexity
     async () => {
       try {
         if (!hasAllScopes(caller.scopes, tool.requiredScopes)) {

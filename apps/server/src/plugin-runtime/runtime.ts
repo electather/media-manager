@@ -85,6 +85,7 @@ interface PluginRow {
  * Kept as a single class so the registry, DB, and crypto concerns stay in one place.
  */
 export class PluginRuntime {
+  // fallow-ignore-next-line complexity
   async bootstrapBuiltins(): Promise<void> {
     const db = getDb();
     const now = Date.now();

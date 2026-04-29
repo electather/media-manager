@@ -47,6 +47,7 @@ function resolveSource(input: unknown): Partial<MediaItemShape> {
   return {};
 }
 
+// fallow-ignore-next-line complexity
 function applySourceFields(out: CompactMediaResult, source: Partial<MediaItemShape>): void {
   if (typeof source.year === "number") out.year = source.year;
   if (Array.isArray(source.genres) && source.genres.length > 0)

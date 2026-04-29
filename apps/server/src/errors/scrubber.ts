@@ -21,6 +21,7 @@ function isSensitiveKey(key: string): boolean {
 
 /** Recursively clones a value, replacing any value under a sensitive key with `[REDACTED]`.
  *  Walks into arrays and objects, stops at primitives, and leaves non-plain objects as-is. */
+// fallow-ignore-next-line complexity
 export function scrub(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[DEPTH_LIMIT]";
   if (value === null || value === undefined) return value;

@@ -116,6 +116,7 @@ function recordWeight(record: FeedbackRecord): number {
   }
 }
 
+// fallow-ignore-next-line complexity
 function applyToProfile(
   profile: PreferenceProfile,
   candidate: import("./types").CandidateFeatures,

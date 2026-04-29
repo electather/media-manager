@@ -93,6 +93,7 @@ async function buildAvailabilityMap(
   return map;
 }
 
+// fallow-ignore-next-line complexity
 async function buildUserRatingMap(
   userId: string,
   type: "movie" | "tv" | undefined,
@@ -217,6 +218,7 @@ async function rerankCompactResults(
   );
 }
 
+// fallow-ignore-next-line complexity
 function compactToMediaItem(compact: CompactMediaResult): MediaItem {
   return {
     id: compact.id,

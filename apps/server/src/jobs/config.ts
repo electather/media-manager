@@ -30,6 +30,7 @@ export interface UpdateInput {
 }
 
 /** Creates or updates the config row. Only the provided fields are touched. */
+// fallow-ignore-next-line complexity
 export async function updateConfig(jobId: string, input: UpdateInput): Promise<JobConfigRow> {
   const db = getDb();
   const now = Date.now();

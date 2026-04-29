@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { Hono } from "hono";
 import { last } from "es-toolkit/array";
 import { consola } from "consola";

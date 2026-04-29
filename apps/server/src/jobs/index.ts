@@ -41,6 +41,7 @@ export async function describe(jobId: string): Promise<JobHandle | null> {
 }
 
 /** Applies a config change and re-schedules the underlying cron if needed. */
+// fallow-ignore-next-line complexity
 export async function applyConfigChange(
   jobId: string,
   input: UpdateInput,

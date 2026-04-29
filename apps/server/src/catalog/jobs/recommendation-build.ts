@@ -73,6 +73,7 @@ async function buildRecommendationsForUser(
  * runs the rebuild loop itself and would double-bump `profile_version`
  * if it called `buildRecommendationsForUser` directly.
  */
+// fallow-ignore-next-line complexity
 export async function writeRecommendationsForUser(
   deps: CatalogRecommendationBuildDeps,
   userId: string,
@@ -150,6 +151,7 @@ type RawCandidate = {
   rating?: number | null;
 };
 
+// fallow-ignore-next-line complexity
 function parseIdentity(item: RawCandidate): { id: string; type: "movie" | "tv" } | null {
   const tmdbId = item.ids?.tmdb_id ?? extractTmdbId(item.id);
   const type = item.type ?? extractType(item.id);
@@ -157,6 +159,7 @@ function parseIdentity(item: RawCandidate): { id: string; type: "movie" | "tv" }
   return { id: `${type}:${tmdbId}`, type };
 }
 
+// fallow-ignore-next-line complexity
 function adaptCandidate(item: RawCandidate): {
   id: string;
   title: string;

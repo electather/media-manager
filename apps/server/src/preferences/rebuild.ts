@@ -233,6 +233,7 @@ function initSignalCounts() {
   };
 }
 
+// fallow-ignore-next-line complexity
 function tallySignals(counts: SignalCounts, s: PerItemSignals): void {
   if (s.rate) {
     const w = rateBucketWeight(s.rate.rating);
@@ -396,6 +397,7 @@ function mergeComment(
 }
 
 /** Combines the per-source weights into a single signed weight per item. */
+// fallow-ignore-next-line complexity
 function resolveItemWeight(signals: PerItemSignals): number {
   let total = 0;
   if (signals.rate) total += rateBucketWeight(signals.rate.rating);

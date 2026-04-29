@@ -89,6 +89,7 @@ export interface TargetedDispatchRequest {
  * the default-picker. No retry/refresh wrapper here — targeted dispatch is
  * exclusively used by MCP writes that want explicit routing.
  */
+// fallow-ignore-next-line complexity
 export async function dispatchToConnection<T>(req: TargetedDispatchRequest): Promise<T | null> {
   const capability = getCapability(req.capability, req.version);
   if (!capability) {

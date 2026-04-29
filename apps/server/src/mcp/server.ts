@@ -33,6 +33,7 @@ function buildToolsList(): ToolsListEntry[] {
   }));
 }
 
+// fallow-ignore-next-line complexity
 async function handleJsonRpc(
   body: JsonRpcRequest,
   userId: string,

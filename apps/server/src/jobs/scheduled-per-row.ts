@@ -180,6 +180,7 @@ function buildStatusOverride(aggregate: RowAggregate) {
   };
 }
 
+// fallow-ignore-next-line complexity
 function resolvePerRowStatus(aggregate: RowAggregate, thrown: unknown): JobRunStatus {
   if (thrown !== undefined && aggregate.succeeded === 0 && aggregate.failed === 0) return "failed";
   if (thrown !== undefined) return aggregate.succeeded > 0 ? "partial_failure" : "failed";

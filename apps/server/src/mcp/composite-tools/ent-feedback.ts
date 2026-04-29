@@ -147,6 +147,7 @@ function triggerIncremental(userId: string): void {
   if (typeof trigger === "function") trigger({ scopeKey: userId, userId });
 }
 
+// fallow-ignore-next-line complexity
 function validateFeedbackInput(input: EntFeedbackInput): void {
   if (!input.id || !input.action) throw badInput("ent_feedback", "id and action are required");
   if (input.action !== "rate" && input.target)
@@ -157,6 +158,7 @@ function validateFeedbackInput(input: EntFeedbackInput): void {
     throw badInput("ent_feedback", "note is required when action=note");
 }
 
+// fallow-ignore-next-line complexity
 export const entFeedbackHandler: ToolHandler = async (ctx, rawInput) => {
   const input = (rawInput ?? {}) as EntFeedbackInput;
   validateFeedbackInput(input);

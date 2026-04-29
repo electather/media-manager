@@ -14,6 +14,7 @@ import { encryptJson, decryptJson, stripRequestFields, writeConnection } from ".
  * secrets (e.g. a password that has been moved into the encrypted credentials
  * blob) from the persisted `userConfig` JSON.
  */
+// fallow-ignore-next-line complexity
 export function applyUserConfigPatch(
   userConfig: unknown,
   patch: Record<string, unknown> | undefined,

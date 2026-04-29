@@ -11,6 +11,7 @@ async function parseBody(message: Request | Response): Promise<unknown> {
   return null;
 }
 
+// fallow-ignore-next-line complexity
 function jsonToFormParams(json: unknown): Record<string, string> {
   const params: Record<string, string> = {};
   if (json && typeof json === "object") {

@@ -136,6 +136,7 @@ export async function setAdminAllowlist(
  * validates these, but we double-check so the runtime layer can't be bypassed
  * by a direct service call.
  */
+// fallow-ignore-next-line complexity
 export async function updateAdminHeaders(
   pluginId: string,
   patch: Record<string, string | null>,

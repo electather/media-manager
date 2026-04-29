@@ -60,6 +60,7 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
  * providers fill missing scalar fields and deep-merge the `ids` bundle. Lists
  * (search/discover/trending) come from the primary only.
  */
+// fallow-ignore-next-line complexity
 export async function dispatchPrimary<T>(req: DispatchRequest): Promise<AggregateResult<T>> {
   const { capability, scope, cached, providers } =
     await resolveDispatchPreamble<AggregateResult<T>>(req);

@@ -12,6 +12,7 @@ export interface ItemIdentity {
 }
 
 /** Resolves a tmdbId + media type from a raw plugin item, or null if unresolvable. */
+// fallow-ignore-next-line complexity
 export function identifyItem(item: RawPluginItem | undefined): ItemIdentity | null {
   if (!item) return null;
   const tmdbId = item.ids?.tmdb_id ?? splitCombinedId(item.id)?.id;

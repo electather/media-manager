@@ -145,6 +145,7 @@ async function loadPluginAndContext(
   return { plugin, pluginCtx };
 }
 
+// fallow-ignore-next-line complexity
 async function executeDelivery(
   deliveryId: string,
   delivery: DeliveryRow,

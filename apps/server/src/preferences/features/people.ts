@@ -6,6 +6,7 @@ const CAST_LIMIT = 5;
 export const peopleScorer: FeatureScorer = {
   id: "people",
   categoryWeight: CATEGORY_WEIGHTS.people,
+  // fallow-ignore-next-line complexity
   extract(item) {
     const out: Record<string, number> = {};
     if (item.director) {

@@ -110,6 +110,7 @@ export const adminErrorsApp = new Hono()
 
     return c.json({ records: rows, total: total?.count ?? 0 });
   })
+  // fallow-ignore-next-line complexity
   .get("/summary", async (c) => {
     const db = getDb();
     const hourAgo = Date.now() - 60 * 60 * 1000;

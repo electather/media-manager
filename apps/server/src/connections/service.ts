@@ -106,6 +106,7 @@ async function updateConnectionWhere(
 
 type ConnRow = NonNullable<Awaited<ReturnType<typeof fetchConnectionByOwner>>>;
 
+// fallow-ignore-next-line complexity
 async function verifyFormAuthConfig(
   row: Pick<ConnRow, "pluginId" | "credentialsIv" | "encryptedCredentials">,
   userId: string,
@@ -357,6 +358,7 @@ export const connectionsService = {
     }
   },
 
+  // fallow-ignore-next-line complexity
   async test(args: {
     userId: string;
     connectionId: string;

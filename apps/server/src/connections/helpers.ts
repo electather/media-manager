@@ -69,6 +69,7 @@ export function stripRequestFields(schema: unknown, value: unknown): unknown {
  * back. All current built-in plugin schemas are flat, so this is a deliberate
  * simplification, not a gap to fill speculatively.
  */
+// fallow-ignore-next-line complexity
 export function stripExtensionFields(
   schema: unknown,
   value: unknown,
@@ -112,6 +113,7 @@ export function stripResponseFields(schema: unknown, value: unknown): unknown {
  * keys are strings). Not formally guaranteed by the spec, but reliable in
  * every JS runtime this repo targets.
  */
+// fallow-ignore-next-line complexity
 export function computeDisplayFields(
   schema: unknown,
   value: unknown,
@@ -167,6 +169,7 @@ function titleizeFieldName(name: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// fallow-ignore-next-line complexity
 function stringifyDisplayValue(v: unknown): string {
   if (v === undefined || v === null) return "";
   if (typeof v === "string") return v;

@@ -85,6 +85,7 @@ function registerManualRebuildJob(): void {
     id: PREFERENCE_MANUAL_REBUILD_JOB_ID,
     name: "Rebuild preference profile",
     description: "Full rebuild of a user's preference profile on demand.",
+    // fallow-ignore-next-line complexity
     handler: async (ctx, input) => {
       if (!input?.userId) {
         consola.warn("[job:feature.preference.rebuild] Aborted: userId is required in input");

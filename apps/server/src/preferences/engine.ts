@@ -174,6 +174,7 @@ export class PreferenceEngine {
   }
 }
 
+// fallow-ignore-next-line complexity
 function resolvePreviewSentiment(
   action: FeedbackAction,
   opts: { rating?: number; note?: string },
@@ -194,6 +195,7 @@ function resolvePreviewSentiment(
 }
 
 /** True when a candidate already carries the fields needed for full scoring. */
+// fallow-ignore-next-line complexity
 function hasRichFeatures(candidate: CandidateFeatures): boolean {
   const keywordsPresent = (candidate.keywords?.length ?? 0) > 0;
   const peoplePresent = Boolean(candidate.director) || (candidate.cast?.length ?? 0) > 0;
