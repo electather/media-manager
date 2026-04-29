@@ -156,4 +156,30 @@ describe("CatalogPreferenceProvider", () => {
     expect(fallback.getWatchlist).toHaveBeenCalledWith("u1");
     expect(fallback.getComments).toHaveBeenCalledWith("u1");
   });
+
+  it("counts canonical hits, fallback misses, and unresolved misses", async () => {
+    const catalog = new CatalogService(await createInMemoryDb());
+    await catalog.writeMetadata([
+      toCanonicalRow(
+        { tmdbId: "550", type: "movie" },
+        { ...FALLBACK_FEATURES, ids: { tmdb_id: "550" } },
+      ),
+    ]);
+    const fallback = makeFallback({
+      getItemFeatures: vi.fn(async (_userId, tmdbId) =>
+        tmdbId === "1396" ? null : FALLBACK_FEATURES,
+      ),
+    });
+    const provider = new CatalogPreferenceProvider(catalog, fallback);
+
+    await provider.getItemFeatures("u1", "550", "movie"); // canonical hit
+    await provider.getItemFeatures("u1", "9999", "movie"); // miss + resolved by fallback
+    await provider.getItemFeatures("u1", "1396", "movie"); // miss + unresolved
+
+    const metrics = provider.consumeFeatureCacheMetrics();
+    expect(metrics).toEqual({ hits: 1, misses: 2, unresolved: 1 });
+
+    const drained = provider.consumeFeatureCacheMetrics();
+    expect(drained).toEqual({ hits: 0, misses: 0, unresolved: 0 });
+  });
 });

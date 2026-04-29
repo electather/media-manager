@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
-import { consola } from "consola";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -29,14 +28,16 @@ vi.mock("../../catalog/jobs/recommendation-build", () => ({
   writeRecommendationsForUser: vi.fn(async () => undefined),
 }));
 
+const consolaMock = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  success: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+};
 vi.mock("consola", () => ({
-  consola: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    success: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
+  default: consolaMock,
+  consola: consolaMock,
 }));
 
 const { registerPreferenceJobs, PREFERENCE_MANUAL_REBUILD_JOB_ID } = await import("../jobs");
@@ -46,6 +47,14 @@ const { getPreferenceEngine } = await import("../index");
 describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   let triggerableHandler: any;
   let mockEngine: any;
+  let mockLogger: {
+    info: ReturnType<typeof vi.fn>;
+    warn: ReturnType<typeof vi.fn>;
+    success: ReturnType<typeof vi.fn>;
+    error: ReturnType<typeof vi.fn>;
+    debug: ReturnType<typeof vi.fn>;
+  };
+  let mockCtx: { abortSignal: AbortSignal; logger: typeof mockLogger };
   const mockAbortSignal = new AbortController().signal;
 
   beforeEach(() => {
@@ -55,6 +64,15 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
       rebuildProfile: vi.fn(),
     };
     vi.mocked(getPreferenceEngine).mockReturnValue(mockEngine);
+
+    mockLogger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      success: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    };
+    mockCtx = { abortSignal: mockAbortSignal, logger: mockLogger };
 
     registerPreferenceJobs();
 
@@ -66,10 +84,8 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   });
 
   it("throws if userId is missing", async () => {
-    await expect(triggerableHandler({ abortSignal: mockAbortSignal }, {})).rejects.toThrow(
-      "userId is required",
-    );
-    expect(consola.warn).toHaveBeenCalledWith(
+    await expect(triggerableHandler(mockCtx, {})).rejects.toThrow("userId is required");
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("userId is required in input"),
     );
   });
@@ -82,7 +98,7 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
       confidence: "low",
     }));
 
-    const result = await triggerableHandler({ abortSignal: mockAbortSignal }, { userId: "u1" });
+    const result = await triggerableHandler(mockCtx, { userId: "u1" });
 
     expect(result.warnings).toContain("Profile for movie was rebuilt with 0 sample size");
     // The else-if branch means only the sampleSize warning fires when sampleSize is 0.
@@ -92,7 +108,7 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
     expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "movie", mockAbortSignal);
     expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "tv", mockAbortSignal);
     expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "combined", mockAbortSignal);
-    expect(consola.warn).toHaveBeenCalledWith(
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("Completed with warnings for user u1"),
       expect.any(Object),
     );
@@ -106,7 +122,7 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
       return { userId, mediaType, sampleSize: 50, confidence: "high" };
     });
 
-    const result = await triggerableHandler({ abortSignal: mockAbortSignal }, { userId: "u1" });
+    const result = await triggerableHandler(mockCtx, { userId: "u1" });
 
     expect(result.warnings).toContain(
       "Profile for tv has low confidence (insufficient data points)",
@@ -114,7 +130,7 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
     expect(result.warnings).not.toContain(
       "Profile for movie has low confidence (insufficient data points)",
     );
-    expect(consola.warn).toHaveBeenCalledWith(
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("Completed with warnings for user u1"),
       expect.any(Object),
     );
@@ -128,14 +144,14 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
       confidence: "high",
     }));
 
-    const result = await triggerableHandler({ abortSignal: mockAbortSignal }, { userId: "u1" });
+    const result = await triggerableHandler(mockCtx, { userId: "u1" });
 
     expect(result.warnings).toEqual([]);
-    expect(consola.success).toHaveBeenCalledWith(
+    expect(mockLogger.success).toHaveBeenCalledWith(
       expect.stringContaining("Completed successfully for user u1"),
       expect.any(Object),
     );
-    expect(consola.warn).not.toHaveBeenCalledWith(
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining("Completed with warnings"),
     );
   });
@@ -144,11 +160,9 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
     const error = new Error("Database offline");
     mockEngine.rebuildProfile.mockRejectedValue(error);
 
-    await expect(
-      triggerableHandler({ abortSignal: mockAbortSignal }, { userId: "u1" }),
-    ).rejects.toThrow("Database offline");
+    await expect(triggerableHandler(mockCtx, { userId: "u1" })).rejects.toThrow("Database offline");
 
-    expect(consola.error).toHaveBeenCalledWith(
+    expect(mockLogger.error).toHaveBeenCalledWith(
       expect.stringContaining("Failed for user u1"),
       expect.objectContaining({ error: "Database offline" }),
     );

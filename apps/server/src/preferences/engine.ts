@@ -43,6 +43,16 @@ const COLD_FILL_CONCURRENCY = 10;
 export class PreferenceEngine {
   constructor(private readonly deps: PreferenceEngineDeps) {}
 
+  /**
+   * Exposes the underlying data provider so callers (notably observability
+   * code in the manual rebuild job) can interrogate provider-specific
+   * surfaces such as `consumeFeatureCacheMetrics`. Engine itself stays
+   * provider-agnostic; the optional surface is read at the call site.
+   */
+  get provider(): PreferenceDataProvider {
+    return this.deps.provider;
+  }
+
   // fallow-ignore-next-line unused-class-member
   async rankCandidates(
     userId: string,
