@@ -12,6 +12,18 @@ import { auth } from "../../auth/config";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const userWithRoleColumns = {
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  emailVerified: user.emailVerified,
+  image: user.image,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+  roleId: userRoles.roleId,
+  roleName: roles.name,
+} as const;
+
 function userNotFound(userId: string) {
   return notFound("users.not_found", `user ${userId} not found`, { userId });
 }
@@ -48,17 +60,7 @@ async function requireUniqueEmail(email: string, excludeUserId?: string) {
 async function listAllUsers() {
   const db = getDb();
   const rows = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      image: user.image,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      roleId: userRoles.roleId,
-      roleName: roles.name,
-    })
+    .select(userWithRoleColumns)
     .from(user)
     .leftJoin(userRoles, eq(userRoles.userId, user.id))
     .leftJoin(roles, eq(roles.id, userRoles.roleId))
@@ -105,17 +107,7 @@ export const adminUsersApp = new Hono()
     const db = getDb();
 
     const row = await db
-      .select({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        image: user.image,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        roleId: userRoles.roleId,
-        roleName: roles.name,
-      })
+      .select(userWithRoleColumns)
       .from(user)
       .leftJoin(userRoles, eq(userRoles.userId, user.id))
       .leftJoin(roles, eq(roles.id, userRoles.roleId))

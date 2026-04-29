@@ -76,12 +76,18 @@ function buildPluginSummary(
   };
 }
 
+async function fetchConnectionByOwner(db: Db, connectionId: string, userId: string) {
+  return (
+    (await db
+      .select()
+      .from(serviceConnections)
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+      .get()) ?? null
+  );
+}
+
 async function requireConnection(db: Db, connectionId: string, userId: string) {
-  const row = await db
-    .select()
-    .from(serviceConnections)
-    .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
-    .get();
+  const row = await fetchConnectionByOwner(db, connectionId, userId);
   if (!row) throw notFound("connection.not_found", "connection not found");
   return row;
 }
@@ -305,16 +311,7 @@ export const connectionsService = {
 
   async delete(args: { userId: string; connectionId: string }): Promise<void> {
     const db = getDb();
-    const row = await db
-      .select()
-      .from(serviceConnections)
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      )
-      .get();
+    const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
     if (!row) return;
     await db.delete(serviceConnections).where(eq(serviceConnections.id, args.connectionId));
     await invalidateUserCache(args.userId);
@@ -346,16 +343,7 @@ export const connectionsService = {
     connectionId: string;
   }): Promise<{ ok: boolean; message?: string }> {
     const db = getDb();
-    const row = await db
-      .select()
-      .from(serviceConnections)
-      .where(
-        and(
-          eq(serviceConnections.id, args.connectionId),
-          eq(serviceConnections.userId, args.userId),
-        ),
-      )
-      .get();
+    const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
     if (!row) return { ok: false, message: "connection not found" };
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
     const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;

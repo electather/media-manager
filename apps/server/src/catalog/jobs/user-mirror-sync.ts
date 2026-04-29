@@ -45,6 +45,29 @@ export function registerCatalogUserMirrorSyncJob(deps: CatalogUserMirrorSyncDeps
   });
 }
 
+async function syncMirrorEvents<E>(
+  ctx: JobRunContext,
+  label: string,
+  row: SyncRow,
+  collect: () => Promise<E[]>,
+  getTimestamp: (event: E) => number,
+  append: (events: E[], cursorTs: number) => Promise<void>,
+): Promise<void> {
+  ctx.abortSignal.throwIfAborted();
+  try {
+    const events = await collect();
+    if (events.length > 0) {
+      const cursorTs = events.reduce((max, ev) => Math.max(max, getTimestamp(ev)), 0);
+      await append(events, cursorTs);
+    }
+  } catch (err) {
+    if (isAbortError(err, ctx)) throw err;
+    ctx.logger.warn(
+      `[catalog:user-mirror-sync] ${label} dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
+    );
+  }
+}
+
 export async function syncUserPluginPair(
   deps: CatalogUserMirrorSyncDeps,
   ctx: JobRunContext,
@@ -52,36 +75,27 @@ export async function syncUserPluginPair(
 ): Promise<void> {
   const media = new MediaService(row.userId);
 
-  ctx.abortSignal.throwIfAborted();
-  try {
-    const events = await collectHistoryEvents(media, row.pluginId);
-    if (events.length > 0) {
-      const cursorTs = events.reduce((max, ev) => Math.max(max, ev.watchedAt), 0);
-      await deps.catalog.appendUserHistory(row.userId, events, row.pluginId, cursorTs);
-    }
-  } catch (err) {
-    // Cancellation must propagate; any other failure on this capability
-    // logs a warning and lets the ratings block still run so a transient
-    // history-plugin error does not block ratings sync.
-    if (isAbortError(err, ctx)) throw err;
-    ctx.logger.warn(
-      `[catalog:user-mirror-sync] history dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
-    );
-  }
-
-  ctx.abortSignal.throwIfAborted();
-  try {
-    const events = await collectRatingEvents(media, row.pluginId);
-    if (events.length > 0) {
-      const cursorTs = events.reduce((max, ev) => Math.max(max, ev.ratedAt), 0);
-      await deps.catalog.appendUserRatings(row.userId, events, row.pluginId, cursorTs);
-    }
-  } catch (err) {
-    if (isAbortError(err, ctx)) throw err;
-    ctx.logger.warn(
-      `[catalog:user-mirror-sync] ratings dispatch failed for ${row.userId}/${row.pluginId}: ${formatError(err)}`,
-    );
-  }
+  // Cancellation must propagate; any other failure on one capability logs a
+  // warning and lets the other block still run so a transient error on one
+  // plugin does not block the sibling sync.
+  await syncMirrorEvents(
+    ctx,
+    "history",
+    row,
+    () => collectHistoryEvents(media, row.pluginId),
+    (ev) => ev.watchedAt,
+    (events, cursorTs) =>
+      deps.catalog.appendUserHistory(row.userId, events, row.pluginId, cursorTs),
+  );
+  await syncMirrorEvents(
+    ctx,
+    "ratings",
+    row,
+    () => collectRatingEvents(media, row.pluginId),
+    (ev) => ev.ratedAt,
+    (events, cursorTs) =>
+      deps.catalog.appendUserRatings(row.userId, events, row.pluginId, cursorTs),
+  );
 }
 
 function isAbortError(err: unknown, ctx: JobRunContext): boolean {

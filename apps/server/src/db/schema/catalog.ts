@@ -90,26 +90,21 @@ export const recommendationLists = sqliteTable(
 export const insertRecommendationListSchema = createInsertSchema(recommendationLists);
 export const selectRecommendationListSchema = createSelectSchema(recommendationLists);
 
-export const userHistoryMirror = sqliteTable("user_history_mirror", {
-  userId: text("user_id")
-    .primaryKey()
-    .references(() => user.id, { onDelete: "cascade" }),
-  events: text("events", { mode: "json" }).$type<HistoryEvent[]>().notNull(),
-  pluginCursors: text("plugin_cursors", { mode: "json" }).$type<PluginCursors>().notNull(),
-  lastSyncedAt: integer("last_synced_at").notNull(),
-});
+function userMirrorTable<T>(tableName: string) {
+  return sqliteTable(tableName, {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    events: text("events", { mode: "json" }).$type<T>().notNull(),
+    pluginCursors: text("plugin_cursors", { mode: "json" }).$type<PluginCursors>().notNull(),
+    lastSyncedAt: integer("last_synced_at").notNull(),
+  });
+}
 
+export const userHistoryMirror = userMirrorTable<HistoryEvent[]>("user_history_mirror");
 export const insertUserHistoryMirrorSchema = createInsertSchema(userHistoryMirror);
 export const selectUserHistoryMirrorSchema = createSelectSchema(userHistoryMirror);
 
-export const userRatingsMirror = sqliteTable("user_ratings_mirror", {
-  userId: text("user_id")
-    .primaryKey()
-    .references(() => user.id, { onDelete: "cascade" }),
-  events: text("events", { mode: "json" }).$type<RatingEvent[]>().notNull(),
-  pluginCursors: text("plugin_cursors", { mode: "json" }).$type<PluginCursors>().notNull(),
-  lastSyncedAt: integer("last_synced_at").notNull(),
-});
-
+export const userRatingsMirror = userMirrorTable<RatingEvent[]>("user_ratings_mirror");
 export const insertUserRatingsMirrorSchema = createInsertSchema(userRatingsMirror);
 export const selectUserRatingsMirrorSchema = createSelectSchema(userRatingsMirror);
