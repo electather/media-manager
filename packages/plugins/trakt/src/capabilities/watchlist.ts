@@ -1,5 +1,5 @@
 import { traktJson, traktJsonWrite } from "../client";
-import { splitByType, mapMovie, mapShow } from "../mappers";
+import { toSyncBody, mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow, TraktMediaItemRef } from "../types";
 
 export const watchlist = {
@@ -28,22 +28,20 @@ export const watchlist = {
 
   async addToWatchlist(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
     const body = await traktJsonWrite<{ added?: { movies?: number; shows?: number } }>(
       c,
       "/sync/watchlist",
-      { method: "POST", body: JSON.stringify({ movies, shows }) },
+      { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },
     );
     return { added: (body.added?.movies ?? 0) + (body.added?.shows ?? 0) };
   },
 
   async removeFromWatchlist(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
     const body = await traktJsonWrite<{ deleted?: { movies?: number; shows?: number } }>(
       c,
       "/sync/watchlist/remove",
-      { method: "POST", body: JSON.stringify({ movies, shows }) },
+      { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },
     );
     return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.shows ?? 0) };
   },

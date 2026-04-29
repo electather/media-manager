@@ -43,6 +43,13 @@ export function mapMovie(m: TraktMovie) {
   };
 }
 
+// Serializes a mixed-type item list into the JSON body shape Trakt sync
+// endpoints expect. Used by all add/remove sync write operations.
+export function toSyncBody(items: TraktMediaItemRef[]): string {
+  const { movies, shows } = splitByType(items);
+  return JSON.stringify({ movies, shows });
+}
+
 export function mapShow(s: TraktShow) {
   return {
     id: `tv:${s.ids.tmdb ?? s.ids.trakt}`,

@@ -1,5 +1,5 @@
 import { traktJsonWrite, traktPaginate } from "../client";
-import { splitByType, mapMovie, mapShow } from "../mappers";
+import { toSyncBody, mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow, TraktMediaItemRef } from "../types";
 
 export const watchHistory = {
@@ -34,22 +34,20 @@ export const watchHistory = {
 
   async addToHistory(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
     const body = await traktJsonWrite<{ added?: { movies?: number; episodes?: number } }>(
       c,
       "/sync/history",
-      { method: "POST", body: JSON.stringify({ movies, shows }) },
+      { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },
     );
     return { added: (body.added?.movies ?? 0) + (body.added?.episodes ?? 0) };
   },
 
   async removeFromHistory(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
-    const { movies, shows } = splitByType(input as TraktMediaItemRef[]);
     const body = await traktJsonWrite<{ deleted?: { movies?: number; episodes?: number } }>(
       c,
       "/sync/history/remove",
-      { method: "POST", body: JSON.stringify({ movies, shows }) },
+      { method: "POST", body: toSyncBody(input as TraktMediaItemRef[]) },
     );
     return { removed: (body.deleted?.movies ?? 0) + (body.deleted?.episodes ?? 0) };
   },

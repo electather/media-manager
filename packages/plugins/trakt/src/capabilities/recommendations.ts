@@ -2,6 +2,18 @@ import { traktJson } from "../client";
 import { mapMovie, mapShow } from "../mappers";
 import type { Ctx, TraktMovie, TraktShow } from "../types";
 
+function filterByType<T extends { movie?: TraktMovie; show?: TraktShow }>(
+  rows: T[],
+  type: "movie" | "tv",
+) {
+  const results = [];
+  for (const row of rows) {
+    if (type === "movie" && row.movie) results.push(mapMovie(row.movie));
+    else if (type === "tv" && row.show) results.push(mapShow(row.show));
+  }
+  return results;
+}
+
 export const recommendations = {
   async getRecommendations(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
@@ -21,13 +33,7 @@ export const recommendations = {
       c,
       `${path}?limit=${limit}`,
     );
-    // Filter rows missing the nested object rather than throwing on a non-null assertion.
-    const results = [];
-    for (const row of data) {
-      if (type === "movie" && row.movie) results.push(mapMovie(row.movie));
-      else if (type === "tv" && row.show) results.push(mapShow(row.show));
-    }
-    return results;
+    return filterByType(data, type);
   },
 
   async getAnticipated(ctx: unknown, input: unknown) {
@@ -37,12 +43,6 @@ export const recommendations = {
     const data = await traktJson<
       Array<{ list_count: number; movie?: TraktMovie; show?: TraktShow }>
     >(c, `${path}?limit=${limit}`);
-    // Filter rows missing the nested object rather than throwing on a non-null assertion.
-    const results = [];
-    for (const row of data) {
-      if (type === "movie" && row.movie) results.push(mapMovie(row.movie));
-      else if (type === "tv" && row.show) results.push(mapShow(row.show));
-    }
-    return results;
+    return filterByType(data, type);
   },
 };
