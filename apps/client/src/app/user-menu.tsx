@@ -1,7 +1,6 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { ChevronDown, Library, LogOut, Plug, Settings, Sparkles } from "lucide-react";
 import { authClient } from "@/shared/lib/auth";
-import { cn } from "@/shared/lib/utils";
 import { UserAvatar } from "@/shared/components/user-avatar";
 import {
   DropdownMenu,
@@ -32,7 +31,7 @@ export function UserMenu() {
             aria-label="Account menu"
             variant="outline"
             size="sm"
-            className={cn("cursor-pointer gap-1 rounded-full py-1 pl-1 pr-2 shadow-none")}
+            className={"cursor-pointer gap-1 rounded-full py-1 pl-1 pr-2 shadow-none"}
           >
             <UserAvatar name={name} email={email} size="sm" />
             <ChevronDown className="size-4 text-muted-foreground" />
