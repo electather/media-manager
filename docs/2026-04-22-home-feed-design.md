@@ -220,9 +220,12 @@ interface CompactMediaItem {
   mediaType: "movie" | "tv";
   title: string;
   year?: number;
-  // Image fields (poster/backdrop/clearLogo) intentionally absent — client
-  // resolves artwork via `artwork.get` RPC. See
-  // `docs/2026-04-26-plugin-fanart-design.md`.
+  // Image fields (poster/backdrop/clearLogo) ride along when canonical has
+  // them — see `docs/2026-04-28-canonical-artwork-readthrough-design.md`.
+  // Client falls back to `artwork.get` only for slots still null on the wire.
+  poster?: string;
+  backdrop?: string;
+  clearLogo?: string;
   progress?: { watched: number; total: number }; // within-content (movie OR episode)
   episodeProgress?: { watched: number; total: number }; // TV-only season position; "2/12 watched"
   overview?: string; // truncated to ~240 chars
@@ -393,7 +396,15 @@ resumeUrl resolution — new subsection. Decide before implementation: extend wa
 Per-row updates — continueWatching:
 
 Populate episodeProgress for TV items from watchHistory's season-level state.
-compact.ts mapper drops every image field. Client resolves artwork via `artwork.get` RPC after layout response. See `docs/2026-04-26-plugin-fanart-design.md`.
+
+> **Superseded 2026-04-28 — canonical artwork read-through.** The earlier note
+> "compact.ts mapper drops every image field; client resolves artwork via
+> `artwork.get` after layout" no longer applies. `compact.ts` now ships
+> `poster` / `backdrop` / `clearLogo` / `overview` whenever canonical holds
+> them, and `runFetch` calls `fillMissingArtwork` post-fetch to backfill any
+> upstream-supplied row (e.g. Trakt-sourced `recommendations@v1`) from
+> `canonical_metadata`. Client uses `artwork.get` only for slots still null
+> on the wire. See `docs/2026-04-28-canonical-artwork-readthrough-design.md`.
 
 ```ts
 function resolveHero(
@@ -981,5 +992,5 @@ One test per user-state fixture:
 - **Dashboard rate limiting.** ⊥ introduced here. Extend same token-bucket primitive used for MCP to RPC if needed.
 - **A/B variants on rule table.** Pure-function shape built for it; no experiment infra wired v1.
 - **MCP equivalent.** MCP agents already get home-equivalent via `ent_discover`; dedicated `ent_home` would duplicate surface — ⊥ planned.
-- ~~Add: fanart.tv access. Rate limits, language-tagged asset selection, fallback chain. Own subspec or metadata-capability extension.~~ **Resolved** by `docs/2026-04-26-plugin-fanart-design.md` — new `artwork@v1` capability + `@ent-mcp/plugin-fanart` plugin + `artwork.get` RPC. Image fields removed from `CompactMediaItem`; client resolves artwork via lazy-loaded `artwork.get` calls.
+- ~~Add: fanart.tv access. Rate limits, language-tagged asset selection, fallback chain. Own subspec or metadata-capability extension.~~ **Resolved** by `docs/2026-04-26-plugin-fanart-design.md` — new `artwork@v1` capability + `@ent-mcp/plugin-fanart` plugin + `artwork.get` RPC. Refined 2026-04-28 (`docs/2026-04-28-canonical-artwork-readthrough-design.md`): `CompactMediaItem` carries `poster`/`backdrop`/`clearLogo`/`overview` whenever canonical has them; client falls back to lazy `artwork.get` only when a required slot is still null.
 - Add: resumeUrl capability owner. watchHistory@v1 extension vs new playback@v1. Decide before implementation.

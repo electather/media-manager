@@ -18,7 +18,20 @@ import type { CandidateFeatures } from "./types";
  * write-back so the next read is warm. History/ratings/watchlist/comments
  * stay on the fallback until Phase 5 wires the mirrors in.
  */
+export interface FeatureCacheMetrics {
+  /** Hits served straight from `canonical_metadata.features`. */
+  hits: number;
+  /** Falls through to the wrapped fallback (typically a plugin dispatch). */
+  misses: number;
+  /** Misses that resolved to `null` from the fallback (item not findable). */
+  unresolved: number;
+}
+
 export class CatalogPreferenceProvider implements PreferenceDataProvider {
+  private hits = 0;
+  private misses = 0;
+  private unresolved = 0;
+
   constructor(
     private readonly catalog: CatalogService,
     private readonly fallback: PreferenceDataProvider,
@@ -30,10 +43,17 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
     mediaType: "movie" | "tv",
   ): Promise<CandidateFeatures | null> {
     const cached = await this.catalog.getMetadata(tmdbId, mediaType);
-    if (cached?.features) return toCandidateFeatures(cached);
+    if (cached?.features) {
+      this.hits += 1;
+      return toCandidateFeatures(cached);
+    }
 
+    this.misses += 1;
     const features = await this.fallback.getItemFeatures(userId, tmdbId, mediaType);
-    if (!features) return null;
+    if (!features) {
+      this.unresolved += 1;
+      return null;
+    }
 
     // Detached cold-fill write-back. Reads ⊥ block on the persist; write
     // failures are logged and dropped so a transient DB hiccup never poisons
@@ -76,6 +96,24 @@ export class CatalogPreferenceProvider implements PreferenceDataProvider {
   // fallback so the surface stays unchanged.
   getComments(userId: string): Promise<CommentSignal[]> {
     return this.fallback.getComments(userId);
+  }
+
+  /**
+   * Reads and clears the feature cache counters. Callers (notably the manual
+   * rebuild job) snapshot per partition so end-of-run logs can show the
+   * canonical hit ratio for each partition independently.
+   */
+  // fallow-ignore-next-line unused-class-member
+  consumeFeatureCacheMetrics(): FeatureCacheMetrics {
+    const snapshot: FeatureCacheMetrics = {
+      hits: this.hits,
+      misses: this.misses,
+      unresolved: this.unresolved,
+    };
+    this.hits = 0;
+    this.misses = 0;
+    this.unresolved = 0;
+    return snapshot;
   }
 
   // fallow-ignore-next-line complexity

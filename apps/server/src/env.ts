@@ -48,6 +48,17 @@ export const env = createEnv({
      */
     EMAIL_PROVIDER_CONFIGURED: z.coerce.boolean().default(false),
     NOTIFICATIONS_ENABLED: z.coerce.boolean().default(false),
+    /**
+     * Maximum consola verbosity printed to stdout inside job runs. Anything
+     * more verbose than this threshold is dropped on stdout — buffered
+     * dashboard logs keep every entry regardless. Consola levels:
+     * `fatal`/`error` (0) < `warn` (1) < `log` (2) < `info`/`success`/`ready`/`start`/`box` (3) < `debug` (4) < `trace` (5).
+     * Defaults to `warn` so per-run completion banners don't clutter
+     * production logs; set to `info` or `debug` to bring them back.
+     */
+    JOB_CONSOLE_LOG_LEVEL: z
+      .enum(["silent", "fatal", "error", "warn", "log", "info", "debug", "trace", "verbose"])
+      .default("warn"),
   },
   runtimeEnv: process.env,
 });

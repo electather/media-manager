@@ -1,6 +1,7 @@
 import { consola } from "consola";
 import type { HomeRowStub, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import { AllPluginsFailedError } from "../media/errors";
+import { fillMissingArtwork } from "./canonical-artwork-fill";
 import { encodeCursor } from "./cursor";
 import type { LayoutSignals } from "./signals";
 import {
@@ -175,6 +176,13 @@ export async function runFetch(
       timeoutPromise,
     ]);
     if (raced === TIMEOUT_SENTINEL) return emptyRow(fetcher, "timeout");
+    if (raced.items.length > 0) {
+      try {
+        await fillMissingArtwork(deadlineCtx.catalogService, raced.items);
+      } catch (err) {
+        consola.warn(`[home/layout] ${rowId} canonical artwork fill failed:`, err);
+      }
+    }
     return classify(fetcher, raced);
   } catch (err) {
     if (err instanceof AllPluginsFailedError) return emptyRow(fetcher, "all_failed");
