@@ -41,7 +41,7 @@
   --font-sans: "Geist Variable", sans-serif;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: Geist Mono, ui-monospace, monospace;
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
@@ -59,42 +59,45 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
   --progress-watched: oklch(0.93 0.08 95);
+  --brand: oklch(0.8 0.135 75);
+  --success: oklch(0.72 0.13 155);
+  --danger: oklch(0.65 0.18 25);
 }
 
 .dark {
-  --background: oklch(17.6% 0.017 278.99);
-  --foreground: oklch(100% 0 0);
-  --card: oklch(19.01% 0.018 279.56);
-  --card-foreground: oklch(84.46% 0.015 281.91);
-  --popover: oklch(19.01% 0.018 279.56);
-  --popover-foreground: oklch(84.46% 0.015 281.91);
-  --primary: oklch(34.02% 0.15 279.6);
-  --primary-foreground: oklch(0.984 0.014 180.72);
-  --secondary: oklch(25.17% 0.021 280.72);
-  --secondary-foreground: oklch(84.46% 0.015 281.91);
-  --muted: oklch(35.13% 0.035 279.99);
-  --muted-foreground: oklch(66.17% 0.03 281.03);
-  --accent: oklch(21.66% 0.018 279.84);
-  --accent-foreground: oklch(84.46% 0.015 281.91);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(27.24% 0.02 280.87);
-  --input: oklch(31.42% 0.025 281.65);
-  --ring: oklch(72.44% 0.145 86.15);
+  --background: oklch(0.155 0.005 260);
+  --foreground: oklch(0.97 0.005 260);
+  --card: oklch(0.195 0.006 260);
+  --card-foreground: oklch(0.97 0.005 260);
+  --popover: oklch(0.195 0.006 260);
+  --popover-foreground: oklch(0.97 0.005 260);
+  --primary: oklch(0.8 0.135 75);
+  --primary-foreground: oklch(0.155 0.005 260);
+  --secondary: oklch(0.235 0.006 260);
+  --secondary-foreground: oklch(0.97 0.005 260);
+  --muted: oklch(0.235 0.006 260);
+  --muted-foreground: oklch(0.58 0.01 260);
+  --accent: oklch(0.27 0.008 260);
+  --accent-foreground: oklch(0.97 0.005 260);
+  --destructive: oklch(0.65 0.18 25);
+  --destructive-foreground: oklch(0.97 0.005 260);
+  --border: oklch(0.3 0.008 260);
+  --input: oklch(0.42 0.012 260);
+  --ring: oklch(0.8 0.135 75);
   --chart-1: oklch(0.872 0.007 219.6);
   --chart-2: oklch(0.56 0.021 213.5);
   --chart-3: oklch(0.45 0.017 213.2);
   --chart-4: oklch(0.378 0.015 216);
   --chart-5: oklch(0.275 0.011 216.9);
-  --sidebar: oklch(19.01% 0.018 279.56);
-  --sidebar-foreground: oklch(100% 0 0);
-  --sidebar-primary: oklch(34.02% 0.15 279.6);
-  --sidebar-primary-foreground: oklch(0.277 0.046 192.524);
-  --sidebar-accent: oklch(21.66% 0.018 279.84);
-  --sidebar-accent-foreground: oklch(84.46% 0.015 281.91);
-  --sidebar-border: oklch(27.24% 0.02 280.87);
-  --sidebar-ring: oklch(72.44% 0.145 86.15);
-  --radius: 1rem;
+  --sidebar: oklch(0.195 0.006 260);
+  --sidebar-foreground: oklch(0.97 0.005 260);
+  --sidebar-primary: oklch(0.8 0.135 75);
+  --sidebar-primary-foreground: oklch(0.155 0.005 260);
+  --sidebar-accent: oklch(0.27 0.008 260);
+  --sidebar-accent-foreground: oklch(0.97 0.005 260);
+  --sidebar-border: oklch(0.3 0.008 260);
+  --sidebar-ring: oklch(0.8 0.135 75);
+  --radius: 0.5rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
@@ -109,7 +112,12 @@
   --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 4px 6px -1px hsl(0 0% 0% / 0.1);
   --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
-  --progress-watched: oklch(0.93 0.08 95);
+  --progress-watched: oklch(0.93 0.02 260);
+  --brand: oklch(0.8 0.135 75);
+  --brand-strong: oklch(0.86 0.15 75);
+  --brand-bg: oklch(0.3 0.08 75 / 0.18);
+  --success: oklch(0.72 0.13 155);
+  --danger: oklch(0.65 0.18 25);
 }
 
 @theme inline {
@@ -146,6 +154,11 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-progress-watched: var(--progress-watched);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-bg: var(--brand-bg);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
 
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: var(--font-mono);
