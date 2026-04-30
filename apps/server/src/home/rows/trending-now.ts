@@ -5,7 +5,7 @@ import { encodeCursor } from "../cursor";
 import { type RawMediaItem } from "../compact";
 import { buildItem } from "./build-item";
 import { compositeId, readPage } from "./row-utils";
-import { hydrateFromSnapshot } from "./snapshot-hydration";
+import { tryHydrateFromDiscoverSnapshot } from "./snapshot-hydration";
 
 const ROW_ID = "trendingNow" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -26,6 +26,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const trendingNowFetcher: RowFetcher = {
   rowId: ROW_ID,
   title: "Trending Now",
+  // fallow-ignore-next-line code-duplication
   requires: ["recommendations@v1"],
 
   // fallow-ignore-next-line complexity
@@ -33,16 +34,16 @@ export const trendingNowFetcher: RowFetcher = {
     const page = readPage(opts.cursor, ROW_ID);
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
 
-    const snapshot = await ctx.catalogService.getDiscoverFeed("trending", "popularity_desc", today);
-    if (snapshot && snapshot.length > 0) {
-      return hydrateFromSnapshot(ctx, {
-        rowId: ROW_ID,
-        refs: snapshot,
-        page,
-        limit: opts.limit,
-        maxItems: MAX_ITEMS,
-      });
-    }
+    const hydrated = await tryHydrateFromDiscoverSnapshot(ctx, {
+      rowId: ROW_ID,
+      feedKind: "trending",
+      sort: "popularity_desc",
+      day: today,
+      page,
+      limit: opts.limit,
+      maxItems: MAX_ITEMS,
+    });
+    if (hydrated) return hydrated;
 
     // Aggregate `recommendations@v1.getTrending` does not expose a page knob,
     // so over-fetch by `(page+1) * limit` and slice client-side. Same pattern

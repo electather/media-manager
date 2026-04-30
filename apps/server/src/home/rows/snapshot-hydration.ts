@@ -1,17 +1,50 @@
 import { compact } from "es-toolkit/array";
 import { isNil } from "es-toolkit/predicate";
 import type { CanonicalMetadata, MetadataKey } from "../../catalog/types";
+import type { DiscoverFeedKind, DiscoverSort } from "../../catalog/types";
 import { canonicalToRaw } from "../compact";
 import { encodeCursor } from "../cursor";
 import { buildItem } from "./build-item";
 import type { RowFetchContext, RowFetchResult } from "./index";
 
+type SnapshotRowId = "trendingNow" | "newReleases";
+
 interface SnapshotHydrationOptions {
-  rowId: "trendingNow" | "newReleases";
+  rowId: SnapshotRowId;
   refs: MetadataKey[];
   page: number;
   limit: number;
   maxItems: number;
+}
+
+interface DiscoverSnapshotLookupOptions {
+  rowId: SnapshotRowId;
+  feedKind: DiscoverFeedKind;
+  sort: DiscoverSort;
+  day: number;
+  page: number;
+  limit: number;
+  maxItems: number;
+}
+
+/**
+ * Looks up the daily discover snapshot for a row and, on hit, hydrates it
+ * via `hydrateFromSnapshot`. Returns `null` on a miss so the caller can
+ * fall back to its live plugin path.
+ */
+export async function tryHydrateFromDiscoverSnapshot(
+  ctx: RowFetchContext,
+  opts: DiscoverSnapshotLookupOptions,
+): Promise<RowFetchResult | null> {
+  const snapshot = await ctx.catalogService.getDiscoverFeed(opts.feedKind, opts.sort, opts.day);
+  if (!snapshot || snapshot.length === 0) return null;
+  return hydrateFromSnapshot(ctx, {
+    rowId: opts.rowId,
+    refs: snapshot,
+    page: opts.page,
+    limit: opts.limit,
+    maxItems: opts.maxItems,
+  });
 }
 
 /**

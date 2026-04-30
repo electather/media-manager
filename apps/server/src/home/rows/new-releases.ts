@@ -5,7 +5,7 @@ import { encodeCursor } from "../cursor";
 import { type RawMediaItem } from "../compact";
 import { buildItem } from "./build-item";
 import { readPage } from "./row-utils";
-import { hydrateFromSnapshot } from "./snapshot-hydration";
+import { tryHydrateFromDiscoverSnapshot } from "./snapshot-hydration";
 
 const ROW_ID = "newReleases" as const satisfies RowKind;
 const MAX_ITEMS = 60;
@@ -26,20 +26,16 @@ export const newReleasesFetcher: RowFetcher = {
     const page = readPage(opts.cursor, ROW_ID);
     const today = Math.floor(Date.now() / DAY_MS) * DAY_MS;
 
-    const snapshot = await ctx.catalogService.getDiscoverFeed(
-      "newReleases",
-      "popularity_desc",
-      today,
-    );
-    if (snapshot && snapshot.length > 0) {
-      return hydrateFromSnapshot(ctx, {
-        rowId: ROW_ID,
-        refs: snapshot,
-        page,
-        limit: opts.limit,
-        maxItems: MAX_ITEMS,
-      });
-    }
+    const hydrated = await tryHydrateFromDiscoverSnapshot(ctx, {
+      rowId: ROW_ID,
+      feedKind: "newReleases",
+      sort: "popularity_desc",
+      day: today,
+      page,
+      limit: opts.limit,
+      maxItems: MAX_ITEMS,
+    });
+    if (hydrated) return hydrated;
 
     return fetchFromLivePath(ctx, page, opts.limit, today);
   },
