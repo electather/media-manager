@@ -59,7 +59,6 @@
   --tracking-normal: 0em;
   --spacing: 0.25rem;
   --progress-watched: oklch(0.93 0.08 95);
-  --brand: oklch(0.8 0.135 75);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
 }
@@ -113,9 +112,6 @@
   --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --progress-watched: oklch(0.93 0.02 260);
-  --brand: oklch(0.8 0.135 75);
-  --brand-strong: oklch(0.86 0.15 75);
-  --brand-bg: oklch(0.3 0.08 75 / 0.18);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
 }
@@ -154,9 +150,6 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-progress-watched: var(--progress-watched);
-  --color-brand: var(--brand);
-  --color-brand-strong: var(--brand-strong);
-  --color-brand-bg: var(--brand-bg);
   --color-success: var(--success);
   --color-danger: var(--danger);
 
