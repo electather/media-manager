@@ -89,6 +89,18 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - Runtime: `m.<key>(...)` for messages; `getLocale`/`setLocale` for switch. `setLocale` reloads page.
 - RTL: `<html dir>` attr toggled per locale (`fa` → `rtl`, `en` → `ltr`). RTL set = `RTL_LOCALES.includes(locale)`.
 
+### I.media-details — media detail peek modal
+
+- Feature: `apps/client/src/features/media-details/`.
+- Mount: `_authenticated` layout (V34) — `?peek=<kind>:<id>` search param drives open/close.
+- Source: `peekSchema` in `features/media-details/lib/peek-schema.ts`; re-exported by feature barrel; `_authenticated/route.tsx` `validateSearch` reads from there.
+- Composition: `MediaDetailModal` shell + sub-components (one per file): `score-block`, `feedback-bar`, `note-editor`, `trailer-overlay`, `status-tag`, `episode-row`, `season-block`, `seasons-list`, `tv-air-info`, `modal-skeleton`, `modal-action-row`, `modal-seasons-list`.
+- Responsive: desktop = `@base-ui/react/dialog` full-overlay popup w/ scroll-driven topbar dock; mobile (≤ `md`) = `vaul` bottom drawer.
+- State: client-only Zustand-free store via `@tanstack/react-query` cache + URL params. Notes/watched/watchlist/votes seeded from mock data, mutations write to React Query cache (replaced w/ RPC mutations later).
+- Data: stub `mock-data.ts` (HERO/UPCOMING/ROWS, `generateSeasons`); replaced by `discover.details` / `home.*` later (T43.next).
+- Requests integration: pulls from `features/requests/` barrel — `WatchActions`, `RequestActions`, `RequestStatusInline`, `RequestableSeasonsList`, `SERVICES`, `effectiveItemRequestStatus`, `describeDestination`. All stubbed v1; real impl future task.
+- i18n: messages live in `apps/client/messages/media-details/{en,fa}.json` (per-feature subdir per V61).
+
 ### I.home — home feed procedures
 
 - `home.getLayout` → `HomeLayoutResponse { hero: LayoutHero|null, rows: HomeRow[], generatedAt }`.
@@ -169,6 +181,9 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V62. `@ent-mcp/shared` ⊥ paraglide imports. v1 i18n boundary = client only. Server payload shape ⊥ change for translation; client owns event-kind→message map.
 - V63. Locale strategy chain frozen `["localStorage", "preferredLanguage", "baseLocale"]` v1. ⊥ add `url`/`cookie` w/o spec amend — URL strategy interacts w/ V32-V34 peek-modal flow + needs redirect-loop audit.
 - V64. `<html dir>` attr managed by single root hook reading `getLocale()`. RTL set ⇔ `RTL_LOCALES = ["fa"] as const` includes locale. ⊥ component-local `dir` attrs.
+- V65. `MediaDetailModal` mounted exactly once at `_authenticated` route layout (V34 reaffirmed). ⊥ per-route mount, ⊥ duplicate instance. Peek state source = `?peek=<kind>:<id>` search param parsed by `peekSchema`. ⊥ component-local `useState` for `peekId`. Modifier-clicks on cards fall through to real `/media/{id}` URL (V33).
+- V66. Per-feature i18n message files = `apps/client/messages/<feature>/{locale}.json`. New feature adding strings = new subdir + `pathPattern` entry in `project.inlang/settings.json` + new keys imported via `@/paraglide/messages`. ⊥ flat `messages/{locale}.json`. ⊥ inline literals for translatable chrome (V61 reaffirmed).
+- V67. `features/requests/` is sole owner of request-state UI components (`WatchActions`, `RequestActions`, `RequestStatusInline`, `RequestableSeasonsList`) + helpers (`effectiveItemRequestStatus`, `describeDestination`, `SERVICES`). `features/media-details/` consumes via `@/features/requests` barrel only (V52). ⊥ duplicate request-status logic across features.
 
 NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retired by `2026-04-23-home-feed-frontend-design.md` (T14 cancelled, restructure-aware T38 supersedes). Resolution tracked in T39. ⊥ silently rewriting V30/V31 — invoke `/spec amend §V` to retire.
 
@@ -216,6 +231,8 @@ NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retire
 | T40 | .      | Verification gates — `vp check` + `vp test` + `vp dlx fallow` zero-warning baseline after ∀ T33-T39 step. Fallow run = boundary gate; ⊥ skip. `.fallowrc.json` must encode V60 zone + allow-rule contract; CI rejects PRs that add `features/<x>/` without matching `client-feat-<x>` zone, or weaken allow rules. **Per C13: pre-existing tests pass unmodified after T34-T37 — only test import paths may change, ⊥ test bodies. Diff audit: any non-import line change in moved file = C13 violation, redo PR.**                                                                                  | C13,V51-V60                          |
 | T41 | x      | Paraglide infra — `vp add @inlang/paraglide-js`, `apps/client/project.inlang/settings.json` w/ `en`+`fa`, `messages/{en,fa}.json` skeleton, `paraglideVitePlugin` in `vite.config.ts`, `.gitignore` `apps/client/src/paraglide/`, root `<html dir>` hook, locale init wiring strategy `[localStorage, preferredLanguage, baseLocale]`. | C14,C15,V61,V62,V63,V64,I.i18n |
 | T42 | x      | Notifications panel chrome translation POC — extract translatable strings from `notification-panel.tsx`, `notification-panel-body.tsx`, `notification-empty-state.tsx`, `notification-item.tsx`, `notification-category-chip.tsx` to `messages/{en,fa}.json`. Scope: "Notifications" header, "Mark all read", "{count} unread" plural, category labels (media/sync/auth/system), "All" chip, empty-state copy, "Admin" badge, dismiss aria, "Notification settings", "View all", bell aria-label w/ unread count plural. ⊥ translate fixture `title`/`body` (deferred). Plural via paraglide ICU. | T41,V61,I.i18n,I.notifications |
+| T43 | x      | `features/media-details/` — net-new peek modal feature. Components: `media-detail-modal`, `score-block`, `feedback-bar`, `note-editor`, `trailer-overlay`, `status-tag`, `episode-row`, `season-block`, `seasons-list`, `tv-air-info`, `modal-skeleton`, `modal-action-row`, `modal-seasons-list` (one per file). Lib: `peek-schema.ts` (move from `lib/home-display.ts` re-export), `mock-data.ts`, `find-item.ts`, `use-peek.ts`, `use-detail-store.ts`. Stub `features/requests/` w/ `WatchActions`, `RequestActions`, `RequestStatusInline`, `RequestableSeasonsList`, `SERVICES`, `effectiveItemRequestStatus`, `describeDestination`. Desktop = base-ui Dialog primitives; mobile = vaul Drawer. Mount at `_authenticated` route. Animations imperative-rAF (parallax + dock-logo) ported as-is (refactor later). Add `client-feat-media-details` + `client-feat-requests` fallow zones (V60). i18n strings under `messages/media-details/{en,fa}.json` (V66). | C12,V32,V33,V34,V51,V52,V60,V61,V65,V66,V67,I.media-details |
+| T44 | .      | Wire real RPC for media-details — replace `mock-data.ts` w/ `discover.details` / `home.*` queries; replace `features/requests/` stubs w/ live request flow. Notes/votes mutations hit `preferences.feedback`. | T43,I.api |
 
 ## §B Bugs
 
