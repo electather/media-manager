@@ -49,7 +49,10 @@ export function useJobDetail(jobId: string | null) {
   const data = collection ? (live.data?.[0] as JobHandle | undefined) : undefined;
   return {
     data,
-    isLoading: collection ? live.isLoading : false,
+    // Treat seeded data as ready: when the cache is primed from the list, the
+    // live query emits the row on its first frame even though the underlying
+    // status is still "loading" until the background refetch resolves.
+    isLoading: !data && (collection ? live.isLoading : false),
   };
 }
 

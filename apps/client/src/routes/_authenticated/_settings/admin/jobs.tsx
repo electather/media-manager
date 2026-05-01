@@ -374,7 +374,8 @@ function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () 
   const job = detail.data;
   const runs = runsQuery.data?.runs ?? [];
   const selectedRun = runs.find((r) => r.id === selectedRunId) || null;
-  const isLoading = detail.isLoading || (!!jobId && runsQuery.isLoading);
+  const isJobLoading = detail.isLoading && !job;
+  const isRunsLoading = !!jobId && runsQuery.isLoading;
 
   return (
     <>
@@ -393,7 +394,7 @@ function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () 
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto">
-            {isLoading ? (
+            {isJobLoading ? (
               <div className="flex flex-col gap-3 p-6">
                 <Skeleton className="h-24 rounded-lg" />
                 <Skeleton className="h-48 rounded-lg" />
@@ -401,7 +402,11 @@ function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () 
             ) : job ? (
               <div className="flex flex-col gap-6 p-6">
                 <JobMetaSection job={job} />
-                <RunHistorySection runs={runs} onSelectRun={setSelectedRunId} />
+                {isRunsLoading ? (
+                  <Skeleton className="h-48 rounded-lg" />
+                ) : (
+                  <RunHistorySection runs={runs} onSelectRun={setSelectedRunId} />
+                )}
               </div>
             ) : null}
           </div>
