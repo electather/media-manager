@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 import { queryClient } from "@/shared/lib/db";
 import { jobsListCollection } from "../data/jobs-list.collection";
+import { jobDetailCollection } from "../data/job-detail.collection";
 
 interface ListSubscription {
   unsubscribe: () => void;
@@ -111,5 +112,34 @@ describe("jobsListCollection optimistic mutation", () => {
 
     await expect(tx.isPersisted.promise).rejects.toThrow();
     expect(jobsListCollection.get(seed.id)?.enabled).toBe(true);
+  });
+});
+
+describe("jobDetailCollection structural sharing", () => {
+  it("seeds detail cache from list when row already known", async () => {
+    const seed = sampleJob({ id: "host.detail.seed", enabled: true, name: "Seeded" });
+    fetchMock.mockResolvedValue(jsonResponse({ jobs: [seed] }));
+    subscription = jobsListCollection.subscribeChanges(() => {}) as ListSubscription;
+    await waitForRow(seed.id);
+
+    // Stub /admin/jobs/:id so the detail collection can fire its background
+    // refetch without breaking; assertion runs before that resolves.
+    fetchMock.mockImplementation(async () => jsonResponse({ job: seed }));
+
+    const detailKey = ["admin", "jobs", "detail.job", seed.id];
+    expect(queryClient.getQueryData(detailKey)).toBeUndefined();
+
+    const detail = jobDetailCollection(seed.id);
+
+    expect(queryClient.getQueryData(detailKey)).toEqual([seed]);
+    void detail.cleanup();
+  });
+
+  it("skips seeding when the row is not in the list", () => {
+    const detailKey = ["admin", "jobs", "detail.job", "host.unknown"];
+    expect(queryClient.getQueryData(detailKey)).toBeUndefined();
+    const detail = jobDetailCollection("host.unknown");
+    expect(queryClient.getQueryData(detailKey)).toBeUndefined();
+    void detail.cleanup();
   });
 });
