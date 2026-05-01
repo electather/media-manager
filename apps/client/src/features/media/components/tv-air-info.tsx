@@ -1,14 +1,14 @@
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
-import type { MediaDetailItem } from "../lib/types";
+import type { MediaDetail } from "../lib/types";
 
 interface TVAirInfoProps {
-  item: MediaDetailItem;
+  item: MediaDetail;
 }
 
 export function TVAirInfo({ item }: TVAirInfoProps) {
-  if (item.kind !== "tv") return null;
+  if (item.mediaType !== "tv") return null;
 
   return (
     <div className="mb-4 flex flex-wrap gap-2">

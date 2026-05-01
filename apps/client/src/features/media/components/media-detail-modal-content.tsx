@@ -12,12 +12,14 @@ import { NoteEditor } from "./note-editor";
 import { ScoreBlock } from "./score-block";
 import { TVAirInfo } from "./tv-air-info";
 import { useDetailStore } from "../lib/use-detail-store";
-import type { MediaDetailItem } from "../lib/types";
+import type { MediaDetail } from "../lib/types";
 
 interface MediaDetailModalContentProps {
-  item: MediaDetailItem;
+  item: MediaDetail;
   closePeek: () => void;
-  forceLoading?: boolean;
+  /** True while the detail RPC is still in flight; renders skeletons for
+   *  detail-only fields whose absence would otherwise read as "no value". */
+  isHydrating?: boolean;
   /** When true, scroll-driven topbar/hero animations run (desktop). Mobile drawers skip it. */
   enableScrollAnimations?: boolean;
 }
@@ -41,7 +43,7 @@ const INITIAL_LOGO_BOX: LogoBox = {
 export function MediaDetailModalContent({
   item,
   closePeek,
-  forceLoading = false,
+  isHydrating = false,
   enableScrollAnimations = true,
 }: MediaDetailModalContentProps) {
   const { watched, watchlist, toggleWatched, toggleWatchlist, openTrailer, notes } =
@@ -50,8 +52,8 @@ export function MediaDetailModalContent({
   const inWl = watchlist.has(item.id);
   const hasNote = !!notes[item.id]?.trim();
 
-  const [internalLoading, setInternalLoading] = useState(false);
-  const loading = internalLoading || forceLoading;
+  const heroImage = item.backdrop ?? item.poster ?? "";
+  const loading = isHydrating && !item.cast && !item.director;
   const [noteEditing, setNoteEditing] = useState<boolean | undefined>(undefined);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -127,13 +129,6 @@ export function MediaDetailModalContent({
       kindBadgeLabelRef.current.style.opacity = dockEased > 0.5 ? "0" : "1";
     }
   };
-
-  // Simulate fetch so the skeleton flickers when peek id changes.
-  useEffect(() => {
-    setInternalLoading(true);
-    const t = setTimeout(() => setInternalLoading(false), 480);
-    return () => clearTimeout(t);
-  }, [item.id]);
 
   useEffect(() => {
     if (!enableScrollAnimations) return;
@@ -220,11 +215,7 @@ export function MediaDetailModalContent({
           ref={heroBgRef}
           className="absolute inset-x-0 top-0 z-0 h-[55%] overflow-hidden will-change-transform"
         >
-          <LoadingImage
-            src={item.image?.["16/9"] ?? item.image?.["2/3"] ?? ""}
-            alt=""
-            className="size-full object-cover"
-          />
+          <LoadingImage src={heroImage} alt="" className="size-full object-cover" />
           <div
             ref={heroDarkenRef}
             className="absolute inset-0 bg-background"
@@ -250,7 +241,7 @@ export function MediaDetailModalContent({
             data-topbar-kind-badge
             className="relative inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-black/55 px-2.5 py-1 text-[11px] font-medium tracking-[0.04em] whitespace-nowrap text-foreground uppercase backdrop-blur-md"
           >
-            {item.kind === "movie" ? (
+            {item.mediaType === "movie" ? (
               <FilmIcon className="size-3" />
             ) : (
               <TvIcon className="size-3" />
@@ -260,7 +251,9 @@ export function MediaDetailModalContent({
               className="inline-block overflow-hidden transition-[max-width,opacity] duration-200"
               style={{ maxWidth: 80, opacity: 1 }}
             >
-              {item.kind === "movie" ? m.media_details_kind_movie() : m.media_details_kind_tv()}
+              {item.mediaType === "movie"
+                ? m.media_details_kind_movie()
+                : m.media_details_kind_tv()}
             </span>
           </div>
           <div data-topbar-logo-slot className="h-6 min-w-0 flex-1" />
@@ -288,29 +281,16 @@ export function MediaDetailModalContent({
             width: logoBoxRef.current.width,
           }}
         >
-          {item.clearLogo ? (
-            <div
-              ref={floatingLogoTextRef}
-              className="max-w-full truncate font-mono text-[36px] font-bold tracking-[0.18em] text-foreground will-change-transform"
-              style={{
-                lineHeight: 1,
-                textShadow: "0 2px 18px oklch(0 0 0 / 0.6)",
-              }}
-            >
-              {item.clearLogo.text}
-            </div>
-          ) : (
-            <div
-              ref={floatingLogoTextRef}
-              className="max-w-full truncate text-[36px] font-semibold leading-tight text-foreground will-change-transform"
-              style={{
-                letterSpacing: "-0.015em",
-                textShadow: "0 2px 18px oklch(0 0 0 / 0.6)",
-              }}
-            >
-              {item.title}
-            </div>
-          )}
+          <div
+            ref={floatingLogoTextRef}
+            className="max-w-full truncate text-[36px] font-semibold leading-tight text-foreground will-change-transform"
+            style={{
+              letterSpacing: "-0.015em",
+              textShadow: "0 2px 18px oklch(0 0 0 / 0.6)",
+            }}
+          >
+            {item.title}
+          </div>
         </div>
       )}
 
@@ -342,7 +322,7 @@ export function MediaDetailModalContent({
                     className="font-mono font-bold tracking-[0.18em] whitespace-nowrap"
                     style={{ fontSize: "clamp(20px, 3.4vw, 36px)", lineHeight: 1 }}
                   >
-                    {item.clearLogo ? item.clearLogo.text : item.title}
+                    {item.title}
                   </span>
                 </div>
 
@@ -444,7 +424,7 @@ export function MediaDetailModalContent({
                   </div>
                 )}
 
-                <ModalSeasonsList item={item} />
+                <ModalSeasonsList item={item} isHydrating={isHydrating} />
 
                 {item.matchReason && (
                   <div className="mb-4 rounded-md bg-muted px-3 py-2.5 text-xs text-muted-foreground">

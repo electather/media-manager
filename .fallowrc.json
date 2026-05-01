@@ -85,8 +85,8 @@
         "patterns": ["apps/client/src/features/jobs/**"]
       },
       {
-        "name": "client-feat-media-details",
-        "patterns": ["apps/client/src/features/media-details/**"]
+        "name": "client-feat-media",
+        "patterns": ["apps/client/src/features/media/**"]
       },
       {
         "name": "client-feat-requests",
@@ -147,7 +147,7 @@
           "client-feat-settings",
           "client-feat-admin",
           "client-feat-jobs",
-          "client-feat-media-details",
+          "client-feat-media",
           "client-feat-requests",
           "client-features-legacy",
           "client-shared-ui",
@@ -165,7 +165,7 @@
           "client-feat-settings",
           "client-feat-admin",
           "client-feat-jobs",
-          "client-feat-media-details",
+          "client-feat-media",
           "client-feat-requests",
           "client-features-legacy",
           "client-shared-ui",
@@ -216,7 +216,7 @@
         ]
       },
       {
-        "from": "client-feat-media-details",
+        "from": "client-feat-media",
         "allow": [
           "client-feat-requests",
           "client-shared-ui",

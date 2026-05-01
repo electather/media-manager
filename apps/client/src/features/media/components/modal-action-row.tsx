@@ -10,10 +10,10 @@ import {
   effectiveItemRequestStatus,
 } from "@/features/requests";
 import { useDetailStore } from "../lib/use-detail-store";
-import type { MediaDetailItem } from "../lib/types";
+import type { MediaDetail } from "../lib/types";
 
 interface ModalActionRowProps {
-  item: MediaDetailItem;
+  item: MediaDetail;
   inWl: boolean;
   isWatched: boolean;
   toggleWatched: (id: string) => void;
@@ -40,7 +40,7 @@ export function ModalActionRow({
   } = useDetailStore();
 
   const reqStatus = effectiveItemRequestStatus(
-    { id: item.id, kind: item.kind, title: item.title },
+    { id: item.id, kind: item.mediaType, title: item.title },
     requests,
   );
   const dest = describeDestination(
@@ -49,10 +49,10 @@ export function ModalActionRow({
     SERVICES,
   );
 
-  const showWatch = item.kind === "movie" && reqStatus === "available";
+  const showWatch = item.mediaType === "movie" && reqStatus === "available";
   const showInlineStatus =
-    item.kind === "movie" && (reqStatus === "pending" || reqStatus === "in-progress");
-  const showRequest = item.kind === "movie" && reqStatus === "unavailable";
+    item.mediaType === "movie" && (reqStatus === "pending" || reqStatus === "in-progress");
+  const showRequest = item.mediaType === "movie" && reqStatus === "unavailable";
 
   const onPlay = () => showToast(m.media_details_opening_stream());
 
@@ -68,7 +68,7 @@ export function ModalActionRow({
       {showInlineStatus && <RequestStatusInline state={reqStatus} role={role} destination={dest} />}
       {showRequest && (
         <RequestActions
-          item={{ id: item.id, kind: item.kind, title: item.title }}
+          item={{ id: item.id, kind: item.mediaType, title: item.title }}
           role={role}
           defaultServiceId={defaultDestination.serviceId}
           defaultProfileId={defaultDestination.profileId}

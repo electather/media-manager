@@ -1,18 +1,27 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Drawer as DrawerPrimitive } from "vaul";
-import { findItem } from "../lib/find-item";
+import { useEffect } from "react";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { usePeek } from "../lib/use-peek";
+import { useMediaDetail } from "../data";
 import { MediaDetailModalContent } from "./media-detail-modal-content";
+import { ModalSkeleton } from "./modal-skeleton";
 import { TrailerOverlay } from "./trailer-overlay";
 
 // Mounted at the `_authenticated` route layout. Reads `?peek=<kind>:<id>`
 // search param via usePeek and renders desktop Dialog or mobile Drawer.
 export function MediaDetailModal() {
   const { peekId, closePeek } = usePeek();
+  const { item, isHydrating } = useMediaDetail(peekId);
   const open = !!peekId;
-  const item = findItem(peekId);
   const isMobile = useIsMobile();
+
+  // Cold-URL peek for an id the server cannot resolve: detail RPC settled with
+  // null + collection still empty → close so we do not strand the user on a
+  // perpetual skeleton.
+  useEffect(() => {
+    if (peekId && !isHydrating && !item) closePeek();
+  }, [peekId, isHydrating, item, closePeek]);
 
   if (isMobile) {
     return (
@@ -27,12 +36,15 @@ export function MediaDetailModal() {
                 {item?.overview ?? ""}
               </DrawerPrimitive.Description>
               <div className="relative flex-1 overflow-hidden">
-                {item && (
+                {item ? (
                   <MediaDetailModalContent
                     item={item}
+                    isHydrating={isHydrating}
                     closePeek={closePeek}
                     enableScrollAnimations={false}
                   />
+                ) : (
+                  <ModalSkeleton />
                 )}
               </div>
             </DrawerPrimitive.Content>
@@ -57,7 +69,15 @@ export function MediaDetailModal() {
               {item?.overview ?? ""}
             </DialogPrimitive.Description>
             <div className="relative flex-1 overflow-hidden">
-              {item && <MediaDetailModalContent item={item} closePeek={closePeek} />}
+              {item ? (
+                <MediaDetailModalContent
+                  item={item}
+                  isHydrating={isHydrating}
+                  closePeek={closePeek}
+                />
+              ) : (
+                <ModalSkeleton />
+              )}
             </div>
           </DialogPrimitive.Popup>
         </DialogPrimitive.Portal>

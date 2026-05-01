@@ -2,15 +2,17 @@ import { PlayIcon, XIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { LoadingImage } from "@/shared/components/loading-image";
-import { findItem } from "../lib/find-item";
 import { useDetailStore } from "../lib/use-detail-store";
+import { useMediaRow } from "../data";
 
 export function TrailerOverlay() {
   const { trailerId, closeTrailer } = useDetailStore();
-  const item = findItem(trailerId);
+  const item = useMediaRow(trailerId);
   const open = !!trailerId;
 
   if (!open) return null;
+
+  const heroImage = item?.backdrop ?? item?.poster ?? "";
 
   return (
     <div
@@ -33,11 +35,7 @@ export function TrailerOverlay() {
           </Button>
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-foreground/80">
             <div className="absolute inset-0 opacity-35">
-              <LoadingImage
-                src={item.image?.["16/9"] ?? item.image?.["2/3"] ?? ""}
-                alt=""
-                className="size-full object-cover"
-              />
+              <LoadingImage src={heroImage} alt="" className="size-full object-cover" />
             </div>
             <div className="relative flex size-20 items-center justify-center rounded-full border border-foreground/20 bg-foreground/10 text-foreground">
               <PlayIcon className="size-7" />

@@ -4,24 +4,27 @@ import {
   type RequestableSeason,
   type SeasonOverrideStatus,
 } from "@/features/requests";
-import { mockData } from "../lib/mock-data";
 import { useDetailStore } from "../lib/use-detail-store";
-import type { DetailSeason, MediaDetailItem } from "../lib/types";
+import type { DetailSeason, MediaDetail } from "../lib/types";
 
 interface ModalSeasonsListProps {
-  item: MediaDetailItem;
+  item: MediaDetail;
+  isHydrating?: boolean;
 }
 
-export function ModalSeasonsList({ item }: ModalSeasonsListProps) {
+export function ModalSeasonsList({ item, isHydrating = false }: ModalSeasonsListProps) {
   const { role, pluginConfigured, defaultDestination, seasonRequests } = useDetailStore();
-  const detailSeasons = useMemo(() => mockData.generateSeasons(item), [item]);
-  const seasons = useMemo(() => detailSeasons.map(toRequestableSeason), [detailSeasons]);
+  const seasons = useMemo(() => (item.seasons ?? []).map(toRequestableSeason), [item.seasons]);
 
-  if (item.kind !== "tv" || seasons.length === 0) return null;
+  if (item.mediaType !== "tv") return null;
+  if (!item.seasons) {
+    return isHydrating ? <div className="mb-4 h-24 animate-pulse rounded-md bg-muted" /> : null;
+  }
+  if (seasons.length === 0) return null;
 
   return (
     <RequestableSeasonsList
-      item={{ id: item.id, kind: item.kind, title: item.title }}
+      item={{ id: item.id, kind: item.mediaType, title: item.title }}
       seasons={seasons}
       role={role}
       defaultServiceId={defaultDestination.serviceId}
