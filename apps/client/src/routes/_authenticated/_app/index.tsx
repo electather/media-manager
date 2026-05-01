@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import { usePeek } from "@/features/media-details";
 import { MediaCard, type MediaCardItem } from "@/shared/components/media-card";
 import { MediaRow } from "@/shared/components/media-row";
 
@@ -66,10 +67,14 @@ const NEW_RELEASES: MediaCardItem[] = mockPosterSeries("new", 12, {});
 const UPCOMING: MediaCardItem[] = mockUpcoming(10);
 
 function HomeMockPage() {
+  const { openPeek } = usePeek();
   const [watchlist, setWatchlist] = useState<ReadonlySet<string>>(new Set());
-  const handlePeek = useCallback((id: string) => {
-    console.info("[mock] open peek", id);
-  }, []);
+  const handlePeek = useCallback(
+    (id: string) => {
+      openPeek(id);
+    },
+    [openPeek],
+  );
   const handleToggleWatchlist = useCallback((id: string) => {
     setWatchlist((prev) => {
       const next = new Set(prev);
@@ -198,36 +203,42 @@ type MockOptions = {
 };
 
 function mockBackdropSeries(prefix: string, count: number, opts: MockOptions): MediaCardItem[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `${prefix}:${i}`,
-    tmdbId: `${i}`,
-    mediaType: i % 3 === 0 ? "movie" : "tv",
-    title: TITLES[i % TITLES.length] ?? `Title ${i}`,
-    year: 2020 + (i % 6),
-    backdrop: PLACEHOLDER_BACKDROP,
-    matchReason: i % 4 === 0 ? "Because you watched Severance" : undefined,
-    status: opts.hasStatus ? STATUS_VALUES[i % STATUS_VALUES.length] : undefined,
-    progress: opts.hasProgress ? { watched: 1000 + i * 200, total: 5400 } : undefined,
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const mediaType = i % 3 === 0 ? "movie" : "tv";
+    return {
+      id: peekId(mediaType, prefix, i),
+      tmdbId: `${i}`,
+      mediaType,
+      title: TITLES[i % TITLES.length] ?? `Title ${i}`,
+      year: 2020 + (i % 6),
+      backdrop: PLACEHOLDER_BACKDROP,
+      matchReason: i % 4 === 0 ? "Because you watched Severance" : undefined,
+      status: opts.hasStatus ? STATUS_VALUES[i % STATUS_VALUES.length] : undefined,
+      progress: opts.hasProgress ? { watched: 1000 + i * 200, total: 5400 } : undefined,
+    };
+  });
 }
 
 function mockPosterSeries(prefix: string, count: number, opts: MockOptions): MediaCardItem[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `${prefix}:${i}`,
-    tmdbId: `${i}`,
-    mediaType: i % 3 === 0 ? "movie" : "tv",
-    title: TITLES[i % TITLES.length] ?? `Title ${i}`,
-    year: 2020 + (i % 6),
-    poster: PLACEHOLDER_POSTER,
-    matchReason: i % 4 === 0 ? "Because you watched Severance" : undefined,
-    status: opts.hasStatus ? STATUS_VALUES[i % STATUS_VALUES.length] : undefined,
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const mediaType = i % 3 === 0 ? "movie" : "tv";
+    return {
+      id: peekId(mediaType, prefix, i),
+      tmdbId: `${i}`,
+      mediaType,
+      title: TITLES[i % TITLES.length] ?? `Title ${i}`,
+      year: 2020 + (i % 6),
+      poster: PLACEHOLDER_POSTER,
+      matchReason: i % 4 === 0 ? "Because you watched Severance" : undefined,
+      status: opts.hasStatus ? STATUS_VALUES[i % STATUS_VALUES.length] : undefined,
+    };
+  });
 }
 
 function mockUpcoming(count: number): MediaCardItem[] {
   const oneDayMs = 24 * 60 * 60 * 1000;
   return Array.from({ length: count }, (_, i) => ({
-    id: `upc:${i}`,
+    id: peekId("tv", "upc", i),
     tmdbId: `${100 + i}`,
     mediaType: "tv" as const,
     title: ["The Bear", "Shogun", "Fallout", "House of the Dragon"][i % 4]!,
@@ -240,4 +251,14 @@ function mockUpcoming(count: number): MediaCardItem[] {
       name: `Episode ${i + 1}`,
     },
   }));
+}
+
+// Synthesize a peek-schema-compliant id (`<kind>:<digits>`) from a string
+// prefix + index. Hashes the prefix to avoid collisions across rows.
+function peekId(kind: "movie" | "tv", prefix: string, index: number): string {
+  let hash = 0;
+  for (let i = 0; i < prefix.length; i++) {
+    hash = (hash * 31 + prefix.charCodeAt(i)) >>> 0;
+  }
+  return `${kind}:${hash * 100 + index}`;
 }
