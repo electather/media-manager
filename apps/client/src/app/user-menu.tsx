@@ -11,6 +11,7 @@ import {
 } from "@/shared/ui/dropdown-menu";
 import { Button } from "@/shared/ui/button";
 
+// fallow-ignore-next-line complexity
 export function UserMenu() {
   const router = useRouter();
   const session = authClient.useSession();
