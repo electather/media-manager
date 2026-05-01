@@ -57,5 +57,69 @@
   "media_details_episodes_upcoming": "{count} قسمت در راه",
   "media_details_episodes_partial": "{available} از {total} موجود",
   "media_details_episodes_total": "{total} قسمت",
-  "media_details_trailer_caption": "[ تریلر · {title} ]"
+  "media_details_trailer_caption": "[ تریلر · {title} ]",
+  "media_card_kind_movie": "فیلم",
+  "media_card_kind_tv": "سریال",
+  "media_card_status_available": "در دسترس",
+  "media_card_status_requested": "درخواست‌شده",
+  "media_card_status_processing": "در حال پردازش",
+  "media_card_status_unavailable": "در دسترس نیست",
+  "media_card_status_unknown": "نامشخص",
+  "media_card_watchlist_add": "افزودن به فهرست تماشا",
+  "media_card_watchlist_remove": "حذف از فهرست تماشا",
+  "media_card_min_left_short": [
+    {
+      "declarations": ["input minutes"],
+      "selectors": [],
+      "match": {
+        "*": "{minutes} دقیقه باقی‌مانده"
+      }
+    }
+  ],
+  "media_card_hour_min_left": [
+    {
+      "declarations": ["input hours", "input minutes"],
+      "selectors": [],
+      "match": {
+        "*": "{hours} ساعت و {minutes} دقیقه باقی‌مانده"
+      }
+    }
+  ],
+  "media_card_watched_count": [
+    {
+      "declarations": ["input watched", "input total"],
+      "selectors": [],
+      "match": {
+        "*": "{watched}/{total} تماشا شده"
+      }
+    }
+  ],
+  "media_card_aria_label": [
+    {
+      "declarations": ["input title", "input year"],
+      "selectors": [],
+      "match": {
+        "*": "{title}، {year}"
+      }
+    }
+  ],
+  "media_row_partial_tooltip": "برخی منابع پاسخ ندادند — موارد در دسترس نمایش داده شد.",
+  "media_row_prev_aria": [
+    {
+      "declarations": ["input title"],
+      "selectors": [],
+      "match": {
+        "*": "{title} قبلی"
+      }
+    }
+  ],
+  "media_row_next_aria": [
+    {
+      "declarations": ["input title"],
+      "selectors": [],
+      "match": {
+        "*": "{title} بعدی"
+      }
+    }
+  ]
 }

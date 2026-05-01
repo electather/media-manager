@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import { usePeek } from "@/features/media-details";
-import { MediaCard, type MediaCardItem } from "@/shared/components/media-card";
+import { usePeek } from "@/features/media";
+import { MediaCard, type MediaCardItem } from "@/features/media/components/media-card";
 import { MediaRow } from "@/shared/components/media-row";
 
 export const Route = createFileRoute("/_authenticated/_app/")({

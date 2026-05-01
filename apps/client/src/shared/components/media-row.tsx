@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, CircleAlert } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FocusEvent, type ReactNode } from "react";
 import { m } from "@/paraglide/messages";
-import { MediaCardSkeleton } from "@/shared/components/media-card-skeleton";
+import { MediaCardSkeleton } from "@/features/media/components/media-card-skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { useDirection } from "@/shared/ui/direction";
 import { cn } from "@/shared/lib/utils";

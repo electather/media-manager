@@ -11,13 +11,13 @@ import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { m } from "@/paraglide/messages";
 import { ClearLogo } from "@/shared/components/clear-logo";
 import { LoadingImage } from "@/shared/components/loading-image";
-import { MediaKindBadge } from "@/shared/components/media-kind-badge";
+import { MediaKindBadge } from "@/features/media/components/media-kind-badge";
 import { TagChips } from "@/shared/components/tag-chips";
 import { formatMinutesLeft } from "@/shared/lib/format/duration";
 import { cn } from "@/shared/lib/utils";
 import { Badge, type badgeVariants } from "@/shared/ui/badge";
 import { Progress } from "@/shared/ui/progress";
-import { Button } from "../ui/button";
+import { Button } from "../../../shared/ui/button";
 import { Link } from "@tanstack/react-router";
 import type { VariantProps } from "class-variance-authority";
 
