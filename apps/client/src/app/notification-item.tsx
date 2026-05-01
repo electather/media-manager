@@ -2,8 +2,9 @@ import { XIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { relativeTime } from "@/shared/lib/relative-time";
+import { m } from "@/paraglide/messages";
 import { NotificationSeverityIcon } from "./notification-severity-icon";
-import { CATEGORY_META, SEVERITY_META } from "./notification-panel-types";
+import { CATEGORY_META, SEVERITY_META, categoryLabel } from "./notification-panel-types";
 import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
 import Markdown from "react-markdown";
 
@@ -56,7 +57,8 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
   const isUnread = item.readAt === null;
   const isLoud = intensity === "loud" && (item.severity === "warn" || item.severity === "error");
   const { loudBg, loudBorder } = SEVERITY_META[item.severity];
-  const { Icon: CatIcon, label: catLabel } = CATEGORY_META[item.category];
+  const { Icon: CatIcon } = CATEGORY_META[item.category];
+  const catLabel = categoryLabel(item.category);
   const compact = density === "compact";
 
   return (
@@ -82,7 +84,7 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
             <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
             {item.audienceKind === "admin" && (
               <span className="shrink-0 rounded border border-border bg-muted/50 px-1 py-0.5 text-xs font-medium tracking-wide text-muted-foreground/60 uppercase">
-                Admin
+                {m.notifications_admin_badge()}
               </span>
             )}
           </div>
@@ -119,7 +121,7 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
       </div>
 
       <Button
-        aria-label="Dismiss notification"
+        aria-label={m.notifications_dismiss_aria()}
         onClick={(e) => {
           e.stopPropagation();
           onDismiss(item.id);

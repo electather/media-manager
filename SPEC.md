@@ -19,6 +19,8 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 - C11. ∀ utility code (array, object, string, fn, predicate) → `es-toolkit` submodule. ⊥ custom re-impl of `compact`/`merge`/`cloneDeep`/`sortBy`/`orderBy`/`debounce`/`throttle`/`uniq`/`invariant`. Import from `es-toolkit/array`, `es-toolkit/object`, `es-toolkit/string`, `es-toolkit/function`, `es-toolkit/predicate`, `es-toolkit/util`. Patterns: `.agents/skills/es-toolkit/references/patterns.md`.
 - C12. Client app feature-first. Three top-level domains under `apps/client/src/`: `app/` (shell), `features/<x>/` (modules), `shared/` (primitives). ⊥ sibling-feature imports. Public surface = `features/<x>/index.ts` barrel only. Cross-feature reach = fallow boundary violation. Routes (`apps/client/src/routes/`) thin — file-based per TanStack Router, ⊥ business logic. Design: `docs/2026-04-29-frontend-structure-design.md`.
 - C13. **Mechanical migration only** for T34–T38 (excluding T38 net-new home build). Allowed per-file change set: (1) `git mv` to new path, (2) update import paths in moved file + ∀ consumers, (3) update `index.ts` barrel exports. **Forbidden:** rewriting component bodies, renaming symbols, refactoring logic, splitting/merging files, changing prop signatures, restyling, modernizing patterns, "while we're here" cleanup. Diff per moved file = path delta + import path delta. Behavior parity = pre-existing tests pass unmodified (test imports get path-updated, test bodies stay). ⊥ token spend on rewrites — restructure ≠ rewrite. Drift to rewriting = stop, revert, redo as separate PR after migration lands.
+- C14. Paraglide i18n client-only v1. ⊥ server use, ⊥ `@ent-mcp/shared` import (preserve V12). Server emits English event names + raw params; client maps event kind → translated string.
+- C15. Generated `apps/client/src/paraglide/` = build artifact. ⊥ commit, ⊥ hand-edit. `.gitignore` entry mandatory.
 
 ## §I Interfaces
 
@@ -75,6 +77,17 @@ Subscription captured at emit time. Already-queued delivery fires even if user d
 HTTP user: `/api/notifications/{inbox,channels,subscriptions,plugins,categories}`.
 HTTP admin: `/api/admin/notifications/{deliveries,settings}`.
 Shared schemas + event registry: `@ent-mcp/shared/notifications`.
+
+### I.i18n — paraglide-js client i18n
+
+- Locales: `en` (base), `fa` (RTL validation).
+- Source: `apps/client/messages/{en,fa}.json`.
+- Project: `apps/client/project.inlang/settings.json`.
+- Generated: `apps/client/src/paraglide/` (runtime + message accessors).
+- Compile: `paraglideVitePlugin({ project, outdir })` in `apps/client/vite.config.ts`. ⊥ CLI compile.
+- Strategy chain: `["localStorage", "preferredLanguage", "baseLocale"]`. ⊥ `cookie`, ⊥ `url` v1.
+- Runtime: `m.<key>(...)` for messages; `getLocale`/`setLocale` for switch. `setLocale` reloads page.
+- RTL: `<html dir>` attr toggled per locale (`fa` → `rtl`, `en` → `ltr`). RTL set = `RTL_LOCALES.includes(locale)`.
 
 ### I.home — home feed procedures
 
@@ -152,6 +165,10 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
   - **Drift = spec violation.** Adding a feature without adding `client-feat-<x>` zone, or weakening allow rules to permit sibling-feature import, fails `vp check`.
   - **Mechanical rule:** every new `apps/client/src/features/<x>/` dir = exactly one matching `client-feat-<x>` zone in same PR. ⊥ orphan dir, ⊥ orphan zone.
   - Legacy zones `client-components`, `client-hooks`, `client-lib` removed by T34. Their absence = post-migration baseline.
+- V61. Translatable chrome copy imported via `@/paraglide/messages` only. ⊥ inline literals for translated strings. Generated `paraglide/` ⊥ hand-edited; vite plugin recompiles on `messages/*.json` + `project.inlang/settings.json` change.
+- V62. `@ent-mcp/shared` ⊥ paraglide imports. v1 i18n boundary = client only. Server payload shape ⊥ change for translation; client owns event-kind→message map.
+- V63. Locale strategy chain frozen `["localStorage", "preferredLanguage", "baseLocale"]` v1. ⊥ add `url`/`cookie` w/o spec amend — URL strategy interacts w/ V32-V34 peek-modal flow + needs redirect-loop audit.
+- V64. `<html dir>` attr managed by single root hook reading `getLocale()`. RTL set ⇔ `RTL_LOCALES = ["fa"] as const` includes locale. ⊥ component-local `dir` attrs.
 
 NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retired by `2026-04-23-home-feed-frontend-design.md` (T14 cancelled, restructure-aware T38 supersedes). Resolution tracked in T39. ⊥ silently rewriting V30/V31 — invoke `/spec amend §V` to retire.
 
@@ -197,6 +214,8 @@ NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retire
 | T38 | .      | `features/home/` — net-new build per `2026-04-23-home-feed-frontend-design.md`. Includes `components/`, `hooks/`, `lib/collections/{media,row-entries,progress}-collection.ts` + `lib/mutations.ts`. `lib/home-display.ts` → `features/home/lib/` transient (retired in T39). Supersedes T14. | I.home,T14,T34,T35,T37,V51,V52,V56,V57 |
 | T39 | .      | Retire `home-display.ts` + V30 + V31 — runs after T38 home-feed Card lands. Deletes `features/home/lib/home-display.ts` + `ROW_DISPLAY` map. Amend §V to retire V30, V31.                                                       | T38                                        |
 | T40 | .      | Verification gates — `vp check` + `vp test` + `vp dlx fallow` zero-warning baseline after ∀ T33-T39 step. Fallow run = boundary gate; ⊥ skip. `.fallowrc.json` must encode V60 zone + allow-rule contract; CI rejects PRs that add `features/<x>/` without matching `client-feat-<x>` zone, or weaken allow rules. **Per C13: pre-existing tests pass unmodified after T34-T37 — only test import paths may change, ⊥ test bodies. Diff audit: any non-import line change in moved file = C13 violation, redo PR.**                                                                                  | C13,V51-V60                          |
+| T41 | x      | Paraglide infra — `vp add @inlang/paraglide-js`, `apps/client/project.inlang/settings.json` w/ `en`+`fa`, `messages/{en,fa}.json` skeleton, `paraglideVitePlugin` in `vite.config.ts`, `.gitignore` `apps/client/src/paraglide/`, root `<html dir>` hook, locale init wiring strategy `[localStorage, preferredLanguage, baseLocale]`. | C14,C15,V61,V62,V63,V64,I.i18n |
+| T42 | x      | Notifications panel chrome translation POC — extract translatable strings from `notification-panel.tsx`, `notification-panel-body.tsx`, `notification-empty-state.tsx`, `notification-item.tsx`, `notification-category-chip.tsx` to `messages/{en,fa}.json`. Scope: "Notifications" header, "Mark all read", "{count} unread" plural, category labels (media/sync/auth/system), "All" chip, empty-state copy, "Admin" badge, dismiss aria, "Notification settings", "View all", bell aria-label w/ unread count plural. ⊥ translate fixture `title`/`body` (deferred). Plural via paraglide ICU. | T41,V61,I.i18n,I.notifications |
 
 ## §B Bugs
 

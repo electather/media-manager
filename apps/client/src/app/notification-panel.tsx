@@ -4,6 +4,7 @@ import { buttonVariants } from "@/shared/ui/button";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
+import { m } from "@/paraglide/messages";
 import { NotificationPanelBody } from "./notification-panel-body";
 import { DUMMY_NOTIFICATIONS } from "./notification-panel-fixtures";
 import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
@@ -14,8 +15,10 @@ interface Props {
   intensity?: Intensity;
 }
 
-function bellAriaLabel(unreadCount: number): string {
-  return unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications";
+export function bellAriaLabel(unreadCount: number): string {
+  return unreadCount > 0
+    ? m.notifications_bell_aria_unread({ count: unreadCount })
+    : m.notifications_title();
 }
 
 function BellTriggerContent({ unreadCount }: { unreadCount: number }) {
@@ -100,7 +103,7 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
         align="end"
         sideOffset={8}
         className="flex w-100 max-h-[min(640px,calc(100dvh-80px))] flex-col overflow-hidden p-0"
-        aria-label="Notifications"
+        aria-label={m.notifications_title()}
       >
         {body}
       </PopoverContent>
