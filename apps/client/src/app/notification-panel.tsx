@@ -15,7 +15,7 @@ interface Props {
   intensity?: Intensity;
 }
 
-function bellAriaLabel(unreadCount: number): string {
+export function bellAriaLabel(unreadCount: number): string {
   return unreadCount > 0
     ? m.notifications_bell_aria_unread({ count: unreadCount })
     : m.notifications_title();

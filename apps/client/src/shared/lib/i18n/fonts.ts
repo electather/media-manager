@@ -42,7 +42,6 @@ function ensurePreconnects(): void {
 }
 
 export function ensureLocaleFontLoaded(locale: string): void {
-  if (typeof document === "undefined") return;
   const cfg = getLocaleFont(locale);
   if (!cfg) return;
   const id = `${LINK_ID_PREFIX}${locale}`;

@@ -57,7 +57,7 @@ export function NotificationEmptyState({ filterLabel }: Props) {
       <div>
         <p className="text-sm font-medium text-foreground">
           {filterLabel
-            ? m.notifications_empty_filter_title({ label: filterLabel.toLowerCase() })
+            ? m.notifications_empty_filter_title({ label: filterLabel })
             : m.notifications_empty_caught_up_title()}
         </p>
         <p className="mx-auto mt-1 max-w-60 text-xs text-muted-foreground">
