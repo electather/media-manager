@@ -21,6 +21,10 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 - C13. **Mechanical migration only** for T34–T38 (excluding T38 net-new home build). Allowed per-file change set: (1) `git mv` to new path, (2) update import paths in moved file + ∀ consumers, (3) update `index.ts` barrel exports. **Forbidden:** rewriting component bodies, renaming symbols, refactoring logic, splitting/merging files, changing prop signatures, restyling, modernizing patterns, "while we're here" cleanup. Diff per moved file = path delta + import path delta. Behavior parity = pre-existing tests pass unmodified (test imports get path-updated, test bodies stay). ⊥ token spend on rewrites — restructure ≠ rewrite. Drift to rewriting = stop, revert, redo as separate PR after migration lands.
 - C14. Paraglide i18n client-only v1. ⊥ server use, ⊥ `@ent-mcp/shared` import (preserve V12). Server emits English event names + raw params; client maps event kind → translated string.
 - C15. Generated `apps/client/src/paraglide/` = build artifact. ⊥ commit, ⊥ hand-edit. `.gitignore` entry mandatory.
+- C16. Client reactive store v1 = `queryCollectionOptions` (over Hono RPC) only. ⊥ custom collections, ⊥ ElectricSQL, ⊥ `dexieCollectionOptions` v1. Realtime ⊥ v1; polling via `refetchInterval` carries push-style updates until SSE/WS lands. Design: `docs/2026-05-01-client-tanstack-db-design.md`.
+- C17. Collection granularity v1 = endpoint-keyed (one collection per Hono RPC procedure). ⊥ entity-shared collections v1; cross-component cache trade accepted. Future entity collections require spec amend.
+- C18. Persistence layer = `QueryClient` IDB persister (`@tanstack/query-async-storage-persister` + `idb-keyval`). Per-collection IDB (Dexie) ⊥ v1. Filter = opt-out via `meta.persist=false`; default = persist. `maxAge=30d`, `gcTime≥maxAge`, `buster=${VITE_APP_VERSION}-${VITE_SHARED_VERSION}`.
+- C19. Service worker out of scope of C16-C18. Persister key shape stable + ⊥ Network-only assumptions so SW slot-in later non-breaking.
 
 ## §I Interfaces
 
@@ -88,6 +92,19 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - Strategy chain: `["localStorage", "preferredLanguage", "baseLocale"]`. ⊥ `cookie`, ⊥ `url` v1.
 - Runtime: `m.<key>(...)` for messages; `getLocale`/`setLocale` for switch. `setLocale` reloads page.
 - RTL: `<html dir>` attr toggled per locale (`fa` → `rtl`, `en` → `ltr`). RTL set = `RTL_LOCALES.includes(locale)`.
+
+### I.client-data — client reactive store
+
+- Stack: `@tanstack/react-db` (collections + `useLiveQuery`), `@tanstack/query-db-collection` (`queryCollectionOptions`), `@tanstack/react-query-persist-client` (`PersistQueryClientProvider`), `@tanstack/query-async-storage-persister` + `idb-keyval` (IDB persist).
+- Layout: `apps/client/src/shared/lib/db/{client,persister,provider,test-utils,index}.ts` (infra). Per-feature collections + hooks: `apps/client/src/features/<x>/data/{*.collection.ts,*.hooks.ts,index.ts}`.
+- Provider: `<PersistQueryClientProvider client persistOptions={{persister,maxAge,buster,dehydrateOptions}}>` wraps app in `main.tsx`. ⊥ inline `new QueryClient()` ∈ `main.tsx` or feature code.
+- Mutation policy:
+  - Optimistic = `collection.update/insert/delete`. Toggles + idempotent edits only (e.g. `enabled`, `scheduleOverride`).
+  - Non-optimistic = `useMutation` + `queryClient.invalidateQueries`. Side-effect heavy or server-truth ops (run trigger, cancel, create-with-server-id).
+- Persistence policy: admin/sensitive (jobs, plugins admin, errors viewer, auth/session) → `meta.persist=false`. User reads (connections, watchlist, home, notifications, settings/prefs) → persist (SWR offline lists).
+- Schema: Zod attached to collection only when collection accepts user-authored optimistic writes (validates input). ⊥ schema parse on server-sync writes (server already validated).
+- Pilot: `features/jobs` (admin jobs page). Other features migrate post-pilot via future tasks.
+- Design: `docs/2026-05-01-client-tanstack-db-design.md`.
 
 ### I.home — home feed procedures
 
@@ -169,6 +186,16 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V62. `@ent-mcp/shared` ⊥ paraglide imports. v1 i18n boundary = client only. Server payload shape ⊥ change for translation; client owns event-kind→message map.
 - V63. Locale strategy chain frozen `["localStorage", "preferredLanguage", "baseLocale"]` v1. ⊥ add `url`/`cookie` w/o spec amend — URL strategy interacts w/ V32-V34 peek-modal flow + needs redirect-loop audit.
 - V64. `<html dir>` attr managed by single root hook reading `getLocale()`. RTL set ⇔ `RTL_LOCALES = ["fa"] as const` includes locale. ⊥ component-local `dir` attrs.
+- V65. `QueryClient` singleton ∈ `apps/client/src/shared/lib/db/client.ts`. ⊥ second instance, ⊥ inline `new QueryClient()` ∈ `main.tsx` or feature code.
+- V66. ∀ collection wrapping server data → `queryCollectionOptions` w/ `queryClient` from V65. ⊥ ad-hoc `createCollection` ∈ feature path that bypasses the singleton.
+- V67. Optimistic mutation = `collection.update/insert/delete` (auto-rollback on handler reject). Non-optimistic = `useMutation` + `queryClient.invalidateQueries`. ⊥ mix paths for same op.
+- V68. ∀ admin / sensitive query → `meta: { persist: false }` on `queryCollectionOptions` (or underlying `useQuery`). ⊥ admin row leaked to IDB. Domains: `admin.*`, `auth.*`, session, security tokens.
+- V69. Buster string = `${import.meta.env.VITE_APP_VERSION}-${import.meta.env.VITE_SHARED_VERSION}` mounted on `PersistQueryClientProvider`. Buster bump ⇒ IDB cache wiped on next mount. Bump on shape break.
+- V70. Schema (Zod) attached to collection only when collection accepts user-authored optimistic writes (input validation). ⊥ schema parse on server-sync writes — server already validated; double-parse cost no value.
+- V71. Collection `id` field = stable string `${domain}.${endpoint}[.${param}]`. Drives devtools labels + persistence keys. ⊥ random / unstable `id`.
+- V72. ⊥ TanStack DB symbol imported from `@ent-mcp/shared`. Client dep only (preserves V12 + C7).
+- V73. Hooks (`features/<x>/data/*.hooks.ts`) = sole consumer surface for collections. Components ⊥ import collection direct from sibling component file.
+- V74. ⊥ live-query joins across collections v1 (granularity = endpoint per C17). Joins land alongside future entity collections via spec amend.
 
 NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retired by `2026-04-23-home-feed-frontend-design.md` (T14 cancelled, restructure-aware T38 supersedes). Resolution tracked in T39. ⊥ silently rewriting V30/V31 — invoke `/spec amend §V` to retire.
 
@@ -216,6 +243,8 @@ NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retire
 | T40 | .      | Verification gates — `vp check` + `vp test` + `vp dlx fallow` zero-warning baseline after ∀ T33-T39 step. Fallow run = boundary gate; ⊥ skip. `.fallowrc.json` must encode V60 zone + allow-rule contract; CI rejects PRs that add `features/<x>/` without matching `client-feat-<x>` zone, or weaken allow rules. **Per C13: pre-existing tests pass unmodified after T34-T37 — only test import paths may change, ⊥ test bodies. Diff audit: any non-import line change in moved file = C13 violation, redo PR.**                                                                                  | C13,V51-V60                          |
 | T41 | x      | Paraglide infra — `vp add @inlang/paraglide-js`, `apps/client/project.inlang/settings.json` w/ `en`+`fa`, `messages/{en,fa}.json` skeleton, `paraglideVitePlugin` in `vite.config.ts`, `.gitignore` `apps/client/src/paraglide/`, root `<html dir>` hook, locale init wiring strategy `[localStorage, preferredLanguage, baseLocale]`. | C14,C15,V61,V62,V63,V64,I.i18n |
 | T42 | x      | Notifications panel chrome translation POC — extract translatable strings from `notification-panel.tsx`, `notification-panel-body.tsx`, `notification-empty-state.tsx`, `notification-item.tsx`, `notification-category-chip.tsx` to `messages/{en,fa}.json`. Scope: "Notifications" header, "Mark all read", "{count} unread" plural, category labels (media/sync/auth/system), "All" chip, empty-state copy, "Admin" badge, dismiss aria, "Notification settings", "View all", bell aria-label w/ unread count plural. ⊥ translate fixture `title`/`body` (deferred). Plural via paraglide ICU. | T41,V61,I.i18n,I.notifications |
+| T43 | .      | TanStack DB infra — `vp add` deps (`@tanstack/react-db`, `@tanstack/query-db-collection`, `@tanstack/query-async-storage-persister`, `@tanstack/react-query-persist-client`, `idb-keyval`). Build `shared/lib/db/{client,persister,provider,test-utils,index}.ts`. Swap `main.tsx` `QueryClientProvider` → `AppDataProvider`. Add `vite.config.ts` `define` for `VITE_APP_VERSION` + `VITE_SHARED_VERSION` (read from `apps/client/package.json` + `packages/shared/package.json`). Persister + buster + opt-out filter unit tests in `shared/lib/db/__tests__/`. | I.client-data,C16,C18,C19,V65,V68,V69,V72 |
+| T44 | .      | Jobs pilot — `features/jobs/data/{jobs-list.collection.ts,job-detail.collection.ts,jobs.hooks.ts,index.ts}`. Migrate `routes/_authenticated/_settings/admin/jobs.tsx` (list + detail + config modal) + `features/jobs/components/trigger-dialog.tsx` from raw `useQuery`/`useMutation` to hooks. Optimistic = `enabled` toggle + `scheduleOverride`. Non-optimistic = `trigger`, `cancel`. Detail factory `jobDetailCollection(id)` cleanup verified ⊥ leak on drawer close (R3). Hook + rollback tests in `features/jobs/__tests__/`. Changeset `@ent-mcp/client: minor`. | T43,I.client-data,C17,V66,V67,V68,V73 |
 
 ## §B Bugs
 
