@@ -1,9 +1,11 @@
 import { useEffect } from "react";
-import { applyHtmlDir } from "@/shared/lib/i18n/rtl";
+import { applyLocaleStyling } from "@/shared/lib/i18n/apply";
 
-// Single root hook owning <html dir>; per V64, no component-local dir attrs.
+// Single root hook owning locale-driven DOM (V64). Sets <html dir>, <html
+// lang>, and triggers per-locale Google Fonts injection. No component-local
+// dir/lang attrs.
 export function useHtmlDir(): void {
   useEffect(() => {
-    applyHtmlDir();
+    applyLocaleStyling();
   }, []);
 }

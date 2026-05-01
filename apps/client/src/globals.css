@@ -63,6 +63,12 @@
   --danger: oklch(0.65 0.18 25);
 }
 
+/* Per-locale font overrides. Each rule pairs with a LOCALE_FONTS entry in
+   shared/lib/i18n/fonts.ts that lazy-loads the matching Google Fonts CSS. */
+html[lang="fa"] {
+  --font-sans: "Rubik", "Geist Variable", system-ui, sans-serif;
+}
+
 .dark {
   --background: oklch(0.155 0.005 260);
   --foreground: oklch(0.97 0.005 260);
