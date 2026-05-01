@@ -85,6 +85,14 @@
         "patterns": ["apps/client/src/features/jobs/**"]
       },
       {
+        "name": "client-feat-media-details",
+        "patterns": ["apps/client/src/features/media-details/**"]
+      },
+      {
+        "name": "client-feat-requests",
+        "patterns": ["apps/client/src/features/requests/**"]
+      },
+      {
         "name": "client-features-legacy",
         "patterns": ["apps/client/src/lib/**"]
       },
@@ -139,6 +147,8 @@
           "client-feat-settings",
           "client-feat-admin",
           "client-feat-jobs",
+          "client-feat-media-details",
+          "client-feat-requests",
           "client-features-legacy",
           "client-shared-ui",
           "client-shared-components",
@@ -155,6 +165,8 @@
           "client-feat-settings",
           "client-feat-admin",
           "client-feat-jobs",
+          "client-feat-media-details",
+          "client-feat-requests",
           "client-features-legacy",
           "client-shared-ui",
           "client-shared-components",
@@ -195,6 +207,27 @@
       },
       {
         "from": "client-feat-jobs",
+        "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-media-details",
+        "allow": [
+          "client-feat-requests",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-requests",
         "allow": [
           "client-shared-ui",
           "client-shared-components",
