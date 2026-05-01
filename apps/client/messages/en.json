@@ -1,0 +1,39 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "notifications_title": "Notifications",
+  "notifications_mark_all_read": "Mark all read",
+  "notifications_unread_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} unread",
+        "countPlural=other": "{count} unread"
+      }
+    }
+  ],
+  "notifications_filter_aria": "Filter notifications by category",
+  "notifications_category_all": "All",
+  "notifications_category_media": "Media",
+  "notifications_category_sync": "Sync",
+  "notifications_category_auth": "Auth",
+  "notifications_category_system": "System",
+  "notifications_empty_caught_up_title": "You're all caught up",
+  "notifications_empty_caught_up_body": "When something needs your attention, it'll show up here.",
+  "notifications_empty_filter_title": "No {label} notifications",
+  "notifications_empty_filter_body": "Try another filter, or check back later.",
+  "notifications_admin_badge": "Admin",
+  "notifications_dismiss_aria": "Dismiss notification",
+  "notifications_settings_button": "Notification settings",
+  "notifications_view_all": "View all",
+  "notifications_bell_aria_unread": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Notifications, {count} unread",
+        "countPlural=other": "Notifications, {count} unread"
+      }
+    }
+  ]
+}

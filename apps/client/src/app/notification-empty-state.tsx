@@ -1,3 +1,5 @@
+import { m } from "@/paraglide/messages";
+
 interface Props {
   filterLabel?: string | null;
 }
@@ -54,12 +56,14 @@ export function NotificationEmptyState({ filterLabel }: Props) {
       </svg>
       <div>
         <p className="text-sm font-medium text-foreground">
-          {filterLabel ? `No ${filterLabel.toLowerCase()} notifications` : "You're all caught up"}
+          {filterLabel
+            ? m.notifications_empty_filter_title({ label: filterLabel.toLowerCase() })
+            : m.notifications_empty_caught_up_title()}
         </p>
         <p className="mx-auto mt-1 max-w-60 text-xs text-muted-foreground">
           {filterLabel
-            ? "Try another filter, or check back later."
-            : "When something needs your attention, it'll show up here."}
+            ? m.notifications_empty_filter_body()
+            : m.notifications_empty_caught_up_body()}
         </p>
       </div>
     </div>

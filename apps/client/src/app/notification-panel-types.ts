@@ -14,6 +14,7 @@ import type {
   NotificationSeverity,
   NotificationAction,
 } from "@ent-mcp/shared/notifications";
+import { m } from "@/paraglide/messages";
 
 // Client-side DTO extending InboxItemDto with fields the API will expose in a
 // future update. All additions are optional; components render the richer
@@ -29,8 +30,20 @@ export type Density = "comfortable" | "compact";
 export type Intensity = "subtle" | "loud";
 
 export interface CategoryMeta {
-  label: string;
   Icon: LucideIcon;
+}
+
+export function categoryLabel(category: NotificationCategory): string {
+  switch (category) {
+    case "media":
+      return m.notifications_category_media();
+    case "sync":
+      return m.notifications_category_sync();
+    case "auth":
+      return m.notifications_category_auth();
+    case "system":
+      return m.notifications_category_system();
+  }
 }
 
 export interface SeverityMeta {
@@ -46,10 +59,10 @@ export interface SeverityMeta {
 }
 
 export const CATEGORY_META = {
-  media: { label: "Media", Icon: FilmIcon },
-  sync: { label: "Sync", Icon: RefreshCwIcon },
-  auth: { label: "Auth", Icon: ShieldIcon },
-  system: { label: "System", Icon: ServerIcon },
+  media: { Icon: FilmIcon },
+  sync: { Icon: RefreshCwIcon },
+  auth: { Icon: ShieldIcon },
+  system: { Icon: ServerIcon },
 } satisfies Record<NotificationCategory, CategoryMeta>;
 
 export const SEVERITY_META = {

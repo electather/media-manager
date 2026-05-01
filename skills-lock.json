@@ -48,6 +48,12 @@
       "sourceType": "github",
       "computedHash": "8604814828637308a8cdc45c53e647f0029395328184937312330e4b8e8c587f"
     },
+    "paraglide-js": {
+      "source": "zhuojg/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/paraglide-js/SKILL.md",
+      "computedHash": "7a0588040e141fc6a03d2a9b868b7efe614945d6ab6b0db99f07d8ff7900972b"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",

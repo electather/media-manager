@@ -1,0 +1,39 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "notifications_title": "اعلان‌ها",
+  "notifications_mark_all_read": "علامت‌گذاری همه به‌عنوان خوانده‌شده",
+  "notifications_unread_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} خوانده‌نشده",
+        "countPlural=other": "{count} خوانده‌نشده"
+      }
+    }
+  ],
+  "notifications_filter_aria": "فیلتر اعلان‌ها بر اساس دسته",
+  "notifications_category_all": "همه",
+  "notifications_category_media": "رسانه",
+  "notifications_category_sync": "همگام‌سازی",
+  "notifications_category_auth": "احراز هویت",
+  "notifications_category_system": "سیستم",
+  "notifications_empty_caught_up_title": "همه را دیده‌اید",
+  "notifications_empty_caught_up_body": "وقتی چیزی نیاز به توجه شما داشته باشد، اینجا نمایش داده می‌شود.",
+  "notifications_empty_filter_title": "هیچ اعلان {label} وجود ندارد",
+  "notifications_empty_filter_body": "فیلتر دیگری امتحان کنید یا بعداً بررسی کنید.",
+  "notifications_admin_badge": "مدیر",
+  "notifications_dismiss_aria": "رد کردن اعلان",
+  "notifications_settings_button": "تنظیمات اعلان",
+  "notifications_view_all": "مشاهده همه",
+  "notifications_bell_aria_unread": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "اعلان‌ها، {count} خوانده‌نشده",
+        "countPlural=other": "اعلان‌ها، {count} خوانده‌نشده"
+      }
+    }
+  ]
+}

@@ -4,10 +4,11 @@ import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";
+import { m } from "@/paraglide/messages";
 import { NotificationCategoryChip } from "./notification-category-chip";
 import { NotificationEmptyState } from "./notification-empty-state";
 import { NotificationItem } from "./notification-item";
-import { CATEGORY_META } from "./notification-panel-types";
+import { CATEGORY_META, categoryLabel } from "./notification-panel-types";
 import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
 
 type Filter = "all" | NotificationCategory;
@@ -68,7 +69,7 @@ function UnreadToggle({ active, count, onToggle }: UnreadToggleProps) {
           active ? "bg-primary" : count > 0 ? "bg-primary/60" : "bg-muted-foreground/30",
         )}
       />
-      {count} unread
+      {m.notifications_unread_count({ count })}
     </button>
   );
 }
@@ -92,8 +93,7 @@ export function NotificationPanelBody({
     [items, filter, unreadOnly],
   );
 
-  const filterLabel =
-    filter !== "all" ? CATEGORY_META[filter as NotificationCategory]?.label : null;
+  const filterLabel = filter !== "all" ? categoryLabel(filter as NotificationCategory) : null;
   const unreadCount = counts.unread ?? 0;
 
   return (
@@ -106,7 +106,7 @@ export function NotificationPanelBody({
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <span className={cn("font-semibold text-foreground", mobile ? "text-lg" : "text-sm")}>
-            Notifications
+            {m.notifications_title()}
           </span>
           <UnreadToggle
             active={unreadOnly}
@@ -120,8 +120,8 @@ export function NotificationPanelBody({
           size="icon-sm"
           onClick={onMarkAllRead}
           disabled={unreadCount === 0}
-          aria-label="Mark all read"
-          title="Mark all read"
+          aria-label={m.notifications_mark_all_read()}
+          title={m.notifications_mark_all_read()}
         >
           <CheckCheckIcon />
         </Button>
@@ -131,16 +131,20 @@ export function NotificationPanelBody({
         <RadioGroup
           value={filter}
           onValueChange={(v) => setFilter(v as Filter)}
-          aria-label="Filter notifications by category"
+          aria-label={m.notifications_filter_aria()}
           className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none]"
         >
-          <NotificationCategoryChip value="all" label="All" count={counts.all} />
+          <NotificationCategoryChip
+            value="all"
+            label={m.notifications_category_all()}
+            count={counts.all}
+          />
           {(Object.keys(CATEGORY_META) as NotificationCategory[]).map((k) => (
             <NotificationCategoryChip
               key={k}
               value={k}
               category={k as NotificationCategory}
-              label={CATEGORY_META[k as NotificationCategory].label}
+              label={categoryLabel(k as NotificationCategory)}
               count={counts[k]}
             />
           ))}
@@ -169,10 +173,10 @@ export function NotificationPanelBody({
       <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2.5">
         <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
           <SettingsIcon className="size-3.5" />
-          Notification settings
+          {m.notifications_settings_button()}
         </Button>
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
-          View all
+          {m.notifications_view_all()}
         </Button>
       </div>
     </div>

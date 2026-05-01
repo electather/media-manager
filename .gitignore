@@ -9,6 +9,7 @@ data/
 *.db-wal
 bun.lockb
 apps/client/dist/
+apps/client/src/paraglide/
 .DS_Store
 test-server.ts
 .claude/worktrees/
