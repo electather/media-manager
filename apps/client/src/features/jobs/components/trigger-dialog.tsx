@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlayIcon, RefreshCwIcon, CircleCheckIcon } from "lucide-react";
-import { api } from "@/shared/lib/api";
+import { useJobMutations } from "../data";
 import {
   Dialog,
   DialogContent,
@@ -15,15 +14,7 @@ import { FieldGroup, Field, FieldLabel, FieldContent } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
-
-function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
-      <span className="w-36 shrink-0 text-muted-foreground">{label}</span>
-      <span className={`min-w-0 flex-1 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
-    </div>
-  );
-}
+import { MetaRow } from "./meta-row";
 
 // fallow-ignore-next-line complexity
 function FieldItem({
@@ -70,7 +61,7 @@ export function DynamicTriggerDialog({
   job: JobHandle | null;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const { trigger } = useJobMutations();
   const [runId, setRunId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
 
@@ -81,24 +72,24 @@ export function DynamicTriggerDialog({
     }
   }, [open]);
 
-  const triggerMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.admin.jobs[":id"].trigger.$post({
-        param: { id: job!.id },
-        json: Object.keys(formData).length > 0 ? formData : null,
-      });
-      if (!res.ok) throw new Error("trigger failed");
-      return res.json() as Promise<{ runId?: string }>;
-    },
-    onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] });
-      if (data && "runId" in data && data.runId) {
-        setRunId(data.runId);
-      } else {
-        onClose();
-      }
-    },
-  });
+  const handleRun = () => {
+    if (!job) return;
+    trigger.mutate(
+      {
+        id: job.id,
+        input: Object.keys(formData).length > 0 ? formData : null,
+      },
+      {
+        onSuccess: (data) => {
+          if (data && "runId" in data && data.runId) {
+            setRunId(data.runId);
+          } else {
+            onClose();
+          }
+        },
+      },
+    );
+  };
 
   const hasResult = !!runId;
   const properties = job?.inputSchema?.properties || {};
@@ -156,8 +147,8 @@ export function DynamicTriggerDialog({
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={() => triggerMutation.mutate()} disabled={triggerMutation.isPending}>
-                {triggerMutation.isPending ? (
+              <Button onClick={handleRun} disabled={trigger.isPending}>
+                {trigger.isPending ? (
                   <>
                     <RefreshCwIcon className="size-3.5 animate-spin" />
                     Starting…

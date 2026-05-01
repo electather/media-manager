@@ -1,10 +1,22 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 
+const clientPkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
+  version: string;
+};
+const sharedPkg = JSON.parse(
+  readFileSync(new URL("../../packages/shared/package.json", import.meta.url), "utf8"),
+) as { version: string };
+
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_APP_VERSION": JSON.stringify(clientPkg.version),
+    "import.meta.env.VITE_SHARED_VERSION": JSON.stringify(sharedPkg.version),
+  },
   plugins: [
     tanstackRouter({
       target: "react",
