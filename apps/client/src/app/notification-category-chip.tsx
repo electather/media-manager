@@ -1,0 +1,23 @@
+import { RadioGroupItem } from "@/shared/ui/radio-group";
+import { CATEGORY_META } from "./notification-panel-types";
+import type { NotificationCategory } from "./notification-panel-types";
+
+interface Props {
+  value: string;
+  category?: NotificationCategory;
+  label: string;
+  count?: number;
+}
+
+// fallow-ignore-next-line complexity
+export function NotificationCategoryChip({ value, category, label, count }: Props) {
+  const meta = category ? CATEGORY_META[category] : null;
+  const MetaIcon = meta?.Icon;
+  return (
+    <RadioGroupItem value={value}>
+      {MetaIcon && <MetaIcon className="size-3" />}
+      <span>{label}</span>
+      {count != null && <span className="text-xs tabular-nums opacity-70">{count}</span>}
+    </RadioGroupItem>
+  );
+}

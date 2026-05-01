@@ -40,10 +40,11 @@ export function UserMenu() {
         }
       />
       <DropdownMenuContent align="end" sideOffset={8} className="w-60">
-        <div className="border-b border-border px-3 py-2.5">
+        <div className="px-3 py-2.5">
           <div className="text-sm font-medium text-foreground">{name}</div>
           <div className="text-xs text-muted-foreground">Personal · 4 sources</div>
         </div>
+        <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link to="/settings" />}>
           <Settings className="size-4" />
           Settings
