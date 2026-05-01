@@ -1,0 +1,188 @@
+---
+goal: Stand up TanStack DB infra in apps/client and migrate the admin jobs feature as the validation pilot
+version: 1.0
+date_created: 2026-05-01
+last_updated: 2026-05-01
+owner: Frontend
+status: 'Planned'
+tags: ['feature', 'infrastructure', 'frontend', 'client', 'data-layer']
+---
+
+# Introduction
+
+![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+
+Implementation plan for the client-side TanStack DB reactive store. Builds the shared infra in `apps/client/src/shared/lib/db/`, wires an IDB-backed `QueryClient` persister, and migrates the admin jobs feature (`features/jobs/` + `routes/_authenticated/_settings/admin/jobs.tsx`) as the end-to-end pilot.
+
+Single PR. Targets SPEC.md `T43` (infra) followed by `T44` (jobs pilot), in that order, in a single branch. Validates motivations A/B/C/E/F from the design doc; motivation D (realtime) is deferred.
+
+Canonical input: `docs/2026-05-01-client-tanstack-db-design.md` (commit `1193fcb`).
+SPEC anchors: §I.client-data, §C16–C19, §V65–V74, §T43, §T44.
+
+## 1. Requirements & Constraints
+
+- **REQ-001**: Wrap Hono RPC reads in `queryCollectionOptions` collections; expose data via `useLiveQuery` hooks. (SPEC §I.client-data)
+- **REQ-002**: Persist `QueryClient` to IndexedDB via `@tanstack/query-async-storage-persister` + `idb-keyval`, enabling SWR offline lists. (SPEC §C18)
+- **REQ-003**: Provide `AppDataProvider` (wrapping `PersistQueryClientProvider`) at the root of `main.tsx`, replacing the inline `QueryClient` + `QueryClientProvider`. (SPEC §V65)
+- **REQ-004**: Pilot the new layer on the admin jobs page. Optimistic mutations on `enabled` toggle and `scheduleOverride`. Non-optimistic on `trigger` and `cancel`. (SPEC §V67, §I.client-data mutation policy)
+- **REQ-005**: Admin/sensitive collections opt out of IDB via `meta: { persist: false }`. Pilot jobs collection sets this. (SPEC §V68)
+- **REQ-006**: Buster string for the persister equals `${import.meta.env.VITE_APP_VERSION}-${import.meta.env.VITE_SHARED_VERSION}`. (SPEC §V69)
+- **REQ-007**: Per-feature collections live under `apps/client/src/features/<x>/data/`. Hooks (`*.hooks.ts`) are the sole consumer surface; components must not import collections directly. (SPEC §C12, §V73)
+- **REQ-008**: Ship a Changeset entry `@ent-mcp/client: minor` containing 1–2 non-technical sentences describing the user-visible change.
+- **SEC-001**: Admin payloads (jobs, plugins admin, errors viewer, auth/session) must never be written to IDB. Enforced by `meta.persist: false` and asserted in unit tests.
+- **CON-001**: No realtime layer (SSE/WS) introduced in this PR. Polling via `refetchInterval` carries push-style updates. (SPEC §C16)
+- **CON-002**: Granularity is endpoint-keyed: one collection per Hono RPC procedure. No entity-level (cross-endpoint) collections. (SPEC §C17, §V74)
+- **CON-003**: No `dexieCollectionOptions`, no ElectricSQL, no service worker in this PR. (SPEC §C16, §C19)
+- **CON-004**: Use `vp add` / `vp check` / `vp test` only — never `bun add`, `pnpm add`, or `npm install` directly. (project CLAUDE.md)
+- **CON-005**: TanStack DB symbols must not be imported from `@ent-mcp/shared`. Client-only dep. (SPEC §V72, §C7)
+- **CON-006**: Mechanical-migration constraint C13 does not apply: this is net-new infra plus a feature rewrite, not a structural file move.
+- **GUD-001**: Use `es-toolkit` submodules for any utility code added to the data layer (no inline `compact`/`uniq`/etc.). (SPEC §C11)
+- **GUD-002**: Keep collection `id` strings stable: `${domain}.${endpoint}[.${param}]`. (SPEC §V71)
+- **PAT-001**: Optimistic mutation = `collection.update/insert/delete`. Non-optimistic = `useMutation` + `queryClient.invalidateQueries`. Never mix paths for one operation. (SPEC §V67)
+- **PAT-002**: Schema (Zod) is attached to a collection only when the collection accepts user-authored optimistic writes. Server-sync writes are not double-validated. (SPEC §V70)
+
+## 2. Implementation Steps
+
+### Implementation Phase 1 — Shared infra (T43)
+
+- GOAL-001: Land the reactive store infrastructure in `apps/client/src/shared/lib/db/`, wire it into `main.tsx`, and prove the persister boundary via unit tests. No feature code touched in this phase.
+
+| Task     | Description | Completed | Date |
+|----------|-------------|-----------|------|
+| TASK-001 | Run `vp add @tanstack/react-db @tanstack/query-db-collection @tanstack/query-async-storage-persister @tanstack/react-query-persist-client idb-keyval` from the repo root, scoped to `apps/client/package.json`. Verify `bun.lock` updated and `vp install` is a no-op afterwards. | | |
+| TASK-002 | In `apps/client/vite.config.ts` add a `define` block exposing `import.meta.env.VITE_APP_VERSION` (read from `apps/client/package.json` `version`) and `import.meta.env.VITE_SHARED_VERSION` (read from `packages/shared/package.json` `version`). Use `JSON.stringify` for both. Confirm types in `apps/client/src/vite-env.d.ts` (extend `ImportMetaEnv`). | | |
+| TASK-003 | Create `apps/client/src/shared/lib/db/client.ts` exporting a singleton `queryClient = new QueryClient({ defaultOptions: { queries: { gcTime: 1000 * 60 * 60 * 24 * 30, staleTime: 0 } } })`. Export type `AppQueryClient = typeof queryClient`. | | |
+| TASK-004 | Create `apps/client/src/shared/lib/db/persister.ts`. Export `idbStore = createStore('ent-mcp', 'tsq-cache')` (idb-keyval), `idbStorage = { getItem, setItem, removeItem }` adapter that delegates to `get/set/del` on `idbStore`, `persister = createAsyncStoragePersister({ storage: idbStorage, key: 'ent-mcp-tsq' })`, `buster = `${import.meta.env.VITE_APP_VERSION}-${import.meta.env.VITE_SHARED_VERSION}``, `MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30`, and `dehydrateOptions = { shouldDehydrateQuery: (q) => q.meta?.persist !== false }`. | | |
+| TASK-005 | Create `apps/client/src/shared/lib/db/provider.tsx`. Export `AppDataProvider({ children })` that renders `<PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: MAX_AGE_MS, buster, dehydrateOptions }}>{children}</PersistQueryClientProvider>`. | | |
+| TASK-006 | Create `apps/client/src/shared/lib/db/test-utils.ts` exporting `createTestQueryClient()` (gcTime 0, retries 0), `createTestCollection<T>(opts, seedRows?)` that wraps `queryCollectionOptions` with a stub `queryFn` returning `seedRows ?? []`, and `seedRows<T>(collection, rows)` that uses `collection.utils.writeBatch` + `writeInsert`. | | |
+| TASK-007 | Create `apps/client/src/shared/lib/db/index.ts` barrel re-exporting `queryClient`, `AppDataProvider`, `persister`, `buster`, and `MAX_AGE_MS` (test-utils stay non-barrelled; tests import the file directly). | | |
+| TASK-008 | Edit `apps/client/src/main.tsx`: remove the inline `const queryClient = new QueryClient()`, drop the direct `QueryClientProvider` wrap, replace with `AppDataProvider` from `@/shared/lib/db`. Keep `ReactQueryDevtools` mounted as a child of `AppDataProvider`. | | |
+| TASK-009 | Add unit tests in `apps/client/src/shared/lib/db/__tests__/persister.test.ts`: (a) `dehydrateOptions.shouldDehydrateQuery` returns `false` when `meta.persist === false` and `true` otherwise; (b) `buster` reflects the two env vars and updates when either changes (use `vi.stubEnv`); (c) `idbStorage` round-trips a string through `idb-keyval` (use the `idb-keyval` in-memory fallback or stub `get`/`set`/`del`). | | |
+| TASK-010 | Run `vp check` and `vp test --run apps/client/src/shared/lib/db/__tests__`. Both must pass before Phase 2 begins. Run `vp run --filter @ent-mcp/client dev` once and confirm the app boots with no console errors and the React Query Devtools panel still mounts. | | |
+
+### Implementation Phase 2 — Jobs pilot collections + hooks (T44 part 1)
+
+- GOAL-002: Create endpoint-keyed collections and hooks for the admin jobs feature without yet touching the route. End state: `useJobsList`, `useJobDetail`, `useJobMutations` exported from `features/jobs` and unit-tested.
+
+| Task     | Description | Completed | Date |
+|----------|-------------|-----------|------|
+| TASK-011 | Create `apps/client/src/features/jobs/data/jobs-list.collection.ts`. Build `jobsListCollection = createCollection(queryCollectionOptions({ id: 'admin.jobs.list', queryKey: ['admin','jobs','list'], queryClient, queryFn, getKey: (j) => j.id, refetchInterval: 10_000, meta: { persist: false }, onUpdate }))`. `queryFn` calls `api.admin.jobs.$get()` and returns `(await res.json()).jobs` (handle the envelope inline; do not rely on `select` until R1 is verified). `onUpdate` iterates `transaction.mutations` and calls `api.admin.jobs[':id'].config.$post({ param: { id: m.key }, json: { enabled: m.changes.enabled ?? m.modified.enabled, scheduleOverride: m.changes.scheduleOverride ?? m.modified.scheduleOverride } })`. Throw on non-2xx so TanStack DB rolls back. | | |
+| TASK-012 | Create `apps/client/src/features/jobs/data/job-detail.collection.ts`. Export factory `jobDetailCollection(jobId: string)` returning `createCollection(queryCollectionOptions({ id: `admin.jobs.detail.${jobId}`, queryKey: ['admin','jobs','detail', jobId], queryClient, queryFn: async () => { const res = await api.admin.jobs[':id'].$get({ param: { id: jobId }, query: { limit: '30' } }); if (!res.ok) throw new Error('failed to load job'); const data = await res.json(); return [data.job]; }, getKey: (j) => j.id, refetchInterval: 5_000, meta: { persist: false } }))`. Memoize the factory inside `useJobDetail` with `useMemo` keyed on `jobId` so a single collection lives per opened drawer. Implement an explicit cleanup `useEffect` calling `collection.cleanup()` on unmount when the upstream API supports it; otherwise document the no-op (R3). | | |
+| TASK-013 | Create `apps/client/src/features/jobs/data/job-runs.hooks.ts`. For runs of a single job, keep the existing `useQuery` pattern (no collection v1) per design §I.jobs.collections. Wrap it as `useJobRuns(jobId)` so the route does not call `useQuery` directly — preserves §V73 surface. | | |
+| TASK-014 | Create `apps/client/src/features/jobs/data/jobs.hooks.ts`. Export `useJobsList(filters?: { search?: string; kind?: string })` returning `useLiveQuery((q) => { let base = q.from({ job: jobsListCollection }); if (filters?.search) base = base.where(({ job }) => /* lowercase id includes filters.search */); if (filters?.kind && filters.kind !== 'all') base = base.where(({ job }) => eq(job.kind, filters.kind)); return base; })`. Export `useJobDetail(jobId: string \| null)` that returns `{ data: undefined, isLoading: false }` when `jobId` is null and otherwise wires `useLiveQuery` against the memoized detail collection. Export `useJobMutations()` returning `{ toggleEnabled, setScheduleOverride, saveConfig, trigger, cancel }`. `toggleEnabled` and `setScheduleOverride` and `saveConfig` use `jobsListCollection.update(jobId, (draft) => { ... })` (optimistic). `trigger` and `cancel` use `useMutation` against `api.admin.jobs[':id'].trigger.$post` / `cancel.$post` and call `queryClient.invalidateQueries({ queryKey: ['admin','jobs'] })` on success. | | |
+| TASK-015 | Create `apps/client/src/features/jobs/data/index.ts` barrel re-exporting `useJobsList`, `useJobDetail`, `useJobRuns`, `useJobMutations`. Update `apps/client/src/features/jobs/index.ts` to also re-export the new hooks alongside `DynamicTriggerDialog` and `RunDetailDrawer`. | | |
+| TASK-016 | Add unit tests in `apps/client/src/features/jobs/__tests__/jobs-collection.test.ts`: (a) seed `jobsListCollection` via `seedRows` and assert `useJobsList` returns rows + filters by `search` and `kind`; (b) optimistic `toggleEnabled` updates the live query immediately; (c) optimistic rollback when `onUpdate` rejects (mock `api.admin.jobs[':id'].config.$post` to return 500, assert row reverts and an error is surfaced); (d) `meta.persist === false` is set on the collection options. | | |
+
+### Implementation Phase 3 — Jobs pilot route migration (T44 part 2)
+
+- GOAL-003: Swap `routes/_authenticated/_settings/admin/jobs.tsx` and `features/jobs/components/trigger-dialog.tsx` from raw `useQuery`/`useMutation` to the hooks from Phase 2. UI behavior unchanged.
+
+| Task     | Description | Completed | Date |
+|----------|-------------|-----------|------|
+| TASK-017 | Edit `apps/client/src/routes/_authenticated/_settings/admin/jobs.tsx`. Remove the inline `useQuery({ queryKey: ['admin','jobs','list'], … })` and the `useQueryClient`/`useMutation` plumbing in `JobRow`. Replace the list read with `const { data: jobs, isLoading } = useJobsList({ search, kind: kindFilter })` from `@/features/jobs`. Replace `JobRow`'s cancel mutation with `useJobMutations().cancel`. Replace `JobDetailSheet`'s detail `useQuery` with `useJobDetail(jobId)`; runs list now reads from `useJobRuns(jobId)`. Replace `ConfigureDialog`'s `useMutation` with `useJobMutations().saveConfig` (optimistic). Keep all UI markup and behaviors identical: refresh button, status dots, badges, skeletons, sheet/drawer. | | |
+| TASK-018 | Edit `apps/client/src/features/jobs/components/trigger-dialog.tsx`. Replace the local `useMutation` with `useJobMutations().trigger`. Preserve the runId echo + `Done` flow. Trigger remains non-optimistic. | | |
+| TASK-019 | Audit and remove all `useQuery`/`useMutation`/`useQueryClient` imports inside `routes/_authenticated/_settings/admin/jobs.tsx` and `features/jobs/components/*` that are no longer used. Confirm no component imports a collection directly (§V73). | | |
+| TASK-020 | Update `apps/client/src/features/jobs/__tests__/` integration test (or add one) that renders the admin jobs page against a seeded `createTestQueryClient` + seeded `jobsListCollection`, asserting: (a) list rows render, (b) clicking the enabled switch in `ConfigureDialog` flips state immediately and persists after API resolves, (c) trigger button calls the API once and disables until the runId returns. Use Testing Library + happy-dom. | | |
+| TASK-021 | Add a Changeset at `.changeset/tanstack-db-jobs-pilot.md`. Frontmatter: `'@ent-mcp/client': minor`. Body: 1–2 sentences in user-facing language, e.g. "The admin jobs page now updates instantly when toggling enabled status or schedule overrides." | | |
+
+### Implementation Phase 4 — Verification
+
+- GOAL-004: Prove the PR is shippable: linters, types, unit tests, and a manual smoke pass through the admin jobs page.
+
+| Task     | Description | Completed | Date |
+|----------|-------------|-----------|------|
+| TASK-022 | Run `vp check` from repo root. Zero errors. (Format, lint, types.) | | |
+| TASK-023 | Run `vp test --run` from repo root. All suites pass. | | |
+| TASK-024 | Run `vp dlx fallow` from repo root. Zero new boundary violations introduced by the new directories. | | |
+| TASK-025 | Run `vp run --filter @ent-mcp/client dev`. Walk the manual smoke checklist in §6 below. Capture any deviation as a follow-up before merge. | | |
+| TASK-026 | Inspect the React Query Devtools panel during smoke: confirm the `admin.jobs.list` query polls every 10s, the `admin.jobs.detail.<id>` query polls every 5s when the sheet is open, and neither carries `meta.persist === true`. | | |
+| TASK-027 | Inspect `chrome://indexeddb-internals` (or DevTools Application → IndexedDB → `ent-mcp` → `tsq-cache`). After a logged-in session that exercises a non-admin route (e.g. `/settings/profile`), confirm at least one persisted query exists. After visiting `/settings/admin/jobs` and refreshing, confirm no `admin.jobs.*` keys appear in IDB. | | |
+
+## 3. Alternatives
+
+- **ALT-001**: Use `dexieCollectionOptions` (third-party `tanstack-dexie-db-collection`) per collection instead of a single `QueryClient` IDB persister. Rejected for v1: introduces two collection shapes and per-collection sync code on day one. Selected path keeps one persistence story; Dexie can be added later for collections that genuinely need local-first.
+- **ALT-002**: Build entity-level collections (`jobs`, `jobRuns`) that are populated by both list and detail queries, enabling cross-endpoint cache coherence. Rejected for v1: adds complexity before the pilot proves the basic shape. Captured as a future amend slot in SPEC §C17.
+- **ALT-003**: Ship infra in one PR and migrate the jobs feature in a follow-up PR. Rejected: infra needs an end-to-end consumer to validate the persister, the provider, the test helpers, and the mutation policy in real conditions. Splitting risks landing dead infra.
+- **ALT-004**: Persist with `localStorage` instead of IDB (using the built-in `localStorageCollectionOptions`). Rejected: SPEC §C18 mandates IDB. `localStorage` is too small for cached lists like watchlist or home.
+- **ALT-005**: Keep `useQuery` everywhere and adopt TanStack DB only for new features. Rejected: motivations A and F (cache coherence, no `queryKey` sprawl) require migrating real call sites; the jobs page is a meaningful sample.
+
+## 4. Dependencies
+
+- **DEP-001**: `@tanstack/react-db` (latest stable) — collections, `useLiveQuery`, `eq`, `not`. Added to `apps/client/package.json`.
+- **DEP-002**: `@tanstack/query-db-collection` (latest stable) — `queryCollectionOptions`. Added to `apps/client/package.json`.
+- **DEP-003**: `@tanstack/query-async-storage-persister` (latest stable) — `createAsyncStoragePersister`. Added to `apps/client/package.json`.
+- **DEP-004**: `@tanstack/react-query-persist-client` (latest stable) — `PersistQueryClientProvider`. Added to `apps/client/package.json`.
+- **DEP-005**: `idb-keyval` (latest stable) — `createStore`, `get`, `set`, `del`. Added to `apps/client/package.json`.
+- **DEP-006**: Existing `@tanstack/react-query` and `@tanstack/react-query-devtools` already in `apps/client/package.json`. No version change required unless a peer-dep mismatch surfaces during install — note in PR description if so.
+- **DEP-007**: Existing `@tanstack/react-router` and `zod` in `apps/client/package.json` are reused by the migration. No additions.
+- **DEP-008**: Existing `@ent-mcp/shared/jobs` types (`JobHandle`, `JobRunSummary`, `JobKind`, `JobRunStatus`) are reused. No changes to `packages/shared/`.
+- **DEP-009**: Vite+ toolchain (`vp add`, `vp check`, `vp test`). No version pin change.
+
+## 5. Files
+
+- **FILE-001**: `apps/client/package.json` — add 5 new dependencies via `vp add`.
+- **FILE-002**: `apps/client/vite.config.ts` — add `define` for `VITE_APP_VERSION` and `VITE_SHARED_VERSION` derived from `apps/client/package.json` and `packages/shared/package.json`.
+- **FILE-003**: `apps/client/src/vite-env.d.ts` — extend `ImportMetaEnv` with the two new keys (`readonly VITE_APP_VERSION: string` etc).
+- **FILE-004**: `apps/client/src/shared/lib/db/client.ts` (new) — singleton `QueryClient`.
+- **FILE-005**: `apps/client/src/shared/lib/db/persister.ts` (new) — IDB persister, buster, dehydrate filter, max age.
+- **FILE-006**: `apps/client/src/shared/lib/db/provider.tsx` (new) — `AppDataProvider`.
+- **FILE-007**: `apps/client/src/shared/lib/db/test-utils.ts` (new) — `createTestQueryClient`, `createTestCollection`, `seedRows`.
+- **FILE-008**: `apps/client/src/shared/lib/db/index.ts` (new) — barrel.
+- **FILE-009**: `apps/client/src/shared/lib/db/__tests__/persister.test.ts` (new) — persister boundary tests.
+- **FILE-010**: `apps/client/src/main.tsx` — swap inline `QueryClientProvider` for `AppDataProvider`.
+- **FILE-011**: `apps/client/src/features/jobs/data/jobs-list.collection.ts` (new) — list collection with `onUpdate`.
+- **FILE-012**: `apps/client/src/features/jobs/data/job-detail.collection.ts` (new) — detail collection factory.
+- **FILE-013**: `apps/client/src/features/jobs/data/job-runs.hooks.ts` (new) — `useJobRuns` (keeps `useQuery` v1).
+- **FILE-014**: `apps/client/src/features/jobs/data/jobs.hooks.ts` (new) — `useJobsList`, `useJobDetail`, `useJobMutations`.
+- **FILE-015**: `apps/client/src/features/jobs/data/index.ts` (new) — barrel.
+- **FILE-016**: `apps/client/src/features/jobs/index.ts` — extend public surface to re-export the new hooks.
+- **FILE-017**: `apps/client/src/features/jobs/components/trigger-dialog.tsx` — swap to `useJobMutations().trigger`.
+- **FILE-018**: `apps/client/src/routes/_authenticated/_settings/admin/jobs.tsx` — swap raw `useQuery`/`useMutation` for the new hooks.
+- **FILE-019**: `apps/client/src/features/jobs/__tests__/jobs-collection.test.ts` (new) — collection + hook unit tests.
+- **FILE-020**: `apps/client/src/features/jobs/__tests__/jobs-page.test.tsx` (new) — page-level integration test.
+- **FILE-021**: `.changeset/tanstack-db-jobs-pilot.md` (new) — `@ent-mcp/client: minor`, 1–2 user-facing sentences.
+
+## 6. Testing
+
+- **TEST-001** (unit, FILE-009): `dehydrateOptions.shouldDehydrateQuery` returns `false` for queries with `meta.persist === false` and `true` for all other queries.
+- **TEST-002** (unit, FILE-009): `buster` recomputes correctly when `VITE_APP_VERSION` or `VITE_SHARED_VERSION` change (use `vi.stubEnv` then re-import).
+- **TEST-003** (unit, FILE-009): `idbStorage.setItem`/`getItem`/`removeItem` round-trip a string through `idb-keyval`.
+- **TEST-004** (unit, FILE-019): `useJobsList` returns seeded rows; `search` filter narrows by id substring; `kind` filter narrows by `kind` field.
+- **TEST-005** (unit, FILE-019): Optimistic `toggleEnabled` flips the row immediately and persists after `api.admin.jobs[':id'].config.$post` resolves.
+- **TEST-006** (unit, FILE-019): Optimistic rollback when `api.admin.jobs[':id'].config.$post` rejects: row reverts to original `enabled` value, the rejection surfaces to the caller.
+- **TEST-007** (unit, FILE-019): `jobsListCollection` options carry `meta.persist === false` and `id === 'admin.jobs.list'`.
+- **TEST-008** (unit, FILE-019): `useJobMutations().trigger` calls `api.admin.jobs[':id'].trigger.$post` exactly once per click and `queryClient.invalidateQueries({ queryKey: ['admin','jobs'] })` afterwards.
+- **TEST-009** (integration, FILE-020): The admin jobs page renders rows from a seeded collection without hitting the network; the configure dialog enable-toggle updates the row optimistically.
+- **TEST-010** (integration, FILE-020): Cancel button on a running job calls `api.admin.jobs[':id'].cancel.$post` once and surfaces the resulting status change after the next list refetch.
+- **TEST-011** (smoke, manual, run during TASK-025): Cold-load `/settings/admin/jobs` while online → list populates within 10s, status dots reflect server state.
+- **TEST-012** (smoke, manual): Toggle a job's `enabled` switch via the Configure dialog → switch flips instantly, network request fires, dialog closes; revert by toggling back.
+- **TEST-013** (smoke, manual): Set an invalid cron in `scheduleOverride` field, save → save succeeds optimistically then rolls back when the server rejects (or save succeeds if validation is server-side lenient — note actual behavior in PR description).
+- **TEST-014** (smoke, manual): Click `Run now` on a triggerable job → button shows pending state, runId banner appears on success; no optimistic placeholder row in list.
+- **TEST-015** (smoke, manual): Click `Cancel` on a running job → button is disabled while pending, list refetch reflects status flip within ≤10s.
+- **TEST-016** (smoke, manual, run during TASK-027): Visit `/settings/profile`, then DevTools → Application → IndexedDB → `ent-mcp` → `tsq-cache` shows at least one persisted query.
+- **TEST-017** (smoke, manual, run during TASK-027): Visit `/settings/admin/jobs`, refresh, then re-inspect IDB: no `admin.jobs.*` keys present (admin opt-out is honored).
+- **TEST-018** (smoke, manual): Bump `apps/client/package.json` `version` locally, rebuild, reload; previous IDB cache is wiped (verify by inspecting `tsq-cache` is empty until first online refetch). Revert version bump before commit.
+
+## 7. Risks & Assumptions
+
+- **RISK-001** (R1 from design): `select` on `queryCollectionOptions` may not work cleanly with the `{ jobs: JobHandle[] }` envelope returned by `api.admin.jobs.$get()`. Mitigation: `queryFn` returns the unwrapped array directly (already specified in TASK-011). Re-evaluate `select` once the rest of the pilot is green.
+- **RISK-002** (R3 from design): `jobDetailCollection(id)` factory creates one collection per opened job. If TanStack DB does not auto-dispose on no subscriber, memory grows per job opened during a session. Mitigation: explicit `useEffect` cleanup in `useJobDetail`. If the upstream API does not yet support cleanup, document the leak and bound it via the natural session lifecycle (admin page).
+- **RISK-003** (R4 from design): `import.meta.env.VITE_APP_VERSION` and `VITE_SHARED_VERSION` must be defined in `vite.config.ts`. Missing define leaves the buster as `undefined-undefined`, which still works as a stable string but does not invalidate on deploy. Mitigation: TASK-002 adds the define; TEST-002 asserts the values are populated at runtime.
+- **RISK-004**: `PersistQueryClientProvider` blocks render until hydration completes. For the admin jobs page (auth-gated, infrequent visit) this is invisible. If a top-of-funnel route ever shows a noticeable delay, switch to the imperative `persistQueryClient` API and render eagerly.
+- **RISK-005**: `tanstack-dexie-db-collection` ecosystem may diverge from TanStack DB main. We avoid it in this PR per ALT-001, so this risk is bounded; revisit when offline-first per-collection becomes a real requirement.
+- **RISK-006**: Optimistic `scheduleOverride` updates accept any string client-side. Server-side validation will still reject invalid cron strings. Confirm rollback path renders a useful error toast (TEST-006).
+- **ASSUMPTION-001**: `apps/client/package.json` `version` and `packages/shared/package.json` `version` are bumped on real release flows so the buster meaningfully changes between deploys.
+- **ASSUMPTION-002**: The Hono RPC client at `@/shared/lib/api` already returns shapes compatible with the `{ jobs }` and `{ job, runs }` envelopes used by the existing route — no server changes required.
+- **ASSUMPTION-003**: `@tanstack/react-db` and `@tanstack/query-db-collection` peer-depend on the existing `@tanstack/react-query` major version. If `vp add` reports a peer mismatch, prefer upgrading react-query in the same PR over downgrading TanStack DB.
+- **ASSUMPTION-004**: Admin jobs page is the only consumer of `['admin','jobs', …]` query keys today. Verified by grep before TASK-017 begins.
+- **ASSUMPTION-005**: `useLiveQuery` is stable enough in current TanStack DB to back a production admin page; no experimental flag needed.
+
+## 8. Related Specifications / Further Reading
+
+- `docs/2026-05-01-client-tanstack-db-design.md` — canonical design (commit `1193fcb`).
+- `docs/2026-04-29-frontend-structure-design.md` — feature-first client layout (V51–V60).
+- `SPEC.md` §I.client-data, §C16–C19, §V65–V74, §T43, §T44.
+- TanStack DB docs: https://tanstack.com/db/latest/docs/overview
+- `queryCollectionOptions` reference: https://tanstack.com/db/latest/docs/reference/query-db-collection/functions/queryCollectionOptions
+- `PersistQueryClientProvider` reference: https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient
+- `idb-keyval` README: https://github.com/jakearchibald/idb-keyval
