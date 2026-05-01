@@ -34,6 +34,7 @@ import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
 import { Route as AuthenticatedSettingsAdminLogsRouteImport } from './routes/_authenticated/_settings/admin/logs'
 import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
+import { Route as AuthenticatedAppMediaIdRouteImport } from './routes/_authenticated/_app/media/$id'
 
 const OauthRouteRoute = OauthRouteRouteImport.update({
   id: '/oauth',
@@ -172,6 +173,11 @@ const AuthenticatedSettingsAdminJobsRoute =
     path: '/admin/jobs',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedAppMediaIdRoute = AuthenticatedAppMediaIdRouteImport.update({
+  id: '/media/$id',
+  path: '/media/$id',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedAppIndexRoute
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
+  '/media/$id': typeof AuthenticatedAppMediaIdRoute
   '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
   '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
+  '/media/$id': typeof AuthenticatedAppMediaIdRoute
   '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
   '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/_app/media/$id': typeof AuthenticatedAppMediaIdRoute
   '/_authenticated/_settings/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
   '/_authenticated/_settings/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
   '/_authenticated/_settings/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
@@ -262,6 +271,7 @@ export interface FileRouteTypes {
     | '/oauth-callback'
     | '/setup'
     | '/auth/invite/$token'
+    | '/media/$id'
     | '/admin/jobs'
     | '/admin/logs'
     | '/admin/plugins'
@@ -286,6 +296,7 @@ export interface FileRouteTypes {
     | '/oauth-callback'
     | '/setup'
     | '/auth/invite/$token'
+    | '/media/$id'
     | '/admin/jobs'
     | '/admin/logs'
     | '/admin/plugins'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/setup'
     | '/auth/invite/$token'
     | '/_authenticated/_app/'
+    | '/_authenticated/_app/media/$id'
     | '/_authenticated/_settings/admin/jobs'
     | '/_authenticated/_settings/admin/logs'
     | '/_authenticated/_settings/admin/plugins'
@@ -510,15 +522,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_app/media/$id': {
+      id: '/_authenticated/_app/media/$id'
+      path: '/media/$id'
+      fullPath: '/media/$id'
+      preLoaderRoute: typeof AuthenticatedAppMediaIdRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppMediaIdRoute: typeof AuthenticatedAppMediaIdRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppMediaIdRoute: AuthenticatedAppMediaIdRoute,
 }
 
 const AuthenticatedAppRouteRouteWithChildren =

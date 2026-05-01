@@ -1,15 +1,25 @@
-import { Check, Film, Layers, Plus, Tv } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { Check, CircleAlert, Clock, Film, HelpCircle, Layers, Plus, Tv } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type MouseEvent,
+} from "react";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { m } from "@/paraglide/messages";
 import { ClearLogo } from "@/shared/components/clear-logo";
 import { LoadingImage } from "@/shared/components/loading-image";
 import { MediaKindBadge } from "@/shared/components/media-kind-badge";
-import { MediaStatusPill } from "@/shared/components/media-status-pill";
 import { TagChips } from "@/shared/components/tag-chips";
-import { ProgressBar } from "@/shared/components/progress-bar";
 import { formatMinutesLeft } from "@/shared/lib/format/duration";
 import { cn } from "@/shared/lib/utils";
+import { Badge, type badgeVariants } from "@/shared/ui/badge";
+import { Progress } from "@/shared/ui/progress";
+import { Button } from "../ui/button";
+import { Link } from "@tanstack/react-router";
+import type { VariantProps } from "class-variance-authority";
 
 type Aspect = "16/9" | "2/3";
 type Layout = "thumb" | "tile";
@@ -20,7 +30,6 @@ const THUMB_WIDTH_PX = 160;
 type ExtendedFields = {
   tags?: readonly string[];
   seriesStatus?: "ongoing" | "ended";
-  clearLogoText?: string;
 };
 
 export type MediaCardItem = CompactMediaItem & ExtendedFields;
@@ -82,9 +91,10 @@ export function MediaCard({
   }
 
   return (
-    <a
+    <Link
       ref={ref}
-      href={`/media/${item.id}`}
+      to={`/media/$id`}
+      params={{ id: item.id }}
       onClick={handleClick}
       data-hero={isHero ? "true" : "false"}
       aria-label={mediaAriaLabel(item)}
@@ -101,7 +111,13 @@ export function MediaCard({
         <ClearLogoOverlay aspect={aspect} item={item} isHero={isHero} />
         <CornerBadges item={item} />
         {treatment === "continue-watching" && item.progress && (
-          <ProgressBar ratio={item.progress.watched / item.progress.total} />
+          <Progress
+            value={progressPct(item.progress.watched, item.progress.total)}
+            className="absolute inset-x-0 bottom-0"
+            trackClassName="h-1 w-full rounded-none bg-background/45"
+            indicatorClassName="bg-progress-watched"
+            aria-hidden="true"
+          />
         )}
         {!isHero && (
           <WatchlistQuickAction
@@ -115,8 +131,16 @@ export function MediaCard({
         )}
       </CardFrame>
       {!hideMeta && <CardMeta item={item} treatment={treatment} />}
-    </a>
+    </Link>
   );
+}
+
+function progressPct(watched: number, total: number): number {
+  if (!total || Number.isNaN(watched) || Number.isNaN(total)) return 0;
+  const pct = (watched / total) * 100;
+  if (pct < 0) return 0;
+  if (pct > 100) return 100;
+  return pct;
 }
 
 function resolveTreatment(item: MediaCardItem): Treatment {
@@ -180,13 +204,19 @@ function ThumbCard({ anchorRef, item, treatment, imageSrc, onClick }: ThumbCardP
           className="absolute inset-0 size-full object-cover"
         />
         {treatment === "continue-watching" && item.progress && (
-          <ProgressBar ratio={item.progress.watched / item.progress.total} />
+          <Progress
+            value={progressPct(item.progress.watched, item.progress.total)}
+            className="absolute inset-x-0 bottom-0"
+            trackClassName="h-1 w-full rounded-none bg-background/45"
+            indicatorClassName="bg-progress-watched"
+            aria-hidden="true"
+          />
         )}
       </div>
       <div className="flex min-w-0 flex-col justify-center">
         <div className="flex items-center gap-1.5">
           <MediaKindIcon mediaType={item.mediaType} />
-          <div className="truncate text-[13px] font-medium text-foreground">{item.title}</div>
+          <div className="truncate text-sm font-medium text-foreground">{item.title}</div>
         </div>
         <ThumbMeta item={item} treatment={treatment} />
       </div>
@@ -235,8 +265,9 @@ function CardFrame({ aspect, glowColor, children }: CardFrameProps) {
         "relative isolate overflow-hidden rounded-xl",
         aspectClass,
         "bg-muted ring-1 ring-foreground/10",
-        "transition-shadow duration-300",
-        "group-hover/media-card:shadow-[0_8px_32px_var(--card-glow,rgb(0_0_0_/_0.18))]",
+        "transition-[transform,box-shadow] duration-200 ease-out",
+        "group-hover/media-card:shadow-[0_4px_18px_var(--card-glow,rgb(0_0_0/0.1))]",
+        "group-[&:active:not(:has(button:active))]/media-card:scale-[0.99] group-[&:active:not(:has(button:active))]/media-card:shadow-[0_6px_22px_var(--card-glow,rgb(0_0_0/0.16))]",
       )}
     >
       {children}
@@ -248,7 +279,7 @@ function BackdropScrim() {
   return (
     <div
       aria-hidden="true"
-      className="absolute inset-0 z-1 bg-gradient-to-b from-transparent from-45% to-black/65"
+      className="absolute inset-0 z-1 bg-linear-to-b from-transparent from-45% to-background/65"
     />
   );
 }
@@ -263,9 +294,6 @@ function ClearLogoOverlay({
   isHero: boolean;
 }) {
   if (aspect !== "16/9") return null;
-  if (item.clearLogoText) {
-    return <ClearLogo text={item.clearLogoText} size={isHero ? "lg" : "md"} />;
-  }
   if (item.clearLogo) {
     return (
       <img
@@ -274,26 +302,54 @@ function ClearLogoOverlay({
         loading="lazy"
         decoding="async"
         className={cn(
-          "absolute inset-x-3 bottom-3 z-2 max-h-[40%] w-auto object-contain object-left drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]",
+          "absolute inset-x-3 bottom-3 z-2 max-h-[40%] w-auto object-contain object-start drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]",
         )}
       />
     );
   }
-  return null;
+  return <ClearLogo text={item.title} size={isHero ? "lg" : "md"} />;
 }
 
 function CornerBadges({ item }: { item: MediaCardItem }) {
-  const hasStatus = item.status != null;
   return (
     <>
-      {hasStatus && <MediaStatusPill status={item.status!} />}
-      {!hasStatus && <MediaKindBadge mediaType={item.mediaType} />}
-      {hasStatus && (
-        <span className="absolute top-2.5 right-2.5 z-3 inline-flex items-center justify-center rounded-md bg-black/50 p-1 text-muted-foreground backdrop-blur">
-          {item.mediaType === "movie" ? <Film className="size-3" /> : <Tv className="size-3" />}
-        </span>
-      )}
+      {item.status && <MediaStatusBadge status={item.status} />}
+      <MediaKindBadge mediaType={item.mediaType} />
     </>
+  );
+}
+
+type MediaStatus = NonNullable<CompactMediaItem["status"]>;
+type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>;
+
+const STATUS_CONFIG: Record<
+  MediaStatus,
+  {
+    label: () => string;
+    Icon: ComponentType<{ className?: string }>;
+    variant: BadgeVariant;
+  }
+> = {
+  available: { label: () => m.media_card_status_available(), Icon: Check, variant: "success" },
+  requested: { label: () => m.media_card_status_requested(), Icon: Clock, variant: "neutral" },
+  processing: { label: () => m.media_card_status_processing(), Icon: Clock, variant: "info" },
+  unavailable: {
+    label: () => m.media_card_status_unavailable(),
+    Icon: CircleAlert,
+    variant: "warn",
+  },
+  unknown: { label: () => m.media_card_status_unknown(), Icon: HelpCircle, variant: "muted" },
+};
+
+function MediaStatusBadge({ status }: { status: MediaStatus }) {
+  const config = STATUS_CONFIG[status];
+  if (!config) return null;
+  const { Icon } = config;
+  return (
+    <Badge variant={config.variant} className="absolute top-2.5 inset-s-2.5 z-3">
+      <Icon />
+      {config.label()}
+    </Badge>
   );
 }
 
@@ -306,18 +362,17 @@ function WatchlistQuickAction({
 }) {
   const label = inWatchlist ? m.media_card_watchlist_remove() : m.media_card_watchlist_add();
   return (
-    <button
-      type="button"
+    <Button
       onClick={onToggle}
       aria-label={label}
+      variant="outline"
       className={cn(
-        "absolute right-2 bottom-2 z-4 inline-flex size-[30px] items-center justify-center rounded-full",
-        "border border-border bg-black/55 text-foreground backdrop-blur",
+        "absolute inset-e-2 bottom-2 z-4 inline-flex size-7.5 items-center justify-center rounded-full backdrop-blur",
         "opacity-0 transition-opacity duration-200 group-hover/media-card:opacity-100 focus-visible:opacity-100",
       )}
     >
-      {inWatchlist ? <Check className="size-3.5" /> : <Plus className="size-3.5" />}
-    </button>
+      {inWatchlist ? <Check /> : <Plus />}
+    </Button>
   );
 }
 

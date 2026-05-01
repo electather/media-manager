@@ -94,7 +94,7 @@ function HomeMockPage() {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-12 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-350 flex-col gap-12 py-10">
       <MediaRow
         title="Continue Watching"
         items={continueRow.items}

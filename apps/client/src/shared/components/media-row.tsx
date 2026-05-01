@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState, type FocusEvent, type ReactNo
 import { m } from "@/paraglide/messages";
 import { MediaCardSkeleton } from "@/shared/components/media-card-skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { useDirection } from "@/shared/ui/direction";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "../ui/button";
 
 const PREFETCH_THRESHOLD_CARDS = 6;
 const SKELETON_COUNT = 6;
@@ -45,6 +47,8 @@ export function MediaRow<TItem extends MediaRowItemBase>({
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(items.length > 0);
   const [hover, setHover] = useState(false);
+  const direction = useDirection();
+  const isRtl = direction === "rtl";
 
   const cardWidth = defaultAspect === "16/9" ? CARD_WIDTH_BACKDROP_PX : CARD_WIDTH_POSTER_PX;
 
@@ -52,11 +56,15 @@ export function MediaRow<TItem extends MediaRowItemBase>({
     const el = trackRef.current;
     if (!el) return;
     const max = el.scrollWidth - el.clientWidth;
-    setCanPrev(el.scrollLeft > SCROLL_EDGE_SLACK_PX);
-    setCanNext(el.scrollLeft < max - SCROLL_EDGE_SLACK_PX);
+    // Modern browsers report scrollLeft as 0 at the inline-start edge and a
+    // negative value as the user scrolls toward inline-end in RTL. Normalize
+    // to a non-negative offset measured from the start.
+    const offsetFromStart = Math.abs(el.scrollLeft);
+    setCanPrev(offsetFromStart > SCROLL_EDGE_SLACK_PX);
+    setCanNext(offsetFromStart < max - SCROLL_EDGE_SLACK_PX);
 
     if (!onLoadMore || !hasMore || isLoading) return;
-    const remainingPx = max - el.scrollLeft;
+    const remainingPx = max - offsetFromStart;
     const triggerPx = (cardWidth + GAP_PX) * PREFETCH_THRESHOLD_CARDS;
     if (remainingPx < triggerPx) onLoadMore();
   }, [cardWidth, hasMore, isLoading, onLoadMore]);
@@ -78,10 +86,13 @@ export function MediaRow<TItem extends MediaRowItemBase>({
     update();
   }, [items.length, isLoading, update]);
 
-  const scrollByDirection = (direction: 1 | -1) => {
+  // step: +1 means scroll toward inline-end (next), -1 toward inline-start
+  // (prev). scrollBy's `left` is physical, so flip the sign in RTL.
+  const scrollByDirection = (step: 1 | -1) => {
     const el = trackRef.current;
     if (!el) return;
-    const amount = Math.round(el.clientWidth * ARROW_SCROLL_RATIO) * direction;
+    const physical = isRtl ? -step : step;
+    const amount = Math.round(el.clientWidth * ARROW_SCROLL_RATIO) * physical;
     el.scrollBy({ left: amount, behavior: "smooth" });
   };
 
@@ -91,9 +102,9 @@ export function MediaRow<TItem extends MediaRowItemBase>({
 
   return (
     <section className={cn("relative", className)}>
-      <header className="mb-2.5 flex items-center justify-between pr-2">
+      <header className="mb-2.5 flex items-center justify-between pe-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
+          <h2 className="text-base ms-6 font-semibold tracking-tight text-foreground">{title}</h2>
           {partial && (
             <Tooltip>
               <TooltipTrigger
@@ -119,7 +130,7 @@ export function MediaRow<TItem extends MediaRowItemBase>({
         <div
           ref={trackRef}
           className={cn(
-            "-my-7 flex snap-x snap-proximity overflow-x-auto overflow-y-hidden scroll-smooth py-7 pr-7 pl-7",
+            "-my-10 flex snap-x snap-proximity overflow-x-auto overflow-y-hidden scroll-smooth py-10 px-6 scroll-px-6",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           )}
           style={{ gap: GAP_PX }}
@@ -141,18 +152,20 @@ export function MediaRow<TItem extends MediaRowItemBase>({
             ))}
         </div>
 
-        <EdgeFade side="left" visible={canPrev} />
-        <EdgeFade side="right" visible={canNext} />
+        <EdgeFade side="start" visible={canPrev} isRtl={isRtl} />
+        <EdgeFade side="end" visible={canNext} isRtl={isRtl} />
 
         <RowArrow
-          side="left"
+          side="start"
+          isRtl={isRtl}
           ariaLabel={m.media_row_prev_aria({ title })}
           visible={hover && canPrev}
           disabled={!canPrev}
           onClick={() => scrollByDirection(-1)}
         />
         <RowArrow
-          side="right"
+          side="end"
+          isRtl={isRtl}
           ariaLabel={m.media_row_next_aria({ title })}
           visible={hover && canNext}
           disabled={!canNext}
@@ -163,16 +176,35 @@ export function MediaRow<TItem extends MediaRowItemBase>({
   );
 }
 
-function EdgeFade({ side, visible }: { side: "left" | "right"; visible: boolean }) {
+function EdgeFade({
+  side,
+  visible,
+  isRtl,
+}: {
+  side: "start" | "end";
+  visible: boolean;
+  isRtl: boolean;
+}) {
+  const isStart = side === "start";
+  // Gradient origin is the solid edge fading toward transparent. In LTR the
+  // start edge is on the left, in RTL on the right; flip the gradient axis to
+  // match.
+  const gradientClass = isStart
+    ? isRtl
+      ? "bg-gradient-to-l"
+      : "bg-gradient-to-r"
+    : isRtl
+      ? "bg-gradient-to-r"
+      : "bg-gradient-to-l";
   return (
     <div
       aria-hidden="true"
       data-visible={visible ? "true" : "false"}
       className={cn(
-        "pointer-events-none absolute inset-y-0 z-1 w-12 transition-opacity duration-200 data-[visible=false]:opacity-0",
-        side === "left"
-          ? "left-0 bg-gradient-to-r from-background to-transparent"
-          : "right-0 bg-gradient-to-l from-background to-transparent",
+        "pointer-events-none absolute inset-y-10 z-1 w-12 transition-opacity duration-200 data-[visible=false]:opacity-0",
+        isStart ? "start-0" : "end-0",
+        gradientClass,
+        "from-background to-transparent",
       )}
     />
   );
@@ -180,35 +212,46 @@ function EdgeFade({ side, visible }: { side: "left" | "right"; visible: boolean 
 
 function RowArrow({
   side,
+  isRtl,
   ariaLabel,
   visible,
   disabled,
   onClick,
 }: {
-  side: "left" | "right";
+  side: "start" | "end";
+  isRtl: boolean;
   ariaLabel: string;
   visible: boolean;
   disabled: boolean;
   onClick: () => void;
 }) {
-  const Icon = side === "left" ? ChevronLeft : ChevronRight;
+  const isStart = side === "start";
+  const Icon = isStart ? (isRtl ? ChevronRight : ChevronLeft) : isRtl ? ChevronLeft : ChevronRight;
+  // Centering lives on the wrapper so the Button's own transform-driven
+  // active state (`active:translate-y-px`) doesn't clobber `-translate-y-1/2`
+  // — both write `--tw-translate-y`, which would jump the arrow downward by
+  // half its height on press.
   return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-label={ariaLabel}
-      onClick={onClick}
-      disabled={disabled}
+    <div
       data-visible={visible ? "true" : "false"}
       className={cn(
-        "absolute top-1/2 z-2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full",
-        "border border-border bg-background/80 text-foreground shadow-md backdrop-blur",
+        "absolute top-1/2 z-2 -translate-y-1/2",
         "transition-opacity duration-150 data-[visible=false]:pointer-events-none data-[visible=false]:opacity-0",
-        "disabled:cursor-not-allowed disabled:opacity-40",
-        side === "left" ? "left-2" : "right-2",
+        isStart ? "inset-s-2" : "inset-e-2",
       )}
     >
-      <Icon className="size-4" />
-    </button>
+      <Button
+        type="button"
+        tabIndex={-1}
+        aria-label={ariaLabel}
+        onClick={onClick}
+        disabled={disabled}
+        variant="secondary"
+        size="icon"
+        className={cn("rounded-full", "disabled:cursor-not-allowed disabled:opacity-40")}
+      >
+        <Icon />
+      </Button>
+    </div>
   );
 }

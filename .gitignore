@@ -15,3 +15,4 @@ test-server.ts
 .claude/worktrees/
 .token-savior-cache.json
 .fallow
+.tanstack
