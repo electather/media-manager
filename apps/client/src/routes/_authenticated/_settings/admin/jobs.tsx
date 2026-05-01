@@ -22,6 +22,7 @@ import {
 import {
   DynamicTriggerDialog,
   RunDetailDrawer,
+  useDrawerPollBoost,
   useJobDetail,
   useJobMutations,
   useJobRuns,
@@ -369,10 +370,12 @@ function JobRow({
 function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
+  useDrawerPollBoost(!!jobId);
+
   const detail = useJobDetail(jobId);
   const runsQuery = useJobRuns(jobId);
   const job = detail.data;
-  const runs = runsQuery.data?.runs ?? [];
+  const runs = runsQuery.data;
   const selectedRun = runs.find((r) => r.id === selectedRunId) || null;
   const isJobLoading = detail.isLoading && !job;
   const isRunsLoading = !!jobId && runsQuery.isLoading;

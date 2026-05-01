@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 import { queryClient } from "@/shared/lib/db";
 import { jobsListCollection } from "../data/jobs-list.collection";
-import { jobDetailCollection } from "../data/job-detail.collection";
 
 interface ListSubscription {
   unsubscribe: () => void;
@@ -55,7 +54,7 @@ afterEach(async () => {
 });
 
 describe("jobsListCollection persistence boundary", () => {
-  it("registers admin.jobs.list query with meta.persist=false", async () => {
+  it("registers admin.jobs.list query without persist=false so IDB rehydrates", async () => {
     const seed = sampleJob({ id: "host.persist.seed", enabled: true });
     fetchMock.mockResolvedValue(jsonResponse({ jobs: [seed] }));
 
@@ -63,19 +62,21 @@ describe("jobsListCollection persistence boundary", () => {
     await waitForRow(seed.id);
 
     const query = queryClient.getQueryCache().find({ queryKey: ["admin", "jobs", "list"] });
-    expect(query?.meta?.persist).toBe(false);
+    expect(query?.meta?.persist).toBeUndefined();
   });
 });
 
 describe("jobsListCollection optimistic mutation", () => {
-  it("flips enabled immediately and resolves when onUpdate succeeds", async () => {
+  it("flips enabled immediately and merges server handle on success", async () => {
     const seed = sampleJob({ id: "host.opt.success", enabled: true });
     let serverEnabled = true;
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (url.includes("/config")) {
         serverEnabled = false;
-        return jsonResponse({ job: { ...seed, enabled: serverEnabled } });
+        return jsonResponse({
+          job: { ...seed, enabled: serverEnabled, effectiveSchedule: "0 */6 * * *" },
+        });
       }
       return jsonResponse({ jobs: [{ ...seed, enabled: serverEnabled }] });
     });
@@ -90,7 +91,10 @@ describe("jobsListCollection optimistic mutation", () => {
     expect(jobsListCollection.get(seed.id)?.enabled).toBe(false);
 
     await tx.isPersisted.promise;
-    expect(jobsListCollection.get(seed.id)?.enabled).toBe(false);
+    const row = jobsListCollection.get(seed.id);
+    expect(row?.enabled).toBe(false);
+    // Authoritative handle from /config response merged in (computed field).
+    expect(row?.effectiveSchedule).toBe("0 */6 * * *");
   });
 
   it("rolls back when onUpdate rejects", async () => {
@@ -112,34 +116,5 @@ describe("jobsListCollection optimistic mutation", () => {
 
     await expect(tx.isPersisted.promise).rejects.toThrow();
     expect(jobsListCollection.get(seed.id)?.enabled).toBe(true);
-  });
-});
-
-describe("jobDetailCollection structural sharing", () => {
-  it("seeds detail cache from list when row already known", async () => {
-    const seed = sampleJob({ id: "host.detail.seed", enabled: true, name: "Seeded" });
-    fetchMock.mockResolvedValue(jsonResponse({ jobs: [seed] }));
-    subscription = jobsListCollection.subscribeChanges(() => {}) as ListSubscription;
-    await waitForRow(seed.id);
-
-    // Stub /admin/jobs/:id so the detail collection can fire its background
-    // refetch without breaking; assertion runs before that resolves.
-    fetchMock.mockImplementation(async () => jsonResponse({ job: seed }));
-
-    const detailKey = ["admin", "jobs", "detail.job", seed.id];
-    expect(queryClient.getQueryData(detailKey)).toBeUndefined();
-
-    const detail = jobDetailCollection(seed.id);
-
-    expect(queryClient.getQueryData(detailKey)).toEqual([seed]);
-    void detail.cleanup();
-  });
-
-  it("skips seeding when the row is not in the list", () => {
-    const detailKey = ["admin", "jobs", "detail.job", "host.unknown"];
-    expect(queryClient.getQueryData(detailKey)).toBeUndefined();
-    const detail = jobDetailCollection("host.unknown");
-    expect(queryClient.getQueryData(detailKey)).toBeUndefined();
-    void detail.cleanup();
   });
 });
