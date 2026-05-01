@@ -19,6 +19,7 @@ Personal entertainment management platform. MCP server (Streamable HTTP) + React
 - C11. ∀ utility code (array, object, string, fn, predicate) → `es-toolkit` submodule. ⊥ custom re-impl of `compact`/`merge`/`cloneDeep`/`sortBy`/`orderBy`/`debounce`/`throttle`/`uniq`/`invariant`. Import from `es-toolkit/array`, `es-toolkit/object`, `es-toolkit/string`, `es-toolkit/function`, `es-toolkit/predicate`, `es-toolkit/util`. Patterns: `.agents/skills/es-toolkit/references/patterns.md`.
 - C12. Client app feature-first. Three top-level domains under `apps/client/src/`: `app/` (shell), `features/<x>/` (modules), `shared/` (primitives). ⊥ sibling-feature imports. Public surface = `features/<x>/index.ts` barrel only. Cross-feature reach = fallow boundary violation. Routes (`apps/client/src/routes/`) thin — file-based per TanStack Router, ⊥ business logic. Design: `docs/2026-04-29-frontend-structure-design.md`.
 - C13. **Mechanical migration only** for T34–T38 (excluding T38 net-new home build). Allowed per-file change set: (1) `git mv` to new path, (2) update import paths in moved file + ∀ consumers, (3) update `index.ts` barrel exports. **Forbidden:** rewriting component bodies, renaming symbols, refactoring logic, splitting/merging files, changing prop signatures, restyling, modernizing patterns, "while we're here" cleanup. Diff per moved file = path delta + import path delta. Behavior parity = pre-existing tests pass unmodified (test imports get path-updated, test bodies stay). ⊥ token spend on rewrites — restructure ≠ rewrite. Drift to rewriting = stop, revert, redo as separate PR after migration lands.
+- C14. Client i18n via Lingui. ∀ user-facing string in `apps/client/src/` → macro: JSX text → `<Trans>`; element attributes / fn args / alerts → `useLingui().t`; module-level constants / message arrays → `msg` + `_(msg)` at use site. ⊥ raw string literal user-facing. ⊥ runtime `Trans` from `@lingui/react` — macros only (`@lingui/react/macro` | `@lingui/core/macro`). Server strings out of scope.
 
 ## §I Interfaces
 
@@ -84,6 +85,18 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
   `LayoutHero { item: CompactMediaItem, source: RowKind, reason, resumeUrl: string|null }`. `resumeUrl` null = ⊥ playable; consumer ! `!= null` check (empty-string truthy = wrong).
   `HomeRow.titleOverride` set when hero exclusion shifts row meaning.
   Error codes: `home.bad_input` (invalid rowId/cursor), `home.row_unavailable` (row no longer eligible mid-session — frontend drops row + toasts), `home.internal` (captured infra fault).
+
+### I.i18n — client locale runtime
+
+- Source locale: `en`. v1 ships `en` only; infra ready for more.
+- Catalogs: `apps/client/src/locales/{locale}/messages.po` source → compile `messages.ts` (`lingui compile --typescript`).
+- Loading: dynamic lazy import (`import(./locales/${locale}/messages)`). ⊥ static import all locales.
+- Detection priority: `localStorage["locale"]` → `navigator.language` (matched supported list) → `en`.
+- Persistence: `localStorage["locale"]`. ⊥ server schema touch v1.
+- Provider: `I18nProvider` mounted in `apps/client/src/app/` shell.
+- Switcher UI: ⊥ v1.
+- Vite plugin: `@lingui/vite-plugin`.
+- Date/number: stay `date-fns` + `Intl`. Lingui scope = string translation only.
 
 ## §V Invariants
 
@@ -153,6 +166,15 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
   - **Mechanical rule:** every new `apps/client/src/features/<x>/` dir = exactly one matching `client-feat-<x>` zone in same PR. ⊥ orphan dir, ⊥ orphan zone.
   - Legacy zones `client-components`, `client-hooks`, `client-lib` removed by T34. Their absence = post-migration baseline.
 
+- V61. ∀ user-facing string in `apps/client/src/` resolves via Lingui macro (per C14). JSX text → `<Trans>`. Attributes / fn args / alerts → `useLingui().t`. Module-level constants / message arrays → `msg` + `_(msg)` at use site. ⊥ `t` macro at module level (needs component ctx). ⊥ raw string literal in render output user-facing.
+- V62. Macros only — `@lingui/react/macro` + `@lingui/core/macro`. ⊥ runtime `Trans` from `@lingui/react`. Build-time compile = bundle minimal.
+- V63. `I18nProvider` mounted exactly once at `apps/client/src/app/` shell, above router outlet, below auth context. Active locale loaded before first render (suspense or pre-mount activate). ⊥ provider per-route, ⊥ per-feature.
+- V64. Catalogs lazy-loaded per locale via dynamic `import()`. ⊥ static import inactive locale catalogs. Bundle ⊥ ship inactive locale strings.
+- V65. Active locale resolution order: `localStorage["locale"]` → `navigator.language` (matched supported list) → `en`. Runs once on app init; persisted choice = `localStorage` write.
+- V66. Date + number formatting stays on `date-fns` + `Intl` direct. ⊥ migrate to `i18n.date()` / `i18n.number()`. Lingui scope = string translation only.
+- V67. Catalogs compiled TypeScript (`lingui compile --typescript`). Source `.po` checked in. Compiled `.ts` gitignored — regen via `vp run lingui:compile`.
+- V68. Lingui config = `apps/client/lingui.config.ts`. `sourceLocale: "en"`, `locales: ["en"]`, `catalogs: [{ path: "src/locales/{locale}/messages", include: ["src"] }]`. Vite plugin `@lingui/vite-plugin` registered in `apps/client/vite.config.ts`.
+
 NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retired by `2026-04-23-home-feed-frontend-design.md` (T14 cancelled, restructure-aware T38 supersedes). Resolution tracked in T39. ⊥ silently rewriting V30/V31 — invoke `/spec amend §V` to retire.
 
 | id  | status | desc                                                                                                                                                                                                                            | cites                                      |
@@ -197,6 +219,10 @@ NOTE: V30 + V31 reference `lib/home-display.ts` + `ROW_DISPLAY` map, both retire
 | T38 | .      | `features/home/` — net-new build per `2026-04-23-home-feed-frontend-design.md`. Includes `components/`, `hooks/`, `lib/collections/{media,row-entries,progress}-collection.ts` + `lib/mutations.ts`. `lib/home-display.ts` → `features/home/lib/` transient (retired in T39). Supersedes T14. | I.home,T14,T34,T35,T37,V51,V52,V56,V57 |
 | T39 | .      | Retire `home-display.ts` + V30 + V31 — runs after T38 home-feed Card lands. Deletes `features/home/lib/home-display.ts` + `ROW_DISPLAY` map. Amend §V to retire V30, V31.                                                       | T38                                        |
 | T40 | .      | Verification gates — `vp check` + `vp test` + `vp dlx fallow` zero-warning baseline after ∀ T33-T39 step. Fallow run = boundary gate; ⊥ skip. `.fallowrc.json` must encode V60 zone + allow-rule contract; CI rejects PRs that add `features/<x>/` without matching `client-feat-<x>` zone, or weaken allow rules. **Per C13: pre-existing tests pass unmodified after T34-T37 — only test import paths may change, ⊥ test bodies. Diff audit: any non-import line change in moved file = C13 violation, redo PR.**                                                                                  | C13,V51-V60                          |
+| T41 | x      | Lingui infra — install `@lingui/{core,react,cli,vite-plugin,macro}`. Add `apps/client/lingui.config.ts` (V68). Register `@lingui/vite-plugin` in `apps/client/vite.config.ts`. Add `lingui:extract` + `lingui:compile` package scripts (run via `vp run`). Gitignore compiled `messages.ts`. ⊥ string conversion this task.                                                                                                                                                                                                  | C14,V62,V64,V67,V68                  |
+| T42 | .      | Locale runtime — `apps/client/src/app/i18n.ts` (catalog loader, `activateLocale(locale)`, default `en`). Mount `I18nProvider` in `apps/client/src/app/` shell above router outlet. Detection chain `localStorage["locale"]` → `navigator.language` → `en` (V65). Persist on switch (no UI v1) via `localStorage` write helper.                                                                                                                                                                                                | I.i18n,V63,V64,V65                   |
+| T43 | .      | Pilot conversion — notification panel (`apps/client/src/app/notification-{panel,panel-body,item,empty-state,severity-icon,category-chip,panel-types,panel-fixtures}.{ts,tsx}`). Convert ∀ user-facing string to macros per V61. Run `vp run lingui:extract` → review `messages.po`. Verify `vp check` + `vp test` + `vp dlx fallow` pass. Pre-existing test bodies untouched except for asserting via translated output where applicable.                                                                                       | C14,V61,V66,T42                      |
+| T44 | .      | Broad rollout — convert remaining user-facing strings one PR per feature: `connections`, `admin`, `jobs`, `home` (post-T38), `settings`, `shared/components/*`. Post-T43 baseline: extraction pass = ⊥ untranslated literal in changed file's user-facing surface. ⊥ "while we're here" refactor of touched components (mirrors C13 spirit).                                                                                                                                                                                   | C14,V61                              |
 
 ## §B Bugs
 

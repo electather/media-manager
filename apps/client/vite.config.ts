@@ -1,7 +1,8 @@
 import { defineConfig } from "vite-plus";
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
+import { lingui } from "@lingui/vite-plugin";
 
 export default defineConfig({
   plugins: [
@@ -9,8 +10,11 @@ export default defineConfig({
       target: "react",
       autoCodeSplitting: true,
     }),
-    react(),
+    react({
+      plugins: [["@lingui/swc-plugin", {}]],
+    }),
     tailwindcss(),
+    lingui(),
   ],
   envDir: "../../",
   resolve: {

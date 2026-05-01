@@ -9,6 +9,8 @@ data/
 *.db-wal
 bun.lockb
 apps/client/dist/
+apps/client/src/locales/**/messages.ts
+apps/client/src/locales/**/messages.d.ts
 .DS_Store
 test-server.ts
 .claude/worktrees/
