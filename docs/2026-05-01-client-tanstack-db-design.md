@@ -110,34 +110,40 @@ seedRows<T>(collection, rows)               // utils.writeBatch + writeInsert
 
 ```ts
 // jobs-list.collection.ts
-jobsListCollection = createCollection(queryCollectionOptions({
-  id: 'admin.jobs.list',
-  queryKey: ['admin','jobs','list'],
-  queryClient,
-  queryFn: () => api.admin.jobs.$get().then(unwrap),  // {jobs: JobHandle[]}
-  select: r => r.jobs,
-  getKey: j => j.id,
-  refetchInterval: 10_000,
-  meta: { persist: false },                            // admin = fresh
-  onUpdate: async ({ transaction }) => {               // config toggle
-    for (m of transaction.mutations) {
-      patch = { enabled: m.changes.enabled, scheduleOverride: m.changes.scheduleOverride };
-      await api.admin.jobs[':id'].config.$post({ param:{id:m.key}, json: patch });
-    }
-  },
-}));
+jobsListCollection = createCollection(
+  queryCollectionOptions({
+    id: "admin.jobs.list",
+    queryKey: ["admin", "jobs", "list"],
+    queryClient,
+    queryFn: () => api.admin.jobs.$get().then(unwrap), // {jobs: JobHandle[]}
+    select: (r) => r.jobs,
+    getKey: (j) => j.id,
+    refetchInterval: 10_000,
+    meta: { persist: false }, // admin = fresh
+    onUpdate: async ({ transaction }) => {
+      // config toggle
+      for (m of transaction.mutations) {
+        patch = { enabled: m.changes.enabled, scheduleOverride: m.changes.scheduleOverride };
+        await api.admin.jobs[":id"].config.$post({ param: { id: m.key }, json: patch });
+      }
+    },
+  }),
+);
 
 // job-detail.collection.ts (factory — id-keyed)
-jobDetailCollection(jobId) = createCollection(queryCollectionOptions({
-  id: `admin.jobs.detail.${jobId}`,
-  queryKey: ['admin','jobs','detail', jobId],
-  queryClient,
-  queryFn: () => api.admin.jobs[':id'].$get({ param:{id:jobId}, query:{limit:'30'} }).then(unwrap),
-  select: r => [r.job],                                // single-row collection
-  getKey: j => j.id,
-  refetchInterval: 5_000,
-  meta: { persist: false },
-}));
+jobDetailCollection(jobId) = createCollection(
+  queryCollectionOptions({
+    id: `admin.jobs.detail.${jobId}`,
+    queryKey: ["admin", "jobs", "detail", jobId],
+    queryClient,
+    queryFn: () =>
+      api.admin.jobs[":id"].$get({ param: { id: jobId }, query: { limit: "30" } }).then(unwrap),
+    select: (r) => [r.job], // single-row collection
+    getKey: (j) => j.id,
+    refetchInterval: 5_000,
+    meta: { persist: false },
+  }),
+);
 // runs: stay useQuery v1 (low reuse). Migrate later if motivation A bites.
 ```
 
@@ -156,26 +162,26 @@ useJobMutations()      → {
 
 ### I.mutations.policy
 
-| Op                | Path                        | Optimistic | Reason                       |
-| ----------------- | --------------------------- | ---------- | ---------------------------- |
-| toggle enabled    | `collection.update`         | yes        | Idempotent, instant feedback |
-| schedule override | `collection.update`         | yes        | Idempotent                   |
-| trigger run       | `useMutation` + invalidate  | no         | Server runId is truth        |
-| cancel run        | `useMutation` + invalidate  | no         | Side-effect heavy            |
-| config save modal | `collection.update`         | yes        | Same as toggle, batched      |
+| Op                | Path                       | Optimistic | Reason                       |
+| ----------------- | -------------------------- | ---------- | ---------------------------- |
+| toggle enabled    | `collection.update`        | yes        | Idempotent, instant feedback |
+| schedule override | `collection.update`        | yes        | Idempotent                   |
+| trigger run       | `useMutation` + invalidate | no         | Server runId is truth        |
+| cancel run        | `useMutation` + invalidate | no         | Side-effect heavy            |
+| config save modal | `collection.update`        | yes        | Same as toggle, batched      |
 
 Rollback: handler throws → TanStack DB auto-rollback + toast via `onError`.
 
 ### I.persistence.policy
 
-| Domain            | `meta.persist` | `staleTime` | Reason                      |
-| ----------------- | -------------- | ----------- | --------------------------- |
-| admin.* (jobs etc)| false          | 0           | Fresh = correctness         |
-| connections       | true           | 5m          | User read-heavy             |
-| watchlist / home  | true           | 1m          | Offline list                |
-| auth/session      | false          | 0           | Sensitive                   |
-| notifications     | true           | 30s         | Inbox view offline          |
-| settings/prefs    | true           | 5m          | Rarely change               |
+| Domain              | `meta.persist` | `staleTime` | Reason              |
+| ------------------- | -------------- | ----------- | ------------------- |
+| admin.\* (jobs etc) | false          | 0           | Fresh = correctness |
+| connections         | true           | 5m          | User read-heavy     |
+| watchlist / home    | true           | 1m          | Offline list        |
+| auth/session        | false          | 0           | Sensitive           |
+| notifications       | true           | 30s         | Inbox view offline  |
+| settings/prefs      | true           | 5m          | Rarely change       |
 
 ## §V Invariants
 
@@ -192,22 +198,22 @@ Rollback: handler throws → TanStack DB auto-rollback + toast via `onError`.
 
 ## §T Tasks
 
-| # | Task                                                                      | Deps |
-| - | ------------------------------------------------------------------------- | ---- |
-| 1 | Add deps via `vp add` (`@tanstack/react-db`, query-db-collection, query-async-storage-persister, react-query-persist-client, idb-keyval) | — |
-| 2 | `shared/lib/db/client.ts` — hoist `queryClient`. Update `main.tsx` import. | 1 |
-| 3 | `shared/lib/db/persister.ts` — IDB persister + buster + dehydrate filter. | 1, 2 |
-| 4 | `shared/lib/db/provider.tsx` — `AppDataProvider` (PersistQueryClientProvider). | 2, 3 |
-| 5 | `main.tsx` — swap `QueryClientProvider` → `AppDataProvider`. Smoke test. | 4 |
-| 6 | `shared/lib/db/test-utils.ts` — `createTestQueryClient`, `createTestCollection`, `seedRows`. | 2 |
-| 7 | `features/jobs/data/jobs-list.collection.ts` — list collection + onUpdate. | 4 |
-| 8 | `features/jobs/data/job-detail.collection.ts` — detail factory.            | 4 |
-| 9 | `features/jobs/data/jobs.hooks.ts` — `useJobsList`, `useJobDetail`, `useJobMutations`. | 7, 8 |
-| 10 | Migrate `routes/_authenticated/_settings/admin/jobs.tsx` — `useQuery` → hooks. Optimistic config toggle. ⊥ rewrite UI. | 9 |
-| 11 | Migrate `features/jobs/components/trigger-dialog.tsx` — `useMutation` (no optimistic per V5/I.mutations.policy). | 9 |
-| 12 | Tests: `shared/lib/db/__tests__/persister.test.ts` (buster bump wipes, opt-out filter), `features/jobs/__tests__/jobs.hooks.test.ts` (collection seed + hook render + optimistic rollback). | 6, 9 |
-| 13 | Manual smoke: list polls, detail polls, toggle optimistic + rollback on 500, trigger/cancel non-optimistic, reload offline shows last list (non-admin route — verify on connections page after V).  | 10, 11 |
-| 14 | Changeset `.changeset/<slug>.md` — `@ent-mcp/client: minor`, 1-sentence user-facing.    | 10 |
+| #   | Task                                                                                                                                                                                               | Deps   |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | Add deps via `vp add` (`@tanstack/react-db`, query-db-collection, query-async-storage-persister, react-query-persist-client, idb-keyval)                                                           | —      |
+| 2   | `shared/lib/db/client.ts` — hoist `queryClient`. Update `main.tsx` import.                                                                                                                         | 1      |
+| 3   | `shared/lib/db/persister.ts` — IDB persister + buster + dehydrate filter.                                                                                                                          | 1, 2   |
+| 4   | `shared/lib/db/provider.tsx` — `AppDataProvider` (PersistQueryClientProvider).                                                                                                                     | 2, 3   |
+| 5   | `main.tsx` — swap `QueryClientProvider` → `AppDataProvider`. Smoke test.                                                                                                                           | 4      |
+| 6   | `shared/lib/db/test-utils.ts` — `createTestQueryClient`, `createTestCollection`, `seedRows`.                                                                                                       | 2      |
+| 7   | `features/jobs/data/jobs-list.collection.ts` — list collection + onUpdate.                                                                                                                         | 4      |
+| 8   | `features/jobs/data/job-detail.collection.ts` — detail factory.                                                                                                                                    | 4      |
+| 9   | `features/jobs/data/jobs.hooks.ts` — `useJobsList`, `useJobDetail`, `useJobMutations`.                                                                                                             | 7, 8   |
+| 10  | Migrate `routes/_authenticated/_settings/admin/jobs.tsx` — `useQuery` → hooks. Optimistic config toggle. ⊥ rewrite UI.                                                                             | 9      |
+| 11  | Migrate `features/jobs/components/trigger-dialog.tsx` — `useMutation` (no optimistic per V5/I.mutations.policy).                                                                                   | 9      |
+| 12  | Tests: `shared/lib/db/__tests__/persister.test.ts` (buster bump wipes, opt-out filter), `features/jobs/__tests__/jobs.hooks.test.ts` (collection seed + hook render + optimistic rollback).        | 6, 9   |
+| 13  | Manual smoke: list polls, detail polls, toggle optimistic + rollback on 500, trigger/cancel non-optimistic, reload offline shows last list (non-admin route — verify on connections page after V). | 10, 11 |
+| 14  | Changeset `.changeset/<slug>.md` — `@ent-mcp/client: minor`, 1-sentence user-facing.                                                                                                               | 10     |
 
 ## §B Backprop slots
 
