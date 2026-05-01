@@ -7,7 +7,8 @@
     "pathPattern": [
       "./messages/notifications/{locale}.json",
       "./messages/media-card/{locale}.json",
-      "./messages/media-row/{locale}.json"
+      "./messages/media-row/{locale}.json",
+      "./messages/media-details/{locale}.json"
     ]
   }
 }
