@@ -14,15 +14,7 @@ import { FieldGroup, Field, FieldLabel, FieldContent } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
-
-function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
-      <span className="w-36 shrink-0 text-muted-foreground">{label}</span>
-      <span className={`min-w-0 flex-1 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
-    </div>
-  );
-}
+import { MetaRow } from "./meta-row";
 
 // fallow-ignore-next-line complexity
 function FieldItem({

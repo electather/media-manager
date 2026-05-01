@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { eq, ilike, useLiveQuery } from "@tanstack/react-db";
 import type { JobHandle, JobRunStatus, JobRunSummary } from "@ent-mcp/shared/jobs";
+import { toast } from "sonner";
 import { api } from "@/shared/lib/api";
 import { useCollection } from "@/shared/lib/db";
 import { jobsListCollection } from "./jobs-list.collection";
@@ -151,20 +152,24 @@ export function useJobMutations() {
   });
 
   const toggleEnabled = (id: string, next: boolean) => {
-    jobsListCollection.update(id, (draft) => {
+    const tx = jobsListCollection.update(id, (draft) => {
       draft.enabled = next;
     });
+    void tx.isPersisted.promise.catch(() => toast.error("Failed to update job. Changes reverted."));
   };
   const setScheduleOverride = (id: string, next: string | null) => {
-    jobsListCollection.update(id, (draft) => {
+    const tx = jobsListCollection.update(id, (draft) => {
       draft.scheduleOverride = next;
     });
+    void tx.isPersisted.promise.catch(() =>
+      toast.error("Failed to update schedule. Changes reverted."),
+    );
   };
   const saveConfig = (
     id: string,
     patch: { enabled?: boolean; scheduleOverride?: string | null },
   ) => {
-    jobsListCollection.update(id, (draft) => {
+    const tx = jobsListCollection.update(id, (draft) => {
       if (patch.enabled !== undefined) {
         draft.enabled = patch.enabled;
       }
@@ -172,6 +177,9 @@ export function useJobMutations() {
         draft.scheduleOverride = patch.scheduleOverride;
       }
     });
+    void tx.isPersisted.promise.catch(() =>
+      toast.error("Failed to save job settings. Changes reverted."),
+    );
   };
 
   const refreshList = () => {
