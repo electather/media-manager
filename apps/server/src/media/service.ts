@@ -5,10 +5,12 @@ import {
   type AggregateResult,
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
+import type { MediaDetail } from "@ent-mcp/shared/media";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { resolveConnections } from "./resolve-connection";
+import { mapToMediaDetail } from "./mappers";
 import { isNil } from "es-toolkit/predicate";
 
 /**
@@ -82,6 +84,37 @@ export class MediaService {
       mediaType: parsedType,
     });
     return result.data ?? null;
+  }
+
+  /**
+   * Strongly-typed wrapper around `getDetails`. Returns the canonical
+   * `MediaDetail` shape (V84). Resolves to `null` when the underlying
+   * dispatch returns no data — callers translate to a 404.
+   */
+  async getDetailsTyped(idOrCombined: string, type?: "movie" | "tv"): Promise<MediaDetail | null> {
+    const [parsedType, parsedId] = parseCombinedId(idOrCombined, type);
+    const raw = await this.getDetails(`${parsedType}:${parsedId}`, parsedType);
+    if (raw === null || raw === undefined) return null;
+    return mapToMediaDetail(raw, `${parsedType}:${parsedId}`);
+  }
+
+  /**
+   * Batch variant of `getDetailsTyped`. Per-id failures resolve to `null`
+   * and are filtered from the response — the caller never sees an aggregate
+   * throw, matching the `media.getMany` wire contract.
+   */
+  async getDetailsBatchTyped(ids: ReadonlyArray<string>): Promise<MediaDetail[]> {
+    if (ids.length === 0) return [];
+    const settled = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return await this.getDetailsTyped(id);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return settled.filter((item): item is MediaDetail => item !== null);
   }
 
   /**

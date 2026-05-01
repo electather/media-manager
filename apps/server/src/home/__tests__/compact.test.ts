@@ -14,7 +14,7 @@ describe("compact mapper", () => {
     expect(parseCompactId("")).toBeNull();
   });
 
-  it("omits absent fields rather than emitting null/undefined", () => {
+  it("omits absent fields rather than emitting null/undefined; status defaults to 'unknown'", () => {
     const item = toCompact({
       id: "movie:550",
       type: "movie",
@@ -26,6 +26,7 @@ describe("compact mapper", () => {
       tmdbId: "550",
       mediaType: "movie",
       title: "Fight Club",
+      status: "unknown",
     });
   });
 

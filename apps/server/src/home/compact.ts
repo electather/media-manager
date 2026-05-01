@@ -1,5 +1,6 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { CanonicalMetadata } from "../catalog/types";
+import { toCompactFromRaw } from "../media/mappers";
 
 const VALID_STATUSES: ReadonlySet<NonNullable<CompactMediaItem["status"]>> = new Set([
   "available",
@@ -46,14 +47,13 @@ export interface RawMediaItem {
 }
 
 /**
- * Single conversion site for the wire-level `CompactMediaItem`. Lives in one
- * file so adjustments to the home-feed wire shape (e.g. swapping a TMDB
- * fallback in for a fanart.tv asset) only touch one mapping.
+ * Single conversion site for the wire-level `CompactMediaItem`. Delegates
+ * to the shared `toCompactFromRaw` mapper (REQ-014) so server- and
+ * client-side projections stay byte-identical.
  *
  * Absent values are *omitted*, never null/undefined; matches the same
  * compression discipline `ent_discover` uses on the MCP wire.
  */
-// fallow-ignore-next-line complexity
 export function toCompact(
   item: RawMediaItem,
   extras: Partial<CompactMediaItem> = {},
@@ -62,21 +62,12 @@ export function toCompact(
   if (!tmdbId) {
     throw new Error(`media item ${item.id} missing tmdb id; cannot compact`);
   }
-  const out: CompactMediaItem = {
-    id: composeId(item.type, tmdbId),
-    tmdbId,
-    mediaType: item.type,
-    title: item.title,
-  };
-  if (typeof item.year === "number" && Number.isFinite(item.year)) out.year = item.year;
-  if (item.posterUrl) out.poster = item.posterUrl;
-  if (item.backdropUrl) out.backdrop = item.backdropUrl;
-  if (item.clearLogoUrl) out.clearLogo = item.clearLogoUrl;
-  if (item.overview) out.overview = truncate(item.overview, 240);
-  if (item.genres && item.genres.length > 0) out.genres = item.genres.slice(0, 3);
-  if (typeof item.rating === "number") out.rating = item.rating;
-  if (typeof item.userRating === "number") out.userRating = item.userRating;
-  return Object.assign(out, stripUndefined(extras));
+  const compact = toCompactFromRaw(item, composeId(item.type, tmdbId), extras);
+  // Home wire keeps overviews short — detail wire (`media.get`) carries the
+  // full string. Truncation lives here, not in the shared mapper, because
+  // it is a wire-shape decision specific to row payloads.
+  if (compact.overview) compact.overview = truncate(compact.overview, 240);
+  return compact;
 }
 
 /** Builds a `RawMediaItem` from a canonical metadata row for row fetchers. */
@@ -121,12 +112,4 @@ function extractTmdbId(id: string): string | null {
 function truncate(value: string, max: number): string {
   if (value.length <= max) return value;
   return value.slice(0, max - 1).trimEnd() + "…";
-}
-
-function stripUndefined<T extends object>(value: T): Partial<T> {
-  const out: Partial<T> = {};
-  for (const [k, v] of Object.entries(value) as Array<[keyof T, T[keyof T]]>) {
-    if (v !== undefined) out[k] = v;
-  }
-  return out;
 }

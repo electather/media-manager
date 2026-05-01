@@ -1,5 +1,119 @@
-import type { AvailabilityStatus, MediaType } from "./enums";
+import type {
+  AvailabilityStatus,
+  EpisodeStatus,
+  MediaType,
+  SeasonStatus,
+  SeriesStatus,
+} from "./enums";
 
+export interface MediaImage {
+  "16/9"?: string;
+  "2/3"?: string;
+  "1/1"?: string;
+}
+
+export interface MediaProgress {
+  watched: number;
+  total: number;
+}
+
+export interface EpisodeProgress {
+  watched: number;
+  total: number;
+}
+
+export interface UpcomingEpisode {
+  season: number;
+  episode: number;
+  /** Air time in ms epoch. */
+  airsAt: number;
+  name?: string;
+}
+
+export interface StreamLink {
+  source: string;
+  url?: string;
+}
+
+export interface DetailEpisode {
+  id: string;
+  episode: number;
+  title: string;
+  /** ISO 8601 date string. */
+  airDate: string;
+  runtime: number;
+  status: EpisodeStatus;
+}
+
+export interface DetailSeason {
+  id: string;
+  title: string;
+  episodeCount: number;
+  status: SeasonStatus;
+  episodes: DetailEpisode[];
+  counts?: {
+    available?: number;
+    requested?: number;
+    upcoming?: number;
+  };
+}
+
+/**
+ * Canonical wire shape for a single media entity. Superset that covers both
+ * compact (home rows) and full (detail) projections; clients carry the same
+ * row regardless of fetch path. `_detailFetchedAt` is a client-only hydration
+ * marker — never present on the wire.
+ */
+export interface MediaDetail {
+  /** Composite id, e.g. `"movie:550"` or `"tv:1396"`. */
+  id: string;
+  tmdbId: string;
+  mediaType: MediaType;
+  title: string;
+  year?: number;
+  poster?: string;
+  backdrop?: string;
+  /** Plain URL string; UI falls back to title text when absent. */
+  clearLogo?: string;
+  overview?: string;
+  /** Top three genres. */
+  genres?: string[];
+  rating?: number;
+  userRating?: number;
+  matchReason?: string;
+  status?: AvailabilityStatus;
+  progress?: MediaProgress;
+  episodeProgress?: EpisodeProgress;
+  episode?: UpcomingEpisode;
+  runtime?: string;
+  ageRating?: string;
+  votes?: number;
+  audienceScore?: number;
+  criticScore?: number;
+  tags?: string[];
+  director?: string;
+  cast?: string[];
+  streamLink?: StreamLink;
+  trailerUrl?: string;
+  seriesStatus?: SeriesStatus;
+  /** ISO 8601 date string. */
+  nextAirDate?: string;
+  seasons?: DetailSeason[];
+  ratings?: {
+    tmdb?: number;
+    trakt?: number;
+    user?: number;
+  };
+  streamingOn?: string[];
+  keywords?: string[];
+}
+
+/**
+ * Plugin-side `MediaItem` shape — the output of the metadata capability.
+ * Distinct from `MediaDetail` (the client wire shape): plugins emit raw
+ * snake-cased ids and nullable fields; the server mapper converts to
+ * `MediaDetail` for the client.
+ */
 export interface MediaItem {
   /** Format: "movie:550" or "tv:1396". */
   id: string;
@@ -13,74 +127,4 @@ export interface MediaItem {
   status: AvailabilityStatus;
   userRating: number | null;
   matchReason: string | null;
-}
-
-export interface WatchProgress {
-  /** Human-readable completed range, e.g. "S1-S3". */
-  completed: string;
-  /** Next episode identifier, e.g. "S4E01". Null if fully up to date. */
-  next: string | null;
-  airedTotal: number;
-  watchedTotal: number;
-}
-
-export interface MediaDetails extends MediaItem {
-  runtime: number | null;
-  director: string | null;
-  /** Top 3 cast members. */
-  cast: string[];
-  ratings: {
-    tmdb: number | null;
-    trakt: number | null;
-    user: number | null;
-  };
-  trailerUrl: string | null;
-  streamingOn: string[];
-  watchProgress: WatchProgress | null;
-  /** Top 8 keywords. */
-  keywords: string[];
-}
-
-export interface WatchHistoryEntry {
-  id: string;
-  mediaItem: MediaItem;
-  watchedAt: string;
-  progress: number | null;
-}
-
-export interface WatchlistEntry {
-  id: string;
-  mediaItem: MediaItem;
-  addedAt: string;
-}
-
-export interface EpisodeRef {
-  season: number;
-  episode: number;
-  title: string;
-  airedAt: string | null;
-}
-
-export interface SeasonProgress {
-  number: number;
-  aired: number;
-  completed: number;
-}
-
-export interface ShowProgress {
-  showId: string;
-  title: string;
-  seasons: SeasonProgress[];
-  nextEpisode: EpisodeRef | null;
-}
-
-export interface UpcomingEpisode {
-  showId: string;
-  showTitle: string;
-  episode: EpisodeRef;
-}
-
-export interface SearchResult {
-  item: MediaItem;
-  score: number;
 }
