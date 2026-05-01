@@ -1,0 +1,80 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "requests_seasons_title": "Seasons & Episodes",
+  "requests_seasons_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} season",
+        "countPlural=other": "{count} seasons"
+      }
+    }
+  ],
+  "requests_status_available": "Available",
+  "requests_status_in_progress": "In progress",
+  "requests_status_pending": "Pending",
+  "requests_status_unavailable": "Unavailable",
+  "requests_status_partial": "Partial",
+  "requests_status_upcoming": "Upcoming",
+  "requests_action_request": "Request",
+  "requests_action_request_missing": "Request missing",
+  "requests_action_request_all": "Request all",
+  "requests_action_cancel": "Cancel",
+  "requests_action_cancel_title": "Cancel request",
+  "requests_tooltip_destination": "via {service} · {profile}",
+  "requests_tooltip_destination_simple": "via {service}",
+  "requests_tooltip_pending": "Awaiting admin approval",
+  "requests_tooltip_request_seasons": [
+    {
+      "declarations": ["input count", "input service", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Request {count} season via {service}",
+        "countPlural=other": "Request {count} seasons via {service}"
+      }
+    }
+  ],
+  "requests_subline_upcoming": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} episode upcoming",
+        "countPlural=other": "{count} episodes upcoming"
+      }
+    }
+  ],
+  "requests_subline_pending": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} episode — awaiting approval",
+        "countPlural=other": "{count} episodes — awaiting approval"
+      }
+    }
+  ],
+  "requests_subline_in_progress": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} episode — fetching now",
+        "countPlural=other": "{count} episodes — fetching now"
+      }
+    }
+  ],
+  "requests_subline_partial": "{available} of {total} available",
+  "requests_subline_total": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} episode",
+        "countPlural=other": "{count} episodes"
+      }
+    }
+  ],
+  "requests_toggle_aria": "Toggle {title}"
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "requests_seasons_title": "فصل‌ها و قسمت‌ها",
+  "requests_seasons_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} فصل",
+        "countPlural=other": "{count} فصل"
+      }
+    }
+  ],
+  "requests_status_available": "موجود",
+  "requests_status_in_progress": "در حال انجام",
+  "requests_status_pending": "در انتظار",
+  "requests_status_unavailable": "ناموجود",
+  "requests_status_partial": "ناقص",
+  "requests_status_upcoming": "در راه",
+  "requests_action_request": "درخواست",
+  "requests_action_request_missing": "درخواست موارد ناقص",
+  "requests_action_request_all": "درخواست همه",
+  "requests_action_cancel": "لغو",
+  "requests_action_cancel_title": "لغو درخواست",
+  "requests_tooltip_destination": "از طریق {service} · {profile}",
+  "requests_tooltip_destination_simple": "از طریق {service}",
+  "requests_tooltip_pending": "در انتظار تایید مدیر",
+  "requests_tooltip_request_seasons": [
+    {
+      "declarations": ["input count", "input service", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "درخواست {count} فصل از طریق {service}",
+        "countPlural=other": "درخواست {count} فصل از طریق {service}"
+      }
+    }
+  ],
+  "requests_subline_upcoming": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} قسمت در راه",
+        "countPlural=other": "{count} قسمت در راه"
+      }
+    }
+  ],
+  "requests_subline_pending": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} قسمت — در انتظار تایید",
+        "countPlural=other": "{count} قسمت — در انتظار تایید"
+      }
+    }
+  ],
+  "requests_subline_in_progress": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} قسمت — در حال دریافت",
+        "countPlural=other": "{count} قسمت — در حال دریافت"
+      }
+    }
+  ],
+  "requests_subline_partial": "{available} از {total} موجود",
+  "requests_subline_total": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} قسمت",
+        "countPlural=other": "{count} قسمت"
+      }
+    }
+  ],
+  "requests_toggle_aria": "نمایش/پنهان کردن {title}"
+}
