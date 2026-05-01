@@ -1,0 +1,180 @@
+import { useMemo, useState } from "react";
+import { CheckCheckIcon, SettingsIcon } from "lucide-react";
+import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { RadioGroup } from "@/shared/ui/radio-group";
+import { NotificationCategoryChip } from "./notification-category-chip";
+import { NotificationEmptyState } from "./notification-empty-state";
+import { NotificationItem } from "./notification-item";
+import { CATEGORY_META } from "./notification-panel-types";
+import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
+
+type Filter = "all" | NotificationCategory;
+
+interface Props {
+  items: NotificationItemDto[];
+  density: Density;
+  intensity: Intensity;
+  mobile?: boolean;
+  onMarkAllRead: () => void;
+  onMarkRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+}
+
+function buildCounts(items: NotificationItemDto[], unreadOnly: boolean): Record<string, number> {
+  const totalUnread = items.filter((i) => i.readAt === null).length;
+  const base = unreadOnly ? items.filter((i) => i.readAt === null) : items;
+  const counts: Record<string, number> = {
+    all: base.length,
+    unread: totalUnread,
+  };
+  for (const k of Object.keys(CATEGORY_META) as NotificationCategory[]) {
+    counts[k] = base.filter((i) => i.category === k).length;
+  }
+  return counts;
+}
+
+function filterNotifications(
+  items: NotificationItemDto[],
+  filter: Filter,
+  unreadOnly: boolean,
+): NotificationItemDto[] {
+  const byCategory = filter !== "all" ? items.filter((i) => i.category === filter) : items;
+  return unreadOnly ? byCategory.filter((i) => i.readAt === null) : byCategory;
+}
+
+interface UnreadToggleProps {
+  active: boolean;
+  count: number;
+  onToggle: () => void;
+}
+
+function UnreadToggle({ active, count, onToggle }: UnreadToggleProps) {
+  return (
+    <button
+      aria-pressed={active}
+      onClick={onToggle}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors",
+        active
+          ? "border-primary/40 bg-primary/10 text-primary"
+          : "border-border bg-muted text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <span
+        className={cn(
+          "size-1.5 rounded-full",
+          active ? "bg-primary" : count > 0 ? "bg-primary/60" : "bg-muted-foreground/30",
+        )}
+      />
+      {count} unread
+    </button>
+  );
+}
+
+// fallow-ignore-next-line complexity
+export function NotificationPanelBody({
+  items,
+  density,
+  intensity,
+  mobile = false,
+  onMarkAllRead,
+  onMarkRead,
+  onDismiss,
+}: Props) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [unreadOnly, setUnreadOnly] = useState(false);
+
+  const counts = useMemo(() => buildCounts(items, unreadOnly), [items, unreadOnly]);
+  const filtered = useMemo(
+    () => filterNotifications(items, filter, unreadOnly),
+    [items, filter, unreadOnly],
+  );
+
+  const filterLabel =
+    filter !== "all" ? CATEGORY_META[filter as NotificationCategory]?.label : null;
+  const unreadCount = counts.unread ?? 0;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-between gap-3 px-4",
+          mobile ? "pb-2.5 pt-5" : "pb-2.5 pt-3.5",
+        )}
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className={cn("font-semibold text-foreground", mobile ? "text-lg" : "text-sm")}>
+            Notifications
+          </span>
+          <UnreadToggle
+            active={unreadOnly}
+            count={unreadCount}
+            onToggle={() => setUnreadOnly((v) => !v)}
+          />
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onMarkAllRead}
+          disabled={unreadCount === 0}
+          aria-label="Mark all read"
+          title="Mark all read"
+        >
+          <CheckCheckIcon />
+        </Button>
+      </div>
+
+      <div className="shrink-0 px-4 pb-2.5">
+        <RadioGroup
+          value={filter}
+          onValueChange={(v) => setFilter(v as Filter)}
+          aria-label="Filter notifications by category"
+          className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none]"
+        >
+          <NotificationCategoryChip value="all" label="All" count={counts.all} />
+          {(Object.keys(CATEGORY_META) as NotificationCategory[]).map((k) => (
+            <NotificationCategoryChip
+              key={k}
+              value={k}
+              category={k as NotificationCategory}
+              label={CATEGORY_META[k as NotificationCategory].label}
+              count={counts[k]}
+            />
+          ))}
+        </RadioGroup>
+      </div>
+
+      <div className="h-px shrink-0 bg-border" />
+
+      <div className="min-h-0 flex-1 overflow-y-auto" role="list">
+        {filtered.length === 0 ? (
+          <NotificationEmptyState filterLabel={filterLabel} />
+        ) : (
+          filtered.map((item) => (
+            <NotificationItem
+              key={item.id}
+              item={item}
+              density={density}
+              intensity={intensity}
+              onMarkRead={onMarkRead}
+              onDismiss={onDismiss}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2.5">
+        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
+          <SettingsIcon className="size-3.5" />
+          Notification settings
+        </Button>
+        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+          View all
+        </Button>
+      </div>
+    </div>
+  );
+}

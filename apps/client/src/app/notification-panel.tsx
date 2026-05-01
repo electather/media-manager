@@ -1,10 +1,109 @@
-import { Button } from "@/shared/ui/button";
-import { Bell } from "lucide-react";
+import { useState } from "react";
+import { BellIcon } from "lucide-react";
+import { buttonVariants } from "@/shared/ui/button";
+import { Drawer, DrawerContent } from "@/shared/ui/drawer";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import { useIsMobile } from "@/shared/hooks/use-is-mobile";
+import { NotificationPanelBody } from "./notification-panel-body";
+import { DUMMY_NOTIFICATIONS } from "./notification-panel-fixtures";
+import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
+import { cn } from "@/shared/lib/utils";
 
-export function NotificationPanel() {
+interface Props {
+  density?: Density;
+  intensity?: Intensity;
+}
+
+function bellAriaLabel(unreadCount: number): string {
+  return unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications";
+}
+
+function BellTriggerContent({ unreadCount }: { unreadCount: number }) {
   return (
-    <Button aria-label="Notifications" size="icon-sm" variant="outline" className="cursor-pointer">
-      <Bell className="size-4" />
-    </Button>
+    <>
+      <BellIcon className="size-4" />
+      {unreadCount > 0 && (
+        <span
+          aria-hidden="true"
+          className="absolute right-1 top-1 size-1.5 rounded-full bg-primary"
+        />
+      )}
+    </>
+  );
+}
+
+export function NotificationPanel({ density = "comfortable", intensity = "subtle" }: Props) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<NotificationItemDto[]>(DUMMY_NOTIFICATIONS);
+  const isMobile = useIsMobile();
+
+  const unreadCount = items.filter((i) => i.readAt === null).length;
+
+  const markRead = (id: string) =>
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, readAt: Date.now() } : i)));
+
+  const markAllRead = () =>
+    setItems((prev) => prev.map((i) => ({ ...i, readAt: i.readAt ?? Date.now() })));
+
+  const dismiss = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
+
+  const triggerClass = buttonVariants({ variant: "outline", size: "icon-sm" });
+
+  const body = (
+    <NotificationPanelBody
+      items={items}
+      density={density}
+      intensity={intensity}
+      onMarkAllRead={markAllRead}
+      onMarkRead={markRead}
+      onDismiss={dismiss}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <button
+          aria-label={bellAriaLabel(unreadCount)}
+          onClick={() => setOpen(true)}
+          className={cn("relative", triggerClass)}
+        >
+          <BellTriggerContent unreadCount={unreadCount} />
+        </button>
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerContent className="h-[75dvh] gap-0 p-0">
+            <NotificationPanelBody
+              items={items}
+              density={density}
+              intensity={intensity}
+              mobile
+              onMarkAllRead={markAllRead}
+              onMarkRead={markRead}
+              onDismiss={dismiss}
+            />
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        aria-label={bellAriaLabel(unreadCount)}
+        className={cn("relative", triggerClass)}
+      >
+        <BellTriggerContent unreadCount={unreadCount} />
+      </PopoverTrigger>
+      <PopoverContent
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        className="flex w-100 max-h-[min(640px,calc(100dvh-80px))] flex-col overflow-hidden p-0"
+        aria-label="Notifications"
+      >
+        {body}
+      </PopoverContent>
+    </Popover>
   );
 }
