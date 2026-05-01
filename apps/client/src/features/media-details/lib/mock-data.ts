@@ -57,7 +57,11 @@ const ROWS: { id: string; items: MediaDetailItem[] }[] = [
   { id: "trending", items: [HERO, ALT_TV] },
 ];
 
-function buildEpisodes(season: number, count: number, baseStatus: DetailEpisode["status"]): DetailEpisode[] {
+function buildEpisodes(
+  season: number,
+  count: number,
+  baseStatus: DetailEpisode["status"],
+): DetailEpisode[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `ep:${season}:${i + 1}`,
     episode: i + 1,

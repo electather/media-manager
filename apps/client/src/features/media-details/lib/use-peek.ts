@@ -9,7 +9,7 @@ export function usePeek() {
 
   const openPeek = useCallback(
     (id: string) => {
-      navigate({
+      void navigate({
         to: ".",
         search: (prev: Record<string, unknown>) => ({ ...prev, peek: id }),
         replace: false,
@@ -19,7 +19,7 @@ export function usePeek() {
   );
 
   const closePeek = useCallback(() => {
-    navigate({
+    void navigate({
       to: ".",
       search: (prev: Record<string, unknown>) => {
         const { peek: _omit, ...rest } = prev;

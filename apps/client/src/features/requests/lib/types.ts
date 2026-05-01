@@ -2,7 +2,12 @@ export type RequestRole = "user" | "admin";
 
 export type RequestStatus = "available" | "unavailable" | "pending" | "in-progress" | "denied";
 
-export type SeasonRequestStatus = "available" | "unavailable" | "requested" | "partial" | "upcoming";
+export type SeasonRequestStatus =
+  | "available"
+  | "unavailable"
+  | "requested"
+  | "partial"
+  | "upcoming";
 
 export interface ServiceProfile {
   id: string;

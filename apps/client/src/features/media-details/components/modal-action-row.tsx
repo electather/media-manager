@@ -29,14 +29,25 @@ export function ModalActionRow({
   toggleWatchlist,
   openTrailer,
 }: ModalActionRowProps) {
-  const { role, pluginConfigured, defaultDestination, requests, submitRequest, cancelRequest, showToast } =
-    useDetailStore();
+  const {
+    role,
+    pluginConfigured,
+    defaultDestination,
+    requests,
+    submitRequest,
+    cancelRequest,
+    showToast,
+  } = useDetailStore();
 
   const reqStatus = effectiveItemRequestStatus(
     { id: item.id, kind: item.kind, title: item.title },
     requests,
   );
-  const dest = describeDestination(defaultDestination.serviceId, defaultDestination.profileId, SERVICES);
+  const dest = describeDestination(
+    defaultDestination.serviceId,
+    defaultDestination.profileId,
+    SERVICES,
+  );
 
   const showWatch = item.kind === "movie" && reqStatus === "available";
   const showInlineStatus =

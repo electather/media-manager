@@ -30,7 +30,13 @@ interface LogoBox {
   width: number;
 }
 
-const INITIAL_LOGO_BOX: LogoBox = { fromTop: 340, fromLeft: 28, toTop: 14, toLeft: 106, width: 600 };
+const INITIAL_LOGO_BOX: LogoBox = {
+  fromTop: 340,
+  fromLeft: 28,
+  toTop: 14,
+  toLeft: 106,
+  width: 600,
+};
 
 export function MediaDetailModalContent({
   item,
@@ -38,10 +44,11 @@ export function MediaDetailModalContent({
   forceLoading = false,
   enableScrollAnimations = true,
 }: MediaDetailModalContentProps) {
-  const { watched, watchlist, toggleWatched, toggleWatchlist, openTrailer, notes } = useDetailStore();
+  const { watched, watchlist, toggleWatched, toggleWatchlist, openTrailer, notes } =
+    useDetailStore();
   const isWatched = watched.has(item.id);
   const inWl = watchlist.has(item.id);
-  const hasNote = !!(notes[item.id]?.trim());
+  const hasNote = !!notes[item.id]?.trim();
 
   const [internalLoading, setInternalLoading] = useState(false);
   const loading = internalLoading || forceLoading;
@@ -82,7 +89,9 @@ export function MediaDetailModalContent({
       topbarBgRef.current.style.opacity = String(topbarBgOpacity);
       const blurPx = Math.round(topbarBgOpacity * 14);
       topbarBgRef.current.style.backdropFilter = `blur(${blurPx}px)`;
-      (topbarBgRef.current.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter = `blur(${blurPx}px)`;
+      (
+        topbarBgRef.current.style as CSSStyleDeclaration & { webkitBackdropFilter?: string }
+      ).webkitBackdropFilter = `blur(${blurPx}px)`;
     }
     if (topbarRef.current) {
       topbarRef.current.dataset.scrolled = String(topbarBgOpacity > 0.98);
@@ -241,7 +250,11 @@ export function MediaDetailModalContent({
             data-topbar-kind-badge
             className="relative inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-black/55 px-2.5 py-1 text-[11px] font-medium tracking-[0.04em] whitespace-nowrap text-foreground uppercase backdrop-blur-md"
           >
-            {item.kind === "movie" ? <FilmIcon className="size-3" /> : <TvIcon className="size-3" />}
+            {item.kind === "movie" ? (
+              <FilmIcon className="size-3" />
+            ) : (
+              <TvIcon className="size-3" />
+            )}
             <span
               ref={kindBadgeLabelRef}
               className="inline-block overflow-hidden transition-[max-width,opacity] duration-200"
@@ -349,11 +362,7 @@ export function MediaDetailModalContent({
                   {item.genres && <span>{item.genres.join(" · ")}</span>}
                 </div>
 
-                <FeedbackBar
-                  itemId={item.id}
-                  onJumpToNote={jumpToNote}
-                  hasNote={hasNote}
-                />
+                <FeedbackBar itemId={item.id} onJumpToNote={jumpToNote} hasNote={hasNote} />
 
                 <ModalActionRow
                   item={item}
@@ -385,10 +394,16 @@ export function MediaDetailModalContent({
                       </div>
                     )}
                     {item.audienceScore != null && (
-                      <ScoreBlock label={m.media_details_audience()} value={`${item.audienceScore}%`} />
+                      <ScoreBlock
+                        label={m.media_details_audience()}
+                        value={`${item.audienceScore}%`}
+                      />
                     )}
                     {item.criticScore != null && (
-                      <ScoreBlock label={m.media_details_critics()} value={`${item.criticScore}%`} />
+                      <ScoreBlock
+                        label={m.media_details_critics()}
+                        value={`${item.criticScore}%`}
+                      />
                     )}
                   </div>
                 )}

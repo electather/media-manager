@@ -22,9 +22,7 @@ export function MediaDetailModal() {
             <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-background/85 backdrop-blur-sm" />
             <DrawerPrimitive.Content className="fixed inset-x-0 bottom-0 z-50 flex h-[92vh] flex-col rounded-t-2xl bg-background outline-none">
               <div className="mx-auto mt-3 h-1.5 w-24 shrink-0 rounded-full bg-border" />
-              <DrawerPrimitive.Title className="sr-only">
-                {item?.title ?? ""}
-              </DrawerPrimitive.Title>
+              <DrawerPrimitive.Title className="sr-only">{item?.title ?? ""}</DrawerPrimitive.Title>
               <DrawerPrimitive.Description className="sr-only">
                 {item?.overview ?? ""}
               </DrawerPrimitive.Description>
