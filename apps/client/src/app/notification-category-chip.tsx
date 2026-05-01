@@ -1,6 +1,6 @@
+import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { RadioGroupItem } from "@/shared/ui/radio-group";
 import { CATEGORY_META } from "./notification-panel-types";
-import type { NotificationCategory } from "./notification-panel-types";
 
 interface Props {
   value: string;

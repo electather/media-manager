@@ -6,9 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { NotificationPanelBody } from "../notification-panel-body";
 import type { NotificationItemDto } from "../notification-panel-types";
 
-function makeItem(
-  overrides: Partial<NotificationItemDto> & { id: string },
-): NotificationItemDto {
+function makeItem(overrides: Partial<NotificationItemDto> & { id: string }): NotificationItemDto {
   return {
     severity: "info",
     category: "media",
@@ -43,6 +41,7 @@ function renderBody(
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -115,7 +114,7 @@ describe("NotificationPanelBody", () => {
       const items = [makeItem({ id: "first" }), makeItem({ id: "second" })];
       renderBody(items, { onDismiss });
       const dismissButtons = screen.getAllByRole("button", { name: /dismiss notification/i });
-      await user.click(dismissButtons[1]);
+      await user.click(dismissButtons[1]!);
       expect(onDismiss).toHaveBeenCalledWith("second");
     });
   });
@@ -206,8 +205,7 @@ describe("NotificationPanelBody", () => {
       expect(screen.getByText(/no sync notifications/i)).toBeTruthy();
     });
 
-    it("updates the unread count to reflect only the filtered category", async () => {
-      const user = userEvent.setup();
+    it("shows correct total unread count", () => {
       const items = [
         makeItem({ id: "mu", category: "media", readAt: null }),
         makeItem({ id: "su", category: "sync", readAt: null }),

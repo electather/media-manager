@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { CheckCheckIcon, SettingsIcon } from "lucide-react";
+import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";
@@ -7,12 +8,7 @@ import { NotificationCategoryChip } from "./notification-category-chip";
 import { NotificationEmptyState } from "./notification-empty-state";
 import { NotificationItem } from "./notification-item";
 import { CATEGORY_META } from "./notification-panel-types";
-import type {
-  Density,
-  Intensity,
-  NotificationCategory,
-  NotificationItemDto,
-} from "./notification-panel-types";
+import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
 
 type Filter = "all" | NotificationCategory;
 
@@ -26,13 +22,15 @@ interface Props {
   onDismiss: (id: string) => void;
 }
 
-function buildCounts(items: NotificationItemDto[]): Record<string, number> {
+function buildCounts(items: NotificationItemDto[], unreadOnly: boolean): Record<string, number> {
+  const totalUnread = items.filter((i) => i.readAt === null).length;
+  const base = unreadOnly ? items.filter((i) => i.readAt === null) : items;
   const counts: Record<string, number> = {
-    all: items.length,
-    unread: items.filter((i) => i.readAt === null).length,
+    all: base.length,
+    unread: totalUnread,
   };
   for (const k of Object.keys(CATEGORY_META) as NotificationCategory[]) {
-    counts[k] = items.filter((i) => i.category === k).length;
+    counts[k] = base.filter((i) => i.category === k).length;
   }
   return counts;
 }
@@ -88,7 +86,7 @@ export function NotificationPanelBody({
   const [filter, setFilter] = useState<Filter>("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
 
-  const counts = useMemo(() => buildCounts(items), [items]);
+  const counts = useMemo(() => buildCounts(items, unreadOnly), [items, unreadOnly]);
   const filtered = useMemo(
     () => filterNotifications(items, filter, unreadOnly),
     [items, filter, unreadOnly],

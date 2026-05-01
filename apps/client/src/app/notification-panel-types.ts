@@ -15,8 +15,6 @@ import type {
   NotificationAction,
 } from "@ent-mcp/shared/notifications";
 
-export type { InboxItemDto, NotificationAction, NotificationCategory, NotificationSeverity };
-
 // Client-side DTO extending InboxItemDto with fields the API will expose in a
 // future update. All additions are optional; components render the richer
 // variant when present and fall back to `body` otherwise.

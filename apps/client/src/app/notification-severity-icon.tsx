@@ -1,6 +1,6 @@
+import type { NotificationSeverity } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { SEVERITY_META } from "./notification-panel-types";
-import type { NotificationSeverity } from "./notification-panel-types";
 
 interface Props {
   severity: NotificationSeverity;

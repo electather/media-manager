@@ -37,9 +37,9 @@ function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
   if (!actions?.length) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-2">
-      {actions.map((action, i) => (
+      {actions.map((action) => (
         <a
-          key={i}
+          key={action.label}
           href={action.url}
           onClick={(e) => e.stopPropagation()}
           className={cn(buttonVariants({ variant: actionVariant(action.style), size: "xs" }))}
@@ -63,6 +63,9 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
     <div
       role="listitem"
       onMouseEnter={() => {
+        if (isUnread) onMarkRead(item.id);
+      }}
+      onFocus={() => {
         if (isUnread) onMarkRead(item.id);
       }}
       className={cn(

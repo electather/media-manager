@@ -1,15 +1,17 @@
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 
 const MOBILE_QUERY = "(max-width: 640px)";
 
 export function useIsMobile(): boolean {
+  const mqRef = useRef<MediaQueryList | null>(null);
+
   return useSyncExternalStore(
     (cb) => {
-      const mq = window.matchMedia(MOBILE_QUERY);
-      mq.addEventListener("change", cb);
-      return () => mq.removeEventListener("change", cb);
+      mqRef.current = window.matchMedia(MOBILE_QUERY);
+      mqRef.current.addEventListener("change", cb);
+      return () => mqRef.current?.removeEventListener("change", cb);
     },
-    () => window.matchMedia(MOBILE_QUERY).matches,
+    () => (mqRef.current ?? window.matchMedia(MOBILE_QUERY)).matches,
     () => false,
   );
 }
