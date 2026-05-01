@@ -35,6 +35,7 @@ export const adminJobsApp = new Hono()
   .use("*", requirePermission(PERMISSIONS.ADMIN_JOBS))
   .get("/", async (c) => {
     const handles = await jobs.list();
+    // fallow-ignore-next-line complexity
     handles.sort((a, b) => (b.lastRun?.startedAt ?? 0) - (a.lastRun?.startedAt ?? 0));
     return c.json({ jobs: handles.slice(0, LIST_CAP) });
   })

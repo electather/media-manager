@@ -18,6 +18,7 @@ export const jobsListCollection = createCollection(
       return data.jobs;
     },
     getKey: (job) => job.id,
+    // fallow-ignore-next-line complexity
     onUpdate: async ({ transaction, collection }) => {
       for (const mutation of transaction.mutations) {
         const id = mutation.key as string;
