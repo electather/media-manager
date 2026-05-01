@@ -1,22 +1,7 @@
 import { useState } from "react";
-import { Bookmark, Home, Library, Search, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
-
-type NavItemId = "home" | "search" | "library" | "watchlist";
-
-interface NavItem {
-  id: NavItemId;
-  label: string;
-  icon: LucideIcon;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "search", label: "Search", icon: Search },
-  { id: "library", label: "Library", icon: Library },
-  { id: "watchlist", label: "Watchlist", icon: Bookmark },
-];
+import { NAV_ITEMS, type NavItemId } from "./nav-items";
 
 interface BottomNavProps {
   active?: NavItemId;
@@ -38,7 +23,7 @@ export function BottomNav({ active = "home", onChange }: BottomNavProps) {
   return (
     <nav
       aria-label="Primary"
-      className="fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))]"
+      className="fixed bottom-0 left-0 right-0 z-20 flex justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))]"
     >
       <div
         className={cn(
@@ -60,8 +45,11 @@ export function BottomNav({ active = "home", onChange }: BottomNavProps) {
         >
           <span
             aria-hidden="true"
-            className="absolute top-1.5 bottom-1.5 left-1.5 z-0 w-[calc((100%-0.75rem)/4)] rounded-lg bg-foreground/[0.14] border border-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
-            style={{ transform: `translateX(calc(${idx} * 100%))` }}
+            className="absolute top-1.5 bottom-1.5 left-1.5 z-0 rounded-lg bg-foreground/[0.14] border border-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
+            style={{
+              width: `calc((100% - 0.75rem) / ${NAV_ITEMS.length})`,
+              transform: `translateX(calc(${idx} * 100%))`,
+            }}
           />
           {NAV_ITEMS.map((item) => {
             const isActive = item.id === current;
