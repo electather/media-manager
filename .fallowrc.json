@@ -93,7 +93,6 @@
       { "name": "client-shared-hooks", "patterns": ["apps/client/src/shared/hooks/**"] },
       { "name": "client-shared-lib", "patterns": ["apps/client/src/shared/lib/**"] },
       { "name": "client-root", "patterns": ["apps/client/src/*.*"] },
-      { "name": "client-paraglide", "patterns": ["apps/client/src/paraglide/**"] },
 
       { "name": "server-api", "patterns": ["apps/server/src/api/**"] },
       { "name": "server-mcp", "patterns": ["apps/server/src/mcp/**"] },
@@ -211,7 +210,6 @@
           "client-shared-components",
           "client-shared-hooks",
           "client-shared-lib",
-          "client-paraglide",
           "shared-pkg"
         ]
       },
@@ -231,10 +229,7 @@
       },
       { "from": "client-shared-hooks", "allow": ["client-shared-lib", "shared-pkg"] },
       { "from": "client-shared-ui", "allow": ["client-shared-lib", "shared-pkg"] },
-      {
-        "from": "client-shared-lib",
-        "allow": ["shared-pkg", "server-api", "server-root", "client-paraglide"]
-      },
+      { "from": "client-shared-lib", "allow": ["shared-pkg", "server-api", "server-root"] },
 
       {
         "from": "server-root",

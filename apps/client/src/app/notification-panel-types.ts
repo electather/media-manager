@@ -33,17 +33,15 @@ export interface CategoryMeta {
   Icon: LucideIcon;
 }
 
+const CATEGORY_LABEL_FNS = {
+  media: () => m.notifications_category_media(),
+  sync: () => m.notifications_category_sync(),
+  auth: () => m.notifications_category_auth(),
+  system: () => m.notifications_category_system(),
+} as const satisfies Record<NotificationCategory, () => string>;
+
 export function categoryLabel(category: NotificationCategory): string {
-  switch (category) {
-    case "media":
-      return m.notifications_category_media();
-    case "sync":
-      return m.notifications_category_sync();
-    case "auth":
-      return m.notifications_category_auth();
-    case "system":
-      return m.notifications_category_system();
-  }
+  return CATEGORY_LABEL_FNS[category]();
 }
 
 export interface SeverityMeta {
