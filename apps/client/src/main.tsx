@@ -10,12 +10,16 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "./shared/components/error-boundary";
 import { installGlobalErrorHandlers } from "./shared/lib/errors/global-handlers";
 import { useHtmlDir } from "./shared/hooks/use-html-dir";
+import { DirectionProvider } from "./shared/ui/direction";
+import { htmlDirFor } from "./shared/lib/i18n/rtl";
+import { getLocale } from "./paraglide/runtime";
 
 installGlobalErrorHandlers();
 
 function I18nRoot({ children }: { children: ReactNode }) {
   useHtmlDir();
-  return children;
+  const dir = htmlDirFor(getLocale());
+  return <DirectionProvider direction={dir}>{children}</DirectionProvider>;
 }
 
 const router = createRouter({ routeTree });
