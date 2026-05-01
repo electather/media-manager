@@ -12,3 +12,76 @@ msgstr ""
 "Last-Translator: \n"
 "Language-Team: \n"
 "Plural-Forms: \n"
+
+#: src/app/notification-panel-body.tsx
+msgid "{count, plural, one {# unread} other {# unread}}"
+msgstr "{count, plural, one {# unread} other {# unread}}"
+
+#: src/app/notification-panel.tsx
+msgid "{unreadCount, plural, one {Notifications, # unread} other {Notifications, # unread}}"
+msgstr "{unreadCount, plural, one {Notifications, # unread} other {Notifications, # unread}}"
+
+#: src/app/notification-item.tsx
+msgid "Admin"
+msgstr "Admin"
+
+#: src/app/notification-panel-body.tsx
+msgid "All"
+msgstr "All"
+
+#: src/app/notification-panel-types.ts
+msgid "Auth"
+msgstr "Auth"
+
+#: src/app/notification-item.tsx
+msgid "Dismiss notification"
+msgstr "Dismiss notification"
+
+#: src/app/notification-panel-body.tsx
+msgid "Filter notifications by category"
+msgstr "Filter notifications by category"
+
+#: src/app/notification-panel-body.tsx
+msgid "Mark all read"
+msgstr "Mark all read"
+
+#: src/app/notification-panel-types.ts
+msgid "Media"
+msgstr "Media"
+
+#: src/app/notification-empty-state.tsx
+msgid "No {filterLower} notifications"
+msgstr "No {filterLower} notifications"
+
+#: src/app/notification-panel-body.tsx
+msgid "Notification settings"
+msgstr "Notification settings"
+
+#: src/app/notification-panel-body.tsx
+#: src/app/notification-panel.tsx
+msgid "Notifications"
+msgstr "Notifications"
+
+#: src/app/notification-panel-types.ts
+msgid "Sync"
+msgstr "Sync"
+
+#: src/app/notification-panel-types.ts
+msgid "System"
+msgstr "System"
+
+#: src/app/notification-empty-state.tsx
+msgid "Try another filter, or check back later."
+msgstr "Try another filter, or check back later."
+
+#: src/app/notification-panel-body.tsx
+msgid "View all"
+msgstr "View all"
+
+#: src/app/notification-empty-state.tsx
+msgid "When something needs your attention, it'll show up here."
+msgstr "When something needs your attention, it'll show up here."
+
+#: src/app/notification-empty-state.tsx
+msgid "You're all caught up"
+msgstr "You're all caught up"

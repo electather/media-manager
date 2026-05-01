@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { CheckCheckIcon, SettingsIcon } from "lucide-react";
+import { Plural, Trans, useLingui } from "@lingui/react/macro";
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -68,7 +69,7 @@ function UnreadToggle({ active, count, onToggle }: UnreadToggleProps) {
           active ? "bg-primary" : count > 0 ? "bg-primary/60" : "bg-muted-foreground/30",
         )}
       />
-      {count} unread
+      <Plural value={count} one="# unread" other="# unread" />
     </button>
   );
 }
@@ -83,6 +84,7 @@ export function NotificationPanelBody({
   onMarkRead,
   onDismiss,
 }: Props) {
+  const { i18n, t } = useLingui();
   const [filter, setFilter] = useState<Filter>("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
 
@@ -93,7 +95,7 @@ export function NotificationPanelBody({
   );
 
   const filterLabel =
-    filter !== "all" ? CATEGORY_META[filter as NotificationCategory]?.label : null;
+    filter !== "all" ? i18n._(CATEGORY_META[filter as NotificationCategory].label) : null;
   const unreadCount = counts.unread ?? 0;
 
   return (
@@ -106,7 +108,7 @@ export function NotificationPanelBody({
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <span className={cn("font-semibold text-foreground", mobile ? "text-lg" : "text-sm")}>
-            Notifications
+            <Trans>Notifications</Trans>
           </span>
           <UnreadToggle
             active={unreadOnly}
@@ -120,8 +122,8 @@ export function NotificationPanelBody({
           size="icon-sm"
           onClick={onMarkAllRead}
           disabled={unreadCount === 0}
-          aria-label="Mark all read"
-          title="Mark all read"
+          aria-label={t`Mark all read`}
+          title={t`Mark all read`}
         >
           <CheckCheckIcon />
         </Button>
@@ -131,16 +133,16 @@ export function NotificationPanelBody({
         <RadioGroup
           value={filter}
           onValueChange={(v) => setFilter(v as Filter)}
-          aria-label="Filter notifications by category"
+          aria-label={t`Filter notifications by category`}
           className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none]"
         >
-          <NotificationCategoryChip value="all" label="All" count={counts.all} />
+          <NotificationCategoryChip value="all" label={t`All`} count={counts.all} />
           {(Object.keys(CATEGORY_META) as NotificationCategory[]).map((k) => (
             <NotificationCategoryChip
               key={k}
               value={k}
               category={k as NotificationCategory}
-              label={CATEGORY_META[k as NotificationCategory].label}
+              label={i18n._(CATEGORY_META[k as NotificationCategory].label)}
               count={counts[k]}
             />
           ))}
@@ -169,10 +171,10 @@ export function NotificationPanelBody({
       <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2.5">
         <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
           <SettingsIcon className="size-3.5" />
-          Notification settings
+          <Trans>Notification settings</Trans>
         </Button>
         <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
-          View all
+          <Trans>View all</Trans>
         </Button>
       </div>
     </div>

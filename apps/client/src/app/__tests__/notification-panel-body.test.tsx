@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
+import { i18n } from "@lingui/core";
+import { I18nProvider } from "@lingui/react";
 
 import { NotificationPanelBody } from "../notification-panel-body";
 import type { NotificationItemDto } from "../notification-panel-types";
+
+beforeAll(() => {
+  i18n.load("en", {});
+  i18n.activate("en");
+});
 
 function makeItem(overrides: Partial<NotificationItemDto> & { id: string }): NotificationItemDto {
   return {
@@ -36,7 +43,11 @@ function renderBody(
     onDismiss: noop,
     ...overrides,
   };
-  return render(<NotificationPanelBody {...props} />);
+  return render(
+    <I18nProvider i18n={i18n}>
+      <NotificationPanelBody {...props} />
+    </I18nProvider>,
+  );
 }
 
 afterEach(() => {

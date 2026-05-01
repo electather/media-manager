@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { BellIcon } from "lucide-react";
+import { useLingui } from "@lingui/react/macro";
+import { plural } from "@lingui/core/macro";
 import { buttonVariants } from "@/shared/ui/button";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
@@ -12,10 +14,6 @@ import { cn } from "@/shared/lib/utils";
 interface Props {
   density?: Density;
   intensity?: Intensity;
-}
-
-function bellAriaLabel(unreadCount: number): string {
-  return unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications";
 }
 
 function BellTriggerContent({ unreadCount }: { unreadCount: number }) {
@@ -33,11 +31,19 @@ function BellTriggerContent({ unreadCount }: { unreadCount: number }) {
 }
 
 export function NotificationPanel({ density = "comfortable", intensity = "subtle" }: Props) {
+  const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItemDto[]>(DUMMY_NOTIFICATIONS);
   const isMobile = useIsMobile();
 
   const unreadCount = items.filter((i) => i.readAt === null).length;
+  const bellAriaLabel =
+    unreadCount > 0
+      ? plural(unreadCount, {
+          one: "Notifications, # unread",
+          other: "Notifications, # unread",
+        })
+      : t`Notifications`;
 
   const markRead = (id: string) =>
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, readAt: Date.now() } : i)));
@@ -64,7 +70,7 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
     return (
       <>
         <button
-          aria-label={bellAriaLabel(unreadCount)}
+          aria-label={bellAriaLabel}
           onClick={() => setOpen(true)}
           className={cn("relative", triggerClass)}
         >
@@ -89,10 +95,7 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        aria-label={bellAriaLabel(unreadCount)}
-        className={cn("relative", triggerClass)}
-      >
+      <PopoverTrigger aria-label={bellAriaLabel} className={cn("relative", triggerClass)}>
         <BellTriggerContent unreadCount={unreadCount} />
       </PopoverTrigger>
       <PopoverContent
@@ -100,7 +103,7 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
         align="end"
         sideOffset={8}
         className="flex w-100 max-h-[min(640px,calc(100dvh-80px))] flex-col overflow-hidden p-0"
-        aria-label="Notifications"
+        aria-label={t`Notifications`}
       >
         {body}
       </PopoverContent>

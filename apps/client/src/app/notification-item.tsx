@@ -1,4 +1,5 @@
 import { XIcon } from "lucide-react";
+import { Trans, useLingui } from "@lingui/react/macro";
 import { cn } from "@/shared/lib/utils";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { relativeTime } from "@/shared/lib/relative-time";
@@ -53,6 +54,7 @@ function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
 
 // fallow-ignore-next-line complexity
 export function NotificationItem({ item, density, intensity, onMarkRead, onDismiss }: Props) {
+  const { i18n, t } = useLingui();
   const isUnread = item.readAt === null;
   const isLoud = intensity === "loud" && (item.severity === "warn" || item.severity === "error");
   const { loudBg, loudBorder } = SEVERITY_META[item.severity];
@@ -82,7 +84,7 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
             <p className="truncate text-sm font-medium text-foreground">{item.title}</p>
             {item.audienceKind === "admin" && (
               <span className="shrink-0 rounded border border-border bg-muted/50 px-1 py-0.5 text-xs font-medium tracking-wide text-muted-foreground/60 uppercase">
-                Admin
+                <Trans>Admin</Trans>
               </span>
             )}
           </div>
@@ -113,13 +115,13 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
         {!compact && (
           <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/60">
             <CatIcon className="size-2.5" />
-            <span>{catLabel}</span>
+            <span>{i18n._(catLabel)}</span>
           </div>
         )}
       </div>
 
       <Button
-        aria-label="Dismiss notification"
+        aria-label={t`Dismiss notification`}
         onClick={(e) => {
           e.stopPropagation();
           onDismiss(item.id);

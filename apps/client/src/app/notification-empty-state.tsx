@@ -1,8 +1,11 @@
+import { Trans } from "@lingui/react/macro";
+
 interface Props {
   filterLabel?: string | null;
 }
 
 export function NotificationEmptyState({ filterLabel }: Props) {
+  const filterLower = filterLabel?.toLowerCase() ?? null;
   return (
     <div className="flex flex-col items-center justify-center gap-3.5 px-6 py-10 text-center">
       <svg width="120" height="84" viewBox="0 0 120 84" fill="none" aria-hidden="true">
@@ -54,12 +57,18 @@ export function NotificationEmptyState({ filterLabel }: Props) {
       </svg>
       <div>
         <p className="text-sm font-medium text-foreground">
-          {filterLabel ? `No ${filterLabel.toLowerCase()} notifications` : "You're all caught up"}
+          {filterLower ? (
+            <Trans>No {filterLower} notifications</Trans>
+          ) : (
+            <Trans>You're all caught up</Trans>
+          )}
         </p>
         <p className="mx-auto mt-1 max-w-60 text-xs text-muted-foreground">
-          {filterLabel
-            ? "Try another filter, or check back later."
-            : "When something needs your attention, it'll show up here."}
+          {filterLower ? (
+            <Trans>Try another filter, or check back later.</Trans>
+          ) : (
+            <Trans>When something needs your attention, it'll show up here.</Trans>
+          )}
         </p>
       </div>
     </div>

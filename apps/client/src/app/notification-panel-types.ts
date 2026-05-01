@@ -8,6 +8,8 @@ import {
   ShieldIcon,
   type LucideIcon,
 } from "lucide-react";
+import type { MessageDescriptor } from "@lingui/core";
+import { msg } from "@lingui/core/macro";
 import type {
   InboxItemDto,
   NotificationCategory,
@@ -29,7 +31,7 @@ export type Density = "comfortable" | "compact";
 export type Intensity = "subtle" | "loud";
 
 export interface CategoryMeta {
-  label: string;
+  label: MessageDescriptor;
   Icon: LucideIcon;
 }
 
@@ -46,10 +48,10 @@ export interface SeverityMeta {
 }
 
 export const CATEGORY_META = {
-  media: { label: "Media", Icon: FilmIcon },
-  sync: { label: "Sync", Icon: RefreshCwIcon },
-  auth: { label: "Auth", Icon: ShieldIcon },
-  system: { label: "System", Icon: ServerIcon },
+  media: { label: msg`Media`, Icon: FilmIcon },
+  sync: { label: msg`Sync`, Icon: RefreshCwIcon },
+  auth: { label: msg`Auth`, Icon: ShieldIcon },
+  system: { label: msg`System`, Icon: ServerIcon },
 } satisfies Record<NotificationCategory, CategoryMeta>;
 
 export const SEVERITY_META = {
