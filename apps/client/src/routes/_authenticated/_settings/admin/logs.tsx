@@ -544,7 +544,7 @@ function CodeSection({
       </div>
       <pre
         className={cn(
-          "overflow-auto rounded-md border border-border bg-muted/50 p-3 font-mono text-[11px] leading-5",
+          "overflow-auto rounded-md border border-border bg-muted/50 p-3 font-mono text-xs leading-5",
           maxHeight,
         )}
       >
