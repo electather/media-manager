@@ -58,6 +58,8 @@
   --progress-watched: oklch(0.93 0.08 95);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
+  --warn: oklch(0.78 0.13 60);
+  --info: oklch(0.8 0.12 220);
 }
 
 /* Font tokens declared via non-inline @theme so Tailwind's font-* utilities
@@ -126,6 +128,8 @@ html[lang="fa"] {
   --progress-watched: oklch(0.93 0.02 260);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
+  --warn: oklch(0.78 0.13 60);
+  --info: oklch(0.8 0.12 220);
 }
 
 @theme inline {
@@ -164,6 +168,8 @@ html[lang="fa"] {
   --color-progress-watched: var(--progress-watched);
   --color-success: var(--success);
   --color-danger: var(--danger);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

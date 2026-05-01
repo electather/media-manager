@@ -1,0 +1,48 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "media_card_kind_movie": "Movie",
+  "media_card_kind_tv": "TV series",
+  "media_card_status_available": "Available",
+  "media_card_status_requested": "Requested",
+  "media_card_status_processing": "Processing",
+  "media_card_status_unavailable": "Unavailable",
+  "media_card_status_unknown": "Unknown",
+  "media_card_watchlist_add": "Add to watchlist",
+  "media_card_watchlist_remove": "Remove from watchlist",
+  "media_card_min_left_short": [
+    {
+      "declarations": ["input minutes"],
+      "selectors": [],
+      "match": {
+        "*": "{minutes}min left"
+      }
+    }
+  ],
+  "media_card_hour_min_left": [
+    {
+      "declarations": ["input hours", "input minutes"],
+      "selectors": [],
+      "match": {
+        "*": "{hours}h {minutes}min left"
+      }
+    }
+  ],
+  "media_card_watched_count": [
+    {
+      "declarations": ["input watched", "input total"],
+      "selectors": [],
+      "match": {
+        "*": "{watched}/{total} watched"
+      }
+    }
+  ],
+  "media_card_aria_label": [
+    {
+      "declarations": ["input title", "input year"],
+      "selectors": [],
+      "match": {
+        "*": "{title}, {year}"
+      }
+    }
+  ]
+}
