@@ -26,6 +26,12 @@
       "sourceType": "github",
       "computedHash": "74bf6ded4f61ddcb593e7a29beb96c284f888cbe0639ad6e23710447c36ff19a"
     },
+    "enhanced-message-context": {
+      "source": "lingui/skills",
+      "sourceType": "github",
+      "skillPath": "enhanced-message-context/SKILL.md",
+      "computedHash": "84d0a3d209e678781fe5aa7152e108cfb91ff7c6b7a1c39e15fccd5d8dcdf4c8"
+    },
     "es-toolkit": {
       "source": "pedronauck/skills",
       "sourceType": "github",
@@ -47,6 +53,12 @@
       "source": "wshobson/agents",
       "sourceType": "github",
       "computedHash": "8604814828637308a8cdc45c53e647f0029395328184937312330e4b8e8c587f"
+    },
+    "lingui-best-practices": {
+      "source": "lingui/skills",
+      "sourceType": "github",
+      "skillPath": "lingui-best-practices/SKILL.md",
+      "computedHash": "2ebeb243fa39ca3b233d7fe618cfaea89f618b619ceea6a33b708faeca7efc94"
     },
     "shadcn": {
       "source": "shadcn/ui",
