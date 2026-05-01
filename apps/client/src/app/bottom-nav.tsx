@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useDirection } from "@/shared/ui/direction";
 import { cn } from "@/shared/lib/utils";
 import { NAV_ITEMS, type NavItemId } from "./nav-items";
 
@@ -10,6 +11,8 @@ interface BottomNavProps {
 
 export function BottomNav({ active = "home", onChange }: BottomNavProps) {
   const [current, setCurrent] = useState<NavItemId>(active);
+  const direction = useDirection();
+  const isRtl = direction === "rtl";
   const idx = Math.max(
     0,
     NAV_ITEMS.findIndex((item) => item.id === current),
@@ -23,7 +26,7 @@ export function BottomNav({ active = "home", onChange }: BottomNavProps) {
   return (
     <nav
       aria-label="Primary"
-      className="fixed bottom-0 left-0 right-0 z-20 flex justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))]"
+      className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))]"
     >
       <div
         className={cn(
@@ -45,10 +48,10 @@ export function BottomNav({ active = "home", onChange }: BottomNavProps) {
         >
           <span
             aria-hidden="true"
-            className="absolute top-1.5 bottom-1.5 left-1.5 z-0 rounded-lg bg-foreground/[0.14] border border-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
+            className="absolute top-1.5 bottom-1.5 start-1.5 z-0 rounded-lg bg-foreground/[0.14] border border-foreground/[0.08] transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
             style={{
               width: `calc((100% - 0.75rem) / ${NAV_ITEMS.length})`,
-              transform: `translateX(calc(${idx} * 100%))`,
+              transform: `translateX(calc(${isRtl ? -idx : idx} * 100%))`,
             }}
           />
           {NAV_ITEMS.map((item) => {
