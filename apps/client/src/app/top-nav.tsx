@@ -4,10 +4,8 @@ import { NavBrand } from "./nav-brand";
 import { NotificationPanel } from "./notification-panel";
 import { UserMenu } from "./user-menu";
 
-const SCROLL_THRESHOLD = 8;
-
 export function TopNav() {
-  const scrolled = useScrolled(SCROLL_THRESHOLD);
+  const scrolled = useScrolled();
 
   return (
     <header

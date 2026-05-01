@@ -458,7 +458,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
             </div>
           ) : null}
           {plugin.globalScopedCapabilities.length > 0 ? (
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               <span className="sr-only">Also available without a connection: </span>
               Also provides {capabilityListSummary(plugin.globalScopedCapabilities)} without a
               connection

@@ -85,7 +85,7 @@ export function CapabilityBadges({ entries, size = "md" }: CapabilityBadgesProps
   if (entries.length === 0) return null;
   const badgeClass =
     size === "sm"
-      ? "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+      ? "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
       : "inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground";
   return (
     <div className="flex flex-wrap gap-1.5">

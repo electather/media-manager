@@ -300,15 +300,15 @@ function JobRow({
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{job.name}</span>
             {!job.enabled && (
-              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 uppercase">
+              <Badge variant="secondary" className="text-xs px-1 py-0 h-4 uppercase">
                 Disabled
               </Badge>
             )}
           </div>
-          <span className="font-mono text-[10px] text-muted-foreground truncate">{job.id}</span>
+          <span className="font-mono text-xs text-muted-foreground truncate">{job.id}</span>
           {job.description && (
             <span
-              className="text-xs text-muted-foreground truncate max-w-[300px]"
+              className="text-xs text-muted-foreground truncate max-w-75"
               title={job.description}
             >
               {job.description}

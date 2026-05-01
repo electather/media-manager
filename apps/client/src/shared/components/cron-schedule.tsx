@@ -285,11 +285,11 @@ function CronSchedule({
 
           return (
             <div key={FIELD_NAMES[i]} className="flex flex-col items-center gap-1.5 px-2 py-3">
-              <span className="text-[10px] text-center font-medium uppercase tracking-wide text-muted-foreground">
+              <span className="text-xs text-center font-medium uppercase tracking-wide text-muted-foreground">
                 {FIELD_NAMES[i]}
               </span>
               <span className="font-mono text-sm font-semibold text-foreground">{field}</span>
-              <span className="text-center text-[11px] text-muted-foreground">{description}</span>
+              <span className="text-center text-xs text-muted-foreground">{description}</span>
             </div>
           );
         })}
@@ -298,13 +298,13 @@ function CronSchedule({
       {/* Next runs */}
       {nextRuns.length > 0 && (
         <div className="border-t border-border/40 px-4 py-3">
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Next {nextRuns.length === 1 ? "run" : `${nextRuns.length} runs`}
           </p>
           <ol className="flex flex-col gap-1">
             {nextRuns.map((run, i) => (
               <li key={run.toISOString()} className="flex items-center gap-2 text-sm">
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-muted-foreground">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                   {i + 1}
                 </span>
                 <span className="font-mono text-xs text-foreground">{formatNextRun(run)}</span>

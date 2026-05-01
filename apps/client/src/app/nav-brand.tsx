@@ -10,7 +10,6 @@ export function NavBrand({ scrolled }: { scrolled: boolean }) {
       >
         <Logo className="size-6.5" />
       </span>
-      <span className="text-[17px] font-semibold tracking-[-0.015em] text-foreground">Nama</span>
     </Link>
   );
 }
