@@ -14,7 +14,7 @@ export function TopNav() {
     >
       <div
         data-scrolled={scrolled}
-        className="w-full max-w-350 rounded-none ring-1 ring-inset ring-transparent transition-all duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] data-[scrolled=true]:rounded-lg data-[scrolled=true]:bg-card/55 data-[scrolled=true]:p-1 data-[scrolled=true]:shadow-[0_1px_0_0_rgb(255_255_255/0.03),0_8px_24px_-12px_rgb(0_0_0/0.5)] data-[scrolled=true]:ring-border data-[scrolled=true]:backdrop-blur-[18px] data-[scrolled=true]:backdrop-saturate-[1.4]"
+        className="w-full max-w-350 rounded-none ring-1 ring-inset ring-transparent transition-all duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] data-[scrolled=true]:rounded-xl data-[scrolled=true]:bg-card/55 data-[scrolled=true]:p-1 data-[scrolled=true]:shadow-[0_1px_0_0_rgb(255_255_255/0.03),0_8px_24px_-12px_rgb(0_0_0/0.5)] data-[scrolled=true]:ring-border data-[scrolled=true]:backdrop-blur-[18px] data-[scrolled=true]:backdrop-saturate-[1.4]"
       >
         <div
           data-scrolled={scrolled}
