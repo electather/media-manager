@@ -12,7 +12,6 @@ import { adminUsersApp } from "./procedures/users";
 import { meApp } from "./procedures/me";
 import { preferencesApp } from "./procedures/preferences";
 import { notificationsApp, adminNotificationsApp } from "./procedures/notifications";
-import { homeApp } from "./procedures/home";
 import { artworkApp } from "./procedures/artwork";
 import { requestContextMiddleware, errorHandler } from "../errors/middleware";
 
@@ -39,7 +38,6 @@ export const appRouter = new Hono()
   .route("/preferences", preferencesApp)
   .route("/notifications", notificationsApp)
   .route("/admin/notifications", adminNotificationsApp)
-  .route("/home", homeApp)
   .route("/artwork", artworkApp)
   .onError(errorHandler);
 
