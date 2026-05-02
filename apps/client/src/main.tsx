@@ -1,6 +1,7 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import "./globals.css";
 import { TooltipProvider } from "./shared/ui/tooltip";
@@ -10,7 +11,6 @@ import { ErrorBoundary } from "./shared/components/error-boundary";
 import { installGlobalErrorHandlers } from "./shared/lib/errors/global-handlers";
 import { useHtmlDir } from "./shared/hooks/use-html-dir";
 import { DirectionProvider } from "./shared/ui/direction";
-import { AppDataProvider } from "./shared/lib/db";
 
 installGlobalErrorHandlers();
 
@@ -27,6 +27,8 @@ declare module "@tanstack/react-router" {
   }
 }
 
+const queryClient = new QueryClient();
+
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");
 
@@ -34,13 +36,13 @@ createRoot(rootEl).render(
   <StrictMode>
     <ErrorBoundary>
       <I18nRoot>
-        <AppDataProvider>
+        <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <RouterProvider router={router} />
           </TooltipProvider>
           <Toaster />
           <ReactQueryDevtools initialIsOpen={false} />
-        </AppDataProvider>
+        </QueryClientProvider>
       </I18nRoot>
     </ErrorBoundary>
   </StrictMode>,

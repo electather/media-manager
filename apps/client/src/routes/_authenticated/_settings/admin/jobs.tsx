@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BracesIcon,
   CalendarClockIcon,
@@ -19,16 +20,7 @@ import {
   FilterIcon,
 } from "lucide-react";
 
-import {
-  DynamicTriggerDialog,
-  MetaRow,
-  RunDetailDrawer,
-  useDrawerPollBoost,
-  useJobDetail,
-  useJobMutations,
-  useJobRuns,
-  useJobsList,
-} from "@/features/jobs";
+import { DynamicTriggerDialog, RunDetailDrawer } from "@/features/jobs";
 
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -48,6 +40,7 @@ import { Switch } from "@/shared/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/ui/table";
 import { CronSchedule } from "@/shared/components/cron-schedule";
+import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/utils";
 
 import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
@@ -70,14 +63,24 @@ function AdminJobsPage() {
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<string>("all");
 
-  const filtered = useJobsList({ search, kind: kindFilter });
-  const all = useJobsList();
-  const { refreshList } = useJobMutations();
+  const jobsList = useQuery({
+    queryKey: ["admin", "jobs", "list"],
+    queryFn: async (): Promise<{ jobs: JobHandle[] }> => {
+      const res = await api.admin.jobs.$get();
+      if (!res.ok) throw new Error("failed to load jobs");
+      return (await res.json()) as { jobs: JobHandle[] };
+    },
+    refetchInterval: 10_000,
+  });
 
-  const jobs = filtered.data ?? [];
-  const allJobs = all.data ?? [];
-  const isLoading = filtered.isLoading;
-  const isFetching = filtered.status === "loading" || all.status === "loading";
+  let jobs = jobsList.data?.jobs ?? [];
+
+  if (search) {
+    jobs = jobs.filter((j) => j.id.toLowerCase().includes(search.toLowerCase()));
+  }
+  if (kindFilter !== "all") {
+    jobs = jobs.filter((j) => j.kind === kindFilter);
+  }
 
   const closeModal = () => setModal({ kind: "none" });
 
@@ -90,10 +93,10 @@ function AdminJobsPage() {
             Scheduled and triggerable background jobs. Click a row to inspect run history.
           </p>
         </div>
-        <RefreshButton onRefresh={refreshList} loading={isFetching} />
+        <RefreshButton onRefresh={() => void jobsList.refetch()} loading={jobsList.isFetching} />
       </header>
 
-      <StatsBar jobs={allJobs} loading={isLoading} />
+      <StatsBar jobs={jobsList.data?.jobs ?? []} loading={jobsList.isLoading} />
 
       <div className="flex items-center gap-3">
         <div className="relative">
@@ -121,7 +124,7 @@ function AdminJobsPage() {
 
       <JobsTable
         jobs={jobs}
-        loading={isLoading}
+        loading={jobsList.isLoading}
         onSelect={setSelectedJobId}
         onTrigger={(job) => setModal({ kind: "trigger", job })}
         onConfigure={(job) => setModal({ kind: "configure", job })}
@@ -267,7 +270,21 @@ function JobRow({
   onTrigger: () => void;
   onConfigure: () => void;
 }) {
-  const { cancel } = useJobMutations();
+  const queryClient = useQueryClient();
+
+  const cancelMutation = useMutation({
+    // fallow-ignore-next-line complexity
+    mutationFn: async () => {
+      const scopeKey = job.lastRun?.scopeKey ?? undefined;
+      const res = await api.admin.jobs[":id"].cancel.$post({
+        param: { id: job.id },
+        json: scopeKey ? { scopeKey } : undefined,
+      });
+      if (!res.ok) throw new Error("cancel failed");
+      return res.json();
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] }),
+  });
 
   const isRunning = job.lastRun?.status === "running";
   const isTriggerable = job.adminTriggerable;
@@ -332,13 +349,8 @@ function JobRow({
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={() =>
-                cancel.mutate({
-                  id: job.id,
-                  scopeKey: job.lastRun?.scopeKey ?? undefined,
-                })
-              }
-              disabled={cancel.isPending}
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
               title="Cancel run"
               className="text-destructive hover:text-destructive"
             >
@@ -371,15 +383,23 @@ function JobRow({
 function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () => void }) {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
-  useDrawerPollBoost(!!jobId);
+  const detail = useQuery({
+    enabled: !!jobId,
+    queryKey: ["admin", "jobs", "detail", jobId],
+    queryFn: async () => {
+      const res = await api.admin.jobs[":id"].$get({
+        param: { id: jobId! },
+        query: { limit: "30" },
+      });
+      if (!res.ok) throw new Error("failed to load job");
+      return await res.json();
+    },
+    refetchInterval: jobId ? 5_000 : false,
+  });
 
-  const detail = useJobDetail(jobId);
-  const runsQuery = useJobRuns(jobId);
-  const job = detail.data;
-  const runs = runsQuery.data;
+  const job = detail.data?.job;
+  const runs = detail.data?.runs ?? [];
   const selectedRun = runs.find((r) => r.id === selectedRunId) || null;
-  const isJobLoading = detail.isLoading && !job;
-  const isRunsLoading = !!jobId && runsQuery.isLoading;
 
   return (
     <>
@@ -398,7 +418,7 @@ function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () 
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto">
-            {isJobLoading ? (
+            {detail.isLoading ? (
               <div className="flex flex-col gap-3 p-6">
                 <Skeleton className="h-24 rounded-lg" />
                 <Skeleton className="h-48 rounded-lg" />
@@ -406,11 +426,7 @@ function JobDetailSheet({ jobId, onClose }: { jobId: string | null; onClose: () 
             ) : job ? (
               <div className="flex flex-col gap-6 p-6">
                 <JobMetaSection job={job} />
-                {isRunsLoading ? (
-                  <Skeleton className="h-48 rounded-lg" />
-                ) : (
-                  <RunHistorySection runs={runs} onSelectRun={setSelectedRunId} />
-                )}
+                <RunHistorySection runs={runs} onSelectRun={setSelectedRunId} />
               </div>
             ) : null}
           </div>
@@ -532,7 +548,7 @@ function ConfigureDialog({
   job: JobHandle | null;
   onClose: () => void;
 }) {
-  const { saveConfig } = useJobMutations();
+  const queryClient = useQueryClient();
 
   const [enabled, setEnabled] = useState(job?.enabled ?? true);
   const [scheduleOverride, setScheduleOverride] = useState(job?.scheduleOverride ?? "");
@@ -548,14 +564,23 @@ function ConfigureDialog({
   const previewExpression = scheduleOverride.trim() || job?.schedule || "";
   const showCronPreview = isScheduled && isValidCron(previewExpression);
 
-  const handleSave = () => {
-    if (!job) return;
-    saveConfig(job.id, {
-      enabled,
-      scheduleOverride: scheduleOverride.trim() || null,
-    });
-    onClose();
-  };
+  const configMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.admin.jobs[":id"].config.$post({
+        param: { id: job!.id },
+        json: {
+          enabled,
+          scheduleOverride: scheduleOverride.trim() || null,
+        },
+      });
+      if (!res.ok) throw new Error("config update failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] });
+      onClose();
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -607,7 +632,9 @@ function ConfigureDialog({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save changes</Button>
+          <Button onClick={() => configMutation.mutate()} disabled={configMutation.isPending}>
+            {configMutation.isPending ? "Saving…" : "Save changes"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -726,6 +753,15 @@ function KindBadge({ kind }: { kind: JobKind }) {
       {icon}
       {label}
     </Badge>
+  );
+}
+
+function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
+      <span className="w-36 shrink-0 text-muted-foreground">{label}</span>
+      <span className={cn("min-w-0 flex-1 truncate", mono && "font-mono")}>{value}</span>
+    </div>
   );
 }
 

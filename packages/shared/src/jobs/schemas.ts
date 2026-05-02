@@ -16,7 +16,7 @@ export const jobConfigBodySchema = z.object({
 });
 export type JobConfigBody = z.infer<typeof jobConfigBodySchema>;
 
-/** Query for listing job runs under `GET /admin/jobs/:id/runs`. */
+/** Query for listing job runs under `GET /admin/jobs/:id`. */
 export const jobRunsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
   scopeKey: z.string().optional(),

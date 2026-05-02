@@ -3,7 +3,6 @@ dist/
 .env
 *.env.local
 data/
-!apps/client/src/features/*/data/
 .turbo/
 *.db
 *.db-shm

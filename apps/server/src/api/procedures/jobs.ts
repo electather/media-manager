@@ -26,8 +26,6 @@ function requireAdminTriggerable(entry: RegistryEntry): void {
   }
 }
 
-const LIST_CAP = 500;
-
 // ─── Admin endpoints (admin:jobs) ─────────────────────────────────────────────
 
 export const adminJobsApp = new Hono()
@@ -35,16 +33,15 @@ export const adminJobsApp = new Hono()
   .use("*", requirePermission(PERMISSIONS.ADMIN_JOBS))
   .get("/", async (c) => {
     const handles = await jobs.list();
-    // fallow-ignore-next-line complexity
-    handles.sort((a, b) => (b.lastRun?.startedAt ?? 0) - (a.lastRun?.startedAt ?? 0));
-    return c.json({ jobs: handles.slice(0, LIST_CAP) });
+    return c.json({ jobs: handles });
   })
-  .get("/:id/runs", zValidator("query", runsQuerySchema), async (c) => {
+  .get("/:id", zValidator("query", runsQuerySchema), async (c) => {
     const id = c.req.param("id");
-    requireEntry(id);
+    const handle = await jobs.describe(id);
+    if (!handle) throw jobErrors.notFound(id);
     const { limit, scopeKey, status } = c.req.valid("query");
     const runs = await recentRunsFiltered(id, limit, scopeKey, status);
-    return c.json({ runs } as const);
+    return c.json({ job: handle, runs } as const);
   })
   .get("/:id/runs/:runId", async (c) => {
     const id = c.req.param("id");

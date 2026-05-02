@@ -7,7 +7,6 @@ import { TriangleAlertIcon, Logs } from "lucide-react";
 import type { JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
 import { LogViewerFilterable, type LogEntry } from "@/shared/components/log-viewer";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/shared/ui/empty";
-import { MetaRow } from "./meta-row";
 
 const RAW_LOG_CLASS =
   "bg-muted p-4 rounded-lg overflow-x-auto text-xs font-mono text-muted-foreground border border-border";
@@ -49,6 +48,15 @@ function RunLogs({ run }: { run: JobRunSummary }) {
   }
 
   return <pre className={RAW_LOG_CLASS}>{run.logs}</pre>;
+}
+
+function MetaRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-border px-4 py-2.5 text-xs last:border-0">
+      <span className="w-36 shrink-0 text-muted-foreground">{label}</span>
+      <span className={`min-w-0 flex-1 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+    </div>
+  );
 }
 
 // fallow-ignore-next-line complexity
