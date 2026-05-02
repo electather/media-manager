@@ -26,9 +26,9 @@
     "wrangler": "^4.84.1"
   },
   "overrides": {
+    "@tanstack/react-query": "5.100.7",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "@tanstack/react-query": "5.100.7"
+    "vitest": "catalog:"
   },
   "packageManager": "bun@1.3.12",
   "catalog": {

@@ -13,14 +13,13 @@ export function writeCompactToMedia(item: CompactMediaItem): void {
   const stripped = omitBy(item as Record<string, unknown>, isNil) as Partial<MediaDetail>;
   const existing = mediaCollection.get(item.id);
   if (existing) {
-    mediaCollection.utils.writeUpdate({
-      ...existing,
-      ...stripped,
-      id: item.id,
+    mediaCollection.update(item.id, (draft) => {
+      Object.assign(draft, stripped);
+      draft.id = item.id;
     });
     return;
   }
-  mediaCollection.utils.writeInsert({
+  mediaCollection.insert({
     ...(stripped as MediaDetail),
     id: item.id,
     _detailFetchedAt: null,
@@ -35,8 +34,10 @@ export function writeFullToMedia(detail: MediaDetail): void {
   const row: MediaRow = { ...detail, _detailFetchedAt: Date.now() };
   const existing = mediaCollection.get(detail.id);
   if (existing) {
-    mediaCollection.utils.writeUpdate(row);
+    mediaCollection.update(detail.id, (draft) => {
+      Object.assign(draft, row);
+    });
     return;
   }
-  mediaCollection.utils.writeInsert(row);
+  mediaCollection.insert(row);
 }

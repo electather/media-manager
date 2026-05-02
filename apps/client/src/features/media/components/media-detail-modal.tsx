@@ -41,7 +41,6 @@ export function MediaDetailModal() {
                     item={item}
                     isHydrating={isHydrating}
                     closePeek={closePeek}
-                    enableScrollAnimations={false}
                   />
                 ) : (
                   <ModalSkeleton />

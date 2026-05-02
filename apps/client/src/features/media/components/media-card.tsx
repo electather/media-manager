@@ -419,10 +419,7 @@ function UpcomingMeta({ item }: { item: MediaCardItem }) {
   if (!item.episode) return null;
   return (
     <>
-      <div className="flex items-center gap-1.5">
-        <MediaKindIcon mediaType={item.mediaType} />
-        <div className="truncate text-sm text-foreground">{item.title}</div>
-      </div>
+      <div className="truncate text-sm text-foreground">{item.title}</div>
       <MetaLine className="mt-0.5">
         {formatEpisode(item.episode)} ·{" "}
         <span className="text-primary">{formatAirDate(item.episode.airsAt)}</span>
@@ -434,10 +431,7 @@ function UpcomingMeta({ item }: { item: MediaCardItem }) {
 function DefaultMeta({ item }: { item: MediaCardItem }) {
   return (
     <>
-      <div className="flex items-center gap-1.5">
-        <MediaKindIcon mediaType={item.mediaType} />
-        <div className="truncate text-sm text-foreground">{item.title}</div>
-      </div>
+      <div className="truncate text-sm text-foreground">{item.title}</div>
       {item.year != null && (
         <MetaLine className="mt-0.5">
           {item.year}

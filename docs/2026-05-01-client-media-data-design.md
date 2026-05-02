@@ -201,13 +201,13 @@ mediaGetManyOutputSchema= z.object({ items: z.array(mediaDetailSchema) })
 ```ts
 mediaApp = new Hono()
   .use("*", requireSession)
-  .post("/get", zValidator("json", mediaGetInputSchema), async c => {
+  .post("/get", zValidator("json", mediaGetInputSchema), async (c) => {
     userId = sessionUserId(c);
     item = await new MediaService(userId).getDetailsTyped(c.req.valid("json").id);
     if (!item) throw notFound("media.not_found", `unknown id`);
     return c.json(item);
   })
-  .post("/getMany", zValidator("json", mediaGetManyInputSchema), async c => {
+  .post("/getMany", zValidator("json", mediaGetManyInputSchema), async (c) => {
     userId = sessionUserId(c);
     items = await new MediaService(userId).getDetailsBatchTyped(c.req.valid("json").ids);
     return c.json({ items }); // missing ids omitted, ⊥ throw
@@ -250,13 +250,15 @@ toCompactFromRaw(raw: unknown, id: str): CompactMediaItem
 
 ```ts
 // media.collection.ts — entity. localOnly per C1: ⊥ react-query refetch overwrite.
-mediaCollection = createCollection(localOnlyCollectionOptions({
-  id: "media.entity",
-  getKey: r => r.id,
-  meta: { persist: true },
-  // No queryFn. Writes via sync.ts (writeCompactToMedia / writeFullToMedia).
-  // Persistence layer hydrates rows from IDB on mount (handled by db provider).
-}));
+mediaCollection = createCollection(
+  localOnlyCollectionOptions({
+    id: "media.entity",
+    getKey: (r) => r.id,
+    meta: { persist: true },
+    // No queryFn. Writes via sync.ts (writeCompactToMedia / writeFullToMedia).
+    // Persistence layer hydrates rows from IDB on mount (handled by db provider).
+  }),
+);
 
 // Row shape stored in collection:
 type MediaRow = MediaDetail & { _detailFetchedAt: number | null };
@@ -271,36 +273,40 @@ type HomeLayoutRow = {
   rows: Array<{ rowId: RowKind; title: str; subtitle?: str; cursor: str | null; pagesLoaded: num }>;
 };
 
-homeLayoutCollection = createCollection(queryCollectionOptions({
-  id: "home.layout",
-  queryKey: ["home", "layout"],
-  queryClient,
-  queryFn: async () => {
-    const res = await api.home.getLayout.$post({ json: {} });
-    // Side effect: hero media goes to entity collection. ⊥ overwrite full row.
-    if (res.hero) writeCompactToMedia(res.hero.item);
-    return [transformLayout(res)];
-  },
-  getKey: r => r.id,
-  meta: { persist: true },
-  staleTime: 5*60_000,
-}));
+homeLayoutCollection = createCollection(
+  queryCollectionOptions({
+    id: "home.layout",
+    queryKey: ["home", "layout"],
+    queryClient,
+    queryFn: async () => {
+      const res = await api.home.getLayout.$post({ json: {} });
+      // Side effect: hero media goes to entity collection. ⊥ overwrite full row.
+      if (res.hero) writeCompactToMedia(res.hero.item);
+      return [transformLayout(res)];
+    },
+    getKey: (r) => r.id,
+    meta: { persist: true },
+    staleTime: 5 * 60_000,
+  }),
+);
 
 // home-row-items.collection.ts — localOnly per C1.
 // Composite id ⊥ uses page-number (D5). Cursor + write-counter = stable key.
 type HomeRowItemRow = {
-  id: str;             // `${rowId}:${cursorOrFirst}:${position}` — opaque-cursor-safe
+  id: str; // `${rowId}:${cursorOrFirst}:${position}` — opaque-cursor-safe
   rowId: RowKind;
   mediaId: str;
-  position: num;       // monotonic across pages
-  cursor: str | null;  // cursor that fetched this page (null = first page)
+  position: num; // monotonic across pages
+  cursor: str | null; // cursor that fetched this page (null = first page)
 };
 
-homeRowItemsCollection = createCollection(localOnlyCollectionOptions({
-  id: "home.rowItems",
-  getKey: r => r.id,
-  meta: { persist: true },
-}));
+homeRowItemsCollection = createCollection(
+  localOnlyCollectionOptions({
+    id: "home.rowItems",
+    getKey: (r) => r.id,
+    meta: { persist: true },
+  }),
+);
 ```
 
 ### I.client.sync — `features/media/data/sync.ts`
@@ -486,11 +492,11 @@ MediaDetailPage:
 
 ### I.persistence.policy
 
-| Collection | Option kind | `meta.persist` | `staleTime` | `refetchInterval` | Reason |
-|---|---|---|---|---|---|
-| `media` | `localOnly` | true | n/a (TTL via `_detailFetchedAt`) | n/a | Offline detail; snappy reopen. ⊥ react-query refetch (write-only). |
-| `homeLayout` | `queryCollection` | true | 5m | n/a | Offline shell + hero. Sole network fetcher. |
-| `homeRowItems` | `localOnly` | true | n/a | n/a | Offline rows. Pages fetched on-demand via `loadRowPage`. |
+| Collection     | Option kind       | `meta.persist` | `staleTime`                      | `refetchInterval` | Reason                                                             |
+| -------------- | ----------------- | -------------- | -------------------------------- | ----------------- | ------------------------------------------------------------------ |
+| `media`        | `localOnly`       | true           | n/a (TTL via `_detailFetchedAt`) | n/a               | Offline detail; snappy reopen. ⊥ react-query refetch (write-only). |
+| `homeLayout`   | `queryCollection` | true           | 5m                               | n/a               | Offline shell + hero. Sole network fetcher.                        |
+| `homeRowItems` | `localOnly`       | true           | n/a                              | n/a               | Offline rows. Pages fetched on-demand via `loadRowPage`.           |
 
 Buster bump = `VITE_SHARED_VERSION` bump (SPEC V69). One persister, one buster string, atomic IDB wipe across all collections in QueryClient. `localOnly` collections persist via same persister hook.
 
@@ -518,42 +524,42 @@ Buster bump = `VITE_SHARED_VERSION` bump (SPEC V69). One persister, one buster s
 
 ## §T Tasks
 
-| #   | Task                                                                                                                                          | Deps      |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 1   | Shared: `packages/shared/src/media/types.ts` — add MediaDetail, DetailSeason, DetailEpisode, MediaImage, MediaProgress, etc. ⊥ ClearLogo type. Extend enums.  | —         |
-| 2   | Shared: `packages/shared/src/media/compact.ts` — COMPACT_FIELDS + Pick-derived `CompactMediaItem` + `toCompact` helper (`pick` from es-toolkit/object).      | 1         |
-| 3   | Shared: `packages/shared/src/media/schemas.ts` — Zod for MediaDetail + compact + media.get/getMany input/output. Export `MEDIA_ID_REGEX` (C16, V13). | 1, 2      |
-| 4   | Shared: `packages/shared/src/home/types.ts` — re-export `CompactMediaItem` from media/compact (back-compat). Delete local def. Verify field-by-field equivalence pre-refactor (avoid silent home-server breakage). | 2         |
-| 5   | Server: `apps/server/src/media/mappers.ts` — `mapToMediaDetail(raw, id)` deterministic (V8). `toCompactFromRaw(raw, id, extras?)` preserving existing extras-merge semantics from `home/compact.ts:toCompact`. CI grep guard: ⊥ `Math.random` / `Date.now()` ∈ mapper file. | 1         |
-| 6   | Server: `apps/server/src/media/service.ts` — add `getDetailsTyped`, `getDetailsBatchTyped`.                                                   | 5         |
-| 7   | Server: `apps/server/src/api/procedures/media.ts` — POST /get, /getMany. Register `.route("/media", mediaApp)` between `/home` and `.onError(errorHandler)` ∈ `router.ts`. | 6         |
-| 8   | Server: refactor `apps/server/src/home/compact.ts` — replace `toCompact(item, extras)` body to delegate to `toCompactFromRaw`. Snapshot-pin row JSON for known users via fixture seed BEFORE refactor; post-refactor diff = byte-identical or documented intentional drift. | 5         |
-| 9   | Server tests: procedures/__tests__/media.test.ts — auth (401), validation (400), not-found (404), batch missing (omit), >100 ids (400).      | 7         |
-| 10  | Client: `features/media/data/media.collection.ts` — `localOnlyCollectionOptions` (C1, V19) + `meta.persist=true`. Verify `meta.persist` honored ∈ local-only path; if not, document workaround. | 3         |
-| 11  | Client: `features/media/data/home-layout.collection.ts` — `queryCollectionOptions` singleton w/ `home.getLayout` queryFn. queryFn = sole writer (V17), side-effects `writeCompactToMedia(res.hero.item)`. | 3, 10     |
-| 12  | Client: `features/media/data/home-row-items.collection.ts` — `localOnlyCollectionOptions` ref collection. Composite id per V18.              | 3, 10     |
-| 13  | Client: `features/media/data/sync.ts` — `splitRowContent`, `writeCompactToMedia` (`omitBy(isNil)` per V2), `writeFullToMedia`, `loadRowPage`, `ensureDetail` (`fetchQuery` w/ `staleTime: DETAIL_TTL_MS`). | 10, 11, 12|
-| 14  | Client: `features/media/data/media.hooks.ts` — `useHomeLayout`, `useHomeRow` (live-query `innerJoin` per V5/V9, `compact()` from es-toolkit/array), `useMediaRow`, `useMediaDetail`. Imports `RowKind`/`HeroReason` from `@ent-mcp/shared/home`. | 13        |
-| 15  | Client: `features/media/lib/types.ts` — delete `MediaDetailItem`, `DetailSeason`, `DetailEpisode`, etc. Re-export from `@ent-mcp/shared/media`. Keep `FeedbackVote`. Update `features/media/index.ts` barrel to re-export shared. | 1         |
-| 16  | Client: `features/media/lib/peek-schema.ts` — import `MEDIA_ID_REGEX` from shared. Delete local `PEEK_ID_REGEX`. Update barrel. | 3         |
-| 17  | Client: rename `kind` → `mediaType` ∀ media components (`modal-seasons-list.tsx`, `seasons-list.tsx`, `modal-action-row.tsx`, `tv-air-info.tsx`, `media-detail-modal-content.tsx`). | 15        |
-| 18  | Client: rewrite `routes/_authenticated/_app/index.tsx` — drop mock builders + local watchlist `useState`. Use `useHomeLayout` + `useHomeRow` + `useDetailStore.watchlist`/`toggleWatchlist`. Keep `MediaCard`/`MediaRow` API. | 14, 17    |
-| 19  | Client: rewrite `media-detail-modal.tsx` — drop `findItem`, use `useMediaDetail(peekId)`. Pass `isHydrating` + `isFullyLoaded` to content.   | 14, 17    |
-| 20  | Client: update `media-detail-modal-content.tsx` — accept `isHydrating`, drop simulated fetch `useEffect` (lines 132-136), render inline skeletons for `cast`/`director`/`scores`/`seasons` while hydrating. | 19        |
-| 21  | Client: update `modal-seasons-list.tsx` + `seasons-list.tsx` — drop `mockData.generateSeasons`, read `item.seasons`. Branch on `mediaType === "tv"`.       | 19        |
-| 22  | Client: rewrite `trailer-overlay.tsx` — drop `findItem` import. Read trailer URL via `useMediaRow` / store. (Currently imports `findItem`; T48-blocking.) | 19        |
-| 23  | Client: rewrite `routes/_authenticated/_app/media/$id.tsx` — full-page via `useMediaDetail`. `<NotFound />` post-hydration when null.        | 19        |
-| 24  | Client: delete `lib/mock-data.ts`, `lib/find-item.ts`. Verify ∀ imports gone via `rg`. CI grep guard for V12. | 18-23     |
-| 25  | `.fallowrc.json` — add `client-feat-media` zone covering `apps/client/src/features/media/**`. Allow list: `client-feat-requests`, `client-shared-{ui,components,hooks,lib}`, `shared-pkg`. Decide fate of stale `client-feat-media-details` zone (delete or rename). | 18        |
-| 26  | Tests: `features/media/data/__tests__/sync.test.ts` — splitRowContent ordering (V9), writeCompactToMedia non-overwrite + omitBy-isNil behavior (V2), writeFullToMedia timestamp (V3), ensureDetail TTL skip (V14), ensureDetail concurrent dedup (V4), homeRowItems composite id (V18). | 13        |
-| 27  | Tests: `features/media/data/__tests__/media.hooks.test.ts` — useHomeRow live-join correctness, missing-media-row → filtered out (V9 hostile-order), useMediaDetail cold-peek tuple shape (V15). | 14        |
-| 28  | Tests: `features/media/__tests__/peek-modal.test.tsx` — instant-render w/ compact (memory #13 regression pattern); cold-URL peek shows full skeleton. | 19, 20    |
-| 29  | Tests: shared regex single-source — `peekSchema.parse("movie:550")` succeeds; `MEDIA_ID_REGEX` source equality across `peek-schema.ts` + `mediaGetInputSchema`. (V13) | 3, 16     |
-| 30  | Tests: mapper static guard — read `mappers.ts` source, assert `⊥ Math.random` + `⊥ Date.now()`. (V8) | 5         |
-| 31  | Tests: deletion guard — CI step `rg "from .*mock-data\|from .*find-item"` returns 0 hits post-T48. (V12) | 24        |
-| 32  | Manual smoke: cold load → progressive render; reload offline → persisted rows; open peek from row → instant + progressive fields; cold-URL peek → skeleton; TV detail shows seasons. | 18-23     |
-| 33  | Changeset `.changeset/<slug>.md` — `@ent-mcp/client: minor`. 1-2 non-technical sentences (memory #11). T47 server-only PR ships internal-only changeset (empty frontmatter). T48 PR ships user-facing entry. | 18-23     |
-| 34  | Pre-commit: `vp check && vp test` (memory #9).                                                                                                | all       |
+| #   | Task                                                                                                                                                                                                                                                                                    | Deps       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1   | Shared: `packages/shared/src/media/types.ts` — add MediaDetail, DetailSeason, DetailEpisode, MediaImage, MediaProgress, etc. ⊥ ClearLogo type. Extend enums.                                                                                                                            | —          |
+| 2   | Shared: `packages/shared/src/media/compact.ts` — COMPACT_FIELDS + Pick-derived `CompactMediaItem` + `toCompact` helper (`pick` from es-toolkit/object).                                                                                                                                 | 1          |
+| 3   | Shared: `packages/shared/src/media/schemas.ts` — Zod for MediaDetail + compact + media.get/getMany input/output. Export `MEDIA_ID_REGEX` (C16, V13).                                                                                                                                    | 1, 2       |
+| 4   | Shared: `packages/shared/src/home/types.ts` — re-export `CompactMediaItem` from media/compact (back-compat). Delete local def. Verify field-by-field equivalence pre-refactor (avoid silent home-server breakage).                                                                      | 2          |
+| 5   | Server: `apps/server/src/media/mappers.ts` — `mapToMediaDetail(raw, id)` deterministic (V8). `toCompactFromRaw(raw, id, extras?)` preserving existing extras-merge semantics from `home/compact.ts:toCompact`. CI grep guard: ⊥ `Math.random` / `Date.now()` ∈ mapper file.             | 1          |
+| 6   | Server: `apps/server/src/media/service.ts` — add `getDetailsTyped`, `getDetailsBatchTyped`.                                                                                                                                                                                             | 5          |
+| 7   | Server: `apps/server/src/api/procedures/media.ts` — POST /get, /getMany. Register `.route("/media", mediaApp)` between `/home` and `.onError(errorHandler)` ∈ `router.ts`.                                                                                                              | 6          |
+| 8   | Server: refactor `apps/server/src/home/compact.ts` — replace `toCompact(item, extras)` body to delegate to `toCompactFromRaw`. Snapshot-pin row JSON for known users via fixture seed BEFORE refactor; post-refactor diff = byte-identical or documented intentional drift.             | 5          |
+| 9   | Server tests: procedures/**tests**/media.test.ts — auth (401), validation (400), not-found (404), batch missing (omit), >100 ids (400).                                                                                                                                                 | 7          |
+| 10  | Client: `features/media/data/media.collection.ts` — `localOnlyCollectionOptions` (C1, V19) + `meta.persist=true`. Verify `meta.persist` honored ∈ local-only path; if not, document workaround.                                                                                         | 3          |
+| 11  | Client: `features/media/data/home-layout.collection.ts` — `queryCollectionOptions` singleton w/ `home.getLayout` queryFn. queryFn = sole writer (V17), side-effects `writeCompactToMedia(res.hero.item)`.                                                                               | 3, 10      |
+| 12  | Client: `features/media/data/home-row-items.collection.ts` — `localOnlyCollectionOptions` ref collection. Composite id per V18.                                                                                                                                                         | 3, 10      |
+| 13  | Client: `features/media/data/sync.ts` — `splitRowContent`, `writeCompactToMedia` (`omitBy(isNil)` per V2), `writeFullToMedia`, `loadRowPage`, `ensureDetail` (`fetchQuery` w/ `staleTime: DETAIL_TTL_MS`).                                                                              | 10, 11, 12 |
+| 14  | Client: `features/media/data/media.hooks.ts` — `useHomeLayout`, `useHomeRow` (live-query `innerJoin` per V5/V9, `compact()` from es-toolkit/array), `useMediaRow`, `useMediaDetail`. Imports `RowKind`/`HeroReason` from `@ent-mcp/shared/home`.                                        | 13         |
+| 15  | Client: `features/media/lib/types.ts` — delete `MediaDetailItem`, `DetailSeason`, `DetailEpisode`, etc. Re-export from `@ent-mcp/shared/media`. Keep `FeedbackVote`. Update `features/media/index.ts` barrel to re-export shared.                                                       | 1          |
+| 16  | Client: `features/media/lib/peek-schema.ts` — import `MEDIA_ID_REGEX` from shared. Delete local `PEEK_ID_REGEX`. Update barrel.                                                                                                                                                         | 3          |
+| 17  | Client: rename `kind` → `mediaType` ∀ media components (`modal-seasons-list.tsx`, `seasons-list.tsx`, `modal-action-row.tsx`, `tv-air-info.tsx`, `media-detail-modal-content.tsx`).                                                                                                     | 15         |
+| 18  | Client: rewrite `routes/_authenticated/_app/index.tsx` — drop mock builders + local watchlist `useState`. Use `useHomeLayout` + `useHomeRow` + `useDetailStore.watchlist`/`toggleWatchlist`. Keep `MediaCard`/`MediaRow` API.                                                           | 14, 17     |
+| 19  | Client: rewrite `media-detail-modal.tsx` — drop `findItem`, use `useMediaDetail(peekId)`. Pass `isHydrating` + `isFullyLoaded` to content.                                                                                                                                              | 14, 17     |
+| 20  | Client: update `media-detail-modal-content.tsx` — accept `isHydrating`, drop simulated fetch `useEffect` (lines 132-136), render inline skeletons for `cast`/`director`/`scores`/`seasons` while hydrating.                                                                             | 19         |
+| 21  | Client: update `modal-seasons-list.tsx` + `seasons-list.tsx` — drop `mockData.generateSeasons`, read `item.seasons`. Branch on `mediaType === "tv"`.                                                                                                                                    | 19         |
+| 22  | Client: rewrite `trailer-overlay.tsx` — drop `findItem` import. Read trailer URL via `useMediaRow` / store. (Currently imports `findItem`; T48-blocking.)                                                                                                                               | 19         |
+| 23  | Client: rewrite `routes/_authenticated/_app/media/$id.tsx` — full-page via `useMediaDetail`. `<NotFound />` post-hydration when null.                                                                                                                                                   | 19         |
+| 24  | Client: delete `lib/mock-data.ts`, `lib/find-item.ts`. Verify ∀ imports gone via `rg`. CI grep guard for V12.                                                                                                                                                                           | 18-23      |
+| 25  | `.fallowrc.json` — add `client-feat-media` zone covering `apps/client/src/features/media/**`. Allow list: `client-feat-requests`, `client-shared-{ui,components,hooks,lib}`, `shared-pkg`. Decide fate of stale `client-feat-media-details` zone (delete or rename).                    | 18         |
+| 26  | Tests: `features/media/data/__tests__/sync.test.ts` — splitRowContent ordering (V9), writeCompactToMedia non-overwrite + omitBy-isNil behavior (V2), writeFullToMedia timestamp (V3), ensureDetail TTL skip (V14), ensureDetail concurrent dedup (V4), homeRowItems composite id (V18). | 13         |
+| 27  | Tests: `features/media/data/__tests__/media.hooks.test.ts` — useHomeRow live-join correctness, missing-media-row → filtered out (V9 hostile-order), useMediaDetail cold-peek tuple shape (V15).                                                                                         | 14         |
+| 28  | Tests: `features/media/__tests__/peek-modal.test.tsx` — instant-render w/ compact (memory #13 regression pattern); cold-URL peek shows full skeleton.                                                                                                                                   | 19, 20     |
+| 29  | Tests: shared regex single-source — `peekSchema.parse("movie:550")` succeeds; `MEDIA_ID_REGEX` source equality across `peek-schema.ts` + `mediaGetInputSchema`. (V13)                                                                                                                   | 3, 16      |
+| 30  | Tests: mapper static guard — read `mappers.ts` source, assert `⊥ Math.random` + `⊥ Date.now()`. (V8)                                                                                                                                                                                    | 5          |
+| 31  | Tests: deletion guard — CI step `rg "from .*mock-data\|from .*find-item"` returns 0 hits post-T48. (V12)                                                                                                                                                                                | 24         |
+| 32  | Manual smoke: cold load → progressive render; reload offline → persisted rows; open peek from row → instant + progressive fields; cold-URL peek → skeleton; TV detail shows seasons.                                                                                                    | 18-23      |
+| 33  | Changeset `.changeset/<slug>.md` — `@ent-mcp/client: minor`. 1-2 non-technical sentences (memory #11). T47 server-only PR ships internal-only changeset (empty frontmatter). T48 PR ships user-facing entry.                                                                            | 18-23      |
+| 34  | Pre-commit: `vp check && vp test` (memory #9).                                                                                                                                                                                                                                          | all        |
 
 ## §B Backprop slots
 

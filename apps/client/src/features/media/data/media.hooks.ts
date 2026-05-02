@@ -6,7 +6,7 @@ import type { MediaDetail } from "@ent-mcp/shared/media";
 import { mediaCollection, type MediaRow } from "./media.collection";
 import { homeLayoutCollection, type HomeLayoutRow } from "./home-layout.collection";
 import { homeRowItemsCollection } from "./home-row-items.collection";
-import { ensureDetail } from "./sync";
+import { ensureDetail, writeCompactToMedia } from "./sync";
 
 /**
  * Reads the singleton home-layout row. `null` until the first
@@ -16,6 +16,12 @@ import { ensureDetail } from "./sync";
 export function useHomeLayout() {
   const live = useLiveQuery((q) => q.from({ layout: homeLayoutCollection }));
   const row = (live.data?.[0] as HomeLayoutRow | undefined) ?? null;
+  // Stamp hero compact row into the entity collection so the hero card renders
+  // without waiting for the first row-content fetch (V89). Done here rather
+  // than inside the queryFn so a write error cannot reject the query.
+  useEffect(() => {
+    if (row?.hero) writeCompactToMedia(row.hero.item);
+  }, [row?.hero]);
   return {
     layout: row,
     isLoading: !row && live.isLoading,

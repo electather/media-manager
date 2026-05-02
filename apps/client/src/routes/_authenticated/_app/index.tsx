@@ -10,6 +10,9 @@ export const Route = createFileRoute("/_authenticated/_app/")({
   component: HomePage,
 });
 
+const UPCOMING_SIDEBAR_LIMIT = 4;
+const SIDEBAR_ROW: RowKind = "upcomingForYou";
+
 const ROW_ASPECT: Partial<Record<RowKind, "16/9" | "2/3">> = {
   continueWatching: "16/9",
   upcomingForYou: "16/9",
@@ -23,13 +26,52 @@ const ROW_ASPECT: Partial<Record<RowKind, "16/9" | "2/3">> = {
 function HomePage() {
   const { layout } = useHomeLayout();
   const heroItem = useMediaRow(layout?.hero?.item.id ?? null);
+  const upcomingRow = layout?.rows.find((row) => row.rowId === SIDEBAR_ROW);
+  const mainRows = layout?.rows.filter((row) => row.rowId !== SIDEBAR_ROW) ?? [];
 
   return (
     <div className="mx-auto flex w-full max-w-350 flex-col gap-12 py-10">
-      {heroItem && <HeroBanner mediaId={heroItem.id} />}
-      {layout?.rows.map((row) => (
+      {heroItem && (
+        <TopZone
+          heroId={heroItem.id}
+          heroSource={layout?.hero?.source ?? null}
+          upcomingTitle={upcomingRow?.title ?? null}
+        />
+      )}
+      {mainRows.map((row) => (
         <HomeRowContainer key={row.rowId} rowId={row.rowId} title={row.title} />
       ))}
+    </div>
+  );
+}
+
+function TopZone({
+  heroId,
+  heroSource,
+  upcomingTitle,
+}: {
+  heroId: string;
+  heroSource: RowKind | null;
+  upcomingTitle: string | null;
+}) {
+  const { items: upcomingItems } = useHomeRow(SIDEBAR_ROW);
+  const topUpcoming = useMemo(
+    () => (upcomingItems as MediaCardItem[]).slice(0, UPCOMING_SIDEBAR_LIMIT),
+    [upcomingItems],
+  );
+  const hasUpcoming = upcomingTitle != null && topUpcoming.length > 0;
+  const heroLabel = heroSource === "continueWatching" ? "Continue watching" : "Featured";
+
+  return (
+    <div
+      data-has-upcoming={hasUpcoming ? "true" : "false"}
+      className="grid gap-6 data-[has-upcoming=true]:lg:grid-cols-[3fr_1fr]"
+    >
+      <div className="flex flex-col gap-2.5">
+        <h2 className="text-base ms-6 font-semibold tracking-tight text-foreground">{heroLabel}</h2>
+        <HeroBanner mediaId={heroId} />
+      </div>
+      {hasUpcoming && <UpcomingSidebar title={upcomingTitle} items={topUpcoming} />}
     </div>
   );
 }
@@ -40,16 +82,39 @@ function HeroBanner({ mediaId }: { mediaId: string }) {
   const { watchlist, toggleWatchlist } = useDetailStore();
   if (!item) return null;
   return (
-    <div className="-mx-4 mb-2">
-      <MediaCard
-        item={item as MediaCardItem}
-        isHero
-        forceAspect="16/9"
-        inWatchlist={watchlist.has(item.id)}
-        onPeek={openPeek}
-        onToggleWatchlist={toggleWatchlist}
-      />
-    </div>
+    <MediaCard
+      item={item as MediaCardItem}
+      isHero
+      forceAspect="16/9"
+      inWatchlist={watchlist.has(item.id)}
+      onPeek={openPeek}
+      onToggleWatchlist={toggleWatchlist}
+    />
+  );
+}
+
+function UpcomingSidebar({ title, items }: { title: string; items: readonly MediaCardItem[] }) {
+  const { openPeek } = usePeek();
+  const { watchlist, toggleWatchlist } = useDetailStore();
+  return (
+    <section className="flex flex-col gap-2">
+      <header className="mb-1 flex items-center justify-between px-2">
+        <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
+      </header>
+      <ul className="flex flex-col gap-1">
+        {items.map((item) => (
+          <li key={item.id}>
+            <MediaCard
+              item={item}
+              forceLayout="thumb"
+              inWatchlist={watchlist.has(item.id)}
+              onPeek={openPeek}
+              onToggleWatchlist={toggleWatchlist}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

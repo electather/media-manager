@@ -1,14 +1,25 @@
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
+import { Skeleton } from "@/shared/ui/skeleton";
 import type { MediaDetail } from "../lib/types";
 
 interface TVAirInfoProps {
   item: MediaDetail;
+  isHydrating?: boolean;
 }
 
-export function TVAirInfo({ item }: TVAirInfoProps) {
+export function TVAirInfo({ item, isHydrating = false }: TVAirInfoProps) {
   if (item.mediaType !== "tv") return null;
+
+  if (!item.seriesStatus && isHydrating) {
+    return (
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Skeleton className="h-12 w-32 rounded-md" />
+        <Skeleton className="h-12 w-40 rounded-md" />
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4 flex flex-wrap gap-2">

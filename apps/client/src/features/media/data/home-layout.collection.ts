@@ -3,7 +3,6 @@ import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
 import { api } from "@/shared/lib/api";
 import { queryClient } from "@/shared/lib/db";
-import { writeCompactToMedia } from "./sync-write";
 
 /**
  * Single-row wrapper around the `home.getLayout` response. The row carries
@@ -27,10 +26,6 @@ export const homeLayoutCollection = createCollection(
       const res = await api.home.getLayout.$post({ json: {} });
       if (!res.ok) throw new Error("home.getLayout failed");
       const layout = (await res.json()) as HomeLayoutResponse;
-      // Side-effect: stamp the hero compact row into the entity collection so
-      // the hero card renders immediately rather than waiting for the first
-      // row content fetch (V89).
-      if (layout.hero) writeCompactToMedia(layout.hero.item);
       return [{ ...layout, id: "current" as const }];
     },
     getKey: (row) => row.id,

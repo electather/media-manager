@@ -19,22 +19,24 @@ vi.mock("@/shared/lib/db", () => {
   };
 });
 
-const mediaUtils = {
-  writeInsert: vi.fn(),
-  writeUpdate: vi.fn(),
-};
+const mediaInsert = vi.fn();
+const mediaUpdate = vi.fn();
 const mediaStore = new Map<string, unknown>();
 vi.mock("../media.collection", () => ({
   mediaCollection: {
-    utils: mediaUtils,
+    insert: (row: unknown) => mediaInsert(row),
+    update: (id: string, fn: (draft: Record<string, unknown>) => void) => {
+      const existing = mediaStore.get(id) as Record<string, unknown> | undefined;
+      const draft: Record<string, unknown> = { ...existing };
+      fn(draft);
+      mediaUpdate(draft);
+    },
     get: (id: string) => mediaStore.get(id),
   },
 }));
 
-const refUtils = {
-  writeInsert: vi.fn(),
-  writeUpdate: vi.fn(),
-};
+const refInsert = vi.fn();
+const refUpdate = vi.fn();
 const refStore = new Map<string, unknown>();
 vi.mock("../home-row-items.collection", async () => {
   const actual = await vi.importActual<typeof import("../home-row-items.collection")>(
@@ -43,7 +45,13 @@ vi.mock("../home-row-items.collection", async () => {
   return {
     ...actual,
     homeRowItemsCollection: {
-      utils: refUtils,
+      insert: (row: unknown) => refInsert(row),
+      update: (id: string, fn: (draft: Record<string, unknown>) => void) => {
+        const existing = refStore.get(id) as Record<string, unknown> | undefined;
+        const draft: Record<string, unknown> = { ...existing };
+        fn(draft);
+        refUpdate(draft);
+      },
       get: (id: string) => refStore.get(id),
     },
   };
@@ -69,10 +77,10 @@ const mockedMediaGet = api.media.get.$post as unknown as ReturnType<typeof vi.fn
 beforeEach(() => {
   mediaStore.clear();
   refStore.clear();
-  mediaUtils.writeInsert.mockReset();
-  mediaUtils.writeUpdate.mockReset();
-  refUtils.writeInsert.mockReset();
-  refUtils.writeUpdate.mockReset();
+  mediaInsert.mockReset();
+  mediaUpdate.mockReset();
+  refInsert.mockReset();
+  refUpdate.mockReset();
   mockedFetchQuery.mockReset();
   mockedSetQueryData.mockReset();
   mockedMediaGet.mockReset();
@@ -90,7 +98,7 @@ describe("writeCompactToMedia (V79)", () => {
       mediaType: "movie",
       title: "Foo",
     } as CompactMediaItem);
-    const inserted = mediaUtils.writeInsert.mock.calls[0]?.[0] as {
+    const inserted = mediaInsert.mock.calls[0]?.[0] as {
       _detailFetchedAt: number | null;
     };
     expect(inserted._detailFetchedAt).toBeNull();
@@ -112,7 +120,7 @@ describe("writeCompactToMedia (V79)", () => {
       title: "Foo",
       poster: undefined,
     } as CompactMediaItem);
-    const updated = mediaUtils.writeUpdate.mock.calls[0]?.[0] as MediaDetail & {
+    const updated = mediaUpdate.mock.calls[0]?.[0] as MediaDetail & {
       _detailFetchedAt?: number;
     };
     expect(updated.cast).toEqual(["A", "B"]);
@@ -131,7 +139,7 @@ describe("writeFullToMedia (V80)", () => {
       mediaType: "movie",
       title: "Foo",
     });
-    const inserted = mediaUtils.writeInsert.mock.calls[0]?.[0] as { _detailFetchedAt: number };
+    const inserted = mediaInsert.mock.calls[0]?.[0] as { _detailFetchedAt: number };
     expect(inserted._detailFetchedAt).toBe(Date.UTC(2026, 4, 1));
   });
 });
@@ -139,8 +147,8 @@ describe("writeFullToMedia (V80)", () => {
 describe("splitRowContent (V86 / V18 / V89)", () => {
   it("writes media first, refs second, then advances cursor via setQueryData", () => {
     const calls: string[] = [];
-    mediaUtils.writeInsert.mockImplementation(() => calls.push("media"));
-    refUtils.writeInsert.mockImplementation(() => calls.push("ref"));
+    mediaInsert.mockImplementation(() => calls.push("media"));
+    refInsert.mockImplementation(() => calls.push("ref"));
     const res: RowContentResponse = {
       items: [
         { id: "movie:1", tmdbId: "1", mediaType: "movie", title: "A" } as CompactMediaItem,
@@ -181,7 +189,7 @@ describe("ensureDetail (V81 / V14 / V87)", () => {
     mockedFetchQuery.mockResolvedValue(null);
     const result = await ensureDetail("movie:99999");
     expect(result).toBeNull();
-    expect(mediaUtils.writeInsert).not.toHaveBeenCalled();
-    expect(mediaUtils.writeUpdate).not.toHaveBeenCalled();
+    expect(mediaInsert).not.toHaveBeenCalled();
+    expect(mediaUpdate).not.toHaveBeenCalled();
   });
 });

@@ -41,9 +41,11 @@ export function splitRowContent(
     };
     const existing = homeRowItemsCollection.get(ref.id);
     if (existing) {
-      homeRowItemsCollection.utils.writeUpdate(ref);
+      homeRowItemsCollection.update(ref.id, (draft) => {
+        Object.assign(draft, ref);
+      });
     } else {
-      homeRowItemsCollection.utils.writeInsert(ref);
+      homeRowItemsCollection.insert(ref);
     }
   });
 

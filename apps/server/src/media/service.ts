@@ -93,7 +93,7 @@ export class MediaService {
    */
   async getDetailsTyped(idOrCombined: string, type?: "movie" | "tv"): Promise<MediaDetail | null> {
     const [parsedType, parsedId] = parseCombinedId(idOrCombined, type);
-    const raw = await this.getDetails(`${parsedType}:${parsedId}`, parsedType);
+    const raw = await this.getDetails(parsedId, parsedType);
     if (raw === null || raw === undefined) return null;
     return mapToMediaDetail(raw, `${parsedType}:${parsedId}`);
   }
