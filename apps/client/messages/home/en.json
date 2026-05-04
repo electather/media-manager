@@ -48,5 +48,15 @@
   "home_detail_season_unavailable": "Unavailable",
   "home_detail_season_upcoming": "Upcoming",
 
+  "home_detail_director": "Director",
+  "home_detail_cast": "Starring",
+  "home_detail_genres_label": "Genres",
+  "home_detail_seasons_label": "Seasons",
+  "home_detail_season_number": "Season {n}",
+  "home_detail_season_episode_count": "{n} episodes",
+  "home_detail_season_episode_label": "Episode {n}",
+
+  "home_hero_alternates_label": "Hero alternates",
+
   "home_row_partial_warning": "Some results may be incomplete"
 }

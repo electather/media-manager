@@ -48,5 +48,15 @@
   "home_detail_season_unavailable": "TODO",
   "home_detail_season_upcoming": "TODO",
 
+  "home_detail_director": "TODO",
+  "home_detail_cast": "TODO",
+  "home_detail_genres_label": "TODO",
+  "home_detail_seasons_label": "TODO",
+  "home_detail_season_number": "TODO",
+  "home_detail_season_episode_count": "TODO",
+  "home_detail_season_episode_label": "TODO",
+
+  "home_hero_alternates_label": "TODO",
+
   "home_row_partial_warning": "TODO"
 }
