@@ -38,17 +38,17 @@ apps/client/src/
 │   ├── hooks/
 │   │   └── use-home-feed.ts           — returns HomeFeedData (mock now; TanStack Query later)
 │   ├── lib/
-│   │   ├── types.ts                   — all domain types (MediaItem, RowData, HeroItem, etc.)
+│   │   ├── types.ts                   — HomeMediaItem (local UI type), HomeFeedData, HeroItem
 │   │   ├── mock-data.ts               — ported from prototype's data.jsx
-│   │   └── home-feed-config.ts        — row ordering, display copy, match reason key→text map
+│   │   └── home-feed-config.ts        — ROW_ASPECT, ROW_COPY, MATCH_REASON_COPY
 │   └── index.ts                       — barrel: exports HomeFeed
 │
 ├── shared/components/
 │   └── media-detail-modal/
 │       ├── index.tsx                  — modal root + scroll engine
 │       ├── modal-header.tsx           — title, metadata, clear logo
-│       ├── modal-actions.tsx          — request, watchlist, trailer buttons
-│       └── modal-seasons.tsx          — season/episode accordion for TV items
+│       ├── modal-actions.tsx          — request stub, watchlist toggle, trailer stub
+│       └── modal-seasons.tsx          — read-only season/episode status accordion
 │
 └── app/
     ├── top-nav.tsx                    — add Home/Library/Watchlist tabs (desktop)
@@ -57,14 +57,23 @@ apps/client/src/
 
 ### Fallow zone additions (`.fallowrc.json`)
 
-One new zone:
+PR 1 adds `client-feat-home` zone and updates two allow lists:
 
-```json
+```jsonc
+// zones[] — add:
+{ "name": "client-feat-home", "patterns": ["apps/client/src/features/home/**"] }
+
+// rules[] — add new rule:
 {
-  "name": "client-feat-home",
-  "pattern": "apps/client/src/features/home/**",
-  "allow": ["client-shared-*", "shared-pkg"]
+  "from": "client-feat-home",
+  "allow": ["client-shared-ui", "client-shared-components", "client-shared-hooks", "client-shared-lib", "shared-pkg"]
 }
+
+// rules[] — update "from": "client-routes" allow list, append:
+"client-feat-home"
+
+// rules[] — update "from": "client-root" allow list, append:
+"client-feat-home"
 ```
 
 `media-detail-modal` is covered by the existing `client-shared-components` zone — no new zone needed.
@@ -73,55 +82,120 @@ One new zone:
 
 ## Types (`features/home/lib/types.ts`)
 
+`RowKind` is imported from `@ent-mcp/shared/home` — **never redefined locally**. The shared enum is the single source of truth.
+
 ```typescript
-type MatchReasonKey =
-  | "matches_recent_picks" | "from_genre_you_love" | "similar_to_seed"
-  | "because_in_watchlist" | "continuing_series" | "upcoming_release"
-  | "recently_added" | "highly_rated" | "from_active_series" | "finishing_soon"
+import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home"
+export type { RowKind }
 
-type RowKind =
-  | "continue_watching" | "because_you_finished" | "next_episode_active_series"
-  | "tv_needs_request" | "movies_needs_request" | "watchlist_now_available"
-  | "upcoming_for_you"
+export const MATCH_REASON_KEYS = [
+  "matches_recent_picks",
+  "from_genre_you_love",
+  "similar_to_seed",
+  "because_in_watchlist",
+  "continuing_series",
+  "upcoming_release",
+  "recently_added",
+  "highly_rated",
+  "from_active_series",
+  "finishing_soon",
+] as const
 
-type MediaItem = {
-  id: string
-  kind: "movie" | "tv"
-  title: string
-  year?: number
-  image: { "16/9"?: string; "2/3"?: string }
-  clearLogo?: { type: "wordmark"; text: string }
-  progress?: {
-    percent: number; ratio: number; timeLeftSec: number
-    watchedCount: number; totalCount: number; lastWatchedAt: string
-  }
-  availability: {
+export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number]
+```
+
+The shared `ROW_KINDS` tuple (`continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`) determines which rows exist. Mock data maps the prototype's demo rows to these kinds:
+
+| Demo row | Shared RowKind |
+|----------|----------------|
+| `continue_watching` | `continueWatching` |
+| `because_you_finished` | `becauseYouWatched` |
+| `next_episode_active_series` | `continueWatching` (second instance) |
+| `tv_needs_request` / `movies_needs_request` | `recommendedForYou` |
+| `watchlist_now_available` | `yourWatchlist` |
+| `upcoming_for_you` | `upcomingForYou` |
+
+`HomeMediaItem` is a **local UI-layer type** that extends `CompactMediaItem` with display fields absent from the wire format. At backend integration time an adapter `toHomeMediaItem(item: CompactMediaItem): HomeMediaItem` handles the mapping.
+
+```typescript
+import type { CompactMediaItem } from "@ent-mcp/shared/home"
+
+// `CompactMediaItem.clearLogo` is a URL string (artwork image).
+// `clearLogoText` carries the wordmark text used by the prototype's CSS logo treatment.
+export type HomeMediaItem = CompactMediaItem & {
+  clearLogoText?: string
+  availability?: {
     hasAnyServerCopy: boolean
     requestEligible: boolean
     servers: { id: string; label: string }[]
   }
   seriesContext?: { season: number; episode: number; episodeTitle: string; nextUpFromServer: boolean }
-  facets: { runtimeMin?: number; episodeCount?: number; monochrome?: boolean; releaseDate?: string }
+  facets?: { runtimeMin?: number; episodeCount?: number; monochrome?: boolean; releaseDate?: string }
+  /**
+   * Same value set as `CompactMediaItem.matchReason` from the wire format.
+   * `toHomeMediaItem` maps: `matchReasonKey = item.matchReason ?? undefined`.
+   * Mock data sets this directly. Valid values: see MATCH_REASON_KEYS below.
+   */
   matchReasonKey?: MatchReasonKey
   matchReasonParams?: Record<string, string>
-  rating?: string; overview?: string; cast?: string[]
-  tags?: string[]; genres?: string[]; ageRating?: string; runtime?: string
-  trailerUrl?: string; episode?: string; relDate?: string
-  audienceScore?: number; criticScore?: number; votes?: number
+  tags?: string[]
+  ageRating?: string
+  runtime?: string
+  trailerUrl?: string
+  relDate?: string
+  audienceScore?: number
+  criticScore?: number
+  votes?: number
+  cast?: string[]
+  director?: string
 }
 
-type HeroItem = MediaItem & { alternates: MediaItem[] }
+export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] }
 
-type RowData = {
+export type RowData = {
   id: string
   kind: RowKind
   seedTitle?: string
   partial?: boolean
-  items: MediaItem[]
+  items: HomeMediaItem[]
+  /** Derived client-side via ROW_ASPECT in home-feed-config.ts — not present in the wire format. */
   defaultAspect: "16/9" | "2/3"
 }
 
-type HomeFeedData = { hero: HeroItem; rows: RowData[] }
+/**
+ * `hero` is `HeroItem | null`. In the mock phase the mock always supplies a hero;
+ * `HomeFeed` treats `null` as an unrecoverable data error and throws via `invariant`.
+ * At backend integration time `null` means the server had no suitable hero candidate —
+ * `HomeFeed` should render the feed without a TopZone.
+ */
+export type HomeFeedData = { hero: HeroItem | null; rows: RowData[] }
+```
+
+---
+
+## `home-feed-config.ts`
+
+Provides three client-side lookup maps — no runtime deps:
+
+```typescript
+import type { RowKind } from "@ent-mcp/shared/home"
+
+/** Drives card image ratio for each row. Not present in the wire format. */
+export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {
+  continueWatching:  "16/9",
+  upcomingForYou:    "16/9",
+  recommendedForYou: "2/3",
+  becauseYouWatched: "2/3",
+  trendingNow:       "2/3",
+  newReleases:       "2/3",
+  yourWatchlist:     "2/3",
+}
+
+/** Row header copy. Values are i18n message keys resolved via `m.<key>()`. */
+export const ROW_COPY: Record<RowKind, { headerKey: string; subtitleKey?: string }> = { ... }
+
+/** Match-reason chip copy. Parameterised via Paraglide ICU placeholders. */
+export const MATCH_REASON_COPY: Record<string, (params: Record<string, string>) => string> = { ... }
 ```
 
 ---
@@ -133,13 +207,13 @@ useHomeFeed() → HomeFeedData
     ↓
 HomeFeed
   ├── TopZone        ← hero: HeroItem
-  ├── Row[]          ← rows: RowData[]
-  │    └── Card[]    ← item: MediaItem, rowKind: RowKind
+  ├── Row[]          ← rows: RowData[] (defaultAspect from ROW_ASPECT)
+  │    └── Card[]    ← item: HomeMediaItem, rowKind: RowKind
   │         └── onClick → navigate({ search: { peek: item.id } })
   └── MediaDetailModal ← peekId from useSearch().peek
 ```
 
-**Peek state** — TanStack Router search param (`?peek=<id>`). Browser back closes the modal for free. `MediaDetailModal` reads `peek` via `useSearch()` at the `HomeFeed` level.
+**Peek state** — TanStack Router search param (`?peek=<id>`). Schema reuses the **existing** `peekSchema` and `PeekSearch` from `@/lib/home-display.ts` (already defined). The route file `routes/_authenticated/_app/index.tsx` declares `validateSearch: peekSchema`. `HomeFeed` and `MediaDetailModal` read the validated value via `useSearch()` — **neither imports `peekSchema` directly** (that would cross a `client-feat-home` → `client-features-legacy` boundary). Only the route file imports `peekSchema`.
 
 **Watchlist + request state** — local `useState` in `HomeFeed` during mock phase, passed as context. Lifted to TanStack Query when backend is wired.
 
@@ -153,7 +227,7 @@ HomeFeed
   - Demo's `--bg/--bg-2/--bg-3` → `background` / `card` / `muted`
   - Demo's `--accent-strong` → `primary`
   - Demo's `--accent-bg` → `accent` with opacity modifier
-  - Demo's `--success` → `success` (token exists in `globals.css`)
+  - Demo's `--success` → `success` (token exists)
   - Progress bar color → `progress-watched` (token exists)
 - **Styling:** Tailwind CSS throughout. Inline styles only for dynamic values (scroll-driven animation progress percentages).
 - **Logical properties:** use Tailwind v4 logical utilities (`ps/pe`, `ms/me`, `rounded-s/e`, etc.) — never directional (`pl/pr`, `ml/mr`).
@@ -161,10 +235,10 @@ HomeFeed
 
 ### Existing shadcn components to reuse
 
-| Need | Use |
-|------|-----|
+| Need | Component |
+|------|-----------|
 | Modal/overlay | `dialog.tsx` |
-| Bottom sheet (mobile) | `drawer.tsx` or `sheet.tsx` |
+| Bottom sheet (mobile) | `sheet.tsx` |
 | Horizontal scroll | `scroll-area.tsx` (Base UI primitive) |
 | Skeleton placeholders | `skeleton.tsx` |
 | Badges | `badge.tsx` |
@@ -190,13 +264,57 @@ No barrel `index.ts` inside sub-directories (per V57). Only the feature-root `in
 
 | # | Branch | Deliverable | Key files | Changeset |
 |---|--------|-------------|-----------|-----------|
-| 1 | `home/scaffold` | Feature skeleton; blank home route | `features/home/lib/types.ts`, `mock-data.ts`, `home-feed-config.ts`, `hooks/use-home-feed.ts`, stub `home-feed.tsx`, `index.ts`, `.fallowrc.json` (`client-feat-home`), route `index.tsx` | `@ent-mcp/client` minor |
-| 2 | `home/nav-chrome` | `BottomNav` + `TopNav` tabs | `app/bottom-nav.tsx` (new), `app/top-nav.tsx` (tab additions), active state via `useRouterState` | `@ent-mcp/client` minor |
-| 3 | `home/card-row` | Browsable feed with all 7 rows | `features/home/components/card/*`, `row/*`, `home-feed.tsx` wired | `@ent-mcp/client` minor |
+| 1 | `home/scaffold` | Feature skeleton; blank home route | `features/home/lib/types.ts`, `mock-data.ts`, `home-feed-config.ts`, `hooks/use-home-feed.ts`, stub `home-feed.tsx`, `index.ts`, `.fallowrc.json` (`client-feat-home` + allow list updates), route `index.tsx` | `@ent-mcp/client` minor |
+| 2 | `home/nav-chrome` | `BottomNav` + `TopNav` tabs; stub Library + Watchlist routes | `app/bottom-nav.tsx` (new), `app/top-nav.tsx` (add `TopNavLinks`), stub routes for `/library` and `/watchlist`, active state via `useRouterState` | `@ent-mcp/client` minor |
+| 3 | `home/card-row` | Browsable feed with all rows | `features/home/components/card/*`, `row/*`, `home-feed.tsx` wired | `@ent-mcp/client` minor |
 | 4 | `home/top-zone` | Hero section complete | `features/home/components/top-zone/*`, wired into `home-feed.tsx` | `@ent-mcp/client` minor |
-| 5 | `home/detail-modal` | Click-through detail modal | `shared/components/media-detail-modal/*`, `HomeFeed` renders modal, route gets `peek` search schema | `@ent-mcp/client` minor |
+| 5 | `home/detail-modal` | Click-through detail modal | `shared/components/media-detail-modal/*`, `HomeFeed` renders modal, route registers `validateSearch: peekSchema` | `@ent-mcp/client` minor |
 
-**Merge order:** PR 1 first → PRs 2, 3, 4 in any order (all depend only on PR 1) → PR 5.
+**Merge order:** PR 1 first → PRs 2, 3, 4 in any order → PR 5.
+
+### PR 2 — TopNav scope detail
+
+`TopNavLinks` is a new sub-component added to `top-nav.tsx`. It renders Home / Library / Watchlist links with the animated sliding active indicator from the prototype. `/library` and `/watchlist` are stub routes that return a `<ComingSoon />` placeholder — they exist so `useRouterState` has real paths to match against.
+
+### PR 5 — DetailModal scope (mock phase)
+
+In-scope:
+- Hero layout: title, metadata, overview, cast, genres
+- Action row (`modal-actions.tsx`): Request button (stub — fires local state), Watchlist toggle, Trailer button (stub — no-op)
+- Season accordion (`modal-seasons.tsx`): read-only, displays status tag per season (available / requested / unavailable / upcoming); no request buttons yet
+- Scroll-driven title animation (CSS scroll-timeline)
+- Focus trap, keyboard dismiss, `aria-modal`
+
+Deferred to backend phase (out of scope for mock PRs):
+- `FeedbackBar` (like/dislike + note)
+- `NoteEditor`
+- `TrailerOverlay`
+- `MoreOptionsButton` / `RequestPickerPopover`
+- Per-episode request UI
+
+---
+
+## i18n
+
+**C14** (architecture): Paraglide i18n is client-only v1. No server use.
+
+**V61** (implementation invariant): All UI copy imported via `m.<key>()` from `@/paraglide/messages`. Inline string literals for user-visible text are a spec violation.
+
+Messages live in `messages/home/en.json` and `messages/home/fa.json` (by analogy with `messages/notifications/`).
+
+Strings requiring i18n keys (all keys namespaced under `home_`):
+
+| Key | Context |
+|-----|---------|
+| `home_nav_home`, `home_nav_library`, `home_nav_watchlist` | BottomNav + TopNav labels |
+| `home_row_<rowKind>_header` (7 keys) | Row section headings |
+| `home_match_reason_matches_recent_picks`, `home_match_reason_from_genre_you_love`, `home_match_reason_similar_to_seed`, `home_match_reason_because_in_watchlist`, `home_match_reason_continuing_series`, `home_match_reason_upcoming_release`, `home_match_reason_recently_added`, `home_match_reason_highly_rated`, `home_match_reason_from_active_series`, `home_match_reason_finishing_soon` | Match reason chip copy (ICU params where applicable) |
+| `home_hero_play`, `home_hero_more_info` | Hero action buttons |
+| `home_card_request`, `home_card_add_watchlist`, `home_card_remove_watchlist` | Card action labels |
+| `home_card_available`, `home_card_requested`, `home_card_unavailable` | Availability badge labels |
+| `home_detail_request`, `home_detail_watchlist_add`, `home_detail_watchlist_remove`, `home_detail_trailer` | Detail modal actions |
+| `home_detail_season_available`, `home_detail_season_requested`, `home_detail_season_unavailable`, `home_detail_season_upcoming` | Season status tags |
+| `home_row_partial_warning` | Partial-source indicator |
 
 ---
 
@@ -215,7 +333,7 @@ Tests colocate per V58: `features/home/__tests__/` for feature components, `shar
 ### Row
 - Renders all items from `items` array
 - Skeleton renders during loading state
-- `partial` flag surfaces visual indicator
+- `partial` flag surfaces a visual indicator
 - **a11y:** scroll container keyboard-navigable; row has visible heading
 
 ### TopZone
@@ -227,7 +345,7 @@ Tests colocate per V58: `features/home/__tests__/` for feature components, `shar
 - Renders when `peekId` set; hidden otherwise
 - Escape key closes modal
 - Focus trap active when open (`role="dialog"`, `aria-modal="true"`, focus returns to trigger on close)
-- Season accordion renders for TV items
+- Season accordion renders for TV items (read-only)
 - **a11y:** `aria-labelledby` points to modal heading
 
 ### Navigation (BottomNav + TopNav tabs)
@@ -235,16 +353,17 @@ Tests colocate per V58: `features/home/__tests__/` for feature components, `shar
 - All items keyboard-reachable
 
 ### `use-home-feed`
-- Returns `hero` + 7 rows with correct `kind` values
-- No missing required fields on `MediaItem`
+- Returns `hero` + rows with correct `kind` values matching `ROW_KINDS`
+- No missing required fields on `HomeMediaItem`
 
 ---
 
 ## Constraints honoured
 
-- **V51–V60:** `features/home/` dir + `client-feat-home` fallow zone added together in PR 1. No sibling-feature imports.
+- **V51–V60:** `features/home/` dir + `client-feat-home` zone + allow list updates all land in PR 1. No sibling-feature imports.
 - **V57:** No barrel `index.ts` inside sub-directories.
 - **V58:** Tests colocate inside feature `__tests__/` dir.
 - **C12:** Routes stay thin; all business logic inside feature.
 - **C11:** Any utility code (array ops, string ops) uses `es-toolkit` submodule imports.
-- **C14/V61:** Any translatable copy extracted to `messages/{en,fa}.json`; no inline string literals for UI copy.
+- **C14 / V61:** All UI copy uses Paraglide `m.<key>()`. No inline string literals.
+- **V12:** `RowKind` imported from `@ent-mcp/shared/home` — never redefined in client code.
