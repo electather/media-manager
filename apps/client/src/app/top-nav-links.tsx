@@ -1,15 +1,10 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import * as m from "@/paraglide/messages";
-
-const NAV_ITEMS = [
-  { to: "/" as const, label: () => m.home_nav_home(), activeOptions: { exact: true } },
-  { to: "/library" as const, label: () => m.home_nav_library() },
-  { to: "/watchlist" as const, label: () => m.home_nav_watchlist() },
-];
+import { NAV_ITEMS, useActiveNavIndex } from "./nav-items";
 
 export function TopNavLinks() {
-  const location = useRouterState({ select: (s) => s.location.pathname });
+  const activeIdx = useActiveNavIndex();
   const navRef = useRef<HTMLElement>(null);
   const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
 
@@ -18,7 +13,10 @@ export function TopNavLinks() {
     if (!nav) return;
     const measure = () => {
       const active = nav.querySelector<HTMLElement>('[data-status="active"]');
-      if (!active) return;
+      if (!active) {
+        setPill((p) => ({ ...p, ready: false }));
+        return;
+      }
       const navRect = nav.getBoundingClientRect();
       const activeRect = active.getBoundingClientRect();
       setPill({ left: activeRect.left - navRect.left, width: activeRect.width, ready: true });
@@ -27,7 +25,7 @@ export function TopNavLinks() {
     const ro = new ResizeObserver(measure);
     ro.observe(nav);
     return () => ro.disconnect();
-  }, [location]);
+  }, [activeIdx]);
 
   return (
     <nav
@@ -37,6 +35,7 @@ export function TopNavLinks() {
     >
       <span
         aria-hidden="true"
+        data-testid="nav-active-pill"
         className="pointer-events-none absolute inset-y-0 rounded-lg border border-white/8 bg-white/14"
         style={{
           left: pill.left,
