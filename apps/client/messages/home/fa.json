@@ -1,0 +1,50 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "home_nav_home": "TODO",
+  "home_nav_library": "TODO",
+  "home_nav_watchlist": "TODO",
+
+  "home_row_continueWatching_header": "TODO",
+  "home_row_recommendedForYou_header": "TODO",
+  "home_row_trendingNow_header": "TODO",
+  "home_row_newReleases_header": "TODO",
+  "home_row_becauseYouWatched_header": "TODO",
+  "home_row_becauseYouWatched_subtitle": "TODO",
+  "home_row_upcomingForYou_header": "TODO",
+  "home_row_yourWatchlist_header": "TODO",
+
+  "home_match_reason_matches_recent_picks": "TODO",
+  "home_match_reason_from_genre_you_love": "TODO",
+  "home_match_reason_similar_to_seed": "TODO",
+  "home_match_reason_because_in_watchlist": "TODO",
+  "home_match_reason_continuing_series": "TODO",
+  "home_match_reason_upcoming_release": "TODO",
+  "home_match_reason_recently_added": "TODO",
+  "home_match_reason_highly_rated": "TODO",
+  "home_match_reason_from_active_series": "TODO",
+  "home_match_reason_finishing_soon": "TODO",
+
+  "home_hero_play": "TODO",
+  "home_hero_more_info": "TODO",
+
+  "home_card_request": "TODO",
+  "home_card_add_watchlist": "TODO",
+  "home_card_remove_watchlist": "TODO",
+
+  "home_card_available": "TODO",
+  "home_card_requested": "TODO",
+  "home_card_unavailable": "TODO",
+
+  "home_detail_request": "TODO",
+  "home_detail_watchlist_add": "TODO",
+  "home_detail_watchlist_remove": "TODO",
+  "home_detail_trailer": "TODO",
+
+  "home_detail_season_available": "TODO",
+  "home_detail_season_requested": "TODO",
+  "home_detail_season_unavailable": "TODO",
+  "home_detail_season_upcoming": "TODO",
+
+  "home_row_partial_warning": "TODO"
+}
