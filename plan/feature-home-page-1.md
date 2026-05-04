@@ -1,0 +1,265 @@
+---
+goal: Implement home page UI — 5 independently mergeable PRs, mock data phase
+version: 1.0
+date_created: 2026-05-04
+last_updated: 2026-05-04
+owner: Omid Astaraki
+status: 'Planned'
+tags: [feature, frontend, home, client]
+---
+
+# Introduction
+
+![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+
+Port the `nama-prototype` home page design into `@ent-mcp/client`. Delivers five independently mergeable PRs using mock data only — no backend integration in this phase. Components are built on shadcn + Base UI, styled with Tailwind CSS v4 logical properties and existing design tokens.
+
+Spec: `docs/superpowers/specs/2026-05-04-home-page-implementation-design.md`  
+Prototype reference: `/Users/omidastaraki/Code/Personal/nama-prototype/src/`
+
+---
+
+## 1. Requirements & Constraints
+
+- **REQ-001**: All five PRs must be independently mergeable. Each PR leaves the app in a shippable state.
+- **REQ-002**: Initial phase uses mock data only. No RPC calls, no TanStack Query integration yet.
+- **REQ-003**: `RowKind` imported from `@ent-mcp/shared/home` — never redefined locally.
+- **REQ-004**: `HomeMediaItem` extends `CompactMediaItem` from `@ent-mcp/shared/home` with UI-layer fields.
+- **REQ-005**: `MediaDetailModal` placed in `shared/components/` from day one (used by future features).
+- **REQ-006**: `BottomNav` and `TopNav` tab additions placed in `app/` shell.
+- **REQ-007**: `peekSchema` and `PeekSearch` reused from `@/lib/home-display.ts` — only the route file imports them. `HomeFeed` and `MediaDetailModal` read validated value via `useSearch()`.
+- **REQ-008**: Peek state driven by TanStack Router search param `?peek=<id>`. Browser back closes modal.
+- **REQ-009**: Watchlist and request state managed by local `useState` in `HomeFeed` for mock phase.
+- **REQ-010**: `HomeFeedData.hero` is `HeroItem | null`. Mock phase throws via `invariant` on null; backend phase renders without TopZone.
+- **CON-001**: No custom UI primitives. shadcn first, Base UI for headless needs.
+- **CON-002**: No hardcoded design token values. If a required token is missing, stop and notify the developer.
+- **CON-003**: Tailwind CSS v4 logical properties only (`ps/pe`, `ms/me`, `rounded-s/e`). Never directional (`pl/pr`, `ml/mr`).
+- **CON-004**: Inline styles only for dynamic values (e.g. scroll-driven animation percentages).
+- **CON-005**: No barrel `index.ts` inside component sub-directories (V57).
+- **CON-006**: Tests colocate in `features/home/__tests__/` and `shared/components/media-detail-modal/__tests__/` (V58).
+- **CON-007**: All utility code (array/object/string ops) uses `es-toolkit` submodule imports (C11).
+- **CON-008**: All user-visible copy uses `m.<key>()` from `@/paraglide/messages`. No inline string literals (V61).
+- **CON-009**: `client-feat-home` zone must be added to `.fallowrc.json` in PR 1, together with `features/home/` directory (V60).
+- **CON-010**: Routes stay thin — no business logic in route files (C12).
+- **GUD-001**: Any component exceeding ~150 lines or handling 3+ distinct UI concerns gets a sub-directory with named files per concern and a thin `index.tsx` orchestrator.
+- **GUD-002**: Invoke `/shadcn`, `/clean-code`, and `/frontend-design` skills when implementing components.
+- **PAT-001**: Feature barrel `features/home/index.ts` re-exports only `HomeFeed` as the public surface.
+- **PAT-002**: Mock data maps prototype demo rows to shared `RowKind` values (see spec §Types for mapping table).
+- **PAT-003**: `defaultAspect` for each row is derived client-side from `ROW_ASPECT` in `home-feed-config.ts` — not present in the wire format.
+
+---
+
+## 2. Implementation Steps
+
+### Implementation Phase 1 — PR `home/scaffold`
+
+- GOAL-001: Create `features/home/` skeleton with types, mock data, config, hook, stub component, and fallow zone. Replace `HomeScrollHarness` placeholder in the home route.
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| TASK-001 | Create directory structure: `apps/client/src/features/home/{components,hooks,lib}/` (empty dirs with `.gitkeep`). | | |
+| TASK-002 | Write `apps/client/src/features/home/lib/types.ts` — copy the full type block verbatim from spec §Types: `MATCH_REASON_KEYS`, `MatchReasonKey`, `HomeMediaItem`, `HeroItem`, `RowData`, `HomeFeedData`. Import `CompactMediaItem`, `RowKind` from `@ent-mcp/shared/home`. | | |
+| TASK-003 | Write `apps/client/src/features/home/lib/home-feed-config.ts` — implement `ROW_ASPECT` (full record from spec), `ROW_COPY` (7 entries keyed on `RowKind`, values `{ headerKey: string; subtitleKey?: string }` pointing to i18n keys), `MATCH_REASON_COPY` (10-entry record keyed on `MatchReasonKey`, each value a function `(params) => m.<key>(params)` calling the appropriate Paraglide message). | | |
+| TASK-004 | Write `apps/client/src/features/home/lib/mock-data.ts` — port `HERO`, `ROWS` arrays from `/Users/omidastaraki/Code/Personal/nama-prototype/src/data.jsx`. Map prototype row ids to shared `RowKind` values per spec mapping table. Add `defaultAspect` to each `RowData` using `ROW_ASPECT`. Ensure each `HomeMediaItem` satisfies the type (id format `"movie:<n>"` or `"tv:<n>"`). | | |
+| TASK-005 | Write `apps/client/src/features/home/hooks/use-home-feed.ts` — export `useHomeFeed(): HomeFeedData`. Returns mock data directly. Use `invariant` from `es-toolkit/util` to assert hero is non-null. | | |
+| TASK-006 | Write stub `apps/client/src/features/home/components/home-feed.tsx` — renders `<div>Home feed coming soon</div>`. Imports nothing from lib yet (filled in PR 3). | | |
+| TASK-007 | Write `apps/client/src/features/home/index.ts` barrel — `export { HomeFeed } from "./components/home-feed"`. | | |
+| TASK-008 | Update `apps/client/src/routes/_authenticated/_app/index.tsx` — replace `HomeScrollHarness` import and render with `import { HomeFeed } from "@/features/home"` and `<HomeFeed />`. | | |
+| TASK-009 | Update `.fallowrc.json`: (1) add zone `{ "name": "client-feat-home", "patterns": ["apps/client/src/features/home/**"] }` to `boundaries.zones[]`; (2) add rule `{ "from": "client-feat-home", "allow": ["client-shared-ui", "client-shared-components", "client-shared-hooks", "client-shared-lib", "shared-pkg"] }` to `boundaries.rules[]`; (3) append `"client-feat-home"` to the `allow` list of the `"from": "client-routes"` rule; (4) append `"client-feat-home"` to the `allow` list of the `"from": "client-root"` rule. | | |
+| TASK-010 | Create `apps/client/messages/home/en.json` and `apps/client/messages/home/fa.json` — add all i18n keys from spec §i18n table (nav labels, 7 row headers, 10 match reason keys, hero actions, card actions, badge labels, detail modal actions, season status tags, partial warning). English values from prototype copy; Farsi values as `"TODO"` placeholders. | | |
+| TASK-011 | Write `.changeset/<slug>.md` for PR 1 — `@ent-mcp/client` minor, one sentence: "Added home feed feature scaffold with types, mock data, and routing." | | |
+| TASK-012 | Run `vp check` and `vp test`. Fix any type errors or fallow violations before committing. | | |
+
+### Implementation Phase 2 — PR `home/nav-chrome`
+
+- GOAL-002: Add `BottomNav` pill (mobile) and Home/Library/Watchlist tab links to `TopNav` (desktop). Create stub `/library` and `/watchlist` routes.
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| TASK-013 | Create stub route `apps/client/src/routes/_authenticated/_app/library.tsx` — exports `LibraryRoute` component returning `<div>Library coming soon</div>`. No business logic. | | |
+| TASK-014 | Create stub route `apps/client/src/routes/_authenticated/_app/watchlist.tsx` — exports `WatchlistRoute` component returning `<div>Watchlist coming soon</div>`. No business logic. | | |
+| TASK-015 | Regenerate `routeTree.gen.ts` by running `vp exec tsr generate` (or equivalent TanStack Router codegen command). Verify `/library` and `/watchlist` appear in the tree. | | |
+| TASK-016 | Write `apps/client/src/app/bottom-nav.tsx` — fixed-position pill component. Nav items: `[{ id: "home", href: "/", labelKey: "home_nav_home", icon: HomeIcon }, { id: "library", href: "/library", labelKey: "home_nav_library", icon: LibraryIcon }, { id: "watchlist", href: "/watchlist", labelKey: "home_nav_watchlist", icon: BookmarkIcon }]`. Active state via `useRouterState` matching `location.pathname`. Visible only on mobile (hidden on `md:` breakpoint). Use `button.tsx` for items. Use `aria-current="page"` on active item. Animate hide on scroll-down using `use-scrolled` hook direction. | | |
+| TASK-017 | Write `apps/client/src/app/top-nav-links.tsx` — new sub-component for desktop tab links. Same nav items as TASK-016. Rendered as a row of `<Link>` elements with an animated sliding active indicator pill (CSS `transition` on `translate-x`). Active detection via `useRouterState`. `aria-current="page"` on active item. Hidden on mobile (`hidden md:flex`). | | |
+| TASK-018 | Update `apps/client/src/app/top-nav.tsx` — import `TopNavLinks` and render it between `NavBrand` and the right-side action cluster (`CommandMenuTrigger`, `NotificationPanel`, `UserMenu`). | | |
+| TASK-019 | Wire `BottomNav` into the app shell layout. Update `apps/client/src/app/app-shell.tsx` — import and render `<BottomNav />` below the `<Outlet />`. | | |
+| TASK-020 | Write `.changeset/<slug>.md` — `@ent-mcp/client` minor, one sentence: "Added bottom navigation bar and top navigation links for Home, Library, and Watchlist." | | |
+| TASK-021 | Run `vp check` and `vp test` including new nav component tests (see §Testing TASK-NAV-TEST). | | |
+
+### Implementation Phase 3 — PR `home/card-row`
+
+- GOAL-003: Implement `Card` and `Row` components. Wire `HomeFeed` to render all rows with cards from mock data.
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| TASK-022 | Create directory `apps/client/src/features/home/components/card/`. | | |
+| TASK-023 | Write `card-image.tsx` — aspect-ratio container (`aspect-video` for 16/9, `aspect-[2/3]` for 2/3). Renders `<img>` with `poster` (2/3) or `backdrop` (16/9) from `HomeMediaItem`. Shows `<Skeleton />` while loading. Overlays `clearLogoText` as CSS wordmark if present, else falls back to title text. | | |
+| TASK-024 | Write `card-meta.tsx` — renders title, year, rating (`item.rating`), runtime (`item.runtime`), episode label (`item.episode`) in a single row. Uses `muted-foreground` token for secondary values. | | |
+| TASK-025 | Write `card-badges.tsx` — renders availability badge using `<Badge>` from `shared/ui/badge.tsx`. Map `item.availability.hasAnyServerCopy` → `success` variant; `item.status === "requested"` → secondary; else muted. Also renders quality tags from `item.tags` (e.g. "4K", "HDR") as small badges. | | |
+| TASK-026 | Write `card-match-reason.tsx` — renders match reason chip if `item.matchReasonKey` is set. Looks up copy via `MATCH_REASON_COPY[item.matchReasonKey](item.matchReasonParams ?? {})`. Chip uses `accent`/`accent-foreground` tokens. Hidden when `showMatchReasonInline` is false for the row (from `ROW_DISPLAY`). | | |
+| TASK-027 | Write `card-actions.tsx` — renders Request button and Watchlist toggle button. Both use `<Button>` variants from `shared/ui/button.tsx`. Request visible only when `item.availability.requestEligible`. Buttons call `onRequest(item.id)` and `onWatchlistToggle(item.id)` callbacks. Include `aria-label` on each button using i18n keys `home_card_request`, `home_card_add_watchlist`, `home_card_remove_watchlist`. | | |
+| TASK-028 | Write `card/index.tsx` — orchestrator. Props: `{ item: HomeMediaItem; rowKind: RowKind; isHero?: boolean; onRequest: (id: string) => void; onWatchlistToggle: (id: string) => void; watchlisted: boolean; onClick: () => void }`. Renders `<CardImage>`, `<CardMeta>`, `<CardBadges>`, `<CardMatchReason>`, `<CardActions>`. Hero layout stacks vertically with 16/9 image; normal layout stacks image above meta. Whole card is a `<button>` triggering `onClick`. | | |
+| TASK-029 | Create directory `apps/client/src/features/home/components/row/`. | | |
+| TASK-030 | Write `row-skeleton.tsx` — renders `n` (default 6) `<Skeleton />` placeholders at the correct aspect ratio for the row. | | |
+| TASK-031 | Write `row/index.tsx` — props: `{ row: RowData; onRequest: ...; onWatchlistToggle: ...; watchlistedIds: Set<string>; onCardClick: (id: string) => void }`. Renders row heading (from `ROW_COPY[row.kind].headerKey` via `m.<key>()`), subtitle if present. Renders `<ScrollArea>` horizontal container with `<Card>` for each item. Shows `<RowSkeleton>` when `row.items.length === 0`. Infinite mock pagination: when scroll nears end (within 6 cards), appends 8 more items cloned from existing items (mock only) up to max 60. | | |
+| TASK-032 | Update `home-feed.tsx` — call `useHomeFeed()`, render `{rows.map(row => <Row key={row.id} row={row} ... />)}`. Pass watchlist state and callbacks down. Render `<TopZone />` as a placeholder div (wired in PR 4). | | |
+| TASK-033 | Write `features/home/__tests__/card.test.tsx` — tests per spec §Testing Card section. Use `@testing-library/react`. | | |
+| TASK-034 | Write `features/home/__tests__/row.test.tsx` — tests per spec §Testing Row section. | | |
+| TASK-035 | Write `.changeset/<slug>.md` — `@ent-mcp/client` minor, one sentence: "Added media card and row carousel components to the home feed." | | |
+| TASK-036 | Run `vp check` and `vp test`. | | |
+
+### Implementation Phase 4 — PR `home/top-zone`
+
+- GOAL-004: Implement the hero `TopZone` section and wire it into `HomeFeed`.
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| TASK-037 | Create directory `apps/client/src/features/home/components/top-zone/`. | | |
+| TASK-038 | Write `top-zone-ambient.tsx` — renders 3–5 blurred background images positioned absolutely behind the hero. Uses `backdrop` URL from alternates. CSS `transition` on opacity for crossfade when active hero changes. No interactive elements. | | |
+| TASK-039 | Write `top-zone-hero-card.tsx` — overlays hero metadata on top of the hero image: clearLogoText wordmark (or title fallback), year, rating, overview (clamped 3 lines), genre chips, action buttons (Play — stub no-op, More Info — opens detail modal via `navigate({ search: { peek: hero.id } })`). Uses `home_hero_play` and `home_hero_more_info` i18n keys. | | |
+| TASK-040 | Write `top-zone/index.tsx` — props: `{ hero: HeroItem; onWatchlistToggle: (id: string) => void; watchlisted: boolean }`. Renders `<TopZoneAmbient>` as absolute background layer and `<TopZoneHeroCard>` as foreground. Manages active alternate index state (cycles on user click). Scroll-driven parallax via `useScrolled` — applies CSS `translate-y` inline style proportional to scroll offset. | | |
+| TASK-041 | Update `home-feed.tsx` — replace TopZone placeholder with `<TopZone hero={hero} ... />`. Guard with `invariant(hero !== null, "mock data must supply a hero")`. | | |
+| TASK-042 | Write `features/home/__tests__/top-zone.test.tsx` — tests per spec §Testing TopZone section. | | |
+| TASK-043 | Write `.changeset/<slug>.md` — `@ent-mcp/client` minor, one sentence: "Added hero TopZone section to the home feed." | | |
+| TASK-044 | Run `vp check` and `vp test`. | | |
+
+### Implementation Phase 5 — PR `home/detail-modal`
+
+- GOAL-005: Implement `MediaDetailModal` in `shared/components/`, wire it into `HomeFeed`, and register `peekSchema` on the home route.
+
+| Task | Description | Completed | Date |
+|------|-------------|-----------|------|
+| TASK-045 | Create directory `apps/client/src/shared/components/media-detail-modal/`. | | |
+| TASK-046 | Write `modal-header.tsx` — renders hero image (16/9 backdrop), clearLogoText wordmark or title, metadata row (year, runtime, age rating, genres), overview paragraph. Title uses CSS scroll-timeline animation: floats over image at scroll 0, docks into a sticky header bar as user scrolls. | | |
+| TASK-047 | Write `modal-actions.tsx` — renders Request button (stub: fires `onRequest(item.id)` callback, updates local state), Watchlist toggle (fires `onWatchlistToggle`), Trailer button (stub: no-op). Buttons from `shared/ui/button.tsx`. i18n keys: `home_detail_request`, `home_detail_watchlist_add`, `home_detail_watchlist_remove`, `home_detail_trailer`. | | |
+| TASK-048 | Write `modal-seasons.tsx` — renders only for `item.kind === "tv"`. Generates season list via `generateSeasons` helper ported from prototype `data.jsx`. Each season is a `<Collapsible>` (from `shared/ui/collapsible.tsx`) showing season title, episode count, and a read-only status badge per season (`available`/`requested`/`unavailable`/`upcoming`). i18n keys: `home_detail_season_*`. No request buttons in this phase. | | |
+| TASK-049 | Write `media-detail-modal/index.tsx` — modal root. Uses `<Dialog>` from `shared/ui/dialog.tsx` for desktop and `<Sheet>` from `shared/ui/sheet.tsx` for mobile (responsive via `useIsMobile()`). Props: `{ item: HomeMediaItem | null; onClose: () => void; onRequest: ...; onWatchlistToggle: ...; watchlisted: boolean }`. Renders `<ModalHeader>`, `<ModalActions>`, `<ModalSeasons>`. Implements `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to title heading id. Focus trap managed by Dialog primitive. Escape key closes via Dialog `onOpenChange`. Scroll engine: `useRef` on scroll container, `requestAnimationFrame` loop drives `--scroll-progress` CSS custom property for title animation. | | |
+| TASK-050 | Update `apps/client/src/features/home/components/home-feed.tsx` — import `MediaDetailModal` from `@/shared/components/media-detail-modal`. Read `peek` from `useSearch<PeekSearch>()`. Find matching item in mock data by id. Render `<MediaDetailModal item={peekItem} onClose={() => navigate({ search: {} })} ... />`. | | |
+| TASK-051 | Update `apps/client/src/routes/_authenticated/_app/index.tsx` — add `validateSearch: peekSchema` imported from `@/lib/home-display`. This is the only file that imports `peekSchema`. | | |
+| TASK-052 | Update `Card` click handler in `card/index.tsx` — call `onClick()` which in `HomeFeed` does `navigate({ search: { peek: item.id } })`. | | |
+| TASK-053 | Update `TopZoneHeroCard` "More Info" button — calls `navigate({ search: { peek: hero.id } })`. | | |
+| TASK-054 | Write `shared/components/media-detail-modal/__tests__/media-detail-modal.test.tsx` — tests per spec §Testing MediaDetailModal section. | | |
+| TASK-055 | Write `.changeset/<slug>.md` — `@ent-mcp/client` minor, one sentence: "Added media detail modal with scroll-driven animations and season information." | | |
+| TASK-056 | Run `vp check` and `vp test`. | | |
+
+---
+
+## 3. Alternatives
+
+- **ALT-001**: Single large PR for all home page components. Rejected — too large to review, no incremental mergeability, rollback risk.
+- **ALT-002**: Place `DetailModal` in `features/home/` initially, lift to `shared/` later. Rejected — deferred lifts create migration overhead; clean placement from day one is cheaper.
+- **ALT-003**: Use Zustand or TanStack Query for watchlist/request state in mock phase. Rejected — local `useState` is sufficient for mock phase; no global state infrastructure needed until backend is wired.
+- **ALT-004**: Use custom scroll event listeners for peek state. Rejected — TanStack Router search params give browser-back close for free and are the existing pattern (`peekSchema` already defined in `home-display.ts`).
+- **ALT-005**: Define a local `RowKind` union with the prototype's snake_case values. Rejected — `@ent-mcp/shared/home` is the source of truth; redefining locally creates a type conflict with `ROW_DISPLAY` and future API integration.
+
+---
+
+## 4. Dependencies
+
+- **DEP-001**: `@ent-mcp/shared/home` — `CompactMediaItem`, `RowKind`, `ROW_KINDS`. Already in workspace.
+- **DEP-002**: `@/lib/home-display` (`apps/client/src/lib/home-display.ts`) — `peekSchema`, `PeekSearch`, `ROW_DISPLAY`. Already exists.
+- **DEP-003**: `shared/ui/dialog.tsx` — used by `MediaDetailModal` desktop variant. Already exists.
+- **DEP-004**: `shared/ui/sheet.tsx` — used by `MediaDetailModal` mobile variant. Already exists.
+- **DEP-005**: `shared/ui/scroll-area.tsx` — used by `Row` horizontal carousel. Already exists.
+- **DEP-006**: `shared/ui/skeleton.tsx` — used by `CardImage` and `RowSkeleton`. Already exists.
+- **DEP-007**: `shared/ui/badge.tsx` — used by `CardBadges` and season status tags. Already exists.
+- **DEP-008**: `shared/ui/button.tsx` — used by card actions, modal actions, nav. Already exists.
+- **DEP-009**: `shared/ui/collapsible.tsx` — used by `ModalSeasons`. Already exists.
+- **DEP-010**: `shared/hooks/use-is-mobile.ts` — used by `MediaDetailModal` to pick Dialog vs Sheet. Already exists.
+- **DEP-011**: `shared/hooks/use-scrolled.ts` — used by `TopZone` parallax and `BottomNav` hide-on-scroll. Already exists.
+- **DEP-012**: `es-toolkit/util` (`invariant`) — used by `use-home-feed.ts`. Already in workspace.
+- **DEP-013**: Paraglide `@/paraglide/messages` — generated at build time, must be compiled before running tests. Compile by running `vp build` or `vp dev` once.
+
+---
+
+## 5. Files
+
+- **FILE-001**: `apps/client/src/features/home/lib/types.ts` — new; all domain types.
+- **FILE-002**: `apps/client/src/features/home/lib/mock-data.ts` — new; mock `HERO` and `ROWS`.
+- **FILE-003**: `apps/client/src/features/home/lib/home-feed-config.ts` — new; `ROW_ASPECT`, `ROW_COPY`, `MATCH_REASON_COPY`.
+- **FILE-004**: `apps/client/src/features/home/hooks/use-home-feed.ts` — new; mock data hook.
+- **FILE-005**: `apps/client/src/features/home/components/home-feed.tsx` — new; feed assembler.
+- **FILE-006**: `apps/client/src/features/home/components/card/index.tsx` — new; card orchestrator.
+- **FILE-007**: `apps/client/src/features/home/components/card/card-image.tsx` — new.
+- **FILE-008**: `apps/client/src/features/home/components/card/card-meta.tsx` — new.
+- **FILE-009**: `apps/client/src/features/home/components/card/card-badges.tsx` — new.
+- **FILE-010**: `apps/client/src/features/home/components/card/card-match-reason.tsx` — new.
+- **FILE-011**: `apps/client/src/features/home/components/card/card-actions.tsx` — new.
+- **FILE-012**: `apps/client/src/features/home/components/row/index.tsx` — new; row carousel.
+- **FILE-013**: `apps/client/src/features/home/components/row/row-skeleton.tsx` — new.
+- **FILE-014**: `apps/client/src/features/home/components/top-zone/index.tsx` — new; hero section root.
+- **FILE-015**: `apps/client/src/features/home/components/top-zone/top-zone-ambient.tsx` — new.
+- **FILE-016**: `apps/client/src/features/home/components/top-zone/top-zone-hero-card.tsx` — new.
+- **FILE-017**: `apps/client/src/features/home/index.ts` — new; feature barrel.
+- **FILE-018**: `apps/client/src/shared/components/media-detail-modal/index.tsx` — new; modal root.
+- **FILE-019**: `apps/client/src/shared/components/media-detail-modal/modal-header.tsx` — new.
+- **FILE-020**: `apps/client/src/shared/components/media-detail-modal/modal-actions.tsx` — new.
+- **FILE-021**: `apps/client/src/shared/components/media-detail-modal/modal-seasons.tsx` — new.
+- **FILE-022**: `apps/client/src/app/bottom-nav.tsx` — new.
+- **FILE-023**: `apps/client/src/app/top-nav-links.tsx` — new.
+- **FILE-024**: `apps/client/src/app/top-nav.tsx` — modified; add `<TopNavLinks />`.
+- **FILE-025**: `apps/client/src/app/app-shell.tsx` — modified; add `<BottomNav />`.
+- **FILE-026**: `apps/client/src/routes/_authenticated/_app/index.tsx` — modified; replace placeholder, add `validateSearch`.
+- **FILE-027**: `apps/client/src/routes/_authenticated/_app/library.tsx` — new; stub route.
+- **FILE-028**: `apps/client/src/routes/_authenticated/_app/watchlist.tsx` — new; stub route.
+- **FILE-029**: `apps/client/src/routeTree.gen.ts` — regenerated; includes library + watchlist routes.
+- **FILE-030**: `.fallowrc.json` — modified; new zone + rule + allow list additions.
+- **FILE-031**: `apps/client/messages/home/en.json` — new; all home i18n keys in English.
+- **FILE-032**: `apps/client/messages/home/fa.json` — new; all home i18n keys in Farsi (TODO placeholders for first pass).
+- **FILE-033**: `apps/client/src/features/home/__tests__/card.test.tsx` — new.
+- **FILE-034**: `apps/client/src/features/home/__tests__/row.test.tsx` — new.
+- **FILE-035**: `apps/client/src/features/home/__tests__/top-zone.test.tsx` — new.
+- **FILE-036**: `apps/client/src/features/home/__tests__/use-home-feed.test.ts` — new.
+- **FILE-037**: `apps/client/src/shared/components/media-detail-modal/__tests__/media-detail-modal.test.tsx` — new.
+- **FILE-038**: 5× `.changeset/<slug>.md` files — one per PR.
+
+---
+
+## 6. Testing
+
+- **TEST-001**: `card.test.tsx` — renders 16/9 aspect when `defaultAspect` is "16/9"; 2/3 aspect otherwise.
+- **TEST-002**: `card.test.tsx` — progress bar is present in DOM when `item.progress` is defined; absent otherwise.
+- **TEST-003**: `card.test.tsx` — `success` badge renders when `item.availability.hasAnyServerCopy` is true; status badge reflects `item.status` for requested items.
+- **TEST-004**: `card.test.tsx` — match reason chip renders when `item.matchReasonKey` is set; absent when unset.
+- **TEST-005**: `card.test.tsx` — hero variant renders expected overlay elements (play button, title, overview).
+- **TEST-006**: `card.test.tsx` — a11y: image element has non-empty `alt`. Request button has `aria-label` matching `home_card_request` message. Watchlist button has `aria-label`.
+- **TEST-007**: `row.test.tsx` — all `items` in `row.items` render as card elements.
+- **TEST-008**: `row.test.tsx` — `<RowSkeleton>` renders when `row.items` is empty.
+- **TEST-009**: `row.test.tsx` — `partial` prop true: partial-warning element present in DOM.
+- **TEST-010**: `row.test.tsx` — a11y: scroll container has `tabIndex` or equivalent; row has a visible heading element.
+- **TEST-011**: `top-zone.test.tsx` — renders `hero.title`, `hero.year`, `hero.rating`.
+- **TEST-012**: `top-zone.test.tsx` — renders correct count of alternate items.
+- **TEST-013**: `top-zone.test.tsx` — a11y: no interactive element inside ambient image layer.
+- **TEST-014**: `media-detail-modal.test.tsx` — modal renders when `item` prop is non-null; absent from DOM when null.
+- **TEST-015**: `media-detail-modal.test.tsx` — Escape key fires `onClose` callback.
+- **TEST-016**: `media-detail-modal.test.tsx` — `role="dialog"` and `aria-modal="true"` attributes present when open.
+- **TEST-017**: `media-detail-modal.test.tsx` — `aria-labelledby` attribute points to the heading element's `id`.
+- **TEST-018**: `media-detail-modal.test.tsx` — season accordion renders for `kind === "tv"` items; absent for movies.
+- **TEST-019**: `nav.test.tsx` — active nav item has `aria-current="page"`.
+- **TEST-020**: `nav.test.tsx` — all nav items reachable via keyboard (`Tab`).
+- **TEST-021**: `use-home-feed.test.ts` — returns `hero` of type `HeroItem` (non-null) from mock.
+- **TEST-022**: `use-home-feed.test.ts` — `rows` contains entries with `kind` values that are all members of `ROW_KINDS`.
+- **TEST-023**: `use-home-feed.test.ts` — every item in every row satisfies `HomeMediaItem` shape (id, mediaType, title present).
+
+---
+
+## 7. Risks & Assumptions
+
+- **RISK-001**: CSS `scroll-timeline` (used for `DetailModal` title animation) has limited Safari support before v17.2. Mitigation: add `@supports (animation-timeline: scroll())` guard; fall back to static title on unsupported browsers.
+- **RISK-002**: Paraglide `messages/home/*.json` files must be present before the Vite plugin compiles — if the plugin errors on missing namespace, run `vp dev` once to trigger compilation before running `vp test`.
+- **RISK-003**: `routeTree.gen.ts` must be regenerated after adding stub routes (PR 2, TASK-015). If codegen is not run, TanStack Router will not recognise the new routes and `useRouterState` active detection will silently fail.
+- **RISK-004**: `generateSeasons` helper ported from prototype is deterministic pseudo-random — output differs from future real API seasons data. Treat as display-only fixture; never persist.
+- **ASSUMPTION-001**: Farsi translations for home i18n keys are not required for the initial merge. `"TODO"` placeholder values in `fa.json` are acceptable until a translator reviews them.
+- **ASSUMPTION-002**: `/library` and `/watchlist` routes remain stubs until their own feature PRs are opened. Nav tabs pointing to stubs are intentional and documented.
+- **ASSUMPTION-003**: `useIsMobile()` breakpoint in `shared/hooks/use-is-mobile.ts` matches the Tailwind `md` breakpoint (768 px). If they diverge, the Dialog/Sheet selector in `MediaDetailModal` will be inconsistent with the BottomNav visibility toggle.
+
+---
+
+## 8. Related Specifications / Further Reading
+
+- [Home page design spec](../docs/superpowers/specs/2026-05-04-home-page-implementation-design.md)
+- [Frontend structure design](../docs/2026-04-29-frontend-structure-design.md)
+- [nama-prototype source](../../../Personal/nama-prototype/src/)
+- [SPEC.md invariants V51–V60](../SPEC.md) — fallow boundary rules
+- [Shared home types](../packages/shared/src/home/)
+- [Existing home-display.ts](../apps/client/src/lib/home-display.ts)
