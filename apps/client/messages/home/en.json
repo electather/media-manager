@@ -1,0 +1,50 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "home_nav_home": "Home",
+  "home_nav_library": "Library",
+  "home_nav_watchlist": "Watchlist",
+
+  "home_row_continueWatching_header": "Pick up where you left off",
+  "home_row_recommendedForYou_header": "Recommended for you",
+  "home_row_trendingNow_header": "Trending now",
+  "home_row_newReleases_header": "New releases",
+  "home_row_becauseYouWatched_header": "Because you watched {seedTitle}",
+  "home_row_becauseYouWatched_subtitle": "Themed picks from your recent finish",
+  "home_row_upcomingForYou_header": "Coming up",
+  "home_row_yourWatchlist_header": "From your list, ready now",
+
+  "home_match_reason_matches_recent_picks": "Matches {n} recent picks.",
+  "home_match_reason_from_genre_you_love": "From {genre} you love.",
+  "home_match_reason_similar_to_seed": "Similar to {seedTitle}.",
+  "home_match_reason_because_in_watchlist": "Saved on your watchlist.",
+  "home_match_reason_continuing_series": "Continue the story.",
+  "home_match_reason_upcoming_release": "A release you follow is coming up.",
+  "home_match_reason_recently_added": "Recently added to your library.",
+  "home_match_reason_highly_rated": "Highly rated by viewers like you.",
+  "home_match_reason_from_active_series": "From a show you are actively watching.",
+  "home_match_reason_finishing_soon": "Almost finished.",
+
+  "home_hero_play": "Play",
+  "home_hero_more_info": "More Info",
+
+  "home_card_request": "Request",
+  "home_card_add_watchlist": "Add to watchlist",
+  "home_card_remove_watchlist": "Remove from watchlist",
+
+  "home_card_available": "Available",
+  "home_card_requested": "Requested",
+  "home_card_unavailable": "Unavailable",
+
+  "home_detail_request": "Request",
+  "home_detail_watchlist_add": "Add to Watchlist",
+  "home_detail_watchlist_remove": "Remove from Watchlist",
+  "home_detail_trailer": "Trailer",
+
+  "home_detail_season_available": "Available",
+  "home_detail_season_requested": "Requested",
+  "home_detail_season_unavailable": "Unavailable",
+  "home_detail_season_upcoming": "Upcoming",
+
+  "home_row_partial_warning": "Some results may be incomplete"
+}
