@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import * as m from "@/paraglide/messages";
 import { NAV_ITEMS, useActiveNavIndex } from "./nav-items";
+import { NavPill } from "./nav-pill";
 
 export function TopNavLinks() {
   const activeIdx = useActiveNavIndex();
@@ -33,10 +34,8 @@ export function TopNavLinks() {
       aria-label={m.home_nav_label_primary()}
       className="relative isolate hidden items-center gap-0.5 md:flex"
     >
-      <span
-        aria-hidden="true"
-        data-testid="nav-active-pill"
-        className="pointer-events-none absolute inset-y-0 rounded-lg border border-white/8 bg-white/14"
+      <NavPill
+        className="inset-y-0 rounded-lg"
         style={{
           left: pill.left,
           width: pill.width,
@@ -52,7 +51,7 @@ export function TopNavLinks() {
           to={to}
           activeOptions={activeOptions}
           activeProps={{ "aria-current": "page" as const }}
-          className="relative z-10 flex items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors duration-150 data-[status=active]:text-foreground"
+          className="relative z-10 flex items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-150 data-[status=active]:text-foreground"
         >
           {label()}
         </Link>

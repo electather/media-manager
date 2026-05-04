@@ -1,10 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import { NAV_ITEMS, useActiveNavIndex } from "./nav-items";
+import { NavPill } from "./nav-pill";
 
 export function BottomNav() {
   const idx = useActiveNavIndex();
-  const count = NAV_ITEMS.length;
 
   return (
     <nav
@@ -13,29 +13,12 @@ export function BottomNav() {
     >
       <div className="pointer-events-auto relative isolate w-full max-w-sm">
         {idx >= 0 && (
-          <span
-            aria-hidden="true"
-            data-testid="nav-active-pill"
-            className="pointer-events-none absolute border border-white/8 bg-white/14"
-            style={{
-              top: 6,
-              bottom: 6,
-              left: 6,
-              width: `calc((100% - 12px) / ${count})`,
-              borderRadius: 999,
-              transform: `translateX(calc(${idx} * 100%))`,
-              transition: "transform 300ms cubic-bezier(.2,.7,.2,1)",
-            }}
+          <NavPill
+            className="top-1.5 right-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/3)] rounded-full transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"
+            style={{ transform: `translateX(calc(${idx} * 100%))` }}
           />
         )}
-        <ul
-          className="m-0 grid list-none grid-flow-col auto-cols-fr rounded-full bg-card/72 p-1.5"
-          style={{
-            backdropFilter: "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: "blur(20px) saturate(180%)",
-            boxShadow: "var(--nav-frosted-shadow)",
-          }}
-        >
+        <ul className="m-0 grid list-none grid-flow-col auto-cols-fr rounded-full bg-card/72 p-1.5 shadow-[var(--nav-frosted-shadow)] backdrop-blur-[20px] backdrop-saturate-[1.8]">
           {NAV_ITEMS.map(({ to, label, Icon, activeOptions }) => (
             <li key={to} className="flex">
               <Link
