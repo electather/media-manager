@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Bookmark, Home, Library } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import * as m from "@/paraglide/messages";
 
 type NavItem = {
@@ -48,18 +48,14 @@ function useHideOnScrollDown() {
 export function BottomNav() {
   const hidden = useHideOnScrollDown();
   const location = useRouterState({ select: (s) => s.location.pathname });
-  const listRef = useRef<HTMLUListElement>(null);
   const count = NAV_ITEMS.length;
-  const idx = Math.max(
-    0,
-    NAV_ITEMS.findIndex(({ to, activeOptions }) =>
-      "exact" in (activeOptions ?? {}) ? location === to : location.startsWith(to),
-    ),
+  const idx = NAV_ITEMS.findIndex(({ to, activeOptions }) =>
+    "exact" in (activeOptions ?? {}) ? location === to : location.startsWith(to),
   );
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={m.home_nav_label_mobile()}
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-[transform,opacity] duration-300 ease-out md:hidden"
       style={{
         transform: hidden ? "translateY(100%) scale(0.85)" : "translateY(0) scale(1)",
@@ -68,30 +64,29 @@ export function BottomNav() {
       }}
     >
       <ul
-        ref={listRef}
-        className="pointer-events-auto relative isolate m-0 grid w-full max-w-sm list-none grid-flow-col auto-cols-fr p-1.5"
+        className="pointer-events-auto relative isolate m-0 grid w-full max-w-sm list-none grid-flow-col auto-cols-fr rounded-full bg-card/72 p-1.5"
         style={{
-          borderRadius: 999,
-          background: "oklch(0.20 0.006 260 / 0.72)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          boxShadow:
-            "0 8px 32px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.08), inset 0 0 0 1px oklch(1 0 0 / 0.06)",
+          boxShadow: "var(--nav-frosted-shadow)",
         }}
       >
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute border border-white/8 bg-white/14"
-          style={{
-            top: 6,
-            bottom: 6,
-            left: 6,
-            width: `calc((100% - 12px) / ${count})`,
-            borderRadius: 999,
-            transform: `translateX(calc(${idx} * 100%))`,
-            transition: "transform 300ms cubic-bezier(.2,.7,.2,1)",
-          }}
-        />
+        {idx >= 0 && (
+          <span
+            aria-hidden="true"
+            data-testid="nav-active-pill"
+            className="pointer-events-none absolute border border-white/8 bg-white/14"
+            style={{
+              top: 6,
+              bottom: 6,
+              left: 6,
+              width: `calc((100% - 12px) / ${count})`,
+              borderRadius: 999,
+              transform: `translateX(calc(${idx} * 100%))`,
+              transition: "transform 300ms cubic-bezier(.2,.7,.2,1)",
+            }}
+          />
+        )}
         {NAV_ITEMS.map(({ to, label, Icon, activeOptions }) => (
           <li key={to} className="flex">
             <Link
