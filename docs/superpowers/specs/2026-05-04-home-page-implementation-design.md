@@ -85,8 +85,8 @@ PR 1 adds `client-feat-home` zone and updates two allow lists:
 `RowKind` is imported from `@ent-mcp/shared/home` — **never redefined locally**. The shared enum is the single source of truth.
 
 ```typescript
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home"
-export type { RowKind }
+import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
+export type { RowKind };
 
 export const MATCH_REASON_KEYS = [
   "matches_recent_picks",
@@ -99,68 +99,78 @@ export const MATCH_REASON_KEYS = [
   "highly_rated",
   "from_active_series",
   "finishing_soon",
-] as const
+] as const;
 
-export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number]
+export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
 ```
 
 The shared `ROW_KINDS` tuple (`continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`, `becauseYouWatched`, `upcomingForYou`, `yourWatchlist`) determines which rows exist. Mock data maps the prototype's demo rows to these kinds:
 
-| Demo row | Shared RowKind |
-|----------|----------------|
-| `continue_watching` | `continueWatching` |
-| `because_you_finished` | `becauseYouWatched` |
-| `next_episode_active_series` | `continueWatching` (second instance) |
-| `tv_needs_request` / `movies_needs_request` | `recommendedForYou` |
-| `watchlist_now_available` | `yourWatchlist` |
-| `upcoming_for_you` | `upcomingForYou` |
+| Demo row                                    | Shared RowKind                       |
+| ------------------------------------------- | ------------------------------------ |
+| `continue_watching`                         | `continueWatching`                   |
+| `because_you_finished`                      | `becauseYouWatched`                  |
+| `next_episode_active_series`                | `continueWatching` (second instance) |
+| `tv_needs_request` / `movies_needs_request` | `recommendedForYou`                  |
+| `watchlist_now_available`                   | `yourWatchlist`                      |
+| `upcoming_for_you`                          | `upcomingForYou`                     |
 
 `HomeMediaItem` is a **local UI-layer type** that extends `CompactMediaItem` with display fields absent from the wire format. At backend integration time an adapter `toHomeMediaItem(item: CompactMediaItem): HomeMediaItem` handles the mapping.
 
 ```typescript
-import type { CompactMediaItem } from "@ent-mcp/shared/home"
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 
 // `CompactMediaItem.clearLogo` is a URL string (artwork image).
 // `clearLogoText` carries the wordmark text used by the prototype's CSS logo treatment.
 export type HomeMediaItem = CompactMediaItem & {
-  clearLogoText?: string
+  clearLogoText?: string;
   availability?: {
-    hasAnyServerCopy: boolean
-    requestEligible: boolean
-    servers: { id: string; label: string }[]
-  }
-  seriesContext?: { season: number; episode: number; episodeTitle: string; nextUpFromServer: boolean }
-  facets?: { runtimeMin?: number; episodeCount?: number; monochrome?: boolean; releaseDate?: string }
+    hasAnyServerCopy: boolean;
+    requestEligible: boolean;
+    servers: { id: string; label: string }[];
+  };
+  seriesContext?: {
+    season: number;
+    episode: number;
+    episodeTitle: string;
+    nextUpFromServer: boolean;
+  };
+  facets?: {
+    runtimeMin?: number;
+    episodeCount?: number;
+    monochrome?: boolean;
+    releaseDate?: string;
+  };
   /**
    * Same value set as `CompactMediaItem.matchReason` from the wire format.
    * `toHomeMediaItem` maps: `matchReasonKey = item.matchReason ?? undefined`.
    * Mock data sets this directly. Valid values: see MATCH_REASON_KEYS below.
    */
-  matchReasonKey?: MatchReasonKey
-  matchReasonParams?: Record<string, string>
-  tags?: string[]
-  ageRating?: string
-  runtime?: string
-  trailerUrl?: string
-  relDate?: string
-  audienceScore?: number
-  criticScore?: number
-  votes?: number
-  cast?: string[]
-  director?: string
-}
+  matchReasonKey?: MatchReasonKey;
+  matchReasonParams?: Record<string, string>;
+  tags?: string[];
+  ageRating?: string;
+  runtime?: string;
+  trailerUrl?: string;
+  relDate?: string;
+  audienceScore?: number;
+  criticScore?: number;
+  votes?: number;
+  cast?: string[];
+  director?: string;
+};
 
-export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] }
+export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] };
 
 export type RowData = {
-  id: string
-  kind: RowKind
-  seedTitle?: string
-  partial?: boolean
-  items: HomeMediaItem[]
+  id: string;
+  kind: RowKind;
+  seedTitle?: string;
+  partial?: boolean;
+  items: HomeMediaItem[];
   /** Derived client-side via ROW_ASPECT in home-feed-config.ts — not present in the wire format. */
-  defaultAspect: "16/9" | "2/3"
-}
+  defaultAspect: "16/9" | "2/3";
+};
 
 /**
  * `hero` is `HeroItem | null`. In the mock phase the mock always supplies a hero;
@@ -168,7 +178,7 @@ export type RowData = {
  * At backend integration time `null` means the server had no suitable hero candidate —
  * `HomeFeed` should render the feed without a TopZone.
  */
-export type HomeFeedData = { hero: HeroItem | null; rows: RowData[] }
+export type HomeFeedData = { hero: HeroItem | null; rows: RowData[] };
 ```
 
 ---
@@ -235,24 +245,25 @@ HomeFeed
 
 ### Existing shadcn components to reuse
 
-| Need | Component |
-|------|-----------|
-| Modal/overlay | `dialog.tsx` |
-| Bottom sheet (mobile) | `sheet.tsx` |
-| Horizontal scroll | `scroll-area.tsx` (Base UI primitive) |
-| Skeleton placeholders | `skeleton.tsx` |
-| Badges | `badge.tsx` |
-| Buttons | `button.tsx` |
-| Tabs (nav) | `tabs.tsx` |
-| Collapsible seasons | `collapsible.tsx` |
-| Avatar / image fallback | `avatar.tsx` |
-| Tooltip | `tooltip.tsx` |
+| Need                    | Component                             |
+| ----------------------- | ------------------------------------- |
+| Modal/overlay           | `dialog.tsx`                          |
+| Bottom sheet (mobile)   | `sheet.tsx`                           |
+| Horizontal scroll       | `scroll-area.tsx` (Base UI primitive) |
+| Skeleton placeholders   | `skeleton.tsx`                        |
+| Badges                  | `badge.tsx`                           |
+| Buttons                 | `button.tsx`                          |
+| Tabs (nav)              | `tabs.tsx`                            |
+| Collapsible seasons     | `collapsible.tsx`                     |
+| Avatar / image fallback | `avatar.tsx`                          |
+| Tooltip                 | `tooltip.tsx`                         |
 
 ---
 
 ## Component decomposition rule
 
 Any component exceeding ~150 lines or handling 3+ distinct UI concerns gets a `component-name/` directory with:
+
 - `index.tsx` — thin orchestrator
 - Named sub-files per concern
 
@@ -262,13 +273,13 @@ No barrel `index.ts` inside sub-directories (per V57). Only the feature-root `in
 
 ## PR plan
 
-| # | Branch | Deliverable | Key files | Changeset |
-|---|--------|-------------|-----------|-----------|
-| 1 | `home/scaffold` | Feature skeleton; blank home route | `features/home/lib/types.ts`, `mock-data.ts`, `home-feed-config.ts`, `hooks/use-home-feed.ts`, stub `home-feed.tsx`, `index.ts`, `.fallowrc.json` (`client-feat-home` + allow list updates), route `index.tsx` | `@ent-mcp/client` minor |
-| 2 | `home/nav-chrome` | `BottomNav` + `TopNav` tabs; stub Library + Watchlist routes | `app/bottom-nav.tsx` (new), `app/top-nav.tsx` (add `TopNavLinks`), stub routes for `/library` and `/watchlist`, active state via `useRouterState` | `@ent-mcp/client` minor |
-| 3 | `home/card-row` | Browsable feed with all rows | `features/home/components/card/*`, `row/*`, `home-feed.tsx` wired | `@ent-mcp/client` minor |
-| 4 | `home/top-zone` | Hero section complete | `features/home/components/top-zone/*`, wired into `home-feed.tsx` | `@ent-mcp/client` minor |
-| 5 | `home/detail-modal` | Click-through detail modal | `shared/components/media-detail-modal/*`, `HomeFeed` renders modal, route registers `validateSearch: peekSchema` | `@ent-mcp/client` minor |
+| #   | Branch              | Deliverable                                                  | Key files                                                                                                                                                                                                      | Changeset               |
+| --- | ------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 1   | `home/scaffold`     | Feature skeleton; blank home route                           | `features/home/lib/types.ts`, `mock-data.ts`, `home-feed-config.ts`, `hooks/use-home-feed.ts`, stub `home-feed.tsx`, `index.ts`, `.fallowrc.json` (`client-feat-home` + allow list updates), route `index.tsx` | `@ent-mcp/client` minor |
+| 2   | `home/nav-chrome`   | `BottomNav` + `TopNav` tabs; stub Library + Watchlist routes | `app/bottom-nav.tsx` (new), `app/top-nav.tsx` (add `TopNavLinks`), stub routes for `/library` and `/watchlist`, active state via `useRouterState`                                                              | `@ent-mcp/client` minor |
+| 3   | `home/card-row`     | Browsable feed with all rows                                 | `features/home/components/card/*`, `row/*`, `home-feed.tsx` wired                                                                                                                                              | `@ent-mcp/client` minor |
+| 4   | `home/top-zone`     | Hero section complete                                        | `features/home/components/top-zone/*`, wired into `home-feed.tsx`                                                                                                                                              | `@ent-mcp/client` minor |
+| 5   | `home/detail-modal` | Click-through detail modal                                   | `shared/components/media-detail-modal/*`, `HomeFeed` renders modal, route registers `validateSearch: peekSchema`                                                                                               | `@ent-mcp/client` minor |
 
 **Merge order:** PR 1 first → PRs 2, 3, 4 in any order → PR 5.
 
@@ -279,6 +290,7 @@ No barrel `index.ts` inside sub-directories (per V57). Only the feature-root `in
 ### PR 5 — DetailModal scope (mock phase)
 
 In-scope:
+
 - Hero layout: title, metadata, overview, cast, genres
 - Action row (`modal-actions.tsx`): Request button (stub — fires local state), Watchlist toggle, Trailer button (stub — no-op)
 - Season accordion (`modal-seasons.tsx`): read-only, displays status tag per season (available / requested / unavailable / upcoming); no request buttons yet
@@ -286,6 +298,7 @@ In-scope:
 - Focus trap, keyboard dismiss, `aria-modal`
 
 Deferred to backend phase (out of scope for mock PRs):
+
 - `FeedbackBar` (like/dislike + note)
 - `NoteEditor`
 - `TrailerOverlay`
@@ -304,17 +317,17 @@ Messages live in `messages/home/en.json` and `messages/home/fa.json` (by analogy
 
 Strings requiring i18n keys (all keys namespaced under `home_`):
 
-| Key | Context |
-|-----|---------|
-| `home_nav_home`, `home_nav_library`, `home_nav_watchlist` | BottomNav + TopNav labels |
-| `home_row_<rowKind>_header` (7 keys) | Row section headings |
+| Key                                                                                                                                                                                                                                                                                                                                                                                             | Context                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `home_nav_home`, `home_nav_library`, `home_nav_watchlist`                                                                                                                                                                                                                                                                                                                                       | BottomNav + TopNav labels                            |
+| `home_row_<rowKind>_header` (7 keys)                                                                                                                                                                                                                                                                                                                                                            | Row section headings                                 |
 | `home_match_reason_matches_recent_picks`, `home_match_reason_from_genre_you_love`, `home_match_reason_similar_to_seed`, `home_match_reason_because_in_watchlist`, `home_match_reason_continuing_series`, `home_match_reason_upcoming_release`, `home_match_reason_recently_added`, `home_match_reason_highly_rated`, `home_match_reason_from_active_series`, `home_match_reason_finishing_soon` | Match reason chip copy (ICU params where applicable) |
-| `home_hero_play`, `home_hero_more_info` | Hero action buttons |
-| `home_card_request`, `home_card_add_watchlist`, `home_card_remove_watchlist` | Card action labels |
-| `home_card_available`, `home_card_requested`, `home_card_unavailable` | Availability badge labels |
-| `home_detail_request`, `home_detail_watchlist_add`, `home_detail_watchlist_remove`, `home_detail_trailer` | Detail modal actions |
-| `home_detail_season_available`, `home_detail_season_requested`, `home_detail_season_unavailable`, `home_detail_season_upcoming` | Season status tags |
-| `home_row_partial_warning` | Partial-source indicator |
+| `home_hero_play`, `home_hero_more_info`                                                                                                                                                                                                                                                                                                                                                         | Hero action buttons                                  |
+| `home_card_request`, `home_card_add_watchlist`, `home_card_remove_watchlist`                                                                                                                                                                                                                                                                                                                    | Card action labels                                   |
+| `home_card_available`, `home_card_requested`, `home_card_unavailable`                                                                                                                                                                                                                                                                                                                           | Availability badge labels                            |
+| `home_detail_request`, `home_detail_watchlist_add`, `home_detail_watchlist_remove`, `home_detail_trailer`                                                                                                                                                                                                                                                                                       | Detail modal actions                                 |
+| `home_detail_season_available`, `home_detail_season_requested`, `home_detail_season_unavailable`, `home_detail_season_upcoming`                                                                                                                                                                                                                                                                 | Season status tags                                   |
+| `home_row_partial_warning`                                                                                                                                                                                                                                                                                                                                                                      | Partial-source indicator                             |
 
 ---
 
@@ -323,6 +336,7 @@ Strings requiring i18n keys (all keys namespaced under `home_`):
 Tests colocate per V58: `features/home/__tests__/` for feature components, `shared/components/media-detail-modal/__tests__/` for the modal. Vitest + React Testing Library.
 
 ### Card
+
 - Renders correct aspect ratio (16/9 vs 2/3)
 - Progress bar present when `progress` prop set
 - Correct badge per availability status
@@ -331,17 +345,20 @@ Tests colocate per V58: `features/home/__tests__/` for feature components, `shar
 - **a11y:** image has accessible name; request and watchlist buttons have `aria-label`
 
 ### Row
+
 - Renders all items from `items` array
 - Skeleton renders during loading state
 - `partial` flag surfaces a visual indicator
 - **a11y:** scroll container keyboard-navigable; row has visible heading
 
 ### TopZone
+
 - Renders title, year, rating from hero item
 - Alternates list renders correct count
 - **a11y:** no focus traps in ambient layer
 
 ### MediaDetailModal
+
 - Renders when `peekId` set; hidden otherwise
 - Escape key closes modal
 - Focus trap active when open (`role="dialog"`, `aria-modal="true"`, focus returns to trigger on close)
@@ -349,10 +366,12 @@ Tests colocate per V58: `features/home/__tests__/` for feature components, `shar
 - **a11y:** `aria-labelledby` points to modal heading
 
 ### Navigation (BottomNav + TopNav tabs)
+
 - Active item has `aria-current="page"`
 - All items keyboard-reachable
 
 ### `use-home-feed`
+
 - Returns `hero` + rows with correct `kind` values matching `ROW_KINDS`
 - No missing required fields on `HomeMediaItem`
 
