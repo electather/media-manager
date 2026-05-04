@@ -9,12 +9,19 @@ import { CardProgress } from "./card-progress";
 interface CardProps {
   item: HomeMediaItem;
   rowKind: RowKind;
+  isInWatchlist?: boolean;
   onWatchlistToggle?: () => void;
   onRequest?: () => void;
 }
 
 /** Orchestrates all card sub-components into a single media card for a row. */
-export function Card({ item, rowKind, onWatchlistToggle, onRequest }: CardProps) {
+export function Card({
+  item,
+  rowKind,
+  isInWatchlist = false,
+  onWatchlistToggle,
+  onRequest,
+}: CardProps) {
   const aspect = ROW_ASPECT[rowKind];
 
   return (
@@ -30,7 +37,12 @@ export function Card({ item, rowKind, onWatchlistToggle, onRequest }: CardProps)
         {item.year && <p className="text-xs text-muted-foreground">{item.year}</p>}
         <CardMatchReason item={item} />
         <CardProgress item={item} />
-        <CardActions item={item} onWatchlistToggle={onWatchlistToggle} onRequest={onRequest} />
+        <CardActions
+          item={item}
+          isInWatchlist={isInWatchlist}
+          onWatchlistToggle={onWatchlistToggle}
+          onRequest={onRequest}
+        />
       </div>
     </article>
   );

@@ -13,7 +13,7 @@ export function CardBadges({ status }: CardBadgesProps) {
   if (status.hasAnyServerCopy) {
     // Item is available on at least one media server.
     return (
-      <Badge className="border-green-500/30 bg-green-500/20 text-green-400" variant="outline">
+      <Badge className="border-success/30 bg-success/20 text-success" variant="outline">
         {m.home_card_available()}
       </Badge>
     );
@@ -22,7 +22,7 @@ export function CardBadges({ status }: CardBadgesProps) {
   if (!status.requestEligible) {
     // Item has already been requested by the user.
     return (
-      <Badge className="border-orange-500/30 bg-orange-500/20 text-orange-400" variant="outline">
+      <Badge className="border-warning/30 bg-warning/20 text-warning" variant="outline">
         {m.home_card_requested()}
       </Badge>
     );

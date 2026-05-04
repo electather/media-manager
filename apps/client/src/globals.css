@@ -57,6 +57,7 @@
   --spacing: 0.25rem;
   --progress-watched: oklch(0.93 0.08 95);
   --success: oklch(0.72 0.13 155);
+  --warning: oklch(0.75 0.15 65);
   --danger: oklch(0.65 0.18 25);
   --nav-frosted-shadow:
     0 4px 16px oklch(0 0 0 / 0.12), inset 0 1px 0 oklch(1 0 0 / 0.6),
@@ -128,6 +129,7 @@ html[lang="fa"] {
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --progress-watched: oklch(0.93 0.02 260);
   --success: oklch(0.72 0.13 155);
+  --warning: oklch(0.78 0.14 70);
   --danger: oklch(0.65 0.18 25);
   --nav-frosted-shadow:
     0 8px 32px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.08),
@@ -169,6 +171,7 @@ html[lang="fa"] {
   --color-sidebar-ring: var(--sidebar-ring);
   --color-progress-watched: var(--progress-watched);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-danger: var(--danger);
 
   --radius-sm: calc(var(--radius) - 4px);

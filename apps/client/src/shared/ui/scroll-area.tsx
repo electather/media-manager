@@ -4,7 +4,23 @@ import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
 import { cn } from "@/shared/lib/utils";
 
-function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.Props) {
+interface ScrollAreaProps extends ScrollAreaPrimitive.Root.Props {
+  /**
+   * Which scrollbar to render. Defaults to vertical.
+   * "both" renders both scrollbars for two-axis scrolling.
+   */
+  orientation?: "vertical" | "horizontal" | "both";
+  /** Optional class names merged onto the inner Viewport (the actual scroll container). */
+  viewportClassName?: string;
+}
+
+function ScrollArea({
+  className,
+  children,
+  orientation = "vertical",
+  viewportClassName,
+  ...props
+}: ScrollAreaProps) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -13,11 +29,19 @@ function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className={cn(
+          "size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1",
+          viewportClassName,
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      {(orientation === "vertical" || orientation === "both") && (
+        <ScrollBar orientation="vertical" />
+      )}
+      {(orientation === "horizontal" || orientation === "both") && (
+        <ScrollBar orientation="horizontal" />
+      )}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   );

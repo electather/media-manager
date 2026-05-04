@@ -1,3 +1,4 @@
+import * as m from "@/paraglide/messages";
 import type { HomeMediaItem } from "../../lib/types";
 
 interface CardProgressProps {
@@ -17,9 +18,9 @@ export function CardProgress({ item }: CardProgressProps) {
       aria-valuenow={percent}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label={`${percent}% watched`}
+      aria-label={m.home_card_progress_watched({ percent: String(percent) })}
     >
-      <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+      <div className="h-full rounded-full bg-progress-watched" style={{ width: `${percent}%` }} />
     </div>
   );
 }
