@@ -58,6 +58,9 @@
   --progress-watched: oklch(0.93 0.08 95);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
+  --nav-frosted-shadow:
+    0 4px 16px oklch(0 0 0 / 0.12), inset 0 1px 0 oklch(1 0 0 / 0.6),
+    inset 0 0 0 1px oklch(0 0 0 / 0.05);
 }
 
 /* Font tokens declared via non-inline @theme so Tailwind's font-* utilities
@@ -126,6 +129,9 @@ html[lang="fa"] {
   --progress-watched: oklch(0.93 0.02 260);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
+  --nav-frosted-shadow:
+    0 8px 32px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.08),
+    inset 0 0 0 1px oklch(1 0 0 / 0.06);
 }
 
 @theme inline {

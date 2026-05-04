@@ -4,6 +4,8 @@
   "home_nav_home": "Home",
   "home_nav_library": "Library",
   "home_nav_watchlist": "Watchlist",
+  "home_nav_label_primary": "Main navigation",
+  "home_nav_label_mobile": "Mobile navigation",
 
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_recommendedForYou_header": "Recommended for you",

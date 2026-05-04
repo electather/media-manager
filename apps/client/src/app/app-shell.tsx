@@ -1,4 +1,5 @@
 import { Outlet } from "@tanstack/react-router";
+import { BottomNav } from "./bottom-nav";
 import { TopNav } from "./top-nav";
 
 export function AppShell() {
@@ -8,6 +9,7 @@ export function AppShell() {
       <main className="flex-1">
         <Outlet />
       </main>
+      <BottomNav />
     </div>
   );
 }

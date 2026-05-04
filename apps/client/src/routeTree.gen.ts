@@ -22,6 +22,8 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
 import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
 import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
+import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authenticated/_app/watchlist'
+import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
 import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
@@ -100,6 +102,17 @@ const AuthenticatedSettingsOauthCallbackRoute =
     path: '/oauth-callback',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedAppWatchlistRoute =
+  AuthenticatedAppWatchlistRouteImport.update({
+    id: '/watchlist',
+    path: '/watchlist',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppLibraryRoute = AuthenticatedAppLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
 const AuthenticatedSettingsSettingsIndexRoute =
   AuthenticatedSettingsSettingsIndexRouteImport.update({
     id: '/settings/',
@@ -181,6 +194,8 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/library': typeof AuthenticatedAppLibraryRoute
+  '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
@@ -205,6 +220,8 @@ export interface FileRoutesByTo {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/library': typeof AuthenticatedAppLibraryRoute
+  '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
@@ -232,6 +249,8 @@ export interface FileRoutesById {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
+  '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRoute
+  '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
@@ -259,6 +278,8 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
+    | '/library'
+    | '/watchlist'
     | '/oauth-callback'
     | '/setup'
     | '/auth/invite/$token'
@@ -283,6 +304,8 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
+    | '/library'
+    | '/watchlist'
     | '/oauth-callback'
     | '/setup'
     | '/auth/invite/$token'
@@ -309,6 +332,8 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
+    | '/_authenticated/_app/library'
+    | '/_authenticated/_app/watchlist'
     | '/_authenticated/_settings/oauth-callback'
     | '/_authenticated/_settings/setup'
     | '/auth/invite/$token'
@@ -426,6 +451,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsOauthCallbackRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_app/watchlist': {
+      id: '/_authenticated/_app/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/library': {
+      id: '/_authenticated/_app/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthenticatedAppLibraryRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/_settings/settings/': {
       id: '/_authenticated/_settings/settings/'
       path: '/settings'
@@ -514,10 +553,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
+  AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
+  AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
