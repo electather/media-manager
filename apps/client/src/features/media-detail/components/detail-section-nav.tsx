@@ -28,7 +28,7 @@ export function DetailSectionNav({ sections, activeId, onJump }: Props) {
                 key={section.id}
                 type="button"
                 onClick={() => onJump(section.id)}
-                aria-current={isActive ? "true" : undefined}
+                aria-current={isActive ? "location" : undefined}
                 className={cn(
                   "group/section relative shrink-0 cursor-pointer border-0 bg-transparent py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-150",
                   isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground/80",

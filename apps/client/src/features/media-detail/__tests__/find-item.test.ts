@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { MOCK_FEED } from "@/features/home/lib/mock-data";
-import { buildCompositeId, findMediaItem } from "../lib/find-item";
+import { findMediaItem } from "../lib/find-item";
 
 describe("findMediaItem", () => {
   it("resolves the hero by composite id", () => {
@@ -26,12 +26,5 @@ describe("findMediaItem", () => {
 
   it("returns null for unknown ids", () => {
     expect(findMediaItem("movie:not-real")).toBeNull();
-  });
-});
-
-describe("buildCompositeId", () => {
-  it("joins media type and slug with a colon", () => {
-    expect(buildCompositeId("movie", "n-aurora")).toBe("movie:n-aurora");
-    expect(buildCompositeId("tv", "n-portal")).toBe("tv:n-portal");
   });
 });

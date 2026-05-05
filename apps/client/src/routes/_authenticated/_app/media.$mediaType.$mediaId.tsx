@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { MediaDetailPage, buildCompositeId } from "@/features/media-detail";
+import { MediaDetailPage } from "@/features/media-detail";
+import { buildCompositeId } from "@/shared/lib/media-id";
 
 const paramsSchema = z.object({
   mediaType: z.enum(["movie", "tv"]),

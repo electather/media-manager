@@ -5,7 +5,8 @@ import { ModalNote } from "@/shared/components/media-detail-modal/modal-note";
 import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seasons";
 import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
-import { findMediaItem, splitCompositeId } from "../lib/find-item";
+import { splitCompositeId } from "@/shared/lib/media-id";
+import { findMediaItem } from "../lib/find-item";
 import { useActiveSection } from "../hooks/use-active-section";
 import { DetailBreadcrumb } from "./detail-breadcrumb";
 import { DetailCastGrid } from "./detail-cast-grid";
@@ -55,7 +56,7 @@ function scrollToSection(id: string) {
 }
 
 export function MediaDetailPage({ compositeId }: Props) {
-  const item = findMediaItem(compositeId);
+  const item = useMemo(() => findMediaItem(compositeId), [compositeId]);
   const sections = useMemo(() => buildSections(item), [item]);
   const sectionIds = useMemo(() => sections.map((section) => section.id), [sections]);
   const activeId = useActiveSection(sectionIds, SECTION_NAV_OFFSET_PX);

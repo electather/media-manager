@@ -28,7 +28,7 @@ export function DetailHeroBackdrop({ src }: Props) {
         <img
           src={src}
           alt=""
-          className="absolute -bottom-50 left-0 right-0 top-0 size-full scale-[1.06] object-cover will-change-transform [transition:transform_60ms_linear]"
+          className="absolute -bottom-50 left-0 right-0 top-0 size-full object-cover will-change-transform [transition:transform_60ms_linear]"
           style={{ transform: `translate3d(0, ${-offset}px, 0) scale(1.06)` }}
         />
       ) : null}

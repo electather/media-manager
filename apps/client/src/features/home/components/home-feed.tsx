@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { invariant } from "es-toolkit/util";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
+import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { MATCH_REASON_COPY } from "../lib/home-feed-config";
 import type { HomeMediaItem } from "../lib/types";
@@ -60,16 +61,9 @@ export function HomeFeed() {
 
   const handleViewFullPage = useCallback(
     (item: MediaDetailItem) => {
-      const colon = item.id.indexOf(":");
-      if (colon < 0) return;
-      const mediaType = item.id.slice(0, colon);
-      const mediaId = item.id.slice(colon + 1);
-      if (mediaType !== "movie" && mediaType !== "tv") return;
-      if (!mediaId) return;
-      void navigate({
-        to: "/media/$mediaType/$mediaId",
-        params: { mediaType, mediaId },
-      });
+      const parts = splitCompositeId(item.id);
+      if (!parts) return;
+      void navigate({ to: "/media/$mediaType/$mediaId", params: parts });
     },
     [navigate],
   );

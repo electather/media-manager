@@ -3,14 +3,21 @@ import type { HomeMediaItem } from "@/features/home/lib/types";
 
 type CastEntry = { name: string; role: string };
 
-const SUPPORTING_ROLES = [
-  "media_detail_role_lead",
-  "media_detail_role_co_lead",
-  "media_detail_role_supporting",
-  "media_detail_role_supporting",
-  "media_detail_role_recurring",
-  "media_detail_role_recurring",
-] as const satisfies readonly (keyof typeof m)[];
+type RoleKey =
+  | "media_detail_role_lead"
+  | "media_detail_role_co_lead"
+  | "media_detail_role_supporting"
+  | "media_detail_role_recurring"
+  | "media_detail_role_cast";
+
+const ROLE_BY_INDEX: Record<number, RoleKey> = {
+  0: "media_detail_role_lead",
+  1: "media_detail_role_co_lead",
+  2: "media_detail_role_supporting",
+  3: "media_detail_role_supporting",
+  4: "media_detail_role_recurring",
+  5: "media_detail_role_recurring",
+};
 
 function initials(name: string): string {
   return name
@@ -29,7 +36,7 @@ function buildEntries(item: HomeMediaItem): CastEntry[] {
   }
   if (item.cast) {
     item.cast.forEach((name, index) => {
-      const roleKey = SUPPORTING_ROLES[index] ?? "media_detail_role_cast";
+      const roleKey = ROLE_BY_INDEX[index] ?? "media_detail_role_cast";
       entries.push({ name, role: m[roleKey]() });
     });
   }

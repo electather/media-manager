@@ -17,18 +17,3 @@ export function findMediaItem(compositeId: string): HomeMediaItem | null {
   }
   return null;
 }
-
-export function buildCompositeId(mediaType: string, mediaId: string): string {
-  return `${mediaType}:${mediaId}`;
-}
-
-export function splitCompositeId(
-  id: string,
-): { mediaType: "movie" | "tv"; mediaId: string } | null {
-  const colon = id.indexOf(":");
-  if (colon < 0) return null;
-  const mediaType = id.slice(0, colon);
-  const mediaId = id.slice(colon + 1);
-  if ((mediaType !== "movie" && mediaType !== "tv") || !mediaId) return null;
-  return { mediaType, mediaId };
-}
