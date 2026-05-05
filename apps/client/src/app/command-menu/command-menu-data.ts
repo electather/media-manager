@@ -81,13 +81,12 @@ export const COMMAND_SEARCH_MODES: readonly SearchModeItem[] = [
 const THEME_CYCLE = ["system", "light", "dark"] as const;
 export type ThemeName = (typeof THEME_CYCLE)[number];
 
-function isThemeName(value: string | undefined): value is ThemeName {
-  return value !== undefined && (THEME_CYCLE as readonly string[]).includes(value);
-}
-
 export function nextTheme(current: string | undefined): ThemeName {
-  if (!isThemeName(current)) return THEME_CYCLE[0];
-  const idx = THEME_CYCLE.indexOf(current);
+  // Treat a missing theme as the start of the cycle so the user advances to
+  // the next slot. Unknown values fall through to "system" instead of
+  // wrapping into an arbitrary cycle position.
+  const idx = THEME_CYCLE.indexOf((current ?? "system") as ThemeName);
+  if (idx < 0) return "system";
   return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length] as ThemeName;
 }
 
