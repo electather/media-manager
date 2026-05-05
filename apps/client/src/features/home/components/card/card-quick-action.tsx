@@ -26,7 +26,7 @@ export function CardQuickAction({ item, isInWatchlist, onToggle }: Props) {
       onClick={handleClick}
       aria-label={label}
       aria-pressed={isInWatchlist}
-      className="absolute end-2 bottom-2 z-30 inline-flex size-8 items-center justify-center rounded-full border border-border bg-background/60 text-foreground opacity-0 backdrop-blur-md transition-all duration-200 hover:bg-background/85 group-focus-within:opacity-100 group-hover:opacity-100"
+      className="absolute end-2 bottom-2 z-30 inline-flex size-8 items-center justify-center rounded-full border border-border bg-background/70 text-foreground opacity-0 backdrop-blur-md transition-all duration-200 hover:bg-background/90 group-focus-within:opacity-100 group-hover:opacity-100"
     >
       <Icon aria-hidden="true" className="size-4" />
     </button>

@@ -13,7 +13,7 @@ const TONE: Record<CardAvailabilityState["kind"], string> = {
   info: "border-border text-muted-foreground",
 };
 
-function useLabel(state: CardAvailabilityState): string | null {
+function getLabel(state: CardAvailabilityState): string | null {
   if (state.kind === "info") return null;
   if (state.kind === "server")
     return state.serverPicker
@@ -32,7 +32,7 @@ function Glyph({ kind }: { kind: CardAvailabilityState["kind"] }) {
 }
 
 export function CardAvailability({ state }: Props) {
-  const label = useLabel(state);
+  const label = getLabel(state);
   if (label === null) return null;
   return (
     <span

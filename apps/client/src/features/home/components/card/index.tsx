@@ -1,4 +1,3 @@
-import type { KeyboardEvent } from "react";
 import * as m from "@/paraglide/messages";
 import { ROW_ASPECT } from "../../lib/home-feed-config";
 import { deriveCardState } from "../../lib/card-state";
@@ -37,13 +36,6 @@ export function Card({
   const state = deriveCardState(item);
   const showLogo = aspect === "16/9" && Boolean(item.clearLogoText);
 
-  function handleKey(e: KeyboardEvent<HTMLButtonElement>) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onClick?.();
-    }
-  }
-
   return (
     <article data-testid="card" className="group relative isolate flex w-full flex-col">
       <div className="relative">
@@ -58,7 +50,6 @@ export function Card({
       <button
         type="button"
         onClick={onClick}
-        onKeyDown={handleKey}
         aria-label={`${m.home_card_open_details()} ${item.title}`}
         className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />

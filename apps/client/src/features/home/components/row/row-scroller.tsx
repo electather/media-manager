@@ -115,7 +115,7 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
         style={{ scrollbarWidth: "none" }}
       >
         <div className="flex gap-3 ps-0.5">
-          {row.items.length === 0 ? (
+          {items.length === 0 ? (
             Array.from({ length: SKELETON_COUNT }, (_, i) => (
               <div
                 key={i}

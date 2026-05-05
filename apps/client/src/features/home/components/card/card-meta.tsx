@@ -39,7 +39,7 @@ function CardMetaDefault({ item }: { item: HomeMediaItem }) {
 }
 
 function CardMetaProgress({ item }: { item: HomeMediaItem }) {
-  if (!item.progress) return null;
+  if (!item.progress || item.progress.total === 0) return null;
   const percent = Math.round((item.progress.watched / item.progress.total) * 100);
   return (
     <div className="mt-2 flex flex-col gap-0.5 px-0.5">

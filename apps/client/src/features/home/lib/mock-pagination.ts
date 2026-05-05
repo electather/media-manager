@@ -7,6 +7,11 @@ export const PREFETCH_THRESHOLD = 6;
 // Module-scoped so successive page loads across rows generate unique ids.
 let cloneCounter = 0;
 
+/** Test helper: resets the module-scoped clone counter so cloned ids stay deterministic between runs. */
+export function resetMockCounter() {
+  cloneCounter = 0;
+}
+
 /**
  * Mock-only paginator used while the home feed runs against fixture data.
  * Clones existing items with new ids until the row hits MAX_MOCK_ITEMS so we
