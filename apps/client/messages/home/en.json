@@ -6,6 +6,7 @@
   "home_nav_watchlist": "Watchlist",
   "home_nav_label_primary": "Main navigation",
   "home_nav_label_mobile": "Mobile navigation",
+  "home_nav_brand_label": "Media Manager",
 
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_continueWatching_counter": "// {n} in progress",
@@ -39,7 +40,7 @@
   "home_hero_more_info": "More Info",
   "home_hero_dismiss": "Not tonight",
   "home_hero_alternates_label": "Hero alternates",
-  "home_hero_progress_remaining": "{percent}% watched",
+  "home_hero_progress_watched": "{percent}% watched",
 
   "home_card_request": "Request",
   "home_card_add_watchlist": "Add to watchlist",

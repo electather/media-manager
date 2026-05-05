@@ -6,6 +6,7 @@
   "home_nav_watchlist": "TODO",
   "home_nav_label_primary": "TODO",
   "home_nav_label_mobile": "TODO",
+  "home_nav_brand_label": "TODO",
 
   "home_row_continueWatching_header": "TODO",
   "home_row_continueWatching_counter": "TODO",
@@ -39,7 +40,7 @@
   "home_hero_more_info": "TODO",
   "home_hero_dismiss": "TODO",
   "home_hero_alternates_label": "TODO",
-  "home_hero_progress_remaining": "TODO",
+  "home_hero_progress_watched": "TODO",
 
   "home_card_request": "TODO",
   "home_card_add_watchlist": "TODO",

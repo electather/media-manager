@@ -1,4 +1,4 @@
-import { Info, Play, RotateCcw, X } from "lucide-react";
+import { Info, Play, X } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
 import { Button } from "@/shared/ui/button";
@@ -84,17 +84,13 @@ export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
             />
           </div>
           <div className="text-xs text-muted-foreground">
-            {m.home_hero_progress_remaining({ percent: String(percent) })}
+            {m.home_hero_progress_watched({ percent: String(percent) })}
           </div>
         </div>
       ) : null}
       <div className="mt-1 flex flex-wrap items-center gap-3">
         <Button size="lg" className="gap-2">
-          {hasProgress ? (
-            <RotateCcw aria-hidden="true" className="size-4" />
-          ) : (
-            <Play aria-hidden="true" className="size-4 fill-current" />
-          )}
+          <Play aria-hidden="true" className="size-4 fill-current" />
           {hasProgress ? m.home_hero_resume() : m.home_hero_play()}
         </Button>
         <Button size="lg" variant="secondary" className="gap-2" onClick={onMoreInfo}>
