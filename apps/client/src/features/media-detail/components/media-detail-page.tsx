@@ -37,6 +37,16 @@ function buildSections(item: ReturnType<typeof findMediaItem>): Section[] {
   return sections.filter((section): section is Section => section !== null);
 }
 
+/**
+ * `useMockPagination` clones cards with a `#clone-N` id suffix so React keys
+ * stay unique. Strip the suffix before resolving against the data layer or
+ * navigating, so cloned cards still open the original media's detail page.
+ */
+function sourceIdOf(id: string): string {
+  const hash = id.indexOf("#");
+  return hash === -1 ? id : id.slice(0, hash);
+}
+
 function scrollToSection(id: string) {
   const target = document.getElementById(id);
   if (!target) return;
@@ -59,19 +69,23 @@ export function MediaDetailPage({ compositeId }: Props) {
 
   const inWatchlist = item ? watchlist.has(item.id) : false;
 
-  const toggleWatchlist = useCallback(() => {
-    if (!item) return;
+  const toggleWatchlistId = useCallback((id: string) => {
     setWatchlist((prev) => {
       const next = new Set(prev);
-      if (next.has(item.id)) next.delete(item.id);
-      else next.add(item.id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  }, [item]);
+  }, []);
+
+  const toggleWatchlist = useCallback(() => {
+    if (!item) return;
+    toggleWatchlistId(item.id);
+  }, [item, toggleWatchlistId]);
 
   const handleRelatedClick = useCallback(
     (id: string) => {
-      const parts = splitCompositeId(id);
+      const parts = splitCompositeId(sourceIdOf(id));
       if (!parts) return;
       void navigate({
         to: "/media/$mediaType/$mediaId",
@@ -132,7 +146,12 @@ export function MediaDetailPage({ compositeId }: Props) {
           </DetailSection>
 
           <DetailSection id="related" title={m.media_detail_section_related()}>
-            <DetailRelatedRow item={item} onCardClick={handleRelatedClick} />
+            <DetailRelatedRow
+              item={item}
+              watchlist={watchlist}
+              onWatchlistToggle={toggleWatchlistId}
+              onCardClick={handleRelatedClick}
+            />
           </DetailSection>
         </div>
         <div className="hidden lg:block">
