@@ -45,6 +45,7 @@ apps/client/src/
 │   ├── app-shell.tsx
 │   ├── auth-layout.tsx
 │   ├── bottom-nav.tsx
+│   ├── command-menu/                 # ⌘K palette wired to `client-shared-components` provider
 │   ├── nav-items.ts
 │   ├── profile-dropdown.tsx
 │   └── settings-layout.tsx

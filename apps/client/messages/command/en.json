@@ -1,0 +1,64 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "command_menu_title": "Command menu",
+  "command_menu_description": "Quickly jump to a page, search shows or movies, or run an action.",
+
+  "command_menu_trigger_label": "Open command menu",
+
+  "command_menu_search_placeholder": "Search shows, pages, actions…",
+  "command_menu_search_placeholder_tv": "Search TV shows…",
+  "command_menu_search_placeholder_movie": "Search movies…",
+
+  "command_menu_section_search": "Search",
+  "command_menu_section_recent": "Recent",
+  "command_menu_section_pages": "Jump to",
+  "command_menu_section_actions": "Actions",
+  "command_menu_section_media_default": "Shows & Movies",
+  "command_menu_section_media_tv": "TV Shows",
+  "command_menu_section_media_movie": "Movies",
+  "command_menu_section_trending_tv": "Trending TV shows",
+  "command_menu_section_trending_movie": "Trending movies",
+
+  "command_menu_kind_tv": "TV",
+  "command_menu_kind_movie": "Movie",
+  "command_menu_kind_series": "Series",
+  "command_menu_kind_film": "Film",
+
+  "command_menu_scope_clear": "Clear filter",
+  "command_menu_scope_clear_hint": "Backspace clears the filter",
+
+  "command_menu_action_open": "Open",
+  "command_menu_action_go": "Go",
+  "command_menu_action_run": "Run",
+
+  "command_menu_empty_title": "No results for \"{query}\"",
+  "command_menu_empty_subtitle": "Try a different title, page or action.",
+
+  "command_menu_footer_navigate": "navigate",
+  "command_menu_footer_select": "select",
+  "command_menu_footer_close": "close",
+
+  "command_menu_page_home_label": "Home",
+  "command_menu_page_home_hint": "Recommendations & continue watching",
+  "command_menu_page_library_label": "Library",
+  "command_menu_page_library_hint": "All sources, all titles",
+  "command_menu_page_watchlist_label": "Watchlist",
+  "command_menu_page_watchlist_hint": "Saved for later",
+  "command_menu_page_settings_label": "Settings",
+  "command_menu_page_settings_hint": "Account, playback, devices",
+  "command_menu_page_connections_label": "Connections",
+  "command_menu_page_connections_hint": "Manage media sources",
+
+  "command_menu_search_tv_label": "Search TV shows",
+  "command_menu_search_tv_hint": "Browse trending series, or type to search",
+  "command_menu_search_movie_label": "Search movies",
+  "command_menu_search_movie_hint": "Browse trending films, or type to search",
+
+  "command_menu_action_toggle_theme_label": "Toggle theme",
+  "command_menu_action_toggle_theme_hint": "Cycle light, dark and system",
+  "command_menu_action_toggle_theme_toast": "Theme switched to {theme}",
+  "command_menu_action_keyboard_help_label": "Keyboard shortcuts",
+  "command_menu_action_keyboard_help_hint": "Quick reminder — full overlay coming soon",
+  "command_menu_action_keyboard_help_toast": "Press ⌘K or / to open the command menu anywhere"
+}

@@ -15,7 +15,7 @@ export function ModalBackdrop({ src }: { src: string }) {
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, oklch(0 0 0 / 0.45) 0%, oklch(0 0 0 / 0.50) 30%, oklch(0 0 0 / 0.70) 55%, oklch(0 0 0 / 0.86) 80%, oklch(0 0 0 / 0.92) 100%)",
+            "linear-gradient(to bottom, oklch(0 0 0 / 0.60) 0%, oklch(0 0 0 / 0.65) 30%, oklch(0 0 0 / 0.78) 55%, oklch(0 0 0 / 0.90) 80%, oklch(0 0 0 / 0.95) 100%)",
         }}
       />
     </div>

@@ -1,5 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
 import { BottomNav } from "./bottom-nav";
+import { CommandMenu } from "./command-menu";
 import { TopNav } from "./top-nav";
 
 export function AppShell() {
@@ -10,6 +11,7 @@ export function AppShell() {
         <Outlet />
       </main>
       <BottomNav />
+      <CommandMenu />
     </div>
   );
 }
