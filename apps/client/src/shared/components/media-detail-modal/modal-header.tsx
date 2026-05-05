@@ -16,11 +16,13 @@ export function ModalHeader({ item, titleId }: Props) {
   return (
     <header className="flex flex-col gap-3 px-6 sm:px-10">
       <ModalTitle item={item} titleId={titleId} />
+      {/* Rating intentionally omitted — the score card below renders the
+          aggregated rating with a star + vote count, so showing it here too
+          would duplicate. Matches the prototype's modal meta line. */}
       <MediaMetaRow
         year={item.year}
         runtime={item.runtime}
         ageRating={item.ageRating}
-        rating={item.rating}
         genres={item.genres}
         className="text-foreground/80 [text-shadow:0_2px_18px_oklch(0_0_0/0.45)]"
       />

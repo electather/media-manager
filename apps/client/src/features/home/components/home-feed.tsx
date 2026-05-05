@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { invariant } from "es-toolkit/util";
-import { MediaDetailModal } from "@/shared/components/media-detail-modal";
+import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { useHomeFeed } from "../hooks/use-home-feed";
+import { MATCH_REASON_COPY } from "../lib/home-feed-config";
 import type { HomeMediaItem } from "../lib/types";
 import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
@@ -17,6 +18,18 @@ type PeekSearch = { peek?: string };
 function sourceIdOf(id: string): string {
   const hash = id.indexOf("#");
   return hash === -1 ? id : id.slice(0, hash);
+}
+
+/**
+ * Resolves the locale-keyed match reason on a home item into the raw string
+ * the shared `MediaDetailModal` reads. The modal stays feature-agnostic; the
+ * key→copy mapping lives next to the cards that originate it.
+ */
+function toModalItem(item: HomeMediaItem | null): MediaDetailItem | null {
+  if (!item) return null;
+  if (item.matchReason || !item.matchReasonKey) return item;
+  const matchReason = MATCH_REASON_COPY[item.matchReasonKey](item.matchReasonParams ?? {});
+  return { ...item, matchReason };
 }
 
 export function HomeFeed() {
@@ -43,6 +56,7 @@ export function HomeFeed() {
   }, [hero, data.rows]);
 
   const peekItem = peek ? (itemIndex.get(peek) ?? itemIndex.get(sourceIdOf(peek)) ?? null) : null;
+  const modalItem = useMemo(() => toModalItem(peekItem), [peekItem]);
 
   const handlePeek = useCallback(
     (id: string) => {
@@ -85,8 +99,8 @@ export function HomeFeed() {
         ))}
       </div>
       <MediaDetailModal
-        item={peekItem}
-        open={Boolean(peekItem)}
+        item={modalItem}
+        open={Boolean(modalItem)}
         onClose={handleClose}
         inWatchlist={inWatchlist}
         onToggleWatchlist={handleToggleWatchlistFromModal}

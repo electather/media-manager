@@ -41,13 +41,13 @@ describe("ModalScores", () => {
 
   it("formats sub-thousand vote counts without misleading 0.x suffix", () => {
     render(<ModalScores item={{ ...BASE_MOVIE, rating: 8.4, votes: 500 }} />);
-    expect(screen.getByText(/· 500 votes/)).toBeTruthy();
-    expect(screen.queryByText(/0\.5K votes/i)).toBeNull();
+    expect(screen.getByText(/^\(500\)$/)).toBeTruthy();
+    expect(screen.queryByText(/0\.5K/i)).toBeNull();
   });
 
-  it("uses compact notation for thousands+", () => {
+  it("uses compact notation in parens for thousands+", () => {
     render(<ModalScores item={{ ...BASE_MOVIE, rating: 8.4, votes: 12500 }} />);
-    expect(screen.getByText(/· 12K votes|· 13K votes|· 12\.5K votes/)).toBeTruthy();
+    expect(screen.getByText(/^\((?:12K|13K|12\.5K)\)$/)).toBeTruthy();
   });
 });
 

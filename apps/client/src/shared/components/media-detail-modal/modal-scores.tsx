@@ -61,7 +61,7 @@ const VOTES_FORMATTER = new Intl.NumberFormat("en", {
 function VotesText({ votes }: { votes: number }) {
   return (
     <span className="text-xs text-muted-foreground tabular-nums">
-      · {m.home_detail_score_votes({ n: VOTES_FORMATTER.format(votes) })}
+      {m.home_detail_score_votes({ n: VOTES_FORMATTER.format(votes) })}
     </span>
   );
 }

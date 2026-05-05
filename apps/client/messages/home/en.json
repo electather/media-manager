@@ -115,7 +115,7 @@
   "home_detail_score_rating": "Rating",
   "home_detail_score_audience": "Audience",
   "home_detail_score_critics": "Critics",
-  "home_detail_score_votes": "{n} votes",
+  "home_detail_score_votes": "({n})",
   "home_detail_match_reason_kicker": "Why this",
   "home_detail_overview_label": "Overview",
 
