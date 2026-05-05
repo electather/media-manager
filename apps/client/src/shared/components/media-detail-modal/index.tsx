@@ -1,5 +1,7 @@
 import { useId } from "react";
+import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
+import { Sheet, SheetContent } from "@/shared/ui/sheet";
 import { ModalActions } from "./modal-actions";
 import { ModalBackdrop } from "./modal-backdrop";
 import { ModalCredits } from "./modal-credits";
@@ -18,24 +20,45 @@ type Props = {
 };
 
 export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWatchlist }: Props) {
+  const isMobile = useIsMobile();
   const titleId = useId();
 
+  function handleOpenChange(next: boolean) {
+    if (!next) onClose();
+  }
+
+  const body = item ? (
+    <ModalBody
+      key={item.id}
+      item={item}
+      titleId={titleId}
+      inWatchlist={inWatchlist}
+      onToggleWatchlist={onToggleWatchlist}
+    />
+  ) : null;
+
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={handleOpenChange}>
+        <SheetContent
+          side="bottom"
+          aria-labelledby={titleId}
+          className="h-[92svh] max-h-[92svh] gap-0 overflow-hidden rounded-t-3xl border-t-0 bg-card p-0"
+        >
+          {body}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         aria-labelledby={titleId}
         aria-modal="true"
         className="fixed inset-x-0 bottom-0 top-[var(--header-height)] z-50 grid max-h-[calc(100vh-var(--header-height))] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-t-3xl bg-card p-0 ring-0 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-4xl"
       >
-        {item ? (
-          <ModalBody
-            key={item.id}
-            item={item}
-            titleId={titleId}
-            inWatchlist={inWatchlist}
-            onToggleWatchlist={onToggleWatchlist}
-          />
-        ) : null}
+        {body}
       </DialogContent>
     </Dialog>
   );
