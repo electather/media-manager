@@ -59,6 +59,6 @@
   "command_menu_action_toggle_theme_hint": "Cycle light, dark and system",
   "command_menu_action_toggle_theme_toast": "Theme switched to {theme}",
   "command_menu_action_keyboard_help_label": "Keyboard shortcuts",
-  "command_menu_action_keyboard_help_hint": "View all shortcuts",
+  "command_menu_action_keyboard_help_hint": "Quick reminder — full overlay coming soon",
   "command_menu_action_keyboard_help_toast": "Press ⌘K or / to open the command menu anywhere"
 }

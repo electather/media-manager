@@ -3,16 +3,20 @@ import { useCallback, useEffect, useState } from "react";
 const STORAGE_KEY = "media-manager:command-menu:recents";
 const MAX_RECENTS = 5;
 
-function readStorage(): string[] {
-  if (typeof window === "undefined") return [];
+function safeParseRecents(raw: string | null): string[] {
+  if (!raw) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is string => typeof id === "string");
   } catch {
     return [];
   }
+}
+
+function readStorage(): string[] {
+  if (typeof window === "undefined") return [];
+  return safeParseRecents(window.localStorage.getItem(STORAGE_KEY));
 }
 
 function writeStorage(ids: string[]): void {
@@ -27,6 +31,8 @@ function writeStorage(ids: string[]): void {
 export function useRecentItems(): { recents: string[]; pushRecent: (id: string) => void } {
   const [recents, setRecents] = useState<string[]>([]);
 
+  // TODO(cross-tab-sync): listen on `window.addEventListener("storage", ...)`
+  // so a recent added in another tab shows up here without requiring a reload.
   useEffect(() => {
     setRecents(readStorage().slice(0, MAX_RECENTS));
   }, []);

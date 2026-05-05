@@ -81,9 +81,14 @@ export const COMMAND_SEARCH_MODES: readonly SearchModeItem[] = [
 const THEME_CYCLE = ["system", "light", "dark"] as const;
 export type ThemeName = (typeof THEME_CYCLE)[number];
 
+function isThemeName(value: string | undefined): value is ThemeName {
+  return value !== undefined && (THEME_CYCLE as readonly string[]).includes(value);
+}
+
 export function nextTheme(current: string | undefined): ThemeName {
-  const idx = THEME_CYCLE.indexOf((current ?? "system") as ThemeName);
-  return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length] ?? "system";
+  if (!isThemeName(current)) return THEME_CYCLE[0];
+  const idx = THEME_CYCLE.indexOf(current);
+  return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length] as ThemeName;
 }
 
 /**

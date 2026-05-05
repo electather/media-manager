@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, CornerDownLeft, Film, SearchIcon, Tv, X } from 
 import { useTheme } from "next-themes";
 import {
   type KeyboardEvent,
+  type ReactNode,
   type Ref,
   useCallback,
   useEffect,
@@ -34,11 +35,14 @@ import type {
   MediaItem,
   PageItem,
   SearchModeItem,
+  StaticMessageKey,
 } from "./types";
+import { useCommandMenuShortcuts } from "./use-command-menu-shortcuts";
 import { useMediaPool } from "./use-media-pool";
 import { useRecentItems } from "./use-recent-items";
 
-const OPEN_EVENT = "nama:open-command";
+const TRENDING_LIMIT = 8;
+const RECENTS_LIMIT = 4;
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
@@ -69,40 +73,9 @@ export function CommandMenu() {
     setScope(null);
   }, [open]);
 
-  // Global shortcuts: ⌘K / Ctrl+K toggles, "/" opens (when not typing).
-  useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && (event.key === "k" || event.key === "K")) {
-        event.preventDefault();
-        setOpen((prev) => !prev);
-        return;
-      }
-      if (open) return;
-      if (event.key !== "/") return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      const tag = target?.tagName ?? "";
-      if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
-      event.preventDefault();
-      setOpen(true);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  // Allow non-React triggers (e.g. the search button in the top nav) to open
-  // the menu by dispatching a custom event.
-  useEffect(() => {
-    const onOpen = () => setOpen(true);
-    window.addEventListener(OPEN_EVENT, onOpen);
-    return () => window.removeEventListener(OPEN_EVENT, onOpen);
-  }, []);
+  useCommandMenuShortcuts(open, setOpen);
 
   const close = useCallback(() => setOpen(false), []);
-
-  const focusInput = useCallback(() => {
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
 
   const handleSelectPage = useCallback(
     (page: PageItem) => {
@@ -112,18 +85,15 @@ export function CommandMenu() {
     [close, navigate],
   );
 
-  const handleSelectSearchMode = useCallback(
-    (mode: SearchModeItem) => {
-      setScope(mode.scope);
-      setValue("");
-      focusInput();
-    },
-    [focusInput],
-  );
+  const handleSelectSearchMode = useCallback((mode: SearchModeItem) => {
+    setScope(mode.scope);
+    setValue("");
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
 
   const handleSelectAction = useCallback(
     (action: ActionItem) => {
-      const ctx: ActionContext = { setScope, close };
+      const ctx: ActionContext = { setScope };
       action.run(ctx);
       close();
     },
@@ -133,10 +103,10 @@ export function CommandMenu() {
   const handleSelectMedia = useCallback(
     (item: MediaItem) => {
       pushRecent(item.id);
-      // Navigate to the current route with `?peek=<id>` — `_authenticated`
-      // validates the search param and the `MediaDetailModal` mounted under
-      // the home feed reads it. Closing the menu lets the modal take focus.
-      void navigate({ to: ".", search: { peek: item.id }, replace: false });
+      // The `MediaDetailModal` is mounted inside `HomeFeed`, so peek only
+      // resolves on the home route. Always land on `/` so a media pick from
+      // any authenticated page still opens the modal.
+      void navigate({ to: "/", search: { peek: item.id } });
       close();
     },
     [close, navigate, pushRecent],
@@ -154,36 +124,7 @@ export function CommandMenu() {
     [scope, value],
   );
 
-  const showSearchModes = !scope && !value;
-  const showRecent = !scope && !value && recents.length > 0;
-  const showActions = !scope;
-  const showPages = !scope;
-  const showTrending = scope !== null && !value;
-
-  const recentItems = useMemo(
-    () => recents.map((id) => pool.find((p) => p.id === id)).filter((x): x is MediaItem => x != null),
-    [pool, recents],
-  );
-
-  const trendingScoped = useMemo(() => {
-    if (!scope) return [] as MediaItem[];
-    const seen = new Set<string>();
-    const out: MediaItem[] = [];
-    const push = (item: MediaItem) => {
-      if (item.mediaType === scope && !seen.has(item.id)) {
-        seen.add(item.id);
-        out.push(item);
-      }
-    };
-    trending.forEach(push);
-    if (out.length < 8) pool.forEach(push);
-    return out.slice(0, 8);
-  }, [pool, scope, trending]);
-
-  const mediaPool = useMemo(
-    () => (scope ? pool.filter((item) => item.mediaType === scope) : pool),
-    [pool, scope],
-  );
+  const sections = useSections({ scope, value, recents, pool, trending });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -212,7 +153,7 @@ export function CommandMenu() {
               </div>
             </CommandEmpty>
 
-            {showSearchModes && (
+            {sections.showSearchModes && (
               <CommandGroup heading={t("command_menu_section_search")}>
                 {COMMAND_SEARCH_MODES.map((mode) => (
                   <CommandItem
@@ -228,9 +169,9 @@ export function CommandMenu() {
               </CommandGroup>
             )}
 
-            {showRecent && (
+            {sections.recentItems.length > 0 && (
               <CommandGroup heading={t("command_menu_section_recent")}>
-                {recentItems.slice(0, 4).map((item) => (
+                {sections.recentItems.map((item) => (
                   <MediaRow
                     key={`recent:${item.id}`}
                     item={item}
@@ -240,7 +181,7 @@ export function CommandMenu() {
               </CommandGroup>
             )}
 
-            {showPages && (
+            {sections.showPages && (
               <CommandGroup heading={t("command_menu_section_pages")}>
                 {COMMAND_PAGES.map((page) => (
                   <CommandItem
@@ -256,9 +197,9 @@ export function CommandMenu() {
               </CommandGroup>
             )}
 
-            {showTrending && trendingScoped.length > 0 && (
+            {sections.trendingItems.length > 0 && (
               <CommandGroup heading={t(getTrendingHeadingKey(scope))}>
-                {trendingScoped.map((item) => (
+                {sections.trendingItems.map((item) => (
                   <MediaRow
                     key={`trending:${item.id}`}
                     item={item}
@@ -268,9 +209,9 @@ export function CommandMenu() {
               </CommandGroup>
             )}
 
-            {!showTrending && mediaPool.length > 0 && (
+            {sections.mediaItems.length > 0 && (
               <CommandGroup heading={t(getMediaHeadingKey(scope))}>
-                {mediaPool.map((item) => (
+                {sections.mediaItems.map((item) => (
                   <MediaRow
                     key={`media:${item.id}`}
                     item={item}
@@ -280,7 +221,7 @@ export function CommandMenu() {
               </CommandGroup>
             )}
 
-            {showActions && (
+            {sections.showActions && (
               <CommandGroup heading={t("command_menu_section_actions")}>
                 {actions.map((action) => (
                   <CommandItem
@@ -302,6 +243,50 @@ export function CommandMenu() {
       </DialogContent>
     </Dialog>
   );
+}
+
+type SectionsInput = {
+  scope: CommandScope;
+  value: string;
+  recents: string[];
+  pool: MediaItem[];
+  trending: MediaItem[];
+};
+
+function useSections({ scope, value, recents, pool, trending }: SectionsInput) {
+  const showSearchModes = scope === null && !value;
+  const showPages = scope === null;
+  const showActions = scope === null;
+  const showTrending = scope !== null && !value;
+
+  const recentItems = useMemo(() => {
+    if (scope || value) return [] as MediaItem[];
+    return recents
+      .map((id) => pool.find((item) => item.id === id))
+      .filter((x): x is MediaItem => x != null)
+      .slice(0, RECENTS_LIMIT);
+  }, [pool, recents, scope, value]);
+
+  const trendingItems = useMemo(() => {
+    if (!showTrending || !scope) return [] as MediaItem[];
+    const seen = new Set<string>();
+    const out: MediaItem[] = [];
+    const push = (item: MediaItem) => {
+      if (item.mediaType !== scope || seen.has(item.id)) return;
+      seen.add(item.id);
+      out.push(item);
+    };
+    trending.forEach(push);
+    if (out.length < TRENDING_LIMIT) pool.forEach(push);
+    return out.slice(0, TRENDING_LIMIT);
+  }, [pool, scope, showTrending, trending]);
+
+  const mediaItems = useMemo(() => {
+    if (showTrending) return [] as MediaItem[];
+    return scope ? pool.filter((item) => item.mediaType === scope) : pool;
+  }, [pool, scope, showTrending]);
+
+  return { showSearchModes, showPages, showActions, recentItems, trendingItems, mediaItems };
 }
 
 type CommandSearchHeaderProps = {
@@ -378,16 +363,14 @@ function ScopeChip({ scope, onClear }: { scope: Exclude<CommandScope, null>; onC
   );
 }
 
-function getMediaHeadingKey(scope: CommandScope) {
-  if (scope === "tv") return "command_menu_section_media_tv" as const;
-  if (scope === "movie") return "command_menu_section_media_movie" as const;
-  return "command_menu_section_media_default" as const;
+function getMediaHeadingKey(scope: CommandScope): StaticMessageKey {
+  if (scope === "tv") return "command_menu_section_media_tv";
+  if (scope === "movie") return "command_menu_section_media_movie";
+  return "command_menu_section_media_default";
 }
 
-function getTrendingHeadingKey(scope: CommandScope) {
-  return scope === "tv"
-    ? ("command_menu_section_trending_tv" as const)
-    : ("command_menu_section_trending_movie" as const);
+function getTrendingHeadingKey(scope: CommandScope): StaticMessageKey {
+  return scope === "tv" ? "command_menu_section_trending_tv" : "command_menu_section_trending_movie";
 }
 
 function MediaRow({ item, onSelect }: { item: MediaItem; onSelect: () => void }) {
@@ -414,7 +397,7 @@ function MediaThumb({ item }: { item: MediaItem }) {
   return (
     <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
       {src ? (
-        <img src={src} alt="" loading="lazy" className="size-full object-cover" />
+        <img src={src} alt={item.title} loading="lazy" className="size-full object-cover" />
       ) : (
         <Icon className="size-3.5 text-muted-foreground" />
       )}
@@ -422,15 +405,16 @@ function MediaThumb({ item }: { item: MediaItem }) {
   );
 }
 
+function mediaGenresLabel(item: MediaItem): string {
+  const genres = (item.genres ?? []).slice(0, 2).filter(Boolean);
+  if (genres.length > 0) return genres.join(" · ");
+  return item.mediaType === "tv" ? m.command_menu_kind_series() : m.command_menu_kind_film();
+}
+
 function mediaSubtitle(item: MediaItem): string {
   const parts: string[] = [];
   if (item.year) parts.push(String(item.year));
-  const genres = (item.genres ?? []).slice(0, 2).filter(Boolean);
-  if (genres.length > 0) {
-    parts.push(genres.join(" · "));
-  } else {
-    parts.push(item.mediaType === "tv" ? m.command_menu_kind_series() : m.command_menu_kind_film());
-  }
+  parts.push(mediaGenresLabel(item));
   if (item.runtime) parts.push(item.runtime);
   return parts.join(" · ");
 }
@@ -481,7 +465,7 @@ function RowContent({
 }: {
   label: string;
   hint: string;
-  badge?: React.ReactNode;
+  badge?: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
