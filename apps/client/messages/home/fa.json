@@ -58,14 +58,32 @@
   "home_card_episode_label": "TODO",
 
   "home_detail_request": "TODO",
+  "home_detail_watch": "TODO",
   "home_detail_watchlist_add": "TODO",
   "home_detail_watchlist_remove": "TODO",
   "home_detail_trailer": "TODO",
+  "home_detail_close": "TODO",
 
   "home_detail_season_available": "TODO",
   "home_detail_season_requested": "TODO",
   "home_detail_season_unavailable": "TODO",
   "home_detail_season_upcoming": "TODO",
+  "home_detail_season_partial": "TODO",
+  "home_detail_season_request_missing": "TODO",
+  "home_detail_season_of_episodes": "TODO",
+  "home_detail_season_subline_upcoming": "TODO",
+  "home_detail_season_subline_requested": "TODO",
+  "home_detail_season_subline_upcoming_count": "TODO",
+
+  "home_detail_series_label": "TODO",
+  "home_detail_series_ongoing": "TODO",
+  "home_detail_series_finished": "TODO",
+  "home_detail_next_air_date": "TODO",
+
+  "home_detail_episode_status_available": "TODO",
+  "home_detail_episode_status_requested": "TODO",
+  "home_detail_episode_status_unavailable": "TODO",
+  "home_detail_episode_status_upcoming": "TODO",
 
   "home_detail_director": "TODO",
   "home_detail_cast": "TODO",
@@ -74,6 +92,32 @@
   "home_detail_season_number": "TODO",
   "home_detail_season_episode_count": "TODO",
   "home_detail_season_episode_label": "TODO",
+  "home_detail_season_episodes_pending": "TODO",
+
+  "home_detail_feedback_label": "TODO",
+  "home_detail_feedback_like": "TODO",
+  "home_detail_feedback_dislike": "TODO",
+  "home_detail_feedback_note": "TODO",
+  "home_detail_feedback_note_added": "TODO",
+  "home_detail_feedback_note_add_label": "TODO",
+  "home_detail_feedback_note_edit_label": "TODO",
+  "home_detail_feedback_tagline": "TODO",
+
+  "home_detail_note_label": "TODO",
+  "home_detail_note_add_prompt": "TODO",
+  "home_detail_note_placeholder": "TODO",
+  "home_detail_note_sentiment": "TODO",
+  "home_detail_note_save": "TODO",
+  "home_detail_note_cancel": "TODO",
+  "home_detail_note_edit": "TODO",
+  "home_detail_note_edit_label": "TODO",
+
+  "home_detail_score_rating": "TODO",
+  "home_detail_score_audience": "TODO",
+  "home_detail_score_critics": "TODO",
+  "home_detail_score_votes": "TODO",
+  "home_detail_match_reason_kicker": "TODO",
+  "home_detail_overview_label": "TODO",
 
   "home_row_partial_warning": "TODO"
 }
