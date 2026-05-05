@@ -6,7 +6,11 @@ import { ModalActions } from "./modal-actions";
 import { ModalBackdrop } from "./modal-backdrop";
 import { ModalCredits } from "./modal-credits";
 import { ModalHeader } from "./modal-header";
+import { ModalMatchReason } from "./modal-match-reason";
+import { ModalScores } from "./modal-scores";
 import { ModalSeasons } from "./modal-seasons";
+import { ModalTags } from "./modal-tags";
+import { ModalTopbar } from "./modal-topbar";
 import type { MediaDetailItem } from "./types";
 
 export type { MediaDetailItem } from "./types";
@@ -18,6 +22,15 @@ type Props = {
   inWatchlist: boolean;
   onToggleWatchlist: () => void;
 };
+
+// Desktop dialog only renders above the mobile breakpoint (see `useIsMobile`),
+// so the desktop shell can stay centered. We override the base dialog
+// padding/grid so the modal-scroll container can run edge-to-edge inside it.
+const DESKTOP_SHELL_CLASS =
+  "flex max-h-[90vh] w-[min(48rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl bg-card p-0 ring-1 ring-border";
+
+const MOBILE_SHELL_CLASS =
+  "h-[92svh] max-h-[92svh] gap-0 overflow-hidden rounded-t-3xl border-t-0 bg-card p-0";
 
 export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWatchlist }: Props) {
   const isMobile = useIsMobile();
@@ -43,7 +56,9 @@ export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWat
         <SheetContent
           side="bottom"
           aria-labelledby={titleId}
-          className="h-[92svh] max-h-[92svh] gap-0 overflow-hidden rounded-t-3xl border-t-0 bg-card p-0"
+          aria-modal="true"
+          showCloseButton={false}
+          className={MOBILE_SHELL_CLASS}
         >
           {body}
         </SheetContent>
@@ -56,7 +71,8 @@ export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWat
       <DialogContent
         aria-labelledby={titleId}
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 top-[var(--header-height)] z-50 grid max-h-[calc(100vh-var(--header-height))] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-t-3xl bg-card p-0 ring-0 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-4xl"
+        showCloseButton={false}
+        className={DESKTOP_SHELL_CLASS}
       >
         {body}
       </DialogContent>
@@ -78,19 +94,33 @@ function ModalBody({
   return (
     <article
       data-testid="media-detail-modal"
-      className="modal-scroll relative flex h-full flex-col overflow-y-auto"
+      className="modal-scroll relative isolate flex h-full flex-col overflow-x-hidden overflow-y-auto"
     >
       {item.backdrop ? <ModalBackdrop src={item.backdrop} /> : null}
-      <div className="pt-32 sm:pt-48" />
-      <ModalHeader item={item} titleId={titleId} />
-      {item.overview ? (
-        <p className="px-6 py-4 text-sm leading-relaxed text-muted-foreground sm:px-10 sm:text-base">
-          {item.overview}
-        </p>
-      ) : null}
-      <ModalActions item={item} inWatchlist={inWatchlist} onToggleWatchlist={onToggleWatchlist} />
-      <ModalCredits item={item} />
-      <ModalSeasons item={item} />
+      <ModalTopbar item={item} />
+      {/* Hero spacer keeps the cinematic backdrop visible above the content
+          surface; height mirrors the prototype's modal-hero-spacer
+          (240px mobile / 320px desktop minus topbar height). */}
+      <div aria-hidden="true" className="h-44 shrink-0 sm:h-64" />
+      <div className="relative flex flex-col gap-5 bg-gradient-to-b from-card/0 via-card/85 to-card pb-10 pt-6 sm:gap-6 sm:pt-8">
+        <ModalHeader item={item} titleId={titleId} />
+        <ModalActions item={item} inWatchlist={inWatchlist} onToggleWatchlist={onToggleWatchlist} />
+        <ModalScores item={item} />
+        <ModalTags item={item} />
+        <Overview value={item.overview} />
+        <ModalCredits item={item} />
+        <ModalSeasons item={item} />
+        <ModalMatchReason reason={item.matchReason} />
+      </div>
     </article>
+  );
+}
+
+function Overview({ value }: { value: string | undefined }) {
+  if (!value) return null;
+  return (
+    <p className="max-w-prose px-6 text-pretty text-sm leading-relaxed text-foreground/85 sm:px-10 sm:text-base">
+      {value}
+    </p>
   );
 }

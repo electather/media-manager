@@ -2,7 +2,6 @@ import { ChevronDown } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
-import { cn } from "@/shared/lib/utils";
 import type { MediaDetailItem } from "./types";
 
 type SeasonStatus = "available" | "requested" | "unavailable" | "upcoming";
@@ -65,7 +64,7 @@ export function ModalSeasons({ item }: { item: MediaDetailItem }) {
   return (
     <section
       aria-label={m.home_detail_seasons_label()}
-      className="flex flex-col gap-2 px-6 pb-10 sm:px-10"
+      className="flex flex-col gap-2 px-6 sm:px-10"
     >
       {seasons.map((season, index) => (
         <SeasonRow key={season.id} season={season} defaultOpen={index === seasons.length - 1} />
@@ -76,12 +75,11 @@ export function ModalSeasons({ item }: { item: MediaDetailItem }) {
 
 function SeasonRow({ season, defaultOpen }: { season: Season; defaultOpen: boolean }) {
   return (
-    <Collapsible defaultOpen={defaultOpen}>
-      <CollapsibleTrigger
-        className={cn(
-          "group flex w-full items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-start transition-colors hover:bg-muted",
-        )}
-      >
+    <Collapsible
+      defaultOpen={defaultOpen}
+      className="overflow-hidden rounded-xl border border-border bg-card/80"
+    >
+      <CollapsibleTrigger className="group flex w-full items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-muted/40">
         <ChevronDown
           aria-hidden="true"
           className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180"
@@ -98,17 +96,17 @@ function SeasonRow({ season, defaultOpen }: { season: Season; defaultOpen: boole
           {STATUS_LABEL[season.status]()}
         </Badge>
       </CollapsibleTrigger>
-      <CollapsibleContent className="px-4 py-3 text-sm text-muted-foreground">
+      <CollapsibleContent className="border-t border-border/60 bg-background/30 px-4 py-3 text-sm text-muted-foreground">
         <ul className="flex flex-col gap-2">
           {Array.from({ length: season.episodeCount }, (_, idx) => (
             <li
               key={idx}
-              className="flex items-center justify-between border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
+              className="flex items-center gap-3 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
             >
               <span className="font-mono text-xs tabular-nums text-muted-foreground">
                 {String(idx + 1).padStart(2, "0")}
               </span>
-              <span className="ms-3 flex-1 truncate text-foreground/90">
+              <span className="ms-1 flex-1 truncate text-foreground/90">
                 {m.home_detail_season_episode_label({ n: String(idx + 1) })}
               </span>
             </li>

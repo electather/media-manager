@@ -61,6 +61,7 @@
   "home_detail_watchlist_add": "TODO",
   "home_detail_watchlist_remove": "TODO",
   "home_detail_trailer": "TODO",
+  "home_detail_close": "TODO",
 
   "home_detail_season_available": "TODO",
   "home_detail_season_requested": "TODO",
@@ -74,6 +75,13 @@
   "home_detail_season_number": "TODO",
   "home_detail_season_episode_count": "TODO",
   "home_detail_season_episode_label": "TODO",
+
+  "home_detail_score_rating": "TODO",
+  "home_detail_score_audience": "TODO",
+  "home_detail_score_critics": "TODO",
+  "home_detail_score_votes": "TODO",
+  "home_detail_match_reason_kicker": "TODO",
+  "home_detail_overview_label": "TODO",
 
   "home_row_partial_warning": "TODO"
 }

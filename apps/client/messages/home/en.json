@@ -61,6 +61,7 @@
   "home_detail_watchlist_add": "Add to Watchlist",
   "home_detail_watchlist_remove": "Remove from Watchlist",
   "home_detail_trailer": "Trailer",
+  "home_detail_close": "Close",
 
   "home_detail_season_available": "Available",
   "home_detail_season_requested": "Requested",
@@ -74,6 +75,13 @@
   "home_detail_season_number": "Season {n}",
   "home_detail_season_episode_count": "{n} episodes",
   "home_detail_season_episode_label": "Episode {n}",
+
+  "home_detail_score_rating": "Rating",
+  "home_detail_score_audience": "Audience",
+  "home_detail_score_critics": "Critics",
+  "home_detail_score_votes": "{n}k votes",
+  "home_detail_match_reason_kicker": "Why this",
+  "home_detail_overview_label": "Overview",
 
   "home_row_partial_warning": "Some results may be incomplete"
 }

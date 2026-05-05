@@ -30,35 +30,35 @@ export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
   return (
     <div className="flex flex-wrap gap-2 px-6 sm:px-10">
       {requested ? (
-        <Button size="lg" variant="secondary" disabled className="gap-2">
-          <Check aria-hidden="true" className="size-4" />
+        <Button size="lg" variant="secondary" disabled>
+          <Check aria-hidden="true" />
           {m.home_card_requested()}
         </Button>
       ) : (
-        <Button size="lg" className="gap-2" onClick={() => setRequested(true)}>
-          <Play aria-hidden="true" className="size-4 fill-current" />
+        <Button size="lg" onClick={() => setRequested(true)}>
+          <Play aria-hidden="true" className="fill-current" />
           {m.home_detail_request()}
         </Button>
       )}
       <Button
         size="lg"
         variant="outline"
-        className="gap-2"
         aria-pressed={inWatchlist}
         onClick={onToggleWatchlist}
+        className="bg-card/40 supports-backdrop-filter:bg-card/30 supports-backdrop-filter:backdrop-blur"
       >
-        <Bookmark aria-hidden="true" className={inWatchlist ? "size-4 fill-current" : "size-4"} />
+        <Bookmark aria-hidden="true" className={inWatchlist ? "fill-current" : undefined} />
         {inWatchlist ? m.home_detail_watchlist_remove() : m.home_detail_watchlist_add()}
       </Button>
       <Button
         size="lg"
         variant="ghost"
-        className="gap-2"
         type="button"
         onClick={openTrailer}
         disabled={!trailerOk}
+        className="bg-card/40 supports-backdrop-filter:bg-card/30 supports-backdrop-filter:backdrop-blur"
       >
-        <Film aria-hidden="true" className="size-4" />
+        <Film aria-hidden="true" />
         {m.home_detail_trailer()}
       </Button>
     </div>
