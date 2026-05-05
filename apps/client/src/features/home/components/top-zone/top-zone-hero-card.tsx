@@ -1,4 +1,4 @@
-import { Info, Play, X } from "lucide-react";
+import { Info, Play, RotateCcw, X } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
 import { Button } from "@/shared/ui/button";
@@ -22,19 +22,40 @@ function formatKicker(state: CardAvailabilityState): string | null {
   return null;
 }
 
+function progressPercent(progress: HomeMediaItem["progress"]): number | null {
+  if (!progress) return null;
+  const { watched, total } = progress;
+  if (!total || total <= 0) return null;
+  return Math.max(0, Math.min(100, Math.round((watched / total) * 100)));
+}
+
 export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
   const state = deriveCardState(hero);
   const reason = hero.matchReasonKey
     ? MATCH_REASON_COPY[hero.matchReasonKey](hero.matchReasonParams ?? {})
     : null;
   const kicker = formatKicker(state);
+  const percent = progressPercent(hero.progress);
+  const hasProgress = percent !== null;
 
   return (
-    <div className="relative z-10 flex min-h-[420px] flex-col justify-end gap-4 px-6 py-10 sm:min-h-[520px] sm:px-10 sm:py-14 lg:max-w-3xl">
-      {kicker ? (
-        <div className="font-mono text-xs uppercase tracking-widest text-primary">{kicker}</div>
+    <div className="relative z-10 flex min-h-[420px] flex-col justify-end gap-3 px-6 py-10 sm:min-h-[520px] sm:px-10 sm:py-14 lg:max-w-3xl">
+      {hero.clearLogoText ? (
+        <div
+          aria-hidden="true"
+          className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-foreground/85 drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-sm"
+        >
+          {hero.clearLogoText}
+        </div>
       ) : null}
-      <HeroTitle hero={hero} />
+      {kicker ? (
+        <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/40 bg-primary/15 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-widest text-primary">
+          {kicker}
+        </div>
+      ) : null}
+      <h1 className="font-heading text-3xl font-semibold leading-[1.05] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl">
+        {hero.title}
+      </h1>
       <MediaMetaRow
         year={hero.year}
         runtime={hero.runtime}
@@ -48,10 +69,33 @@ export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
         </p>
       ) : null}
       {reason ? <p className="text-sm text-muted-foreground/85">{reason}</p> : null}
-      <div className="flex flex-wrap items-center gap-3">
+      {hasProgress ? (
+        <div className="flex w-full max-w-md flex-col gap-1.5">
+          <div
+            className="h-1 w-full overflow-hidden rounded-full bg-foreground/15"
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className="h-full rounded-full bg-progress-watched"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {m.home_hero_progress_remaining({ percent: String(percent) })}
+          </div>
+        </div>
+      ) : null}
+      <div className="mt-1 flex flex-wrap items-center gap-3">
         <Button size="lg" className="gap-2">
-          <Play aria-hidden="true" className="size-4 fill-current" />
-          {m.home_hero_play()}
+          {hasProgress ? (
+            <RotateCcw aria-hidden="true" className="size-4" />
+          ) : (
+            <Play aria-hidden="true" className="size-4 fill-current" />
+          )}
+          {hasProgress ? m.home_hero_resume() : m.home_hero_play()}
         </Button>
         <Button size="lg" variant="secondary" className="gap-2" onClick={onMoreInfo}>
           <Info aria-hidden="true" className="size-4" />
@@ -70,23 +114,5 @@ export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
         ) : null}
       </div>
     </div>
-  );
-}
-
-function HeroTitle({ hero }: { hero: HomeMediaItem }) {
-  if (hero.clearLogoText) {
-    return (
-      <h1
-        aria-label={hero.title}
-        className="font-mono text-3xl font-bold tracking-[0.18em] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl"
-      >
-        {hero.clearLogoText}
-      </h1>
-    );
-  }
-  return (
-    <h1 className="font-heading text-3xl font-semibold text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl">
-      {hero.title}
-    </h1>
   );
 }

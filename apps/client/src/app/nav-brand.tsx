@@ -10,6 +10,9 @@ export function NavBrand({ scrolled }: { scrolled: boolean }) {
       >
         <Logo className="size-6.5" />
       </span>
+      <span className="hidden text-base font-semibold leading-none tracking-[-0.015em] text-foreground sm:inline">
+        Media Manager
+      </span>
     </Link>
   );
 }

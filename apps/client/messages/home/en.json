@@ -9,7 +9,11 @@
 
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_continueWatching_counter": "// {n} in progress",
+  "home_row_nextInYourShows_header": "Next in your shows",
+  "home_row_nextInYourShows_subtitle": "Themed picks from your recent finish",
   "home_row_recommendedForYou_header": "Recommended for you",
+  "home_row_tvShowsToRequest_header": "TV shows to request",
+  "home_row_moviesToRequest_header": "Movies to request",
   "home_row_trendingNow_header": "Trending now",
   "home_row_newReleases_header": "New releases",
   "home_row_becauseYouWatched_header": "Because you watched {seedTitle}",
@@ -31,9 +35,11 @@
   "home_match_reason_finishing_soon": "Almost finished.",
 
   "home_hero_play": "Play",
+  "home_hero_resume": "Resume",
   "home_hero_more_info": "More Info",
   "home_hero_dismiss": "Not tonight",
   "home_hero_alternates_label": "Hero alternates",
+  "home_hero_progress_remaining": "{percent}% watched",
 
   "home_card_request": "Request",
   "home_card_add_watchlist": "Add to watchlist",

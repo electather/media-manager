@@ -65,6 +65,12 @@ export type RowData = {
   items: HomeMediaItem[];
   /** Derived client-side via ROW_ASPECT — not present in the wire format. */
   defaultAspect: "16/9" | "2/3";
+  /**
+   * Optional UI-only header override. When two rows share the same `kind`
+   * (e.g. two `continueWatching` rows representing different intents), pass
+   * a distinct i18n message key so the headings stay readable.
+   */
+  headerKey?: string;
 };
 
 /**

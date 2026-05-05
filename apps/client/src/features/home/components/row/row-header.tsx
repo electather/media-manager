@@ -9,9 +9,13 @@ interface RowHeaderProps {
 /** Heading + optional subtitle + optional counter chip + partial-warning indicator. */
 export function RowHeader({ row }: RowHeaderProps) {
   const copy = ROW_COPY[row.kind];
-  const headerFn = m[copy.headerKey] as (params?: Record<string, string>) => string;
+  const headerKey = (row.headerKey ?? copy.headerKey) as keyof typeof m;
+  const headerFn = m[headerKey] as (params?: Record<string, string>) => string;
   const heading = headerFn(row.seedTitle ? { seedTitle: row.seedTitle } : {});
-  const subtitleFn = copy.subtitleKey ? (m[copy.subtitleKey] as () => string) : null;
+  const subtitleKey = row.headerKey
+    ? (`${row.headerKey.replace(/_header$/, "")}_subtitle` as keyof typeof m)
+    : copy.subtitleKey;
+  const subtitleFn = subtitleKey && subtitleKey in m ? (m[subtitleKey] as () => string) : null;
   const subtitle = subtitleFn ? subtitleFn() : null;
 
   return (
