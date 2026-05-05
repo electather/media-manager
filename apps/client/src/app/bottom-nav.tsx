@@ -1,15 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
+import { useHideOnScrollDown } from "@/shared/hooks/use-hide-on-scroll-down";
 import { NAV_ITEMS, useActiveNavIndex } from "./nav-items";
 import { NavPill } from "./nav-pill";
 
 export function BottomNav() {
   const idx = useActiveNavIndex();
+  const hidden = useHideOnScrollDown();
 
   return (
     <nav
+      data-hidden={hidden}
       aria-label={m.home_nav_label_mobile()}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.2,.7,.2,1)] data-[hidden=true]:pointer-events-none data-[hidden=true]:translate-y-full data-[hidden=true]:opacity-0 md:hidden"
     >
       <div className="pointer-events-auto relative isolate w-full max-w-sm">
         {idx >= 0 && (
