@@ -1,6 +1,7 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { Film, Tv, X } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import type { MediaDetailItem } from "./types";
 
@@ -54,9 +55,12 @@ function KindBadge({ kind }: { kind: MediaDetailItem["mediaType"] }) {
   const Icon = kind === "movie" ? Film : Tv;
   const label = kind === "movie" ? m.home_card_kind_movie() : m.home_card_kind_tv();
   return (
-    <span className="relative inline-flex items-center gap-1.5 rounded-full border border-foreground/15 bg-black/55 px-2.5 py-1 font-mono text-[10px] font-medium tracking-[0.08em] text-foreground uppercase supports-backdrop-filter:backdrop-blur">
-      <Icon aria-hidden="true" className="size-3" />
+    <Badge
+      variant="glass"
+      className="relative gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] tracking-[0.08em] uppercase"
+    >
+      <Icon aria-hidden="true" />
       {label}
-    </span>
+    </Badge>
   );
 }

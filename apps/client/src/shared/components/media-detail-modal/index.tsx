@@ -7,6 +7,7 @@ import { ModalBackdrop } from "./modal-backdrop";
 import { ModalCredits } from "./modal-credits";
 import { ModalHeader } from "./modal-header";
 import { ModalMatchReason } from "./modal-match-reason";
+import { ModalOverview } from "./modal-overview";
 import { ModalScores } from "./modal-scores";
 import { ModalSeasons } from "./modal-seasons";
 import { ModalTags } from "./modal-tags";
@@ -107,20 +108,11 @@ function ModalBody({
         <ModalActions item={item} inWatchlist={inWatchlist} onToggleWatchlist={onToggleWatchlist} />
         <ModalScores item={item} />
         <ModalTags item={item} />
-        <Overview value={item.overview} />
+        <ModalOverview item={item} />
         <ModalCredits item={item} />
         <ModalSeasons item={item} />
         <ModalMatchReason reason={item.matchReason} />
       </div>
     </article>
-  );
-}
-
-function Overview({ value }: { value: string | undefined }) {
-  if (!value) return null;
-  return (
-    <p className="max-w-prose px-6 text-pretty text-sm leading-relaxed text-foreground/85 sm:px-10 sm:text-base">
-      {value}
-    </p>
   );
 }

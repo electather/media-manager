@@ -75,11 +75,12 @@
   "home_detail_season_number": "Season {n}",
   "home_detail_season_episode_count": "{n} episodes",
   "home_detail_season_episode_label": "Episode {n}",
+  "home_detail_season_episodes_pending": "Episode list will appear when details load.",
 
   "home_detail_score_rating": "Rating",
   "home_detail_score_audience": "Audience",
   "home_detail_score_critics": "Critics",
-  "home_detail_score_votes": "{n}k votes",
+  "home_detail_score_votes": "{n} votes",
   "home_detail_match_reason_kicker": "Why this",
   "home_detail_overview_label": "Overview",
 

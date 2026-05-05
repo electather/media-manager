@@ -9,7 +9,7 @@ type SeasonStatus = "available" | "requested" | "unavailable" | "upcoming";
 type Season = {
   id: string;
   number: number;
-  episodeCount: number;
+  episodeCount?: number;
   status: SeasonStatus;
 };
 
@@ -43,15 +43,28 @@ function inferStatus(item: MediaDetailItem): SeasonStatus {
 
 function buildSeasons(item: MediaDetailItem): Season[] {
   if (item.mediaType !== "tv") return [];
-  const currentSeason = item.episode?.season ?? 1;
   const baseStatus = inferStatus(item);
+
+  // When the detail endpoint provides real season data, use it verbatim.
+  if (item.seasons && item.seasons.length > 0) {
+    return item.seasons.map((season) => ({
+      id: `${item.id}-s${season.number}`,
+      number: season.number,
+      episodeCount: season.episodeCount,
+      status: baseStatus,
+    }));
+  }
+
+  // Fallback: we know how many seasons exist (from `episode.season`) but not
+  // how many episodes per season. Render the season frame without fabricating
+  // counts so users do not see invented numbers.
+  const currentSeason = item.episode?.season ?? 1;
   return Array.from({ length: currentSeason }, (_, idx) => {
     const number = idx + 1;
     const status: SeasonStatus = number < currentSeason ? "available" : baseStatus;
     return {
       id: `${item.id}-s${number}`,
       number,
-      episodeCount: 8 + ((number * 2) % 5),
       status,
     };
   });
@@ -88,30 +101,38 @@ function SeasonRow({ season, defaultOpen }: { season: Season; defaultOpen: boole
           <div className="text-sm font-medium text-foreground">
             {m.home_detail_season_number({ n: String(season.number) })}
           </div>
-          <div className="text-xs text-muted-foreground">
-            {m.home_detail_season_episode_count({ n: String(season.episodeCount) })}
-          </div>
+          {season.episodeCount !== undefined ? (
+            <div className="text-xs text-muted-foreground">
+              {m.home_detail_season_episode_count({ n: String(season.episodeCount) })}
+            </div>
+          ) : null}
         </div>
         <Badge variant={STATUS_VARIANT[season.status]} className="font-medium">
           {STATUS_LABEL[season.status]()}
         </Badge>
       </CollapsibleTrigger>
       <CollapsibleContent className="border-t border-border/60 bg-background/30 px-4 py-3 text-sm text-muted-foreground">
-        <ul className="flex flex-col gap-2">
-          {Array.from({ length: season.episodeCount }, (_, idx) => (
-            <li
-              key={idx}
-              className="flex items-center gap-3 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
-            >
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                {String(idx + 1).padStart(2, "0")}
-              </span>
-              <span className="ms-1 flex-1 truncate text-foreground/90">
-                {m.home_detail_season_episode_label({ n: String(idx + 1) })}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {season.episodeCount !== undefined ? (
+          <ul className="flex flex-col gap-2">
+            {Array.from({ length: season.episodeCount }, (_, idx) => (
+              <li
+                key={idx}
+                className="flex items-center gap-3 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
+              >
+                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                <span className="ms-1 flex-1 truncate text-foreground/90">
+                  {m.home_detail_season_episode_label({ n: String(idx + 1) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs italic text-muted-foreground">
+            {m.home_detail_season_episodes_pending()}
+          </p>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );

@@ -13,19 +13,17 @@ const SECTION_LABEL_CLASS =
 const SCORE_CARD_CLASS = "flex min-w-22 flex-col gap-1 rounded-lg bg-secondary/70 px-4 py-3";
 
 export function ModalScores({ item }: Props) {
-  const hasRating = item.rating !== undefined;
-  const hasAudience = item.audienceScore !== undefined;
-  const hasCritics = item.criticScore !== undefined;
-  if (!hasRating && !hasAudience && !hasCritics) return null;
+  const { rating, audienceScore, criticScore, votes } = item;
+  if (rating === undefined && audienceScore === undefined && criticScore === undefined) return null;
 
   return (
     <div className="flex flex-wrap gap-2 px-6 sm:px-10">
-      {hasRating ? <RatingCard rating={item.rating!} votes={item.votes} /> : null}
-      {hasAudience ? (
-        <ScoreCard label={m.home_detail_score_audience()} value={`${item.audienceScore}%`} />
+      {rating !== undefined ? <RatingCard rating={rating} votes={votes} /> : null}
+      {audienceScore !== undefined ? (
+        <ScoreCard label={m.home_detail_score_audience()} value={`${audienceScore}%`} />
       ) : null}
-      {hasCritics ? (
-        <ScoreCard label={m.home_detail_score_critics()} value={`${item.criticScore}%`} />
+      {criticScore !== undefined ? (
+        <ScoreCard label={m.home_detail_score_critics()} value={`${criticScore}%`} />
       ) : null}
     </div>
   );
@@ -55,11 +53,15 @@ function RatingCard({ rating, votes }: { rating: number; votes?: number }) {
   );
 }
 
+const VOTES_FORMATTER = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 function VotesText({ votes }: { votes: number }) {
-  const formatted = (votes / 1000).toFixed(1);
   return (
     <span className="text-xs text-muted-foreground tabular-nums">
-      · {m.home_detail_score_votes({ n: formatted })}
+      · {m.home_detail_score_votes({ n: VOTES_FORMATTER.format(votes) })}
     </span>
   );
 }

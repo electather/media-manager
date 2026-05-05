@@ -14,6 +14,9 @@ const badgeVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
         outline: "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
+        // Frosted overlay treatment for badges layered over media imagery.
+        glass:
+          "border-foreground/15 bg-background/70 text-foreground supports-backdrop-filter:bg-background/40 supports-backdrop-filter:backdrop-blur-md",
         ghost: "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
       },
