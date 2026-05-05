@@ -1,0 +1,64 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "command_menu_title": "TODO",
+  "command_menu_description": "TODO",
+
+  "command_menu_trigger_label": "TODO",
+
+  "command_menu_search_placeholder": "TODO",
+  "command_menu_search_placeholder_tv": "TODO",
+  "command_menu_search_placeholder_movie": "TODO",
+
+  "command_menu_section_search": "TODO",
+  "command_menu_section_recent": "TODO",
+  "command_menu_section_pages": "TODO",
+  "command_menu_section_actions": "TODO",
+  "command_menu_section_media_default": "TODO",
+  "command_menu_section_media_tv": "TODO",
+  "command_menu_section_media_movie": "TODO",
+  "command_menu_section_trending_tv": "TODO",
+  "command_menu_section_trending_movie": "TODO",
+
+  "command_menu_kind_tv": "TODO",
+  "command_menu_kind_movie": "TODO",
+  "command_menu_kind_series": "TODO",
+  "command_menu_kind_film": "TODO",
+
+  "command_menu_scope_clear": "TODO",
+  "command_menu_scope_clear_hint": "TODO",
+
+  "command_menu_action_open": "TODO",
+  "command_menu_action_go": "TODO",
+  "command_menu_action_run": "TODO",
+
+  "command_menu_empty_title": "TODO",
+  "command_menu_empty_subtitle": "TODO",
+
+  "command_menu_footer_navigate": "TODO",
+  "command_menu_footer_select": "TODO",
+  "command_menu_footer_close": "TODO",
+
+  "command_menu_page_home_label": "TODO",
+  "command_menu_page_home_hint": "TODO",
+  "command_menu_page_library_label": "TODO",
+  "command_menu_page_library_hint": "TODO",
+  "command_menu_page_watchlist_label": "TODO",
+  "command_menu_page_watchlist_hint": "TODO",
+  "command_menu_page_settings_label": "TODO",
+  "command_menu_page_settings_hint": "TODO",
+  "command_menu_page_connections_label": "TODO",
+  "command_menu_page_connections_hint": "TODO",
+
+  "command_menu_search_tv_label": "TODO",
+  "command_menu_search_tv_hint": "TODO",
+  "command_menu_search_movie_label": "TODO",
+  "command_menu_search_movie_hint": "TODO",
+
+  "command_menu_action_toggle_theme_label": "TODO",
+  "command_menu_action_toggle_theme_hint": "TODO",
+  "command_menu_action_toggle_theme_toast": "TODO",
+  "command_menu_action_keyboard_help_label": "TODO",
+  "command_menu_action_keyboard_help_hint": "TODO",
+  "command_menu_action_keyboard_help_toast": "TODO"
+}

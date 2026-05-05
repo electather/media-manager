@@ -4,6 +4,10 @@
   "locales": ["en", "fa"],
   "modules": ["https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@latest/dist/index.js"],
   "plugin.inlang.messageFormat": {
-    "pathPattern": ["./messages/notifications/{locale}.json", "./messages/home/{locale}.json"]
+    "pathPattern": [
+      "./messages/notifications/{locale}.json",
+      "./messages/home/{locale}.json",
+      "./messages/command/{locale}.json"
+    ]
   }
 }

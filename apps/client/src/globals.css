@@ -278,6 +278,7 @@ html[lang="fa"] {
     display: none;
   }
 
+
   /* Chevrons: hover/focus-within on the row scope reveals them, but only
      when the corresponding edge isn't already the current scroll position.
      Edge state comes from the same data attrs that drive the fade overlays. */
