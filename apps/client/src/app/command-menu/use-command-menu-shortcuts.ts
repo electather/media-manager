@@ -2,14 +2,17 @@ import { useEffect } from "react";
 
 const OPEN_EVENT = "nama:open-command";
 
+function hasModifier(event: KeyboardEvent): boolean {
+  return event.metaKey || event.ctrlKey || event.altKey;
+}
+
 function isToggleShortcut(event: KeyboardEvent): boolean {
   if (!event.metaKey && !event.ctrlKey) return false;
   return event.key === "k" || event.key === "K";
 }
 
 function isSlashShortcut(event: KeyboardEvent): boolean {
-  if (event.key !== "/") return false;
-  if (event.metaKey || event.ctrlKey || event.altKey) return false;
+  if (event.key !== "/" || hasModifier(event)) return false;
   return !isTypingInField(event.target);
 }
 

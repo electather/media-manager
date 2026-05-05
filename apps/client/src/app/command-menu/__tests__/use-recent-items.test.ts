@@ -2,7 +2,7 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { useRecentItems } from "../command-menu/use-recent-items";
+import { useRecentItems } from "../use-recent-items";
 
 const STORAGE_KEY = "media-manager:command-menu:recents";
 
