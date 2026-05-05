@@ -32,6 +32,8 @@
 
   "home_hero_play": "TODO",
   "home_hero_more_info": "TODO",
+  "home_hero_dismiss": "TODO",
+  "home_hero_alternates_label": "TODO",
 
   "home_card_request": "TODO",
   "home_card_add_watchlist": "TODO",
@@ -65,8 +67,6 @@
   "home_detail_season_number": "TODO",
   "home_detail_season_episode_count": "TODO",
   "home_detail_season_episode_label": "TODO",
-
-  "home_hero_alternates_label": "TODO",
 
   "home_row_partial_warning": "TODO"
 }
