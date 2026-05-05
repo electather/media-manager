@@ -62,7 +62,7 @@ function PrimaryAction({ item }: { item: MediaDetailItem }) {
     return (
       <Button size="lg">
         <Play aria-hidden="true" className="fill-current" />
-        Watch
+        {m.home_detail_watch()}
       </Button>
     );
   }

@@ -33,7 +33,13 @@ function inferSeasonStatus(season: SeasonData): SeasonStatus {
   if (available === episodeCount) return "available";
   if (unavailable === episodeCount) return "unavailable";
   if (requested === episodeCount) return "requested";
-  if (available > 0 && available < episodeCount - upcoming) return "partial";
+  // "partial" covers any case where some episodes are available but the
+  // season isn't fully available yet (the rest may be upcoming, missing,
+  // or requested). The previous predicate `available < episodeCount - upcoming`
+  // misclassified seasons where `available + upcoming === episodeCount` as
+  // unavailable; switching to `available + upcoming <= episodeCount` keeps
+  // them in "partial".
+  if (available > 0 && available + upcoming <= episodeCount) return "partial";
   if (requested > 0) return "requested";
   return "unavailable";
 }
@@ -44,11 +50,22 @@ function buildSeasonSubline(season: SeasonData, status: SeasonStatus): string | 
   const requested = counts.requested ?? 0;
   const upcoming = counts.upcoming ?? 0;
 
-  if (status === "upcoming") return `${episodeCount} episodes upcoming`;
+  if (status === "upcoming") {
+    return m.home_detail_season_subline_upcoming({ n: String(episodeCount) });
+  }
   if (status === "partial") {
-    const parts: string[] = [`${available} of ${episodeCount} available`];
-    if (requested > 0) parts.push(`${requested} requested`);
-    if (upcoming > 0) parts.push(`${upcoming} upcoming`);
+    const parts: string[] = [
+      m.home_detail_season_of_episodes({
+        available: String(available),
+        total: String(episodeCount),
+      }),
+    ];
+    if (requested > 0) {
+      parts.push(m.home_detail_season_subline_requested({ n: String(requested) }));
+    }
+    if (upcoming > 0) {
+      parts.push(m.home_detail_season_subline_upcoming_count({ n: String(upcoming) }));
+    }
     return parts.join(" · ");
   }
   return null;
@@ -69,18 +86,19 @@ const EP_STATUS_VARIANT: Record<EpisodeStatus, "default" | "outline" | "secondar
 };
 
 export function ModalSeasons({ item }: { item: MediaDetailItem }) {
-  if (item.mediaType !== "tv" || !item.seasons || item.seasons.length === 0) return null;
+  const seasons = item.seasons;
+  if (item.mediaType !== "tv" || !seasons || seasons.length === 0) return null;
 
   return (
     <section
       aria-label={m.home_detail_seasons_label()}
       className="flex flex-col gap-2 px-6 sm:px-10"
     >
-      {item.seasons.map((season, index) => (
+      {seasons.map((season, index) => (
         <SeasonRow
           key={`${item.id}-s${season.number}`}
           season={season}
-          defaultOpen={index === item.seasons!.length - 1}
+          defaultOpen={index === seasons.length - 1}
         />
       ))}
     </section>

@@ -58,6 +58,7 @@
   "home_card_episode_label": "S{s}E{e}",
 
   "home_detail_request": "Request",
+  "home_detail_watch": "Watch",
   "home_detail_watchlist_add": "Add to Watchlist",
   "home_detail_watchlist_remove": "Remove from Watchlist",
   "home_detail_trailer": "Trailer",
@@ -70,6 +71,9 @@
   "home_detail_season_partial": "Partial",
   "home_detail_season_request_missing": "Request missing",
   "home_detail_season_of_episodes": "{available} of {total} available",
+  "home_detail_season_subline_upcoming": "{n} episodes upcoming",
+  "home_detail_season_subline_requested": "{n} requested",
+  "home_detail_season_subline_upcoming_count": "{n} upcoming",
 
   "home_detail_series_label": "Series",
   "home_detail_series_ongoing": "Ongoing",

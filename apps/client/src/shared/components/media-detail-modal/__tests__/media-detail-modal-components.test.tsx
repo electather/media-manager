@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
+import { useRef, useState } from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { ModalFeedback } from "../modal-feedback";
 import { ModalMatchReason } from "../modal-match-reason";
+import { ModalNote } from "../modal-note";
 import { ModalScores } from "../modal-scores";
 import { ModalSeasons } from "../modal-seasons";
 import { ModalTags } from "../modal-tags";
@@ -127,5 +130,108 @@ describe("ModalSeasons", () => {
     );
     expect(screen.getByText("6 episodes")).toBeTruthy();
     expect(screen.getByText("4 episodes")).toBeTruthy();
+  });
+
+  // Regression: prior `available > 0 && available < episodeCount - upcoming`
+  // misclassified seasons where some episodes are aired+available but the
+  // remainder is upcoming (e.g. 3 available + 2 upcoming) as fully
+  // unavailable. The corrected predicate keeps them in "partial".
+  it("classifies a mixed-available-and-upcoming season as partial", () => {
+    render(
+      <ModalSeasons
+        item={{
+          ...BASE_TV,
+          seasons: [
+            {
+              number: 1,
+              episodeCount: 5,
+              counts: { available: 3, upcoming: 2 },
+              episodes: [],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText(/3 of 5 available/)).toBeTruthy();
+    expect(screen.getByText(/2 upcoming/)).toBeTruthy();
+  });
+});
+
+describe("ModalFeedback", () => {
+  it("toggles a single active vote (like/dislike are mutually exclusive)", () => {
+    render(<ModalFeedback hasNote={false} onNoteClick={vi.fn()} />);
+    const like = screen.getByRole("button", { name: /^like$/i });
+    const dislike = screen.getByRole("button", { name: /^dislike$/i });
+    expect(like.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(like);
+    expect(like.getAttribute("aria-pressed")).toBe("true");
+    expect(dislike.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(dislike);
+    expect(like.getAttribute("aria-pressed")).toBe("false");
+    expect(dislike.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(dislike);
+    expect(dislike.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("invokes onNoteClick when the note pill is clicked", () => {
+    const onNoteClick = vi.fn();
+    render(<ModalFeedback hasNote={false} onNoteClick={onNoteClick} />);
+    fireEvent.click(screen.getByRole("button", { name: /add a note/i }));
+    expect(onNoteClick).toHaveBeenCalledOnce();
+  });
+
+  it("switches the note pill label when a note is present", () => {
+    render(<ModalFeedback hasNote onNoteClick={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /edit your note/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /add a note/i })).toBeNull();
+  });
+});
+
+describe("ModalNote", () => {
+  function ControlledNote({
+    initial = "",
+    initialEditing = true,
+  }: {
+    initial?: string;
+    initialEditing?: boolean;
+  }) {
+    const [note, setNote] = useState(initial);
+    const [editing, setEditing] = useState(initialEditing);
+    const sectionRef = useRef<HTMLDivElement>(null);
+    const taRef = useRef<HTMLTextAreaElement>(null);
+    return (
+      <ModalNote
+        sectionRef={sectionRef}
+        taRef={taRef}
+        note={note}
+        editing={editing}
+        setEditing={setEditing}
+        onSave={setNote}
+      />
+    );
+  }
+
+  it("saves the trimmed draft and closes editing", () => {
+    render(<ControlledNote />);
+    const ta = screen.getByRole("textbox");
+    fireEvent.change(ta, { target: { value: "  watch with my dad  " } });
+    fireEvent.click(screen.getByRole("button", { name: /save note/i }));
+    expect(screen.getByText("watch with my dad")).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("cancels back to the persisted note without overwriting it", () => {
+    render(<ControlledNote initial="original note" />);
+    const ta = screen.getByRole("textbox");
+    fireEvent.change(ta, { target: { value: "scrap draft" } });
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.getByText("original note")).toBeTruthy();
+    expect(screen.queryByText("scrap draft")).toBeNull();
+  });
+
+  it("re-enters editing mode from the existing-note view", () => {
+    render(<ControlledNote initial="original note" initialEditing={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /edit your note/i }));
+    expect(screen.getByRole("textbox")).toBeTruthy();
   });
 });

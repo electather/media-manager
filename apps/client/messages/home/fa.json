@@ -58,6 +58,7 @@
   "home_card_episode_label": "TODO",
 
   "home_detail_request": "TODO",
+  "home_detail_watch": "TODO",
   "home_detail_watchlist_add": "TODO",
   "home_detail_watchlist_remove": "TODO",
   "home_detail_trailer": "TODO",
@@ -70,6 +71,9 @@
   "home_detail_season_partial": "TODO",
   "home_detail_season_request_missing": "TODO",
   "home_detail_season_of_episodes": "TODO",
+  "home_detail_season_subline_upcoming": "TODO",
+  "home_detail_season_subline_requested": "TODO",
+  "home_detail_season_subline_upcoming_count": "TODO",
 
   "home_detail_series_label": "TODO",
   "home_detail_series_ongoing": "TODO",

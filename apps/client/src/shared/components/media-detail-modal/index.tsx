@@ -92,7 +92,14 @@ function ModalBody({
   function jumpToNote() {
     noteSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     setNoteEditing(true);
-    setTimeout(() => noteTaRef.current?.focus(), 200);
+    // Double-rAF: the first frame applies the `editing` state, the second
+    // waits for the textarea to be in the layout tree before we focus it.
+    // Avoids a hardcoded ms timer racing the smooth-scroll on slow devices.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        noteTaRef.current?.focus();
+      });
+    });
   }
 
   return (
