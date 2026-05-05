@@ -120,11 +120,7 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
                   className={cn("flex shrink-0 snap-start flex-col gap-2", cardWidthClass)}
                 >
                   <Skeleton
-                    className={cn(
-                      isBackdrop
-                        ? "aspect-video w-full rounded-md"
-                        : "aspect-[2/3] w-full rounded-md",
-                    )}
+                    className={cn("w-full rounded-md", isBackdrop ? "aspect-video" : "aspect-2/3")}
                   />
                   <Skeleton className="h-3 w-3/4 rounded" />
                   <Skeleton className="h-3 w-1/2 rounded" />
