@@ -72,6 +72,16 @@ describe("TopNavLinks", () => {
     expect(nav.getAttribute("aria-label")).toBeTruthy();
     expect(nav.getAttribute("aria-label")).not.toBe("Mobile navigation");
   });
+
+  it("keeps the desktop links visually readable without a per-link surface", () => {
+    render(<TopNavLinks />);
+    const nav = screen.getByRole("navigation");
+    const library = screen.getByRole("link", { name: /library/i });
+
+    expect(nav.className).not.toContain("before:bg-[linear-gradient");
+    expect(library.className).toContain("text-foreground/75");
+    expect(library.className).toContain("drop-shadow-");
+  });
 });
 
 describe("BottomNav", () => {

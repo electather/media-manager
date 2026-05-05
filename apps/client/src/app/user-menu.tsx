@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
 
 // fallow-ignore-next-line complexity
 export function UserMenu() {
@@ -32,7 +33,7 @@ export function UserMenu() {
             aria-label="Account menu"
             variant="outline"
             size="sm"
-            className={"cursor-pointer gap-1 rounded-full py-1 pl-1 pr-2 shadow-none"}
+            className={cn("cursor-pointer gap-1 rounded-full py-1 pl-1 pr-2")}
           >
             <UserAvatar name={name} email={email} size="sm" />
             <ChevronDown className="size-4 text-muted-foreground" />

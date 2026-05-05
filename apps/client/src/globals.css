@@ -55,7 +55,7 @@
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
-  --progress-watched: oklch(0.93 0.08 95);
+  --progress-watched: oklch(0.93 0.02 260);
   --success: oklch(0.72 0.13 155);
   --danger: oklch(0.65 0.18 25);
   --nav-frosted-shadow:
@@ -202,10 +202,10 @@ html[lang="fa"] {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply overflow-x-clip bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    @apply overflow-x-clip font-sans;
   }
 }
 
@@ -232,5 +232,71 @@ html[lang="fa"] {
         opacity: 0.85;
       }
     }
+  }
+
+  /* Row scroller edge fades. JS sets data-at-start / data-at-end on the
+     scope based on the scroll position (see use-mock-pagination.ts). Two
+     pseudo-elements paint a gradient at each inline edge and toggle their
+     opacity off the data attrs. We avoid scroll-timeline + named-timeline
+     binding to pseudos because Firefox does not consistently resolve
+     timeline-scope through to pseudo-elements, and Chrome has a mask-image
+     repaint bug when two animated custom properties share one gradient. */
+  .row-track-scope {
+    position: relative;
+  }
+  .row-track-scope::before,
+  .row-track-scope::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    width: 3rem;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 120ms linear;
+  }
+  .row-track-scope::before {
+    inset-inline-start: 0;
+    background: linear-gradient(to right, var(--background), transparent);
+  }
+  .row-track-scope::after {
+    inset-inline-end: 0;
+    background: linear-gradient(to left, var(--background), transparent);
+  }
+  .row-track-scope[data-at-start="false"]::before {
+    opacity: 1;
+  }
+  .row-track-scope[data-at-end="false"]::after {
+    opacity: 1;
+  }
+
+  /* Hide native scrollbar on the row track across browsers. */
+  .row-track {
+    scrollbar-width: none;
+  }
+  .row-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Chevrons: hover/focus-within on the row scope reveals them, but only
+     when the corresponding edge isn't already the current scroll position.
+     Edge state comes from the same data attrs that drive the fade overlays. */
+  .row-prev,
+  .row-next {
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 150ms ease,
+      background-color 150ms ease;
+  }
+  .row-track-scope[data-at-start="false"]:hover .row-prev,
+  .row-track-scope[data-at-start="false"]:focus-within .row-prev {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .row-track-scope[data-at-end="false"]:hover .row-next,
+  .row-track-scope[data-at-end="false"]:focus-within .row-next {
+    opacity: 1;
+    pointer-events: auto;
   }
 }

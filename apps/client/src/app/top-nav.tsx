@@ -11,7 +11,7 @@ export function TopNav() {
   return (
     <header
       data-scrolled={scrolled}
-      className="sticky top-0 z-20 isolate flex justify-center border-b border-transparent bg-transparent transition-all duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-28 before:bg-[linear-gradient(to_bottom,oklch(0_0_0/0.5),oklch(0_0_0/0.28)_42%,oklch(0_0_0/0.1)_72%,transparent)] before:content-[''] data-[scrolled=true]:px-6 data-[scrolled=true]:pt-2.5"
+      className="sticky top-0 z-20 isolate flex justify-center border-b border-transparent bg-transparent transition-all duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-32 before:bg-[linear-gradient(to_bottom,oklch(0_0_0/0.7),oklch(0_0_0/0.45)_38%,oklch(0_0_0/0.18)_70%,transparent)] before:transition-opacity before:duration-320 before:content-[''] data-[scrolled=true]:px-6 data-[scrolled=true]:pt-2.5 data-[scrolled=true]:before:opacity-0"
     >
       <div
         data-scrolled={scrolled}

@@ -4,10 +4,10 @@ import { deriveCardState, type CardAvailabilityState } from "../../lib/card-stat
 import { MATCH_REASON_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem } from "../../lib/types";
 import { TopZoneHeroActions } from "./top-zone-hero-actions";
-import { TopZoneHeroProgress } from "./top-zone-hero-progress";
 
 type Props = {
   hero: HomeMediaItem;
+  percent: number | null;
   onMoreInfo: () => void;
   onDismiss?: () => void;
 };
@@ -28,13 +28,6 @@ const KICKER_COPY_BY_KIND = {
 function formatKicker(state: CardAvailabilityState): string | null {
   if (state.kind === "server") return formatServerKicker(state);
   return KICKER_COPY_BY_KIND[state.kind]();
-}
-
-function progressPercent(progress: HomeMediaItem["progress"]): number | null {
-  if (!progress) return null;
-  const { watched, total } = progress;
-  if (!total || total <= 0) return null;
-  return Math.max(0, Math.min(100, Math.round((watched / total) * 100)));
 }
 
 function matchReasonFor(hero: HomeMediaItem): string | null {
@@ -77,15 +70,9 @@ function HeroReason({ value }: { value: string | null }) {
   return <p className="text-xs text-foreground/70 sm:text-sm">{value}</p>;
 }
 
-function HeroProgress({ percent }: { percent: number | null }) {
-  if (percent === null) return null;
-  return <TopZoneHeroProgress percent={percent} />;
-}
-
-export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
+export function TopZoneHeroCard({ hero, percent, onMoreInfo, onDismiss }: Props) {
   const kicker = formatKicker(deriveCardState(hero));
   const reason = matchReasonFor(hero);
-  const percent = progressPercent(hero.progress);
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9 before:pointer-events-none before:absolute before:-inset-y-14 before:-inset-e-28 before:-inset-s-8 before:-z-1 before:bg-[radial-gradient(ellipse_at_bottom_left,oklch(0_0_0/0.84),oklch(0_0_0/0.62)_45%,transparent_76%)] before:content-['']">
@@ -104,7 +91,6 @@ export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
       />
       <HeroOverview value={hero.overview} />
       <HeroReason value={reason} />
-      <HeroProgress percent={percent} />
       <TopZoneHeroActions
         hasProgress={percent !== null}
         onMoreInfo={onMoreInfo}

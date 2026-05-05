@@ -94,11 +94,12 @@ describe("Row", () => {
     expect(screen.queryByTestId("partial-warning")).toBeNull();
   });
 
-  it("places the card scroller in a full-bleed strip", () => {
+  it("keeps the card scroller inside the page's max-width container so the first card aligns with the title", () => {
     const row = makeRow();
     const { container } = render(<Row row={row} />);
     const bleed = container.querySelector('[data-testid="row-scroller-bleed"]');
     expect(bleed).toBeTruthy();
-    expect(bleed?.className).toContain("w-screen");
+    expect(bleed?.className).not.toContain("w-screen");
+    expect(bleed?.className).not.toContain("translate-x");
   });
 });

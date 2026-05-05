@@ -66,9 +66,25 @@ describe("TopZone", () => {
     expect(ambient.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("clips horizontal ambient overflow at the stage", () => {
+  it("does not clip the ambient glow so the bleed fades naturally on every side", () => {
     render(<TopZone hero={HERO} onPeek={vi.fn()} />);
-    expect(screen.getByTestId("top-zone").className).toContain("overflow-x-clip");
+    const stage = screen.getByTestId("top-zone");
+    expect(stage.className).not.toContain("overflow-x-clip");
+    expect(stage.className).not.toContain("overflow-hidden");
+  });
+
+  it("lets the ambient glow fade vertically without boxing the hero", () => {
+    render(<TopZone hero={HERO} onPeek={vi.fn()} />);
+    const ambient = screen.getByTestId("top-zone-ambient");
+    expect(ambient.className).toContain("inset-y-[-18%]");
+    expect(ambient.className).not.toContain("overflow-hidden");
+    expect(ambient.firstElementChild?.className).toContain("[mask-image:radial-gradient");
+  });
+
+  it("uses a Safari-safe clip path for the rounded hero artwork", () => {
+    render(<TopZone hero={HERO} onPeek={vi.fn()} />);
+    const frame = screen.getByTestId("top-zone-hero-frame");
+    expect(frame.className).toContain("[clip-path:inset(0_round_var(--radius-4xl))]");
   });
 
   it("clicking an alternate dot updates the hero card title and More Info target", () => {

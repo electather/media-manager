@@ -1,44 +1,21 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import * as m from "@/paraglide/messages";
 import type { HeroItem, HomeMediaItem } from "../../lib/types";
+import { ProgressOverlay } from "../progress-overlay";
 import { TopZoneAmbient } from "./top-zone-ambient";
 import { TopZoneHeroCard } from "./top-zone-hero-card";
+
+function progressPercent(progress: HomeMediaItem["progress"]): number | null {
+  if (!progress) return null;
+  const { watched, total } = progress;
+  if (!total || total <= 0) return null;
+  return Math.max(0, Math.min(100, Math.round((watched / total) * 100)));
+}
 
 type Props = {
   hero: HeroItem;
   onPeek: (id: string) => void;
 };
-
-const PARALLAX_FACTOR = 0.25;
-
-function useAmbientParallax(stageRef: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const stageElement = stage;
-    let ticking = false;
-    function update() {
-      stageElement.style.setProperty("--ambient-y", `${window.scrollY * PARALLAX_FACTOR}px`);
-      ticking = false;
-    }
-    function onScroll() {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(update);
-    }
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [stageRef]);
-}
 
 function HeroArtwork({ src }: { src: string | undefined }) {
   if (!src) return null;
@@ -49,23 +26,37 @@ function HeroArtwork({ src }: { src: string | undefined }) {
 
 function HeroFrame({
   ambientSrc,
+  percent,
   children,
 }: {
   ambientSrc: string | undefined;
+  percent: number | null;
   children: ReactNode;
 }) {
   return (
-    <div className="relative z-10 aspect-2/3 w-full overflow-hidden rounded-4xl bg-card shadow-hero sm:aspect-auto sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
-      <HeroArtwork src={ambientSrc} />
+    <div className="relative z-10 aspect-2/3 w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
       <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,oklch(0_0_0/0.65)_100%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-2 h-35 rounded-t-4xl bg-[linear-gradient(to_bottom,oklch(0_0_0/0.5)_0%,transparent_100%)]"
-      />
-      {children}
+        data-testid="top-zone-hero-frame"
+        className="absolute inset-0 isolate overflow-hidden rounded-4xl bg-card transform-gpu backface-hidden [clip-path:inset(0_round_var(--radius-4xl))]"
+      >
+        <HeroArtwork src={ambientSrc} />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_120%_85%_at_50%_100%,oklch(0_0_0/0.7)_0%,oklch(0_0_0/0.35)_45%,transparent_80%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-2 h-35 rounded-t-4xl bg-[linear-gradient(to_bottom,oklch(0_0_0/0.5)_0%,transparent_100%)]"
+        />
+        {children}
+        {percent !== null && (
+          <ProgressOverlay
+            percent={percent}
+            ariaLabel={m.home_hero_progress_watched({ percent: String(percent) })}
+            className="z-3"
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -122,25 +113,19 @@ export function TopZone({ hero, onPeek }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const active = candidates[activeIndex] ?? hero;
   const ambientSrc = active.backdrop ?? active.poster;
-
-  const stageRef = useRef<HTMLElement>(null);
-  useAmbientParallax(stageRef);
+  const percent = progressPercent(active.progress);
 
   const cycleAlternate = useCallback(() => {
     setActiveIndex((idx) => (idx + 1) % candidates.length);
   }, [candidates.length]);
 
   return (
-    <section
-      ref={stageRef}
-      data-testid="top-zone"
-      aria-label={hero.title}
-      className="relative isolate mb-2 overflow-x-clip overflow-y-visible"
-    >
+    <section data-testid="top-zone" aria-label={hero.title} className="relative isolate z-10 mb-2">
       <TopZoneAmbient src={ambientSrc} />
-      <HeroFrame ambientSrc={ambientSrc}>
+      <HeroFrame ambientSrc={ambientSrc} percent={percent}>
         <TopZoneHeroCard
           hero={active}
+          percent={percent}
           onMoreInfo={() => onPeek(active.id)}
           onDismiss={dismissHandler(candidates, cycleAlternate)}
         />
