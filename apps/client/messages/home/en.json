@@ -8,6 +8,7 @@
   "home_nav_label_mobile": "Mobile navigation",
 
   "home_row_continueWatching_header": "Pick up where you left off",
+  "home_row_continueWatching_counter": "// {n} in progress",
   "home_row_recommendedForYou_header": "Recommended for you",
   "home_row_trendingNow_header": "Trending now",
   "home_row_newReleases_header": "New releases",
@@ -15,6 +16,8 @@
   "home_row_becauseYouWatched_subtitle": "Themed picks from your recent finish",
   "home_row_upcomingForYou_header": "Coming up",
   "home_row_yourWatchlist_header": "From your list, ready now",
+  "home_row_prev_label": "Previous {row}",
+  "home_row_next_label": "Next {row}",
 
   "home_match_reason_matches_recent_picks": "Matches {n} recent picks.",
   "home_match_reason_from_genre_you_love": "From {genre} you love.",
@@ -29,15 +32,23 @@
 
   "home_hero_play": "Play",
   "home_hero_more_info": "More Info",
+  "home_hero_dismiss": "Not tonight",
+  "home_hero_alternates_label": "Hero alternates",
 
   "home_card_request": "Request",
   "home_card_add_watchlist": "Add to watchlist",
   "home_card_remove_watchlist": "Remove from watchlist",
   "home_card_progress_watched": "{percent}% watched",
+  "home_card_open_details": "Open details for",
 
   "home_card_available": "Available",
   "home_card_requested": "Requested",
   "home_card_unavailable": "Unavailable",
+  "home_card_upcoming": "Upcoming",
+  "home_card_servers_count": "{n} servers",
+  "home_card_kind_movie": "Movie",
+  "home_card_kind_tv": "TV series",
+  "home_card_episode_label": "S{s}E{e}",
 
   "home_detail_request": "Request",
   "home_detail_watchlist_add": "Add to Watchlist",
@@ -56,8 +67,6 @@
   "home_detail_season_number": "Season {n}",
   "home_detail_season_episode_count": "{n} episodes",
   "home_detail_season_episode_label": "Episode {n}",
-
-  "home_hero_alternates_label": "Hero alternates",
 
   "home_row_partial_warning": "Some results may be incomplete"
 }

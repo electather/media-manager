@@ -8,6 +8,7 @@
   "home_nav_label_mobile": "TODO",
 
   "home_row_continueWatching_header": "TODO",
+  "home_row_continueWatching_counter": "TODO",
   "home_row_recommendedForYou_header": "TODO",
   "home_row_trendingNow_header": "TODO",
   "home_row_newReleases_header": "TODO",
@@ -15,6 +16,8 @@
   "home_row_becauseYouWatched_subtitle": "TODO",
   "home_row_upcomingForYou_header": "TODO",
   "home_row_yourWatchlist_header": "TODO",
+  "home_row_prev_label": "TODO",
+  "home_row_next_label": "TODO",
 
   "home_match_reason_matches_recent_picks": "TODO",
   "home_match_reason_from_genre_you_love": "TODO",
@@ -29,15 +32,23 @@
 
   "home_hero_play": "TODO",
   "home_hero_more_info": "TODO",
+  "home_hero_dismiss": "TODO",
+  "home_hero_alternates_label": "TODO",
 
   "home_card_request": "TODO",
   "home_card_add_watchlist": "TODO",
   "home_card_remove_watchlist": "TODO",
   "home_card_progress_watched": "TODO",
+  "home_card_open_details": "TODO",
 
   "home_card_available": "TODO",
   "home_card_requested": "TODO",
   "home_card_unavailable": "TODO",
+  "home_card_upcoming": "TODO",
+  "home_card_servers_count": "TODO",
+  "home_card_kind_movie": "TODO",
+  "home_card_kind_tv": "TODO",
+  "home_card_episode_label": "TODO",
 
   "home_detail_request": "TODO",
   "home_detail_watchlist_add": "TODO",
@@ -56,8 +67,6 @@
   "home_detail_season_number": "TODO",
   "home_detail_season_episode_count": "TODO",
   "home_detail_season_episode_label": "TODO",
-
-  "home_hero_alternates_label": "TODO",
 
   "home_row_partial_warning": "TODO"
 }

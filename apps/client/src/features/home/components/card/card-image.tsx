@@ -8,16 +8,17 @@ interface CardImageProps {
   aspect: "16/9" | "2/3";
 }
 
-/** Renders the poster or backdrop image for a card, with a skeleton placeholder while loading. */
+/**
+ * Renders the poster or backdrop for a card with a skeleton placeholder while
+ * loading and a bottom-up scrim on 16/9 art so overlays remain readable.
+ */
 export function CardImage({ item, aspect }: CardImageProps) {
   const [loaded, setLoaded] = useState(false);
-  // For 16/9 rows fall back to the poster when no backdrop is available.
-  const src = aspect === "16/9" ? (item.backdrop ?? item.poster) : item.poster;
+  const src = aspect === "16/9" ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
   const aspectClass = aspect === "16/9" ? "aspect-video" : "aspect-[2/3]";
-
   return (
-    <div className={cn("relative w-full overflow-hidden rounded-md", aspectClass)}>
-      {!loaded && <Skeleton className="absolute inset-0 rounded-md" />}
+    <div className={cn("relative w-full overflow-hidden rounded-md bg-muted", aspectClass)}>
+      {!loaded ? <Skeleton className="absolute inset-0 rounded-md" /> : null}
       {src ? (
         <img
           src={src}
@@ -32,10 +33,16 @@ export function CardImage({ item, aspect }: CardImageProps) {
           )}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted">
+        <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-xs text-muted-foreground">{item.title}</span>
         </div>
       )}
+      {aspect === "16/9" ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent"
+        />
+      ) : null}
     </div>
   );
 }

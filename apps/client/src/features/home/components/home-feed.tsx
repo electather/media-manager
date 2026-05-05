@@ -8,10 +8,16 @@ import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
 
 // Local re-type. Importing the type from `@/lib/home-display` crosses the
-// `client-feat-home → client-features-legacy` zone boundary that the design
-// doc explicitly warns against, so the route owns the schema and feature code
-// just structurally types what it reads off `useSearch`.
+// `client-feat-home → client-features-legacy` zone boundary.
 type PeekSearch = { peek?: string };
+
+// Mock-pagination clones append `#clone-N` to the original id so React keys
+// stay unique. Strip the suffix when resolving the peek so cloned cards still
+// open the detail modal for the original content.
+function sourceIdOf(id: string): string {
+  const hash = id.indexOf("#");
+  return hash === -1 ? id : id.slice(0, hash);
+}
 
 export function HomeFeed() {
   const data = useHomeFeed();
@@ -20,17 +26,12 @@ export function HomeFeed() {
   const { peek } = useSearch({ strict: false }) as PeekSearch;
   const navigate = useNavigate();
 
-  // Seed the watchlist from the yourWatchlist row so cards already on the
-  // list render the "Remove" affordance instead of "Add" on first paint.
   const initialWatchlist = useMemo(() => {
     const set = new Set<string>();
     const watchlistRow = data.rows.find((row) => row.kind === "yourWatchlist");
-    if (watchlistRow) {
-      for (const item of watchlistRow.items) set.add(item.id);
-    }
+    if (watchlistRow) for (const item of watchlistRow.items) set.add(item.id);
     return set;
   }, [data.rows]);
-
   const [watchlist, setWatchlist] = useState<Set<string>>(initialWatchlist);
 
   const itemIndex = useMemo(() => {
@@ -41,7 +42,7 @@ export function HomeFeed() {
     return map;
   }, [hero, data.rows]);
 
-  const peekItem = peek ? (itemIndex.get(peek) ?? null) : null;
+  const peekItem = peek ? (itemIndex.get(peek) ?? itemIndex.get(sourceIdOf(peek)) ?? null) : null;
 
   const handlePeek = useCallback(
     (id: string) => {
@@ -69,20 +70,17 @@ export function HomeFeed() {
     toggleWatchlistId(peekItem.id);
   }, [peekItem, toggleWatchlistId]);
 
-  // Optimistic no-op placeholder until backend integration adds real request logic.
-  const handleRequest = useCallback((_id: string) => {}, []);
-
   return (
-    <div className="flex flex-col gap-8 px-4 pb-12 sm:px-6">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
       <TopZone hero={hero} onPeek={handlePeek} />
-      <div>
+      <div className="flex flex-col gap-2">
         {data.rows.map((row) => (
           <Row
             key={row.id}
             row={row}
             watchlist={watchlist}
             onWatchlistToggle={toggleWatchlistId}
-            onRequest={handleRequest}
+            onCardClick={handlePeek}
           />
         ))}
       </div>

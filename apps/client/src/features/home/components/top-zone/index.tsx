@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as m from "@/paraglide/messages";
 import type { HeroItem, HomeMediaItem } from "../../lib/types";
 import { TopZoneAmbient } from "./top-zone-ambient";
@@ -9,20 +9,60 @@ type Props = {
   onPeek: (id: string) => void;
 };
 
+const PARALLAX_FACTOR = 0.25;
+
+/**
+ * Hero stage. Mirrors the prototype's overlay-on-image structure: ambient
+ * backdrop layer with crossfade + parallax, foreground hero card with full
+ * action cluster, and a dot-nav for cycling between hero candidates.
+ */
 export function TopZone({ hero, onPeek }: Props) {
   const candidates = useMemo<HomeMediaItem[]>(() => [hero, ...hero.alternates], [hero]);
   const [activeIndex, setActiveIndex] = useState(0);
   const active = candidates[activeIndex] ?? hero;
   const ambientSrc = active.backdrop ?? active.poster;
 
+  const stageRef = useRef<HTMLElement>(null);
+
+  // Drive a CSS custom property from page scroll so the backdrop translates
+  // independently of the foreground without re-rendering React per frame.
+  // rAF-throttled via a ticking flag (matches use-hide-on-scroll-down) so
+  // multiple scroll ticks coalesce into a single style write per frame.
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    let ticking = false;
+    function update() {
+      stage!.style.setProperty("--ambient-y", `${window.scrollY * PARALLAX_FACTOR}px`);
+      ticking = false;
+    }
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  function cycleAlternate() {
+    setActiveIndex((idx) => (idx + 1) % candidates.length);
+  }
+
   return (
     <section
+      ref={stageRef}
       data-testid="top-zone"
       aria-label={hero.title}
-      className="relative isolate -mx-4 mb-8 overflow-hidden rounded-3xl bg-card sm:-mx-6"
+      className="relative isolate -mx-4 mb-8 min-h-[420px] overflow-hidden rounded-3xl bg-card sm:-mx-6 sm:min-h-[520px]"
     >
       <TopZoneAmbient src={ambientSrc} />
-      <TopZoneHeroCard hero={active} onMoreInfo={() => onPeek(active.id)} />
+      <TopZoneHeroCard
+        hero={active}
+        onMoreInfo={() => onPeek(active.id)}
+        onDismiss={candidates.length > 1 ? cycleAlternate : undefined}
+      />
       {candidates.length > 1 ? (
         <nav
           aria-label={m.home_hero_alternates_label()}

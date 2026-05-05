@@ -6,6 +6,11 @@ const FADE_OUT_MS = 900;
 
 type Layer = { id: number; src: string; visible: boolean };
 
+/**
+ * Crossfading backdrop image stack. Translates by the parent's `--ambient-y`
+ * custom property so the page scroll drives a parallax effect on the hero.
+ * The image is oversized to 110% to keep edges clean during translation.
+ */
 export function TopZoneAmbient({ src }: { src: string | undefined }) {
   const [layers, setLayers] = useState<Layer[]>([]);
   const idRef = useRef(0);
@@ -29,22 +34,27 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 overflow-hidden"
       data-testid="top-zone-ambient"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-      {layers.map((layer) => (
-        <img
-          key={layer.id}
-          src={layer.src}
-          alt=""
-          className={cn(
-            "absolute inset-0 size-full object-cover transition-opacity duration-700 ease-out",
-            layer.visible ? "opacity-100" : "opacity-0",
-          )}
-        />
-      ))}
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/10" />
+      <div
+        className="absolute -inset-[5%]"
+        style={{ transform: "translateY(calc(var(--ambient-y, 0px) * -1))" }}
+      >
+        {layers.map((layer) => (
+          <img
+            key={layer.id}
+            src={layer.src}
+            alt=""
+            className={cn(
+              "absolute inset-0 size-full object-cover transition-opacity duration-700 ease-out",
+              layer.visible ? "opacity-100" : "opacity-0",
+            )}
+          />
+        ))}
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent" />
     </div>
   );
 }

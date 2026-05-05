@@ -10,8 +10,23 @@ type Props = {
   onToggleWatchlist: () => void;
 };
 
+/**
+ * Treat "#" trailerUrl as no trailer (the mock data uses it as a placeholder)
+ * so the button stays disabled rather than navigating to the same page.
+ */
+function hasTrailer(url: string | undefined): url is string {
+  return Boolean(url) && url !== "#";
+}
+
 export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
   const [requested, setRequested] = useState(item.status === "requested");
+  const trailerOk = hasTrailer(item.trailerUrl);
+
+  function openTrailer() {
+    if (!trailerOk) return;
+    window.open(item.trailerUrl, "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="flex flex-wrap gap-2 px-6 sm:px-10">
       {requested ? (
@@ -35,7 +50,14 @@ export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
         <Bookmark aria-hidden="true" className={inWatchlist ? "size-4 fill-current" : "size-4"} />
         {inWatchlist ? m.home_detail_watchlist_remove() : m.home_detail_watchlist_add()}
       </Button>
-      <Button size="lg" variant="ghost" className="gap-2" type="button">
+      <Button
+        size="lg"
+        variant="ghost"
+        className="gap-2"
+        type="button"
+        onClick={openTrailer}
+        disabled={!trailerOk}
+      >
         <Film aria-hidden="true" className="size-4" />
         {m.home_detail_trailer()}
       </Button>

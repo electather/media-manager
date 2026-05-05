@@ -6,10 +6,9 @@ interface RowHeaderProps {
   row: RowData;
 }
 
-/** Renders the heading and optional subtitle for a row, plus a partial-results warning. */
+/** Heading + optional subtitle + optional counter chip + partial-warning indicator. */
 export function RowHeader({ row }: RowHeaderProps) {
   const copy = ROW_COPY[row.kind];
-  // The header key always corresponds to a parameterised message function; call with seedTitle if present.
   const headerFn = m[copy.headerKey] as (params?: Record<string, string>) => string;
   const heading = headerFn(row.seedTitle ? { seedTitle: row.seedTitle } : {});
   const subtitleFn = copy.subtitleKey ? (m[copy.subtitleKey] as () => string) : null;
@@ -17,11 +16,12 @@ export function RowHeader({ row }: RowHeaderProps) {
 
   return (
     <div className="mb-3 flex items-center gap-2">
-      <div>
+      <div className="flex flex-col">
         <h2 className="text-base font-semibold text-foreground">{heading}</h2>
-        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
-      {row.partial && (
+      <RowCounter row={row} />
+      {row.partial ? (
         <span
           className="text-xs text-muted-foreground"
           title={m.home_row_partial_warning()}
@@ -30,7 +30,16 @@ export function RowHeader({ row }: RowHeaderProps) {
         >
           {m.home_row_partial_warning()}
         </span>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+function RowCounter({ row }: { row: RowData }) {
+  if (row.kind !== "continueWatching") return null;
+  return (
+    <span className="font-mono text-xs tabular-nums text-muted-foreground/75">
+      {m.home_row_continueWatching_counter({ n: String(row.items.length) })}
+    </span>
   );
 }
