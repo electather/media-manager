@@ -25,11 +25,11 @@ export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWat
       <DialogContent
         aria-labelledby={titleId}
         aria-modal="true"
-        role="dialog"
-        className="fixed inset-x-0 bottom-0 top-12 z-50 grid max-h-[calc(100vh-3rem)] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-t-3xl bg-card p-0 ring-0 sm:left-1/2 sm:top-12 sm:-translate-x-1/2 sm:max-w-4xl"
+        className="fixed inset-x-0 bottom-0 top-[var(--header-height)] z-50 grid max-h-[calc(100vh-var(--header-height))] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-t-3xl bg-card p-0 ring-0 sm:left-1/2 sm:-translate-x-1/2 sm:max-w-4xl"
       >
         {item ? (
           <ModalBody
+            key={item.id}
             item={item}
             titleId={titleId}
             inWatchlist={inWatchlist}

@@ -218,12 +218,12 @@ html[lang="fa"] {
       animation-range: 0 240px;
       transform-origin: left center;
     }
-  }
 
-  @keyframes modal-title-shrink {
-    to {
-      transform: scale(0.7) translateY(-6px);
-      opacity: 0.85;
+    @keyframes modal-title-shrink {
+      to {
+        transform: scale(0.7) translateY(-6px);
+        opacity: 0.85;
+      }
     }
   }
 }

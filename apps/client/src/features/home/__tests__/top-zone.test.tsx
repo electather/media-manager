@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { HeroItem } from "../lib/types";
 import { TopZone } from "../components/top-zone";
@@ -56,7 +56,7 @@ describe("TopZone", () => {
     const onPeek = vi.fn();
     render(<TopZone hero={HERO} onPeek={onPeek} />);
     const moreInfo = screen.getByRole("button", { name: /more info/i });
-    moreInfo.click();
+    fireEvent.click(moreInfo);
     expect(onPeek).toHaveBeenCalledWith(HERO.id);
   });
 
@@ -64,5 +64,20 @@ describe("TopZone", () => {
     render(<TopZone hero={HERO} onPeek={vi.fn()} />);
     const ambient = screen.getByTestId("top-zone-ambient");
     expect(ambient.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("clicking an alternate dot updates the hero card title and More Info target", () => {
+    const onPeek = vi.fn();
+    render(<TopZone hero={HERO} onPeek={onPeek} />);
+    const altsNav = screen.getByTestId("top-zone-alternates");
+    const dots = within(altsNav).getAllByRole("button");
+
+    fireEvent.click(dots[1]!);
+    const updatedDots = within(screen.getByTestId("top-zone-alternates")).getAllByRole("button");
+    expect(updatedDots[1]!.getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /more info/i }));
+    expect(onPeek).toHaveBeenCalledWith(HERO.alternates[0]!.id);
   });
 });

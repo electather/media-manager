@@ -6,6 +6,10 @@ import { useHomeFeed } from "../hooks/use-home-feed";
 import type { HomeMediaItem } from "../lib/types";
 import { TopZone } from "./top-zone";
 
+// Local re-type. Importing the type from `@/lib/home-display` crosses the
+// `client-feat-home → client-features-legacy` zone boundary that the design
+// doc explicitly warns against, so the route owns the schema and feature code
+// just structurally types what it reads off `useSearch`.
 type PeekSearch = { peek?: string };
 
 export function HomeFeed() {

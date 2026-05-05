@@ -90,8 +90,53 @@ describe("MediaDetailModal", () => {
     );
     const watchlistBtn = screen.getByRole("button", { name: /add to watchlist/i });
     expect(watchlistBtn.getAttribute("aria-pressed")).toBe("false");
-    watchlistBtn.click();
+    fireEvent.click(watchlistBtn);
     expect(onToggle).toHaveBeenCalled();
+  });
+
+  it("returns focus to the trigger element when closed", async () => {
+    const trigger = document.createElement("button");
+    trigger.textContent = "open";
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    const { rerender } = render(
+      <MediaDetailModal
+        item={MOVIE}
+        open
+        onClose={vi.fn()}
+        inWatchlist={false}
+        onToggleWatchlist={vi.fn()}
+      />,
+    );
+    rerender(
+      <MediaDetailModal
+        item={MOVIE}
+        open={false}
+        onClose={vi.fn()}
+        inWatchlist={false}
+        onToggleWatchlist={vi.fn()}
+      />,
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+
+  it("flips request button to requested state on click", () => {
+    render(
+      <MediaDetailModal
+        item={MOVIE}
+        open
+        onClose={vi.fn()}
+        inWatchlist={false}
+        onToggleWatchlist={vi.fn()}
+      />,
+    );
+    const requestBtn = screen.getByRole("button", { name: /^request$/i });
+    fireEvent.click(requestBtn);
+    expect(screen.getByRole("button", { name: /^requested$/i })).toBeTruthy();
   });
 
   it("renders the season accordion for TV items only", () => {

@@ -2,10 +2,10 @@ import { Info, Play } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
 import { Button } from "@/shared/ui/button";
-import type { HeroItem } from "../../lib/types";
+import type { HomeMediaItem } from "../../lib/types";
 
 type Props = {
-  hero: HeroItem;
+  hero: HomeMediaItem;
   onMoreInfo: () => void;
 };
 
@@ -39,7 +39,7 @@ export function TopZoneHeroCard({ hero, onMoreInfo }: Props) {
   );
 }
 
-function HeroTitle({ hero }: { hero: HeroItem }) {
+function HeroTitle({ hero }: { hero: HomeMediaItem }) {
   if (hero.clearLogoText) {
     return (
       <h1

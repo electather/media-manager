@@ -22,7 +22,7 @@ export function TopZone({ hero, onPeek }: Props) {
       className="relative isolate -mx-4 mb-8 overflow-hidden rounded-3xl bg-card sm:-mx-6"
     >
       <TopZoneAmbient src={ambientSrc} />
-      <TopZoneHeroCard hero={hero} onMoreInfo={() => onPeek(hero.id)} />
+      <TopZoneHeroCard hero={active} onMoreInfo={() => onPeek(active.id)} />
       {candidates.length > 1 ? (
         <nav
           aria-label={m.home_hero_alternates_label()}
