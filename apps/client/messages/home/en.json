@@ -34,10 +34,16 @@
   "home_card_add_watchlist": "Add to watchlist",
   "home_card_remove_watchlist": "Remove from watchlist",
   "home_card_progress_watched": "{percent}% watched",
+  "home_card_open_details": "Open details for",
 
   "home_card_available": "Available",
   "home_card_requested": "Requested",
   "home_card_unavailable": "Unavailable",
+  "home_card_upcoming": "Upcoming",
+  "home_card_servers_count": "{n} servers",
+  "home_card_kind_movie": "Movie",
+  "home_card_kind_tv": "TV series",
+  "home_card_episode_label": "S{s}E{e}",
 
   "home_detail_request": "Request",
   "home_detail_watchlist_add": "Add to Watchlist",

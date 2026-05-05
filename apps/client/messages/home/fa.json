@@ -34,10 +34,16 @@
   "home_card_add_watchlist": "TODO",
   "home_card_remove_watchlist": "TODO",
   "home_card_progress_watched": "TODO",
+  "home_card_open_details": "TODO",
 
   "home_card_available": "TODO",
   "home_card_requested": "TODO",
   "home_card_unavailable": "TODO",
+  "home_card_upcoming": "TODO",
+  "home_card_servers_count": "TODO",
+  "home_card_kind_movie": "TODO",
+  "home_card_kind_tv": "TODO",
+  "home_card_episode_label": "TODO",
 
   "home_detail_request": "TODO",
   "home_detail_watchlist_add": "TODO",

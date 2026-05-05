@@ -8,9 +8,7 @@ import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
 
 // Local re-type. Importing the type from `@/lib/home-display` crosses the
-// `client-feat-home → client-features-legacy` zone boundary that the design
-// doc explicitly warns against, so the route owns the schema and feature code
-// just structurally types what it reads off `useSearch`.
+// `client-feat-home → client-features-legacy` zone boundary.
 type PeekSearch = { peek?: string };
 
 export function HomeFeed() {
@@ -25,12 +23,9 @@ export function HomeFeed() {
   const initialWatchlist = useMemo(() => {
     const set = new Set<string>();
     const watchlistRow = data.rows.find((row) => row.kind === "yourWatchlist");
-    if (watchlistRow) {
-      for (const item of watchlistRow.items) set.add(item.id);
-    }
+    if (watchlistRow) for (const item of watchlistRow.items) set.add(item.id);
     return set;
   }, [data.rows]);
-
   const [watchlist, setWatchlist] = useState<Set<string>>(initialWatchlist);
 
   const itemIndex = useMemo(() => {
@@ -69,9 +64,6 @@ export function HomeFeed() {
     toggleWatchlistId(peekItem.id);
   }, [peekItem, toggleWatchlistId]);
 
-  // Optimistic no-op placeholder until backend integration adds real request logic.
-  const handleRequest = useCallback((_id: string) => {}, []);
-
   return (
     <div className="flex flex-col gap-8 px-4 pb-12 sm:px-6">
       <TopZone hero={hero} onPeek={handlePeek} />
@@ -82,7 +74,7 @@ export function HomeFeed() {
             row={row}
             watchlist={watchlist}
             onWatchlistToggle={toggleWatchlistId}
-            onRequest={handleRequest}
+            onCardClick={handlePeek}
           />
         ))}
       </div>
