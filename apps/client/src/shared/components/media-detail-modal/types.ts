@@ -1,9 +1,9 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { MockEpisode, MockSeason } from "@/features/home/lib/types";
 
-// Scaffolding for fields the detail-fetch endpoint will populate. None of these
-// are present on `CompactMediaItem` today, so the modal sub-sections that read
-// them currently render as no-ops. Wire these through once the detail-fetch
-// type lands (tracked in the home-feed/detail-modal design doc follow-up).
+export type { MockEpisode as EpisodeData, MockSeason as SeasonData };
+export type EpisodeStatus = MockEpisode["status"];
+
 export type MediaDetailItem = CompactMediaItem & {
   clearLogoText?: string;
   runtime?: string;
@@ -15,5 +15,7 @@ export type MediaDetailItem = CompactMediaItem & {
   votes?: number;
   tags?: string[];
   trailerUrl?: string;
-  seasons?: Array<{ number: number; episodeCount?: number }>;
+  seriesStatus?: "ongoing" | "finished";
+  nextAirDate?: string;
+  seasons?: MockSeason[];
 };

@@ -119,8 +119,8 @@ describe("ModalSeasons", () => {
         item={{
           ...BASE_TV,
           seasons: [
-            { number: 1, episodeCount: 6 },
-            { number: 2, episodeCount: 4 },
+            { number: 1, episodeCount: 6, counts: { available: 6 }, episodes: [] },
+            { number: 2, episodeCount: 4, counts: { unavailable: 4 }, episodes: [] },
           ],
         }}
       />,

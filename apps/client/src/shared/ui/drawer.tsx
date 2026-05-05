@@ -20,10 +20,7 @@ function DrawerClose({ ...props }: React.ComponentProps<typeof Drawer.Close>) {
   return <Drawer.Close data-slot="drawer-close" {...props} />;
 }
 
-function DrawerOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof Drawer.Backdrop>) {
+function DrawerOverlay({ className, ...props }: React.ComponentProps<typeof Drawer.Backdrop>) {
   return (
     <Drawer.Backdrop
       data-slot="drawer-overlay"

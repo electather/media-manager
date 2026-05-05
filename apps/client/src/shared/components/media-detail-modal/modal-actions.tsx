@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bookmark, Check, Film, Play } from "lucide-react";
+import { Bookmark, Film, Loader2, Play } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import type { MediaDetailItem } from "./types";
@@ -10,16 +10,11 @@ type Props = {
   onToggleWatchlist: () => void;
 };
 
-/**
- * Treat "#" trailerUrl as no trailer (the mock data uses it as a placeholder)
- * so the button stays disabled rather than navigating to the same page.
- */
 function hasTrailer(url: string | undefined): url is string {
   return Boolean(url) && url !== "#";
 }
 
 export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
-  const [requested, setRequested] = useState(item.status === "requested");
   const trailerOk = hasTrailer(item.trailerUrl);
 
   function openTrailer() {
@@ -29,17 +24,7 @@ export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
 
   return (
     <div className="flex flex-wrap gap-2 px-6 sm:px-10">
-      {requested ? (
-        <Button size="lg" variant="secondary" disabled>
-          <Check aria-hidden="true" />
-          {m.home_card_requested()}
-        </Button>
-      ) : (
-        <Button size="lg" onClick={() => setRequested(true)}>
-          <Play aria-hidden="true" className="fill-current" />
-          {m.home_detail_request()}
-        </Button>
-      )}
+      <PrimaryAction item={item} />
       <Button
         size="lg"
         variant="outline"
@@ -62,5 +47,39 @@ export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
         {m.home_detail_trailer()}
       </Button>
     </div>
+  );
+}
+
+function PrimaryAction({ item }: { item: MediaDetailItem }) {
+  const [requested, setRequested] = useState(
+    item.status === "requested" || item.status === "processing",
+  );
+
+  // TV shows handle requests per-season inside ModalSeasons — no top-level request button.
+  if (item.mediaType === "tv") return null;
+
+  if (item.status === "available") {
+    return (
+      <Button size="lg">
+        <Play aria-hidden="true" className="fill-current" />
+        Watch
+      </Button>
+    );
+  }
+
+  if (requested || item.status === "processing") {
+    return (
+      <Button size="lg" variant="secondary" disabled>
+        <Loader2 aria-hidden="true" className="animate-spin" />
+        {m.home_card_requested()}
+      </Button>
+    );
+  }
+
+  return (
+    <Button size="lg" onClick={() => setRequested(true)}>
+      <Play aria-hidden="true" className="fill-current" />
+      {m.home_detail_request()}
+    </Button>
   );
 }

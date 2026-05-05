@@ -1,6 +1,24 @@
 import type * as messages from "@/paraglide/messages";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 
+export type MockEpisodeStatus = "available" | "requested" | "unavailable" | "upcoming";
+
+export type MockEpisode = {
+  id: string;
+  episode: number;
+  title: string;
+  airDate: string;
+  runtime: number;
+  status: MockEpisodeStatus;
+};
+
+export type MockSeason = {
+  number: number;
+  episodeCount: number;
+  counts: Partial<Record<MockEpisodeStatus, number>>;
+  episodes: MockEpisode[];
+};
+
 export type { RowKind };
 
 /** Valid Paraglide message key. Narrows `string` to the keys exported by `@/paraglide/messages`. */
@@ -57,7 +75,9 @@ export type HomeMediaItem = CompactMediaItem & {
   votes?: number;
   cast?: string[];
   director?: string;
-  seasons?: Array<{ number: number; episodeCount: number }>;
+  seriesStatus?: "ongoing" | "finished";
+  nextAirDate?: string;
+  seasons?: MockSeason[];
 };
 
 export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] };
