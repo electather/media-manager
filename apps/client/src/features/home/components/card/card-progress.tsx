@@ -5,7 +5,10 @@ import { ProgressOverlay } from "../progress-overlay";
 /** Bottom-edge progress overlay rendered on top of the card art. */
 export function CardProgress({ item }: { item: HomeMediaItem }) {
   if (!item.progress || item.progress.total === 0) return null;
-  const percent = Math.round((item.progress.watched / item.progress.total) * 100);
+  const percent = Math.max(
+    0,
+    Math.min(100, Math.round((item.progress.watched / item.progress.total) * 100)),
+  );
   return (
     <ProgressOverlay
       percent={percent}

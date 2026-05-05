@@ -257,11 +257,11 @@ html[lang="fa"] {
   }
   .row-track-scope::before {
     inset-inline-start: 0;
-    background: linear-gradient(to right, var(--background), transparent);
+    background: linear-gradient(to inline-end, var(--background), transparent);
   }
   .row-track-scope::after {
     inset-inline-end: 0;
-    background: linear-gradient(to left, var(--background), transparent);
+    background: linear-gradient(to inline-start, var(--background), transparent);
   }
   .row-track-scope[data-at-start="false"]::before {
     opacity: 1;
