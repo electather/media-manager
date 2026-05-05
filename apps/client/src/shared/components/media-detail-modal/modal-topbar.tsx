@@ -27,7 +27,7 @@ type Props = {
  */
 export function ModalTopbar({ item }: Props) {
   return (
-    <div className="sticky top-0 z-20 flex items-center gap-3 px-4 pt-4 pb-3 sm:px-6 sm:pt-5">
+    <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
       <div
         aria-hidden="true"
         className="scroll-driven-topbar-bg pointer-events-none absolute inset-0 border-b border-border bg-card/85 opacity-0 supports-backdrop-filter:bg-card/65 supports-backdrop-filter:backdrop-blur-md"

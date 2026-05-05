@@ -114,7 +114,7 @@ function ModalBody({
             surface; height mirrors the prototype's modal-hero-spacer
             (240px mobile / 320px desktop minus topbar height). */}
         <div aria-hidden="true" className="h-44 shrink-0 sm:h-64" />
-        <div className="relative flex flex-col gap-5 bg-linear-to-b from-card/30 via-card/90 to-card pb-10 pt-6 sm:gap-6 sm:pt-8">
+        <div className="relative flex flex-col gap-5 bg-linear-to-b from-transparent via-card/90 to-card pb-10 pt-6 sm:gap-6 sm:pt-8">
           <ModalHeader item={item} titleId={titleId} />
           <ModalFeedback hasNote={!!note} onNoteClick={jumpToNote} />
           <ModalActions
