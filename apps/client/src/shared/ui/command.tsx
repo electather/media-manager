@@ -157,9 +157,12 @@ function CommandItem({
         "outline-hidden select-none transition-colors",
         "text-muted-foreground",
         "data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50",
-        "data-selected:bg-accent data-selected:text-foreground",
+        // cmdk sets `data-selected` on every item ("true" | "false") —
+        // require the explicit truthy value or the styling leaks onto every
+        // row instead of only the active one.
+        "data-[selected=true]:bg-accent data-[selected=true]:text-foreground",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "data-selected:**:[svg]:text-foreground",
+        "data-[selected=true]:**:[svg]:text-foreground",
         className,
       )}
       {...props}
@@ -169,7 +172,7 @@ function CommandItem({
           the inline-start edge in both LTR and RTL. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-1.5 start-0 hidden w-0.5 rounded-full bg-primary group-data-selected/command-item:block"
+        className="pointer-events-none absolute inset-y-2 start-0 hidden w-0.5 rounded-full bg-primary group-data-[selected=true]/command-item:block"
       />
       {children}
     </CommandPrimitive.Item>
@@ -182,7 +185,7 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
       data-slot="command-shortcut"
       className={cn(
         "ms-auto text-xs tracking-widest text-muted-foreground",
-        "group-data-selected/command-item:text-foreground",
+        "group-data-[selected=true]/command-item:text-foreground",
         className,
       )}
       {...props}
