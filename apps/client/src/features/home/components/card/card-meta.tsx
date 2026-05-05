@@ -65,7 +65,11 @@ function CardMetaUpcoming({ item }: { item: HomeMediaItem }) {
       {series || release ? (
         <p className="line-clamp-1 text-xs text-muted-foreground">
           {series}
-          {series && release ? <span className="mx-1.5" aria-hidden="true">·</span> : null}
+          {series && release ? (
+            <span className="mx-1.5" aria-hidden="true">
+              ·
+            </span>
+          ) : null}
           {release ? <span className="font-medium text-primary">{release}</span> : null}
         </p>
       ) : null}

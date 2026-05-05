@@ -53,10 +53,7 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
     setExhausted(row.items.length === 0);
   }, [row.id, row.items]);
 
-  const triggerPx = useMemo(
-    () => (cardWidthPx + gapPx) * PREFETCH_THRESHOLD,
-    [cardWidthPx, gapPx],
-  );
+  const triggerPx = useMemo(() => (cardWidthPx + gapPx) * PREFETCH_THRESHOLD, [cardWidthPx, gapPx]);
 
   const loadMore = useCallback(() => {
     if (exhausted) return;
@@ -115,37 +112,35 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
         style={{ scrollbarWidth: "none" }}
       >
         <div className="flex gap-3 ps-0.5">
-          {items.length === 0 ? (
-            Array.from({ length: SKELETON_COUNT }, (_, i) => (
-              <div
-                key={i}
-                aria-hidden="true"
-                className={cn("flex shrink-0 snap-start flex-col gap-2", cardWidthClass)}
-              >
-                <Skeleton
-                  className={cn(
-                    isBackdrop
-                      ? "aspect-video w-full rounded-md"
-                      : "aspect-[2/3] w-full rounded-md",
-                  )}
-                />
-                <Skeleton className="h-3 w-3/4 rounded" />
-                <Skeleton className="h-3 w-1/2 rounded" />
-              </div>
-            ))
-          ) : (
-            items.map((item) => (
-              <div key={item.id} className={cn("shrink-0 snap-start", cardWidthClass)}>
-                <Card
-                  item={item}
-                  rowKind={row.kind}
-                  isInWatchlist={watchlist?.has(item.id) ?? false}
-                  onWatchlistToggle={() => onWatchlistToggle?.(item.id)}
-                  onClick={() => onCardClick?.(item.id)}
-                />
-              </div>
-            ))
-          )}
+          {items.length === 0
+            ? Array.from({ length: SKELETON_COUNT }, (_, i) => (
+                <div
+                  key={i}
+                  aria-hidden="true"
+                  className={cn("flex shrink-0 snap-start flex-col gap-2", cardWidthClass)}
+                >
+                  <Skeleton
+                    className={cn(
+                      isBackdrop
+                        ? "aspect-video w-full rounded-md"
+                        : "aspect-[2/3] w-full rounded-md",
+                    )}
+                  />
+                  <Skeleton className="h-3 w-3/4 rounded" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                </div>
+              ))
+            : items.map((item) => (
+                <div key={item.id} className={cn("shrink-0 snap-start", cardWidthClass)}>
+                  <Card
+                    item={item}
+                    rowKind={row.kind}
+                    isInWatchlist={watchlist?.has(item.id) ?? false}
+                    onWatchlistToggle={() => onWatchlistToggle?.(item.id)}
+                    onClick={() => onCardClick?.(item.id)}
+                  />
+                </div>
+              ))}
         </div>
       </div>
 

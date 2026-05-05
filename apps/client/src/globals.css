@@ -64,9 +64,6 @@
   --shadow-hero:
     0 0 0 1px oklch(1 0 0 / 0.05), 0 8px 24px -6px oklch(0 0 0 / 0.45),
     0 2px 8px -4px oklch(0 0 0 / 0.3);
-  --shadow-hero-hover:
-    0 0 0 1px oklch(1 0 0 / 0.08), 0 12px 32px -6px oklch(0 0 0 / 0.55),
-    0 4px 12px -4px oklch(0 0 0 / 0.35);
 }
 
 /* Font tokens declared via non-inline @theme so Tailwind's font-* utilities
@@ -141,9 +138,6 @@ html[lang="fa"] {
   --shadow-hero:
     0 0 0 1px oklch(1 0 0 / 0.05), 0 8px 24px -6px oklch(0 0 0 / 0.45),
     0 2px 8px -4px oklch(0 0 0 / 0.3);
-  --shadow-hero-hover:
-    0 0 0 1px oklch(1 0 0 / 0.08), 0 12px 32px -6px oklch(0 0 0 / 0.55),
-    0 4px 12px -4px oklch(0 0 0 / 0.35);
 }
 
 @theme inline {
@@ -197,7 +191,6 @@ html[lang="fa"] {
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
   --shadow-hero: var(--shadow-hero);
-  --shadow-hero-hover: var(--shadow-hero-hover);
   --font-heading: var(--font-sans);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);

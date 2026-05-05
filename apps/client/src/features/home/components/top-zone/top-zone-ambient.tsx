@@ -10,7 +10,8 @@ type Layer = { id: number; src: string; visible: boolean };
  * Crossfading blurred backdrop. Sits behind the hero card and bleeds outside
  * the card via blur + upscale, producing the YouTube-style ambient spill.
  * Translates by the parent's `--ambient-y` custom property so the page scroll
- * drives a parallax effect.
+ * drives a parallax effect. The inner wrapper is oversized so the parallax
+ * shift cannot expose an uncovered card edge.
  */
 export function TopZoneAmbient({ src }: { src: string | undefined }) {
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -37,19 +38,23 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
       aria-hidden="true"
       data-testid="top-zone-ambient"
       className="pointer-events-none absolute inset-0 z-0"
-      style={{ transform: "translateY(calc(var(--ambient-y, 0px) * -1))" }}
     >
-      {layers.map((layer) => (
-        <img
-          key={layer.id}
-          src={layer.src}
-          alt=""
-          className={cn(
-            "absolute inset-0 size-full scale-[1.18] object-cover blur-[80px] saturate-[1.9] transition-opacity duration-700 ease-out will-change-[opacity]",
-            layer.visible ? "opacity-90" : "opacity-0",
-          )}
-        />
-      ))}
+      <div
+        className="absolute inset-[-9%]"
+        style={{ transform: "translateY(calc(var(--ambient-y, 0px) * -1))" }}
+      >
+        {layers.map((layer) => (
+          <img
+            key={layer.id}
+            src={layer.src}
+            alt=""
+            className={cn(
+              "absolute inset-0 size-full scale-[1.18] object-cover blur-[80px] saturate-[1.9] transition-opacity duration-700 ease-out",
+              layer.visible ? "opacity-90" : "opacity-0",
+            )}
+          />
+        ))}
+      </div>
     </div>
   );
 }
