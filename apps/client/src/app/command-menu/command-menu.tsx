@@ -496,7 +496,7 @@ function RowContent({
 
 function RowAffordance({ label }: { label: string }) {
   return (
-    <CommandShortcut className="hidden items-center gap-1.5 text-[11px] text-muted-foreground/80 group-data-selected/command-item:flex">
+    <CommandShortcut className="hidden items-center gap-1.5 text-[11px] text-muted-foreground/80 group-data-[selected=true]/command-item:flex">
       <span>{label}</span>
       <Kbd className="border border-border">
         <CornerDownLeft className="size-3" />
