@@ -10,7 +10,7 @@ export function CardKindBadge({ item }: { item: HomeMediaItem }) {
     <span
       title={label}
       aria-label={label}
-      className="pointer-events-none absolute end-2 top-2 inline-flex size-6 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur-md"
+      className="pointer-events-none absolute end-2 top-2 inline-flex size-6 items-center justify-center rounded-md bg-background/55 text-foreground backdrop-blur-md"
     >
       <Icon aria-hidden="true" className="size-3.5" />
     </span>

@@ -11,7 +11,7 @@ export function CardTagChips({ tags, max = 3 }: Props) {
       {tags.slice(0, max).map((t) => (
         <span
           key={t}
-          className="rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground"
+          className="rounded border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-xs tracking-wide text-muted-foreground"
         >
           {t}
         </span>

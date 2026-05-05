@@ -19,7 +19,7 @@ export function CardClearLogo({ text, size = "md" }: Props) {
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-x-3 bottom-3 z-[2] font-mono font-bold tracking-[0.18em] text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]",
+        "pointer-events-none absolute inset-x-3 bottom-3 z-[2] font-mono font-bold tracking-[0.18em] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]",
         SIZES[size],
       )}
     >
