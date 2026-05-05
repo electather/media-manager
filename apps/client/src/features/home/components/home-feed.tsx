@@ -71,7 +71,7 @@ export function HomeFeed() {
   }, [peekItem, toggleWatchlistId]);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
       <TopZone hero={hero} onPeek={handlePeek} />
       <div className="flex flex-col gap-2">
         {data.rows.map((row) => (
