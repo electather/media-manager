@@ -1,3 +1,4 @@
+import { memo } from "react";
 import * as m from "@/paraglide/messages";
 import { ROW_ASPECT } from "../../lib/home-feed-config";
 import { deriveCardState } from "../../lib/card-state";
@@ -15,16 +16,22 @@ interface CardProps {
   rowKind: RowKind;
   forceAspect?: "16/9" | "2/3";
   isInWatchlist?: boolean;
-  onWatchlistToggle?: () => void;
-  onClick?: () => void;
+  /** Called with the item id; receivers should keep this reference stable across renders. */
+  onWatchlistToggle?: (id: string) => void;
+  /** Called with the item id; receivers should keep this reference stable across renders. */
+  onClick?: (id: string) => void;
 }
 
 /**
  * Orchestrates the card layers. Outermost <article> is the focusable click
  * target via a transparent absolute-positioned overlay so quick-action and
  * future hot-spots can sit above it without nesting interactive controls.
+ *
+ * Wrapped in `memo` so paginated rows do not re-render every existing card on
+ * each page-append. Callers must pass id-receiving handlers (not closures
+ * bound per render) to actually realise the win.
  */
-export function Card({
+export const Card = memo(function Card({
   item,
   rowKind,
   forceAspect,
@@ -44,15 +51,19 @@ export function Card({
         <CardAvailability state={state} />
         <CardKindBadge item={item} />
         <CardProgress item={item} />
-        <CardQuickAction item={item} isInWatchlist={isInWatchlist} onToggle={onWatchlistToggle} />
+        <CardQuickAction
+          item={item}
+          isInWatchlist={isInWatchlist}
+          onToggle={onWatchlistToggle ? () => onWatchlistToggle(item.id) : undefined}
+        />
       </div>
       <CardMeta item={item} />
       <button
         type="button"
-        onClick={onClick}
+        onClick={onClick ? () => onClick(item.id) : undefined}
         aria-label={`${m.home_card_open_details()} ${item.title}`}
         className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </article>
   );
-}
+});
