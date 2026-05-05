@@ -57,6 +57,7 @@ export type HomeMediaItem = CompactMediaItem & {
   votes?: number;
   cast?: string[];
   director?: string;
+  seasons?: Array<{ number: number; episodeCount: number }>;
 };
 
 export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] };

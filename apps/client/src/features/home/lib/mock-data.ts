@@ -871,7 +871,30 @@ export const MOCK_ROWS: RowData[] = [
   makeRow("upcomingForYou", "upcomingForYou", UPCOMING_FOR_YOU),
 ];
 
+// Deterministic mock seasons + episode counts for any TV item that doesn't
+// already declare its own. Hashing the item id keeps the layout stable across
+// renders so the modal preview shows the same shape every time.
+function mockSeasonsForId(id: string): Array<{ number: number; episodeCount: number }> {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  const seasonCount = (Math.abs(hash) % 4) + 2;
+  return Array.from({ length: seasonCount }, (_, idx) => {
+    const number = idx + 1;
+    const episodeCount = 6 + (Math.abs(hash + number * 17) % 8);
+    return { number, episodeCount };
+  });
+}
+
+function withMockSeasons<T extends HomeMediaItem>(item: T): T {
+  if (item.mediaType !== "tv" || item.seasons) return item;
+  return { ...item, seasons: mockSeasonsForId(item.id) };
+}
+
+function decorateTvSeasons<T extends HomeMediaItem>(items: T[]): T[] {
+  return items.map(withMockSeasons);
+}
+
 export const MOCK_FEED: HomeFeedData = {
-  hero: MOCK_HERO,
-  rows: MOCK_ROWS,
+  hero: { ...MOCK_HERO, alternates: decorateTvSeasons(MOCK_HERO.alternates) },
+  rows: MOCK_ROWS.map((row) => ({ ...row, items: decorateTvSeasons(row.items) })),
 };
