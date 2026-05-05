@@ -206,4 +206,24 @@ html[lang="fa"] {
   :root {
     --header-height: calc(var(--spacing) * 14);
   }
+
+  /* Scroll-driven title animation for the media detail modal: shrinks the
+     title as the modal scroll container scrolls. Falls back to a static title
+     in browsers without `animation-timeline` support. */
+  @supports (animation-timeline: scroll()) {
+    .scroll-driven-title {
+      animation-name: modal-title-shrink;
+      animation-timeline: scroll();
+      animation-fill-mode: both;
+      animation-range: 0 240px;
+      transform-origin: left center;
+    }
+
+    @keyframes modal-title-shrink {
+      to {
+        transform: scale(0.7) translateY(-6px);
+        opacity: 0.85;
+      }
+    }
+  }
 }

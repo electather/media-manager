@@ -44,10 +44,14 @@ apps/client/src/
 │   └── index.ts                       — barrel: exports HomeFeed
 │
 ├── shared/components/
+│   ├── media-meta-row.tsx             — shared year/runtime/age/rating/genres row (used by hero card + modal header)
 │   └── media-detail-modal/
 │       ├── index.tsx                  — modal root + scroll engine
+│       ├── types.ts                   — local MediaDetailItem type (extends shared CompactMediaItem)
 │       ├── modal-header.tsx           — title, metadata, clear logo
 │       ├── modal-actions.tsx          — request stub, watchlist toggle, trailer stub
+│       ├── modal-backdrop.tsx         — hero-area backdrop image with gradient fade
+│       ├── modal-credits.tsx          — director / cast definition list
 │       └── modal-seasons.tsx          — read-only season/episode status accordion
 │
 └── app/

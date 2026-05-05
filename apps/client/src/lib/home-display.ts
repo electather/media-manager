@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { RowKind } from "@ent-mcp/shared/home";
 
-export const PEEK_ID_REGEX = /^(movie|tv):\d+$/;
+export const PEEK_ID_REGEX = /^(movie|tv):[\w-]+$/;
 
 export const peekSchema = z.object({
   peek: z.string().regex(PEEK_ID_REGEX).optional(),
