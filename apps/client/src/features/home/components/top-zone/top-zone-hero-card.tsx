@@ -43,17 +43,17 @@ export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
       {hero.clearLogoText ? (
         <div
           aria-hidden="true"
-          className="font-mono text-[13px] font-bold uppercase tracking-[0.16em] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]"
+          className="font-mono text-sm font-bold uppercase tracking-[0.16em] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]"
         >
           {hero.clearLogoText}
         </div>
       ) : null}
       {kicker ? (
-        <div className="inline-flex min-h-5.5 w-fit items-center rounded-md border border-white/15 bg-black/40 px-2 font-mono text-[11px] uppercase tracking-[0.04em] text-primary">
+        <div className="inline-flex min-h-5.5 w-fit items-center rounded-md border border-border bg-card/40 px-2 font-mono text-xs uppercase tracking-[0.04em] text-primary">
           {kicker}
         </div>
       ) : null}
-      <h1 className="m-0 max-w-170 text-balance font-heading text-[28px] font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-[38px] sm:leading-[1.03]">
+      <h1 className="m-0 max-w-170 text-balance font-heading text-3xl font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-4xl sm:leading-[1.03]">
         {hero.title}
       </h1>
       <MediaMetaRow
@@ -64,7 +64,7 @@ export function TopZoneHeroCard({ hero, onMoreInfo, onDismiss }: Props) {
         genres={hero.genres}
       />
       {hero.overview ? (
-        <p className="m-0 line-clamp-3 max-w-155 text-pretty text-[13px] leading-[1.45] text-muted-foreground sm:text-sm">
+        <p className="m-0 line-clamp-3 max-w-155 text-pretty text-sm leading-[1.45] text-muted-foreground">
           {hero.overview}
         </p>
       ) : null}

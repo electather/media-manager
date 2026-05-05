@@ -57,7 +57,7 @@ export function TopZone({ hero, onPeek }: Props) {
       className="relative isolate mb-2"
     >
       <TopZoneAmbient src={ambientSrc} />
-      <div className="relative z-10 aspect-2/3 w-full overflow-hidden rounded-[20px] bg-card shadow-hero sm:aspect-auto sm:h-[clamp(300px,42vh,400px)]">
+      <div className="relative z-10 aspect-2/3 w-full overflow-hidden rounded-4xl bg-card shadow-hero sm:aspect-auto sm:h-[clamp(18.75rem,42vh,25rem)]">
         {ambientSrc ? (
           <img
             src={ambientSrc}
@@ -72,7 +72,7 @@ export function TopZone({ hero, onPeek }: Props) {
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 z-2 h-35 rounded-t-[20px] bg-[linear-gradient(to_bottom,oklch(0_0_0/0.5)_0%,transparent_100%)]"
+          className="pointer-events-none absolute inset-x-0 top-0 z-2 h-35 rounded-t-4xl bg-[linear-gradient(to_bottom,oklch(0_0_0/0.5)_0%,transparent_100%)]"
         />
         <TopZoneHeroCard
           hero={active}
