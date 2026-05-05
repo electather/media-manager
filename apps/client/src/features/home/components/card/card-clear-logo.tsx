@@ -6,7 +6,7 @@ type Props = {
 };
 
 const SIZES = {
-  sm: "text-[11px] sm:text-sm",
+  sm: "text-xs sm:text-sm",
   md: "text-sm sm:text-base",
   lg: "text-2xl sm:text-4xl",
 };

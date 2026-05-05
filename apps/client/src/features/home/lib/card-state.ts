@@ -9,10 +9,17 @@ export type CardAvailabilityState = {
   serverPicker: boolean;
 };
 
+function empty(kind: CardAvailabilityKind): CardAvailabilityState {
+  return { kind, serverLabel: null, serverCount: 0, serverPicker: false };
+}
+
 /**
  * Derives the visible availability badge from the item's availability + status.
  * Mirrors the prototype's `deriveCardState` so badge copy and tone match the
  * design without re-implementing the rule per surface.
+ *
+ * Order matters: server-copy first, then explicit requested status, then
+ * upcoming (release date wins over request-eligible), then request, else info.
  */
 export function deriveCardState(item: HomeMediaItem): CardAvailabilityState {
   const a = item.availability;
@@ -20,20 +27,25 @@ export function deriveCardState(item: HomeMediaItem): CardAvailabilityState {
 
   if (a?.hasAnyServerCopy) {
     if (servers.length === 1)
-      return { kind: "server", serverLabel: servers[0]!.label, serverCount: 1, serverPicker: false };
+      return {
+        kind: "server",
+        serverLabel: servers[0]!.label,
+        serverCount: 1,
+        serverPicker: false,
+      };
     if (servers.length > 1)
-      return { kind: "server", serverLabel: null, serverCount: servers.length, serverPicker: true };
+      return {
+        kind: "server",
+        serverLabel: null,
+        serverCount: servers.length,
+        serverPicker: true,
+      };
+    // hasAnyServerCopy=true but servers[] empty — data inconsistency guard.
     return { kind: "server", serverLabel: null, serverCount: 0, serverPicker: false };
   }
 
-  if (item.status === "requested" || (a && !a.requestEligible && !a.hasAnyServerCopy && item.status !== "unavailable"))
-    return { kind: "requested", serverLabel: null, serverCount: 0, serverPicker: false };
-
-  if (a?.requestEligible)
-    return { kind: "request", serverLabel: null, serverCount: 0, serverPicker: false };
-
-  if (item.facets?.releaseDate)
-    return { kind: "upcoming", serverLabel: null, serverCount: 0, serverPicker: false };
-
-  return { kind: "info", serverLabel: null, serverCount: 0, serverPicker: false };
+  if (item.status === "requested") return empty("requested");
+  if (item.facets?.releaseDate) return empty("upcoming");
+  if (a?.requestEligible) return empty("request");
+  return empty("info");
 }

@@ -19,15 +19,13 @@ export function resetMockCounter() {
  */
 export function generateMockPage(existing: HomeMediaItem[], count: number): HomeMediaItem[] {
   if (existing.length === 0) return [];
-  const out: HomeMediaItem[] = [];
-  for (let i = 0; i < count; i++) {
+  return Array.from({ length: count }, (_, i) => {
     const seed = existing[i % existing.length]!;
     cloneCounter += 1;
-    out.push({
+    return {
       ...seed,
       id: `${seed.id}#clone-${cloneCounter}`,
       tmdbId: `${seed.tmdbId}-clone-${cloneCounter}`,
-    });
-  }
-  return out;
+    };
+  });
 }

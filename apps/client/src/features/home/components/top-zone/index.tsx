@@ -26,15 +26,24 @@ export function TopZone({ hero, onPeek }: Props) {
 
   // Drive a CSS custom property from page scroll so the backdrop translates
   // independently of the foreground without re-rendering React per frame.
+  // rAF-throttled via a ticking flag (matches use-hide-on-scroll-down) so
+  // multiple scroll ticks coalesce into a single style write per frame.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const handler = () => {
-      stage.style.setProperty("--ambient-y", `${window.scrollY * PARALLAX_FACTOR}px`);
-    };
-    handler();
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
+    let ticking = false;
+    function update() {
+      stage!.style.setProperty("--ambient-y", `${window.scrollY * PARALLAX_FACTOR}px`);
+      ticking = false;
+    }
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   function cycleAlternate() {

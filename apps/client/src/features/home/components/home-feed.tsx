@@ -11,6 +11,14 @@ import { TopZone } from "./top-zone";
 // `client-feat-home → client-features-legacy` zone boundary.
 type PeekSearch = { peek?: string };
 
+// Mock-pagination clones append `#clone-N` to the original id so React keys
+// stay unique. Strip the suffix when resolving the peek so cloned cards still
+// open the detail modal for the original content.
+function sourceIdOf(id: string): string {
+  const hash = id.indexOf("#");
+  return hash === -1 ? id : id.slice(0, hash);
+}
+
 export function HomeFeed() {
   const data = useHomeFeed();
   invariant(data.hero !== null, "home feed requires a hero item");
@@ -34,7 +42,7 @@ export function HomeFeed() {
     return map;
   }, [hero, data.rows]);
 
-  const peekItem = peek ? (itemIndex.get(peek) ?? null) : null;
+  const peekItem = peek ? (itemIndex.get(peek) ?? itemIndex.get(sourceIdOf(peek)) ?? null) : null;
 
   const handlePeek = useCallback(
     (id: string) => {

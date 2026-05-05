@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { Card } from "../components/card/index";
 import type { HomeMediaItem, RowKind } from "../lib/types";
@@ -111,16 +111,11 @@ describe("Card", () => {
   });
 
   it("calls onClick when the card click overlay is activated", () => {
-    const onClick = (() => {
-      let count = 0;
-      const fn = () => { count++; };
-      (fn as { calls: () => number }).calls = () => count;
-      return fn as (() => void) & { calls: () => number };
-    })();
+    const onClick = vi.fn();
     render(<Card item={makeItem()} rowKind="recommendedForYou" onClick={onClick} />);
     const overlay = screen.getByRole("button", { name: /open details for.*test movie/i });
     overlay.click();
-    expect(onClick.calls()).toBe(1);
+    expect(onClick).toHaveBeenCalledOnce();
   });
 });
 
