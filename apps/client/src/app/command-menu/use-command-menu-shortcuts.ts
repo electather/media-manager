@@ -1,5 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
+// Emitted by `CommandMenuTrigger` (the search button in the top nav).
+// Inherited from the nama-prototype event name for wire-compatibility — keep
+// the literal in sync if the trigger ever changes.
 const OPEN_EVENT = "nama:open-command";
 
 function hasModifier(event: KeyboardEvent): boolean {
@@ -31,11 +34,18 @@ function isTypingInField(target: EventTarget | null): boolean {
  * - "/" opens the menu when the user is not already typing in an input.
  * - The legacy `nama:open-command` window event opens the menu, so the
  *   top-nav search button keeps working.
+ *
+ * The listener is attached once and reads `open` through a ref so the menu
+ * opening / closing doesn't tear down and re-add the handler on every
+ * toggle.
  */
 export function useCommandMenuShortcuts(
   open: boolean,
   setOpen: (next: boolean | ((prev: boolean) => boolean)) => void,
 ): void {
+  const openRef = useRef(open);
+  openRef.current = open;
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (isToggleShortcut(event)) {
@@ -43,14 +53,14 @@ export function useCommandMenuShortcuts(
         setOpen((prev) => !prev);
         return;
       }
-      if (open || !isSlashShortcut(event)) return;
+      if (openRef.current || !isSlashShortcut(event)) return;
       event.preventDefault();
       setOpen(true);
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
+  }, [setOpen]);
 
   useEffect(() => {
     const onOpen = () => setOpen(true);

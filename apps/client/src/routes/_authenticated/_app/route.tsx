@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/app/app-shell";
-import { useHomeFeed } from "@/features/home/hooks/use-home-feed";
+import { useHomeFeed } from "@/features/home";
 import {
   CommandMenuMediaProvider,
   type CommandMenuMediaItem,

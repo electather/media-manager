@@ -341,7 +341,13 @@ function getPlaceholder(scope: CommandScope): string {
   return m.command_menu_search_placeholder();
 }
 
-function ScopeChip({ scope, onClear }: { scope: Exclude<CommandScope, null>; onClear: () => void }) {
+function ScopeChip({
+  scope,
+  onClear,
+}: {
+  scope: Exclude<CommandScope, null>;
+  onClear: () => void;
+}) {
   const Icon = scope === "tv" ? Tv : Film;
   const label = scope === "tv" ? m.command_menu_kind_tv() : m.command_menu_kind_movie();
   return (
@@ -370,7 +376,9 @@ function getMediaHeadingKey(scope: CommandScope): StaticMessageKey {
 }
 
 function getTrendingHeadingKey(scope: CommandScope): StaticMessageKey {
-  return scope === "tv" ? "command_menu_section_trending_tv" : "command_menu_section_trending_movie";
+  return scope === "tv"
+    ? "command_menu_section_trending_tv"
+    : "command_menu_section_trending_movie";
 }
 
 function MediaRow({ item, onSelect }: { item: MediaItem; onSelect: () => void }) {
@@ -423,7 +431,9 @@ function mediaMatchValue(item: MediaItem): string {
   // cmdk fuzzy-matches against the `value` string. Title comes first so
   // prefix matches on the title score highest; everything else (year,
   // genres, tags, director, cast) is appended to broaden hits — a query for
-  // "atmos" or a cast name still finds the right title.
+  // "atmos" or a cast name still finds the right title. Note that we leave
+  // `item.id` out — id strings like `tv:tt0898266` would otherwise leak
+  // into fuzzy space and surface unintended hits for partial-id queries.
   return [
     item.title,
     item.year,
@@ -432,7 +442,6 @@ function mediaMatchValue(item: MediaItem): string {
     item.mediaType === "tv" ? "tv show series" : "movie film",
     item.director,
     item.cast?.join(" "),
-    item.id,
   ]
     .filter(Boolean)
     .join(" ");
@@ -458,15 +467,7 @@ function RowIcon({ Icon }: { Icon: typeof Tv }) {
   );
 }
 
-function RowContent({
-  label,
-  hint,
-  badge,
-}: {
-  label: string;
-  hint: string;
-  badge?: ReactNode;
-}) {
+function RowContent({ label, hint, badge }: { label: string; hint: string; badge?: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
       <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">

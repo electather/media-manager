@@ -19,12 +19,7 @@ export type CommandScope = null | "tv" | "movie";
  * A subset of the route tree the command menu jumps to. Listed as a literal
  * union so `useNavigate({ to })` stays type-checked against `routeTree.gen`.
  */
-export type PageRoute =
-  | "/"
-  | "/library"
-  | "/watchlist"
-  | "/settings"
-  | "/settings/connections";
+export type PageRoute = "/" | "/library" | "/watchlist" | "/settings" | "/settings/connections";
 
 export type PageItem = {
   id: string;
