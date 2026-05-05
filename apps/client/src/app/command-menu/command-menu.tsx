@@ -133,10 +133,13 @@ export function CommandMenu() {
   const handleSelectMedia = useCallback(
     (item: MediaItem) => {
       pushRecent(item.id);
-      // TODO(media-detail): open the media detail modal once it lands.
+      // Navigate to the current route with `?peek=<id>` — `_authenticated`
+      // validates the search param and the `MediaDetailModal` mounted under
+      // the home feed reads it. Closing the menu lets the modal take focus.
+      void navigate({ to: ".", search: { peek: item.id }, replace: false });
       close();
     },
-    [close, pushRecent],
+    [close, navigate, pushRecent],
   );
 
   // Backspace at the very start of an empty input clears the active scope —
