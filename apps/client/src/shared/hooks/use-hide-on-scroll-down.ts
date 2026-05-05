@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const HIDE_DELTA_PX = 200;
 const REVEAL_OFFSET_PX = 64;
@@ -11,6 +11,9 @@ const REVEAL_OFFSET_PX = 64;
  */
 export function useHideOnScrollDown(): boolean {
   const [hidden, setHidden] = useState(false);
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
+
   useEffect(() => {
     let lastY = window.scrollY;
     let ticking = false;
@@ -18,10 +21,11 @@ export function useHideOnScrollDown(): boolean {
       const y = window.scrollY;
       const delta = y - lastY;
       if (delta < 0) {
-        setHidden(false);
+        if (hiddenRef.current) setHidden(false);
         lastY = y;
       } else if (delta >= HIDE_DELTA_PX) {
-        setHidden(y > REVEAL_OFFSET_PX);
+        const next = y > REVEAL_OFFSET_PX;
+        if (hiddenRef.current !== next) setHidden(next);
         lastY = y;
       }
       ticking = false;
