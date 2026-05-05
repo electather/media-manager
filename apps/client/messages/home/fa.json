@@ -8,6 +8,7 @@
   "home_nav_label_mobile": "TODO",
 
   "home_row_continueWatching_header": "TODO",
+  "home_row_continueWatching_counter": "TODO",
   "home_row_recommendedForYou_header": "TODO",
   "home_row_trendingNow_header": "TODO",
   "home_row_newReleases_header": "TODO",
@@ -15,6 +16,8 @@
   "home_row_becauseYouWatched_subtitle": "TODO",
   "home_row_upcomingForYou_header": "TODO",
   "home_row_yourWatchlist_header": "TODO",
+  "home_row_prev_label": "TODO",
+  "home_row_next_label": "TODO",
 
   "home_match_reason_matches_recent_picks": "TODO",
   "home_match_reason_from_genre_you_love": "TODO",
