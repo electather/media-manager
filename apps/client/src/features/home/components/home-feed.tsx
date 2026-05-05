@@ -4,6 +4,7 @@ import { invariant } from "es-toolkit/util";
 import { MediaDetailModal } from "@/shared/components/media-detail-modal";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import type { HomeMediaItem } from "../lib/types";
+import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
 
 // Local re-type. Importing the type from `@/lib/home-display` crosses the
@@ -18,7 +19,19 @@ export function HomeFeed() {
   const hero = data.hero;
   const { peek } = useSearch({ strict: false }) as PeekSearch;
   const navigate = useNavigate();
-  const [watchlist, setWatchlist] = useState<Set<string>>(() => new Set());
+
+  // Seed the watchlist from the yourWatchlist row so cards already on the
+  // list render the "Remove" affordance instead of "Add" on first paint.
+  const initialWatchlist = useMemo(() => {
+    const set = new Set<string>();
+    const watchlistRow = data.rows.find((row) => row.kind === "yourWatchlist");
+    if (watchlistRow) {
+      for (const item of watchlistRow.items) set.add(item.id);
+    }
+    return set;
+  }, [data.rows]);
+
+  const [watchlist, setWatchlist] = useState<Set<string>>(initialWatchlist);
 
   const itemIndex = useMemo(() => {
     const map = new Map<string, HomeMediaItem>();
@@ -41,26 +54,44 @@ export function HomeFeed() {
     void navigate({ to: ".", search: {}, replace: false });
   }, [navigate]);
 
-  const inWatchlist = peekItem ? watchlist.has(peekItem.id) : false;
-  const handleToggleWatchlist = useCallback(() => {
-    if (!peekItem) return;
+  const toggleWatchlistId = useCallback((id: string) => {
     setWatchlist((prev) => {
       const next = new Set(prev);
-      if (next.has(peekItem.id)) next.delete(peekItem.id);
-      else next.add(peekItem.id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  }, [peekItem]);
+  }, []);
+
+  const inWatchlist = peekItem ? watchlist.has(peekItem.id) : false;
+  const handleToggleWatchlistFromModal = useCallback(() => {
+    if (!peekItem) return;
+    toggleWatchlistId(peekItem.id);
+  }, [peekItem, toggleWatchlistId]);
+
+  // Optimistic no-op placeholder until backend integration adds real request logic.
+  const handleRequest = useCallback((_id: string) => {}, []);
 
   return (
     <div className="flex flex-col gap-8 px-4 pb-12 sm:px-6">
       <TopZone hero={hero} onPeek={handlePeek} />
+      <div>
+        {data.rows.map((row) => (
+          <Row
+            key={row.id}
+            row={row}
+            watchlist={watchlist}
+            onWatchlistToggle={toggleWatchlistId}
+            onRequest={handleRequest}
+          />
+        ))}
+      </div>
       <MediaDetailModal
         item={peekItem}
         open={Boolean(peekItem)}
         onClose={handleClose}
         inWatchlist={inWatchlist}
-        onToggleWatchlist={handleToggleWatchlist}
+        onToggleWatchlist={handleToggleWatchlistFromModal}
       />
     </div>
   );
