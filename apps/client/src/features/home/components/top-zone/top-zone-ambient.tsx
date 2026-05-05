@@ -7,9 +7,11 @@ const FADE_OUT_MS = 900;
 type Layer = { id: number; src: string; visible: boolean };
 
 /**
- * Crossfading backdrop image stack. Translates by the parent's `--ambient-y`
- * custom property so the page scroll drives a parallax effect on the hero.
- * The image is oversized to 110% to keep edges clean during translation.
+ * Crossfading blurred backdrop. Sits behind the hero card and bleeds outside
+ * the card via blur + upscale, producing the YouTube-style ambient spill.
+ * Translates by the parent's `--ambient-y` custom property so the page scroll
+ * drives a parallax effect. The inner wrapper is oversized so the parallax
+ * shift cannot expose an uncovered card edge.
  */
 export function TopZoneAmbient({ src }: { src: string | undefined }) {
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -35,10 +37,10 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none absolute inset-0 overflow-hidden"
+      className="pointer-events-none absolute inset-0 z-0"
     >
       <div
-        className="absolute -inset-[5%]"
+        className="absolute inset-[-9%]"
         style={{ transform: "translateY(calc(var(--ambient-y, 0px) * -1))" }}
       >
         {layers.map((layer) => (
@@ -47,14 +49,12 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
             src={layer.src}
             alt=""
             className={cn(
-              "absolute inset-0 size-full object-cover transition-opacity duration-700 ease-out",
-              layer.visible ? "opacity-100" : "opacity-0",
+              "absolute inset-0 size-full scale-[1.18] object-cover blur-[80px] saturate-[1.9] transition-opacity duration-700 ease-out",
+              layer.visible ? "opacity-90" : "opacity-0",
             )}
           />
         ))}
       </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-background/85 via-background/40 to-transparent" />
     </div>
   );
 }

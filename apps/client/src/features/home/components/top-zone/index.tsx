@@ -12,9 +12,10 @@ type Props = {
 const PARALLAX_FACTOR = 0.25;
 
 /**
- * Hero stage. Mirrors the prototype's overlay-on-image structure: ambient
- * backdrop layer with crossfade + parallax, foreground hero card with full
- * action cluster, and a dot-nav for cycling between hero candidates.
+ * Hero stage. Mirrors the prototype's overlay-on-image structure: a stage
+ * container holds a blurred ambient backdrop that bleeds outside the card
+ * (YouTube-style spill), and a bounded hero card on top with the sharp
+ * artwork, gradient scrims, and the hero copy overlay.
  */
 export function TopZone({ hero, onPeek }: Props) {
   const candidates = useMemo<HomeMediaItem[]>(() => [hero, ...hero.alternates], [hero]);
@@ -26,8 +27,6 @@ export function TopZone({ hero, onPeek }: Props) {
 
   // Drive a CSS custom property from page scroll so the backdrop translates
   // independently of the foreground without re-rendering React per frame.
-  // rAF-throttled via a ticking flag (matches use-hide-on-scroll-down) so
-  // multiple scroll ticks coalesce into a single style write per frame.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -55,18 +54,36 @@ export function TopZone({ hero, onPeek }: Props) {
       ref={stageRef}
       data-testid="top-zone"
       aria-label={hero.title}
-      className="relative isolate -mx-4 mb-8 min-h-[420px] overflow-hidden rounded-3xl bg-card sm:-mx-6 sm:min-h-[520px]"
+      className="relative isolate mb-2"
     >
       <TopZoneAmbient src={ambientSrc} />
-      <TopZoneHeroCard
-        hero={active}
-        onMoreInfo={() => onPeek(active.id)}
-        onDismiss={candidates.length > 1 ? cycleAlternate : undefined}
-      />
+      <div className="relative z-10 aspect-2/3 w-full overflow-hidden rounded-4xl bg-card shadow-hero sm:aspect-auto sm:h-[clamp(18.75rem,42vh,25rem)]">
+        {ambientSrc ? (
+          <img
+            src={ambientSrc}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : null}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,oklch(0_0_0/0.65)_100%)]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-2 h-35 rounded-t-4xl bg-[linear-gradient(to_bottom,oklch(0_0_0/0.5)_0%,transparent_100%)]"
+        />
+        <TopZoneHeroCard
+          hero={active}
+          onMoreInfo={() => onPeek(active.id)}
+          onDismiss={candidates.length > 1 ? cycleAlternate : undefined}
+        />
+      </div>
       {candidates.length > 1 ? (
         <nav
           aria-label={m.home_hero_alternates_label()}
-          className="absolute end-4 bottom-4 z-20 flex flex-wrap gap-1.5"
+          className="absolute inset-e-4 bottom-4 z-20 flex flex-wrap gap-1.5"
           data-testid="top-zone-alternates"
         >
           {candidates.map((item, index) => {

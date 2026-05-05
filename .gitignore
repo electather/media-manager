@@ -14,5 +14,6 @@ apps/client/src/paraglide/
 .DS_Store
 test-server.ts
 .claude/worktrees/
+.claude/scheduled_tasks.lock
 .token-savior-cache.json
 .fallow
