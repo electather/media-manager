@@ -58,6 +58,22 @@ export function HomeFeed() {
   const peekItem = peek ? (itemIndex.get(peek) ?? itemIndex.get(sourceIdOf(peek)) ?? null) : null;
   const modalItem = useMemo(() => toModalItem(peekItem), [peekItem]);
 
+  const handleViewFullPage = useCallback(
+    (item: MediaDetailItem) => {
+      const colon = item.id.indexOf(":");
+      if (colon < 0) return;
+      const mediaType = item.id.slice(0, colon);
+      const mediaId = item.id.slice(colon + 1);
+      if (mediaType !== "movie" && mediaType !== "tv") return;
+      if (!mediaId) return;
+      void navigate({
+        to: "/media/$mediaType/$mediaId",
+        params: { mediaType, mediaId },
+      });
+    },
+    [navigate],
+  );
+
   const handlePeek = useCallback(
     (id: string) => {
       void navigate({ to: ".", search: { peek: id }, replace: false });
@@ -104,6 +120,7 @@ export function HomeFeed() {
         onClose={handleClose}
         inWatchlist={inWatchlist}
         onToggleWatchlist={handleToggleWatchlistFromModal}
+        onViewFullPage={handleViewFullPage}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
-import { Film, Tv, X } from "lucide-react";
+import { ExternalLink, Film, Tv, X } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -7,6 +7,8 @@ import type { MediaDetailItem } from "./types";
 
 type Props = {
   item: MediaDetailItem;
+  /** Optional callback to escalate the modal peek into the full detail page. */
+  onViewFullPage?: () => void;
 };
 
 /**
@@ -25,7 +27,7 @@ type Props = {
  * affordance without the imperative measure-and-position rig the prototype
  * uses.
  */
-export function ModalTopbar({ item }: Props) {
+export function ModalTopbar({ item, onViewFullPage }: Props) {
   return (
     <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
       <div
@@ -34,6 +36,7 @@ export function ModalTopbar({ item }: Props) {
       />
       <KindBadge kind={item.mediaType} />
       <div className="flex-1" />
+      {onViewFullPage ? <ViewFullPageButton onClick={onViewFullPage} /> : null}
       <BaseDialog.Close
         render={
           <Button
@@ -48,6 +51,22 @@ export function ModalTopbar({ item }: Props) {
         <X aria-hidden="true" />
       </BaseDialog.Close>
     </div>
+  );
+}
+
+function ViewFullPageButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={onClick}
+      aria-label={m.media_detail_view_full_page()}
+      className="relative bg-card/60 supports-backdrop-filter:bg-background/40 supports-backdrop-filter:backdrop-blur"
+    >
+      <ExternalLink aria-hidden="true" />
+      <span className="hidden sm:inline">{m.media_detail_view_full_page()}</span>
+    </Button>
   );
 }
 

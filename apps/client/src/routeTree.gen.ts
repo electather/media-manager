@@ -36,6 +36,7 @@ import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
 import { Route as AuthenticatedSettingsAdminLogsRouteImport } from './routes/_authenticated/_settings/admin/logs'
 import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
+import { Route as AuthenticatedAppMediaMediaTypeMediaIdRouteImport } from './routes/_authenticated/_app/media.$mediaType.$mediaId'
 
 const OauthRouteRoute = OauthRouteRouteImport.update({
   id: '/oauth',
@@ -185,6 +186,12 @@ const AuthenticatedSettingsAdminJobsRoute =
     path: '/admin/jobs',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedAppMediaMediaTypeMediaIdRoute =
+  AuthenticatedAppMediaMediaTypeMediaIdRouteImport.update({
+    id: '/media/$mediaType/$mediaId',
+    path: '/media/$mediaType/$mediaId',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedAppIndexRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
+  '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedAppIndexRoute
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
+  '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -267,6 +276,7 @@ export interface FileRoutesById {
   '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
+  '/_authenticated/_app/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/security'
     | '/settings/'
+    | '/media/$mediaType/$mediaId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/security'
     | '/settings'
+    | '/media/$mediaType/$mediaId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -350,6 +362,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/settings/profile'
     | '/_authenticated/_settings/settings/security'
     | '/_authenticated/_settings/settings/'
+    | '/_authenticated/_app/media/$mediaType/$mediaId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -549,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_app/media/$mediaType/$mediaId': {
+      id: '/_authenticated/_app/media/$mediaType/$mediaId'
+      path: '/media/$mediaType/$mediaId'
+      fullPath: '/media/$mediaType/$mediaId'
+      preLoaderRoute: typeof AuthenticatedAppMediaMediaTypeMediaIdRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
@@ -556,12 +576,15 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
   AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppMediaMediaTypeMediaIdRoute: typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
   AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppMediaMediaTypeMediaIdRoute:
+    AuthenticatedAppMediaMediaTypeMediaIdRoute,
 }
 
 const AuthenticatedAppRouteRouteWithChildren =
