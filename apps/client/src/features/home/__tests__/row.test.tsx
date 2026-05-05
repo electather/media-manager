@@ -93,4 +93,12 @@ describe("Row", () => {
     render(<Row row={row} />);
     expect(screen.queryByTestId("partial-warning")).toBeNull();
   });
+
+  it("places the card scroller in a full-bleed strip", () => {
+    const row = makeRow();
+    const { container } = render(<Row row={row} />);
+    const bleed = container.querySelector('[data-testid="row-scroller-bleed"]');
+    expect(bleed).toBeTruthy();
+    expect(bleed?.className).toContain("w-screen");
+  });
 });

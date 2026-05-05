@@ -37,10 +37,10 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none absolute inset-0 z-0"
+      className="pointer-events-none absolute inset-x-0 inset-y-[-9%] z-0 overflow-hidden"
     >
       <div
-        className="absolute inset-[-9%]"
+        className="absolute inset-0"
         style={{ transform: "translateY(calc(var(--ambient-y, 0px) * -1))" }}
       >
         {layers.map((layer) => (

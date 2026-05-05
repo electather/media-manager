@@ -66,6 +66,11 @@ describe("TopZone", () => {
     expect(ambient.getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("clips horizontal ambient overflow at the stage", () => {
+    render(<TopZone hero={HERO} onPeek={vi.fn()} />);
+    expect(screen.getByTestId("top-zone").className).toContain("overflow-x-clip");
+  });
+
   it("clicking an alternate dot updates the hero card title and More Info target", () => {
     const onPeek = vi.fn();
     render(<TopZone hero={HERO} onPeek={onPeek} />);
