@@ -18,8 +18,6 @@ export function HomeFeed() {
   const { peek } = useSearch({ strict: false }) as PeekSearch;
   const navigate = useNavigate();
 
-  // Seed the watchlist from the yourWatchlist row so cards already on the
-  // list render the "Remove" affordance instead of "Add" on first paint.
   const initialWatchlist = useMemo(() => {
     const set = new Set<string>();
     const watchlistRow = data.rows.find((row) => row.kind === "yourWatchlist");
@@ -65,9 +63,9 @@ export function HomeFeed() {
   }, [peekItem, toggleWatchlistId]);
 
   return (
-    <div className="flex flex-col gap-8 px-4 pb-12 sm:px-6">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
       <TopZone hero={hero} onPeek={handlePeek} />
-      <div>
+      <div className="flex flex-col gap-2">
         {data.rows.map((row) => (
           <Row
             key={row.id}
