@@ -1,6 +1,6 @@
 import * as m from "@/paraglide/messages";
 import { ROW_COPY } from "../../lib/home-feed-config";
-import type { RowData } from "../../lib/types";
+import type { MessageKey, RowData } from "../../lib/types";
 
 interface RowHeaderProps {
   row: RowData;
@@ -9,9 +9,14 @@ interface RowHeaderProps {
 /** Heading + optional subtitle + optional counter chip + partial-warning indicator. */
 export function RowHeader({ row }: RowHeaderProps) {
   const copy = ROW_COPY[row.kind];
-  const headerFn = m[copy.headerKey] as (params?: Record<string, string>) => string;
+  const headerKey: MessageKey = row.headerKey ?? copy.headerKey;
+  const headerFn = m[headerKey] as (params?: Record<string, string>) => string;
+  if (import.meta.env.DEV && typeof headerFn !== "function") {
+    throw new Error(`RowHeader: unknown i18n key "${String(headerKey)}"`);
+  }
   const heading = headerFn(row.seedTitle ? { seedTitle: row.seedTitle } : {});
-  const subtitleFn = copy.subtitleKey ? (m[copy.subtitleKey] as () => string) : null;
+  const subtitleKey: MessageKey | undefined = row.subtitleKey ?? copy.subtitleKey;
+  const subtitleFn = subtitleKey ? (m[subtitleKey] as () => string) : null;
   const subtitle = subtitleFn ? subtitleFn() : null;
 
   return (

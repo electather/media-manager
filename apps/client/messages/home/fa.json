@@ -6,10 +6,15 @@
   "home_nav_watchlist": "TODO",
   "home_nav_label_primary": "TODO",
   "home_nav_label_mobile": "TODO",
+  "home_nav_brand_label": "TODO",
 
   "home_row_continueWatching_header": "TODO",
   "home_row_continueWatching_counter": "TODO",
+  "home_row_nextInYourShows_header": "TODO",
+  "home_row_nextInYourShows_subtitle": "TODO",
   "home_row_recommendedForYou_header": "TODO",
+  "home_row_tvShowsToRequest_header": "TODO",
+  "home_row_moviesToRequest_header": "TODO",
   "home_row_trendingNow_header": "TODO",
   "home_row_newReleases_header": "TODO",
   "home_row_becauseYouWatched_header": "TODO",
@@ -31,9 +36,11 @@
   "home_match_reason_finishing_soon": "TODO",
 
   "home_hero_play": "TODO",
+  "home_hero_resume": "TODO",
   "home_hero_more_info": "TODO",
   "home_hero_dismiss": "TODO",
   "home_hero_alternates_label": "TODO",
+  "home_hero_progress_watched": "TODO",
 
   "home_card_request": "TODO",
   "home_card_add_watchlist": "TODO",

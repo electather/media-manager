@@ -1,6 +1,10 @@
+import type * as messages from "@/paraglide/messages";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 
 export type { RowKind };
+
+/** Valid Paraglide message key. Narrows `string` to the keys exported by `@/paraglide/messages`. */
+export type MessageKey = keyof typeof messages;
 
 export const MATCH_REASON_KEYS = [
   "matches_recent_picks",
@@ -65,6 +69,14 @@ export type RowData = {
   items: HomeMediaItem[];
   /** Derived client-side via ROW_ASPECT — not present in the wire format. */
   defaultAspect: "16/9" | "2/3";
+  /**
+   * Optional UI-only header override. When two rows share the same `kind`
+   * (e.g. two `continueWatching` rows representing different intents), pass
+   * a distinct Paraglide message key so the headings stay readable.
+   */
+  headerKey?: MessageKey;
+  /** Optional subtitle override paired with `headerKey`. */
+  subtitleKey?: MessageKey;
 };
 
 /**

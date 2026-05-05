@@ -857,9 +857,16 @@ function makeRow(
 export const MOCK_ROWS: RowData[] = [
   makeRow("continueWatching", "continueWatching", CONTINUE_WATCHING),
   makeRow("becauseYouWatched", "becauseYouWatched", BECAUSE_FINISHED, { seedTitle: "Helios Run" }),
-  makeRow("continueWatching-2", "continueWatching", NEXT_EPISODE_ACTIVE_SERIES),
-  makeRow("recommendedForYou-tv", "recommendedForYou", TV_NEEDS_REQUEST),
-  makeRow("recommendedForYou-movies", "recommendedForYou", MOVIES_NEEDS_REQUEST),
+  makeRow("continueWatching-2", "continueWatching", NEXT_EPISODE_ACTIVE_SERIES, {
+    headerKey: "home_row_nextInYourShows_header",
+    subtitleKey: "home_row_nextInYourShows_subtitle",
+  }),
+  makeRow("recommendedForYou-tv", "recommendedForYou", TV_NEEDS_REQUEST, {
+    headerKey: "home_row_tvShowsToRequest_header",
+  }),
+  makeRow("recommendedForYou-movies", "recommendedForYou", MOVIES_NEEDS_REQUEST, {
+    headerKey: "home_row_moviesToRequest_header",
+  }),
   makeRow("yourWatchlist", "yourWatchlist", WATCHLIST_NOW_AVAILABLE),
   makeRow("upcomingForYou", "upcomingForYou", UPCOMING_FOR_YOU),
 ];
