@@ -232,6 +232,25 @@ html[lang="fa"] {
         opacity: 0.85;
       }
     }
+
+    /* Topbar background fades in as the scroll progresses past the hero
+       spacer so the close button stays legible once the title has scrolled
+       past. Pairs with `.scroll-driven-title` on the same scroll ancestor. */
+    .scroll-driven-topbar-bg {
+      animation-name: modal-topbar-fade;
+      animation-timeline: scroll();
+      animation-fill-mode: both;
+      animation-range: 0 200px;
+    }
+
+    @keyframes modal-topbar-fade {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
   }
 
   /* Row scroller edge fades. JS sets data-at-start / data-at-end on the

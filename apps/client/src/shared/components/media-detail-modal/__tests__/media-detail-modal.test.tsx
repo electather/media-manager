@@ -29,6 +29,11 @@ const TV: MediaDetailItem = {
   rating: 8.1,
   overview: "Rolling, slow-burn anthology.",
   episode: { season: 3, episode: 1, airsAt: 0 },
+  seasons: [
+    { number: 1, episodeCount: 8, counts: { available: 8 }, episodes: [] },
+    { number: 2, episodeCount: 6, counts: { unavailable: 6 }, episodes: [] },
+    { number: 3, episodeCount: 4, counts: { upcoming: 4 }, episodes: [] },
+  ],
 };
 
 describe("MediaDetailModal", () => {

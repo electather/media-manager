@@ -4,6 +4,9 @@ import type {
   HomeFeedData,
   HomeMediaItem,
   MatchReasonKey,
+  MockEpisode,
+  MockEpisodeStatus,
+  MockSeason,
   RowData,
   RowKind,
 } from "./types";
@@ -52,8 +55,19 @@ const ALSO_WATCHING: HomeMediaItem[] = [
     poster: img("portal-p", 600, 900),
     clearLogoText: "THE·PORTAL",
     tags: ["Atmos"],
-    genres: ["Sci-Fi"],
-    rating: 8.1,
+    genres: ["Drama", "Sci-Fi"],
+    rating: 7.2,
+    votes: 57300,
+    audienceScore: 72,
+    criticScore: 85,
+    runtime: "1h 58m",
+    ageRating: "PG-13",
+    overview:
+      "A deep-sea research team discovers a portal to a world beneath the ocean floor. As they venture further in, the boundary between explorer and subject begins to dissolve.",
+    cast: ["Lena Marsh", "Idris Côté", "Kim Park", "Robert Tan"],
+    director: "Anya Volkov",
+    seriesStatus: "ongoing",
+    nextAirDate: "Sun 11 May",
     progress: progress(6, 12),
   },
   {
@@ -80,6 +94,16 @@ const ALSO_WATCHING: HomeMediaItem[] = [
     clearLogoText: "AFTER·PARTY",
     genres: ["Comedy"],
     rating: 8.3,
+    votes: 41200,
+    audienceScore: 88,
+    criticScore: 79,
+    runtime: "32m",
+    ageRating: "TV-MA",
+    overview:
+      "An ensemble comedy set in the chaotic aftermath of a billionaire's death. Each episode follows a different guest piecing together what really happened the night before.",
+    cast: ["Lena Marsh", "Idris Côté", "Kim Park"],
+    director: "Seo-yeon Park",
+    seriesStatus: "finished",
     progress: progress(0, 8),
   },
   {
@@ -92,8 +116,19 @@ const ALSO_WATCHING: HomeMediaItem[] = [
     poster: img("wake-p", 600, 900),
     clearLogoText: "THE·WAKE",
     tags: ["4K"],
-    genres: ["Thriller"],
+    genres: ["Thriller", "Drama"],
     rating: 7.9,
+    votes: 29800,
+    audienceScore: 81,
+    criticScore: 74,
+    runtime: "52m",
+    ageRating: "TV-14",
+    overview:
+      "A lighthouse keeper on a remote island begins receiving distress signals from a vessel that sank forty years ago. A slow-burn Nordic thriller about grief and obsession.",
+    cast: ["Mara Holloway", "Eitan Vasquez"],
+    director: "Lars Eriksen",
+    seriesStatus: "ongoing",
+    nextAirDate: "Wed 7 May",
     progress: progress(3, 8),
   },
   {
@@ -105,8 +140,18 @@ const ALSO_WATCHING: HomeMediaItem[] = [
     backdrop: img("cardhouse", 800, 500),
     poster: img("cardhouse-p", 600, 900),
     clearLogoText: "CARDHOUSE",
-    genres: ["Drama"],
+    genres: ["Drama", "Political"],
     rating: 8.0,
+    votes: 63100,
+    audienceScore: 84,
+    criticScore: 91,
+    runtime: "58m",
+    ageRating: "TV-14",
+    overview:
+      "A veteran political strategist rebuilds her career inside a party tearing itself apart. Dense, dialogue-driven, and ruthlessly precise about how power actually works.",
+    cast: ["Cassia Brandt", "Robert Tan", "Mina Seo"],
+    director: "Anya Volkov",
+    seriesStatus: "finished",
     progress: progress(5, 10),
   },
 ];
@@ -152,6 +197,17 @@ const RECOMMENDED: HomeMediaItem[] = [
     tags: ["HDR", "Atmos"],
     genres: ["Sci-Fi", "Thriller"],
     rating: 8.5,
+    votes: 18900,
+    audienceScore: 89,
+    criticScore: 93,
+    runtime: "55m",
+    ageRating: "TV-14",
+    overview:
+      "A quantum physicist discovers her research has been used to open a one-way door. A taut sci-fi thriller about invention, consequence, and what it means to cross a threshold you can't close.",
+    cast: ["Mara Holloway", "Paolo Vega", "Anika Reed"],
+    director: "Yusuf Okafor",
+    seriesStatus: "ongoing",
+    nextAirDate: "Mon 12 May",
     status: "available",
     availability: serverAvailability(["Plex", "Jellyfin"]),
   },
@@ -196,6 +252,16 @@ const RECOMMENDED: HomeMediaItem[] = [
     tags: ["4K"],
     genres: ["Drama", "Crime"],
     rating: 8.1,
+    votes: 47600,
+    audienceScore: 85,
+    criticScore: 88,
+    runtime: "49m",
+    ageRating: "TV-MA",
+    overview:
+      "A forensic accountant follows a money trail that leads back to her own family. A restrained, precisely-plotted crime drama that trusts numbers to do the work of violence.",
+    cast: ["Cassia Brandt", "Idris Côté", "Kim Park"],
+    director: "Lars Eriksen",
+    seriesStatus: "finished",
     status: "unavailable",
     availability: requestAvailability(true),
   },
@@ -244,6 +310,17 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["4K", "Atmos"],
     genres: ["Thriller", "Drama"],
     rating: 8.3,
+    votes: 33400,
+    audienceScore: 87,
+    criticScore: 90,
+    runtime: "51m",
+    ageRating: "TV-14",
+    overview:
+      "A journalist goes undercover inside a private intelligence contractor and finds the story she's been chasing is about her. A slow-burn thriller with an impeccable sense of dread.",
+    cast: ["Mara Holloway", "Eitan Vasquez", "Anika Reed"],
+    director: "Anya Volkov",
+    seriesStatus: "ongoing",
+    nextAirDate: "Sun 4 May",
     availability: serverAvailability(["Plex"]),
   },
   {
@@ -258,6 +335,16 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["HDR"],
     genres: ["Crime", "Drama"],
     rating: 8.0,
+    votes: 52100,
+    audienceScore: 83,
+    criticScore: 86,
+    runtime: "47m",
+    ageRating: "TV-MA",
+    overview:
+      "After a botched arrest, a homicide detective transfers to a cold-case unit and reopens a fifteen-year-old disappearance that keeps folding back on itself.",
+    cast: ["Lena Marsh", "Robert Tan", "Kim Park"],
+    director: "Seo-yeon Park",
+    seriesStatus: "finished",
     availability: serverAvailability(["Plex"]),
   },
   {
@@ -272,6 +359,17 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["4K"],
     genres: ["Drama", "Finance"],
     rating: 8.2,
+    votes: 27800,
+    audienceScore: 86,
+    criticScore: 92,
+    runtime: "54m",
+    ageRating: "TV-14",
+    overview:
+      "A mid-level analyst at a sovereign wealth fund discovers her firm has been laundering money for a decade — and that the firm knows she knows. A financial thriller in the tradition of slow-burn procedurals.",
+    cast: ["Cassia Brandt", "Paolo Vega"],
+    director: "Lars Eriksen",
+    seriesStatus: "ongoing",
+    nextAirDate: "Tue 6 May",
     availability: serverAvailability(["Jellyfin"]),
   },
   {
@@ -286,6 +384,13 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["Atmos"],
     genres: ["Horror", "Mystery"],
     rating: 7.8,
+    votes: 38700,
+    audienceScore: 78,
+    criticScore: 71,
+    runtime: "44m",
+    ageRating: "TV-MA",
+    overview:
+      "A grief counselor moves to a coastal town and begins noticing that her new clients are describing the same recurring dream. Atmospheric and genuinely unsettling.",
     cast: [
       "Lena Marsh",
       "Idris Côté",
@@ -295,6 +400,8 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
       "Paolo Vega",
       "Anika Reed",
     ],
+    director: "Anya Volkov",
+    seriesStatus: "finished",
     availability: requestAvailability(true),
   },
   {
@@ -309,6 +416,17 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["4K HDR"],
     genres: ["Drama", "Indie"],
     rating: 7.6,
+    votes: 19300,
+    audienceScore: 80,
+    criticScore: 77,
+    runtime: "38m",
+    ageRating: "TV-14",
+    overview:
+      "An indie drama about a small community theatre company rehearsing a play no one fully understands. Quiet, observational, and unexpectedly moving.",
+    cast: ["Mara Holloway", "Eitan Vasquez"],
+    director: "Seo-yeon Park",
+    seriesStatus: "ongoing",
+    nextAirDate: "Fri 9 May",
     availability: serverAvailability(["Plex"]),
   },
   {
@@ -323,6 +441,17 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["4K"],
     genres: ["Drama", "Family"],
     rating: 8.1,
+    votes: 22600,
+    audienceScore: 85,
+    criticScore: 88,
+    runtime: "56m",
+    ageRating: "TV-PG",
+    overview:
+      "Three generations of a farming family converge on the family estate after the patriarch announces he intends to sell. A patient, character-driven drama about inheritance and what gets left unsaid.",
+    cast: ["Cassia Brandt", "Robert Tan", "Anika Reed"],
+    director: "Yusuf Okafor",
+    seriesStatus: "ongoing",
+    nextAirDate: "Thu 8 May",
     availability: serverAvailability(["Plex"]),
   },
   {
@@ -337,6 +466,16 @@ const BECAUSE_YOU_WATCHED: HomeMediaItem[] = [
     tags: ["HDR"],
     genres: ["Drama"],
     rating: 7.9,
+    votes: 15800,
+    audienceScore: 82,
+    criticScore: 79,
+    runtime: "43m",
+    ageRating: "TV-14",
+    overview:
+      "A sound engineer documenting the last residents of a dying mountain town finds the recordings taking on a life of their own. An elusive, formally inventive drama.",
+    cast: ["Lena Marsh", "Kim Park"],
+    director: "Lars Eriksen",
+    seriesStatus: "finished",
     availability: serverAvailability(["Plex"]),
   },
 ];
@@ -382,6 +521,17 @@ const TRENDING: HomeMediaItem[] = [
     tags: ["HDR"],
     genres: ["Adventure", "Drama"],
     rating: 8.2,
+    votes: 31200,
+    audienceScore: 86,
+    criticScore: 89,
+    runtime: "53m",
+    ageRating: "TV-14",
+    overview:
+      "A cartographer hired to map a disputed Arctic region quickly realises the disagreement runs deeper than any border. Sweeping landscape photography, measured pace, earned emotion.",
+    cast: ["Mara Holloway", "Paolo Vega", "Kim Park"],
+    director: "Lars Eriksen",
+    seriesStatus: "ongoing",
+    nextAirDate: "Sat 10 May",
     availability: serverAvailability(["Jellyfin"]),
   },
   {
@@ -425,6 +575,16 @@ const TRENDING: HomeMediaItem[] = [
     tags: ["4K"],
     genres: ["Drama", "Crime"],
     rating: 8.1,
+    votes: 43500,
+    audienceScore: 84,
+    criticScore: 87,
+    runtime: "50m",
+    ageRating: "TV-14",
+    overview:
+      "A retired cryptographer is recruited to decode transmissions intercepted from a criminal network — only to recognise her own daughter's voice in the recordings.",
+    cast: ["Cassia Brandt", "Idris Côté", "Mina Seo"],
+    director: "Anya Volkov",
+    seriesStatus: "finished",
     availability: serverAvailability(["Plex"]),
   },
   {
@@ -650,6 +810,17 @@ const TV_NEEDS_REQUEST: HomeMediaItem[] = [
     tags: ["HDR"],
     genres: ["Drama", "Thriller"],
     rating: 7.7,
+    votes: 24100,
+    audienceScore: 79,
+    criticScore: 76,
+    runtime: "46m",
+    ageRating: "TV-14",
+    overview:
+      "A coastal town's arson investigator is pulled into a decades-old land dispute when a series of fires begins following the exact same pattern as a case her predecessor never solved.",
+    cast: ["Lena Marsh", "Robert Tan"],
+    director: "Seo-yeon Park",
+    seriesStatus: "ongoing",
+    nextAirDate: "Thu 15 May",
     availability: requestAvailability(true),
     matchReasonKey: "similar_to_seed",
     matchReasonParams: { seedTitle: "Helios Run" },
@@ -668,6 +839,16 @@ const TV_NEEDS_REQUEST: HomeMediaItem[] = [
     tags: ["4K"],
     genres: ["Crime", "Thriller"],
     rating: 8.0,
+    votes: 36200,
+    audienceScore: 83,
+    criticScore: 85,
+    runtime: "50m",
+    ageRating: "TV-MA",
+    overview:
+      "An archivist at a national records office starts finding documents that prove crimes the government insists never happened. A methodical, archive-procedural thriller.",
+    cast: ["Mara Holloway", "Eitan Vasquez", "Kim Park"],
+    director: "Lars Eriksen",
+    seriesStatus: "finished",
     availability: requestAvailability(true),
     matchReasonKey: "from_genre_you_love",
     matchReasonParams: { genre: "quiet thrillers" },
@@ -686,6 +867,17 @@ const TV_NEEDS_REQUEST: HomeMediaItem[] = [
     tags: ["Atmos"],
     genres: ["Drama", "Mystery"],
     rating: 7.9,
+    votes: 17600,
+    audienceScore: 81,
+    criticScore: 84,
+    runtime: "54m",
+    ageRating: "TV-14",
+    overview:
+      "Following her husband's unexplained departure, a woman moves to her estranged mother's house in the Dutch lowlands — and begins piecing together a history both families agreed to forget.",
+    cast: ["Cassia Brandt", "Idris Côté"],
+    director: "Anya Volkov",
+    seriesStatus: "ongoing",
+    nextAirDate: "Tue 13 May",
     availability: requestAvailability(true),
     matchReasonKey: "highly_rated",
     matchReasonParams: {},
@@ -871,7 +1063,151 @@ export const MOCK_ROWS: RowData[] = [
   makeRow("upcomingForYou", "upcomingForYou", UPCOMING_FOR_YOU),
 ];
 
+const EP_TITLES = [
+  "Cold Open",
+  "First Light",
+  "The Quiet Year",
+  "Anchor",
+  "Long Wave",
+  "Glass House",
+  "Threshold",
+  "The Inventory",
+  "Borrowed Time",
+  "Static",
+  "North",
+  "Lantern",
+  "Paper Crowns",
+  "Winter Garden",
+  "The Mistake",
+  "Salt",
+  "Backwater",
+  "Fieldwork",
+  "Drift",
+  "Hollows",
+  "Switchback",
+  "Marbles",
+  "The Ledger",
+  "Pale Light",
+];
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+// XOR-shift RNG seeded by a string hash, identical to the prototype's _hash/_rng.
+function strHash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function makeRng(seed: number) {
+  let x = seed || 1;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return ((x >>> 0) % 10000) / 10000;
+  };
+}
+
+// Deterministic mock seasons + full episode data for any TV item.
+// Mirrors the prototype's generateSeasons logic so the modal content
+// matches the reference design.
+function mockSeasonsForId(
+  id: string,
+  status: HomeMediaItem["status"],
+  seriesStatus: HomeMediaItem["seriesStatus"],
+): MockSeason[] {
+  const seed = strHash(id);
+  const rnd = makeRng(seed);
+  const ongoing = seriesStatus === "ongoing";
+  const seasonCount = ongoing ? 2 + Math.floor(rnd() * 3) : 2 + Math.floor(rnd() * 4);
+
+  const baseBias =
+    status === "available"
+      ? 0.85
+      : status === "requested"
+        ? 0.15
+        : status === "unavailable"
+          ? 0.05
+          : 0.55;
+
+  const seasons: MockSeason[] = [];
+  let titleIdx = Math.floor(rnd() * EP_TITLES.length);
+
+  for (let s = 1; s <= seasonCount; s++) {
+    const episodeCount = 6 + Math.floor(rnd() * 6);
+    const isLatest = s === seasonCount;
+    const aired =
+      ongoing && isLatest ? Math.max(1, Math.floor(rnd() * episodeCount * 0.7) + 1) : episodeCount;
+    const seasonBias = ongoing && isLatest ? Math.min(baseBias, 0.4) : baseBias;
+
+    const episodes: MockEpisode[] = [];
+    for (let e = 1; e <= episodeCount; e++) {
+      let epStatus: MockEpisodeStatus;
+      if (e > aired) {
+        epStatus = "upcoming";
+      } else {
+        const r = rnd();
+        if (r < seasonBias) epStatus = "available";
+        else if (r < seasonBias + 0.18) epStatus = "requested";
+        else epStatus = "unavailable";
+      }
+
+      const airDate =
+        epStatus === "upcoming"
+          ? `In ${1 + Math.floor(rnd() * 21)} days`
+          : `${MONTHS[Math.floor(rnd() * 12)]} ${1 + Math.floor(rnd() * 28)}, ${2020 + s}`;
+
+      episodes.push({
+        id: `${id}:s${s}e${e}`,
+        episode: e,
+        title: EP_TITLES[titleIdx % EP_TITLES.length]!,
+        runtime: 38 + Math.floor(rnd() * 22),
+        airDate,
+        status: epStatus,
+      });
+      titleIdx++;
+    }
+
+    const counts = episodes.reduce<Partial<Record<MockEpisodeStatus, number>>>((acc, ep) => {
+      acc[ep.status] = (acc[ep.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    seasons.push({ number: s, episodeCount, counts, episodes });
+  }
+  return seasons;
+}
+
+function withMockSeasons<T extends HomeMediaItem>(item: T): T {
+  if (item.mediaType !== "tv" || item.seasons) return item;
+  return {
+    ...item,
+    seasons: mockSeasonsForId(item.id, item.status, item.seriesStatus),
+  };
+}
+
+function decorateTvSeasons<T extends HomeMediaItem>(items: T[]): T[] {
+  return items.map(withMockSeasons);
+}
+
 export const MOCK_FEED: HomeFeedData = {
-  hero: MOCK_HERO,
-  rows: MOCK_ROWS,
+  hero: { ...MOCK_HERO, alternates: decorateTvSeasons(MOCK_HERO.alternates) },
+  rows: MOCK_ROWS.map((row) => ({ ...row, items: decorateTvSeasons(row.items) })),
 };
