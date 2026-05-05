@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BellIcon } from "lucide-react";
-import { buttonVariants } from "@/shared/ui/button";
+import { Button } from "@/shared/ui/button";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
@@ -50,8 +50,6 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
 
   const dismiss = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
 
-  const triggerClass = buttonVariants({ variant: "outline", size: "icon-sm" });
-
   const body = (
     <NotificationPanelBody
       items={items}
@@ -66,13 +64,15 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
   if (isMobile) {
     return (
       <>
-        <button
+        <Button
           aria-label={bellAriaLabel(unreadCount)}
           onClick={() => setOpen(true)}
-          className={cn("relative", triggerClass)}
+          className={cn("relative")}
+          variant="outline"
+          size="icon-sm"
         >
           <BellTriggerContent unreadCount={unreadCount} />
-        </button>
+        </Button>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerContent className="h-[75dvh] gap-0 p-0">
             <NotificationPanelBody
@@ -94,7 +94,8 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         aria-label={bellAriaLabel(unreadCount)}
-        className={cn("relative", triggerClass)}
+        className={cn("relative")}
+        render={<Button variant="outline" size="icon-sm" />}
       >
         <BellTriggerContent unreadCount={unreadCount} />
       </PopoverTrigger>

@@ -1,7 +1,7 @@
-import { Link } from "@tanstack/react-router";
 import { useLayoutEffect, useRef, useState } from "react";
 import * as m from "@/paraglide/messages";
 import { NAV_ITEMS, useActiveNavIndex } from "./nav-items";
+import { NavLink } from "./nav-link";
 import { NavPill } from "./nav-pill";
 
 export function TopNavLinks() {
@@ -32,7 +32,7 @@ export function TopNavLinks() {
     <nav
       ref={navRef}
       aria-label={m.home_nav_label_primary()}
-      className="relative isolate hidden items-center gap-0.5 md:flex"
+      className="relative hidden items-center gap-0.5 rounded-xl px-1 py-1 md:flex"
     >
       <NavPill
         className="inset-y-0 rounded-lg"
@@ -46,15 +46,14 @@ export function TopNavLinks() {
         }}
       />
       {NAV_ITEMS.map(({ to, label, activeOptions }) => (
-        <Link
+        <NavLink
           key={to}
           to={to}
           activeOptions={activeOptions}
-          activeProps={{ "aria-current": "page" as const }}
-          className="relative z-10 flex items-center justify-center whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-150 data-[status=active]:text-foreground"
+          className="whitespace-nowrap rounded-lg px-3.5 py-1.5 text-foreground/75 drop-shadow-[0_1px_8px_rgb(0_0_0/0.55)] hover:text-foreground"
         >
           {label()}
-        </Link>
+        </NavLink>
       ))}
     </nav>
   );

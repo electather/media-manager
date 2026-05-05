@@ -14,12 +14,14 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
   return (
     <section className="mb-8">
       <RowHeader row={row} />
-      <RowScroller
-        row={row}
-        watchlist={watchlist}
-        onWatchlistToggle={onWatchlistToggle}
-        onCardClick={onCardClick}
-      />
+      <div data-testid="row-scroller-bleed">
+        <RowScroller
+          row={row}
+          watchlist={watchlist}
+          onWatchlistToggle={onWatchlistToggle}
+          onCardClick={onCardClick}
+        />
+      </div>
     </section>
   );
 }
