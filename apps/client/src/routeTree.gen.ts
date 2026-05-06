@@ -23,6 +23,7 @@ import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token
 import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
 import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
 import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authenticated/_app/watchlist'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app/notifications'
 import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
@@ -107,6 +108,12 @@ const AuthenticatedAppWatchlistRoute =
   AuthenticatedAppWatchlistRouteImport.update({
     id: '/watchlist',
     path: '/watchlist',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
 const AuthenticatedAppLibraryRoute = AuthenticatedAppLibraryRouteImport.update({
@@ -202,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
+  '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
@@ -229,6 +237,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
+  '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
@@ -259,6 +268,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRoute
+  '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
@@ -289,6 +299,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/library'
+    | '/notifications'
     | '/watchlist'
     | '/oauth-callback'
     | '/setup'
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/library'
+    | '/notifications'
     | '/watchlist'
     | '/oauth-callback'
     | '/setup'
@@ -345,6 +357,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/_authenticated/_app/library'
+    | '/_authenticated/_app/notifications'
     | '/_authenticated/_app/watchlist'
     | '/_authenticated/_settings/oauth-callback'
     | '/_authenticated/_settings/setup'
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppWatchlistRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/_app/notifications': {
+      id: '/_authenticated/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/_app/library': {
       id: '/_authenticated/_app/library'
       path: '/library'
@@ -574,6 +594,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
+  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppMediaMediaTypeMediaIdRoute: typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
@@ -581,6 +602,7 @@ interface AuthenticatedAppRouteRouteChildren {
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
+  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppMediaMediaTypeMediaIdRoute:

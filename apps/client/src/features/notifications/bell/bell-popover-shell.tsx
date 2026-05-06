@@ -1,5 +1,6 @@
 import { startTransition, useMemo, useState } from "react";
 import { CheckCheckIcon, SettingsIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -176,7 +177,7 @@ export function BellPopoverShell({ open, density, intensity, mobile = false }: P
           variant="ghost"
           size="sm"
           className="text-xs text-muted-foreground"
-          render={<a href="/notifications" />}
+          render={<Link to="/notifications" />}
         >
           {m.notifications_view_all()}
         </Button>
