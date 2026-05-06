@@ -3,7 +3,6 @@ import { z } from "zod";
 import provider from "../because-you-watched";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
 import { decodeCursor, encodeCursor } from "../../cursor";
-import { HttpError } from "../../../errors/http-errors";
 
 const cursorSchema = z.object({
   seedId: z.string().min(1),
@@ -82,11 +81,6 @@ describe("rows/because-you-watched", () => {
 
     const cursor = await provider.initialCursor(ctx);
     expect(decodeCursor(cursor!, cursorSchema).seedId).toBe("higher");
-  });
-
-  it("rejects fetchPage with cursor=null via HttpError 400 cursor_required", async () => {
-    const ctx = makeRowCtx();
-    await expect(provider.fetchPage(ctx, null)).rejects.toBeInstanceOf(HttpError);
   });
 
   it("paginates the similar feed and writes seedTitle on ctx", async () => {

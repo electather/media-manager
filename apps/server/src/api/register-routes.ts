@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import { cors } from "hono/cors";
 import { appRouter } from "./router";
 import { authRouteHandler } from "../auth/oauth-handler";
+import { HttpError } from "../errors/http-errors";
 import {
   createMcpHandler,
   oauthAuthorizationServerHandler,
@@ -32,6 +33,13 @@ export function registerApiRoutes(app: Hono): void {
 
   app.on(["GET", "POST"], "/api/auth/*", (c) => authRouteHandler(c.req.raw));
   app.route("/api", appRouter);
+  // Catch-all for unmatched /api paths: emits the unified `{code,devMessage,
+  // requestId}` envelope instead of falling through to the SPA static handler
+  // (which would return 200 + index.html for unknown GETs) or Hono's default
+  // plain-text 404 (which is what wrong-method requests would otherwise hit).
+  app.all("/api/*", () => {
+    throw new HttpError(404, "http.not_found", "route not found");
+  });
   app.get("/.well-known/oauth-authorization-server/*", (c) =>
     oauthAuthorizationServerHandler(c.req.raw),
   );

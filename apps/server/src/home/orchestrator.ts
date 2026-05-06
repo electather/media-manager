@@ -17,6 +17,7 @@ import { ROW_ORDER, ROW_PROVIDERS } from "./rows";
 import { StatusBatchMemo } from "./status-batch";
 import { enrichItems } from "./enrich";
 import { fromCanonicalMetadata } from "./adapters";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { RowContext } from "./types";
 
 const DEFAULT_DEADLINE_MS = 8000;
@@ -128,6 +129,14 @@ export async function composeRow(
   if (!provider) {
     throw new HttpError(404, "home.row_unavailable", `unknown rowId: ${rowId}`);
   }
+  // Direct row access bypasses layout assembly, so re-run the row's
+  // eligibility gate. Without this, a client requesting a row whose
+  // capability/data is absent gets a 200 with `items: []`, masking
+  // misconfiguration. Eligibility is cheap (capability lookup or PK read).
+  const eligible = await provider.eligibility(ctx).catch(() => false);
+  if (!eligible) {
+    throw new HttpError(404, "home.row_unavailable", `row ineligible: ${rowId}`);
+  }
   if (provider.requiresInitialCursor && cursor === null) {
     throw new HttpError(400, "home.bad_input", "cursor_required");
   }
@@ -164,16 +173,15 @@ export async function composeDetails(
     summary = await ctx.catalog.getMetadata(tmdbId, mediaType);
     if (!summary) throw new HttpError(500, "home.internal", "catalog write failed");
   }
-  const composite = `${mediaType}:${tmdbId}`;
-  const [detailsSettled, statuses] = await Promise.all([
+  const summaryInternal = fromCanonicalMetadata(summary);
+  const [detailsSettled, [summaryItem]] = await Promise.all([
     ctx.mediaService.getDetails(tmdbId, mediaType).then(
       (data) => ({ ok: true as const, data }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
-    ctx.statusBatch.get([composite]),
+    enrichItems([summaryInternal], ctx, { rowId: "details" }) as Promise<CompactMediaItem[]>,
   ]);
-  const status = (statuses[composite] ?? "unknown") as Status;
-  const summaryItem = stripSummary(summary, status);
+  if (!summaryItem) throw new HttpError(500, "home.internal", "summary enrichment failed");
   if (!detailsSettled.ok) {
     return {
       summary: summaryItem,
@@ -182,14 +190,6 @@ export async function composeDetails(
     };
   }
   return { summary: summaryItem, details: toMediaDetailsExtra(detailsSettled.data) };
-}
-
-type Status = "available" | "requested" | "processing" | "unavailable" | "unknown";
-
-function stripSummary(meta: Parameters<typeof fromCanonicalMetadata>[0], status: Status) {
-  const internal = fromCanonicalMetadata(meta);
-  const { __topContributors: _t, __addedAtMs: _a, ...wire } = internal;
-  return { ...wire, status };
 }
 
 /**

@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { orderBy } from "es-toolkit/array";
-import { HttpError } from "../../errors/http-errors";
 import { decodeCursor, encodeCursor } from "../cursor";
 import type { CanonicalMetadata } from "../../catalog/types";
 import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
@@ -54,10 +53,9 @@ const provider: RowProvider = {
   },
   // fallow-ignore-next-line complexity
   async fetchPage(ctx, cursor) {
-    if (cursor === null) {
-      throw new HttpError(400, "cursor_required", "becauseYouWatched requires an initial cursor");
-    }
-    const page = decodeCursor(cursor, cursorSchema);
+    // `requiresInitialCursor: true` makes `composeRow` reject null cursors
+    // before this runs; the non-null assertion mirrors that invariant.
+    const page = decodeCursor(cursor!, cursorSchema);
     const res = await ctx.mediaService.getSimilarFeed({
       id: page.seedId,
       type: page.seedType,
