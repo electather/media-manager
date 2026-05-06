@@ -71,7 +71,12 @@ function FieldItem({
       ) : enumOptions ? (
         <Select value={value ?? ""} onValueChange={(v) => onChange(v)}>
           <SelectTrigger id={fieldKey}>
-            <SelectValue placeholder={schema.description ?? "Select…"} />
+            <SelectValue placeholder={schema.description ?? "Select…"}>
+              {(v) =>
+                enumOptions.find((opt) => opt.value === v)?.label ??
+                (typeof v === "string" ? v : "")
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {enumOptions.map((opt) => (
