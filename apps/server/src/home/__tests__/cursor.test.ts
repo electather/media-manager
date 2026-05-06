@@ -34,13 +34,13 @@ describe("cursor codec", () => {
     expect(() => decodeCursor(cursor, schema)).toThrow(HttpError);
   });
 
-  it("uses code 'cursor_invalid' on rejection", () => {
+  it("uses code 'home.bad_input' on rejection", () => {
     try {
       decodeCursor("@@@", schema);
       throw new Error("expected throw");
     } catch (err) {
       expect(err).toBeInstanceOf(HttpError);
-      expect((err as HttpError).code).toBe("cursor_invalid");
+      expect((err as HttpError).code).toBe("home.bad_input");
       expect((err as HttpError).status).toBe(400);
     }
   });

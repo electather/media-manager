@@ -7,8 +7,9 @@ import { HttpError } from "../errors/http-errors";
  * a client cannot craft a payload that smuggles unknown fields past the
  * provider.
  *
- * Decoding errors throw `HttpError 400 "cursor_invalid"` so the orchestrator
- * surfaces a structured 4xx without leaking the payload back to the caller.
+ * Decoding errors throw `HttpError 400 "home.bad_input"` so cursor failures
+ * land on the same code as the orchestrator's missing-cursor rejection,
+ * keeping the home-feed error namespace single-prefixed.
  */
 
 function base64urlEncode(input: string): string {
@@ -34,17 +35,17 @@ export function decodeCursor<T>(cursor: string, schema: z.ZodType<T>): T {
   try {
     decoded = base64urlDecode(cursor);
   } catch {
-    throw new HttpError(400, "cursor_invalid", "cursor base64 decode failed");
+    throw new HttpError(400, "home.bad_input", "cursor_invalid: base64 decode failed");
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(decoded);
   } catch {
-    throw new HttpError(400, "cursor_invalid", "cursor JSON parse failed");
+    throw new HttpError(400, "home.bad_input", "cursor_invalid: JSON parse failed");
   }
   const result = schema.safeParse(parsed);
   if (!result.success) {
-    throw new HttpError(400, "cursor_invalid", "cursor shape rejected");
+    throw new HttpError(400, "home.bad_input", "cursor_invalid: shape rejected");
   }
   return result.data;
 }

@@ -13,6 +13,17 @@ type Props = {
 };
 
 function HeroTitle({ item }: { item: HomeMediaItem }) {
+  if (item.clearLogo) {
+    return (
+      <img
+        src={item.clearLogo}
+        alt={item.title}
+        loading="eager"
+        decoding="async"
+        className="w-auto max-w-[70%] object-contain object-left drop-shadow-[0_2px_24px_oklch(0_0_0/0.55)] [max-height:clamp(56px,8vw,128px)]"
+      />
+    );
+  }
   if (item.clearLogoText) {
     return (
       <div
@@ -59,11 +70,9 @@ function HeroTags({ tags }: { tags: string[] | undefined }) {
 }
 
 export function DetailHero({ item, inWatchlist, onToggleWatchlist }: Props) {
-  const backdropSrc = item.backdrop ?? item.poster;
-
   return (
     <section className="relative flex min-h-[min(720px,78vh)] items-end px-6 pb-10 pt-30 sm:px-8">
-      <DetailHeroBackdrop src={backdropSrc} />
+      <DetailHeroBackdrop src={item.backdrop} />
       <div className="mx-auto w-full max-w-[1600px]">
         <div className="grid items-end gap-6 sm:grid-cols-[140px_1fr] sm:gap-8 lg:grid-cols-[220px_1fr]">
           <DetailHeroPoster item={item} />

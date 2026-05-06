@@ -71,5 +71,14 @@ export const libraryItemSchema = z.object({
   durationSec: z.number().optional(),
   /** ISO timestamp the server imported the item. */
   addedAt: z.string(),
+  /**
+   * Cross-service ids that let downstream consumers (catalog metadata
+   * lookups, status batching, request flows) re-key this title against TMDB
+   * or another non-server source. Plugins populate the keys they know
+   * (`tmdb`, `imdb`, `tvdb`) plus their own server-local id (e.g.
+   * `jellyfin:itemId`, `plex:ratingKey`). Optional so plugins that have no
+   * provider-id metadata can still emit valid items.
+   */
+  ids: z.record(z.string(), z.string()).optional(),
 });
 export type LibraryItem = z.infer<typeof libraryItemSchema>;

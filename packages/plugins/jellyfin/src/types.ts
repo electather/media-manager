@@ -58,6 +58,14 @@ export interface JellyfinItem {
   ProductionYear?: number;
   RunTimeTicks?: number;
   DateCreated?: string;
+  /**
+   * Episode rows reference their parent show via `SeriesId`. The series
+   * carries the show-level TMDB id; episodes only carry IMDB/TVDB ids in
+   * their own `ProviderIds`. Continue-watching/Next-up callers fetch the
+   * series record to backfill the missing TMDB id.
+   */
+  SeriesId?: string;
+  SeriesName?: string;
   UserData?: {
     PlaybackPositionTicks?: number;
     PlayedPercentage?: number;

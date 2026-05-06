@@ -1,7 +1,8 @@
 import { orderBy } from "es-toolkit/array";
-import type { CompactMediaItem, HeroReason, LayoutHero, RowKind } from "@ent-mcp/shared/home";
+import type { HeroReason, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import type { CanonicalMetadata, MetadataKey } from "../catalog/types";
 import { fromCanonicalMetadata, fromContinueWatchingEntry } from "./adapters";
+import { enrichItems } from "./enrich";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
 const FINISHING_THRESHOLD = 0.85;
@@ -38,12 +39,20 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   for (const step of CASCADE) {
     const hit = await step.get(ctx);
     if (!hit) continue;
+    // Hero items share the row enrichment surface (status, availability,
+    // facets) so the UI can render request-vs-play CTAs without a follow-up
+    // fetch. The synthetic rowId "hero" falls through pickMatchReason and
+    // resolves to no chip, matching the trending/newReleases row policy.
+    const enriched = await enrichItems([hit.item, ...hit.alternates], ctx, { rowId: "hero" });
+    // `enrichItems` maps 1-to-1, and `hit.item` is always defined here, so
+    // the head is guaranteed.
+    const [head, ...rest] = enriched;
     return {
-      item: stripInternal(hit.item),
+      item: head!,
       source: step.source,
       reason: step.reason,
       resumeUrl: resolveResumeUrl(),
-      alternates: hit.alternates.map(stripInternal),
+      alternates: rest,
     };
   }
   return null;
@@ -127,14 +136,4 @@ async function pickFromDiscover(
 function todayBucket(): number {
   const d = new Date();
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-}
-
-/**
- * Drops the doubled-underscore internal fields the orchestrator stashes on
- * `InternalCompactMediaItem` (used for downstream match-reason resolution and
- * recently-added windowing) so they never reach the wire.
- */
-function stripInternal(item: InternalCompactMediaItem): CompactMediaItem {
-  const { __topContributors: _t, __addedAtMs: _a, ...wire } = item;
-  return wire;
 }

@@ -9,7 +9,7 @@ import { homeLayoutCache } from "../db/schema/home";
  * blobs whose `schema_version` disagrees with this constant fall through to
  * the cold path and get rewritten — pre-stable means we replace, not migrate.
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /** 60-minute TTL — the warm job runs hourly so any active user always
  *  reads back a sub-hour blob. */

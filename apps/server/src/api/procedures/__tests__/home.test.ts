@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
 import { errorHandler, requestContextMiddleware } from "../../../errors/middleware";
+import { HttpError } from "../../../errors/http-errors";
 
 vi.mock("../../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -41,6 +42,9 @@ function buildApp() {
   return new Hono()
     .use("*", requestContextMiddleware())
     .route("/home", homeApp)
+    .notFound(() => {
+      throw new HttpError(404, "http.not_found", "route not found");
+    })
     .onError(errorHandler);
 }
 
@@ -104,5 +108,22 @@ describe("home API", () => {
     const res = await buildApp().request("/home/details?tmdbId=1&mediaType=movie");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(payload);
+  });
+
+  it("returns 404 + JSON envelope on wrong-method requests to known paths", async () => {
+    mockUserId = "u1";
+    const res = await buildApp().request("/home/layout", { method: "POST" });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { code: string; requestId: string };
+    expect(body.code).toBe("http.not_found");
+    expect(body.requestId).toBeTypeOf("string");
+  });
+
+  it("returns 404 + JSON envelope on unknown sub-paths", async () => {
+    mockUserId = "u1";
+    const res = await buildApp().request("/home/nope");
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("http.not_found");
   });
 });

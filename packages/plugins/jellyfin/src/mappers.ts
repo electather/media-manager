@@ -95,6 +95,12 @@ export function mapLibraryItem(item: JellyfinItem, externalBase: string): Librar
   if (typeof size === "number") entry.sizeBytes = size;
   const durationSec = ticksToSeconds(item.RunTimeTicks);
   if (durationSec) entry.durationSec = durationSec;
+  // Cross-service ids let the host re-key this entry against TMDB so feeds
+  // like `home.continueWatching-active` can reach catalog metadata. Without
+  // this, `extractTmdbId` returns null for every entry and the row collapses
+  // to an empty page.
+  const ids = extractIds(item.ProviderIds, item.Id);
+  if (Object.keys(ids).length > 0) entry.ids = ids;
   return entry;
 }
 

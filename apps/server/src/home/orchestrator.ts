@@ -17,7 +17,8 @@ import { ROW_ORDER, ROW_PROVIDERS } from "./rows";
 import { StatusBatchMemo } from "./status-batch";
 import { enrichItems } from "./enrich";
 import { fromCanonicalMetadata } from "./adapters";
-import type { RowContext } from "./types";
+import { AllPluginsFailedError, PluginCallError } from "../media/errors";
+import type { RowContext, RowPage } from "./types";
 
 const DEFAULT_DEADLINE_MS = 8000;
 
@@ -96,21 +97,75 @@ async function composeLayoutLive(ctx: RowContext): Promise<HomeLayoutResponse> {
     }),
   ]);
   const eligibleSet = new Set(eligibilities.filter((e) => e.eligible).map((e) => e.rowId));
+  const previews = await Promise.all(
+    ROW_ORDER.filter((rowId) => eligibleSet.has(rowId)).map((rowId) => previewRow(ctx, rowId)),
+  );
+  const previewByRow = new Map(previews.map((p) => [p.rowId, p] as const));
   const rows: HomeRowStub[] = [];
   for (const rowId of ROW_ORDER) {
-    if (!eligibleSet.has(rowId)) continue;
+    const preview = previewByRow.get(rowId);
+    if (!preview?.include) continue;
     const provider = ROW_PROVIDERS[rowId]!;
-    const initialCursor = await provider.initialCursor(ctx).catch(() => null);
     const stub: HomeRowStub = {
       rowId,
       kind: provider.kind,
       titleKey: provider.titleKey,
-      initialCursor,
+      initialCursor: preview.initialCursor,
     };
     if (provider.subtitleKey) stub.subtitleKey = provider.subtitleKey;
     rows.push(stub);
   }
   return { hero, rows, generatedAt: Date.now() };
+}
+
+interface RowPreview {
+  rowId: string;
+  initialCursor: string | null;
+  /** False when the row produced zero items on a fully successful fetch — gets dropped from the layout. */
+  include: boolean;
+}
+
+/**
+ * Runs the row's first-page fetch so the orchestrator can drop rows that
+ * passed eligibility but have nothing to show (e.g. a watchlist plugin with
+ * an empty list). Soft plugin failures (`partial: true` or thrown
+ * `AllPluginsFailedError`/`AbortError`) keep the stub so transient outages
+ * don't quietly remove a configured surface — the row endpoint will surface
+ * the partial/empty state to the client. The dispatch cache absorbs the
+ * follow-up `/home/row` fetch the client makes for the surviving rows.
+ */
+// fallow-ignore-next-line complexity
+async function previewRow(ctx: RowContext, rowId: string): Promise<RowPreview> {
+  const provider = ROW_PROVIDERS[rowId]!;
+  let initialCursor: string | null;
+  try {
+    initialCursor = await provider.initialCursor(ctx);
+  } catch (err) {
+    ctx.logger.warn(`[home:preview] ${rowId} initialCursor threw, keeping stub`, err);
+    return { rowId, initialCursor: null, include: true };
+  }
+  try {
+    const page = await provider.fetchPage(ctx, initialCursor);
+    return { rowId, initialCursor, include: page.items.length > 0 || page.partial };
+  } catch (err) {
+    if (isRowSoftFailure(err)) {
+      const detail =
+        err instanceof AllPluginsFailedError
+          ? `errors=${JSON.stringify(err.errors)}`
+          : err instanceof PluginCallError
+            ? `code=${err.code} plugin=${err.pluginId}`
+            : err instanceof Error
+              ? err.name
+              : "?";
+      ctx.logger.warn(
+        `[home:preview] ${rowId} fetchPage soft-failed, keeping stub (${detail})`,
+        err,
+      );
+      return { rowId, initialCursor, include: true };
+    }
+    ctx.logger.warn(`[home:preview] ${rowId} fetchPage threw, dropping row`, err);
+    return { rowId, initialCursor, include: false };
+  }
 }
 
 /**
@@ -128,14 +183,44 @@ export async function composeRow(
   if (!provider) {
     throw new HttpError(404, "home.row_unavailable", `unknown rowId: ${rowId}`);
   }
+  // Direct row access bypasses layout assembly, so re-run the row's
+  // eligibility gate. Without this, a client requesting a row whose
+  // capability/data is absent gets a 200 with `items: []`, masking
+  // misconfiguration. Eligibility is cheap (capability lookup or PK read).
+  const eligible = await provider.eligibility(ctx).catch(() => false);
+  if (!eligible) {
+    throw new HttpError(404, "home.row_unavailable", `row ineligible: ${rowId}`);
+  }
   if (provider.requiresInitialCursor && cursor === null) {
     throw new HttpError(400, "home.bad_input", "cursor_required");
   }
-  const page = await provider.fetchPage(ctx, cursor);
+  // Per spec §Error handling: per-row plugin failures (`AllPluginsFailedError`,
+  // single-strategy `PluginCallError`, AbortError on deadline) collapse to
+  // `partial: true` with an empty item list rather than crashing the request.
+  // HttpError and any other unexpected throw still propagate to `errorHandler`.
+  let page: RowPage;
+  try {
+    page = await provider.fetchPage(ctx, cursor);
+  } catch (err) {
+    if (err instanceof HttpError) throw err;
+    if (isRowSoftFailure(err)) {
+      ctx.logger.warn(`[home:row] ${rowId} fetchPage soft-failed`, err);
+      page = { items: [], cursor: null, partial: true };
+    } else {
+      throw err;
+    }
+  }
   const items = await enrichItems(page.items, ctx, { rowId });
   const out: RowContentResponse = { items, cursor: page.cursor };
   if (page.partial) out.partial = true;
   return out;
+}
+
+function isRowSoftFailure(err: unknown): boolean {
+  if (err instanceof AllPluginsFailedError) return true;
+  if (err instanceof PluginCallError) return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
 }
 
 /**
@@ -164,16 +249,15 @@ export async function composeDetails(
     summary = await ctx.catalog.getMetadata(tmdbId, mediaType);
     if (!summary) throw new HttpError(500, "home.internal", "catalog write failed");
   }
-  const composite = `${mediaType}:${tmdbId}`;
-  const [detailsSettled, statuses] = await Promise.all([
+  const summaryInternal = fromCanonicalMetadata(summary);
+  const [detailsSettled, [summaryItem]] = await Promise.all([
     ctx.mediaService.getDetails(tmdbId, mediaType).then(
       (data) => ({ ok: true as const, data }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
-    ctx.statusBatch.get([composite]),
+    enrichItems([summaryInternal], ctx, { rowId: "details" }),
   ]);
-  const status = (statuses[composite] ?? "unknown") as Status;
-  const summaryItem = stripSummary(summary, status);
+  if (!summaryItem) throw new HttpError(500, "home.internal", "summary enrichment failed");
   if (!detailsSettled.ok) {
     return {
       summary: summaryItem,
@@ -182,14 +266,6 @@ export async function composeDetails(
     };
   }
   return { summary: summaryItem, details: toMediaDetailsExtra(detailsSettled.data) };
-}
-
-type Status = "available" | "requested" | "processing" | "unavailable" | "unknown";
-
-function stripSummary(meta: Parameters<typeof fromCanonicalMetadata>[0], status: Status) {
-  const internal = fromCanonicalMetadata(meta);
-  const { __topContributors: _t, __addedAtMs: _a, ...wire } = internal;
-  return { ...wire, status };
 }
 
 /**

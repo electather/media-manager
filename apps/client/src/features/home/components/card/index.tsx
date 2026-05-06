@@ -41,13 +41,15 @@ export const Card = memo(function Card({
 }: CardProps) {
   const aspect = forceAspect ?? ROW_ASPECT[rowKind];
   const state = deriveCardState(item);
-  const showLogo = aspect === "16/9" && Boolean(item.clearLogoText);
+  const showLogo = aspect === "16/9" && Boolean(item.clearLogo || item.clearLogoText);
 
   return (
     <article data-testid="card" className="group relative isolate flex w-full flex-col">
       <div className="relative">
         <CardImage item={item} aspect={aspect} />
-        {showLogo ? <CardClearLogo text={item.clearLogoText!} /> : null}
+        {showLogo ? (
+          <CardClearLogo src={item.clearLogo} text={item.clearLogoText} alt={item.title} />
+        ) : null}
         <CardAvailability state={state} />
         <CardKindBadge item={item} />
         <CardProgress item={item} />

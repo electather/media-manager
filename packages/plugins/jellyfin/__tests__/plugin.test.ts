@@ -234,6 +234,7 @@ describe("jellyfin libraryAvailability", () => {
             Id: "jf-99",
             Name: "Example Movie",
             Type: "Movie",
+            ProviderIds: { Tmdb: "550" },
             MediaSources: [
               {
                 Size: 1234,
@@ -259,6 +260,29 @@ describe("jellyfin libraryAvailability", () => {
     // Output should parse through the capability schema.
     const parsed = LibraryAvailabilityV1.methods.checkAvailability.output.safeParse(out);
     expect(parsed.success).toBe(true);
+  });
+
+  it("checkAvailability filters out items whose ProviderIds.Tmdb does not match (server ignored AnyProviderIdEquals)", async () => {
+    // Recent Jellyfin builds (10.10+) silently drop the
+    // `AnyProviderIdEquals` filter and return the full type-filtered
+    // library. The plugin must re-filter on the client so the home feed's
+    // `availability.hasAnyServerCopy` does not turn into a uniform `true`.
+    const ctx = makeCtx([
+      jsonRes({
+        Items: [
+          jfItem({ Id: "jf-1", ProviderIds: { Tmdb: "111" } }),
+          jfItem({ Id: "jf-2", ProviderIds: { Tmdb: "550" } }),
+          jfItem({ Id: "jf-3", ProviderIds: { Tmdb: "999" } }),
+          jfItem({ Id: "jf-4" }),
+        ],
+      }),
+    ]);
+    const out = (await cap.checkAvailability!(ctx, {
+      id: "550",
+      idType: "tmdb",
+      type: "movie",
+    })) as { items: Array<{ id: string }> };
+    expect(out.items.map((i) => i.id)).toEqual(["jf-2"]);
   });
 
   it("checkAvailability with idType=jellyfin hits /Items/{id} directly", async () => {
@@ -342,6 +366,25 @@ describe("jellyfin libraryAvailability", () => {
     expect(ctx.calls[0]?.url).toContain("SearchTerm=foo");
     expect(ctx.calls[0]?.url).toContain("IncludeItemTypes=Movie");
     expect(out.map((x) => x.id)).toEqual(["1", "2"]);
+  });
+
+  it("listAvailable returns the TMDB ids of every library item with one round-trip", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        Items: [
+          jfItem({ Id: "1", ProviderIds: { Tmdb: "550" } }),
+          jfItem({ Id: "2", ProviderIds: { Tmdb: "1198994" } }),
+          jfItem({ Id: "3", ProviderIds: { Imdb: "tt123" } }),
+        ],
+      }),
+    ]);
+    const out = (await cap.listAvailable!(ctx, { type: "movie" })) as { tmdbIds: string[] };
+    expect(ctx.calls).toHaveLength(1);
+    expect(ctx.calls[0]?.url).toContain("IncludeItemTypes=Movie");
+    expect(ctx.calls[0]?.url).toContain("Recursive=true");
+    expect(out.tmdbIds).toEqual(["550", "1198994"]);
+    const parsed = LibraryAvailabilityV1.methods.listAvailable.output.safeParse(out);
+    expect(parsed.success).toBe(true);
   });
 });
 

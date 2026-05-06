@@ -277,6 +277,11 @@ function toLibraryItem(cfg: PlexUserCfg, m: PlexMetadata): LibraryItem {
     hdr: mapHdr(firstMedia?.videoDynamicRange),
     bitrate: firstMedia?.bitrate,
   };
+  // Carry Plex's parsed `Guid` entries (tmdb/imdb/tvdb) plus the server-local
+  // ratingKey on `ids` so the host can re-key this title against TMDB without
+  // a follow-up `idResolve@v1` round-trip.
+  const ids: Record<string, string> = parseGuids(m.Guid);
+  ids["plex:ratingKey"] = m.ratingKey;
   return {
     id: m.ratingKey,
     title: m.type === "episode" ? (m.grandparentTitle ?? m.title) : m.title,
@@ -294,6 +299,7 @@ function toLibraryItem(cfg: PlexUserCfg, m: PlexMetadata): LibraryItem {
     // items cluster at the start of time — this is deliberately surprising
     // so the gap is visible rather than silent.
     addedAt: m.addedAt ? new Date(m.addedAt * 1000).toISOString() : new Date(0).toISOString(),
+    ids,
   };
 }
 
@@ -613,6 +619,31 @@ export default definePlugin({
           items,
           nextCursor: next < totalSize ? String(next) : undefined,
         };
+      },
+
+      async listAvailable(ctx, input) {
+        const { type } = input as { type: "movie" | "show" };
+        // /library/all?type=1|2 returns every item across every section the
+        // token can see, with each row's `Guid` array carrying tmdb/imdb/tvdb
+        // ids. One scan replaces N per-id `checkAvailability` probes when the
+        // host caches the resulting set per (plugin, type) per request.
+        const params = new URLSearchParams({
+          type: type === "movie" ? "1" : "2",
+          // Plex caps a single response by default; raise the ceiling so the
+          // index covers the whole library in one round-trip on most servers.
+          "X-Plex-Container-Size": "5000",
+        });
+        const body = await plexServerJson<PlexMediaContainer<{ Metadata?: PlexMetadata[] }>>(
+          ctx as Ctx,
+          `/library/all?${params.toString()}`,
+        );
+        const metadata = body.MediaContainer?.Metadata ?? [];
+        const tmdbIds: string[] = [];
+        for (const m of metadata) {
+          const guids = parseGuids(m.Guid);
+          if (guids["tmdb"]) tmdbIds.push(guids["tmdb"]);
+        }
+        return { tmdbIds };
       },
 
       async searchLibrary(ctx, input) {

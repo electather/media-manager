@@ -72,7 +72,7 @@ describe("MediaService.getMatchingServers", () => {
     expect(invokeOneMock).not.toHaveBeenCalled();
   });
 
-  it("collects only plugins whose checkAvailability returned at least one item", async () => {
+  it("collects only plugins whose listAvailable index includes the requested tmdb id", async () => {
     listProvidersMock.mockReturnValue(["plex", "jellyfin"]);
     registryGetMock.mockImplementation((id: string) =>
       id === "plex" ? manifest("Plex") : manifest("Jellyfin"),
@@ -86,14 +86,14 @@ describe("MediaService.getMatchingServers", () => {
           pluginId: "plex",
           connectionId: "conn-plex",
           shared: false,
-          data: { items: [{ id: "rk:1" }] },
+          data: { tmdbIds: ["550"] },
         };
       }
       return {
         pluginId: "jellyfin",
         connectionId: "conn-jellyfin",
         shared: false,
-        data: { items: [] },
+        data: { tmdbIds: [] },
       };
     });
 
@@ -109,18 +109,18 @@ describe("MediaService.getMatchingServers", () => {
     resolveConnectionsMock.mockImplementation(async (_u: string, pluginId: string) => [
       userConn(pluginId),
     ]);
-    invokeOneMock.mockResolvedValue({
-      pluginId: "plex",
-      connectionId: "conn-plex",
+    invokeOneMock.mockImplementation(async (req: { pluginId: string }) => ({
+      pluginId: req.pluginId,
+      connectionId: `conn-${req.pluginId}`,
       shared: false,
-      data: { items: [{ id: "rk:1" }] },
-    });
+      data: { tmdbIds: ["550"] },
+    }));
 
     const res = await new MediaService("u1").getMatchingServers("550", "movie");
     expect(res.map((s) => s.label)).toEqual(["Jellyfin", "Plex"]);
   });
 
-  it("memoizes per (tmdbId, type) within the same MediaService instance", async () => {
+  it("collapses N item lookups to a single listAvailable call per (plugin, type)", async () => {
     listProvidersMock.mockReturnValue(["plex"]);
     registryGetMock.mockReturnValue(manifest("Plex"));
     resolveConnectionsMock.mockResolvedValue([userConn("plex")]);
@@ -128,18 +128,26 @@ describe("MediaService.getMatchingServers", () => {
       pluginId: "plex",
       connectionId: "conn-plex",
       shared: false,
-      data: { items: [{ id: "rk:1" }] },
+      data: { tmdbIds: ["550", "1198994"] },
     });
 
     const svc = new MediaService("u1");
-    await Promise.all([
+    const [a, b, c] = await Promise.all([
       svc.getMatchingServers("550", "movie"),
-      svc.getMatchingServers("550", "movie"),
+      svc.getMatchingServers("1198994", "movie"),
+      svc.getMatchingServers("999", "movie"),
     ]);
+    expect(a).toEqual([{ id: "plex", label: "Plex" }]);
+    expect(b).toEqual([{ id: "plex", label: "Plex" }]);
+    expect(c).toEqual([]);
     expect(invokeOneMock).toHaveBeenCalledTimes(1);
+    expect(invokeOneMock).toHaveBeenCalledWith(
+      expect.objectContaining({ method: "listAvailable", input: { type: "movie" } }),
+      expect.anything(),
+    );
   });
 
-  it("queries the right idType+queryType for tv shows", async () => {
+  it("uses queryType=show when looking up tv libraries", async () => {
     listProvidersMock.mockReturnValue(["jellyfin"]);
     registryGetMock.mockReturnValue(manifest("Jellyfin"));
     resolveConnectionsMock.mockResolvedValue([userConn("jellyfin")]);
@@ -147,7 +155,7 @@ describe("MediaService.getMatchingServers", () => {
       pluginId: "jellyfin",
       connectionId: "conn-jellyfin",
       shared: false,
-      data: { items: [{ id: "x" }] },
+      data: { tmdbIds: ["1396"] },
     });
 
     await new MediaService("u1").getMatchingServers("1396", "tv");
@@ -155,24 +163,63 @@ describe("MediaService.getMatchingServers", () => {
       expect.objectContaining({
         capability: "libraryAvailability",
         version: "v1",
+        method: "listAvailable",
+        input: { type: "show" },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("falls back to per-id checkAvailability when listAvailable returns no index", async () => {
+    listProvidersMock.mockReturnValue(["plex"]);
+    registryGetMock.mockReturnValue(manifest("Plex"));
+    resolveConnectionsMock.mockResolvedValue([userConn("plex")]);
+    invokeOneMock.mockImplementation(async (req: { method: string }) => {
+      if (req.method === "listAvailable") {
+        return {
+          pluginId: "plex",
+          connectionId: "conn-plex",
+          shared: false,
+          // Plugin reports an error instead of a presence index — host must
+          // recover via the legacy per-id probe rather than mark the plugin
+          // absent for the request.
+          error: { code: "plugin.upstream_error", devMessage: "transient" },
+        };
+      }
+      return {
+        pluginId: "plex",
+        connectionId: "conn-plex",
+        shared: false,
+        data: { items: [{ id: "rk:1" }] },
+      };
+    });
+
+    const res = await new MediaService("u1").getMatchingServers("550", "movie");
+    expect(res).toEqual([{ id: "plex", label: "Plex" }]);
+    expect(invokeOneMock).toHaveBeenCalledWith(
+      expect.objectContaining({
         method: "checkAvailability",
-        input: { id: "1396", idType: "tmdb", type: "show" },
+        input: { id: "550", idType: "tmdb", type: "movie" },
       }),
       expect.anything(),
     );
   });
 
   it("drops the rejected promise from the cache so the next call retries", async () => {
-    listProvidersMock.mockReturnValueOnce(["plex"]).mockReturnValueOnce(["plex"]);
+    listProvidersMock.mockReturnValue(["plex"]);
     registryGetMock.mockReturnValue(manifest("Plex"));
+    // The getLibraryIndex path swallows errors and falls through to the
+    // legacy probe, so a single rejection alone won't surface; reject from
+    // both probes on the first call to exercise the cache-eviction path.
     resolveConnectionsMock
       .mockRejectedValueOnce(new Error("transient registry race"))
-      .mockResolvedValueOnce([userConn("plex")]);
+      .mockRejectedValueOnce(new Error("transient registry race"))
+      .mockResolvedValue([userConn("plex")]);
     invokeOneMock.mockResolvedValue({
       pluginId: "plex",
       connectionId: "conn-plex",
       shared: false,
-      data: { items: [{ id: "rk:1" }] },
+      data: { tmdbIds: ["550"] },
     });
 
     const svc = new MediaService("u1");
@@ -181,7 +228,7 @@ describe("MediaService.getMatchingServers", () => {
     expect(await svc.getMatchingServers("550", "movie")).toEqual([{ id: "plex", label: "Plex" }]);
   });
 
-  it("drops plugins whose connections all errored", async () => {
+  it("drops plugins whose listAvailable + fallback both errored", async () => {
     listProvidersMock.mockReturnValue(["plex"]);
     registryGetMock.mockReturnValue(manifest("Plex"));
     resolveConnectionsMock.mockResolvedValue([userConn("plex")]);
