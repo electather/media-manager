@@ -11,17 +11,34 @@ vi.mock("../layout-cache");
 vi.mock("../hero", () => ({ pickHero: vi.fn() }));
 vi.mock("../enrich", () => ({ enrichItems: vi.fn(async (items: unknown[]) => items) }));
 vi.mock("../rows", async () => {
-  const provider = {
+  const trendingItem = {
+    id: "movie:1",
+    tmdbId: "1",
+    mediaType: "movie" as const,
+    title: "T",
+  };
+  const trending = {
     rowId: "trendingNow",
     kind: "trendingNow" as const,
     titleKey: "home_row_trendingNow_header",
     eligibility: vi.fn().mockResolvedValue(true),
     initialCursor: vi.fn().mockResolvedValue(null),
+    fetchPage: vi.fn().mockResolvedValue({ items: [trendingItem], cursor: null, partial: false }),
+  };
+  const watchlist = {
+    rowId: "yourWatchlist",
+    kind: "yourWatchlist" as const,
+    titleKey: "home_row_yourWatchlist_header",
+    eligibility: vi.fn().mockResolvedValue(true),
+    initialCursor: vi.fn().mockResolvedValue(null),
     fetchPage: vi.fn().mockResolvedValue({ items: [], cursor: null, partial: false }),
   };
   return {
-    ROW_PROVIDERS: { trendingNow: provider } as Record<string, typeof provider>,
-    ROW_ORDER: ["trendingNow"],
+    ROW_PROVIDERS: { trendingNow: trending, yourWatchlist: watchlist } as Record<
+      string,
+      typeof trending | typeof watchlist
+    >,
+    ROW_ORDER: ["trendingNow", "yourWatchlist"],
   };
 });
 
@@ -57,10 +74,49 @@ describe("composeLayout cache path", () => {
     vi.mocked(layoutCache.write).mockResolvedValueOnce(undefined);
     const ctx = makeRowCtx();
     const out = await orchestrator.composeLayout(ctx);
+    // `yourWatchlist` is eligible but its prefetch returned zero items with
+    // no partial flag → the orchestrator drops it from the layout. Only the
+    // populated `trendingNow` stub survives.
     expect(out.rows).toHaveLength(1);
+    expect(out.rows[0]?.rowId).toBe("trendingNow");
     // Detached writeback runs after the response — wait one tick.
     await new Promise((resolve) => setImmediate(resolve));
     expect(layoutCache.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an empty row whose prefetch reported partial:true", async () => {
+    const rows = await import("../rows");
+    const watchlist = rows.ROW_PROVIDERS.yourWatchlist!;
+    vi.mocked(layoutCache.read).mockResolvedValueOnce(null);
+    vi.mocked(layoutCache.isFresh).mockReturnValueOnce(false);
+    vi.mocked(hero.pickHero).mockResolvedValueOnce(null);
+    vi.mocked(layoutCache.write).mockResolvedValueOnce(undefined);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(watchlist.fetchPage).mockResolvedValueOnce({
+      items: [],
+      cursor: null,
+      partial: true,
+    });
+    const ctx = makeRowCtx();
+    const out = await orchestrator.composeLayout(ctx);
+    expect(out.rows.map((r) => r.rowId)).toEqual(["trendingNow", "yourWatchlist"]);
+  });
+
+  it("keeps an empty row whose prefetch threw a soft plugin failure", async () => {
+    const { AllPluginsFailedError } = await import("../../media/errors");
+    const rows = await import("../rows");
+    const watchlist = rows.ROW_PROVIDERS.yourWatchlist!;
+    vi.mocked(layoutCache.read).mockResolvedValueOnce(null);
+    vi.mocked(layoutCache.isFresh).mockReturnValueOnce(false);
+    vi.mocked(hero.pickHero).mockResolvedValueOnce(null);
+    vi.mocked(layoutCache.write).mockResolvedValueOnce(undefined);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(watchlist.fetchPage).mockRejectedValueOnce(
+      new AllPluginsFailedError("watchlist@v1", []),
+    );
+    const ctx = makeRowCtx();
+    const out = await orchestrator.composeLayout(ctx);
+    expect(out.rows.map((r) => r.rowId)).toEqual(["trendingNow", "yourWatchlist"]);
   });
 });
 
@@ -68,6 +124,18 @@ describe("composeRow", () => {
   it("throws 404 on unknown rowId", async () => {
     const ctx = makeRowCtx();
     await expect(orchestrator.composeRow(ctx, "nope", null)).rejects.toBeInstanceOf(HttpError);
+  });
+
+  it("throws 404 home.row_unavailable when provider.eligibility returns false", async () => {
+    const rows = await import("../rows");
+    const provider = rows.ROW_PROVIDERS.trendingNow!;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(provider.eligibility).mockResolvedValueOnce(false);
+    const ctx = makeRowCtx();
+    await expect(orchestrator.composeRow(ctx, "trendingNow", null)).rejects.toMatchObject({
+      status: 404,
+      code: "home.row_unavailable",
+    });
   });
 
   it("converts AllPluginsFailedError into partial:true empty page", async () => {
@@ -80,6 +148,38 @@ describe("composeRow", () => {
     vi.mocked(provider.fetchPage).mockRejectedValueOnce(
       new AllPluginsFailedError("watchlist@v1", []),
     );
+    const ctx = makeRowCtx();
+    const out = await orchestrator.composeRow(ctx, "trendingNow", null);
+    expect(out.items).toEqual([]);
+    expect(out.partial).toBe(true);
+    expect(out.cursor).toBeNull();
+  });
+
+  it("converts PluginCallError into partial:true empty page", async () => {
+    const rows = await import("../rows");
+    const { PluginCallError } = await import("../../media/errors");
+    const provider = rows.ROW_PROVIDERS.trendingNow!;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(provider.fetchPage).mockRejectedValueOnce(
+      new PluginCallError("plugin.upstream_error", "boom", "tmdb", null),
+    );
+    const ctx = makeRowCtx();
+    const out = await orchestrator.composeRow(ctx, "trendingNow", null);
+    expect(out.items).toEqual([]);
+    expect(out.partial).toBe(true);
+    expect(out.cursor).toBeNull();
+  });
+
+  it("converts AbortError into partial:true empty page", async () => {
+    const rows = await import("../rows");
+    const provider = rows.ROW_PROVIDERS.trendingNow!;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
+    const abort = Object.assign(new Error("deadline exceeded"), { name: "AbortError" });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(provider.fetchPage).mockRejectedValueOnce(abort);
     const ctx = makeRowCtx();
     const out = await orchestrator.composeRow(ctx, "trendingNow", null);
     expect(out.items).toEqual([]);

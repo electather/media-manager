@@ -44,10 +44,11 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
     // fetch. The synthetic rowId "hero" falls through pickMatchReason and
     // resolves to no chip, matching the trending/newReleases row policy.
     const enriched = await enrichItems([hit.item, ...hit.alternates], ctx, { rowId: "hero" });
+    // `enrichItems` maps 1-to-1, and `hit.item` is always defined here, so
+    // the head is guaranteed.
     const [head, ...rest] = enriched;
-    if (!head) continue;
     return {
-      item: head,
+      item: head!,
       source: step.source,
       reason: step.reason,
       resumeUrl: resolveResumeUrl(),
