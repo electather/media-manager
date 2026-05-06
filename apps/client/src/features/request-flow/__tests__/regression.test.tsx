@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import type { MockSeason } from "@/features/home/lib/types";
+import type { Season } from "../lib/types";
 import { MovieRequestAction } from "../components/movie-request-action";
 import { RequestableSeasons } from "../components/requestable-seasons";
 
@@ -9,7 +9,7 @@ afterEach(() => {
   cleanup();
 });
 
-const seasonsForId = (suffix: string): MockSeason[] => [
+const seasonsForId = (suffix: string): Season[] => [
   {
     number: 1,
     episodeCount: 2,

@@ -6,7 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
-import type { MockEpisode, MockEpisodeStatus, MockSeason } from "@/features/home/lib/types";
+import type { Episode, EpisodeStatus, Season } from "../lib/types";
 import { DEFAULT_TV_PROFILE_ID, DEFAULT_TV_SERVICE_ID, ROLES } from "../lib/mock-services";
 import {
   describeDestination,
@@ -23,7 +23,7 @@ import { SeasonRequestAction } from "./season-request-action";
 type Props = {
   itemId: string;
   itemTitle: string;
-  seasons: MockSeason[];
+  seasons: Season[];
   role?: UserRole;
   defaultServiceId?: string;
   defaultProfileId?: string;
@@ -192,7 +192,7 @@ export function RequestableSeasons({
 type SeasonRowProps = {
   itemId: string;
   itemTitle: string;
-  season: MockSeason;
+  season: Season;
   status: RequestStatus;
   destination: ReturnType<typeof describeDestination>;
   defaultServiceId: string;
@@ -272,7 +272,7 @@ const COUNT_ONLY_SUBLINE: Partial<Record<RequestStatus, (total: number) => strin
   pending: (total) => m.request_subline_pending({ n: String(total) }),
 };
 
-function buildSubline(season: MockSeason, status: RequestStatus): string {
+function buildSubline(season: Season, status: RequestStatus): string {
   const total = season.episodeCount;
   const single = COUNT_ONLY_SUBLINE[status];
   if (single) return single(total);
@@ -280,7 +280,7 @@ function buildSubline(season: MockSeason, status: RequestStatus): string {
   return m.home_detail_season_episode_count({ n: String(total) });
 }
 
-function buildPartialSubline(season: MockSeason, total: number): string {
+function buildPartialSubline(season: Season, total: number): string {
   const available = season.counts.available ?? 0;
   const requested = season.counts.requested ?? 0;
   const upcoming = season.counts.upcoming ?? 0;
@@ -297,7 +297,7 @@ function EpisodeList({
   seasonStatus,
   destination,
 }: {
-  episodes: MockEpisode[];
+  episodes: Episode[];
   seasonStatus: RequestStatus;
   destination: ReturnType<typeof describeDestination>;
 }) {
@@ -315,7 +315,7 @@ function EpisodeRow({
   seasonStatus,
   destination,
 }: {
-  ep: MockEpisode;
+  ep: Episode;
   seasonStatus: RequestStatus;
   destination: ReturnType<typeof describeDestination>;
 }) {
@@ -362,7 +362,7 @@ function EpisodeRow({
 }
 
 function effectiveEpisodeStatus(
-  episodeStatus: MockEpisodeStatus,
+  episodeStatus: EpisodeStatus,
   seasonStatus: RequestStatus,
 ): RequestStatus {
   const normalizedEpisode = normalizeRequestStatus(episodeStatus);

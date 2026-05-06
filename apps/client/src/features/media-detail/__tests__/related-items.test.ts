@@ -1,37 +1,30 @@
 import { describe, expect, it } from "vite-plus/test";
-import { MOCK_FEED } from "@/features/home/lib/mock-data";
+import type { HomeMediaItem } from "@/features/home/lib/types";
 import { buildRelatedRow } from "../lib/related-items";
 
+function item(overrides: Partial<HomeMediaItem> & { mediaType: "movie" | "tv" }): HomeMediaItem {
+  return {
+    id: `${overrides.mediaType}:1`,
+    tmdbId: "1",
+    title: "Test",
+    ...overrides,
+  };
+}
+
 describe("buildRelatedRow", () => {
-  it("excludes the source item from the candidate pool", () => {
-    const seed = MOCK_FEED.rows[0]?.items[0];
-    expect(seed).toBeDefined();
-    if (!seed) return;
-    const row = buildRelatedRow(seed);
-    expect(row.items.find((item) => item.id === seed.id)).toBeUndefined();
+  it("routes a TV seed to recommendedForYou-tv", () => {
+    const row = buildRelatedRow(item({ mediaType: "tv" }));
+    expect(row.id).toBe("recommendedForYou-tv");
+    expect(row.kind).toBe("recommendedForYou");
   });
 
-  it("ranks same-kind items above mismatched ones", () => {
-    const hero = MOCK_FEED.hero;
-    expect(hero).not.toBeNull();
-    if (!hero) return;
-    const row = buildRelatedRow(hero);
-    if (row.items.length < 2) return;
-    const sameKindCount = row.items.filter((item) => item.mediaType === hero.mediaType).length;
-    expect(sameKindCount).toBeGreaterThan(0);
+  it("routes a movie seed to recommendedForYou-movies", () => {
+    const row = buildRelatedRow(item({ mediaType: "movie" }));
+    expect(row.id).toBe("recommendedForYou-movies");
   });
 
-  it("returns at most twelve items", () => {
-    const hero = MOCK_FEED.hero;
-    if (!hero) return;
-    const row = buildRelatedRow(hero);
-    expect(row.items.length).toBeLessThanOrEqual(12);
-  });
-
-  it("emits a unique row id derived from the seed", () => {
-    const hero = MOCK_FEED.hero;
-    if (!hero) return;
-    const row = buildRelatedRow(hero);
-    expect(row.id).toBe(`related-${hero.id}`);
+  it("ships a null initialCursor so the row hook fetches the first page", () => {
+    const row = buildRelatedRow(item({ mediaType: "movie" }));
+    expect(row.initialCursor).toBeNull();
   });
 });

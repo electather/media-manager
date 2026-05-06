@@ -83,13 +83,13 @@ export interface CompactMediaItem {
   /** User's own rating from `ratings@v1`; omitted when absent. */
   userRating?: number;
   /**
-   * Set on rows that surface a "why this is here" chip. Transitional union:
-   * the catalog rec-list job and the MCP discover tool still emit plain prose
-   * via `PreferenceEngine.explainRanked`, so the wire accepts both shapes
-   * during the PR1→PR6 home-feed migration window. The client narrows to the
-   * structured form once every emitter has migrated (PR6).
+   * Set on rows that surface a "why this is here" chip. The client renders
+   * `key` to localized copy with `params` filling in ICU placeholders. The
+   * MCP discover tool keeps its own plain-prose `match_reason` field on a
+   * separate snake-case shape — those callers no longer flow through this
+   * wire type.
    */
-  matchReason?: string | MatchReason;
+  matchReason?: MatchReason;
   status?: "available" | "requested" | "processing" | "unavailable" | "unknown";
   /** Library / request availability snapshot. */
   availability?: Availability;

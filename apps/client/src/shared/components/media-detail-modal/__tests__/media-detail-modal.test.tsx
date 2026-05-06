@@ -29,11 +29,6 @@ const TV: MediaDetailItem = {
   rating: 8.1,
   overview: "Rolling, slow-burn anthology.",
   episode: { season: 3, episode: 1, airsAt: 0 },
-  seasons: [
-    { number: 1, episodeCount: 8, counts: { available: 8 }, episodes: [] },
-    { number: 2, episodeCount: 6, counts: { unavailable: 6 }, episodes: [] },
-    { number: 3, episodeCount: 4, counts: { upcoming: 4 }, episodes: [] },
-  ],
 };
 
 describe("MediaDetailModal", () => {
@@ -129,26 +124,7 @@ describe("MediaDetailModal", () => {
     trigger.remove();
   });
 
-  it("opens the request picker and surfaces a pending status after submit", () => {
-    render(
-      <MediaDetailModal
-        item={MOVIE}
-        open
-        onClose={vi.fn()}
-        inWatchlist={false}
-        onToggleWatchlist={vi.fn()}
-      />,
-    );
-    const requestBtn = screen.getByRole("button", { name: /^request$/i });
-    fireEvent.click(requestBtn);
-    // The picker's submit button reuses the picker title ("Request movie").
-    const submitBtn = screen.getByRole("button", { name: /^request movie$/i });
-    fireEvent.click(submitBtn);
-    // Default `user` role needs admin approval, so the pending label renders.
-    expect(screen.getByText(/awaiting approval/i)).toBeTruthy();
-  });
-
-  it("renders the season accordion for TV items only", () => {
+  it("renders the seasons placeholder for TV items only", () => {
     const { rerender } = render(
       <MediaDetailModal
         item={MOVIE}
@@ -170,7 +146,6 @@ describe("MediaDetailModal", () => {
       />,
     );
     expect(screen.getByRole("region", { name: /seasons/i })).toBeTruthy();
-    const seasonHeaders = screen.getAllByText(/^Season \d+$/);
-    expect(seasonHeaders.length).toBe(TV.episode!.season);
+    expect(screen.getByText(/seasons load/i)).toBeTruthy();
   });
 });

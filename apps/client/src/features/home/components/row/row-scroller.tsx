@@ -3,13 +3,14 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { cn } from "@/shared/lib/utils";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { useMockPagination } from "../../hooks/use-mock-pagination";
+import { useHomeRow } from "../../hooks/use-home-row";
 import { ROW_COPY } from "../../lib/home-feed-config";
-import type { RowData, RowKind } from "../../lib/types";
+import type { HomeMediaItem, RowData, RowKind } from "../../lib/types";
 import { Card } from "../card/index";
 
 const SKELETON_COUNT = 5;
 const EDGE_SLACK_PX = 8;
+const PREFETCH_OFFSET = 4;
 
 interface RowScrollerProps {
   row: RowData;
@@ -30,41 +31,32 @@ const POSTER_VARS: CardWidthVars = { "--card-w": "184px", "--card-h": "326px" };
 
 /**
  * Horizontally scrollable row with edge fades, hover-revealed chevrons, and
- * mock infinite pagination. Native scroll preserves keyboard + touch, so
- * arrows stay out of the tab order and exist only as a pointer affordance.
+ * server-driven infinite pagination via `useHomeRow`. Native scroll
+ * preserves keyboard + touch, so arrows stay out of the tab order and exist
+ * only as a pointer affordance.
  *
  * Edge fades toggle via `data-at-start` / `data-at-end` data attrs on the
- * scope, set by an rAF-throttled scroll listener. Chosen over scroll-driven
- * animations because Firefox does not consistently resolve named
- * timeline-scopes through to pseudo-elements, and Chrome has a mask-image
- * repaint bug with multiple animated custom properties in one gradient.
+ * scope, set by an rAF-throttled scroll listener. A sentinel `<li>` placed
+ * `PREFETCH_OFFSET` cards before the end fires `fetchNextPage` while the
+ * user is mid-scroll so the next page mounts before the last card lands.
  */
 export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: RowScrollerProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
+  const prefetchElRef = useRef<HTMLLIElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const isBackdrop = row.defaultAspect === "16/9";
   const cardVars = isBackdrop ? BACKDROP_VARS : POSTER_VARS;
 
   const copy = ROW_COPY[row.kind];
-  const headerFn = m[copy.headerKey] as (params?: Record<string, string>) => string;
+  const headerFn = m[row.headerKey ?? copy.headerKey] as (
+    params?: Record<string, string>,
+  ) => string;
   const ariaLabel = headerFn(row.seedTitle ? { seedTitle: row.seedTitle } : {});
   const prevLabel = m.home_row_prev_label({ row: ariaLabel });
   const nextLabel = m.home_row_next_label({ row: ariaLabel });
 
-  const {
-    items,
-    prefetchIndex,
-    attachTrack: attachPaginationTrack,
-    prefetchRef,
-  } = useMockPagination(row);
-
-  const attachTrack = useCallback(
-    (el: HTMLDivElement | null) => {
-      trackRef.current = el;
-      attachPaginationTrack(el);
-    },
-    [attachPaginationTrack],
-  );
+  const { items, fetchNextPage, hasNextPage, isLoading } = useHomeRow(row.id, row.initialCursor);
 
   // Edge tracking: rAF-throttled scroll + ResizeObserver toggles two data
   // attrs on the scope. Re-runs when items grow so scrollWidth changes are
@@ -100,13 +92,53 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
     };
   }, [items.length]);
 
+  const wireObserver = useCallback(() => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    const track = trackRef.current;
+    const sentinel = prefetchElRef.current;
+    if (!track || !sentinel || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) if (entry.isIntersecting) fetchNextPage();
+      },
+      { root: track, threshold: 0 },
+    );
+    io.observe(sentinel);
+    observerRef.current = io;
+  }, [fetchNextPage, hasNextPage]);
+
+  useEffect(() => {
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+    };
+  }, []);
+
+  const attachTrack = useCallback(
+    (el: HTMLDivElement | null) => {
+      trackRef.current = el;
+      wireObserver();
+    },
+    [wireObserver],
+  );
+
+  const attachPrefetch = useCallback(
+    (el: HTMLLIElement | null) => {
+      prefetchElRef.current = el;
+      wireObserver();
+    },
+    [wireObserver],
+  );
+
   const scrollByDir = useCallback((dir: -1 | 1) => {
     const el = trackRef.current;
     if (!el) return;
     el.scrollBy({ left: Math.round(el.clientWidth * 0.85) * dir, behavior: "smooth" });
   }, []);
 
-  const showSkeletons = items.length === 0;
+  const showSkeletons = isLoading && items.length === 0;
+  const prefetchIndex = items.length === 0 ? -1 : Math.max(0, items.length - PREFETCH_OFFSET);
 
   return (
     <div
@@ -136,8 +168,8 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
                   isInWatchlist={watchlist?.has(item.id) ?? false}
                   onWatchlistToggle={onWatchlistToggle}
                   onClick={onCardClick}
-                  item={item}
-                  ref={index === prefetchIndex ? prefetchRef : undefined}
+                  item={item as HomeMediaItem}
+                  ref={index === prefetchIndex ? attachPrefetch : undefined}
                 />
               ))}
         </ul>

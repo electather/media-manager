@@ -88,14 +88,14 @@ describe("Card", () => {
     expect(screen.getByText(/^request$/i)).toBeTruthy();
   });
 
-  it("renders the match reason chip when matchReasonKey is set", () => {
-    const item = makeItem({ matchReasonKey: "highly_rated", matchReasonParams: {} });
+  it("renders the match reason chip when matchReason is set", () => {
+    const item = makeItem({ matchReason: { key: "highly_rated", params: {} } });
     render(<Card item={item} rowKind="recommendedForYou" />);
     expect(screen.getByText(/highly rated/i)).toBeTruthy();
   });
 
-  it("does not render a match reason chip when matchReasonKey is absent", () => {
-    render(<Card item={makeItem({ matchReasonKey: undefined })} rowKind="recommendedForYou" />);
+  it("does not render a match reason chip when matchReason is absent", () => {
+    render(<Card item={makeItem({ matchReason: undefined })} rowKind="recommendedForYou" />);
     expect(screen.queryByText(/highly rated/i)).toBeNull();
   });
 

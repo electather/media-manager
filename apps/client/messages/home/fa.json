@@ -7,6 +7,7 @@
   "home_nav_label_primary": "TODO",
   "home_nav_label_mobile": "TODO",
   "home_nav_brand_label": "TODO",
+  "home_feed_error": "TODO",
 
   "home_row_continueWatching_header": "TODO",
   "home_row_continueWatching_counter": "TODO",
@@ -89,6 +90,7 @@
   "home_detail_cast": "TODO",
   "home_detail_genres_label": "TODO",
   "home_detail_seasons_label": "TODO",
+  "home_detail_seasons_placeholder": "TODO",
   "home_detail_season_number": "TODO",
   "home_detail_season_episode_count": "TODO",
   "home_detail_season_episode_label": "TODO",
