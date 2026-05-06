@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Bookmark, Film, Loader2, Play } from "lucide-react";
+import { Bookmark, Film, Play } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import { MovieRequestAction } from "@/features/request-flow";
 import { Button } from "@/shared/ui/button";
 import type { MediaDetailItem } from "./types";
 
@@ -51,10 +51,6 @@ export function ModalActions({ item, inWatchlist, onToggleWatchlist }: Props) {
 }
 
 function PrimaryAction({ item }: { item: MediaDetailItem }) {
-  const [requested, setRequested] = useState(
-    item.status === "requested" || item.status === "processing",
-  );
-
   // TV shows handle requests per-season inside ModalSeasons — no top-level request button.
   if (item.mediaType === "tv") return null;
 
@@ -67,19 +63,5 @@ function PrimaryAction({ item }: { item: MediaDetailItem }) {
     );
   }
 
-  if (requested || item.status === "processing") {
-    return (
-      <Button size="lg" variant="secondary" disabled>
-        <Loader2 aria-hidden="true" className="animate-spin" />
-        {m.home_card_requested()}
-      </Button>
-    );
-  }
-
-  return (
-    <Button size="lg" onClick={() => setRequested(true)}>
-      <Play aria-hidden="true" className="fill-current" />
-      {m.home_detail_request()}
-    </Button>
-  );
+  return <MovieRequestAction itemId={item.id} itemTitle={item.title} initialStatus={item.status} />;
 }

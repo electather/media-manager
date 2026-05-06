@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Bookmark, Check, Eye, Film, MoreHorizontal, Play } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import { MovieRequestAction } from "@/features/request-flow";
 import { Button } from "@/shared/ui/button";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 
@@ -15,7 +16,6 @@ function isPlayable(url: string | undefined): url is string {
 }
 
 export function DetailHeroActions({ item, inWatchlist, onToggleWatchlist }: Props) {
-  const [requested, setRequested] = useState(item.status === "requested");
   const [watched, setWatched] = useState(false);
   const trailerUrl = item.trailerUrl;
   const trailerPlayable = isPlayable(trailerUrl);
@@ -27,17 +27,7 @@ export function DetailHeroActions({ item, inWatchlist, onToggleWatchlist }: Prop
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {requested ? (
-        <Button size="lg" variant="secondary" disabled className="gap-2">
-          <Check aria-hidden="true" className="size-4" />
-          {m.home_card_requested()}
-        </Button>
-      ) : (
-        <Button size="lg" className="gap-2" onClick={() => setRequested(true)}>
-          <Play aria-hidden="true" className="size-4 fill-current" />
-          {m.home_detail_request()}
-        </Button>
-      )}
+      {renderPrimary(item)}
       <Button
         size="lg"
         variant="outline"
@@ -82,4 +72,20 @@ export function DetailHeroActions({ item, inWatchlist, onToggleWatchlist }: Prop
       </Button>
     </div>
   );
+}
+
+function renderPrimary(item: HomeMediaItem) {
+  // TV uses per-season requests inside the seasons section, not a hero button.
+  if (item.mediaType === "tv") return null;
+
+  if (item.status === "available") {
+    return (
+      <Button size="lg" className="gap-2">
+        <Play aria-hidden="true" className="size-4 fill-current" />
+        {m.home_detail_watch()}
+      </Button>
+    );
+  }
+
+  return <MovieRequestAction itemId={item.id} itemTitle={item.title} initialStatus={item.status} />;
 }
