@@ -64,6 +64,26 @@ describe("rows/because-you-watched", () => {
     expect(decodeCursor(cursor!, cursorSchema).seedId).toBe("fresh");
   });
 
+  it("breaks watchedAt ties by selecting the highest-rated history entry as seed", async () => {
+    const ctx = makeRowCtx();
+    const sameDay = Date.parse("2026-04-15T00:00:00Z");
+    (
+      ctx.catalog as unknown as { getUserHistory: { mockResolvedValue: (v: unknown) => void } }
+    ).getUserHistory.mockResolvedValue([
+      historyEntry({ tmdbId: "lower", watchedAt: sameDay }),
+      historyEntry({ tmdbId: "higher", watchedAt: sameDay }),
+    ]);
+    (
+      ctx.catalog as unknown as { getUserRatings: { mockResolvedValue: (v: unknown) => void } }
+    ).getUserRatings.mockResolvedValue([
+      { tmdbId: "lower", mediaType: "movie", rating: 6, ratedAt: 0, sourceConnectionId: "c" },
+      { tmdbId: "higher", mediaType: "movie", rating: 9, ratedAt: 0, sourceConnectionId: "c" },
+    ]);
+
+    const cursor = await provider.initialCursor(ctx);
+    expect(decodeCursor(cursor!, cursorSchema).seedId).toBe("higher");
+  });
+
   it("rejects fetchPage with cursor=null via HttpError 400 cursor_required", async () => {
     const ctx = makeRowCtx();
     await expect(provider.fetchPage(ctx, null)).rejects.toBeInstanceOf(HttpError);

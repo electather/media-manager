@@ -86,6 +86,29 @@ describe("pickMatchReason", () => {
     const r = pickMatchReason("upcomingForYou", item(), ctx());
     expect(r).toEqual({ key: "upcoming_release", params: {} });
   });
+
+  it("returns recently_added for yourWatchlist when __addedAtMs is within 7 days", () => {
+    const recent = item({ __addedAtMs: Date.now() - 1000 });
+    expect(pickMatchReason("yourWatchlist", recent, ctx())).toEqual({
+      key: "recently_added",
+      params: {},
+    });
+  });
+
+  it("returns because_in_watchlist for yourWatchlist when __addedAtMs is older than 7 days", () => {
+    const stale = item({ __addedAtMs: Date.now() - 10 * 24 * 60 * 60 * 1000 });
+    expect(pickMatchReason("yourWatchlist", stale, ctx())).toEqual({
+      key: "because_in_watchlist",
+      params: {},
+    });
+  });
+
+  it("returns because_in_watchlist for yourWatchlist when __addedAtMs is missing", () => {
+    expect(pickMatchReason("yourWatchlist", item(), ctx())).toEqual({
+      key: "because_in_watchlist",
+      params: {},
+    });
+  });
 });
 
 describe("mapTopContributor", () => {

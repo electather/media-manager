@@ -338,8 +338,9 @@ rows/recommended-for-you-tv.ts:
     page = decodeCursor(cursor) ?? { offset: 0 }
     rec  = catalog.getRecommendations(userId, "default")
     pool = rec.items.filter(i => i.media_type === "tv")
-    statuses = ctx.statusBatch.get(pool.map(p => p.tmdb_id))
-    pool2    = pool.filter(p => statuses[p.tmdb_id] !== "available")
+    statuses = ctx.statusBatch.get(pool.map(p => `${p.mediaType}:${p.tmdbId}`))
+    pool2    = pool.filter(p => statuses[`${p.mediaType}:${p.tmdbId}`] !== "available")
+    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids.
     keys     = pool2.slice(page.offset, page.offset + 12)
     mdKeys   = keys.map(k => ({ tmdbId: k.tmdbId, type: k.mediaType }))   // CatalogService.getMetadataBatch shape
     metadata = catalog.getMetadataBatch(mdKeys)
@@ -358,8 +359,9 @@ rows/your-watchlist.ts:
   initialCursor null
   fetchPage(ctx):
     res     = ctx.mediaService.getWatchlistFeed({ deadlineMs })
-    statuses = ctx.statusBatch.get(res.items.map(i => i.tmdbId))
-    avail    = res.items.filter(i => statuses[i.tmdbId] === "available")
+    statuses = ctx.statusBatch.get(res.items.map(i => `${i.type}:${i.tmdbId}`))
+    avail    = res.items.filter(i => statuses[`${i.type}:${i.tmdbId}`] === "available")
+    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids.
     items    = avail.slice(0, 12).map(toCompactMediaItem)
     return { items, cursor: null, partial: res.partial }
 

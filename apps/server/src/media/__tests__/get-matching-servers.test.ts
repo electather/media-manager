@@ -162,6 +162,25 @@ describe("MediaService.getMatchingServers", () => {
     );
   });
 
+  it("drops the rejected promise from the cache so the next call retries", async () => {
+    listProvidersMock.mockReturnValueOnce(["plex"]).mockReturnValueOnce(["plex"]);
+    registryGetMock.mockReturnValue(manifest("Plex"));
+    resolveConnectionsMock
+      .mockRejectedValueOnce(new Error("transient registry race"))
+      .mockResolvedValueOnce([userConn("plex")]);
+    invokeOneMock.mockResolvedValue({
+      pluginId: "plex",
+      connectionId: "conn-plex",
+      shared: false,
+      data: { items: [{ id: "rk:1" }] },
+    });
+
+    const svc = new MediaService("u1");
+    await expect(svc.getMatchingServers("550", "movie")).rejects.toThrow("transient registry race");
+    // Second call must not hit the cached rejection — it retries and succeeds.
+    expect(await svc.getMatchingServers("550", "movie")).toEqual([{ id: "plex", label: "Plex" }]);
+  });
+
   it("drops plugins whose connections all errored", async () => {
     listProvidersMock.mockReturnValue(["plex"]);
     registryGetMock.mockReturnValue(manifest("Plex"));
