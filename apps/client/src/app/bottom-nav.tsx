@@ -11,8 +11,8 @@ export function BottomNav() {
       aria-label={m.home_nav_label_mobile()}
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-7 pb-[max(1rem,env(safe-area-inset-bottom))] transition-[transform,opacity] duration-300 ease-[cubic-bezier(.2,.7,.2,1)] md:hidden"
     >
-      <div className="pointer-events-auto w-full max-w-120 rounded-[14px] bg-card/55 p-1 shadow-(--nav-frosted-shadow) ring-1 ring-inset ring-border backdrop-blur-[18px] backdrop-saturate-[1.4]">
-        <div className="@container relative isolate rounded-[11px] bg-secondary/60 p-1.5 shadow-[0_1px_0_0_oklch(1_0_0/0.04),0_4px_12px_-6px_oklch(0_0_0/0.4)] backdrop-blur-[14px] backdrop-saturate-[1.3]">
+      <div className="pointer-events-auto w-full max-w-120 rounded-[14px] bg-card/90 p-1 shadow-(--nav-frosted-shadow) ring-1 ring-inset ring-border">
+        <div className="@container relative isolate rounded-[11px] bg-secondary/85 p-1.5 shadow-[0_1px_0_0_oklch(1_0_0/0.04),0_4px_12px_-6px_oklch(0_0_0/0.4)]">
           {idx >= 0 && (
             <NavPill
               className="top-1.5 right-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/3)] rounded-lg border-white/10 bg-foreground/15 transition-transform duration-300 ease-[cubic-bezier(.2,.7,.2,1)]"

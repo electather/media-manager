@@ -45,7 +45,7 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
             src={layer.src}
             alt=""
             className={cn(
-              "absolute inset-0 size-full scale-[1.14] transform-gpu object-cover blur-[84px] saturate-[1.85] transition-opacity duration-700 ease-out [backface-visibility:hidden]",
+              "absolute inset-0 size-full scale-[1.14] transform-gpu object-cover blur-[48px] saturate-[1.4] transition-opacity duration-700 ease-out [backface-visibility:hidden] [will-change:opacity]",
               layer.visible ? "opacity-90" : "opacity-0",
             )}
           />

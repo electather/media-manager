@@ -37,7 +37,7 @@ export function CardAvailability({ state }: Props) {
   return (
     <span
       className={cn(
-        "pointer-events-none absolute start-2 top-2 inline-flex items-center gap-1 rounded-full border bg-card/65 px-2 py-0.5 text-xs font-medium backdrop-blur-md",
+        "pointer-events-none absolute start-2 top-2 inline-flex items-center gap-1 rounded-full border bg-card/90 px-2 py-0.5 text-xs font-medium",
         TONE[state.kind],
       )}
     >
