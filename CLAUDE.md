@@ -87,6 +87,16 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 - [ ] Run `vp check` and `vp test` to validate changes.
 <!--VITE PLUS END-->
 
+## Frontend Skills
+
+∀ React change @ `apps/client/` → skill ! before edit:
+
+- `vercel-react-best-practices` — new|edit component, hook, data fetch
+- `vercel-composition-patterns` — ≥3 bool props | reusable API
+- `vercel-react-view-transitions` — route|page|list anim
+
+Skip @ server, shared, plugin pkgs.
+
 ## Pull Requests and Versioning
 
 Project use [Changesets](https://github.com/changesets/changesets). Every PR need `.changeset/<slug>.md` file or CI fail. Create file direct — no CLI run.
