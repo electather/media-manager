@@ -69,6 +69,21 @@ describe("composeRow", () => {
     const ctx = makeRowCtx();
     await expect(orchestrator.composeRow(ctx, "nope", null)).rejects.toBeInstanceOf(HttpError);
   });
+
+  it("converts AllPluginsFailedError into partial:true empty page", async () => {
+    const rows = await import("../rows");
+    const { AllPluginsFailedError } = await import("../../media/errors");
+    const provider = rows.ROW_PROVIDERS.trendingNow!;
+    vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
+    vi.mocked(provider.fetchPage).mockRejectedValueOnce(
+      new AllPluginsFailedError("watchlist@v1", []),
+    );
+    const ctx = makeRowCtx();
+    const out = await orchestrator.composeRow(ctx, "trendingNow", null);
+    expect(out.items).toEqual([]);
+    expect(out.partial).toBe(true);
+    expect(out.cursor).toBeNull();
+  });
 });
 
 describe("composeDetails", () => {

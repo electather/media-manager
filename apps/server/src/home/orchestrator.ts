@@ -17,8 +17,9 @@ import { ROW_ORDER, ROW_PROVIDERS } from "./rows";
 import { StatusBatchMemo } from "./status-batch";
 import { enrichItems } from "./enrich";
 import { fromCanonicalMetadata } from "./adapters";
+import { AllPluginsFailedError, PluginCallError } from "../media/errors";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { RowContext } from "./types";
+import type { RowContext, RowPage } from "./types";
 
 const DEFAULT_DEADLINE_MS = 8000;
 
@@ -140,11 +141,33 @@ export async function composeRow(
   if (provider.requiresInitialCursor && cursor === null) {
     throw new HttpError(400, "home.bad_input", "cursor_required");
   }
-  const page = await provider.fetchPage(ctx, cursor);
+  // Per spec §Error handling: per-row plugin failures (`AllPluginsFailedError`,
+  // single-strategy `PluginCallError`, AbortError on deadline) collapse to
+  // `partial: true` with an empty item list rather than crashing the request.
+  // HttpError and any other unexpected throw still propagate to `errorHandler`.
+  let page: RowPage;
+  try {
+    page = await provider.fetchPage(ctx, cursor);
+  } catch (err) {
+    if (err instanceof HttpError) throw err;
+    if (isRowSoftFailure(err)) {
+      ctx.logger.warn(`[home:row] ${rowId} fetchPage soft-failed`, err);
+      page = { items: [], cursor: null, partial: true };
+    } else {
+      throw err;
+    }
+  }
   const items = await enrichItems(page.items, ctx, { rowId });
   const out: RowContentResponse = { items, cursor: page.cursor };
   if (page.partial) out.partial = true;
   return out;
+}
+
+function isRowSoftFailure(err: unknown): boolean {
+  if (err instanceof AllPluginsFailedError) return true;
+  if (err instanceof PluginCallError) return true;
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
 }
 
 /**
