@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { invariant } from "es-toolkit/util";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
+import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { MATCH_REASON_COPY } from "../lib/home-feed-config";
 import type { HomeMediaItem } from "../lib/types";
@@ -58,6 +59,15 @@ export function HomeFeed() {
   const peekItem = peek ? (itemIndex.get(peek) ?? itemIndex.get(sourceIdOf(peek)) ?? null) : null;
   const modalItem = useMemo(() => toModalItem(peekItem), [peekItem]);
 
+  const handleViewFullPage = useCallback(
+    (item: MediaDetailItem) => {
+      const parts = splitCompositeId(item.id);
+      if (!parts) return;
+      void navigate({ to: "/media/$mediaType/$mediaId", params: parts });
+    },
+    [navigate],
+  );
+
   const handlePeek = useCallback(
     (id: string) => {
       void navigate({ to: ".", search: { peek: id }, replace: false });
@@ -104,6 +114,7 @@ export function HomeFeed() {
         onClose={handleClose}
         inWatchlist={inWatchlist}
         onToggleWatchlist={handleToggleWatchlistFromModal}
+        onViewFullPage={handleViewFullPage}
       />
     </div>
   );

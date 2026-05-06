@@ -25,9 +25,18 @@ type Props = {
   onClose: () => void;
   inWatchlist: boolean;
   onToggleWatchlist: () => void;
+  /** Optional callback to escalate the peek into the full media detail page. */
+  onViewFullPage?: (item: MediaDetailItem) => void;
 };
 
-export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWatchlist }: Props) {
+export function MediaDetailModal({
+  item,
+  open,
+  onClose,
+  inWatchlist,
+  onToggleWatchlist,
+  onViewFullPage,
+}: Props) {
   const isMobile = useIsMobile();
   const titleId = useId();
 
@@ -42,6 +51,7 @@ export function MediaDetailModal({ item, open, onClose, inWatchlist, onToggleWat
       titleId={titleId}
       inWatchlist={inWatchlist}
       onToggleWatchlist={onToggleWatchlist}
+      onViewFullPage={onViewFullPage ? () => onViewFullPage(item) : undefined}
     />
   ) : null;
 
@@ -78,11 +88,13 @@ function ModalBody({
   titleId,
   inWatchlist,
   onToggleWatchlist,
+  onViewFullPage,
 }: {
   item: MediaDetailItem;
   titleId: string;
   inWatchlist: boolean;
   onToggleWatchlist: () => void;
+  onViewFullPage?: () => void;
 }) {
   const [note, setNote] = useState("");
   const [noteEditing, setNoteEditing] = useState(false);
@@ -109,7 +121,7 @@ function ModalBody({
         data-testid="media-detail-modal"
         className="modal-scroll relative flex flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto"
       >
-        <ModalTopbar item={item} />
+        <ModalTopbar item={item} onViewFullPage={onViewFullPage} />
         {/* Hero spacer keeps the cinematic backdrop visible above the content
             surface; height mirrors the prototype's modal-hero-spacer
             (240px mobile / 320px desktop minus topbar height). */}

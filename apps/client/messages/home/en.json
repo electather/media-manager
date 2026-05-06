@@ -119,5 +119,45 @@
   "home_detail_match_reason_kicker": "Why this",
   "home_detail_overview_label": "Overview",
 
-  "home_row_partial_warning": "Some results may be incomplete"
+  "home_row_partial_warning": "Some results may be incomplete",
+
+  "media_detail_section_overview": "Overview",
+  "media_detail_section_episodes": "Episodes",
+  "media_detail_section_cast": "Cast & crew",
+  "media_detail_section_your_take": "Your take",
+  "media_detail_section_related": "More like this",
+  "media_detail_section_nav_label": "Section navigation",
+
+  "media_detail_breadcrumb_label": "Breadcrumb",
+  "media_detail_breadcrumb_movies": "Movies",
+  "media_detail_breadcrumb_tv": "TV",
+
+  "media_detail_scores": "Scores",
+  "media_detail_rating": "Rating",
+  "media_detail_audience": "Audience",
+  "media_detail_critics": "Critics",
+  "media_detail_votes": "votes",
+
+  "media_detail_released": "Released",
+  "media_detail_runtime": "Runtime",
+  "media_detail_rated": "Rated",
+  "media_detail_genres": "Genres",
+  "media_detail_format": "Format",
+  "media_detail_available_on": "Available on",
+  "media_detail_sources_count": "{n} sources",
+
+  "media_detail_role_director": "Director",
+  "media_detail_role_lead": "Lead",
+  "media_detail_role_co_lead": "Co-lead",
+  "media_detail_role_supporting": "Supporting",
+  "media_detail_role_recurring": "Recurring",
+  "media_detail_role_cast": "Cast",
+
+  "media_detail_mark_watched": "Mark watched",
+  "media_detail_watched": "Watched",
+  "media_detail_more_options": "More options",
+
+  "media_detail_not_found_title": "We couldn't find that title.",
+  "media_detail_back_to_home": "Back to home",
+  "media_detail_view_full_page": "View full page"
 }

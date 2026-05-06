@@ -119,5 +119,45 @@
   "home_detail_match_reason_kicker": "TODO",
   "home_detail_overview_label": "TODO",
 
-  "home_row_partial_warning": "TODO"
+  "home_row_partial_warning": "TODO",
+
+  "media_detail_section_overview": "TODO",
+  "media_detail_section_episodes": "TODO",
+  "media_detail_section_cast": "TODO",
+  "media_detail_section_your_take": "TODO",
+  "media_detail_section_related": "TODO",
+  "media_detail_section_nav_label": "TODO",
+
+  "media_detail_breadcrumb_label": "TODO",
+  "media_detail_breadcrumb_movies": "TODO",
+  "media_detail_breadcrumb_tv": "TODO",
+
+  "media_detail_scores": "TODO",
+  "media_detail_rating": "TODO",
+  "media_detail_audience": "TODO",
+  "media_detail_critics": "TODO",
+  "media_detail_votes": "TODO",
+
+  "media_detail_released": "TODO",
+  "media_detail_runtime": "TODO",
+  "media_detail_rated": "TODO",
+  "media_detail_genres": "TODO",
+  "media_detail_format": "TODO",
+  "media_detail_available_on": "TODO",
+  "media_detail_sources_count": "TODO",
+
+  "media_detail_role_director": "TODO",
+  "media_detail_role_lead": "TODO",
+  "media_detail_role_co_lead": "TODO",
+  "media_detail_role_supporting": "TODO",
+  "media_detail_role_recurring": "TODO",
+  "media_detail_role_cast": "TODO",
+
+  "media_detail_mark_watched": "TODO",
+  "media_detail_watched": "TODO",
+  "media_detail_more_options": "TODO",
+
+  "media_detail_not_found_title": "TODO",
+  "media_detail_back_to_home": "TODO",
+  "media_detail_view_full_page": "TODO"
 }
