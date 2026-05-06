@@ -55,13 +55,20 @@ apps/client/src/
 │   ├── settings/{components,__tests__}/ + index.ts
 │   ├── admin/components/ + index.ts
 │   ├── jobs/components/ + index.ts
-│   └── home/                                                # NEW
-│       ├── components/
-│       ├── hooks/
-│       ├── lib/
-│       │   ├── collections/   # media-collection, row-entries-collection, progress-collection
-│       │   └── mutations.ts
-│       ├── __tests__/
+│   ├── home/                                                # NEW
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   │   ├── collections/   # media-collection, row-entries-collection, progress-collection
+│   │   │   └── mutations.ts
+│   │   ├── __tests__/
+│   │   └── index.ts
+│   └── notifications/                                       # see 2026-05-06-notifications-client-design.md
+│       ├── shared/   # query-keys, fetchers, types, error-boundary, severity-icon, category-chip
+│       ├── bell/
+│       ├── inbox/
+│       ├── settings/
+│       ├── admin/
 │       └── index.ts
 │
 ├── shared/
@@ -121,6 +128,10 @@ Replace existing `client-*` zones in `.fallowrc.json`. Per-feature zone material
       { "name": "client-feat-settings", "patterns": ["apps/client/src/features/settings/**"] },
       { "name": "client-feat-admin", "patterns": ["apps/client/src/features/admin/**"] },
       { "name": "client-feat-jobs", "patterns": ["apps/client/src/features/jobs/**"] },
+      {
+        "name": "client-feat-notifications",
+        "patterns": ["apps/client/src/features/notifications/**"],
+      },
 
       { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
       { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },

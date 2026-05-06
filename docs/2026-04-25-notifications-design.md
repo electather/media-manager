@@ -880,7 +880,7 @@ Effectively cost of building C from day one — deferred until second consumer �
 
 ### Phase 5 — Client UI + flip flag
 
-- **PR 8 — Client UI + enablement.** `/settings/notifications`, `/notifications` inbox, nav badge, `/admin/notifications/deliveries`, `/admin/settings/notifications`. **Flip `notifications.enabled = true`** & remove flag same PR. `@ent-mcp/client: minor` — "Added a notifications page to receive and manage alerts about your media activity."
+- **PR 8 — Client UI + enablement.** `/settings/notifications`, `/notifications` inbox, nav badge, `/admin/notifications/deliveries`, `/admin/settings/notifications`. **Flip `notifications.enabled = true`** & remove flag same PR. `@ent-mcp/client: minor` — "Added a notifications page to receive and manage alerts about your media activity." Detailed client architecture: `docs/2026-05-06-notifications-client-design.md` (TanStack Query + Router loaders, React 19 concurrent posture, `features/notifications/` layout).
 
 ### PR sizing
 
