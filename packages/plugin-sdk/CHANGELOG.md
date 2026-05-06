@@ -1,5 +1,12 @@
 # @ent-mcp/plugin-sdk
 
+## 0.3.0
+
+### Minor Changes
+
+- a31896c: Sped up the home feed: each library plugin now publishes a one-shot list of TMDB ids it has on hand, and the server uses that index for every availability check in a request instead of probing one title at a time.
+- 2b70a07: Restored the season list to the TV detail modal with per-server episode availability across connected Plex and Jellyfin libraries.
+
 ## 0.2.0
 
 ### Minor Changes

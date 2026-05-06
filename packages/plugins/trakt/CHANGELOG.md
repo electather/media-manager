@@ -1,5 +1,14 @@
 # @ent-mcp/plugin-trakt
 
+## 0.2.1
+
+### Patch Changes
+
+- a31896c: Fixed several home-feed availability issues: items not on a connected server no longer falsely report "available" when Jellyfin's TMDB filter is unsupported, your Trakt watchlist no longer disappears when an item has a missing IMDB id, and watchlist titles you have on Jellyfin now render even before the catalog has cached their metadata.
+- Updated dependencies [a31896c]
+- Updated dependencies [2b70a07]
+  - @ent-mcp/plugin-sdk@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

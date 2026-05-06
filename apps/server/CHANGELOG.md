@@ -1,5 +1,40 @@
 # @ent-mcp/server
 
+## 0.3.0
+
+### Minor Changes
+
+- bf7a4b5: Reshaped the home-feed wire format with typed match reasons, library availability, display facets, and series context, and laid the server-side foundation for the upcoming `home.getLayout` / `home.getRowContent` endpoints.
+- a31896c: Hide home rows that have no content for the current user, so an installed plugin with an empty feed (e.g. an empty watchlist) no longer ships an empty row to the client.
+- fcc2e4e: Connected the home page to the live media-feed backend; replaced the mock data with real recommendations, resumable progress, and per-row pagination served by new `home.getLayout`, `home.getRowContent`, and `home.getDetails` endpoints.
+- 2b70a07: Restored the season list to the TV detail modal with per-server episode availability across connected Plex and Jellyfin libraries.
+
+### Patch Changes
+
+- a31896c: Fixed the home feed so titles you watch on Jellyfin or Plex show up in the Continue Watching row and the hero, and so a card's "available on your server" state reflects what the server actually has rather than only what was requested through Seerr.
+- a31896c: Fixed home feed issues: hero items and detail summaries now include availability and status fields so request-vs-play CTAs render correctly, and unified the home-feed error responses so wrong-method/unknown-route requests return JSON error envelopes instead of plain-text 404s.
+- a31896c: Requests to the bare `/api` path now return the same JSON error envelope as other unknown API routes instead of falling through to the SPA handler.
+- a31896c: Fixed missing hero and Continue Watching artwork on the home feed when canonical metadata already had poster, backdrop, and clear logo cached.
+- a31896c: Fixed several home-feed availability issues: items not on a connected server no longer falsely report "available" when Jellyfin's TMDB filter is unsupported, your Trakt watchlist no longer disappears when an item has a missing IMDB id, and watchlist titles you have on Jellyfin now render even before the catalog has cached their metadata.
+- a31896c: Sped up the home feed: each library plugin now publishes a one-shot list of TMDB ids it has on hand, and the server uses that index for every availability check in a request instead of probing one title at a time.
+- 1340303: Job error logs now show plain string causes correctly instead of wrapping them in extra quotes.
+- 1340303: Home rows now display poster, backdrop, and clear logo artwork from saved metadata, even when the upstream provider returned none.
+- Updated dependencies [a31896c]
+- Updated dependencies [a31896c]
+- Updated dependencies [a31896c]
+- Updated dependencies [2b70a07]
+  - @ent-mcp/plugin-jellyfin@0.3.0
+  - @ent-mcp/plugin-plex@0.3.0
+  - @ent-mcp/plugin-trakt@0.2.1
+  - @ent-mcp/plugin-sdk@0.3.0
+  - @ent-mcp/plugin-tmdb@0.3.0
+  - @ent-mcp/plugin-discord@0.2.1
+  - @ent-mcp/plugin-inbox@0.2.1
+  - @ent-mcp/plugin-ntfy@0.2.1
+  - @ent-mcp/plugin-seerr@0.2.1
+  - @ent-mcp/plugin-telegram@0.2.1
+  - @ent-mcp/plugin-tvdb@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

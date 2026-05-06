@@ -1,5 +1,39 @@
 # @ent-mcp/client
 
+## 0.3.0
+
+### Minor Changes
+
+- 53e7452: Replaced the bottom navigation bar with a sticky top navigation bar that floats as a pill when the page is scrolled.
+- 2266a1a: Added a command menu (⌘K, Ctrl+K, or /) for jumping between pages, searching shows and movies, and running quick actions.
+- 2e96a06: Polished the media detail page: a fixed cinematic backdrop now fades into the page as you scroll, the modal hero fades the same way, the seasons list collapses cleanly for announced seasons, the section nav reliably highlights the section you're on, and the command palette footer adapts to touch devices and shows the brand logo.
+- bf7a4b5: Reshaped the home-feed wire format with typed match reasons, library availability, display facets, and series context, and laid the server-side foundation for the upcoming `home.getLayout` / `home.getRowContent` endpoints.
+- b50a9db: Added bottom navigation bar and top navigation tabs for Home, Library, and Watchlist.
+- fcc2e4e: Connected the home page to the live media-feed backend; replaced the mock data with real recommendations, resumable progress, and per-row pagination served by new `home.getLayout`, `home.getRowContent`, and `home.getDetails` endpoints.
+- 3d9f3e5: Added media row and card components to the home feed so mock content renders below the hero.
+- d4f4e18: Added home feed feature scaffold with types, mock data, and routing.
+- 364394a: Added a hero section to the home page and a detail modal that opens when you select a title.
+- 65e53e2: Added internationalization support and translated the notification panel into English and Persian.
+- 5ad74de: Enriched media detail modal with full episode data, TV air info, and availability-aware actions.
+- 5ad74de: Redesigned the media detail modal with a cinematic full-bleed backdrop, sticky frosted top bar, scroll-driven title shrink, score cards, format chips, and a "why this" callout.
+- 6b8e0cc: Added a full-page media detail view with cinematic hero, sticky section navigation, two-column body, scores and facts sidebar, and a related row.
+- eefa990: Port the nama-prototype home design end-to-end: card art with clearLogo and server-name availability badges, hover quick-action and treatment-aware meta; row carousels with edge fades, hover scroll arrows, and mock infinite pagination; hero TopZone overlaid on a parallaxing backdrop with kicker, dismiss/cycle and match-reason; bottom nav that hides on scroll-down; media detail modal that becomes a bottom sheet on mobile with a wired trailer button.
+- f883799: Added a notification panel for browsing, filtering, and dismissing in-app notifications.
+- a94d9b3: Added the request flow on media detail surfaces — a server and quality picker for missing movies, and per-season requesting (with bulk "Request all") for partially available shows. Pending requests show an "Awaiting approval" badge users can cancel.
+- b551a98: Removed the TanStack DB client data layer and reverted the admin jobs page to its previous behavior.
+- 2b70a07: Restored the season list to the TV detail modal with per-server episode availability across connected Plex and Jellyfin libraries.
+
+### Patch Changes
+
+- a31896c: Cards, hero, detail modal, and detail hero now render the wire `clearLogo` image when available, falling back to the existing wordmark text. The detail page hero no longer falls back to the poster when a backdrop is missing — it stays empty so the cinematic backdrop never degrades to a stretched portrait.
+- b08967f: Restored the bounded hero card with elevated shadow and YouTube-style ambient glow on the home page.
+- 12482dd: Polished the home page so the hero halo blends naturally, progress bars sit at the edge of the artwork instead of breaking the image, the docked top nav stays readable on light backdrops, the bottom nav scales gracefully on small screens, and content rows align cleanly with the page grid.
+- abba496: Fixed the home page scrolling back to the top when opening or closing a title's peek modal, added open and close animations to the peek modal, and capped the hero card at 60% of the screen height on phones so the rails below stay visible.
+- 1807e51: Tighten home page visual fidelity to the nama-prototype reference: split hero clear-logo from the suggestion headline (logo becomes a small mono kicker, the show title becomes the H1), expose `Resume` + progress bar when the hero has watch progress, surface the brand wordmark next to the logo in the top nav (now driven by `home_nav_brand_label`), and add per-row `headerKey`/`subtitleKey` overrides on `RowData` so the second `continueWatching`, `recommendedForYou-tv`, and `recommendedForYou-movies` rows read as "Next in your shows", "TV shows to request", and "Movies to request".
+- 5ad74de: Fixed the media detail modal so it no longer shows fabricated season episode counts, and corrected the rating vote count to read naturally for fewer than a thousand votes.
+- 5ad74de: Localized the media detail modal's season subline and Watch action so they translate alongside the rest of the surface.
+- 5ad74de: Tightened the media detail modal so the cinematic hero stays legible, the rating no longer duplicates between the meta line and the score card, and the recommendation rationale surfaces in the modal again.
+
 ## 0.2.0
 
 ### Minor Changes
