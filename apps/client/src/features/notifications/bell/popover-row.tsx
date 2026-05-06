@@ -6,14 +6,13 @@ import { m } from "@/paraglide/messages";
 import { SeverityIcon } from "../shared/severity-icon";
 import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
+import { useDismiss, useMarkRead } from "../inbox/use-inbox-mutations";
 import Markdown from "react-markdown";
 
 interface Props {
   item: NotificationItemDto;
   density: Density;
   intensity: Intensity;
-  onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
 }
 
 function actionVariant(style: string | undefined): "default" | "destructive" | "outline" {
@@ -53,23 +52,24 @@ function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
 }
 
 // fallow-ignore-next-line complexity
-export function PopoverRow({ item, density, intensity, onMarkRead, onDismiss }: Props) {
+export function PopoverRow({ item, density, intensity }: Props) {
   const isUnread = item.readAt === null;
   const isLoud = intensity === "loud" && (item.severity === "warn" || item.severity === "error");
   const { loudBg, loudBorder } = SEVERITY_META[item.severity];
   const { Icon: CatIcon } = CATEGORY_META[item.category];
   const catLabel = categoryLabel(item.category);
   const compact = density === "compact";
+  const markRead = useMarkRead();
+  const dismiss = useDismiss();
+  const onMarkReadHover = () => {
+    if (isUnread) markRead.mutate([item.id]);
+  };
 
   return (
     <div
       role="listitem"
-      onMouseEnter={() => {
-        if (isUnread) onMarkRead(item.id);
-      }}
-      onFocus={() => {
-        if (isUnread) onMarkRead(item.id);
-      }}
+      onMouseEnter={onMarkReadHover}
+      onFocus={onMarkReadHover}
       className={cn(
         "group/item relative grid cursor-default select-none grid-cols-[auto_1fr_auto] gap-3 border-l-2 transition-colors",
         compact ? "px-3.5 py-2.5" : "px-3.5 py-3.5",
@@ -124,7 +124,7 @@ export function PopoverRow({ item, density, intensity, onMarkRead, onDismiss }: 
         aria-label={m.notifications_dismiss_aria()}
         onClick={(e) => {
           e.stopPropagation();
-          onDismiss(item.id);
+          dismiss.mutate([item.id]);
         }}
         size="xs"
         variant="ghost"

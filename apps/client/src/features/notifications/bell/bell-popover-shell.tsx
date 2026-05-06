@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { startTransition, useMemo, useState } from "react";
 import { CheckCheckIcon, SettingsIcon } from "lucide-react";
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
@@ -8,28 +8,24 @@ import { m } from "@/paraglide/messages";
 import { CategoryChip } from "../shared/category-chip";
 import { PopoverEmpty } from "./popover-empty";
 import { PopoverRow } from "./popover-row";
+import { usePopoverInbox } from "./use-popover-inbox";
+import { useMarkAllRead } from "../inbox/use-inbox-mutations";
 import { CATEGORY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
 
 type Filter = "all" | NotificationCategory;
 
 interface Props {
-  items: NotificationItemDto[];
+  open: boolean;
   density: Density;
   intensity: Intensity;
   mobile?: boolean;
-  onMarkAllRead: () => void;
-  onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
 }
 
 function buildCounts(items: NotificationItemDto[], unreadOnly: boolean): Record<string, number> {
   const totalUnread = items.filter((i) => i.readAt === null).length;
   const base = unreadOnly ? items.filter((i) => i.readAt === null) : items;
-  const counts: Record<string, number> = {
-    all: base.length,
-    unread: totalUnread,
-  };
+  const counts: Record<string, number> = { all: base.length, unread: totalUnread };
   for (const k of Object.keys(CATEGORY_META) as NotificationCategory[]) {
     counts[k] = base.filter((i) => i.category === k).length;
   }
@@ -45,13 +41,15 @@ function filterNotifications(
   return unreadOnly ? byCategory.filter((i) => i.readAt === null) : byCategory;
 }
 
-interface UnreadToggleProps {
+function UnreadToggle({
+  active,
+  count,
+  onToggle,
+}: {
   active: boolean;
   count: number;
   onToggle: () => void;
-}
-
-function UnreadToggle({ active, count, onToggle }: UnreadToggleProps) {
+}) {
   return (
     <button
       aria-pressed={active}
@@ -75,17 +73,15 @@ function UnreadToggle({ active, count, onToggle }: UnreadToggleProps) {
 }
 
 // fallow-ignore-next-line complexity
-export function BellPopoverShell({
-  items,
-  density,
-  intensity,
-  mobile = false,
-  onMarkAllRead,
-  onMarkRead,
-  onDismiss,
-}: Props) {
+export function BellPopoverShell({ open, density, intensity, mobile = false }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const { data } = usePopoverInbox(open, {
+    ...(unreadOnly ? { unreadOnly: true } : {}),
+    ...(filter !== "all" ? { category: filter } : {}),
+  });
+  const items = (data?.items ?? []) as NotificationItemDto[];
+  const markAllRead = useMarkAllRead();
 
   const counts = useMemo(() => buildCounts(items, unreadOnly), [items, unreadOnly]);
   const filtered = useMemo(
@@ -95,6 +91,14 @@ export function BellPopoverShell({
 
   const filterLabel = filter !== "all" ? categoryLabel(filter as NotificationCategory) : null;
   const unreadCount = counts.unread ?? 0;
+
+  const onFilterChange = (v: string) => {
+    startTransition(() => setFilter(v as Filter));
+  };
+
+  const onMarkAllRead = () => {
+    markAllRead.mutate(filter !== "all" ? { category: filter } : {});
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -111,10 +115,9 @@ export function BellPopoverShell({
           <UnreadToggle
             active={unreadOnly}
             count={unreadCount}
-            onToggle={() => setUnreadOnly((v) => !v)}
+            onToggle={() => startTransition(() => setUnreadOnly((v) => !v))}
           />
         </div>
-
         <Button
           variant="ghost"
           size="icon-sm"
@@ -130,7 +133,7 @@ export function BellPopoverShell({
       <div className="shrink-0 px-4 pb-2.5">
         <RadioGroup
           value={filter}
-          onValueChange={(v) => setFilter(v as Filter)}
+          onValueChange={onFilterChange}
           aria-label={m.notifications_filter_aria()}
           className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none]"
         >
@@ -154,24 +157,27 @@ export function BellPopoverShell({
           <PopoverEmpty filterLabel={filterLabel} />
         ) : (
           filtered.map((item) => (
-            <PopoverRow
-              key={item.id}
-              item={item}
-              density={density}
-              intensity={intensity}
-              onMarkRead={onMarkRead}
-              onDismiss={onDismiss}
-            />
+            <PopoverRow key={item.id} item={item} density={density} intensity={intensity} />
           ))
         )}
       </div>
 
       <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2.5">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-xs text-muted-foreground"
+          render={<a href="/settings/notifications" />}
+        >
           <SettingsIcon className="size-3.5" />
           {m.notifications_settings_button()}
         </Button>
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs text-muted-foreground"
+          render={<a href="/notifications" />}
+        >
           {m.notifications_view_all()}
         </Button>
       </div>
