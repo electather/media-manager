@@ -16,4 +16,5 @@ test-server.ts
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .token-savior-cache.json
+.token-savior-checkpoints/
 .fallow

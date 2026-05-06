@@ -1,7 +1,7 @@
 import { useScrolled } from "@/shared/hooks/use-scrolled";
 import { CommandMenuTrigger } from "./command-menu-trigger";
 import { NavBrand } from "./nav-brand";
-import { NotificationPanel } from "./notification-panel";
+import { NotificationBell } from "@/features/notifications";
 import { TopNavLinks } from "./top-nav-links";
 import { UserMenu } from "./user-menu";
 
@@ -28,7 +28,7 @@ export function TopNav() {
           </div>
           <div className="flex items-center gap-2.5">
             <CommandMenuTrigger />
-            <NotificationPanel />
+            <NotificationBell />
             <UserMenu />
           </div>
         </div>

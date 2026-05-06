@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "notifications_title": "اعلان‌ها",
   "notifications_mark_all_read": "علامت‌گذاری همه به‌عنوان خوانده‌شده",
+  "notifications_mark_read_aria": "علامت‌گذاری به‌عنوان خوانده‌شده",
+  "notifications_mark_unread_aria": "علامت‌گذاری به‌عنوان خوانده‌نشده",
   "notifications_unread_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -13,6 +15,11 @@
     }
   ],
   "notifications_filter_aria": "فیلتر اعلان‌ها بر اساس دسته",
+  "notifications_filter_severity_aria": "فیلتر اعلان‌ها بر اساس شدت",
+  "notifications_filter_severity_all": "همه شدت‌ها",
+  "notifications_filter_severity_info": "اطلاع",
+  "notifications_filter_severity_warn": "هشدار",
+  "notifications_filter_severity_error": "خطا",
   "notifications_category_all": "همه",
   "notifications_category_media": "رسانه",
   "notifications_category_sync": "همگام‌سازی",
@@ -35,5 +42,84 @@
         "countPlural=other": "اعلان‌ها، {count} خوانده‌نشده"
       }
     }
-  ]
+  ],
+  "notifications_page_title": "اعلان‌ها",
+  "notifications_page_subtitle_unread": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} خوانده‌نشده",
+        "countPlural=other": "{count} خوانده‌نشده"
+      }
+    }
+  ],
+  "notifications_delete_read": "حذف خوانده‌شده‌ها",
+  "notifications_bulk_select_aria": "انتخاب اعلان",
+  "notifications_bulk_delete": "حذف موارد انتخاب‌شده",
+  "notifications_bulk_mark_read": "علامت‌گذاری موارد انتخاب‌شده به‌عنوان خوانده‌شده",
+  "notifications_bulk_mark_unread": "علامت‌گذاری موارد انتخاب‌شده به‌عنوان خوانده‌نشده",
+  "notifications_bulk_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} انتخاب‌شده",
+        "countPlural=other": "{count} انتخاب‌شده"
+      }
+    }
+  ],
+  "notifications_load_more": "بارگذاری بیشتر",
+  "notifications_settings_channels_title": "کانال‌ها",
+  "notifications_settings_subscriptions_title": "اشتراک‌ها",
+  "notifications_settings_add_channel": "افزودن کانال",
+  "notifications_settings_test_button": "آزمون",
+  "notifications_settings_test_ok_toast": "آزمون با موفقیت ارسال شد",
+  "notifications_settings_test_fail_toast": "آزمون ناموفق: {message}",
+  "notifications_settings_inbox_locked": "همیشه فعال",
+  "notifications_settings_category_locked": "نیازمند مجوز {permission}",
+  "notifications_settings_inbox_channel": "صندوق ورودی (داخلی)",
+  "notifications_settings_edit_channel": "ویرایش",
+  "notifications_settings_delete_channel": "حذف",
+  "notifications_settings_delete_channel_failed": "حذف کانال انجام نشد: {message}",
+  "notifications_settings_topic_label": "موضوع: {value}",
+  "notifications_settings_server_label": "سرور: {value}",
+  "notifications_admin_deliveries_title": "تحویل‌های اعلان",
+  "notifications_admin_filter_status": "وضعیت",
+  "notifications_admin_filter_category": "دسته",
+  "notifications_admin_filter_severity": "شدت",
+  "notifications_admin_filter_user": "شناسه کاربر",
+  "notifications_admin_filter_from": "از",
+  "notifications_admin_filter_to": "تا",
+  "notifications_admin_status_pending": "در انتظار",
+  "notifications_admin_status_in_progress": "در حال انجام",
+  "notifications_admin_status_succeeded": "موفق",
+  "notifications_admin_status_failed": "ناموفق",
+  "notifications_admin_retry": "تلاش مجدد",
+  "notifications_admin_retry_in_flight": "تحویل در حال انجام است؛ پس از تثبیت تلاش کنید",
+  "notifications_admin_retry_queued": "تلاش مجدد در صف قرار گرفت",
+  "notifications_admin_detail_payload": "بار رویداد",
+  "notifications_admin_detail_last_error": "آخرین خطا",
+  "notifications_admin_detail_attempts": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} تلاش",
+        "countPlural=other": "{count} تلاش"
+      }
+    }
+  ],
+  "notifications_admin_settings_title": "نگهداری اعلان‌ها",
+  "notifications_admin_settings_inbox_retention": "نگهداری صندوق ورودی (روز)",
+  "notifications_admin_settings_delivery_retention": "نگهداری تحویل (روز)",
+  "notifications_admin_settings_save": "ذخیره",
+  "notifications_admin_settings_saved": "تنظیمات ذخیره شد",
+  "notifications_admin_settings_save_failed": "ذخیره تنظیمات ناموفق بود",
+  "notifications_admin_deliveries_empty": "تحویلی وجود ندارد",
+  "notifications_admin_filter_all": "همه",
+  "notifications_loading": "در حال بارگذاری…",
+  "notifications_error_title": "بارگذاری اعلان‌ها ممکن نشد",
+  "notifications_error_retry": "تلاش دوباره",
+  "notifications_bulk_delete_failed": "حذف انجام نشد: {message}"
 }
