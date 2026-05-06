@@ -115,11 +115,11 @@ function ModalBody({
   }
 
   return (
-    <div className="relative isolate h-full flex flex-col overflow-hidden">
+    <div className="modal-backdrop-timeline-scope relative isolate h-full flex flex-col overflow-hidden">
       {item.backdrop ? <ModalBackdrop src={item.backdrop} /> : null}
       <article
         data-testid="media-detail-modal"
-        className="modal-scroll relative flex flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto"
+        className="modal-scroll modal-backdrop-timeline-source relative flex flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto"
       >
         <ModalTopbar item={item} onViewFullPage={onViewFullPage} />
         {/* Hero spacer keeps the cinematic backdrop visible above the content

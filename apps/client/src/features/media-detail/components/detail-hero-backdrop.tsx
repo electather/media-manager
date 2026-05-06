@@ -10,16 +10,18 @@ type Props = {
 };
 
 /**
- * Cinematic backdrop that fills the hero section and bleeds beneath the
- * global TopNav. Mirrors the modal's `ModalBackdrop` pattern: a static
- * `object-cover` image plus a top-down dark gradient that keeps overlaid
- * copy (clear logo, meta line, action row) legible. No parallax — content
- * scrolls cleanly over the fixed plate.
+ * Cinematic backdrop pinned to the top of the viewport. The whole plate
+ * fades out via `scroll-driven-backdrop-fade` (see globals.css) as the user
+ * scrolls past the hero — no hard edge against the page background. A
+ * top-down dim and a low-left radial pool keep overlaid hero copy legible.
  */
 export function DetailHeroBackdrop({ src, posterSrc }: Props) {
   const imageSrc = src ?? posterSrc;
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+    <div
+      aria-hidden="true"
+      className="scroll-driven-backdrop-fade pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+    >
       {imageSrc ? (
         <img src={imageSrc} alt="" className="size-full object-cover object-top" />
       ) : null}
@@ -27,7 +29,14 @@ export function DetailHeroBackdrop({ src, posterSrc }: Props) {
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, oklch(0 0 0 / 0.45) 0%, oklch(0 0 0 / 0.55) 35%, oklch(0 0 0 / 0.78) 65%, var(--background) 95%, var(--background) 100%)",
+            "linear-gradient(to bottom, oklch(0 0 0 / 0.2) 0%, oklch(0 0 0 / 0.45) 70%, oklch(0 0 0 / 0.65) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 60% at 25% 85%, oklch(0 0 0 / 0.7) 0%, oklch(0 0 0 / 0.4) 45%, transparent 80%)",
         }}
       />
     </div>

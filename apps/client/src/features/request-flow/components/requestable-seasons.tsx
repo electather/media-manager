@@ -121,7 +121,7 @@ export function RequestableSeasons({
   return (
     <section
       aria-label={m.home_detail_seasons_label()}
-      className="flex flex-col gap-2 px-6 sm:px-10"
+      className="flex flex-col gap-2 px-0 sm:px-10"
     >
       {pluginConfigured && requestableSeasonNumbers.length > 1 ? (
         <div className="flex items-center justify-end pb-1">
@@ -217,43 +217,59 @@ function SeasonRow({
   onCancelPending,
 }: SeasonRowProps) {
   const subline = buildSubline(season, status);
+  const hasEpisodes = season.episodes.length > 0;
+
+  const action = pluginConfigured ? (
+    <SeasonRequestAction
+      itemId={itemId}
+      itemTitle={itemTitle}
+      seasonNumber={season.number}
+      status={status}
+      destination={destination}
+      defaultServiceId={defaultServiceId}
+      defaultProfileId={defaultProfileId}
+      pluginConfigured={pluginConfigured}
+      onSubmit={onRequest}
+      onCancelPending={onCancelPending}
+    />
+  ) : (
+    <RequestStatusBadge status={status} />
+  );
+
+  const titleBlock = (
+    <div className="min-w-0 flex-1">
+      <div className="text-sm font-medium text-foreground">
+        {m.home_detail_season_number({ n: String(season.number) })}
+      </div>
+      <div className="text-xs text-muted-foreground">{subline}</div>
+    </div>
+  );
+
+  if (!hasEpisodes) {
+    // Seasons with no known episodes (typically just-announced) collapse to
+    // a flat row — no chevron, no expandable empty drawer.
+    return (
+      <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-border bg-card/80 px-3 py-3 sm:px-4">
+        {titleBlock}
+        <div className="shrink-0">{action}</div>
+      </div>
+    );
+  }
 
   return (
     <Collapsible
       defaultOpen={defaultOpen}
       className="overflow-hidden rounded-xl border border-border bg-card/80"
     >
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
         <CollapsibleTrigger className="group flex flex-1 items-center gap-3 text-start outline-none">
           <ChevronDown
             aria-hidden="true"
             className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180"
           />
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-foreground">
-              {m.home_detail_season_number({ n: String(season.number) })}
-            </div>
-            <div className="text-xs text-muted-foreground">{subline}</div>
-          </div>
+          {titleBlock}
         </CollapsibleTrigger>
-        <div className="shrink-0">
-          {pluginConfigured ? (
-            <SeasonRequestAction
-              itemId={itemId}
-              itemTitle={itemTitle}
-              seasonNumber={season.number}
-              status={status}
-              destination={destination}
-              defaultServiceId={defaultServiceId}
-              defaultProfileId={defaultProfileId}
-              pluginConfigured={pluginConfigured}
-              onSubmit={onRequest}
-              onCancelPending={onCancelPending}
-            />
-          ) : (
-            <RequestStatusBadge status={status} />
-          )}
-        </div>
+        <div className="shrink-0">{action}</div>
       </div>
       <CollapsibleContent className="border-t border-border/60 bg-background/30">
         <EpisodeList episodes={season.episodes} seasonStatus={status} destination={destination} />
@@ -274,6 +290,7 @@ const COUNT_ONLY_SUBLINE: Partial<Record<RequestStatus, (total: number) => strin
 
 function buildSubline(season: Season, status: RequestStatus): string {
   const total = season.episodeCount;
+  if (total === 0) return m.request_subline_announced();
   const single = COUNT_ONLY_SUBLINE[status];
   if (single) return single(total);
   if (status === "partial") return buildPartialSubline(season, total);
@@ -330,7 +347,7 @@ function EpisodeRow({
 
   return (
     <li
-      className={`grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0 ${dim ? "opacity-60" : ""}`}
+      className={`grid grid-cols-[1.75rem_1fr_auto] items-center gap-2.5 border-b border-border/40 px-3 py-2.5 last:border-b-0 sm:grid-cols-[2rem_1fr_auto] sm:gap-3 sm:px-4 ${dim ? "opacity-60" : ""}`}
     >
       <span className="font-mono text-xs tabular-nums text-muted-foreground">
         {String(ep.episode).padStart(2, "0")}
@@ -338,11 +355,11 @@ function EpisodeRow({
       <div className="min-w-0">
         <div className="truncate text-sm font-medium text-foreground">{ep.title}</div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>{ep.airDate}</span>
+          <span className="whitespace-nowrap">{ep.airDate}</span>
           {episodeStatus !== "upcoming" ? (
             <>
               <span aria-hidden="true">·</span>
-              <span>{ep.runtime} min</span>
+              <span className="whitespace-nowrap">{ep.runtime} min</span>
             </>
           ) : null}
         </div>
