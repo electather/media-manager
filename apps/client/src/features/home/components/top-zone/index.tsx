@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
 import type { HeroItem, HomeMediaItem } from "../../lib/types";
 import { ProgressOverlay } from "../progress-overlay";
@@ -9,7 +10,7 @@ function progressPercent(progress: HomeMediaItem["progress"]): number | null {
   if (!progress) return null;
   const { watched, total } = progress;
   if (!total || total <= 0) return null;
-  return Math.max(0, Math.min(100, Math.round((watched / total) * 100)));
+  return clamp(Math.round((watched / total) * 100), 0, 100);
 }
 
 type Props = {
@@ -34,7 +35,7 @@ function HeroFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="relative z-10 aspect-2/3 w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
+    <div className="relative z-10 aspect-2/3 max-h-[60lvh] w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:max-h-none sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
       <div
         data-testid="top-zone-hero-frame"
         className="absolute inset-0 isolate overflow-hidden rounded-4xl bg-card transform-gpu backface-hidden [clip-path:inset(0_round_var(--radius-4xl))]"

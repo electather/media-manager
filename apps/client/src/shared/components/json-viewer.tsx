@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { jsonThemes, type JsonColorTheme, type ShikiThemeName } from "@/shared/lib/themes";
+import { useCopyFeedback } from "@/shared/hooks/use-copy-feedback";
 import { isNil, isNumber } from "es-toolkit/predicate";
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -156,14 +157,11 @@ function JsonNode({
     if (isExpandable) onToggle(path);
   }, [isExpandable, onToggle, path]);
 
-  const [pathCopied, setPathCopied] = React.useState(false);
+  const { copied: pathCopied, copy: copyPath } = useCopyFeedback();
 
   const handleCopyPath = React.useCallback(() => {
-    void navigator.clipboard.writeText(path).then(() => {
-      setPathCopied(true);
-      setTimeout(() => setPathCopied(false), 1500);
-    });
-  }, [path]);
+    void copyPath(path);
+  }, [copyPath, path]);
 
   const hoverBg = theme ? `${theme.fg}10` : undefined;
   const matchBg = theme ? `${theme.fg}15` : undefined;
@@ -465,7 +463,7 @@ function JsonViewer({
   });
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const [copiedAll, setCopiedAll] = React.useState(false);
+  const { copied: copiedAll, copy: copyAll } = useCopyFeedback();
   const searchRef = React.useRef<HTMLInputElement>(null);
 
   const togglePath = React.useCallback((path: string) => {
@@ -490,11 +488,8 @@ function JsonViewer({
   }, [data, rootName]);
 
   const copyJson = React.useCallback(() => {
-    void navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
-      setCopiedAll(true);
-      setTimeout(() => setCopiedAll(false), 1500);
-    });
-  }, [data]);
+    void copyAll(JSON.stringify(data, null, 2));
+  }, [copyAll, data]);
 
   const toggleSearch = React.useCallback(() => {
     setSearchOpen((prev) => {
