@@ -1,7 +1,7 @@
 import type { Ctx, MovieRaw, TvRaw, DiscoverFilters } from "../types";
 import { asMediaInput } from "../types";
 import { tmdbGet } from "../client";
-import { mapMovie, mapShow } from "../mappers";
+import { mapMovie, mapShow, toSeasonInfo, type TmdbShowSeasonsRaw } from "../mappers";
 import { SORT_MAP_MOVIE, SORT_MAP_TV } from "../constants";
 
 function msToIsoDate(ms: number | undefined): string | undefined {
@@ -103,6 +103,59 @@ export const metadata = {
     return (data.results as Array<MovieRaw & TvRaw>)
       .slice(0, limit)
       .map((r) => (type === "movie" ? mapMovie(c, r) : mapShow(c, r)));
+  },
+
+  async getShowSeasons(ctx: unknown, input: unknown) {
+    const c = ctx as Ctx;
+    const { id } = input as { id: string };
+    // Single round-trip: ask TMDB for the show plus every season's episode list
+    // via `append_to_response=season/N`. Long-running shows can exceed the
+    // `append_to_response` URL budget (TMDB caps a single value list around
+    // 20-ish items); we chunk to be safe and merge by season number.
+    const showRoot = (await tmdbGet(c, `/tv/${id}`)) as TvRaw & {
+      seasons?: Array<{
+        season_number?: number | null;
+        name?: string;
+        air_date?: string | null;
+        episode_count?: number;
+      }>;
+    };
+    const seasonNumbers = (showRoot.seasons ?? [])
+      .map((s) => s.season_number)
+      .filter((n): n is number => typeof n === "number");
+    if (seasonNumbers.length === 0) return { seasons: [] };
+
+    const APPEND_CHUNK_SIZE = 20;
+    const aggregated: TmdbShowSeasonsRaw["seasonDetails"] = {};
+    for (let offset = 0; offset < seasonNumbers.length; offset += APPEND_CHUNK_SIZE) {
+      const chunk = seasonNumbers.slice(offset, offset + APPEND_CHUNK_SIZE);
+      const append = chunk.map((n) => `season/${n}`).join(",");
+      const data = (await tmdbGet(c, `/tv/${id}`, { append_to_response: append })) as Record<
+        string,
+        unknown
+      >;
+      for (const n of chunk) {
+        const key = `season/${n}`;
+        const seasonPayload = data[key] as
+          | {
+              episodes?: Array<{
+                episode_number?: number;
+                name?: string;
+                air_date?: string | null;
+                runtime?: number | null;
+              }>;
+            }
+          | undefined;
+        if (seasonPayload) aggregated[n] = seasonPayload;
+      }
+    }
+    return {
+      seasons: (showRoot.seasons ?? [])
+        .filter(
+          (s): s is typeof s & { season_number: number } => typeof s.season_number === "number",
+        )
+        .map((s) => toSeasonInfo(s, aggregated[s.season_number])),
+    };
   },
 
   async discover(ctx: unknown, input: unknown) {

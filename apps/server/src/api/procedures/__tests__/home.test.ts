@@ -35,7 +35,12 @@ vi.mock("../../../home/orchestrator", () => ({
   composeDetails: vi.fn(),
 }));
 
+vi.mock("../../../home/season-availability", () => ({
+  composeSeasonAvailability: vi.fn(),
+}));
+
 const orchestrator = await import("../../../home/orchestrator");
+const seasonAvailability = await import("../../../home/season-availability");
 const { homeApp } = await import("../home");
 
 function buildApp() {
@@ -117,6 +122,42 @@ describe("home API", () => {
     const body = (await res.json()) as { code: string; requestId: string };
     expect(body.code).toBe("http.not_found");
     expect(body.requestId).toBeTypeOf("string");
+  });
+
+  it("returns 200 + season-availability payload", async () => {
+    mockUserId = "u1";
+    const payload = {
+      servers: [
+        { serverId: "plex:c1", serverLabel: "Plex", episodesPresent: [{ season: 1, episode: 1 }] },
+      ],
+      errors: [
+        {
+          serverId: "jellyfin:c2",
+          serverLabel: "Jellyfin",
+          code: "plugin.upstream_error" as const,
+        },
+      ],
+    };
+    vi.mocked(seasonAvailability.composeSeasonAvailability).mockResolvedValueOnce(payload);
+    const res = await buildApp().request("/home/season-availability?tmdbId=1396");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(payload);
+    expect(seasonAvailability.composeSeasonAvailability).toHaveBeenCalledWith(
+      expect.anything(),
+      "1396",
+    );
+  });
+
+  it("rejects /season-availability without tmdbId with 400", async () => {
+    mockUserId = "u1";
+    const res = await buildApp().request("/home/season-availability");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 401 from /season-availability with no session", async () => {
+    mockUserId = null;
+    const res = await buildApp().request("/home/season-availability?tmdbId=1396");
+    expect(res.status).toBe(401);
   });
 
   it("returns 404 + JSON envelope on unknown sub-paths", async () => {

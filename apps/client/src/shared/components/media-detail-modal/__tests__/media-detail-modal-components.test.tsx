@@ -107,17 +107,14 @@ describe("ModalTopbar", () => {
 });
 
 describe("ModalSeasons", () => {
-  // The seasons / episode payload is owned by the request-flow feature
-  // post-PR6; the modal renders a placeholder hint for TV titles instead of
-  // fabricating a list.
   it("renders nothing for movie titles", () => {
     const { container } = render(<ModalSeasons item={BASE_MOVIE} />);
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders the placeholder copy for TV titles", () => {
-    render(<ModalSeasons item={BASE_TV} />);
-    expect(screen.getByText(/seasons load/i)).toBeTruthy();
+  it("renders nothing for TV titles missing the canonical season list", () => {
+    const { container } = render(<ModalSeasons item={BASE_TV} />);
+    expect(container.firstChild).toBeNull();
   });
 });
 

@@ -4,10 +4,12 @@ import {
   homeGetDetailsInputSchema,
   homeGetLayoutInputSchema,
   homeGetRowContentInputSchema,
+  homeGetSeasonAvailabilityInputSchema,
 } from "@ent-mcp/shared/home";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { zValidator } from "../../errors/validator";
 import { buildContext, composeDetails, composeLayout, composeRow } from "../../home/orchestrator";
+import { composeSeasonAvailability } from "../../home/season-availability";
 
 /**
  * `cursor` arrives as a query string — `null` is encoded as the literal
@@ -47,4 +49,15 @@ export const homeApp = new Hono()
     const ctx = buildContext(userId);
     const details = await composeDetails(ctx, tmdbId, mediaType);
     return c.json(details);
-  });
+  })
+  .get(
+    "/season-availability",
+    zValidator("query", homeGetSeasonAvailabilityInputSchema),
+    async (c) => {
+      const userId = sessionUserId(c);
+      const { tmdbId } = c.req.valid("query");
+      const ctx = buildContext(userId);
+      const availability = await composeSeasonAvailability(ctx, tmdbId);
+      return c.json(availability);
+    },
+  );

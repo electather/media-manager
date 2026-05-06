@@ -124,7 +124,7 @@ describe("MediaDetailModal", () => {
     trigger.remove();
   });
 
-  it("renders the seasons placeholder for TV items only", () => {
+  it("hides the seasons section for movies and for TV items missing seasons[]", () => {
     const { rerender } = render(
       <MediaDetailModal
         item={MOVIE}
@@ -145,7 +145,8 @@ describe("MediaDetailModal", () => {
         onToggleWatchlist={vi.fn()}
       />,
     );
-    expect(screen.getByRole("region", { name: /seasons/i })).toBeTruthy();
-    expect(screen.getByText(/seasons load/i)).toBeTruthy();
+    // TV item has no canonical seasons[] payload — section stays hidden until
+    // home.getDetails populates it.
+    expect(screen.queryByRole("region", { name: /seasons/i })).toBeNull();
   });
 });

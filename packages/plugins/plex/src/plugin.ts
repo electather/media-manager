@@ -646,6 +646,68 @@ export default definePlugin({
         return { tmdbIds };
       },
 
+      async listShowEpisodes(ctx, input) {
+        const { id, idType } = input as {
+          id: string;
+          idType: "tmdb" | "imdb" | "tvdb" | "plex" | "jellyfin";
+        };
+        if (idType === "jellyfin") return { episodes: [] };
+
+        // Resolve to a Plex ratingKey for the show. Server-local id path skips
+        // the resolve step; cross-service ids hit /library/all?guid=... which
+        // indexes by the show's Guid entries.
+        let ratingKey: string | undefined;
+        if (idType === "plex") {
+          ratingKey = id;
+        } else {
+          try {
+            const guid = `${idType}://${id}`;
+            const body = await plexServerJson<PlexMediaContainer<{ Metadata?: PlexMetadata[] }>>(
+              ctx as Ctx,
+              `/library/all?guid=${encodeURIComponent(guid)}`,
+            );
+            ratingKey = body.MediaContainer?.Metadata?.[0]?.ratingKey;
+          } catch (err) {
+            if (
+              err &&
+              typeof err === "object" &&
+              (err as { code?: string }).code === "plugin.item_not_found"
+            ) {
+              return { episodes: [] };
+            }
+            throw err;
+          }
+        }
+        if (!ratingKey) return { episodes: [] };
+
+        try {
+          // /allLeaves walks every episode under a show in one round-trip; on
+          // 250-episode shows the response is ~50KB, well within the 5-min
+          // capability cache.
+          const body = await plexServerJson<PlexMediaContainer<{ Metadata?: PlexMetadata[] }>>(
+            ctx as Ctx,
+            `/library/metadata/${encodeURIComponent(ratingKey)}/allLeaves`,
+          );
+          const rows = body.MediaContainer?.Metadata ?? [];
+          const episodes: { season: number; episode: number }[] = [];
+          for (const m of rows) {
+            if (typeof m.parentIndex === "number" && typeof m.index === "number") {
+              episodes.push({ season: m.parentIndex, episode: m.index });
+            }
+          }
+          return { episodes };
+        } catch (err) {
+          if (
+            err &&
+            typeof err === "object" &&
+            (err as { code?: string }).code === "plugin.item_not_found"
+          ) {
+            return { episodes: [] };
+          }
+          throw err;
+        }
+      },
+
       async searchLibrary(ctx, input) {
         const {
           query,

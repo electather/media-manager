@@ -3,6 +3,7 @@ import {
   homeGetDetailsInputSchema,
   homeGetLayoutInputSchema,
   homeGetRowContentInputSchema,
+  homeGetSeasonAvailabilityInputSchema,
 } from "../schemas";
 
 describe("home schemas — homeGetLayoutInputSchema", () => {
@@ -74,6 +75,22 @@ describe("home schemas — homeGetDetailsInputSchema", () => {
   it("rejects extra keys", () => {
     expect(
       homeGetDetailsInputSchema.safeParse({ tmdbId: "1", mediaType: "movie", x: 1 }).success,
+    ).toBe(false);
+  });
+});
+
+describe("home schemas — homeGetSeasonAvailabilityInputSchema", () => {
+  it("accepts a non-empty tmdbId", () => {
+    expect(homeGetSeasonAvailabilityInputSchema.parse({ tmdbId: "1396" }).tmdbId).toBe("1396");
+  });
+
+  it("rejects empty tmdbId", () => {
+    expect(homeGetSeasonAvailabilityInputSchema.safeParse({ tmdbId: "" }).success).toBe(false);
+  });
+
+  it("rejects extra keys", () => {
+    expect(
+      homeGetSeasonAvailabilityInputSchema.safeParse({ tmdbId: "1396", extra: 1 }).success,
     ).toBe(false);
   });
 });

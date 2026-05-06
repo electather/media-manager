@@ -124,6 +124,64 @@ export const libraryAvailability = {
     return { tmdbIds };
   },
 
+  async listShowEpisodes(ctx: unknown, input: unknown) {
+    const typedCtx = ctx as Ctx;
+    const { id, idType } = input as {
+      id: string;
+      idType: "tmdb" | "imdb" | "tvdb" | "plex" | "jellyfin";
+    };
+    if (idType === "plex") return { episodes: [] };
+
+    // Resolve to a Jellyfin item id when the caller supplied a cross-service
+    // id; server-local ids skip straight to the episode walk.
+    let jellyfinId: string | undefined;
+    if (idType === "jellyfin") {
+      jellyfinId = id;
+    } else {
+      const provider = toJfProvider(idType);
+      if (!provider) return { episodes: [] };
+      const userId = getUserId(typedCtx);
+      const params = new URLSearchParams({
+        IncludeItemTypes: "Series",
+        Recursive: "true",
+        AnyProviderIdEquals: `${provider}.${id}`,
+        Fields: "ProviderIds",
+      });
+      try {
+        const data = await jellyfinJson<{ Items: JellyfinItem[] }>(
+          typedCtx,
+          `/Users/${userId}/Items?${params.toString()}`,
+        );
+        // Recent Jellyfin builds (10.10+) silently ignore `AnyProviderIdEquals`
+        // and return the type-filtered library, so re-filter on the client to
+        // pick out the requested provider hit.
+        const hit = (data.Items ?? []).find((row) => row.ProviderIds?.[provider] === id);
+        jellyfinId = hit?.Id;
+      } catch (err) {
+        if (isNotFound(err)) return { episodes: [] };
+        throw err;
+      }
+    }
+    if (!jellyfinId) return { episodes: [] };
+
+    try {
+      const data = await jellyfinJson<{ Items: JellyfinItem[] }>(
+        typedCtx,
+        `/Shows/${encodeURIComponent(jellyfinId)}/Episodes?Fields=ParentIndexNumber%2CIndexNumber`,
+      );
+      const episodes: { season: number; episode: number }[] = [];
+      for (const row of data.Items ?? []) {
+        if (typeof row.ParentIndexNumber === "number" && typeof row.IndexNumber === "number") {
+          episodes.push({ season: row.ParentIndexNumber, episode: row.IndexNumber });
+        }
+      }
+      return { episodes };
+    } catch (err) {
+      if (isNotFound(err)) return { episodes: [] };
+      throw err;
+    }
+  },
+
   async searchLibrary(ctx: unknown, input: unknown) {
     const typedCtx = ctx as Ctx;
     const {

@@ -31,6 +31,18 @@ export const homeGetDetailsInputSchema = z
   })
   .strict();
 
+/**
+ * `home.getSeasonAvailability` input: tmdb id of the show. Per-server presence
+ * is the only thing the route returns — canonical seasons ride on
+ * `home.getDetails` (different cache TTL).
+ */
+export const homeGetSeasonAvailabilityInputSchema = z
+  .object({
+    tmdbId: z.string().min(1),
+  })
+  .strict();
+
 export type HomeGetLayoutInput = z.infer<typeof homeGetLayoutInputSchema>;
 export type HomeGetRowContentInput = z.infer<typeof homeGetRowContentInputSchema>;
 export type HomeGetDetailsInput = z.infer<typeof homeGetDetailsInputSchema>;
+export type HomeGetSeasonAvailabilityInput = z.infer<typeof homeGetSeasonAvailabilityInputSchema>;
