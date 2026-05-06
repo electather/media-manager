@@ -250,12 +250,16 @@ export async function composeDetails(
     if (!summary) throw new HttpError(500, "home.internal", "catalog write failed");
   }
   const summaryInternal = fromCanonicalMetadata(summary);
-  const [detailsSettled, [summaryItem]] = await Promise.all([
+  const [detailsSettled, [summaryItem], seasonsResult] = await Promise.all([
     ctx.mediaService.getDetails(tmdbId, mediaType).then(
       (data) => ({ ok: true as const, data }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
     enrichItems([summaryInternal], ctx, { rowId: "details" }),
+    // Best-effort: season payload only fetched for shows. `getShowSeasons`
+    // already swallows plugin errors and returns null, so a failure here
+    // never propagates and the field is simply omitted from the response.
+    mediaType === "tv" ? ctx.mediaService.getShowSeasons(tmdbId) : Promise.resolve(null),
   ]);
   if (!summaryItem) throw new HttpError(500, "home.internal", "summary enrichment failed");
   if (!detailsSettled.ok) {
@@ -265,7 +269,9 @@ export async function composeDetails(
       error: { code: classifyError(detailsSettled.err) },
     };
   }
-  return { summary: summaryItem, details: toMediaDetailsExtra(detailsSettled.data) };
+  const details = toMediaDetailsExtra(detailsSettled.data);
+  if (seasonsResult && seasonsResult.length > 0) details.seasons = seasonsResult;
+  return { summary: summaryItem, details };
 }
 
 /**

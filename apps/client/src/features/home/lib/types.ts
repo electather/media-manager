@@ -48,6 +48,7 @@ export type HomeMediaItem = CompactMediaItem & {
   director?: string;
   seriesStatus?: "ongoing" | "finished";
   nextAirDate?: string;
+  seasons?: import("@ent-mcp/shared/home").SeasonInfo[];
 };
 
 export type { Availability, Facets, SeriesContext };

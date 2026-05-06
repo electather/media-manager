@@ -5,6 +5,7 @@ import {
   type AggregateResult,
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
+import type { SeasonInfo } from "@ent-mcp/shared/home";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
@@ -122,6 +123,30 @@ export class MediaService {
       mediaType: type,
     });
     return result.data ?? null;
+  }
+
+  /**
+   * Typed `metadata@v1.getShowSeasons` wrapper used by the home-feed detail
+   * composer. Returns `null` when no primary plugin is available, the dispatch
+   * yields no data, or the payload is malformed — the orchestrator omits the
+   * field rather than failing the detail call so movies and shows w/o season
+   * payloads still render the rest of the response.
+   */
+  async getShowSeasons(tmdbId: string): Promise<SeasonInfo[] | null> {
+    try {
+      const result = await dispatchPrimary<{ seasons?: SeasonInfo[] }>({
+        userId: this.userId,
+        capability: "metadata",
+        version: "v1",
+        method: "getShowSeasons",
+        input: { id: tmdbId },
+        mediaType: "tv",
+      });
+      const seasons = result.data?.seasons;
+      return Array.isArray(seasons) ? seasons : null;
+    } catch {
+      return null;
+    }
   }
 
   /**

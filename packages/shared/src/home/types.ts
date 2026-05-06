@@ -180,6 +180,71 @@ export interface MediaDetailsExtra {
   seriesStatus?: "ongoing" | "finished";
   /** Pre-formatted runtime string, e.g. `"1h 58m"`. */
   runtime?: string;
+  /**
+   * Canonical TV season list with eager episode metadata. Populated only when
+   * `mediaType === "tv"` and the metadata plugin returned a season payload;
+   * best-effort, so the field is omitted on plugin failure rather than null.
+   * Per-server availability ships separately via `home.getSeasonAvailability`
+   * (different freshness profile — day vs. minute cache).
+   */
+  seasons?: SeasonInfo[];
+}
+
+/**
+ * Per-episode metadata inside a `SeasonInfo`. `airDate` is ISO `YYYY-MM-DD`
+ * pass-through from TMDB; `runtime` is in minutes.
+ */
+export interface SeasonEpisodeInfo {
+  episodeNumber: number;
+  title: string;
+  airDate?: string;
+  runtime?: number;
+}
+
+/**
+ * Canonical season payload from the metadata plugin. `episodes.length` may
+ * differ from `totalEpisodes` for unaired seasons whose enumeration trails the
+ * announced count.
+ */
+export interface SeasonInfo {
+  seasonNumber: number;
+  name: string;
+  airDate?: string;
+  totalEpisodes: number;
+  episodes: SeasonEpisodeInfo[];
+}
+
+/**
+ * Per-server availability slice for a single show. `episodesPresent` is a
+ * sorted-ascending flat list of `{ season, episode }` pairs the server holds;
+ * the client buckets to seasons during render.
+ */
+export interface SeasonAvailabilityServer {
+  serverId: string;
+  serverLabel: string;
+  episodesPresent: { season: number; episode: number }[];
+}
+
+/**
+ * Per-plugin failure surfaced alongside successful servers in
+ * `SeasonAvailabilityResponse`. `code` is a classified `HostErrorCode` so the
+ * UI can pick localised microcopy without parsing free-form messages.
+ */
+export interface SeasonAvailabilityError {
+  serverId: string;
+  serverLabel: string;
+  code: HostErrorCode;
+}
+
+/**
+ * `home.getSeasonAvailability` response. `servers` is empty when the user has
+ * no `libraryAvailability@v1` provider configured (not an error). Per-plugin
+ * failures populate `errors[]` while successful servers still appear in
+ * `servers[]`.
+ */
+export interface SeasonAvailabilityResponse {
+  servers: SeasonAvailabilityServer[];
+  errors?: SeasonAvailabilityError[];
 }
 
 /**

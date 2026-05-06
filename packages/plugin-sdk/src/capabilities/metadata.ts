@@ -7,6 +7,21 @@ const searchResult = z.object({
   score: z.number().optional(),
 });
 
+const seasonEpisodeShape = z.object({
+  episodeNumber: z.number(),
+  title: z.string(),
+  airDate: z.string().optional(),
+  runtime: z.number().optional(),
+});
+
+const seasonInfoShape = z.object({
+  seasonNumber: z.number(),
+  name: z.string(),
+  airDate: z.string().optional(),
+  totalEpisodes: z.number(),
+  episodes: z.array(seasonEpisodeShape),
+});
+
 const discoverFilters = z.object({
   genres: z.array(z.string()).optional(),
   yearMin: z.number().optional(),
@@ -49,6 +64,16 @@ export const MetadataV1 = defineCapability({
     getSimilar: method(z.object({ id: z.string(), type: mediaType }), z.array(mediaItem)),
     getTrending: method(mediaListQuery, z.array(mediaItem)),
     discover: method(discoverFilters, z.array(mediaItem)),
+    /**
+     * Canonical TV season + episode list. Day-cached metadata: stable across
+     * a release window, expensive to repeat. Plugin returns the full eager
+     * episode list (titles, air dates, runtimes); host bundles into
+     * `home.getDetails`.
+     */
+    getShowSeasons: method(
+      z.object({ id: z.string() }),
+      z.object({ seasons: z.array(seasonInfoShape) }),
+    ),
   },
   mcpTools: [
     {

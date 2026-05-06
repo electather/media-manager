@@ -256,6 +256,109 @@ describe("composeDetails", () => {
     expect(res.error?.code).toBe("plugin.timeout");
   });
 
+  it("appends seasons on tv path when getShowSeasons resolves", async () => {
+    const seasons = [
+      {
+        seasonNumber: 1,
+        name: "Season 1",
+        totalEpisodes: 1,
+        episodes: [{ episodeNumber: 1, title: "Pilot" }],
+      },
+    ];
+    const ctx = makeRowCtx({
+      catalog: {
+        getMetadata: vi.fn().mockResolvedValue({
+          tmdbId: "1",
+          mediaType: "tv",
+          title: "Show",
+          year: 2024,
+          runtimeMinutes: null,
+          posterUrl: null,
+          backdropUrl: null,
+          clearLogoUrl: null,
+          overview: null,
+          originalLanguage: null,
+          genres: null,
+          features: null,
+          lastRefreshedAt: 0,
+          lastAccessedAt: 0,
+          createdAt: 0,
+        }),
+      } as never,
+      mediaService: {
+        getDetails: vi.fn().mockResolvedValue({ cast: [] }),
+        getShowSeasons: vi.fn().mockResolvedValue(seasons),
+      } as never,
+      statusBatch: { get: vi.fn().mockResolvedValue({ "tv:1": "unknown" }) } as never,
+    });
+    const res = await orchestrator.composeDetails(ctx, "1", "tv");
+    expect(res.details?.seasons).toEqual(seasons);
+  });
+
+  it("omits seasons when getShowSeasons returns null on tv path", async () => {
+    const ctx = makeRowCtx({
+      catalog: {
+        getMetadata: vi.fn().mockResolvedValue({
+          tmdbId: "1",
+          mediaType: "tv",
+          title: "Show",
+          year: 2024,
+          runtimeMinutes: null,
+          posterUrl: null,
+          backdropUrl: null,
+          clearLogoUrl: null,
+          overview: null,
+          originalLanguage: null,
+          genres: null,
+          features: null,
+          lastRefreshedAt: 0,
+          lastAccessedAt: 0,
+          createdAt: 0,
+        }),
+      } as never,
+      mediaService: {
+        getDetails: vi.fn().mockResolvedValue({ cast: [] }),
+        getShowSeasons: vi.fn().mockResolvedValue(null),
+      } as never,
+      statusBatch: { get: vi.fn().mockResolvedValue({ "tv:1": "unknown" }) } as never,
+    });
+    const res = await orchestrator.composeDetails(ctx, "1", "tv");
+    expect(res.details?.seasons).toBeUndefined();
+  });
+
+  it("does not call getShowSeasons on movie path", async () => {
+    const getShowSeasons = vi.fn();
+    const ctx = makeRowCtx({
+      catalog: {
+        getMetadata: vi.fn().mockResolvedValue({
+          tmdbId: "1",
+          mediaType: "movie",
+          title: "X",
+          year: 2024,
+          runtimeMinutes: null,
+          posterUrl: null,
+          backdropUrl: null,
+          clearLogoUrl: null,
+          overview: null,
+          originalLanguage: null,
+          genres: null,
+          features: null,
+          lastRefreshedAt: 0,
+          lastAccessedAt: 0,
+          createdAt: 0,
+        }),
+      } as never,
+      mediaService: {
+        getDetails: vi.fn().mockResolvedValue({ cast: [] }),
+        getShowSeasons,
+      } as never,
+      statusBatch: { get: vi.fn().mockResolvedValue({ "movie:1": "unknown" }) } as never,
+    });
+    const res = await orchestrator.composeDetails(ctx, "1", "movie");
+    expect(getShowSeasons).not.toHaveBeenCalled();
+    expect(res.details?.seasons).toBeUndefined();
+  });
+
   it("throws 404 when cold-fill plugin returns nothing", async () => {
     const ctx = makeRowCtx({
       catalog: {

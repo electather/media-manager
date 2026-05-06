@@ -239,14 +239,21 @@ export interface SeasonInfo {
 }
 
 // rev 2 — per-server episode presence, from libraryAvailability@v1.listShowEpisodes.
+// Wire ships flat `{ season, episode }` pairs (PR #202): plugin returns the
+// raw episode list its HTTP endpoint already produces, host bypasses the
+// per-season bucketing on serialization, and the client buckets to seasons
+// at render time. Avoids duplicating the bucketing logic in two plugins
+// (Plex /allLeaves + Jellyfin /Shows/{id}/Episodes already enumerate all
+// eps in one call).
 export interface SeasonAvailabilityServer {
-  id: string; // connection id
-  label: string; // plugin displayName
-  seasons: { seasonNumber: number; episodesPresent: number[] }[];
+  serverId: string; // `${pluginId}:${connectionId}` (or pluginId for shared pool)
+  serverLabel: string; // plugin displayName
+  episodesPresent: { season: number; episode: number }[]; // sorted (season, episode) ascending
 }
 
 export interface SeasonAvailabilityError {
   serverId: string;
+  serverLabel: string;
   code: HostErrorCode;
 }
 
@@ -996,18 +1003,16 @@ home/orchestrator.ts:
     servers = []
     errors  = []
     for ([conn, s] of zip(conns, settled)):
+      serverId    = `${conn.pluginId}:${conn.connectionId}`   // shared pool: pluginId only
+      serverLabel = conn.plugin.displayName
       if s.status === "rejected":
-        errors.push({ serverId: conn.id, code: classifyError(s.reason) })
+        errors.push({ serverId, serverLabel, code: classifyError(s.reason) })
         continue
-      bySeason = groupBy(s.value.episodes, e => e.season)
-      servers.push({
-        id:    conn.id,
-        label: conn.plugin.displayName,
-        seasons: Object.entries(bySeason).map(([num, eps]) => ({
-          seasonNumber:    Number(num),
-          episodesPresent: eps.map(e => e.episode).sort((a,b) => a-b),
-        })),
-      })
+      // Plugins return flat episode list; host sorts (season, episode) ascending
+      // and ships as-is. Client buckets to seasons map at render time.
+      sorted = [...s.value.episodes].sort((a, b) =>
+        a.season === b.season ? a.episode - b.episode : a.season - b.season)
+      servers.push({ serverId, serverLabel, episodesPresent: sorted })
     return errors.length > 0 ? { servers, errors } : { servers }
 ```
 
@@ -1044,12 +1049,22 @@ modal-seasons/
 
 `RequestableSeasons` (already at `apps/client/src/features/request-flow/components/requestable-seasons.tsx`) is reused as-is w/ `pluginConfigured={false}` → renders `RequestStatusBadge` instead of `SeasonRequestAction`. Adapter joins canonical `SeasonInfo[]` × `SeasonAvailabilityServer[]` → `Season[]` shape that component expects.
 
-Best-of-N status derivation per season:
+Best-of-N status derivation per season (computed against the per-season slice
+of each server's `episodesPresent` flat list):
 
-- `available` — any server has `episodesPresent.length === season.totalEpisodes`
-- `partial` — any server has 0 < `episodesPresent.length` < total
+- `available` — any server has `episodesPresent[season].length >= season.totalEpisodes`
+- `partial` — any server has 0 < `episodesPresent[season].length` < total
 - `unavailable` — all servers report 0 (or no servers)
 - `upcoming` — `season.airDate > now()` AND no server has any episode
+
+Note the deliberate split between season-level and episode-level rollups in
+`derive-status.ts`: episode chips use the _union_ across servers ("can the
+user watch this episode somewhere?"), season status uses _per-server_
+("does any single library cover the whole season?"). Split-library edge
+case (Server A holds S1E1–6, Server B holds S1E7–12) therefore shows green
+chips on every episode while the season badge still reports `partial` —
+that is correct because no single library has the season, so a request
+would still fill a gap.
 
 Specials filter: `seasonNumber === 0` rendered only when ≥1 server has ≥1 episode. Pure-canonical specials silenced.
 

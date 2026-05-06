@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import { ModalNote } from "@/shared/components/media-detail-modal/modal-note";
+import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seasons";
 import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
 import type { HomeMediaItem } from "@/features/home/lib/types";
@@ -27,9 +28,13 @@ type Props = {
 function buildSections(item: HomeMediaItem | null): Section[] {
   if (!item) return [];
   const castCount = (item.cast?.length ?? 0) + (item.director ? 1 : 0);
+  const seasonCount = item.seasons?.length ?? 0;
   const sections: (Section | null)[] = [
     { id: "overview", label: m.media_detail_section_overview() },
     castCount > 0 ? { id: "cast", label: m.media_detail_section_cast(), count: castCount } : null,
+    seasonCount > 0
+      ? { id: "seasons", label: m.media_detail_section_seasons(), count: seasonCount }
+      : null,
     { id: "your-take", label: m.media_detail_section_your_take() },
     { id: "related", label: m.media_detail_section_related() },
   ];
@@ -112,6 +117,14 @@ export function MediaDetailPage({ compositeId }: Props) {
           {hasCast ? (
             <DetailSection id="cast" title={m.media_detail_section_cast()}>
               <DetailCastGrid item={item} />
+            </DetailSection>
+          ) : null}
+
+          {(item.seasons?.length ?? 0) > 0 ? (
+            <DetailSection id="seasons" title={m.media_detail_section_seasons()}>
+              <UnpaddedModalSlot>
+                <ModalSeasons item={item as MediaDetailItem} />
+              </UnpaddedModalSlot>
             </DetailSection>
           ) : null}
 

@@ -17,9 +17,15 @@ describe("LibraryAvailabilityV1", () => {
     expect(getCapability("libraryAvailability", "v1")).toBe(LibraryAvailabilityV1);
   });
 
-  it("exposes the four library methods", () => {
+  it("exposes the five library methods", () => {
     expect(Object.keys(LibraryAvailabilityV1.methods).sort()).toEqual(
-      ["checkAvailability", "listAvailable", "listRecentlyAdded", "searchLibrary"].sort(),
+      [
+        "checkAvailability",
+        "listAvailable",
+        "listRecentlyAdded",
+        "listShowEpisodes",
+        "searchLibrary",
+      ].sort(),
     );
   });
 
@@ -178,6 +184,56 @@ describe("LibraryAvailabilityV1", () => {
         libraryItemFixture,
         { ...libraryItemFixture, id: "plex:12346", type: "show" },
       ]);
+      expect(r.success).toBe(true);
+    });
+  });
+
+  describe("listShowEpisodes", () => {
+    it("accepts a tmdb id lookup", () => {
+      const r = LibraryAvailabilityV1.methods.listShowEpisodes.input.safeParse({
+        id: "1396",
+        idType: "tmdb",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts a server-local plex ratingKey", () => {
+      const r = LibraryAvailabilityV1.methods.listShowEpisodes.input.safeParse({
+        id: "12345",
+        idType: "plex",
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects an empty id", () => {
+      const r = LibraryAvailabilityV1.methods.listShowEpisodes.input.safeParse({
+        id: "",
+        idType: "tmdb",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("rejects an unknown idType", () => {
+      const r = LibraryAvailabilityV1.methods.listShowEpisodes.input.safeParse({
+        id: "1396",
+        idType: "letterboxd",
+      });
+      expect(r.success).toBe(false);
+    });
+
+    it("validates an empty episodes list", () => {
+      const r = LibraryAvailabilityV1.methods.listShowEpisodes.output.safeParse({ episodes: [] });
+      expect(r.success).toBe(true);
+    });
+
+    it("validates a populated episodes list", () => {
+      const r = LibraryAvailabilityV1.methods.listShowEpisodes.output.safeParse({
+        episodes: [
+          { season: 1, episode: 1 },
+          { season: 1, episode: 2 },
+          { season: 2, episode: 1 },
+        ],
+      });
       expect(r.success).toBe(true);
     });
   });
