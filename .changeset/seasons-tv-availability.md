@@ -1,6 +1,7 @@
 ---
 "@ent-mcp/client": minor
 "@ent-mcp/server": minor
+"@ent-mcp/plugin-sdk": minor
 "@ent-mcp/plugin-tmdb": minor
 "@ent-mcp/plugin-plex": minor
 "@ent-mcp/plugin-jellyfin": minor
