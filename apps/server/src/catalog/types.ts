@@ -60,10 +60,47 @@ export interface CanonicalMetadataWithIds extends CanonicalMetadata {
   ids: IdMap | null;
 }
 
+/**
+ * Categories the preference engine attributes a contribution to. Mirrors the
+ * `FeatureCategory` shape (genres/keywords/people/decades/runtimes/languages)
+ * collapsed to the user-facing terms the home feed surfaces in match-reason
+ * copy ("from genre you love", "matches recent picks", …).
+ */
+export const TOP_CONTRIBUTOR_CATEGORIES = [
+  "genre",
+  "person",
+  "keyword",
+  "decade",
+  "language",
+  "runtime",
+] as const;
+
+export type TopContributorCategory = (typeof TOP_CONTRIBUTOR_CATEGORIES)[number];
+
+/**
+ * Frozen snapshot of the strongest signal that pushed a candidate into the
+ * rec list. The home feed orchestrator maps the leading entry to a typed
+ * `MatchReason` so the chip copy survives without re-running scoring.
+ */
+export interface TopContributor {
+  category: TopContributorCategory;
+  /** Human-readable feature value (e.g. `"Drama"`, `"Lena Marsh"`, `"2020s"`). */
+  value: string;
+  /** Already-ranked weight; the first entry is the strongest. */
+  weight: number;
+}
+
 export interface RecItem {
   tmdbId: string;
   mediaType: MediaType;
   matchReason: string | null;
+  /**
+   * Top three feature contributions captured at rec-list build time. The
+   * home feed reads `[0]` to derive a typed match-reason chip; the field is
+   * an empty array on rows persisted before the snapshot landed (rec-build
+   * job rerun fills them; orchestrator falls back to "highly_rated" until).
+   */
+  topContributors: TopContributor[];
   score: number;
 }
 
