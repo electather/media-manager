@@ -196,6 +196,7 @@
   "request_subline_in_progress": "{n} episodes — fetching now",
   "request_subline_missing": "{n} episodes missing",
   "request_subline_upcoming": "{n} episodes upcoming",
+  "request_subline_announced": "Announced — episode list not available yet",
   "request_subline_partial": "{available} of {total} available",
   "request_subline_partial_in_progress": "{n} in progress",
   "request_subline_partial_upcoming": "{n} upcoming",

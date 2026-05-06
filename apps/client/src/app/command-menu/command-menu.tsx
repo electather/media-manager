@@ -24,6 +24,7 @@ import {
   CommandShortcut,
 } from "@/shared/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
+import { Logo } from "@/shared/components/logo";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
 
 import { buildCommandActions, COMMAND_PAGES, COMMAND_SEARCH_MODES } from "./command-menu-data";
@@ -492,8 +493,11 @@ function RowAffordance({ label }: { label: string }) {
 
 function CommandFooter() {
   return (
-    <footer className="flex items-center justify-between border-t border-border bg-card/40 px-3 py-2 text-[11px] text-muted-foreground/80">
-      <KbdGroup className="gap-3.5">
+    <footer className="flex items-center justify-between gap-3 border-t border-border bg-card/40 px-3 py-2 text-[11px] text-muted-foreground/80">
+      {/* Keyboard hints are only meaningful on devices with a real keyboard
+          (i.e. a fine pointer). Touch-first devices hide the group entirely
+          and let the brand fill the row. */}
+      <KbdGroup className="hidden gap-3.5 pointer-fine:inline-flex">
         <span className="inline-flex items-center gap-1.5">
           <Kbd className="border border-border">
             <ChevronUp className="size-3" />
@@ -514,7 +518,7 @@ function CommandFooter() {
           {m.command_menu_footer_close()}
         </span>
       </KbdGroup>
-      <span className="font-medium">{m.home_nav_brand_label()}</span>
+      <Logo aria-label={m.home_nav_brand_label()} className="ms-auto size-4 shrink-0" />
     </footer>
   );
 }
