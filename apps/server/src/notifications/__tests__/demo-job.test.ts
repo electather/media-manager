@@ -149,6 +149,43 @@ describe("registerDemoNotificationJob", () => {
   });
 
   it("rejects unknown event type", async () => {
-    await expect(runDemo({ userId: "u", eventType: "bogus.event" })).rejects.toThrow();
+    await expect(runDemo({ userId: "u", eventType: "bogus.event" })).rejects.toThrow(
+      /eventType must be one of/,
+    );
+  });
+
+  it("does not re-enable a category the user has disabled", async () => {
+    await runDemo({ userId: "user-1", eventType: "media.request.available" });
+    const conn = await db
+      .select()
+      .from(serviceConnections)
+      .where(and(eq(serviceConnections.userId, "user-1"), eq(serviceConnections.pluginId, "inbox")))
+      .get();
+    await db
+      .update(notificationSubscriptions)
+      .set({ enabled: 0 })
+      .where(
+        and(
+          eq(notificationSubscriptions.connectionId, conn!.id),
+          eq(notificationSubscriptions.category, "media"),
+        ),
+      );
+    await runDemo({ userId: "user-1", eventType: "media.request.available" });
+    const sub = await db
+      .select()
+      .from(notificationSubscriptions)
+      .where(eq(notificationSubscriptions.connectionId, conn!.id))
+      .get();
+    expect(sub).toMatchObject({ enabled: 0 });
+  });
+
+  it("seeds the inbox connection without overriding existing default", async () => {
+    await runDemo({ userId: "user-1" });
+    const conn = await db
+      .select()
+      .from(serviceConnections)
+      .where(and(eq(serviceConnections.userId, "user-1"), eq(serviceConnections.pluginId, "inbox")))
+      .get();
+    expect(conn).toMatchObject({ isDefault: 0 });
   });
 });

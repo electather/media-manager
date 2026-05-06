@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import {
   NOTIFICATION_EVENT_TYPES,
   type NotificationCategory,
@@ -126,42 +126,49 @@ function buildEvent(
 
 async function ensureInboxConnection(userId: string): Promise<string> {
   const db = getDb();
-  const existing = await db
-    .select({ id: serviceConnections.id })
-    .from(serviceConnections)
-    .where(and(eq(serviceConnections.userId, userId), eq(serviceConnections.pluginId, "inbox")))
-    .get();
-  if (existing) return existing.id;
-  const id = randomUUID();
-  const now = Date.now();
-  const credEnc = await encryptJson({ kind: "inbox" });
-  await db.insert(serviceConnections).values({
-    id,
-    userId,
-    pluginId: "inbox",
-    status: "connected",
-    enabled: 1,
-    isDefault: 1,
-    displayName: "Inbox",
-    encryptedCredentials: credEnc.data,
-    credentialsIv: credEnc.iv,
-    userConfig: null,
-    tokenExpiresAt: null,
-    lastVerifiedAt: now,
-    createdAt: now,
-    updatedAt: now,
+  // The schema permits multiple service_connections rows per (user, plugin),
+  // so we wrap the read+insert in a transaction to serialize concurrent
+  // triggers and order by createdAt to return a stable canonical id.
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({ id: serviceConnections.id })
+      .from(serviceConnections)
+      .where(and(eq(serviceConnections.userId, userId), eq(serviceConnections.pluginId, "inbox")))
+      .orderBy(asc(serviceConnections.createdAt), asc(serviceConnections.id))
+      .get();
+    if (existing) return existing.id;
+    const id = randomUUID();
+    const now = Date.now();
+    const credEnc = await encryptJson({ kind: "inbox" });
+    await tx.insert(serviceConnections).values({
+      id,
+      userId,
+      pluginId: "inbox",
+      status: "connected",
+      enabled: 1,
+      isDefault: 0,
+      displayName: "Inbox",
+      encryptedCredentials: credEnc.data,
+      credentialsIv: credEnc.iv,
+      userConfig: null,
+      tokenExpiresAt: null,
+      lastVerifiedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return id;
   });
-  return id;
 }
 
 async function ensureSubscription(connectionId: string, category: NotificationCategory) {
   const db = getDb();
+  // Use onConflictDoNothing so that running the demo job does not silently
+  // re-enable a category the user has explicitly disabled.
   await db
     .insert(notificationSubscriptions)
     .values({ connectionId, category, enabled: 1 })
-    .onConflictDoUpdate({
+    .onConflictDoNothing({
       target: [notificationSubscriptions.connectionId, notificationSubscriptions.category],
-      set: { enabled: 1 },
     });
 }
 
