@@ -262,30 +262,34 @@ function SeasonRow({
   );
 }
 
+// Single-status sublines just need the season's episode count. Keeping
+// them in a lookup table flattens `buildSubline` into a small dispatch
+// rather than a six-branch chain.
+const COUNT_ONLY_SUBLINE: Partial<Record<RequestStatus, (total: number) => string>> = {
+  upcoming: (total) => m.request_subline_upcoming({ n: String(total) }),
+  missing: (total) => m.request_subline_missing({ n: String(total) }),
+  "in-progress": (total) => m.request_subline_in_progress({ n: String(total) }),
+  pending: (total) => m.request_subline_pending({ n: String(total) }),
+};
+
 function buildSubline(season: MockSeason, status: RequestStatus): string {
   const total = season.episodeCount;
-  const counts = season.counts;
-
-  if (status === "upcoming") return m.request_subline_upcoming({ n: String(total) });
-  if (status === "missing") return m.request_subline_missing({ n: String(total) });
-  if (status === "in-progress") return m.request_subline_in_progress({ n: String(total) });
-  if (status === "pending") return m.request_subline_pending({ n: String(total) });
-  if (status === "partial") {
-    const available = counts.available ?? 0;
-    const requested = counts.requested ?? 0;
-    const upcoming = counts.upcoming ?? 0;
-    const parts: string[] = [
-      m.request_subline_partial({ available: String(available), total: String(total) }),
-    ];
-    if (requested > 0) {
-      parts.push(m.request_subline_partial_in_progress({ n: String(requested) }));
-    }
-    if (upcoming > 0) {
-      parts.push(m.request_subline_partial_upcoming({ n: String(upcoming) }));
-    }
-    return parts.join(" · ");
-  }
+  const single = COUNT_ONLY_SUBLINE[status];
+  if (single) return single(total);
+  if (status === "partial") return buildPartialSubline(season, total);
   return m.home_detail_season_episode_count({ n: String(total) });
+}
+
+function buildPartialSubline(season: MockSeason, total: number): string {
+  const available = season.counts.available ?? 0;
+  const requested = season.counts.requested ?? 0;
+  const upcoming = season.counts.upcoming ?? 0;
+  const parts: string[] = [
+    m.request_subline_partial({ available: String(available), total: String(total) }),
+  ];
+  if (requested > 0) parts.push(m.request_subline_partial_in_progress({ n: String(requested) }));
+  if (upcoming > 0) parts.push(m.request_subline_partial_upcoming({ n: String(upcoming) }));
+  return parts.join(" · ");
 }
 
 function EpisodeList({

@@ -8,26 +8,25 @@ import type {
   RequestStatus,
 } from "./types";
 
-/**
- * Translate the wire / mock status enum into the richer set used by the
- * request flow. The wire format collapses pending and in-progress under
- * `requested`; this widens it back so the UI can mirror the prototype.
- */
+// Wire / mock status aliases mapped to the widened request-flow set. The
+// wire format collapses pending and in-progress under `requested`; this map
+// reverses that so the UI can mirror the prototype.
+const STATUS_ALIAS: Record<string, RequestStatus> = {
+  available: "available",
+  "in-progress": "in-progress",
+  pending: "pending",
+  missing: "missing",
+  partial: "partial",
+  upcoming: "upcoming",
+  // wire/legacy aliases
+  requested: "in-progress",
+  processing: "in-progress",
+  unavailable: "missing",
+};
+
 export function normalizeRequestStatus(status: string | null | undefined): RequestStatus {
   if (!status) return "available";
-  if (status === "requested" || status === "processing") return "in-progress";
-  if (status === "unavailable") return "missing";
-  if (
-    status === "available" ||
-    status === "in-progress" ||
-    status === "pending" ||
-    status === "missing" ||
-    status === "partial" ||
-    status === "upcoming"
-  ) {
-    return status;
-  }
-  return "available";
+  return STATUS_ALIAS[status] ?? "available";
 }
 
 export function servicesForKind(kind: "movie" | "tv"): RequestService[] {
@@ -130,13 +129,18 @@ export function inferSeasonStatus(season: MockSeason): RequestStatus {
   const upcoming = counts.upcoming ?? 0;
   const unavailable = counts.unavailable ?? 0;
 
-  if (upcoming === episodeCount) return "upcoming";
-  if (available === episodeCount) return "available";
-  if (unavailable === episodeCount) return "missing";
-  if (requested === episodeCount) return "in-progress";
-  if (available > 0 && available + upcoming <= episodeCount) return "partial";
-  if (requested > 0) return "in-progress";
-  return "missing";
+  // Order matters: terminal "all-of-a-kind" states win over the partial /
+  // residual checks below. Listing them as predicate/result tuples keeps
+  // the function shallow without losing readability.
+  const matchers: [boolean, RequestStatus][] = [
+    [upcoming === episodeCount, "upcoming"],
+    [available === episodeCount, "available"],
+    [unavailable === episodeCount, "missing"],
+    [requested === episodeCount, "in-progress"],
+    [available > 0 && available + upcoming <= episodeCount, "partial"],
+    [requested > 0, "in-progress"],
+  ];
+  return matchers.find(([cond]) => cond)?.[1] ?? "missing";
 }
 
 export function getRequestableSeasonNumbers(

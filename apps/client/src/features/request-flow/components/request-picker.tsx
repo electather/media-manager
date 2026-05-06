@@ -50,19 +50,8 @@ export function RequestPicker({
   );
   const service = selection.service;
 
-  const title =
-    kind === "tv"
-      ? seasonNumbers.length > 1
-        ? m.request_picker_seasons_title({ n: String(seasonNumbers.length) })
-        : m.request_picker_season_title()
-      : m.request_picker_movie_title();
-
-  const subline =
-    kind === "tv"
-      ? seasonNumbers.length > 1
-        ? m.request_picker_subline_seasons({ numbers: seasonNumbers.join(", ") })
-        : m.request_picker_subline_season({ n: String(seasonNumbers[0] ?? "") })
-      : itemTitle;
+  const heading = pickerHeading(kind, seasonNumbers, itemTitle);
+  const { title, subline } = heading;
 
   function submit() {
     if (!selection.serviceId) return;
@@ -109,6 +98,28 @@ export function RequestPicker({
       </div>
     </div>
   );
+}
+
+type PickerHeading = { title: string; subline: string };
+
+function pickerHeading(
+  kind: "movie" | "tv",
+  seasonNumbers: number[],
+  itemTitle: string,
+): PickerHeading {
+  if (kind === "movie") {
+    return { title: m.request_picker_movie_title(), subline: itemTitle };
+  }
+  if (seasonNumbers.length > 1) {
+    return {
+      title: m.request_picker_seasons_title({ n: String(seasonNumbers.length) }),
+      subline: m.request_picker_subline_seasons({ numbers: seasonNumbers.join(", ") }),
+    };
+  }
+  return {
+    title: m.request_picker_season_title(),
+    subline: m.request_picker_subline_season({ n: String(seasonNumbers[0] ?? "") }),
+  };
 }
 
 function ServiceList({
