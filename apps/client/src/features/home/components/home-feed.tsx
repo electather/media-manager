@@ -60,13 +60,13 @@ function HomeFeedReady({
 
   const handlePeek = useCallback(
     (id: string) => {
-      void navigate({ to: ".", search: { peek: id }, replace: false });
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
     },
     [navigate],
   );
 
   const handleClose = useCallback(() => {
-    void navigate({ to: ".", search: {}, replace: false });
+    void navigate({ to: ".", search: {}, replace: false, resetScroll: false });
   }, [navigate]);
 
   const toggleWatchlistId = useCallback((id: string) => {
