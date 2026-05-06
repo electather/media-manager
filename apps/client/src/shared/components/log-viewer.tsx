@@ -16,6 +16,7 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/shared/ui/collapsible";
 import { JsonViewer } from "@/shared/components/json-viewer";
+import { useCopyFeedback } from "@/shared/hooks/use-copy-feedback";
 
 // Types
 
@@ -155,22 +156,6 @@ function formatTimestampFull(ts?: string): string {
   })}.${ms}`;
 }
 
-function useCopy() {
-  const [copied, setCopied] = React.useState(false);
-
-  const copy = React.useCallback(async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable in insecure contexts
-    }
-  }, []);
-
-  return { copied, copy };
-}
-
 function useAutoScroll(entries: LogEntry[], enabled: boolean) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = React.useState(true);
@@ -299,7 +284,7 @@ function LogViewerTerminal({
   const [paused, setPaused] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useCopyFeedback();
   const { scrollRef, isAtBottom, handleScroll, scrollToBottom } = useAutoScroll(
     entries,
     autoScroll && !paused,
@@ -590,7 +575,7 @@ function LogViewerFilterable({
 }: LogViewerFilterableProps) {
   const [activeLevels, setActiveLevels] = React.useState<Set<LogLevel>>(() => new Set(levels));
   const [searchQuery, setSearchQuery] = React.useState("");
-  const { copied, copy } = useCopy();
+  const { copied, copy } = useCopyFeedback();
   const { scrollRef, isAtBottom, handleScroll, scrollToBottom } = useAutoScroll(
     entries,
     autoScroll,

@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+import { useInterval } from "./use-interval";
 
 interface UseNowOptions {
   /**
@@ -22,11 +24,7 @@ export function useNow(intervalMs: number, opts: UseNowOptions = {}): number {
   const active = opts.active ?? true;
   const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
-    if (!active) return;
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs);
-    return () => window.clearInterval(id);
-  }, [active, intervalMs]);
+  useInterval(() => setNow(Date.now()), active ? intervalMs : null);
 
   return now;
 }

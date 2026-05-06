@@ -23,6 +23,7 @@ import {
 } from "@/shared/ui/input-group";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { AuthorizedAppRow } from "@/features/settings";
+import { useCopyFeedback } from "@/shared/hooks/use-copy-feedback";
 import { api } from "@/shared/lib/api";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/apps")({
@@ -53,13 +54,11 @@ function Header() {
 }
 
 function McpEndpointBlock() {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyFeedback();
   const endpoint = `${window.location.origin}/mcp`;
 
-  const copy = async () => {
-    await navigator.clipboard.writeText(endpoint);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+  const handleCopy = () => {
+    void copy(endpoint);
   };
 
   return (
@@ -69,7 +68,7 @@ function McpEndpointBlock() {
         <InputGroup>
           <InputGroupInput readOnly value={endpoint} className="font-mono text-xs" />
           <InputGroupAddon align="inline-end">
-            <InputGroupButton onClick={copy} aria-label="Copy endpoint">
+            <InputGroupButton onClick={handleCopy} aria-label="Copy endpoint">
               {copied ? <CheckIcon /> : <CopyIcon />}
             </InputGroupButton>
           </InputGroupAddon>

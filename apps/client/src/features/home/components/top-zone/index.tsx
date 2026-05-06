@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
 import type { HeroItem, HomeMediaItem } from "../../lib/types";
 import { ProgressOverlay } from "../progress-overlay";
@@ -9,7 +10,7 @@ function progressPercent(progress: HomeMediaItem["progress"]): number | null {
   if (!progress) return null;
   const { watched, total } = progress;
   if (!total || total <= 0) return null;
-  return Math.max(0, Math.min(100, Math.round((watched / total) * 100)));
+  return clamp(Math.round((watched / total) * 100), 0, 100);
 }
 
 type Props = {
