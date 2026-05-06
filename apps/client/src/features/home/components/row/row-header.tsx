@@ -6,7 +6,13 @@ interface RowHeaderProps {
   row: RowData;
 }
 
-/** Heading + optional subtitle + optional counter chip + partial-warning indicator. */
+/**
+ * Heading + optional subtitle. Counter and partial-warning chips owned the
+ * row's full item list in the mock era; with the row hook driving items
+ * inside the scroller they would re-render this component on every fetch.
+ * The orchestrator's `partial` flag still surfaces on the wire — wire it
+ * back here once a UX treatment lands that doesn't churn the header.
+ */
 export function RowHeader({ row }: RowHeaderProps) {
   const copy = ROW_COPY[row.kind];
   const headerKey: MessageKey = row.headerKey ?? copy.headerKey;
@@ -25,26 +31,6 @@ export function RowHeader({ row }: RowHeaderProps) {
         <h2 className="text-base font-semibold text-foreground">{heading}</h2>
         {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
-      <RowCounter row={row} />
-      {row.partial ? (
-        <span
-          className="text-xs text-muted-foreground"
-          title={m.home_row_partial_warning()}
-          aria-label={m.home_row_partial_warning()}
-          data-testid="partial-warning"
-        >
-          {m.home_row_partial_warning()}
-        </span>
-      ) : null}
     </div>
-  );
-}
-
-function RowCounter({ row }: { row: RowData }) {
-  if (row.kind !== "continueWatching") return null;
-  return (
-    <span className="font-mono text-xs tabular-nums text-muted-foreground/75">
-      {m.home_row_continueWatching_counter({ n: String(row.items.length) })}
-    </span>
   );
 }

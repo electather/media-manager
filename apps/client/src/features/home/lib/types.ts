@@ -1,23 +1,11 @@
 import type * as messages from "@/paraglide/messages";
-import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
-
-export type MockEpisodeStatus = "available" | "requested" | "unavailable" | "upcoming";
-
-export type MockEpisode = {
-  id: string;
-  episode: number;
-  title: string;
-  airDate: string;
-  runtime: number;
-  status: MockEpisodeStatus;
-};
-
-export type MockSeason = {
-  number: number;
-  episodeCount: number;
-  counts: Partial<Record<MockEpisodeStatus, number>>;
-  episodes: MockEpisode[];
-};
+import type {
+  Availability,
+  CompactMediaItem,
+  Facets,
+  RowKind,
+  SeriesContext,
+} from "@ent-mcp/shared/home";
 
 export type { RowKind };
 
@@ -39,37 +27,20 @@ export const MATCH_REASON_KEYS = [
 
 export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
 
-/** Local UI-layer type extending the wire format with display fields absent from the API. */
+/**
+ * Local UI-layer projection of `CompactMediaItem`. Re-exposes the wire fields
+ * the cards/hero render and adds display-only scaffolding the API does not
+ * provide (e.g. `clearLogoText`). The mock-era `seasons[]` field, the
+ * `facets.monochrome` shadcn helper, and the prose `MatchReason` shim were
+ * removed in PR6 once the home backend started shipping the typed wire
+ * shape end-to-end.
+ */
 export type HomeMediaItem = CompactMediaItem & {
   clearLogoText?: string;
-  availability?: {
-    hasAnyServerCopy: boolean;
-    requestEligible: boolean;
-    servers: { id: string; label: string }[];
-  };
-  seriesContext?: {
-    season: number;
-    episode: number;
-    episodeTitle: string;
-    nextUpFromServer: boolean;
-  };
-  facets?: {
-    runtimeMin?: number;
-    episodeCount?: number;
-    monochrome?: boolean;
-    releaseDate?: string;
-  };
-  /**
-   * Maps from `CompactMediaItem.matchReason` at backend integration time.
-   * Mock data sets this directly.
-   */
-  matchReasonKey?: MatchReasonKey;
-  matchReasonParams?: Record<string, string>;
-  tags?: string[];
+  /** Subset of `MediaDetailsExtra` the modal layers in via `useHomeDetails`. */
   ageRating?: string;
   runtime?: string;
   trailerUrl?: string;
-  relDate?: string;
   audienceScore?: number;
   criticScore?: number;
   votes?: number;
@@ -77,17 +48,19 @@ export type HomeMediaItem = CompactMediaItem & {
   director?: string;
   seriesStatus?: "ongoing" | "finished";
   nextAirDate?: string;
-  seasons?: MockSeason[];
 };
+
+export type { Availability, Facets, SeriesContext };
 
 export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] };
 
 export type RowData = {
+  /** Stable wire slug — feeds `/api/home/row?rowId=…`. */
   id: string;
   kind: RowKind;
   seedTitle?: string;
-  partial?: boolean;
-  items: HomeMediaItem[];
+  /** Cursor to pass on the first row fetch (non-null for seeded rows). */
+  initialCursor: string | null;
   /** Derived client-side via ROW_ASPECT — not present in the wire format. */
   defaultAspect: "16/9" | "2/3";
   /**
@@ -101,9 +74,7 @@ export type RowData = {
 };
 
 /**
- * `hero` is `HeroItem | null`. In the mock phase the mock always supplies a hero;
- * `HomeFeed` treats `null` as an unrecoverable data error and throws via `invariant`.
- * At backend integration time `null` means the server had no suitable hero candidate —
- * `HomeFeed` should render the feed without a TopZone.
+ * `hero` is `HeroItem | null`. `null` means the server had no suitable hero
+ * candidate and the feed renders without a TopZone.
  */
 export type HomeFeedData = { hero: HeroItem | null; rows: RowData[] };

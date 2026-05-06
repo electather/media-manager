@@ -8,6 +8,7 @@ import { TopZoneHeroActions } from "./top-zone-hero-actions";
 type Props = {
   hero: HomeMediaItem;
   percent: number | null;
+  onPlay: () => void;
   onMoreInfo: () => void;
   onDismiss?: () => void;
 };
@@ -31,8 +32,8 @@ function formatKicker(state: CardAvailabilityState): string | null {
 }
 
 function matchReasonFor(hero: HomeMediaItem): string | null {
-  if (!hero.matchReasonKey) return null;
-  return MATCH_REASON_COPY[hero.matchReasonKey](hero.matchReasonParams ?? {});
+  if (!hero.matchReason) return null;
+  return MATCH_REASON_COPY[hero.matchReason.key](hero.matchReason.params ?? {});
 }
 
 function HeroClearLogo({ text }: { text: string | undefined }) {
@@ -70,7 +71,7 @@ function HeroReason({ value }: { value: string | null }) {
   return <p className="text-xs text-foreground/70 sm:text-sm">{value}</p>;
 }
 
-export function TopZoneHeroCard({ hero, percent, onMoreInfo, onDismiss }: Props) {
+export function TopZoneHeroCard({ hero, percent, onPlay, onMoreInfo, onDismiss }: Props) {
   const kicker = formatKicker(deriveCardState(hero));
   const reason = matchReasonFor(hero);
 
@@ -93,6 +94,7 @@ export function TopZoneHeroCard({ hero, percent, onMoreInfo, onDismiss }: Props)
       <HeroReason value={reason} />
       <TopZoneHeroActions
         hasProgress={percent !== null}
+        onPlay={onPlay}
         onMoreInfo={onMoreInfo}
         onDismiss={onDismiss}
       />

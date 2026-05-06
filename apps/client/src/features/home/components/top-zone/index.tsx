@@ -126,6 +126,10 @@ export function TopZone({ hero, onPeek }: Props) {
         <TopZoneHeroCard
           hero={active}
           percent={percent}
+          // v1: no `playback@v1.getResumeUrl` capability — Play opens the
+          // detail modal so the user can navigate to the full detail page
+          // and trigger the request flow if the title is unavailable.
+          onPlay={() => onPeek(active.id)}
           onMoreInfo={() => onPeek(active.id)}
           onDismiss={dismissHandler(candidates, cycleAlternate)}
         />

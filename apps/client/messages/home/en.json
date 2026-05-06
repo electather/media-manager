@@ -7,6 +7,7 @@
   "home_nav_label_primary": "Main navigation",
   "home_nav_label_mobile": "Mobile navigation",
   "home_nav_brand_label": "Media Manager",
+  "home_feed_error": "Couldn't load the home feed.",
 
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_continueWatching_counter": "// {n} in progress",
@@ -89,6 +90,7 @@
   "home_detail_cast": "Starring",
   "home_detail_genres_label": "Genres",
   "home_detail_seasons_label": "Seasons",
+  "home_detail_seasons_placeholder": "Seasons load with the request flow.",
   "home_detail_season_number": "Season {n}",
   "home_detail_season_episode_count": "{n} episodes",
   "home_detail_season_episode_label": "Episode {n}",
