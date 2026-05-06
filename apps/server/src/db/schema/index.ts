@@ -14,3 +14,4 @@ export * from "./user-preferences";
 export * from "./jobs";
 export * from "./notifications";
 export * from "./catalog";
+export * from "./home";
