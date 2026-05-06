@@ -129,7 +129,7 @@ describe("MediaDetailModal", () => {
     trigger.remove();
   });
 
-  it("flips request button to requested state on click", () => {
+  it("opens the request picker and surfaces a pending status after submit", () => {
     render(
       <MediaDetailModal
         item={MOVIE}
@@ -141,7 +141,11 @@ describe("MediaDetailModal", () => {
     );
     const requestBtn = screen.getByRole("button", { name: /^request$/i });
     fireEvent.click(requestBtn);
-    expect(screen.getByRole("button", { name: /^requested$/i })).toBeTruthy();
+    // The picker's submit button reuses the picker title ("Request movie").
+    const submitBtn = screen.getByRole("button", { name: /^request movie$/i });
+    fireEvent.click(submitBtn);
+    // Default `user` role needs admin approval, so the pending label renders.
+    expect(screen.getByText(/awaiting approval/i)).toBeTruthy();
   });
 
   it("renders the season accordion for TV items only", () => {

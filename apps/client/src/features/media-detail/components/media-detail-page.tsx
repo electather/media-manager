@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
+import { RequestableSeasons } from "@/features/request-flow";
 import { ModalNote } from "@/shared/components/media-detail-modal/modal-note";
-import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seasons";
 import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { splitCompositeId } from "@/shared/lib/media-id";
@@ -122,7 +122,11 @@ export function MediaDetailPage({ compositeId }: Props) {
           {hasEpisodes ? (
             <DetailSection id="episodes" title={m.media_detail_section_episodes()}>
               <UnpaddedModalSlot>
-                <ModalSeasons item={item as MediaDetailItem} />
+                <RequestableSeasons
+                  itemId={item.id}
+                  itemTitle={item.title}
+                  seasons={item.seasons ?? []}
+                />
               </UnpaddedModalSlot>
             </DetailSection>
           ) : null}

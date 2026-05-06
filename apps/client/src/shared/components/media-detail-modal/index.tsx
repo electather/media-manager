@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
+import { RequestableSeasons } from "@/features/request-flow";
 import { ModalActions } from "./modal-actions";
 import { ModalBackdrop } from "./modal-backdrop";
 import { ModalFeedback } from "./modal-feedback";
@@ -11,7 +12,6 @@ import { ModalMatchReason } from "./modal-match-reason";
 import { ModalNote } from "./modal-note";
 import { ModalOverview } from "./modal-overview";
 import { ModalScores } from "./modal-scores";
-import { ModalSeasons } from "./modal-seasons";
 import { ModalTags } from "./modal-tags";
 import { ModalTopbar } from "./modal-topbar";
 import { ModalTVAirInfo } from "./modal-tv-air-info";
@@ -139,7 +139,9 @@ function ModalBody({
           <ModalTags item={item} />
           <ModalOverview item={item} />
           <ModalCredits item={item} />
-          <ModalSeasons item={item} />
+          {item.mediaType === "tv" && item.seasons && item.seasons.length > 0 ? (
+            <RequestableSeasons itemId={item.id} itemTitle={item.title} seasons={item.seasons} />
+          ) : null}
           <ModalMatchReason reason={item.matchReason} />
           <ModalNote
             sectionRef={noteSectionRef}
