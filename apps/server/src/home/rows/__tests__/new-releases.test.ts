@@ -24,7 +24,7 @@ function meta(tmdbId: string, mediaType: "movie" | "tv" = "movie"): CanonicalMet
 }
 
 describe("rows/new-releases", () => {
-  it("queries discover_snapshots with feedKind='newReleases' + sort='release_date_asc'", async () => {
+  it("queries discover_snapshots with feedKind='newReleases' + sort='popularity_desc'", async () => {
     const ctx = makeRowCtx();
     (
       ctx.catalog as unknown as { getDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
@@ -49,6 +49,6 @@ describe("rows/new-releases", () => {
           getDiscoverFeed: { mock: { calls: unknown[][] } };
         }
       ).getDiscoverFeed.mock.calls[0]?.slice(0, 2),
-    ).toEqual(["newReleases", "release_date_asc"]);
+    ).toEqual(["newReleases", "popularity_desc"]);
   });
 });

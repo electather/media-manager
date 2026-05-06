@@ -42,6 +42,7 @@ export function makeDiscoverSnapshotRow(config: {
   };
 }
 
+// fallow-ignore-next-line complexity
 async function fetchPage(
   ctx: RowContext,
   cursor: string | null,

@@ -38,4 +38,27 @@ describe("StatusBatchMemo", () => {
     const res = await memo.get(["1", "2"]);
     expect(res).toEqual({ "1": "available", "2": "unknown" });
   });
+
+  it("dedups concurrent overlapping fetches into a single round-trip", async () => {
+    const resolvers: Array<(v: Record<string, string>) => void> = [];
+    const svc = fakeMediaService(
+      (ids) =>
+        new Promise<Record<string, string>>((resolve) => {
+          resolvers.push(() => resolve(Object.fromEntries(ids.map((id) => [id, "available"]))));
+        }),
+    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const spy = svc.getStatusBatch as unknown as { mock: { calls: unknown[][] } };
+    const memo = new StatusBatchMemo(svc);
+    const a = memo.get(["movie:1", "movie:2"]);
+    const b = memo.get(["movie:2", "movie:3"]);
+    // Both calls fire before either resolves; the second must not re-request
+    // `movie:2` on the wire.
+    expect(spy.mock.calls).toHaveLength(2);
+    expect(spy.mock.calls[1]).toEqual([["movie:3"]]);
+    for (const r of resolvers) r({});
+    const [resA, resB] = await Promise.all([a, b]);
+    expect(resA).toEqual({ "movie:1": "available", "movie:2": "available" });
+    expect(resB).toEqual({ "movie:2": "available", "movie:3": "available" });
+  });
 });

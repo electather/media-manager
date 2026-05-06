@@ -1,5 +1,5 @@
 import type { CanonicalMetadata } from "../../catalog/types";
-import { fromCanonicalMetadata } from "../adapters";
+import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
 import type { InternalCompactMediaItem, RowProvider } from "../types";
 
 const PAGE_SIZE = 12;
@@ -24,6 +24,7 @@ const provider: RowProvider = {
   async initialCursor() {
     return null;
   },
+  // fallow-ignore-next-line complexity
   async fetchPage(ctx) {
     const res = await ctx.mediaService.getUpcomingFeed({ deadlineMs: ctx.deadlineMs });
     const hits = (res.items as unknown[])
@@ -51,12 +52,7 @@ function toUpcomingHit(value: unknown): UpcomingHit | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
   const itemRaw = (v.item ?? v) as Record<string, unknown>;
-  const ids = itemRaw.ids as Record<string, unknown> | undefined;
-  const tmdbId =
-    (ids && typeof ids.tmdb === "string" && ids.tmdb) ||
-    (ids && typeof ids.tmdb_id === "string" && ids.tmdb_id) ||
-    (typeof itemRaw.tmdbId === "string" && itemRaw.tmdbId) ||
-    null;
+  const tmdbId = extractTmdbId(itemRaw);
   if (!tmdbId) return null;
   const t = itemRaw.type;
   const type: "movie" | "tv" = t === "movie" ? "movie" : "tv";

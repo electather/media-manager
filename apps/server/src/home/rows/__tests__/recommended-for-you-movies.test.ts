@@ -41,7 +41,7 @@ describe("rows/recommended-for-you-movies", () => {
     });
     (
       ctx.statusBatch as unknown as { get: { mockResolvedValue: (v: unknown) => void } }
-    ).get.mockResolvedValue({ "1": "unknown", "2": "available" });
+    ).get.mockResolvedValue({ "movie:1": "unknown", "movie:2": "available" });
     (
       ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
     ).getMetadataBatch.mockResolvedValue({ "movie:1": meta("1") });

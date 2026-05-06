@@ -67,6 +67,9 @@ export function mapTopContributor(contribs: readonly TopContributor[]): MatchRea
     case "language":
     case "runtime":
       return { key: "matches_recent_picks", params: { n: String(contribs.length) } };
+    default:
+      // Defensive fallback for future `TopContributorCategory` additions.
+      return { key: "highly_rated", params: {} };
   }
 }
 
@@ -77,9 +80,7 @@ function progressFraction(item: InternalCompactMediaItem): number {
 }
 
 function recentlyAdded(item: InternalCompactMediaItem): boolean {
-  const release = item.facets?.releaseDate;
-  if (!release) return false;
-  const ts = Date.parse(release);
-  if (Number.isNaN(ts)) return false;
+  const ts = item.__addedAtMs;
+  if (typeof ts !== "number") return false;
   return Date.now() - ts < RECENTLY_ADDED_WINDOW_MS;
 }

@@ -3,7 +3,7 @@ import { orderBy } from "es-toolkit/array";
 import { HttpError } from "../../errors/http-errors";
 import { decodeCursor, encodeCursor } from "../cursor";
 import type { CanonicalMetadata } from "../../catalog/types";
-import { fromCanonicalMetadata } from "../adapters";
+import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
 import type { InternalCompactMediaItem, RowProvider } from "../types";
 
 const PAGE_SIZE = 12;
@@ -38,13 +38,21 @@ const provider: RowProvider = {
   async initialCursor(ctx) {
     const history = await ctx.catalog.getUserHistory(ctx.userId);
     if (history.length === 0) return null;
-    // Most recent completed event drives the seed; orderBy desc on watchedAt
-    // gives us the right pick without scanning further.
-    const sorted = orderBy(history, [(e) => e.watchedAt], ["desc"]);
+    // Two-tier sort: most recent first, then highest user rating as
+    // tie-break. Same-day ties resolve to the user's strongest signal.
+    const ratings = await ctx.catalog.getUserRatings(ctx.userId).catch(() => []);
+    const ratingByKey = new Map<string, number>();
+    for (const r of ratings) ratingByKey.set(`${r.mediaType}:${r.tmdbId}`, r.rating);
+    const sorted = orderBy(
+      history,
+      [(e) => e.watchedAt, (e) => ratingByKey.get(`${e.mediaType}:${e.tmdbId}`) ?? 0],
+      ["desc", "desc"],
+    );
     const seed = sorted[0];
     if (!seed) return null;
     return encodeCursor({ seedId: seed.tmdbId, seedType: seed.mediaType, offset: 0 });
   },
+  // fallow-ignore-next-line complexity
   async fetchPage(ctx, cursor) {
     if (cursor === null) {
       throw new HttpError(400, "cursor_required", "becauseYouWatched requires an initial cursor");
@@ -77,18 +85,10 @@ const provider: RowProvider = {
   },
 };
 
-// fallow-ignore-next-line complexity
 function toSimilarHit(value: unknown): SimilarHit | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const idsRaw = v.ids as Record<string, unknown> | undefined;
-  const tmdbId =
-    (idsRaw && typeof idsRaw.tmdb_id === "string" && idsRaw.tmdb_id) ||
-    (typeof v.tmdbId === "string" && v.tmdbId) ||
-    (typeof v.id === "string" && v.id.includes(":") && v.id.split(":")[1]) ||
-    null;
+  const tmdbId = extractTmdbId(value);
   if (!tmdbId) return null;
-  const t = v.type as string | undefined;
+  const t = (value as { type?: string }).type;
   const type: "movie" | "tv" = t === "tv" || t === "show" ? "tv" : "movie";
   return { tmdbId, type };
 }

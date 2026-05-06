@@ -1,6 +1,5 @@
-import type { LibraryItem } from "@ent-mcp/plugin-sdk";
 import type { CanonicalMetadata } from "../../catalog/types";
-import { fromCanonicalMetadata } from "../adapters";
+import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
 import type { InternalCompactMediaItem, RowProvider } from "../types";
 
 const PAGE_SIZE = 12;
@@ -31,8 +30,10 @@ const provider: RowProvider = {
       .map(toWatchlistKey)
       .filter((k): k is WatchlistKey => k !== null);
     if (keys.length === 0) return { items: [], cursor: null, partial: res.partial };
-    const statuses = await ctx.statusBatch.get(keys.map((k) => k.tmdbId));
-    const available = keys.filter((k) => statuses[k.tmdbId] === "available");
+    // `mediaRequest@v1.getStatusBatch` keys on composite ids (`movie:550`).
+    const compositeIds = keys.map((k) => `${k.type}:${k.tmdbId}`);
+    const statuses = await ctx.statusBatch.get(compositeIds);
+    const available = keys.filter((k) => statuses[`${k.type}:${k.tmdbId}`] === "available");
     const slice = available.slice(0, PAGE_SIZE);
     const metadata = await ctx.catalog.getMetadataBatch(
       slice.map((k) => ({ tmdbId: k.tmdbId, type: k.type })),
@@ -46,18 +47,10 @@ const provider: RowProvider = {
   },
 };
 
-// fallow-ignore-next-line complexity
 function toWatchlistKey(value: unknown): WatchlistKey | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as LibraryItem & Record<string, unknown>;
-  const ids = v.ids as Record<string, unknown> | undefined;
-  const tmdbId =
-    (ids && typeof ids.tmdb === "string" && ids.tmdb) ||
-    (ids && typeof ids.tmdb_id === "string" && ids.tmdb_id) ||
-    (typeof v.tmdbId === "string" && v.tmdbId) ||
-    null;
+  const tmdbId = extractTmdbId(value);
   if (!tmdbId) return null;
-  const t = v.type;
+  const t = (value as { type?: string }).type;
   const type: "movie" | "tv" = t === "movie" ? "movie" : "tv";
   return { tmdbId, type };
 }

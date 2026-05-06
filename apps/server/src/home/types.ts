@@ -15,6 +15,12 @@ import type { StatusBatchMemo } from "./status-batch";
 export interface InternalCompactMediaItem extends CompactMediaItem {
   /** Catalog rec-list `top_contributors` snapshot — drives match-reason chip. */
   __topContributors?: TopContributor[];
+  /**
+   * Wall-clock ms when the catalog row was first written. Used by the
+   * `recently_added` match-reason resolver since `facets.releaseDate` is a
+   * year string and can't drive a 7-day window. Stripped before serialize.
+   */
+  __addedAtMs?: number;
 }
 
 /** Result of a row's `fetchPage` call. */

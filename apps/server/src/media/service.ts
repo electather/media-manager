@@ -564,7 +564,13 @@ export class MediaService {
     const key = `${tmdbId}|${type}`;
     const memo = this.matchingServersCache.get(key);
     if (memo) return memo;
-    const promise = this.computeMatchingServers(tmdbId, type);
+    // Drop the cache entry on rejection — `requireCapability` may throw if
+    // `libraryAvailability@v1` isn't registered, and a sticky rejected promise
+    // would re-throw on every subsequent call for the lifetime of the request.
+    const promise = this.computeMatchingServers(tmdbId, type).catch((err: unknown) => {
+      this.matchingServersCache.delete(key);
+      throw err;
+    });
     this.matchingServersCache.set(key, promise);
     return promise;
   }

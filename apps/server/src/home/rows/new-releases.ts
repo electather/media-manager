@@ -1,11 +1,15 @@
 import { makeDiscoverSnapshotRow } from "./discover-snapshot";
 
+// `discover-snapshot` job writes `(newReleases, popularity_desc, day)` —
+// the only persisted sort for this feed. Reading the design-doc-suggested
+// `release_date_asc` would never resolve. Sort drift tracked in PR
+// follow-up; row aligns to what the job actually persists.
 const provider = makeDiscoverSnapshotRow({
   rowId: "newReleases",
   kind: "newReleases",
   titleKey: "home_row_newReleases_header",
   feedKind: "newReleases",
-  sort: "release_date_asc",
+  sort: "popularity_desc",
 });
 
 export default provider;

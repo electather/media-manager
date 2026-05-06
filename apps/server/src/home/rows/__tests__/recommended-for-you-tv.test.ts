@@ -50,7 +50,7 @@ describe("rows/recommended-for-you-tv", () => {
     });
     (
       ctx.statusBatch as unknown as { get: { mockResolvedValue: (v: unknown) => void } }
-    ).get.mockResolvedValue({ "1": "unknown", "2": "available" });
+    ).get.mockResolvedValue({ "tv:1": "unknown", "tv:2": "available" });
     (
       ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
     ).getMetadataBatch.mockResolvedValue({ "tv:1": meta("1") });

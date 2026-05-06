@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { orderBy } from "es-toolkit/array";
+import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { decodeCursor, encodeCursor } from "../cursor";
 import { fromContinueWatchingEntry } from "../adapters";
 import type { RowProvider } from "../types";
@@ -8,6 +9,15 @@ const PAGE_SIZE = 12;
 const FINISHING_THRESHOLD = 0.85;
 
 const cursorSchema = z.object({ offset: z.number().int().min(0) });
+
+// fallow-ignore-next-line complexity
+function isActiveEntry(entry: ContinueWatchingEntry): boolean {
+  const ms = entry.progressMs;
+  if (ms === undefined || ms <= 0) return false;
+  const total = entry.item.durationSec;
+  if (total === undefined || total <= 0) return true;
+  return ms / 1000 / total < FINISHING_THRESHOLD;
+}
 
 /**
  * Active-resume entries: any item with non-zero progress under the
@@ -27,13 +37,7 @@ const provider: RowProvider = {
   async fetchPage(ctx, cursor) {
     const page = cursor === null ? { offset: 0 } : decodeCursor(cursor, cursorSchema);
     const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
-    const eligible = res.items.filter((entry) => {
-      const ms = entry.progressMs;
-      if (ms === undefined || ms <= 0) return false;
-      const total = entry.item.durationSec;
-      if (total === undefined || total <= 0) return true;
-      return ms / 1000 / total < FINISHING_THRESHOLD;
-    });
+    const eligible = res.items.filter(isActiveEntry);
     const sorted = orderBy(eligible, [(entry) => entry.lastPlayedAt ?? ""], ["desc"]);
     const slice = sorted.slice(page.offset, page.offset + PAGE_SIZE);
     const items = slice

@@ -35,6 +35,7 @@ export function makeRecommendedForYou(config: {
   };
 }
 
+// fallow-ignore-next-line complexity
 async function fetchPage(
   ctx: RowContext,
   cursor: string | null,
@@ -45,8 +46,10 @@ async function fetchPage(
   if (!rec) return { items: [], cursor: null, partial: false };
   const pool = rec.items.filter((item) => item.mediaType === mediaType);
   if (pool.length === 0) return { items: [], cursor: null, partial: false };
-  const statuses = await ctx.statusBatch.get(pool.map((p) => p.tmdbId));
-  const filtered = pool.filter((p) => statuses[p.tmdbId] !== "available");
+  // `mediaRequest@v1.getStatusBatch` keys on composite ids (`movie:550`).
+  const compositeIds = pool.map((p) => `${p.mediaType}:${p.tmdbId}`);
+  const statuses = await ctx.statusBatch.get(compositeIds);
+  const filtered = pool.filter((p) => statuses[`${p.mediaType}:${p.tmdbId}`] !== "available");
   const slice = filtered.slice(page.offset, page.offset + PAGE_SIZE);
   const metadata = await ctx.catalog.getMetadataBatch(
     slice.map((p) => ({ tmdbId: p.tmdbId, type: p.mediaType })),

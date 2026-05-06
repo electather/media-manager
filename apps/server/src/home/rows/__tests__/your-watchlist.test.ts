@@ -40,7 +40,11 @@ describe("rows/your-watchlist", () => {
     });
     (
       ctx.statusBatch as unknown as { get: { mockResolvedValue: (v: unknown) => void } }
-    ).get.mockResolvedValue({ "1": "available", "2": "unknown", "3": "available" });
+    ).get.mockResolvedValue({
+      "movie:1": "available",
+      "tv:2": "unknown",
+      "movie:3": "available",
+    });
     (
       ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
     ).getMetadataBatch.mockResolvedValue({
