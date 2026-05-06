@@ -8,6 +8,7 @@ const ACCOUNT_NAV = [
   { to: "/settings/profile", label: "Profile" },
   { to: "/settings/security", label: "Security" },
   { to: "/settings/connections", label: "Connections" },
+  { to: "/settings/notifications", label: "Notifications" },
   { to: "/settings/apps", label: "Authorized apps" },
   { to: "/settings/danger", label: "Danger zone" },
 ] as const;

@@ -28,6 +28,7 @@ import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
 import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
+import { Route as AuthenticatedSettingsSettingsNotificationsRouteImport } from './routes/_authenticated/_settings/settings/notifications'
 import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './routes/_authenticated/_settings/settings/danger'
 import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
 import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
@@ -139,6 +140,12 @@ const AuthenticatedSettingsSettingsProfileRoute =
     path: '/settings/profile',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsSettingsNotificationsRoute =
+  AuthenticatedSettingsSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsSettingsDangerRoute =
   AuthenticatedSettingsSettingsDangerRouteImport.update({
     id: '/settings/danger',
@@ -223,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
@@ -251,6 +259,7 @@ export interface FileRoutesByTo {
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
@@ -283,6 +292,7 @@ export interface FileRoutesById {
   '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/_authenticated/_settings/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/_authenticated/_settings/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
@@ -313,6 +323,7 @@ export interface FileRouteTypes {
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
     | '/settings/'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
     | '/settings'
@@ -372,6 +384,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/settings/apps'
     | '/_authenticated/_settings/settings/connections'
     | '/_authenticated/_settings/settings/danger'
+    | '/_authenticated/_settings/settings/notifications'
     | '/_authenticated/_settings/settings/profile'
     | '/_authenticated/_settings/settings/security'
     | '/_authenticated/_settings/settings/'
@@ -519,6 +532,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSettingsProfileRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_settings/settings/notifications': {
+      id: '/_authenticated/_settings/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsNotificationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/_settings/settings/danger': {
       id: '/_authenticated/_settings/settings/danger'
       path: '/settings/danger'
@@ -626,6 +646,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSettingsAppsRoute: typeof AuthenticatedSettingsSettingsAppsRoute
   AuthenticatedSettingsSettingsConnectionsRoute: typeof AuthenticatedSettingsSettingsConnectionsRoute
   AuthenticatedSettingsSettingsDangerRoute: typeof AuthenticatedSettingsSettingsDangerRoute
+  AuthenticatedSettingsSettingsNotificationsRoute: typeof AuthenticatedSettingsSettingsNotificationsRoute
   AuthenticatedSettingsSettingsProfileRoute: typeof AuthenticatedSettingsSettingsProfileRoute
   AuthenticatedSettingsSettingsSecurityRoute: typeof AuthenticatedSettingsSettingsSecurityRoute
   AuthenticatedSettingsSettingsIndexRoute: typeof AuthenticatedSettingsSettingsIndexRoute
@@ -650,6 +671,8 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsSettingsConnectionsRoute,
     AuthenticatedSettingsSettingsDangerRoute:
       AuthenticatedSettingsSettingsDangerRoute,
+    AuthenticatedSettingsSettingsNotificationsRoute:
+      AuthenticatedSettingsSettingsNotificationsRoute,
     AuthenticatedSettingsSettingsProfileRoute:
       AuthenticatedSettingsSettingsProfileRoute,
     AuthenticatedSettingsSettingsSecurityRoute:
