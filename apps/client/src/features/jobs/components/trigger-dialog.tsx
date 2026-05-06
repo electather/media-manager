@@ -13,6 +13,7 @@ import {
 import { Button } from "@/shared/ui/button";
 import { FieldGroup, Field, FieldLabel, FieldContent } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { UserPicker, ConnectionPicker } from "@/shared/components/pickers";
 import type { JobHandle } from "@ent-mcp/shared/jobs";
 
@@ -23,6 +24,24 @@ function MetaRow({ label, value, mono }: { label: string; value: string; mono?: 
       <span className={`min-w-0 flex-1 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
     </div>
   );
+}
+
+interface EnumOption {
+  value: string;
+  label: string;
+}
+
+function readEnumOptions(schema: any): EnumOption[] | null {
+  if (!Array.isArray(schema?.enum) || schema.enum.length === 0) return null;
+  const labels = schema["x-enum-labels"];
+  return schema.enum.map((v: unknown) => {
+    const value = String(v);
+    const label =
+      labels && typeof labels === "object" && labels !== null && value in labels
+        ? String((labels as Record<string, unknown>)[value])
+        : value;
+    return { value, label };
+  });
 }
 
 // fallow-ignore-next-line complexity
@@ -37,6 +56,7 @@ function FieldItem({
   value: any;
   onChange: (v: any) => void;
 }) {
+  const enumOptions = readEnumOptions(schema);
   return (
     <Field key={fieldKey}>
       <FieldContent>
@@ -48,6 +68,19 @@ function FieldItem({
         <UserPicker value={value} onChange={onChange} />
       ) : schema["x-picker"] === "connection" ? (
         <ConnectionPicker value={value} onChange={onChange} />
+      ) : enumOptions ? (
+        <Select value={value ?? ""} onValueChange={(v) => onChange(v)}>
+          <SelectTrigger id={fieldKey}>
+            <SelectValue placeholder={schema.description ?? "Select…"} />
+          </SelectTrigger>
+          <SelectContent>
+            {enumOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ) : (
         <Input
           id={fieldKey}

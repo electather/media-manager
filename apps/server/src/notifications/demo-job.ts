@@ -29,6 +29,12 @@ const inputJsonSchema = {
     category: {
       type: "string",
       enum: [...NOTIFICATION_CATEGORIES],
+      "x-enum-labels": {
+        media: "Media",
+        sync: "Sync",
+        auth: "Auth",
+        system: "System",
+      },
       description: "Notification category (defaults to media)",
     },
     title: { type: "string", description: "Optional title override" },
