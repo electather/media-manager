@@ -20,6 +20,7 @@ const ADMIN_NAV = [
   { to: "/admin/plugins", label: "Plugins" },
   { to: "/admin/jobs", label: "Jobs" },
   { to: "/admin/logs", label: "Logs" },
+  { to: "/admin/notifications/deliveries", label: "Notification deliveries" },
 ] as const;
 
 export function SettingsLayout() {
