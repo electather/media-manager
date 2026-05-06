@@ -4,6 +4,7 @@ import { sweepPendingAuth } from "../connections/service";
 import { sweepExpiredErrors } from "../errors/retention";
 import { registerCatalogJobs } from "../catalog/jobs";
 import { registerPreferenceJobs } from "../preferences/jobs";
+import { registerHomeLayoutWarmJob } from "../home/jobs/layout-warm";
 import { cacheCleanupJob } from "./cache-cleanup";
 import { registerAllPluginJobs } from "./plugin-jobs";
 import { registerScheduled } from "./scheduled";
@@ -62,6 +63,7 @@ export const scheduler = {
 
     registerPreferenceJobs();
     registerCatalogJobs();
+    registerHomeLayoutWarmJob();
 
     const pluginCount = await registerAllPluginJobs();
     const total = (await list()).length;
