@@ -808,6 +808,10 @@ notifications.queue_depth{status=pending}                                gauge (
 - `vp run notifications:emit-test` — emits each event type once with sample payloads against local user.
 - `@ent-mcp/notifier-stub` — internal-only test plugin (`private: true`), `auth.kind: "none"`, logging `deliver()`. Integration tests run without network.
 
+### Admin tooling
+
+- `host.notifications.demo` — admin-only triggerable job (`requiredPermission: "admin:jobs"`). Inputs: `userId` (recipient) and optional `eventType` (defaults to `media.request.available`). On run, the job seeds an inbox `service_connections` row and matching `notification_subscriptions` row for the chosen category if neither already exists, then calls `emit()` with a synthesized payload that matches the chosen event type. Provided alongside the dev script so admins can verify end-to-end delivery (resolution → render → inbox/channel) from the running app — including against real users and remote channels — without needing a shell on the box. The seeded inbox connection is non-default; existing subscriptions are not re-enabled.
+
 ## Migration plan to v2 event bus
 
 B+ → v2 mechanical.

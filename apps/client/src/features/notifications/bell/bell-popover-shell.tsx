@@ -77,10 +77,10 @@ function UnreadToggle({
 export function BellPopoverShell({ open, density, intensity, mobile = false }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
-  const { data } = usePopoverInbox(open, {
-    ...(unreadOnly ? { unreadOnly: true } : {}),
-    ...(filter !== "all" ? { category: filter } : {}),
-  });
+  // Fetch unfiltered so chip counts reflect the full inbox window. Category +
+  // unread filters apply client-side so switching one filter does not shrink
+  // the others' counts.
+  const { data } = usePopoverInbox(open);
   const items = (data?.items ?? []) as NotificationItemDto[];
   const markAllRead = useMarkAllRead();
 
