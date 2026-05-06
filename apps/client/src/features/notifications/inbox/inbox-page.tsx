@@ -36,7 +36,14 @@ export function InboxPage({ filters, onFiltersChange }: Props) {
           </p>
         </div>
       </header>
-      <InboxToolbar filters={filters} unreadCount={unreadCount} onFiltersChange={onFiltersChange} />
+      <InboxToolbar
+        filters={filters}
+        unreadCount={unreadCount}
+        onFiltersChange={(next) => {
+          setSelected(new Set());
+          onFiltersChange(next);
+        }}
+      />
       <Suspense fallback={<InboxSkeleton />}>
         <InboxList filters={filters} selected={selected} onToggleSelect={onToggle} />
       </Suspense>

@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Button } from "@/shared/ui/button";
 import { api } from "@/shared/lib/api";
 import { m } from "@/paraglide/messages";
@@ -16,6 +17,10 @@ export function ChannelsSection() {
     mutationFn: async (id: string) => {
       const res = await api.connections[":id"].$delete({ param: { id } });
       if (!res.ok) throw new Error(`Failed to delete: ${res.status}`);
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(m.notifications_settings_delete_channel_failed({ message: msg }));
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: notificationsKeys.channels() });

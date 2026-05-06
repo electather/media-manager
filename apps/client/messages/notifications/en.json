@@ -81,6 +81,7 @@
   "notifications_settings_inbox_channel": "Inbox (built-in)",
   "notifications_settings_edit_channel": "Edit",
   "notifications_settings_delete_channel": "Delete",
+  "notifications_settings_delete_channel_failed": "Could not delete channel: {message}",
   "notifications_settings_topic_label": "Topic: {value}",
   "notifications_settings_server_label": "Server: {value}",
   "notifications_admin_deliveries_title": "Notification deliveries",

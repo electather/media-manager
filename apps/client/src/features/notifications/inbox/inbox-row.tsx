@@ -22,6 +22,15 @@ function actionVariant(style: string | undefined): "default" | "destructive" | "
   return "outline";
 }
 
+function isSafeActionUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 // fallow-ignore-next-line complexity
 export function InboxRow({ item, selected, onToggleSelect }: Props) {
   const isUnread = item.readAt === null;
@@ -75,16 +84,19 @@ export function InboxRow({ item, selected, onToggleSelect }: Props) {
         )}
         {item.actions && item.actions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-2">
-            {item.actions.map((a) => (
-              <a
-                key={a.label}
-                href={a.url}
-                onClick={(e) => e.stopPropagation()}
-                className={cn(buttonVariants({ variant: actionVariant(a.style), size: "xs" }))}
-              >
-                {a.label}
-              </a>
-            ))}
+            {item.actions
+              .filter((a) => isSafeActionUrl(a.url))
+              .map((a, i) => (
+                <a
+                  key={`${i}-${a.url}`}
+                  href={a.url}
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(buttonVariants({ variant: actionVariant(a.style), size: "xs" }))}
+                >
+                  {a.label}
+                </a>
+              ))}
           </div>
         )}
         <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/70">

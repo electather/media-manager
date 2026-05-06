@@ -8,7 +8,7 @@ const EMPTY_FILTERS: InboxFilters = {};
 export function usePopoverInbox(open: boolean, filters: InboxFilters = EMPTY_FILTERS) {
   return useQuery({
     enabled: open,
-    queryKey: notificationsKeys.inbox(filters),
+    queryKey: notificationsKeys.popoverInbox(filters),
     queryFn: () => fetchInboxPage(filters, null),
     staleTime: 30_000,
   });

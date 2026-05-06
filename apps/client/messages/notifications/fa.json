@@ -81,6 +81,7 @@
   "notifications_settings_inbox_channel": "صندوق ورودی (داخلی)",
   "notifications_settings_edit_channel": "ویرایش",
   "notifications_settings_delete_channel": "حذف",
+  "notifications_settings_delete_channel_failed": "حذف کانال انجام نشد: {message}",
   "notifications_settings_topic_label": "موضوع: {value}",
   "notifications_settings_server_label": "سرور: {value}",
   "notifications_admin_deliveries_title": "تحویل‌های اعلان",

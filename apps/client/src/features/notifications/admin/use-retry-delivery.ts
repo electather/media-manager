@@ -9,9 +9,10 @@ export function useRetryDelivery() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => fetchRetryDelivery(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       toast.success(m.notifications_admin_retry_queued());
       void qc.invalidateQueries({ queryKey: notificationsKeys.admin.deliveriesAll() });
+      void qc.invalidateQueries({ queryKey: notificationsKeys.admin.delivery(id) });
     },
     onError: (err) => {
       if (err instanceof NotificationsApiError && err.status === 409) {

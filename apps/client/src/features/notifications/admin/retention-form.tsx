@@ -12,16 +12,27 @@ export function RetentionForm() {
   const [inbox, setInbox] = useState(String(data.inboxRetentionDays));
   const [delivery, setDelivery] = useState(String(data.deliveryRetentionDays));
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    update.mutate({
-      inboxRetentionDays: Number(inbox),
-      deliveryRetentionDays: Number(delivery),
-    });
-  };
-
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const inboxDays = Number(inbox);
+        const deliveryDays = Number(delivery);
+        if (
+          !Number.isFinite(inboxDays) ||
+          !Number.isFinite(deliveryDays) ||
+          inboxDays < 1 ||
+          deliveryDays < 1
+        ) {
+          return;
+        }
+        update.mutate({
+          inboxRetentionDays: inboxDays,
+          deliveryRetentionDays: deliveryDays,
+        });
+      }}
+      className="flex flex-col gap-4"
+    >
       <div className="flex flex-col gap-1">
         <Label htmlFor="inbox-retention">{m.notifications_admin_settings_inbox_retention()}</Label>
         <Input

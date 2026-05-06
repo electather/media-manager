@@ -5,6 +5,8 @@ export const notificationsKeys = {
   unreadCount: () => [...notificationsKeys.all, "unread-count"] as const,
   inbox: (filters: InboxFilters) => [...notificationsKeys.all, "inbox", filters] as const,
   inboxAll: () => [...notificationsKeys.all, "inbox"] as const,
+  popoverInbox: (filters: InboxFilters) =>
+    [...notificationsKeys.all, "inbox", "popover", filters] as const,
   channels: () => [...notificationsKeys.all, "channels"] as const,
   plugins: () => [...notificationsKeys.all, "plugins"] as const,
   categories: () => [...notificationsKeys.all, "categories"] as const,
