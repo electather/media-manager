@@ -28,9 +28,11 @@ export function useActiveSection(sectionIds: readonly string[], topOffsetPx: num
         if (el.getBoundingClientRect().top <= topOffsetPx) current = el.id;
       }
       // Page-bottom snap: ensures tail sections still light up even when
-      // they're too short to push their top past the trigger line.
+      // they're too short to push their top past the trigger line. Skipped
+      // for non-scrollable pages (e.g. sparse movie page on a tall display)
+      // so we don't immediately mark the last section as active at rest.
       const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      if (window.scrollY >= maxScroll - 4) {
+      if (maxScroll > 0 && window.scrollY >= maxScroll - 4) {
         current = sectionIds[sectionIds.length - 1] ?? current;
       }
       setActive((prev) => (prev === current ? prev : current));
