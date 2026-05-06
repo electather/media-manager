@@ -4,7 +4,7 @@ interface Props {
   filterLabel?: string | null;
 }
 
-export function NotificationEmptyState({ filterLabel }: Props) {
+export function PopoverEmpty({ filterLabel }: Props) {
   return (
     <div className="flex flex-col items-center justify-center gap-3.5 px-6 py-10 text-center">
       <svg width="120" height="84" viewBox="0 0 120 84" fill="none" aria-hidden="true">

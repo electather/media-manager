@@ -1,4 +1,4 @@
-import type { NotificationItemDto } from "./notification-panel-types";
+import type { NotificationItemDto } from "../../shared/types";
 
 const now = Date.now();
 const mins = (n: number) => now - n * 60_000;

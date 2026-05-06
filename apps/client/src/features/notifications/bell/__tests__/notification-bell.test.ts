@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { bellAriaLabel } from "../notification-panel";
+import { bellAriaLabel } from "../notification-bell";
 
 describe("bellAriaLabel", () => {
   it("returns the plain title when there are no unread notifications", () => {

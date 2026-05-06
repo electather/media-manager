@@ -1,12 +1,12 @@
 import type { NotificationSeverity } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
-import { SEVERITY_META } from "./notification-panel-types";
+import { SEVERITY_META } from "./types";
 
 interface Props {
   severity: NotificationSeverity;
 }
 
-export function NotificationSeverityIcon({ severity }: Props) {
+export function SeverityIcon({ severity }: Props) {
   const { Icon: SevIcon, iconBg, iconColor } = SEVERITY_META[severity];
   return (
     <span

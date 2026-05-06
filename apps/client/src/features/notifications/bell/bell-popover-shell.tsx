@@ -5,11 +5,11 @@ import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";
 import { m } from "@/paraglide/messages";
-import { NotificationCategoryChip } from "./notification-category-chip";
-import { NotificationEmptyState } from "./notification-empty-state";
-import { NotificationItem } from "./notification-item";
-import { CATEGORY_META, categoryLabel } from "./notification-panel-types";
-import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
+import { CategoryChip } from "../shared/category-chip";
+import { PopoverEmpty } from "./popover-empty";
+import { PopoverRow } from "./popover-row";
+import { CATEGORY_META, categoryLabel } from "../shared/types";
+import type { Density, Intensity, NotificationItemDto } from "../shared/types";
 
 type Filter = "all" | NotificationCategory;
 
@@ -75,7 +75,7 @@ function UnreadToggle({ active, count, onToggle }: UnreadToggleProps) {
 }
 
 // fallow-ignore-next-line complexity
-export function NotificationPanelBody({
+export function BellPopoverShell({
   items,
   density,
   intensity,
@@ -134,13 +134,9 @@ export function NotificationPanelBody({
           aria-label={m.notifications_filter_aria()}
           className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none]"
         >
-          <NotificationCategoryChip
-            value="all"
-            label={m.notifications_category_all()}
-            count={counts.all}
-          />
+          <CategoryChip value="all" label={m.notifications_category_all()} count={counts.all} />
           {(Object.keys(CATEGORY_META) as NotificationCategory[]).map((k) => (
-            <NotificationCategoryChip
+            <CategoryChip
               key={k}
               value={k}
               category={k as NotificationCategory}
@@ -155,10 +151,10 @@ export function NotificationPanelBody({
 
       <div className="min-h-0 flex-1 overflow-y-auto" role="list">
         {filtered.length === 0 ? (
-          <NotificationEmptyState filterLabel={filterLabel} />
+          <PopoverEmpty filterLabel={filterLabel} />
         ) : (
           filtered.map((item) => (
-            <NotificationItem
+            <PopoverRow
               key={item.id}
               item={item}
               density={density}

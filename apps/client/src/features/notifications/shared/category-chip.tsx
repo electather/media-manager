@@ -1,6 +1,6 @@
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { RadioGroupItem } from "@/shared/ui/radio-group";
-import { CATEGORY_META } from "./notification-panel-types";
+import { CATEGORY_META } from "./types";
 
 interface Props {
   value: string;
@@ -10,7 +10,7 @@ interface Props {
 }
 
 // fallow-ignore-next-line complexity
-export function NotificationCategoryChip({ value, category, label, count }: Props) {
+export function CategoryChip({ value, category, label, count }: Props) {
   const meta = category ? CATEGORY_META[category] : null;
   const MetaIcon = meta?.Icon;
   return (

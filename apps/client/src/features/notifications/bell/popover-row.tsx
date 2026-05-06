@@ -3,9 +3,9 @@ import { cn } from "@/shared/lib/utils";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { m } from "@/paraglide/messages";
-import { NotificationSeverityIcon } from "./notification-severity-icon";
-import { CATEGORY_META, SEVERITY_META, categoryLabel } from "./notification-panel-types";
-import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
+import { SeverityIcon } from "../shared/severity-icon";
+import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";
+import type { Density, Intensity, NotificationItemDto } from "../shared/types";
 import Markdown from "react-markdown";
 
 interface Props {
@@ -53,7 +53,7 @@ function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
 }
 
 // fallow-ignore-next-line complexity
-export function NotificationItem({ item, density, intensity, onMarkRead, onDismiss }: Props) {
+export function PopoverRow({ item, density, intensity, onMarkRead, onDismiss }: Props) {
   const isUnread = item.readAt === null;
   const isLoud = intensity === "loud" && (item.severity === "warn" || item.severity === "error");
   const { loudBg, loudBorder } = SEVERITY_META[item.severity];
@@ -76,7 +76,7 @@ export function NotificationItem({ item, density, intensity, onMarkRead, onDismi
         isLoud ? cn(loudBg, loudBorder) : "border-l-transparent hover:bg-muted/50",
       )}
     >
-      <NotificationSeverityIcon severity={item.severity} />
+      <SeverityIcon severity={item.severity} />
 
       <div className={cn("flex min-w-0 flex-col", compact ? "gap-0.5" : "gap-1.5")}>
         <div className="flex items-baseline justify-between gap-2">

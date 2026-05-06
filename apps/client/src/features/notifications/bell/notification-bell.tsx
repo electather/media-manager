@@ -5,9 +5,9 @@ import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { m } from "@/paraglide/messages";
-import { NotificationPanelBody } from "./notification-panel-body";
-import { DUMMY_NOTIFICATIONS } from "./notification-panel-fixtures";
-import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
+import { BellPopoverShell } from "./bell-popover-shell";
+import { DUMMY_NOTIFICATIONS } from "./__fixtures__/popover-fixtures";
+import type { Density, Intensity, NotificationItemDto } from "../shared/types";
 import { cn } from "@/shared/lib/utils";
 
 interface Props {
@@ -35,7 +35,7 @@ function BellTriggerContent({ unreadCount }: { unreadCount: number }) {
   );
 }
 
-export function NotificationPanel({ density = "comfortable", intensity = "subtle" }: Props) {
+export function NotificationBell({ density = "comfortable", intensity = "subtle" }: Props) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItemDto[]>(DUMMY_NOTIFICATIONS);
   const isMobile = useIsMobile();
@@ -51,7 +51,7 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
   const dismiss = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
 
   const body = (
-    <NotificationPanelBody
+    <BellPopoverShell
       items={items}
       density={density}
       intensity={intensity}
@@ -75,7 +75,7 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
         </Button>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerContent className="h-[75dvh] gap-0 p-0">
-            <NotificationPanelBody
+            <BellPopoverShell
               items={items}
               density={density}
               intensity={intensity}

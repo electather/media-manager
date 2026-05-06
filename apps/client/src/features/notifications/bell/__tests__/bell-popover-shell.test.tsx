@@ -3,8 +3,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { NotificationPanelBody } from "../notification-panel-body";
-import type { NotificationItemDto } from "../notification-panel-types";
+import { BellPopoverShell } from "../bell-popover-shell";
+import type { NotificationItemDto } from "../../shared/types";
 
 function makeItem(overrides: Partial<NotificationItemDto> & { id: string }): NotificationItemDto {
   return {
@@ -25,7 +25,7 @@ const noop = vi.fn();
 
 function renderBody(
   items: NotificationItemDto[],
-  overrides: Partial<React.ComponentProps<typeof NotificationPanelBody>> = {},
+  overrides: Partial<React.ComponentProps<typeof BellPopoverShell>> = {},
 ) {
   const props = {
     items,
@@ -36,7 +36,7 @@ function renderBody(
     onDismiss: noop,
     ...overrides,
   };
-  return render(<NotificationPanelBody {...props} />);
+  return render(<BellPopoverShell {...props} />);
 }
 
 afterEach(() => {
@@ -45,7 +45,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("NotificationPanelBody", () => {
+describe("BellPopoverShell", () => {
   describe("rendering", () => {
     it("renders all items", () => {
       const items = [makeItem({ id: "a" }), makeItem({ id: "b" })];
