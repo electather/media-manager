@@ -21,7 +21,11 @@ interface DemoInput {
 const inputJsonSchema = {
   type: "object",
   properties: {
-    userId: { type: "string", description: "Recipient user id" },
+    userId: {
+      type: "string",
+      description: "Recipient user",
+      "x-picker": "user",
+    },
     category: {
       type: "string",
       enum: [...NOTIFICATION_CATEGORIES],
