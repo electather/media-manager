@@ -13,13 +13,26 @@ import { DetailBreadcrumb } from "./detail-breadcrumb";
 import { DetailCastGrid } from "./detail-cast-grid";
 import { DetailFactsSidebar } from "./detail-facts-sidebar";
 import { DetailHero } from "./detail-hero";
+import { DetailHeroBackdrop } from "./detail-hero-backdrop";
 import { DetailNotFound } from "./detail-not-found";
 import { DetailRelatedRow } from "./detail-related-row";
 import { DetailSection } from "./detail-section";
 import { DetailSectionNav, type DetailSection as Section } from "./detail-section-nav";
 
-const SECTION_NAV_OFFSET_PX = 140;
-const SCROLL_OFFSET_PX = 110;
+/**
+ * Single source of truth for the scroll-jump landing offset and the
+ * active-section trigger line. Derived from the `--detail-section-nav-stack`
+ * CSS var so a sticky-nav redesign updates both at once. Falls back to a
+ * sensible default when the var is missing (e.g. during SSR snapshots).
+ */
+function readNavStackPx(): number {
+  if (typeof window === "undefined") return 150;
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue("--detail-section-nav-stack")
+    .trim();
+  const n = parseFloat(v);
+  return Number.isFinite(n) && n > 0 ? n : 150;
+}
 
 type Props = {
   compositeId: string;
@@ -41,18 +54,22 @@ function buildSections(item: HomeMediaItem | null): Section[] {
   return sections.filter((section): section is Section => section !== null);
 }
 
-function scrollToSection(id: string) {
-  const target = document.getElementById(id);
-  if (!target) return;
-  const top = target.getBoundingClientRect().top + window.scrollY - SCROLL_OFFSET_PX;
-  window.scrollTo({ top, behavior: "smooth" });
-}
-
 export function MediaDetailPage({ compositeId }: Props) {
   const { item, isLoading } = useMediaItem(compositeId);
   const sections = useMemo(() => buildSections(item), [item]);
   const sectionIds = useMemo(() => sections.map((section) => section.id), [sections]);
-  const activeId = useActiveSection(sectionIds, SECTION_NAV_OFFSET_PX);
+  const navStackPx = useMemo(readNavStackPx, []);
+  const activeId = useActiveSection(sectionIds, navStackPx);
+
+  const scrollToSection = useCallback(
+    (id: string) => {
+      const target = document.getElementById(id);
+      if (!target) return;
+      const top = target.getBoundingClientRect().top + window.scrollY - navStackPx;
+      window.scrollTo({ top, behavior: "smooth" });
+    },
+    [navStackPx],
+  );
 
   const navigate = useNavigate();
   const [watchlist, setWatchlist] = useState<ReadonlySet<string>>(() => new Set());
@@ -97,61 +114,69 @@ export function MediaDetailPage({ compositeId }: Props) {
   const hasCast = (item.cast?.length ?? 0) > 0 || Boolean(item.director);
 
   return (
-    <div className="min-h-screen pb-30">
+    <div className="relative z-10 min-h-screen pb-30">
+      <DetailHeroBackdrop src={item.backdrop} posterSrc={item.poster} />
       <DetailHero item={item} inWatchlist={inWatchlist} onToggleWatchlist={toggleWatchlist} />
-      <DetailSectionNav sections={sections} activeId={activeId} onJump={scrollToSection} />
-      <div className="mx-auto grid max-w-[1600px] gap-12 px-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="flex min-w-0 flex-col gap-14">
-          <DetailSection id="overview" title={m.media_detail_section_overview()}>
-            <DetailBreadcrumb item={item} />
-            {item.overview ? (
-              <p className="m-0 max-w-180 text-pretty text-base leading-relaxed text-foreground/85">
-                {item.overview}
-              </p>
-            ) : null}
-            <UnpaddedModalSlot>
-              <ModalTVAirInfo item={item as MediaDetailItem} />
-            </UnpaddedModalSlot>
-          </DetailSection>
-
-          {hasCast ? (
-            <DetailSection id="cast" title={m.media_detail_section_cast()}>
-              <DetailCastGrid item={item} />
-            </DetailSection>
-          ) : null}
-
-          {(item.seasons?.length ?? 0) > 0 ? (
-            <DetailSection id="seasons" title={m.media_detail_section_seasons()}>
+      <div
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent 0, var(--background) 96px, var(--background) 100%)",
+        }}
+      >
+        <DetailSectionNav sections={sections} activeId={activeId} onJump={scrollToSection} />
+        <div className="mx-auto grid max-w-[1600px] gap-12 px-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="flex min-w-0 flex-col gap-14">
+            <DetailSection id="overview" title={m.media_detail_section_overview()}>
+              <DetailBreadcrumb item={item} />
+              {item.overview ? (
+                <p className="m-0 max-w-180 text-pretty text-base leading-relaxed text-foreground/85">
+                  {item.overview}
+                </p>
+              ) : null}
               <UnpaddedModalSlot>
-                <ModalSeasons item={item as MediaDetailItem} />
+                <ModalTVAirInfo item={item as MediaDetailItem} />
               </UnpaddedModalSlot>
             </DetailSection>
-          ) : null}
 
-          <DetailSection id="your-take" title={m.media_detail_section_your_take()}>
-            <UnpaddedModalSlot>
-              <ModalNote
-                sectionRef={noteSectionRef}
-                taRef={noteTaRef}
-                note={note}
-                editing={noteEditing}
-                setEditing={setNoteEditing}
-                onSave={setNote}
+            {hasCast ? (
+              <DetailSection id="cast" title={m.media_detail_section_cast()}>
+                <DetailCastGrid item={item} />
+              </DetailSection>
+            ) : null}
+
+            {(item.seasons?.length ?? 0) > 0 ? (
+              <DetailSection id="seasons" title={m.media_detail_section_seasons()}>
+                <UnpaddedModalSlot>
+                  <ModalSeasons item={item as MediaDetailItem} />
+                </UnpaddedModalSlot>
+              </DetailSection>
+            ) : null}
+
+            <DetailSection id="your-take" title={m.media_detail_section_your_take()}>
+              <UnpaddedModalSlot>
+                <ModalNote
+                  sectionRef={noteSectionRef}
+                  taRef={noteTaRef}
+                  note={note}
+                  editing={noteEditing}
+                  setEditing={setNoteEditing}
+                  onSave={setNote}
+                />
+              </UnpaddedModalSlot>
+            </DetailSection>
+
+            <DetailSection id="related" title={m.media_detail_section_related()}>
+              <DetailRelatedRow
+                item={item}
+                watchlist={watchlist}
+                onWatchlistToggle={toggleWatchlistId}
+                onCardClick={handleRelatedClick}
               />
-            </UnpaddedModalSlot>
-          </DetailSection>
-
-          <DetailSection id="related" title={m.media_detail_section_related()}>
-            <DetailRelatedRow
-              item={item}
-              watchlist={watchlist}
-              onWatchlistToggle={toggleWatchlistId}
-              onCardClick={handleRelatedClick}
-            />
-          </DetailSection>
-        </div>
-        <div className="hidden lg:block">
-          <DetailFactsSidebar item={item} />
+            </DetailSection>
+          </div>
+          <div className="hidden lg:block">
+            <DetailFactsSidebar item={item} />
+          </div>
         </div>
       </div>
     </div>

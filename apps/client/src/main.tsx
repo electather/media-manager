@@ -2,7 +2,6 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import "scroll-timeline-polyfill/dist/scroll-timeline.js";
 import { routeTree } from "./routeTree.gen";
 import "./globals.css";
 import { TooltipProvider } from "./shared/ui/tooltip";

@@ -2,7 +2,6 @@ import { Sparkles } from "lucide-react";
 import { MATCH_REASON_COPY } from "@/features/home/lib/home-feed-config";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 import { DetailHeroActions } from "./detail-hero-actions";
-import { DetailHeroBackdrop } from "./detail-hero-backdrop";
 import { DetailHeroPoster } from "./detail-hero-poster";
 import { DetailMetaLine } from "./detail-meta-line";
 
@@ -72,7 +71,6 @@ function HeroTags({ tags }: { tags: string[] | undefined }) {
 export function DetailHero({ item, inWatchlist, onToggleWatchlist }: Props) {
   return (
     <section className="relative flex min-h-[min(720px,78vh)] items-end px-6 pb-10 pt-30 sm:px-8">
-      <DetailHeroBackdrop src={item.backdrop} posterSrc={item.poster} />
       <div className="mx-auto w-full max-w-[1600px]">
         <div className="grid items-end gap-6 sm:grid-cols-[140px_1fr] sm:gap-8 lg:grid-cols-[220px_1fr]">
           <DetailHeroPoster item={item} />

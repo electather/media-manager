@@ -212,6 +212,11 @@ html[lang="fa"] {
 @layer utilities {
   :root {
     --header-height: calc(var(--spacing) * 14);
+    /* Combined sticky height of TopNav (top: 0, ~76px) plus DetailSectionNav
+       (top-19, ~58px) plus a small breathing margin. Used by the detail
+       page to pick the scroll-jump offset and the active-section trigger
+       line, so they stay aligned and survive nav redesigns. */
+    --detail-section-nav-stack: 150px;
   }
 
   /* Scroll-driven title animation for the media detail modal: shrinks the
@@ -251,6 +256,43 @@ html[lang="fa"] {
         opacity: 1;
       }
     }
+
+    /* Detail page backdrop fades out as the user scrolls past the hero, so
+       the fixed image never reveals a hard edge against the page background.
+       Range covers roughly the hero height on a typical viewport. */
+    .scroll-driven-backdrop-fade {
+      animation-name: detail-backdrop-fade;
+      animation-timeline: scroll();
+      animation-fill-mode: both;
+      animation-range: 0 80vh;
+    }
+
+    /* Same fade for the modal backdrop, but driven by a named timeline so it
+       can ride the modal's own scroll container — the backdrop is a sibling
+       of (not descendant of) that scroller so `scroll()` cannot find it. */
+    .scroll-driven-modal-backdrop-fade {
+      animation-name: detail-backdrop-fade;
+      animation-timeline: --modal-backdrop-scroll;
+      animation-fill-mode: both;
+      animation-range: 0 60vh;
+    }
+
+    @keyframes detail-backdrop-fade {
+      to {
+        opacity: 0;
+      }
+    }
+  }
+
+  /* Wires up `--modal-backdrop-scroll` for the modal's hero backdrop fade.
+     The article is the scroll container, the wrapper exposes the timeline to
+     its sibling backdrop. Both declarations are inert in browsers that lack
+     scroll-timeline support. */
+  .modal-backdrop-timeline-source {
+    scroll-timeline-name: --modal-backdrop-scroll;
+  }
+  .modal-backdrop-timeline-scope {
+    timeline-scope: --modal-backdrop-scroll;
   }
 
   /* Row scroller edge fades. JS sets data-at-start / data-at-end on the

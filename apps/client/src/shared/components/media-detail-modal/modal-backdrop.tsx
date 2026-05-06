@@ -9,7 +9,10 @@
  */
 export function ModalBackdrop({ src }: { src: string }) {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+    <div
+      aria-hidden="true"
+      className="scroll-driven-modal-backdrop-fade pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+    >
       <img src={src} alt="" className="size-full object-cover" />
       <div
         className="absolute inset-0"
