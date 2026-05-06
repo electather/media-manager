@@ -47,6 +47,40 @@ const searchInput = z.object({
   limit: z.number().optional(),
 });
 
+const listAvailableInput = z.object({
+  type: libraryItemQueryType,
+});
+
+/**
+ * Input for `listShowEpisodes`. Same `idType` vocabulary as
+ * `checkAvailability` so callers holding e.g. a `tmdb` id or a server-local
+ * Plex ratingKey can both reach the show.
+ */
+const listShowEpisodesInput = z.object({
+  id: z.string().min(1),
+  idType: libraryAvailabilityIdType,
+});
+
+/**
+ * Output for `listShowEpisodes` — flat presence list. Host buckets to seasons
+ * map; plugin is a pure pass-through over the underlying server endpoint.
+ */
+const listShowEpisodesOutput = z.object({
+  episodes: z.array(z.object({ season: z.number(), episode: z.number() })),
+});
+
+/**
+ * Bulk presence index. Returns the set of TMDB ids present on the user's
+ * library so the host can answer N `getMatchingServers` calls with one network
+ * round-trip + N O(1) set lookups instead of N independent
+ * `checkAvailability` probes. Plugins that do not have TMDB ids on their items
+ * (or cannot enumerate the library) emit an empty list — callers fall back to
+ * `checkAvailability` per-id.
+ */
+const listAvailableOutput = z.object({
+  tmdbIds: z.array(z.string()),
+});
+
 /**
  * libraryAvailability@v1 — does the user's self-hosted media server (Plex,
  * Jellyfin, …) have this item, and what's new on it? See the design doc's
@@ -68,5 +102,11 @@ export const LibraryAvailabilityV1 = defineCapability({
     checkAvailability: method(checkInput, checkOutput),
     listRecentlyAdded: method(recentlyAddedInput, recentlyAddedOutput),
     searchLibrary: method(searchInput, z.array(libraryItemSchema)),
+    listAvailable: method(listAvailableInput, listAvailableOutput),
+    /**
+     * Episode-level presence enumeration for a single show. 5-min cached
+     * (capability default); host aggregates across the user's connections.
+     */
+    listShowEpisodes: method(listShowEpisodesInput, listShowEpisodesOutput),
   },
 });

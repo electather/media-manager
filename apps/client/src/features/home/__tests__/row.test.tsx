@@ -1,102 +1,95 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import type { CompactMediaItem, RowContentResponse } from "@ent-mcp/shared/home";
 
 import { Row } from "../components/row/index";
-import type { HomeMediaItem, RowData } from "../lib/types";
+import type { RowData } from "../lib/types";
 
 afterEach(() => cleanup());
+beforeEach(() => vi.restoreAllMocks());
 
-/** Builds a minimal HomeMediaItem for use in row tests. */
-function makeItem(id: string, overrides: Partial<HomeMediaItem> = {}): HomeMediaItem {
+function withClient(client: QueryClient) {
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+}
+
+function item(id: string): CompactMediaItem {
   return {
-    id,
+    id: `movie:${id}`,
     tmdbId: id,
     mediaType: "movie",
     title: `Movie ${id}`,
-    year: 2024,
     poster: `https://example.com/${id}.jpg`,
     backdrop: `https://example.com/${id}-bd.jpg`,
-    genres: ["Drama"],
-    rating: 7.5,
+  };
+}
+
+function makeRow(overrides: Partial<RowData> = {}): RowData {
+  return {
+    id: "trendingNow",
+    kind: "trendingNow",
+    defaultAspect: "2/3",
+    initialCursor: null,
     ...overrides,
   };
 }
 
-/** Builds a RowData with sensible defaults. */
-function makeRow(overrides: Partial<RowData> = {}): RowData {
-  return {
-    id: "recommendedForYou",
-    kind: "recommendedForYou",
-    defaultAspect: "2/3",
-    items: [makeItem("a"), makeItem("b"), makeItem("c")],
-    ...overrides,
-  };
+function mockRowFetch(items: CompactMediaItem[], opts: Partial<RowContentResponse> = {}) {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ items, cursor: null, ...opts }), { status: 200 }),
+  );
 }
 
 describe("Row", () => {
-  it("renders all items present in row.items", () => {
-    const row = makeRow({
-      items: [makeItem("x"), makeItem("y"), makeItem("z")],
-    });
-    render(<Row row={row} />);
-    // Mock pagination clones items eagerly when scrollWidth==clientWidth in
-    // happy-dom; assert each seed title appears at least once rather than
-    // exactly once.
-    expect(screen.getAllByText("Movie x").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Movie y").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Movie z").length).toBeGreaterThan(0);
+  it("renders items returned from /api/home/row", async () => {
+    mockRowFetch([item("x"), item("y"), item("z")]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(screen.getByText("Movie x")).toBeTruthy());
+    expect(screen.getByText("Movie y")).toBeTruthy();
+    expect(screen.getByText("Movie z")).toBeTruthy();
   });
 
-  it("renders skeleton placeholder cards when row.items is empty", () => {
-    const row = makeRow({ items: [] });
-    const { container } = render(<Row row={row} />);
-    // Skeleton elements carry the data-slot attribute set by the Skeleton component.
+  it("renders skeleton placeholder cards while the row is loading", () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => {}));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
     const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
-  it("shows a partial warning indicator when row.partial is true", () => {
-    const row = makeRow({ partial: true });
-    render(<Row row={row} />);
-    expect(screen.getByTestId("partial-warning")).toBeTruthy();
-  });
-
-  it("does not show a partial warning when row.partial is false", () => {
-    const row = makeRow({ partial: false });
-    render(<Row row={row} />);
-    expect(screen.queryByTestId("partial-warning")).toBeNull();
-  });
-
-  it("renders a visible heading for the row", () => {
-    const row = makeRow({ kind: "trendingNow", defaultAspect: "2/3" });
-    render(<Row row={row} />);
-    // The heading text is driven by the i18n key; look for a heading element.
+  it("renders a visible heading for the row", async () => {
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Row row={makeRow()} />, { wrapper: withClient(client) });
     const heading = screen.getByRole("heading");
-    expect(heading).toBeTruthy();
     expect(heading.textContent?.length).toBeGreaterThan(0);
   });
 
-  it("renders a subtitle when the row kind has one", () => {
-    const row = makeRow({
-      kind: "becauseYouWatched",
-      defaultAspect: "2/3",
-      seedTitle: "Helios Run",
-    });
-    render(<Row row={row} />);
-    // The subtitle text is sourced from the i18n key home_row_becauseYouWatched_subtitle.
+  it("renders a subtitle when the row kind has one", async () => {
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <Row
+        row={makeRow({
+          id: "becauseYouWatched",
+          kind: "becauseYouWatched",
+          seedTitle: "Helios Run",
+        })}
+      />,
+      { wrapper: withClient(client) },
+    );
     expect(screen.getByText(/themed picks/i)).toBeTruthy();
   });
 
-  it("does not show a partial warning indicator when partial is absent", () => {
-    const row = makeRow({ partial: undefined });
-    render(<Row row={row} />);
-    expect(screen.queryByTestId("partial-warning")).toBeNull();
-  });
-
   it("keeps the card scroller inside the page's max-width container so the first card aligns with the title", () => {
-    const row = makeRow();
-    const { container } = render(<Row row={row} />);
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
     const bleed = container.querySelector('[data-testid="row-scroller-bleed"]');
     expect(bleed).toBeTruthy();
     expect(bleed?.className).not.toContain("w-screen");

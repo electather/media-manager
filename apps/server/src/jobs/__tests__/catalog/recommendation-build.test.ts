@@ -75,7 +75,12 @@ describe("writeRecommendationsForUser", () => {
         item: { id: "movie:1", type: "movie", title: "One" },
         score: 0.91,
         features: {},
-        topContributors: [],
+        topContributors: [
+          { category: "genres", feature: "Drama", weight: 0.4 },
+          { category: "people", feature: "Lena Marsh", weight: 0.2 },
+          { category: "decades", feature: "2020s", weight: 0.1 },
+          { category: "languages", feature: "en", weight: 0.05 },
+        ],
       },
       {
         item: { id: "movie:2", type: "movie", title: "Two" },
@@ -94,6 +99,14 @@ describe("writeRecommendationsForUser", () => {
     expect(fetched?.profileVersion).toBe(5);
     expect(fetched?.items.map((i) => i.tmdbId)).toEqual(["1", "2"]);
     expect(fetched?.items[0]?.matchReason).toBe("noir mood");
+    // Snapshot is capped to the first three plural→singular mapped entries.
+    expect(fetched?.items[0]?.topContributors).toEqual([
+      { category: "genre", value: "Drama", weight: 0.4 },
+      { category: "person", value: "Lena Marsh", weight: 0.2 },
+      { category: "decade", value: "2020s", weight: 0.1 },
+    ]);
+    // Empty contributor list survives the round trip without truncation.
+    expect(fetched?.items[1]?.topContributors).toEqual([]);
   });
 
   it("skips the write when the candidate feed is empty", async () => {

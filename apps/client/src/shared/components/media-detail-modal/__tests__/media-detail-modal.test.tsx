@@ -29,11 +29,6 @@ const TV: MediaDetailItem = {
   rating: 8.1,
   overview: "Rolling, slow-burn anthology.",
   episode: { season: 3, episode: 1, airsAt: 0 },
-  seasons: [
-    { number: 1, episodeCount: 8, counts: { available: 8 }, episodes: [] },
-    { number: 2, episodeCount: 6, counts: { unavailable: 6 }, episodes: [] },
-    { number: 3, episodeCount: 4, counts: { upcoming: 4 }, episodes: [] },
-  ],
 };
 
 describe("MediaDetailModal", () => {
@@ -129,22 +124,7 @@ describe("MediaDetailModal", () => {
     trigger.remove();
   });
 
-  it("flips request button to requested state on click", () => {
-    render(
-      <MediaDetailModal
-        item={MOVIE}
-        open
-        onClose={vi.fn()}
-        inWatchlist={false}
-        onToggleWatchlist={vi.fn()}
-      />,
-    );
-    const requestBtn = screen.getByRole("button", { name: /^request$/i });
-    fireEvent.click(requestBtn);
-    expect(screen.getByRole("button", { name: /^requested$/i })).toBeTruthy();
-  });
-
-  it("renders the season accordion for TV items only", () => {
+  it("hides the seasons section for movies and for TV items missing seasons[]", () => {
     const { rerender } = render(
       <MediaDetailModal
         item={MOVIE}
@@ -165,8 +145,8 @@ describe("MediaDetailModal", () => {
         onToggleWatchlist={vi.fn()}
       />,
     );
-    expect(screen.getByRole("region", { name: /seasons/i })).toBeTruthy();
-    const seasonHeaders = screen.getAllByText(/^Season \d+$/);
-    expect(seasonHeaders.length).toBe(TV.episode!.season);
+    // TV item has no canonical seasons[] payload — section stays hidden until
+    // home.getDetails populates it.
+    expect(screen.queryByRole("region", { name: /seasons/i })).toBeNull();
   });
 });

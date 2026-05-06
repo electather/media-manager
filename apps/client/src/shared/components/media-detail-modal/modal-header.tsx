@@ -31,6 +31,23 @@ export function ModalHeader({ item, titleId }: Props) {
 }
 
 function ModalTitle({ item, titleId }: Props) {
+  if (item.clearLogo) {
+    return (
+      <h2
+        id={titleId}
+        aria-label={item.title}
+        className="scroll-driven-title m-0 flex items-end leading-none"
+      >
+        <img
+          src={item.clearLogo}
+          alt={item.title}
+          loading="eager"
+          decoding="async"
+          className="max-h-20 w-auto max-w-[70%] object-contain object-left drop-shadow-[0_2px_18px_oklch(0_0_0/0.6)] sm:max-h-28"
+        />
+      </h2>
+    );
+  }
   if (item.clearLogoText) {
     return (
       <h2

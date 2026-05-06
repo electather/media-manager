@@ -4,14 +4,21 @@ import { Button } from "@/shared/ui/button";
 
 type Props = {
   hasProgress: boolean;
+  /**
+   * Play handler. v1 has no `playback@v1.getResumeUrl` capability, so the
+   * orchestrator always emits `resumeUrl: null` and the parent wires this
+   * to a nav-to-detail action — the user lands on the detail page where
+   * the request flow can take over.
+   */
+  onPlay: () => void;
   onMoreInfo: () => void;
   onDismiss?: () => void;
 };
 
-export function TopZoneHeroActions({ hasProgress, onMoreInfo, onDismiss }: Props) {
+export function TopZoneHeroActions({ hasProgress, onPlay, onMoreInfo, onDismiss }: Props) {
   return (
     <div className="mt-1 flex flex-wrap items-center gap-2">
-      <Button size="default" className="gap-2">
+      <Button size="default" className="gap-2" onClick={onPlay}>
         <Play aria-hidden="true" className="size-4 fill-current" />
         {hasProgress ? m.home_hero_resume() : m.home_hero_play()}
       </Button>

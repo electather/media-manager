@@ -43,7 +43,14 @@ export const libraryAvailability = {
       `/Users/${userId}/Items?${params.toString()}`,
     );
     const externalBase = getExternalBase(getUserCfg(typedCtx));
+    // Recent Jellyfin builds (10.10+) silently ignore `AnyProviderIdEquals`
+    // and return the full type-filtered library. Re-filter on the client by
+    // matching the requested ProviderIds entry — the response already
+    // includes `ProviderIds` because we asked for it in `Fields`. Without
+    // this guard, every TMDB lookup would report a server copy and the
+    // home feed's `availability.hasAnyServerCopy` would be uniformly true.
     const items = (data.Items ?? [])
+      .filter((row) => row.ProviderIds?.[provider] === id)
       .map((row) => mapLibraryItem(row, externalBase))
       .filter((x): x is LibraryItem => x !== null);
     return { items };
@@ -86,6 +93,101 @@ export const libraryAvailability = {
     const result: { items: LibraryItem[]; nextCursor?: string } = { items };
     if (rows.length > page * safeLimit) result.nextCursor = String(page + 1);
     return result;
+  },
+
+  async listAvailable(ctx: unknown, input: unknown) {
+    const typedCtx = ctx as Ctx;
+    const { type } = input as { type: "movie" | "show" };
+    const userId = getUserId(typedCtx);
+    const jfType = type === "movie" ? "Movie" : "Series";
+    // Single library scan returning every TMDB id present. The host caches
+    // the response per-request so N enrichment calls collapse to one network
+    // round-trip plus N O(1) set lookups (vs. N independent
+    // `checkAvailability` probes that each return the entire library on
+    // Jellyfin 10.10+ thanks to the broken `AnyProviderIdEquals` filter).
+    const params = new URLSearchParams({
+      IncludeItemTypes: jfType,
+      Recursive: "true",
+      Fields: "ProviderIds",
+      EnableImages: "false",
+      EnableUserData: "false",
+    });
+    const data = await jellyfinJson<{ Items: JellyfinItem[] }>(
+      typedCtx,
+      `/Users/${userId}/Items?${params.toString()}`,
+    );
+    const tmdbIds: string[] = [];
+    for (const row of data.Items ?? []) {
+      const tmdb = row.ProviderIds?.Tmdb;
+      if (tmdb) tmdbIds.push(tmdb);
+    }
+    return { tmdbIds };
+  },
+
+  async listShowEpisodes(ctx: unknown, input: unknown) {
+    const typedCtx = ctx as Ctx;
+    const { id, idType } = input as {
+      id: string;
+      idType: "tmdb" | "imdb" | "tvdb" | "plex" | "jellyfin";
+    };
+    if (idType === "plex") return { episodes: [] };
+
+    // Resolve to a Jellyfin item id when the caller supplied a cross-service
+    // id; server-local ids skip straight to the episode walk.
+    let jellyfinId: string | undefined;
+    if (idType === "jellyfin") {
+      jellyfinId = id;
+    } else {
+      const provider = toJfProvider(idType);
+      if (!provider) return { episodes: [] };
+      const userId = getUserId(typedCtx);
+      // Cap the response: Jellyfin 10.10+ silently ignores
+      // `AnyProviderIdEquals` and would otherwise return the entire series
+      // library to be filtered client-side. `Limit: 50` keeps the cold-path
+      // payload bounded while still yielding the right hit on builds where
+      // the filter works (single match) and giving the client-side `find`
+      // enough rows to recover on broken builds (a typical 50-show library
+      // page is small enough to scan in O(N)).
+      const params = new URLSearchParams({
+        IncludeItemTypes: "Series",
+        Recursive: "true",
+        AnyProviderIdEquals: `${provider}.${id}`,
+        Fields: "ProviderIds",
+        Limit: "50",
+      });
+      try {
+        const data = await jellyfinJson<{ Items: JellyfinItem[] }>(
+          typedCtx,
+          `/Users/${userId}/Items?${params.toString()}`,
+        );
+        // Recent Jellyfin builds (10.10+) silently ignore `AnyProviderIdEquals`
+        // and return the type-filtered library, so re-filter on the client to
+        // pick out the requested provider hit.
+        const hit = (data.Items ?? []).find((row) => row.ProviderIds?.[provider] === id);
+        jellyfinId = hit?.Id;
+      } catch (err) {
+        if (isNotFound(err)) return { episodes: [] };
+        throw err;
+      }
+    }
+    if (!jellyfinId) return { episodes: [] };
+
+    try {
+      const data = await jellyfinJson<{ Items: JellyfinItem[] }>(
+        typedCtx,
+        `/Shows/${encodeURIComponent(jellyfinId)}/Episodes?Fields=ParentIndexNumber%2CIndexNumber`,
+      );
+      const episodes: { season: number; episode: number }[] = [];
+      for (const row of data.Items ?? []) {
+        if (typeof row.ParentIndexNumber === "number" && typeof row.IndexNumber === "number") {
+          episodes.push({ season: row.ParentIndexNumber, episode: row.IndexNumber });
+        }
+      }
+      return { episodes };
+    } catch (err) {
+      if (isNotFound(err)) return { episodes: [] };
+      throw err;
+    }
   },
 
   async searchLibrary(ctx: unknown, input: unknown) {

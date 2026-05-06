@@ -58,7 +58,7 @@ function CardMetaProgress({ item }: { item: HomeMediaItem }) {
 
 function CardMetaUpcoming({ item }: { item: HomeMediaItem }) {
   const series = formatSeries(item);
-  const release = item.facets?.releaseDate ?? item.relDate ?? null;
+  const release = item.facets?.releaseDate ?? null;
   return (
     <div className="mt-2 flex flex-col px-0.5">
       <p className="line-clamp-1 text-sm font-medium text-foreground">{item.title}</p>

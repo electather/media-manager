@@ -71,9 +71,9 @@ describe("ModalMatchReason", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders the reason text", () => {
-    render(<ModalMatchReason reason="From a show you are actively watching." />);
-    expect(screen.getByText(/From a show you are actively watching\./)).toBeTruthy();
+  it("renders typed match-reason copy via the Paraglide map", () => {
+    render(<ModalMatchReason reason={{ key: "from_active_series", params: {} }} />);
+    expect(screen.getByText(/active/i)).toBeTruthy();
   });
 });
 
@@ -107,53 +107,14 @@ describe("ModalTopbar", () => {
 });
 
 describe("ModalSeasons", () => {
-  // Regression: previously fabricated episode counts (8, 10, 9, 8, 10 …) for
-  // every season — a misleading "X episodes" subtitle and matching list of
-  // fake episode rows. With no real season data, neither should appear.
-  it("does not fabricate episode counts when seasons data is missing", () => {
-    render(<ModalSeasons item={BASE_TV} />);
-    expect(screen.queryByText(/\d+ episodes/)).toBeNull();
-    expect(screen.queryByText(/^Episode \d+$/)).toBeNull();
+  it("renders nothing for movie titles", () => {
+    const { container } = render(<ModalSeasons item={BASE_MOVIE} />);
+    expect(container.firstChild).toBeNull();
   });
 
-  it("renders real episode counts when seasons data is provided", () => {
-    render(
-      <ModalSeasons
-        item={{
-          ...BASE_TV,
-          seasons: [
-            { number: 1, episodeCount: 6, counts: { available: 6 }, episodes: [] },
-            { number: 2, episodeCount: 4, counts: { unavailable: 4 }, episodes: [] },
-          ],
-        }}
-      />,
-    );
-    expect(screen.getByText("6 episodes")).toBeTruthy();
-    expect(screen.getByText("4 episodes")).toBeTruthy();
-  });
-
-  // Regression: prior `available > 0 && available < episodeCount - upcoming`
-  // misclassified seasons where some episodes are aired+available but the
-  // remainder is upcoming (e.g. 3 available + 2 upcoming) as fully
-  // unavailable. The corrected predicate keeps them in "partial".
-  it("classifies a mixed-available-and-upcoming season as partial", () => {
-    render(
-      <ModalSeasons
-        item={{
-          ...BASE_TV,
-          seasons: [
-            {
-              number: 1,
-              episodeCount: 5,
-              counts: { available: 3, upcoming: 2 },
-              episodes: [],
-            },
-          ],
-        }}
-      />,
-    );
-    expect(screen.getByText(/3 of 5 available/)).toBeTruthy();
-    expect(screen.getByText(/2 upcoming/)).toBeTruthy();
+  it("renders nothing for TV titles missing the canonical season list", () => {
+    const { container } = render(<ModalSeasons item={BASE_TV} />);
+    expect(container.firstChild).toBeNull();
   });
 });
 

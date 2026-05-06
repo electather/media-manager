@@ -1,4 +1,4 @@
-import type { ProfileMediaType } from "@ent-mcp/shared/preferences";
+import type { FeatureCategory, ProfileMediaType } from "@ent-mcp/shared/preferences";
 import { listUsersNeedingRebuild, type RebuildRow } from "../../preferences/rebuild-row-source";
 import { getPreferenceEngine } from "../../preferences";
 import { profileStorage } from "../../preferences/storage";
@@ -6,8 +6,9 @@ import { MediaService } from "../../media/service";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
+import type { FeatureContribution } from "../../preferences/types";
 import { identifyItem, splitCombinedId } from "../../media/parse-item";
-import type { RecItem } from "../types";
+import type { RecItem, TopContributor, TopContributorCategory } from "../types";
 
 const TOP_N = 60;
 const CANDIDATE_LIMIT = 180;
@@ -15,6 +16,29 @@ const PER_ROW_TIMEOUT_SEC = 120;
 const RUN_TIMEOUT_SEC = 90 * 60;
 const PER_ROW_DEADLINE_SEC = 60;
 const PARTITIONS: ProfileMediaType[] = ["movie", "tv", "combined"];
+const TOP_CONTRIBUTORS_PER_REC = 3;
+
+/**
+ * Maps the preference engine's plural `FeatureCategory` (`genres`, `people`, …)
+ * onto the singular `TopContributorCategory` the home feed surfaces in chips
+ * (`genre`, `person`, …). Match-reason resolver branches on this form.
+ */
+const FEATURE_CATEGORY_TO_TOP_CONTRIBUTOR: Record<FeatureCategory, TopContributorCategory> = {
+  genres: "genre",
+  keywords: "keyword",
+  people: "person",
+  decades: "decade",
+  runtimes: "runtime",
+  languages: "language",
+};
+
+function toTopContributors(contributions: readonly FeatureContribution[]): TopContributor[] {
+  return contributions.slice(0, TOP_CONTRIBUTORS_PER_REC).map((c) => ({
+    category: FEATURE_CATEGORY_TO_TOP_CONTRIBUTOR[c.category],
+    value: c.feature,
+    weight: c.weight,
+  }));
+}
 
 export const CATALOG_RECOMMENDATION_BUILD_JOB_ID = "host.catalog.recommendation_build";
 
@@ -127,6 +151,7 @@ export async function writeRecommendationsForUser(
         tmdbId: splitCombinedId(entry.item.id)?.id ?? "",
         mediaType: entry.item.type,
         matchReason: reason,
+        topContributors: toTopContributors(entry.topContributors ?? []),
         score: entry.score,
       };
     }),

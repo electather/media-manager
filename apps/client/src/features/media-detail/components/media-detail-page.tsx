@@ -5,8 +5,9 @@ import { ModalNote } from "@/shared/components/media-detail-modal/modal-note";
 import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seasons";
 import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
+import type { HomeMediaItem } from "@/features/home/lib/types";
 import { splitCompositeId } from "@/shared/lib/media-id";
-import { findMediaItem } from "../lib/find-item";
+import { useMediaItem } from "../lib/find-item";
 import { useActiveSection } from "../hooks/use-active-section";
 import { DetailBreadcrumb } from "./detail-breadcrumb";
 import { DetailCastGrid } from "./detail-cast-grid";
@@ -24,28 +25,20 @@ type Props = {
   compositeId: string;
 };
 
-function buildSections(item: ReturnType<typeof findMediaItem>): Section[] {
+function buildSections(item: HomeMediaItem | null): Section[] {
   if (!item) return [];
-  const hasEpisodes = item.mediaType === "tv" && (item.seasons?.length ?? 0) > 0;
   const castCount = (item.cast?.length ?? 0) + (item.director ? 1 : 0);
+  const seasonCount = item.seasons?.length ?? 0;
   const sections: (Section | null)[] = [
     { id: "overview", label: m.media_detail_section_overview() },
-    hasEpisodes ? { id: "episodes", label: m.media_detail_section_episodes() } : null,
     castCount > 0 ? { id: "cast", label: m.media_detail_section_cast(), count: castCount } : null,
+    seasonCount > 0
+      ? { id: "seasons", label: m.media_detail_section_seasons(), count: seasonCount }
+      : null,
     { id: "your-take", label: m.media_detail_section_your_take() },
     { id: "related", label: m.media_detail_section_related() },
   ];
   return sections.filter((section): section is Section => section !== null);
-}
-
-/**
- * `useMockPagination` clones cards with a `#clone-N` id suffix so React keys
- * stay unique. Strip the suffix before resolving against the data layer or
- * navigating, so cloned cards still open the original media's detail page.
- */
-function sourceIdOf(id: string): string {
-  const hash = id.indexOf("#");
-  return hash === -1 ? id : id.slice(0, hash);
 }
 
 function scrollToSection(id: string) {
@@ -56,7 +49,7 @@ function scrollToSection(id: string) {
 }
 
 export function MediaDetailPage({ compositeId }: Props) {
-  const item = useMemo(() => findMediaItem(compositeId), [compositeId]);
+  const { item, isLoading } = useMediaItem(compositeId);
   const sections = useMemo(() => buildSections(item), [item]);
   const sectionIds = useMemo(() => sections.map((section) => section.id), [sections]);
   const activeId = useActiveSection(sectionIds, SECTION_NAV_OFFSET_PX);
@@ -86,7 +79,7 @@ export function MediaDetailPage({ compositeId }: Props) {
 
   const handleRelatedClick = useCallback(
     (id: string) => {
-      const parts = splitCompositeId(sourceIdOf(id));
+      const parts = splitCompositeId(id);
       if (!parts) return;
       void navigate({
         to: "/media/$mediaType/$mediaId",
@@ -96,9 +89,11 @@ export function MediaDetailPage({ compositeId }: Props) {
     [navigate],
   );
 
-  if (!item) return <DetailNotFound />;
+  if (!item) {
+    if (isLoading) return null;
+    return <DetailNotFound />;
+  }
 
-  const hasEpisodes = item.mediaType === "tv" && (item.seasons?.length ?? 0) > 0;
   const hasCast = (item.cast?.length ?? 0) > 0 || Boolean(item.director);
 
   return (
@@ -119,17 +114,17 @@ export function MediaDetailPage({ compositeId }: Props) {
             </UnpaddedModalSlot>
           </DetailSection>
 
-          {hasEpisodes ? (
-            <DetailSection id="episodes" title={m.media_detail_section_episodes()}>
-              <UnpaddedModalSlot>
-                <ModalSeasons item={item as MediaDetailItem} />
-              </UnpaddedModalSlot>
-            </DetailSection>
-          ) : null}
-
           {hasCast ? (
             <DetailSection id="cast" title={m.media_detail_section_cast()}>
               <DetailCastGrid item={item} />
+            </DetailSection>
+          ) : null}
+
+          {(item.seasons?.length ?? 0) > 0 ? (
+            <DetailSection id="seasons" title={m.media_detail_section_seasons()}>
+              <UnpaddedModalSlot>
+                <ModalSeasons item={item as MediaDetailItem} />
+              </UnpaddedModalSlot>
             </DetailSection>
           ) : null}
 

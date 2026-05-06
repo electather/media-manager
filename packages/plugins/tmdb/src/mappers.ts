@@ -1,6 +1,82 @@
 import type { Ctx, MovieRaw, TvRaw, Genre, Credits } from "./types";
 import { buildBackdropUrl, buildPosterUrl } from "./images";
 
+/**
+ * Wire-format season episode payload. Mirrors the SDK output schema for
+ * `metadata@v1.getShowSeasons`; declared locally so the TMDB plugin does not
+ * pull in the shared package just for two type aliases.
+ */
+interface SeasonEpisodeInfo {
+  episodeNumber: number;
+  title: string;
+  airDate?: string;
+  runtime?: number;
+}
+
+/** Wire-format season payload mirroring the SDK output schema. */
+interface SeasonInfo {
+  seasonNumber: number;
+  name: string;
+  airDate?: string;
+  totalEpisodes: number;
+  episodes: SeasonEpisodeInfo[];
+}
+
+/** Raw shape returned by TMDB `/tv/{id}` season summary entries. */
+interface TmdbSeasonSummaryRaw {
+  season_number: number;
+  name?: string;
+  air_date?: string | null;
+  episode_count?: number;
+}
+
+/** Raw shape returned for each `season/N` append payload. */
+interface TmdbSeasonDetailsRaw {
+  episodes?: Array<{
+    episode_number?: number;
+    name?: string;
+    air_date?: string | null;
+    runtime?: number | null;
+  }>;
+}
+
+/**
+ * Aggregated season payloads keyed by season number; populated across
+ * `append_to_response` chunks before mapping to `SeasonInfo[]`.
+ */
+export interface TmdbShowSeasonsRaw {
+  seasonDetails: Record<number, TmdbSeasonDetailsRaw | undefined>;
+}
+
+export function toSeasonEpisodeInfo(
+  raw: NonNullable<TmdbSeasonDetailsRaw["episodes"]>[number],
+): SeasonEpisodeInfo {
+  const episode: SeasonEpisodeInfo = {
+    episodeNumber: raw.episode_number ?? 0,
+    title: raw.name ?? "",
+  };
+  if (raw.air_date) episode.airDate = raw.air_date;
+  if (typeof raw.runtime === "number") episode.runtime = raw.runtime;
+  return episode;
+}
+
+export function toSeasonInfo(
+  summary: TmdbSeasonSummaryRaw,
+  details: TmdbSeasonDetailsRaw | undefined,
+): SeasonInfo {
+  const episodes = (details?.episodes ?? [])
+    .filter((e) => typeof e.episode_number === "number")
+    .map(toSeasonEpisodeInfo);
+  const out: SeasonInfo = {
+    seasonNumber: summary.season_number,
+    name: summary.name ?? `Season ${summary.season_number}`,
+    totalEpisodes: summary.episode_count ?? episodes.length,
+    episodes,
+  };
+  if (summary.air_date) out.airDate = summary.air_date;
+  return out;
+}
+
 export function mapGenres(genres: Genre[] | undefined, genreIds: number[] | undefined): string[] {
   if (genres && genres.length > 0) return genres.map((g) => g.name);
   // Search endpoints return genre_ids only; details endpoints return full genre objects.

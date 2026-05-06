@@ -35,7 +35,7 @@ function HeroFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="relative z-10 aspect-2/3 w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
+    <div className="relative z-10 aspect-2/3 max-h-[60lvh] w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:max-h-none sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
       <div
         data-testid="top-zone-hero-frame"
         className="absolute inset-0 isolate overflow-hidden rounded-4xl bg-card transform-gpu backface-hidden [clip-path:inset(0_round_var(--radius-4xl))]"
@@ -127,6 +127,10 @@ export function TopZone({ hero, onPeek }: Props) {
         <TopZoneHeroCard
           hero={active}
           percent={percent}
+          // v1: no `playback@v1.getResumeUrl` capability — Play opens the
+          // detail modal so the user can navigate to the full detail page
+          // and trigger the request flow if the title is unavailable.
+          onPlay={() => onPeek(active.id)}
           onMoreInfo={() => onPeek(active.id)}
           onDismiss={dismissHandler(candidates, cycleAlternate)}
         />
