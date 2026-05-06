@@ -12,7 +12,6 @@ type Props = {
 
 export function DetailRelatedRow({ item, watchlist, onWatchlistToggle, onCardClick }: Props) {
   const row = useMemo(() => buildRelatedRow(item), [item]);
-  if (row.items.length === 0) return null;
   return (
     <Row
       row={row}

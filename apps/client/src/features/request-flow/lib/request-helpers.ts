@@ -1,4 +1,4 @@
-import type { MockSeason } from "@/features/home/lib/types";
+import type { Season } from "./types";
 import { SERVICES } from "./mock-services";
 import type {
   RequestDestination,
@@ -122,7 +122,7 @@ export function getSeasonActionModel(
  * widened status set (`missing` instead of `unavailable`, `in-progress`
  * instead of `requested`).
  */
-export function inferSeasonStatus(season: MockSeason): RequestStatus {
+export function inferSeasonStatus(season: Season): RequestStatus {
   const { counts, episodeCount } = season;
   const available = counts.available ?? 0;
   const requested = counts.requested ?? 0;

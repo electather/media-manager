@@ -31,8 +31,9 @@ function HeroTitle({ item }: { item: HomeMediaItem }) {
 }
 
 function HeroMatchReason({ item }: { item: HomeMediaItem }) {
-  if (!item.matchReasonKey) return null;
-  const text = MATCH_REASON_COPY[item.matchReasonKey](item.matchReasonParams ?? {});
+  const reason = item.matchReason;
+  if (!reason) return null;
+  const text = MATCH_REASON_COPY[reason.key](reason.params ?? {});
   return (
     <div className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.06em] text-primary">
       <Sparkles aria-hidden="true" className="size-3" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { MockSeason } from "@/features/home/lib/types";
+import type { Season } from "../lib/types";
 import {
   createRequestPayload,
   describeDestination,
@@ -11,8 +11,8 @@ import {
 } from "../lib/request-helpers";
 
 const mkSeason = (
-  partial: Partial<MockSeason> & { number?: number; episodeCount: number },
-): MockSeason => ({
+  partial: Partial<Season> & { number?: number; episodeCount: number },
+): Season => ({
   number: partial.number ?? 1,
   episodeCount: partial.episodeCount,
   counts: partial.counts ?? {},
