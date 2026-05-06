@@ -1,9 +1,3 @@
-import { useReducedMotion } from "../hooks/use-reduced-motion";
-import { useScrollY } from "../hooks/use-scroll-y";
-
-const PARALLAX_FACTOR = 0.35;
-const PARALLAX_MAX_PX = 120;
-
 type Props = {
   /** Wide cinematic crop. Falls back to `posterSrc` when unset. */
   src: string | undefined;
@@ -16,31 +10,26 @@ type Props = {
 };
 
 /**
- * Cinematic backdrop that bleeds beneath the global TopNav. The image layer
- * extends past the section bounds so an upward parallax never reveals empty
- * space, and a stack of vertical/radial gradients fades the image into the
- * page background by the time the body content starts.
+ * Cinematic backdrop that fills the hero section and bleeds beneath the
+ * global TopNav. Mirrors the modal's `ModalBackdrop` pattern: a static
+ * `object-cover` image plus a top-down dark gradient that keeps overlaid
+ * copy (clear logo, meta line, action row) legible. No parallax — content
+ * scrolls cleanly over the fixed plate.
  */
 export function DetailHeroBackdrop({ src, posterSrc }: Props) {
-  const scrollY = useScrollY();
-  const reducedMotion = useReducedMotion();
-  const offset = reducedMotion ? 0 : Math.min(PARALLAX_MAX_PX, scrollY * PARALLAX_FACTOR);
   const imageSrc = src ?? posterSrc;
-
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 -top-30 bottom-0 -z-10 overflow-hidden"
-    >
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
       {imageSrc ? (
-        <img
-          src={imageSrc}
-          alt=""
-          className="absolute -bottom-50 left-0 right-0 top-0 size-full object-cover object-top will-change-transform [transition:transform_60ms_linear]"
-          style={{ transform: `translate3d(0, ${-offset}px, 0) scale(1.08)` }}
-        />
+        <img src={imageSrc} alt="" className="size-full object-cover object-top" />
       ) : null}
-      <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_30%_10%,transparent_0%,oklch(0_0_0/0.45)_70%),linear-gradient(180deg,oklch(0_0_0/0.20)_0%,oklch(0_0_0/0.40)_40%,var(--background)_78%,var(--background)_100%)]" />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, oklch(0 0 0 / 0.45) 0%, oklch(0 0 0 / 0.55) 35%, oklch(0 0 0 / 0.78) 65%, var(--background) 95%, var(--background) 100%)",
+        }}
+      />
     </div>
   );
 }
