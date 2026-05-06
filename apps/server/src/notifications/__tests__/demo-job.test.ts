@@ -85,8 +85,8 @@ afterAll(() => {
 });
 
 describe("registerDemoNotificationJob", () => {
-  it("creates inbox connection when missing and enables subscription for chosen category", async () => {
-    await runDemo({ userId: "user-1", category: "media" });
+  it("derives category from event type and seeds subscription for it", async () => {
+    await runDemo({ userId: "user-1", eventType: "connection.auth.expired" });
     const conn = await db
       .select()
       .from(serviceConnections)
@@ -98,7 +98,7 @@ describe("registerDemoNotificationJob", () => {
       .from(notificationSubscriptions)
       .where(eq(notificationSubscriptions.connectionId, conn!.id))
       .get();
-    expect(sub).toMatchObject({ category: "media", enabled: 1 });
+    expect(sub).toMatchObject({ category: "auth", enabled: 1 });
   });
 
   it("reuses existing inbox connection on subsequent runs", async () => {
@@ -112,14 +112,35 @@ describe("registerDemoNotificationJob", () => {
     expect(conns).toHaveLength(1);
   });
 
-  it("emits a media.request.available event for the recipient user", async () => {
-    await runDemo({ userId: "user-3", title: "Hello demo" });
+  it("emits a media.request.available event by default", async () => {
+    await runDemo({ userId: "user-3" });
     expect(emitMock).toHaveBeenCalledTimes(1);
     expect(emitMock.mock.calls[0]![0]).toMatchObject({
       type: "media.request.available",
       category: "media",
+      severity: "info",
       audience: { kind: "user", userId: "user-3" },
-      payload: { title: "Hello demo" },
+    });
+  });
+
+  it("emits the chosen event type with matching category and severity (auth)", async () => {
+    await runDemo({ userId: "user-3", eventType: "connection.auth.expired" });
+    expect(emitMock.mock.calls[0]![0]).toMatchObject({
+      type: "connection.auth.expired",
+      category: "auth",
+      severity: "warn",
+      audience: { kind: "user", userId: "user-3" },
+      payload: { connectionId: "demo-connection", pluginId: "demo-plugin" },
+    });
+  });
+
+  it("emits system.error correctly when chosen", async () => {
+    await runDemo({ userId: "user-3", eventType: "system.error" });
+    expect(emitMock.mock.calls[0]![0]).toMatchObject({
+      type: "system.error",
+      category: "system",
+      severity: "error",
+      payload: { errorSource: "demo" },
     });
   });
 
@@ -127,7 +148,7 @@ describe("registerDemoNotificationJob", () => {
     await expect(runDemo({})).rejects.toThrow(/userId/);
   });
 
-  it("rejects unknown category", async () => {
-    await expect(runDemo({ userId: "u", category: "bogus" })).rejects.toThrow();
+  it("rejects unknown event type", async () => {
+    await expect(runDemo({ userId: "u", eventType: "bogus.event" })).rejects.toThrow();
   });
 });
