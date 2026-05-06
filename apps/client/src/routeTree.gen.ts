@@ -38,6 +38,7 @@ import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
 import { Route as AuthenticatedSettingsAdminLogsRouteImport } from './routes/_authenticated/_settings/admin/logs'
 import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
+import { Route as AuthenticatedSettingsAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_settings/admin/notifications/settings'
 import { Route as AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport } from './routes/_authenticated/_settings/admin/notifications/deliveries'
 import { Route as AuthenticatedAppMediaMediaTypeMediaIdRouteImport } from './routes/_authenticated/_app/media.$mediaType.$mediaId'
 
@@ -201,6 +202,12 @@ const AuthenticatedSettingsAdminJobsRoute =
     path: '/admin/jobs',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsAdminNotificationsSettingsRoute =
+  AuthenticatedSettingsAdminNotificationsSettingsRouteImport.update({
+    id: '/admin/notifications/settings',
+    path: '/admin/notifications/settings',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsAdminNotificationsDeliveriesRoute =
   AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport.update({
     id: '/admin/notifications/deliveries',
@@ -243,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
   '/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  '/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedAppIndexRoute
@@ -273,6 +281,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
   '/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  '/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -307,6 +316,7 @@ export interface FileRoutesById {
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/_authenticated/_app/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
   '/_authenticated/_settings/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  '/_authenticated/_settings/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/media/$mediaType/$mediaId'
     | '/admin/notifications/deliveries'
+    | '/admin/notifications/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/media/$mediaType/$mediaId'
     | '/admin/notifications/deliveries'
+    | '/admin/notifications/settings'
   id:
     | '__root__'
     | '/_authenticated'
@@ -402,6 +414,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/settings/'
     | '/_authenticated/_app/media/$mediaType/$mediaId'
     | '/_authenticated/_settings/admin/notifications/deliveries'
+    | '/_authenticated/_settings/admin/notifications/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -615,6 +628,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_settings/admin/notifications/settings': {
+      id: '/_authenticated/_settings/admin/notifications/settings'
+      path: '/admin/notifications/settings'
+      fullPath: '/admin/notifications/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsAdminNotificationsSettingsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/_settings/admin/notifications/deliveries': {
       id: '/_authenticated/_settings/admin/notifications/deliveries'
       path: '/admin/notifications/deliveries'
@@ -671,6 +691,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSettingsSecurityRoute: typeof AuthenticatedSettingsSettingsSecurityRoute
   AuthenticatedSettingsSettingsIndexRoute: typeof AuthenticatedSettingsSettingsIndexRoute
   AuthenticatedSettingsAdminNotificationsDeliveriesRoute: typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  AuthenticatedSettingsAdminNotificationsSettingsRoute: typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
@@ -702,6 +723,8 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsSettingsIndexRoute,
     AuthenticatedSettingsAdminNotificationsDeliveriesRoute:
       AuthenticatedSettingsAdminNotificationsDeliveriesRoute,
+    AuthenticatedSettingsAdminNotificationsSettingsRoute:
+      AuthenticatedSettingsAdminNotificationsSettingsRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =

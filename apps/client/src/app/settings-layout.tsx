@@ -21,6 +21,7 @@ const ADMIN_NAV = [
   { to: "/admin/jobs", label: "Jobs" },
   { to: "/admin/logs", label: "Logs" },
   { to: "/admin/notifications/deliveries", label: "Notification deliveries" },
+  { to: "/admin/notifications/settings", label: "Notification retention" },
 ] as const;
 
 export function SettingsLayout() {
