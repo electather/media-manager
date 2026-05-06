@@ -50,6 +50,19 @@ describe("useInterval", () => {
     clearSpy.mockRestore();
   });
 
+  it("resumes firing after transitioning from null to a delay", () => {
+    const cb = vi.fn();
+    const { rerender } = renderHook(({ d }) => useInterval(cb, d), {
+      initialProps: { d: null as number | null },
+    });
+    vi.advanceTimersByTime(500);
+    expect(cb).not.toHaveBeenCalled();
+
+    rerender({ d: 100 });
+    vi.advanceTimersByTime(300);
+    expect(cb).toHaveBeenCalledTimes(3);
+  });
+
   it("restarts the interval when the delay changes", () => {
     const cb = vi.fn();
     const { rerender } = renderHook(({ d }) => useInterval(cb, d), {
