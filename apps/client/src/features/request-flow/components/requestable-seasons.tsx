@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
@@ -47,6 +47,18 @@ export function RequestableSeasons({
 }: Props) {
   const [overrides, setOverrides] = useState<Record<number, RequestStatus>>(initialOverrides ?? {});
   const [bulkOpen, setBulkOpen] = useState(false);
+
+  // Reset the local override map whenever the underlying TV title changes,
+  // since the detail page reuses this component across navigations and
+  // overrides are keyed only by season number.
+  useEffect(() => {
+    setOverrides(initialOverrides ?? {});
+    setBulkOpen(false);
+    // `initialOverrides` is intentionally excluded from the dep list — the
+    // common case passes a fresh object literal each render and we only
+    // want to reset on item navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId]);
 
   if (!seasons || seasons.length === 0) return null;
 

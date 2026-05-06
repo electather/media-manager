@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plug, Plus } from "lucide-react";
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
@@ -39,6 +39,14 @@ export function MovieRequestAction({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<RequestStatus>(() => normalizeRequestStatus(initialStatus));
+
+  // The hero on the full detail page is reused across navigations; reset
+  // local request state whenever the underlying item changes so a
+  // previously-submitted movie can't leak its pending status onto another.
+  useEffect(() => {
+    setStatus(normalizeRequestStatus(initialStatus));
+    setOpen(false);
+  }, [itemId, initialStatus]);
 
   const destination = describeDestination("movie", defaultServiceId, defaultProfileId);
 
