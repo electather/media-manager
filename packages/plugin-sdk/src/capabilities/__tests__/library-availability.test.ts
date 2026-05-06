@@ -17,9 +17,9 @@ describe("LibraryAvailabilityV1", () => {
     expect(getCapability("libraryAvailability", "v1")).toBe(LibraryAvailabilityV1);
   });
 
-  it("exposes the three library methods", () => {
+  it("exposes the four library methods", () => {
     expect(Object.keys(LibraryAvailabilityV1.methods).sort()).toEqual(
-      ["checkAvailability", "listRecentlyAdded", "searchLibrary"].sort(),
+      ["checkAvailability", "listAvailable", "listRecentlyAdded", "searchLibrary"].sort(),
     );
   });
 
@@ -130,6 +130,30 @@ describe("LibraryAvailabilityV1", () => {
     it("accepts a final page with no nextCursor", () => {
       const r = LibraryAvailabilityV1.methods.listRecentlyAdded.output.safeParse({
         items: [libraryItemFixture],
+      });
+      expect(r.success).toBe(true);
+    });
+  });
+
+  describe("listAvailable", () => {
+    it("requires a query type", () => {
+      const r = LibraryAvailabilityV1.methods.listAvailable.input.safeParse({});
+      expect(r.success).toBe(false);
+    });
+
+    it("accepts a movie type", () => {
+      const r = LibraryAvailabilityV1.methods.listAvailable.input.safeParse({ type: "movie" });
+      expect(r.success).toBe(true);
+    });
+
+    it("validates an empty tmdbIds list as a valid output", () => {
+      const r = LibraryAvailabilityV1.methods.listAvailable.output.safeParse({ tmdbIds: [] });
+      expect(r.success).toBe(true);
+    });
+
+    it("validates a populated tmdbIds list", () => {
+      const r = LibraryAvailabilityV1.methods.listAvailable.output.safeParse({
+        tmdbIds: ["550", "1198994"],
       });
       expect(r.success).toBe(true);
     });

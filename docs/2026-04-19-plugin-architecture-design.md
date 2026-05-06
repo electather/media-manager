@@ -388,6 +388,7 @@ Runtime enforcement on every invocation:
 - `getSimilar({ id, type })` → `MediaItem[]`
 - `getTrending({ type?, limit? })` → `MediaItem[]`
 - `discover({ genres?, yearMin?, yearMax?, ratingMin?, limit? })` → `MediaItem[]`
+- _added_ `getShowSeasons({ id })` → `{ seasons: SeasonInfo[] }` — canonical season + episode list for a TV title. Backed by TMDB `/tv/{id}` w/ `append_to_response=season/1,season/2,…`. `SeasonInfo = { seasonNumber, name, airDate?, totalEpisodes, episodes: [{ episodeNumber, title, airDate?, runtime? }] }`. Movie titles → caller skips this method (no shape for movies). Specials are `seasonNumber: 0`; UI filters server-side based on availability join.
 
 **`watchHistory@v1`** (user)
 
@@ -467,6 +468,7 @@ Backed by Trakt `/sync/collection/*`. "Does user already own this locally" — d
 - `checkAvailability({ id, idType, type })` → `{ items: LibraryItem[] }` — `idType` ∈ `"tmdb" | "imdb" | "tvdb"`. Server-local ids ∉ accepted here: if caller already has server-local id, they have `LibraryItem` & ⊥ need re-check. Returns 0..n matches so multiple quality copies each surface as own entry. Backed by Plex `/library/metadata/matches` / `/library/all?guid=...` & Jellyfin `/Users/{userId}/Items?AnyProviderIdEquals=...`.
 - `listRecentlyAdded({ type?, limit? })` → `LibraryItem[]` — server-reported recently-imported items. Backed by Plex `/library/recentlyAdded` & Jellyfin `/Users/{userId}/Items/Latest`.
 - `searchLibrary({ query, type? })` → `LibraryItem[]` — free-text search scoped to user's library.
+- _added_ `listShowEpisodes({ id, idType })` → `{ episodes: Array<{ season: number, episode: number }> }` — flat list of episodes the user's server has for given show. Caller (host) buckets by `season` to assemble per-server presence. Backed by Plex `/library/metadata/{ratingKey}/allLeaves` & Jellyfin `/Shows/{id}/Episodes`. Plugin = pure pass-through; no bucketing logic plugin-side. Cross-server `idType` (`tmdb`/`imdb`/`tvdb`) → plugin first resolves via own `idResolve@v1` to server-local id, then enumerates. Empty list when title ∉ on this server (⊥ throw).
 
 Where `LibraryItem`:
 

@@ -43,7 +43,14 @@ export const libraryAvailability = {
       `/Users/${userId}/Items?${params.toString()}`,
     );
     const externalBase = getExternalBase(getUserCfg(typedCtx));
+    // Recent Jellyfin builds (10.10+) silently ignore `AnyProviderIdEquals`
+    // and return the full type-filtered library. Re-filter on the client by
+    // matching the requested ProviderIds entry — the response already
+    // includes `ProviderIds` because we asked for it in `Fields`. Without
+    // this guard, every TMDB lookup would report a server copy and the
+    // home feed's `availability.hasAnyServerCopy` would be uniformly true.
     const items = (data.Items ?? [])
+      .filter((row) => row.ProviderIds?.[provider] === id)
       .map((row) => mapLibraryItem(row, externalBase))
       .filter((x): x is LibraryItem => x !== null);
     return { items };
@@ -86,6 +93,35 @@ export const libraryAvailability = {
     const result: { items: LibraryItem[]; nextCursor?: string } = { items };
     if (rows.length > page * safeLimit) result.nextCursor = String(page + 1);
     return result;
+  },
+
+  async listAvailable(ctx: unknown, input: unknown) {
+    const typedCtx = ctx as Ctx;
+    const { type } = input as { type: "movie" | "show" };
+    const userId = getUserId(typedCtx);
+    const jfType = type === "movie" ? "Movie" : "Series";
+    // Single library scan returning every TMDB id present. The host caches
+    // the response per-request so N enrichment calls collapse to one network
+    // round-trip plus N O(1) set lookups (vs. N independent
+    // `checkAvailability` probes that each return the entire library on
+    // Jellyfin 10.10+ thanks to the broken `AnyProviderIdEquals` filter).
+    const params = new URLSearchParams({
+      IncludeItemTypes: jfType,
+      Recursive: "true",
+      Fields: "ProviderIds",
+      EnableImages: "false",
+      EnableUserData: "false",
+    });
+    const data = await jellyfinJson<{ Items: JellyfinItem[] }>(
+      typedCtx,
+      `/Users/${userId}/Items?${params.toString()}`,
+    );
+    const tmdbIds: string[] = [];
+    for (const row of data.Items ?? []) {
+      const tmdb = row.ProviderIds?.Tmdb;
+      if (tmdb) tmdbIds.push(tmdb);
+    }
+    return { tmdbIds };
   },
 
   async searchLibrary(ctx: unknown, input: unknown) {

@@ -37,8 +37,8 @@ export function mapMovie(m: TraktMovie) {
     ids: {
       tmdb_id: m.ids.tmdb ? String(m.ids.tmdb) : undefined,
       trakt_id: String(m.ids.trakt),
-      trakt_slug: m.ids.slug,
-      imdb_id: m.ids.imdb,
+      trakt_slug: m.ids.slug ?? undefined,
+      imdb_id: m.ids.imdb ?? undefined,
     },
   };
 }
@@ -63,9 +63,9 @@ export function mapShow(s: TraktShow) {
     ids: {
       tmdb_id: s.ids.tmdb ? String(s.ids.tmdb) : undefined,
       trakt_id: String(s.ids.trakt),
-      trakt_slug: s.ids.slug,
+      trakt_slug: s.ids.slug ?? undefined,
       tvdb_id: s.ids.tvdb ? String(s.ids.tvdb) : undefined,
-      imdb_id: s.ids.imdb,
+      imdb_id: s.ids.imdb ?? undefined,
     },
   };
 }

@@ -309,6 +309,36 @@ describe("plex libraryAvailability.listRecentlyAdded", () => {
   });
 });
 
+describe("plex libraryAvailability.listAvailable", () => {
+  const cap = plexPlugin.capabilities.libraryAvailability!;
+
+  it("returns tmdb ids harvested from /library/all guids", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        MediaContainer: {
+          Metadata: [
+            metaFixture({ ratingKey: "1", Guid: [{ id: "tmdb://550" }] }),
+            metaFixture({ ratingKey: "2", Guid: [{ id: "tmdb://1198994" }] }),
+            metaFixture({ ratingKey: "3", Guid: [{ id: "imdb://tt123" }] }),
+          ],
+        },
+      }),
+    ]);
+    const r = (await cap.listAvailable!(ctx, { type: "movie" })) as { tmdbIds: string[] };
+    expect(r.tmdbIds).toEqual(["550", "1198994"]);
+    expect(ctx.calls[0]?.url).toContain("/library/all?");
+    expect(ctx.calls[0]?.url).toContain("type=1");
+    const parsed = LibraryAvailabilityV1.methods.listAvailable.output.safeParse(r);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("queries Plex type=2 for shows", async () => {
+    const ctx = makeCtx([jsonRes({ MediaContainer: { Metadata: [] } })]);
+    await cap.listAvailable!(ctx, { type: "show" });
+    expect(ctx.calls[0]?.url).toContain("type=2");
+  });
+});
+
 describe("plex libraryAvailability.searchLibrary", () => {
   const cap = plexPlugin.capabilities.libraryAvailability!;
 

@@ -82,22 +82,23 @@ async function hydrateArtwork(
 }
 
 /**
- * Layers the freshly resolved `ArtworkBundle` onto an item without clobbering
- * URLs that were already populated upstream. The `mergeArtwork` projection
- * fills only the gaps, mirroring `patchArtwork`'s COALESCE semantics on the
- * wire so the response never overwrites a higher-quality URL with a fallback.
+ * Layers any resolved artwork onto an item without clobbering URLs already
+ * populated upstream. Fallback order per field: existing value → fresh bundle
+ * → canonical metadata. Adapters like `fromContinueWatchingEntry` ship the
+ * item without poster/backdrop/clearLogo, so we must apply the catalog meta
+ * here even when `hydrateArtwork` skipped a request because canonical art was
+ * already complete (otherwise hero + CW rows render with null images).
  */
 function mergeArtwork(
   item: InternalCompactMediaItem,
   meta: CanonicalMetadata | undefined,
   bundle: ArtworkBundle | undefined,
 ): InternalCompactMediaItem {
-  if (!bundle) return item;
   const out = { ...item };
-  if (!out.poster) out.poster = bundle.poster[0]?.url ?? meta?.posterUrl ?? out.poster;
-  if (!out.backdrop) out.backdrop = bundle.backdrop[0]?.url ?? meta?.backdropUrl ?? out.backdrop;
+  if (!out.poster) out.poster = bundle?.poster[0]?.url ?? meta?.posterUrl ?? out.poster;
+  if (!out.backdrop) out.backdrop = bundle?.backdrop[0]?.url ?? meta?.backdropUrl ?? out.backdrop;
   if (!out.clearLogo) {
-    out.clearLogo = bundle.clearLogo[0]?.url ?? meta?.clearLogoUrl ?? out.clearLogo;
+    out.clearLogo = bundle?.clearLogo[0]?.url ?? meta?.clearLogoUrl ?? out.clearLogo;
   }
   return out;
 }
@@ -108,11 +109,18 @@ async function deriveAvailability(
   requestProviders: readonly string[],
   ctx: RowContext,
 ): Promise<Availability> {
-  const hasAnyServerCopy = status === "available";
-  const requestEligible = status !== "available" && requestProviders.length > 0;
-  const servers = hasAnyServerCopy
-    ? await ctx.mediaService.getMatchingServers(item.tmdbId, item.mediaType)
-    : [];
+  // The presence of a server copy is the truth from `libraryAvailability@v1`
+  // — `mediaRequest@v1.getStatusBatch` only knows titles that flowed through
+  // the request flow (Seerr), so a show added to Jellyfin directly would
+  // surface here as `status: "unknown"` while still being playable. Drive
+  // `hasAnyServerCopy` off the matching-servers probe so directly-added
+  // titles render the right CTA.
+  const servers = await ctx.mediaService
+    .getMatchingServers(item.tmdbId, item.mediaType)
+    .catch(() => []);
+  const hasAnyServerCopy = servers.length > 0;
+  const requestEligible =
+    !hasAnyServerCopy && status !== "available" && requestProviders.length > 0;
   return { hasAnyServerCopy, requestEligible, servers };
 }
 

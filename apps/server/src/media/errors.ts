@@ -39,7 +39,11 @@ export class PluginCallError extends Error {
 export class AllPluginsFailedError extends Error {
   constructor(
     public readonly capability: string,
-    public readonly errors: ReadonlyArray<{ pluginId: string; code: HostErrorCode }>,
+    public readonly errors: ReadonlyArray<{
+      pluginId: string;
+      code: HostErrorCode;
+      devMessage?: string;
+    }>,
   ) {
     super(`every provider for ${capability} errored`);
     this.name = "AllPluginsFailedError";

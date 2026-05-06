@@ -27,7 +27,9 @@ describe("jellyfin plugin passes loader validation", () => {
 
 describe("jellyfin capability contract", () => {
   it("libraryAvailability.checkAvailability: hits /Users/{userId}/Items with AnyProviderIdEquals", async () => {
-    const ctx = makeCtx([jsonRes({ Items: [jfItem({ Id: "jf-1" })] })]);
+    const ctx = makeCtx([
+      jsonRes({ Items: [jfItem({ Id: "jf-1", ProviderIds: { Tmdb: "550" } })] }),
+    ]);
     const out = await jellyfinPlugin.capabilities.libraryAvailability!.checkAvailability!(ctx, {
       id: "550",
       idType: "tmdb",

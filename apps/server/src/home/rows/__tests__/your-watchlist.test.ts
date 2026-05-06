@@ -24,11 +24,12 @@ function meta(tmdbId: string, mediaType: "movie" | "tv" = "movie"): CanonicalMet
 }
 
 describe("rows/your-watchlist", () => {
-  it("filters strictly to status='available'", async () => {
+  it("filters to titles present on a connected library server", async () => {
     const ctx = makeRowCtx();
     (
       ctx.mediaService as unknown as {
         getWatchlistFeed: { mockResolvedValue: (v: unknown) => void };
+        getMatchingServers: { mockImplementation: (fn: unknown) => void };
       }
     ).getWatchlistFeed.mockResolvedValue({
       items: [
@@ -38,13 +39,14 @@ describe("rows/your-watchlist", () => {
       ],
       partial: false,
     });
+    // Items 1 and 3 are on Jellyfin; item 2 is watchlist-only.
     (
-      ctx.statusBatch as unknown as { get: { mockResolvedValue: (v: unknown) => void } }
-    ).get.mockResolvedValue({
-      "movie:1": "available",
-      "tv:2": "unknown",
-      "movie:3": "available",
-    });
+      ctx.mediaService as unknown as {
+        getMatchingServers: { mockImplementation: (fn: unknown) => void };
+      }
+    ).getMatchingServers.mockImplementation(async (tmdbId: string) =>
+      tmdbId === "2" ? [] : [{ id: "jellyfin", label: "Jellyfin" }],
+    );
     (
       ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
     ).getMetadataBatch.mockResolvedValue({
@@ -55,6 +57,32 @@ describe("rows/your-watchlist", () => {
     const page = await provider.fetchPage(ctx, null);
     expect(page.items.map((i) => i.tmdbId).sort()).toEqual(["1", "3"]);
     expect(page.cursor).toBeNull();
+  });
+
+  it("unwraps `{ item, addedAt }` watchlist entries when reading the tmdb id", async () => {
+    const ctx = makeRowCtx();
+    (
+      ctx.mediaService as unknown as {
+        getWatchlistFeed: { mockResolvedValue: (v: unknown) => void };
+      }
+    ).getWatchlistFeed.mockResolvedValue({
+      items: [
+        // Trakt + most providers wrap entries; the tmdb id lives on `item.ids`.
+        { item: { ids: { tmdb_id: "42" }, type: "movie" }, addedAt: "2026-01-01" },
+      ],
+      partial: false,
+    });
+    (
+      ctx.mediaService as unknown as {
+        getMatchingServers: { mockResolvedValue: (v: unknown) => void };
+      }
+    ).getMatchingServers.mockResolvedValue([{ id: "jellyfin", label: "Jellyfin" }]);
+    (
+      ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
+    ).getMetadataBatch.mockResolvedValue({ "movie:42": meta("42") });
+
+    const page = await provider.fetchPage(ctx, null);
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["42"]);
   });
 
   it("propagates partial=true from the watchlist aggregate", async () => {

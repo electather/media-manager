@@ -52,7 +52,12 @@ apps/client/src/
 │       ├── modal-actions.tsx          — request stub, watchlist toggle, trailer stub
 │       ├── modal-backdrop.tsx         — hero-area backdrop image with gradient fade
 │       ├── modal-credits.tsx          — director / cast definition list
-│       └── modal-seasons.tsx          — read-only season/episode status accordion
+│       └── modal-seasons/             — TV-only seasons accordion (rev 2 amendment)
+│           ├── index.tsx               — Suspense boundary + section frame
+│           ├── seasons-list.tsx        — wraps RequestableSeasons (pluginConfigured=false)
+│           ├── use-season-availability.ts — useSuspenseQuery → /api/home/season-availability
+│           ├── derive-status.ts        — best-of-N season-status reducer
+│           └── seasons-error.tsx       — ErrorBoundary fallback microcopy
 │
 └── app/
     ├── top-nav.tsx                    — add Home/Library/Watchlist tabs (desktop)
@@ -305,7 +310,7 @@ In-scope:
 
 - Hero layout: title, metadata, overview, cast, genres
 - Action row (`modal-actions.tsx`): Request button (stub — fires local state), Watchlist toggle, Trailer button (stub — no-op)
-- Season accordion (`modal-seasons.tsx`): read-only, displays status tag per season (available / requested / unavailable / upcoming); no request buttons yet
+- Season accordion (`modal-seasons/`): live TV-only read-only accordion (rev 2 amendment to home backend spec). Canonical season+episode list arrives w/ `home.getDetails`; per-server presence loaded lazily via `home.getSeasonAvailability` inside a `<Suspense>` boundary. Per-season status derived best-of-N across servers (available / partial / unavailable / upcoming). Reuses existing `RequestableSeasons` component w/ `pluginConfigured={false}` so request actions render as plain status badges. Plugin failure shows partial-success row + "couldn't reach <server>" microcopy via local `<ErrorBoundary>`. No request buttons yet.
 - Scroll-driven title animation (CSS scroll-timeline)
 - Focus trap, keyboard dismiss, `aria-modal`
 
