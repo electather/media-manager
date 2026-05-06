@@ -28,11 +28,9 @@ export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
     [seasons, data.servers],
   );
 
-  if (joined.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-2">
-      {data.errors?.map((err) => (
+  const errorChips = data.errors?.length ? (
+    <>
+      {data.errors.map((err) => (
         <p
           key={err.serverId}
           role="status"
@@ -41,6 +39,21 @@ export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
           {m.home_detail_seasons_server_unreachable({ server: err.serverLabel })}
         </p>
       ))}
+    </>
+  ) : null;
+
+  // Specials-only show with no server presence collapses `joined` to empty.
+  // Still surface error chips so the user sees "{server} unreachable" rather
+  // than a blank section — silent emptiness was the regression flagged in
+  // PR #202 review (early `return null` swallowed `data.errors`).
+  if (joined.length === 0) {
+    if (!errorChips) return null;
+    return <div className="flex flex-col gap-2">{errorChips}</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {errorChips}
       {data.servers.length === 0 && (data.errors?.length ?? 0) === 0 ? (
         <p className="rounded-lg bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
           {m.home_detail_seasons_no_servers()}

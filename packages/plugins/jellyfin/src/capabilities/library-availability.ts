@@ -141,11 +141,19 @@ export const libraryAvailability = {
       const provider = toJfProvider(idType);
       if (!provider) return { episodes: [] };
       const userId = getUserId(typedCtx);
+      // Cap the response: Jellyfin 10.10+ silently ignores
+      // `AnyProviderIdEquals` and would otherwise return the entire series
+      // library to be filtered client-side. `Limit: 50` keeps the cold-path
+      // payload bounded while still yielding the right hit on builds where
+      // the filter works (single match) and giving the client-side `find`
+      // enough rows to recover on broken builds (a typical 50-show library
+      // page is small enough to scan in O(N)).
       const params = new URLSearchParams({
         IncludeItemTypes: "Series",
         Recursive: "true",
         AnyProviderIdEquals: `${provider}.${id}`,
         Fields: "ProviderIds",
+        Limit: "50",
       });
       try {
         const data = await jellyfinJson<{ Items: JellyfinItem[] }>(

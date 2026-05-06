@@ -126,14 +126,24 @@ export const metadata = {
     if (seasonNumbers.length === 0) return { seasons: [] };
 
     const APPEND_CHUNK_SIZE = 20;
-    const aggregated: TmdbShowSeasonsRaw["seasonDetails"] = {};
+    const chunks: number[][] = [];
     for (let offset = 0; offset < seasonNumbers.length; offset += APPEND_CHUNK_SIZE) {
-      const chunk = seasonNumbers.slice(offset, offset + APPEND_CHUNK_SIZE);
-      const append = chunk.map((n) => `season/${n}`).join(",");
-      const data = (await tmdbGet(c, `/tv/${id}`, { append_to_response: append })) as Record<
-        string,
-        unknown
-      >;
+      chunks.push(seasonNumbers.slice(offset, offset + APPEND_CHUNK_SIZE));
+    }
+    // Run chunks in parallel — each is an independent TMDB request, and the
+    // day cache absorbs the result so cold-path latency is the only thing we
+    // pay. Sequential awaits would 2x cold latency on long-running shows.
+    const chunkResults = await Promise.all(
+      chunks.map(
+        (chunk) =>
+          tmdbGet(c, `/tv/${id}`, {
+            append_to_response: chunk.map((n) => `season/${n}`).join(","),
+          }) as Promise<Record<string, unknown>>,
+      ),
+    );
+    const aggregated: TmdbShowSeasonsRaw["seasonDetails"] = {};
+    chunks.forEach((chunk, i) => {
+      const data = chunkResults[i]!;
       for (const n of chunk) {
         const key = `season/${n}`;
         const seasonPayload = data[key] as
@@ -148,7 +158,7 @@ export const metadata = {
           | undefined;
         if (seasonPayload) aggregated[n] = seasonPayload;
       }
-    }
+    });
     return {
       seasons: (showRoot.seasons ?? [])
         .filter(

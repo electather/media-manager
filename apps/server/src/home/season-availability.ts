@@ -44,13 +44,13 @@ export async function composeSeasonAvailability(
   if (providers.length === 0) return { servers: [] };
   const capability = requireCapability("libraryAvailability", "v1");
 
-  const targets: Array<{ pluginId: string; conn: ResolvedConnection }> = [];
-  await Promise.all(
+  const connectionsByPlugin = await Promise.all(
     providers.map(async (pluginId) => {
       const conns = await resolveConnections(ctx.userId, pluginId);
-      for (const conn of conns) targets.push({ pluginId, conn });
+      return conns.map((conn) => ({ pluginId, conn }));
     }),
   );
+  const targets: Array<{ pluginId: string; conn: ResolvedConnection }> = connectionsByPlugin.flat();
   if (targets.length === 0) return { servers: [] };
 
   const settled = await Promise.all(
