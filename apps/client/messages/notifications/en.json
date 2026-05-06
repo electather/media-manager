@@ -115,5 +115,11 @@
   "notifications_admin_settings_delivery_retention": "Delivery retention (days)",
   "notifications_admin_settings_save": "Save",
   "notifications_admin_settings_saved": "Settings saved",
-  "notifications_admin_settings_save_failed": "Could not save settings"
+  "notifications_admin_settings_save_failed": "Could not save settings",
+  "notifications_admin_deliveries_empty": "No deliveries",
+  "notifications_admin_filter_all": "All",
+  "notifications_loading": "Loading…",
+  "notifications_error_title": "Couldn't load notifications",
+  "notifications_error_retry": "Try again",
+  "notifications_bulk_delete_failed": "Could not delete: {message}"
 }

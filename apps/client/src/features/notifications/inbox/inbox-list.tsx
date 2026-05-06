@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { m } from "@/paraglide/messages";
 import { InboxRow } from "./inbox-row";
 import { InboxEmpty } from "./inbox-empty";
 import { useInbox } from "./use-inbox";
@@ -66,7 +67,7 @@ export function InboxList({ filters, selected, onToggleSelect }: Props) {
             >
               {isSentinel ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                  {isFetchingNextPage ? "Loading…" : ""}
+                  {isFetchingNextPage ? m.notifications_loading() : ""}
                 </div>
               ) : item ? (
                 <InboxRow

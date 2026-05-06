@@ -115,5 +115,11 @@
   "notifications_admin_settings_delivery_retention": "نگهداری تحویل (روز)",
   "notifications_admin_settings_save": "ذخیره",
   "notifications_admin_settings_saved": "تنظیمات ذخیره شد",
-  "notifications_admin_settings_save_failed": "ذخیره تنظیمات ناموفق بود"
+  "notifications_admin_settings_save_failed": "ذخیره تنظیمات ناموفق بود",
+  "notifications_admin_deliveries_empty": "تحویلی وجود ندارد",
+  "notifications_admin_filter_all": "همه",
+  "notifications_loading": "در حال بارگذاری…",
+  "notifications_error_title": "بارگذاری اعلان‌ها ممکن نشد",
+  "notifications_error_retry": "تلاش دوباره",
+  "notifications_bulk_delete_failed": "حذف انجام نشد: {message}"
 }

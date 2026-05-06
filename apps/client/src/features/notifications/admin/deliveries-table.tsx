@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { AdminDeliveryRow } from "@ent-mcp/shared/notifications";
+import { m } from "@/paraglide/messages";
 import { useAdminDeliveries } from "./use-admin-deliveries";
 import { DeliveryRow } from "./delivery-row";
 import type { AdminDeliveryFilters } from "../shared/types";
@@ -14,11 +15,7 @@ export function DeliveriesTable({ filters, onSelect }: Props) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useAdminDeliveries(filters);
   const items = useMemo<AdminDeliveryRow[]>(
     () =>
-      data.pages.flatMap((p) =>
-        "deliveries" in p && Array.isArray(p.deliveries)
-          ? (p.deliveries as AdminDeliveryRow[])
-          : [],
-      ),
+      data.pages.flatMap((p) => ("deliveries" in p ? (p.deliveries as AdminDeliveryRow[]) : [])),
     [data.pages],
   );
   const parentRef = useRef<HTMLDivElement>(null);
@@ -41,7 +38,9 @@ export function DeliveriesTable({ filters, onSelect }: Props) {
 
   if (items.length === 0) {
     return (
-      <div className="px-4 py-12 text-center text-sm text-muted-foreground">No deliveries</div>
+      <div className="px-4 py-12 text-center text-sm text-muted-foreground">
+        {m.notifications_admin_deliveries_empty()}
+      </div>
     );
   }
 
@@ -68,7 +67,7 @@ export function DeliveriesTable({ filters, onSelect }: Props) {
             >
               {isSentinel ? (
                 <div className="px-4 py-3 text-center text-xs text-muted-foreground">
-                  {isFetchingNextPage ? "Loading…" : ""}
+                  {isFetchingNextPage ? m.notifications_loading() : ""}
                 </div>
               ) : d ? (
                 <DeliveryRow delivery={d} onClick={onSelect} />

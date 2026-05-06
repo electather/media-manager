@@ -148,6 +148,8 @@ Migration of existing code:
 
 Co-tenancy: `inbox-row.tsx` & `popover-row.tsx` share `shared/notification-card-base.tsx` to ⊥ duplicate severity icon + admin-badge + relative-time layout. Compact (popover) vs comfortable (inbox page) variants via `density` prop.
 
+> **Deferred.** `notification-card-base.tsx` and the `density` prop did not ship with the initial PR. `inbox-row.tsx` and `popover-row.tsx` remain standalone for v1. Revisit once a third row variant is needed.
+
 ## Data layer
 
 ### Query keys

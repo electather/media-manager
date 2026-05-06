@@ -1,8 +1,11 @@
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
-import type {
-  NotificationCategory,
-  NotificationDeliveryStatus,
-  NotificationSeverity,
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_DELIVERY_STATUSES,
+  NOTIFICATION_SEVERITIES,
+  type NotificationCategory,
+  type NotificationDeliveryStatus,
+  type NotificationSeverity,
 } from "@ent-mcp/shared/notifications";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -14,10 +17,6 @@ interface Props {
   filters: AdminDeliveryFilters;
   onFiltersChange: (next: AdminDeliveryFilters) => void;
 }
-
-const STATUSES: NotificationDeliveryStatus[] = ["pending", "in_progress", "succeeded", "failed"];
-const CATEGORIES: NotificationCategory[] = ["media", "sync", "auth", "system"];
-const SEVERITIES: NotificationSeverity[] = ["info", "warn", "error"];
 
 const STATUS_LABELS: Record<NotificationDeliveryStatus, () => string> = {
   pending: () => m.notifications_admin_status_pending(),
@@ -69,8 +68,8 @@ export function DeliveriesFilterBar({ filters, onFiltersChange }: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {STATUSES.map((s) => (
+            <SelectItem value="all">{m.notifications_admin_filter_all()}</SelectItem>
+            {NOTIFICATION_DELIVERY_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
                 {STATUS_LABELS[s]()}
               </SelectItem>
@@ -90,8 +89,8 @@ export function DeliveriesFilterBar({ filters, onFiltersChange }: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {CATEGORIES.map((c) => (
+            <SelectItem value="all">{m.notifications_admin_filter_all()}</SelectItem>
+            {NOTIFICATION_CATEGORIES.map((c) => (
               <SelectItem key={c} value={c}>
                 {c}
               </SelectItem>
@@ -111,8 +110,8 @@ export function DeliveriesFilterBar({ filters, onFiltersChange }: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {SEVERITIES.map((s) => (
+            <SelectItem value="all">{m.notifications_admin_filter_all()}</SelectItem>
+            {NOTIFICATION_SEVERITIES.map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
               </SelectItem>

@@ -1,5 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_DELIVERY_STATUSES,
+  NOTIFICATION_SEVERITIES,
+} from "@ent-mcp/shared/notifications";
 import { fetchAdminDeliveriesPage } from "@/features/notifications/shared/fetchers";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
 import { NotificationsErrorBoundary } from "@/features/notifications/shared/error-boundary";
@@ -9,9 +14,9 @@ import type { AdminDeliveryFilters } from "@/features/notifications/shared/types
 
 const adminSearchSchema = z
   .object({
-    status: z.enum(["pending", "in_progress", "succeeded", "failed"]).optional(),
-    category: z.enum(["media", "sync", "auth", "system"]).optional(),
-    severity: z.enum(["info", "warn", "error"]).optional(),
+    status: z.enum(NOTIFICATION_DELIVERY_STATUSES).optional(),
+    category: z.enum(NOTIFICATION_CATEGORIES).optional(),
+    severity: z.enum(NOTIFICATION_SEVERITIES).optional(),
     recipientUserId: z.string().optional(),
     from: z.number().optional(),
     to: z.number().optional(),

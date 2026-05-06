@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import { m } from "@/paraglide/messages";
 import {
   fetchDeleteInboxAll,
   fetchDismiss,
@@ -157,6 +159,10 @@ export function useDeleteInboxAll() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { readOnly?: boolean; olderThan?: string }) => fetchDeleteInboxAll(input),
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(m.notifications_bulk_delete_failed({ message: msg }));
+    },
     onSettled: () => invalidateInboxAndCount(qc),
   });
 }

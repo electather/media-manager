@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { shortRequestId } from "@/shared/lib/errors/request-id";
+import { m } from "@/paraglide/messages";
 import { notificationsKeys } from "./query-keys";
 import { NotificationsApiError } from "./types";
 
@@ -26,13 +27,13 @@ function FallbackInner({
   };
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center">
-      <h2 className="text-lg font-semibold">Couldn't load notifications</h2>
+      <h2 className="text-lg font-semibold">{m.notifications_error_title()}</h2>
       <p className="text-sm text-muted-foreground">{message}</p>
       {requestId ? (
         <p className="text-xs font-mono text-muted-foreground">Ref: {shortRequestId(requestId)}</p>
       ) : null}
       <Button variant="outline" size="sm" onClick={onRetry}>
-        Try again
+        {m.notifications_error_retry()}
       </Button>
     </div>
   );
