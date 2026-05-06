@@ -71,3 +71,49 @@ describe("DynamicTriggerDialog enum rendering", () => {
     expect(trigger.textContent).not.toMatch(/^sync$/);
   });
 });
+
+const requiredJob = {
+  id: "host.thing",
+  name: "Thing",
+  kind: "triggerable",
+  enabled: true,
+  adminTriggerable: true,
+  userTriggerable: false,
+  inputSchema: {
+    type: "object",
+    properties: {
+      target: { type: "string", description: "Target id" },
+      note: { type: "string", description: "Optional note" },
+    },
+    required: ["target"],
+  },
+} as unknown as JobHandle;
+
+describe("DynamicTriggerDialog required validation", () => {
+  it("marks required field labels with an asterisk", () => {
+    renderWithClient(<DynamicTriggerDialog open job={requiredJob} onClose={() => undefined} />);
+    const targetLabel = screen.getByText("target", { selector: "label" });
+    expect(targetLabel.textContent).toContain("*");
+    const noteLabel = screen.getByText("note", { selector: "label" });
+    expect(noteLabel.textContent).not.toContain("*");
+  });
+
+  it("blocks submit and shows error message when required field is empty", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={requiredJob} onClose={() => undefined} />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    expect(screen.getByText(/this field is required/i)).toBeTruthy();
+    const input = screen.getByRole("textbox", { name: /target/i });
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("clears the error once the required field is filled", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<DynamicTriggerDialog open job={requiredJob} onClose={() => undefined} />);
+    await user.click(screen.getByRole("button", { name: /run now/i }));
+    expect(screen.getByText(/this field is required/i)).toBeTruthy();
+    const input = screen.getByRole("textbox", { name: /target/i });
+    await user.type(input, "abc");
+    expect(screen.queryByText(/this field is required/i)).toBeNull();
+  });
+});
