@@ -13,6 +13,7 @@ import { meApp } from "./procedures/me";
 import { preferencesApp } from "./procedures/preferences";
 import { notificationsApp, adminNotificationsApp } from "./procedures/notifications";
 import { artworkApp } from "./procedures/artwork";
+import { homeApp } from "./procedures/home";
 import { requestContextMiddleware, errorHandler } from "../errors/middleware";
 
 /** Hono sub-app that handles all /api/* RPC calls. Re-exported type for client.
@@ -39,6 +40,7 @@ export const appRouter = new Hono()
   .route("/notifications", notificationsApp)
   .route("/admin/notifications", adminNotificationsApp)
   .route("/artwork", artworkApp)
+  .route("/home", homeApp)
   .onError(errorHandler);
 
 export type AppType = typeof appRouter;
