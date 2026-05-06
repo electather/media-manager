@@ -74,7 +74,9 @@ describe("composeRow", () => {
     const rows = await import("../rows");
     const { AllPluginsFailedError } = await import("../../media/errors");
     const provider = rows.ROW_PROVIDERS.trendingNow!;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     vi.mocked(provider.fetchPage).mockRejectedValueOnce(
       new AllPluginsFailedError("watchlist@v1", []),
     );

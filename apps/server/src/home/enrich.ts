@@ -1,6 +1,8 @@
 import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-mcp/shared/home";
+import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "../catalog/types";
 import { capabilityRegistry } from "../plugin-runtime/registry";
+import { ArtworkService } from "../artwork/service";
 import { pickMatchReason } from "./match-reason";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
@@ -28,6 +30,7 @@ export async function enrichItems(
   const statuses = await ctx.statusBatch.get(compositeIds);
   const metadataKeys = items.map((i) => ({ tmdbId: i.tmdbId, type: i.mediaType }));
   const metadata = await ctx.catalog.getMetadataBatch(metadataKeys);
+  const artwork = await hydrateArtwork(items, metadata, ctx);
   // The home wire requires composite ids on `availability.servers` chips,
   // so route through the registered `mediaRequest@v1` providers (the
   // canonical name; the spec's "requests" label collapses to this).
@@ -40,10 +43,63 @@ export async function enrichItems(
       const availability = await deriveAvailability(item, status, requestProviders, ctx);
       const facets = deriveFacets(meta, item);
       const matchReason = pickMatchReason(opts.rowId, item, ctx);
-      return projectItem(item, { status, availability, facets, matchReason });
+      const bundle = artwork[composite];
+      const withArt = mergeArtwork(item, meta, bundle);
+      return projectItem(withArt, { status, availability, facets, matchReason });
     }),
   );
   return enriched;
+}
+
+/**
+ * Dispatches `artwork@v1.getArtwork` for items whose canonical row is missing
+ * any of `posterUrl` / `backdropUrl` / `clearLogoUrl`. The artwork service
+ * already patches `canonical_metadata` via `patchArtwork`, so the next read
+ * sees the resolved URLs without us re-issuing the dispatch. Failures are
+ * swallowed — artwork is best-effort and must never break a row response.
+ */
+async function hydrateArtwork(
+  items: InternalCompactMediaItem[],
+  metadata: Record<string, CanonicalMetadata>,
+  ctx: RowContext,
+): Promise<Record<string, ArtworkBundle>> {
+  const requests: ArtworkRequestItem[] = [];
+  for (const item of items) {
+    const composite = `${item.mediaType}:${item.tmdbId}`;
+    const meta = metadata[composite];
+    if (meta?.posterUrl && meta.backdropUrl && meta.clearLogoUrl) continue;
+    requests.push({ key: composite, ids: { tmdb: item.tmdbId }, type: item.mediaType });
+  }
+  if (requests.length === 0) return {};
+  try {
+    const service = new ArtworkService(ctx.userId, ctx.catalog);
+    const res = await service.getArtwork(requests);
+    return res.results;
+  } catch (err) {
+    ctx.logger.warn("[home:enrich] artwork hydration failed", err);
+    return {};
+  }
+}
+
+/**
+ * Layers the freshly resolved `ArtworkBundle` onto an item without clobbering
+ * URLs that were already populated upstream. The `mergeArtwork` projection
+ * fills only the gaps, mirroring `patchArtwork`'s COALESCE semantics on the
+ * wire so the response never overwrites a higher-quality URL with a fallback.
+ */
+function mergeArtwork(
+  item: InternalCompactMediaItem,
+  meta: CanonicalMetadata | undefined,
+  bundle: ArtworkBundle | undefined,
+): InternalCompactMediaItem {
+  if (!bundle) return item;
+  const out = { ...item };
+  if (!out.poster) out.poster = bundle.poster[0]?.url ?? meta?.posterUrl ?? out.poster;
+  if (!out.backdrop) out.backdrop = bundle.backdrop[0]?.url ?? meta?.backdropUrl ?? out.backdrop;
+  if (!out.clearLogo) {
+    out.clearLogo = bundle.clearLogo[0]?.url ?? meta?.clearLogoUrl ?? out.clearLogo;
+  }
+  return out;
 }
 
 async function deriveAvailability(

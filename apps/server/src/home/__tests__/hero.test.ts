@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
-import { pickHero } from "../hero";
-import { makeRowCtx } from "./row-test-helpers";
+
+vi.mock("../../env", () => ({
+  env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
+}));
+vi.mock("../enrich", () => ({
+  enrichItems: vi.fn(async (items: unknown[]) => items),
+}));
+
+const { pickHero } = await import("../hero");
+const { makeRowCtx } = await import("./row-test-helpers");
 
 function cwEntry(opts: {
   tmdbId: string;
