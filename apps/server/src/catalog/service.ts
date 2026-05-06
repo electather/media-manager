@@ -252,8 +252,16 @@ export class CatalogService {
       .where(and(eq(recommendationLists.userId, userId), eq(recommendationLists.listKind, kind)))
       .get();
     if (!row) return null;
+    // `topContributors` was added in the home-feed backend phase. Rows
+    // persisted before that ship without the field; default to `[]` so
+    // callers don't have to handle `undefined`. The next nightly rec-build
+    // run fills the snapshot for real.
+    const items: RecItem[] = row.items.map((item) => ({
+      ...item,
+      topContributors: item.topContributors ?? [],
+    }));
     return {
-      items: row.items,
+      items,
       profileVersion: row.profileVersion,
       generatedAt: row.generatedAt,
     };

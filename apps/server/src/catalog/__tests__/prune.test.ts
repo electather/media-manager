@@ -48,7 +48,9 @@ describe("CatalogService.pruneUnusedMetadata", () => {
       now - 200 * DAY_MS,
     );
     await catalog.writeMetadata([cold]);
-    const items: RecItem[] = [{ tmdbId: "1", mediaType: "movie", matchReason: null, score: 0.9 }];
+    const items: RecItem[] = [
+      { tmdbId: "1", mediaType: "movie", matchReason: null, topContributors: [], score: 0.9 },
+    ];
     await catalog.writeRecommendationList("u1", "default", items, 1);
 
     const result = await catalog.pruneUnusedMetadata(90 * DAY_MS);

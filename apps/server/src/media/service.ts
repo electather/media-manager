@@ -5,11 +5,15 @@ import {
   type AggregateResult,
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
+import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { resolveConnections } from "./resolve-connection";
+import { invokeOne } from "./invoke";
+import { requireCapability } from "./capability-lookup";
 import { isNil } from "es-toolkit/predicate";
+import { orderBy, uniqBy } from "es-toolkit/array";
 
 /**
  * Per-user facade. Constructed per-request with the authenticated user id;
@@ -25,6 +29,14 @@ function parseCombinedId(idOrCombined: string, type?: "movie" | "tv"): ["movie" 
 }
 
 export class MediaService {
+  /**
+   * Per-request `getMatchingServers` memo keyed by `${tmdbId}|${type}`. Avoids
+   * 60× plugin lookups when the same row enriches a 60-item rec list whose
+   * items repeatedly hit the same library backends. Cleared with the
+   * MediaService instance lifetime (request-scoped).
+   */
+  private readonly matchingServersCache = new Map<string, Promise<MatchingServer[]>>();
+
   constructor(public readonly userId: string) {}
 
   // fallow-ignore-next-line unused-class-member
@@ -512,6 +524,112 @@ export class MediaService {
     }
     return false;
   }
+
+  /**
+   * Aggregate `continueWatching@v1.getContinueWatching`. Mirrors the
+   * `getWatchlistFeed` pattern — surfaces a `partial` flag plus throws
+   * `AllPluginsFailedError` when every attempted provider errors so the home
+   * orchestrator can flag the row outcome. Used by the
+   * `continueWatching-active`, `continueWatching-next`, and hero cascade.
+   */
+  // fallow-ignore-next-line unused-class-member
+  async getContinueWatchingFeed(
+    opts: { deadlineMs?: number } = {},
+  ): Promise<HomeAggregate<ContinueWatchingEntry[]>> {
+    const result = await dispatchAggregate<ContinueWatchingEntry[]>({
+      userId: this.userId,
+      capability: "continueWatching",
+      version: "v1",
+      method: "getContinueWatching",
+      input: {},
+      deadlineMs: opts.deadlineMs,
+    });
+    return interpretAggregate("continueWatching@v1", result);
+  }
+
+  /**
+   * Per-server availability lookup for the home-feed `availability.servers`
+   * chip strip. Walks every `libraryAvailability@v1` provider for the user;
+   * for each plugin, calls `checkAvailability` with `idType: "tmdb"` against
+   * the first usable connection. Plugins that report at least one library
+   * item are returned as `{ id, label }` chips, deduped by plugin id and
+   * sorted by label. Per-request memoized so a 60-item enrichment pass only
+   * fans out once per `(tmdbId, type)`.
+   *
+   * Per-plugin failures are silently dropped — the chip strip is best-effort
+   * and a missing chip is preferable to surfacing a transient 5xx in the UI.
+   */
+  // fallow-ignore-next-line complexity
+  async getMatchingServers(tmdbId: string, type: "movie" | "tv"): Promise<MatchingServer[]> {
+    const key = `${tmdbId}|${type}`;
+    const memo = this.matchingServersCache.get(key);
+    if (memo) return memo;
+    // Drop the cache entry on rejection — `requireCapability` may throw if
+    // `libraryAvailability@v1` isn't registered, and a sticky rejected promise
+    // would re-throw on every subsequent call for the lifetime of the request.
+    const promise = this.computeMatchingServers(tmdbId, type).catch((err: unknown) => {
+      this.matchingServersCache.delete(key);
+      throw err;
+    });
+    this.matchingServersCache.set(key, promise);
+    return promise;
+  }
+
+  // fallow-ignore-next-line complexity
+  private async computeMatchingServers(
+    tmdbId: string,
+    type: "movie" | "tv",
+  ): Promise<MatchingServer[]> {
+    const providers = capabilityRegistry.listProviders("libraryAvailability", "v1", "user");
+    if (providers.length === 0) return [];
+    const capability = requireCapability("libraryAvailability", "v1");
+    const queryType = type === "tv" ? "show" : "movie";
+    const matches = await Promise.all(
+      providers.map(async (pluginId) => this.probeServer(pluginId, tmdbId, queryType, capability)),
+    );
+    const found = matches.filter((m): m is MatchingServer => m !== null);
+    return orderBy(
+      uniqBy(found, (m) => m.id),
+      [(m) => m.label.toLowerCase()],
+      ["asc"],
+    );
+  }
+
+  private async probeServer(
+    pluginId: string,
+    tmdbId: string,
+    queryType: "movie" | "show",
+    capability: ReturnType<typeof requireCapability>,
+  ): Promise<MatchingServer | null> {
+    const conns = await resolveConnections(this.userId, pluginId);
+    if (conns.length === 0) return null;
+    const entry = capabilityRegistry.get(pluginId);
+    const label = entry?.module.manifest.name ?? pluginId;
+    for (const conn of conns) {
+      const outcome = await invokeOne<{ items: unknown[] }>(
+        {
+          userId: this.userId,
+          pluginId,
+          capability: "libraryAvailability",
+          version: "v1",
+          method: "checkAvailability",
+          input: { id: tmdbId, idType: "tmdb", type: queryType },
+          timeoutMs: capability.defaultTimeoutMs,
+        },
+        conn,
+      );
+      if (!outcome.error && Array.isArray(outcome.data?.items) && outcome.data.items.length > 0) {
+        return { id: pluginId, label };
+      }
+    }
+    return null;
+  }
+}
+
+/** Plugin chip displayed under `CompactMediaItem.availability.servers`. */
+export interface MatchingServer {
+  id: string;
+  label: string;
 }
 
 /**

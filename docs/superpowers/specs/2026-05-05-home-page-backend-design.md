@@ -85,7 +85,10 @@ export const ROW_KINDS = [
 export type RowKind = (typeof ROW_KINDS)[number];
 
 export const HERO_REASONS = [
-  "continue_watching", "recommended", "trending", "new_release",
+  "continue_watching",
+  "recommended",
+  "trending",
+  "new_release",
 ] as const;
 export type HeroReason = (typeof HERO_REASONS)[number];
 
@@ -110,7 +113,7 @@ export type MatchReasonKey = (typeof MATCH_REASON_KEYS)[number];
 ```ts
 export interface MatchReason {
   key: MatchReasonKey;
-  params: Record<string, string>;          // ICU placeholders, server-supplied
+  params: Record<string, string>; // ICU placeholders, server-supplied
 }
 
 export interface Availability {
@@ -122,18 +125,18 @@ export interface Availability {
 export interface Facets {
   runtimeMin?: number;
   episodeCount?: number;
-  releaseDate?: string;                     // ISO date | human-formatted; server picks
+  releaseDate?: string; // ISO date | human-formatted; server picks
 }
 
 export interface SeriesContext {
   season: number;
   episode: number;
   episodeTitle: string;
-  nextUpFromServer: boolean;                // true when stitched via continueWatching nextUp
+  nextUpFromServer: boolean; // true when stitched via continueWatching nextUp
 }
 
 export interface CompactMediaItem {
-  id: string;                               // "movie:550" | "tv:1396"
+  id: string; // "movie:550" | "tv:1396"
   tmdbId: string;
   mediaType: "movie" | "tv";
   title: string;
@@ -148,18 +151,18 @@ export interface CompactMediaItem {
   progress?: { watched: number; total: number };
   episodeProgress?: { watched: number; total: number };
   status?: "available" | "requested" | "processing" | "unavailable" | "unknown";
-  availability?: Availability;              // NEW
-  facets?: Facets;                          // NEW
-  seriesContext?: SeriesContext;            // NEW
+  availability?: Availability; // NEW
+  facets?: Facets; // NEW
+  seriesContext?: SeriesContext; // NEW
   episode?: { season: number; episode: number; airsAt: number; name?: string };
-  matchReason?: MatchReason;                // CHANGED string → MatchReason
-  tags?: string[];                          // RESERVED v1 — undefined; populated by future capability
+  matchReason?: MatchReason; // CHANGED string → MatchReason
+  tags?: string[]; // RESERVED v1 — undefined; populated by future capability
 }
 
 export interface HomeRowStub {
-  rowId: string;                            // CHANGED — unique slug, e.g. "recommendedForYou-tv"
-  kind: RowKind;                            // NEW — display category
-  titleKey: string;                         // i18n key
+  rowId: string; // CHANGED — unique slug, e.g. "recommendedForYou-tv"
+  kind: RowKind; // NEW — display category
+  titleKey: string; // i18n key
   subtitleKey?: string;
   initialCursor: string | null;
 }
@@ -169,18 +172,18 @@ export interface LayoutHero {
   source: RowKind;
   reason: HeroReason;
   resumeUrl: string | null;
-  alternates: CompactMediaItem[];           // NEW — 4 backdrop crossfade items from same source
+  alternates: CompactMediaItem[]; // NEW — 4 backdrop crossfade items from same source
 }
 
 export interface HomeLayoutResponse {
   hero: LayoutHero | null;
   rows: HomeRowStub[];
-  generatedAt: number;                      // ms epoch
+  generatedAt: number; // ms epoch
 }
 
 export interface RowContentResponse {
   items: CompactMediaItem[];
-  cursor: string | null;                    // null = end
+  cursor: string | null; // null = end
   partial?: true;
 }
 
@@ -195,13 +198,13 @@ export interface MediaDetailsExtra {
   trailerUrl?: string;
   nextAirDate?: string;
   seriesStatus?: "ongoing" | "finished";
-  runtime?: string;                         // formatted "1h 58m"
+  runtime?: string; // formatted "1h 58m"
 }
 
 export interface MediaDetailsResponse {
   summary: CompactMediaItem;
-  details: MediaDetailsExtra | null;        // null when plugin err; UI shows summary only
-  error?: { code: HostErrorCode };          // present iff details=null
+  details: MediaDetailsExtra | null; // null when plugin err; UI shows summary only
+  error?: { code: HostErrorCode }; // present iff details=null
 }
 ```
 
@@ -210,15 +213,19 @@ export interface MediaDetailsResponse {
 ```ts
 export const homeGetLayoutInputSchema = z.object({}).strict();
 
-export const homeGetRowContentInputSchema = z.object({
-  rowId: z.string().min(1),                 // any registered slug
-  cursor: z.string().nullable(),
-}).strict();
+export const homeGetRowContentInputSchema = z
+  .object({
+    rowId: z.string().min(1), // any registered slug
+    cursor: z.string().nullable(),
+  })
+  .strict();
 
-export const homeGetDetailsInputSchema = z.object({
-  tmdbId: z.string().min(1),
-  mediaType: z.enum(["movie", "tv"]),
-}).strict();
+export const homeGetDetailsInputSchema = z
+  .object({
+    tmdbId: z.string().min(1),
+    mediaType: z.enum(["movie", "tv"]),
+  })
+  .strict();
 ```
 
 ## RowProvider abstraction
@@ -331,8 +338,9 @@ rows/recommended-for-you-tv.ts:
     page = decodeCursor(cursor) ?? { offset: 0 }
     rec  = catalog.getRecommendations(userId, "default")
     pool = rec.items.filter(i => i.media_type === "tv")
-    statuses = ctx.statusBatch.get(pool.map(p => p.tmdb_id))
-    pool2    = pool.filter(p => statuses[p.tmdb_id] !== "available")
+    statuses = ctx.statusBatch.get(pool.map(p => `${p.mediaType}:${p.tmdbId}`))
+    pool2    = pool.filter(p => statuses[`${p.mediaType}:${p.tmdbId}`] !== "available")
+    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids.
     keys     = pool2.slice(page.offset, page.offset + 12)
     mdKeys   = keys.map(k => ({ tmdbId: k.tmdbId, type: k.mediaType }))   // CatalogService.getMetadataBatch shape
     metadata = catalog.getMetadataBatch(mdKeys)
@@ -351,8 +359,9 @@ rows/your-watchlist.ts:
   initialCursor null
   fetchPage(ctx):
     res     = ctx.mediaService.getWatchlistFeed({ deadlineMs })
-    statuses = ctx.statusBatch.get(res.items.map(i => i.tmdbId))
-    avail    = res.items.filter(i => statuses[i.tmdbId] === "available")
+    statuses = ctx.statusBatch.get(res.items.map(i => `${i.type}:${i.tmdbId}`))
+    avail    = res.items.filter(i => statuses[`${i.type}:${i.tmdbId}`] === "available")
+    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids.
     items    = avail.slice(0, 12).map(toCompactMediaItem)
     return { items, cursor: null, partial: res.partial }
 
@@ -847,14 +856,14 @@ CHANGED
 
 **Stacked PRs — must merge in order.** Each PR ships green CI alone (types/tests pass, app builds), but landing PR N+1 before PR N breaks the build. The wire reshape in PR 1 forces the client update in PR 6 — the gap between them keeps `MatchReason | string` as a transitional union (PR 1 ships union; PR 6 narrows to `MatchReason`).
 
-| PR | Slug | Scope | Depends on |
-|---|---|---|---|
-| 1 | `home-shared-wire`           | reshape `@ent-mcp/shared/home` types + enums + schemas; `MatchReason` as `string \| MatchReasonObj` transitional union; `HomeRowStub.title→titleKey/subtitle→subtitleKey` rename | — |
-| 2 | `home-catalog-contributors`  | catalog rec list `topContributors` field; `recommendation-build` job amend; Drizzle migration; `RecItem` interface +field | PR 1 (TopContributor type lives in shared) |
-| 3 | `home-mediaservice-extensions` | add `MediaService.getContinueWatchingFeed`, `MediaService.getMatchingServers` w/ tests | — (independent of PRs 1-2) |
-| 4 | `home-row-providers`         | RowProvider iface, cursor codec, status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet | PRs 1, 2, 3 |
-| 5 | `home-orchestrator`          | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint | PR 4 |
-| 6 | `home-client-integration`    | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5 |
+| PR  | Slug                           | Scope                                                                                                                                                                                                                               | Depends on                                 |
+| --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 1   | `home-shared-wire`             | reshape `@ent-mcp/shared/home` types + enums + schemas; `MatchReason` as `string \| MatchReasonObj` transitional union; `HomeRowStub.title→titleKey/subtitle→subtitleKey` rename                                                    | —                                          |
+| 2   | `home-catalog-contributors`    | catalog rec list `topContributors` field; `recommendation-build` job amend; Drizzle migration; `RecItem` interface +field                                                                                                           | PR 1 (TopContributor type lives in shared) |
+| 3   | `home-mediaservice-extensions` | add `MediaService.getContinueWatchingFeed`, `MediaService.getMatchingServers` w/ tests                                                                                                                                              | — (independent of PRs 1-2)                 |
+| 4   | `home-row-providers`           | RowProvider iface, cursor codec, status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet                                                                                                                         | PRs 1, 2, 3                                |
+| 5   | `home-orchestrator`            | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint                                        | PR 4                                       |
+| 6   | `home-client-integration`      | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5                                       |
 
 Each PR ships a changeset (per project rule: 1-2 sentences, end-user voice).
 
