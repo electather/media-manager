@@ -411,11 +411,21 @@ rows/your-watchlist.ts:
   eligibility   hasCapabilityProvider("watchlist","v1","user")
   initialCursor null
   fetchPage(ctx):
-    res     = ctx.mediaService.getWatchlistFeed({ deadlineMs })
-    statuses = ctx.statusBatch.get(res.items.map(i => `${i.type}:${i.tmdbId}`))
-    avail    = res.items.filter(i => statuses[`${i.type}:${i.tmdbId}`] === "available")
-    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids.
-    items    = avail.slice(0, 12).map(toCompactMediaItem)
+    res    = ctx.mediaService.getWatchlistFeed({ deadlineMs })
+    keys   = res.items.map(toWatchlistKey).filter(Boolean)        // {tmdbId,type,fallbackTitle?,fallbackYear?}
+    // Filter to titles the user can already play. mediaRequest@v1.getStatusBatch
+    // only flags items that flowed through the request pipeline (Seerr); a watchlist
+    // title added directly to Jellyfin returns `unknown` and the row would silently
+    // drop it. getMatchingServers walks libraryAvailability@v1 providers — the actual
+    // presence signal — and is per-request memoized.
+    present = await Promise.all(keys.map(async k =>
+      (await ctx.mediaService.getMatchingServers(k.tmdbId, k.type).catch(()=>[])).length > 0 ? k : null))
+    avail   = present.filter(Boolean).slice(0, 12)
+    metadata = ctx.catalog.getMetadataBatch(avail.map(k => ({ tmdbId: k.tmdbId, type: k.type })))
+    items    = avail.map(k => metadata[`${k.type}:${k.tmdbId}`]
+      ? fromCanonicalMetadata(metadata[`${k.type}:${k.tmdbId}`])                // catalog hit
+      : k.fallbackTitle ? { id:`${k.type}:${k.tmdbId}`, tmdbId:k.tmdbId, mediaType:k.type, title:k.fallbackTitle, year:k.fallbackYear } // catalog cold → stub
+      : null).filter(Boolean)
     return { items, cursor: null, partial: res.partial }
 
 rows/upcoming-for-you.ts:
