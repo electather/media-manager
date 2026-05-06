@@ -9,6 +9,7 @@ import {
 
 import { Button } from "@/shared/ui/button";
 import { CopyButton } from "@/shared/ui/copy-button";
+import { useInterval } from "@/shared/hooks/use-interval";
 import {
   Dialog,
   DialogContent,
@@ -159,11 +160,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
   }, [open, authKind, userConfigSchema, isEdit, existing?.displayName, existing?.id]);
 
   // Countdown tick for the device code panel.
-  useEffect(() => {
-    if (device.kind !== "waiting") return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [device.kind]);
+  useInterval(() => setNow(Date.now()), device.kind === "waiting" ? 1000 : null);
 
   // Poll the device auth endpoint while the device panel is live.
   useEffect(() => {
