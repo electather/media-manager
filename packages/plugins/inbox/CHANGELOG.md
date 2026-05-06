@@ -1,5 +1,13 @@
 # @ent-mcp/plugin-inbox
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [a31896c]
+- Updated dependencies [2b70a07]
+  - @ent-mcp/plugin-sdk@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

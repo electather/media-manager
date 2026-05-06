@@ -1,5 +1,17 @@
 # @ent-mcp/plugin-tmdb
 
+## 0.3.0
+
+### Minor Changes
+
+- 2b70a07: Restored the season list to the TV detail modal with per-server episode availability across connected Plex and Jellyfin libraries.
+
+### Patch Changes
+
+- Updated dependencies [a31896c]
+- Updated dependencies [2b70a07]
+  - @ent-mcp/plugin-sdk@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
