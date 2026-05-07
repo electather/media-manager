@@ -1,12 +1,20 @@
+import type { RowKind } from "@ent-mcp/shared/home";
 import * as m from "@/paraglide/messages";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
 import { deriveCardState, type CardAvailabilityState } from "../../lib/card-state";
 import { MATCH_REASON_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem } from "../../lib/types";
+import { sourceLabel } from "./source-label";
 import { TopZoneHeroActions } from "./top-zone-hero-actions";
 
 type Props = {
   hero: HomeMediaItem;
+  /**
+   * Active slide's `RowKind`. Drives the per-slide source chip rendered above
+   * the title — matches the row header of the source row below the hero so
+   * users can see which row the active slide is drawn from.
+   */
+  source: RowKind;
   percent: number | null;
   onPlay: () => void;
   onMoreInfo: () => void;
@@ -90,12 +98,24 @@ function HeroReason({ value }: { value: string | null }) {
   return <p className="text-xs text-foreground/70 sm:text-sm">{value}</p>;
 }
 
-export function TopZoneHeroCard({ hero, percent, onPlay, onMoreInfo, onDismiss }: Props) {
+function HeroSourceLabel({ value }: { value: string }) {
+  return (
+    <p
+      data-testid="top-zone-source-label"
+      className="font-mono text-xs uppercase tracking-[0.16em] text-foreground/70 sm:text-sm"
+    >
+      {value}
+    </p>
+  );
+}
+
+export function TopZoneHeroCard({ hero, source, percent, onPlay, onMoreInfo, onDismiss }: Props) {
   const kicker = formatKicker(deriveCardState(hero));
   const reason = matchReasonFor(hero);
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9 before:pointer-events-none before:absolute before:-inset-y-14 before:-inset-e-28 before:-inset-s-8 before:-z-1 before:bg-[radial-gradient(ellipse_at_bottom_left,oklch(0_0_0/0.84),oklch(0_0_0/0.62)_45%,transparent_76%)] before:content-['']">
+      <HeroSourceLabel value={sourceLabel(source)} />
       <HeroClearLogo src={hero.clearLogo} text={hero.clearLogoText} alt={hero.title} />
       <HeroKicker value={kicker} />
       <h1 className="m-0 max-w-180 text-balance font-heading text-3xl font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl sm:leading-[1.03]">

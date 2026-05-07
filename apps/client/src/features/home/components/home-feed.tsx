@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import type { HeroSlide } from "@ent-mcp/shared/home";
 import * as m from "@/paraglide/messages";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -7,7 +8,7 @@ import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
 import { ROW_ASPECT } from "../lib/home-feed-config";
-import type { HeroItem, RowData } from "../lib/types";
+import type { HeroSlideUI, RowData } from "../lib/types";
 import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
 
@@ -84,14 +85,12 @@ function HomeFeedReady({
     toggleWatchlistId(peek);
   }, [peek, toggleWatchlistId]);
 
-  const heroItem = layout.hero
-    ? ({ ...layout.hero.item, alternates: layout.hero.alternates } as HeroItem)
-    : null;
+  const heroSlides: HeroSlideUI[] = layout.hero?.slides.map(toHeroSlideUI) ?? [];
   const rows: RowData[] = layout.rows.map(toRowData);
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
-      {heroItem ? <TopZone hero={heroItem} onPeek={handlePeek} /> : null}
+      {heroSlides.length > 0 ? <TopZone slides={heroSlides} onPeek={handlePeek} /> : null}
       <div className="flex flex-col gap-2">
         {rows.map((row) => (
           <Row
@@ -113,6 +112,15 @@ function HomeFeedReady({
       />
     </div>
   );
+}
+
+function toHeroSlideUI(slide: HeroSlide): HeroSlideUI {
+  return {
+    ...slide.item,
+    source: slide.source,
+    reason: slide.reason,
+    resumeUrl: slide.resumeUrl,
+  };
 }
 
 function toRowData(

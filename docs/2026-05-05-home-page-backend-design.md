@@ -185,13 +185,13 @@ export interface HomeRowStub {
 // rev 4 — hero is a list of mixed-source slides. UI auto-rotates; slides[0] is the lead.
 export interface HeroSlide {
   item: CompactMediaItem;
-  source: RowKind;        // continueWatching | recommendedForYou | trendingNow | newReleases
-  reason: HeroReason;     // matches source: continue_watching | recommended | trending | new_release
+  source: RowKind; // continueWatching | recommendedForYou | trendingNow | newReleases
+  reason: HeroReason; // matches source: continue_watching | recommended | trending | new_release
   resumeUrl: string | null; // populated only for source="continueWatching"; null v1 (see R2)
 }
 
 export interface LayoutHero {
-  slides: HeroSlide[];    // 1..6, ordered; null LayoutHero only when every source empty
+  slides: HeroSlide[]; // 1..6, ordered; null LayoutHero only when every source empty
 }
 
 export interface HomeLayoutResponse {
@@ -570,18 +570,21 @@ home/hero.ts:
 ```
 
 **Worked example — full installation** (CW=3, recs=10, trending=10, new=8):
+
 - Draw quota → [CW#1, rec#1, rec#2, trend#1, trend#2, new#1] (6 already)
 - No backfill needed
 - Lead = CW#1 (highest priority non-empty), rest interleaves: rec, trend, new, rec, trend
 - Final order: [CW#1, rec#1, trend#1, new#1, rec#2, trend#2]
 
 **Worked example — new user** (CW=0, recs=10, trending=10, new=8):
+
 - Draw quota → [rec#1, rec#2, trend#1, trend#2, new#1] (5)
 - Backfill 1 short: priority cascade hits rec pool first → +rec#3
 - Final order: lead = rec#1 (CW empty so first non-empty by priority); rest: trend#1, new#1, rec#2, trend#2, rec#3
 - Final order: [rec#1, trend#1, new#1, rec#2, trend#2, rec#3]
 
 **Worked example — only CW populated** (CW=4, others empty):
+
 - Draw quota → [CW#1] (1)
 - Backfill 5 short: only CW pool has supply → CW#2..CW#4 added (3 more), then exhausted
 - Final length: 4 slides, all CW. Acceptable degenerate case; UI still rotates 4 slides.
@@ -1058,7 +1061,7 @@ CHANGED
 | 4   | `home-row-providers`           | RowProvider iface, cursor codec, status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet                                                                                                                         | PRs 1, 2, 3                                |
 | 5   | `home-orchestrator`            | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint                                        | PR 4                                       |
 | 6   | `home-client-integration`      | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5                                       |
-| 7   | `home-hero-mix`                | rev 4 — reshape `LayoutHero` → `{ slides: HeroSlide[] }`; mixed-source composer (loadPool/drawByQuota/backfill/order); bump `home_layout_cache.schema_version` 1→2; client iterates slides[] w/ per-slide source label                | (independent of seasons amendment)         |
+| 7   | `home-hero-mix`                | rev 4 — reshape `LayoutHero` → `{ slides: HeroSlide[] }`; mixed-source composer (loadPool/drawByQuota/backfill/order); bump `home_layout_cache.schema_version` 1→2; client iterates slides[] w/ per-slide source label              | (independent of seasons amendment)         |
 
 Each PR ships a changeset (per project rule: 1-2 sentences, end-user voice).
 
