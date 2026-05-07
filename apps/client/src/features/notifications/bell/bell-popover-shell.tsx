@@ -137,7 +137,7 @@ export function BellPopoverShell({ open, density, intensity, mobile = false }: P
           value={filter}
           onValueChange={onFilterChange}
           aria-label={m.notifications_filter_aria()}
-          className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent_100%)]"
+          className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent_100%)]"
         >
           <CategoryChip value="all" label={m.notifications_category_all()} count={counts.all} />
           {(Object.keys(CATEGORY_META) as NotificationCategory[]).map((k) => (
