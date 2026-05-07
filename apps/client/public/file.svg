@@ -6,5 +6,5 @@
   <use href="#p" transform="rotate(180 512 512)"/>
   <use href="#p" transform="rotate(225 512 512)" />
   <use href="#p" transform="rotate(270 512 512)" />
-  <use href="#p" transform="rotate(315 512 512)" fill="oklch(0.511 0.096 186.391)"/>
+  <use href="#p" transform="rotate(315 512 512)" fill="oklch(0.8 0.135 75)"/>
 </svg>

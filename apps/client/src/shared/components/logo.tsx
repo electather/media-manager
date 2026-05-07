@@ -1,56 +1,26 @@
 import type { SVGProps } from "react";
+import { cn } from "../lib/utils";
 
 export function Logo({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
-      width="33"
-      height="34"
-      viewBox="0 0 33 34"
-      fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label="Media Manager"
-      className={className}
+      viewBox="0 0 1024 1024"
+      fill="currentColor"
+      className={cn("text-foreground", className)}
       {...props}
     >
       <path
-        d="M12.9451 9.52184C13.0738 8.52448 13.923 7.77778 14.9286 7.77778H25.8955C27.1017 7.77778 28.0334 8.83746 27.879 10.0337L26.1729 23.2559C26.0443 24.2533 25.195 25 24.1894 25H13.2225C12.0164 25 11.0846 23.9403 11.239 22.7441L12.9451 9.52184Z"
-        fill="#2E2482"
+        id="p"
+        d="M756,553.2C735,548.4 714.3,543.9 693.8,539 669.9,533.4 652.1,520.1 643.1,496.7 627.4,455.9 658,410 702.1,409 720,408.6 738,410.5 755.9,411.4 769.7,412.1 783.5,413.1 797.3,413.7 816.9,414.5 834.9,419.7 849.4,433.3 871.8,454.2 880,480.1 871.4,509.5 863,538.4 842.9,555.8 812.9,560.9 804.9,562.2 796.7,561.9 788.6,560.2 777.8,557.9 767.1,555.6 756,553.2Z"
       />
-      <g filter="url(#mm-logo-shadow)">
-        <path
-          d="M9.72285 5.74406C9.85154 4.7467 10.7008 4 11.7064 4H22.6732C23.8794 4 24.8112 5.05968 24.6568 6.25594L22.9507 19.4782C22.822 20.4755 21.9728 21.2222 20.9671 21.2222H10.0003C8.79413 21.2222 7.8624 20.1625 8.01676 18.9663L9.72285 5.74406Z"
-          fill="#4632F5"
-        />
-      </g>
-      <defs>
-        <filter
-          id="mm-logo-shadow"
-          x="0"
-          y="0"
-          width="32.6736"
-          height="33.2222"
-          filterUnits="userSpaceOnUse"
-          colorInterpolationFilters="sRGB"
-        >
-          <feFlood floodOpacity="0" result="BackgroundImageFix" />
-          <feColorMatrix
-            in="SourceAlpha"
-            type="matrix"
-            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-            result="hardAlpha"
-          />
-          <feOffset dy="4" />
-          <feGaussianBlur stdDeviation="4" />
-          <feComposite in2="hardAlpha" operator="out" />
-          <feColorMatrix
-            type="matrix"
-            values="0 0 0 0 0.0383363 0 0 0 0 0.0226305 0 0 0 0 0.175762 0 0 0 0.2 0"
-          />
-          <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_31_24" />
-          <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_31_24" result="shape" />
-        </filter>
-      </defs>
+      <use href="#p" transform="rotate(45 512 512)" />
+      <use href="#p" transform="rotate(90 512 512)" />
+      <use href="#p" transform="rotate(135 512 512)" />
+      <use href="#p" transform="rotate(180 512 512)" />
+      <use href="#p" transform="rotate(225 512 512)" />
+      <use href="#p" transform="rotate(270 512 512)" />
+      <use href="#p" transform="rotate(315 512 512)" className="fill-primary" />
     </svg>
   );
 }

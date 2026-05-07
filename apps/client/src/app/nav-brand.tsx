@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import * as m from "@/paraglide/messages";
 import { Logo } from "@/shared/components/logo";
 
 export function NavBrand({ scrolled }: { scrolled: boolean }) {
@@ -7,12 +6,9 @@ export function NavBrand({ scrolled }: { scrolled: boolean }) {
     <Link to="/" className="flex items-center gap-2.5">
       <span
         data-scrolled={scrolled}
-        className="inline-flex origin-left text-primary transition-transform duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] data-[scrolled=true]:scale-[0.92]"
+        className="inline-flex origin-left text-primary transition-transform duration-320 ease-[cubic-bezier(0.32,0.72,0,1)] data-[scrolled=true]:scale-[0.90]"
       >
-        <Logo className="size-6.5" />
-      </span>
-      <span className="hidden text-base font-semibold leading-none tracking-[-0.015em] text-foreground sm:inline">
-        {m.home_nav_brand_label()}
+        <Logo className="size-10 opacity-85" />
       </span>
     </Link>
   );
