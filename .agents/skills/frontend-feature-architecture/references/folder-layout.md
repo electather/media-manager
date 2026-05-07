@@ -118,6 +118,8 @@ components/<component>/
 
 Mirror the existing pattern in [`features/home/components/card/`](../../../../apps/client/src/features/home/components/card/).
 
+**Cap depth at one sub-component level.** When the file you're decomposing already lives inside a `components/<x>/` sub-folder, add the splits as **siblings** in that same folder — do not create a nested `<x>/<thing>/` directory. Component-local UI hooks (rAF effects, observers) colocate as `use-<thing>.ts` siblings; only query/mutation hooks belong under feature-root `hooks/` (rule 7). See [`composition.md` § Don't double-nest](composition.md#dont-double-nest) for the visual guard.
+
 ## See also
 
 - [`data-layer.md`](data-layer.md) for what lives in `fetchers.ts`/`query-keys.ts`/`types.ts`

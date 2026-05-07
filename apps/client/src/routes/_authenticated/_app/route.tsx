@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AppShell } from "@/app/app-shell";
-import { useHomeFeed } from "@/features/home";
+import { useHomeFeedPool } from "@/features/home";
 import {
   CommandMenuMediaProvider,
   type CommandMenuMediaItem,
@@ -20,7 +20,7 @@ import {
  * seeded from every row.
  */
 function AppLayout() {
-  const { data: feed } = useHomeFeed();
+  const { data: feed } = useHomeFeedPool();
 
   const value = useMemo<CommandMenuMediaSource>(() => {
     const pool: CommandMenuMediaItem[] = [];

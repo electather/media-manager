@@ -7,7 +7,9 @@
   "home_nav_label_primary": "Main navigation",
   "home_nav_label_mobile": "Mobile navigation",
   "home_nav_brand_label": "Media Manager",
-  "home_feed_error": "Couldn't load the home feed.",
+  "home_error_title": "Couldn't load the home feed",
+  "home_error_retry": "Try again",
+  "home_error_ref_prefix": "Ref: {ref}",
 
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_continueWatching_counter": "// {n} in progress",
@@ -24,6 +26,8 @@
   "home_row_yourWatchlist_header": "From your list, ready now",
   "home_row_prev_label": "Previous {row}",
   "home_row_next_label": "Next {row}",
+  "home_row_error_message": "Couldn't load this row.",
+  "home_row_error_retry": "Retry",
 
   "home_match_reason_matches_recent_picks": "Matches {n} recent picks.",
   "home_match_reason_from_genre_you_love": "From {genre} you love.",

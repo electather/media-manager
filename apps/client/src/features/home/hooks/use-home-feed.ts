@@ -1,26 +1,17 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useSuspenseQuery, type UseSuspenseQueryResult } from "@tanstack/react-query";
 import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
-
-const LAYOUT_KEY = ["home", "layout"] as const;
-const LAYOUT_STALE_MS = 5 * 60 * 1000;
-
-async function fetchLayout(signal: AbortSignal): Promise<HomeLayoutResponse> {
-  const res = await fetch("/api/home/layout", { credentials: "include", signal });
-  if (!res.ok) throw new Error(`home/layout ${res.status}`);
-  return (await res.json()) as HomeLayoutResponse;
-}
+import { homeLayoutQueryOptions } from "../lib/queries";
 
 /**
- * Live `home.getLayout` query. Replaces the mock-data feed; rows ship as
- * stubs and the per-row `useHomeRow` hook fills in the items on demand.
+ * Live `home.getLayout` query. Rows ship as stubs and per-row `useHomeRow`
+ * fills in the items on demand.
  *
- * `staleTime` matches the warm-job cadence (60min ÷ 12) so a casual tab
- * switch reuses the cache without re-hitting the layout endpoint.
+ * Suspense read — the route loader prefetches via `homeLayoutQueryOptions`
+ * (`ensureQueryData`), so the hook is cache-warm at component mount in the
+ * happy path. The page still wraps the consumer in `<Suspense>` as a
+ * defensive boundary for cache misses (revalidation, GC). Use
+ * `useHomeFeedPool` for non-blocking reads in the app shell.
  */
-export function useHomeFeed(): UseQueryResult<HomeLayoutResponse, Error> {
-  return useQuery({
-    queryKey: LAYOUT_KEY,
-    queryFn: ({ signal }) => fetchLayout(signal),
-    staleTime: LAYOUT_STALE_MS,
-  });
+export function useHomeFeed(): UseSuspenseQueryResult<HomeLayoutResponse, Error> {
+  return useSuspenseQuery(homeLayoutQueryOptions());
 }

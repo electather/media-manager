@@ -16,6 +16,7 @@ import type {
   NotificationDeliveryStatus,
 } from "@ent-mcp/shared/notifications";
 import { m } from "@/paraglide/messages";
+import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
 
 export interface NotificationItemDto extends InboxItemDto {
   bodyMarkdown?: string;
@@ -41,18 +42,12 @@ export interface AdminDeliveryFilters {
   to?: number;
 }
 
-export interface NotificationsApiErrorBody {
-  code?: string;
-  message?: string;
-  [k: string]: unknown;
-}
-
 export class NotificationsApiError extends Error {
   readonly status: number;
-  readonly body: NotificationsApiErrorBody | null;
+  readonly body: ApiErrorBody | null;
   readonly code: string | undefined;
 
-  constructor(status: number, body: NotificationsApiErrorBody | null) {
+  constructor(status: number, body: ApiErrorBody | null) {
     super(body?.message ?? `notifications request failed (${status})`);
     this.name = "NotificationsApiError";
     this.status = status;

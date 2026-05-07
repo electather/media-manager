@@ -1,15 +1,11 @@
 import type { NotificationCategory, AdminSettingsBody } from "@ent-mcp/shared/notifications";
 import { api } from "@/shared/lib/api";
+import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
 import { safeJson } from "@/shared/lib/errors/safe-json";
-import {
-  NotificationsApiError,
-  type AdminDeliveryFilters,
-  type InboxFilters,
-  type NotificationsApiErrorBody,
-} from "./types";
+import { NotificationsApiError, type AdminDeliveryFilters, type InboxFilters } from "./types";
 
 async function throwOnError(res: Response): Promise<never> {
-  const body = (await safeJson(res)) as NotificationsApiErrorBody | null;
+  const body = (await safeJson(res)) as ApiErrorBody | null;
   throw new NotificationsApiError(res.status, body);
 }
 
