@@ -1,13 +1,14 @@
 # Home Page Backend
 
-**Status:** Draft (rev 3)
-**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06)
+**Status:** Draft (rev 4)
+**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07)
 **Author:** Omid Astaraki
 **Deps:** `2026-04-20-job-service-design.md`, `2026-04-20-preference-engine-design.md`, `2026-04-27-catalog-service-design.md`, `2026-05-04-home-page-implementation-design.md`
 **Amends §V:** TBD on backprop
 
 ## Revision history
 
+- **rev 4 (2026-05-07)** — Hero stops being a single-source cascade. Driven by §Amendment 3. `LayoutHero` reshapes to `{ slides: HeroSlide[] }`; each slide carries its own `source` + `reason` so the UI can label slides individually. Composer draws a fixed quota across the four sources (1 CW + 2 rec + 2 trend + 1 new = 6 slides) and cascades backfill by priority when a source is short. Slide order: cascade lead, then round-robin interleave of the rest. `home_layout_cache.schema_version` bumps 1 → 2. Pre-stable break — no compat shim.
 - **rev 3 (2026-05-06)** — Doc-code sync. §Hero composition shows the `enrichItems` step shared with row enrichment. §Orchestrator `composeRow` adds eligibility gate (404 `home.row_unavailable` on direct ineligible access) and the soft-failure `try/catch` that converts `AllPluginsFailedError`/`PluginCallError`/`AbortError` to `partial:true`. Error codes in §Orchestrator `composeRow`/`composeDetails` align with the unified envelope (`home.row_unavailable`, `home.bad_input`, `http.not_found`, `home.internal`). §Architecture composeRow/composeDetails diagrams swap `enrich.attach*` for `enrichItems`.
 - **rev 2 (2026-05-06)** — TV detail gains canonical season+episode list (in `getDetails`) + per-server episode presence via new RPC `home.getSeasonAvailability`. Driven by §Amendment 2. Adds `metadata@v1.getShowSeasons` + `libraryAvailability@v1.listShowEpisodes` on plugin SDK. UI: live read-only seasons accordion w/ Suspense + ErrorBoundary partial-failure microcopy. Implementation phases for amendment in `plan/feature-home-tv-seasons-1.md`.
 
@@ -181,12 +182,16 @@ export interface HomeRowStub {
   initialCursor: string | null;
 }
 
-export interface LayoutHero {
+// rev 4 — hero is a list of mixed-source slides. UI auto-rotates; slides[0] is the lead.
+export interface HeroSlide {
   item: CompactMediaItem;
-  source: RowKind;
-  reason: HeroReason;
-  resumeUrl: string | null;
-  alternates: CompactMediaItem[]; // NEW — 4 backdrop crossfade items from same source
+  source: RowKind;        // continueWatching | recommendedForYou | trendingNow | newReleases
+  reason: HeroReason;     // matches source: continue_watching | recommended | trending | new_release
+  resumeUrl: string | null; // populated only for source="continueWatching"; null v1 (see R2)
+}
+
+export interface LayoutHero {
+  slides: HeroSlide[];    // 1..6, ordered; null LayoutHero only when every source empty
 }
 
 export interface HomeLayoutResponse {
@@ -467,59 +472,119 @@ rows/new-releases.ts:
 
 ## Hero composition
 
+Mixed-source composer (rev 4). Replaces the previous first-non-empty cascade. Draws a fixed quota across all four sources, backfills short slots by priority, then orders cascade-lead-then-interleave so the lead is always the highest-priority non-empty source while the body alternates for variety.
+
 ```
 home/hero.ts:
+  HERO_TARGET = 6
+  POOL_SIZE   = 6                                        // each loader returns up to 6 candidates
+  QUOTA: Record<RowKind, number> = {
+    continueWatching:   1,
+    recommendedForYou:  2,
+    trendingNow:        2,
+    newReleases:        1,
+  }
+  PRIORITY: RowKind[] = ["continueWatching", "recommendedForYou", "trendingNow", "newReleases"]
+
   pickHero(ctx) → LayoutHero | null
-    cascade = [
-      { source: "continueWatching", reason: "continue_watching", get: pickContinueWatchingHero },
-      { source: "recommendedForYou", reason: "recommended",      get: pickRecommendedHero },
-      { source: "trendingNow",       reason: "trending",         get: pickTrendingHero },
-      { source: "newReleases",       reason: "new_release",      get: pickNewReleaseHero },
-    ]
-    for each c in cascade:
-      hit = c.get(ctx)                                   // returns { item, alternates[] } | null
-      if hit:
-        // Hero items share the row enrichment surface (status, availability,
-        // facets) so the UI can render request-vs-play CTAs without a
-        // follow-up fetch. Synthetic rowId "hero" falls through pickMatchReason.
-        enriched = await enrichItems([hit.item, ...hit.alternates], ctx, { rowId: "hero" })
-        [head, ...rest] = enriched
-        return { item: head, source: c.source, reason: c.reason,
-                 resumeUrl: resolveResumeUrl(head, ctx),
-                 alternates: rest }
-    return null
+    pools = await Promise.all(PRIORITY.map(src => loadPool(src, ctx)))   // HeroSlide[] each
+    poolsByKind = zip(PRIORITY, pools)
+    drafts = drawByQuota(poolsByKind, QUOTA)             // top-N from each pool (no enrichItems yet)
+    filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY)
+    if filled.length === 0: return null
+    ordered = orderCascadeLeadInterleave(filled, PRIORITY)
+    enriched = await enrichItems(ordered.map(s => s.item), ctx, { rowId: "hero" })
+    slides = ordered.map((s, i) => ({ ...s, item: enriched[i], resumeUrl: resolveResumeUrl(s) }))
+    return { slides }
 
-  pickContinueWatchingHero(ctx):
-    res = ctx.mediaService.getContinueWatchingFeed({ deadlineMs })
+  loadPool(source, ctx) → Promise<HeroSlide[]>
+    // Each loader stamps source + reason on every candidate it returns. Pool size capped at
+    // POOL_SIZE so backfill has headroom without unbounded fetches.
+    switch source:
+      case "continueWatching":  return loadContinueWatchingPool(ctx)
+      case "recommendedForYou": return loadRecommendedPool(ctx)
+      case "trendingNow":       return loadTrendingPool(ctx)
+      case "newReleases":       return loadNewReleasesPool(ctx)
+
+  drawByQuota(poolsByKind, quota) → HeroSlide[]
+    out = []
+    for src of PRIORITY:                                 // deterministic priority walk
+      take = min(poolsByKind[src].length, quota[src])
+      out.push(...poolsByKind[src].slice(0, take))
+    return out
+
+  backfill(drafts, poolsByKind, target, priority) → HeroSlide[]
+    used = new Set(drafts.map(s => `${s.source}:${s.item.tmdbId}`))
+    while drafts.length < target:
+      progressed = false
+      for src of priority:                               // CW → rec → trend → new
+        next = poolsByKind[src].find(s => !used.has(`${src}:${s.item.tmdbId}`))
+        if next:
+          drafts.push(next); used.add(`${src}:${next.item.tmdbId}`); progressed = true
+          if drafts.length === target: break
+      if !progressed: break                              // every pool exhausted; ship < target
+    return drafts
+
+  orderCascadeLeadInterleave(slides, priority) → HeroSlide[]
+    byKind = groupBy(slides, s => s.source)              // preserves draw order within group
+    lead = null
+    for src of priority:
+      q = byKind[src] ?? []
+      if q.length: { lead = q.shift(); break }
+    if !lead: return slides
+    rest = []
+    while priority.some(k => (byKind[k]?.length ?? 0) > 0):
+      for src of priority:
+        q = byKind[src]
+        if q?.length: rest.push(q.shift())
+    return [lead, ...rest]
+
+  loadContinueWatchingPool(ctx) → HeroSlide[]
+    if !(await ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user")): return []
+    res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs })
     eligible = res.items.filter(e => e.progressMs > 0 && progress(e) < 0.85)
-    sorted = orderBy(eligible, [e=>e.lastPlayedAt], ["desc"])
-    if sorted.length === 0: return null
-    head = sorted[0]
-    alts = sorted.slice(1, 5).map(toCompactMediaItem)
-    return { item: toCompactMediaItem(head), alternates: alts }
+    sorted   = orderBy(eligible, [e => e.lastPlayedAt], ["desc"])
+    items    = sorted.slice(0, POOL_SIZE).map(fromContinueWatchingEntry).filter(Boolean)
+    return items.map(item => ({ item, source: "continueWatching",
+                                reason: "continue_watching", resumeUrl: null }))
 
-  pickRecommendedHero(ctx):
-    rec = catalog.getRecommendations(userId, "default")
-    if !rec: return null
-    keys = rec.items.slice(0, 5)
-    md   = catalog.getMetadataBatch(keys)
-    head = toCompactMediaItem(md[keys[0].tmdb_id], { topContributors: keys[0].top_contributors })
-    alts = keys.slice(1).map(k => toCompactMediaItem(md[k.tmdb_id]))
-    return { item: head, alternates: alts }
+  loadRecommendedPool(ctx) → HeroSlide[]
+    rec = await catalog.getRecommendations(userId, "default")
+    if !rec || rec.items.length === 0: return []
+    keys = rec.items.slice(0, POOL_SIZE)
+    md   = await catalog.getMetadataBatch(keys.map(k => ({ tmdbId: k.tmdbId, type: k.mediaType })))
+    return keys.flatMap(k => {
+      meta = md[`${k.mediaType}:${k.tmdbId}`]
+      if !meta: return []
+      return [{ item: fromCanonicalMetadata(meta, { topContributors: k.topContributors }),
+                source: "recommendedForYou", reason: "recommended", resumeUrl: null }]
+    })
 
-  pickTrendingHero(ctx):
-    snap = catalog.getDiscoverFeed("trending", "popularity_desc", today())
-    if !snap || snap.length === 0: return null
-    keys = snap.slice(0, 5); md = catalog.getMetadataBatch(keys)
-    return { item: toCompactMediaItem(md[keys[0].tmdb_id]), alternates: keys.slice(1).map(...) }
+  loadTrendingPool(ctx) → HeroSlide[]      // mirror, feed_kind="trending",  reason="trending"
+  loadNewReleasesPool(ctx) → HeroSlide[]   // mirror, feed_kind="newReleases", reason="new_release"
 
-  pickNewReleaseHero(ctx):
-    // mirror, feed_kind="newReleases"
-
-  resolveResumeUrl(item, ctx):
+  resolveResumeUrl(slide) → string | null
     return null    // v1 — playback@v1 has no getResumeUrl method (only getPositions/removePosition).
-                   // Hero Play button = nav-to-detail v1. See §Non-goals + R2.
+                   // Hero Play button = nav-to-detail v1. See §Non-goals + R2. Stays per-slide so a
+                   // future SDK addition only populates CW slides without touching the wire shape.
 ```
+
+**Worked example — full installation** (CW=3, recs=10, trending=10, new=8):
+- Draw quota → [CW#1, rec#1, rec#2, trend#1, trend#2, new#1] (6 already)
+- No backfill needed
+- Lead = CW#1 (highest priority non-empty), rest interleaves: rec, trend, new, rec, trend
+- Final order: [CW#1, rec#1, trend#1, new#1, rec#2, trend#2]
+
+**Worked example — new user** (CW=0, recs=10, trending=10, new=8):
+- Draw quota → [rec#1, rec#2, trend#1, trend#2, new#1] (5)
+- Backfill 1 short: priority cascade hits rec pool first → +rec#3
+- Final order: lead = rec#1 (CW empty so first non-empty by priority); rest: trend#1, new#1, rec#2, trend#2, rec#3
+- Final order: [rec#1, trend#1, new#1, rec#2, trend#2, rec#3]
+
+**Worked example — only CW populated** (CW=4, others empty):
+- Draw quota → [CW#1] (1)
+- Backfill 5 short: only CW pool has supply → CW#2..CW#4 added (3 more), then exhausted
+- Final length: 4 slides, all CW. Acceptable degenerate case; UI still rotates 4 slides.
 
 ## Layout cache
 
@@ -536,18 +601,18 @@ db/schema/home.ts:
   schema_version mismatch on read → discard, treat as cold.
   Job host.home.layout_warm runs hourly per active user (active = activity in last 14d).
 
-  CURRENT_SCHEMA_VERSION = 1   // const in home/layout-cache.ts
+  CURRENT_SCHEMA_VERSION = 2   // rev 4 — bumped from 1 on LayoutHero reshape
 ```
 
 ```
 home/layout-cache.ts:
   STALE_MS = 60 * 60 * 1000
-  CURRENT_SCHEMA_VERSION = 1
+  CURRENT_SCHEMA_VERSION = 2
 
   read(userId) → { blob, generatedAt } | null
     row = db.select().from(homeLayoutCache).where(eq(user_id, userId)).get()
     if !row: return null
-    if row.schema_version !== CURRENT_SCHEMA_VERSION: return null   // discard stale-shape blob
+    if row.schema_version !== CURRENT_SCHEMA_VERSION: return null   // discard stale-shape blob (v1 → v2 on rev 4 deploy)
     return { blob: JSON.parse(row.blob), generatedAt: row.generated_at }
 
   isFresh(generatedAt) → bool
@@ -814,10 +879,16 @@ apps/server/src/home/__tests__/
     - composeDetails returns details=null + error on plugin reject
     - composeDetails cold-fills catalog metadata on miss
   hero.test.ts
-    - cascade returns continueWatching when eligible
-    - cascade falls to recommended when CW empty
+    - mix returns 6 slides w/ correct quota when all sources full (1 CW + 2 rec + 2 trend + 1 new)
+    - empty CW: 5 drawn + 1 backfilled from recs (priority cascade order)
+    - only CW populated: returns ≤4 slides all source=continueWatching (degenerate fill)
+    - only newReleases populated: returns up to 6 slides all source=newReleases
     - returns null when all sources empty
-    - alternates exclude head item
+    - slides[i].source / reason match origin pool (CW slide → continue_watching, etc.)
+    - lead = highest-priority non-empty source (CW first, else rec, else trend, else new)
+    - body order = round-robin interleave by priority over remainder
+    - backfill never duplicates a `${source}:${tmdbId}` key
+    - resumeUrl is null on every slide v1 (incl. CW slides — see R2)
   match-reason.test.ts
     - finishing_soon when progress >= 0.85
     - similar_to_seed includes seedTitle param
@@ -938,6 +1009,22 @@ CHANGED
   .changeset/<slug>.md                                       6 PRs (one per phase)
 ```
 
+Rev 4 delta (Amendment 3 — see below). NEW + CHANGED:
+
+```
+NEW
+  apps/server/src/home/__tests__/hero-mix.test.ts            (mix/quota/backfill/order; replaces hero.test.ts cascade cases)
+
+CHANGED
+  packages/shared/src/home/types.ts                          +HeroSlide; LayoutHero { slides: HeroSlide[] } (drop item/source/reason/resumeUrl/alternates)
+  apps/server/src/home/hero.ts                               replace cascade w/ mixer (loadPool / drawByQuota / backfill / orderCascadeLeadInterleave)
+  apps/server/src/home/layout-cache.ts                       CURRENT_SCHEMA_VERSION = 2
+  apps/server/src/home/__tests__/hero.test.ts                rewrite per §Tests (or rename to hero-mix.test.ts)
+  apps/client/src/features/home/components/top-zone/top-zone-hero-card.tsx   iterate slides[]; drop alternates path
+  apps/client/src/features/home/components/top-zone/index.tsx                pass slides through to hero card; per-slide source label
+  apps/client/src/features/home/__tests__/top-zone.test.tsx                  expectations for slides[] iteration + per-slide source label
+```
+
 ## Risks + assumptions
 
 - **R1.** `MediaService` ⊥ `getContinueWatchingFeed`/`getMatchingServers` today. PROMOTED to hard prerequisite — PR 3 first commit adds both:
@@ -955,6 +1042,9 @@ CHANGED
 - **A4.** `rec.items[]` use camelCase (`tmdbId`, `mediaType`, `matchReason`, `topContributors`, `score`) per existing `RecItem` interface (`apps/server/src/catalog/types.ts:63`). All pseudo-code in §Per-row pipelines uses camelCase; snake_case in §Catalog change refers to JSON column names only, not field shape.
 - **A5.** `CatalogService.getRecommendations(userId, "default")` valid — `RECOMMENDATION_LIST_KINDS = ["default"]` confirmed at `apps/server/src/catalog/types.ts:9`.
 - **A6.** Hero null fallback — UI design covered in `2026-05-04-home-page-implementation-design.md`. Server emits `hero: null`, `HomeFeed` skips `<TopZone>` render.
+- **R12.** (rev 4) Degenerate fill — when only one source has supply (e.g. brand-new install w/ only TMDB trending populated), backfill exhausts that single pool and the hero ships fewer than 6 slides, all same source. Acceptable: still distinct from any single row (pool size = 6 vs row first page ≤ 12), and rare in practice once recs job has run once. Tests cover the all-same-source branch.
+- **R13.** (rev 4) Schema bump 1 → 2 invalidates every existing `home_layout_cache` row on first deploy. First request per active user falls through to live composition + write-back. Cost = N active users × one cold compose (≤ 5 s budget); spread by `host.home.layout_warm` jitter on next hourly tick.
+- **A9.** (rev 4) Mixer bypasses the previous `pickContinueWatchingHero` / `pickRecommendedHero` / `pickTrendingHero` / `pickNewReleaseHero` exports. They are removed in PR 7; nothing else imports them (only `pickHero` is exported via `home/hero.ts`). Verify before delete via grep.
 
 ## Implementation phases (PR breakdown)
 
@@ -968,6 +1058,7 @@ CHANGED
 | 4   | `home-row-providers`           | RowProvider iface, cursor codec, status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet                                                                                                                         | PRs 1, 2, 3                                |
 | 5   | `home-orchestrator`            | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint                                        | PR 4                                       |
 | 6   | `home-client-integration`      | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5                                       |
+| 7   | `home-hero-mix`                | rev 4 — reshape `LayoutHero` → `{ slides: HeroSlide[] }`; mixed-source composer (loadPool/drawByQuota/backfill/order); bump `home_layout_cache.schema_version` 1→2; client iterates slides[] w/ per-slide source label                | (independent of seasons amendment)         |
 
 Each PR ships a changeset (per project rule: 1-2 sentences, end-user voice).
 
@@ -1126,6 +1217,94 @@ Five stacked PRs. See `plan/feature-home-tv-seasons-1.md` for full breakdown.
 - **R11.** `RequestableSeasons` component is request-flow-shaped — it accepts `pluginConfigured={false}` to render badges instead of action buttons. Reusing it sidesteps rebuilding accordion/episode list visuals; minor friction is the `Season` adapter type. Component split into pure-display variant deferred until request flow lands and shape stabilises.
 - **A7.** Specials filter is purely client-side derivation. Server returns canonical season 0 unconditionally when TMDB lists it; client suppresses if no server has episodes.
 - **A8.** Loading UX: `<Suspense>` boundary at `modal-seasons` only — modal body renders eagerly w/ details. Initial fetch via `useSuspenseQuery`. Plugin failures bubble to local `<ErrorBoundary>` showing "couldn't reach <server>" microcopy alongside any successful server data.
+
+## Amendment 3 — Hero mixed-source slides (rev 4, 2026-05-07)
+
+Promotes the hero from a single-source cascade to a mixed-source slide list. Symptom: with the cascade, a user with any continue-watching activity gets a hero whose every slide draws from CW — visually a 1:1 echo of the "Pick up where you left off" row directly below it. Goal: hero stays distinct from any single row by default while still leading with the most-actionable item (resume something you started).
+
+### Motivation
+
+- Real installation observed two slides, both from CW, mirroring CW row.
+- UI design intent (`2026-05-04-home-page-implementation-design.md`) treats hero as a curated showcase, not a row preview.
+- Existing wire shape (`item + alternates[]`) ties every slide to one source/reason, blocking mixed labelling.
+
+### Composition rule
+
+- **Quota** — fixed per source for 6 total slides:
+  - `continueWatching` × 1
+  - `recommendedForYou` × 2
+  - `trendingNow` × 2
+  - `newReleases` × 1
+- **Backfill** — when a source is short, cascade by priority `[CW, rec, trend, new]` and pull the next unused candidate from each non-empty pool until the target is reached. Stops when every pool is exhausted (degenerate fill ships < 6 slides; never throws).
+- **Order** — `lead = first non-empty source by priority`; remainder = round-robin interleave by priority over what is left. Lead is therefore always CW when CW has any candidate, else rec, else trend, else new — matching the cascade-priority feel without limiting the body to one source.
+- **Dedup** — none against other rows (per design call). Within hero, `${source}:${tmdbId}` keys are unique by construction — same item drawn from two pools (e.g. CW + recs) is allowed; backfill skips already-used keys, preventing duplicates inside the slides list.
+
+### Wire shape
+
+`LayoutHero` reshapes:
+
+```ts
+// before (rev 3)
+interface LayoutHero {
+  item: CompactMediaItem;
+  source: RowKind;
+  reason: HeroReason;
+  resumeUrl: string | null;
+  alternates: CompactMediaItem[];
+}
+
+// after (rev 4)
+interface HeroSlide {
+  item: CompactMediaItem;
+  source: RowKind;
+  reason: HeroReason;
+  resumeUrl: string | null;
+}
+interface LayoutHero {
+  slides: HeroSlide[];
+}
+```
+
+`null` LayoutHero only when every source is empty. Pre-stable per project memory — no compat union; client narrows in same PR.
+
+### Cache invalidation
+
+`home_layout_cache.schema_version` bumps `1 → 2`. Existing rows discarded on first read after deploy (per existing R6 contract). Live recompose populates v2 blob on the next request; `host.home.layout_warm` warms v2 blobs on the next hourly tick.
+
+### Server composition
+
+Composer pseudocode lives in §Hero composition (rewritten this revision). High-level flow:
+
+1. Per source, `loadPool(source, ctx)` returns up to 6 stamped slides (`{ item, source, reason, resumeUrl }`).
+2. `drawByQuota` walks priority order taking the per-source quota.
+3. `backfill` cascades through priority pools to top up to 6, skipping `${source}:${tmdbId}` keys already drawn.
+4. `orderCascadeLeadInterleave` selects the lead from the first non-empty priority pool, then round-robins remainder.
+5. `enrichItems` runs once across all final slide items (status, availability, facets) — same surface as rows.
+6. `resumeUrl` is currently always `null`; structure preserved so future SDK addition (`playback@v1.getResumeUrl`) can populate CW slides only.
+
+### Client integration
+
+- `top-zone-hero-card.tsx` iterates `slides[]`. Auto-rotate continues to use the first slide as initial; carousel cycles through all slides.
+- Per-slide source label rendered from `slide.source` (e.g. "Continue Watching", "Trending Now"). Mapping lives in `top-zone/source-label.ts` (new file or inline tuple — implementation choice in PR 7).
+- `slide.resumeUrl` always `null` v1 → Play button = nav-to-detail (unchanged behaviour from rev 1).
+- `card.test.tsx` / `top-zone.test.tsx` updated to expect slides[] iteration + per-slide source label.
+
+### Tests
+
+See §Tests `hero.test.ts` block (rewritten this revision).
+
+### Implementation phases (Amendment 3)
+
+Single PR — `home-hero-mix` (PR 7 in §Implementation phases). Independent of seasons amendment (Amendment 2). Stacks on top of PR 6 (which lands the slides[]-naive client). Ships:
+
+- shared types reshape (HeroSlide, LayoutHero.slides)
+- server `home/hero.ts` rewrite + new tests
+- `layout-cache.ts` `CURRENT_SCHEMA_VERSION = 2`
+- client `top-zone-hero-card.tsx` slides[] iteration + per-slide label
+
+### Risks (Amendment 3)
+
+See R12, R13, A9 in §Risks + assumptions.
 
 ## Related specifications
 
