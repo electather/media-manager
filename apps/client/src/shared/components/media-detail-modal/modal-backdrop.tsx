@@ -11,7 +11,7 @@ export function ModalBackdrop({ src }: { src: string }) {
   return (
     <div
       aria-hidden="true"
-      className="scroll-driven-modal-backdrop-fade pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+      className="scroll-driven-modal-backdrop-fade pointer-events-none absolute inset-x-0 top-0 h-72 -z-10 overflow-hidden sm:h-96 [mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]"
     >
       <img src={src} alt="" className="size-full object-cover" />
       <div

@@ -43,7 +43,7 @@ function HeroFrame({
         <HeroArtwork src={ambientSrc} />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-[radial-gradient(ellipse_120%_85%_at_50%_100%,oklch(0_0_0/0.7)_0%,oklch(0_0_0/0.35)_45%,transparent_80%)]"
+          className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_0%_100%,oklch(0_0_0/0.85)_0%,oklch(0_0_0/0.4)_45%,transparent_100%)]"
         />
         <div
           aria-hidden="true"
@@ -133,11 +133,7 @@ export function TopZone({ slides, onPeek }: Props) {
   }, [candidates.length]);
 
   return (
-    <section
-      data-testid="top-zone"
-      aria-label={active.title}
-      className="relative isolate z-10 mb-2"
-    >
+    <section data-testid="top-zone" aria-label={active.title} className="relative isolate mb-2">
       <TopZoneAmbient src={ambientSrc} />
       <HeroFrame ambientSrc={ambientSrc} percent={percent}>
         <TopZoneHeroCard

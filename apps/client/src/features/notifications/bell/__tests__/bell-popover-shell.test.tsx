@@ -5,6 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
+// happy-dom lacks Element.getAnimations; Base UI ScrollArea Viewport polls it
+// from a setTimeout that fires after assertions complete.
+if (typeof Element !== "undefined" && !Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = () => [];
+}
+
 const fetchersMock = vi.hoisted(() => ({
   fetchUnreadCount: vi.fn(),
   fetchInboxPage: vi.fn(),

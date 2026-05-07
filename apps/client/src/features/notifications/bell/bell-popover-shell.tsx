@@ -5,6 +5,7 @@ import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 import { m } from "@/paraglide/messages";
 import { CategoryChip } from "../shared/category-chip";
 import { PopoverEmpty } from "./popover-empty";
@@ -136,7 +137,7 @@ export function BellPopoverShell({ open, density, intensity, mobile = false }: P
           value={filter}
           onValueChange={onFilterChange}
           aria-label={m.notifications_filter_aria()}
-          className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none]"
+          className="flex-nowrap overflow-x-auto pb-0.5 [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent_100%)]"
         >
           <CategoryChip value="all" label={m.notifications_category_all()} count={counts.all} />
           {(Object.keys(CATEGORY_META) as NotificationCategory[]).map((k) => (
@@ -153,15 +154,17 @@ export function BellPopoverShell({ open, density, intensity, mobile = false }: P
 
       <div className="h-px shrink-0 bg-border" />
 
-      <div className="min-h-0 flex-1 overflow-y-auto" role="list">
-        {filtered.length === 0 ? (
-          <PopoverEmpty filterLabel={filterLabel} />
-        ) : (
-          filtered.map((item) => (
-            <PopoverRow key={item.id} item={item} density={density} intensity={intensity} />
-          ))
-        )}
-      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div role="list">
+          {filtered.length === 0 ? (
+            <PopoverEmpty filterLabel={filterLabel} />
+          ) : (
+            filtered.map((item) => (
+              <PopoverRow key={item.id} item={item} density={density} intensity={intensity} />
+            ))
+          )}
+        </div>
+      </ScrollArea>
 
       <div className="flex shrink-0 items-center justify-between border-t border-border px-4 py-2.5">
         <Button
