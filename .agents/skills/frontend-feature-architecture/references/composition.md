@@ -106,6 +106,25 @@ components/card/
 
 `index.tsx` composes the parts. Each part is independently understandable. Don't pre-split — split when a single file becomes hard to scan.
 
+### Don't double-nest
+
+When the file you're decomposing already lives inside a sub-component folder, split into **siblings** within that same folder — do not create a nested `<thing>/` directory inside it. Goal: at most one level of component sub-folder per surface, so the tree stays scannable.
+
+```
+✅ components/row/                  ❌ components/row/
+   ├── index.tsx                       ├── index.tsx
+   ├── row-header.tsx                  ├── row-header.tsx
+   ├── row-scroller.tsx                └── row-scroller/
+   ├── row-item.tsx                       ├── index.tsx
+   ├── row-skeleton-item.tsx              ├── row-item.tsx
+   ├── row-chevron.tsx                    ├── row-skeleton-item.tsx
+   ├── use-row-edges.ts                   ├── row-chevron.tsx
+   └── use-prefetch-observer.ts           ├── use-row-edges.ts
+                                          └── use-prefetch-observer.ts
+```
+
+UI-only behavior hooks (rAF effects, observers, etc.) colocate as `use-<thing>.ts` siblings — they stay component-local and don't need to live under feature-root `hooks/`, which is reserved for query/mutation hooks (rule 7).
+
 ## Forms
 
 Use `react-hook-form` + zod resolver. Submit handler is a mutation hook from the feature. Reference: [`apps/client/src/features/notifications/admin/retention-form.tsx`](../../../../apps/client/src/features/notifications/admin/retention-form.tsx).
