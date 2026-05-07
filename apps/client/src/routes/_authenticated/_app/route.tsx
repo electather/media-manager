@@ -15,9 +15,9 @@ import {
  * command menu without dragging that dependency into `app/`.
  *
  * Post-PR6 the home wire ships row stubs, not item arrays — the command
- * menu pool seeds from the hero head + alternates only. A dedicated
- * search endpoint is the next step (tracked separately) for the broader
- * pool the prototype seeded from every row.
+ * menu pool seeds from the hero slides only. A dedicated search endpoint
+ * is the next step (tracked separately) for the broader pool the prototype
+ * seeded from every row.
  */
 function AppLayout() {
   const { data: feed } = useHomeFeed();
@@ -30,8 +30,7 @@ function AppLayout() {
       seen.add(item.id);
       pool.push(item);
     };
-    push(feed?.hero?.item);
-    feed?.hero?.alternates.forEach(push);
+    feed?.hero?.slides.forEach((slide) => push(slide.item));
     return { pool, trending: [] };
   }, [feed]);
 

@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
-import type { HeroItem, HomeMediaItem } from "../../lib/types";
+import type { HeroSlideUI, HomeMediaItem } from "../../lib/types";
 import { ProgressOverlay } from "../progress-overlay";
 import { TopZoneAmbient } from "./top-zone-ambient";
 import { TopZoneHeroCard } from "./top-zone-hero-card";
@@ -14,7 +14,7 @@ function progressPercent(progress: HomeMediaItem["progress"]): number | null {
 }
 
 type Props = {
-  hero: HeroItem;
+  slides: HeroSlideUI[];
   onPeek: (id: string) => void;
 };
 
@@ -67,7 +67,7 @@ function HeroAlternates({
   activeIndex,
   onSelect,
 }: {
-  candidates: readonly HomeMediaItem[];
+  candidates: readonly HeroSlideUI[];
   activeIndex: number;
   onSelect: (index: number) => void;
 }) {
@@ -99,7 +99,7 @@ function HeroAlternates({
   );
 }
 
-function dismissHandler(candidates: readonly HomeMediaItem[], onDismiss: () => void) {
+function dismissHandler(candidates: readonly HeroSlideUI[], onDismiss: () => void) {
   return candidates.length > 1 ? onDismiss : undefined;
 }
 
@@ -107,12 +107,15 @@ function dismissHandler(candidates: readonly HomeMediaItem[], onDismiss: () => v
  * Hero stage. Mirrors the prototype's overlay-on-image structure: a stage
  * container holds a blurred ambient backdrop that bleeds outside the card
  * (YouTube-style spill), and a bounded hero card on top with the sharp
- * artwork, gradient scrims, and the hero copy overlay.
+ * artwork, gradient scrims, and the hero copy overlay. The carousel cycles
+ * through `slides[]` (mixed sources per Amendment 3 of the home backend
+ * design doc); each slide carries its own `source` so the hero card can
+ * label which row the slide is drawn from.
  */
-export function TopZone({ hero, onPeek }: Props) {
-  const candidates = useMemo<HomeMediaItem[]>(() => [hero, ...hero.alternates], [hero]);
+export function TopZone({ slides, onPeek }: Props) {
+  const candidates = slides;
   const [activeIndex, setActiveIndex] = useState(0);
-  const active = candidates[activeIndex] ?? hero;
+  const active = candidates[activeIndex] ?? candidates[0]!;
   const ambientSrc = active.backdrop ?? active.poster;
   const percent = progressPercent(active.progress);
 
@@ -121,15 +124,20 @@ export function TopZone({ hero, onPeek }: Props) {
   }, [candidates.length]);
 
   return (
-    <section data-testid="top-zone" aria-label={hero.title} className="relative isolate z-10 mb-2">
+    <section
+      data-testid="top-zone"
+      aria-label={candidates[0]?.title ?? ""}
+      className="relative isolate z-10 mb-2"
+    >
       <TopZoneAmbient src={ambientSrc} />
       <HeroFrame ambientSrc={ambientSrc} percent={percent}>
         <TopZoneHeroCard
           hero={active}
+          source={active.source}
           percent={percent}
-          // v1: no `playback@v1.getResumeUrl` capability — Play opens the
-          // detail modal so the user can navigate to the full detail page
-          // and trigger the request flow if the title is unavailable.
+          // v1: `slide.resumeUrl === null` (R2 / Amendment 3 §Server composition
+          // step 6) — plugin SDK has no `playback@v1.getResumeUrl` method, so
+          // Play opens the detail modal as a nav-to-detail action.
           onPlay={() => onPeek(active.id)}
           onMoreInfo={() => onPeek(active.id)}
           onDismiss={dismissHandler(candidates, cycleAlternate)}

@@ -112,21 +112,32 @@ export interface CompactMediaItem {
   tags?: string[];
 }
 
-export interface LayoutHero {
+/**
+ * One hero slide. Each slide carries its own `source` / `reason` / `resumeUrl`
+ * because the hero now mixes items across sources (continueWatching,
+ * recommendedForYou, trendingNow, newReleases) instead of cascading to a
+ * single source per render. The client renders the source label per active
+ * slide, and the carousel cycles through the slides in order.
+ *
+ * `resumeUrl` is always `null` v1 — the plugin SDK has no
+ * `playback@v1.getResumeUrl` method yet, so the client treats Play as a
+ * navigate-to-detail action regardless of source.
+ */
+export interface HeroSlide {
   item: CompactMediaItem;
   source: RowKind;
   reason: HeroReason;
-  /**
-   * Server-resolved deep link for resume; null when no playable source available.
-   * Always null in v1 (the plugin SDK has no `playback@v1.getResumeUrl` method
-   * yet); the client renders Play as a navigate-to-detail action.
-   */
   resumeUrl: string | null;
-  /**
-   * Up to four crossfade backdrops drawn from the same source as `item`. Empty
-   * when no alternates are available (single-eligible-item edge case).
-   */
-  alternates: CompactMediaItem[];
+}
+
+/**
+ * Hero region payload. `slides[0]` is the lead (auto-shown on first paint);
+ * subsequent entries are reached via the carousel. `LayoutHero` is `null` on
+ * the wire only when every source pool is empty; otherwise `slides.length`
+ * is between 1 and 6 inclusive (degenerate fill ships fewer than 6).
+ */
+export interface LayoutHero {
+  slides: HeroSlide[];
 }
 
 /**

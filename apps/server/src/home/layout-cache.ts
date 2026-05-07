@@ -8,6 +8,11 @@ import { homeLayoutCache } from "../db/schema/home";
  * in a way the orchestrator's compose pass would render differently. Stale
  * blobs whose `schema_version` disagrees with this constant fall through to
  * the cold path and get rewritten — pre-stable means we replace, not migrate.
+ *
+ * v2: Amendment 3 (rev 4) of `docs/2026-05-05-home-page-backend-design.md`
+ * reshaped `LayoutHero` from `{ item, source, reason, resumeUrl, alternates }`
+ * to `{ slides: HeroSlide[] }`; v1 blobs are discarded on first read so the
+ * warm job repopulates within the next hourly tick.
  */
 export const CURRENT_SCHEMA_VERSION = 2;
 

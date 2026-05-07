@@ -1,70 +1,97 @@
-import { orderBy } from "es-toolkit/array";
-import type { HeroReason, LayoutHero, RowKind } from "@ent-mcp/shared/home";
+import { groupBy, orderBy } from "es-toolkit/array";
+import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import type { CanonicalMetadata, MetadataKey } from "../catalog/types";
 import { fromCanonicalMetadata, fromContinueWatchingEntry } from "./adapters";
 import { enrichItems } from "./enrich";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
 const FINISHING_THRESHOLD = 0.85;
-const HERO_POOL = 5;
+const HERO_TARGET = 6;
+const POOL_SIZE = 6;
 
-interface HeroPick {
+const QUOTA: Record<RowKind, number> = {
+  continueWatching: 1,
+  recommendedForYou: 2,
+  trendingNow: 2,
+  newReleases: 1,
+} as Record<RowKind, number>;
+
+const PRIORITY: RowKind[] = ["continueWatching", "recommendedForYou", "trendingNow", "newReleases"];
+
+interface HeroSlideInternal {
   item: InternalCompactMediaItem;
-  alternates: InternalCompactMediaItem[];
-}
-
-interface CascadeStep {
   source: RowKind;
   reason: HeroReason;
-  get: (ctx: RowContext) => Promise<HeroPick | null>;
+  resumeUrl: string | null;
 }
 
-const CASCADE: CascadeStep[] = [
-  { source: "continueWatching", reason: "continue_watching", get: pickContinueWatchingHero },
-  { source: "recommendedForYou", reason: "recommended", get: pickRecommendedHero },
-  { source: "trendingNow", reason: "trending", get: pickTrendingHero },
-  { source: "newReleases", reason: "new_release", get: pickNewReleaseHero },
-];
+type PoolMap = Partial<Record<RowKind, HeroSlideInternal[]>>;
 
 /**
- * Hero cascade — first source that yields a hit wins. Each picker returns
- * the head item plus up to four alternates drawn from the same source pool
- * (alternates feed the backdrop crossfade in the dashboard top zone). The
- * cascade returns `null` when every source is empty for the user.
+ * Hero mixer — Amendment 3 (rev 4) of `docs/2026-05-05-home-page-backend-design.md`.
  *
- * `resolveResumeUrl` is always `null` v1 — the plugin SDK has no
- * `playback@v1.getResumeUrl` method, so the UI renders Play as nav-to-detail.
+ * Replaces the old first-source-wins cascade with a fixed-quota mix across all
+ * four sources: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1
+ * newReleases (= 6). When a source is short, `backfill` walks the priority
+ * order `[CW, rec, trend, new]` taking the next unused candidate per pass
+ * until either the target is reached or every pool is exhausted (degenerate
+ * fill ships < 6). Final ordering: lead = first non-empty priority source;
+ * remainder = round-robin interleave by priority. Within hero, slides are
+ * unique by `${source}:${tmdbId}` by construction; no dedup against the rows
+ * below.
  */
 export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
-  for (const step of CASCADE) {
-    const hit = await step.get(ctx);
-    if (!hit) continue;
-    // Hero items share the row enrichment surface (status, availability,
-    // facets) so the UI can render request-vs-play CTAs without a follow-up
-    // fetch. The synthetic rowId "hero" falls through pickMatchReason and
-    // resolves to no chip, matching the trending/newReleases row policy.
-    const enriched = await enrichItems([hit.item, ...hit.alternates], ctx, { rowId: "hero" });
-    // `enrichItems` maps 1-to-1, and `hit.item` is always defined here, so
-    // the head is guaranteed.
-    const [head, ...rest] = enriched;
-    return {
-      item: head!,
-      source: step.source,
-      reason: step.reason,
-      resumeUrl: resolveResumeUrl(),
-      alternates: rest,
-    };
+  const pools = await Promise.all(PRIORITY.map((src) => loadPool(src, ctx)));
+  const poolsByKind: PoolMap = {};
+  PRIORITY.forEach((src, i) => {
+    poolsByKind[src] = pools[i] ?? [];
+  });
+
+  const drafts = drawByQuota(poolsByKind, QUOTA);
+  const filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY);
+  if (filled.length === 0) return null;
+
+  const ordered = orderCascadeLeadInterleave(filled, PRIORITY);
+  const enriched = await enrichItems(
+    ordered.map((s) => s.item),
+    ctx,
+    { rowId: "hero" },
+  );
+  const slides: HeroSlide[] = ordered.map((s, i) => ({
+    item: enriched[i]!,
+    source: s.source,
+    reason: s.reason,
+    resumeUrl: resolveResumeUrl(s),
+  }));
+  return { slides };
+}
+
+/**
+ * Always `null` v1 — plugin SDK has no `playback@v1.getResumeUrl` method, so
+ * Play is rendered as nav-to-detail. Per Amendment 3 §Wire shape (R2).
+ */
+export function resolveResumeUrl(_slide: HeroSlideInternal): string | null {
+  return null;
+}
+
+function loadPool(source: RowKind, ctx: RowContext): Promise<HeroSlideInternal[]> {
+  switch (source) {
+    case "continueWatching":
+      return loadContinueWatchingPool(ctx);
+    case "recommendedForYou":
+      return loadRecommendedPool(ctx);
+    case "trendingNow":
+      return loadDiscoverPool(ctx, "trending", "popularity_desc", "trendingNow", "trending");
+    case "newReleases":
+      return loadDiscoverPool(ctx, "newReleases", "popularity_desc", "newReleases", "new_release");
+    default:
+      return Promise.resolve([]);
   }
-  return null;
 }
 
-export function resolveResumeUrl(): string | null {
-  return null;
-}
-
-export async function pickContinueWatchingHero(ctx: RowContext): Promise<HeroPick | null> {
+async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
   if (!(await ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user"))) {
-    return null;
+    return [];
   }
   const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
   // fallow-ignore-next-line complexity
@@ -76,61 +103,134 @@ export async function pickContinueWatchingHero(ctx: RowContext): Promise<HeroPic
     return ms / 1000 / total < FINISHING_THRESHOLD;
   });
   const sorted = orderBy(eligible, [(entry) => entry.lastPlayedAt ?? ""], ["desc"]);
-  if (sorted.length === 0) return null;
   const items = sorted
-    .slice(0, HERO_POOL)
+    .slice(0, POOL_SIZE)
     .map((entry) => fromContinueWatchingEntry(entry))
     .filter((item): item is InternalCompactMediaItem => item !== null);
-  if (items.length === 0) return null;
-  const [head, ...rest] = items;
-  return { item: head!, alternates: rest };
+  return items.map((item) => ({
+    item,
+    source: "continueWatching",
+    reason: "continue_watching",
+    resumeUrl: null,
+  }));
 }
 
-// fallow-ignore-next-line complexity
-export async function pickRecommendedHero(ctx: RowContext): Promise<HeroPick | null> {
+async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
   const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
-  if (!rec || rec.items.length === 0) return null;
-  const keys = rec.items.slice(0, HERO_POOL);
+  if (!rec || rec.items.length === 0) return [];
+  const keys = rec.items.slice(0, POOL_SIZE);
   const metadata = await ctx.catalog.getMetadataBatch(
     keys.map((k) => ({ tmdbId: k.tmdbId, type: k.mediaType })),
   );
-  const items: InternalCompactMediaItem[] = [];
+  const slides: HeroSlideInternal[] = [];
   for (const k of keys) {
     const meta = metadata[`${k.mediaType}:${k.tmdbId}`] as CanonicalMetadata | undefined;
     if (!meta) continue;
-    items.push(fromCanonicalMetadata(meta, { topContributors: k.topContributors }));
+    slides.push({
+      item: fromCanonicalMetadata(meta, { topContributors: k.topContributors }),
+      source: "recommendedForYou",
+      reason: "recommended",
+      resumeUrl: null,
+    });
   }
-  if (items.length === 0) return null;
-  const [head, ...rest] = items;
-  return { item: head!, alternates: rest };
+  return slides;
 }
 
-export async function pickTrendingHero(ctx: RowContext): Promise<HeroPick | null> {
-  return pickFromDiscover(ctx, "trending", "popularity_desc");
-}
-
-export async function pickNewReleaseHero(ctx: RowContext): Promise<HeroPick | null> {
-  return pickFromDiscover(ctx, "newReleases", "popularity_desc");
-}
-
-// fallow-ignore-next-line complexity
-async function pickFromDiscover(
+async function loadDiscoverPool(
   ctx: RowContext,
   feedKind: "trending" | "newReleases",
   sort: "popularity_desc",
-): Promise<HeroPick | null> {
+  source: RowKind,
+  reason: HeroReason,
+): Promise<HeroSlideInternal[]> {
   const snap = await ctx.catalog.getDiscoverFeed(feedKind, sort, todayBucket());
-  if (!snap || snap.length === 0) return null;
-  const keys: MetadataKey[] = snap.slice(0, HERO_POOL);
+  if (!snap || snap.length === 0) return [];
+  const keys: MetadataKey[] = snap.slice(0, POOL_SIZE);
   const metadata = await ctx.catalog.getMetadataBatch(keys);
-  const items: InternalCompactMediaItem[] = [];
+  const slides: HeroSlideInternal[] = [];
   for (const k of keys) {
     const meta = metadata[`${k.type}:${k.tmdbId}`] as CanonicalMetadata | undefined;
-    if (meta) items.push(fromCanonicalMetadata(meta));
+    if (!meta) continue;
+    slides.push({
+      item: fromCanonicalMetadata(meta),
+      source,
+      reason,
+      resumeUrl: null,
+    });
   }
-  if (items.length === 0) return null;
-  const [head, ...rest] = items;
-  return { item: head!, alternates: rest };
+  return slides;
+}
+
+export function drawByQuota(
+  poolsByKind: PoolMap,
+  quota: Record<RowKind, number>,
+): HeroSlideInternal[] {
+  const drafts: HeroSlideInternal[] = [];
+  for (const src of PRIORITY) {
+    const pool = poolsByKind[src] ?? [];
+    const n = Math.min(pool.length, quota[src] ?? 0);
+    for (let i = 0; i < n; i++) drafts.push(pool[i]!);
+  }
+  return drafts;
+}
+
+export function backfill(
+  drafts: HeroSlideInternal[],
+  poolsByKind: PoolMap,
+  target: number,
+  priority: RowKind[],
+): HeroSlideInternal[] {
+  if (drafts.length >= target) return drafts;
+  const out = [...drafts];
+  const used = new Set(out.map((s) => `${s.source}:${s.item.tmdbId}`));
+  while (out.length < target) {
+    let progressed = false;
+    for (const src of priority) {
+      if (out.length >= target) break;
+      const pool = poolsByKind[src] ?? [];
+      const next = pool.find((s) => !used.has(`${s.source}:${s.item.tmdbId}`));
+      if (!next) continue;
+      out.push(next);
+      used.add(`${next.source}:${next.item.tmdbId}`);
+      progressed = true;
+    }
+    if (!progressed) break;
+  }
+  return out;
+}
+
+export function orderCascadeLeadInterleave(
+  slides: HeroSlideInternal[],
+  priority: RowKind[],
+): HeroSlideInternal[] {
+  if (slides.length === 0) return slides;
+  const grouped = groupBy(slides, (s) => s.source) as Partial<Record<RowKind, HeroSlideInternal[]>>;
+  const queues: Record<string, HeroSlideInternal[]> = {};
+  for (const src of priority) queues[src] = [...(grouped[src] ?? [])];
+
+  let lead: HeroSlideInternal | null = null;
+  for (const src of priority) {
+    const q = queues[src]!;
+    if (q.length > 0) {
+      lead = q.shift()!;
+      break;
+    }
+  }
+  if (!lead) return slides;
+
+  const rest: HeroSlideInternal[] = [];
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const src of priority) {
+      const q = queues[src]!;
+      if (q.length > 0) {
+        rest.push(q.shift()!);
+        progressed = true;
+      }
+    }
+  }
+  return [lead, ...rest];
 }
 
 function todayBucket(): number {

@@ -3,6 +3,7 @@ import type {
   Availability,
   CompactMediaItem,
   Facets,
+  HeroReason,
   RowKind,
   SeriesContext,
 } from "@ent-mcp/shared/home";
@@ -53,7 +54,18 @@ export type HomeMediaItem = CompactMediaItem & {
 
 export type { Availability, Facets, SeriesContext };
 
-export type HeroItem = HomeMediaItem & { alternates: HomeMediaItem[] };
+/**
+ * Per-slide UI projection of a `HeroSlide`. Flattens `slide.item` into the
+ * card shape the existing top-zone renderer expects and stamps the slide-
+ * level metadata (`source`, `reason`, `resumeUrl`) so the carousel can show
+ * a per-slide source label and pick a Play CTA. `resumeUrl` is always `null`
+ * v1 — Play renders as nav-to-detail.
+ */
+export type HeroSlideUI = HomeMediaItem & {
+  source: RowKind;
+  reason: HeroReason;
+  resumeUrl: string | null;
+};
 
 export type RowData = {
   /** Stable wire slug — feeds `/api/home/row?rowId=…`. */
@@ -75,7 +87,8 @@ export type RowData = {
 };
 
 /**
- * `hero` is `HeroItem | null`. `null` means the server had no suitable hero
- * candidate and the feed renders without a TopZone.
+ * `heroSlides` is empty when the server had no suitable hero candidate
+ * (`LayoutHero === null`); otherwise it is a 1–6 entry list iterated by the
+ * top-zone carousel. `slides[0]` is the lead/auto-shown.
  */
-export type HomeFeedData = { hero: HeroItem | null; rows: RowData[] };
+export type HomeFeedData = { heroSlides: HeroSlideUI[]; rows: RowData[] };
