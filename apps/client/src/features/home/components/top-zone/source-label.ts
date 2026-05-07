@@ -14,9 +14,10 @@ const LABELS: Record<RowKind, () => string> = {
   recommendedForYou: m.home_row_recommendedForYou_header,
   trendingNow: m.home_row_trendingNow_header,
   newReleases: m.home_row_newReleases_header,
-  // Hero mixer never emits these RowKinds — arms kept for exhaustiveness only,
-  // so the closest semantic header is fine. Add dedicated copy if the mixer
-  // ever starts surfacing them.
+  // Hero mixer never emits these RowKinds (`yourWatchlist`,
+  // `becauseYouWatched`, `upcomingForYou`) — arms kept for exhaustiveness
+  // only, so the closest semantic header is fine. Add dedicated copy if
+  // the mixer ever starts surfacing them.
   yourWatchlist: m.home_row_continueWatching_header,
   becauseYouWatched: m.home_row_recommendedForYou_header,
   upcomingForYou: m.home_row_newReleases_header,

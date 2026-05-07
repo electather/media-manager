@@ -62,7 +62,7 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
     poolsByKind[src] = pools[i] ?? [];
   });
 
-  const drafts = drawByQuota(poolsByKind, QUOTA);
+  const drafts = drawByQuota(poolsByKind, QUOTA, PRIORITY);
   const filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY);
   if (filled.length === 0) return null;
 
@@ -169,9 +169,10 @@ async function loadDiscoverPool(
 export function drawByQuota(
   poolsByKind: PoolMap,
   quota: Partial<Record<RowKind, number>>,
+  priority: RowKind[],
 ): HeroSlideInternal[] {
   const drafts: HeroSlideInternal[] = [];
-  for (const src of PRIORITY) {
+  for (const src of priority) {
     const pool = poolsByKind[src] ?? [];
     const n = Math.min(pool.length, quota[src] ?? 0);
     for (let i = 0; i < n; i++) drafts.push(pool[i]!);
