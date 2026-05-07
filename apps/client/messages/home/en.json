@@ -7,7 +7,8 @@
   "home_nav_label_primary": "Main navigation",
   "home_nav_label_mobile": "Mobile navigation",
   "home_nav_brand_label": "Media Manager",
-  "home_feed_error": "Couldn't load the home feed.",
+  "home_error_title": "Couldn't load the home feed",
+  "home_error_retry": "Try again",
 
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_continueWatching_counter": "// {n} in progress",

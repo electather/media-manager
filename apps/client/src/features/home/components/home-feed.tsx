@@ -1,12 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide } from "@ent-mcp/shared/home";
-import * as m from "@/paraglide/messages";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
+import { HomeErrorBoundary } from "../lib/error-boundary";
 import { ROW_ASPECT } from "../lib/home-feed-config";
 import type { HeroSlideUI, RowData } from "../lib/types";
 import { Row } from "./row/index";
@@ -17,24 +17,26 @@ import { TopZone } from "./top-zone";
 type PeekSearch = { peek?: string };
 
 /**
- * Home feed entry point. Hits `home.getLayout` once for the hero + row stubs;
- * each row hydrates its own items via `useHomeRow`. The detail modal pulls
- * the rich payload via `useHomeDetails` so the parent never indexes items
- * across rows — the peek id is the only hand-off the modal needs.
+ * Home feed entry point. Wraps the consumer in `<HomeErrorBoundary>` plus
+ * `<Suspense>` so the inner read can use `useSuspenseQuery` (rule 5). Hits
+ * `home.getLayout` once for the hero + row stubs; each row hydrates its own
+ * items via `useHomeRow`. The detail modal pulls the rich payload via
+ * `useHomeDetails` so the parent never indexes items across rows — the
+ * peek id is the only hand-off the modal needs.
  */
 export function HomeFeed() {
-  const layoutQuery = useHomeFeed();
-  if (layoutQuery.error) return <HomeFeedError />;
-  if (!layoutQuery.data) return <HomeFeedSkeleton />;
-  return <HomeFeedReady layout={layoutQuery.data} />;
+  return (
+    <HomeErrorBoundary>
+      <Suspense fallback={<HomeFeedSkeleton />}>
+        <HomeFeedReady />
+      </Suspense>
+    </HomeErrorBoundary>
+  );
 }
 
 // fallow-ignore-next-line complexity
-function HomeFeedReady({
-  layout,
-}: {
-  layout: NonNullable<ReturnType<typeof useHomeFeed>["data"]>;
-}) {
+function HomeFeedReady() {
+  const { data: layout } = useHomeFeed();
   const { peek } = useSearch({ strict: false }) as PeekSearch;
   const navigate = useNavigate();
   const [watchlist, setWatchlist] = useState<Set<string>>(() => new Set());
@@ -145,14 +147,6 @@ function HomeFeedSkeleton() {
         <Skeleton className="h-32 w-full rounded-lg" />
         <Skeleton className="h-32 w-full rounded-lg" />
       </div>
-    </div>
-  );
-}
-
-function HomeFeedError() {
-  return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-2 px-4 pt-12 sm:px-6 lg:px-8">
-      <p className="text-sm text-destructive">{m.home_feed_error()}</p>
     </div>
   );
 }

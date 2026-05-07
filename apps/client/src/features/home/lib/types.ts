@@ -7,8 +7,23 @@ import type {
   RowKind,
   SeriesContext,
 } from "@ent-mcp/shared/home";
+import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
 
 export type { RowKind };
+
+export class HomeApiError extends Error {
+  readonly status: number;
+  readonly body: ApiErrorBody | null;
+  readonly code: string | undefined;
+
+  constructor(status: number, body: ApiErrorBody | null) {
+    super(body?.message ?? `home request failed (${status})`);
+    this.name = "HomeApiError";
+    this.status = status;
+    this.body = body;
+    this.code = typeof body?.code === "string" ? body.code : undefined;
+  }
+}
 
 /** Valid Paraglide message key. Narrows `string` to the keys exported by `@/paraglide/messages`. */
 export type MessageKey = keyof typeof messages;

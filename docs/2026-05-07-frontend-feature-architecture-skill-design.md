@@ -126,17 +126,17 @@ Each rule is numbered so review comments and PR descriptions can cite them.
 
 ## Companion skills
 
-| Skill | Trigger | Why |
-|---|---|---|
-| `vercel-react-best-practices` | New/edit component, hook, data fetch | Performance: waterfalls, bundle, re-renders |
-| `vercel-composition-patterns` | ≥3 boolean props, reusable API, compound shapes | Component API design |
-| `vercel-react-view-transitions` | Route/page/list animation | View transitions |
-| `paraglide-js` | Any user-facing string | i18n via `m.*` |
-| `shadcn` | Picking/wiring `@/shared/ui/*` primitives | Component registry |
-| `web-design-guidelines` | UI review, accessibility, layout audit | A11y + UX patterns |
-| `es-toolkit` | Utility/array/object/string operations | Replace native/custom utils |
+| Skill                           | Trigger                                         | Why                                         |
+| ------------------------------- | ----------------------------------------------- | ------------------------------------------- |
+| `vercel-react-best-practices`   | New/edit component, hook, data fetch            | Performance: waterfalls, bundle, re-renders |
+| `vercel-composition-patterns`   | ≥3 boolean props, reusable API, compound shapes | Component API design                        |
+| `vercel-react-view-transitions` | Route/page/list animation                       | View transitions                            |
+| `paraglide-js`                  | Any user-facing string                          | i18n via `m.*`                              |
+| `shadcn`                        | Picking/wiring `@/shared/ui/*` primitives       | Component registry                          |
+| `web-design-guidelines`         | UI review, accessibility, layout audit          | A11y + UX patterns                          |
+| `es-toolkit`                    | Utility/array/object/string operations          | Replace native/custom utils                 |
 
-Rule placed near the top of `SKILL.md`: "frontend-feature-architecture defines *where code lives*; vercel/shadcn/paraglide define *how code reads*. Before writing component code, the agent invokes applicable skills above."
+Rule placed near the top of `SKILL.md`: "frontend-feature-architecture defines _where code lives_; vercel/shadcn/paraglide define _how code reads_. Before writing component code, the agent invokes applicable skills above."
 
 The list lives in `SKILL.md` only (single source). Each `references/*.md` ends with a "See also" pointer back to the SKILL.md companion section, not its own list.
 

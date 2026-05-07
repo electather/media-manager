@@ -1,10 +1,20 @@
 // @vitest-environment happy-dom
+import { Suspense, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
 import { useHomeFeed } from "../hooks/use-home-feed";
+import { homeKeys } from "../lib/query-keys";
+
+vi.mock("../lib/fetchers", () => ({
+  fetchHomeLayout: vi.fn(),
+  fetchHomeRow: vi.fn(),
+  fetchHomeDetails: vi.fn(),
+}));
+
+const { fetchHomeLayout } = await import("../lib/fetchers");
+const fetchHomeLayoutMock = vi.mocked(fetchHomeLayout);
 
 const layout: HomeLayoutResponse = {
   hero: null,
@@ -14,34 +24,30 @@ const layout: HomeLayoutResponse = {
 
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}>
+      <Suspense fallback={null}>{children}</Suspense>
+    </QueryClientProvider>
   );
 }
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 describe("useHomeFeed", () => {
-  it("fetches /api/home/layout and surfaces the parsed response", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify(layout), { status: 200 }));
+  it("returns the layout via the centralized fetcher", async () => {
+    fetchHomeLayoutMock.mockResolvedValueOnce(layout);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useHomeFeed(), { wrapper: wrap(client) });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.data).toBeDefined());
     expect(result.current.data).toEqual(layout);
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/home/layout",
-      expect.objectContaining({ credentials: "include" }),
-    );
+    expect(fetchHomeLayoutMock).toHaveBeenCalledTimes(1);
   });
 
-  it("surfaces errors when the endpoint returns non-2xx", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("bad", { status: 500 }));
+  it("uses the homeKeys.layout() factory for the cache key", async () => {
+    fetchHomeLayoutMock.mockResolvedValueOnce(layout);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(() => useHomeFeed(), { wrapper: wrap(client) });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(result.current.error?.message).toContain("500");
+    renderHook(() => useHomeFeed(), { wrapper: wrap(client) });
+    await waitFor(() => expect(client.getQueryData(homeKeys.layout())).toEqual(layout));
   });
 });
