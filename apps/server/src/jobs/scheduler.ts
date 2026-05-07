@@ -5,6 +5,9 @@ import { sweepExpiredErrors } from "../errors/retention";
 import { registerCatalogJobs } from "../catalog/jobs";
 import { registerPreferenceJobs } from "../preferences/jobs";
 import { registerHomeLayoutWarmJob } from "../home/jobs/layout-warm";
+import { registerDeliveryJob } from "../notifications/delivery-job";
+import { registerStalePendingSweep } from "../notifications/stale-pending-sweep";
+import { registerDemoNotificationJob } from "../notifications/demo-job";
 import { cacheCleanupJob } from "./cache-cleanup";
 import { registerAllPluginJobs } from "./plugin-jobs";
 import { registerScheduled } from "./scheduled";
@@ -12,8 +15,9 @@ import { stopAll, list } from "./index";
 
 /**
  * Registers every host-internal scheduled job. Each registration is a thin
- * wrapper around the underlying sweep; credits to the design doc for the
- * one-place convention. Plugin-declared jobs are registered afterward.
+ * wrapper around the underlying sweep, following the one-place convention
+ * described in `docs/2026-04-20-job-service-design.md`. Plugin-declared
+ * jobs are registered afterward.
  */
 export const scheduler = {
   async start(): Promise<void> {
@@ -64,6 +68,9 @@ export const scheduler = {
     registerPreferenceJobs();
     registerCatalogJobs();
     registerHomeLayoutWarmJob();
+    registerDeliveryJob();
+    registerStalePendingSweep();
+    registerDemoNotificationJob();
 
     const pluginCount = await registerAllPluginJobs();
     const total = (await list()).length;

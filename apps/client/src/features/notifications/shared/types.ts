@@ -13,21 +13,53 @@ import type {
   NotificationCategory,
   NotificationSeverity,
   NotificationAction,
+  NotificationDeliveryStatus,
 } from "@ent-mcp/shared/notifications";
 import { m } from "@/paraglide/messages";
 
-// Client-side DTO extending InboxItemDto with fields the API will expose in a
-// future update. All additions are optional; components render the richer
-// variant when present and fall back to `body` otherwise.
 export interface NotificationItemDto extends InboxItemDto {
   bodyMarkdown?: string;
-  /** "admin" when the notification targets an admin-permission audience. */
   audienceKind?: "user" | "admin";
   actions?: NotificationAction[];
 }
 
 export type Density = "comfortable" | "compact";
 export type Intensity = "subtle" | "loud";
+
+export interface InboxFilters {
+  unreadOnly?: boolean;
+  category?: NotificationCategory;
+  severity?: NotificationSeverity;
+}
+
+export interface AdminDeliveryFilters {
+  status?: NotificationDeliveryStatus;
+  category?: NotificationCategory;
+  severity?: NotificationSeverity;
+  recipientUserId?: string;
+  from?: number;
+  to?: number;
+}
+
+export interface NotificationsApiErrorBody {
+  code?: string;
+  message?: string;
+  [k: string]: unknown;
+}
+
+export class NotificationsApiError extends Error {
+  readonly status: number;
+  readonly body: NotificationsApiErrorBody | null;
+  readonly code: string | undefined;
+
+  constructor(status: number, body: NotificationsApiErrorBody | null) {
+    super(body?.message ?? `notifications request failed (${status})`);
+    this.name = "NotificationsApiError";
+    this.status = status;
+    this.body = body;
+    this.code = typeof body?.code === "string" ? body.code : undefined;
+  }
+}
 
 export interface CategoryMeta {
   Icon: LucideIcon;
@@ -46,13 +78,9 @@ export function categoryLabel(category: NotificationCategory): string {
 
 export interface SeverityMeta {
   Icon: LucideIcon;
-  /** Tailwind class for icon container background. */
   iconBg: string;
-  /** Tailwind class for icon foreground color. */
   iconColor: string;
-  /** Tailwind class for loud left-border accent (border-l-2). */
   loudBorder: string;
-  /** Tailwind class for loud background tint. */
   loudBg: string;
 }
 

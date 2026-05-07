@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "notifications_title": "Notifications",
   "notifications_mark_all_read": "Mark all read",
+  "notifications_mark_read_aria": "Mark as read",
+  "notifications_mark_unread_aria": "Mark as unread",
   "notifications_unread_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -13,6 +15,11 @@
     }
   ],
   "notifications_filter_aria": "Filter notifications by category",
+  "notifications_filter_severity_aria": "Filter notifications by severity",
+  "notifications_filter_severity_all": "All severities",
+  "notifications_filter_severity_info": "Info",
+  "notifications_filter_severity_warn": "Warning",
+  "notifications_filter_severity_error": "Error",
   "notifications_category_all": "All",
   "notifications_category_media": "Media",
   "notifications_category_sync": "Sync",
@@ -35,5 +42,84 @@
         "countPlural=other": "Notifications, {count} unread"
       }
     }
-  ]
+  ],
+  "notifications_page_title": "Notifications",
+  "notifications_page_subtitle_unread": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} unread",
+        "countPlural=other": "{count} unread"
+      }
+    }
+  ],
+  "notifications_delete_read": "Delete read",
+  "notifications_bulk_select_aria": "Select notification",
+  "notifications_bulk_delete": "Delete selected",
+  "notifications_bulk_mark_read": "Mark selected as read",
+  "notifications_bulk_mark_unread": "Mark selected as unread",
+  "notifications_bulk_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} selected",
+        "countPlural=other": "{count} selected"
+      }
+    }
+  ],
+  "notifications_load_more": "Load more",
+  "notifications_settings_channels_title": "Channels",
+  "notifications_settings_subscriptions_title": "Subscriptions",
+  "notifications_settings_add_channel": "Add channel",
+  "notifications_settings_test_button": "Test",
+  "notifications_settings_test_ok_toast": "Test sent successfully",
+  "notifications_settings_test_fail_toast": "Test failed: {message}",
+  "notifications_settings_inbox_locked": "Always on",
+  "notifications_settings_category_locked": "Requires {permission} permission",
+  "notifications_settings_inbox_channel": "Inbox (built-in)",
+  "notifications_settings_edit_channel": "Edit",
+  "notifications_settings_delete_channel": "Delete",
+  "notifications_settings_delete_channel_failed": "Could not delete channel: {message}",
+  "notifications_settings_topic_label": "Topic: {value}",
+  "notifications_settings_server_label": "Server: {value}",
+  "notifications_admin_deliveries_title": "Notification deliveries",
+  "notifications_admin_filter_status": "Status",
+  "notifications_admin_filter_category": "Category",
+  "notifications_admin_filter_severity": "Severity",
+  "notifications_admin_filter_user": "User ID",
+  "notifications_admin_filter_from": "From",
+  "notifications_admin_filter_to": "To",
+  "notifications_admin_status_pending": "Pending",
+  "notifications_admin_status_in_progress": "In progress",
+  "notifications_admin_status_succeeded": "Succeeded",
+  "notifications_admin_status_failed": "Failed",
+  "notifications_admin_retry": "Retry",
+  "notifications_admin_retry_in_flight": "Delivery is in flight; retry once it has settled",
+  "notifications_admin_retry_queued": "Retry queued",
+  "notifications_admin_detail_payload": "Event payload",
+  "notifications_admin_detail_last_error": "Last error",
+  "notifications_admin_detail_attempts": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} attempt",
+        "countPlural=other": "{count} attempts"
+      }
+    }
+  ],
+  "notifications_admin_settings_title": "Notification retention",
+  "notifications_admin_settings_inbox_retention": "Inbox retention (days)",
+  "notifications_admin_settings_delivery_retention": "Delivery retention (days)",
+  "notifications_admin_settings_save": "Save",
+  "notifications_admin_settings_saved": "Settings saved",
+  "notifications_admin_settings_save_failed": "Could not save settings",
+  "notifications_admin_deliveries_empty": "No deliveries",
+  "notifications_admin_filter_all": "All",
+  "notifications_loading": "Loading…",
+  "notifications_error_title": "Couldn't load notifications",
+  "notifications_error_retry": "Try again",
+  "notifications_bulk_delete_failed": "Could not delete: {message}"
 }

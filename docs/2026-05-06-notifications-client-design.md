@@ -134,19 +134,21 @@ apps/client/src/features/notifications/
 
 Migration of existing code:
 
-| Existing                                        | Target                                                                |
-| ----------------------------------------------- | --------------------------------------------------------------------- |
-| `app/notification-panel.tsx`                    | `features/notifications/bell/notification-bell.tsx`                   |
-| `app/notification-panel-body.tsx`               | `features/notifications/bell/bell-popover-shell.tsx` (refactored)     |
-| `app/notification-item.tsx`                     | `features/notifications/bell/popover-row.tsx` (renamed for scope)     |
-| `app/notification-empty-state.tsx`              | `features/notifications/bell/popover-empty.tsx`                       |
-| `app/notification-category-chip.tsx`            | `features/notifications/shared/category-chip.tsx` (cross-surface)     |
-| `app/notification-severity-icon.tsx`            | `features/notifications/shared/severity-icon.tsx` (cross-surface)     |
-| `app/notification-panel-types.ts`               | `features/notifications/shared/types.ts` (CATEGORY_META, SEVERITY_META) |
-| `app/notification-panel-fixtures.ts`            | DELETED. Real API end-to-end.                                         |
-| `app/top-nav.tsx` → `import NotificationPanel`  | `import { NotificationBell } from "@/features/notifications"`         |
+| Existing                                       | Target                                                                  |
+| ---------------------------------------------- | ----------------------------------------------------------------------- |
+| `app/notification-panel.tsx`                   | `features/notifications/bell/notification-bell.tsx`                     |
+| `app/notification-panel-body.tsx`              | `features/notifications/bell/bell-popover-shell.tsx` (refactored)       |
+| `app/notification-item.tsx`                    | `features/notifications/bell/popover-row.tsx` (renamed for scope)       |
+| `app/notification-empty-state.tsx`             | `features/notifications/bell/popover-empty.tsx`                         |
+| `app/notification-category-chip.tsx`           | `features/notifications/shared/category-chip.tsx` (cross-surface)       |
+| `app/notification-severity-icon.tsx`           | `features/notifications/shared/severity-icon.tsx` (cross-surface)       |
+| `app/notification-panel-types.ts`              | `features/notifications/shared/types.ts` (CATEGORY_META, SEVERITY_META) |
+| `app/notification-panel-fixtures.ts`           | DELETED. Real API end-to-end.                                           |
+| `app/top-nav.tsx` → `import NotificationPanel` | `import { NotificationBell } from "@/features/notifications"`           |
 
 Co-tenancy: `inbox-row.tsx` & `popover-row.tsx` share `shared/notification-card-base.tsx` to ⊥ duplicate severity icon + admin-badge + relative-time layout. Compact (popover) vs comfortable (inbox page) variants via `density` prop.
+
+> **Deferred.** `notification-card-base.tsx` and the `density` prop did not ship with the initial PR. `inbox-row.tsx` and `popover-row.tsx` remain standalone for v1. Revisit once a third row variant is needed.
 
 ## Data layer
 
@@ -207,19 +209,19 @@ export async function fetchInboxPage(
 
 ### Hooks
 
-| Hook                       | Surface       | Type                          | Notes                                                              |
-| -------------------------- | ------------- | ----------------------------- | ------------------------------------------------------------------ |
-| `useUnreadCount()`         | bell          | `useQuery`                    | `refetchInterval: 30_000`, `refetchIntervalInBackground: false`, `networkMode: "online"`, `staleTime: 15_000`. ⊥ suspense — ⊥-block top-nav render. |
-| `usePopoverInbox()`        | bell          | `useQuery`                    | First page only, `enabled: isPopoverOpen`. ⊥ suspense.             |
-| `useInbox(filters)`        | inbox page    | `useSuspenseInfiniteQuery`    | `getNextPageParam: p => p.nextCursor`. Loader prefetches first page. |
-| `useMarkRead`/`useMarkUnread`/`useDismiss`/`useMarkAllRead` | inbox + bell  | `useMutation` + `useOptimistic` | Invalidate `inboxAll()` + `unreadCount()` on settle.               |
-| `usePlugins`/`useChannels`/`useCategories`/`useSubscriptions` | settings      | `useSuspenseQuery`            | All 4 prefetched in parallel by route loader.                      |
-| `useToggleSubscription()`  | settings      | `useMutation` + `useOptimistic` | Optimistic flip of matrix cell; invalidate `subscriptions()` on settle. |
-| `useTestChannel()`         | settings      | `useMutation`                 | Per-card local state; ⊥ cache.                                    |
-| `useAdminDeliveries(f)`    | admin         | `useSuspenseInfiniteQuery`    | Cursor pagination identical to inbox.                              |
-| `useAdminDelivery(id)`     | admin         | `useSuspenseQuery`            | For detail dialog; nested suspense.                                |
-| `useRetryDelivery()`       | admin         | `useMutation`                 | Invalidate `deliveriesAll()` on success. 409 → toast "in flight".  |
-| `useAdminSettings()`/`useUpdateAdminSettings()` | admin         | `useSuspenseQuery` + `useMutation` | Mutation seeds cache w/ returned clamped values (server returns persisted shape). |
+| Hook                                                          | Surface      | Type                               | Notes                                                                                                                                               |
+| ------------------------------------------------------------- | ------------ | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useUnreadCount()`                                            | bell         | `useQuery`                         | `refetchInterval: 30_000`, `refetchIntervalInBackground: false`, `networkMode: "online"`, `staleTime: 15_000`. ⊥ suspense — ⊥-block top-nav render. |
+| `usePopoverInbox()`                                           | bell         | `useQuery`                         | First page only, `enabled: isPopoverOpen`. ⊥ suspense.                                                                                              |
+| `useInbox(filters)`                                           | inbox page   | `useSuspenseInfiniteQuery`         | `getNextPageParam: p => p.nextCursor`. Loader prefetches first page.                                                                                |
+| `useMarkRead`/`useMarkUnread`/`useDismiss`/`useMarkAllRead`   | inbox + bell | `useMutation` + `useOptimistic`    | Invalidate `inboxAll()` + `unreadCount()` on settle.                                                                                                |
+| `usePlugins`/`useChannels`/`useCategories`/`useSubscriptions` | settings     | `useSuspenseQuery`                 | All 4 prefetched in parallel by route loader.                                                                                                       |
+| `useToggleSubscription()`                                     | settings     | `useMutation` + `useOptimistic`    | Optimistic flip of matrix cell; invalidate `subscriptions()` on settle.                                                                             |
+| `useTestChannel()`                                            | settings     | `useMutation`                      | Per-card local state; ⊥ cache.                                                                                                                      |
+| `useAdminDeliveries(f)`                                       | admin        | `useSuspenseInfiniteQuery`         | Cursor pagination identical to inbox.                                                                                                               |
+| `useAdminDelivery(id)`                                        | admin        | `useSuspenseQuery`                 | For detail dialog; nested suspense.                                                                                                                 |
+| `useRetryDelivery()`                                          | admin        | `useMutation`                      | Invalidate `deliveriesAll()` on success. 409 → toast "in flight".                                                                                   |
+| `useAdminSettings()`/`useUpdateAdminSettings()`               | admin        | `useSuspenseQuery` + `useMutation` | Mutation seeds cache w/ returned clamped values (server returns persisted shape).                                                                   |
 
 ### Optimistic mark-read / dismiss
 
@@ -279,8 +281,14 @@ loader: ({ context: { queryClient } }) =>
   Promise.all([
     queryClient.ensureQueryData({ queryKey: notificationsKeys.plugins(), queryFn: fetchPlugins }),
     queryClient.ensureQueryData({ queryKey: notificationsKeys.channels(), queryFn: fetchChannels }),
-    queryClient.ensureQueryData({ queryKey: notificationsKeys.categories(), queryFn: fetchCategories }),
-    queryClient.ensureQueryData({ queryKey: notificationsKeys.subscriptions(), queryFn: fetchSubscriptions }),
+    queryClient.ensureQueryData({
+      queryKey: notificationsKeys.categories(),
+      queryFn: fetchCategories,
+    }),
+    queryClient.ensureQueryData({
+      queryKey: notificationsKeys.subscriptions(),
+      queryFn: fetchSubscriptions,
+    }),
   ]);
 ```
 

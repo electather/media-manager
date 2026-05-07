@@ -19,15 +19,15 @@ function I18nRoot({ children }: { children: ReactNode }) {
   return <DirectionProvider direction={dir}>{children}</DirectionProvider>;
 }
 
-const router = createRouter({ routeTree });
+const queryClient = new QueryClient();
+
+const router = createRouter({ routeTree, context: { queryClient } });
 
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
 }
-
-const queryClient = new QueryClient();
 
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element not found");

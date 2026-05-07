@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { BellIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { m } from "@/paraglide/messages";
-import { NotificationPanelBody } from "./notification-panel-body";
-import { DUMMY_NOTIFICATIONS } from "./notification-panel-fixtures";
-import type { Density, Intensity, NotificationItemDto } from "./notification-panel-types";
 import { cn } from "@/shared/lib/utils";
+import { BellPopoverShell } from "./bell-popover-shell";
+import { PopoverSkeleton } from "./popover-skeleton";
+import { useUnreadCount } from "./use-unread-count";
+import type { Density, Intensity } from "../shared/types";
 
 interface Props {
   density?: Density;
@@ -35,30 +36,16 @@ function BellTriggerContent({ unreadCount }: { unreadCount: number }) {
   );
 }
 
-export function NotificationPanel({ density = "comfortable", intensity = "subtle" }: Props) {
+export function NotificationBell({ density = "comfortable", intensity = "subtle" }: Props) {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<NotificationItemDto[]>(DUMMY_NOTIFICATIONS);
   const isMobile = useIsMobile();
-
-  const unreadCount = items.filter((i) => i.readAt === null).length;
-
-  const markRead = (id: string) =>
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, readAt: Date.now() } : i)));
-
-  const markAllRead = () =>
-    setItems((prev) => prev.map((i) => ({ ...i, readAt: i.readAt ?? Date.now() })));
-
-  const dismiss = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
+  const { data } = useUnreadCount();
+  const unreadCount = data?.count ?? 0;
 
   const body = (
-    <NotificationPanelBody
-      items={items}
-      density={density}
-      intensity={intensity}
-      onMarkAllRead={markAllRead}
-      onMarkRead={markRead}
-      onDismiss={dismiss}
-    />
+    <Suspense fallback={<PopoverSkeleton />}>
+      <BellPopoverShell open={open} density={density} intensity={intensity} />
+    </Suspense>
   );
 
   if (isMobile) {
@@ -75,15 +62,9 @@ export function NotificationPanel({ density = "comfortable", intensity = "subtle
         </Button>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerContent className="h-[75dvh] gap-0 p-0">
-            <NotificationPanelBody
-              items={items}
-              density={density}
-              intensity={intensity}
-              mobile
-              onMarkAllRead={markAllRead}
-              onMarkRead={markRead}
-              onDismiss={dismiss}
-            />
+            <Suspense fallback={<PopoverSkeleton />}>
+              <BellPopoverShell open={open} density={density} intensity={intensity} mobile />
+            </Suspense>
           </DrawerContent>
         </Drawer>
       </>

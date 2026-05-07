@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { CATEGORY_META, categoryLabel } from "../notification-panel-types";
+import { CATEGORY_META, categoryLabel } from "../types";
 
 describe("categoryLabel", () => {
   it("returns the translated label for every notification category", () => {

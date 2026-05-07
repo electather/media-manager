@@ -8,6 +8,7 @@ const ACCOUNT_NAV = [
   { to: "/settings/profile", label: "Profile" },
   { to: "/settings/security", label: "Security" },
   { to: "/settings/connections", label: "Connections" },
+  { to: "/settings/notifications", label: "Notifications" },
   { to: "/settings/apps", label: "Authorized apps" },
   { to: "/settings/danger", label: "Danger zone" },
 ] as const;
@@ -19,6 +20,8 @@ const ADMIN_NAV = [
   { to: "/admin/plugins", label: "Plugins" },
   { to: "/admin/jobs", label: "Jobs" },
   { to: "/admin/logs", label: "Logs" },
+  { to: "/admin/notifications/deliveries", label: "Notification deliveries" },
+  { to: "/admin/notifications/settings", label: "Notification retention" },
 ] as const;
 
 export function SettingsLayout() {

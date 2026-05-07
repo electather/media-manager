@@ -23,10 +23,12 @@ import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token
 import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
 import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
 import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authenticated/_app/watchlist'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app/notifications'
 import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
 import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
+import { Route as AuthenticatedSettingsSettingsNotificationsRouteImport } from './routes/_authenticated/_settings/settings/notifications'
 import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './routes/_authenticated/_settings/settings/danger'
 import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
 import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
@@ -36,6 +38,8 @@ import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
 import { Route as AuthenticatedSettingsAdminLogsRouteImport } from './routes/_authenticated/_settings/admin/logs'
 import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
+import { Route as AuthenticatedSettingsAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_settings/admin/notifications/settings'
+import { Route as AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport } from './routes/_authenticated/_settings/admin/notifications/deliveries'
 import { Route as AuthenticatedAppMediaMediaTypeMediaIdRouteImport } from './routes/_authenticated/_app/media.$mediaType.$mediaId'
 
 const OauthRouteRoute = OauthRouteRouteImport.update({
@@ -109,6 +113,12 @@ const AuthenticatedAppWatchlistRoute =
     path: '/watchlist',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppLibraryRoute = AuthenticatedAppLibraryRouteImport.update({
   id: '/library',
   path: '/library',
@@ -130,6 +140,12 @@ const AuthenticatedSettingsSettingsProfileRoute =
   AuthenticatedSettingsSettingsProfileRouteImport.update({
     id: '/settings/profile',
     path: '/settings/profile',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSettingsNotificationsRoute =
+  AuthenticatedSettingsSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsSettingsDangerRoute =
@@ -186,6 +202,18 @@ const AuthenticatedSettingsAdminJobsRoute =
     path: '/admin/jobs',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsAdminNotificationsSettingsRoute =
+  AuthenticatedSettingsAdminNotificationsSettingsRouteImport.update({
+    id: '/admin/notifications/settings',
+    path: '/admin/notifications/settings',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdminNotificationsDeliveriesRoute =
+  AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport.update({
+    id: '/admin/notifications/deliveries',
+    path: '/admin/notifications/deliveries',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedAppMediaMediaTypeMediaIdRoute =
   AuthenticatedAppMediaMediaTypeMediaIdRouteImport.update({
     id: '/media/$mediaType/$mediaId',
@@ -202,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
+  '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
@@ -215,10 +244,13 @@ export interface FileRoutesByFullPath {
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
+  '/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  '/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedAppIndexRoute
@@ -229,6 +261,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
+  '/notifications': typeof AuthenticatedAppNotificationsRoute
   '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
@@ -242,10 +275,13 @@ export interface FileRoutesByTo {
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
+  '/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  '/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -259,6 +295,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
   '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRoute
+  '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
@@ -273,10 +310,13 @@ export interface FileRoutesById {
   '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/_authenticated/_settings/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
+  '/_authenticated/_settings/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/_authenticated/_app/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
+  '/_authenticated/_settings/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  '/_authenticated/_settings/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -289,6 +329,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/library'
+    | '/notifications'
     | '/watchlist'
     | '/oauth-callback'
     | '/setup'
@@ -302,10 +343,13 @@ export interface FileRouteTypes {
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
     | '/settings/'
     | '/media/$mediaType/$mediaId'
+    | '/admin/notifications/deliveries'
+    | '/admin/notifications/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -316,6 +360,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/library'
+    | '/notifications'
     | '/watchlist'
     | '/oauth-callback'
     | '/setup'
@@ -329,10 +374,13 @@ export interface FileRouteTypes {
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
     | '/settings'
     | '/media/$mediaType/$mediaId'
+    | '/admin/notifications/deliveries'
+    | '/admin/notifications/settings'
   id:
     | '__root__'
     | '/_authenticated'
@@ -345,6 +393,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/oauth/consent'
     | '/_authenticated/_app/library'
+    | '/_authenticated/_app/notifications'
     | '/_authenticated/_app/watchlist'
     | '/_authenticated/_settings/oauth-callback'
     | '/_authenticated/_settings/setup'
@@ -359,10 +408,13 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/settings/apps'
     | '/_authenticated/_settings/settings/connections'
     | '/_authenticated/_settings/settings/danger'
+    | '/_authenticated/_settings/settings/notifications'
     | '/_authenticated/_settings/settings/profile'
     | '/_authenticated/_settings/settings/security'
     | '/_authenticated/_settings/settings/'
     | '/_authenticated/_app/media/$mediaType/$mediaId'
+    | '/_authenticated/_settings/admin/notifications/deliveries'
+    | '/_authenticated/_settings/admin/notifications/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -471,6 +523,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppWatchlistRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/_app/notifications': {
+      id: '/_authenticated/_app/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/_app/library': {
       id: '/_authenticated/_app/library'
       path: '/library'
@@ -497,6 +556,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/profile'
       fullPath: '/settings/profile'
       preLoaderRoute: typeof AuthenticatedSettingsSettingsProfileRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_settings/settings/notifications': {
+      id: '/_authenticated/_settings/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/_settings/settings/danger': {
@@ -562,6 +628,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_settings/admin/notifications/settings': {
+      id: '/_authenticated/_settings/admin/notifications/settings'
+      path: '/admin/notifications/settings'
+      fullPath: '/admin/notifications/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsAdminNotificationsSettingsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_settings/admin/notifications/deliveries': {
+      id: '/_authenticated/_settings/admin/notifications/deliveries'
+      path: '/admin/notifications/deliveries'
+      fullPath: '/admin/notifications/deliveries'
+      preLoaderRoute: typeof AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/_app/media/$mediaType/$mediaId': {
       id: '/_authenticated/_app/media/$mediaType/$mediaId'
       path: '/media/$mediaType/$mediaId'
@@ -574,6 +654,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
+  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppMediaMediaTypeMediaIdRoute: typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
@@ -581,6 +662,7 @@ interface AuthenticatedAppRouteRouteChildren {
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
+  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppMediaMediaTypeMediaIdRoute:
@@ -604,9 +686,12 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSettingsAppsRoute: typeof AuthenticatedSettingsSettingsAppsRoute
   AuthenticatedSettingsSettingsConnectionsRoute: typeof AuthenticatedSettingsSettingsConnectionsRoute
   AuthenticatedSettingsSettingsDangerRoute: typeof AuthenticatedSettingsSettingsDangerRoute
+  AuthenticatedSettingsSettingsNotificationsRoute: typeof AuthenticatedSettingsSettingsNotificationsRoute
   AuthenticatedSettingsSettingsProfileRoute: typeof AuthenticatedSettingsSettingsProfileRoute
   AuthenticatedSettingsSettingsSecurityRoute: typeof AuthenticatedSettingsSettingsSecurityRoute
   AuthenticatedSettingsSettingsIndexRoute: typeof AuthenticatedSettingsSettingsIndexRoute
+  AuthenticatedSettingsAdminNotificationsDeliveriesRoute: typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
+  AuthenticatedSettingsAdminNotificationsSettingsRoute: typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
@@ -628,12 +713,18 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsSettingsConnectionsRoute,
     AuthenticatedSettingsSettingsDangerRoute:
       AuthenticatedSettingsSettingsDangerRoute,
+    AuthenticatedSettingsSettingsNotificationsRoute:
+      AuthenticatedSettingsSettingsNotificationsRoute,
     AuthenticatedSettingsSettingsProfileRoute:
       AuthenticatedSettingsSettingsProfileRoute,
     AuthenticatedSettingsSettingsSecurityRoute:
       AuthenticatedSettingsSettingsSecurityRoute,
     AuthenticatedSettingsSettingsIndexRoute:
       AuthenticatedSettingsSettingsIndexRoute,
+    AuthenticatedSettingsAdminNotificationsDeliveriesRoute:
+      AuthenticatedSettingsAdminNotificationsDeliveriesRoute,
+    AuthenticatedSettingsAdminNotificationsSettingsRoute:
+      AuthenticatedSettingsAdminNotificationsSettingsRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =
