@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import type { HeroSlide } from "@ent-mcp/shared/home";
+import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
@@ -122,14 +122,12 @@ function toHeroSlideUI(slide: HeroSlide): HeroSlideUI {
   };
 }
 
-function toRowData(
-  stub: NonNullable<ReturnType<typeof useHomeFeed>["data"]>["rows"][number],
-): RowData {
+function toRowData(stub: HomeLayoutResponse["rows"][number]): RowData {
   const out: RowData = {
     id: stub.rowId,
     kind: stub.kind,
     initialCursor: stub.initialCursor,
-    defaultAspect: ROW_ASPECT[stub.kind],
+    defaultAspect: ROW_ASPECT[stub.kind] ?? "16/9",
     headerKey: stub.titleKey as RowData["headerKey"],
   };
   if (stub.subtitleKey) out.subtitleKey = stub.subtitleKey as RowData["subtitleKey"];

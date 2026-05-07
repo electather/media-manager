@@ -4,6 +4,7 @@ import { useHomeRow } from "../../hooks/use-home-row";
 import { ROW_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem, RowData } from "../../lib/types";
 import { RowChevron } from "./row-chevron";
+import { RowError } from "./row-error";
 import { RowItem } from "./row-item";
 import { RowSkeletonItem } from "./row-skeleton-item";
 import { usePrefetchObserver } from "./use-prefetch-observer";
@@ -52,7 +53,10 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
   const prevLabel = m.home_row_prev_label({ row: ariaLabel });
   const nextLabel = m.home_row_next_label({ row: ariaLabel });
 
-  const { items, fetchNextPage, hasNextPage, isLoading } = useHomeRow(row.id, row.initialCursor);
+  const { items, fetchNextPage, hasNextPage, isLoading, error, refetch, isRefetching } = useHomeRow(
+    row.id,
+    row.initialCursor,
+  );
   const { trackRef, attachTrack, attachPrefetch } = usePrefetchObserver({
     hasNextPage,
     fetchNextPage,
@@ -68,8 +72,17 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
     [trackRef],
   );
 
-  const showSkeletons = isLoading && items.length === 0;
+  const showError = error !== null && items.length === 0;
+  const showSkeletons = !showError && isLoading && items.length === 0;
   const prefetchIndex = items.length === 0 ? -1 : Math.max(0, items.length - PREFETCH_OFFSET);
+
+  if (showError) {
+    return (
+      <div ref={scopeRef} className="row-track-scope" data-testid="row-scroller" style={cardVars}>
+        <RowError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
+      </div>
+    );
+  }
 
   return (
     <div

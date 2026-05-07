@@ -10,8 +10,10 @@ export interface UseHomeRowResult {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isLoading: boolean;
+  isRefetching: boolean;
   partial: boolean;
   error: Error | null;
+  refetch: () => void;
 }
 
 const ROW_STALE_MS = 5 * 60 * 1000;
@@ -45,13 +47,16 @@ export function useHomeRow(rowId: string, initialCursor: string | null): UseHome
   const partial = query.data?.pages.some((p) => p.partial === true) ?? false;
   return {
     items,
-    fetchNextPage: () => {
-      if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
-    },
+    // `fetchNextPage` and `refetch` are bound to the observer instance and
+    // stable across renders. Internal guards no-op when `hasNextPage` is
+    // false or a fetch is already in flight, so no wrapper is needed.
+    fetchNextPage: query.fetchNextPage,
     hasNextPage: query.hasNextPage ?? false,
     isFetchingNextPage: query.isFetchingNextPage,
     isLoading: query.isLoading,
+    isRefetching: query.isRefetching,
     partial,
     error: query.error,
+    refetch: query.refetch,
   };
 }

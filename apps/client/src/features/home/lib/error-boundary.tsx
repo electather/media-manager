@@ -28,7 +28,9 @@ function FallbackInner({
       <h2 className="text-lg font-semibold">{m.home_error_title()}</h2>
       <p className="text-sm text-muted-foreground">{message}</p>
       {requestId ? (
-        <p className="text-xs font-mono text-muted-foreground">Ref: {shortRequestId(requestId)}</p>
+        <p className="text-xs font-mono text-muted-foreground">
+          {m.home_error_ref_prefix({ ref: shortRequestId(requestId) })}
+        </p>
       ) : null}
       <Button variant="outline" size="sm" onClick={onRetry}>
         {m.home_error_retry()}
