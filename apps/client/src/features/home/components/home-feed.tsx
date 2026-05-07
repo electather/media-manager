@@ -2,13 +2,12 @@ import { Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide } from "@ent-mcp/shared/home";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
-import { Skeleton } from "@/shared/ui/skeleton";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
-import { HomeErrorBoundary } from "../lib/error-boundary";
 import { ROW_ASPECT } from "../lib/home-feed-config";
 import type { HeroSlideUI, RowData } from "../lib/types";
+import { HomeFeedSkeleton } from "./home-feed-skeleton";
 import { Row } from "./row/index";
 import { TopZone } from "./top-zone";
 
@@ -17,20 +16,18 @@ import { TopZone } from "./top-zone";
 type PeekSearch = { peek?: string };
 
 /**
- * Home feed entry point. Wraps the consumer in `<HomeErrorBoundary>` plus
- * `<Suspense>` so the inner read can use `useSuspenseQuery` (rule 5). Hits
- * `home.getLayout` once for the hero + row stubs; each row hydrates its own
- * items via `useHomeRow`. The detail modal pulls the rich payload via
- * `useHomeDetails` so the parent never indexes items across rows — the
- * peek id is the only hand-off the modal needs.
+ * Home feed entry point. The route loader prefetches `home.getLayout` via
+ * `homeLayoutQueryOptions`, and the route owns the `<HomeErrorBoundary>`
+ * wrapper plus a `pendingComponent` for the loader-pending state. The
+ * inner `<Suspense>` is a defensive boundary covering revalidation /
+ * cache-miss windows; the rich payload still flows through
+ * `useSuspenseQuery` per skill rule 5.
  */
 export function HomeFeed() {
   return (
-    <HomeErrorBoundary>
-      <Suspense fallback={<HomeFeedSkeleton />}>
-        <HomeFeedReady />
-      </Suspense>
-    </HomeErrorBoundary>
+    <Suspense fallback={<HomeFeedSkeleton />}>
+      <HomeFeedReady />
+    </Suspense>
   );
 }
 
@@ -137,16 +134,4 @@ function toRowData(
   };
   if (stub.subtitleKey) out.subtitleKey = stub.subtitleKey as RowData["subtitleKey"];
   return out;
-}
-
-function HomeFeedSkeleton() {
-  return (
-    <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
-      <Skeleton className="aspect-16/7 w-full rounded-lg" />
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-32 w-full rounded-lg" />
-        <Skeleton className="h-32 w-full rounded-lg" />
-      </div>
-    </div>
-  );
 }
