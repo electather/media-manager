@@ -1,6 +1,7 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { MediaDetailsResponse } from "@ent-mcp/shared/home";
 import { fetchHomeDetails } from "../lib/fetchers";
+import { findCachedHomeItem } from "../lib/find-cached-item";
 import { homeKeys } from "../lib/query-keys";
 
 const DETAILS_STALE_MS = 10 * 60 * 1000;
@@ -13,15 +14,27 @@ const DETAILS_STALE_MS = 10 * 60 * 1000;
  * Disabled when no `tmdbId` is supplied — the modal calls this with the
  * peek id, which is null while the modal is closed. Stays on `useQuery`
  * (not the suspense variant) for that reason.
+ *
+ * `placeholderData` seeds the response from row / hero caches so the
+ * modal can render summary fields instantly while the rich fetch is still
+ * in flight. The placeholder does NOT satisfy the cache — TanStack Query
+ * still runs `fetchHomeDetails` in the background and replaces the
+ * placeholder with the full payload (including `details`) on success.
  */
 export function useHomeDetails(
   tmdbId: string | null,
   mediaType: "movie" | "tv" | null,
 ): UseQueryResult<MediaDetailsResponse, Error> {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: homeKeys.details(tmdbId, mediaType),
     queryFn: () => fetchHomeDetails(tmdbId!, mediaType!),
     enabled: tmdbId !== null && mediaType !== null,
     staleTime: DETAILS_STALE_MS,
+    placeholderData: () => {
+      if (!tmdbId || !mediaType) return undefined;
+      const summary = findCachedHomeItem(queryClient, `${mediaType}:${tmdbId}`);
+      return summary ? { summary, details: null } : undefined;
+    },
   });
 }
