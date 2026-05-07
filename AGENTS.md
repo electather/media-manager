@@ -87,6 +87,16 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 - [ ] Run `vp check` and `vp test` to validate changes.
 <!--VITE PLUS END-->
 
+## Frontend Skills
+
+∀ React change @ `apps/client/` → skill ! before edit:
+
+- `vercel-react-best-practices` — new|edit component, hook, data fetch
+- `vercel-composition-patterns` — ≥3 bool props | reusable API
+- `vercel-react-view-transitions` — route|page|list anim
+
+Skip @ server, shared, plugin pkgs.
+
 ## Pull Requests and Versioning
 
 Project use [Changesets](https://github.com/changesets/changesets). Every PR need `.changeset/<slug>.md` file or CI fail. Create file direct — no CLI run.
@@ -125,4 +135,4 @@ Anything used by both client + server live in `packages/shared/` — domain enum
 
 ## Token Savior MCP
 
-`token-savior` MCP server registered. Prefer structural code-nav tools over `Read` + `Grep` when exploring symbols, sources, deps in this repo. Use memory engine (`memory_*`) for session-spanning context — override file-based auto-memory at `~/.Codex/projects/.../memory/` for this project.
+`token-savior` MCP server registered. Prefer structural code-nav tools over `Read` + `Grep` when exploring symbols, sources, deps in this repo. Use memory engine (`memory_*`) for session-spanning context — override file-based auto-memory at `~/.claude/projects/.../memory/` for this project.

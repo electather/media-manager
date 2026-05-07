@@ -1,0 +1,15 @@
+{
+  "name": "frontend-feature-architecture",
+  "version": "1.0.0",
+  "scope": "apps/client/src/features/**",
+  "canonicalExample": "apps/client/src/features/notifications/",
+  "companions": [
+    "vercel-react-best-practices",
+    "vercel-composition-patterns",
+    "vercel-react-view-transitions",
+    "paraglide-js",
+    "shadcn",
+    "web-design-guidelines",
+    "es-toolkit"
+  ]
+}
