@@ -85,7 +85,7 @@ function HomeFeedReady({
     toggleWatchlistId(peek);
   }, [peek, toggleWatchlistId]);
 
-  const heroSlides: HeroSlideUI[] = layout.hero?.slides.map(toHeroSlideUI) ?? [];
+  const heroSlides: HeroSlideUI[] = layout.hero?.slides?.map(toHeroSlideUI) ?? [];
   const rows: RowData[] = layout.rows.map(toRowData);
 
   return (
