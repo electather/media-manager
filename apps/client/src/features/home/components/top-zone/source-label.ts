@@ -5,23 +5,20 @@ import type { RowKind } from "@ent-mcp/shared/home";
  * Maps the active hero slide's `RowKind` to the existing Paraglide row-header
  * message key. The hero mixer only emits four sources today
  * (`continueWatching`, `recommendedForYou`, `trendingNow`, `newReleases`);
- * the remaining `RowKind` members are mapped to their closest semantic header
- * so the switch stays exhaustive and adding a new `RowKind` upstream surfaces
- * a type error here.
+ * the remaining `RowKind` members map to the closest semantic header so the
+ * record stays exhaustive — adding a new `RowKind` upstream surfaces a type
+ * error here.
  */
+const LABELS: Record<RowKind, () => string> = {
+  continueWatching: m.home_row_continueWatching_header,
+  yourWatchlist: m.home_row_continueWatching_header,
+  recommendedForYou: m.home_row_recommendedForYou_header,
+  becauseYouWatched: m.home_row_recommendedForYou_header,
+  trendingNow: m.home_row_trendingNow_header,
+  newReleases: m.home_row_newReleases_header,
+  upcomingForYou: m.home_row_newReleases_header,
+};
+
 export function sourceLabel(source: RowKind): string {
-  switch (source) {
-    case "continueWatching":
-      return m.home_row_continueWatching_header();
-    case "recommendedForYou":
-    case "becauseYouWatched":
-      return m.home_row_recommendedForYou_header();
-    case "trendingNow":
-      return m.home_row_trendingNow_header();
-    case "newReleases":
-    case "upcomingForYou":
-      return m.home_row_newReleases_header();
-    case "yourWatchlist":
-      return m.home_row_continueWatching_header();
-  }
+  return LABELS[source]();
 }

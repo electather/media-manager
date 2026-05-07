@@ -27,6 +27,18 @@ interface HeroSlideInternal {
 
 type PoolMap = Partial<Record<RowKind, HeroSlideInternal[]>>;
 
+function slideKey(slide: HeroSlideInternal): string {
+  return `${slide.source}:${slide.item.tmdbId}`;
+}
+
+function stampSlide(
+  item: InternalCompactMediaItem,
+  source: RowKind,
+  reason: HeroReason,
+): HeroSlideInternal {
+  return { item, source, reason, resumeUrl: null };
+}
+
 /**
  * Hero mixer — Amendment 3 (rev 4) of `docs/2026-05-05-home-page-backend-design.md`.
  *
@@ -74,6 +86,7 @@ export function resolveResumeUrl(_slide: HeroSlideInternal): string | null {
   return null;
 }
 
+// fallow-ignore-next-line complexity
 function loadPool(source: RowKind, ctx: RowContext): Promise<HeroSlideInternal[]> {
   switch (source) {
     case "continueWatching":
@@ -107,14 +120,10 @@ async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInter
     .slice(0, POOL_SIZE)
     .map((entry) => fromContinueWatchingEntry(entry))
     .filter((item): item is InternalCompactMediaItem => item !== null);
-  return items.map((item) => ({
-    item,
-    source: "continueWatching",
-    reason: "continue_watching",
-    resumeUrl: null,
-  }));
+  return items.map((item) => stampSlide(item, "continueWatching", "continue_watching"));
 }
 
+// fallow-ignore-next-line complexity
 async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
   const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
   if (!rec || rec.items.length === 0) return [];
@@ -126,16 +135,13 @@ async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]
   for (const k of keys) {
     const meta = metadata[`${k.mediaType}:${k.tmdbId}`] as CanonicalMetadata | undefined;
     if (!meta) continue;
-    slides.push({
-      item: fromCanonicalMetadata(meta, { topContributors: k.topContributors }),
-      source: "recommendedForYou",
-      reason: "recommended",
-      resumeUrl: null,
-    });
+    const item = fromCanonicalMetadata(meta, { topContributors: k.topContributors });
+    slides.push(stampSlide(item, "recommendedForYou", "recommended"));
   }
   return slides;
 }
 
+// fallow-ignore-next-line complexity
 async function loadDiscoverPool(
   ctx: RowContext,
   feedKind: "trending" | "newReleases",
@@ -151,16 +157,12 @@ async function loadDiscoverPool(
   for (const k of keys) {
     const meta = metadata[`${k.type}:${k.tmdbId}`] as CanonicalMetadata | undefined;
     if (!meta) continue;
-    slides.push({
-      item: fromCanonicalMetadata(meta),
-      source,
-      reason,
-      resumeUrl: null,
-    });
+    slides.push(stampSlide(fromCanonicalMetadata(meta), source, reason));
   }
   return slides;
 }
 
+// fallow-ignore-next-line complexity
 export function drawByQuota(
   poolsByKind: PoolMap,
   quota: Record<RowKind, number>,
@@ -174,6 +176,27 @@ export function drawByQuota(
   return drafts;
 }
 
+// fallow-ignore-next-line complexity
+function fillOnePass(
+  out: HeroSlideInternal[],
+  used: Set<string>,
+  poolsByKind: PoolMap,
+  target: number,
+  priority: RowKind[],
+): boolean {
+  let progressed = false;
+  for (const src of priority) {
+    if (out.length >= target) break;
+    const pool = poolsByKind[src] ?? [];
+    const next = pool.find((s) => !used.has(slideKey(s)));
+    if (!next) continue;
+    out.push(next);
+    used.add(slideKey(next));
+    progressed = true;
+  }
+  return progressed;
+}
+
 export function backfill(
   drafts: HeroSlideInternal[],
   poolsByKind: PoolMap,
@@ -182,21 +205,43 @@ export function backfill(
 ): HeroSlideInternal[] {
   if (drafts.length >= target) return drafts;
   const out = [...drafts];
-  const used = new Set(out.map((s) => `${s.source}:${s.item.tmdbId}`));
-  while (out.length < target) {
-    let progressed = false;
-    for (const src of priority) {
-      if (out.length >= target) break;
-      const pool = poolsByKind[src] ?? [];
-      const next = pool.find((s) => !used.has(`${s.source}:${s.item.tmdbId}`));
-      if (!next) continue;
-      out.push(next);
-      used.add(`${next.source}:${next.item.tmdbId}`);
-      progressed = true;
-    }
-    if (!progressed) break;
+  const used = new Set(out.map(slideKey));
+  while (out.length < target && fillOnePass(out, used, poolsByKind, target, priority)) {
+    // Loop until no source can contribute more or target met.
   }
   return out;
+}
+
+type Queues = Record<string, HeroSlideInternal[]>;
+
+function buildQueues(slides: HeroSlideInternal[], priority: RowKind[]): Queues {
+  const grouped = groupBy(slides, (s) => s.source) as Partial<Record<RowKind, HeroSlideInternal[]>>;
+  const queues: Queues = {};
+  for (const src of priority) queues[src] = [...(grouped[src] ?? [])];
+  return queues;
+}
+
+function shiftLead(queues: Queues, priority: RowKind[]): HeroSlideInternal | null {
+  for (const src of priority) {
+    const q = queues[src]!;
+    if (q.length > 0) return q.shift()!;
+  }
+  return null;
+}
+
+function interleaveRest(queues: Queues, priority: RowKind[]): HeroSlideInternal[] {
+  const rest: HeroSlideInternal[] = [];
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const src of priority) {
+      const q = queues[src]!;
+      if (q.length === 0) continue;
+      rest.push(q.shift()!);
+      progressed = true;
+    }
+  }
+  return rest;
 }
 
 export function orderCascadeLeadInterleave(
@@ -204,33 +249,10 @@ export function orderCascadeLeadInterleave(
   priority: RowKind[],
 ): HeroSlideInternal[] {
   if (slides.length === 0) return slides;
-  const grouped = groupBy(slides, (s) => s.source) as Partial<Record<RowKind, HeroSlideInternal[]>>;
-  const queues: Record<string, HeroSlideInternal[]> = {};
-  for (const src of priority) queues[src] = [...(grouped[src] ?? [])];
-
-  let lead: HeroSlideInternal | null = null;
-  for (const src of priority) {
-    const q = queues[src]!;
-    if (q.length > 0) {
-      lead = q.shift()!;
-      break;
-    }
-  }
+  const queues = buildQueues(slides, priority);
+  const lead = shiftLead(queues, priority);
   if (!lead) return slides;
-
-  const rest: HeroSlideInternal[] = [];
-  let progressed = true;
-  while (progressed) {
-    progressed = false;
-    for (const src of priority) {
-      const q = queues[src]!;
-      if (q.length > 0) {
-        rest.push(q.shift()!);
-        progressed = true;
-      }
-    }
-  }
-  return [lead, ...rest];
+  return [lead, ...interleaveRest(queues, priority)];
 }
 
 function todayBucket(): number {

@@ -80,9 +80,12 @@ function HeroAlternates({
     >
       {candidates.map((item, index) => {
         const isActive = index === activeIndex;
+        // Slide-level key — same `item.id` may appear in two slides if the
+        // mixer surfaces a partially-watched movie that is also recommended,
+        // so React needs the source prefix to keep dot identity stable.
         return (
           <button
-            key={item.id}
+            key={`${item.source}:${item.id}`}
             type="button"
             aria-current={isActive ? "true" : undefined}
             aria-label={item.title}
