@@ -30,7 +30,7 @@ function AppLayout() {
       seen.add(item.id);
       pool.push(item);
     };
-    feed?.hero?.slides.forEach((slide) => push(slide.item));
+    feed?.hero?.slides?.forEach((slide) => push(slide.item));
     return { pool, trending: [] };
   }, [feed]);
 
