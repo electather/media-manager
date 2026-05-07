@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
 import type { HeroSlideUI, HomeMediaItem } from "../../lib/types";
@@ -118,6 +118,12 @@ function dismissHandler(candidates: readonly HeroSlideUI[], onDismiss: () => voi
 export function TopZone({ slides, onPeek }: Props) {
   const candidates = slides;
   const [activeIndex, setActiveIndex] = useState(0);
+  // Reset to the lead slide when the upstream slides array changes — keeps
+  // the dots nav and active card aligned if the new array is shorter than
+  // the previous `activeIndex`.
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [slides]);
   const active = candidates[activeIndex] ?? candidates[0]!;
   const ambientSrc = active.backdrop ?? active.poster;
   const percent = progressPercent(active.progress);
@@ -129,7 +135,7 @@ export function TopZone({ slides, onPeek }: Props) {
   return (
     <section
       data-testid="top-zone"
-      aria-label={candidates[0]?.title ?? ""}
+      aria-label={active.title}
       className="relative isolate z-10 mb-2"
     >
       <TopZoneAmbient src={ambientSrc} />

@@ -7,14 +7,17 @@ import type { InternalCompactMediaItem, RowContext } from "./types";
 
 const FINISHING_THRESHOLD = 0.85;
 const HERO_TARGET = 6;
+// Per-source pool ceiling. Set to `HERO_TARGET` so the worst-case backfill —
+// every other source empty, one source carries the full hero — has enough
+// candidates to fill `HERO_TARGET` slots without re-fetching.
 const POOL_SIZE = 6;
 
-const QUOTA: Record<RowKind, number> = {
+const QUOTA: Partial<Record<RowKind, number>> = {
   continueWatching: 1,
   recommendedForYou: 2,
   trendingNow: 2,
   newReleases: 1,
-} as Record<RowKind, number>;
+};
 
 const PRIORITY: RowKind[] = ["continueWatching", "recommendedForYou", "trendingNow", "newReleases"];
 
@@ -82,7 +85,7 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
  * Always `null` v1 — plugin SDK has no `playback@v1.getResumeUrl` method, so
  * Play is rendered as nav-to-detail. Per Amendment 3 §Wire shape (R2).
  */
-export function resolveResumeUrl(_slide: HeroSlideInternal): string | null {
+function resolveResumeUrl(_slide: HeroSlideInternal): string | null {
   return null;
 }
 
@@ -165,7 +168,7 @@ async function loadDiscoverPool(
 // fallow-ignore-next-line complexity
 export function drawByQuota(
   poolsByKind: PoolMap,
-  quota: Record<RowKind, number>,
+  quota: Partial<Record<RowKind, number>>,
 ): HeroSlideInternal[] {
   const drafts: HeroSlideInternal[] = [];
   for (const src of PRIORITY) {
@@ -221,10 +224,13 @@ function buildQueues(slides: HeroSlideInternal[], priority: RowKind[]): Queues {
   return queues;
 }
 
-function shiftLead(queues: Queues, priority: RowKind[]): HeroSlideInternal | null {
-  for (const src of priority) {
-    const q = queues[src]!;
-    if (q.length > 0) return q.shift()!;
+function shiftLead(
+  queues: Queues,
+  priority: RowKind[],
+): { lead: HeroSlideInternal; leadIdx: number } | null {
+  for (let i = 0; i < priority.length; i++) {
+    const q = queues[priority[i]!]!;
+    if (q.length > 0) return { lead: q.shift()!, leadIdx: i };
   }
   return null;
 }
@@ -244,15 +250,24 @@ function interleaveRest(queues: Queues, priority: RowKind[]): HeroSlideInternal[
   return rest;
 }
 
+/**
+ * After picking the lead, the remainder is round-robin-interleaved starting
+ * from the priority slot AFTER the lead's source — matches the new-user
+ * worked example in `docs/2026-05-05-home-page-backend-design.md` §Hero
+ * composition (`[rec#1, trend#1, new#1, rec#2, trend#2, rec#3]`). The lead's
+ * source falls to the end of the rotation so it does not double-fire on the
+ * first pass.
+ */
 export function orderCascadeLeadInterleave(
   slides: HeroSlideInternal[],
   priority: RowKind[],
 ): HeroSlideInternal[] {
   if (slides.length === 0) return slides;
   const queues = buildQueues(slides, priority);
-  const lead = shiftLead(queues, priority);
-  if (!lead) return slides;
-  return [lead, ...interleaveRest(queues, priority)];
+  const head = shiftLead(queues, priority);
+  if (!head) return slides;
+  const rotated = [...priority.slice(head.leadIdx + 1), ...priority.slice(0, head.leadIdx + 1)];
+  return [head.lead, ...interleaveRest(queues, rotated)];
 }
 
 function todayBucket(): number {

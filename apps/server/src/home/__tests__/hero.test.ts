@@ -270,6 +270,25 @@ describe("pickHero mixer", () => {
     expect(hero!.slides[0]!.source).toBe("recommendedForYou");
   });
 
+  it("new-user (empty CW) order matches design doc — [rec, trend, new, rec, trend, rec]", async () => {
+    const ctx = fullCtx({
+      cwIds: [],
+      recIds: ["r1", "r2", "r3"],
+      trendingIds: ["t1", "t2"],
+      newIds: ["n1"],
+    });
+    const hero = await pickHero(ctx);
+    const sources = hero!.slides.map((s) => s.source);
+    expect(sources).toEqual([
+      "recommendedForYou",
+      "trendingNow",
+      "newReleases",
+      "recommendedForYou",
+      "trendingNow",
+      "recommendedForYou",
+    ]);
+  });
+
   it("body order is round-robin interleave by priority over remainder", async () => {
     const ctx = fullCtx({
       cwIds: ["c1"],
