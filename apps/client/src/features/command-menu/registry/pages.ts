@@ -15,7 +15,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Home,
     labelKey: "command_menu_page_home_label",
     hintKey: "command_menu_page_home_hint",
-    sequence: ["G", "H"],
+    sequence: ["g", "h"],
   },
   {
     kind: "page",
@@ -24,7 +24,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Library,
     labelKey: "command_menu_page_library_label",
     hintKey: "command_menu_page_library_hint",
-    sequence: ["G", "L"],
+    sequence: ["g", "l"],
   },
   {
     kind: "page",
@@ -33,7 +33,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Bookmark,
     labelKey: "command_menu_page_watchlist_label",
     hintKey: "command_menu_page_watchlist_hint",
-    sequence: ["G", "W"],
+    sequence: ["g", "w"],
   },
   {
     kind: "page",
@@ -42,7 +42,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Settings,
     labelKey: "command_menu_page_settings_label",
     hintKey: "command_menu_page_settings_hint",
-    sequence: ["G", "S"],
+    sequence: ["g", "s"],
   },
   {
     kind: "page",
@@ -51,6 +51,6 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Plug,
     labelKey: "command_menu_page_connections_label",
     hintKey: "command_menu_page_connections_hint",
-    sequence: ["G", "C"],
+    sequence: ["g", "c"],
   },
 ] as const;

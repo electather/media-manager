@@ -1,5 +1,6 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { SearchKind } from "@ent-mcp/shared/search";
+import { discoverTrendingResponseSchema } from "@ent-mcp/shared/media";
+import { searchResponseSchema, type SearchKind } from "@ent-mcp/shared/search";
 import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
 import { safeJson } from "@/shared/lib/errors/safe-json";
@@ -31,7 +32,9 @@ export async function fetchSearch(input: {
     },
   });
   if (!res.ok) await throwOnError(res);
-  return res.json() as Promise<SearchResult>;
+  // Validate against the shared schema — `Response.json()` returns `unknown`,
+  // so without a parse a malformed 2xx body would silently corrupt the menu.
+  return searchResponseSchema.parse(await res.json()) as SearchResult;
 }
 
 export async function fetchTrending(input: {
@@ -45,5 +48,5 @@ export async function fetchTrending(input: {
     },
   });
   if (!res.ok) await throwOnError(res);
-  return res.json() as Promise<SearchResult>;
+  return discoverTrendingResponseSchema.parse(await res.json()) as SearchResult;
 }

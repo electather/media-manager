@@ -31,7 +31,15 @@ export function SettingDrill<T extends string>({ setting, onPop }: SettingDrillP
             key={opt.id}
             value={settingMatchValue(setting, opt)}
             onSelect={() => {
-              setting.write(opt.id);
+              // Spec §11: a thrown `write` keeps the drill open and surfaces
+              // an error toast. The success toast / pop only fire on the
+              // happy path so a failed save never appears confirmed.
+              try {
+                setting.write(opt.id);
+              } catch {
+                toast.error(m.command_menu_setting_write_error());
+                return;
+              }
               if (setting.toastKey) toast.success(t(setting.toastKey));
               onPop();
             }}
@@ -50,7 +58,7 @@ export function SettingDrill<T extends string>({ setting, onPop }: SettingDrillP
                 <div className="truncate text-xs text-muted-foreground/80">{t(opt.hintKey)}</div>
               )}
             </div>
-            <RowAffordance label={m.command_menu_action_open()} />
+            {!isCurrent && <RowAffordance label={m.command_menu_action_open()} />}
           </CommandItem>
         );
       })}

@@ -49,9 +49,10 @@ export function ShortcutsCheatsheet() {
         description: meta.description,
         chips: formatChips(reg.hotkey),
       };
-      // Globals (toggle, open, close) sort under "Menu" by convention; every
-      // other registration is treated as an in-menu action.
-      if (/menu|cheatsheet|close/i.test(meta.name)) menuKeys.push(row);
+      // `meta.group` is set at registration time in `use-command-hotkeys.ts`
+      // — sorting on a structural discriminant survives translation,
+      // unlike a regex over the localized `name` string.
+      if (meta.group === "menu") menuKeys.push(row);
       else actionKeys.push(row);
     }
     const sequenceRows: CheatsheetRow[] = sequences

@@ -18,6 +18,19 @@ import type { Contribution } from "../types";
 // literal so the trigger button stays decoupled from this hook.
 const OPEN_EVENT = "nama:open-command";
 
+/**
+ * Extends the TanStack Hotkeys metadata bag with a `group` discriminant so
+ * the cheatsheet can sort registrations structurally instead of regexing the
+ * localized name string. Declaration merging is the documented extension
+ * point — see `@tanstack/hotkeys` `HotkeyMeta` JSDoc.
+ */
+declare module "@tanstack/react-hotkeys" {
+  interface HotkeyMeta {
+    /** Cheatsheet section the registration belongs in. */
+    group?: "menu" | "navigate" | "action";
+  }
+}
+
 interface UseCommandHotkeysInput {
   open: boolean;
   setOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
@@ -40,7 +53,11 @@ export function useCommandHotkeys({
 }: UseCommandHotkeysInput): void {
   // Mod+K toggles the menu from anywhere — the canonical command-bar binding.
   useHotkey("Mod+K", () => setOpen((prev) => !prev), {
-    meta: { name: m.hotkey_toggle_menu_name(), description: m.hotkey_toggle_menu_desc() },
+    meta: {
+      name: m.hotkey_toggle_menu_name(),
+      description: m.hotkey_toggle_menu_desc(),
+      group: "menu",
+    },
   });
 
   // Slash opens the menu, but only when the user is not typing in a field.
@@ -48,7 +65,11 @@ export function useCommandHotkeys({
   useHotkey("/", () => setOpen(true), {
     enabled: !open,
     ignoreInputs: true,
-    meta: { name: m.hotkey_open_menu_name(), description: m.hotkey_open_menu_desc() },
+    meta: {
+      name: m.hotkey_open_menu_name(),
+      description: m.hotkey_open_menu_desc(),
+      group: "menu",
+    },
   });
 
   // Esc handling lives on the `Dialog` `onOpenChange` interceptor in
@@ -58,7 +79,11 @@ export function useCommandHotkeys({
   // accurate.
   useHotkey("Escape", () => {}, {
     enabled: false,
-    meta: { name: m.hotkey_close_menu_name(), description: m.hotkey_close_menu_desc() },
+    meta: {
+      name: m.hotkey_close_menu_name(),
+      description: m.hotkey_close_menu_desc(),
+      group: "menu",
+    },
   });
 
   // Page sequences (`g h`, `g l`, …) are only useful while the menu is closed
@@ -72,7 +97,11 @@ export function useCommandHotkeys({
       },
       options: {
         enabled: !open,
-        meta: { name: t(page.labelKey), description: t(page.hintKey) },
+        meta: {
+          name: t(page.labelKey),
+          description: t(page.hintKey),
+          group: "navigate",
+        },
       },
     })),
   );
@@ -88,7 +117,11 @@ export function useCommandHotkeys({
         callback: () => runContribution(c),
         options: {
           enabled: open,
-          meta: { name: t(c.labelKey), description: t(c.hintKey) },
+          meta: {
+            name: t(c.labelKey),
+            description: t(c.hintKey),
+            group: "action",
+          },
         },
       })),
   );

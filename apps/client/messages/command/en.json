@@ -73,6 +73,7 @@
   "command_menu_setting_locale_label": "Language",
   "command_menu_setting_locale_hint": "Change the interface language",
   "command_menu_setting_locale_toast": "Language updated",
+  "command_menu_setting_write_error": "Couldn't save the change. Try again.",
 
   "theme_system_label": "System",
   "theme_light_label": "Light",

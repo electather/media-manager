@@ -21,6 +21,9 @@ function isTheme(value: string | undefined): value is ThemeName {
  */
 export function useBoundSettings(): readonly SettingItem<string>[] {
   const { theme, resolvedTheme, setTheme } = useTheme();
+  // `getLocale()` is a non-reactive read. Safe here only because Paraglide's
+  // `setLocale` triggers a full page reload by default, which remounts this
+  // hook with the fresh value — the memo would *not* re-run otherwise.
   const currentLocale = getLocale();
 
   return useMemo(() => {
