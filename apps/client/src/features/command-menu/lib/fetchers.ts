@@ -16,6 +16,8 @@ export interface SearchResult {
   hasMore: boolean;
 }
 
+export type TrendingScope = "tv" | "movie";
+
 export async function fetchSearch(input: {
   q: string;
   kind: SearchKind;
@@ -25,6 +27,20 @@ export async function fetchSearch(input: {
     query: {
       q: input.q,
       kind: input.kind,
+      ...(input.limit ? { limit: String(input.limit) } : {}),
+    },
+  });
+  if (!res.ok) await throwOnError(res);
+  return res.json() as Promise<SearchResult>;
+}
+
+export async function fetchTrending(input: {
+  mediaType: TrendingScope;
+  limit?: number;
+}): Promise<SearchResult> {
+  const res = await api.discover.trending.$get({
+    query: {
+      mediaType: input.mediaType,
       ...(input.limit ? { limit: String(input.limit) } : {}),
     },
   });

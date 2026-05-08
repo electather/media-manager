@@ -10,9 +10,9 @@ type SectionsInput = {
   topFrame: NavFrame;
   value: string;
   recents: MediaItem[];
-  pool: MediaItem[];
-  trending: MediaItem[];
-  /** Live `/api/search` results — replaces in-memory fuzzy match against `pool`. */
+  /** Live `/api/discover/trending` results scoped to the active media tab. */
+  trendingResults: CompactMediaItem[] | undefined;
+  /** Live `/api/search` results — sourced from `useSearchResults`. */
   searchResults: CompactMediaItem[] | undefined;
 };
 
@@ -29,15 +29,14 @@ export type Sections = {
 
 /**
  * Derives which command-menu groups render based on the current top frame
- * and search query. `mediaItems` is now sourced from the live search query —
- * `pool` is consumed only for recents lookups and the trending fallback.
+ * and search query. Both media-bearing sections (trending + results) come
+ * from server queries — there is no in-memory pool fallback any more.
  */
 export function useSections({
   topFrame,
   value,
   recents,
-  pool,
-  trending,
+  trendingResults,
   searchResults,
 }: SectionsInput): Sections {
   const isRoot = topFrame.kind === "root";
@@ -54,19 +53,10 @@ export function useSections({
     return recents.slice(0, RECENTS_LIMIT);
   }, [isRoot, recents, value]);
 
-  const trendingItems = useMemo(() => {
-    if (!showTrending || !scope) return [] as MediaItem[];
-    const seen = new Set<string>();
-    const out: MediaItem[] = [];
-    const push = (item: MediaItem) => {
-      if (item.mediaType !== scope || seen.has(item.id)) return;
-      seen.add(item.id);
-      out.push(item);
-    };
-    trending.forEach(push);
-    if (out.length < TRENDING_LIMIT) pool.forEach(push);
-    return out.slice(0, TRENDING_LIMIT);
-  }, [pool, scope, showTrending, trending]);
+  const trendingItems = useMemo<MediaItem[]>(() => {
+    if (!showTrending || !trendingResults) return [];
+    return trendingResults.slice(0, TRENDING_LIMIT);
+  }, [showTrending, trendingResults]);
 
   const mediaItems = useMemo<MediaItem[]>(() => {
     if (showTrending) return [];

@@ -3,73 +3,15 @@ import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { searchQuerySchema, type SearchKind } from "@ent-mcp/shared/search";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { MediaService } from "../../media/service";
+import { compactFromRaw, type PluginMediaRaw } from "../../media/compact";
 import { zValidator } from "../../errors/validator";
 
-/**
- * Raw `metadata@v1.search` result shape: `{ item, score? }` where `item`
- * matches the plugin SDK `mediaItem` (id, title, year nullable, posterUrl
- * nullable, ids bundle, …). The dispatcher loses the strong type at the
- * boundary, so we narrow to the subset the menu actually needs.
- */
 interface PluginSearchHit {
-  item?: {
-    id?: string;
-    title?: string;
-    type?: "movie" | "tv";
-    year?: number | null;
-    posterUrl?: string | null;
-    overview?: string;
-    genres?: string[];
-    rating?: number | null;
-    runtime?: number | null;
-    ids?: { tmdb_id?: string };
-  };
+  item?: PluginMediaRaw;
 }
 
 function pluginTypeFromKind(kind: SearchKind): "movie" | "tv" | undefined {
   return kind === "all" ? undefined : kind;
-}
-
-function buildFacets(raw: NonNullable<PluginSearchHit["item"]>): CompactMediaItem["facets"] {
-  const facets: NonNullable<CompactMediaItem["facets"]> = {};
-  if (raw.runtime != null) facets.runtimeMin = raw.runtime;
-  if (raw.year != null) facets.releaseDate = String(raw.year);
-  return Object.keys(facets).length > 0 ? facets : undefined;
-}
-
-// fallow-ignore-next-line complexity
-function applyOptionalFields(
-  item: CompactMediaItem,
-  raw: NonNullable<PluginSearchHit["item"]>,
-): void {
-  if (raw.year != null) item.year = raw.year;
-  if (raw.posterUrl) item.poster = raw.posterUrl;
-  if (raw.overview) item.overview = raw.overview;
-  // Cap at three genres to match the home-row chip strip — keeps the menu row
-  // visually balanced and the wire payload small.
-  if (raw.genres && raw.genres.length > 0) item.genres = raw.genres.slice(0, 3);
-  if (raw.rating != null) item.rating = raw.rating;
-  const facets = buildFacets(raw);
-  if (facets) item.facets = facets;
-}
-
-// fallow-ignore-next-line complexity
-function compactFromHit(hit: PluginSearchHit): CompactMediaItem | null {
-  const raw = hit.item;
-  if (!raw) return null;
-  const tmdbId = raw.ids?.tmdb_id ?? raw.id;
-  const mediaType = raw.type;
-  if (!tmdbId || (mediaType !== "movie" && mediaType !== "tv") || !raw.title) {
-    return null;
-  }
-  const item: CompactMediaItem = {
-    id: `${mediaType}:${tmdbId}`,
-    tmdbId,
-    mediaType,
-    title: raw.title,
-  };
-  applyOptionalFields(item, raw);
-  return item;
 }
 
 /**
@@ -93,9 +35,9 @@ export const searchApp = new Hono()
       limit + 1,
     )) as PluginSearchHit[];
     const mapped = hits
-      .map(compactFromHit)
+      .map((hit) => compactFromRaw(hit.item))
       .filter((item): item is CompactMediaItem => item !== null);
-    // `hasMore` measures the post-filter slice — drops from `compactFromHit`
+    // `hasMore` measures the post-filter slice — drops from `compactFromRaw`
     // (missing tmdb id / media type / title) under-signal upstream availability.
     // Acceptable for v1: metadata plugins (TMDB) return clean shapes, so the
     // edge only fires when an upstream plugin is misbehaving.

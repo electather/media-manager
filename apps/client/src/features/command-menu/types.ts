@@ -33,13 +33,6 @@ export type CommandMenuMediaItem = CompactMediaItem & {
   cast?: string[];
 };
 
-export type CommandMenuMediaSource = {
-  /** Deduplicated pool of every searchable title. */
-  pool: CommandMenuMediaItem[];
-  /** Trending subset used by the scope-filtered "browse" view. */
-  trending: CommandMenuMediaItem[];
-};
-
 export type ContributionKind = "page" | "action" | "search-mode" | "setting";
 
 type Base = {

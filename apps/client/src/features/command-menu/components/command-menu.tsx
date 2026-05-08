@@ -18,10 +18,10 @@ import { Kbd, KbdGroup } from "@/shared/ui/kbd";
 
 import { useBoundSettings } from "../hooks/use-bound-settings";
 import { useCommandHotkeys } from "../hooks/use-command-hotkeys";
-import { useMediaPool } from "../hooks/use-media-pool";
 import { useRecentItems } from "../hooks/use-recent-items";
 import { useSearchResults } from "../hooks/use-search-results";
 import { useSections } from "../hooks/use-sections";
+import { useTrending } from "../hooks/use-trending";
 import { t } from "../lib/i18n";
 import { actionMatchValue, pageMatchValue, searchModeMatchValue } from "../lib/match-values";
 import { initialNavState, isRoot, navReducer, topFrame } from "../lib/nav-stack";
@@ -54,7 +54,6 @@ export function CommandMenu() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { recents, pushRecent } = useRecentItems();
-  const { pool, trending } = useMediaPool();
   const settings = useBoundSettings();
 
   const navigate = useNavigate();
@@ -158,13 +157,15 @@ export function CommandMenu() {
 
   const scopeForSearch: CommandScope = top.kind === "scope" ? top.scope : null;
   const search = useSearchResults(value, scopeForSearch);
+  // Trending only fires when the user is on a scoped tab and not typing —
+  // gating in the hook keeps the network quiet on the root frame.
+  const trending = useTrending(scopeForSearch && !value ? scopeForSearch : null);
 
   const sections = useSections({
     topFrame: top,
     value,
     recents,
-    pool,
-    trending,
+    trendingResults: trending.data?.results,
     searchResults: search.data?.results,
   });
 
