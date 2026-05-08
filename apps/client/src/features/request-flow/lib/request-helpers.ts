@@ -1,12 +1,5 @@
-import type { Season } from "./types";
-import { SERVICES } from "./mock-services";
-import type {
-  RequestDestination,
-  RequestPayload,
-  RequestProfile,
-  RequestService,
-  RequestStatus,
-} from "./types";
+import type { RequestTarget } from "@ent-mcp/shared/media";
+import type { RequestDestination, RequestStatus, Season } from "./types";
 
 // Wire / mock status aliases mapped to the widened request-flow set. The
 // wire format collapses pending and in-progress under `requested`; this map
@@ -29,73 +22,18 @@ export function normalizeRequestStatus(status: string | null | undefined): Reque
   return STATUS_ALIAS[status] ?? "available";
 }
 
-export function servicesForKind(kind: "movie" | "tv"): RequestService[] {
-  const filtered = SERVICES.filter((s) => s.supports.includes(kind));
-  return filtered.length > 0 ? filtered : SERVICES;
-}
-
-export type RequestSelection = {
-  services: RequestService[];
-  service: RequestService | null;
-  profile: RequestProfile | null;
-  serviceId: string | null;
-  profileId: string | null;
-};
-
-export function resolveRequestSelection(
-  kind: "movie" | "tv",
-  serviceId: string | undefined,
-  profileId: string | undefined,
-): RequestSelection {
-  const services = servicesForKind(kind);
-  const service = services.find((s) => s.id === serviceId) ?? services[0] ?? null;
-  const profile =
-    service?.profiles.find((p) => p.id === profileId) ??
-    service?.profiles.find((p) => p.id === service.defaultProfileId) ??
-    null;
-  return {
-    services,
-    service,
-    profile,
-    serviceId: service?.id ?? null,
-    profileId: profile?.id ?? null,
-  };
-}
-
-export function describeDestination(
-  kind: "movie" | "tv",
-  serviceId: string | undefined,
-  profileId: string | undefined,
+/**
+ * Builds the tooltip-ready destination from a target + selected profile id.
+ * Returns `null` when no target is supplied so the popover can fall back to a
+ * neutral message.
+ */
+export function describeTargetDestination(
+  target: RequestTarget | null,
+  profileId: string | null,
 ): RequestDestination {
-  const selection = resolveRequestSelection(kind, serviceId, profileId);
-  return {
-    service: selection.service,
-    profile: selection.profile,
-    serviceLabel: selection.service?.label ?? "—",
-    profileLabel: selection.profile?.label ?? null,
-  };
-}
-
-export function createRequestPayload({
-  itemId,
-  kind,
-  serviceId,
-  profileId,
-  seasonNumbers = [],
-}: {
-  itemId: string;
-  kind: "movie" | "tv";
-  serviceId: string;
-  profileId: string | null;
-  seasonNumbers?: number[];
-}): RequestPayload {
-  return {
-    itemId,
-    kind,
-    serviceId,
-    profileId,
-    seasons: kind === "tv" ? [...seasonNumbers] : [],
-  };
+  if (!target) return { serviceLabel: "—", profileLabel: null };
+  const profile = target.profiles.find((p) => p.id === profileId) ?? null;
+  return { serviceLabel: target.label, profileLabel: profile?.label ?? null };
 }
 
 export type SeasonActionModel =

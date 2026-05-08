@@ -18,13 +18,40 @@ export const MediaRequestV1 = defineCapability({
       z.object({ status: statusEnum }),
     ),
     createRequest: method(
-      z.object({ tmdbId: z.string(), type: mediaType, seasons: z.string().optional() }),
+      z.object({
+        tmdbId: z.string(),
+        type: mediaType,
+        seasons: z.string().optional(),
+        targetId: z.string().optional(),
+        profileId: z.string().optional(),
+      }),
       z.object({
         success: z.boolean(),
         requestId: z.string().optional(),
         message: z.string().optional(),
       }),
       { invalidates: ["mediaRequest@v1"] },
+    ),
+    listTargets: method(
+      z.object({ type: mediaType }),
+      z.object({
+        targets: z.array(
+          z.object({
+            targetId: z.string().regex(/^[A-Za-z0-9_-]+$/),
+            label: z.string(),
+            exposesProfiles: z.boolean(),
+            defaultProfileId: z.string().nullable(),
+            profiles: z.array(
+              z.object({
+                id: z.string(),
+                label: z.string(),
+                detail: z.string().optional(),
+              }),
+            ),
+          }),
+        ),
+      }),
+      { optional: true },
     ),
     listRequests: method(
       z.object({}),

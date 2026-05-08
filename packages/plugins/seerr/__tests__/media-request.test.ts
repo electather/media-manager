@@ -127,6 +127,55 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 
+  it("mediaRequest.createRequest: forwards serverId and profileId when provided", async () => {
+    const ctx = makeCtx([jsonRes({ id: 99 })]);
+    const out = await seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {
+      tmdbId: "550",
+      type: "movie",
+      targetId: "2",
+      profileId: "7",
+    });
+    expect(ctx.calls[0]?.init?.method).toBe("POST");
+    const body = ctx.calls[0]?.init?.body as string;
+    expect(body).toContain('"serverId":2');
+    expect(body).toContain('"profiles":{"profileId":7}');
+    expect(MediaRequestV1.methods.createRequest.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listTargets (movie): fans out to /service/radarr then per-server detail", async () => {
+    const ctx = makeCtx([
+      jsonRes([
+        { id: 1, name: "Radarr 4K", activeProfileId: 7 },
+        { id: 2, name: "Radarr HD" },
+      ]),
+      jsonRes({ profiles: [{ id: 7, name: "Ultra HD" }] }),
+      jsonRes({ profiles: [{ id: 4, name: "1080p" }] }),
+    ]);
+    const out = (await seerrPlugin.capabilities.mediaRequest!.listTargets!(ctx, {
+      type: "movie",
+    })) as { targets: Array<{ targetId: string; defaultProfileId: string | null }> };
+    expect(ctx.calls[0]?.url).toContain("/api/v1/service/radarr");
+    expect(ctx.calls[1]?.url).toContain("/api/v1/service/radarr/1");
+    expect(ctx.calls[2]?.url).toContain("/api/v1/service/radarr/2");
+    expect(out.targets.length).toBe(2);
+    expect(out.targets[0]?.defaultProfileId).toBe("7");
+    expect(out.targets[1]?.defaultProfileId).toBe(null);
+    expect(MediaRequestV1.methods.listTargets.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listTargets (tv): hits /service/sonarr", async () => {
+    const ctx = makeCtx([
+      jsonRes([{ id: 5, name: "Sonarr Main", activeProfileId: 3 }]),
+      jsonRes({ profiles: [{ id: 3, name: "HD" }] }),
+    ]);
+    const out = (await seerrPlugin.capabilities.mediaRequest!.listTargets!(ctx, {
+      type: "tv",
+    })) as { targets: unknown[] };
+    expect(ctx.calls[0]?.url).toContain("/api/v1/service/sonarr");
+    expect(ctx.calls[1]?.url).toContain("/api/v1/service/sonarr/5");
+    expect(MediaRequestV1.methods.listTargets.output.safeParse(out).success).toBe(true);
+  });
+
   it("mediaRequest.listRequests: paginates when a full page comes back, accumulating across pages", async () => {
     const fullPage = Array.from({ length: 100 }, (_, i) => ({
       id: i + 1,

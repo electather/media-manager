@@ -5,10 +5,11 @@ import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
-import { DEFAULT_MOVIE_PROFILE_ID, DEFAULT_MOVIE_SERVICE_ID, ROLES } from "../lib/mock-services";
-import { describeDestination, normalizeRequestStatus } from "../lib/request-helpers";
-import type { RequestPayload, RequestStatus, UserRole } from "../lib/types";
-import { RequestPicker } from "./request-picker";
+import { useCreateRequest } from "../api/use-create-request";
+import { normalizeRequestStatus } from "../lib/request-helpers";
+import type { RequestDestination, RequestStatus } from "../lib/types";
+import { RequestPicker, type PickerSubmission } from "./request-picker";
+import { RequestPickerBoundary } from "./request-picker-boundary";
 import { RequestStatusInline } from "./request-status-inline";
 
 type Props = {
@@ -19,26 +20,22 @@ type Props = {
    * caller (modal action bar) is expected to surface the watch button.
    */
   initialStatus?: string;
-  role?: UserRole;
-  defaultServiceId?: string;
-  defaultProfileId?: string;
   pluginConfigured?: boolean;
-  /** Mock callback. Logs to the console and surfaces a toast by default. */
-  onSubmit?: (payload: RequestPayload) => void;
 };
 
 export function MovieRequestAction({
   itemId,
   itemTitle,
   initialStatus,
-  role = "user",
-  defaultServiceId = DEFAULT_MOVIE_SERVICE_ID,
-  defaultProfileId = DEFAULT_MOVIE_PROFILE_ID,
   pluginConfigured = true,
-  onSubmit,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<RequestStatus>(() => normalizeRequestStatus(initialStatus));
+  const [destination, setDestination] = useState<RequestDestination>({
+    serviceLabel: "—",
+    profileLabel: null,
+  });
+  const create = useCreateRequest();
 
   // The hero on the full detail page is reused across navigations; reset
   // local request state whenever the underlying item changes so a
@@ -47,8 +44,6 @@ export function MovieRequestAction({
     setStatus(normalizeRequestStatus(initialStatus));
     setOpen(false);
   }, [itemId, initialStatus]);
-
-  const destination = describeDestination("movie", defaultServiceId, defaultProfileId);
 
   if (!pluginConfigured) {
     return (
@@ -72,16 +67,23 @@ export function MovieRequestAction({
     return <RequestStatusInline status={status} destination={destination} />;
   }
 
-  function handleSubmit(payload: RequestPayload) {
-    const next: RequestStatus = ROLES[role].needsApproval ? "pending" : "in-progress";
-    setStatus(next);
-    setOpen(false);
-    onSubmit?.(payload);
-
-    if (next === "pending") {
-      toast.info(m.request_toast_submitted_movie_pending({ title: itemTitle }));
-    } else {
-      toast.success(m.request_toast_submitted_movie({ title: itemTitle }));
+  async function handleSubmit(submission: PickerSubmission) {
+    try {
+      await create.mutateAsync({
+        tmdbId: tmdbIdFromItemId(itemId),
+        mediaType: "movie",
+        serviceId: submission.serviceId,
+        profileId: submission.profileId,
+      });
+      setDestination({
+        serviceLabel: submission.serviceLabel,
+        profileLabel: submission.profileLabel,
+      });
+      setStatus("pending");
+      setOpen(false);
+      toast.success(m.request_toast_submitted_movie_pending({ title: itemTitle }));
+    } catch {
+      // `useCreateRequest` already surfaces the destructive toast.
     }
   }
 
@@ -96,16 +98,25 @@ export function MovieRequestAction({
         }
       />
       <PopoverContent align="start" className="w-auto p-0">
-        <RequestPicker
-          itemId={itemId}
-          itemTitle={itemTitle}
-          kind="movie"
-          defaultServiceId={defaultServiceId}
-          defaultProfileId={defaultProfileId}
-          onSubmit={handleSubmit}
-          onCancel={() => setOpen(false)}
-        />
+        <RequestPickerBoundary mediaType="movie">
+          <RequestPicker
+            itemTitle={itemTitle}
+            mediaType="movie"
+            onSubmit={handleSubmit}
+            onCancel={() => setOpen(false)}
+            pending={create.isPending}
+          />
+        </RequestPickerBoundary>
       </PopoverContent>
     </Popover>
   );
+}
+
+/**
+ * The shared `HomeMediaItem.id` is `"movie:550"` / `"tv:1399"`. Strip the
+ * prefix so the request body's `tmdbId` is just the numeric id.
+ */
+function tmdbIdFromItemId(itemId: string): string {
+  const idx = itemId.indexOf(":");
+  return idx === -1 ? itemId : itemId.slice(idx + 1);
 }

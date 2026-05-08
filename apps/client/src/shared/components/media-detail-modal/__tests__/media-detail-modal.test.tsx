@@ -1,7 +1,16 @@
 // @vitest-environment happy-dom
+import type { ReactElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { MediaDetailModal, type MediaDetailItem } from "..";
+
+function renderWithClient(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 afterEach(() => {
   cleanup();
@@ -33,7 +42,7 @@ const TV: MediaDetailItem = {
 
 describe("MediaDetailModal", () => {
   it("does not render the modal content when closed", () => {
-    render(
+    renderWithClient(
       <MediaDetailModal
         item={null}
         open={false}
@@ -46,7 +55,7 @@ describe("MediaDetailModal", () => {
   });
 
   it("renders dialog with role + aria-modal and labelled by the title", () => {
-    render(
+    renderWithClient(
       <MediaDetailModal
         item={MOVIE}
         open
@@ -64,7 +73,7 @@ describe("MediaDetailModal", () => {
 
   it("Escape key closes the modal", () => {
     const onClose = vi.fn();
-    render(
+    renderWithClient(
       <MediaDetailModal
         item={MOVIE}
         open
@@ -79,7 +88,7 @@ describe("MediaDetailModal", () => {
 
   it("toggles watchlist when the watchlist button is clicked", () => {
     const onToggle = vi.fn();
-    render(
+    renderWithClient(
       <MediaDetailModal
         item={MOVIE}
         open
@@ -101,23 +110,30 @@ describe("MediaDetailModal", () => {
     trigger.focus();
     expect(document.activeElement).toBe(trigger);
 
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
     const { rerender } = render(
-      <MediaDetailModal
-        item={MOVIE}
-        open
-        onClose={vi.fn()}
-        inWatchlist={false}
-        onToggleWatchlist={vi.fn()}
-      />,
+      <QueryClientProvider client={client}>
+        <MediaDetailModal
+          item={MOVIE}
+          open
+          onClose={vi.fn()}
+          inWatchlist={false}
+          onToggleWatchlist={vi.fn()}
+        />
+      </QueryClientProvider>,
     );
     rerender(
-      <MediaDetailModal
-        item={MOVIE}
-        open={false}
-        onClose={vi.fn()}
-        inWatchlist={false}
-        onToggleWatchlist={vi.fn()}
-      />,
+      <QueryClientProvider client={client}>
+        <MediaDetailModal
+          item={MOVIE}
+          open={false}
+          onClose={vi.fn()}
+          inWatchlist={false}
+          onToggleWatchlist={vi.fn()}
+        />
+      </QueryClientProvider>,
     );
     await new Promise((r) => setTimeout(r, 0));
     expect(document.activeElement).toBe(trigger);
@@ -125,25 +141,32 @@ describe("MediaDetailModal", () => {
   });
 
   it("hides the seasons section for movies and for TV items missing seasons[]", () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
     const { rerender } = render(
-      <MediaDetailModal
-        item={MOVIE}
-        open
-        onClose={vi.fn()}
-        inWatchlist={false}
-        onToggleWatchlist={vi.fn()}
-      />,
+      <QueryClientProvider client={client}>
+        <MediaDetailModal
+          item={MOVIE}
+          open
+          onClose={vi.fn()}
+          inWatchlist={false}
+          onToggleWatchlist={vi.fn()}
+        />
+      </QueryClientProvider>,
     );
     expect(screen.queryByRole("region", { name: /seasons/i })).toBeNull();
 
     rerender(
-      <MediaDetailModal
-        item={TV}
-        open
-        onClose={vi.fn()}
-        inWatchlist={false}
-        onToggleWatchlist={vi.fn()}
-      />,
+      <QueryClientProvider client={client}>
+        <MediaDetailModal
+          item={TV}
+          open
+          onClose={vi.fn()}
+          inWatchlist={false}
+          onToggleWatchlist={vi.fn()}
+        />
+      </QueryClientProvider>,
     );
     // TV item has no canonical seasons[] payload — section stays hidden until
     // home.getDetails populates it.

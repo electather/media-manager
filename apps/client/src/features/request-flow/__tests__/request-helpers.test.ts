@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { Season } from "../lib/types";
 import {
-  createRequestPayload,
-  describeDestination,
+  describeTargetDestination,
   getRequestableSeasonNumbers,
   getSeasonActionModel,
   inferSeasonStatus,
   normalizeRequestStatus,
-  resolveRequestSelection,
 } from "../lib/request-helpers";
 
 const mkSeason = (
@@ -132,46 +130,29 @@ describe("getRequestableSeasonNumbers", () => {
   });
 });
 
-describe("resolveRequestSelection + describeDestination", () => {
-  it("falls back to the default service and profile when ids are unknown", () => {
-    const selection = resolveRequestSelection("movie", "unknown", "unknown");
-    expect(selection.serviceId).toBeTruthy();
-    expect(selection.profileId).toBeTruthy();
+describe("describeTargetDestination", () => {
+  it("returns neutral labels for a null target", () => {
+    expect(describeTargetDestination(null, null)).toEqual({
+      serviceLabel: "—",
+      profileLabel: null,
+    });
   });
-  it("describes the chosen destination", () => {
-    const destination = describeDestination("movie", "home-server", "best");
-    expect(destination.serviceLabel).toMatch(/Radarr/);
-    expect(destination.profileLabel).toBe("Best available");
-  });
-  it("filters services by the requested kind", () => {
-    const movie = resolveRequestSelection("movie", undefined, undefined);
-    expect(movie.services.every((s) => s.supports.includes("movie"))).toBe(true);
-    const tv = resolveRequestSelection("tv", undefined, undefined);
-    expect(tv.services.every((s) => s.supports.includes("tv"))).toBe(true);
-  });
-});
 
-describe("createRequestPayload", () => {
-  it("never includes seasons for movies", () => {
-    expect(
-      createRequestPayload({
-        itemId: "movie:a",
-        kind: "movie",
-        serviceId: "home-server",
-        profileId: "best",
-        seasonNumbers: [1, 2],
-      }).seasons,
-    ).toEqual([]);
-  });
-  it("copies the season numbers for TV requests", () => {
-    expect(
-      createRequestPayload({
-        itemId: "tv:a",
-        kind: "tv",
-        serviceId: "sonarr-main",
-        profileId: null,
-        seasonNumbers: [3, 4],
-      }).seasons,
-    ).toEqual([3, 4]);
+  it("matches the chosen profile to its label", () => {
+    const target = {
+      serviceId: "conn-1:1",
+      pluginId: "seerr",
+      label: "Radarr Main",
+      exposesProfiles: true,
+      defaultProfileId: "5",
+      profiles: [
+        { id: "5", label: "1080p" },
+        { id: "9", label: "4K" },
+      ],
+    };
+    expect(describeTargetDestination(target, "9")).toEqual({
+      serviceLabel: "Radarr Main",
+      profileLabel: "4K",
+    });
   });
 });

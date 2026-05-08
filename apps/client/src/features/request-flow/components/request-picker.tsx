@@ -1,69 +1,109 @@
-import { useEffect, useState } from "react";
-import { Check, Database, Plus, Server } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Plus, Server } from "lucide-react";
+import type { RequestProfile, RequestTarget } from "@ent-mcp/shared/media";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import { createRequestPayload, resolveRequestSelection } from "../lib/request-helpers";
-import type { RequestPayload, RequestService, ServiceGlyph } from "../lib/types";
+import { useRequestTargets } from "../api/use-request-targets";
 
-type Props = {
-  itemId: string;
-  itemTitle: string;
-  kind: "movie" | "tv";
-  seasonNumbers?: number[];
-  defaultServiceId?: string;
-  defaultProfileId?: string;
-  onSubmit: (payload: RequestPayload) => void;
-  onCancel: () => void;
+export type PickerSubmission = {
+  serviceId: string;
+  profileId: string | null;
+  /** UI-local descriptor used by callers to render destination tooltips. */
+  serviceLabel: string;
+  profileLabel: string | null;
 };
 
-function ServiceGlyphIcon({ glyph, className }: { glyph: ServiceGlyph; className?: string }) {
-  const Icon = glyph === "stack" ? Database : Server;
-  return <Icon aria-hidden="true" className={className} />;
+type Props = {
+  itemTitle: string;
+  mediaType: "movie" | "tv";
+  seasonNumbers?: number[];
+  onSubmit: (submission: PickerSubmission) => void;
+  onCancel: () => void;
+  pending?: boolean;
+};
+
+function pickInitialTarget(targets: RequestTarget[]): RequestTarget | null {
+  return targets[0] ?? null;
+}
+
+function pickInitialProfileId(target: RequestTarget | null): string | null {
+  if (!target) return null;
+  if (!target.exposesProfiles || target.profiles.length === 0) return null;
+  if (target.defaultProfileId && target.profiles.some((p) => p.id === target.defaultProfileId)) {
+    return target.defaultProfileId;
+  }
+  return target.profiles[0]?.id ?? null;
 }
 
 export function RequestPicker({
-  itemId,
   itemTitle,
-  kind,
+  mediaType,
   seasonNumbers = [],
-  defaultServiceId,
-  defaultProfileId,
   onSubmit,
   onCancel,
+  pending = false,
 }: Props) {
-  const initial = resolveRequestSelection(kind, defaultServiceId, defaultProfileId);
-  const [draft, setDraft] = useState<{ serviceId: string | null; profileId: string | null }>({
-    serviceId: initial.serviceId,
-    profileId: initial.profileId,
-  });
+  const targets = useRequestTargets(mediaType);
 
-  useEffect(() => {
-    const next = resolveRequestSelection(kind, defaultServiceId, defaultProfileId);
-    setDraft({ serviceId: next.serviceId, profileId: next.profileId });
-  }, [itemId, kind, defaultServiceId, defaultProfileId]);
-
-  const selection = resolveRequestSelection(
-    kind,
-    draft.serviceId ?? undefined,
-    draft.profileId ?? undefined,
+  const [serviceId, setServiceId] = useState<string | null>(
+    () => pickInitialTarget(targets)?.serviceId ?? null,
   );
-  const service = selection.service;
+  const [profileId, setProfileId] = useState<string | null>(() =>
+    pickInitialProfileId(pickInitialTarget(targets)),
+  );
 
-  const heading = pickerHeading(kind, seasonNumbers, itemTitle);
+  // Refresh selection when the target list changes underneath (cache refresh,
+  // first hydration). Only resets when the chosen target disappears.
+  useEffect(() => {
+    if (!targets.length) {
+      setServiceId(null);
+      setProfileId(null);
+      return;
+    }
+    if (!targets.some((t) => t.serviceId === serviceId)) {
+      const next = pickInitialTarget(targets);
+      setServiceId(next?.serviceId ?? null);
+      setProfileId(pickInitialProfileId(next));
+    }
+  }, [targets, serviceId]);
+
+  const selectedTarget = useMemo(
+    () => targets.find((t) => t.serviceId === serviceId) ?? null,
+    [targets, serviceId],
+  );
+
+  const heading = pickerHeading(mediaType, seasonNumbers, itemTitle);
   const { title, subline } = heading;
 
-  function submit() {
-    if (!selection.serviceId) return;
-    onSubmit(
-      createRequestPayload({
-        itemId,
-        kind,
-        serviceId: selection.serviceId,
-        profileId: selection.profileId,
-        seasonNumbers,
-      }),
+  if (targets.length === 0) {
+    return (
+      <div className="flex w-80 flex-col gap-3 p-3">
+        <div>
+          <div className="text-sm font-semibold text-foreground">{title}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">{subline}</div>
+        </div>
+        <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+          {m.request_picker_empty_targets()}
+        </p>
+        <div className="flex justify-end">
+          <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+            {m.request_picker_cancel()}
+          </Button>
+        </div>
+      </div>
     );
+  }
+
+  function submit() {
+    if (!selectedTarget) return;
+    const profile = selectedTarget.profiles.find((p) => p.id === profileId) ?? null;
+    onSubmit({
+      serviceId: selectedTarget.serviceId,
+      profileId,
+      serviceLabel: selectedTarget.label,
+      profileLabel: profile?.label ?? null,
+    });
   }
 
   return (
@@ -74,24 +114,27 @@ export function RequestPicker({
       </div>
 
       <ServiceList
-        services={selection.services}
-        activeId={selection.serviceId}
-        onSelect={(s) => setDraft({ serviceId: s.id, profileId: s.defaultProfileId })}
+        targets={targets}
+        activeId={serviceId}
+        onSelect={(t) => {
+          setServiceId(t.serviceId);
+          setProfileId(pickInitialProfileId(t));
+        }}
       />
 
-      {service && service.exposesProfiles && service.profiles.length > 0 ? (
+      {selectedTarget && selectedTarget.exposesProfiles && selectedTarget.profiles.length > 0 ? (
         <ProfileList
-          profiles={service.profiles}
-          activeId={selection.profileId}
-          onSelect={(profileId) => setDraft((d) => ({ ...d, profileId }))}
+          profiles={selectedTarget.profiles}
+          activeId={profileId}
+          onSelect={setProfileId}
         />
       ) : null}
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel} disabled={pending}>
           {m.request_picker_cancel()}
         </Button>
-        <Button type="button" size="sm" onClick={submit} disabled={!selection.serviceId}>
+        <Button type="button" size="sm" onClick={submit} disabled={!selectedTarget || pending}>
           <Plus aria-hidden="true" className="size-3.5" />
           {title}
         </Button>
@@ -103,11 +146,11 @@ export function RequestPicker({
 type PickerHeading = { title: string; subline: string };
 
 function pickerHeading(
-  kind: "movie" | "tv",
+  mediaType: "movie" | "tv",
   seasonNumbers: number[],
   itemTitle: string,
 ): PickerHeading {
-  if (kind === "movie") {
+  if (mediaType === "movie") {
     return { title: m.request_picker_movie_title(), subline: itemTitle };
   }
   if (seasonNumbers.length > 1) {
@@ -123,25 +166,25 @@ function pickerHeading(
 }
 
 function ServiceList({
-  services,
+  targets,
   activeId,
   onSelect,
 }: {
-  services: RequestService[];
+  targets: RequestTarget[];
   activeId: string | null;
-  onSelect: (s: RequestService) => void;
+  onSelect: (t: RequestTarget) => void;
 }) {
   return (
     <div>
       <SectionLabel>{m.request_picker_section_server()}</SectionLabel>
       <div className="flex flex-col gap-1">
-        {services.map((s) => {
-          const on = s.id === activeId;
+        {targets.map((t) => {
+          const on = t.serviceId === activeId;
           return (
             <button
-              key={s.id}
+              key={t.serviceId}
               type="button"
-              onClick={() => onSelect(s)}
+              onClick={() => onSelect(t)}
               className={cn(
                 "flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-start transition-colors",
                 on
@@ -157,11 +200,11 @@ function ServiceList({
                     : "border-border bg-muted/30 text-muted-foreground",
                 )}
               >
-                <ServiceGlyphIcon glyph={s.glyph} className="size-3.5" />
+                <Server aria-hidden="true" className="size-3.5" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-sm font-medium">{s.label}</span>
-                <span className="truncate text-[11px] text-muted-foreground">{s.sub}</span>
+                <span className="truncate text-sm font-medium">{t.label}</span>
+                <span className="truncate text-[11px] text-muted-foreground">{t.pluginId}</span>
               </span>
               {on ? <Check aria-hidden="true" className="size-3.5 shrink-0 text-primary" /> : null}
             </button>
@@ -177,7 +220,7 @@ function ProfileList({
   activeId,
   onSelect,
 }: {
-  profiles: { id: string; label: string; detail: string }[];
+  profiles: RequestProfile[];
   activeId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -207,7 +250,9 @@ function ProfileList({
                 aria-hidden="true"
               />
               <span className="flex-1 text-xs font-medium">{p.label}</span>
-              <span className="font-mono text-[10px] text-muted-foreground">{p.detail}</span>
+              {p.detail ? (
+                <span className="font-mono text-[10px] text-muted-foreground">{p.detail}</span>
+              ) : null}
             </button>
           );
         })}

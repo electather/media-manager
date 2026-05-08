@@ -63,7 +63,6 @@ export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
         itemId={tmdbId}
         itemTitle={itemTitle}
         seasons={joined}
-        role="user"
         pluginConfigured={false}
       />
     </div>

@@ -57,7 +57,50 @@ export type ActivityWatchlistQuery = z.infer<typeof activityWatchlistQuerySchema
 
 /** Body for `POST /api/requests`. */
 export const createMediaRequestSchema = z.object({
-  id: z.string(),
-  seasons: z.string().optional(),
+  tmdbId: z.string().min(1),
+  mediaType: mediaTypeSchema,
+  serviceId: z.string().min(1),
+  profileId: z.string().nullable().optional(),
+  seasons: z.array(z.number().int().positive()).optional(),
 });
 export type CreateMediaRequestBody = z.infer<typeof createMediaRequestSchema>;
+
+/** Response for `POST /api/requests`. */
+export const createMediaRequestResponseSchema = z.object({
+  requestId: z.string().nullable(),
+});
+export type CreateMediaRequestResponse = z.infer<typeof createMediaRequestResponseSchema>;
+
+/** One quality profile entry exposed by a request target. */
+export const requestProfileSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  detail: z.string().optional(),
+});
+export type RequestProfile = z.infer<typeof requestProfileSchema>;
+
+/**
+ * One entry in `GET /api/requests/targets`. `serviceId` is host-encoded
+ * `${connectionId}:${pluginTargetId}` and treated as opaque by the client.
+ */
+export const requestTargetSchema = z.object({
+  serviceId: z.string(),
+  pluginId: z.string(),
+  label: z.string(),
+  exposesProfiles: z.boolean(),
+  defaultProfileId: z.string().nullable(),
+  profiles: z.array(requestProfileSchema),
+});
+export type RequestTarget = z.infer<typeof requestTargetSchema>;
+
+/** Response shape for `GET /api/requests/targets`. */
+export const requestTargetsResponseSchema = z.object({
+  targets: z.array(requestTargetSchema),
+});
+export type RequestTargetsResponse = z.infer<typeof requestTargetsResponseSchema>;
+
+/** Query for `GET /api/requests/targets`. */
+export const requestTargetsQuerySchema = z.object({
+  mediaType: mediaTypeSchema,
+});
+export type RequestTargetsQuery = z.infer<typeof requestTargetsQuerySchema>;

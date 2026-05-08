@@ -1,0 +1,149 @@
+// @vitest-environment happy-dom
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { RequestTarget } from "@ent-mcp/shared/media";
+import type { Season } from "../lib/types";
+
+const apiMock = vi.hoisted(() => ({
+  targets: vi.fn(),
+  create: vi.fn(),
+}));
+vi.mock("../api/client", () => ({ requestsApi: apiMock }));
+
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  info: vi.fn(),
+  error: vi.fn(),
+}));
+vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), toastMock) }));
+
+import { RequestableSeasons } from "../components/requestable-seasons";
+
+const TARGETS: RequestTarget[] = [
+  {
+    serviceId: "conn-1:5",
+    pluginId: "seerr",
+    label: "Sonarr Main",
+    exposesProfiles: false,
+    defaultProfileId: null,
+    profiles: [],
+  },
+];
+
+const seasons: Season[] = [1, 2, 3].map((n) => ({
+  number: n,
+  episodeCount: 2,
+  counts: { unavailable: 2 },
+  episodes: [
+    {
+      id: `s${n}e1`,
+      episode: 1,
+      title: "Pilot",
+      airDate: "2024-01-01",
+      runtime: 42,
+      status: "unavailable",
+    },
+    {
+      id: `s${n}e2`,
+      episode: 2,
+      title: "Aftershock",
+      airDate: "2024-01-08",
+      runtime: 42,
+      status: "unavailable",
+    },
+  ],
+}));
+
+function withClient() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  };
+}
+
+beforeEach(() => {
+  apiMock.targets.mockReset();
+  apiMock.create.mockReset();
+  toastMock.success.mockReset();
+  toastMock.info.mockReset();
+  toastMock.error.mockReset();
+});
+
+afterEach(() => cleanup());
+
+describe("RequestableSeasons", () => {
+  it("submits a single season with seasons:[n]", async () => {
+    apiMock.targets.mockResolvedValue(TARGETS);
+    apiMock.create.mockResolvedValueOnce({ requestId: "1" });
+
+    const Wrapper = withClient();
+    render(
+      <Wrapper>
+        <RequestableSeasons itemId="tv:123" itemTitle="Show" seasons={seasons} />
+      </Wrapper>,
+    );
+
+    const triggers = screen.getAllByRole("button", { name: /request missing/i });
+    fireEvent.click(triggers[0]!);
+    await waitFor(() => screen.getByRole("button", { name: /request season/i }));
+    fireEvent.click(screen.getByRole("button", { name: /request season/i }));
+
+    await waitFor(() => expect(apiMock.create).toHaveBeenCalledTimes(1));
+    expect(apiMock.create).toHaveBeenCalledWith({
+      tmdbId: "123",
+      mediaType: "tv",
+      serviceId: "conn-1:5",
+      profileId: null,
+      seasons: [1],
+    });
+  });
+
+  it("bulk submit posts a single request with every requestable season", async () => {
+    apiMock.targets.mockResolvedValue(TARGETS);
+    apiMock.create.mockResolvedValueOnce({ requestId: "9" });
+
+    const Wrapper = withClient();
+    render(
+      <Wrapper>
+        <RequestableSeasons itemId="tv:123" itemTitle="Show" seasons={seasons} />
+      </Wrapper>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /request all/i }));
+    await waitFor(() => screen.getByRole("button", { name: /request 3 seasons/i }));
+    fireEvent.click(screen.getByRole("button", { name: /request 3 seasons/i }));
+
+    await waitFor(() => expect(apiMock.create).toHaveBeenCalledTimes(1));
+    expect(apiMock.create).toHaveBeenCalledWith({
+      tmdbId: "123",
+      mediaType: "tv",
+      serviceId: "conn-1:5",
+      profileId: null,
+      seasons: [1, 2, 3],
+    });
+  });
+
+  it("leaves season status untouched when the mutation fails", async () => {
+    apiMock.targets.mockResolvedValue(TARGETS);
+    apiMock.create.mockRejectedValueOnce(new Error("boom"));
+
+    const Wrapper = withClient();
+    render(
+      <Wrapper>
+        <RequestableSeasons itemId="tv:123" itemTitle="Show" seasons={seasons} />
+      </Wrapper>,
+    );
+
+    const triggers = screen.getAllByRole("button", { name: /request missing/i });
+    fireEvent.click(triggers[0]!);
+    await waitFor(() => screen.getByRole("button", { name: /request season/i }));
+    fireEvent.click(screen.getByRole("button", { name: /request season/i }));
+
+    await waitFor(() => expect(apiMock.create).toHaveBeenCalled());
+    expect(screen.queryByText(/awaiting approval/i)).toBeNull();
+  });
+});
