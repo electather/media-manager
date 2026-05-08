@@ -1,4 +1,4 @@
-import { useCommandMenuMedia } from "@/shared/components/command-menu-media-provider";
+import { useCommandMenuMedia } from "../components/command-menu-media-provider";
 
 /**
  * Thin alias around `useCommandMenuMedia` so the rest of the command-menu

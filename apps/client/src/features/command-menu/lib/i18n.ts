@@ -1,6 +1,6 @@
 import { m } from "@/paraglide/messages";
 
-import type { StaticMessageKey } from "./types";
+import type { StaticMessageKey } from "../types";
 
 /**
  * Resolves a parameter-less Paraglide message by key. Indexed access narrows

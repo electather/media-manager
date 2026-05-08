@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { CommandMenuMediaItem } from "@/shared/components/command-menu-media-provider";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type * as messages from "@/paraglide/messages";
 
 /**
@@ -20,6 +20,25 @@ export type CommandScope = null | "tv" | "movie";
  * union so `useNavigate({ to })` stays type-checked against `routeTree.gen`.
  */
 export type PageRoute = "/" | "/library" | "/watchlist" | "/settings" | "/settings/connections";
+
+/**
+ * Media item shape the command menu fuzzy-matches and renders. Layered on
+ * top of the wire `CompactMediaItem` with optional client-side fields the
+ * mock feed already supplies (tags, runtime, director, cast).
+ */
+export type CommandMenuMediaItem = CompactMediaItem & {
+  tags?: string[];
+  runtime?: string;
+  director?: string;
+  cast?: string[];
+};
+
+export type CommandMenuMediaSource = {
+  /** Deduplicated pool of every searchable title. */
+  pool: CommandMenuMediaItem[];
+  /** Trending subset used by the scope-filtered "browse" view. */
+  trending: CommandMenuMediaItem[];
+};
 
 export type PageItem = {
   id: string;
