@@ -42,9 +42,7 @@ describe("useSearchResults", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useSearchResults("show", "tv"), { wrapper: wrap(client) });
 
-    await waitFor(() =>
-      expect(fetchSearchMock).toHaveBeenCalledWith({ q: "show", kind: "tv" }),
-    );
+    await waitFor(() => expect(fetchSearchMock).toHaveBeenCalledWith({ q: "show", kind: "tv" }));
     await waitFor(() => expect(result.current.data?.results).toHaveLength(1));
   });
 

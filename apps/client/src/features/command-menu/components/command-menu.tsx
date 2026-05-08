@@ -111,7 +111,7 @@ export function CommandMenu() {
 
   const handleSelectMedia = useCallback(
     (item: MediaItem) => {
-      pushRecent(item.id);
+      pushRecent(item);
       // The `MediaDetailModal` is mounted inside `HomeFeed`, so peek only
       // resolves on the home route. Always land on `/` so a media pick from
       // any authenticated page still opens the modal.

@@ -9,7 +9,7 @@ const RECENTS_LIMIT = 4;
 type SectionsInput = {
   topFrame: NavFrame;
   value: string;
-  recents: string[];
+  recents: MediaItem[];
   pool: MediaItem[];
   trending: MediaItem[];
   /** Live `/api/search` results — replaces in-memory fuzzy match against `pool`. */
@@ -51,11 +51,8 @@ export function useSections({
 
   const recentItems = useMemo(() => {
     if (!isRoot || value) return [] as MediaItem[];
-    return recents
-      .map((id) => pool.find((item) => item.id === id))
-      .filter((x): x is MediaItem => x != null)
-      .slice(0, RECENTS_LIMIT);
-  }, [isRoot, pool, recents, value]);
+    return recents.slice(0, RECENTS_LIMIT);
+  }, [isRoot, recents, value]);
 
   const trendingItems = useMemo(() => {
     if (!showTrending || !scope) return [] as MediaItem[];
