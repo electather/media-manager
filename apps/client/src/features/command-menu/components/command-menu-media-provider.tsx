@@ -1,24 +1,8 @@
 import { createContext, type ReactNode, useContext } from "react";
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
 
-/**
- * Media item shape the command menu fuzzy-matches and renders. Layered on
- * top of the wire `CompactMediaItem` with optional client-side fields the
- * mock feed already supplies (tags, runtime, director, cast).
- */
-export type CommandMenuMediaItem = CompactMediaItem & {
-  tags?: string[];
-  runtime?: string;
-  director?: string;
-  cast?: string[];
-};
+import type { CommandMenuMediaSource } from "../types";
 
-export type CommandMenuMediaSource = {
-  /** Deduplicated pool of every searchable title. */
-  pool: CommandMenuMediaItem[];
-  /** Trending subset used by the scope-filtered "browse" view. */
-  trending: CommandMenuMediaItem[];
-};
+export type { CommandMenuMediaItem, CommandMenuMediaSource } from "../types";
 
 const EMPTY: CommandMenuMediaSource = { pool: [], trending: [] };
 const Context = createContext<CommandMenuMediaSource>(EMPTY);

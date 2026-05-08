@@ -100,7 +100,7 @@ export function CommandMenu() {
       action.run(ctx);
       close();
     },
-    [close],
+    [close, setScope],
   );
 
   const handleSelectMedia = useCallback(
