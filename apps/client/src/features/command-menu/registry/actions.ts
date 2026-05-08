@@ -27,23 +27,27 @@ export function buildCommandActions(opts: {
 }): ActionItem[] {
   return [
     {
+      kind: "action",
       id: "act:toggle-theme",
       Icon: Sparkles,
       labelKey: "command_menu_action_toggle_theme_label",
       hintKey: "command_menu_action_toggle_theme_hint",
-      run: () => {
+      run: (ctx) => {
         const next = nextTheme(opts.resolveTheme());
         opts.setTheme(next);
         toast.success(m.command_menu_action_toggle_theme_toast({ theme: next }));
+        ctx.close();
       },
     },
     {
+      kind: "action",
       id: "act:keyboard-help",
       Icon: Keyboard,
       labelKey: "command_menu_action_keyboard_help_label",
       hintKey: "command_menu_action_keyboard_help_hint",
-      run: () => {
+      run: (ctx) => {
         toast.info(m.command_menu_action_keyboard_help_toast());
+        ctx.close();
       },
     },
   ];

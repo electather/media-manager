@@ -40,32 +40,70 @@ export type CommandMenuMediaSource = {
   trending: CommandMenuMediaItem[];
 };
 
-export type PageItem = {
+export type ContributionKind = "page" | "action" | "search-mode" | "setting";
+
+type Base = {
+  /** Unique across all contribution kinds. */
   id: string;
-  to: PageRoute;
   Icon: LucideIcon;
   labelKey: StaticMessageKey;
   hintKey: StaticMessageKey;
+  /**
+   * Hide row when false. Lets features gate via flag/role. Evaluated on
+   * every render of the menu surface — caller must keep thunk cheap or
+   * memoize feature-flag reads upstream.
+   */
+  enabled?: () => boolean;
+  /** Order inside group; lower first. Default 100. */
+  order?: number;
+  /** Optional global hotkey (e.g. "Mod+Shift+T"). Wired in phase 4. */
+  hotkey?: string;
 };
 
-export type SearchModeItem = {
-  id: string;
-  scope: Exclude<CommandScope, null>;
-  Icon: LucideIcon;
-  labelKey: StaticMessageKey;
-  hintKey: StaticMessageKey;
+export type PageItem = Base & {
+  kind: "page";
+  to: PageRoute;
+  /** Optional vim-sequence (e.g. ["g","h"]). Wired in phase 4. */
+  sequence?: readonly string[];
 };
+
+export type ActionItem = Base & {
+  kind: "action";
+  run: (ctx: ActionContext) => void;
+};
+
+export type SearchModeItem = Base & {
+  kind: "search-mode";
+  scope: Exclude<CommandScope, null>;
+};
+
+export type SettingOption<T extends string> = {
+  id: T;
+  Icon?: LucideIcon;
+  labelKey: StaticMessageKey;
+  hintKey?: StaticMessageKey;
+};
+
+export type SettingItem<T extends string = string> = Base & {
+  kind: "setting";
+  options: readonly SettingOption<T>[];
+  read: () => T;
+  write: (next: T) => void;
+  /** Toast on successful write. */
+  toastKey?: StaticMessageKey;
+};
+
+export type Contribution = PageItem | ActionItem | SearchModeItem | SettingItem;
+
+export type NavFrame =
+  | { kind: "root" }
+  | { kind: "scope"; scope: Exclude<CommandScope, null> }
+  | { kind: "setting"; settingId: string }
+  | { kind: "cheatsheet" };
 
 export type ActionContext = {
-  setScope: (scope: CommandScope) => void;
-};
-
-export type ActionItem = {
-  id: string;
-  Icon: LucideIcon;
-  labelKey: StaticMessageKey;
-  hintKey: StaticMessageKey;
-  run: (ctx: ActionContext) => void;
+  push: (frame: NavFrame) => void;
+  close: () => void;
 };
 
 export type MediaItem = CommandMenuMediaItem;
