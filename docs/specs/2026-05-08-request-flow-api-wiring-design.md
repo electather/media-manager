@@ -94,7 +94,7 @@ Response on success: `200 { requestId: string | null }`. `requestId` is the plug
 
 ### `GET /api/requests`
 
-Wire to `MediaService.getRequests()`. Response unchanged from existing stub `{ items: unknown[] }` for now; tightening the schema is out of scope for this PR (no UI consumer yet).
+Wire to `MediaService.getRequests()`. Response stays as `{ items: unknown[] }` — tightening into a typed history schema is **explicitly out of scope** for this PR and tracked as a follow-up issue (filed alongside the implementation PR). Rationale: there is no UI consumer of `GET /api/requests` yet; the issue title and acceptance criteria focus on submissions. Wiring the route makes the endpoint truthful even with a loose response shape.
 
 ## Plugin SDK
 
@@ -160,22 +160,31 @@ Plugins that ignore `targetId` / `profileId` continue to work (current seerr beh
 
 ### Dispatch path: connection-targeted invocation
 
-`DispatchRequest.connectionId` is added (optional). When set, `dispatchSingle` resolves that exact connection rather than falling back to default-first. Implementation:
+`DispatchRequest.connectionId?: string` is added in [apps/server/src/media/types.ts](apps/server/src/media/types.ts). Honored only by `dispatchSingle`; `aggregate-per-kind`, `primary-with-enrichment`, and `aggregate` strategies ignore the field (they operate across multiple connections by design). The type comment documents the single-strategy-only semantics.
+
+`dispatchSingle` branches:
 
 ```ts
 // apps/server/src/media/strategies/single.ts
 const conn = req.connectionId
-  ? await pickConnectionById(req.userId, pluginId, req.connectionId)
+  ? await lookupConnectionById(req.userId, req.connectionId)
   : await pickSingleConnection(req.userId, pluginId);
+if (!conn || conn.pluginId !== pluginId) {
+  throw new PluginCallError("media.no_connection", "...", pluginId, null);
+}
 ```
 
-`pickConnectionById(userId, pluginId, connectionId)` (new in [capability-lookup.ts](apps/server/src/media/capability-lookup.ts)) returns the connection only if it is enabled and owned by `userId`; otherwise returns `null` and the procedure surfaces `request.unknown_service`.
+`lookupConnectionById(userId, connectionId)` is a new helper in [apps/server/src/media/capability-lookup.ts](apps/server/src/media/capability-lookup.ts). It returns the row's `ResolvedConnection` (carrying `pluginId`, `connectionId`, decrypted credentials, userConfig) only if the row is enabled and owned by `userId`; otherwise `null`. Looking up by `connectionId` alone breaks the spec's earlier circular dependency on `pluginId` — the connection row is the source of truth for which plugin it belongs to.
+
+**Cache-key impact.** [apps/server/src/media/cache.ts](apps/server/src/media/cache.ts) `CacheKeyArgs` must include `connectionId` so two connections of the same plugin do not share cache entries. The current key already qualifies by `userId`, so cross-user leak is not a regression — but per-connection isolation is necessary because two Radarr connections legitimately return different `listTargets` data. Add `connectionId?: string` to `CacheKeyArgs` and propagate from `cacheKeyFor`.
 
 ### `MediaService.listRequestTargets(mediaType)` (new)
 
 ```ts
+const TARGET_ID_RE = /^[A-Za-z0-9_-]+$/;
+
 async listRequestTargets(mediaType: "movie" | "tv"): Promise<RequestTarget[]> {
-  const providers = capabilityRegistry.providersOf("mediaRequest@v1");
+  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
   const out: RequestTarget[] = [];
   for (const pluginId of providers) {
     const conns = await resolveConnections(this.userId, pluginId);
@@ -187,10 +196,22 @@ async listRequestTargets(mediaType: "movie" | "tv"): Promise<RequestTarget[]> {
         method: "listTargets",
         input: { type: mediaType },
         pluginId,
-        connectionId: conn.connectionId,
-      }).catch(() => null);
+        connectionId: conn.connectionId!,
+      }).catch((err) => {
+        log.warn({ err, pluginId, connectionId: conn.connectionId }, "listTargets failed");
+        return null;
+      });
       if (!result) continue;
       for (const t of result.targets) {
+        // Targets returned by a plugin may include illegal targetIds in the
+        // wild (third-party plugins, version skew). Drop and log per-entry
+        // rather than rejecting the whole connection — the capability output
+        // schema enforces this regex too, but a defensive check at the host
+        // boundary keeps a single bad row from blanking the picker.
+        if (!TARGET_ID_RE.test(t.targetId)) {
+          log.warn({ pluginId, targetId: t.targetId }, "invalid targetId, skipping");
+          continue;
+        }
         out.push({
           serviceId: `${conn.connectionId}:${t.targetId}`,
           pluginId,
@@ -206,17 +227,24 @@ async listRequestTargets(mediaType: "movie" | "tv"): Promise<RequestTarget[]> {
 }
 ```
 
-Failures from any single connection are logged and skipped (`.catch(() => null)`) so one broken Seerr instance does not blank the whole picker. The list is never cached at the host edge — `dispatchSingle` already honors the capability's `defaultCacheTtlSec: 5 * MIN`.
+Failures from any single connection are logged and skipped so one broken Seerr instance does not blank the whole picker. When *every* connection's `listTargets` fails the response is `{ targets: [] }` and the client renders an empty-state. The list is never cached at the host edge — `dispatchSingle` already honors the capability's `defaultCacheTtlSec: 5 * MIN`.
 
 ### `MediaService.requestDownload` (rewrite)
 
 ```ts
 async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: string | null }> {
-  const [connectionId, targetId] = decodeServiceId(input.serviceId);   // throws on bad shape
-  const conn = await pickConnectionById(this.userId, /* pluginId */, connectionId);
-  if (!conn) throw new HttpError(404, "request.unknown_service", "...");
+  const decoded = decodeServiceId(input.serviceId);
+  if (!decoded) throw badRequest("request.invalid_input", "malformed serviceId");
+  const { connectionId, targetId } = decoded;
 
-  const seasonsCsv = input.seasons?.length ? input.seasons.join(",") : undefined;
+  const conn = await lookupConnectionById(this.userId, connectionId);
+  if (!conn) throw new HttpError(404, "request.unknown_service", "service not found");
+
+  if (input.mediaType === "movie" && input.seasons?.length) {
+    log.warn({ tmdbId: input.tmdbId }, "seasons ignored for movie request");
+  }
+  const seasonsCsv =
+    input.mediaType === "tv" && input.seasons?.length ? input.seasons.join(",") : undefined;
 
   const result = await dispatchSingle<CreateRequestOutput>({
     userId: this.userId,
@@ -242,32 +270,52 @@ async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: strin
 }
 ```
 
-`pluginId` is recovered from the connection row (the connection knows its plugin). `decodeServiceId` is a small helper exported from `apps/server/src/media/service-id.ts`.
+`pluginId` is recovered from the connection row — `lookupConnectionById` reads `service_connections` by id and surfaces the row's `pluginId`. `decodeServiceId` is a small helper exported from `apps/server/src/media/service-id.ts` that splits on the first `:` and validates `targetId` against `TARGET_ID_RE`. Returns `null` on malformed input so the procedure can map it to a 400.
+
+Profile validation: when the plugin returns `success: false` because the requested `profileId` is unknown to the target, the message bubbles up as `502 request.provider_failed`. We do not pre-validate `profileId` against the cached `listTargets` output — the cache may be stale; trust the plugin's authoritative answer.
 
 ### Procedures
 
 [apps/server/src/api/procedures/requests.ts](apps/server/src/api/procedures/requests.ts) becomes:
 
 ```ts
+import { Hono } from "hono";
+import {
+  createMediaRequestSchema,
+  requestTargetsQuerySchema,
+} from "@ent-mcp/shared/media";
+import { requireSession, sessionUserId } from "../../auth/middleware";
+import { MediaService } from "../../media/service";
+import { zValidator } from "../../errors/validator";
+
 export const requestsApp = new Hono()
+  .use("*", requireSession)
   .get("/", async (c) => {
-    const svc = mediaServiceFor(c);
+    const svc = new MediaService(sessionUserId(c));
     const items = await svc.getRequests();
     return c.json({ items });
   })
   .get("/targets", zValidator("query", requestTargetsQuerySchema), async (c) => {
-    const svc = mediaServiceFor(c);
+    const svc = new MediaService(sessionUserId(c));
     const targets = await svc.listRequestTargets(c.req.valid("query").mediaType);
     return c.json({ targets });
   })
   .post("/", zValidator("json", createMediaRequestSchema), async (c) => {
-    const svc = mediaServiceFor(c);
+    const svc = new MediaService(sessionUserId(c));
     const result = await svc.requestDownload(c.req.valid("json"));
     return c.json(result);
   });
 ```
 
-`mediaServiceFor(c)` follows the established pattern used by sibling procedures (e.g. [home.ts](apps/server/src/api/procedures/home.ts)). HttpErrors propagate via the existing global error middleware.
+Pattern matches sibling procedures [search.ts](apps/server/src/api/procedures/search.ts) and [discover.ts](apps/server/src/api/procedures/discover.ts) — `requireSession` middleware on the whole sub-app, then `new MediaService(sessionUserId(c))` per handler. `HttpError`s propagate via the existing global error middleware.
+
+`requestTargetsQuerySchema` is a new shared schema:
+
+```ts
+export const requestTargetsQuerySchema = z.object({
+  mediaType: z.enum(MEDIA_TYPES),
+});
+```
 
 ## Client architecture
 
@@ -287,6 +335,12 @@ New folder `apps/client/src/features/request-flow/api/`:
 ### Picker rewire
 
 [components/request-picker.tsx](apps/client/src/features/request-flow/components/request-picker.tsx) loses its `services` / `userRole` props. Internally calls `useRequestTargets(kind)` and renders the returned list. The existing conditional `service.exposesProfiles && service.profiles.length > 0` ([request-picker.tsx:82](apps/client/src/features/request-flow/components/request-picker.tsx#L82)) keeps gating profile UI.
+
+### Suspense + ErrorBoundary placement
+
+`useRequestTargets` is a `useSuspenseQuery` hook, so the picker body must render under a `<Suspense>` boundary. Today's request popovers in `movie-request-action.tsx:98-108` and `season-request-action.tsx` render the picker inline with no boundary — they would throw on first open.
+
+Plan: extract a small `<RequestPickerBoundary>` wrapper that mounts inside the Popover content and provides both `<Suspense fallback={<RequestPickerSkeleton />}>` and an `<ErrorBoundary fallback={<RequestPickerError />}>` (using the project's existing error-boundary primitive — same one used in [notifications/settings/notifications-settings-page.tsx](apps/client/src/features/notifications/settings/notifications-settings-page.tsx)). Both `movie-request-action` and `season-request-action` mount the picker through this wrapper. The error fallback shows "Couldn't load servers — retry" and refetches on click. Skeleton matches the picker's row count (2-3 rows).
 
 ### Submit handlers
 
@@ -347,11 +401,13 @@ No toast variant differs by category; copy variation alone signals severity.
 - `apps/server/src/api/procedures/__tests__/requests.test.ts`:
   - GET `/api/requests` returns `{items}` from MediaService.
   - GET `/api/requests/targets?mediaType=movie` returns aggregated targets, drops broken connections.
+  - GET `/api/requests/targets` returns `{targets:[]}` when **every** connection's `listTargets` fails — picker must still render.
   - POST `/api/requests` happy path → `{requestId}`, calls `MediaService.requestDownload` once with decoded args.
-  - POST 400 for malformed body, 404 for unknown service, 422 when target requires profile and none provided, 502 on provider failure.
+  - POST 400 for malformed body or malformed `serviceId`, 404 for unknown service, 422 when target requires profile and none provided, 502 on provider failure.
+  - POST with `mediaType:"movie"` + `seasons:[1]` succeeds (seasons silently dropped) and emits a warning log.
 - `apps/server/src/media/__tests__/service.request-flow.test.ts`:
-  - `listRequestTargets` aggregates across connections; failed connection skipped.
-  - `requestDownload` decodes `serviceId`, calls `dispatchSingle` with the right `pluginId` + `connectionId`.
+  - `listRequestTargets` aggregates across connections; failed connection skipped; targets with illegal `targetId` (e.g. containing `:` or whitespace) dropped with warning.
+  - `requestDownload` decodes `serviceId`, calls `dispatchSingle` with the right `pluginId` + `connectionId`, passes `seasons` only when `mediaType === "tv"`.
 
 ### Plugin SDK (vitest)
 
@@ -388,6 +444,17 @@ Per memory #17 (regression tests for reported bugs), add `apps/client/src/featur
 - Plugin SDK: `mediaRequest@v1.listTargets` is `optional: true`; no plugin breaks. `createRequest` input gains optional fields; old plugins ignore them.
 - Seerr plugin: only consumer; updated in this PR.
 - Client mocks (`mock-services.ts`) deleted; nothing imports them outside the feature.
+
+## Changesets
+
+Per `CLAUDE.md` "Pull Requests and Versioning", four files in `.changeset/`:
+
+- `@ent-mcp/client` — **minor**: "Request submissions now hit the server, with quality-profile choices loaded from the configured request services."
+- `@ent-mcp/server` — **minor**: "Wired the request-submission API and added a target-listing endpoint that aggregates configured request services."
+- `@ent-mcp/plugin-sdk` — **minor**: "Added a list-targets capability so request plugins can advertise their servers and quality profiles."
+- `@ent-mcp/plugin-seerr` — **minor**: "Surfaced configured Radarr and Sonarr servers and their quality profiles when submitting requests."
+
+`@ent-mcp/shared` is internal-only — not listed.
 
 ## Out of scope
 
