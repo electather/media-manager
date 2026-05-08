@@ -21,7 +21,6 @@ const OPEN_EVENT = "nama:open-command";
 interface UseCommandHotkeysInput {
   open: boolean;
   setOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
-  popOrClose: () => void;
   /** Contributions whose `hotkey` should fire whenever the menu is open. */
   contributions: readonly Contribution[];
   /** Run a contribution's row handler — called by per-row hotkey callbacks. */
@@ -36,7 +35,6 @@ interface UseCommandHotkeysInput {
 export function useCommandHotkeys({
   open,
   setOpen,
-  popOrClose,
   contributions,
   runContribution,
 }: UseCommandHotkeysInput): void {
@@ -53,13 +51,13 @@ export function useCommandHotkeys({
     meta: { name: m.hotkey_open_menu_name(), description: m.hotkey_open_menu_desc() },
   });
 
-  // Esc closes the menu from root, otherwise pops the top frame. cmdk also
-  // wires Esc inside the dialog — we register at document level so the dialog
-  // stays in sync when the input is unfocused.
-  useHotkey("Escape", () => popOrClose(), {
-    enabled: open,
-    preventDefault: false,
-    stopPropagation: false,
+  // Esc handling lives on the `Dialog` `onOpenChange` interceptor in
+  // `command-menu.tsx` — Base-UI fires `escapeKey` there and lets us pop a
+  // frame instead of closing the dialog when we're below root. We register
+  // an `enabled: false` row here purely to keep the cheatsheet listing
+  // accurate.
+  useHotkey("Escape", () => {}, {
+    enabled: false,
     meta: { name: m.hotkey_close_menu_name(), description: m.hotkey_close_menu_desc() },
   });
 

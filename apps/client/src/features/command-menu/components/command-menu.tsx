@@ -70,10 +70,6 @@ export function CommandMenu() {
   const pushFrame = useCallback((frame: NavFrame) => dispatch({ type: "push", frame }), []);
 
   const top = topFrame(navState);
-  const popOrClose = useCallback(() => {
-    if (isRoot(navState)) close();
-    else popFrame();
-  }, [close, navState, popFrame]);
 
   const handleSelectPage = useCallback(
     (page: PageItem) => {
@@ -138,7 +134,6 @@ export function CommandMenu() {
   useCommandHotkeys({
     open,
     setOpen,
-    popOrClose,
     contributions: allContributions,
     runContribution,
   });
@@ -172,8 +167,23 @@ export function CommandMenu() {
   const activeSetting =
     top.kind === "setting" ? settings.find((s) => s.id === top.settingId) : undefined;
 
+  // Intercept Esc-driven close requests so a drill frame pops first instead
+  // of dismissing the whole menu. Outside-press / explicit close still pass
+  // through unchanged because they only fire from root anyway.
+  const handleOpenChange = useCallback(
+    (next: boolean, details: { reason?: string; cancel: () => void }) => {
+      if (!next && details.reason === "escape-key" && !isRoot(navState)) {
+        details.cancel();
+        popFrame();
+        return;
+      }
+      setOpen(next);
+    },
+    [navState, popFrame],
+  );
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
         className="top-[12vh] translate-y-0 overflow-hidden rounded-xl! p-0 sm:max-w-[640px]"
