@@ -416,26 +416,29 @@ export const LOCALE_SETTING: SettingItem<Locale> = {
 // hooks/use-bound-settings.ts
 export function useBoundSettings(): readonly SettingItem[] {
   const { theme, resolvedTheme, setTheme } = useTheme();
-  const locale = useLocale();
+  // `getLocale()` is non-reactive — the menu re-renders on drill pop, so
+  // the fresh locale flows in without a reload.
+  const currentLocale = getLocale();
   return useMemo(
     () => [
       { ...THEME_SETTING, read: () => (theme ?? resolvedTheme ?? "system") as ThemeName, write: setTheme },
-      { ...LOCALE_SETTING, read: () => locale, write: (l) => setLocale(l, { reload: needsReload(l, locale) }) },
+      {
+        ...LOCALE_SETTING,
+        read: () => currentLocale,
+        write: (l) => {
+          setLocale(l, { reload: false });
+          applyLocaleStyling();
+        },
+      },
     ],
-    [theme, resolvedTheme, setTheme, locale],
+    [theme, resolvedTheme, setTheme, currentLocale],
   );
 }
 ```
 
-### 9.4 Locale switch — open question
+### 9.4 Locale switch — resolved (hot-swap, no reload)
 
-Paraglide picks locale at boot. Mid-session swap may need `window.location.reload()`. Verify during impl.
-
-`needsReload(next, current)` (referenced in §9.3) resolves once verified:
-- If hot-swap works → `() => false`. Drill writes + toast, no reload.
-- If reload required → `(next, current) => next !== current`. Drill writes locale to storage → toast → `setTimeout(window.location.reload, 250)`.
-
-Either branch is internal to `LOCALE_SETTING.write` — no caller change.
+Paraglide picks locale at boot. The drill writes the new locale via `setLocale(next, { reload: false })` and immediately re-runs `applyLocaleStyling()` to refresh the `<html dir|lang>` attributes plus locale-specific font injection. Paraglide's `m.*` message helpers re-evaluate on each render, so any tree that re-renders after the write picks up the new translations — there is no `needsReload` helper, no `window.location.reload()`, and no session drop.
 
 ## 10. Render flow
 

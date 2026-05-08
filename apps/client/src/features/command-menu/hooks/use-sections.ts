@@ -1,72 +1,100 @@
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { useMemo } from "react";
 
 import type { CommandScope, MediaItem, NavFrame } from "../types";
 
-const TRENDING_LIMIT = 8;
+const TRENDING_LIMIT = 12;
 const RECENTS_LIMIT = 4;
 
 type SectionsInput = {
   topFrame: NavFrame;
   value: string;
-  recents: string[];
-  pool: MediaItem[];
-  trending: MediaItem[];
+  recents: MediaItem[];
+  /** Live `/api/discover/trending` results scoped to the active media tab. */
+  trendingResults: CompactMediaItem[] | undefined;
+  /** Live `/api/search` results — sourced from `useSearchResults`. */
+  searchResults: CompactMediaItem[] | undefined;
 };
+
+/**
+ * Which source backed the current `mediaItems`. Lets the host pick the right
+ * heading ("Trending tv shows" vs "Results") and avoids two nearly-identical
+ * `<CommandGroup>`s for the same media list.
+ */
+export type MediaSection = "results" | "trending" | null;
 
 export type Sections = {
   scope: CommandScope;
   showSearchModes: boolean;
   showPages: boolean;
   showActions: boolean;
+  showSettings: boolean;
   recentItems: MediaItem[];
-  trendingItems: MediaItem[];
   mediaItems: MediaItem[];
+  mediaSection: MediaSection;
 };
 
 /**
  * Derives which command-menu groups render based on the current top frame
- * and search query. Pure of side effects — exposed as a hook only so the
- * memoization cache stays attached to the menu component instance.
+ * and search query. On scope frames, search results take over once the
+ * server returns at least one match — until then trending stands in as a
+ * placeholder, including while the search fetch is in flight.
  */
-export function useSections({ topFrame, value, recents, pool, trending }: SectionsInput): Sections {
+export function useSections({
+  topFrame,
+  value,
+  recents,
+  trendingResults,
+  searchResults,
+}: SectionsInput): Sections {
   const isRoot = topFrame.kind === "root";
   const scope: CommandScope = topFrame.kind === "scope" ? topFrame.scope : null;
 
   const showSearchModes = isRoot && !value;
   const showPages = isRoot;
   const showActions = isRoot;
-  const showTrending = scope !== null && !value;
+  const showSettings = isRoot;
 
   const recentItems = useMemo(() => {
     if (!isRoot || value) return [] as MediaItem[];
-    return recents
-      .map((id) => pool.find((item) => item.id === id))
-      .filter((x): x is MediaItem => x != null)
-      .slice(0, RECENTS_LIMIT);
-  }, [isRoot, pool, recents, value]);
+    return recents.slice(0, RECENTS_LIMIT);
+  }, [isRoot, recents, value]);
 
-  const trendingItems = useMemo(() => {
-    if (!showTrending || !scope) return [] as MediaItem[];
-    const seen = new Set<string>();
-    const out: MediaItem[] = [];
-    const push = (item: MediaItem) => {
-      if (item.mediaType !== scope || seen.has(item.id)) return;
-      seen.add(item.id);
-      out.push(item);
-    };
-    trending.forEach(push);
-    if (out.length < TRENDING_LIMIT) pool.forEach(push);
-    return out.slice(0, TRENDING_LIMIT);
-  }, [pool, scope, showTrending, trending]);
+  const trendingPool = useMemo<MediaItem[]>(() => {
+    if (scope === null || !trendingResults) return [];
+    return trendingResults.slice(0, TRENDING_LIMIT);
+  }, [scope, trendingResults]);
 
-  const mediaItems = useMemo(() => {
-    if (showTrending) return [] as MediaItem[];
-    // §10: at the empty root we want search-modes/recents/pages/actions/
-    // settings only — no bulk pool dump beneath them. The pool is exposed
-    // only after the user has typed (cmdk filters via match-values).
-    if (!scope && isRoot) return value ? pool : ([] as MediaItem[]);
-    return scope ? pool.filter((item) => item.mediaType === scope) : [];
-  }, [isRoot, pool, scope, showTrending, value]);
+  const { mediaItems, mediaSection } = useMemo<{
+    mediaItems: MediaItem[];
+    mediaSection: MediaSection;
+  }>(() => {
+    if (scope === null) {
+      return { mediaItems: [], mediaSection: null };
+    }
+    // Once the server has answered the current query, honour that answer —
+    // even when it's empty. Falling back to trending on a deliberate
+    // no-match query would mislabel the row as "Trending" when the user is
+    // actually looking at "no results" for what they typed.
+    if (searchResults !== undefined) {
+      return searchResults.length > 0
+        ? { mediaItems: searchResults, mediaSection: "results" }
+        : { mediaItems: [], mediaSection: null };
+    }
+    if (trendingPool.length > 0) {
+      return { mediaItems: trendingPool, mediaSection: "trending" };
+    }
+    return { mediaItems: [], mediaSection: null };
+  }, [scope, searchResults, trendingPool]);
 
-  return { scope, showSearchModes, showPages, showActions, recentItems, trendingItems, mediaItems };
+  return {
+    scope,
+    showSearchModes,
+    showPages,
+    showActions,
+    showSettings,
+    recentItems,
+    mediaItems,
+    mediaSection,
+  };
 }

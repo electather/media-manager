@@ -1,6 +1,5 @@
-import { ChevronDown, ChevronUp, CornerDownLeft } from "lucide-react";
+import { ChevronDown, ChevronUp, CornerDownLeft, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { useTheme } from "next-themes";
 import {
   type KeyboardEvent,
   useCallback,
@@ -12,34 +11,47 @@ import {
 } from "react";
 
 import { m } from "@/paraglide/messages";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/shared/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandLoading,
+} from "@/shared/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import { Logo } from "@/shared/components/logo";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
 
-import { useCommandMenuShortcuts } from "../hooks/use-command-menu-shortcuts";
-import { useMediaPool } from "../hooks/use-media-pool";
+import { useBoundSettings } from "../hooks/use-bound-settings";
+import { useCommandHotkeys } from "../hooks/use-command-hotkeys";
 import { useRecentItems } from "../hooks/use-recent-items";
+import { useSearchResults } from "../hooks/use-search-results";
 import { useSections } from "../hooks/use-sections";
+import { useTrending } from "../hooks/use-trending";
 import { t } from "../lib/i18n";
 import { actionMatchValue, pageMatchValue, searchModeMatchValue } from "../lib/match-values";
 import { initialNavState, isRoot, navReducer, topFrame } from "../lib/nav-stack";
-import { buildCommandActions } from "../registry/actions";
+import { COMMAND_ACTIONS } from "../registry/actions";
 import { COMMAND_PAGES } from "../registry/pages";
 import { COMMAND_SEARCH_MODES } from "../registry/search-modes";
 import type {
   ActionContext,
   ActionItem,
   CommandScope,
+  Contribution,
   MediaItem,
   NavFrame,
   PageItem,
   SearchModeItem,
+  SettingItem,
   StaticMessageKey,
 } from "../types";
 import { CommandSearchHeader } from "./command-search-header";
 import { RowAffordance, RowContent, RowIcon } from "./command-row";
 import { MediaRow } from "./media-row";
+import { SettingDrill } from "./setting-drill";
+import { ShortcutsCheatsheet } from "./shortcuts-cheatsheet";
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
@@ -49,19 +61,9 @@ export function CommandMenu() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { recents, pushRecent } = useRecentItems();
-  const { pool, trending } = useMediaPool();
+  const settings = useBoundSettings();
 
   const navigate = useNavigate();
-  const { theme, resolvedTheme, setTheme } = useTheme();
-
-  const actions = useMemo(
-    () =>
-      buildCommandActions({
-        setTheme,
-        resolveTheme: () => theme ?? resolvedTheme,
-      }),
-    [setTheme, theme, resolvedTheme],
-  );
 
   // Reset menu state on close — drill stack is per-session, recents persist.
   useEffect(() => {
@@ -69,8 +71,6 @@ export function CommandMenu() {
     setValue("");
     dispatch({ type: "reset" });
   }, [open]);
-
-  useCommandMenuShortcuts(open, setOpen);
 
   const close = useCallback(() => setOpen(false), []);
   const popFrame = useCallback(() => dispatch({ type: "pop" }), []);
@@ -106,9 +106,14 @@ export function CommandMenu() {
     [close, pushFrame],
   );
 
+  const handleSelectSetting = useCallback(
+    (setting: SettingItem<string>) => pushFrame({ kind: "setting", settingId: setting.id }),
+    [pushFrame],
+  );
+
   const handleSelectMedia = useCallback(
     (item: MediaItem) => {
-      pushRecent(item.id);
+      pushRecent(item);
       // The `MediaDetailModal` is mounted inside `HomeFeed`, so peek only
       // resolves on the home route. Always land on `/` so a media pick from
       // any authenticated page still opens the modal.
@@ -117,6 +122,28 @@ export function CommandMenu() {
     },
     [close, navigate, pushRecent],
   );
+
+  const runContribution = useCallback(
+    (item: Contribution) => {
+      if (item.kind === "page") return handleSelectPage(item);
+      if (item.kind === "action") return handleSelectAction(item);
+      if (item.kind === "search-mode") return handleSelectSearchMode(item);
+      if (item.kind === "setting") return handleSelectSetting(item);
+    },
+    [handleSelectAction, handleSelectPage, handleSelectSearchMode, handleSelectSetting],
+  );
+
+  const allContributions = useMemo<readonly Contribution[]>(
+    () => [...COMMAND_PAGES, ...COMMAND_SEARCH_MODES, ...COMMAND_ACTIONS, ...settings],
+    [settings],
+  );
+
+  useCommandHotkeys({
+    open,
+    setOpen,
+    contributions: allContributions,
+    runContribution,
+  });
 
   // Backspace at the very start of an empty input pops one drill frame —
   // matches the muscle-memory most "Notion-style" command menus expose.
@@ -130,10 +157,40 @@ export function CommandMenu() {
     [navState, popFrame, value],
   );
 
-  const sections = useSections({ topFrame: top, value, recents, pool, trending });
+  const scopeForSearch: CommandScope = top.kind === "scope" ? top.scope : null;
+  const search = useSearchResults(value, scopeForSearch);
+  // Always fetch trending on a scoped tab — it doubles as the placeholder
+  // list while a search is in flight or before the user has typed anything.
+  const trending = useTrending(scopeForSearch);
+
+  const sections = useSections({
+    topFrame: top,
+    value,
+    recents,
+    trendingResults: trending.data?.results,
+    searchResults: search.data?.results,
+  });
+
+  const activeSetting =
+    top.kind === "setting" ? settings.find((s) => s.id === top.settingId) : undefined;
+
+  // Intercept Esc-driven close requests so a drill frame pops first instead
+  // of dismissing the whole menu. Outside-press / explicit close still pass
+  // through unchanged because they only fire from root anyway.
+  const handleOpenChange = useCallback(
+    (next: boolean, details: { reason?: string; cancel: () => void }) => {
+      if (!next && details.reason === "escape-key" && !isRoot(navState)) {
+        details.cancel();
+        popFrame();
+        return;
+      }
+      setOpen(next);
+    },
+    [navState, popFrame],
+  );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
         className="top-[12vh] translate-y-0 overflow-hidden rounded-xl! p-0 sm:max-w-[640px]"
@@ -152,6 +209,26 @@ export function CommandMenu() {
           />
 
           <CommandList>
+            {/* `CommandLoading` is cmdk's built-in loading slot. Rendering it
+                suppresses `CommandEmpty` while a fetch is in flight, so stale
+                results from `keepPreviousData` keep showing without a "no
+                results" flash between the typed query and the new batch. */}
+            {search.isSearching &&
+              search.isFetching &&
+              top.kind !== "setting" &&
+              top.kind !== "cheatsheet" && (
+                <CommandLoading>
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    <span>{m.command_menu_search_loading()}</span>
+                  </div>
+                </CommandLoading>
+              )}
+
             <CommandEmpty>
               <div className="flex flex-col items-center gap-1.5 py-2">
                 <span>{m.command_menu_empty_title({ query: value })}</span>
@@ -159,88 +236,127 @@ export function CommandMenu() {
               </div>
             </CommandEmpty>
 
-            {sections.showSearchModes && (
-              <CommandGroup heading={t("command_menu_section_search")}>
-                {COMMAND_SEARCH_MODES.map((mode) => (
-                  <CommandItem
-                    key={mode.id}
-                    value={searchModeMatchValue(mode)}
-                    onSelect={() => handleSelectSearchMode(mode)}
+            {top.kind === "cheatsheet" && <ShortcutsCheatsheet />}
+
+            {activeSetting && <SettingDrill setting={activeSetting} onPop={popFrame} />}
+
+            {top.kind !== "cheatsheet" && top.kind !== "setting" && (
+              <>
+                {sections.showSearchModes && (
+                  <CommandGroup heading={t("command_menu_section_search")}>
+                    {COMMAND_SEARCH_MODES.map((mode) => (
+                      <CommandItem
+                        key={mode.id}
+                        value={searchModeMatchValue(mode)}
+                        onSelect={() => handleSelectSearchMode(mode)}
+                      >
+                        <RowIcon Icon={mode.Icon} />
+                        <RowContent label={t(mode.labelKey)} hint={t(mode.hintKey)} />
+                        <RowAffordance label={m.command_menu_action_open()} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {sections.recentItems.length > 0 && (
+                  <CommandGroup heading={t("command_menu_section_recent")}>
+                    {sections.recentItems.map((item) => (
+                      <MediaRow
+                        key={`recent:${item.id}`}
+                        item={item}
+                        onSelect={() => handleSelectMedia(item)}
+                      />
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {sections.showPages && (
+                  <CommandGroup heading={t("command_menu_section_pages")}>
+                    {COMMAND_PAGES.map((page) => (
+                      <CommandItem
+                        key={page.id}
+                        value={pageMatchValue(page)}
+                        onSelect={() => handleSelectPage(page)}
+                      >
+                        <RowIcon Icon={page.Icon} />
+                        <RowContent label={t(page.labelKey)} hint={t(page.hintKey)} />
+                        <RowAffordance label={m.command_menu_action_go()} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+
+                {search.isError && (
+                  <CommandGroup heading={m.command_menu_search_error_title()}>
+                    <CommandItem value="search-retry" onSelect={search.refetch}>
+                      <RowIcon Icon={RefreshCw} />
+                      <RowContent
+                        label={m.command_menu_search_error_retry()}
+                        hint={search.error?.message ?? ""}
+                      />
+                    </CommandItem>
+                  </CommandGroup>
+                )}
+
+                {sections.mediaItems.length > 0 && sections.mediaSection && (
+                  <CommandGroup
+                    heading={t(getMediaHeadingKey(sections.mediaSection, sections.scope))}
                   >
-                    <RowIcon Icon={mode.Icon} />
-                    <RowContent label={t(mode.labelKey)} hint={t(mode.hintKey)} />
-                    <RowAffordance label={m.command_menu_action_open()} />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
+                    {sections.mediaItems.map((item) => (
+                      <MediaRow
+                        key={`media:${item.id}`}
+                        item={item}
+                        onSelect={() => handleSelectMedia(item)}
+                      />
+                    ))}
+                  </CommandGroup>
+                )}
 
-            {sections.recentItems.length > 0 && (
-              <CommandGroup heading={t("command_menu_section_recent")}>
-                {sections.recentItems.map((item) => (
-                  <MediaRow
-                    key={`recent:${item.id}`}
-                    item={item}
-                    onSelect={() => handleSelectMedia(item)}
-                  />
-                ))}
-              </CommandGroup>
-            )}
+                {sections.showSettings && settings.length > 0 && (
+                  <CommandGroup heading={t("command_menu_section_settings")}>
+                    {settings.map((setting) => (
+                      <CommandItem
+                        key={setting.id}
+                        value={`${setting.id} ${t(setting.labelKey)} ${t(setting.hintKey)}`}
+                        onSelect={() => handleSelectSetting(setting)}
+                      >
+                        <RowIcon Icon={setting.Icon} />
+                        <RowContent
+                          label={t(setting.labelKey)}
+                          hint={t(setting.hintKey)}
+                          hotkey={setting.hotkey}
+                          badge={
+                            <span className="shrink-0 rounded-sm border border-border bg-muted px-1.5 py-px font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {currentSettingValueLabel(setting)}
+                            </span>
+                          }
+                        />
+                        <RowAffordance label={m.command_menu_action_open()} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
 
-            {sections.showPages && (
-              <CommandGroup heading={t("command_menu_section_pages")}>
-                {COMMAND_PAGES.map((page) => (
-                  <CommandItem
-                    key={page.id}
-                    value={pageMatchValue(page)}
-                    onSelect={() => handleSelectPage(page)}
-                  >
-                    <RowIcon Icon={page.Icon} />
-                    <RowContent label={t(page.labelKey)} hint={t(page.hintKey)} />
-                    <RowAffordance label={m.command_menu_action_go()} />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-
-            {sections.scope && sections.trendingItems.length > 0 && (
-              <CommandGroup heading={t(getTrendingHeadingKey(sections.scope))}>
-                {sections.trendingItems.map((item) => (
-                  <MediaRow
-                    key={`trending:${item.id}`}
-                    item={item}
-                    onSelect={() => handleSelectMedia(item)}
-                  />
-                ))}
-              </CommandGroup>
-            )}
-
-            {sections.mediaItems.length > 0 && (
-              <CommandGroup heading={t(getMediaHeadingKey(sections.scope))}>
-                {sections.mediaItems.map((item) => (
-                  <MediaRow
-                    key={`media:${item.id}`}
-                    item={item}
-                    onSelect={() => handleSelectMedia(item)}
-                  />
-                ))}
-              </CommandGroup>
-            )}
-
-            {sections.showActions && (
-              <CommandGroup heading={t("command_menu_section_actions")}>
-                {actions.map((action) => (
-                  <CommandItem
-                    key={action.id}
-                    value={actionMatchValue(action)}
-                    onSelect={() => handleSelectAction(action)}
-                  >
-                    <RowIcon Icon={action.Icon} />
-                    <RowContent label={t(action.labelKey)} hint={t(action.hintKey)} />
-                    <RowAffordance label={m.command_menu_action_run()} />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+                {sections.showActions && COMMAND_ACTIONS.length > 0 && (
+                  <CommandGroup heading={t("command_menu_section_actions")}>
+                    {COMMAND_ACTIONS.map((action) => (
+                      <CommandItem
+                        key={action.id}
+                        value={actionMatchValue(action)}
+                        onSelect={() => handleSelectAction(action)}
+                      >
+                        <RowIcon Icon={action.Icon} />
+                        <RowContent
+                          label={t(action.labelKey)}
+                          hint={t(action.hintKey)}
+                          hotkey={action.hotkey}
+                        />
+                        <RowAffordance label={m.command_menu_action_run()} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
+              </>
             )}
           </CommandList>
 
@@ -251,16 +367,24 @@ export function CommandMenu() {
   );
 }
 
-function getMediaHeadingKey(scope: CommandScope): StaticMessageKey {
-  if (scope === "tv") return "command_menu_section_media_tv";
-  if (scope === "movie") return "command_menu_section_media_movie";
-  return "command_menu_section_media_default";
+function currentSettingValueLabel(setting: SettingItem<string>): string {
+  const current = setting.read();
+  const opt = setting.options.find((o) => o.id === current);
+  return opt ? t(opt.labelKey) : current;
 }
 
-function getTrendingHeadingKey(scope: Exclude<CommandScope, null>): StaticMessageKey {
-  return scope === "tv"
-    ? "command_menu_section_trending_tv"
-    : "command_menu_section_trending_movie";
+function getMediaHeadingKey(
+  section: "results" | "trending",
+  scope: CommandScope,
+): StaticMessageKey {
+  if (section === "trending") {
+    return scope === "tv"
+      ? "command_menu_section_trending_tv"
+      : "command_menu_section_trending_movie";
+  }
+  if (scope === "tv") return "command_menu_section_results_tv";
+  if (scope === "movie") return "command_menu_section_results_movie";
+  return "command_menu_section_results";
 }
 
 function CommandFooter() {

@@ -112,4 +112,25 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
   );
 }
 
-export { Command, CommandEmpty, CommandGroup, CommandItem, CommandList, CommandShortcut };
+function CommandLoading({
+  className,
+  ...props
+}: React.ComponentProps<typeof CommandPrimitive.Loading>) {
+  return (
+    <CommandPrimitive.Loading
+      data-slot="command-loading"
+      className={cn("px-2 py-2", className)}
+      {...props}
+    />
+  );
+}
+
+export {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandLoading,
+  CommandShortcut,
+};

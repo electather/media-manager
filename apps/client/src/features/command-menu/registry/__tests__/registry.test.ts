@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
-import { buildCommandActions, nextTheme } from "../actions";
+import { COMMAND_ACTIONS } from "../actions";
 import { COMMAND_PAGES } from "../pages";
 import { COMMAND_SEARCH_MODES } from "../search-modes";
+import { COMMAND_SETTINGS } from "../settings";
 
 describe("COMMAND_PAGES", () => {
   it("uses unique ids", () => {
@@ -13,6 +14,12 @@ describe("COMMAND_PAGES", () => {
   it("opens with the home page first", () => {
     expect(COMMAND_PAGES[0]?.to).toBe("/");
   });
+
+  it("declares a vim-style sequence per page", () => {
+    for (const page of COMMAND_PAGES) {
+      expect(page.sequence?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("COMMAND_SEARCH_MODES", () => {
@@ -22,42 +29,25 @@ describe("COMMAND_SEARCH_MODES", () => {
   });
 });
 
-describe("buildCommandActions", () => {
-  it("uses unique ids across all actions", () => {
-    const actions = buildCommandActions({
-      setTheme: vi.fn(),
-      resolveTheme: () => "system",
-    });
-    const ids = actions.map((a) => a.id);
+describe("COMMAND_ACTIONS", () => {
+  it("uses unique ids", () => {
+    const ids = COMMAND_ACTIONS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("does not collide with page or search-mode ids", () => {
-    const actionIds = buildCommandActions({
-      setTheme: vi.fn(),
-      resolveTheme: () => "system",
-    }).map((a) => a.id);
-    const allIds = [
-      ...COMMAND_PAGES.map((p) => p.id),
-      ...COMMAND_SEARCH_MODES.map((m) => m.id),
-      ...actionIds,
-    ];
-    expect(new Set(allIds).size).toBe(allIds.length);
+  it("includes the show-shortcuts action", () => {
+    expect(COMMAND_ACTIONS.some((a) => a.id === "act:show-shortcuts")).toBe(true);
   });
 });
 
-describe("nextTheme", () => {
-  it("cycles system → light → dark → system", () => {
-    expect(nextTheme("system")).toBe("light");
-    expect(nextTheme("light")).toBe("dark");
-    expect(nextTheme("dark")).toBe("system");
-  });
-
-  it("treats undefined as the start of the cycle and advances to light", () => {
-    expect(nextTheme(undefined)).toBe("light");
-  });
-
-  it("falls back to system for unrecognised string values", () => {
-    expect(nextTheme("midnight")).toBe("system");
+describe("contribution id uniqueness", () => {
+  it("does not collide across pages, search-modes, actions, or settings", () => {
+    const allIds = [
+      ...COMMAND_PAGES.map((p) => p.id),
+      ...COMMAND_SEARCH_MODES.map((m) => m.id),
+      ...COMMAND_ACTIONS.map((a) => a.id),
+      ...COMMAND_SETTINGS.map((s) => s.id),
+    ];
+    expect(new Set(allIds).size).toBe(allIds.length);
   });
 });

@@ -4,7 +4,8 @@ import type { PageItem } from "../types";
 
 /**
  * Static list of pages the command menu can navigate to. Order matters — it's
- * the order shown when the user has not typed anything.
+ * the order shown when the user has not typed anything. `sequence` registers
+ * a vim-style chord (e.g. `g h` → home) consumed by `useCommandHotkeys`.
  */
 export const COMMAND_PAGES: readonly PageItem[] = [
   {
@@ -14,6 +15,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Home,
     labelKey: "command_menu_page_home_label",
     hintKey: "command_menu_page_home_hint",
+    sequence: ["g", "h"],
   },
   {
     kind: "page",
@@ -22,6 +24,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Library,
     labelKey: "command_menu_page_library_label",
     hintKey: "command_menu_page_library_hint",
+    sequence: ["g", "l"],
   },
   {
     kind: "page",
@@ -30,6 +33,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Bookmark,
     labelKey: "command_menu_page_watchlist_label",
     hintKey: "command_menu_page_watchlist_hint",
+    sequence: ["g", "w"],
   },
   {
     kind: "page",
@@ -38,6 +42,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Settings,
     labelKey: "command_menu_page_settings_label",
     hintKey: "command_menu_page_settings_hint",
+    sequence: ["g", "s"],
   },
   {
     kind: "page",
@@ -46,5 +51,6 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     Icon: Plug,
     labelKey: "command_menu_page_connections_label",
     hintKey: "command_menu_page_connections_hint",
+    sequence: ["g", "c"],
   },
 ] as const;
