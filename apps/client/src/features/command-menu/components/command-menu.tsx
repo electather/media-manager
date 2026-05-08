@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, CornerDownLeft, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, CornerDownLeft, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   type KeyboardEvent,
@@ -283,8 +283,11 @@ export function CommandMenu() {
                   </CommandGroup>
                 )}
 
-                {sections.mediaItems.length > 0 && (
+                {(sections.mediaItems.length > 0 || (search.isSearching && search.isFetching)) && (
                   <CommandGroup heading={t(getResultsHeadingKey(sections.scope))}>
+                    {search.isSearching && search.isFetching && (
+                      <SearchLoadingHint hasResults={sections.mediaItems.length > 0} />
+                    )}
                     {sections.mediaItems.map((item) => (
                       <MediaRow
                         key={`media:${item.id}`}
@@ -347,6 +350,34 @@ export function CommandMenu() {
         </Command>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SearchLoadingHint({ hasResults }: { hasResults: boolean }) {
+  // Non-selectable status row. `hasResults` decides between a top-edge spinner
+  // (results are stale, so we keep them visible underneath) and a single full
+  // row that fills the gap before the first batch lands.
+  if (hasResults) {
+    return (
+      <div
+        aria-live="polite"
+        role="status"
+        className="flex items-center gap-2 px-2 py-1 text-[11px] text-muted-foreground/80"
+      >
+        <Loader2 className="size-3 animate-spin" aria-hidden />
+        <span>{m.command_menu_search_loading()}</span>
+      </div>
+    );
+  }
+  return (
+    <div
+      aria-live="polite"
+      role="status"
+      className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground"
+    >
+      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+      <span>{m.command_menu_search_loading()}</span>
+    </div>
   );
 }
 

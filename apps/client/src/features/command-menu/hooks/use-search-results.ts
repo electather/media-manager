@@ -19,7 +19,10 @@ export interface UseSearchResultsResult {
   data: SearchResult | undefined;
   /** True when the user typed enough to trigger a fetch. */
   isSearching: boolean;
+  /** Initial fetch in flight — no `data` yet. */
   isPending: boolean;
+  /** Any fetch in flight, including refetches against `keepPreviousData`. */
+  isFetching: boolean;
   isError: boolean;
   error: Error | null;
   refetch: () => void;
@@ -50,6 +53,7 @@ export function useSearchResults(rawQuery: string, scope: CommandScope): UseSear
     data: enabled ? query.data : undefined,
     isSearching: enabled,
     isPending: enabled && query.isPending,
+    isFetching: enabled && query.isFetching,
     isError: enabled && query.isError,
     error: enabled ? (query.error ?? null) : null,
     refetch: () => {
