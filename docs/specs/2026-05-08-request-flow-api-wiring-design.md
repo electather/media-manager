@@ -165,7 +165,7 @@ Plugins that ignore `targetId` / `profileId` continue to work (current seerr beh
 Two consequences:
 
 1. **No change to `DispatchRequest` or any strategy file.** The single-strategy mutation in pass 1 of this spec is dropped.
-2. **No host-edge cache for `listTargets`.** `dispatchToConnection` deliberately bypasses the dispatch cache (see its module comment: *"No retry/refresh wrapper here — targeted dispatch is exclusively used by MCP writes…"*). The 5-minute snappiness target is delivered by **React Query** on the client; the server makes a fresh upstream call per fetch (rare — bounded by `staleTime` + `prefetchQuery` on detail-page mount). Drop the `defaultCacheTtlSec: 5 * MIN` from the new `listTargets` capability declaration; it would never be honored on this code path and is misleading.
+2. **No host-edge cache for `listTargets`.** `dispatchToConnection` deliberately bypasses the dispatch cache (see its module comment: *"No retry/refresh wrapper here — targeted dispatch is exclusively used by MCP writes…"*). The 5-minute snappiness target is delivered by **React Query** on the client; the server makes a fresh upstream call per fetch (rare — bounded by `staleTime` + `prefetchQuery` on detail-page mount). The `mediaRequest@v1` capability already carries a capability-level `defaultCacheTtlSec: 1 * MIN`, but methods do not carry their own TTL, so there is nothing to drop or add on the new `listTargets` method declaration; document for clarity that the capability-level TTL is irrelevant on this code path because targeted dispatch never reads or writes the dispatch cache.
 
 `loadConnectionById` is currently a *private* helper inside `connection-targeted.ts`. The new `MediaService.requestDownload` needs an equivalent step (decode `serviceId`, validate ownership, recover `pluginId`) — but `dispatchToConnection` already runs that exact check and throws `PluginCallError` with code `mcp.target_not_found` when the connection is missing/disabled or the plugin does not implement the capability. Map that error to `HttpError(404, "request.unknown_service", …)` in `requestDownload`.
 
@@ -251,10 +251,22 @@ async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: strin
       },
     });
   } catch (err) {
-    if (err instanceof PluginCallError && err.code === "mcp.target_not_found") {
-      throw new HttpError(404, "request.unknown_service", "service not found");
+    if (err instanceof PluginCallError) {
+      if (err.code === "mcp.target_not_found") {
+        throw new HttpError(404, "request.unknown_service", "service not found");
+      }
+      // Provider-side validation/timeout/upstream failure — same intent as
+      // `result.success === false`, so map to the same 502 code so the
+      // client surfaces a consistent toast.
+      if (
+        err.code === "plugin.input_invalid" ||
+        err.code === "plugin.upstream_error" ||
+        err.code === "plugin.timeout"
+      ) {
+        throw new HttpError(502, "request.provider_failed", err.message);
+      }
     }
-    throw err; // PluginCallError → 500 unless mapped upstream
+    throw err; // anything else escalates as 500 via global error middleware.
   }
 
   if (!result || !result.success) {
@@ -401,7 +413,8 @@ No toast variant differs by category; copy variation alone signals severity.
   - POST with `mediaType:"movie"` + `seasons:[1]` succeeds (seasons silently dropped) and emits a warning log.
 - `apps/server/src/media/__tests__/service.request-flow.test.ts`:
   - `listRequestTargets` aggregates across connections; failed connection skipped; targets with illegal `targetId` (e.g. containing `:` or whitespace) dropped with warning.
-  - `requestDownload` decodes `serviceId`, calls `dispatchSingle` with the right `pluginId` + `connectionId`, passes `seasons` only when `mediaType === "tv"`.
+  - `requestDownload` decodes `serviceId`, calls `dispatchToConnection` with the right `connectionId` + decoded `targetId`, passes `seasons` only when `mediaType === "tv"`.
+  - `requestDownload` maps `PluginCallError("mcp.target_not_found")` to 404 and `plugin.input_invalid | plugin.upstream_error | plugin.timeout` to 502; other `PluginCallError` codes propagate as 500.
 
 ### Plugin SDK (vitest)
 
