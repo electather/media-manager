@@ -61,9 +61,12 @@ export function useSections({ topFrame, value, recents, pool, trending }: Sectio
 
   const mediaItems = useMemo(() => {
     if (showTrending) return [] as MediaItem[];
-    if (!scope && isRoot) return pool;
+    // §10: at the empty root we want search-modes/recents/pages/actions/
+    // settings only — no bulk pool dump beneath them. The pool is exposed
+    // only after the user has typed (cmdk filters via match-values).
+    if (!scope && isRoot) return value ? pool : ([] as MediaItem[]);
     return scope ? pool.filter((item) => item.mediaType === scope) : [];
-  }, [isRoot, pool, scope, showTrending]);
+  }, [isRoot, pool, scope, showTrending, value]);
 
   return { scope, showSearchModes, showPages, showActions, recentItems, trendingItems, mediaItems };
 }

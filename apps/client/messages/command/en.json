@@ -38,6 +38,7 @@
   "command_menu_footer_navigate": "navigate",
   "command_menu_footer_select": "select",
   "command_menu_footer_close": "close",
+  "command_menu_kbd_back_label": "Back",
 
   "command_menu_page_home_label": "Home",
   "command_menu_page_home_hint": "Recommendations & continue watching",

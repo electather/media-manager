@@ -203,7 +203,7 @@ export function CommandMenu() {
               </CommandGroup>
             )}
 
-            {sections.trendingItems.length > 0 && (
+            {sections.scope && sections.trendingItems.length > 0 && (
               <CommandGroup heading={t(getTrendingHeadingKey(sections.scope))}>
                 {sections.trendingItems.map((item) => (
                   <MediaRow
@@ -257,7 +257,7 @@ function getMediaHeadingKey(scope: CommandScope): StaticMessageKey {
   return "command_menu_section_media_default";
 }
 
-function getTrendingHeadingKey(scope: CommandScope): StaticMessageKey {
+function getTrendingHeadingKey(scope: Exclude<CommandScope, null>): StaticMessageKey {
   return scope === "tv"
     ? "command_menu_section_trending_tv"
     : "command_menu_section_trending_movie";

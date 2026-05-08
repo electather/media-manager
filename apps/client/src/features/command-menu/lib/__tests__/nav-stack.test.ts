@@ -40,8 +40,9 @@ describe("navReducer", () => {
     expect(state.frames).toHaveLength(3);
 
     const reset = navReducer(state, { type: "reset" });
-    expect(reset.frames).toHaveLength(1);
-    expect(reset.frames[0]).toEqual({ kind: "root" });
+    // Same reference avoids needless re-renders downstream — matches the
+    // pop-floor optimization the test above asserts.
+    expect(reset).toBe(initialNavState);
   });
 
   it("preserves frame ordering when pushed multiple times", () => {

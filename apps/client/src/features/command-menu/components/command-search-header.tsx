@@ -1,5 +1,5 @@
 import { Command as CommandPrimitive } from "cmdk";
-import { Film, SearchIcon, Tv, X } from "lucide-react";
+import { ArrowLeft, Film, SearchIcon, Tv, X } from "lucide-react";
 import type { KeyboardEvent, Ref } from "react";
 
 import { m } from "@/paraglide/messages";
@@ -85,7 +85,12 @@ export function CommandSearchHeader({
           "disabled:cursor-not-allowed disabled:opacity-50",
         )}
       />
-      <Kbd className="border border-border">esc</Kbd>
+      <Kbd
+        className="border border-border"
+        aria-label={topFrame.kind === "root" ? undefined : m.command_menu_kbd_back_label()}
+      >
+        {topFrame.kind === "root" ? "esc" : <ArrowLeft className="size-3" aria-hidden="true" />}
+      </Kbd>
     </div>
   );
 }
