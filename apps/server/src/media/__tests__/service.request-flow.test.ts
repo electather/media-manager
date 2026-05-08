@@ -76,9 +76,7 @@ describe("MediaService.listRequestTargets", () => {
       { connectionId: "conn-1", pluginId: "seerr", isDefault: true },
       { connectionId: "conn-2", pluginId: "seerr", isDefault: false },
     ]);
-    dispatchToConnectionMock.mockImplementationOnce(() => {
-      throw new Error("boom");
-    });
+    dispatchToConnectionMock.mockRejectedValueOnce(new Error("boom"));
     dispatchToConnectionMock.mockResolvedValueOnce({
       targets: [
         {

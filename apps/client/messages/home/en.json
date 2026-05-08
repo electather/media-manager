@@ -220,7 +220,6 @@
   "request_picker_load_retry": "Retry",
   "request_error_invalid_input": "Couldn't submit — invalid input",
   "request_error_unknown_service": "Selected server is unavailable",
-  "request_error_invalid_profile": "Pick a quality profile",
   "request_error_provider_failed": "Provider couldn't take the request",
   "request_error_generic": "Something went wrong"
 }

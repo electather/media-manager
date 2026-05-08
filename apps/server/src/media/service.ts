@@ -283,19 +283,28 @@ export class MediaService {
   // fallow-ignore-next-line complexity
   async listRequestTargets(mediaType: "movie" | "tv"): Promise<RequestTarget[]> {
     const eligible = await listEligibleConnections(this.userId, "mediaRequest", "v1");
-    const out: RequestTarget[] = [];
-    for (const c of eligible) {
-      let result: ListTargetsOutput | null = null;
-      try {
-        result = await dispatchToConnection<ListTargetsOutput>({
+    // Fan out per connection in parallel — one slow Seerr instance otherwise
+    // blocks the picker waiting on every other connection's response. Failures
+    // are logged and skipped per-connection so a single broken instance does
+    // not blank the whole picker.
+    const settled = await Promise.allSettled(
+      eligible.map((c) =>
+        dispatchToConnection<ListTargetsOutput>({
           userId: this.userId,
           connectionId: c.connectionId,
           capability: "mediaRequest",
           version: "v1",
           method: "listTargets",
           input: { type: mediaType },
-        });
-      } catch (err) {
+        }),
+      ),
+    );
+
+    const out: RequestTarget[] = [];
+    for (const [i, settledResult] of settled.entries()) {
+      const c = eligible[i]!;
+      if (settledResult.status === "rejected") {
+        const err = settledResult.reason as unknown;
         console.warn("[mediaService] listTargets failed", {
           pluginId: c.pluginId,
           connectionId: c.connectionId,
@@ -303,6 +312,7 @@ export class MediaService {
         });
         continue;
       }
+      const result = settledResult.value;
       if (!result) continue;
       for (const t of result.targets) {
         if (!TARGET_ID_RE.test(t.targetId)) {

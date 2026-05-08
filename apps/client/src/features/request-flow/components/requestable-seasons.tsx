@@ -11,6 +11,7 @@ import {
   getRequestableSeasonNumbers,
   inferSeasonStatus,
   normalizeRequestStatus,
+  tmdbIdFromItemId,
 } from "../lib/request-helpers";
 import type {
   Episode,
@@ -60,11 +61,9 @@ export function RequestableSeasons({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
 
-  if (!seasons || seasons.length === 0) return null;
-
   const resolvedSeasons = useMemo(
     () =>
-      seasons.map((season) => {
+      (seasons ?? []).map((season) => {
         const inferred = inferSeasonStatus(season);
         const status: RequestStatus = overrides[season.number] ?? inferred;
         return { season, status };
@@ -76,6 +75,8 @@ export function RequestableSeasons({
     resolvedSeasons.map((entry) => ({ number: entry.season.number, status: entry.status })),
     pluginConfigured,
   );
+
+  if (!seasons || seasons.length === 0) return null;
 
   function applyOverrides(numbers: number[], next: RequestStatus, dest: RequestDestination) {
     setOverrides((prev) => {
@@ -403,9 +404,4 @@ function effectiveEpisodeStatus(
     return seasonStatus;
   }
   return normalizedEpisode;
-}
-
-function tmdbIdFromItemId(itemId: string): string {
-  const idx = itemId.indexOf(":");
-  return idx === -1 ? itemId : itemId.slice(idx + 1);
 }

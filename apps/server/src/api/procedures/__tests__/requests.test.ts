@@ -171,6 +171,24 @@ describe("requests API", () => {
     expect(requestDownload).toHaveBeenCalledWith(expect.objectContaining({ seasons: [1, 2, 3] }));
   });
 
+  it("forwards movie + seasons[] without rejecting (server silently drops)", async () => {
+    requestDownload.mockResolvedValueOnce({ requestId: "77" });
+    const res = await buildApp().request("/requests", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        tmdbId: "550",
+        mediaType: "movie",
+        serviceId: "conn-1:1",
+        seasons: [1],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(requestDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaType: "movie", seasons: [1] }),
+    );
+  });
+
   it("returns 401 when no session", async () => {
     mockUserId = null;
     const res = await buildApp().request("/requests");

@@ -81,6 +81,16 @@ export function inferSeasonStatus(season: Season): RequestStatus {
   return matchers.find(([cond]) => cond)?.[1] ?? "missing";
 }
 
+/**
+ * Strips the `movie:` / `tv:` prefix from a `HomeMediaItem.id` so request
+ * payloads carry the bare numeric `tmdbId`. Returns the input unchanged when
+ * no prefix is present.
+ */
+export function tmdbIdFromItemId(itemId: string): string {
+  const idx = itemId.indexOf(":");
+  return idx === -1 ? itemId : itemId.slice(idx + 1);
+}
+
 export function getRequestableSeasonNumbers(
   seasons: { number: number; status: RequestStatus }[],
   pluginConfigured: boolean,

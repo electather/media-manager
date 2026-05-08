@@ -1,7 +1,9 @@
-import type {
-  CreateMediaRequestBody,
-  CreateMediaRequestResponse,
-  RequestTarget,
+import {
+  createMediaRequestResponseSchema,
+  requestTargetsResponseSchema,
+  type CreateMediaRequestBody,
+  type CreateMediaRequestResponse,
+  type RequestTarget,
 } from "@ent-mcp/shared/media";
 import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
@@ -17,13 +19,15 @@ export const requestsApi = {
   async targets({ mediaType }: { mediaType: "movie" | "tv" }): Promise<RequestTarget[]> {
     const res = await api.requests.targets.$get({ query: { mediaType } });
     if (!res.ok) await throwOnError(res);
-    const body = (await res.json()) as { targets: RequestTarget[] };
-    return body.targets;
+    // Parse against the shared schema so a server-side shape regression is
+    // surfaced as a typed error here instead of a runtime crash deep inside
+    // the picker render.
+    return requestTargetsResponseSchema.parse(await res.json()).targets;
   },
 
   async create(body: CreateMediaRequestBody): Promise<CreateMediaRequestResponse> {
     const res = await api.requests.$post({ json: body });
     if (!res.ok) await throwOnError(res);
-    return (await res.json()) as CreateMediaRequestResponse;
+    return createMediaRequestResponseSchema.parse(await res.json());
   },
 };

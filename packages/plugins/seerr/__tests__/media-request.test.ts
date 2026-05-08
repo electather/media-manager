@@ -138,7 +138,7 @@ describe("seerr capability contract", () => {
     expect(ctx.calls[0]?.init?.method).toBe("POST");
     const body = ctx.calls[0]?.init?.body as string;
     expect(body).toContain('"serverId":2');
-    expect(body).toContain('"profiles":{"profileId":7}');
+    expect(body).toContain('"profileId":7');
     expect(MediaRequestV1.methods.createRequest.output.safeParse(out).success).toBe(true);
   });
 

@@ -28,9 +28,6 @@ export function toastFromError(err: unknown): void {
     case "request.unknown_service":
       title = m.request_error_unknown_service();
       break;
-    case "request.invalid_profile":
-      title = m.request_error_invalid_profile();
-      break;
     case "request.provider_failed":
       title = m.request_error_provider_failed();
       break;

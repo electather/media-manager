@@ -6,7 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 import { useCreateRequest } from "../api/use-create-request";
-import { normalizeRequestStatus } from "../lib/request-helpers";
+import { normalizeRequestStatus, tmdbIdFromItemId } from "../lib/request-helpers";
 import type { RequestDestination, RequestStatus } from "../lib/types";
 import { RequestPicker, type PickerSubmission } from "./request-picker";
 import { RequestPickerBoundary } from "./request-picker-boundary";
@@ -110,13 +110,4 @@ export function MovieRequestAction({
       </PopoverContent>
     </Popover>
   );
-}
-
-/**
- * The shared `HomeMediaItem.id` is `"movie:550"` / `"tv:1399"`. Strip the
- * prefix so the request body's `tmdbId` is just the numeric id.
- */
-function tmdbIdFromItemId(itemId: string): string {
-  const idx = itemId.indexOf(":");
-  return idx === -1 ? itemId : itemId.slice(idx + 1);
 }

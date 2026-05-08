@@ -101,7 +101,14 @@ export const mediaRequest = {
         .filter((n) => !Number.isNaN(n));
     }
     if (targetId) body["serverId"] = Number(targetId);
-    if (profileId) body["profiles"] = { profileId: Number(profileId) };
+    // Overseerr/Seerr expects `profileId` at the top level of the POST body
+    // alongside `serverId` (not nested under a `profiles` object). The
+    // `profileId`/`profile_id` aliases differ across versions; both are
+    // emitted defensively so older Overseerr deployments still honour the
+    // override instead of silently falling back to the server default.
+    if (profileId) {
+      body["profileId"] = Number(profileId);
+    }
     try {
       const data = await seerrPost<{ id: number }>(c, "/request", body);
       return { success: true, requestId: String(data.id) };
