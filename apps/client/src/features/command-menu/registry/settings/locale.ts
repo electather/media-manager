@@ -12,10 +12,12 @@ const LOCALE_LABEL_KEYS = {
 } satisfies Record<Locale, StaticMessageKey>;
 
 /**
- * Locale picker contribution. Paraglide `setLocale` defaults to a full page
- * reload, which is the behavior we want — `useBoundSettings()` binds `write`
- * to `setLocale(next)` and lets Paraglide handle the navigation. Typed as
- * `SettingItem<string>` so the heterogenous `COMMAND_SETTINGS` array unifies.
+ * Locale picker contribution. `useBoundSettings()` binds `write` to
+ * `setLocale(next, { reload: false })` so the locale swaps in-place — no
+ * page reload, no navigation. The bind site re-applies the locale-driven
+ * `<html dir|lang>` + font side-effects via `applyLocaleStyling()`.
+ * Typed as `SettingItem<string>` so the heterogenous `COMMAND_SETTINGS`
+ * array unifies.
  */
 export const LOCALE_SETTING: SettingItem<string> = {
   kind: "setting",

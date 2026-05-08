@@ -213,18 +213,21 @@ export function CommandMenu() {
                 suppresses `CommandEmpty` while a fetch is in flight, so stale
                 results from `keepPreviousData` keep showing without a "no
                 results" flash between the typed query and the new batch. */}
-            {search.isSearching && search.isFetching && (
-              <CommandLoading>
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  <span>{m.command_menu_search_loading()}</span>
-                </div>
-              </CommandLoading>
-            )}
+            {search.isSearching &&
+              search.isFetching &&
+              top.kind !== "setting" &&
+              top.kind !== "cheatsheet" && (
+                <CommandLoading>
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    <span>{m.command_menu_search_loading()}</span>
+                  </div>
+                </CommandLoading>
+              )}
 
             <CommandEmpty>
               <div className="flex flex-col items-center gap-1.5 py-2">

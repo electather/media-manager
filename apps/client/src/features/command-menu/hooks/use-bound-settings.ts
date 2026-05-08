@@ -2,6 +2,7 @@ import { useTheme } from "next-themes";
 import { useMemo } from "react";
 
 import { getLocale, locales, setLocale } from "@/paraglide/runtime";
+import { applyLocaleStyling } from "@/shared/lib/i18n/apply";
 
 import { COMMAND_SETTINGS } from "../registry/settings";
 import { type ThemeName, THEMES } from "../registry/settings/theme";
@@ -21,9 +22,10 @@ function isTheme(value: string | undefined): value is ThemeName {
  */
 export function useBoundSettings(): readonly SettingItem<string>[] {
   const { theme, resolvedTheme, setTheme } = useTheme();
-  // `getLocale()` is a non-reactive read. Safe here only because Paraglide's
-  // `setLocale` triggers a full page reload by default, which remounts this
-  // hook with the fresh value — the memo would *not* re-run otherwise.
+  // `getLocale()` is a non-reactive read. The hook re-runs whenever the
+  // command menu's parent component re-renders (locale write triggers a
+  // setting-drill pop, which always re-renders the menu) — so the fresh
+  // locale flows in without a reload.
   const currentLocale = getLocale();
 
   return useMemo(() => {
@@ -42,10 +44,20 @@ export function useBoundSettings(): readonly SettingItem<string>[] {
         return {
           ...setting,
           read: () => currentLocale,
-          // `setLocale` triggers a full reload by default — that picks up the
-          // new translations everywhere without us having to teach React's
-          // tree to react to a changed `getLocale()` value.
-          write: (next) => setLocale(next as Locale),
+          // Hot-swap the locale: skip Paraglide's default full reload and
+          // re-apply the locale-driven `<html dir|lang>` + font side-effects
+          // ourselves. Paraglide's `m.*` message helpers re-evaluate per
+          // render, so any tree that re-renders after the write picks up
+          // the new translations without dropping the user's session.
+          write: (next) => {
+            // `setLocale` may be async if any custom strategy installs an
+            // async setter — the registry returns `void`, so swallow the
+            // promise. `applyLocaleStyling` only reads the post-write
+            // locale via `getLocale()`, so DOM attributes stay correct
+            // even when the underlying store update is async.
+            void setLocale(next as Locale, { reload: false });
+            applyLocaleStyling();
+          },
         };
       }
       return setting;

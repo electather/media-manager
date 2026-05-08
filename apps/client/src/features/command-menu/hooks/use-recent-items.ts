@@ -10,6 +10,7 @@ function isMediaItem(value: unknown): value is MediaItem {
   const v = value as Record<string, unknown>;
   return (
     typeof v.id === "string" &&
+    typeof v.tmdbId === "string" &&
     typeof v.title === "string" &&
     (v.mediaType === "tv" || v.mediaType === "movie")
   );

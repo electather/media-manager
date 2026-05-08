@@ -72,8 +72,14 @@ export function useSections({
     if (scope === null) {
       return { mediaItems: [], mediaSection: null };
     }
-    if (searchResults && searchResults.length > 0) {
-      return { mediaItems: searchResults, mediaSection: "results" };
+    // Once the server has answered the current query, honour that answer —
+    // even when it's empty. Falling back to trending on a deliberate
+    // no-match query would mislabel the row as "Trending" when the user is
+    // actually looking at "no results" for what they typed.
+    if (searchResults !== undefined) {
+      return searchResults.length > 0
+        ? { mediaItems: searchResults, mediaSection: "results" }
+        : { mediaItems: [], mediaSection: null };
     }
     if (trendingPool.length > 0) {
       return { mediaItems: trendingPool, mediaSection: "trending" };
