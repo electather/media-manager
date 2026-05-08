@@ -213,11 +213,11 @@ Subpath export `@ent-mcp/shared/search` added to `packages/shared/package.json`.
 
 ### 7.2 Server impl
 
-`apps/server/src/routes/search.ts`:
+`apps/server/src/api/procedures/search.ts`:
 - Validates query via zod.
-- Calls catalog-service search (already aggregates plugin sources for home).
-- Maps to `CompactMediaItem[]`. Truncates to `limit`. `hasMore = total > limit`.
-- 400 on bad input. 500 on upstream error (caught + logged via diagnostics service).
+- Dispatches `metadata@v1.search` via `MediaService` (`apps/server/src/media/service.ts`) — primary plugin (typically TMDB) is the source of truth, not the catalog cache.
+- Maps each plugin hit to `CompactMediaItem[]`. Asks for `limit + 1` so `hasMore = post-filter > limit` without a second call.
+- 400 on bad input. 500 on upstream error (caught by the shared `errorHandler` middleware which captures via diagnostics service).
 
 ### 7.3 Client wiring
 
@@ -491,7 +491,7 @@ Top frame → which content renders:
 
 | File | Covers |
 |---|---|
-| `apps/server/src/routes/__tests__/search.test.ts` | 200 OK shape, 400 on bad kind, 400 on q too long, scope filter, limit cap |
+| `apps/server/src/api/procedures/__tests__/search.test.ts` | 200 OK shape, 400 on bad kind, 400 on q too long, scope filter, limit cap |
 
 ## 13. Migration plan
 

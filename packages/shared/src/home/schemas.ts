@@ -1,7 +1,96 @@
 import { z } from "zod";
+import { AVAILABILITY_STATUSES, MEDIA_TYPES } from "../media/enums";
+import { MATCH_REASON_KEYS } from "./enums";
 
 /** `home.getLayout` takes no input. Strict empty schema rejects extra keys. */
 export const homeGetLayoutInputSchema = z.object({}).strict();
+
+const progressSchema = z
+  .object({
+    watched: z.number(),
+    total: z.number(),
+  })
+  .strict();
+
+const matchReasonSchema = z
+  .object({
+    key: z.enum(MATCH_REASON_KEYS),
+    params: z.record(z.string(), z.string()),
+  })
+  .strict();
+
+const availabilitySchema = z
+  .object({
+    hasAnyServerCopy: z.boolean(),
+    requestEligible: z.boolean(),
+    servers: z.array(
+      z
+        .object({
+          id: z.string(),
+          label: z.string(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+const facetsSchema = z
+  .object({
+    runtimeMin: z.number().optional(),
+    episodeCount: z.number().optional(),
+    releaseDate: z.string().optional(),
+  })
+  .strict();
+
+const seriesContextSchema = z
+  .object({
+    season: z.number(),
+    episode: z.number(),
+    episodeTitle: z.string(),
+    nextUpFromServer: z.boolean(),
+  })
+  .strict();
+
+const upcomingEpisodeSchema = z
+  .object({
+    season: z.number(),
+    episode: z.number(),
+    airsAt: z.number(),
+    name: z.string().optional(),
+  })
+  .strict();
+
+/**
+ * Wire-format media item shipped across home rows and the global command-menu
+ * search endpoint. Mirrors the `CompactMediaItem` interface in `./types`;
+ * absent fields are omitted (not null) so consumers stay happy with
+ * `z.optional()` rather than `z.nullable()`.
+ */
+export const compactMediaItemSchema = z
+  .object({
+    id: z.string(),
+    tmdbId: z.string(),
+    mediaType: z.enum(MEDIA_TYPES),
+    title: z.string(),
+    year: z.number().optional(),
+    poster: z.string().optional(),
+    backdrop: z.string().optional(),
+    clearLogo: z.string().optional(),
+    progress: progressSchema.optional(),
+    episodeProgress: progressSchema.optional(),
+    overview: z.string().optional(),
+    genres: z.array(z.string()).optional(),
+    rating: z.number().optional(),
+    userRating: z.number().optional(),
+    matchReason: matchReasonSchema.optional(),
+    status: z.enum(AVAILABILITY_STATUSES).optional(),
+    availability: availabilitySchema.optional(),
+    facets: facetsSchema.optional(),
+    seriesContext: seriesContextSchema.optional(),
+    episode: upcomingEpisodeSchema.optional(),
+    tags: z.array(z.string()).optional(),
+  })
+  .strict();
 
 /**
  * `home.getRowContent` input: client supplies a row id and the opaque cursor
