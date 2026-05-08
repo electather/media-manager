@@ -117,11 +117,11 @@ listTargets: method(
       })),
     })),
   }),
-  { defaultCacheTtlSec: 5 * MIN, optional: true },
+  { optional: true },
 ),
 ```
 
-Marked `optional: true` so plugins implementing `mediaRequest` (currently only seerr) do not break compile. Host treats absence as "this plugin contributes zero targets".
+Marked `optional: true` so plugins implementing `mediaRequest` (currently only seerr) do not break compile. Host treats absence as "this plugin contributes zero targets". No `defaultCacheTtlSec` — `dispatchToConnection` skips the dispatch cache by design; client-side React Query owns the freshness story.
 
 ### `mediaRequest@v1.createRequest` (extend existing input)
 
@@ -149,9 +149,9 @@ Plugins that ignore `targetId` / `profileId` continue to work (current seerr beh
 
 - `listTargets({type})`:
   - `GET /api/v1/service/radarr` (movie) or `/api/v1/service/sonarr` (tv).
-  - Each entry → one `target` with `targetId = String(server.id)`, `label = server.name`, `exposesProfiles = true`.
+  - Each entry → one `target` with `targetId = String(server.id)`, `label = server.name`, `exposesProfiles = true`. Overseerr server ids are integers, so `String(server.id)` is digit-only and trivially satisfies `TARGET_ID_RE`.
   - For each server, `GET /api/v1/service/radarr/{id}` (resp. sonarr) returns `profiles: { id, name }[]`. Map to `{id: String(id), label: name}`.
-  - `defaultProfileId` from server's `activeProfileId`.
+  - `defaultProfileId: server.activeProfileId != null ? String(server.activeProfileId) : null`. Overseerr can return `null` or omit the field when no default is configured upstream.
 - `createRequest({..., targetId, profileId})`:
   - Forward `serverId = Number(targetId)` and `profiles: { profileId: Number(profileId) }` to Overseerr's `POST /request` body. Existing seasons handling unchanged.
   - When `targetId` absent, current behavior preserved.
@@ -160,23 +160,16 @@ Plugins that ignore `targetId` / `profileId` continue to work (current seerr beh
 
 ### Dispatch path: connection-targeted invocation
 
-`DispatchRequest.connectionId?: string` is added in [apps/server/src/media/types.ts](apps/server/src/media/types.ts). Honored only by `dispatchSingle`; `aggregate-per-kind`, `primary-with-enrichment`, and `aggregate` strategies ignore the field (they operate across multiple connections by design). The type comment documents the single-strategy-only semantics.
+[apps/server/src/media/connection-targeted.ts](apps/server/src/media/connection-targeted.ts) already implements connection-targeted dispatch via `dispatchToConnection<T>(req: TargetedDispatchRequest)`. The MCP write handlers (`ent-request`, `ent-feedback`) use it. Reuse it for the request flow instead of grafting a `connectionId` field onto `DispatchRequest` / `dispatchSingle`.
 
-`dispatchSingle` branches:
+Two consequences:
 
-```ts
-// apps/server/src/media/strategies/single.ts
-const conn = req.connectionId
-  ? await lookupConnectionById(req.userId, req.connectionId)
-  : await pickSingleConnection(req.userId, pluginId);
-if (!conn || conn.pluginId !== pluginId) {
-  throw new PluginCallError("media.no_connection", "...", pluginId, null);
-}
-```
+1. **No change to `DispatchRequest` or any strategy file.** The single-strategy mutation in pass 1 of this spec is dropped.
+2. **No host-edge cache for `listTargets`.** `dispatchToConnection` deliberately bypasses the dispatch cache (see its module comment: *"No retry/refresh wrapper here — targeted dispatch is exclusively used by MCP writes…"*). The 5-minute snappiness target is delivered by **React Query** on the client; the server makes a fresh upstream call per fetch (rare — bounded by `staleTime` + `prefetchQuery` on detail-page mount). Drop the `defaultCacheTtlSec: 5 * MIN` from the new `listTargets` capability declaration; it would never be honored on this code path and is misleading.
 
-`lookupConnectionById(userId, connectionId)` is a new helper in [apps/server/src/media/capability-lookup.ts](apps/server/src/media/capability-lookup.ts). It returns the row's `ResolvedConnection` (carrying `pluginId`, `connectionId`, decrypted credentials, userConfig) only if the row is enabled and owned by `userId`; otherwise `null`. Looking up by `connectionId` alone breaks the spec's earlier circular dependency on `pluginId` — the connection row is the source of truth for which plugin it belongs to.
+`loadConnectionById` is currently a *private* helper inside `connection-targeted.ts`. The new `MediaService.requestDownload` needs an equivalent step (decode `serviceId`, validate ownership, recover `pluginId`) — but `dispatchToConnection` already runs that exact check and throws `PluginCallError` with code `mcp.target_not_found` when the connection is missing/disabled or the plugin does not implement the capability. Map that error to `HttpError(404, "request.unknown_service", …)` in `requestDownload`.
 
-**Cache-key impact.** [apps/server/src/media/cache.ts](apps/server/src/media/cache.ts) `CacheKeyArgs` must include `connectionId` so two connections of the same plugin do not share cache entries. The current key already qualifies by `userId`, so cross-user leak is not a regression — but per-connection isolation is necessary because two Radarr connections legitimately return different `listTargets` data. Add `connectionId?: string` to `CacheKeyArgs` and propagate from `cacheKeyFor`.
+`listRequestTargets` enumerates per (plugin × user-connection) and calls `dispatchToConnection` per connection — it does not need direct access to `loadConnectionById` either; it iterates `listEligibleConnections(userId, "mediaRequest", "v1")` (already exported from `connection-targeted.ts`).
 
 ### `MediaService.listRequestTargets(mediaType)` (new)
 
@@ -184,52 +177,50 @@ if (!conn || conn.pluginId !== pluginId) {
 const TARGET_ID_RE = /^[A-Za-z0-9_-]+$/;
 
 async listRequestTargets(mediaType: "movie" | "tv"): Promise<RequestTarget[]> {
-  const providers = capabilityRegistry.listProviders("mediaRequest", "v1", "user");
+  const eligible = await listEligibleConnections(this.userId, "mediaRequest", "v1");
   const out: RequestTarget[] = [];
-  for (const pluginId of providers) {
-    const conns = await resolveConnections(this.userId, pluginId);
-    for (const conn of conns.filter((c) => c.kind === "user")) {
-      const result = await dispatchSingle<ListTargetsOutput>({
-        userId: this.userId,
-        capability: "mediaRequest",
-        version: "v1",
-        method: "listTargets",
-        input: { type: mediaType },
-        pluginId,
-        connectionId: conn.connectionId!,
-      }).catch((err) => {
-        log.warn({ err, pluginId, connectionId: conn.connectionId }, "listTargets failed");
-        return null;
-      });
-      if (!result) continue;
-      for (const t of result.targets) {
-        // Targets returned by a plugin may include illegal targetIds in the
-        // wild (third-party plugins, version skew). Drop and log per-entry
-        // rather than rejecting the whole connection — the capability output
-        // schema enforces this regex too, but a defensive check at the host
-        // boundary keeps a single bad row from blanking the picker.
-        if (!TARGET_ID_RE.test(t.targetId)) {
-          log.warn({ pluginId, targetId: t.targetId }, "invalid targetId, skipping");
-          continue;
-        }
-        out.push({
-          serviceId: `${conn.connectionId}:${t.targetId}`,
-          pluginId,
-          label: t.label,
-          exposesProfiles: t.exposesProfiles,
-          defaultProfileId: t.defaultProfileId,
-          profiles: t.profiles,
-        });
+  for (const c of eligible) {
+    const result = await dispatchToConnection<ListTargetsOutput>({
+      userId: this.userId,
+      connectionId: c.connectionId,
+      capability: "mediaRequest",
+      version: "v1",
+      method: "listTargets",
+      input: { type: mediaType },
+    }).catch((err) => {
+      log.warn({ err, pluginId: c.pluginId, connectionId: c.connectionId }, "listTargets failed");
+      return null;
+    });
+    if (!result) continue;
+    for (const t of result.targets) {
+      // Targets returned by a plugin may include illegal targetIds in the
+      // wild (third-party plugins, version skew). Drop and log per-entry
+      // rather than rejecting the whole connection — the capability output
+      // schema enforces this regex too, but a defensive check at the host
+      // boundary keeps a single bad row from blanking the picker.
+      if (!TARGET_ID_RE.test(t.targetId)) {
+        log.warn({ pluginId: c.pluginId, targetId: t.targetId }, "invalid targetId, skipping");
+        continue;
       }
+      out.push({
+        serviceId: `${c.connectionId}:${t.targetId}`,
+        pluginId: c.pluginId,
+        label: t.label,
+        exposesProfiles: t.exposesProfiles,
+        defaultProfileId: t.defaultProfileId,
+        profiles: t.profiles,
+      });
     }
   }
   return out;
 }
 ```
 
-Failures from any single connection are logged and skipped so one broken Seerr instance does not blank the whole picker. When *every* connection's `listTargets` fails the response is `{ targets: [] }` and the client renders an empty-state. The list is never cached at the host edge — `dispatchSingle` already honors the capability's `defaultCacheTtlSec: 5 * MIN`.
+Failures from any single connection are logged and skipped so one broken Seerr instance does not blank the whole picker. When *every* connection's `listTargets` fails the response is `{ targets: [] }` and the client renders an empty-state. No host-edge cache — see "Dispatch path" above.
 
 ### `MediaService.requestDownload` (rewrite)
+
+**Call-site audit before signature change.** `MediaService.requestDownload` has only one production caller (the `requests.ts` procedure stub being rewritten in this PR). The MCP `ent_request` tool handler at [apps/server/src/mcp/tool-handlers/ent-request.ts:96](apps/server/src/mcp/tool-handlers/ent-request.ts#L96) calls `dispatchToConnection` directly and does **not** route through `MediaService.requestDownload`. Pre-stable rules (memory #20) permit the breaking signature change.
 
 ```ts
 async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: string | null }> {
@@ -237,31 +228,34 @@ async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: strin
   if (!decoded) throw badRequest("request.invalid_input", "malformed serviceId");
   const { connectionId, targetId } = decoded;
 
-  const conn = await lookupConnectionById(this.userId, connectionId);
-  if (!conn) throw new HttpError(404, "request.unknown_service", "service not found");
-
   if (input.mediaType === "movie" && input.seasons?.length) {
     log.warn({ tmdbId: input.tmdbId }, "seasons ignored for movie request");
   }
   const seasonsCsv =
     input.mediaType === "tv" && input.seasons?.length ? input.seasons.join(",") : undefined;
 
-  const result = await dispatchSingle<CreateRequestOutput>({
-    userId: this.userId,
-    capability: "mediaRequest",
-    version: "v1",
-    method: "createRequest",
-    input: {
-      tmdbId: input.tmdbId,
-      type: input.mediaType,
-      seasons: seasonsCsv,
-      targetId,
-      profileId: input.profileId ?? undefined,
-    },
-    pluginId: conn.pluginId,
-    connectionId,
-    skipCache: true,
-  });
+  let result: CreateRequestOutput | null;
+  try {
+    result = await dispatchToConnection<CreateRequestOutput>({
+      userId: this.userId,
+      connectionId,
+      capability: "mediaRequest",
+      version: "v1",
+      method: "createRequest",
+      input: {
+        tmdbId: input.tmdbId,
+        type: input.mediaType,
+        seasons: seasonsCsv,
+        targetId,
+        profileId: input.profileId ?? undefined,
+      },
+    });
+  } catch (err) {
+    if (err instanceof PluginCallError && err.code === "mcp.target_not_found") {
+      throw new HttpError(404, "request.unknown_service", "service not found");
+    }
+    throw err; // PluginCallError → 500 unless mapped upstream
+  }
 
   if (!result || !result.success) {
     throw new HttpError(502, "request.provider_failed", result?.message ?? "provider failed");
@@ -270,7 +264,7 @@ async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: strin
 }
 ```
 
-`pluginId` is recovered from the connection row — `lookupConnectionById` reads `service_connections` by id and surfaces the row's `pluginId`. `decodeServiceId` is a small helper exported from `apps/server/src/media/service-id.ts` that splits on the first `:` and validates `targetId` against `TARGET_ID_RE`. Returns `null` on malformed input so the procedure can map it to a 400.
+`decodeServiceId` is a small helper exported from `apps/server/src/media/service-id.ts` that splits on the first `:`, validates `targetId` against `TARGET_ID_RE`, and returns `null` on malformed input so the procedure can map it to a 400.
 
 Profile validation: when the plugin returns `success: false` because the requested `profileId` is unknown to the target, the message bubbles up as `502 request.provider_failed`. We do not pre-validate `profileId` against the cached `listTargets` output — the cache may be stale; trust the plugin's authoritative answer.
 
@@ -329,7 +323,7 @@ New folder `apps/client/src/features/request-flow/api/`:
 
 - `query-keys.ts` — `requestFlow.targets(mediaType)` and `requestFlow.history()` factories.
 - `use-request-targets.ts` — `useSuspenseQuery({ queryKey: requestFlow.targets(mediaType), queryFn: api.requests.targets, staleTime: 5 * 60_000 })`. Returns array of `RequestTarget`.
-- `use-create-request.ts` — `useMutation({ mutationFn: api.requests.create, onSuccess: invalidate(requestFlow.targets), onError: toastFromError })`.
+- `use-create-request.ts` — `useMutation({ mutationFn: api.requests.create, onError: toastFromError })`. Deliberately **no** `invalidate(requestFlow.targets)`: a successful create does not change the target/profile list, and a forced invalidation would unmount the picker mid-success-toast (the popover closes immediately after `mutateAsync` resolves, but if the user re-opens within the staleTime window we still want a warm cache hit).
 - `errors.ts` — `RequestError extends Error` carrying `code` + `field?` from server payload.
 
 ### Picker rewire
