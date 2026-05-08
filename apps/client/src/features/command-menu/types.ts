@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { CommandMenuMediaItem } from "@/shared/components/command-menu-media-provider";
+import type { CommandMenuMediaItem } from "./components/command-menu-media-provider";
 import type * as messages from "@/paraglide/messages";
 
 /**

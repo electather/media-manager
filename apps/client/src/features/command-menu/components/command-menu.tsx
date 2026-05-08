@@ -27,8 +27,10 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/
 import { Logo } from "@/shared/components/logo";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
 
-import { buildCommandActions, COMMAND_PAGES, COMMAND_SEARCH_MODES } from "./command-menu-data";
-import { t } from "./i18n";
+import { buildCommandActions } from "../registry/actions";
+import { COMMAND_PAGES } from "../registry/pages";
+import { COMMAND_SEARCH_MODES } from "../registry/search-modes";
+import { t } from "../lib/i18n";
 import type {
   ActionContext,
   ActionItem,
@@ -37,10 +39,10 @@ import type {
   PageItem,
   SearchModeItem,
   StaticMessageKey,
-} from "./types";
-import { useCommandMenuShortcuts } from "./use-command-menu-shortcuts";
-import { useMediaPool } from "./use-media-pool";
-import { useRecentItems } from "./use-recent-items";
+} from "../types";
+import { useCommandMenuShortcuts } from "../hooks/use-command-menu-shortcuts";
+import { useMediaPool } from "../hooks/use-media-pool";
+import { useRecentItems } from "../hooks/use-recent-items";
 
 const TRENDING_LIMIT = 8;
 const RECENTS_LIMIT = 4;

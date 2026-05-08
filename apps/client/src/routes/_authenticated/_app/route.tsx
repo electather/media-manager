@@ -7,7 +7,7 @@ import {
   CommandMenuMediaProvider,
   type CommandMenuMediaItem,
   type CommandMenuMediaSource,
-} from "@/shared/components/command-menu-media-provider";
+} from "@/features/command-menu";
 
 /**
  * Route layout for the authenticated app shell. Lives in the routes layer

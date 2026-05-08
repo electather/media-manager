@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { COMMAND_PAGES, COMMAND_SEARCH_MODES, nextTheme } from "../command-menu-data";
+import { nextTheme } from "../actions";
+import { COMMAND_PAGES } from "../pages";
+import { COMMAND_SEARCH_MODES } from "../search-modes";
 
 describe("COMMAND_PAGES", () => {
   it("uses unique ids", () => {
