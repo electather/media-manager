@@ -17,6 +17,7 @@
     "./plugins": "./src/plugins/index.ts",
     "./plugins/library": "./src/plugins/library.ts",
     "./preferences": "./src/preferences/index.ts",
+    "./search": "./src/search/index.ts",
     "./users": "./src/users/index.ts"
   },
   "scripts": {
