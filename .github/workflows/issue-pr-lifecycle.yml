@@ -1,0 +1,62 @@
+name: Issue and PR lifecycle labels
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  issue-intake:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add triage status
+        run: 'gh issue edit "$ISSUE_NUMBER" --add-label "status: needs-triage"'
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+  pr-status:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh PR status label
+        run: |
+          set -euo pipefail
+
+          for label in \
+            "status: needs-triage" \
+            "status: needs-info" \
+            "status: needs-repro" \
+            "status: blocked" \
+            "status: in-progress" \
+            "status: ready-for-review"
+          do
+            gh issue edit "$PR_NUMBER" --remove-label "$label" || true
+          done
+
+          if [[ "$ACTION" == "closed" ]]; then
+            exit 0
+          fi
+
+          if [[ "$IS_DRAFT" == "true" ]]; then
+            gh issue edit "$PR_NUMBER" --add-label "status: in-progress"
+          else
+            gh issue edit "$PR_NUMBER" --add-label "status: ready-for-review"
+          fi
+        env:
+          ACTION: ${{ github.event.action }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
