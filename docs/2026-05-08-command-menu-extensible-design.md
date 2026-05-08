@@ -91,7 +91,9 @@ type Base = {
   Icon: LucideIcon;
   labelKey: StaticMessageKey;
   hintKey: StaticMessageKey;
-  /** Hide row when false. Lets features gate via flag/role. */
+  /** Hide row when false. Lets features gate via flag/role.
+   *  Evaluated on every render of the menu surface — caller must keep
+   *  thunk cheap or memoize feature-flag reads upstream. */
   enabled?: () => boolean;
   /** Order inside group; lower first. Default 100. */
   order?: number;
@@ -189,6 +191,10 @@ Behavior:
 
 `GET /api/search?q=<string>&kind=tv|movie|all&limit=<int>`
 
+Auth: same `/api/*` middleware as home endpoints (better-auth session). Anonymous → 401.
+
+`compactMediaItemSchema` already lives in `@ent-mcp/shared/home`; reused here, not duplicated.
+
 ```ts
 // packages/shared/src/search/schemas.ts
 export const searchQuerySchema = z.object({
@@ -241,6 +247,15 @@ Section render rules:
 ## 8. TanStack Hotkeys
 
 Pkg: `@tanstack/react-hotkeys`. Add to `apps/client` deps.
+
+New Paraglide keys to add (full list — caller adds to `project.inlang/messages/`):
+
+- `hotkey_toggle_menu_name`, `hotkey_toggle_menu_desc`
+- `hotkey_open_menu_name`, `hotkey_open_menu_desc`
+- `command_menu_setting_theme_label`, `command_menu_setting_theme_hint`
+- `command_menu_setting_locale_label`, `command_menu_setting_locale_hint`
+- `theme_system_label`, `theme_light_label`, `theme_dark_label`
+- `locale_<code>_label` per supported locale
 
 ### 8.1 Global hotkeys (`use-command-hotkeys.ts`)
 
@@ -414,7 +429,13 @@ export function useBoundSettings(): readonly SettingItem[] {
 
 ### 9.4 Locale switch — open question
 
-Paraglide picks locale at boot. Mid-session swap may need `window.location.reload()`. Verify during impl. If reload required: drill writes locale to storage → toast → reload after 250ms. If hot-swap works: no reload.
+Paraglide picks locale at boot. Mid-session swap may need `window.location.reload()`. Verify during impl.
+
+`needsReload(next, current)` (referenced in §9.3) resolves once verified:
+- If hot-swap works → `() => false`. Drill writes + toast, no reload.
+- If reload required → `(next, current) => next !== current`. Drill writes locale to storage → toast → `setTimeout(window.location.reload, 250)`.
+
+Either branch is internal to `LOCALE_SETTING.write` — no caller change.
 
 ## 10. Render flow
 
@@ -484,12 +505,12 @@ Pre-stable → breaking OK. One step per PR. Each PR own changeset.
 | 4 | Swap custom keydown for TanStack Hotkeys. Add sequences. Cheatsheet sub-page. | client |
 | 5 | Build `setting-drill.tsx`. Convert theme action → `THEME_SETTING`. | client |
 | 6 | Add `LOCALE_SETTING`. Verify locale hot-swap (else reload). | client |
-| 7 | Wire `useSearchResults`. Drop pool-as-search-source. Pool stays for recents/trending. | client |
+| 7 | Wire `useSearchResults`. Drop pool-as-search-source. Pool stays for recents/trending (still sourced from `CommandMenuMediaProvider` populated by home feature data — unchanged). | client |
 
 ## 14. Invariants
 
 - Each contribution `id` unique across all kinds.
-- `registry/index.ts` exports stable order; menu never sorts mutably.
+- `registry/index.ts` exports stable order; menu never sorts mutably. Sort key: `(order ?? 100, id)` — `id` as deterministic tiebreaker.
 - Drill stack root frame always present.
 - Settings `read()`/`write()` pure relative to the bound runtime; no side effects beyond storage + theme/locale system.
 - Search query never sent if `q.trim().length < 2`.
