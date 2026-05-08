@@ -1,56 +1,50 @@
-import { Command as CommandPrimitive } from "cmdk";
+import { ChevronDown, ChevronUp, CornerDownLeft } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronDown, ChevronUp, CornerDownLeft, Film, SearchIcon, Tv, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
   type KeyboardEvent,
-  type ReactNode,
-  type Ref,
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
 
 import { m } from "@/paraglide/messages";
-import { cn } from "@/shared/lib/utils";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
-} from "@/shared/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/shared/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import { Logo } from "@/shared/components/logo";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
 
+import { useCommandMenuShortcuts } from "../hooks/use-command-menu-shortcuts";
+import { useMediaPool } from "../hooks/use-media-pool";
+import { useRecentItems } from "../hooks/use-recent-items";
+import { useSections } from "../hooks/use-sections";
+import { t } from "../lib/i18n";
+import { actionMatchValue, pageMatchValue, searchModeMatchValue } from "../lib/match-values";
+import { initialNavState, isRoot, navReducer, topFrame } from "../lib/nav-stack";
 import { buildCommandActions } from "../registry/actions";
 import { COMMAND_PAGES } from "../registry/pages";
 import { COMMAND_SEARCH_MODES } from "../registry/search-modes";
-import { t } from "../lib/i18n";
 import type {
   ActionContext,
   ActionItem,
   CommandScope,
   MediaItem,
+  NavFrame,
   PageItem,
   SearchModeItem,
   StaticMessageKey,
 } from "../types";
-import { useCommandMenuShortcuts } from "../hooks/use-command-menu-shortcuts";
-import { useMediaPool } from "../hooks/use-media-pool";
-import { useRecentItems } from "../hooks/use-recent-items";
-
-const TRENDING_LIMIT = 8;
-const RECENTS_LIMIT = 4;
+import { CommandSearchHeader } from "./command-search-header";
+import { RowAffordance, RowContent, RowIcon } from "./command-row";
+import { MediaRow } from "./media-row";
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
-  const [scope, setScope] = useState<CommandScope>(null);
+  const [navState, dispatch] = useReducer(navReducer, initialNavState);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -69,16 +63,20 @@ export function CommandMenu() {
     [setTheme, theme, resolvedTheme],
   );
 
-  // Reset menu state on close.
+  // Reset menu state on close — drill stack is per-session, recents persist.
   useEffect(() => {
     if (open) return;
     setValue("");
-    setScope(null);
+    dispatch({ type: "reset" });
   }, [open]);
 
   useCommandMenuShortcuts(open, setOpen);
 
   const close = useCallback(() => setOpen(false), []);
+  const popFrame = useCallback(() => dispatch({ type: "pop" }), []);
+  const pushFrame = useCallback((frame: NavFrame) => dispatch({ type: "push", frame }), []);
+
+  const top = topFrame(navState);
 
   const handleSelectPage = useCallback(
     (page: PageItem) => {
@@ -88,19 +86,24 @@ export function CommandMenu() {
     [close, navigate],
   );
 
-  const handleSelectSearchMode = useCallback((mode: SearchModeItem) => {
-    setScope(mode.scope);
-    setValue("");
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
+  const handleSelectSearchMode = useCallback(
+    (mode: SearchModeItem) => {
+      pushFrame({ kind: "scope", scope: mode.scope });
+      setValue("");
+      requestAnimationFrame(() => inputRef.current?.focus());
+    },
+    [pushFrame],
+  );
 
   const handleSelectAction = useCallback(
     (action: ActionItem) => {
-      const ctx: ActionContext = { setScope };
+      // Action owns the close/push decision via ctx — host doesn't dismiss
+      // unconditionally so drill-in actions (cheatsheet, settings) can push
+      // a frame without the menu immediately closing on top of them.
+      const ctx: ActionContext = { push: pushFrame, close };
       action.run(ctx);
-      close();
     },
-    [close, setScope],
+    [close, pushFrame],
   );
 
   const handleSelectMedia = useCallback(
@@ -115,19 +118,19 @@ export function CommandMenu() {
     [close, navigate, pushRecent],
   );
 
-  // Backspace at the very start of an empty input clears the active scope —
+  // Backspace at the very start of an empty input pops one drill frame —
   // matches the muscle-memory most "Notion-style" command menus expose.
   const onInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Backspace" && !value && scope) {
+      if (event.key === "Backspace" && !value && !isRoot(navState)) {
         event.preventDefault();
-        setScope(null);
+        popFrame();
       }
     },
-    [scope, value],
+    [navState, popFrame, value],
   );
 
-  const sections = useSections({ scope, value, recents, pool, trending });
+  const sections = useSections({ topFrame: top, value, recents, pool, trending });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -142,9 +145,9 @@ export function CommandMenu() {
           <CommandSearchHeader
             ref={inputRef}
             value={value}
-            scope={scope}
+            topFrame={top}
             onValueChange={setValue}
-            onScopeClear={() => setScope(null)}
+            onPopFrame={popFrame}
             onKeyDown={onInputKeyDown}
           />
 
@@ -201,7 +204,7 @@ export function CommandMenu() {
             )}
 
             {sections.trendingItems.length > 0 && (
-              <CommandGroup heading={t(getTrendingHeadingKey(scope))}>
+              <CommandGroup heading={t(getTrendingHeadingKey(sections.scope))}>
                 {sections.trendingItems.map((item) => (
                   <MediaRow
                     key={`trending:${item.id}`}
@@ -213,7 +216,7 @@ export function CommandMenu() {
             )}
 
             {sections.mediaItems.length > 0 && (
-              <CommandGroup heading={t(getMediaHeadingKey(scope))}>
+              <CommandGroup heading={t(getMediaHeadingKey(sections.scope))}>
                 {sections.mediaItems.map((item) => (
                   <MediaRow
                     key={`media:${item.id}`}
@@ -248,130 +251,6 @@ export function CommandMenu() {
   );
 }
 
-type SectionsInput = {
-  scope: CommandScope;
-  value: string;
-  recents: string[];
-  pool: MediaItem[];
-  trending: MediaItem[];
-};
-
-function useSections({ scope, value, recents, pool, trending }: SectionsInput) {
-  const showSearchModes = scope === null && !value;
-  const showPages = scope === null;
-  const showActions = scope === null;
-  const showTrending = scope !== null && !value;
-
-  const recentItems = useMemo(() => {
-    if (scope || value) return [] as MediaItem[];
-    return recents
-      .map((id) => pool.find((item) => item.id === id))
-      .filter((x): x is MediaItem => x != null)
-      .slice(0, RECENTS_LIMIT);
-  }, [pool, recents, scope, value]);
-
-  const trendingItems = useMemo(() => {
-    if (!showTrending || !scope) return [] as MediaItem[];
-    const seen = new Set<string>();
-    const out: MediaItem[] = [];
-    const push = (item: MediaItem) => {
-      if (item.mediaType !== scope || seen.has(item.id)) return;
-      seen.add(item.id);
-      out.push(item);
-    };
-    trending.forEach(push);
-    if (out.length < TRENDING_LIMIT) pool.forEach(push);
-    return out.slice(0, TRENDING_LIMIT);
-  }, [pool, scope, showTrending, trending]);
-
-  const mediaItems = useMemo(() => {
-    if (showTrending) return [] as MediaItem[];
-    return scope ? pool.filter((item) => item.mediaType === scope) : pool;
-  }, [pool, scope, showTrending]);
-
-  return { showSearchModes, showPages, showActions, recentItems, trendingItems, mediaItems };
-}
-
-type CommandSearchHeaderProps = {
-  ref?: Ref<HTMLInputElement>;
-  value: string;
-  scope: CommandScope;
-  onValueChange: (next: string) => void;
-  onScopeClear: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
-};
-
-function CommandSearchHeader({
-  ref,
-  value,
-  scope,
-  onValueChange,
-  onScopeClear,
-  onKeyDown,
-}: CommandSearchHeaderProps) {
-  return (
-    <div
-      data-slot="command-input-wrapper"
-      className="flex items-center gap-2 border-b border-border px-3 py-2.5"
-    >
-      <SearchIcon className="size-4 shrink-0 text-muted-foreground/80" aria-hidden="true" />
-      {scope && <ScopeChip scope={scope} onClear={onScopeClear} />}
-      <CommandPrimitive.Input
-        ref={ref}
-        value={value}
-        onValueChange={onValueChange}
-        onKeyDown={onKeyDown}
-        placeholder={getPlaceholder(scope)}
-        // Auto-detect direction so RTL queries (e.g. Persian/Arabic titles)
-        // display naturally without forcing a global `dir` on the popup.
-        dir="auto"
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
-        className={cn(
-          "flex-1 bg-transparent py-1 text-sm text-foreground outline-hidden placeholder:text-muted-foreground",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-        )}
-      />
-      <Kbd className="border border-border">esc</Kbd>
-    </div>
-  );
-}
-
-function getPlaceholder(scope: CommandScope): string {
-  if (scope === "tv") return m.command_menu_search_placeholder_tv();
-  if (scope === "movie") return m.command_menu_search_placeholder_movie();
-  return m.command_menu_search_placeholder();
-}
-
-function ScopeChip({
-  scope,
-  onClear,
-}: {
-  scope: Exclude<CommandScope, null>;
-  onClear: () => void;
-}) {
-  const Icon = scope === "tv" ? Tv : Film;
-  const label = scope === "tv" ? m.command_menu_kind_tv() : m.command_menu_kind_movie();
-  return (
-    <button
-      type="button"
-      onClick={onClear}
-      title={m.command_menu_scope_clear_hint()}
-      aria-label={m.command_menu_scope_clear()}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-1.5 py-0.5",
-        "text-xs font-medium text-primary outline-none transition-colors hover:bg-primary/15",
-        "focus-visible:ring-2 focus-visible:ring-ring/50",
-      )}
-    >
-      <Icon className="size-3" />
-      {label}
-      <X className="size-3 opacity-70" />
-    </button>
-  );
-}
-
 function getMediaHeadingKey(scope: CommandScope): StaticMessageKey {
   if (scope === "tv") return "command_menu_section_media_tv";
   if (scope === "movie") return "command_menu_section_media_movie";
@@ -382,115 +261,6 @@ function getTrendingHeadingKey(scope: CommandScope): StaticMessageKey {
   return scope === "tv"
     ? "command_menu_section_trending_tv"
     : "command_menu_section_trending_movie";
-}
-
-function MediaRow({ item, onSelect }: { item: MediaItem; onSelect: () => void }) {
-  return (
-    <CommandItem value={mediaMatchValue(item)} onSelect={onSelect}>
-      <MediaThumb item={item} />
-      <RowContent
-        label={item.title}
-        hint={mediaSubtitle(item)}
-        badge={
-          <span className="shrink-0 rounded-sm border border-border bg-muted px-1.5 py-px font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {item.mediaType === "tv" ? m.command_menu_kind_tv() : m.command_menu_kind_movie()}
-          </span>
-        }
-      />
-      <RowAffordance label={m.command_menu_action_open()} />
-    </CommandItem>
-  );
-}
-
-function MediaThumb({ item }: { item: MediaItem }) {
-  const src = item.poster ?? item.backdrop;
-  const Icon = item.mediaType === "tv" ? Tv : Film;
-  return (
-    <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-      {src ? (
-        <img src={src} alt={item.title} loading="lazy" className="size-full object-cover" />
-      ) : (
-        <Icon className="size-3.5 text-muted-foreground" />
-      )}
-    </div>
-  );
-}
-
-function mediaGenresLabel(item: MediaItem): string {
-  const genres = (item.genres ?? []).slice(0, 2).filter(Boolean);
-  if (genres.length > 0) return genres.join(" · ");
-  return item.mediaType === "tv" ? m.command_menu_kind_series() : m.command_menu_kind_film();
-}
-
-function mediaSubtitle(item: MediaItem): string {
-  const parts: string[] = [];
-  if (item.year) parts.push(String(item.year));
-  parts.push(mediaGenresLabel(item));
-  if (item.runtime) parts.push(item.runtime);
-  return parts.join(" · ");
-}
-
-function mediaMatchValue(item: MediaItem): string {
-  // cmdk fuzzy-matches against the `value` string. Title comes first so
-  // prefix matches on the title score highest; everything else (year,
-  // genres, tags, director, cast) is appended to broaden hits — a query for
-  // "atmos" or a cast name still finds the right title. Note that we leave
-  // `item.id` out — id strings like `tv:tt0898266` would otherwise leak
-  // into fuzzy space and surface unintended hits for partial-id queries.
-  return [
-    item.title,
-    item.year,
-    item.genres?.join(" "),
-    item.tags?.join(" "),
-    item.mediaType === "tv" ? "tv show series" : "movie film",
-    item.director,
-    item.cast?.join(" "),
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function pageMatchValue(page: PageItem): string {
-  return `${page.id} ${t(page.labelKey)} ${t(page.hintKey)}`;
-}
-
-function searchModeMatchValue(mode: SearchModeItem): string {
-  return `${mode.id} ${t(mode.labelKey)} ${t(mode.hintKey)}`;
-}
-
-function actionMatchValue(action: ActionItem): string {
-  return `${action.id} ${t(action.labelKey)} ${t(action.hintKey)}`;
-}
-
-function RowIcon({ Icon }: { Icon: typeof Tv }) {
-  return (
-    <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
-      <Icon className="size-3.5" />
-    </div>
-  );
-}
-
-function RowContent({ label, hint, badge }: { label: string; hint: string; badge?: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
-        <span className="truncate">{label}</span>
-        {badge}
-      </div>
-      <div className="truncate text-xs text-muted-foreground/80">{hint}</div>
-    </div>
-  );
-}
-
-function RowAffordance({ label }: { label: string }) {
-  return (
-    <CommandShortcut className="hidden items-center gap-1.5 text-[11px] text-muted-foreground/80 group-data-[selected=true]/command-item:flex">
-      <span>{label}</span>
-      <Kbd className="border border-border">
-        <CornerDownLeft className="size-3" />
-      </Kbd>
-    </CommandShortcut>
-  );
 }
 
 function CommandFooter() {

@@ -8,6 +8,7 @@ import type { PageItem } from "../types";
  */
 export const COMMAND_PAGES: readonly PageItem[] = [
   {
+    kind: "page",
     id: "page:home",
     to: "/",
     Icon: Home,
@@ -15,6 +16,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     hintKey: "command_menu_page_home_hint",
   },
   {
+    kind: "page",
     id: "page:library",
     to: "/library",
     Icon: Library,
@@ -22,6 +24,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     hintKey: "command_menu_page_library_hint",
   },
   {
+    kind: "page",
     id: "page:watchlist",
     to: "/watchlist",
     Icon: Bookmark,
@@ -29,6 +32,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     hintKey: "command_menu_page_watchlist_hint",
   },
   {
+    kind: "page",
     id: "page:settings",
     to: "/settings",
     Icon: Settings,
@@ -36,6 +40,7 @@ export const COMMAND_PAGES: readonly PageItem[] = [
     hintKey: "command_menu_page_settings_hint",
   },
   {
+    kind: "page",
     id: "page:connections",
     to: "/settings/connections",
     Icon: Plug,
