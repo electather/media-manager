@@ -11,7 +11,14 @@ import {
 } from "react";
 
 import { m } from "@/paraglide/messages";
-import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/shared/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandLoading,
+} from "@/shared/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import { Logo } from "@/shared/components/logo";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
@@ -202,6 +209,23 @@ export function CommandMenu() {
           />
 
           <CommandList>
+            {/* `CommandLoading` is cmdk's built-in loading slot. Rendering it
+                suppresses `CommandEmpty` while a fetch is in flight, so stale
+                results from `keepPreviousData` keep showing without a "no
+                results" flash between the typed query and the new batch. */}
+            {search.isSearching && search.isFetching && (
+              <CommandLoading>
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center gap-2 text-xs text-muted-foreground"
+                >
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  <span>{m.command_menu_search_loading()}</span>
+                </div>
+              </CommandLoading>
+            )}
+
             <CommandEmpty>
               <div className="flex flex-col items-center gap-1.5 py-2">
                 <span>{m.command_menu_empty_title({ query: value })}</span>
@@ -283,11 +307,8 @@ export function CommandMenu() {
                   </CommandGroup>
                 )}
 
-                {(sections.mediaItems.length > 0 || (search.isSearching && search.isFetching)) && (
+                {sections.mediaItems.length > 0 && (
                   <CommandGroup heading={t(getResultsHeadingKey(sections.scope))}>
-                    {search.isSearching && search.isFetching && (
-                      <SearchLoadingHint hasResults={sections.mediaItems.length > 0} />
-                    )}
                     {sections.mediaItems.map((item) => (
                       <MediaRow
                         key={`media:${item.id}`}
@@ -350,34 +371,6 @@ export function CommandMenu() {
         </Command>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function SearchLoadingHint({ hasResults }: { hasResults: boolean }) {
-  // Non-selectable status row. `hasResults` decides between a top-edge spinner
-  // (results are stale, so we keep them visible underneath) and a single full
-  // row that fills the gap before the first batch lands.
-  if (hasResults) {
-    return (
-      <div
-        aria-live="polite"
-        role="status"
-        className="flex items-center gap-2 px-2 py-1 text-[11px] text-muted-foreground/80"
-      >
-        <Loader2 className="size-3 animate-spin" aria-hidden />
-        <span>{m.command_menu_search_loading()}</span>
-      </div>
-    );
-  }
-  return (
-    <div
-      aria-live="polite"
-      role="status"
-      className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground"
-    >
-      <Loader2 className="size-3.5 animate-spin" aria-hidden />
-      <span>{m.command_menu_search_loading()}</span>
-    </div>
   );
 }
 
