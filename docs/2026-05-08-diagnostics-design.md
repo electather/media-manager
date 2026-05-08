@@ -40,28 +40,28 @@ Self-host diag svc. 2 record kinds: `error_records` ∧ `perf_records`. Shared: 
 
 3 pts: FE, BE, plugin runtime. Severity model unchanged (§Sev).
 
-| surface  | trigger                                | action                                     |
-| -------- | -------------------------------------- | ------------------------------------------ |
-| FE       | React error boundary (root + routes)   | catch render → POST `/api/diagnostics/errors` → fallback UI w/ req-id |
-| FE       | `window.error`, `unhandledrejection`   | global handlers capture outside React tree |
-| FE       | `reportError(err, sev, ctx?, code?)`   | explicit capture                           |
-| FE       | RPC non-2xx                            | `warning` FE-only; BE holds authoritative  |
-| BE       | RPC mw 5xx throw                       | `error`, req-id stamp, rethrow             |
-| BE       | RPC mw 4xx handler bug                 | `error`                                    |
-| BE       | RPC mw 4xx user input                  | ⊥ captured (auth denied / 404 / bad input) |
-| Plugin   | sandbox throw                          | `error`, src+pluginId+stack+req-id, mark conn errored |
-| Plugin   | output Zod fail                        | `warning`, host → empty results            |
-| Plugin   | OOM \| timeout                         | `error` w/ cause                           |
-| Cron     | job handler throw                      | wrapper: log job + exception               |
+| surface | trigger                              | action                                                                |
+| ------- | ------------------------------------ | --------------------------------------------------------------------- |
+| FE      | React error boundary (root + routes) | catch render → POST `/api/diagnostics/errors` → fallback UI w/ req-id |
+| FE      | `window.error`, `unhandledrejection` | global handlers capture outside React tree                            |
+| FE      | `reportError(err, sev, ctx?, code?)` | explicit capture                                                      |
+| FE      | RPC non-2xx                          | `warning` FE-only; BE holds authoritative                             |
+| BE      | RPC mw 5xx throw                     | `error`, req-id stamp, rethrow                                        |
+| BE      | RPC mw 4xx handler bug               | `error`                                                               |
+| BE      | RPC mw 4xx user input                | ⊥ captured (auth denied / 404 / bad input)                            |
+| Plugin  | sandbox throw                        | `error`, src+pluginId+stack+req-id, mark conn errored                 |
+| Plugin  | output Zod fail                      | `warning`, host → empty results                                       |
+| Plugin  | OOM \| timeout                       | `error` w/ cause                                                      |
+| Cron    | job handler throw                    | wrapper: log job + exception                                          |
 
 ### §Cap.P Perf
 
 2 dims v1: HTTP req timing, plugin invoke timing.
 
-| surface  | trigger                  | action                                            |
-| -------- | ------------------------ | ------------------------------------------------- |
-| BE HTTP  | hono mw wrap ∀ handler   | `t0 = now()`; await; finally `capturePerf({kind:"http", route, method, status, durationMs: now()-t0})` |
-| BE Plugin| runtime invoke wrap      | `t0 = now()`; invoke; finally `capturePerf({kind:"plugin", pluginId, method, durationMs})` |
+| surface   | trigger                | action                                                                                                 |
+| --------- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| BE HTTP   | hono mw wrap ∀ handler | `t0 = now()`; await; finally `capturePerf({kind:"http", route, method, status, durationMs: now()-t0})` |
+| BE Plugin | runtime invoke wrap    | `t0 = now()`; invoke; finally `capturePerf({kind:"plugin", pluginId, method, durationMs})`             |
 
 `route` = parameterized (`/api/connections/:id`), ⊥ raw URL. Source: hono matched route pattern.
 
@@ -79,15 +79,15 @@ V1 `error` shown default. V2 `warning` toggle off. V3 `info` ⊥ shown (drowns).
 
 ```ts
 HOST_ERROR_CODES = {
-  "plugin.input_invalid":      { severity: "info" },
-  "plugin.bad_credentials":    { severity: "info" },
-  "plugin.upstream_error":     { severity: "error" },
-  "plugin.output_invalid":     { severity: "warning" },
-  "artwork.bad_input":         { severity: "info" },
+  "plugin.input_invalid": { severity: "info" },
+  "plugin.bad_credentials": { severity: "info" },
+  "plugin.upstream_error": { severity: "error" },
+  "plugin.output_invalid": { severity: "warning" },
+  "artwork.bad_input": { severity: "info" },
   "artwork.unsupported_id_combo": { severity: "info" },
-  "artwork.internal":          { severity: "error" },
+  "artwork.internal": { severity: "error" },
   // ...
-} as const satisfies Record<string, ErrorCodeSpec>
+} as const satisfies Record<string, ErrorCodeSpec>;
 ```
 
 `captureError` effective sev: 1) caller param wins; 2) registry; 3) unknown → `error`.
@@ -96,12 +96,12 @@ HOST_ERROR_CODES = {
 
 ∀ record (err ∧ perf) tagged `requestId` UUID.
 
-| surface  | gen                                                              |
-| -------- | ---------------------------------------------------------------- |
-| FE       | **per RPC call** (fresh UUID); page-load also gens one for boundary/global handlers. Sent as `X-Request-Id` header on ∀ outbound RPC ∧ in body of `POST /api/diagnostics/errors`. |
-| BE       | read header \| gen if absent → AsyncLocalStorage → plugin runtime |
-| Plugin   | tag `ctx.log`, stamp record                                      |
-| Cron     | gen @ job start                                                  |
+| surface | gen                                                                                                                                                                               |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FE      | **per RPC call** (fresh UUID); page-load also gens one for boundary/global handlers. Sent as `X-Request-Id` header on ∀ outbound RPC ∧ in body of `POST /api/diagnostics/errors`. |
+| BE      | read header \| gen if absent → AsyncLocalStorage → plugin runtime                                                                                                                 |
+| Plugin  | tag `ctx.log`, stamp record                                                                                                                                                       |
+| Cron    | gen @ job start                                                                                                                                                                   |
 
 User → toast/boundary → `Ref: 7f3a2b1c`. Admin search by req-id → chain visible.
 
@@ -113,11 +113,11 @@ Wire fmt:
 
 ```ts
 interface UserFacingError {
-  code: string                                      // "plugin.timeout"
-  params?: Record<string, string | number>         // template interp
-  devMessage: string                                // EN; logs/viewer only
-  cause?: unknown                                   // viewer only
-  requestId?: string
+  code: string; // "plugin.timeout"
+  params?: Record<string, string | number>; // template interp
+  devMessage: string; // EN; logs/viewer only
+  cause?: unknown; // viewer only
+  requestId?: string;
 }
 ```
 
@@ -134,7 +134,7 @@ i18next file `locales/<lang>/errors.json`:
 
 ```ts
 displayError = (e: UserFacingError) =>
-  t(`errors:${e.code}`, { ...e.params, defaultValue: e.devMessage })
+  t(`errors:${e.code}`, { ...e.params, defaultValue: e.devMessage });
 ```
 
 Missing translation → `devMessage`. Plugin code w/o host translation → `manifest.errorCodes[code]` → `devMessage`. Localization ⊥ block ship.
@@ -254,13 +254,14 @@ V1 ⊥ FE perf reporting. V2 = Web Vitals.
 // apps/server/src/diagnostics/middleware.ts
 
 httpPerfMiddleware = async (c, next) => {
-  const t0 = Date.now()
-  try { await next() }
-  finally {
-    const route = c.req.routePath        // hono ≥ 4.x; matched pattern e.g. "/api/connections/:id"
-    if (!route) return                   // unmatched → skip (covers static, 404, pre-router throws)
-    if (route.startsWith("/api/diagnostics")) return  // recursion guard
-    if (isStreaming(c.res)) return        // SSE / streaming
+  const t0 = Date.now();
+  try {
+    await next();
+  } finally {
+    const route = c.req.routePath; // hono ≥ 4.x; matched pattern e.g. "/api/connections/:id"
+    if (!route) return; // unmatched → skip (covers static, 404, pre-router throws)
+    if (route.startsWith("/api/diagnostics")) return; // recursion guard
+    if (isStreaming(c.res)) return; // SSE / streaming
     capturePerf({
       kind: "http",
       route,
@@ -268,9 +269,9 @@ httpPerfMiddleware = async (c, next) => {
       status: c.res.status,
       durationMs: Date.now() - t0,
       userId: getUserId(c),
-    })
+    });
   }
-}
+};
 ```
 
 Plugin runtime: existing invoke wrap → add `t0`/`durationMs` finally block.
@@ -279,17 +280,17 @@ Plugin runtime: existing invoke wrap → add `t0`/`durationMs` finally block.
 
 ```ts
 interface DiagnosticSink {
-  captureError?(rec: ErrorRecord): Promise<void>
-  capturePerf?(rec: PerfRecord): Promise<void>
+  captureError?(rec: ErrorRecord): Promise<void>;
+  capturePerf?(rec: PerfRecord): Promise<void>;
 }
 ```
 
 Both methods optional → sink can subscribe to one kind. Built-in:
 
-| sink                       | err | perf | note                                          |
-| -------------------------- | --- | ---- | --------------------------------------------- |
-| `DatabaseSink`             | ✓   | ✓    | writes both tables                            |
-| `NotificationErrorSink`    | ✓   | —    | emit `system.error` notification @ severity=`error` |
+| sink                    | err | perf | note                                                |
+| ----------------------- | --- | ---- | --------------------------------------------------- |
+| `DatabaseSink`          | ✓   | ✓    | writes both tables                                  |
+| `NotificationErrorSink` | ✓   | —    | emit `system.error` notification @ severity=`error` |
 
 Future (v2 adapters): Sentry, GlitchTip, OTel collector. Ext-point only v1.
 
@@ -343,19 +344,20 @@ Filter bar: kind (http|plugin), route/method (autocomplete from distinct), plugi
 
 **Aggregate view** (default): rows = grouped by `(kind, route)` or `(kind, pluginId, method)`.
 
-| col      | val                                  |
-| -------- | ------------------------------------ |
-| route    | `GET /api/connections/:id` \| `trakt.search` |
-| count    | n events in window                   |
-| p50      | ms                                   |
-| p95      | ms                                   |
-| p99      | ms                                   |
-| max      | ms                                   |
-| last     | relative ts                          |
+| col   | val                                          |
+| ----- | -------------------------------------------- |
+| route | `GET /api/connections/:id` \| `trakt.search` |
+| count | n events in window                           |
+| p50   | ms                                           |
+| p95   | ms                                           |
+| p99   | ms                                           |
+| max   | ms                                           |
+| last  | relative ts                                  |
 
 Sort: p95 desc default. Click row → drill view.
 
 **Drill view** (right Sheet):
+
 - histogram durations (log buckets).
 - top 50 slowest raw events (timestamp, dur, status, req-id link → chain to errors).
 - linked error count w/ same req-id (correlated failures).
@@ -424,31 +426,31 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 
 ## §T Testing
 
-| test         | coverage                                                       |
-| ------------ | -------------------------------------------------------------- |
-| Unit         | scrubber vs creds/tokens/nested. ∀ sensitive removed.          |
-| Unit         | param route extraction (`/x/123` → `/x/:id` from hono match).  |
-| Unit         | percentile calc js fallback (sorted slice).                    |
-| Integration  | RPC mw 5xx captured, expected 4xx user ⊥ captured.             |
-| Integration  | HTTP perf mw writes row on success ∧ failure (still timed).    |
-| Integration  | HTTP perf mw skips streaming + `/api/diagnostics/*`.            |
-| Integration  | plugin runtime: throw → err record; success → perf record.     |
-| Integration  | `perf/aggregate` returns p50/p95/p99 sorted by p95 desc.        |
-| Integration  | retention sweep: insert range → run → verify deletions ∀ tables. |
-| E2E          | FE err → viewer Errors tab w/ req-id → Perf tab same req-id chain. |
+| test        | coverage                                                           |
+| ----------- | ------------------------------------------------------------------ |
+| Unit        | scrubber vs creds/tokens/nested. ∀ sensitive removed.              |
+| Unit        | param route extraction (`/x/123` → `/x/:id` from hono match).      |
+| Unit        | percentile calc js fallback (sorted slice).                        |
+| Integration | RPC mw 5xx captured, expected 4xx user ⊥ captured.                 |
+| Integration | HTTP perf mw writes row on success ∧ failure (still timed).        |
+| Integration | HTTP perf mw skips streaming + `/api/diagnostics/*`.               |
+| Integration | plugin runtime: throw → err record; success → perf record.         |
+| Integration | `perf/aggregate` returns p50/p95/p99 sorted by p95 desc.           |
+| Integration | retention sweep: insert range → run → verify deletions ∀ tables.   |
+| E2E         | FE err → viewer Errors tab w/ req-id → Perf tab same req-id chain. |
 
 ## §Q Open Questions / Deferred
 
-| q                       | status | note                                                                         |
-| ----------------------- | ------ | ---------------------------------------------------------------------------- |
-| Alerting thresholds     | v2     | "errs/hour > baseline", "p95 regression". Deferred. v1 = count only.         |
-| Error grouping          | v2     | Sentry-style "400× same" deferred. Fingerprint col later.                    |
-| External sinks          | v2     | Iface v1; ⊥ concrete (DB+notify only). Sentry/GlitchTip/OTel adapter on demand. |
-| Incident pages          | v2     | "We know" banner cross plugin breaks deferred. Conn card state OK v1.        |
-| Rate limiting           | v2?    | v1 assumes moderate. Add if vol high.                                        |
-| DB query timing         | v2     | Drizzle wrapper. Defer until HTTP timing surfaces specific slow routes.      |
-| FE Web Vitals           | v2     | LCP/INP/CLS via PerformanceObserver → POST `/api/diagnostics/perf`. Deferred. |
-| Sampling                | v2?    | v1 capture-all. Add reservoir sampling if perf vol > N/day.                  |
-| Pre-aggregated rollups  | v2?    | v1 = on-the-fly query. Hourly/daily rollup table if window queries slow.     |
-| i18n shipping           | v2     | v1 fallback `devMessage`. Build `errors.json` + `displayError` v2.            |
-| Lint rule concat-toast  | v2     | Discipline (§i18n) currently review-only. Add oxlint rule v2.                 |
+| q                      | status | note                                                                            |
+| ---------------------- | ------ | ------------------------------------------------------------------------------- |
+| Alerting thresholds    | v2     | "errs/hour > baseline", "p95 regression". Deferred. v1 = count only.            |
+| Error grouping         | v2     | Sentry-style "400× same" deferred. Fingerprint col later.                       |
+| External sinks         | v2     | Iface v1; ⊥ concrete (DB+notify only). Sentry/GlitchTip/OTel adapter on demand. |
+| Incident pages         | v2     | "We know" banner cross plugin breaks deferred. Conn card state OK v1.           |
+| Rate limiting          | v2?    | v1 assumes moderate. Add if vol high.                                           |
+| DB query timing        | v2     | Drizzle wrapper. Defer until HTTP timing surfaces specific slow routes.         |
+| FE Web Vitals          | v2     | LCP/INP/CLS via PerformanceObserver → POST `/api/diagnostics/perf`. Deferred.   |
+| Sampling               | v2?    | v1 capture-all. Add reservoir sampling if perf vol > N/day.                     |
+| Pre-aggregated rollups | v2?    | v1 = on-the-fly query. Hourly/daily rollup table if window queries slow.        |
+| i18n shipping          | v2     | v1 fallback `devMessage`. Build `errors.json` + `displayError` v2.              |
+| Lint rule concat-toast | v2     | Discipline (§i18n) currently review-only. Add oxlint rule v2.                   |
