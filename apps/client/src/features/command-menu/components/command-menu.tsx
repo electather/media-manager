@@ -159,9 +159,9 @@ export function CommandMenu() {
 
   const scopeForSearch: CommandScope = top.kind === "scope" ? top.scope : null;
   const search = useSearchResults(value, scopeForSearch);
-  // Trending only fires when the user is on a scoped tab and not typing —
-  // gating in the hook keeps the network quiet on the root frame.
-  const trending = useTrending(scopeForSearch && !value ? scopeForSearch : null);
+  // Always fetch trending on a scoped tab — it doubles as the placeholder
+  // list while a search is in flight or before the user has typed anything.
+  const trending = useTrending(scopeForSearch);
 
   const sections = useSections({
     topFrame: top,
@@ -283,18 +283,6 @@ export function CommandMenu() {
                   </CommandGroup>
                 )}
 
-                {sections.scope && sections.trendingItems.length > 0 && (
-                  <CommandGroup heading={t(getTrendingHeadingKey(sections.scope))}>
-                    {sections.trendingItems.map((item) => (
-                      <MediaRow
-                        key={`trending:${item.id}`}
-                        item={item}
-                        onSelect={() => handleSelectMedia(item)}
-                      />
-                    ))}
-                  </CommandGroup>
-                )}
-
                 {search.isError && (
                   <CommandGroup heading={m.command_menu_search_error_title()}>
                     <CommandItem value="search-retry" onSelect={search.refetch}>
@@ -307,8 +295,10 @@ export function CommandMenu() {
                   </CommandGroup>
                 )}
 
-                {sections.mediaItems.length > 0 && (
-                  <CommandGroup heading={t(getResultsHeadingKey(sections.scope))}>
+                {sections.mediaItems.length > 0 && sections.mediaSection && (
+                  <CommandGroup
+                    heading={t(getMediaHeadingKey(sections.mediaSection, sections.scope))}
+                  >
                     {sections.mediaItems.map((item) => (
                       <MediaRow
                         key={`media:${item.id}`}
@@ -380,16 +370,18 @@ function currentSettingValueLabel(setting: SettingItem<string>): string {
   return opt ? t(opt.labelKey) : current;
 }
 
-function getResultsHeadingKey(scope: CommandScope): StaticMessageKey {
+function getMediaHeadingKey(
+  section: "results" | "trending",
+  scope: CommandScope,
+): StaticMessageKey {
+  if (section === "trending") {
+    return scope === "tv"
+      ? "command_menu_section_trending_tv"
+      : "command_menu_section_trending_movie";
+  }
   if (scope === "tv") return "command_menu_section_results_tv";
   if (scope === "movie") return "command_menu_section_results_movie";
   return "command_menu_section_results";
-}
-
-function getTrendingHeadingKey(scope: Exclude<CommandScope, null>): StaticMessageKey {
-  return scope === "tv"
-    ? "command_menu_section_trending_tv"
-    : "command_menu_section_trending_movie";
 }
 
 function CommandFooter() {

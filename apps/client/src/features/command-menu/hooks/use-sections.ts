@@ -3,7 +3,7 @@ import { useMemo } from "react";
 
 import type { CommandScope, MediaItem, NavFrame } from "../types";
 
-const TRENDING_LIMIT = 8;
+const TRENDING_LIMIT = 12;
 const RECENTS_LIMIT = 4;
 
 type SectionsInput = {
@@ -16,6 +16,13 @@ type SectionsInput = {
   searchResults: CompactMediaItem[] | undefined;
 };
 
+/**
+ * Which source backed the current `mediaItems`. Lets the host pick the right
+ * heading ("Trending tv shows" vs "Results") and avoids two nearly-identical
+ * `<CommandGroup>`s for the same media list.
+ */
+export type MediaSection = "results" | "trending" | null;
+
 export type Sections = {
   scope: CommandScope;
   showSearchModes: boolean;
@@ -23,14 +30,15 @@ export type Sections = {
   showActions: boolean;
   showSettings: boolean;
   recentItems: MediaItem[];
-  trendingItems: MediaItem[];
   mediaItems: MediaItem[];
+  mediaSection: MediaSection;
 };
 
 /**
  * Derives which command-menu groups render based on the current top frame
- * and search query. Both media-bearing sections (trending + results) come
- * from server queries — there is no in-memory pool fallback any more.
+ * and search query. On scope frames, search results take over once the
+ * server returns at least one match — until then trending stands in as a
+ * placeholder, including while the search fetch is in flight.
  */
 export function useSections({
   topFrame,
@@ -46,23 +54,32 @@ export function useSections({
   const showPages = isRoot;
   const showActions = isRoot;
   const showSettings = isRoot;
-  const showTrending = scope !== null && !value;
 
   const recentItems = useMemo(() => {
     if (!isRoot || value) return [] as MediaItem[];
     return recents.slice(0, RECENTS_LIMIT);
   }, [isRoot, recents, value]);
 
-  const trendingItems = useMemo<MediaItem[]>(() => {
-    if (!showTrending || !trendingResults) return [];
+  const trendingPool = useMemo<MediaItem[]>(() => {
+    if (scope === null || !trendingResults) return [];
     return trendingResults.slice(0, TRENDING_LIMIT);
-  }, [showTrending, trendingResults]);
+  }, [scope, trendingResults]);
 
-  const mediaItems = useMemo<MediaItem[]>(() => {
-    if (showTrending) return [];
-    if (!searchResults) return [];
-    return searchResults;
-  }, [searchResults, showTrending]);
+  const { mediaItems, mediaSection } = useMemo<{
+    mediaItems: MediaItem[];
+    mediaSection: MediaSection;
+  }>(() => {
+    if (scope === null) {
+      return { mediaItems: [], mediaSection: null };
+    }
+    if (searchResults && searchResults.length > 0) {
+      return { mediaItems: searchResults, mediaSection: "results" };
+    }
+    if (trendingPool.length > 0) {
+      return { mediaItems: trendingPool, mediaSection: "trending" };
+    }
+    return { mediaItems: [], mediaSection: null };
+  }, [scope, searchResults, trendingPool]);
 
   return {
     scope,
@@ -71,7 +88,7 @@ export function useSections({
     showActions,
     showSettings,
     recentItems,
-    trendingItems,
     mediaItems,
+    mediaSection,
   };
 }
