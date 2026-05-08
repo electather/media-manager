@@ -1,3 +1,4 @@
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { useMemo } from "react";
 
 import type { CommandScope, MediaItem, NavFrame } from "../types";
@@ -11,6 +12,8 @@ type SectionsInput = {
   recents: string[];
   pool: MediaItem[];
   trending: MediaItem[];
+  /** Live `/api/search` results — replaces in-memory fuzzy match against `pool`. */
+  searchResults: CompactMediaItem[] | undefined;
 };
 
 export type Sections = {
@@ -18,6 +21,7 @@ export type Sections = {
   showSearchModes: boolean;
   showPages: boolean;
   showActions: boolean;
+  showSettings: boolean;
   recentItems: MediaItem[];
   trendingItems: MediaItem[];
   mediaItems: MediaItem[];
@@ -25,16 +29,24 @@ export type Sections = {
 
 /**
  * Derives which command-menu groups render based on the current top frame
- * and search query. Pure of side effects — exposed as a hook only so the
- * memoization cache stays attached to the menu component instance.
+ * and search query. `mediaItems` is now sourced from the live search query —
+ * `pool` is consumed only for recents lookups and the trending fallback.
  */
-export function useSections({ topFrame, value, recents, pool, trending }: SectionsInput): Sections {
+export function useSections({
+  topFrame,
+  value,
+  recents,
+  pool,
+  trending,
+  searchResults,
+}: SectionsInput): Sections {
   const isRoot = topFrame.kind === "root";
   const scope: CommandScope = topFrame.kind === "scope" ? topFrame.scope : null;
 
   const showSearchModes = isRoot && !value;
   const showPages = isRoot;
   const showActions = isRoot;
+  const showSettings = isRoot;
   const showTrending = scope !== null && !value;
 
   const recentItems = useMemo(() => {
@@ -59,14 +71,20 @@ export function useSections({ topFrame, value, recents, pool, trending }: Sectio
     return out.slice(0, TRENDING_LIMIT);
   }, [pool, scope, showTrending, trending]);
 
-  const mediaItems = useMemo(() => {
-    if (showTrending) return [] as MediaItem[];
-    // §10: at the empty root we want search-modes/recents/pages/actions/
-    // settings only — no bulk pool dump beneath them. The pool is exposed
-    // only after the user has typed (cmdk filters via match-values).
-    if (!scope && isRoot) return value ? pool : ([] as MediaItem[]);
-    return scope ? pool.filter((item) => item.mediaType === scope) : [];
-  }, [isRoot, pool, scope, showTrending, value]);
+  const mediaItems = useMemo<MediaItem[]>(() => {
+    if (showTrending) return [];
+    if (!searchResults) return [];
+    return searchResults;
+  }, [searchResults, showTrending]);
 
-  return { scope, showSearchModes, showPages, showActions, recentItems, trendingItems, mediaItems };
+  return {
+    scope,
+    showSearchModes,
+    showPages,
+    showActions,
+    showSettings,
+    recentItems,
+    trendingItems,
+    mediaItems,
+  };
 }

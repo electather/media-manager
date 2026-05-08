@@ -63,7 +63,7 @@ type Base = {
 export type PageItem = Base & {
   kind: "page";
   to: PageRoute;
-  /** Optional vim-sequence (e.g. ["g","h"]). Wired in phase 4. */
+  /** Optional vim-sequence (e.g. ["G","H"]) registered while the menu is closed. */
   sequence?: readonly string[];
 };
 

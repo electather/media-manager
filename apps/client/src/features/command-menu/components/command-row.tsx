@@ -1,8 +1,9 @@
 import { CornerDownLeft, type LucideIcon } from "lucide-react";
+import { formatForDisplay } from "@tanstack/react-hotkeys";
 import type { ReactNode } from "react";
 
 import { CommandShortcut } from "@/shared/ui/command";
-import { Kbd } from "@/shared/ui/kbd";
+import { Kbd, KbdGroup } from "@/shared/ui/kbd";
 
 export function RowIcon({ Icon }: { Icon: LucideIcon }) {
   return (
@@ -16,19 +17,46 @@ export function RowContent({
   label,
   hint,
   badge,
+  hotkey,
 }: {
   label: string;
   hint: string;
   badge?: ReactNode;
+  /** Renders a platform-formatted Kbd group beside the label. */
+  hotkey?: string;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
       <div className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
         <span className="truncate">{label}</span>
         {badge}
+        {hotkey && <RowHotkey hotkey={hotkey} />}
       </div>
       <div className="truncate text-xs text-muted-foreground/80">{hint}</div>
     </div>
+  );
+}
+
+function RowHotkey({ hotkey }: { hotkey: string }) {
+  const platform: "mac" | "windows" =
+    typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent)
+      ? "mac"
+      : "windows";
+  const chips = formatForDisplay(hotkey, { platform })
+    .split("+")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+  return (
+    <KbdGroup className="gap-1">
+      {chips.map((chip, idx) => (
+        <Kbd
+          key={`${idx}:${chip}`}
+          className="border border-border font-mono text-[10px] uppercase"
+        >
+          {chip}
+        </Kbd>
+      ))}
+    </KbdGroup>
   );
 }
 
