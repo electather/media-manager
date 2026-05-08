@@ -97,9 +97,11 @@ interface JobHandle {
   description?: string; // human-readable, optional
   kind: "scheduled" | "scheduled_per_row" | "triggerable" | "coalesced";
   enabled: boolean;
-  schedule?: string; // cron expression, for scheduled kinds
+  schedule?: string; // code-declared cron expr, scheduled kinds
+  scheduleOverride?: string; // job_config.schedule_override, ? null
+  effectiveSchedule?: string; // override ?? schedule, used by croner adapter
   lastRun?: JobRun;
-  nextRun?: Date; // for scheduled kinds; undefined for triggerable
+  nextRun?: Date; // scheduled kinds; ⊥ triggerable
   adminTriggerable: boolean; // admin can call /trigger with no user context
   userTriggerable: boolean; // feature-scoped; admin call requires target user
   inputSchema?: JSONSchema; // echoed to admin UI for form generation
@@ -262,7 +264,7 @@ function registerCoalesced(opts: {
   debounceMs: number; // required
   maxWaitMs?: number; // default 60_000
   scopeKey: (input: unknown) => string;
-  handler: (ctx: JobRunContext, triggerCount: number) => Promise<void>;
+  handler: (ctx: JobRunContext, triggerCount: number, scopeKey: string) => Promise<void>;
   timeoutSec?: number;
 }): CoalescedJobHandle;
 
@@ -278,6 +280,8 @@ Semantics:
 - Each trigger resets debounce timer for its scope. After `debounceMs` silence (| `maxWaitMs` from first trigger, whichever first) → handler fires once with accumulated `triggerCount`.
 - Triggers arriving during handler execution extend follow-up run; ⊥ triggers dropped.
 - Different scope keys coalesce independently.
+- Handler receives `scopeKey` 3rd arg → identify burst target ⊥ re-derive from input.
+- Burst tracker captures first trigger's `requestId` (when input carries one) → propagate into run ctx; ⊥ → fresh `requestId` at handler fire.
 - ⊥ directly triggerable from admin UI (purpose = debouncing). Admins wanting force-run use triggerable job publishing to same destination.
 
 Registration rejects duplicate IDs at startup. Re-registration on plugin update: old handle disposed first, new one registers.
@@ -316,6 +320,8 @@ Per-job configured log level gates what enters buffer. Entries below level dropp
 
 Level filtering applies only to run buffer. Stdout logs still honor host-wide log level (unchanged). Admin bumping job to `debug` ⊥ floods stdout — only captured buffer for runs of that job.
 
+Stdout threshold for job-emitted lines tunable via env `JOB_CONSOLE_LOG_LEVEL` (`debug`|`info`|`warn`|`error`). ⊥ set → host default. Independent of per-job buffer level.
+
 ### Size cap and truncation
 
 Ring buffer, 500KB per run. On overflow, oldest entries dropped; `{ truncated: N }` marker recorded & surfaced in UI. Entry size measured post-scrub-and-serialize → cap bounds actual storage.
@@ -349,6 +355,8 @@ job_runs
 ├── scope_key               text                        (nullable; target of the work)
 ├── status                  text NOT NULL               ("succeeded" | "partial_failure" | "failed"
 │                                                         | "skipped" | "timed_out" | "cancelled")
+│                                                       (runtime-only `running` ∈ in-mem registry,
+│                                                         ⊥ persisted; DB rows = terminal status)
 ├── triggered_by            text NOT NULL               ("cron" | "admin" | "user" | "feature")
 ├── triggered_by_user_id    text FK → user.id           (nullable; acting principal)
 ├── started_at              integer NOT NULL            (unix millis)
@@ -407,7 +415,7 @@ All endpoints Hono routes under `/api/jobs`.
   - `adminTriggerable: true` scheduled | scheduled_per_row: body empty (| ignored); runs handler as if cron fired.
   - Returns `{ runId, result? }` (result only for triggerable). Returns `job.wrong_kind` if job ⊥ admin-triggerable.
 - `POST /api/jobs/:id/cancel` — set abort signal. Returns immediately.
-- `POST /api/jobs/:id/config` — update `job_config`. Body: `{ enabled?: boolean; scheduleOverride?: string | null; logLevel?: "debug" | "info" | "warn" | "error" }`. Returns updated `JobHandle`.
+- `POST /api/jobs/:id/config` — update `job_config`. Body: `{ enabled?: boolean; scheduleOverride?: string | null; logLevel?: "debug" | "info" | "warn" | "error" }`. `logLevel` gates entries entering run buffer (§Logging). Returns updated `JobHandle`.
 
 ### User-scoped endpoint (authenticated users)
 
