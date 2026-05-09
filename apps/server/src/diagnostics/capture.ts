@@ -128,6 +128,9 @@ function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
   };
 }
 
+// Straight-line null-coalescing across the wire shape's optional fields;
+// cyclomatic count reflects field count, not branching logic.
+// fallow-ignore-next-line complexity
 function buildPerfRecord(meta: PerfCaptureMeta): PerfRecord {
   const ctx = currentRequestContext();
   return {

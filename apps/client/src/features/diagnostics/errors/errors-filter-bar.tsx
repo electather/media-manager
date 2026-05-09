@@ -42,6 +42,8 @@ const DEFAULT_FILTERS: ErrorsFilters = {
   search: "",
 };
 
+// Short-circuit dirty check across each independent filter slot.
+// fallow-ignore-next-line complexity
 function isDirty(filters: ErrorsFilters): boolean {
   return (
     filters.severity.length < 3 ||

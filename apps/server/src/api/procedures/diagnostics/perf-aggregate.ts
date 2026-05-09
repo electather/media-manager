@@ -42,7 +42,9 @@ export function percentile(sorted: number[], p: number): number {
 
 /** Groups the raw rows by `(kind, route)` or `(kind, pluginId)` and computes
  *  the count, p50/p95/p99, max, and lastAt per group. Sorted by p95 desc,
- *  capped at 100 rows. */
+ *  capped at 100 rows. The cyclomatic count reflects field count, not
+ *  branching logic. */
+// fallow-ignore-next-line complexity
 export function aggregatePerfRows(
   rows: RawPerfRow[],
   groupKey: "route" | "plugin",

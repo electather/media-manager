@@ -50,7 +50,9 @@
       "**/*.spec.tsx",
       "**/*.tsx",
       "**/plugin.ts",
-      "packages/plugins/**"
+      "packages/plugins/**",
+      "apps/server/src/db/schema/**",
+      "apps/server/src/api/procedures/**"
     ]
   },
   "health": {

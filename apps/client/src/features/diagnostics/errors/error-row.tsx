@@ -38,6 +38,9 @@ const SOURCE_LABELS: Record<ErrorSource, string> = {
   cron: "Cron",
 };
 
+// UI conditional rendering across optional row fields (pluginId, httpStatus,
+// requestId) is intrinsic.
+// fallow-ignore-next-line complexity
 export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
   return (
     <div

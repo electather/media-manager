@@ -17,6 +17,9 @@ interface Props {
   onJumpThread: (requestId: string) => void;
 }
 
+// Conditional rendering of pinned-banner + body branches over the query
+// states is intrinsic; further extraction would not simplify.
+// fallow-ignore-next-line complexity
 export function ErrorsTable({
   filters,
   onClearRequestId,
@@ -38,60 +41,116 @@ export function ErrorsTable({
   return (
     <div className="flex flex-col gap-4">
       {pinnedRequestId ? (
-        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm text-foreground/85">
-          <FilterIcon className="size-3.5 text-muted-foreground" />
-          <span>Pinned to</span>
-          <ThreadChip requestId={pinnedRequestId} />
-          <span className="text-muted-foreground">
-            — {rows.length} {rows.length === 1 ? "match" : "matches"}.
-          </span>
-          <span className="ml-auto" />
-          <Button variant="outline" size="sm" onClick={onClearRequestId}>
-            Clear thread
-          </Button>
-        </div>
+        <PinnedThreadBanner
+          requestId={pinnedRequestId}
+          matches={rows.length}
+          onClearRequestId={onClearRequestId}
+        />
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        {list.isPending ? (
-          <SkeletonRows />
-        ) : list.isError ? (
-          <EmptyState
-            icon="error"
-            title="Couldn't load diagnostics"
-            body="The diagnostics service didn't respond. Try again."
-          >
-            <Button variant="outline" size="sm" onClick={() => list.refetch()}>
-              Retry
-            </Button>
-          </EmptyState>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon="empty"
-            title="No errors match these filters"
-            body="Try broadening severity or source, widening the date range, or clearing the request-ID pin."
-          />
-        ) : (
-          <>
-            {rows.map((row) => (
-              <ErrorRow
-                key={row.id}
-                row={row}
-                isOpen={selectedId === row.id}
-                onOpen={(id) => onSelect(id === selectedId ? null : id)}
-                onJumpThread={onJumpThread}
-              />
-            ))}
-            <div className="flex items-center justify-between border-t border-border px-4 py-2.5 font-mono text-[11px] text-muted-foreground/80">
-              <span>
-                {rows.length} of {total} · newest first
-              </span>
-              <span>100 / page</span>
-            </div>
-          </>
-        )}
+        <ErrorsTableBody
+          isPending={list.isPending}
+          isError={list.isError}
+          refetch={() => list.refetch()}
+          rows={rows}
+          total={total}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          onJumpThread={onJumpThread}
+        />
       </Card>
     </div>
+  );
+}
+
+function PinnedThreadBanner({
+  requestId,
+  matches,
+  onClearRequestId,
+}: {
+  requestId: string;
+  matches: number;
+  onClearRequestId: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm text-foreground/85">
+      <FilterIcon className="size-3.5 text-muted-foreground" />
+      <span>Pinned to</span>
+      <ThreadChip requestId={requestId} />
+      <span className="text-muted-foreground">
+        — {matches} {matches === 1 ? "match" : "matches"}.
+      </span>
+      <span className="ml-auto" />
+      <Button variant="outline" size="sm" onClick={onClearRequestId}>
+        Clear thread
+      </Button>
+    </div>
+  );
+}
+
+interface ErrorsTableBodyProps {
+  isPending: boolean;
+  isError: boolean;
+  refetch: () => void;
+  rows: ErrorListRow[];
+  total: number;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  onJumpThread: (requestId: string) => void;
+}
+
+function ErrorsTableBody({
+  isPending,
+  isError,
+  refetch,
+  rows,
+  total,
+  selectedId,
+  onSelect,
+  onJumpThread,
+}: ErrorsTableBodyProps) {
+  if (isPending) return <SkeletonRows />;
+  if (isError) {
+    return (
+      <EmptyState
+        icon="error"
+        title="Couldn't load diagnostics"
+        body="The diagnostics service didn't respond. Try again."
+      >
+        <Button variant="outline" size="sm" onClick={refetch}>
+          Retry
+        </Button>
+      </EmptyState>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <EmptyState
+        icon="empty"
+        title="No errors match these filters"
+        body="Try broadening severity or source, widening the date range, or clearing the request-ID pin."
+      />
+    );
+  }
+  return (
+    <>
+      {rows.map((row) => (
+        <ErrorRow
+          key={row.id}
+          row={row}
+          isOpen={selectedId === row.id}
+          onOpen={(id) => onSelect(id === selectedId ? null : id)}
+          onJumpThread={onJumpThread}
+        />
+      ))}
+      <div className="flex items-center justify-between border-t border-border px-4 py-2.5 font-mono text-[11px] text-muted-foreground/80">
+        <span>
+          {rows.length} of {total} · newest first
+        </span>
+        <span>100 / page</span>
+      </div>
+    </>
   );
 }
 

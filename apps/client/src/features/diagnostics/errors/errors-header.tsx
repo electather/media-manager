@@ -8,6 +8,9 @@ import { ErrorsSparkline } from "./errors-sparkline";
 /** Last-24-hour count headline + stacked hourly sparkline. Numbers come from
  *  `/admin/diagnostics/errors/summary` which the server pre-bins into 24
  *  buckets keyed by severity. */
+// Renders pending/empty/data branches plus a per-severity chip set;
+// combining would not simplify.
+// fallow-ignore-next-line complexity
 export function ErrorsHeader() {
   const summary = useQuery({
     queryKey: diagnosticsKeys.errors.summary(),

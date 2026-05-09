@@ -1,4 +1,10 @@
-import type { ErrorSeverity, ErrorSource, PerfKind } from "@ent-mcp/shared/diagnostics";
+import type {
+  ErrorRecord,
+  ErrorSeverity,
+  ErrorSource,
+  PerfKind,
+  PerfRecord,
+} from "@ent-mcp/shared/diagnostics";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 /** Filter state owned by the diagnostics route — encoded in search params. */
@@ -19,26 +25,13 @@ export interface PerfFilters {
   search: string;
 }
 
-/** Wire shape returned by `/admin/diagnostics/errors` list endpoint. */
-export interface ErrorListRow {
-  id: string;
-  requestId: string;
-  severity: ErrorSeverity;
-  source: ErrorSource;
-  code: string | null;
-  devMessage: string;
-  route: string | null;
-  httpStatus: number | null;
-  userId: string | null;
-  pluginId: string | null;
-  createdAt: number;
-}
+/** Wire shape returned by `/admin/diagnostics/errors` list endpoint. List rows
+ *  drop the heavyweight detail fields (`stack`, `context`, `connectionId`) —
+ *  the detail sheet refetches the full {@link ErrorDetail} when opened. */
+export type ErrorListRow = Omit<ErrorRecord, "stack" | "context" | "connectionId">;
 
-export interface ErrorDetail extends ErrorListRow {
-  stack: string | null;
-  context: string | null;
-  connectionId: string | null;
-}
+/** Detail view re-uses the canonical record shape from `@ent-mcp/shared`. */
+export type ErrorDetail = ErrorRecord;
 
 export interface ErrorsSummary {
   lastHour: number;
@@ -73,18 +66,8 @@ export interface PerfSummaryResponse {
   hourlySeries: Array<{ count: number; p50: number; p95: number }>;
 }
 
-export interface PerfRecord {
-  id: string;
-  requestId: string;
-  kind: PerfKind;
-  durationMs: number;
-  route: string | null;
-  method: string | null;
-  status: number | null;
-  pluginId: string | null;
-  userId: string | null;
-  createdAt: number;
-}
+/** Re-export the canonical perf-record shape; the wire payload is identical. */
+export type { PerfRecord };
 
 export interface PerfDetailResponse {
   record: PerfRecord;

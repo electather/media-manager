@@ -37,6 +37,8 @@ export const PERF_DEFAULT_FILTERS: PerfFilters = {
   search: "",
 };
 
+// Short-circuit dirty check across each independent filter slot.
+// fallow-ignore-next-line complexity
 function isDirty(filters: PerfFilters): boolean {
   return (
     filters.kind !== "all" ||

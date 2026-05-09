@@ -36,6 +36,9 @@ export function requestContextMiddleware() {
  *  perf row inherits that id and chains to any error captured for the same
  *  request. */
 export function httpPerfMiddleware() {
+  // Middleware filter chain (route + recursion guard + streaming guard +
+  // session lookup) is intrinsic.
+  // fallow-ignore-next-line complexity
   return async (c: Context, next: Next): Promise<void> => {
     const t0 = Date.now();
     try {

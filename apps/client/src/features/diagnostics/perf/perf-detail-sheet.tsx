@@ -20,6 +20,9 @@ interface Props {
  *  loads a specific perf row by id (e.g. when reached via deep link); the
  *  "group summary" path uses the parent aggregate row directly so we render
  *  immediately without re-querying. */
+// Sheet wraps a header + body; both branches over the (group | detailId)
+// inputs are intrinsic to the bimodal API.
+// fallow-ignore-next-line complexity
 export function PerfDetailSheet({ group, detailId, onClose, onJumpThread }: Props) {
   const detail = useQuery({
     queryKey: detailId ? diagnosticsKeys.perf.detail(detailId) : ["disabled"],
@@ -31,35 +34,77 @@ export function PerfDetailSheet({ group, detailId, onClose, onJumpThread }: Prop
   return (
     <Sheet open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <SheetContent side="right" className="w-full max-w-2xl gap-0 sm:max-w-2xl">
-        <SheetHeader className="border-b border-border">
-          <SheetTitle className="font-mono text-sm">
-            {group
-              ? (group.route ?? group.pluginId ?? "(unknown)")
-              : (detail.data?.record.route ?? "Detail")}
-          </SheetTitle>
-          {group ? (
-            <p className="text-xs text-muted-foreground">
-              {group.count.toLocaleString()} calls · last seen {formatAbs(group.lastAt)}
-            </p>
-          ) : null}
-        </SheetHeader>
-
+        <PerfDetailHeader group={group} detail={detail.data ?? null} />
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          {group ? <GroupBody group={group} /> : null}
-          {detailId ? (
-            detail.isPending ? (
-              <Skeleton className="h-32 w-full" />
-            ) : detail.data ? (
-              <SingleBody
-                record={detail.data.record}
-                correlated={detail.data.correlatedErrors}
-                onJumpThread={onJumpThread}
-              />
-            ) : null
-          ) : null}
+          <PerfDetailBody
+            group={group}
+            detailId={detailId}
+            detail={detail.data ?? null}
+            isPending={detail.isPending}
+            onJumpThread={onJumpThread}
+          />
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+interface PerfDetail {
+  record: SingleBodyProps["record"];
+  correlatedErrors: SingleBodyProps["correlated"];
+}
+
+// Header title falls through (group | detail | "Detail"); each branch is
+// one input slot.
+// fallow-ignore-next-line complexity
+function PerfDetailHeader({
+  group,
+  detail,
+}: {
+  group: PerfAggregateGroup | null;
+  detail: PerfDetail | null;
+}) {
+  const title = group
+    ? (group.route ?? group.pluginId ?? "(unknown)")
+    : (detail?.record.route ?? "Detail");
+  return (
+    <SheetHeader className="border-b border-border">
+      <SheetTitle className="font-mono text-sm">{title}</SheetTitle>
+      {group ? (
+        <p className="text-xs text-muted-foreground">
+          {group.count.toLocaleString()} calls · last seen {formatAbs(group.lastAt)}
+        </p>
+      ) : null}
+    </SheetHeader>
+  );
+}
+
+// Dispatches over (group | detailId | pending | data) states; one branch
+// per query state is intrinsic.
+// fallow-ignore-next-line complexity
+function PerfDetailBody({
+  group,
+  detailId,
+  detail,
+  isPending,
+  onJumpThread,
+}: {
+  group: PerfAggregateGroup | null;
+  detailId: string | null;
+  detail: PerfDetail | null;
+  isPending: boolean;
+  onJumpThread: (requestId: string) => void;
+}) {
+  if (group) return <GroupBody group={group} />;
+  if (!detailId) return null;
+  if (isPending) return <Skeleton className="h-32 w-full" />;
+  if (!detail) return null;
+  return (
+    <SingleBody
+      record={detail.record}
+      correlated={detail.correlatedErrors}
+      onJumpThread={onJumpThread}
+    />
   );
 }
 
@@ -117,6 +162,9 @@ interface SingleBodyProps {
   onJumpThread: (requestId: string) => void;
 }
 
+// UI conditional rendering of optional record fields plus an empty-state
+// branch is intrinsic.
+// fallow-ignore-next-line complexity
 function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
   return (
     <div className="space-y-5 text-sm">

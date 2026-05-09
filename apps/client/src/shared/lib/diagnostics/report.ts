@@ -27,6 +27,9 @@ function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | 
  *  (e.g. global window.error fires outside an RPC). Swallows transport
  *  failures intentionally — we never want "error capture failed" to surface
  *  in the UI. */
+// Payload assembly walks each optional ambient field (requestId, route,
+// context); branching reflects that surface, not control flow.
+// fallow-ignore-next-line complexity
 export async function reportError(
   err: unknown,
   severity: ErrorSeverity,

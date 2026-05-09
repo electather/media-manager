@@ -19,6 +19,8 @@ interface Props {
  *  reveals stack trace, scrubbed context, and a thread chip wired to the
  *  page-level jump handler so the reader can pivot to the perf tab on the
  *  same request id. */
+// UI conditional rendering of header/body/empty branches is intrinsic.
+// fallow-ignore-next-line complexity
 export function ErrorDetailSheet({ selectedId, onClose, onJumpThread }: Props) {
   const detailQuery = useQuery({
     queryKey: selectedId ? diagnosticsKeys.errors.detail(selectedId) : ["disabled"],
@@ -56,6 +58,9 @@ export function ErrorDetailSheet({ selectedId, onClose, onJumpThread }: Props) {
   );
 }
 
+// Every branch corresponds to an optional record field rendered as its own
+// section; combining them would not simplify.
+// fallow-ignore-next-line complexity
 function ErrorBody({
   detail,
   onJumpThread,

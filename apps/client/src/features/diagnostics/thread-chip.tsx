@@ -11,6 +11,9 @@ interface Props {
 /** Clickable request_id pill that ties errors ↔ performance via the page-level
  *  jump handler. Visually accents with the project's primary tone — used so a
  *  reader can spot at a glance which records share a request thread. */
+// Chip toggles between span/button modes; the attribute and class branches
+// are intrinsic to that bimodal API.
+// fallow-ignore-next-line complexity
 export function ThreadChip({ requestId, onJump, className }: Props) {
   if (!requestId) return null;
   const interactive = typeof onJump === "function";

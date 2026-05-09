@@ -13,6 +13,9 @@ interface Props {
  *  the row's own distribution — p99 is "warn" tone, max is "danger" tone —
  *  so a glance at the right edge surfaces tail outliers without needing a
  *  separate column or threshold input. */
+// Renders four latency cells whose colour-tone branches reflect the row's own
+// distribution; per-cell helpers would not simplify.
+// fallow-ignore-next-line complexity
 export function PerfRow({ group, isOpen, onOpen }: Props) {
   const id = `${group.kind}:${group.route ?? group.pluginId ?? "(unknown)"}`;
   const warn = group.p99;

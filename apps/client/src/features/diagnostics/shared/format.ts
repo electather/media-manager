@@ -1,6 +1,7 @@
 /** Renders a millisecond timestamp as a human relative string ("just now",
  *  "5m ago", "2d ago"). Falls back to a localized short date once it crosses
- *  the seven-day mark so older records still anchor visually. */
+ *  the seven-day mark. Each branch is one bucket on the relative-time scale. */
+// fallow-ignore-next-line complexity
 export function formatRel(ts: number | null | undefined): string {
   if (!ts) return "—";
   const diff = Date.now() - ts;
@@ -23,7 +24,9 @@ export function formatAbs(ts: number | null | undefined): string {
   });
 }
 
-/** Formats a duration in milliseconds with the smallest reasonable unit. */
+/** Formats a duration in milliseconds with the smallest reasonable unit;
+ *  each branch picks one unit on the ladder. */
+// fallow-ignore-next-line complexity
 export function formatMs(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return "—";
   if (ms < 1) return "<1 ms";

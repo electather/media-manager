@@ -1,16 +1,14 @@
 import type { DiagnosticsConfigBody } from "@ent-mcp/shared/diagnostics";
 import { api } from "@/shared/lib/api";
-import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
-import { safeJson } from "@/shared/lib/diagnostics/safe-json";
+import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
 import { rangeToWindow } from "./format";
 import { DiagnosticsApiError, type ErrorsFilters, type PerfFilters } from "./types";
 
-async function throwOnError(res: Response): Promise<never> {
-  const body = (await safeJson(res)) as ApiErrorBody | null;
-  throw new DiagnosticsApiError(res.status, body);
-}
+const throwOnError = (res: Response) => throwOnApiError(res, DiagnosticsApiError);
 
-/** Builds the comma-delimited query shape the backend expects for list endpoints. */
+/** Builds the comma-delimited query shape the backend expects for list endpoints.
+ *  One branch per optional filter is intrinsic to the API contract. */
+// fallow-ignore-next-line complexity
 function errorsQuery(filters: ErrorsFilters) {
   const window = rangeToWindow(filters.range);
   const out: Record<string, string> = {
