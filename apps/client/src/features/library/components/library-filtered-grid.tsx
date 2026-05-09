@@ -10,28 +10,28 @@ interface LibraryFilteredGridProps {
   onPeek: (id: string) => void;
 }
 
-function filterLabel(filter: LibraryFilter): string {
-  if (filter === "ready") return m.library_filter_ready();
-  if (filter === "in-progress") return m.library_filter_in_progress();
-  if (filter === "awaiting") return m.library_filter_awaiting();
-  if (filter === "upcoming") return m.library_filter_upcoming();
-  return m.library_filter_all();
-}
+const FILTER_LABELS: Record<LibraryFilter, () => string> = {
+  all: () => m.library_filter_all(),
+  ready: () => m.library_filter_ready(),
+  "in-progress": () => m.library_filter_in_progress(),
+  awaiting: () => m.library_filter_awaiting(),
+  upcoming: () => m.library_filter_upcoming(),
+};
 
-function sortLabel(sort: LibrarySort): string {
-  if (sort === "alpha") return m.library_sort_alpha();
-  if (sort === "runtime") return m.library_sort_runtime();
-  if (sort === "status") return m.library_sort_status();
-  return m.library_sort_recent();
-}
+const SORT_LABELS: Record<LibrarySort, () => string> = {
+  recent: () => m.library_sort_recent(),
+  alpha: () => m.library_sort_alpha(),
+  runtime: () => m.library_sort_runtime(),
+  status: () => m.library_sort_status(),
+};
 
 export function LibraryFilteredGrid({ items, filter, sort, onPeek }: LibraryFilteredGridProps) {
   return (
     <section>
       <SectionHead
         eyebrow={m.library_filtered_eyebrow({
-          filter: filterLabel(filter),
-          sort: sortLabel(sort),
+          filter: FILTER_LABELS[filter](),
+          sort: SORT_LABELS[sort](),
         })}
         title={m.library_filtered_title()}
         count={items.length}

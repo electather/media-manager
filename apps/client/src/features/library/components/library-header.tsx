@@ -29,11 +29,14 @@ interface LibraryHeaderProps {
 }
 
 function filterCount(id: LibraryFilter, total: number, counts: LibraryCounts): number {
-  if (id === "all") return total;
-  if (id === "ready") return counts.ready;
-  if (id === "in-progress") return counts.inProgress;
-  if (id === "awaiting") return counts.awaiting;
-  return counts.upcoming;
+  const map: Record<LibraryFilter, number> = {
+    all: total,
+    ready: counts.ready,
+    "in-progress": counts.inProgress,
+    awaiting: counts.awaiting,
+    upcoming: counts.upcoming,
+  };
+  return map[id];
 }
 
 export function LibraryHeader({

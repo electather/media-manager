@@ -3,6 +3,29 @@ import type { LibraryItem, LibraryMood, RecentLogEntry } from "./types";
 const POSTER = (seed: string): string => `https://picsum.photos/seed/${seed}-p/400/600`;
 const BACKDROP = (seed: string): string => `https://picsum.photos/seed/${seed}-b/960/540`;
 
+function item(
+  mediaType: "movie" | "tv",
+  id: string,
+  title: string,
+  year: number,
+  runtimeMin: number,
+  episodeCount: number | undefined,
+  extra: Partial<LibraryItem>,
+): LibraryItem {
+  const facets = episodeCount === undefined ? { runtimeMin } : { runtimeMin, episodeCount };
+  return {
+    id: `${mediaType}:${id}`,
+    tmdbId: id,
+    mediaType,
+    title,
+    year,
+    poster: POSTER(id),
+    backdrop: BACKDROP(id),
+    facets,
+    ...extra,
+  };
+}
+
 function movie(
   id: string,
   title: string,
@@ -10,17 +33,7 @@ function movie(
   runtimeMin: number,
   extra: Partial<LibraryItem> = {},
 ): LibraryItem {
-  return {
-    id: `movie:${id}`,
-    tmdbId: id,
-    mediaType: "movie",
-    title,
-    year,
-    poster: POSTER(id),
-    backdrop: BACKDROP(id),
-    facets: { runtimeMin },
-    ...extra,
-  };
+  return item("movie", id, title, year, runtimeMin, undefined, extra);
 }
 
 function tv(
@@ -31,17 +44,21 @@ function tv(
   episodeCount: number,
   extra: Partial<LibraryItem> = {},
 ): LibraryItem {
-  return {
-    id: `tv:${id}`,
-    tmdbId: id,
-    mediaType: "tv",
-    title,
-    year,
-    poster: POSTER(id),
-    backdrop: BACKDROP(id),
-    facets: { runtimeMin, episodeCount },
-    ...extra,
-  };
+  return item("tv", id, title, year, runtimeMin, episodeCount, extra);
+}
+
+function upcomingTv(
+  id: string,
+  title: string,
+  year: number,
+  runtimeMin: number,
+  episodeCount: number,
+  releaseDate: string,
+): LibraryItem {
+  return tv(id, title, year, runtimeMin, episodeCount, {
+    status: "unknown",
+    facets: { runtimeMin, episodeCount, releaseDate },
+  });
 }
 
 export const LIBRARY_ITEMS: LibraryItem[] = [
@@ -106,22 +123,10 @@ export const LIBRARY_ITEMS: LibraryItem[] = [
   movie("n-northwind", "Northwind", 2022, 110, { status: "unavailable" }),
   tv("n-cinder", "Cinder", 2023, 44, 8, { status: "unavailable", genres: ["Horror"] }),
   tv("n-borderline", "Borderline", 2024, 50, 6, { status: "unavailable", genres: ["Horror"] }),
-  tv("drama-01", "The Long Approach", 2025, 50, 8, {
-    status: "unknown",
-    facets: { runtimeMin: 50, episodeCount: 8, releaseDate: "Mar 14" },
-  }),
-  tv("long-walk", "The Long Walk", 2025, 48, 6, {
-    status: "unknown",
-    facets: { runtimeMin: 48, episodeCount: 6, releaseDate: "Apr 02" },
-  }),
-  tv("halcyon", "Halcyon", 2025, 50, 8, {
-    status: "unknown",
-    facets: { runtimeMin: 50, episodeCount: 8, releaseDate: "May 19" },
-  }),
-  tv("sovereigns", "Sovereigns", 2025, 55, 10, {
-    status: "unknown",
-    facets: { runtimeMin: 55, episodeCount: 10, releaseDate: "Jun 07" },
-  }),
+  upcomingTv("drama-01", "The Long Approach", 2025, 50, 8, "Mar 14"),
+  upcomingTv("long-walk", "The Long Walk", 2025, 48, 6, "Apr 02"),
+  upcomingTv("halcyon", "Halcyon", 2025, 50, 8, "May 19"),
+  upcomingTv("sovereigns", "Sovereigns", 2025, 55, 10, "Jun 07"),
   tv("n-meridian", "Meridian", 2024, 50, 6, { status: "available", genres: ["Drama"] }),
   tv("n-anchor", "Anchor", 2023, 48, 8, { status: "available", genres: ["Thriller"] }),
   tv("n-ledger", "The Ledger", 2024, 50, 6, { status: "available", genres: ["Thriller"] }),

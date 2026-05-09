@@ -1,6 +1,18 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
-  "ignoreDependencies": ["react-doctor"],
+  "ignoreDependencies": [
+    "react-doctor",
+    "@ent-mcp/plugin-discord",
+    "@ent-mcp/plugin-inbox",
+    "@ent-mcp/plugin-jellyfin",
+    "@ent-mcp/plugin-ntfy",
+    "@ent-mcp/plugin-plex",
+    "@ent-mcp/plugin-seerr",
+    "@ent-mcp/plugin-telegram",
+    "@ent-mcp/plugin-tmdb",
+    "@ent-mcp/plugin-trakt",
+    "@ent-mcp/plugin-tvdb"
+  ],
   "publicPackages": [
     "@ent-mcp/client",
     "@ent-mcp/server",
@@ -102,6 +114,10 @@
         "patterns": ["apps/client/src/features/notifications/**"]
       },
       {
+        "name": "client-feat-library",
+        "patterns": ["apps/client/src/features/library/**"]
+      },
+      {
         "name": "client-features-legacy",
         "patterns": ["apps/client/src/lib/**"]
       },
@@ -157,6 +173,7 @@
           "client-feat-admin",
           "client-feat-jobs",
           "client-feat-home",
+          "client-feat-library",
           "client-feat-notifications",
           "client-features-legacy",
           "client-shared-ui",
@@ -175,10 +192,22 @@
           "client-feat-admin",
           "client-feat-jobs",
           "client-feat-home",
+          "client-feat-library",
           "client-feat-media-detail",
           "client-feat-request-flow",
           "client-feat-notifications",
           "client-features-legacy",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-library",
+        "allow": [
+          "client-feat-home",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

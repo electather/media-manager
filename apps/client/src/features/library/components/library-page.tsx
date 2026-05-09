@@ -15,26 +15,30 @@ import { RecentlyAdded } from "./recently-added";
 import { TonightPick } from "./tonight-pick";
 
 type PeekSearch = { peek?: string };
+type Buckets = ReturnType<typeof bucketize>;
 
-function selectFiltered(
-  filter: LibraryFilter,
-  items: readonly LibraryItem[],
-  buckets: ReturnType<typeof bucketize>,
-): readonly LibraryItem[] {
-  if (filter === "ready") return [...buckets.available, ...buckets.inProgress];
-  if (filter === "in-progress") return buckets.inProgress;
-  if (filter === "awaiting") return [...buckets.requested, ...buckets.unavailable];
-  if (filter === "upcoming") return buckets.upcoming;
-  return items;
-}
+const BUCKET_SELECTORS: Record<
+  LibraryFilter,
+  (b: Buckets, items: readonly LibraryItem[]) => readonly LibraryItem[]
+> = {
+  all: (_b, items) => items,
+  ready: (b) => [...b.available, ...b.inProgress],
+  "in-progress": (b) => b.inProgress,
+  awaiting: (b) => [...b.requested, ...b.unavailable],
+  upcoming: (b) => b.upcoming,
+};
+
+const SORT_COMPARATORS: Record<LibrarySort, ((a: LibraryItem, b: LibraryItem) => number) | null> = {
+  recent: null,
+  status: null,
+  alpha: (a, b) => a.title.localeCompare(b.title),
+  // fallow-ignore-next-line complexity
+  runtime: (a, b) => (a.facets?.runtimeMin ?? 999) - (b.facets?.runtimeMin ?? 999),
+};
 
 function applySort(items: readonly LibraryItem[], sort: LibrarySort): LibraryItem[] {
-  const xs = items.slice();
-  if (sort === "alpha") xs.sort((a, b) => a.title.localeCompare(b.title));
-  else if (sort === "runtime") {
-    xs.sort((a, b) => (a.facets?.runtimeMin ?? 999) - (b.facets?.runtimeMin ?? 999));
-  }
-  return xs;
+  const cmp = SORT_COMPARATORS[sort];
+  return cmp ? items.slice().sort(cmp) : items.slice();
 }
 
 /**
@@ -43,6 +47,7 @@ function applySort(items: readonly LibraryItem[], sort: LibrarySort): LibraryIte
  * lands in a follow-up. The peek modal still flows through the route's
  * `?peek=` search param so deep links work, mirroring the home feed.
  */
+// fallow-ignore-next-line complexity
 export function LibraryPage() {
   const items = LIBRARY_ITEMS;
   const navigate = useNavigate();
@@ -79,7 +84,7 @@ export function LibraryPage() {
   );
 
   const filtered = useMemo(
-    () => applySort(selectFiltered(filter, items, buckets), sort),
+    () => applySort(BUCKET_SELECTORS[filter](buckets, items), sort),
     [filter, items, buckets, sort],
   );
 

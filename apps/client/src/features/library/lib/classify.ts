@@ -1,20 +1,34 @@
 import type { LibraryBuckets, LibraryCounts, LibraryItem, LibraryStatus } from "./types";
 
+const STATUS_MAP: Record<NonNullable<LibraryItem["status"]>, LibraryStatus | undefined> = {
+  available: "available",
+  requested: "requested",
+  unavailable: "unavailable",
+  processing: "requested",
+  unknown: undefined,
+};
+
+function isInfoOnly(item: LibraryItem): boolean {
+  const a = item.availability;
+  return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
+}
+
+// fallow-ignore-next-line complexity
 export function classifyStatus(item: LibraryItem): LibraryStatus {
   if (item.progress) return "in-progress";
-  if (item.status === "unavailable") return "unavailable";
-  if (item.status === "requested") return "requested";
-  if (item.status === "available") return "available";
-  if (item.facets?.releaseDate) return "upcoming";
-  if (
-    item.availability &&
-    !item.availability.hasAnyServerCopy &&
-    !item.availability.requestEligible
-  ) {
-    return "upcoming";
-  }
+  const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
+  if (fromStatus) return fromStatus;
+  if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
   return "unknown";
 }
+
+const STATUS_TO_BUCKET: Partial<Record<LibraryStatus, keyof LibraryBuckets>> = {
+  "in-progress": "inProgress",
+  available: "available",
+  requested: "requested",
+  unavailable: "unavailable",
+  upcoming: "upcoming",
+};
 
 export function bucketize(items: readonly LibraryItem[]): LibraryBuckets {
   const out: LibraryBuckets = {
@@ -25,12 +39,8 @@ export function bucketize(items: readonly LibraryItem[]): LibraryBuckets {
     upcoming: [],
   };
   for (const it of items) {
-    const c = classifyStatus(it);
-    if (c === "in-progress") out.inProgress.push(it);
-    else if (c === "available") out.available.push(it);
-    else if (c === "requested") out.requested.push(it);
-    else if (c === "unavailable") out.unavailable.push(it);
-    else if (c === "upcoming") out.upcoming.push(it);
+    const bucket = STATUS_TO_BUCKET[classifyStatus(it)];
+    if (bucket) out[bucket].push(it);
   }
   return out;
 }
@@ -48,19 +58,19 @@ const TV_FALLBACK_RUNTIME = 48;
 const TV_FALLBACK_EPISODE_COUNT = 8;
 const MOVIE_FALLBACK_RUNTIME = 110;
 
+// fallow-ignore-next-line complexity
+function itemRuntimeMinutes(item: LibraryItem): number {
+  const min = item.facets?.runtimeMin;
+  if (item.mediaType === "tv") {
+    const eps = item.facets?.episodeCount ?? TV_FALLBACK_EPISODE_COUNT;
+    return (min ?? TV_FALLBACK_RUNTIME) * eps;
+  }
+  return min ?? MOVIE_FALLBACK_RUNTIME;
+}
+
 export function totalRuntimeMinutes(items: readonly LibraryItem[]): number {
   let total = 0;
-  for (const it of items) {
-    const min = it.facets?.runtimeMin;
-    if (typeof min === "number") {
-      total +=
-        it.mediaType === "tv" ? min * (it.facets?.episodeCount ?? TV_FALLBACK_EPISODE_COUNT) : min;
-    } else if (it.mediaType === "tv") {
-      total += TV_FALLBACK_RUNTIME * TV_FALLBACK_EPISODE_COUNT;
-    } else {
-      total += MOVIE_FALLBACK_RUNTIME;
-    }
-  }
+  for (const it of items) total += itemRuntimeMinutes(it);
   return total;
 }
 

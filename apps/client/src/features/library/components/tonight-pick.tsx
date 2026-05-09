@@ -47,49 +47,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
           </div>
           <ul className="m-0 flex flex-col gap-1 p-0">
             {alternates.map((it, idx) => (
-              <li key={it.id} className="list-none">
-                <button
-                  type="button"
-                  onClick={() => onPeek(it.id)}
-                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-start transition-colors hover:bg-accent"
-                >
-                  <span className="w-5.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/70">
-                    {String(idx + 2).padStart(2, "0")}
-                  </span>
-                  <span className="relative size-[36px] w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                    {it.backdrop || it.poster ? (
-                      <img
-                        src={it.backdrop ?? it.poster}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="absolute inset-0 size-full object-cover"
-                      />
-                    ) : (
-                      <Skeleton className="absolute inset-0" />
-                    )}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="line-clamp-1 text-sm font-medium text-foreground">
-                      {it.title}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      {it.mediaType === "movie" ? (
-                        <Film aria-hidden="true" className="size-3" />
-                      ) : (
-                        <Tv aria-hidden="true" className="size-3" />
-                      )}
-                      <span>{shortRuntimeLabel(it)}</span>
-                      {it.year ? (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span>{it.year}</span>
-                        </>
-                      ) : null}
-                    </span>
-                  </span>
-                </button>
-              </li>
+              <AlternateRow key={it.id} item={it} index={idx} onPeek={onPeek} />
             ))}
           </ul>
           <Button
@@ -103,5 +61,56 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
         </aside>
       </div>
     </section>
+  );
+}
+
+interface AlternateRowProps {
+  item: LibraryItem;
+  index: number;
+  onPeek: (id: string) => void;
+}
+
+// fallow-ignore-next-line complexity
+function AlternateRow({ item, index, onPeek }: AlternateRowProps) {
+  const KindIcon = item.mediaType === "movie" ? Film : Tv;
+  const src = item.backdrop ?? item.poster;
+  return (
+    <li className="list-none">
+      <button
+        type="button"
+        onClick={() => onPeek(item.id)}
+        className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-start transition-colors hover:bg-accent"
+      >
+        <span className="w-5.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/70">
+          {String(index + 2).padStart(2, "0")}
+        </span>
+        <span className="relative h-9 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+          {src ? (
+            <img
+              src={src}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="absolute inset-0 size-full object-cover"
+            />
+          ) : (
+            <Skeleton className="absolute inset-0" />
+          )}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="line-clamp-1 text-sm font-medium text-foreground">{item.title}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <KindIcon aria-hidden="true" className="size-3" />
+            <span>{shortRuntimeLabel(item)}</span>
+            {item.year ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{item.year}</span>
+              </>
+            ) : null}
+          </span>
+        </span>
+      </button>
+    </li>
   );
 }
