@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { FilterIcon, InboxIcon, AlertTriangleIcon } from "lucide-react";
+import { InboxIcon, AlertTriangleIcon } from "lucide-react";
 import { Card } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchErrorList } from "../shared/fetchers";
-import { ThreadChip } from "../thread-chip";
+import { PinnedThreadBanner } from "../shared/pinned-thread-banner";
 import { ErrorRow } from "./error-row";
 import type { ErrorListRow, ErrorsFilters } from "../shared/types";
 
@@ -42,13 +42,14 @@ export function ErrorsTable({
     <div className="flex flex-col gap-4">
       {pinnedRequestId ? (
         <PinnedThreadBanner
+          label="Pinned to"
           requestId={pinnedRequestId}
           matches={rows.length}
           onClearRequestId={onClearRequestId}
         />
       ) : null}
 
-      <Card className="overflow-hidden p-0">
+      <Card className="gap-0 overflow-hidden p-0">
         <ErrorsTableBody
           isPending={list.isPending}
           isError={list.isError}
@@ -60,31 +61,6 @@ export function ErrorsTable({
           onJumpThread={onJumpThread}
         />
       </Card>
-    </div>
-  );
-}
-
-function PinnedThreadBanner({
-  requestId,
-  matches,
-  onClearRequestId,
-}: {
-  requestId: string;
-  matches: number;
-  onClearRequestId: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm text-foreground/85">
-      <FilterIcon className="size-3.5 text-muted-foreground" />
-      <span>Pinned to</span>
-      <ThreadChip requestId={requestId} />
-      <span className="text-muted-foreground">
-        — {matches} {matches === 1 ? "match" : "matches"}.
-      </span>
-      <span className="ml-auto" />
-      <Button variant="outline" size="sm" onClick={onClearRequestId}>
-        Clear thread
-      </Button>
     </div>
   );
 }

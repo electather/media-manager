@@ -3,6 +3,7 @@ import { ERROR_SEVERITIES, ERROR_SOURCES } from "@ent-mcp/shared/diagnostics";
 import { XIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { cn } from "@/shared/lib/utils";
 import type { ErrorsFilters } from "../shared/types";
 
@@ -11,13 +12,20 @@ interface Props {
   onChange: (next: ErrorsFilters) => void;
 }
 
-const SEVERITY_STYLES: Record<ErrorSeverity, { dot: string; active: string }> = {
+const SEVERITY_STYLES: Record<ErrorSeverity, { dot: string; pressed: string }> = {
   error: {
     dot: "bg-destructive",
-    active: "border-destructive/40 bg-destructive/15 text-destructive",
+    pressed:
+      "data-pressed:border-destructive/40 data-pressed:bg-destructive/15 data-pressed:text-destructive",
   },
-  warning: { dot: "bg-primary", active: "border-primary/40 bg-primary/15 text-primary" },
-  info: { dot: "bg-chart-2", active: "border-chart-2/40 bg-chart-2/15 text-chart-2" },
+  warning: {
+    dot: "bg-primary",
+    pressed: "data-pressed:border-primary/40 data-pressed:bg-primary/15 data-pressed:text-primary",
+  },
+  info: {
+    dot: "bg-chart-2",
+    pressed: "data-pressed:border-chart-2/40 data-pressed:bg-chart-2/15 data-pressed:text-chart-2",
+  },
 };
 
 const SOURCE_LABELS: Record<ErrorSource, string> = {
@@ -56,74 +64,79 @@ function isDirty(filters: ErrorsFilters): boolean {
 }
 
 export function ErrorsFilterBar({ filters, onChange }: Props) {
-  const toggleSeverity = (sev: ErrorSeverity) => {
-    const next = filters.severity.includes(sev)
-      ? filters.severity.filter((s) => s !== sev)
-      : [...filters.severity, sev];
-    onChange({ ...filters, severity: next });
-  };
-  const toggleSource = (src: ErrorSource) => {
-    const next = filters.source.includes(src)
-      ? filters.source.filter((s) => s !== src)
-      : [...filters.source, src];
-    onChange({ ...filters, source: next });
-  };
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4">
         <FilterLabel>Severity</FilterLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <ToggleGroup<ErrorSeverity>
+          multiple
+          value={filters.severity}
+          onValueChange={(next) => onChange({ ...filters, severity: next })}
+        >
           {ERROR_SEVERITIES.map((sev) => (
-            <Chip
+            <ToggleGroupItem<ErrorSeverity>
               key={sev}
-              active={filters.severity.includes(sev)}
-              onClick={() => toggleSeverity(sev)}
-              activeClassName={SEVERITY_STYLES[sev].active}
+              value={sev}
+              className={cn(
+                "data-pressed:bg-transparent data-pressed:text-foreground",
+                SEVERITY_STYLES[sev].pressed,
+              )}
             >
               <span className={`size-1.5 rounded-full ${SEVERITY_STYLES[sev].dot}`} aria-hidden />
               {sev[0]?.toUpperCase()}
               {sev.slice(1)}
-            </Chip>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
 
         <FilterLabel>Source</FilterLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <ToggleGroup<ErrorSource>
+          multiple
+          value={filters.source}
+          onValueChange={(next) => onChange({ ...filters, source: next })}
+        >
           {ERROR_SOURCES.map((src) => (
-            <Chip key={src} active={filters.source.includes(src)} onClick={() => toggleSource(src)}>
+            <ToggleGroupItem<ErrorSource> key={src} value={src}>
               {SOURCE_LABELS[src]}
-            </Chip>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
+
+        {isDirty(filters) ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onChange(DEFAULT_FILTERS)}
+            className="ml-auto text-xs"
+          >
+            <XIcon className="size-3.5" />
+            Clear
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-md border border-border">
-          {RANGES.map((r, idx) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => onChange({ ...filters, range: r.id })}
-              className={cn(
-                "px-3 py-1 text-xs font-medium",
-                idx > 0 && "border-l border-border",
-                filters.range === r.id
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/60",
-              )}
-            >
+        <ToggleGroup<ErrorsFilters["range"]>
+          value={[filters.range]}
+          onValueChange={(next) => {
+            const picked = next[0];
+            if (picked) onChange({ ...filters, range: picked });
+          }}
+          className="gap-0 overflow-hidden rounded-md border border-border"
+        >
+          {RANGES.map((r) => (
+            <ToggleGroupItem<ErrorsFilters["range"]> key={r.id} value={r.id} variant="segmented">
               {r.label}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
 
         <Input
           value={filters.requestId}
           onChange={(e) => onChange({ ...filters, requestId: e.target.value })}
           placeholder="Request ID exact match…"
           className={cn(
-            "h-8 w-56 font-mono text-xs",
+            "h-8 w-full font-mono text-xs sm:w-56",
             filters.requestId ? "border-primary/55" : undefined,
           )}
         />
@@ -132,20 +145,8 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
           value={filters.search}
           onChange={(e) => onChange({ ...filters, search: e.target.value })}
           placeholder="Search code or message…"
-          className="h-8 flex-1 min-w-44 text-xs"
+          className="h-8 w-full text-xs sm:flex-1 sm:min-w-44 sm:w-auto"
         />
-
-        {isDirty(filters) ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onChange(DEFAULT_FILTERS)}
-            className="text-xs"
-          >
-            <XIcon className="size-3.5" />
-            Clear
-          </Button>
-        ) : null}
       </div>
     </div>
   );
@@ -156,30 +157,6 @@ function FilterLabel({ children }: { children: React.ReactNode }) {
     <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
       {children}
     </span>
-  );
-}
-
-interface ChipProps {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  activeClassName?: string;
-}
-
-function Chip({ active, onClick, children, activeClassName }: ChipProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-        active
-          ? (activeClassName ?? "border-input bg-muted text-foreground")
-          : "border-border text-muted-foreground hover:bg-muted/60",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 

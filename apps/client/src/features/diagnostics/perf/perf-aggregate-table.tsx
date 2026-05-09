@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangleIcon, FilterIcon, GaugeIcon } from "lucide-react";
+import { AlertTriangleIcon, GaugeIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchPerfAggregate } from "../shared/fetchers";
-import { ThreadChip } from "../thread-chip";
+import { PinnedThreadBanner } from "../shared/pinned-thread-banner";
 import { PerfRow } from "./perf-row";
 import type { PerfAggregateGroup, PerfFilters } from "../shared/types";
 
@@ -75,10 +75,14 @@ export function PerfAggregateTable({
   return (
     <div className="flex flex-col gap-4">
       {pinnedRequestId ? (
-        <PinnedThreadBanner requestId={pinnedRequestId} onClearRequestId={onClearRequestId} />
+        <PinnedThreadBanner
+          label="Filtering perf rows touched by"
+          requestId={pinnedRequestId}
+          onClearRequestId={onClearRequestId}
+        />
       ) : null}
 
-      <Card className="overflow-hidden p-0">
+      <Card className="gap-0 overflow-hidden p-0">
         <PerfAggregateBody
           isPending={aggregate.isPending}
           isError={aggregate.isError}
@@ -92,26 +96,6 @@ export function PerfAggregateTable({
           sampleSize={aggregate.data?.sampleSize ?? 0}
         />
       </Card>
-    </div>
-  );
-}
-
-function PinnedThreadBanner({
-  requestId,
-  onClearRequestId,
-}: {
-  requestId: string;
-  onClearRequestId: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm text-foreground/85">
-      <FilterIcon className="size-3.5 text-muted-foreground" />
-      <span>Filtering perf rows touched by</span>
-      <ThreadChip requestId={requestId} />
-      <span className="ml-auto" />
-      <Button variant="outline" size="sm" onClick={onClearRequestId}>
-        Clear thread
-      </Button>
     </div>
   );
 }
@@ -194,7 +178,7 @@ function PerfAggregateBody({
 
 function PerfTableHeader() {
   return (
-    <div className="grid grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2 font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
+    <div className="hidden grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2 font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase sm:grid">
       <span>Route / call</span>
       <span className="text-right">p50</span>
       <span className="text-right">p95</span>

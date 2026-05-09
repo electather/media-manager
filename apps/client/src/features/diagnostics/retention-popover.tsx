@@ -33,11 +33,16 @@ export function RetentionPopover() {
     <Popover>
       <PopoverTrigger
         render={
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button
+            variant="outline"
+            size="xs"
+            aria-label="Retention"
+            className="gap-2 max-sm:size-7 max-sm:px-0"
+          >
             <SettingsIcon className="size-3.5" />
-            Retention
+            <span className="hidden sm:inline">Retention</span>
             {cfg ? (
-              <span className="font-mono text-xs text-muted-foreground/80">
+              <span className="hidden font-mono text-xs text-muted-foreground/80 sm:inline">
                 {cfg.errorRetentionDays}d / {cfg.perfRetentionDays}d
               </span>
             ) : null}

@@ -1,6 +1,8 @@
 import { XIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { cn } from "@/shared/lib/utils";
 import type { PerfFilters } from "../shared/types";
 
@@ -51,87 +53,91 @@ function isDirty(filters: PerfFilters): boolean {
 
 export function PerfFilterBar({ filters, onChange }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <ButtonGroup
-        value={filters.kind}
-        options={KIND_OPTIONS}
-        onChange={(kind) => onChange({ ...filters, kind })}
-      />
-      <ButtonGroup
-        value={filters.range}
-        options={RANGE_OPTIONS}
-        onChange={(range) => onChange({ ...filters, range })}
-      />
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedToggle
+          value={filters.kind}
+          options={KIND_OPTIONS}
+          onChange={(kind) => onChange({ ...filters, kind })}
+        />
+        <SegmentedToggle
+          value={filters.range}
+          options={RANGE_OPTIONS}
+          onChange={(range) => onChange({ ...filters, range })}
+        />
 
-      <select
-        value={filters.sort}
-        onChange={(e) => onChange({ ...filters, sort: e.target.value as PerfFilters["sort"] })}
-        className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground/85 outline-none focus:border-input"
-      >
-        {SORT_OPTIONS.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.label}
-          </option>
-        ))}
-      </select>
-
-      <Input
-        value={filters.requestId}
-        onChange={(e) => onChange({ ...filters, requestId: e.target.value })}
-        placeholder="Request ID exact match…"
-        className={cn(
-          "h-8 w-56 font-mono text-xs",
-          filters.requestId ? "border-primary/55" : undefined,
-        )}
-      />
-
-      <Input
-        value={filters.search}
-        onChange={(e) => onChange({ ...filters, search: e.target.value })}
-        placeholder="Search route or method…"
-        className="h-8 flex-1 min-w-44 text-xs"
-      />
-
-      {isDirty(filters) ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs"
-          onClick={() => onChange(PERF_DEFAULT_FILTERS)}
+        <Select
+          value={filters.sort}
+          onValueChange={(v) => onChange({ ...filters, sort: v as PerfFilters["sort"] })}
         >
-          <XIcon className="size-3.5" />
-          Clear
-        </Button>
-      ) : null}
+          <SelectTrigger size="sm" className="!h-6 gap-1 py-0 pr-1.5 text-xs">
+            <SelectValue>{(v) => SORT_OPTIONS.find((s) => s.id === v)?.label ?? ""}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {isDirty(filters) ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-xs"
+            onClick={() => onChange(PERF_DEFAULT_FILTERS)}
+          >
+            <XIcon className="size-3.5" />
+            Clear
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={filters.requestId}
+          onChange={(e) => onChange({ ...filters, requestId: e.target.value })}
+          placeholder="Request ID exact match…"
+          className={cn(
+            "h-8 w-full font-mono text-xs sm:w-56",
+            filters.requestId ? "border-primary/55" : undefined,
+          )}
+        />
+
+        <Input
+          value={filters.search}
+          onChange={(e) => onChange({ ...filters, search: e.target.value })}
+          placeholder="Search route or method…"
+          className="h-8 w-full text-xs sm:flex-1 sm:min-w-44 sm:w-auto"
+        />
+      </div>
     </div>
   );
 }
 
-interface ButtonGroupProps<T extends string> {
+interface SegmentedToggleProps<T extends string> {
   value: T;
   options: ReadonlyArray<{ id: T; label: string }>;
   onChange: (next: T) => void;
 }
 
-function ButtonGroup<T extends string>({ value, options, onChange }: ButtonGroupProps<T>) {
+function SegmentedToggle<T extends string>({ value, options, onChange }: SegmentedToggleProps<T>) {
   return (
-    <div className="flex overflow-hidden rounded-md border border-border">
-      {options.map((opt, idx) => (
-        <button
-          key={opt.id}
-          type="button"
-          onClick={() => onChange(opt.id)}
-          className={cn(
-            "px-3 py-1 text-xs font-medium",
-            idx > 0 && "border-l border-border",
-            value === opt.id
-              ? "bg-muted text-foreground"
-              : "text-muted-foreground hover:bg-muted/60",
-          )}
-        >
+    <ToggleGroup<T>
+      value={[value]}
+      onValueChange={(next) => {
+        const picked = next[0];
+        if (picked) onChange(picked);
+      }}
+      className="gap-0 overflow-hidden rounded-md border border-border"
+    >
+      {options.map((opt) => (
+        <ToggleGroupItem<T> key={opt.id} value={opt.id} variant="segmented">
           {opt.label}
-        </button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   );
 }

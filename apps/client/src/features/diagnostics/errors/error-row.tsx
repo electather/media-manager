@@ -54,40 +54,17 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
         }
       }}
       className={cn(
-        "relative grid cursor-pointer items-center gap-4 border-t border-border px-4 py-3 pl-6 transition-colors",
-        "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto]",
+        "relative grid cursor-pointer gap-2 border-t border-border px-4 py-3 pl-6 transition-colors",
+        "sm:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4",
         isOpen ? "bg-muted/55" : "hover:bg-muted/40",
       )}
     >
       <span
         aria-hidden
-        className={cn(
-          "absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r",
-          SEVERITY_RAIL[row.severity],
-        )}
+        className={cn("absolute left-0 top-0 bottom-0 w-[3px]", SEVERITY_RAIL[row.severity])}
       />
 
-      <div
-        className="min-w-16 font-mono text-xs text-muted-foreground"
-        title={formatAbs(row.createdAt)}
-      >
-        {formatRel(row.createdAt)}
-      </div>
-
-      <span className={cn("size-2 rounded-full", SEVERITY_DOT[row.severity])} aria-hidden />
-
-      <div className="flex shrink-0 items-center gap-1.5">
-        <span className="rounded-md border border-border bg-muted/40 px-2 py-[2px] text-xs text-muted-foreground">
-          {SOURCE_LABELS[row.source]}
-        </span>
-        {row.pluginId ? (
-          <span className="rounded-md border border-chart-2/30 bg-chart-2/10 px-2 py-[2px] font-mono text-xs text-chart-2">
-            {row.pluginId}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="min-w-0">
+      <div className="min-w-0 sm:col-start-4 sm:row-start-1">
         <div className="flex flex-wrap items-baseline gap-2">
           <span className={cn("font-mono text-xs font-medium", SEVERITY_TEXT[row.severity])}>
             {row.code ?? "(no code)"}
@@ -99,9 +76,37 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
         <div className="mt-1 truncate text-xs text-foreground/85">{row.devMessage}</div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <ThreadChip requestId={row.requestId} onJump={onJumpThread} />
-        <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+      <div className="flex flex-wrap items-center gap-2 sm:contents">
+        <div
+          className="font-mono text-xs text-muted-foreground sm:col-start-1 sm:row-start-1 sm:min-w-16"
+          title={formatAbs(row.createdAt)}
+        >
+          {formatRel(row.createdAt)}
+        </div>
+
+        <span
+          aria-hidden
+          className={cn(
+            "size-2 rounded-full sm:col-start-2 sm:row-start-1",
+            SEVERITY_DOT[row.severity],
+          )}
+        />
+
+        <div className="flex shrink-0 items-center gap-1.5 sm:col-start-3 sm:row-start-1">
+          <span className="rounded-md border border-border bg-muted/40 px-2 py-[2px] text-xs text-muted-foreground">
+            {SOURCE_LABELS[row.source]}
+          </span>
+          {row.pluginId ? (
+            <span className="rounded-md border border-chart-2/30 bg-chart-2/10 px-2 py-[2px] font-mono text-xs text-chart-2">
+              {row.pluginId}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="ml-auto flex items-center gap-2 sm:col-start-5 sm:row-start-1 sm:ml-0">
+          <ThreadChip requestId={row.requestId} onJump={onJumpThread} />
+          <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+        </div>
       </div>
     </div>
   );

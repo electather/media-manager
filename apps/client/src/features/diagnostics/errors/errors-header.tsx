@@ -67,7 +67,9 @@ export function ErrorsHeader() {
           ) : null}
         </div>
       </div>
-      <ErrorsSparkline hourly={data.hourlyBuckets} width={360} height={56} />
+      <div className="hidden sm:block">
+        <ErrorsSparkline hourly={data.hourlyBuckets} width={360} height={56} />
+      </div>
     </Card>
   );
 }

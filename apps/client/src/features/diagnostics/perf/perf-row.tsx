@@ -32,30 +32,35 @@ export function PerfRow({ group, isOpen, onOpen }: Props) {
         }
       }}
       className={cn(
-        "grid cursor-pointer items-center gap-4 border-t border-border px-4 py-3 transition-colors",
-        "grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px]",
+        "flex cursor-pointer flex-col gap-3 border-t border-border px-4 py-3 transition-colors sm:grid sm:items-center sm:gap-4",
+        "sm:grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px]",
         isOpen ? "bg-muted/55" : "hover:bg-muted/40",
       )}
     >
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-baseline gap-2">
-          <KindBadge kind={group.kind} />
-          <span className="font-mono text-sm font-medium text-foreground">
-            {group.route ?? group.pluginId ?? "(unknown)"}
-          </span>
+      <div className="flex min-w-0 items-start justify-between gap-2 sm:block">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <KindBadge kind={group.kind} />
+            <span className="font-mono text-sm font-medium text-foreground">
+              {group.route ?? group.pluginId ?? "(unknown)"}
+            </span>
+          </div>
+          <div className="mt-1 font-mono text-[11px] text-muted-foreground/80">
+            {group.count.toLocaleString()} calls · last seen {formatRel(group.lastAt)}
+            {id === "" ? null : null}
+          </div>
         </div>
-        <div className="mt-1 font-mono text-[11px] text-muted-foreground/80">
-          {group.count.toLocaleString()} calls · last seen {formatRel(group.lastAt)}
-          {id === "" ? null : null}
-        </div>
+        <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground sm:hidden" />
       </div>
 
-      <Latency label="p50" ms={group.p50} warn={warn + 1} danger={danger + 1} />
-      <Latency label="p95" ms={group.p95} warn={warn} danger={danger} />
-      <Latency label="p99" ms={group.p99} warn={warn} danger={danger} />
-      <Latency label="max" ms={group.max} warn={warn + 1} danger={danger} />
+      <div className="grid grid-cols-4 gap-2 sm:contents">
+        <Latency label="p50" ms={group.p50} warn={warn + 1} danger={danger + 1} />
+        <Latency label="p95" ms={group.p95} warn={warn} danger={danger} />
+        <Latency label="p99" ms={group.p99} warn={warn} danger={danger} />
+        <Latency label="max" ms={group.max} warn={warn + 1} danger={danger} />
+      </div>
 
-      <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+      <ChevronRightIcon className="hidden size-3.5 text-muted-foreground sm:block" />
     </div>
   );
 }
