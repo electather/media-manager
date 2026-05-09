@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, gte, inArray, like, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
 import {
   errorListQuerySchema as listSchema,
   errorReportSchema as reportSchema,
@@ -74,10 +74,13 @@ export const adminErrorsApp = new Hono()
     if (q.until) filters.push(sql`${errorRecords.createdAt} <= ${q.until}`);
     if (q.requestId) filters.push(eq(errorRecords.requestId, q.requestId));
     if (q.search && q.search.length > 0) {
-      const pattern = `%${q.search}%`;
+      // `instr` does substring containment without wildcards, so a stray `%`
+      // or `_` in the user query stays literal. Avoids the SQLite LIKE escape
+      // dance (drizzle's `like` doesn't pass through an ESCAPE clause).
+      const needle = q.search;
       const searchFilter = or(
-        like(errorRecords.code, pattern),
-        like(errorRecords.devMessage, pattern),
+        sql`instr(coalesce(${errorRecords.code}, ''), ${needle}) > 0`,
+        sql`instr(${errorRecords.devMessage}, ${needle}) > 0`,
       );
       if (searchFilter) filters.push(searchFilter);
     }

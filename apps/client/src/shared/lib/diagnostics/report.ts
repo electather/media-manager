@@ -26,10 +26,13 @@ function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | 
  *  so the server picks it up even when the AsyncLocalStorage frame is missing
  *  (e.g. global window.error fires outside an RPC). Swallows transport
  *  failures intentionally — we never want "error capture failed" to surface
- *  in the UI. */
-// Payload assembly walks each optional ambient field (requestId, route,
-// context); branching reflects that surface, not control flow.
-// fallow-ignore-next-line complexity
+ *  in the UI.
+ *
+ *  Note: we deliberately do *not* attach `window.location.pathname` as the
+ *  `route` field. The diagnostics design doc requires `route` to be a
+ *  parameterised TanStack pattern (`/movie/$id`) to keep cardinality bounded;
+ *  the raw `pathname` would persist one row per distinct id. Callers with
+ *  access to the matched `routeId` may pass it through `context` instead. */
 export async function reportError(
   err: unknown,
   severity: ErrorSeverity,
@@ -41,7 +44,6 @@ export async function reportError(
     const payload: ErrorReportPayload = {
       severity,
       code,
-      route: typeof window !== "undefined" ? window.location.pathname : undefined,
       context,
       ...(requestId ? { requestId } : {}),
       ...serialize(err),

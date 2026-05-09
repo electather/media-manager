@@ -8,19 +8,24 @@ const REQUEST_ID_HEADER = "x-request-id";
 
 /** Hono middleware that opens a request-scoped AsyncLocalStorage frame with a
  *  request ID (reused from `X-Request-Id` header when present). Also attaches the
- *  same header to the outgoing response for the frontend to echo back. */
+ *  same header to the outgoing response for the frontend to echo back.
+ *
+ *  The frame's `route` field is left null on entry — Hono's matched
+ *  `routePath` is only available *after* the router resolves the request,
+ *  so callers that need a parameterised route (the perf middleware, the
+ *  errorHandler) read it directly from `c.req.routePath`. Storing the raw
+ *  URL pathname here would persist `/admin/plugins/trakt`-shaped values
+ *  into the diagnostics tables and blow row cardinality (one row per
+ *  distinct id), violating the design-doc invariant `route ⊥ raw URL`. */
 export function requestContextMiddleware() {
   return async (c: Context, next: Next): Promise<void> => {
     const incoming = c.req.header(REQUEST_ID_HEADER);
     const requestId = incoming && incoming.length > 0 ? incoming : newRequestId();
     c.set("requestId", requestId);
     try {
-      await runWithRequestContext(
-        { requestId, userId: null, route: new URL(c.req.url).pathname },
-        async () => {
-          await next();
-        },
-      );
+      await runWithRequestContext({ requestId, userId: null, route: null }, async () => {
+        await next();
+      });
     } finally {
       c.res.headers.set(REQUEST_ID_HEADER, requestId);
     }
@@ -100,7 +105,12 @@ export const errorHandler: ErrorHandler = (err, c) => {
   const requestId = (c.get("requestId") as string | undefined) ?? newRequestId();
   const session = c.get("session") as { user?: { id?: string } } | undefined;
   const userId = session?.user?.id ?? null;
-  const route = new URL(c.req.url).pathname;
+  // Prefer the matched Hono pattern (e.g. `/api/connections/:id`) over the
+  // raw URL path so the diagnostics table groups errors by route shape, not
+  // per-id. `routePath` is undefined for unmatched requests (404 / pre-router
+  // throws), in which case we record null rather than the raw path.
+  const matchedRoute = c.req.routePath;
+  const route = matchedRoute && matchedRoute !== "*" && matchedRoute !== "/*" ? matchedRoute : null;
 
   if (err instanceof HttpError) {
     if (!isExpectedUserError(err.status)) {
@@ -108,7 +118,7 @@ export const errorHandler: ErrorHandler = (err, c) => {
         severity: "error",
         source: "backend",
         code: err.code,
-        route,
+        route: route ?? undefined,
         userId,
         httpStatus: err.status,
         requestId,
@@ -121,12 +131,12 @@ export const errorHandler: ErrorHandler = (err, c) => {
     );
   }
 
-  consola.error(`[${route}] unhandled error`, err);
+  consola.error(`[${route ?? c.req.path}] unhandled error`, err);
   void captureError(err, {
     severity: "error",
     source: "backend",
     code: "http.internal_error",
-    route,
+    route: route ?? undefined,
     userId,
     httpStatus: 500,
     requestId,

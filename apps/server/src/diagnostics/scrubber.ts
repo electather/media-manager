@@ -7,11 +7,15 @@ const SENSITIVE_KEY_PATTERNS = [
   "api_key",
   "apikey",
   "api-key",
+  // `token` also catches `refresh_token`, `id_token`, etc.
   "token",
   "authorization",
+  "bearer",
+  // `secret` also catches `client_secret`.
   "secret",
   "credentials",
   "cookie",
+  "private_key",
 ] as const;
 
 const REDACTED = "[REDACTED]";

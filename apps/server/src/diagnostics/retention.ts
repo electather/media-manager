@@ -48,27 +48,57 @@ export async function getAppConfig(): Promise<AppConfigRow> {
   };
 }
 
-/** Updates the error retention window, clamped to [MIN, MAX]. */
+/** Updates the error retention window, clamped to [MIN, MAX]. The seed +
+ *  update pair runs inside a single transaction so two concurrent admin PUTs
+ *  cannot interleave and overwrite each other. */
 export async function setErrorRetentionDays(days: number): Promise<number> {
   const db = getDb();
   const clamped = Math.max(
     MIN_ERROR_RETENTION_DAYS,
     Math.min(MAX_ERROR_RETENTION_DAYS, Math.floor(days)),
   );
-  await getAppConfig();
-  await db.update(appConfig).set({ errorRetentionDays: clamped, updatedAt: Date.now() }).run();
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(appConfig)
+      .values({
+        id: APP_CONFIG_ID,
+        errorRetentionDays: clamped,
+        perfRetentionDays: DEFAULT_PERF_RETENTION_DAYS,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: appConfig.id,
+        set: { errorRetentionDays: clamped, updatedAt: now },
+      });
+  });
   return clamped;
 }
 
-/** Updates the perf retention window, clamped to [MIN, MAX]. */
+/** Updates the perf retention window, clamped to [MIN, MAX]. The seed +
+ *  update pair runs inside a single transaction so two concurrent admin PUTs
+ *  cannot interleave and overwrite each other. */
 export async function setPerfRetentionDays(days: number): Promise<number> {
   const db = getDb();
   const clamped = Math.max(
     MIN_PERF_RETENTION_DAYS,
     Math.min(MAX_PERF_RETENTION_DAYS, Math.floor(days)),
   );
-  await getAppConfig();
-  await db.update(appConfig).set({ perfRetentionDays: clamped, updatedAt: Date.now() }).run();
+  const now = Date.now();
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(appConfig)
+      .values({
+        id: APP_CONFIG_ID,
+        errorRetentionDays: DEFAULT_ERROR_RETENTION_DAYS,
+        perfRetentionDays: clamped,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: appConfig.id,
+        set: { perfRetentionDays: clamped, updatedAt: now },
+      });
+  });
   return clamped;
 }
 
