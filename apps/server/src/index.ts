@@ -10,9 +10,9 @@ import { scheduler } from "./jobs/scheduler";
 import { markOrphanedRunsFailed } from "./jobs/history";
 import { registerBuiltinPlugins } from "./plugins/registry";
 import { pluginRuntime } from "./plugin-runtime/runtime";
-import { registerErrorSink } from "./errors/capture";
-import { DatabaseSink } from "./errors/database-sink";
-import { errorHandler } from "./errors/middleware";
+import { registerSink } from "./diagnostics/capture";
+import { DatabaseSink } from "./diagnostics/database-sink";
+import { errorHandler } from "./diagnostics/middleware";
 import { NotificationErrorSink } from "./notifications/error-sink";
 
 async function bootstrap(): Promise<void> {
@@ -23,8 +23,8 @@ async function bootstrap(): Promise<void> {
   // automatically; the Cloudflare workflow runs migrations as a pre-deploy
   // step instead and uses a separate Workers entry point.
   await runMigrations();
-  registerErrorSink(new DatabaseSink());
-  registerErrorSink(new NotificationErrorSink());
+  registerSink(new DatabaseSink());
+  registerSink(new NotificationErrorSink());
   const orphaned = await markOrphanedRunsFailed();
   if (orphaned > 0) consola.warn(`[jobs] marked ${orphaned} orphaned run(s) as failed on startup`);
   registerBuiltinPlugins();

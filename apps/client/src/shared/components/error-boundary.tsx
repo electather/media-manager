@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { reportError } from "@/shared/lib/errors/report";
-import { shortRequestId } from "@/shared/lib/errors/request-id";
+import { reportError } from "@/shared/lib/diagnostics/report";
+import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 
 interface Props {
@@ -14,7 +14,7 @@ interface State {
 }
 
 /** Captures render-time exceptions anywhere in its subtree, reports them to the
- *  backend via /api/errors, and shows a fallback UI that includes the short-form
+ *  backend via /api/diagnostics/errors, and shows a fallback UI that includes the short-form
  *  request id so users can reference it in support requests. */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null, requestId: null };

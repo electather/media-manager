@@ -4,9 +4,9 @@ import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { registerBuiltinPlugins } from "./plugins/registry";
 import { pluginRuntime } from "./plugin-runtime/runtime";
-import { registerErrorSink } from "./errors/capture";
-import { DatabaseSink } from "./errors/database-sink";
-import { errorHandler } from "./errors/middleware";
+import { registerSink } from "./diagnostics/capture";
+import { DatabaseSink } from "./diagnostics/database-sink";
+import { errorHandler } from "./diagnostics/middleware";
 import { NotificationErrorSink } from "./notifications/error-sink";
 
 // Cloudflare Workers entry point. Diverges from `index.ts` by excluding the
@@ -43,8 +43,8 @@ let runtimeReady: Promise<void> | undefined;
 function ensureRuntimeReady(): Promise<void> {
   runtimeReady ??= (async () => {
     getDb();
-    registerErrorSink(new DatabaseSink());
-    registerErrorSink(new NotificationErrorSink());
+    registerSink(new DatabaseSink());
+    registerSink(new NotificationErrorSink());
     await pluginRuntime.bootstrapBuiltins();
   })().catch((err) => {
     runtimeReady = undefined;

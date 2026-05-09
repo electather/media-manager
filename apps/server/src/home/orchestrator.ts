@@ -9,7 +9,7 @@ import type {
 import { getCatalogService } from "../catalog";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog/canonical";
 import { MediaService } from "../media/service";
-import { HttpError } from "../errors/http-errors";
+import { HttpError } from "../diagnostics/http-errors";
 import { classifyError } from "./errors";
 import { pickHero } from "./hero";
 import * as layoutCache from "./layout-cache";

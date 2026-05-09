@@ -9,7 +9,7 @@ import {
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { MediaService } from "../../media/service";
 import { compactFromRaw, type PluginMediaRaw } from "../../media/compact";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 
 export const discoverApp = new Hono()
   .use("*", requireSession)

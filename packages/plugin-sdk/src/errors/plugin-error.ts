@@ -1,4 +1,4 @@
-import type { HostErrorCode } from "@ent-mcp/shared/errors";
+import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 
 /**
  * Throwable error class plugins use to surface user-facing failures with a

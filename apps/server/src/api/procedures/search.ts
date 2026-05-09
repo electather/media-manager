@@ -4,7 +4,7 @@ import { searchQuerySchema, type SearchKind } from "@ent-mcp/shared/search";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { MediaService } from "../../media/service";
 import { compactFromRaw, type PluginMediaRaw } from "../../media/compact";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 
 interface PluginSearchHit {
   item?: PluginMediaRaw;

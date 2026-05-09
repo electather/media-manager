@@ -50,7 +50,9 @@
       "**/*.spec.tsx",
       "**/*.tsx",
       "**/plugin.ts",
-      "packages/plugins/**"
+      "packages/plugins/**",
+      "apps/server/src/db/schema/**",
+      "apps/server/src/api/procedures/**"
     ]
   },
   "health": {
@@ -102,6 +104,10 @@
         "patterns": ["apps/client/src/features/notifications/**"]
       },
       {
+        "name": "client-feat-diagnostics",
+        "patterns": ["apps/client/src/features/diagnostics/**"]
+      },
+      {
         "name": "client-features-legacy",
         "patterns": ["apps/client/src/lib/**"]
       },
@@ -137,7 +143,7 @@
           "apps/server/src/cache/**",
           "apps/server/src/crypto/**",
           "apps/server/src/connections/**",
-          "apps/server/src/errors/**"
+          "apps/server/src/diagnostics/**"
         ]
       },
       { "name": "server-root", "patterns": ["apps/server/src/*.*"] },
@@ -178,7 +184,18 @@
           "client-feat-media-detail",
           "client-feat-request-flow",
           "client-feat-notifications",
+          "client-feat-diagnostics",
           "client-features-legacy",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-diagnostics",
+        "allow": [
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

@@ -19,7 +19,7 @@ const ADMIN_NAV = [
   { to: "/admin/roles", label: "Roles" },
   { to: "/admin/plugins", label: "Plugins" },
   { to: "/admin/jobs", label: "Jobs" },
-  { to: "/admin/logs", label: "Logs" },
+  { to: "/admin/diagnostics", label: "Diagnostics" },
   { to: "/admin/notifications/deliveries", label: "Notification deliveries" },
   { to: "/admin/notifications/settings", label: "Notification retention" },
 ] as const;
@@ -39,13 +39,13 @@ export function SettingsLayout() {
       </header>
       <main className="flex-1">
         <div className="flex flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-          <div className="flex gap-8">
-            <aside className="flex w-44 shrink-0 flex-col gap-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:gap-8">
+            <aside className="flex shrink-0 flex-row gap-4 overflow-x-auto lg:w-44 lg:flex-col">
               <NavGroup heading="Account" items={ACCOUNT_NAV} />
               <NavGroup heading="Admin" items={ADMIN_NAV} />
             </aside>
 
-            <Separator orientation="vertical" />
+            <Separator orientation="vertical" className="hidden lg:block" />
 
             <div className="min-w-0 flex-1 pb-10">
               <Outlet />
@@ -65,8 +65,8 @@ function NavGroup({
   items: ReadonlyArray<{ to: string; label: string }>;
 }) {
   return (
-    <nav className="flex flex-col gap-1">
-      <div className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <nav className="flex shrink-0 flex-row gap-1 lg:flex-col">
+      <div className="hidden px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground lg:block">
         {heading}
       </div>
       {items.map((item) => (
@@ -74,7 +74,7 @@ function NavGroup({
           key={item.to}
           to={item.to}
           activeOptions={{ exact: true }}
-          className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors data-[status=active]:bg-muted data-[status=active]:font-medium hover:bg-muted/60"
+          className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap transition-colors data-[status=active]:bg-muted data-[status=active]:font-medium hover:bg-muted/60"
         >
           {item.label}
         </Link>

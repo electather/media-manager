@@ -7,7 +7,8 @@
     "pathPattern": [
       "./messages/notifications/{locale}.json",
       "./messages/home/{locale}.json",
-      "./messages/command/{locale}.json"
+      "./messages/command/{locale}.json",
+      "./messages/diagnostics/{locale}.json"
     ]
   }
 }

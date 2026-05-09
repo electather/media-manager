@@ -54,7 +54,7 @@ import {
   validateSchema,
 } from "@/shared/components/schema-form";
 import { PersonalKeyFallbackControl, SharedCredentialsSection } from "@/features/admin";
-import { safeJson } from "@/shared/lib/errors/safe-json";
+import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 
 export const Route = createFileRoute("/_authenticated/_settings/admin/plugins")({
   component: AdminPluginsPage,
