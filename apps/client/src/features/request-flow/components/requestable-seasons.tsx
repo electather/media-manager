@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
@@ -6,11 +6,15 @@ import { Button } from "@/shared/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
+import { useCancelRequest } from "../api/use-cancel-request";
 import { useCreateRequest } from "../api/use-create-request";
+import { useUserRequests } from "../api/use-user-requests";
 import {
   getRequestableSeasonNumbers,
   inferSeasonStatus,
+  mediaRequestToUiStatus,
   normalizeRequestStatus,
+  selectRequestForMedia,
   tmdbIdFromItemId,
 } from "../lib/request-helpers";
 import type {
@@ -31,44 +35,30 @@ type Props = {
   itemTitle: string;
   seasons: Season[];
   pluginConfigured?: boolean;
-  initialOverrides?: Record<number, RequestStatus>;
 };
 
 const NEUTRAL_DESTINATION: RequestDestination = { serviceLabel: "—", profileLabel: null };
 
-export function RequestableSeasons({
-  itemId,
-  itemTitle,
-  seasons,
-  pluginConfigured = true,
-  initialOverrides,
-}: Props) {
-  const [overrides, setOverrides] = useState<Record<number, RequestStatus>>(initialOverrides ?? {});
-  const [destinations, setDestinations] = useState<Record<number, RequestDestination>>({});
+export function RequestableSeasons({ itemId, itemTitle, seasons, pluginConfigured = true }: Props) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const create = useCreateRequest();
+  const cancel = useCancelRequest();
+  const { data } = useUserRequests();
 
-  // Reset the local override map whenever the underlying TV title changes,
-  // since the detail page reuses this component across navigations and
-  // overrides are keyed only by season number.
-  useEffect(() => {
-    setOverrides(initialOverrides ?? {});
-    setDestinations({});
-    setBulkOpen(false);
-    // `initialOverrides` is intentionally excluded from the dep list — the
-    // common case passes a fresh object literal each render and we only
-    // want to reset on item navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId]);
+  const tmdbId = tmdbIdFromItemId(itemId);
 
   const resolvedSeasons = useMemo(
     () =>
       (seasons ?? []).map((season) => {
-        const inferred = inferSeasonStatus(season);
-        const status: RequestStatus = overrides[season.number] ?? inferred;
-        return { season, status };
+        const row = selectRequestForMedia(data?.items, tmdbId, "tv", season.number);
+        const userStatus = row ? mediaRequestToUiStatus(row.status) : null;
+        const status: RequestStatus = userStatus ?? inferSeasonStatus(season);
+        const destination: RequestDestination = row
+          ? { serviceLabel: row.targetLabel ?? "—", profileLabel: row.profileLabel }
+          : NEUTRAL_DESTINATION;
+        return { season, status, destination, requestId: row?.id ?? null };
       }),
-    [seasons, overrides],
+    [seasons, data, tmdbId],
   );
 
   const requestableSeasonNumbers = getRequestableSeasonNumbers(
@@ -78,30 +68,13 @@ export function RequestableSeasons({
 
   if (!seasons || seasons.length === 0) return null;
 
-  function applyOverrides(numbers: number[], next: RequestStatus, dest: RequestDestination) {
-    setOverrides((prev) => {
-      const updated = { ...prev };
-      for (const n of numbers) updated[n] = next;
-      return updated;
-    });
-    setDestinations((prev) => {
-      const updated = { ...prev };
-      for (const n of numbers) updated[n] = dest;
-      return updated;
-    });
-  }
-
   async function submit(submission: PickerSubmission, seasonNumbers: number[]) {
     await create.mutateAsync({
-      tmdbId: tmdbIdFromItemId(itemId),
+      tmdbId,
       mediaType: "tv",
       serviceId: submission.serviceId,
       profileId: submission.profileId,
       seasons: seasonNumbers,
-    });
-    applyOverrides(seasonNumbers, "pending", {
-      serviceLabel: submission.serviceLabel,
-      profileLabel: submission.profileLabel,
     });
   }
 
@@ -114,18 +87,13 @@ export function RequestableSeasons({
     }
   }
 
-  function handleSeasonCancel(seasonNumber: number) {
-    setOverrides((prev) => {
-      const next = { ...prev };
-      delete next[seasonNumber];
-      return next;
-    });
-    setDestinations((prev) => {
-      const next = { ...prev };
-      delete next[seasonNumber];
-      return next;
-    });
-    toast(m.request_toast_cancelled());
+  function handleSeasonCancel(requestId: string) {
+    void cancel.mutateAsync({ requestId }).then(
+      () => toast(m.request_toast_cancelled()),
+      () => {
+        // `useCancelRequest` already surfaces the destructive toast.
+      },
+    );
   }
 
   async function handleBulkRequest(submission: PickerSubmission) {
@@ -191,20 +159,24 @@ export function RequestableSeasons({
         </div>
       ) : null}
 
-      {resolvedSeasons.map(({ season, status }, index) => (
-        <SeasonRow
-          key={`${itemId}-s${season.number}`}
-          itemTitle={itemTitle}
-          season={season}
-          status={status}
-          destination={destinations[season.number] ?? NEUTRAL_DESTINATION}
-          pluginConfigured={pluginConfigured}
-          pending={create.isPending}
-          defaultOpen={index === resolvedSeasons.length - 1}
-          onRequest={(submission) => handleSeasonRequest(submission, season.number)}
-          onCancelPending={() => handleSeasonCancel(season.number)}
-        />
-      ))}
+      {resolvedSeasons.map((entry, index) => {
+        const optimistic = entry.requestId?.startsWith("__optimistic-") ?? false;
+        return (
+          <SeasonRow
+            key={`${itemId}-s${entry.season.number}`}
+            itemTitle={itemTitle}
+            season={entry.season}
+            status={entry.status}
+            destination={entry.destination}
+            pluginConfigured={pluginConfigured}
+            pending={create.isPending}
+            cancelDisabled={cancel.isPending || optimistic}
+            defaultOpen={index === resolvedSeasons.length - 1}
+            onRequest={(submission) => handleSeasonRequest(submission, entry.season.number)}
+            onCancelPending={() => handleSeasonCancel(entry.requestId!)}
+          />
+        );
+      })}
     </section>
   );
 }
@@ -216,6 +188,7 @@ type SeasonRowProps = {
   destination: RequestDestination;
   pluginConfigured: boolean;
   pending: boolean;
+  cancelDisabled: boolean;
   defaultOpen: boolean;
   onRequest: (submission: PickerSubmission) => void | Promise<void>;
   onCancelPending: () => void;
@@ -228,6 +201,7 @@ function SeasonRow({
   destination,
   pluginConfigured,
   pending,
+  cancelDisabled,
   defaultOpen,
   onRequest,
   onCancelPending,
@@ -243,6 +217,7 @@ function SeasonRow({
       destination={destination}
       pluginConfigured={pluginConfigured}
       pending={pending}
+      cancelDisabled={cancelDisabled}
       onSubmit={onRequest}
       onCancelPending={onCancelPending}
     />

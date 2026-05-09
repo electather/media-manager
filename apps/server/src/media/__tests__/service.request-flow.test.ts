@@ -19,10 +19,12 @@ vi.mock("../connection-targeted", () => ({
   listEligibleConnections: (...args: unknown[]) => listEligibleConnectionsMock(...args),
 }));
 
+const dispatchSingleMock = vi.fn();
+
 vi.mock("../dispatcher", () => ({
   dispatchAggregate: vi.fn(),
   dispatchPrimary: vi.fn(),
-  dispatchSingle: vi.fn(),
+  dispatchSingle: (...args: unknown[]) => dispatchSingleMock(...args),
 }));
 
 vi.mock("../../plugin-runtime/registry", () => ({
@@ -43,6 +45,7 @@ const { HttpError } = await import("../../errors/http-errors");
 beforeEach(() => {
   dispatchToConnectionMock.mockReset();
   listEligibleConnectionsMock.mockReset();
+  dispatchSingleMock.mockReset();
 });
 
 describe("MediaService.listRequestTargets", () => {
@@ -233,6 +236,101 @@ describe("MediaService.requestDownload", () => {
       serviceId: "conn-1:1",
     });
     expect(result).toEqual({ requestId: null });
+  });
+});
+
+describe("MediaService.getRequests", () => {
+  it("parses dispatchSingle output against mediaRequestSchema", async () => {
+    const row = {
+      id: "1",
+      tmdbId: "550",
+      type: "movie",
+      title: "Fight Club",
+      status: "pending",
+      seasons: [],
+      targetLabel: null,
+      profileLabel: null,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    dispatchSingleMock.mockResolvedValueOnce([row]);
+    const svc = new MediaService("u1");
+    const out = await svc.getRequests();
+    expect(out).toEqual([row]);
+  });
+
+  it("returns [] when dispatch yields null/undefined", async () => {
+    dispatchSingleMock.mockResolvedValueOnce(undefined);
+    const svc = new MediaService("u1");
+    expect(await svc.getRequests()).toEqual([]);
+  });
+
+  it("throws on schema mismatch (no swallow)", async () => {
+    dispatchSingleMock.mockResolvedValueOnce([{ id: 7 }]);
+    const svc = new MediaService("u1");
+    await expect(svc.getRequests()).rejects.toThrow();
+  });
+
+  it("propagates dispatch errors", async () => {
+    dispatchSingleMock.mockRejectedValueOnce(new Error("dispatch boom"));
+    const svc = new MediaService("u1");
+    await expect(svc.getRequests()).rejects.toThrow(/dispatch boom/);
+  });
+});
+
+describe("MediaService.cancelRequest", () => {
+  it("invokes dispatchSingle with cancelRequest input", async () => {
+    dispatchSingleMock.mockResolvedValueOnce({ ok: true });
+    const svc = new MediaService("u1");
+    await svc.cancelRequest("42");
+    expect(dispatchSingleMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capability: "mediaRequest",
+        version: "v1",
+        method: "cancelRequest",
+        input: { requestId: "42" },
+      }),
+    );
+  });
+
+  it("maps mcp.target_not_found to 404", async () => {
+    dispatchSingleMock.mockRejectedValueOnce(
+      new PluginCallError("mcp.target_not_found", "missing", "seerr", "conn-1"),
+    );
+    const svc = new MediaService("u1");
+    await expect(svc.cancelRequest("x")).rejects.toMatchObject({
+      status: 404,
+      code: "request.unknown_service",
+    });
+  });
+
+  it.each([
+    ["plugin.input_invalid" as const],
+    ["plugin.upstream_error" as const],
+    ["plugin.timeout" as const],
+  ])("maps PluginCallError(%s) to 502", async (code) => {
+    dispatchSingleMock.mockRejectedValueOnce(new PluginCallError(code, "boom", "seerr", "conn-1"));
+    const svc = new MediaService("u1");
+    await expect(svc.cancelRequest("x")).rejects.toMatchObject({
+      status: 502,
+      code: "request.provider_failed",
+    });
+  });
+
+  it("propagates non-mapped PluginCallError codes", async () => {
+    dispatchSingleMock.mockRejectedValueOnce(
+      new PluginCallError("plugin.token_expired", "expired", "seerr", "conn-1"),
+    );
+    const svc = new MediaService("u1");
+    await expect(svc.cancelRequest("x")).rejects.toThrow(/expired/);
+  });
+
+  it("throws 502 when plugin returns ok:false", async () => {
+    dispatchSingleMock.mockResolvedValueOnce({ ok: false, message: "denied" });
+    const svc = new MediaService("u1");
+    await expect(svc.cancelRequest("x")).rejects.toMatchObject({
+      status: 502,
+      code: "request.provider_failed",
+    });
   });
 });
 

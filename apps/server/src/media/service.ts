@@ -6,7 +6,13 @@ import {
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import type { SeasonInfo } from "@ent-mcp/shared/home";
-import type { CreateMediaRequestBody, RequestTarget } from "@ent-mcp/shared/media";
+import {
+  mediaRequestSchema,
+  type CreateMediaRequestBody,
+  type MediaRequest,
+  type RequestTarget,
+} from "@ent-mcp/shared/media";
+import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, PluginCallError } from "./errors";
@@ -336,18 +342,44 @@ export class MediaService {
   }
 
   // fallow-ignore-next-line unused-class-member
-  async getRequests() {
+  async getRequests(): Promise<MediaRequest[]> {
+    const result = await dispatchSingle<unknown[]>({
+      userId: this.userId,
+      capability: "mediaRequest",
+      version: "v1",
+      method: "listRequests",
+      input: {},
+    });
+    return z.array(mediaRequestSchema).parse(result ?? []);
+  }
+
+  async cancelRequest(requestId: string): Promise<void> {
+    let result: { ok: boolean; message?: string } | null;
     try {
-      const result = await dispatchSingle<unknown[]>({
+      result = await dispatchSingle<{ ok: boolean; message?: string }>({
         userId: this.userId,
         capability: "mediaRequest",
         version: "v1",
-        method: "listRequests",
-        input: {},
+        method: "cancelRequest",
+        input: { requestId },
       });
-      return result ?? [];
-    } catch {
-      return [];
+    } catch (err) {
+      if (err instanceof PluginCallError) {
+        if (err.code === "mcp.target_not_found") {
+          throw new HttpError(404, "request.unknown_service", "service not found");
+        }
+        if (
+          err.code === "plugin.input_invalid" ||
+          err.code === "plugin.upstream_error" ||
+          err.code === "plugin.timeout"
+        ) {
+          throw new HttpError(502, "request.provider_failed", err.message);
+        }
+      }
+      throw err;
+    }
+    if (!result?.ok) {
+      throw new HttpError(502, "request.provider_failed", result?.message ?? "provider failed");
     }
   }
 

@@ -31,6 +31,7 @@ vi.mock("../../../auth/middleware", async () => {
 const getRequests = vi.fn<() => Promise<unknown>>();
 const listRequestTargets = vi.fn<(mediaType: "movie" | "tv") => Promise<unknown>>();
 const requestDownload = vi.fn<(input: unknown) => Promise<unknown>>();
+const cancelRequest = vi.fn<(requestId: string) => Promise<void>>();
 
 vi.mock("../../../media/service", () => ({
   MediaService: class {
@@ -38,6 +39,7 @@ vi.mock("../../../media/service", () => ({
     getRequests = getRequests;
     listRequestTargets = listRequestTargets;
     requestDownload = requestDownload;
+    cancelRequest = cancelRequest;
   },
 }));
 
@@ -59,13 +61,44 @@ describe("requests API", () => {
     getRequests.mockReset();
     listRequestTargets.mockReset();
     requestDownload.mockReset();
+    cancelRequest.mockReset();
   });
 
-  it("GET / returns { items } from MediaService.getRequests", async () => {
-    getRequests.mockResolvedValueOnce([{ id: "r1" }]);
+  it("GET / returns typed { items } including seasons[], targetLabel, profileLabel", async () => {
+    const row = {
+      id: "r1",
+      tmdbId: "550",
+      type: "movie",
+      title: "Fight Club",
+      status: "pending",
+      seasons: [],
+      targetLabel: "Radarr Main",
+      profileLabel: "1080p",
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    getRequests.mockResolvedValueOnce([row]);
     const res = await buildApp().request("/requests");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ items: [{ id: "r1" }] });
+    expect(await res.json()).toEqual({ items: [row] });
+  });
+
+  it("GET / passes failed-status rows through unchanged (no server-side filter)", async () => {
+    const row = {
+      id: "r-fail",
+      tmdbId: "1",
+      type: "movie",
+      title: "x",
+      status: "failed",
+      seasons: [],
+      targetLabel: null,
+      profileLabel: null,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    getRequests.mockResolvedValueOnce([row]);
+    const res = await buildApp().request("/requests");
+    const body = (await res.json()) as { items: Array<{ status: string }> };
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0]?.status).toBe("failed");
   });
 
   it("GET /targets returns aggregated targets", async () => {
@@ -192,6 +225,38 @@ describe("requests API", () => {
   it("returns 401 when no session", async () => {
     mockUserId = null;
     const res = await buildApp().request("/requests");
+    expect(res.status).toBe(401);
+  });
+
+  it("DELETE /:requestId happy path returns { ok: true }", async () => {
+    cancelRequest.mockResolvedValueOnce(undefined);
+    const res = await buildApp().request("/requests/42", { method: "DELETE" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(cancelRequest).toHaveBeenCalledWith("42");
+  });
+
+  it("DELETE /:requestId surfaces 404 unknown_service", async () => {
+    cancelRequest.mockRejectedValueOnce(
+      new HttpError(404, "request.unknown_service", "service not found"),
+    );
+    const res = await buildApp().request("/requests/missing", { method: "DELETE" });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { code?: string };
+    expect(body.code).toBe("request.unknown_service");
+  });
+
+  it("DELETE /:requestId surfaces 502 provider_failed", async () => {
+    cancelRequest.mockRejectedValueOnce(new HttpError(502, "request.provider_failed", "boom"));
+    const res = await buildApp().request("/requests/9", { method: "DELETE" });
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { code?: string };
+    expect(body.code).toBe("request.provider_failed");
+  });
+
+  it("DELETE /:requestId requires session", async () => {
+    mockUserId = null;
+    const res = await buildApp().request("/requests/1", { method: "DELETE" });
     expect(res.status).toBe(401);
   });
 });

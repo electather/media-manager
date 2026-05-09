@@ -1,8 +1,10 @@
 import {
   createMediaRequestResponseSchema,
+  mediaRequestsResponseSchema,
   requestTargetsResponseSchema,
   type CreateMediaRequestBody,
   type CreateMediaRequestResponse,
+  type MediaRequestsResponse,
   type RequestTarget,
 } from "@ent-mcp/shared/media";
 import { api } from "@/shared/lib/api";
@@ -29,5 +31,17 @@ export const requestsApi = {
     const res = await api.requests.$post({ json: body });
     if (!res.ok) await throwOnError(res);
     return createMediaRequestResponseSchema.parse(await res.json());
+  },
+
+  async history(): Promise<MediaRequestsResponse> {
+    const res = await api.requests.$get();
+    if (!res.ok) await throwOnError(res);
+    return mediaRequestsResponseSchema.parse(await res.json());
+  },
+
+  async cancel(requestId: string): Promise<{ ok: true }> {
+    const res = await api.requests[":requestId"].$delete({ param: { requestId } });
+    if (!res.ok) await throwOnError(res);
+    return { ok: true };
   },
 };

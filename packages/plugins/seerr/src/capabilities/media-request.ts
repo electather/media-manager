@@ -193,6 +193,9 @@ export const mediaRequest = {
       title: r.media.title ?? r.media.originalTitle ?? "",
       status: mapRequestStatus(r.status),
       createdAt: r.createdAt,
+      seasons: r.seasons?.map((s) => s.seasonNumber) ?? [],
+      targetLabel: r.serverName ?? null,
+      profileLabel: r.profileName ?? null,
     }));
   },
 };

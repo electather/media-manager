@@ -84,4 +84,56 @@ describe("MediaRequestV1 capability", () => {
       expect(r.success).toBe(true);
     });
   });
+
+  describe("listRequests output", () => {
+    it("accepts row with seasons[], targetLabel, profileLabel", () => {
+      const r = MediaRequestV1.methods.listRequests.output.safeParse([
+        {
+          id: "1",
+          tmdbId: "550",
+          type: "movie",
+          title: "Fight Club",
+          status: "pending",
+          createdAt: "2026-01-01T00:00:00Z",
+          seasons: [],
+          targetLabel: "Radarr Main",
+          profileLabel: "1080p",
+        },
+      ]);
+      expect(r.success).toBe(true);
+    });
+
+    it("accepts null targetLabel and profileLabel", () => {
+      const r = MediaRequestV1.methods.listRequests.output.safeParse([
+        {
+          id: "2",
+          tmdbId: "1396",
+          type: "tv",
+          title: "Breaking Bad",
+          status: "approved",
+          createdAt: "2026-01-01T00:00:00Z",
+          seasons: [1, 2],
+          targetLabel: null,
+          profileLabel: null,
+        },
+      ]);
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects row missing required seasons[]", () => {
+      const r = MediaRequestV1.methods.listRequests.output.safeParse([
+        {
+          id: "3",
+          tmdbId: "1",
+          type: "movie",
+          title: "x",
+          status: "pending",
+          createdAt: "2026-01-01T00:00:00Z",
+          targetLabel: null,
+          profileLabel: null,
+        },
+      ]);
+      expect(r.success).toBe(false);
+    });
+  });
 });

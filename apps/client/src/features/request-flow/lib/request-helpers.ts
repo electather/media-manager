@@ -1,4 +1,4 @@
-import type { RequestTarget } from "@ent-mcp/shared/media";
+import type { MediaRequest, RequestTarget } from "@ent-mcp/shared/media";
 import type { RequestDestination, RequestStatus, Season } from "./types";
 
 // Wire / mock status aliases mapped to the widened request-flow set. The
@@ -98,4 +98,36 @@ export function getRequestableSeasonNumbers(
   return seasons
     .filter((s) => getSeasonActionModel(s.status, pluginConfigured).kind === "request")
     .map((s) => s.number);
+}
+
+/**
+ * Maps a server-side `MediaRequest.status` to the UI request-flow status set.
+ * Returns `null` for `failed` rows so the overlay drops and the request button
+ * is re-armed.
+ */
+export function mediaRequestToUiStatus(s: MediaRequest["status"]): RequestStatus | null {
+  if (s === "pending" || s === "approved") return "pending";
+  if (s === "processing") return "in-progress";
+  if (s === "available") return "available";
+  return null;
+}
+
+/**
+ * Picks the user's outstanding request row matching `tmdbId` + `type`, dropping
+ * `failed` rows so the UI re-arms the request button. When `seasonNumber` is
+ * provided, the row must include that season.
+ */
+export function selectRequestForMedia(
+  items: MediaRequest[] | undefined,
+  tmdbId: string,
+  type: "movie" | "tv",
+  seasonNumber?: number,
+): MediaRequest | undefined {
+  return items?.find(
+    (r) =>
+      r.tmdbId === tmdbId &&
+      r.type === type &&
+      r.status !== "failed" &&
+      (seasonNumber === undefined || r.seasons.includes(seasonNumber)),
+  );
 }

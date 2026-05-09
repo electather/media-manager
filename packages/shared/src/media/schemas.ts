@@ -104,3 +104,23 @@ export const requestTargetsQuerySchema = z.object({
   mediaType: mediaTypeSchema,
 });
 export type RequestTargetsQuery = z.infer<typeof requestTargetsQuerySchema>;
+
+/** One row in `GET /api/requests`. Mirrors `mediaRequest@v1.listRequests` output. */
+export const mediaRequestSchema = z.object({
+  id: z.string(),
+  tmdbId: z.string(),
+  type: z.enum(MEDIA_TYPES),
+  title: z.string(),
+  status: z.enum(["pending", "approved", "processing", "available", "failed"]),
+  seasons: z.array(z.number().int().nonnegative()),
+  targetLabel: z.string().nullable(),
+  profileLabel: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type MediaRequest = z.infer<typeof mediaRequestSchema>;
+
+/** Response shape for `GET /api/requests`. */
+export const mediaRequestsResponseSchema = z.object({
+  items: z.array(mediaRequestSchema),
+});
+export type MediaRequestsResponse = z.infer<typeof mediaRequestsResponseSchema>;

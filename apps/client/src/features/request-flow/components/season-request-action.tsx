@@ -18,6 +18,7 @@ type Props = {
   destination: RequestDestination;
   pluginConfigured: boolean;
   pending?: boolean;
+  cancelDisabled?: boolean;
   onSubmit: (submission: PickerSubmission) => void | Promise<void>;
   onCancelPending: () => void;
 };
@@ -29,6 +30,7 @@ export function SeasonRequestAction({
   destination,
   pluginConfigured,
   pending = false,
+  cancelDisabled = false,
   onSubmit,
   onCancelPending,
 }: Props) {
@@ -55,6 +57,9 @@ export function SeasonRequestAction({
   }
 
   if (status === "pending") {
+    const cancelTooltip = cancelDisabled
+      ? m.request_pending_cancel_submitting()
+      : m.request_pending_cancel_tooltip();
     return (
       <span className="inline-flex items-center gap-1.5">
         <TooltipProvider>
@@ -73,11 +78,12 @@ export function SeasonRequestAction({
           type="button"
           size="xs"
           variant="ghost"
+          disabled={cancelDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onCancelPending();
           }}
-          aria-label={m.request_pending_cancel_tooltip()}
+          aria-label={cancelTooltip}
         >
           {m.request_pending_cancel()}
         </Button>

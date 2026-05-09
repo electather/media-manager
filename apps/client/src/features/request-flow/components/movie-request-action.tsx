@@ -1,13 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plug, Plus } from "lucide-react";
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
+import { useCancelRequest } from "../api/use-cancel-request";
 import { useCreateRequest } from "../api/use-create-request";
-import { normalizeRequestStatus, tmdbIdFromItemId } from "../lib/request-helpers";
-import type { RequestDestination, RequestStatus } from "../lib/types";
+import { useUserRequests } from "../api/use-user-requests";
+import {
+  mediaRequestToUiStatus,
+  normalizeRequestStatus,
+  selectRequestForMedia,
+  tmdbIdFromItemId,
+} from "../lib/request-helpers";
+import type { RequestDestination } from "../lib/types";
 import { RequestPicker, type PickerSubmission } from "./request-picker";
 import { RequestPickerBoundary } from "./request-picker-boundary";
 import { RequestStatusInline } from "./request-status-inline";
@@ -23,6 +30,8 @@ type Props = {
   pluginConfigured?: boolean;
 };
 
+const NEUTRAL_DESTINATION: RequestDestination = { serviceLabel: "—", profileLabel: null };
+
 export function MovieRequestAction({
   itemId,
   itemTitle,
@@ -30,20 +39,17 @@ export function MovieRequestAction({
   pluginConfigured = true,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<RequestStatus>(() => normalizeRequestStatus(initialStatus));
-  const [destination, setDestination] = useState<RequestDestination>({
-    serviceLabel: "—",
-    profileLabel: null,
-  });
   const create = useCreateRequest();
+  const cancel = useCancelRequest();
+  const { data } = useUserRequests();
 
-  // The hero on the full detail page is reused across navigations; reset
-  // local request state whenever the underlying item changes so a
-  // previously-submitted movie can't leak its pending status onto another.
-  useEffect(() => {
-    setStatus(normalizeRequestStatus(initialStatus));
-    setOpen(false);
-  }, [itemId, initialStatus]);
+  const tmdbId = tmdbIdFromItemId(itemId);
+  const userRow = selectRequestForMedia(data?.items, tmdbId, "movie");
+  const userStatus = userRow ? mediaRequestToUiStatus(userRow.status) : null;
+  const status = userStatus ?? normalizeRequestStatus(initialStatus);
+  const destination: RequestDestination = userRow
+    ? { serviceLabel: userRow.targetLabel ?? "—", profileLabel: userRow.profileLabel }
+    : NEUTRAL_DESTINATION;
 
   if (!pluginConfigured) {
     return (
@@ -64,23 +70,25 @@ export function MovieRequestAction({
   }
 
   if (status === "pending" || status === "in-progress") {
-    return <RequestStatusInline status={status} destination={destination} />;
+    const optimistic = userRow?.id?.startsWith("__optimistic-") ?? false;
+    return (
+      <RequestStatusInline
+        status={status}
+        destination={destination}
+        onCancel={userRow ? () => cancel.mutate({ requestId: userRow.id }) : undefined}
+        cancelDisabled={cancel.isPending || optimistic}
+      />
+    );
   }
 
   async function handleSubmit(submission: PickerSubmission) {
     try {
       await create.mutateAsync({
-        tmdbId: tmdbIdFromItemId(itemId),
+        tmdbId,
         mediaType: "movie",
         serviceId: submission.serviceId,
         profileId: submission.profileId,
       });
-      setDestination({
-        serviceLabel: submission.serviceLabel,
-        profileLabel: submission.profileLabel,
-      });
-      setStatus("pending");
-      setOpen(false);
       toast.success(m.request_toast_submitted_movie_pending({ title: itemTitle }));
     } catch {
       // `useCreateRequest` already surfaces the destructive toast.

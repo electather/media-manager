@@ -206,6 +206,7 @@
   "request_subline_partial_upcoming": "TODO",
   "request_pending_cancel": "TODO",
   "request_pending_cancel_tooltip": "TODO",
+  "request_pending_cancel_submitting": "TODO",
   "request_toast_submitted_movie": "TODO",
   "request_toast_submitted_movie_pending": "TODO",
   "request_toast_submitted_season": "TODO",

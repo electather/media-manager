@@ -3,12 +3,14 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { RequestTarget } from "@ent-mcp/shared/media";
+import type { MediaRequest, RequestTarget } from "@ent-mcp/shared/media";
 import type { Season } from "../lib/types";
 
 const apiMock = vi.hoisted(() => ({
   targets: vi.fn(),
   create: vi.fn(),
+  history: vi.fn(),
+  cancel: vi.fn(),
 }));
 vi.mock("../api/client", () => ({ requestsApi: apiMock }));
 
@@ -68,6 +70,9 @@ function withClient() {
 beforeEach(() => {
   apiMock.targets.mockReset();
   apiMock.create.mockReset();
+  apiMock.history.mockReset();
+  apiMock.cancel.mockReset();
+  apiMock.history.mockResolvedValue({ items: [] });
   toastMock.success.mockReset();
   toastMock.info.mockReset();
   toastMock.error.mockReset();
@@ -127,7 +132,7 @@ describe("RequestableSeasons", () => {
     });
   });
 
-  it("leaves season status untouched when the mutation fails", async () => {
+  it("rolls back the optimistic season override on mutation failure", async () => {
     apiMock.targets.mockResolvedValue(TARGETS);
     apiMock.create.mockRejectedValueOnce(new Error("boom"));
 
@@ -144,6 +149,37 @@ describe("RequestableSeasons", () => {
     fireEvent.click(screen.getByRole("button", { name: /request season/i }));
 
     await waitFor(() => expect(apiMock.create).toHaveBeenCalled());
-    expect(screen.queryByText(/awaiting approval/i)).toBeNull();
+    await waitFor(() => expect(screen.queryByText(/awaiting approval/i)).toBeNull());
+  });
+
+  it("derives per-season pending only for seasons listed in the matching row", async () => {
+    const row: MediaRequest = {
+      id: "r-7",
+      tmdbId: "123",
+      type: "tv",
+      title: "Show",
+      status: "pending",
+      seasons: [2],
+      targetLabel: "Sonarr Main",
+      profileLabel: null,
+      createdAt: "2026-05-09T00:00:00Z",
+    };
+    apiMock.history.mockResolvedValue({ items: [row] });
+    apiMock.targets.mockResolvedValue(TARGETS);
+
+    const Wrapper = withClient();
+    render(
+      <Wrapper>
+        <RequestableSeasons itemId="tv:123" itemTitle="Show" seasons={seasons} />
+      </Wrapper>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText(/awaiting approval/i).length).toBeGreaterThanOrEqual(1),
+    );
+    // Seasons 1 and 3 keep their request affordance.
+    expect(
+      screen.getAllByRole("button", { name: /request missing/i }).length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });

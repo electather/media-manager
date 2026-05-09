@@ -9,6 +9,7 @@ import { zValidator } from "../../errors/validator";
  * `GET /api/requests/targets` aggregates plugin-supplied request services for
  * the picker.
  * `POST /api/requests` submits a new request through the targeted connection.
+ * `DELETE /api/requests/:requestId` cancels an in-flight request.
  */
 export const requestsApp = new Hono()
   .use("*", requireSession)
@@ -26,4 +27,10 @@ export const requestsApp = new Hono()
     const svc = new MediaService(sessionUserId(c));
     const result = await svc.requestDownload(c.req.valid("json"));
     return c.json(result);
+  })
+  .delete("/:requestId", async (c) => {
+    const requestId = c.req.param("requestId");
+    const svc = new MediaService(sessionUserId(c));
+    await svc.cancelRequest(requestId);
+    return c.json({ ok: true });
   });

@@ -24,4 +24,7 @@ export interface SeerrRequestRow {
   status: number;
   createdAt: string;
   media: { tmdbId: number; title?: string; originalTitle?: string; posterPath?: string };
+  seasons?: Array<{ seasonNumber: number }>;
+  serverName?: string;
+  profileName?: string;
 }

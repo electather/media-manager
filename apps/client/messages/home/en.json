@@ -206,6 +206,7 @@
   "request_subline_partial_upcoming": "{n} upcoming",
   "request_pending_cancel": "Cancel",
   "request_pending_cancel_tooltip": "Cancel request",
+  "request_pending_cancel_submitting": "Submitting…",
   "request_toast_submitted_movie": "Request sent for {title}",
   "request_toast_submitted_movie_pending": "Request pending approval for {title}",
   "request_toast_submitted_season": "Request sent for season {n}",

@@ -127,6 +127,59 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 
+  it("mediaRequest.listRequests: maps seasons[], serverName/profileName labels for TV row", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        results: [
+          {
+            id: 7,
+            type: "tv",
+            status: 2,
+            createdAt: "2026-04-03T00:00:00.000Z",
+            media: { tmdbId: 1396, title: "Breaking Bad" },
+            seasons: [{ seasonNumber: 1 }, { seasonNumber: 2 }],
+            serverName: "Sonarr Main",
+            profileName: "1080p",
+          },
+        ],
+      }),
+    ]);
+    const out = (await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {})) as Array<{
+      seasons: number[];
+      targetLabel: string | null;
+      profileLabel: string | null;
+    }>;
+    expect(out[0]?.seasons).toEqual([1, 2]);
+    expect(out[0]?.targetLabel).toBe("Sonarr Main");
+    expect(out[0]?.profileLabel).toBe("1080p");
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listRequests: movie row with no seasons emits seasons:[] and null labels", async () => {
+    const ctx = makeCtx([
+      jsonRes({
+        results: [
+          {
+            id: 8,
+            type: "movie",
+            status: 4,
+            createdAt: "2026-04-04T00:00:00.000Z",
+            media: { tmdbId: 550, title: "Fight Club" },
+          },
+        ],
+      }),
+    ]);
+    const out = (await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {})) as Array<{
+      seasons: number[];
+      targetLabel: string | null;
+      profileLabel: string | null;
+    }>;
+    expect(out[0]?.seasons).toEqual([]);
+    expect(out[0]?.targetLabel).toBeNull();
+    expect(out[0]?.profileLabel).toBeNull();
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
   it("mediaRequest.createRequest: forwards serverId and profileId when provided", async () => {
     const ctx = makeCtx([jsonRes({ id: 99 })]);
     const out = await seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {

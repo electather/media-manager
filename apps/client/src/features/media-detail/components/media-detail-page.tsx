@@ -7,7 +7,12 @@ import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seaso
 import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
 import type { HomeMediaItem } from "@/features/home/lib/types";
-import { REQUEST_TARGETS_STALE_MS, requestFlowKeys, requestsApi } from "@/features/request-flow";
+import {
+  REQUEST_HISTORY_STALE_MS,
+  REQUEST_TARGETS_STALE_MS,
+  requestFlowKeys,
+  requestsApi,
+} from "@/features/request-flow";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useMediaItem } from "../lib/find-item";
 import { useActiveSection } from "../hooks/use-active-section";
@@ -87,6 +92,11 @@ export function MediaDetailPage({ compositeId }: Props) {
       queryKey: requestFlowKeys.targets(mediaType),
       queryFn: () => requestsApi.targets({ mediaType }),
       staleTime: REQUEST_TARGETS_STALE_MS,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: requestFlowKeys.history(),
+      queryFn: () => requestsApi.history(),
+      staleTime: REQUEST_HISTORY_STALE_MS,
     });
   }, [mediaType, queryClient]);
   const [watchlist, setWatchlist] = useState<ReadonlySet<string>>(() => new Set());
