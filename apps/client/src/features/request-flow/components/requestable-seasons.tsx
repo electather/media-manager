@@ -75,6 +75,8 @@ export function RequestableSeasons({ itemId, itemTitle, seasons, pluginConfigure
       serviceId: submission.serviceId,
       profileId: submission.profileId,
       seasons: seasonNumbers,
+      serviceLabel: submission.serviceLabel,
+      profileLabel: submission.profileLabel,
     });
   }
 

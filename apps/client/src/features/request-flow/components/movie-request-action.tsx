@@ -88,6 +88,8 @@ export function MovieRequestAction({
         mediaType: "movie",
         serviceId: submission.serviceId,
         profileId: submission.profileId,
+        serviceLabel: submission.serviceLabel,
+        profileLabel: submission.profileLabel,
       });
       toast.success(m.request_toast_submitted_movie_pending({ title: itemTitle }));
     } catch {

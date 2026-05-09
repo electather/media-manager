@@ -15,7 +15,7 @@ import {
 import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
-import { AllPluginsFailedError, PluginCallError } from "./errors";
+import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "./errors";
 import { HttpError, badRequest } from "../errors/http-errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { resolveConnections } from "./resolve-connection";
@@ -259,18 +259,8 @@ export class MediaService {
         },
       });
     } catch (err) {
-      if (err instanceof PluginCallError) {
-        if (err.code === "mcp.target_not_found") {
-          throw new HttpError(404, "request.unknown_service", "service not found");
-        }
-        if (
-          err.code === "plugin.input_invalid" ||
-          err.code === "plugin.upstream_error" ||
-          err.code === "plugin.timeout"
-        ) {
-          throw new HttpError(502, "request.provider_failed", err.message);
-        }
-      }
+      const mapped = mapRequestPluginError(err);
+      if (mapped) throw mapped;
       throw err;
     }
 
@@ -364,18 +354,8 @@ export class MediaService {
         input: { requestId },
       });
     } catch (err) {
-      if (err instanceof PluginCallError) {
-        if (err.code === "mcp.target_not_found") {
-          throw new HttpError(404, "request.unknown_service", "service not found");
-        }
-        if (
-          err.code === "plugin.input_invalid" ||
-          err.code === "plugin.upstream_error" ||
-          err.code === "plugin.timeout"
-        ) {
-          throw new HttpError(502, "request.provider_failed", err.message);
-        }
-      }
+      const mapped = mapRequestPluginError(err);
+      if (mapped) throw mapped;
       throw err;
     }
     if (!result?.ok) {

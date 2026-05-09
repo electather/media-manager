@@ -101,6 +101,30 @@ describe("MovieRequestAction", () => {
     await waitFor(() => screen.getByText(/awaiting approval/i));
   });
 
+  it("keeps pending UI when seerr returns success with awaiting-approval (no refetch race)", async () => {
+    apiMock.targets.mockResolvedValueOnce(TARGETS);
+    apiMock.create.mockResolvedValueOnce({ requestId: "r-99" });
+    // Simulate seerr lag: history endpoint still returns the empty list it
+    // had before the request was created. The component must NOT flip back
+    // to the request button on this stale fetch.
+    apiMock.history.mockResolvedValue({ items: [] });
+
+    const Wrapper = withClient();
+    render(
+      <Wrapper>
+        <MovieRequestAction itemId="movie:550" itemTitle="Fight Club" initialStatus="missing" />
+      </Wrapper>,
+    );
+
+    await openPicker();
+    fireEvent.click(screen.getByRole("button", { name: /request movie/i }));
+
+    await waitFor(() => expect(apiMock.create).toHaveBeenCalledTimes(1));
+    // Pending UI from seeded post-success row, not from a refetch.
+    await waitFor(() => screen.getByText(/awaiting approval/i));
+    expect(screen.queryByRole("button", { name: /^request$/i })).toBeNull();
+  });
+
   it("rolls the optimistic row back on error, leaving the request button rearmed", async () => {
     apiMock.targets.mockResolvedValueOnce(TARGETS);
     apiMock.create.mockRejectedValueOnce(
