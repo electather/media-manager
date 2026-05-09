@@ -22,6 +22,8 @@ function buildApp() {
     throw internal("http.internal_error", "boom");
   });
   app.get("/api/diagnostics/errors", (c) => c.json({ ok: true }));
+  app.get("/api/admin/diagnostics/perf/aggregate", (c) => c.json({ ok: true }));
+  app.get("/api/admin/diagnostics/errors", (c) => c.json({ ok: true }));
   app.get("/api/stream", (c) => {
     c.header("content-type", "text/event-stream");
     return c.body("");
@@ -68,6 +70,30 @@ describe("httpPerfMiddleware", () => {
   it("skips routes inside /api/diagnostics to prevent recursion", async () => {
     const app = buildApp();
     await app.request("/api/diagnostics/errors");
+    await flush();
+    expect(collector.records).toHaveLength(0);
+  });
+
+  it("skips routes inside /api/admin/diagnostics to prevent recursion", async () => {
+    const app = buildApp();
+    await app.request("/api/admin/diagnostics/perf/aggregate");
+    await app.request("/api/admin/diagnostics/errors");
+    await flush();
+    expect(collector.records).toHaveLength(0);
+  });
+
+  it("skips diagnostics routes when registered relative to a sub-app", async () => {
+    // Mirrors production: appRouter is mounted at "/api" so its middleware
+    // sees routePath relative to the router (e.g. "/admin/diagnostics/...").
+    const sub = new Hono();
+    sub.use("*", requestContextMiddleware());
+    sub.use("*", httpPerfMiddleware());
+    sub.get("/admin/diagnostics/perf/aggregate", (c) => c.json({ ok: true }));
+    sub.get("/diagnostics/errors", (c) => c.json({ ok: true }));
+    const outer = new Hono();
+    outer.route("/api", sub);
+    await outer.request("/api/admin/diagnostics/perf/aggregate");
+    await outer.request("/api/diagnostics/errors");
     await flush();
     expect(collector.records).toHaveLength(0);
   });

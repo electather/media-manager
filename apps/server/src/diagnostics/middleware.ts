@@ -29,8 +29,10 @@ export function requestContextMiddleware() {
 
 /** Hono middleware that times each handled request and writes one perf row per
  *  matched route. Skips unmatched routes (so static / 404 / pre-router throws
- *  never surface), the `/api/diagnostics/*` namespace (recursion guard), and
- *  streaming responses (no useful single duration).
+ *  never surface), every diagnostics namespace (`/api/diagnostics`,
+ *  `/api/admin/diagnostics`, and the equivalents relative to the API router —
+ *  see {@link isDiagnosticsRoute}) so polling the admin Performance tab does
+ *  not feed itself, and streaming responses (no useful single duration).
  *
  *  Must run inside the request-context frame so `requestId` is available; the
  *  perf row inherits that id and chains to any error captured for the same
@@ -49,7 +51,7 @@ export function httpPerfMiddleware() {
         route &&
         route !== "*" &&
         route !== "/*" &&
-        !route.startsWith("/api/diagnostics") &&
+        !isDiagnosticsRoute(route) &&
         !isStreamingResponse(c)
       ) {
         const session = c.get("session") as { user?: { id?: string } } | undefined;
@@ -64,6 +66,20 @@ export function httpPerfMiddleware() {
       }
     }
   };
+}
+
+/** Recursion guard for the perf middleware. `routePath` is the matched pattern
+ *  in the sub-app where the route was registered, so for the appRouter mount
+ *  (`/api`) it can arrive either as the full URL pattern (when middleware runs
+ *  on the outer app, e.g. tests) or relative to the router (production). Cover
+ *  both shapes so the admin Performance tab does not record its own polling. */
+function isDiagnosticsRoute(route: string): boolean {
+  return (
+    route.startsWith("/api/diagnostics") ||
+    route.startsWith("/api/admin/diagnostics") ||
+    route.startsWith("/diagnostics") ||
+    route.startsWith("/admin/diagnostics")
+  );
 }
 
 function isStreamingResponse(c: Context): boolean {

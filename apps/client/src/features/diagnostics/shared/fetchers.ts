@@ -52,6 +52,7 @@ function perfAggregateQuery(filters: PerfFilters) {
     groupBy: "route",
   };
   if (filters.kind !== "all") out.kind = filters.kind;
+  if (filters.requestId.trim()) out.requestId = filters.requestId.trim();
   return out;
 }
 

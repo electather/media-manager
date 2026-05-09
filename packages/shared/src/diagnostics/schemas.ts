@@ -66,6 +66,7 @@ export const perfAggregateQuerySchema = z.object({
   groupBy: z.enum(["route", "plugin"]).default("route"),
   since: z.coerce.number().optional(),
   until: z.coerce.number().optional(),
+  requestId: z.string().optional(),
 });
 export type PerfAggregateQuery = z.infer<typeof perfAggregateQuerySchema>;
 

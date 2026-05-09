@@ -59,6 +59,7 @@ export const adminPerfApp = new Hono()
     const filters: SQL[] = [gte(perfRecords.createdAt, since)];
     if (q.kind) filters.push(eq(perfRecords.kind, q.kind));
     if (q.until) filters.push(lte(perfRecords.createdAt, q.until));
+    if (q.requestId) filters.push(eq(perfRecords.requestId, q.requestId));
 
     const rows = await db
       .select({
