@@ -17,7 +17,7 @@ export class HomeApiError extends Error {
   readonly code: string | undefined;
 
   constructor(status: number, body: ApiErrorBody | null) {
-    super(body?.message ?? `home request failed (${status})`);
+    super(body?.message ?? body?.devMessage ?? `home request failed (${status})`);
     this.name = "HomeApiError";
     this.status = status;
     this.body = body;
