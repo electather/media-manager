@@ -109,6 +109,25 @@ describe("HomeErrorBoundary", () => {
     delete document.documentElement.dataset.requestId;
   });
 
+  it("does not double-fire telemetry from the base ErrorBoundary when a custom fallback is set", () => {
+    // The shared `componentDidCatch` would otherwise emit a generic "error"
+    // event in addition to the variant-aware "warning" event from
+    // FallbackInner. The base boundary skips when a fallback is provided so
+    // feature boundaries own their telemetry path.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const Wrapper = wrap(client);
+    render(
+      <Wrapper>
+        <HomeErrorBoundary>
+          <Boom error={new HomeApiError(500, { code: "home.internal" })} />
+        </HomeErrorBoundary>
+      </Wrapper>,
+    );
+    expect(reportSpy.mock.calls).toHaveLength(1);
+    expect(reportSpy.mock.calls[0]?.[1]).toBe("warning");
+  });
+
   it("hides the alert and shows the home skeleton during the retry transition", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

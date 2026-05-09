@@ -7,7 +7,6 @@
   "home_nav_label_primary": "Main navigation",
   "home_nav_label_mobile": "Mobile navigation",
   "home_nav_brand_label": "Media Manager",
-  "home_error_title": "Couldn't load the home feed",
   "home_error_retry": "Try again",
   "home_error_ref_prefix": "Ref: {ref}",
   "home_error_auth_title": "Your session expired",

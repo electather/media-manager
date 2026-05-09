@@ -17,7 +17,12 @@ export interface HomeErrorView {
   code: string;
   /** Server status when known, else `null`. */
   status: number | null;
-  /** Server-shipped human-readable string ( `devMessage` or `message`). */
+  /**
+   * Server-shipped technical detail surfaced under the variant body. Resolved
+   * as `body.message ?? body.devMessage` — so this may carry the user-facing
+   * `message` when present, falling back to the dev diagnostic when only that
+   * is shipped. Name is kept for compatibility with the `HomeApiError` field.
+   */
   devMessage: string | null;
   /** When `true`, the fallback should offer a "re-login" affordance. */
   needsRelogin: boolean;
@@ -103,6 +108,10 @@ const VARIANT_RULES: readonly VariantRule[] = [
 ];
 
 function pickVariant(error: Error, status: number | null, code: string): HomeErrorVariant {
+  // Offline check runs before status/code rules: a 401 thrown while
+  // `navigator.onLine === false` resolves as "offline" rather than "auth".
+  // Connectivity is the user's first blocker — fixing it lets them see the
+  // real auth state on the next attempt.
   if (isOffline(error)) return "offline";
   return VARIANT_RULES.find((r) => r.match(status, code))?.variant ?? "unknown";
 }

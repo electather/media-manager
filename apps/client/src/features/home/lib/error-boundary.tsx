@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
@@ -11,6 +11,7 @@ import { homeKeys } from "./query-keys";
 
 const TELEMETRY_CODE = "client.home.boundary";
 const RELOGIN_HREF = "/login";
+const SUPPORT_HREF = "https://github.com/electather/media-manager/issues/new";
 
 function FallbackInner({
   error,
@@ -29,20 +30,20 @@ function FallbackInner({
     void reportError(error, "warning", { variant: view.variant, requestId }, TELEMETRY_CODE);
   }, [error, requestId, view.variant]);
 
-  if (isResetting) return <HomeFeedSkeleton />;
-
   // Render the home skeleton during the reset window so the page never flashes
   // the empty fallback before Suspense re-suspends on the in-flight fetch.
-  const onRetry = () => {
+  const onRetry = useCallback(() => {
     setIsResetting(true);
     void queryClient.resetQueries({ queryKey: homeKeys.all }).finally(() => {
       reset();
     });
-  };
+  }, [queryClient, reset]);
 
-  const onRelogin = () => {
+  const onRelogin = useCallback(() => {
     if (typeof window !== "undefined") window.location.assign(RELOGIN_HREF);
-  };
+  }, []);
+
+  if (isResetting) return <HomeFeedSkeleton />;
 
   const titleFn = m[view.titleKey] as () => string;
   const bodyFn = m[view.bodyKey] as () => string;
@@ -96,7 +97,7 @@ function ActionButtons({
           {m.home_error_retry()}
         </Button>
         <a
-          href="https://github.com/electather/media-manager/issues/new"
+          href={SUPPORT_HREF}
           target="_blank"
           rel="noreferrer"
           className="text-xs text-muted-foreground underline-offset-2 hover:underline"

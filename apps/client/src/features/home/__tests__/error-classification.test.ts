@@ -68,4 +68,14 @@ describe("classifyHomeError", () => {
     );
     expect(view.devMessage).toBe("dev only");
   });
+
+  it("prefers offline over auth when navigator is offline and a 401 is thrown", () => {
+    // Reachability is the user's first blocker — fix connectivity first, then
+    // re-attempt to see the real auth state.
+    withOffline(false, () => {
+      const view = classifyHomeError(new HomeApiError(401, { code: "http.unauthorized" }));
+      expect(view.variant).toBe("offline");
+      expect(view.needsRelogin).toBe(false);
+    });
+  });
 });
