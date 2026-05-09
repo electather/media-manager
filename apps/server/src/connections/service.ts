@@ -9,7 +9,7 @@ import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-m
 import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { invalidateUserCache } from "../media/dispatcher";
-import { badRequest, notFound, unprocessable } from "../errors/http-errors";
+import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import {
   computeDisplayFields,
   decryptJson,

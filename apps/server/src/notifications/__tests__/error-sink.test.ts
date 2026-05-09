@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import type { ErrorRecord } from "@ent-mcp/shared/errors";
+import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
 import type { emit as emitFn } from "../emit";
 
 type EmitArg = Parameters<typeof emitFn>[0];
@@ -39,7 +39,7 @@ beforeEach(() => {
 describe("NotificationErrorSink", () => {
   it("emits system.error for severity=error with admin audience", async () => {
     const sink = new NotificationErrorSink();
-    await sink.capture(makeRecord({ devMessage: "kaboom", source: "plugin" }));
+    await sink.captureError(makeRecord({ devMessage: "kaboom", source: "plugin" }));
 
     expect(emitMock).toHaveBeenCalledTimes(1);
     const call = emitMock.mock.calls[0];
@@ -56,19 +56,19 @@ describe("NotificationErrorSink", () => {
 
   it("does not emit for severity=warning", async () => {
     const sink = new NotificationErrorSink();
-    await sink.capture(makeRecord({ severity: "warning" }));
+    await sink.captureError(makeRecord({ severity: "warning" }));
     expect(emitMock).not.toHaveBeenCalled();
   });
 
   it("does not emit for severity=info", async () => {
     const sink = new NotificationErrorSink();
-    await sink.capture(makeRecord({ severity: "info" }));
+    await sink.captureError(makeRecord({ severity: "info" }));
     expect(emitMock).not.toHaveBeenCalled();
   });
 
   it("swallows emit failures so capture stays reliable", async () => {
     emitMock.mockRejectedValueOnce(new Error("emit boom"));
     const sink = new NotificationErrorSink();
-    await expect(sink.capture(makeRecord())).resolves.toBeUndefined();
+    await expect(sink.captureError(makeRecord())).resolves.toBeUndefined();
   });
 });

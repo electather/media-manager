@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
-import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 /** Typed error thrown by `requestsApi.*` on non-2xx responses. */
 export class RequestError extends Error {

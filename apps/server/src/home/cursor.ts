@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { HttpError } from "../errors/http-errors";
+import { HttpError } from "../diagnostics/http-errors";
 
 /**
  * Cursor codec shared by every row provider. The wire format is base64-url-

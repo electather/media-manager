@@ -16,7 +16,7 @@ import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "./errors";
-import { HttpError, badRequest } from "../errors/http-errors";
+import { HttpError, badRequest } from "../diagnostics/http-errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { resolveConnections } from "./resolve-connection";
 import { invokeOne } from "./invoke";

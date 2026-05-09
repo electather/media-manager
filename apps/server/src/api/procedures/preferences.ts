@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { profileQuerySchema } from "@ent-mcp/shared/preferences";
 import { requireSession, sessionUserId } from "../../auth/middleware";
-import { currentRequestContext } from "../../errors/request-context";
-import { zValidator } from "../../errors/validator";
+import { currentRequestContext } from "../../diagnostics/request-context";
+import { zValidator } from "../../diagnostics/validator";
 import * as jobs from "../../jobs";
 import { jobErrors } from "../../jobs/errors";
 import { latestRun } from "../../jobs/history";

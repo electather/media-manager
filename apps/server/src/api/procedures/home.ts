@@ -7,7 +7,7 @@ import {
   homeGetSeasonAvailabilityInputSchema,
 } from "@ent-mcp/shared/home";
 import { requireSession, sessionUserId } from "../../auth/middleware";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 import { buildContext, composeDetails, composeLayout, composeRow } from "../../home/orchestrator";
 import { composeSeasonAvailability } from "../../home/season-availability";
 

@@ -40,7 +40,7 @@ vi.mock("../capability-lookup", () => ({
 
 const { MediaService } = await import("../service");
 const { PluginCallError } = await import("../errors");
-const { HttpError } = await import("../../errors/http-errors");
+const { HttpError } = await import("../../diagnostics/http-errors");
 
 beforeEach(() => {
   dispatchToConnectionMock.mockReset();

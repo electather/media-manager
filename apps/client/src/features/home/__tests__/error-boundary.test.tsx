@@ -10,7 +10,7 @@ import { homeKeys } from "../lib/query-keys";
 const { reportSpy } = vi.hoisted(() => ({
   reportSpy: vi.fn<(...args: unknown[]) => Promise<void>>(async () => {}),
 }));
-vi.mock("@/shared/lib/errors/report", () => ({
+vi.mock("@/shared/lib/diagnostics/report", () => ({
   reportError: (...args: unknown[]) => reportSpy(...args),
 }));
 

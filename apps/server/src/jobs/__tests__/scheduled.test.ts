@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { resetErrorSinks } from "../../errors/capture";
+import { resetSinks } from "../../diagnostics/capture";
 
 const started: unknown[] = [];
 const finished: unknown[] = [];
@@ -47,7 +47,7 @@ beforeEach(() => {
   finished.length = 0;
   skips.length = 0;
   registry.clear();
-  resetErrorSinks();
+  resetSinks();
 });
 
 describe("scheduled runner", () => {

@@ -55,7 +55,7 @@ export type {
   CapabilityScope,
 } from "@ent-mcp/shared/plugins";
 export type { JSONSchema } from "@ent-mcp/shared/common";
-export type { HostErrorCode } from "@ent-mcp/shared/errors";
+export type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 export {
   artworkVariantSchema,
   artworkBundleSchema,

@@ -6,8 +6,8 @@ import { PERMISSIONS } from "../../auth/permissions";
 import { getDb } from "../../db/client";
 import { user, session } from "../../db/schema/auth";
 import { userRoles, roles } from "../../db/schema/roles";
-import { zValidator } from "../../errors/validator";
-import { notFound, badRequest, forbidden } from "../../errors/http-errors";
+import { zValidator } from "../../diagnostics/validator";
+import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
 import { auth } from "../../auth/config";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

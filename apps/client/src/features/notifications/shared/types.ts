@@ -16,7 +16,7 @@ import type {
   NotificationDeliveryStatus,
 } from "@ent-mcp/shared/notifications";
 import { m } from "@/paraglide/messages";
-import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 export interface NotificationItemDto extends InboxItemDto {
   bodyMarkdown?: string;

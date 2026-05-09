@@ -2,7 +2,7 @@ import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { JOB_RUN_STATUSES, JOB_TRIGGERED_BY, LOG_LEVELS } from "@ent-mcp/shared/jobs";
 import { user } from "./auth";
-import { errorRecords } from "./errors";
+import { errorRecords } from "./diagnostics";
 
 /**
  * One row per attempted job run, including skips, timeouts, and cancellations.

@@ -4,8 +4,8 @@ import type {
   RowContentResponse,
 } from "@ent-mcp/shared/home";
 import { api } from "@/shared/lib/api";
-import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
-import { safeJson } from "@/shared/lib/errors/safe-json";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
+import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 import { HomeApiError } from "./types";
 
 async function throwOnError(res: Response): Promise<never> {

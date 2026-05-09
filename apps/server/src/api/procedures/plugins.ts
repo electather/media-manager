@@ -24,8 +24,8 @@ import {
 } from "../../plugin-runtime/admin-policy";
 import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
 import { classifyScopes } from "../../plugin-runtime/manifest";
-import { zValidator } from "../../errors/validator";
-import { badRequest } from "../../errors/http-errors";
+import { zValidator } from "../../diagnostics/validator";
+import { badRequest } from "../../diagnostics/http-errors";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
 function parseManifest(raw: string): ValidatedManifest {

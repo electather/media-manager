@@ -71,8 +71,9 @@ vi.mock("../user-pool", () => ({
   markUserConnectionExhausted: (...args: unknown[]) => markUserConnectionExhaustedMock(...args),
 }));
 
-vi.mock("../../errors/capture", () => ({
+vi.mock("../../diagnostics/capture", () => ({
   captureError: async () => {},
+  capturePerf: async () => {},
 }));
 
 vi.mock("../host-bridge", () => ({

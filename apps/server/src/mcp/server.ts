@@ -5,7 +5,7 @@ import { dispatchForMcpHandler } from "./dispatch";
 import { mcpToolRegistry } from "./registry";
 import { withOAuthAuth } from "./auth";
 import { jsonRpcResponse, jsonRpcError, type JsonRpcRequest } from "./jsonrpc";
-import { newRequestId } from "../errors/request-context";
+import { newRequestId } from "../diagnostics/request-context";
 
 export {
   oauthAuthorizationServerHandler,
