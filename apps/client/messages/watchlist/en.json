@@ -1,0 +1,95 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "watchlist_eyebrow": "Your library · curated",
+  "watchlist_title": "Watchlist",
+  "watchlist_runtime_budget_days_hours": "{days}d {hours}h of stories",
+  "watchlist_runtime_budget_hours": "{hours}h of stories",
+  "watchlist_status_summary_ready": "{n} ready",
+  "watchlist_status_summary_awaiting": "{n} awaiting",
+  "watchlist_status_summary_upcoming": "{n} upcoming",
+
+  "watchlist_filter_all": "All",
+  "watchlist_filter_ready": "Ready",
+  "watchlist_filter_in_progress": "In progress",
+  "watchlist_filter_awaiting": "Awaiting",
+  "watchlist_filter_upcoming": "Upcoming",
+
+  "watchlist_sort_label": "Sort",
+  "watchlist_sort_recent": "Recently added",
+  "watchlist_sort_alpha": "A → Z",
+  "watchlist_sort_runtime": "Shortest first",
+  "watchlist_sort_status": "By status",
+
+  "watchlist_section_tonight_eyebrow": "One step further than 'Recommended'",
+  "watchlist_section_tonight_title": "Tonight",
+  "watchlist_section_tonight_accessory": "Picked from your watchlist",
+  "watchlist_tonight_why": "Why",
+  "watchlist_tonight_default_reason": "Mood: contemplative · Runtime fits your evening.",
+  "watchlist_tonight_alternates_label": "Or maybe…",
+  "watchlist_tonight_shuffle": "Shuffle suggestion",
+
+  "watchlist_section_ready_eyebrow": "No request needed · stream tonight",
+  "watchlist_section_ready_title": "Ready to watch",
+  "watchlist_scroll_left": "Scroll left",
+  "watchlist_scroll_right": "Scroll right",
+
+  "watchlist_section_mood_eyebrow": "Grouped by feel, not genre",
+  "watchlist_section_mood_title": "By mood",
+  "watchlist_section_mood_accessory": "auto-clustered · {n} moods",
+  "watchlist_mood_eyebrow": "Mood · {n}",
+  "watchlist_mood_see_all": "See all {n}",
+
+  "watchlist_section_coming_eyebrow": "Drops, premieres, return dates",
+  "watchlist_section_coming_title": "Coming up",
+
+  "watchlist_section_awaiting_eyebrow": "Saved, but not on your servers yet",
+  "watchlist_section_awaiting_title": "Awaiting",
+  "watchlist_request_all": "Request all missing",
+
+  "watchlist_section_recent_eyebrow": "Audit trail",
+  "watchlist_section_recent_title": "Recently added",
+
+  "watchlist_filtered_view_title": "Filtered view",
+  "watchlist_filtered_eyebrow_recent": "{label} · sorted by recent",
+  "watchlist_filtered_eyebrow_alpha": "{label} · sorted A → Z",
+  "watchlist_filtered_eyebrow_runtime": "{label} · shortest first",
+  "watchlist_filtered_eyebrow_status": "{label} · sorted by status",
+
+  "watchlist_runtime_movie_hours_minutes": "{hours}h {minutes}m",
+  "watchlist_runtime_movie_minutes": "{minutes}m",
+  "watchlist_runtime_tv_episodes": "{n} eps",
+
+  "watchlist_kind_movie": "Movie",
+  "watchlist_kind_tv": "TV series",
+
+  "watchlist_recent_added_hours_ago": "{n} hours ago",
+  "watchlist_recent_added_yesterday": "Yesterday",
+  "watchlist_recent_added_days_ago": "{n} days ago",
+  "watchlist_recent_added_last_week": "Last week",
+  "watchlist_recent_source_recommended": "Recommended for you",
+  "watchlist_recent_source_notification": "From notification",
+  "watchlist_recent_source_search": "Search",
+  "watchlist_recent_source_trending": "Trending",
+  "watchlist_recent_source_friend": "Friend's list",
+
+  "watchlist_mood_slow_burn_label": "Slow burn",
+  "watchlist_mood_slow_burn_note": "Long takes, careful framing.",
+  "watchlist_mood_quiet_thrill_label": "Quiet thrillers",
+  "watchlist_mood_quiet_thrill_note": "Procedural, restrained.",
+  "watchlist_mood_period_label": "Period drama",
+  "watchlist_mood_period_note": "Costumes, candles, courtrooms.",
+  "watchlist_mood_scifi_label": "Hard sci-fi",
+  "watchlist_mood_scifi_note": "Stars, signals, silence.",
+  "watchlist_mood_comedy_label": "Easy laughs",
+  "watchlist_mood_comedy_note": "Ensemble, breezy.",
+  "watchlist_mood_horror_label": "Atmospheric horror",
+  "watchlist_mood_horror_note": "Dread without splatter.",
+
+  "watchlist_relative_tomorrow": "Tomorrow",
+  "watchlist_relative_in_n_days": "In {n} days",
+  "watchlist_relative_next_friday": "Next Friday",
+
+  "watchlist_empty_title": "Your watchlist is empty",
+  "watchlist_empty_body": "Save shows and films from anywhere — they land here, ready when you are."
+}
