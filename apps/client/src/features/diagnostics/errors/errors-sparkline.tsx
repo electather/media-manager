@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { maxBy } from "es-toolkit";
+import { m } from "@/paraglide/messages";
 
 interface Props {
   hourly: Array<{ error: number; warning: number; info: number }>;
@@ -27,11 +29,11 @@ interface BarGeometry {
 export function ErrorsSparkline({ hourly, width = 320, height = 56 }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const totals = hourly.map((h) => h.error + h.warning + h.info);
-  const max = Math.max(1, ...totals);
+  const peak = Math.max(1, maxBy(totals, (n) => n) ?? 1);
   const pad = 2;
   const cellW = (width - 2 * pad) / Math.max(1, hourly.length);
   const barW = Math.max(2, cellW - 2);
-  const scale = (height - pad - 6) / max;
+  const scale = (height - pad - 6) / peak;
   const baseY = height - 4;
   const geom: BarGeometry = { pad, cellW, barW, scale, baseY, height };
 
@@ -41,7 +43,7 @@ export function ErrorsSparkline({ hourly, width = 320, height = 56 }: Props) {
         width={width}
         height={height}
         role="img"
-        aria-label="Hourly error volume over the last 24 hours"
+        aria-label={m.diagnostics_sparkline_aria()}
         className="block"
       >
         <line
@@ -64,10 +66,10 @@ export function ErrorsSparkline({ hourly, width = 320, height = 56 }: Props) {
           />
         ))}
       </svg>
-      <div className="flex justify-between px-0.5 pt-[2px] font-mono text-[9px] text-muted-foreground/80">
-        <span>−24h</span>
-        <span>−12h</span>
-        <span>now</span>
+      <div className="flex justify-between px-0.5 pt-0.5 font-mono text-xs text-muted-foreground/80">
+        <span>{m.diagnostics_sparkline_minus_24h()}</span>
+        <span>{m.diagnostics_sparkline_minus_12h()}</span>
+        <span>{m.diagnostics_sparkline_now()}</span>
       </div>
       {hover !== null ? (
         <Tooltip bucket={hourly[hover]} hover={hover} geom={geom} width={width} />
@@ -141,16 +143,28 @@ function Tooltip({ bucket, hover, geom, width }: TooltipProps) {
   const x = pad + hover * cellW + cellW / 2;
   return (
     <div
-      className="pointer-events-none absolute z-10 rounded-md border border-input bg-popover px-2 py-1 font-mono text-[11px] text-foreground/85 shadow-md"
+      className="pointer-events-none absolute z-10 rounded-md border border-input bg-popover px-2 py-1 font-mono text-xs text-foreground/85 shadow-md"
       style={{ left: Math.max(0, Math.min(width - 130, x - 65)), top: -6 }}
     >
-      <div className="text-[10px] text-muted-foreground/80">
-        −{24 - hover}h to −{23 - hover}h
+      <div className="text-xs text-muted-foreground/80">
+        {m.diagnostics_sparkline_range_aria({ from: 24 - hover, to: 23 - hover })}
       </div>
-      <div className="mt-[2px] flex gap-2">
-        {bucket.error > 0 ? <span className="text-destructive">{bucket.error} err</span> : null}
-        {bucket.warning > 0 ? <span className="text-primary">{bucket.warning} warn</span> : null}
-        {bucket.info > 0 ? <span className="text-muted-foreground">{bucket.info} info</span> : null}
+      <div className="mt-0.5 flex gap-2">
+        {bucket.error > 0 ? (
+          <span className="text-destructive">
+            {m.diagnostics_sparkline_err({ count: bucket.error })}
+          </span>
+        ) : null}
+        {bucket.warning > 0 ? (
+          <span className="text-primary">
+            {m.diagnostics_sparkline_warn({ count: bucket.warning })}
+          </span>
+        ) : null}
+        {bucket.info > 0 ? (
+          <span className="text-muted-foreground">
+            {m.diagnostics_sparkline_info({ count: bucket.info })}
+          </span>
+        ) : null}
         {bucket.error + bucket.warning + bucket.info === 0 ? (
           <span className="text-muted-foreground/80">—</span>
         ) : null}

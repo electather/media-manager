@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
+import { m } from "@/paraglide/messages";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { CopyButton } from "@/shared/ui/copy-button";
 import { Separator } from "@/shared/ui/separator";
+import { cn } from "@/shared/lib/utils";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchPerfDetail } from "../shared/fetchers";
 import { formatAbs, formatMs } from "../shared/format";
@@ -65,14 +67,17 @@ function PerfDetailHeader({
   detail: PerfDetail | null;
 }) {
   const title = group
-    ? (group.route ?? group.pluginId ?? "(unknown)")
-    : (detail?.record.route ?? "Detail");
+    ? (group.route ?? group.pluginId ?? m.diagnostics_errors_table_unknown())
+    : (detail?.record.route ?? m.diagnostics_perf_detail_title_fallback());
   return (
     <SheetHeader className="border-b border-border">
       <SheetTitle className="font-mono text-sm">{title}</SheetTitle>
       {group ? (
         <p className="text-xs text-muted-foreground">
-          {group.count.toLocaleString()} calls · last seen {formatAbs(group.lastAt)}
+          {m.diagnostics_perf_detail_calls_last_seen({
+            count: group.count.toLocaleString(),
+            when: formatAbs(group.lastAt),
+          })}
         </p>
       ) : null}
     </SheetHeader>
@@ -109,18 +114,27 @@ function PerfDetailBody({
 }
 
 function GroupBody({ group }: { group: PerfAggregateGroup }) {
+  const aboutCopy = group.route
+    ? m.diagnostics_perf_detail_about_route({
+        count: group.count.toLocaleString(),
+        kind: group.kind,
+      })
+    : m.diagnostics_perf_detail_about_plugin({
+        count: group.count.toLocaleString(),
+        kind: group.kind,
+      });
   return (
     <div className="space-y-5 text-sm">
       <section className="space-y-3">
-        <h3 className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
-          Distribution · last 24h
+        <h3 className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
+          {m.diagnostics_perf_detail_distribution()}
         </h3>
         <div className="rounded-md border border-border bg-background p-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Stat label="p50" value={formatMs(group.p50)} />
-            <Stat label="p95" value={formatMs(group.p95)} highlight="primary" />
-            <Stat label="p99" value={formatMs(group.p99)} highlight="destructive" />
-            <Stat label="max" value={formatMs(group.max)} />
+            <Stat labelKey="p50" value={formatMs(group.p50)} />
+            <Stat labelKey="p95" value={formatMs(group.p95)} highlight="primary" />
+            <Stat labelKey="p99" value={formatMs(group.p99)} highlight="destructive" />
+            <Stat labelKey="max" value={formatMs(group.max)} />
           </div>
         </div>
       </section>
@@ -128,14 +142,10 @@ function GroupBody({ group }: { group: PerfAggregateGroup }) {
       <Separator />
 
       <section className="space-y-1">
-        <h3 className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
-          About this row
+        <h3 className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
+          {m.diagnostics_perf_detail_about_row()}
         </h3>
-        <p className="text-xs text-muted-foreground">
-          Aggregates {group.count.toLocaleString()} {group.kind} calls grouped by{" "}
-          {group.route ? "route" : "plugin"}. Use the Errors tab to see related failures, or the
-          aggregate row's request-id chips (when the table is filtered to a single thread).
-        </p>
+        <p className="text-xs text-muted-foreground">{aboutCopy}</p>
       </section>
     </div>
   );
@@ -169,25 +179,28 @@ function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
   return (
     <div className="space-y-5 text-sm">
       <section className="space-y-2">
-        <h3 className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
-          Single call
+        <h3 className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
+          {m.diagnostics_perf_detail_single_call()}
         </h3>
         <p className="text-foreground/90">
           {record.method ? `${record.method} ` : ""}
-          {record.route ?? record.pluginId ?? "(unknown)"} — {formatMs(record.durationMs)}
+          {record.route ?? record.pluginId ?? m.diagnostics_errors_table_unknown()} —{" "}
+          {formatMs(record.durationMs)}
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <ThreadChip requestId={record.requestId} onJump={onJumpThread} />
           <CopyButton value={record.requestId} />
-          {record.status !== null ? <span>HTTP {record.status}</span> : null}
+          {record.status !== null ? (
+            <span>{m.diagnostics_detail_http_status({ status: record.status })}</span>
+          ) : null}
           <span className="font-mono">{formatAbs(record.createdAt)}</span>
         </div>
       </section>
 
       {correlated.length > 0 ? (
         <section className="space-y-2">
-          <h3 className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
-            Errors on the same request
+          <h3 className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
+            {m.diagnostics_perf_detail_correlated_errors()}
           </h3>
           <ul className="space-y-2">
             {correlated.map((err) => (
@@ -195,8 +208,8 @@ function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
                 key={err.id}
                 className="rounded-md border border-border bg-background px-3 py-2 text-xs"
               >
-                <div className="font-mono text-[11px] text-destructive">
-                  {err.code ?? "(no code)"}
+                <div className="font-mono text-xs text-destructive">
+                  {err.code ?? m.diagnostics_errors_no_code()}
                 </div>
                 <div className="mt-0.5 text-foreground/85">{err.devMessage}</div>
               </li>
@@ -208,12 +221,19 @@ function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
   );
 }
 
+const PERF_LABELS: Record<"p50" | "p95" | "p99" | "max", () => string> = {
+  p50: () => m.diagnostics_perf_label_p50(),
+  p95: () => m.diagnostics_perf_label_p95(),
+  p99: () => m.diagnostics_perf_label_p99(),
+  max: () => m.diagnostics_perf_label_max(),
+};
+
 function Stat({
-  label,
+  labelKey,
   value,
   highlight,
 }: {
-  label: string;
+  labelKey: "p50" | "p95" | "p99" | "max";
   value: string;
   highlight?: "primary" | "destructive";
 }) {
@@ -225,10 +245,10 @@ function Stat({
         : "text-foreground";
   return (
     <div>
-      <div className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
-        {label}
+      <div className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
+        {PERF_LABELS[labelKey]()}
       </div>
-      <div className={`mt-1 font-mono text-base font-medium ${colour}`}>{value}</div>
+      <div className={cn("mt-1 font-mono text-base font-medium", colour)}>{value}</div>
     </div>
   );
 }

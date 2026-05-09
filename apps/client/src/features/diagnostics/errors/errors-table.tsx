@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { InboxIcon, AlertTriangleIcon } from "lucide-react";
+import { m } from "@/paraglide/messages";
 import { Card } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -42,7 +43,7 @@ export function ErrorsTable({
     <div className="flex flex-col gap-4">
       {pinnedRequestId ? (
         <PinnedThreadBanner
-          label="Pinned to"
+          label={m.diagnostics_pinned_thread_pinned_to()}
           requestId={pinnedRequestId}
           matches={rows.length}
           onClearRequestId={onClearRequestId}
@@ -91,11 +92,11 @@ function ErrorsTableBody({
     return (
       <EmptyState
         icon="error"
-        title="Couldn't load diagnostics"
-        body="The diagnostics service didn't respond. Try again."
+        title={m.diagnostics_errors_load_failed_title()}
+        body={m.diagnostics_errors_load_failed_body()}
       >
         <Button variant="outline" size="sm" onClick={refetch}>
-          Retry
+          {m.diagnostics_errors_retry()}
         </Button>
       </EmptyState>
     );
@@ -104,8 +105,8 @@ function ErrorsTableBody({
     return (
       <EmptyState
         icon="empty"
-        title="No errors match these filters"
-        body="Try broadening severity or source, widening the date range, or clearing the request-ID pin."
+        title={m.diagnostics_errors_empty_title()}
+        body={m.diagnostics_errors_empty_body()}
       />
     );
   }
@@ -120,11 +121,9 @@ function ErrorsTableBody({
           onJumpThread={onJumpThread}
         />
       ))}
-      <div className="flex items-center justify-between border-t border-border px-4 py-2.5 font-mono text-[11px] text-muted-foreground/80">
-        <span>
-          {rows.length} of {total} · newest first
-        </span>
-        <span>100 / page</span>
+      <div className="flex items-center justify-between border-t border-border px-4 py-2.5 font-mono text-xs text-muted-foreground/80">
+        <span>{m.diagnostics_errors_count_of_total({ rows: rows.length, total })}</span>
+        <span>{m.diagnostics_errors_page_size()}</span>
       </div>
     </>
   );

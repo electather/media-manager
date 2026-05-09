@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangleIcon, GaugeIcon } from "lucide-react";
+import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -76,7 +77,7 @@ export function PerfAggregateTable({
     <div className="flex flex-col gap-4">
       {pinnedRequestId ? (
         <PinnedThreadBanner
-          label="Filtering perf rows touched by"
+          label={m.diagnostics_perf_filter_pinned_label()}
           requestId={pinnedRequestId}
           onClearRequestId={onClearRequestId}
         />
@@ -130,11 +131,11 @@ function PerfAggregateBody({
     return (
       <Empty
         icon="error"
-        title="Couldn't load performance data"
-        body="The diagnostics service didn't respond."
+        title={m.diagnostics_perf_load_failed_title()}
+        body={m.diagnostics_perf_load_failed_body()}
       >
         <Button variant="outline" size="sm" onClick={refetch}>
-          Retry
+          {m.diagnostics_errors_retry()}
         </Button>
       </Empty>
     );
@@ -143,8 +144,8 @@ function PerfAggregateBody({
     return (
       <Empty
         icon="empty"
-        title="No routes match"
-        body="Try widening the range or clearing search and request-ID filters."
+        title={m.diagnostics_perf_empty_title()}
+        body={m.diagnostics_perf_empty_body()}
       />
     );
   }
@@ -178,12 +179,12 @@ function PerfAggregateBody({
 
 function PerfTableHeader() {
   return (
-    <div className="hidden grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2 font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase sm:grid">
-      <span>Route / call</span>
-      <span className="text-right">p50</span>
-      <span className="text-right">p95</span>
-      <span className="text-right">p99</span>
-      <span className="text-right">max</span>
+    <div className="hidden grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2 font-mono text-xs tracking-wider text-muted-foreground/80 uppercase sm:grid">
+      <span>{m.diagnostics_perf_route_or_call()}</span>
+      <span className="text-right">{m.diagnostics_perf_label_p50()}</span>
+      <span className="text-right">{m.diagnostics_perf_label_p95()}</span>
+      <span className="text-right">{m.diagnostics_perf_label_p99()}</span>
+      <span className="text-right">{m.diagnostics_perf_label_max()}</span>
       <span />
     </div>
   );
@@ -201,14 +202,12 @@ function PerfTableFooter({
   sampleSize: number;
 }) {
   return (
-    <div className="flex items-center justify-between border-t border-border px-4 py-2.5 font-mono text-[11px] text-muted-foreground/80">
-      <span>
-        {groupCount} groups · sorted by {sort}
-      </span>
+    <div className="flex items-center justify-between border-t border-border px-4 py-2.5 font-mono text-xs text-muted-foreground/80">
+      <span>{m.diagnostics_perf_groups_summary({ count: groupCount, sort })}</span>
       {truncated ? (
-        <span className="text-primary/85">sample capped at 50k rows</span>
+        <span className="text-primary/85">{m.diagnostics_perf_truncated()}</span>
       ) : (
-        <span>{sampleSize} samples</span>
+        <span>{m.diagnostics_perf_sample_size({ count: sampleSize })}</span>
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SettingsIcon } from "lucide-react";
+import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Separator } from "@/shared/ui/separator";
@@ -36,11 +37,11 @@ export function RetentionPopover() {
           <Button
             variant="outline"
             size="xs"
-            aria-label="Retention"
+            aria-label={m.diagnostics_retention_aria()}
             className="gap-2 max-sm:size-7 max-sm:px-0"
           >
             <SettingsIcon className="size-3.5" />
-            <span className="hidden sm:inline">Retention</span>
+            <span className="hidden sm:inline">{m.diagnostics_retention_button()}</span>
             {cfg ? (
               <span className="hidden font-mono text-xs text-muted-foreground/80 sm:inline">
                 {cfg.errorRetentionDays}d / {cfg.perfRetentionDays}d
@@ -51,17 +52,15 @@ export function RetentionPopover() {
       />
       <PopoverContent className="w-80 p-0" align="end">
         <div className="border-b border-border p-4">
-          <div className="text-sm font-medium">Diagnostics retention</div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Sweeps run nightly. New windows take effect on the next sweep.
-          </p>
+          <div className="text-sm font-medium">{m.diagnostics_retention_title()}</div>
+          <p className="mt-1 text-xs text-muted-foreground">{m.diagnostics_retention_helper()}</p>
         </div>
         <div className="space-y-4 p-4">
           {cfg ? (
             <>
               <RetentionRow
-                label="Errors"
-                helper="Stored alongside warnings and info — only the default view filters them."
+                label={m.diagnostics_retention_errors_label()}
+                helper={m.diagnostics_retention_errors_helper()}
                 value={cfg.errorRetentionDays}
                 options={ERROR_OPTIONS}
                 disabled={mutation.isPending}
@@ -69,8 +68,8 @@ export function RetentionPopover() {
               />
               <Separator />
               <RetentionRow
-                label="Performance"
-                helper="Higher volume — short windows keep storage tame."
+                label={m.diagnostics_retention_perf_label()}
+                helper={m.diagnostics_retention_perf_helper()}
                 value={cfg.perfRetentionDays}
                 options={PERF_OPTIONS}
                 disabled={mutation.isPending}
@@ -105,7 +104,9 @@ function RetentionRow({ label, helper, value, options, disabled, onChange }: Ret
     <div>
       <div className="flex items-baseline justify-between">
         <span className="text-sm font-medium text-foreground/85">{label}</span>
-        <span className="font-mono text-xs text-muted-foreground/80">{value} days</span>
+        <span className="font-mono text-xs text-muted-foreground/80">
+          {m.diagnostics_retention_value_days({ value })}
+        </span>
       </div>
       <p className="mt-1 text-xs text-muted-foreground/80">{helper}</p>
       <div className="mt-2 flex gap-1">

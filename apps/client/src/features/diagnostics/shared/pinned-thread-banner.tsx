@@ -1,4 +1,5 @@
 import { FilterIcon } from "lucide-react";
+import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { ThreadChip } from "../thread-chip";
 
@@ -17,11 +18,13 @@ export function PinnedThreadBanner({ label, requestId, matches, onClearRequestId
       <ThreadChip requestId={requestId} />
       {matches !== undefined ? (
         <span className="text-muted-foreground">
-          — {matches} {matches === 1 ? "match" : "matches"}.
+          {matches === 1
+            ? m.diagnostics_pinned_thread_match_one({ count: matches })
+            : m.diagnostics_pinned_thread_match_other({ count: matches })}
         </span>
       ) : null}
-      <Button variant="outline" size="sm" onClick={onClearRequestId} className="ml-auto">
-        Clear thread
+      <Button variant="outline" size="sm" onClick={onClearRequestId} className="ms-auto">
+        {m.diagnostics_pinned_thread_clear()}
       </Button>
     </div>
   );

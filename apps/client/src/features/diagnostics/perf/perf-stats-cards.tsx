@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { m } from "@/paraglide/messages";
 import { Card } from "@/shared/ui/card";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { diagnosticsKeys } from "../shared/query-keys";
@@ -40,36 +41,36 @@ export function PerfStatsCards() {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard
-        label="Requests / min"
+        label={m.diagnostics_perf_stat_rpm()}
         value={String(data.requestsPerMinute)}
-        unit="rpm"
+        unit={m.diagnostics_perf_unit_rpm()}
         spark={counts}
         accent="var(--color-primary)"
-        hint="last hour"
+        hint={m.diagnostics_perf_hint_last_hour()}
       />
       <StatCard
-        label="Latency · p50"
+        label={m.diagnostics_perf_stat_p50()}
         value={String(data.p50)}
-        unit="ms"
+        unit={m.diagnostics_perf_unit_ms()}
         spark={p50s}
         accent="var(--color-chart-2)"
-        hint="24h"
+        hint={m.diagnostics_perf_hint_24h()}
       />
       <StatCard
-        label="Latency · p95"
+        label={m.diagnostics_perf_stat_p95()}
         value={String(data.p95)}
-        unit="ms"
+        unit={m.diagnostics_perf_unit_ms()}
         spark={p95s}
         accent="var(--color-primary)"
-        hint="24h"
+        hint={m.diagnostics_perf_hint_24h()}
       />
       <StatCard
-        label="Latency · p99"
+        label={m.diagnostics_perf_stat_p99()}
         value={String(data.p99)}
-        unit="ms"
+        unit={m.diagnostics_perf_unit_ms()}
         spark={p95s}
         accent="var(--color-destructive)"
-        hint="24h"
+        hint={m.diagnostics_perf_hint_24h()}
       />
     </div>
   );
@@ -88,10 +89,10 @@ function StatCard({ label, value, unit, spark, accent, hint }: StatCardProps) {
   return (
     <Card className="flex min-h-24 flex-col gap-2 p-4">
       <div className="flex items-baseline justify-between">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
+        <span className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
           {label}
         </span>
-        {hint ? <span className="text-[10px] text-muted-foreground/80">{hint}</span> : null}
+        {hint ? <span className="text-xs text-muted-foreground/80">{hint}</span> : null}
       </div>
       <div className="flex items-baseline gap-1">
         <span className="text-2xl font-semibold leading-none">{value}</span>

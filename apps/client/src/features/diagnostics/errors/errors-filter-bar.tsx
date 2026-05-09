@@ -1,9 +1,11 @@
 import type { ErrorSeverity, ErrorSource } from "@ent-mcp/shared/diagnostics";
 import { ERROR_SEVERITIES, ERROR_SOURCES } from "@ent-mcp/shared/diagnostics";
 import { XIcon } from "lucide-react";
+import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
+import { SeverityDot } from "@/shared/components/severity-dot";
 import { cn } from "@/shared/lib/utils";
 import type { ErrorsFilters } from "../shared/types";
 
@@ -12,34 +14,33 @@ interface Props {
   onChange: (next: ErrorsFilters) => void;
 }
 
-const SEVERITY_STYLES: Record<ErrorSeverity, { dot: string; pressed: string }> = {
-  error: {
-    dot: "bg-destructive",
-    pressed:
-      "data-pressed:border-destructive/40 data-pressed:bg-destructive/15 data-pressed:text-destructive",
-  },
-  warning: {
-    dot: "bg-primary",
-    pressed: "data-pressed:border-primary/40 data-pressed:bg-primary/15 data-pressed:text-primary",
-  },
-  info: {
-    dot: "bg-chart-2",
-    pressed: "data-pressed:border-chart-2/40 data-pressed:bg-chart-2/15 data-pressed:text-chart-2",
-  },
+const SEVERITY_PRESSED: Record<ErrorSeverity, string> = {
+  error:
+    "data-pressed:border-destructive/40 data-pressed:bg-destructive/15 data-pressed:text-destructive",
+  warning: "data-pressed:border-primary/40 data-pressed:bg-primary/15 data-pressed:text-primary",
+  info: "data-pressed:border-chart-2/40 data-pressed:bg-chart-2/15 data-pressed:text-chart-2",
 };
 
-const SOURCE_LABELS: Record<ErrorSource, string> = {
-  frontend: "Frontend",
-  backend: "Backend",
-  plugin: "Plugin",
-  cron: "Cron",
+const SEVERITY_LABELS: Record<ErrorSeverity, () => string> = {
+  error: () => m.diagnostics_severity_error(),
+  warning: () => m.diagnostics_severity_warning(),
+  info: () => m.diagnostics_severity_info(),
 };
 
-const RANGES: ReadonlyArray<{ id: ErrorsFilters["range"]; label: string }> = [
-  { id: "24h", label: "24h" },
-  { id: "7d", label: "7d" },
-  { id: "30d", label: "30d" },
-];
+const SOURCE_LABELS: Record<ErrorSource, () => string> = {
+  frontend: () => m.diagnostics_source_frontend(),
+  backend: () => m.diagnostics_source_backend(),
+  plugin: () => m.diagnostics_source_plugin(),
+  cron: () => m.diagnostics_source_cron(),
+};
+
+const RANGE_LABELS: Record<ErrorsFilters["range"], () => string> = {
+  "24h": () => m.diagnostics_filter_range_24h(),
+  "7d": () => m.diagnostics_filter_range_7d(),
+  "30d": () => m.diagnostics_filter_range_30d(),
+};
+
+const RANGES: ReadonlyArray<ErrorsFilters["range"]> = ["24h", "7d", "30d"];
 
 const DEFAULT_FILTERS: ErrorsFilters = {
   severity: ["error", "warning", "info"],
@@ -67,7 +68,7 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-4">
-        <FilterLabel>Severity</FilterLabel>
+        <FilterLabel>{m.diagnostics_filter_label_severity()}</FilterLabel>
         <ToggleGroup<ErrorSeverity>
           multiple
           value={filters.severity}
@@ -79,17 +80,16 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
               value={sev}
               className={cn(
                 "data-pressed:bg-transparent data-pressed:text-foreground",
-                SEVERITY_STYLES[sev].pressed,
+                SEVERITY_PRESSED[sev],
               )}
             >
-              <span className={`size-1.5 rounded-full ${SEVERITY_STYLES[sev].dot}`} aria-hidden />
-              {sev[0]?.toUpperCase()}
-              {sev.slice(1)}
+              <SeverityDot severity={sev} size="sm" />
+              {SEVERITY_LABELS[sev]()}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
 
-        <FilterLabel>Source</FilterLabel>
+        <FilterLabel>{m.diagnostics_filter_label_source()}</FilterLabel>
         <ToggleGroup<ErrorSource>
           multiple
           value={filters.source}
@@ -97,7 +97,7 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
         >
           {ERROR_SOURCES.map((src) => (
             <ToggleGroupItem<ErrorSource> key={src} value={src}>
-              {SOURCE_LABELS[src]}
+              {SOURCE_LABELS[src]()}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -107,10 +107,10 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
             variant="ghost"
             size="sm"
             onClick={() => onChange(DEFAULT_FILTERS)}
-            className="ml-auto text-xs"
+            className="ms-auto text-xs"
           >
             <XIcon className="size-3.5" />
-            Clear
+            {m.diagnostics_filter_clear()}
           </Button>
         ) : null}
       </div>
@@ -124,9 +124,9 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
           }}
           className="gap-0 overflow-hidden rounded-md border border-border"
         >
-          {RANGES.map((r) => (
-            <ToggleGroupItem<ErrorsFilters["range"]> key={r.id} value={r.id} variant="segmented">
-              {r.label}
+          {RANGES.map((id) => (
+            <ToggleGroupItem<ErrorsFilters["range"]> key={id} value={id} variant="segmented">
+              {RANGE_LABELS[id]()}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -134,7 +134,7 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
         <Input
           value={filters.requestId}
           onChange={(e) => onChange({ ...filters, requestId: e.target.value })}
-          placeholder="Request ID exact match…"
+          placeholder={m.diagnostics_filter_request_id_placeholder()}
           className={cn(
             "h-8 w-full font-mono text-xs sm:w-56",
             filters.requestId ? "border-primary/55" : undefined,
@@ -144,7 +144,7 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
         <Input
           value={filters.search}
           onChange={(e) => onChange({ ...filters, search: e.target.value })}
-          placeholder="Search code or message…"
+          placeholder={m.diagnostics_filter_search_errors_placeholder()}
           className="h-8 w-full text-xs sm:flex-1 sm:min-w-44 sm:w-auto"
         />
       </div>
@@ -154,7 +154,7 @@ export function ErrorsFilterBar({ filters, onChange }: Props) {
 
 function FilterLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-[10px] tracking-wider text-muted-foreground/80 uppercase">
+    <span className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
       {children}
     </span>
   );
