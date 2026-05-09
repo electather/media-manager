@@ -74,4 +74,21 @@ describe("RequestableSeasons reset on item change", () => {
     expect(screen.queryByText(/awaiting approval/i)).toBeNull();
     expect(screen.getByRole("button", { name: /request missing/i })).toBeTruthy();
   });
+
+  it("does not violate hook order when seasons load from empty to populated", () => {
+    // The detail modal mounts this component before season availability
+    // resolves through Suspense, so the initial render can land with an
+    // empty seasons array and rerender once the data arrives. All hooks
+    // must run on both renders or React throws "Rendered more hooks than
+    // during the previous render".
+    const { rerender } = render(
+      <RequestableSeasons itemId="tv:c" itemTitle="Show C" seasons={[]} />,
+    );
+
+    expect(() =>
+      rerender(<RequestableSeasons itemId="tv:c" itemTitle="Show C" seasons={seasonsForId("c")} />),
+    ).not.toThrow();
+
+    expect(screen.getByRole("button", { name: /request missing/i })).toBeTruthy();
+  });
 });

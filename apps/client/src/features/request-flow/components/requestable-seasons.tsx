@@ -60,19 +60,21 @@ export function RequestableSeasons({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId]);
 
-  if (!seasons || seasons.length === 0) return null;
-
-  const destination = describeDestination("tv", defaultServiceId, defaultProfileId);
-
+  // Hooks must run unconditionally so that empty-to-populated `seasons`
+  // transitions don't change the hook order between renders.
   const resolvedSeasons = useMemo(
     () =>
-      seasons.map((season) => {
+      (seasons ?? []).map((season) => {
         const inferred = inferSeasonStatus(season);
         const status: RequestStatus = overrides[season.number] ?? inferred;
         return { season, status };
       }),
     [seasons, overrides],
   );
+
+  if (!seasons || seasons.length === 0) return null;
+
+  const destination = describeDestination("tv", defaultServiceId, defaultProfileId);
 
   const requestableSeasonNumbers = getRequestableSeasonNumbers(
     resolvedSeasons.map((entry) => ({ number: entry.season.number, status: entry.status })),
