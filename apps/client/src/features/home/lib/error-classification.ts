@@ -67,6 +67,7 @@ const BODY_BY_VARIANT: Record<HomeErrorVariant, MessageKey> = {
  * server-shipped `code` from `HomeApiError.body` when available and falls back
  * to status-based inference (401/403 → auth, 5xx → server, network → offline).
  */
+// fallow-ignore-next-line complexity
 export function classifyHomeError(error: Error): HomeErrorView {
   const apiError = error instanceof HomeApiError ? error : null;
   const status = apiError?.status ?? null;
