@@ -82,12 +82,12 @@ describe("TopZone", () => {
     expect(stage.className).not.toContain("overflow-hidden");
   });
 
-  it("lets the ambient glow fade vertically without boxing the hero", () => {
+  it("lets the ambient glow extend past the hero into the rows below", () => {
     render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
     const ambient = screen.getByTestId("top-zone-ambient");
-    expect(ambient.className).toContain("inset-y-[-18%]");
+    expect(ambient.className).toContain("-bottom-80");
+    expect(ambient.className).toContain("-top-32");
     expect(ambient.className).not.toContain("overflow-hidden");
-    expect(ambient.firstElementChild?.className).toContain("[mask-image:radial-gradient");
   });
 
   it("uses a Safari-safe clip path for the rounded hero artwork", () => {

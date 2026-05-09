@@ -90,7 +90,7 @@ function HomeFeedReady() {
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
       {heroSlides.length > 0 ? <TopZone slides={heroSlides} onPeek={handlePeek} /> : null}
-      <div className="flex flex-col gap-2">
+      <div className="relative z-10 flex flex-col gap-2">
         {rows.map((row) => (
           <Row
             key={row.id}

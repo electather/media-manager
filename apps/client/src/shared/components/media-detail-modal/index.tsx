@@ -75,7 +75,7 @@ export function MediaDetailModal({
         aria-labelledby={titleId}
         aria-modal="true"
         showCloseButton={false}
-        className="flex h-[90vh] w-[min(56rem,calc(100vw-2rem))] max-w-none sm:max-w-none flex-col gap-0 overflow-hidden rounded-2xl bg-card p-0 ring-1 ring-border"
+        className="flex max-h-[90vh] w-[min(56rem,calc(100vw-2rem))] max-w-none sm:max-w-none flex-col gap-0 overflow-hidden rounded-2xl bg-card p-0 ring-1 ring-border"
       >
         {body}
       </DialogContent>
@@ -115,17 +115,17 @@ function ModalBody({
   }
 
   return (
-    <div className="modal-backdrop-timeline-scope relative isolate h-full flex flex-col overflow-hidden">
+    <div className="modal-backdrop-timeline-scope relative isolate flex flex-1 min-h-0 flex-col overflow-hidden">
       {item.backdrop ? <ModalBackdrop src={item.backdrop} /> : null}
       <article
         data-testid="media-detail-modal"
-        className="modal-scroll modal-backdrop-timeline-source relative flex flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto"
+        className="modal-scroll modal-backdrop-timeline-source relative flex flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <ModalTopbar item={item} onViewFullPage={onViewFullPage} />
         {/* Hero spacer keeps the cinematic backdrop visible above the content
             surface; height mirrors the prototype's modal-hero-spacer
             (240px mobile / 320px desktop minus topbar height). */}
-        <div aria-hidden="true" className="h-44 shrink-0 sm:h-64" />
+        <div aria-hidden="true" className="h-28 shrink-0 sm:h-40" />
         <div className="relative flex flex-col gap-5 bg-linear-to-b from-transparent via-card/90 to-card pb-10 pt-6 sm:gap-6 sm:pt-8">
           <ModalHeader item={item} titleId={titleId} />
           <ModalFeedback hasNote={!!note} onNoteClick={jumpToNote} />

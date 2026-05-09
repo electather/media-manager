@@ -36,21 +36,19 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none absolute inset-x-[-8vw] inset-y-[-18%] z-0"
+      className="pointer-events-none absolute inset-x-0 -top-32 -bottom-80"
     >
-      <div className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_0%,black_35%,transparent_75%)] [-webkit-mask-image:radial-gradient(ellipse_at_center,black_0%,black_35%,transparent_75%)]">
-        {layers.map((layer) => (
-          <img
-            key={layer.id}
-            src={layer.src}
-            alt=""
-            className={cn(
-              "absolute inset-0 size-full scale-[1.14] transform-gpu object-cover blur-[84px] saturate-[1.85] transition-opacity duration-700 ease-out [backface-visibility:hidden]",
-              layer.visible ? "opacity-90" : "opacity-0",
-            )}
-          />
-        ))}
-      </div>
+      {layers.map((layer) => (
+        <img
+          key={layer.id}
+          src={layer.src}
+          alt=""
+          className={cn(
+            "absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.9] transition-opacity duration-700 ease-out [backface-visibility:hidden] will-change-[opacity]",
+            layer.visible ? "opacity-90" : "opacity-0",
+          )}
+        />
+      ))}
     </div>
   );
 }

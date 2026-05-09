@@ -114,7 +114,7 @@ export function TopZoneHeroCard({ hero, source, percent, onPlay, onMoreInfo, onD
   const reason = matchReasonFor(hero);
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9 before:pointer-events-none before:absolute before:-inset-y-14 before:-inset-e-28 before:-inset-s-8 before:-z-1 before:bg-[radial-gradient(ellipse_at_bottom_left,oklch(0_0_0/0.84),oklch(0_0_0/0.62)_45%,transparent_76%)] before:content-['']">
+    <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9">
       <HeroSourceLabel value={sourceLabel(source)} />
       <HeroClearLogo src={hero.clearLogo} text={hero.clearLogoText} alt={hero.title} />
       <HeroKicker value={kicker} />
