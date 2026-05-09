@@ -1,0 +1,15 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "errors_default_title": "Something went wrong",
+  "errors_default_body": "An unexpected error interrupted this page. Try again — your data is safe.",
+  "errors_retry": "Try again",
+  "errors_back_home": "Back home",
+  "errors_ref_prefix": "Ref: {ref}",
+
+  "errors_invalid_request_title": "Invalid authorization request",
+  "errors_invalid_request_body": "This link is invalid, malformed, or has already been used. Close this tab and try connecting again from your application.",
+
+  "errors_route_title": "We couldn't load this page",
+  "errors_route_body": "Something interrupted the request. Try again — your data is safe."
+}

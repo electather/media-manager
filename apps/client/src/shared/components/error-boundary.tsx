@@ -1,4 +1,17 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { RotateCcwIcon } from "lucide-react";
+
+import { m } from "@/paraglide/messages";
+import {
+  ErrorScreen,
+  ErrorState,
+  ErrorStateActions,
+  ErrorStateContent,
+  ErrorStateDescription,
+  ErrorStateMedia,
+  ErrorStateReference,
+  ErrorStateTitle,
+} from "@/shared/components/error-state";
 import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
@@ -46,18 +59,26 @@ export class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback({ error: this.state.error, requestId, reset: this.reset });
     }
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center">
-        <h2 className="text-lg font-semibold">Something went wrong</h2>
-        <p className="text-sm text-muted-foreground">{this.state.error.message}</p>
-        {requestId ? (
-          <p className="text-xs font-mono text-muted-foreground">
-            Ref: {shortRequestId(requestId)}
-          </p>
-        ) : null}
-        <Button variant="outline" size="sm" onClick={this.reset}>
-          Try again
-        </Button>
-      </div>
+      <ErrorScreen>
+        <ErrorState orientation="vertical">
+          <ErrorStateMedia size="lg" />
+          <ErrorStateContent>
+            <ErrorStateTitle>{m.errors_default_title()}</ErrorStateTitle>
+            <ErrorStateDescription>{this.state.error.message}</ErrorStateDescription>
+            {requestId ? (
+              <ErrorStateReference>
+                {m.errors_ref_prefix({ ref: shortRequestId(requestId) })}
+              </ErrorStateReference>
+            ) : null}
+          </ErrorStateContent>
+          <ErrorStateActions>
+            <Button variant="outline" size="sm" onClick={this.reset}>
+              <RotateCcwIcon aria-hidden="true" />
+              {m.errors_retry()}
+            </Button>
+          </ErrorStateActions>
+        </ErrorState>
+      </ErrorScreen>
     );
   }
 }

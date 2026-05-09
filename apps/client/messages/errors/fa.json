@@ -1,0 +1,15 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "errors_default_title": "TODO",
+  "errors_default_body": "TODO",
+  "errors_retry": "TODO",
+  "errors_back_home": "TODO",
+  "errors_ref_prefix": "TODO",
+
+  "errors_invalid_request_title": "TODO",
+  "errors_invalid_request_body": "TODO",
+
+  "errors_route_title": "TODO",
+  "errors_route_body": "TODO"
+}

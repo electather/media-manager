@@ -2,7 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { fetchInboxPage } from "@/features/notifications/shared/fetchers";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
-import { NotificationsErrorBoundary } from "@/features/notifications/shared/error-boundary";
+import {
+  NotificationsErrorBoundary,
+  NotificationsErrorFallback,
+} from "@/features/notifications/shared/error-boundary";
 import { InboxPage } from "@/features/notifications/inbox/inbox-page";
 import { InboxSkeleton } from "@/features/notifications/inbox/inbox-skeleton";
 import type { InboxFilters } from "@/features/notifications/shared/types";
@@ -39,11 +42,7 @@ export const Route = createFileRoute("/_authenticated/_app/notifications")({
     });
   },
   pendingComponent: InboxSkeleton,
-  errorComponent: ({ error }) => (
-    <NotificationsErrorBoundary>
-      <div className="p-6">{error.message}</div>
-    </NotificationsErrorBoundary>
-  ),
+  errorComponent: NotificationsErrorFallback,
   component: InboxRoute,
 });
 

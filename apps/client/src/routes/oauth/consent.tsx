@@ -9,13 +9,22 @@ import {
   SendIcon,
   ShieldIcon,
   StarIcon,
-  TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
 import { z } from "zod";
 
+import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
 import { UserAvatar } from "@/shared/components/user-avatar";
+import {
+  ErrorScreen,
+  ErrorState,
+  ErrorStateActions,
+  ErrorStateContent,
+  ErrorStateDescription,
+  ErrorStateMedia,
+  ErrorStateTitle,
+} from "@/shared/components/error-state";
 import { Button } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
 
@@ -95,28 +104,20 @@ export const Route = createFileRoute("/oauth/consent")({
 
 function InvalidRequestPage() {
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
-      <div className="flex flex-col items-center gap-4 px-6 pt-10 pb-8">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-destructive/10">
-          <TriangleAlertIcon className="size-5 text-destructive" />
-        </div>
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <h1 className="text-base font-semibold">Invalid authorization request</h1>
-          <p className="text-sm text-muted-foreground">
-            This link is invalid, malformed, or has already been used. Close this tab and try
-            connecting again from your application.
-          </p>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="px-6 py-5">
-        <Button variant="outline" className="w-full" render={<Link to="/" />}>
-          Go home
-        </Button>
-      </div>
-    </div>
+    <ErrorScreen className="min-h-0 p-0">
+      <ErrorState orientation="vertical" className="w-full">
+        <ErrorStateMedia size="lg" />
+        <ErrorStateContent>
+          <ErrorStateTitle>{m.errors_invalid_request_title()}</ErrorStateTitle>
+          <ErrorStateDescription>{m.errors_invalid_request_body()}</ErrorStateDescription>
+        </ErrorStateContent>
+        <ErrorStateActions>
+          <Button variant="outline" render={<Link to="/" />}>
+            {m.errors_back_home()}
+          </Button>
+        </ErrorStateActions>
+      </ErrorState>
+    </ErrorScreen>
   );
 }
 

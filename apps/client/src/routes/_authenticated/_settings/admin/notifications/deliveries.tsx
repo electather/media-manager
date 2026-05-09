@@ -7,7 +7,10 @@ import {
 } from "@ent-mcp/shared/notifications";
 import { fetchAdminDeliveriesPage } from "@/features/notifications/shared/fetchers";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
-import { NotificationsErrorBoundary } from "@/features/notifications/shared/error-boundary";
+import {
+  NotificationsErrorBoundary,
+  NotificationsErrorFallback,
+} from "@/features/notifications/shared/error-boundary";
 import { DeliveriesPage } from "@/features/notifications/admin/deliveries-page";
 import { DeliveriesSkeleton } from "@/features/notifications/admin/deliveries-skeleton";
 import type { AdminDeliveryFilters } from "@/features/notifications/shared/types";
@@ -26,6 +29,7 @@ const adminSearchSchema = z
 
 type AdminSearch = z.infer<typeof adminSearchSchema>;
 
+// fallow-ignore-next-line complexity
 function searchToFilters(s: AdminSearch): AdminDeliveryFilters {
   const out: AdminDeliveryFilters = {};
   if (s.status) out.status = s.status;
@@ -51,11 +55,7 @@ export const Route = createFileRoute("/_authenticated/_settings/admin/notificati
     });
   },
   pendingComponent: DeliveriesSkeleton,
-  errorComponent: ({ error }) => (
-    <NotificationsErrorBoundary>
-      <div className="p-6">{error.message}</div>
-    </NotificationsErrorBoundary>
-  ),
+  errorComponent: NotificationsErrorFallback,
   component: AdminDeliveriesRoute,
 });
 
@@ -65,6 +65,7 @@ function AdminDeliveriesRoute() {
   const filters = searchToFilters(search);
   const id = search.id ?? null;
 
+  // fallow-ignore-next-line complexity
   const setSearch = (next: AdminDeliveryFilters & { id?: string | null }) => {
     void navigate({
       to: Route.fullPath,

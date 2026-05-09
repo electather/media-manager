@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { RotateCcwIcon } from "lucide-react";
+
 import * as m from "@/paraglide/messages";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
+import {
+  ErrorScreen,
+  ErrorState,
+  ErrorStateActions,
+  ErrorStateContent,
+  ErrorStateDescription,
+  ErrorStateDetail,
+  ErrorStateMedia,
+  ErrorStateReference,
+  ErrorStateTitle,
+} from "@/shared/components/error-state";
 import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
@@ -50,22 +63,24 @@ function FallbackInner({
   const detail = view.devMessage;
 
   return (
-    <div
-      role="alert"
-      aria-live="polite"
-      className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center"
-      data-home-error-variant={view.variant}
-    >
-      <h2 className="text-lg font-semibold">{titleFn()}</h2>
-      <p className="text-sm text-muted-foreground">{bodyFn()}</p>
-      {detail ? <p className="max-w-md text-xs text-muted-foreground/80">{detail}</p> : null}
-      {requestId ? (
-        <p className="text-xs font-mono text-muted-foreground">
-          {m.home_error_ref_prefix({ ref: shortRequestId(requestId) })}
-        </p>
-      ) : null}
-      <ActionButtons view={view} onRetry={onRetry} onRelogin={onRelogin} />
-    </div>
+    <ErrorScreen>
+      <ErrorState orientation="vertical" data-home-error-variant={view.variant}>
+        <ErrorStateMedia size="lg" />
+        <ErrorStateContent>
+          <ErrorStateTitle>{titleFn()}</ErrorStateTitle>
+          <ErrorStateDescription>{bodyFn()}</ErrorStateDescription>
+          {detail ? <ErrorStateDetail>{detail}</ErrorStateDetail> : null}
+          {requestId ? (
+            <ErrorStateReference>
+              {m.home_error_ref_prefix({ ref: shortRequestId(requestId) })}
+            </ErrorStateReference>
+          ) : null}
+        </ErrorStateContent>
+        <ErrorStateActions>
+          <ActionButtons view={view} onRetry={onRetry} onRelogin={onRelogin} />
+        </ErrorStateActions>
+      </ErrorState>
+    </ErrorScreen>
   );
 }
 
@@ -80,20 +95,22 @@ function ActionButtons({
 }) {
   if (view.needsRelogin) {
     return (
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <>
         <Button variant="default" size="sm" onClick={onRelogin}>
           {m.home_error_action_relogin()}
         </Button>
         <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCcwIcon aria-hidden="true" />
           {m.home_error_retry()}
         </Button>
-      </div>
+      </>
     );
   }
   if (view.variant === "server") {
     return (
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <>
         <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCcwIcon aria-hidden="true" />
           {m.home_error_retry()}
         </Button>
         <a
@@ -104,13 +121,26 @@ function ActionButtons({
         >
           {m.home_error_action_contact_support()}
         </a>
-      </div>
+      </>
     );
   }
   return (
     <Button variant="outline" size="sm" onClick={onRetry}>
+      <RotateCcwIcon aria-hidden="true" />
       {m.home_error_retry()}
     </Button>
+  );
+}
+
+/** Standalone fallback for use as a route-level `errorComponent`, where there
+ *  is no boundary stack to reset and no captured request id to display. */
+export function HomeErrorFallback({ error }: { error: Error }) {
+  return (
+    <FallbackInner
+      error={error}
+      requestId={document.documentElement.dataset.requestId ?? ""}
+      reset={() => window.location.reload()}
+    />
   );
 }
 
