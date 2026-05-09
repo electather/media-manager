@@ -9,6 +9,7 @@ export const notificationsKeys = {
     [...notificationsKeys.all, "inbox", "popover", filters] as const,
   channels: () => [...notificationsKeys.all, "channels"] as const,
   plugins: () => [...notificationsKeys.all, "plugins"] as const,
+  availableConnections: () => [...notificationsKeys.all, "available-connections"] as const,
   categories: () => [...notificationsKeys.all, "categories"] as const,
   subscriptions: () => [...notificationsKeys.all, "subscriptions"] as const,
   admin: {

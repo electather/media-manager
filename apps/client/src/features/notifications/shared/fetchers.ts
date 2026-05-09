@@ -37,6 +37,18 @@ export async function fetchPlugins() {
   return res.json();
 }
 
+// `/api/notifications/plugins` returns a thinner shape than `ConnectionModal`
+// requires (no `version`, no scoped capability arrays, no `userConfigSchema`
+// keyed under the same field). The Add-channel flow needs the full
+// `PluginSummary`, so it pulls from `/api/connections/available` and
+// intersects with `notificationCapablePluginIds` from the notifications
+// endpoint at the call site.
+export async function fetchAvailableConnections() {
+  const res = await api.connections.available.$get();
+  if (!res.ok) await throwOnError(res);
+  return res.json();
+}
+
 export async function fetchChannels() {
   const res = await api.notifications.channels.$get();
   if (!res.ok) await throwOnError(res);

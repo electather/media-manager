@@ -168,7 +168,7 @@ export function BellPopoverShell({ open, density, intensity, mobile = false }: P
           variant="ghost"
           size="sm"
           className="gap-1.5 text-xs text-muted-foreground"
-          render={<a href="/settings/notifications" />}
+          render={<Link to="/settings/notifications" />}
         >
           <SettingsIcon className="size-3.5" />
           {m.notifications_settings_button()}
