@@ -28,6 +28,8 @@ function expectPluginError(fn: () => unknown, code: string): PluginErrorLike {
   try {
     fn();
   } catch (err) {
+    // If these expects fail they throw inside the catch; vitest still reports
+    // the failure because the throw propagates past the try block.
     const e = err as PluginErrorLike;
     expect(e.name).toBe("PluginError");
     expect(e.code).toBe(code);
@@ -36,15 +38,19 @@ function expectPluginError(fn: () => unknown, code: string): PluginErrorLike {
   throw new Error(`expected validatePluginModule to throw with code ${code}`);
 }
 
+const baseManifestFields = {
+  id: "test-plugin",
+  name: "Test Plugin",
+  version: "1.0.0",
+  description: "",
+  author: { name: "tester" },
+  sdkVersion: "^0.1.0",
+  allowedHosts: [] as string[],
+} as const;
+
 function makeGlobalManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
   return {
-    id: "test-plugin",
-    name: "Test Plugin",
-    version: "1.0.0",
-    description: "",
-    author: { name: "tester" },
-    sdkVersion: "^0.1.0",
-    allowedHosts: [],
+    ...baseManifestFields,
     auth: { kind: "none" },
     capabilities: {
       watchProviders: { version: "v1", scope: "global" },
@@ -67,13 +73,7 @@ function makeGlobalModule(overrides: Partial<PluginModule> = {}): PluginModule {
 
 function makeUserManifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
   return {
-    id: "test-plugin",
-    name: "Test Plugin",
-    version: "1.0.0",
-    description: "",
-    author: { name: "tester" },
-    sdkVersion: "^0.1.0",
-    allowedHosts: [],
+    ...baseManifestFields,
     auth: { kind: "form" },
     credentialsSchema: { type: "object", properties: {} },
     capabilities: {
@@ -98,6 +98,24 @@ function makeUserModule(overrides: Partial<PluginModule> = {}): PluginModule {
   };
 }
 
+// notificationDelivery is exempt from the schema's auth/credentials rules when
+// it is the only user-scoped capability — see `isNotificationOnlyChannel` in
+// `pluginManifestSchema`. That exemption is what lets us build minimal
+// fixtures targeting the notificationDelivery branch of `validateCapabilities`.
+function makeNotificationManifest(
+  capVersion: string = "v1",
+  overrides: Partial<PluginManifest> = {},
+): PluginManifest {
+  return {
+    ...baseManifestFields,
+    auth: { kind: "none" },
+    capabilities: {
+      notificationDelivery: { version: capVersion, scope: "user" },
+    },
+    ...overrides,
+  } as PluginManifest;
+}
+
 describe("validatePluginModule", () => {
   beforeEach(() => {
     mockIsSdkCompatible.mockReset();
@@ -110,6 +128,28 @@ describe("validatePluginModule", () => {
     expect(result.module).toBe(module);
     const reparsed = JSON.parse(result.manifestJson) as { id: string };
     expect(reparsed.id).toBe("test-plugin");
+  });
+
+  it("accepts a module that omits a capability method marked optional", () => {
+    // watchHistory@v1.getInProgress is the only optional method in the
+    // catalog; this exercises the `methodSpec.optional` continue branch in
+    // validateCatalogCapability.
+    const manifest = makeUserManifest({
+      capabilities: { watchHistory: { version: "v1", scope: "user" } },
+    });
+    const module: PluginModule = {
+      manifest,
+      testConnection: async () => ({ ok: true }),
+      capabilities: {
+        watchHistory: {
+          getHistory: async () => [],
+          addToHistory: async () => ({ added: 0 }),
+          removeFromHistory: async () => ({ removed: 0 }),
+          // `getInProgress` deliberately omitted.
+        },
+      },
+    };
+    expect(() => validatePluginModule(module)).not.toThrow();
   });
 
   it("rejects a manifest that fails schema parsing with plugin.input_invalid", () => {
@@ -265,5 +305,44 @@ describe("validatePluginModule", () => {
     });
     const err = expectPluginError(() => validatePluginModule(module), "plugin.missing_method");
     expect(err.message).toContain("missingHandler");
+  });
+
+  describe("notificationDelivery", () => {
+    it("rejects an unknown notificationDelivery version with plugin.missing_method", () => {
+      const manifest = makeNotificationManifest("v2");
+      const module: PluginModule = {
+        manifest,
+        capabilities: {
+          notificationDelivery: {
+            deliver: async () => ({}),
+            testDelivery: async () => ({ ok: true }),
+          },
+        },
+      };
+      const err = expectPluginError(() => validatePluginModule(module), "plugin.missing_method");
+      expect(err.message).toContain("v2");
+    });
+
+    it("rejects a manifest declaring notificationDelivery with no implementation", () => {
+      const manifest = makeNotificationManifest("v1");
+      const module: PluginModule = { manifest, capabilities: {} };
+      const err = expectPluginError(() => validatePluginModule(module), "plugin.missing_method");
+      expect(err.message).toContain("notificationDelivery");
+    });
+
+    it("rejects a notificationDelivery impl missing the deliver method", () => {
+      const manifest = makeNotificationManifest("v1");
+      const module: PluginModule = {
+        manifest,
+        capabilities: {
+          notificationDelivery: {
+            // `deliver` deliberately omitted.
+            testDelivery: async () => ({ ok: true }),
+          },
+        },
+      };
+      const err = expectPluginError(() => validatePluginModule(module), "plugin.missing_method");
+      expect(err.message).toContain("deliver");
+    });
   });
 });
