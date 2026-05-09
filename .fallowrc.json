@@ -1,5 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "ignoreDependencies": ["react-doctor"],
   "publicPackages": [
     "@ent-mcp/client",
     "@ent-mcp/server",

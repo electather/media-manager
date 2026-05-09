@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Pre-push checks scoped to files changed vs origin/main.
+# Skips when origin/main is unavailable (first push, detached fetch, etc.).
+if ! git rev-parse --verify --quiet origin/main >/dev/null; then
+  echo "pre-push: origin/main not found, skipping react-doctor and fallow"
+  exit 0
+fi
+
+react-doctor --diff origin/main --fail-on error -y || exit $?
+fallow audit --base origin/main --fail-on-issues --quiet || exit $?
