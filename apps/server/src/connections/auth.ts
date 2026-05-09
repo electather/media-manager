@@ -246,6 +246,23 @@ export async function createFormConnection(args: {
   if (blank) {
     throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
   }
+
+  // Auth-none plugins (e.g. notification channels: discord, telegram, ntfy)
+  // have no startAuth and carry no credentials — the connection IS the
+  // userConfig. Persist directly with a sentinel so writeConnection's
+  // non-empty credentials guard is satisfied; the sentinel is never read back
+  // by these plugins (they only consume channelConfig / userConfig).
+  if (module.manifest.auth.kind === "none") {
+    const id = await writeConnection({
+      userId: args.userId,
+      pluginId: args.pluginId,
+      credentials: { kind: "none" },
+      userConfig: sanitized,
+      displayName: args.displayName,
+    });
+    return { id };
+  }
+
   const result = (await pluginRuntime.runAuth(
     args.pluginId,
     "startAuth",
