@@ -1,4 +1,5 @@
-// Domain types for the request flow.
+// UI-local types for the request flow. Wire types (`CreateMediaRequestBody`,
+// `RequestTarget`, `RequestProfile`) live in `@ent-mcp/shared/media`.
 
 /**
  * Per-episode status the request flow renders. Values map onto the four
@@ -31,38 +32,11 @@ export type RequestStatus =
   | "partial"
   | "upcoming";
 
-export type UserRole = "user" | "admin";
-
-export type ServiceGlyph = "server" | "stack";
-
-export type RequestProfile = {
-  id: string;
-  label: string;
-  detail: string;
-};
-
-export type RequestService = {
-  id: string;
-  label: string;
-  sub: string;
-  glyph: ServiceGlyph;
-  exposesProfiles: boolean;
-  supports: ("movie" | "tv")[];
-  profiles: RequestProfile[];
-  defaultProfileId: string;
-};
-
-export type RequestPayload = {
-  itemId: string;
-  kind: "movie" | "tv";
-  serviceId: string;
-  profileId: string | null;
-  seasons: number[];
-};
-
+/**
+ * Lightweight UI-local descriptor used by tooltips. Composed by the action
+ * components from the picker selection — not a wire type.
+ */
 export type RequestDestination = {
-  service: RequestService | null;
-  profile: RequestProfile | null;
   serviceLabel: string;
   profileLabel: string | null;
 };

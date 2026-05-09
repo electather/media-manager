@@ -1,11 +1,18 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import * as m from "@/paraglide/messages";
 import { ModalNote } from "@/shared/components/media-detail-modal/modal-note";
 import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seasons";
 import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
 import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
 import type { HomeMediaItem } from "@/features/home/lib/types";
+import {
+  REQUEST_HISTORY_STALE_MS,
+  REQUEST_TARGETS_STALE_MS,
+  requestFlowKeys,
+  requestsApi,
+} from "@/features/request-flow";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useMediaItem } from "../lib/find-item";
 import { useActiveSection } from "../hooks/use-active-section";
@@ -72,6 +79,26 @@ export function MediaDetailPage({ compositeId }: Props) {
   );
 
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // Warm the request-flow target cache as soon as the detail page mounts so
+  // first picker open hits an already-resolved cache entry. The cache key is
+  // `mediaType`-scoped, so visiting one detail page warms every other page of
+  // the same media type for the session.
+  const mediaType = item?.mediaType;
+  useEffect(() => {
+    if (!mediaType) return;
+    void queryClient.prefetchQuery({
+      queryKey: requestFlowKeys.targets(mediaType),
+      queryFn: () => requestsApi.targets({ mediaType }),
+      staleTime: REQUEST_TARGETS_STALE_MS,
+    });
+    void queryClient.prefetchQuery({
+      queryKey: requestFlowKeys.history(),
+      queryFn: () => requestsApi.history(),
+      staleTime: REQUEST_HISTORY_STALE_MS,
+    });
+  }, [mediaType, queryClient]);
   const [watchlist, setWatchlist] = useState<ReadonlySet<string>>(() => new Set());
   const [note, setNote] = useState("");
   const [noteEditing, setNoteEditing] = useState(false);

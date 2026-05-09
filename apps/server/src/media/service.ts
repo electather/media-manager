@@ -6,15 +6,41 @@ import {
 } from "./dispatcher";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import type { SeasonInfo } from "@ent-mcp/shared/home";
+import {
+  mediaRequestSchema,
+  type CreateMediaRequestBody,
+  type MediaRequest,
+  type RequestTarget,
+} from "@ent-mcp/shared/media";
+import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../plugin-runtime/registry";
-import { AllPluginsFailedError, PluginCallError } from "./errors";
+import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "./errors";
+import { HttpError, badRequest } from "../errors/http-errors";
 import type { RawCanonicalSource } from "../catalog/canonical";
 import { resolveConnections } from "./resolve-connection";
 import { invokeOne } from "./invoke";
 import { requireCapability } from "./capability-lookup";
+import { dispatchToConnection, listEligibleConnections } from "./connection-targeted";
+import { decodeServiceId, encodeServiceId, TARGET_ID_RE } from "./service-id";
 import { isNil } from "es-toolkit/predicate";
 import { orderBy, uniqBy } from "es-toolkit/array";
+
+interface ListTargetsOutput {
+  targets: Array<{
+    targetId: string;
+    label: string;
+    exposesProfiles: boolean;
+    defaultProfileId: string | null;
+    profiles: Array<{ id: string; label: string; detail?: string }>;
+  }>;
+}
+
+interface CreateRequestOutput {
+  success: boolean;
+  requestId?: string;
+  message?: string;
+}
 
 /**
  * Per-user facade. Constructed per-request with the authenticated user id;
@@ -202,46 +228,138 @@ export class MediaService {
     return this.getRecommendations(undefined, limit);
   }
 
-  // fallow-ignore-next-line
-  async requestDownload(idOrCombined: string, seasons?: string) {
-    const [parsedType, parsedId] = idOrCombined.includes(":")
-      ? (idOrCombined.split(":") as ["movie" | "tv", string])
-      : (["movie", idOrCombined] as const);
+  // fallow-ignore-next-line complexity
+  async requestDownload(input: CreateMediaRequestBody): Promise<{ requestId: string | null }> {
+    const decoded = decodeServiceId(input.serviceId);
+    if (!decoded) throw badRequest("request.invalid_input", "malformed serviceId");
+    const { connectionId, targetId } = decoded;
+
+    if (input.mediaType === "movie" && input.seasons?.length) {
+      console.warn("[mediaService] seasons ignored for movie request", {
+        tmdbId: input.tmdbId,
+      });
+    }
+    const seasonsCsv =
+      input.mediaType === "tv" && input.seasons?.length ? input.seasons.join(",") : undefined;
+
+    let result: CreateRequestOutput | null;
     try {
-      const result = await dispatchSingle<{
-        success: boolean;
-        requestId?: string;
-        message?: string;
-      }>({
+      result = await dispatchToConnection<CreateRequestOutput>({
         userId: this.userId,
+        connectionId,
         capability: "mediaRequest",
         version: "v1",
         method: "createRequest",
-        input: { tmdbId: parsedId, type: parsedType, seasons },
-        skipCache: true,
+        input: {
+          tmdbId: input.tmdbId,
+          type: input.mediaType,
+          seasons: seasonsCsv,
+          targetId,
+          ...(input.profileId ? { profileId: input.profileId } : {}),
+        },
       });
-      return result ?? { success: false, message: "no provider" };
     } catch (err) {
-      if (err instanceof PluginCallError) {
-        return { success: false, message: err.message };
-      }
+      const mapped = mapRequestPluginError(err);
+      if (mapped) throw mapped;
       throw err;
     }
+
+    if (!result || !result.success) {
+      throw new HttpError(502, "request.provider_failed", result?.message ?? "provider failed");
+    }
+    return { requestId: result.requestId ?? null };
+  }
+
+  /**
+   * Aggregates one entry per (user-connection × downstream target) for the
+   * request picker. Per-connection failures are logged and skipped so a single
+   * broken Seerr instance does not blank the whole picker; targets whose
+   * `targetId` violates `TARGET_ID_RE` are dropped per-entry.
+   */
+  // fallow-ignore-next-line complexity
+  async listRequestTargets(mediaType: "movie" | "tv"): Promise<RequestTarget[]> {
+    const eligible = await listEligibleConnections(this.userId, "mediaRequest", "v1");
+    // Fan out per connection in parallel — one slow Seerr instance otherwise
+    // blocks the picker waiting on every other connection's response. Failures
+    // are logged and skipped per-connection so a single broken instance does
+    // not blank the whole picker.
+    const settled = await Promise.allSettled(
+      eligible.map((c) =>
+        dispatchToConnection<ListTargetsOutput>({
+          userId: this.userId,
+          connectionId: c.connectionId,
+          capability: "mediaRequest",
+          version: "v1",
+          method: "listTargets",
+          input: { type: mediaType },
+        }),
+      ),
+    );
+
+    const out: RequestTarget[] = [];
+    for (const [i, settledResult] of settled.entries()) {
+      const c = eligible[i]!;
+      if (settledResult.status === "rejected") {
+        const err = settledResult.reason as unknown;
+        console.warn("[mediaService] listTargets failed", {
+          pluginId: c.pluginId,
+          connectionId: c.connectionId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
+      const result = settledResult.value;
+      if (!result) continue;
+      for (const t of result.targets) {
+        if (!TARGET_ID_RE.test(t.targetId)) {
+          console.warn("[mediaService] invalid targetId, skipping", {
+            pluginId: c.pluginId,
+            targetId: t.targetId,
+          });
+          continue;
+        }
+        out.push({
+          serviceId: encodeServiceId(c.connectionId, t.targetId),
+          pluginId: c.pluginId,
+          label: t.label,
+          exposesProfiles: t.exposesProfiles,
+          defaultProfileId: t.defaultProfileId,
+          profiles: t.profiles,
+        });
+      }
+    }
+    return out;
   }
 
   // fallow-ignore-next-line unused-class-member
-  async getRequests() {
+  async getRequests(): Promise<MediaRequest[]> {
+    const result = await dispatchSingle<unknown[]>({
+      userId: this.userId,
+      capability: "mediaRequest",
+      version: "v1",
+      method: "listRequests",
+      input: {},
+    });
+    return z.array(mediaRequestSchema).parse(result ?? []);
+  }
+
+  async cancelRequest(requestId: string): Promise<void> {
+    let result: { ok: boolean; message?: string } | null;
     try {
-      const result = await dispatchSingle<unknown[]>({
+      result = await dispatchSingle<{ ok: boolean; message?: string }>({
         userId: this.userId,
         capability: "mediaRequest",
         version: "v1",
-        method: "listRequests",
-        input: {},
+        method: "cancelRequest",
+        input: { requestId },
       });
-      return result ?? [];
-    } catch {
-      return [];
+    } catch (err) {
+      const mapped = mapRequestPluginError(err);
+      if (mapped) throw mapped;
+      throw err;
+    }
+    if (!result?.ok) {
+      throw new HttpError(502, "request.provider_failed", result?.message ?? "provider failed");
     }
   }
 

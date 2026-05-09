@@ -14,8 +14,10 @@ type Props = {
 
 /**
  * Joins canonical `SeasonInfo[]` with the per-server availability response,
- * filters specials with no presence, and renders the existing
- * `RequestableSeasons` accordion in read-only mode (`pluginConfigured=false`).
+ * filters specials with no presence, and renders the `RequestableSeasons`
+ * accordion. The picker self-suspends inside its own boundary and renders an
+ * empty-state when the user has no eligible request services configured, so
+ * the seasons list stays a thin join + render layer.
  *
  * Per-plugin failures arrive as `errors[]` on the response and render as
  * single-line "{server} unreachable" hints alongside the surviving servers.
@@ -59,13 +61,7 @@ export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
           {m.home_detail_seasons_no_servers()}
         </p>
       ) : null}
-      <RequestableSeasons
-        itemId={tmdbId}
-        itemTitle={itemTitle}
-        seasons={joined}
-        role="user"
-        pluginConfigured={false}
-      />
+      <RequestableSeasons itemId={tmdbId} itemTitle={itemTitle} seasons={joined} />
     </div>
   );
 }

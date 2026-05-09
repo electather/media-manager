@@ -1,12 +1,5 @@
-import type { Season } from "./types";
-import { SERVICES } from "./mock-services";
-import type {
-  RequestDestination,
-  RequestPayload,
-  RequestProfile,
-  RequestService,
-  RequestStatus,
-} from "./types";
+import type { MediaRequest, RequestTarget } from "@ent-mcp/shared/media";
+import type { RequestDestination, RequestStatus, Season } from "./types";
 
 // Wire / mock status aliases mapped to the widened request-flow set. The
 // wire format collapses pending and in-progress under `requested`; this map
@@ -29,73 +22,18 @@ export function normalizeRequestStatus(status: string | null | undefined): Reque
   return STATUS_ALIAS[status] ?? "available";
 }
 
-export function servicesForKind(kind: "movie" | "tv"): RequestService[] {
-  const filtered = SERVICES.filter((s) => s.supports.includes(kind));
-  return filtered.length > 0 ? filtered : SERVICES;
-}
-
-export type RequestSelection = {
-  services: RequestService[];
-  service: RequestService | null;
-  profile: RequestProfile | null;
-  serviceId: string | null;
-  profileId: string | null;
-};
-
-export function resolveRequestSelection(
-  kind: "movie" | "tv",
-  serviceId: string | undefined,
-  profileId: string | undefined,
-): RequestSelection {
-  const services = servicesForKind(kind);
-  const service = services.find((s) => s.id === serviceId) ?? services[0] ?? null;
-  const profile =
-    service?.profiles.find((p) => p.id === profileId) ??
-    service?.profiles.find((p) => p.id === service.defaultProfileId) ??
-    null;
-  return {
-    services,
-    service,
-    profile,
-    serviceId: service?.id ?? null,
-    profileId: profile?.id ?? null,
-  };
-}
-
-export function describeDestination(
-  kind: "movie" | "tv",
-  serviceId: string | undefined,
-  profileId: string | undefined,
+/**
+ * Builds the tooltip-ready destination from a target + selected profile id.
+ * Returns `null` when no target is supplied so the popover can fall back to a
+ * neutral message.
+ */
+export function describeTargetDestination(
+  target: RequestTarget | null,
+  profileId: string | null,
 ): RequestDestination {
-  const selection = resolveRequestSelection(kind, serviceId, profileId);
-  return {
-    service: selection.service,
-    profile: selection.profile,
-    serviceLabel: selection.service?.label ?? "—",
-    profileLabel: selection.profile?.label ?? null,
-  };
-}
-
-export function createRequestPayload({
-  itemId,
-  kind,
-  serviceId,
-  profileId,
-  seasonNumbers = [],
-}: {
-  itemId: string;
-  kind: "movie" | "tv";
-  serviceId: string;
-  profileId: string | null;
-  seasonNumbers?: number[];
-}): RequestPayload {
-  return {
-    itemId,
-    kind,
-    serviceId,
-    profileId,
-    seasons: kind === "tv" ? [...seasonNumbers] : [],
-  };
+  if (!target) return { serviceLabel: "—", profileLabel: null };
+  const profile = target.profiles.find((p) => p.id === profileId) ?? null;
+  return { serviceLabel: target.label, profileLabel: profile?.label ?? null };
 }
 
 export type SeasonActionModel =
@@ -143,6 +81,16 @@ export function inferSeasonStatus(season: Season): RequestStatus {
   return matchers.find(([cond]) => cond)?.[1] ?? "missing";
 }
 
+/**
+ * Strips the `movie:` / `tv:` prefix from a `HomeMediaItem.id` so request
+ * payloads carry the bare numeric `tmdbId`. Returns the input unchanged when
+ * no prefix is present.
+ */
+export function tmdbIdFromItemId(itemId: string): string {
+  const idx = itemId.indexOf(":");
+  return idx === -1 ? itemId : itemId.slice(idx + 1);
+}
+
 export function getRequestableSeasonNumbers(
   seasons: { number: number; status: RequestStatus }[],
   pluginConfigured: boolean,
@@ -150,4 +98,36 @@ export function getRequestableSeasonNumbers(
   return seasons
     .filter((s) => getSeasonActionModel(s.status, pluginConfigured).kind === "request")
     .map((s) => s.number);
+}
+
+/**
+ * Maps a server-side `MediaRequest.status` to the UI request-flow status set.
+ * Returns `null` for `failed` rows so the overlay drops and the request button
+ * is re-armed.
+ */
+export function mediaRequestToUiStatus(s: MediaRequest["status"]): RequestStatus | null {
+  if (s === "pending" || s === "approved") return "pending";
+  if (s === "processing") return "in-progress";
+  if (s === "available") return "available";
+  return null;
+}
+
+/**
+ * Picks the user's outstanding request row matching `tmdbId` + `type`, dropping
+ * `failed` rows so the UI re-arms the request button. When `seasonNumber` is
+ * provided, the row must include that season.
+ */
+export function selectRequestForMedia(
+  items: MediaRequest[] | undefined,
+  tmdbId: string,
+  type: "movie" | "tv",
+  seasonNumber?: number,
+): MediaRequest | undefined {
+  return items?.find(
+    (r) =>
+      r.tmdbId === tmdbId &&
+      r.type === type &&
+      r.status !== "failed" &&
+      (seasonNumber === undefined || r.seasons.includes(seasonNumber)),
+  );
 }

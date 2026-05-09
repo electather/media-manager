@@ -1,5 +1,6 @@
 import type { HostErrorCode } from "@ent-mcp/shared/errors";
 import { isPluginError } from "@ent-mcp/plugin-sdk";
+import { HttpError } from "../errors/http-errors";
 
 /**
  * Result of a single plugin invocation at the dispatcher layer. Keeps errors as
@@ -48,6 +49,27 @@ export class AllPluginsFailedError extends Error {
     super(`every provider for ${capability} errored`);
     this.name = "AllPluginsFailedError";
   }
+}
+
+/**
+ * Maps a `PluginCallError` thrown by a `mediaRequest@v1` dispatch to the
+ * request-flow HTTP error envelope. Returns `null` for non-`PluginCallError`
+ * inputs and for `PluginCallError` codes outside the documented map so
+ * callers can rethrow.
+ */
+export function mapRequestPluginError(err: unknown): HttpError | null {
+  if (!(err instanceof PluginCallError)) return null;
+  if (err.code === "mcp.target_not_found") {
+    return new HttpError(404, "request.unknown_service", "service not found");
+  }
+  if (
+    err.code === "plugin.input_invalid" ||
+    err.code === "plugin.upstream_error" ||
+    err.code === "plugin.timeout"
+  ) {
+    return new HttpError(502, "request.provider_failed", err.message);
+  }
+  return null;
 }
 
 /** Normalizes a thrown value into a canonical `{ code, devMessage }` pair. */

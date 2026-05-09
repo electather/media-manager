@@ -5,33 +5,32 @@ import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 import { getSeasonActionModel } from "../lib/request-helpers";
-import type { RequestDestination, RequestPayload, RequestStatus } from "../lib/types";
+import type { RequestDestination, RequestStatus } from "../lib/types";
 import { destinationTooltipText } from "./destination-helpers";
-import { RequestPicker } from "./request-picker";
+import { RequestPicker, type PickerSubmission } from "./request-picker";
+import { RequestPickerBoundary } from "./request-picker-boundary";
 import { RequestStatusBadge } from "./request-status-badge";
 
 type Props = {
-  itemId: string;
   itemTitle: string;
   seasonNumber: number;
   status: RequestStatus;
   destination: RequestDestination;
-  defaultServiceId?: string;
-  defaultProfileId?: string;
   pluginConfigured: boolean;
-  onSubmit: (payload: RequestPayload) => void;
+  pending?: boolean;
+  cancelDisabled?: boolean;
+  onSubmit: (submission: PickerSubmission) => void | Promise<void>;
   onCancelPending: () => void;
 };
 
 export function SeasonRequestAction({
-  itemId,
   itemTitle,
   seasonNumber,
   status,
   destination,
-  defaultServiceId,
-  defaultProfileId,
   pluginConfigured,
+  pending = false,
+  cancelDisabled = false,
   onSubmit,
   onCancelPending,
 }: Props) {
@@ -58,6 +57,9 @@ export function SeasonRequestAction({
   }
 
   if (status === "pending") {
+    const cancelTooltip = cancelDisabled
+      ? m.request_pending_cancel_submitting()
+      : m.request_pending_cancel_tooltip();
     return (
       <span className="inline-flex items-center gap-1.5">
         <TooltipProvider>
@@ -76,11 +78,12 @@ export function SeasonRequestAction({
           type="button"
           size="xs"
           variant="ghost"
+          disabled={cancelDisabled}
           onClick={(event) => {
             event.stopPropagation();
             onCancelPending();
           }}
-          aria-label={m.request_pending_cancel_tooltip()}
+          aria-label={cancelTooltip}
         >
           {m.request_pending_cancel()}
         </Button>
@@ -98,9 +101,9 @@ export function SeasonRequestAction({
       ? m.request_season_request_missing()
       : m.request_season_request_season();
 
-  function handleSubmit(payload: RequestPayload) {
+  async function handleSubmit(submission: PickerSubmission) {
+    await onSubmit(submission);
     setOpen(false);
-    onSubmit(payload);
   }
 
   return (
@@ -120,16 +123,16 @@ export function SeasonRequestAction({
         }
       />
       <PopoverContent align="end" className="w-auto p-0">
-        <RequestPicker
-          itemId={itemId}
-          itemTitle={itemTitle}
-          kind="tv"
-          seasonNumbers={[seasonNumber]}
-          defaultServiceId={defaultServiceId}
-          defaultProfileId={defaultProfileId}
-          onSubmit={handleSubmit}
-          onCancel={() => setOpen(false)}
-        />
+        <RequestPickerBoundary mediaType="tv">
+          <RequestPicker
+            itemTitle={itemTitle}
+            mediaType="tv"
+            seasonNumbers={[seasonNumber]}
+            onSubmit={handleSubmit}
+            onCancel={() => setOpen(false)}
+            pending={pending}
+          />
+        </RequestPickerBoundary>
       </PopoverContent>
     </Popover>
   );

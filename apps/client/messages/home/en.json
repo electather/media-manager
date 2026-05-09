@@ -206,6 +206,7 @@
   "request_subline_partial_upcoming": "{n} upcoming",
   "request_pending_cancel": "Cancel",
   "request_pending_cancel_tooltip": "Cancel request",
+  "request_pending_cancel_submitting": "Submitting…",
   "request_toast_submitted_movie": "Request sent for {title}",
   "request_toast_submitted_movie_pending": "Request pending approval for {title}",
   "request_toast_submitted_season": "Request sent for season {n}",
@@ -214,5 +215,12 @@
   "request_toast_cancelled": "Request cancelled",
   "request_default_destination_title": "Default request destination",
   "request_default_destination_description": "Where should new requests go? You can override this per request.",
-  "request_settings_section_service": "Service"
+  "request_settings_section_service": "Service",
+  "request_picker_empty_targets": "No request services configured",
+  "request_picker_load_failed": "Couldn't load request services",
+  "request_picker_load_retry": "Retry",
+  "request_error_invalid_input": "Couldn't submit — invalid input",
+  "request_error_unknown_service": "Selected server is unavailable",
+  "request_error_provider_failed": "Provider couldn't take the request",
+  "request_error_generic": "Something went wrong"
 }

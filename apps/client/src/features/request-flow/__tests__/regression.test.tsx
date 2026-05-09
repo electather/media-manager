@@ -1,13 +1,45 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { RequestTarget } from "@ent-mcp/shared/media";
 import type { Season } from "../lib/types";
+
+const apiMock = vi.hoisted(() => ({
+  targets: vi.fn(),
+  create: vi.fn(),
+  history: vi.fn(),
+  cancel: vi.fn(),
+}));
+vi.mock("../api/client", () => ({ requestsApi: apiMock }));
+
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
+}));
+
 import { MovieRequestAction } from "../components/movie-request-action";
 import { RequestableSeasons } from "../components/requestable-seasons";
 
-afterEach(() => {
-  cleanup();
-});
+const TARGETS: RequestTarget[] = [
+  {
+    serviceId: "conn-1:5",
+    pluginId: "seerr",
+    label: "Sonarr Main",
+    exposesProfiles: false,
+    defaultProfileId: null,
+    profiles: [],
+  },
+];
+
+function withClient() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  };
+}
 
 const seasonsForId = (suffix: string): Season[] => [
   {
@@ -35,18 +67,36 @@ const seasonsForId = (suffix: string): Season[] => [
   },
 ];
 
+beforeEach(() => {
+  apiMock.targets.mockReset();
+  apiMock.create.mockReset();
+  apiMock.history.mockReset();
+  apiMock.cancel.mockReset();
+  apiMock.history.mockResolvedValue({ items: [] });
+  apiMock.targets.mockResolvedValue(TARGETS);
+});
+
+afterEach(() => cleanup());
+
 describe("MovieRequestAction reset on item change", () => {
-  it("clears the pending status when the parent navigates to a new movie", () => {
+  it("does not leak pending state when the parent navigates to a new movie", async () => {
+    apiMock.create.mockResolvedValueOnce({ requestId: "r-a" });
+    const Wrapper = withClient();
     const { rerender } = render(
-      <MovieRequestAction itemId="movie:a" itemTitle="Movie A" initialStatus="unavailable" />,
+      <Wrapper>
+        <MovieRequestAction itemId="movie:a" itemTitle="Movie A" initialStatus="unavailable" />
+      </Wrapper>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /^request$/i }));
+    await waitFor(() => screen.getByRole("button", { name: /^request movie$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^request movie$/i }));
-    expect(screen.getByText(/awaiting approval/i)).toBeTruthy();
+    await waitFor(() => screen.getByText(/awaiting approval/i));
 
     rerender(
-      <MovieRequestAction itemId="movie:b" itemTitle="Movie B" initialStatus="unavailable" />,
+      <Wrapper>
+        <MovieRequestAction itemId="movie:b" itemTitle="Movie B" initialStatus="unavailable" />
+      </Wrapper>,
     );
 
     expect(screen.queryByText(/awaiting approval/i)).toBeNull();
@@ -55,22 +105,26 @@ describe("MovieRequestAction reset on item change", () => {
 });
 
 describe("RequestableSeasons reset on item change", () => {
-  it("does not leak season overrides between titles", () => {
+  it("does not leak per-season pending between titles", async () => {
+    apiMock.create.mockResolvedValueOnce({ requestId: "r-s1" });
+    const Wrapper = withClient();
     const { rerender } = render(
-      <RequestableSeasons itemId="tv:a" itemTitle="Show A" seasons={seasonsForId("a")} />,
+      <Wrapper>
+        <RequestableSeasons itemId="tv:a" itemTitle="Show A" seasons={seasonsForId("a")} />
+      </Wrapper>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /request missing/i }));
+    await waitFor(() => screen.getByRole("button", { name: /request season/i }));
     fireEvent.click(screen.getByRole("button", { name: /request season/i }));
-    // Pending sublines (`{n} episodes — awaiting approval`) only appear
-    // once the override has been applied to a season, so they are a clean
-    // signal that the request was registered.
-    expect(screen.getByText(/awaiting approval/i)).toBeTruthy();
+    await waitFor(() => screen.getByText(/awaiting approval/i));
 
-    rerender(<RequestableSeasons itemId="tv:b" itemTitle="Show B" seasons={seasonsForId("b")} />);
+    rerender(
+      <Wrapper>
+        <RequestableSeasons itemId="tv:b" itemTitle="Show B" seasons={seasonsForId("b")} />
+      </Wrapper>,
+    );
 
-    // The fresh title should re-derive its season state from props, not
-    // inherit the previous title's pending override on season 1.
     expect(screen.queryByText(/awaiting approval/i)).toBeNull();
     expect(screen.getByRole("button", { name: /request missing/i })).toBeTruthy();
   });
@@ -81,12 +135,19 @@ describe("RequestableSeasons reset on item change", () => {
     // empty seasons array and rerender once the data arrives. All hooks
     // must run on both renders or React throws "Rendered more hooks than
     // during the previous render".
+    const Wrapper = withClient();
     const { rerender } = render(
-      <RequestableSeasons itemId="tv:c" itemTitle="Show C" seasons={[]} />,
+      <Wrapper>
+        <RequestableSeasons itemId="tv:c" itemTitle="Show C" seasons={[]} />
+      </Wrapper>,
     );
 
     expect(() =>
-      rerender(<RequestableSeasons itemId="tv:c" itemTitle="Show C" seasons={seasonsForId("c")} />),
+      rerender(
+        <Wrapper>
+          <RequestableSeasons itemId="tv:c" itemTitle="Show C" seasons={seasonsForId("c")} />
+        </Wrapper>,
+      ),
     ).not.toThrow();
 
     expect(screen.getByRole("button", { name: /request missing/i })).toBeTruthy();

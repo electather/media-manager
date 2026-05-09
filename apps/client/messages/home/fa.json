@@ -206,6 +206,7 @@
   "request_subline_partial_upcoming": "TODO",
   "request_pending_cancel": "TODO",
   "request_pending_cancel_tooltip": "TODO",
+  "request_pending_cancel_submitting": "TODO",
   "request_toast_submitted_movie": "TODO",
   "request_toast_submitted_movie_pending": "TODO",
   "request_toast_submitted_season": "TODO",
@@ -214,5 +215,12 @@
   "request_toast_cancelled": "TODO",
   "request_default_destination_title": "TODO",
   "request_default_destination_description": "TODO",
-  "request_settings_section_service": "TODO"
+  "request_settings_section_service": "TODO",
+  "request_picker_empty_targets": "TODO",
+  "request_picker_load_failed": "TODO",
+  "request_picker_load_retry": "TODO",
+  "request_error_invalid_input": "TODO",
+  "request_error_unknown_service": "TODO",
+  "request_error_provider_failed": "TODO",
+  "request_error_generic": "TODO"
 }
