@@ -1,5 +1,18 @@
 # @ent-mcp/plugin-seerr
 
+## 0.3.0
+
+### Minor Changes
+
+- 6831fb5: Extended request listings with season numbers and request destination labels.
+- 6831fb5: Surfaced configured Radarr and Sonarr servers and their quality profiles when submitting requests.
+
+### Patch Changes
+
+- Updated dependencies [6831fb5]
+- Updated dependencies [6831fb5]
+  - @ent-mcp/plugin-sdk@0.4.0
+
 ## 0.2.1
 
 ### Patch Changes
