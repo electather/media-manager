@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { consola, type ConsolaInstance, type LogType } from "consola";
-import { scrub } from "../errors/scrubber";
+import { scrub } from "../diagnostics/scrubber";
 import type { LogLevel } from "@ent-mcp/shared/jobs";
 import { isPrimitive } from "es-toolkit/predicate";
 

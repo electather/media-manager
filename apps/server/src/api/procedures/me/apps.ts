@@ -8,7 +8,7 @@ import {
   oauthRefreshToken,
 } from "../../../db/schema/auth";
 import type { Db } from "../../../db/client";
-import { notFound } from "../../../errors/http-errors";
+import { notFound } from "../../../diagnostics/http-errors";
 
 type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
 

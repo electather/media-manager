@@ -31,7 +31,7 @@ import {
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
-} from "@/shared/lib/errors/form-errors";
+} from "@/shared/lib/diagnostics/form-errors";
 
 import type { JSONSchema } from "@ent-mcp/shared";
 import {

@@ -28,8 +28,8 @@ import {
   splitFormError,
   type FormErrorBody,
   type FormErrorResult,
-} from "@/shared/lib/errors/form-errors";
-import { safeJson } from "@/shared/lib/errors/safe-json";
+} from "@/shared/lib/diagnostics/form-errors";
+import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 import { cn } from "@/shared/lib/utils";
 import type { JSONSchema } from "@ent-mcp/shared";
 

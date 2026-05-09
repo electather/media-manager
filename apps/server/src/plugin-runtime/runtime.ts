@@ -19,8 +19,8 @@ import type {
   PluginModule,
   PoolSignalingApi,
 } from "@ent-mcp/plugin-sdk";
-import { captureError } from "../errors/capture";
-import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/errors";
+import { captureError, capturePerf } from "../diagnostics/capture";
+import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import { sharedCredentialsService } from "./shared-credentials";
 import { listReadyUserConnections, markUserConnectionExhausted } from "./user-pool";
 
@@ -253,14 +253,29 @@ export class PluginRuntime {
         pool,
       });
 
+      const t0 = Date.now();
       try {
         const result = await fn(ctx, inputParsed.data);
+        void capturePerf({
+          kind: "plugin",
+          pluginId: args.pluginId,
+          route: args.method,
+          durationMs: Date.now() - t0,
+          userId: args.userId,
+        });
         return await this.validateOutput<T>(result, methodSpec, args.pluginId, args.userId, {
           capability: args.capability,
           method: args.method,
           version: args.version,
         });
       } catch (err) {
+        void capturePerf({
+          kind: "plugin",
+          pluginId: args.pluginId,
+          route: args.method,
+          durationMs: Date.now() - t0,
+          userId: args.userId,
+        });
         const shouldRotate =
           !!exhaustedReport || (isPluginError(err) && err.code === "plugin.rate_limited");
         if (shouldRotate) {
@@ -332,9 +347,24 @@ export class PluginRuntime {
     });
 
     let result: unknown;
+    const t0 = Date.now();
     try {
       result = await fn(ctx, inputParsed.data);
+      void capturePerf({
+        kind: "plugin",
+        pluginId: args.pluginId,
+        route: args.method,
+        durationMs: Date.now() - t0,
+        userId: args.userId,
+      });
     } catch (err) {
+      void capturePerf({
+        kind: "plugin",
+        pluginId: args.pluginId,
+        route: args.method,
+        durationMs: Date.now() - t0,
+        userId: args.userId,
+      });
       return this.throwUpstreamError(err, args.pluginId, args.method, args.userId, {
         capability: args.capability,
         method: args.method,
@@ -399,7 +429,7 @@ export class PluginRuntime {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Severity is derived from the code via the registry in
-      // @ent-mcp/shared/errors (PluginError.code for plugin throws,
+      // @ent-mcp/shared/diagnostics (PluginError.code for plugin throws,
       // plugin-namespaced code otherwise).
       // Genuine `plugin.upstream_error` → error; user-input `plugin.input_invalid`
       // → info. No per-callsite gate required.

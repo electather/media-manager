@@ -9,7 +9,7 @@
     "./auth": "./src/auth/index.ts",
     "./common": "./src/common/index.ts",
     "./connections": "./src/connections/index.ts",
-    "./errors": "./src/errors/index.ts",
+    "./diagnostics": "./src/diagnostics/index.ts",
     "./home": "./src/home/index.ts",
     "./jobs": "./src/jobs/index.ts",
     "./media": "./src/media/index.ts",

@@ -1,0 +1,98 @@
+import { ChevronRightIcon } from "lucide-react";
+import { cn } from "@/shared/lib/utils";
+import { formatMs, formatRel } from "../shared/format";
+import type { PerfAggregateGroup } from "../shared/types";
+
+interface Props {
+  group: PerfAggregateGroup;
+  isOpen: boolean;
+  onOpen: () => void;
+}
+
+/** Per-route or per-plugin aggregate row. The latency cells colour-code off
+ *  the row's own distribution — p99 is "warn" tone, max is "danger" tone —
+ *  so a glance at the right edge surfaces tail outliers without needing a
+ *  separate column or threshold input. */
+export function PerfRow({ group, isOpen, onOpen }: Props) {
+  const id = `${group.kind}:${group.route ?? group.pluginId ?? "(unknown)"}`;
+  const warn = group.p99;
+  const danger = group.max;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={cn(
+        "grid cursor-pointer items-center gap-4 border-t border-border px-4 py-3 transition-colors",
+        "grid-cols-[minmax(0,1.2fr)_repeat(4,minmax(60px,auto))_14px]",
+        isOpen ? "bg-muted/55" : "hover:bg-muted/40",
+      )}
+    >
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <KindBadge kind={group.kind} />
+          <span className="font-mono text-sm font-medium text-foreground">
+            {group.route ?? group.pluginId ?? "(unknown)"}
+          </span>
+        </div>
+        <div className="mt-1 font-mono text-[11px] text-muted-foreground/80">
+          {group.count.toLocaleString()} calls · last seen {formatRel(group.lastAt)}
+          {id === "" ? null : null}
+        </div>
+      </div>
+
+      <Latency label="p50" ms={group.p50} warn={warn + 1} danger={danger + 1} />
+      <Latency label="p95" ms={group.p95} warn={warn} danger={danger} />
+      <Latency label="p99" ms={group.p99} warn={warn} danger={danger} />
+      <Latency label="max" ms={group.max} warn={warn + 1} danger={danger} />
+
+      <ChevronRightIcon className="size-3.5 text-muted-foreground" />
+    </div>
+  );
+}
+
+function KindBadge({ kind }: { kind: PerfAggregateGroup["kind"] }) {
+  const isPlugin = kind === "plugin";
+  return (
+    <span
+      className={cn(
+        "rounded-md border px-1.5 py-[1px] font-mono text-[10px] font-semibold uppercase tracking-wide",
+        isPlugin
+          ? "border-chart-2/30 bg-chart-2/10 text-chart-2"
+          : "border-primary/35 bg-primary/15 text-primary",
+      )}
+    >
+      {kind}
+    </span>
+  );
+}
+
+function Latency({
+  label,
+  ms,
+  warn,
+  danger,
+}: {
+  label: string;
+  ms: number;
+  warn: number;
+  danger: number;
+}) {
+  let toneClass = "text-foreground/85";
+  if (ms >= danger) toneClass = "text-destructive";
+  else if (ms >= warn) toneClass = "text-primary";
+  return (
+    <div className="text-right">
+      <div className="font-mono text-[9px] tracking-wider text-muted-foreground/80 uppercase">
+        {label}
+      </div>
+      <div className={cn("font-mono text-xs font-medium", toneClass)}>{formatMs(ms)}</div>
+    </div>
+  );
+}

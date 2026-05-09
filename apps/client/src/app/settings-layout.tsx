@@ -19,7 +19,7 @@ const ADMIN_NAV = [
   { to: "/admin/roles", label: "Roles" },
   { to: "/admin/plugins", label: "Plugins" },
   { to: "/admin/jobs", label: "Jobs" },
-  { to: "/admin/logs", label: "Logs" },
+  { to: "/admin/diagnostics", label: "Diagnostics" },
   { to: "/admin/notifications/deliveries", label: "Notification deliveries" },
   { to: "/admin/notifications/settings", label: "Notification retention" },
 ] as const;

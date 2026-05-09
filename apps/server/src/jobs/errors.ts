@@ -1,5 +1,5 @@
-import { badRequest, conflict, forbidden, notFound } from "../errors/http-errors";
-import type { HttpError } from "../errors/http-errors";
+import { badRequest, conflict, forbidden, notFound } from "../diagnostics/http-errors";
+import type { HttpError } from "../diagnostics/http-errors";
 
 /** UserFacingError constructors for job.* codes. Kept here so callers do not
  *  have to re-assemble the (code, message, params) triple. */

@@ -36,8 +36,8 @@ import { Route as AuthenticatedSettingsAdminUsersRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAdminServerRouteImport } from './routes/_authenticated/_settings/admin/server'
 import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_authenticated/_settings/admin/roles'
 import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
-import { Route as AuthenticatedSettingsAdminLogsRouteImport } from './routes/_authenticated/_settings/admin/logs'
 import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
+import { Route as AuthenticatedSettingsAdminDiagnosticsRouteImport } from './routes/_authenticated/_settings/admin/diagnostics'
 import { Route as AuthenticatedSettingsAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_settings/admin/notifications/settings'
 import { Route as AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport } from './routes/_authenticated/_settings/admin/notifications/deliveries'
 import { Route as AuthenticatedAppMediaMediaTypeMediaIdRouteImport } from './routes/_authenticated/_app/media.$mediaType.$mediaId'
@@ -190,16 +190,16 @@ const AuthenticatedSettingsAdminPluginsRoute =
     path: '/admin/plugins',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminLogsRoute =
-  AuthenticatedSettingsAdminLogsRouteImport.update({
-    id: '/admin/logs',
-    path: '/admin/logs',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
 const AuthenticatedSettingsAdminJobsRoute =
   AuthenticatedSettingsAdminJobsRouteImport.update({
     id: '/admin/jobs',
     path: '/admin/jobs',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdminDiagnosticsRoute =
+  AuthenticatedSettingsAdminDiagnosticsRouteImport.update({
+    id: '/admin/diagnostics',
+    path: '/admin/diagnostics',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsAdminNotificationsSettingsRoute =
@@ -235,8 +235,8 @@ export interface FileRoutesByFullPath {
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
+  '/admin/diagnostics': typeof AuthenticatedSettingsAdminDiagnosticsRoute
   '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
-  '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
   '/admin/server': typeof AuthenticatedSettingsAdminServerRoute
@@ -266,8 +266,8 @@ export interface FileRoutesByTo {
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
+  '/admin/diagnostics': typeof AuthenticatedSettingsAdminDiagnosticsRoute
   '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
-  '/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
   '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
   '/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
   '/admin/server': typeof AuthenticatedSettingsAdminServerRoute
@@ -301,8 +301,8 @@ export interface FileRoutesById {
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/_settings/admin/diagnostics': typeof AuthenticatedSettingsAdminDiagnosticsRoute
   '/_authenticated/_settings/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
-  '/_authenticated/_settings/admin/logs': typeof AuthenticatedSettingsAdminLogsRoute
   '/_authenticated/_settings/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
   '/_authenticated/_settings/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
   '/_authenticated/_settings/admin/server': typeof AuthenticatedSettingsAdminServerRoute
@@ -334,8 +334,8 @@ export interface FileRouteTypes {
     | '/oauth-callback'
     | '/setup'
     | '/auth/invite/$token'
+    | '/admin/diagnostics'
     | '/admin/jobs'
-    | '/admin/logs'
     | '/admin/plugins'
     | '/admin/roles'
     | '/admin/server'
@@ -365,8 +365,8 @@ export interface FileRouteTypes {
     | '/oauth-callback'
     | '/setup'
     | '/auth/invite/$token'
+    | '/admin/diagnostics'
     | '/admin/jobs'
-    | '/admin/logs'
     | '/admin/plugins'
     | '/admin/roles'
     | '/admin/server'
@@ -399,8 +399,8 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/setup'
     | '/auth/invite/$token'
     | '/_authenticated/_app/'
+    | '/_authenticated/_settings/admin/diagnostics'
     | '/_authenticated/_settings/admin/jobs'
-    | '/_authenticated/_settings/admin/logs'
     | '/_authenticated/_settings/admin/plugins'
     | '/_authenticated/_settings/admin/roles'
     | '/_authenticated/_settings/admin/server'
@@ -614,18 +614,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAdminPluginsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/_settings/admin/logs': {
-      id: '/_authenticated/_settings/admin/logs'
-      path: '/admin/logs'
-      fullPath: '/admin/logs'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminLogsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
     '/_authenticated/_settings/admin/jobs': {
       id: '/_authenticated/_settings/admin/jobs'
       path: '/admin/jobs'
       fullPath: '/admin/jobs'
       preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/_settings/admin/diagnostics': {
+      id: '/_authenticated/_settings/admin/diagnostics'
+      path: '/admin/diagnostics'
+      fullPath: '/admin/diagnostics'
+      preLoaderRoute: typeof AuthenticatedSettingsAdminDiagnosticsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/_settings/admin/notifications/settings': {
@@ -677,8 +677,8 @@ const AuthenticatedAppRouteRouteWithChildren =
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsOauthCallbackRoute: typeof AuthenticatedSettingsOauthCallbackRoute
   AuthenticatedSettingsSetupRoute: typeof AuthenticatedSettingsSetupRoute
+  AuthenticatedSettingsAdminDiagnosticsRoute: typeof AuthenticatedSettingsAdminDiagnosticsRoute
   AuthenticatedSettingsAdminJobsRoute: typeof AuthenticatedSettingsAdminJobsRoute
-  AuthenticatedSettingsAdminLogsRoute: typeof AuthenticatedSettingsAdminLogsRoute
   AuthenticatedSettingsAdminPluginsRoute: typeof AuthenticatedSettingsAdminPluginsRoute
   AuthenticatedSettingsAdminRolesRoute: typeof AuthenticatedSettingsAdminRolesRoute
   AuthenticatedSettingsAdminServerRoute: typeof AuthenticatedSettingsAdminServerRoute
@@ -699,8 +699,9 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsOauthCallbackRoute:
       AuthenticatedSettingsOauthCallbackRoute,
     AuthenticatedSettingsSetupRoute: AuthenticatedSettingsSetupRoute,
+    AuthenticatedSettingsAdminDiagnosticsRoute:
+      AuthenticatedSettingsAdminDiagnosticsRoute,
     AuthenticatedSettingsAdminJobsRoute: AuthenticatedSettingsAdminJobsRoute,
-    AuthenticatedSettingsAdminLogsRoute: AuthenticatedSettingsAdminLogsRoute,
     AuthenticatedSettingsAdminPluginsRoute:
       AuthenticatedSettingsAdminPluginsRoute,
     AuthenticatedSettingsAdminRolesRoute: AuthenticatedSettingsAdminRolesRoute,

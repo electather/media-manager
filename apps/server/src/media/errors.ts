@@ -1,6 +1,6 @@
-import type { HostErrorCode } from "@ent-mcp/shared/errors";
+import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import { isPluginError } from "@ent-mcp/plugin-sdk";
-import { HttpError } from "../errors/http-errors";
+import { HttpError } from "../diagnostics/http-errors";
 
 /**
  * Result of a single plugin invocation at the dispatcher layer. Keeps errors as

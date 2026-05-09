@@ -1,4 +1,4 @@
-import { newRequestId } from "../errors/request-context";
+import { newRequestId } from "../diagnostics/request-context";
 import { getConfig } from "./config";
 import { recordSkipped } from "./history";
 import { isRunning } from "./runner";

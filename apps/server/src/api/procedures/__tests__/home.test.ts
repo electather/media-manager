@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { Hono } from "hono";
-import { errorHandler, requestContextMiddleware } from "../../../errors/middleware";
-import { HttpError } from "../../../errors/http-errors";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
+import { HttpError } from "../../../diagnostics/http-errors";
 
 vi.mock("../../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -10,7 +10,7 @@ vi.mock("../../../env", () => ({
 let mockUserId: string | null = null;
 
 vi.mock("../../../auth/middleware", async () => {
-  const { unauthorized } = await import("../../../errors/http-errors");
+  const { unauthorized } = await import("../../../diagnostics/http-errors");
   return {
     requireSession: async (
       c: { set: (k: string, v: unknown) => void },
@@ -82,7 +82,7 @@ describe("home API", () => {
 
   it("returns 404 when composeRow throws home.row_unavailable", async () => {
     mockUserId = "u1";
-    const { HttpError } = await import("../../../errors/http-errors");
+    const { HttpError } = await import("../../../diagnostics/http-errors");
     vi.mocked(orchestrator.composeRow).mockRejectedValueOnce(
       new HttpError(404, "home.row_unavailable", "unknown"),
     );

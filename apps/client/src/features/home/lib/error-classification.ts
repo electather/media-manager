@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import type { MessageKey } from "./types";
 import { HomeApiError } from "./types";
 

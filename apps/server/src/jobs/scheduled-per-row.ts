@@ -1,4 +1,4 @@
-import { captureError } from "../errors/capture";
+import { captureError } from "../diagnostics/capture";
 import { assertValidSchedule } from "./croner-adapter";
 import { register, type RegistryEntry } from "./registry";
 import {

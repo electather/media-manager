@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 const registerBuiltinPluginsMock = vi.fn();
 const bootstrapMcpHostToolsMock = vi.fn();
 const getDbMock = vi.fn();
-const registerErrorSinkMock = vi.fn();
+const registerSinkMock = vi.fn();
 const bootstrapBuiltinsMock = vi.fn(async () => {});
 
 vi.mock("../env", () => ({
@@ -29,12 +29,13 @@ vi.mock("../db/client", () => ({
   getDb: (...args: unknown[]) => getDbMock(...args),
 }));
 
-vi.mock("../errors/capture", () => ({
-  registerErrorSink: (...args: unknown[]) => registerErrorSinkMock(...args),
+vi.mock("../diagnostics/capture", () => ({
+  registerSink: (...args: unknown[]) => registerSinkMock(...args),
   captureError: vi.fn(async () => {}),
+  capturePerf: vi.fn(async () => {}),
 }));
 
-vi.mock("../errors/database-sink", () => ({
+vi.mock("../diagnostics/database-sink", () => ({
   DatabaseSink: class {},
 }));
 
@@ -76,7 +77,7 @@ describe("cloudflare worker entry", () => {
     registerBuiltinPluginsMock.mockClear();
     bootstrapMcpHostToolsMock.mockClear();
     getDbMock.mockClear();
-    registerErrorSinkMock.mockClear();
+    registerSinkMock.mockClear();
     bootstrapBuiltinsMock.mockClear();
     vi.resetModules();
   });
@@ -94,7 +95,7 @@ describe("cloudflare worker entry", () => {
     // These are the Workers-hostile calls. They must NOT fire at module
     // init because the deploy validator runs before `env` is populated.
     expect(getDbMock).not.toHaveBeenCalled();
-    expect(registerErrorSinkMock).not.toHaveBeenCalled();
+    expect(registerSinkMock).not.toHaveBeenCalled();
     expect(bootstrapBuiltinsMock).not.toHaveBeenCalled();
   });
 
@@ -104,7 +105,7 @@ describe("cloudflare worker entry", () => {
     await Promise.all([worker.fetch(req()), worker.fetch(req()), worker.fetch(req())]);
     expect(getDbMock).toHaveBeenCalledTimes(1);
     // Two sinks registered: DatabaseSink + NotificationErrorSink.
-    expect(registerErrorSinkMock).toHaveBeenCalledTimes(2);
+    expect(registerSinkMock).toHaveBeenCalledTimes(2);
     expect(bootstrapBuiltinsMock).toHaveBeenCalledTimes(1);
   });
 
