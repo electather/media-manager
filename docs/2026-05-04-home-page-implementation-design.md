@@ -246,6 +246,71 @@ HomeFeed
 
 ---
 
+## Error surface
+
+The home subsystem ships a typed error taxonomy so the page-level boundary
+maps server failures to distinct fallback copy + recovery affordances.
+
+**`HomeApiError`** (`lib/types.ts`) — thrown by every fetcher in `lib/fetchers.ts`
+when the response is not `ok`. Carries:
+- `status: number` — HTTP status
+- `body: ApiErrorBody | null` — decoded error envelope from
+  `apps/server/src/errors/middleware.ts` (`code`, `message`, `devMessage`,
+  `params`, `requestId`)
+- `code: string | undefined` — convenience accessor for `body.code`
+- `message` — `body.message ?? body.devMessage ?? "home request failed (<status>)"`
+
+**`HomeErrorView`** (`lib/error-classification.ts`) — presentation-ready shape
+produced by `classifyHomeError(error: Error)`:
+
+```typescript
+type HomeErrorVariant = "auth" | "offline" | "network" | "server" | "unknown";
+
+interface HomeErrorView {
+  variant: HomeErrorVariant;
+  titleKey: MessageKey;       // Paraglide key, resolved via m[titleKey]()
+  bodyKey: MessageKey;
+  code: string;               // server-shipped or "client.unknown"
+  status: number | null;
+  devMessage: string | null;  // body.message ?? body.devMessage
+  needsRelogin: boolean;      // true when variant === "auth"
+}
+```
+
+**Classification order**:
+1. **`offline`** — wins over everything when `navigator.onLine === false` or
+   the error is a non-`HomeApiError` `TypeError` / `NetworkError`.
+   Connectivity is the user's first blocker; a 401 thrown while offline
+   resolves as `offline` (not `auth`) so they fix the network before
+   re-attempting.
+2. **`auth`** — `status` 401 / 403, or `code` ∈ {`http.unauthorized`,
+   `http.forbidden`, `plugin.token_expired`, `plugin.bad_credentials`}.
+3. **`network`** — `code` ∈ {`plugin.timeout`, `plugin.rate_limited`}.
+4. **`server`** — `status` ≥ 500, or `code` ∈ {`home.internal`,
+   `http.internal_error`}, or `code` starts with `plugin.upstream` /
+   `plugin.pool_`.
+5. **`unknown`** — everything else.
+
+**Recovery affordances** (in `error-boundary.tsx`):
+- `auth` → "Sign in again" (assigns `/login`) + "Try again" (resets queries)
+- `server` → "Try again" + GitHub "Contact support" link
+- `offline` / `network` / `unknown` → "Try again"
+
+**Telemetry** — `FallbackInner` calls `reportError(error, "warning",
+{ variant, requestId }, "client.home.boundary")` on mount. The shared
+`ErrorBoundary.componentDidCatch` skips its own generic event when a
+fallback is provided so feature boundaries own their telemetry path.
+
+**Row-level errors** (`components/row/row-error.tsx`) live below the page
+boundary and never bubble to it:
+- `RowError` — full-row panel rendered when `useHomeRow` errors before any
+  items arrive.
+- `RowErrorInlineCard` — trailing card slot rendered at the end of the
+  scroll track when `fetchNextPage` rejects after at least one page loaded.
+  Retry calls `fetchNextPage` so the user retries just the failed page.
+
+---
+
 ## UI implementation rules
 
 - **Primitives:** shadcn components first. For headless/raw needs use Base UI. Never write custom primitives unless no alternative exists.

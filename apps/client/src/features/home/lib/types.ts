@@ -16,8 +16,9 @@ export class HomeApiError extends Error {
   readonly body: ApiErrorBody | null;
   readonly code: string | undefined;
 
+  // fallow-ignore-next-line complexity
   constructor(status: number, body: ApiErrorBody | null) {
-    super(body?.message ?? `home request failed (${status})`);
+    super(body?.message ?? body?.devMessage ?? `home request failed (${status})`);
     this.name = "HomeApiError";
     this.status = status;
     this.body = body;
