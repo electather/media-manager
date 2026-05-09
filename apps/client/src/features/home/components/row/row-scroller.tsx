@@ -4,7 +4,7 @@ import { useHomeRow } from "../../hooks/use-home-row";
 import { ROW_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem, RowData } from "../../lib/types";
 import { RowChevron } from "./row-chevron";
-import { RowError } from "./row-error";
+import { RowError, RowErrorInlineCard } from "./row-error";
 import { RowItem } from "./row-item";
 import { RowSkeletonItem } from "./row-skeleton-item";
 import { usePrefetchObserver } from "./use-prefetch-observer";
@@ -40,6 +40,7 @@ const POSTER_VARS: CardWidthVars = { "--card-w": "184px", "--card-h": "326px" };
  * (`use-row-edges`, `use-prefetch-observer`); this file owns composition,
  * label resolution, and skeleton-vs-items branching only.
  */
+// fallow-ignore-next-line complexity
 export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: RowScrollerProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const isBackdrop = row.defaultAspect === "16/9";
@@ -53,10 +54,16 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
   const prevLabel = m.home_row_prev_label({ row: ariaLabel });
   const nextLabel = m.home_row_next_label({ row: ariaLabel });
 
-  const { items, fetchNextPage, hasNextPage, isLoading, error, refetch, isRefetching } = useHomeRow(
-    row.id,
-    row.initialCursor,
-  );
+  const {
+    items,
+    fetchNextPage,
+    hasNextPage,
+    isLoading,
+    isFetchingNextPage,
+    error,
+    refetch,
+    isRefetching,
+  } = useHomeRow(row.id, row.initialCursor);
   const { trackRef, attachTrack, attachPrefetch } = usePrefetchObserver({
     hasNextPage,
     fetchNextPage,
@@ -72,11 +79,12 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
     [trackRef],
   );
 
-  const showError = error !== null && items.length === 0;
-  const showSkeletons = !showError && isLoading && items.length === 0;
+  const showInitialError = error !== null && items.length === 0;
+  const showInlineError = error !== null && items.length > 0;
+  const showSkeletons = !showInitialError && isLoading && items.length === 0;
   const prefetchIndex = items.length === 0 ? -1 : Math.max(0, items.length - PREFETCH_OFFSET);
 
-  if (showError) {
+  if (showInitialError) {
     return (
       <div ref={scopeRef} className="row-track-scope" data-testid="row-scroller" style={cardVars}>
         <RowError error={error} onRetry={() => refetch()} isRetrying={isRefetching} />
@@ -116,6 +124,13 @@ export function RowScroller({ row, watchlist, onWatchlistToggle, onCardClick }: 
                   ref={index === prefetchIndex ? attachPrefetch : undefined}
                 />
               ))}
+          {showInlineError ? (
+            <RowErrorInlineCard
+              error={error}
+              onRetry={() => fetchNextPage()}
+              isRetrying={isFetchingNextPage}
+            />
+          ) : null}
         </ul>
       </div>
 

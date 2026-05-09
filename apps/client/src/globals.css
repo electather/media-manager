@@ -339,6 +339,19 @@ html[lang="fa"] {
     display: none;
   }
 
+  /* Soft red ambient gradient anchored top-start. Shared by the full-row
+     error panel and the trailing inline pagination error card so both share
+     the same warning treatment without duplicating the gradient stops. */
+  .row-error-bg {
+    background:
+      radial-gradient(
+        120% 140% at 0% 0%,
+        color-mix(in oklab, var(--destructive) 18%, transparent) 0%,
+        transparent 55%
+      ),
+      var(--card);
+  }
+
   /* Chevrons: hover/focus-within on the row scope reveals them, but only
      when the corresponding edge isn't already the current scroll position.
      Edge state comes from the same data attrs that drive the fade overlays. */
