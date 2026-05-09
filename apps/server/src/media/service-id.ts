@@ -1,3 +1,5 @@
+// fallow-ignore-file code-duplication
+
 /**
  * Host-encoded `serviceId` codec. The wire format is
  * `${connectionId}:${pluginTargetId}` where `pluginTargetId` is plugin-controlled

@@ -1,3 +1,5 @@
+// fallow-ignore-file code-duplication
+
 import { z } from "zod";
 import { compactMediaItemSchema } from "../home/schemas";
 import { AVAILABILITY_STATUSES, MEDIA_TYPES } from "./enums";

@@ -93,6 +93,10 @@
         "patterns": ["apps/client/src/features/media-detail/**"]
       },
       {
+        "name": "client-feat-request-flow",
+        "patterns": ["apps/client/src/features/request-flow/**"]
+      },
+      {
         "name": "client-feat-notifications",
         "patterns": ["apps/client/src/features/notifications/**"]
       },
@@ -171,6 +175,7 @@
           "client-feat-jobs",
           "client-feat-home",
           "client-feat-media-detail",
+          "client-feat-request-flow",
           "client-feat-notifications",
           "client-features-legacy",
           "client-shared-ui",
@@ -254,7 +259,13 @@
       },
       {
         "from": "client-shared-components",
-        "allow": ["client-shared-ui", "client-shared-hooks", "client-shared-lib", "shared-pkg"]
+        "allow": [
+          "client-feat-request-flow",
+          "client-shared-ui",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
       },
       { "from": "client-shared-hooks", "allow": ["client-shared-lib", "shared-pkg"] },
       { "from": "client-shared-ui", "allow": ["client-shared-lib", "shared-pkg"] },
@@ -272,6 +283,17 @@
         "from": "client-feat-media-detail",
         "allow": [
           "client-feat-home",
+          "client-feat-request-flow",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-request-flow",
+        "allow": [
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

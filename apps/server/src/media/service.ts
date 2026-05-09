@@ -76,7 +76,6 @@ export class MediaService {
 
   constructor(public readonly userId: string) {}
 
-  // fallow-ignore-next-line unused-class-member
   async search(query: string, type?: "movie" | "tv", limit?: number) {
     const result = await dispatchPrimary<Array<{ item: unknown; score?: number }>>({
       userId: this.userId,
@@ -89,7 +88,6 @@ export class MediaService {
     return result.data ?? [];
   }
 
-  // fallow-ignore-next-line unused-class-member
   async trending(type?: "movie" | "tv", limit?: number) {
     const result = await dispatchPrimary<unknown[]>({
       userId: this.userId,
@@ -331,7 +329,6 @@ export class MediaService {
     return out;
   }
 
-  // fallow-ignore-next-line unused-class-member
   async getRequests(): Promise<MediaRequest[]> {
     const result = await dispatchSingle<unknown[]>({
       userId: this.userId,

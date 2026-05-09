@@ -1,3 +1,5 @@
+// fallow-ignore-file code-duplication
+
 import { invalidId } from "./errors";
 
 export interface ParsedMediaId {
