@@ -38,11 +38,12 @@ function isOffline(error: Error): boolean {
   return !(error instanceof HomeApiError) && OFFLINE_NAMES.has(error.name);
 }
 
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 function readDevMessage(body: ApiErrorBody | null): string | null {
-  if (!body) return null;
-  if (typeof body.message === "string" && body.message.length > 0) return body.message;
-  const dev = body.devMessage;
-  return typeof dev === "string" && dev.length > 0 ? dev : null;
+  return body ? (nonEmptyString(body.message) ?? nonEmptyString(body.devMessage)) : null;
 }
 
 const TITLE_BY_VARIANT: Record<HomeErrorVariant, MessageKey> = {
@@ -67,11 +68,10 @@ const BODY_BY_VARIANT: Record<HomeErrorVariant, MessageKey> = {
  * to status-based inference (401/403 → auth, 5xx → server, network → offline).
  */
 export function classifyHomeError(error: Error): HomeErrorView {
-  const status = error instanceof HomeApiError ? error.status : null;
-  const code =
-    error instanceof HomeApiError && typeof error.code === "string" ? error.code : "client.unknown";
-  const devMessage =
-    error instanceof HomeApiError ? readDevMessage(error.body) : (error.message ?? null);
+  const apiError = error instanceof HomeApiError ? error : null;
+  const status = apiError?.status ?? null;
+  const code = apiError?.code ?? "client.unknown";
+  const devMessage = apiError ? readDevMessage(apiError.body) : nonEmptyString(error.message);
   const variant = pickVariant(error, status, code);
   return {
     variant,
@@ -84,12 +84,24 @@ export function classifyHomeError(error: Error): HomeErrorView {
   };
 }
 
+const NETWORK_CODES = new Set<string>(["plugin.timeout", "plugin.rate_limited"]);
+const SERVER_CODES = new Set<string>(["home.internal", "http.internal_error"]);
+const SERVER_CODE_PREFIXES = ["plugin.upstream", "plugin.pool_"] as const;
+
+interface VariantRule {
+  variant: HomeErrorVariant;
+  match: (status: number | null, code: string) => boolean;
+}
+
+const VARIANT_RULES: readonly VariantRule[] = [
+  { variant: "auth", match: (s, c) => s === 401 || s === 403 || AUTH_CODES.has(c) },
+  { variant: "network", match: (_s, c) => NETWORK_CODES.has(c) },
+  { variant: "server", match: (s, _c) => s !== null && s >= 500 },
+  { variant: "server", match: (_s, c) => SERVER_CODES.has(c) },
+  { variant: "server", match: (_s, c) => SERVER_CODE_PREFIXES.some((p) => c.startsWith(p)) },
+];
+
 function pickVariant(error: Error, status: number | null, code: string): HomeErrorVariant {
   if (isOffline(error)) return "offline";
-  if (status === 401 || status === 403 || AUTH_CODES.has(code)) return "auth";
-  if (code === "plugin.timeout" || code === "plugin.rate_limited") return "network";
-  if (status !== null && status >= 500) return "server";
-  if (code === "home.internal" || code === "http.internal_error") return "server";
-  if (code.startsWith("plugin.upstream") || code.startsWith("plugin.pool_")) return "server";
-  return "unknown";
+  return VARIANT_RULES.find((r) => r.match(status, code))?.variant ?? "unknown";
 }
