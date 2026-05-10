@@ -6,6 +6,8 @@
 // their own local state copies so interactions feel real (toggles persist,
 // rows disappear on revoke, etc.).
 
+import type { AppStatus } from "./components/activity-pill";
+
 export interface MockUser {
   name: string;
   email: string;
@@ -301,30 +303,111 @@ export const DEFAULT_SUBSCRIPTIONS: ChannelSubscriptions = {
 
 // ─── Authorized apps ─────────────────────────────────────────────────────────
 
+export type MockAuthorizedAppStatus = AppStatus;
+
 export interface MockAuthorizedApp {
   clientId: string;
   name: string;
   description: string;
+  /** Optional client version, rendered as a chip. */
+  version: string | null;
+  /** Optional device label appended to the name (e.g. "Studio Mac"). */
+  deviceLabel: string | null;
+  status: MockAuthorizedAppStatus;
+  ipAddress: string;
   authorizedAt: string;
   lastSeenAt: string;
+  callsLast24h: number;
+  /** Scope strings shaped like "library:read", "watchlist:write". */
   scopes: ReadonlyArray<string>;
 }
+
+export interface MockMcpEndpoint {
+  url: string;
+  rotatedAt: string;
+}
+
+// TODO: Frozen at module load — relative-time renders will drift across long
+// dev sessions. Acceptable for fixtures; revisit when wiring real data.
+const NOW = Date.now();
+
+export const MOCK_MCP_ENDPOINT: MockMcpEndpoint = {
+  url: "https://mcp.media-manager.app/u/alex/sse?t=fa9c3e1b-2a17-4d22-8e90-c6c0a7e0b8d9",
+  rotatedAt: new Date(NOW - 1000 * 60 * 60 * 24 * 23).toISOString(),
+};
+
+export const MCP_ENDPOINT_SCOPES: ReadonlyArray<string> = [
+  "library:read",
+  "watchlist:read",
+  "watchlist:write",
+  "feedback:write",
+  "requests:write",
+];
 
 export const MOCK_AUTHORIZED_APPS: ReadonlyArray<MockAuthorizedApp> = [
   {
     clientId: "claude-desktop",
     name: "Claude Desktop",
     description: "Anthropic's official desktop client.",
-    authorizedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12).toISOString(),
-    lastSeenAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    scopes: ["read", "write"],
+    version: "0.9.4",
+    deviceLabel: "Studio Mac",
+    status: "active",
+    ipAddress: "192.168.1.42",
+    authorizedAt: new Date(NOW - 1000 * 60 * 60 * 24 * 18).toISOString(),
+    lastSeenAt: new Date(NOW - 1000 * 60 * 2).toISOString(),
+    callsLast24h: 312,
+    scopes: ["library:read", "watchlist:read", "watchlist:write", "feedback:write"],
+  },
+  {
+    clientId: "cursor",
+    name: "Cursor",
+    description: "MCP integration for Cursor.",
+    version: "0.43.2",
+    deviceLabel: null,
+    status: "active",
+    ipAddress: "192.168.1.42",
+    authorizedAt: new Date(NOW - 1000 * 60 * 60 * 24 * 5).toISOString(),
+    lastSeenAt: new Date(NOW - 1000 * 60 * 24).toISOString(),
+    callsLast24h: 47,
+    scopes: ["library:read", "requests:write"],
+  },
+  {
+    clientId: "claude-web",
+    name: "Claude (web)",
+    description: "Anthropic's web client.",
+    version: null,
+    deviceLabel: "Firefox",
+    status: "idle",
+    ipAddress: "73.55.214.9",
+    authorizedAt: new Date(NOW - 1000 * 60 * 60 * 24 * 32).toISOString(),
+    lastSeenAt: new Date(NOW - 1000 * 60 * 60 * 9).toISOString(),
+    callsLast24h: 0,
+    scopes: ["library:read", "watchlist:read"],
   },
   {
     clientId: "raycast",
     name: "Raycast",
     description: "MCP integration for Raycast.",
-    authorizedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
-    lastSeenAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    scopes: ["read"],
+    version: "1.92.0",
+    deviceLabel: null,
+    status: "idle",
+    ipAddress: "192.168.1.42",
+    authorizedAt: new Date(NOW - 1000 * 60 * 60 * 24 * 7).toISOString(),
+    lastSeenAt: new Date(NOW - 1000 * 60 * 60 * 6).toISOString(),
+    callsLast24h: 4,
+    scopes: ["library:read", "watchlist:read"],
+  },
+  {
+    clientId: "mcp-inspector",
+    name: "MCP Inspector",
+    description: "Local debugging client.",
+    version: "0.5.1",
+    deviceLabel: "dev",
+    status: "idle",
+    ipAddress: "127.0.0.1",
+    authorizedAt: new Date(NOW - 1000 * 60 * 60 * 26).toISOString(),
+    lastSeenAt: new Date(NOW - 1000 * 60 * 60 * 19).toISOString(),
+    callsLast24h: 3,
+    scopes: ["library:read"],
   },
 ];

@@ -1,7 +1,7 @@
 // fallow-ignore-file complexity
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, EyeIcon, EyeOffIcon, ShieldIcon, XIcon } from "lucide-react";
+import { CheckIcon, EyeIcon, EyeOffIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
@@ -16,6 +16,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { NameGlyph } from "@/shared/components/name-glyph";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { parseUserAgent } from "@/shared/lib/user-agent";
@@ -60,6 +61,84 @@ function SecurityPage() {
 // ─── Change password ────────────────────────────────────────────────────────
 
 const MIN_PASSWORD_LENGTH = 12;
+
+function PasswordChangeForm({
+  current,
+  next,
+  confirm,
+  setCurrent,
+  setNext,
+  setConfirm,
+  tooShort,
+  mismatch,
+  canSubmit,
+  submitting,
+  onSubmit,
+  onCancel,
+}: {
+  current: string;
+  next: string;
+  confirm: string;
+  setCurrent: (v: string) => void;
+  setNext: (v: string) => void;
+  setConfirm: (v: string) => void;
+  tooShort: boolean;
+  mismatch: boolean;
+  canSubmit: boolean;
+  submitting: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4 p-5 sm:p-6">
+      <Field>
+        <FieldTitle>{m.settings_security_password_current()}</FieldTitle>
+        <PasswordInput
+          value={current}
+          onChange={setCurrent}
+          autoComplete="current-password"
+          placeholder={m.settings_security_password_placeholder()}
+          data-testid="current-password"
+        />
+      </Field>
+      <Field data-invalid={tooShort ? true : undefined}>
+        <FieldTitle>{m.settings_security_password_new()}</FieldTitle>
+        <PasswordInput
+          value={next}
+          onChange={setNext}
+          autoComplete="new-password"
+          placeholder={m.settings_security_password_new_placeholder()}
+          ariaInvalid={tooShort}
+          data-testid="new-password"
+        />
+        <PasswordMeter value={next} />
+        {tooShort ? <FieldError>{m.settings_security_password_too_short()}</FieldError> : null}
+      </Field>
+      <Field data-invalid={mismatch ? true : undefined}>
+        <FieldTitle>{m.settings_security_password_confirm()}</FieldTitle>
+        <PasswordInput
+          value={confirm}
+          onChange={setConfirm}
+          autoComplete="new-password"
+          placeholder={m.settings_security_password_confirm_placeholder()}
+          ariaInvalid={mismatch}
+          data-testid="confirm-password"
+        />
+        {mismatch ? <FieldError>{m.settings_security_password_mismatch()}</FieldError> : null}
+      </Field>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          {m.settings_security_password_cancel()}
+        </Button>
+        <Button type="submit" size="sm" disabled={!canSubmit} data-testid="submit-password">
+          {submitting
+            ? m.settings_security_password_submitting()
+            : m.settings_security_password_submit()}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
@@ -111,53 +190,20 @@ export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
         }
       />
       {open ? (
-        <form onSubmit={submit} className="flex flex-col gap-4 p-5 sm:p-6">
-          <Field>
-            <FieldTitle>{m.settings_security_password_current()}</FieldTitle>
-            <PasswordInput
-              value={current}
-              onChange={setCurrent}
-              autoComplete="current-password"
-              placeholder={m.settings_security_password_placeholder()}
-              data-testid="current-password"
-            />
-          </Field>
-          <Field data-invalid={tooShort ? true : undefined}>
-            <FieldTitle>{m.settings_security_password_new()}</FieldTitle>
-            <PasswordInput
-              value={next}
-              onChange={setNext}
-              autoComplete="new-password"
-              placeholder={m.settings_security_password_new_placeholder()}
-              ariaInvalid={tooShort}
-              data-testid="new-password"
-            />
-            <PasswordMeter value={next} />
-            {tooShort ? <FieldError>{m.settings_security_password_too_short()}</FieldError> : null}
-          </Field>
-          <Field data-invalid={mismatch ? true : undefined}>
-            <FieldTitle>{m.settings_security_password_confirm()}</FieldTitle>
-            <PasswordInput
-              value={confirm}
-              onChange={setConfirm}
-              autoComplete="new-password"
-              placeholder={m.settings_security_password_confirm_placeholder()}
-              ariaInvalid={mismatch}
-              data-testid="confirm-password"
-            />
-            {mismatch ? <FieldError>{m.settings_security_password_mismatch()}</FieldError> : null}
-          </Field>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={reset}>
-              {m.settings_security_password_cancel()}
-            </Button>
-            <Button type="submit" size="sm" disabled={!canSubmit} data-testid="submit-password">
-              {submitting
-                ? m.settings_security_password_submitting()
-                : m.settings_security_password_submit()}
-            </Button>
-          </div>
-        </form>
+        <PasswordChangeForm
+          current={current}
+          next={next}
+          confirm={confirm}
+          setCurrent={setCurrent}
+          setNext={setNext}
+          setConfirm={setConfirm}
+          tooShort={tooShort}
+          mismatch={mismatch}
+          canSubmit={canSubmit}
+          submitting={submitting}
+          onSubmit={submit}
+          onCancel={reset}
+        />
       ) : null}
     </SettingsCard>
   );
@@ -244,6 +290,84 @@ function PasswordMeter({ value }: { value: string }) {
 
 // ─── Active sessions ────────────────────────────────────────────────────────
 
+function RevokeSessionDialog({
+  session,
+  onClose,
+  onConfirm,
+}: {
+  session: MockSession | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog
+      open={!!session}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{m.settings_security_revoke_dialog_title()}</DialogTitle>
+          <DialogDescription>
+            {session
+              ? m.settings_security_revoke_dialog_body({
+                  device: parseUserAgent(session.userAgent).label,
+                })
+              : null}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {m.settings_security_dialog_cancel()}
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} data-testid="confirm-revoke">
+            {m.settings_security_revoke_dialog_confirm()}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RevokeAllSessionsDialog({
+  open,
+  count,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  count: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{m.settings_security_revoke_all_dialog_title()}</DialogTitle>
+          <DialogDescription>
+            {m.settings_security_revoke_all_dialog_body({ count })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {m.settings_security_dialog_cancel()}
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} data-testid="confirm-revoke-all">
+            {m.settings_security_revoke_all_confirm()}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ActiveSessionsCard({
   sessions,
   setSessions,
@@ -298,58 +422,17 @@ export function ActiveSessionsCard({
           ))}
         </ul>
       )}
-
-      <Dialog
-        open={!!revokeOne}
-        onOpenChange={(o) => {
-          if (!o) setRevokeOne(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{m.settings_security_revoke_dialog_title()}</DialogTitle>
-            <DialogDescription>
-              {revokeOne
-                ? m.settings_security_revoke_dialog_body({
-                    device: parseUserAgent(revokeOne.userAgent).label,
-                  })
-                : null}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRevokeOne(null)}>
-              {m.settings_security_dialog_cancel()}
-            </Button>
-            <Button variant="destructive" onClick={doRevokeOne} data-testid="confirm-revoke">
-              {m.settings_security_revoke_dialog_confirm()}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
+      <RevokeSessionDialog
+        session={revokeOne}
+        onClose={() => setRevokeOne(null)}
+        onConfirm={doRevokeOne}
+      />
+      <RevokeAllSessionsDialog
         open={revokeAll}
-        onOpenChange={(o) => {
-          if (!o) setRevokeAll(false);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{m.settings_security_revoke_all_dialog_title()}</DialogTitle>
-            <DialogDescription>
-              {m.settings_security_revoke_all_dialog_body({ count: others })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRevokeAll(false)}>
-              {m.settings_security_dialog_cancel()}
-            </Button>
-            <Button variant="destructive" onClick={doRevokeAll} data-testid="confirm-revoke-all">
-              {m.settings_security_revoke_all_confirm()}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        count={others}
+        onClose={() => setRevokeAll(false)}
+        onConfirm={doRevokeAll}
+      />
     </SettingsCard>
   );
 }
@@ -372,12 +455,7 @@ function SessionListRow({
         !isFirst && "border-t border-border",
       )}
     >
-      <div
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground"
-        aria-hidden="true"
-      >
-        <ShieldIcon className="size-4" />
-      </div>
+      <NameGlyph name={ua.label} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-foreground">{ua.label}</span>
