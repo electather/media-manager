@@ -1,6 +1,6 @@
 import { Link, Navigate, Outlet, useNavigate } from "@tanstack/react-router";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
-import { useRef, useSyncExternalStore, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import { AppShell } from "@/app/app-shell";
 import {
@@ -11,6 +11,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/shared/ui/breadcrumb";
+import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
 
@@ -26,21 +27,6 @@ export interface SectionNavGroup {
   id: string;
   heading: () => string;
   items: ReadonlyArray<SectionNavItem>;
-}
-
-const DESKTOP_QUERY = "(min-width: 768px)";
-
-export function useIsDesktop(): boolean {
-  const mqRef = useRef<MediaQueryList | null>(null);
-  return useSyncExternalStore(
-    (cb) => {
-      mqRef.current = window.matchMedia(DESKTOP_QUERY);
-      mqRef.current.addEventListener("change", cb);
-      return () => mqRef.current?.removeEventListener("change", cb);
-    },
-    () => (mqRef.current ?? window.matchMedia(DESKTOP_QUERY)).matches,
-    () => false,
-  );
 }
 
 interface SectionLayoutProps {

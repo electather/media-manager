@@ -39,13 +39,49 @@ import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
-import { ConnectionStatusPill } from "@/features/settings/components/connection-status-pill";
 import {
   MOCK_CONNECTIONS,
   MOCK_PLUGINS,
+  type ConnectionStatus,
   type MockConnection,
   type MockPlugin,
 } from "@/features/settings/mocks";
+
+const STATUS_LABEL: Record<ConnectionStatus, () => string> = {
+  connected: () => m.settings_connections_status_connected(),
+  expired: () => m.settings_connections_status_expired(),
+  error: () => m.settings_connections_status_error(),
+  disconnected: () => m.settings_connections_status_disconnected(),
+};
+
+const STATUS_BADGE_CLASS: Record<ConnectionStatus, string> = {
+  connected: "border border-success/40 bg-success/10 text-success",
+  expired: "border border-amber-400/40 bg-amber-400/10 text-amber-500 dark:text-amber-400",
+  error: "border border-destructive/40 bg-destructive/10 text-destructive",
+  disconnected: "border border-border bg-muted text-muted-foreground",
+};
+
+const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
+  connected: "bg-success",
+  expired: "bg-amber-500",
+  error: "bg-destructive",
+  disconnected: "bg-muted-foreground/60",
+};
+
+function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "gap-1.5 rounded-md px-2 py-0.5 font-mono text-[11px] tracking-wide",
+        STATUS_BADGE_CLASS[status],
+      )}
+    >
+      <span aria-hidden="true" className={cn("size-1.5 rounded-full", STATUS_DOT_CLASS[status])} />
+      {STATUS_LABEL[status]()}
+    </Badge>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/connections")({
   component: ConnectionsRoute,
@@ -346,7 +382,7 @@ function ConnectionRow({
               </>
             ) : null}
           </span>
-          <ConnectionStatusPill status={conn.status} />
+          <ConnectionStatusBadge status={conn.status} />
           {conn.isDefault && hasSiblings ? (
             <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wide">
               <StarIcon className="size-2.5" aria-hidden="true" />
