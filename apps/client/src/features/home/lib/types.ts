@@ -7,7 +7,7 @@ import type {
   RowKind,
   SeriesContext,
 } from "@ent-mcp/shared/home";
-import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 export type { RowKind };
 
@@ -99,7 +99,7 @@ export type RowData = {
    */
   headerKey?: MessageKey;
   /** Optional subtitle override paired with `headerKey`. */
-  subtitleKey?: MessageKey;
+  eyebrowKey?: MessageKey;
 };
 
 /**

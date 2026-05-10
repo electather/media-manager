@@ -1,7 +1,7 @@
 import { hc } from "hono/client";
 import type { AppType } from "@ent-mcp/server/api/router";
-import { REQUEST_ID_HEADER } from "./errors/request-id";
-import { reportError } from "./errors/report";
+import { REQUEST_ID_HEADER } from "./diagnostics/request-id";
+import { reportError } from "./diagnostics/report";
 
 /** Custom fetch used by the Hono RPC client. Stamps a request id on every outbound
  *  request, records the echoed request id on the DOM so reportError can chain, and
@@ -27,10 +27,10 @@ async function instrumentedFetch(
     document.documentElement.dataset.requestId = echoed;
   }
   if (!response.ok) {
-    // Skip reporting self-hits on /api/errors to prevent loops.
+    // Skip reporting self-hits on /api/diagnostics to prevent loops.
     const url =
       typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
-    if (!url.includes("/api/errors")) {
+    if (!url.includes("/api/diagnostics")) {
       void reportError(new Error(`API ${response.status} for ${url}`), "warning", {
         url,
         status: response.status,

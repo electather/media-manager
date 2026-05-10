@@ -6,7 +6,7 @@ import { getDb } from "../db/client";
 import { notificationDeliveries } from "../db/schema";
 import { findEntry } from "../jobs/registry";
 import { registerScheduled } from "../jobs/scheduled";
-import { newRequestId } from "../errors/request-context";
+import { newRequestId } from "../diagnostics/request-context";
 
 const STALE_THRESHOLD_MS = 2 * 60 * 1000;
 

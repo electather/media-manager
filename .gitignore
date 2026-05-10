@@ -17,4 +17,8 @@ test-server.ts
 .claude/scheduled_tasks.lock
 .token-savior-cache.json
 .token-savior-checkpoints/
-.fallow
+.fallow/*
+!.fallow/dead-code-baseline.json
+!.fallow/health-baseline.json
+!.fallow/dupes-baseline.json
+*.bin

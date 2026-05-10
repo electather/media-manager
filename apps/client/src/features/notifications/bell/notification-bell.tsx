@@ -84,7 +84,7 @@ export function NotificationBell({ density = "comfortable", intensity = "subtle"
         side="bottom"
         align="end"
         sideOffset={8}
-        className="flex w-100 max-h-[min(640px,calc(100dvh-80px))] flex-col overflow-hidden p-0"
+        className="flex h-[min(640px,calc(100dvh-80px))] w-100 flex-col overflow-hidden p-0"
         aria-label={m.notifications_title()}
       >
         {body}

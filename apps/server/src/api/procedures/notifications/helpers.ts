@@ -9,7 +9,7 @@ import { loadUserRole, roleHasPermission } from "../../../auth/middleware";
 import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";
 import { env } from "../../../env";
-import { badRequest, forbidden, notFound } from "../../../errors/http-errors";
+import { badRequest, forbidden, notFound } from "../../../diagnostics/http-errors";
 import { capabilityRegistry } from "../../../plugin-runtime/registry";
 
 export const NOTIFICATION_CAPABILITY_ID = "notificationDelivery";

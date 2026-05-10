@@ -74,9 +74,10 @@ vi.mock("../user-pool", () => ({
   markUserConnectionExhausted: vi.fn(),
 }));
 
-const captureErrorMock = vi.fn<typeof import("../../errors/capture").captureError>();
-vi.mock("../../errors/capture", () => ({
+const captureErrorMock = vi.fn<typeof import("../../diagnostics/capture").captureError>();
+vi.mock("../../diagnostics/capture", () => ({
   captureError: captureErrorMock,
+  capturePerf: vi.fn(async () => {}),
 }));
 
 vi.mock("../host-bridge", () => ({

@@ -1,0 +1,35 @@
+{
+  "unused_files": [],
+  "unused_exports": [],
+  "unused_types": [],
+  "unused_dependencies": [],
+  "unused_dev_dependencies": [],
+  "circular_dependencies": [],
+  "unused_optional_dependencies": [],
+  "unused_enum_members": [],
+  "unused_class_members": [
+    "apps/server/src/home/status-batch.ts:StatusBatchMemo.get",
+    "apps/server/src/media/service.ts:MediaService.getDetails",
+    "apps/server/src/media/service.ts:MediaService.getShowSeasons",
+    "apps/server/src/media/service.ts:MediaService.getWatchlistCount",
+    "apps/server/src/media/service.ts:MediaService.getCalendarProgressCount",
+    "apps/server/src/media/service.ts:MediaService.hasCapabilityProvider",
+    "apps/server/src/media/service.ts:MediaService.getMatchingServers"
+  ],
+  "unresolved_imports": [],
+  "unlisted_dependencies": [],
+  "duplicate_exports": [],
+  "type_only_dependencies": [],
+  "test_only_dependencies": [],
+  "boundary_violations": [
+    "apps/client/src/app/command-menu.tsx->apps/client/src/features/command-menu/index.ts",
+    "apps/client/src/shared/ui/copy-button.tsx->apps/client/src/shared/hooks/use-copy-feedback.ts"
+  ],
+  "stale_suppressions": [
+    "apps/server/src/notifications/delivery-job.ts:1",
+    "apps/server/src/notifications/delivery-policy.ts:1",
+    "apps/server/src/notifications/stale-pending-sweep.ts:1",
+    "apps/server/src/notifications/templates/index.ts:1",
+    "apps/server/src/notifications/templates/job-run-failed.ts:1"
+  ]
+}

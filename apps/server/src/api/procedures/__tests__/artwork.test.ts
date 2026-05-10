@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { Hono } from "hono";
-import { errorHandler, requestContextMiddleware } from "../../../errors/middleware";
-import { unauthorized } from "../../../errors/http-errors";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
+import { unauthorized } from "../../../diagnostics/http-errors";
 
 vi.mock("../../../env", () => ({
   env: {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { resetErrorSinks } from "../../errors/capture";
+import { resetSinks } from "../../diagnostics/capture";
 
 vi.mock("../../notifications/emit", () => ({
   emit: async () => undefined,
@@ -33,7 +33,7 @@ const registry = await import("../registry");
 
 beforeEach(() => {
   registry.clear();
-  resetErrorSinks();
+  resetSinks();
 });
 
 describe("registerTriggerable", () => {

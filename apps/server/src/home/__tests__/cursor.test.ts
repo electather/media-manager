@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { HttpError } from "../../errors/http-errors";
+import { HttpError } from "../../diagnostics/http-errors";
 
 const schema = z.object({ offset: z.number().int().min(0) });
 

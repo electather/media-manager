@@ -138,9 +138,9 @@ const ADMIN_GROUP: NavGroup = {
       icon: RefreshCwIcon,
     },
     {
-      to: "/admin/logs",
-      label: () => m.settings_nav_admin_logs(),
-      intro: () => m.settings_nav_admin_logs_intro(),
+      to: "/admin/diagnostics",
+      label: () => m.settings_nav_admin_diagnostics(),
+      intro: () => m.settings_nav_admin_diagnostics_intro(),
       icon: TerminalSquareIcon,
     },
     {
@@ -370,11 +370,7 @@ function MobileGroup({ group }: { group: NavGroup }) {
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         {group.items.map((item, i) => (
-          <MobileLink
-            key={item.to}
-            item={item}
-            withBorderTop={i > 0}
-          />
+          <MobileLink key={item.to} item={item} withBorderTop={i > 0} />
         ))}
       </div>
     </section>
@@ -397,11 +393,7 @@ function MobileLink({ item, withBorderTop }: { item: NavItem; withBorderTop: boo
         <div className="font-medium text-foreground">{item.label()}</div>
         <div className="mt-0.5 text-xs text-muted-foreground">{item.intro()}</div>
       </div>
-      <ChevronRightIcon
-        className="mt-1 size-4 shrink-0 text-muted-foreground"
-        aria-hidden="true"
-      />
+      <ChevronRightIcon className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
   );
 }
-

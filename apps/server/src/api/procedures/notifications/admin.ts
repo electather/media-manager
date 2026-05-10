@@ -12,9 +12,9 @@ import { requirePermission, requireSession } from "../../../auth/middleware";
 import { PERMISSIONS } from "../../../auth/permissions";
 import { getDb } from "../../../db/client";
 import { notificationDeliveries } from "../../../db/schema";
-import { conflict, notFound } from "../../../errors/http-errors";
-import { newRequestId } from "../../../errors/request-context";
-import { zValidator } from "../../../errors/validator";
+import { conflict, notFound } from "../../../diagnostics/http-errors";
+import { newRequestId } from "../../../diagnostics/request-context";
+import { zValidator } from "../../../diagnostics/validator";
 import { findEntry } from "../../../jobs/registry";
 import {
   deliveryRowToDto,

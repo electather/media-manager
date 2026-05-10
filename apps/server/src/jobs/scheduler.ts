@@ -1,7 +1,7 @@
 import { consola } from "consola";
 import { sweepExpiredStore } from "../plugin-runtime/host-bridge";
 import { sweepPendingAuth } from "../connections/service";
-import { sweepExpiredErrors } from "../errors/retention";
+import { sweepDiagnostics } from "../diagnostics/retention";
 import { registerCatalogJobs } from "../catalog/jobs";
 import { registerPreferenceJobs } from "../preferences/jobs";
 import { registerHomeLayoutWarmJob } from "../home/jobs/layout-warm";
@@ -54,14 +54,16 @@ export const scheduler = {
       },
     });
     registerScheduled({
-      id: "host.errors.retention_sweep",
-      name: "Error record retention",
-      description: "Deletes error records older than the configured retention window.",
+      id: "host.diagnostics.retention_sweep",
+      name: "Diagnostics retention",
+      description: "Deletes error and perf records older than their respective retention windows.",
       schedule: "0 3 * * *",
       adminTriggerable: true,
       handler: async () => {
-        const removed = await sweepExpiredErrors();
-        if (removed > 0) consola.debug(`error-retention-sweep removed ${removed} rows`);
+        const { errors, perf } = await sweepDiagnostics();
+        if (errors > 0 || perf > 0) {
+          consola.debug(`diagnostics-retention-sweep removed ${errors} errors / ${perf} perf rows`);
+        }
       },
     });
 

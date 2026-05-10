@@ -3,7 +3,7 @@ import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { env } from "../env";
 import { encrypt, decrypt } from "../crypto/vault";
-import { internal } from "../errors/http-errors";
+import { internal } from "../diagnostics/http-errors";
 import { invalidateUserCache } from "../media/dispatcher";
 import { isNil } from "es-toolkit/predicate";
 

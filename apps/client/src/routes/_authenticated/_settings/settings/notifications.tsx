@@ -297,10 +297,7 @@ function ChannelRow({
 }: ChannelRowProps) {
   return (
     <li
-      className={cn(
-        "flex flex-col gap-3 px-5 py-4 sm:px-6",
-        !isFirst && "border-t border-border",
-      )}
+      className={cn("flex flex-col gap-3 px-5 py-4 sm:px-6", !isFirst && "border-t border-border")}
     >
       <div className="flex flex-wrap items-start gap-3">
         <ChannelIcon pluginId={channel.pluginId} />
@@ -513,9 +510,7 @@ function AddChannelDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{m.settings_notifications_dialog_add_title()}</DialogTitle>
-          <DialogDescription>
-            {m.settings_notifications_dialog_add_description()}
-          </DialogDescription>
+          <DialogDescription>{m.settings_notifications_dialog_add_description()}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           {MOCK_AVAILABLE_CHANNEL_PLUGINS.map((p) => {
@@ -535,7 +530,9 @@ function AddChannelDialog({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-sm font-medium text-foreground">{p.name}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground/80">v{p.version}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground/80">
+                      v{p.version}
+                    </span>
                     {already ? (
                       <span className="text-xs text-muted-foreground">
                         · {m.settings_notifications_dialog_add_already()}
@@ -625,10 +622,7 @@ function EditChannelDialog({
           <Button variant="outline" onClick={onClose}>
             {m.settings_notifications_dialog_cancel()}
           </Button>
-          <Button
-            disabled={!dirty}
-            onClick={() => onSave({ ...channel, name, config })}
-          >
+          <Button disabled={!dirty} onClick={() => onSave({ ...channel, name, config })}>
             {m.settings_notifications_dialog_save()}
           </Button>
         </DialogFooter>

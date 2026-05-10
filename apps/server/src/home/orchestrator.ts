@@ -2,14 +2,16 @@ import { consola, type ConsolaInstance } from "consola";
 import type {
   HomeLayoutResponse,
   HomeRowStub,
+  LayoutHero,
   MediaDetailsExtra,
   MediaDetailsResponse,
   RowContentResponse,
 } from "@ent-mcp/shared/home";
+import type { MediaType } from "@ent-mcp/shared/media";
 import { getCatalogService } from "../catalog";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog/canonical";
 import { MediaService } from "../media/service";
-import { HttpError } from "../errors/http-errors";
+import { HttpError } from "../diagnostics/http-errors";
 import { classifyError } from "./errors";
 import { pickHero } from "./hero";
 import * as layoutCache from "./layout-cache";
@@ -80,42 +82,50 @@ export async function composeLayout(
 }
 
 async function composeLayoutLive(ctx: RowContext): Promise<HomeLayoutResponse> {
-  const eligibilityChecks = ROW_ORDER.map(async (rowId) => {
-    const provider = ROW_PROVIDERS[rowId]!;
-    try {
-      return { rowId, eligible: await provider.eligibility(ctx) };
-    } catch (err) {
-      ctx.logger.warn(`[home:eligibility] ${rowId} threw`, err);
-      return { rowId, eligible: false };
-    }
-  });
-  const [eligibilities, hero] = await Promise.all([
-    Promise.all(eligibilityChecks),
-    pickHero(ctx).catch((err) => {
-      ctx.logger.warn("[home:hero] pickHero threw", err);
-      return null;
-    }),
-  ]);
-  const eligibleSet = new Set(eligibilities.filter((e) => e.eligible).map((e) => e.rowId));
+  const [eligibleSet, hero] = await Promise.all([resolveEligibility(ctx), resolveHero(ctx)]);
   const previews = await Promise.all(
     ROW_ORDER.filter((rowId) => eligibleSet.has(rowId)).map((rowId) => previewRow(ctx, rowId)),
   );
   const previewByRow = new Map(previews.map((p) => [p.rowId, p] as const));
-  const rows: HomeRowStub[] = [];
-  for (const rowId of ROW_ORDER) {
+  const rows = ROW_ORDER.flatMap((rowId) => {
     const preview = previewByRow.get(rowId);
-    if (!preview?.include) continue;
-    const provider = ROW_PROVIDERS[rowId]!;
-    const stub: HomeRowStub = {
-      rowId,
-      kind: provider.kind,
-      titleKey: provider.titleKey,
-      initialCursor: preview.initialCursor,
-    };
-    if (provider.subtitleKey) stub.subtitleKey = provider.subtitleKey;
-    rows.push(stub);
-  }
+    return preview?.include ? [buildRowStub(rowId, preview)] : [];
+  });
   return { hero, rows, generatedAt: Date.now() };
+}
+
+async function resolveEligibility(ctx: RowContext): Promise<Set<string>> {
+  const results = await Promise.all(
+    ROW_ORDER.map(async (rowId) => {
+      const provider = ROW_PROVIDERS[rowId]!;
+      try {
+        return { rowId, eligible: await provider.eligibility(ctx) };
+      } catch (err) {
+        ctx.logger.warn(`[home:eligibility] ${rowId} threw`, err);
+        return { rowId, eligible: false };
+      }
+    }),
+  );
+  return new Set(results.filter((e) => e.eligible).map((e) => e.rowId));
+}
+
+function resolveHero(ctx: RowContext): Promise<LayoutHero | null> {
+  return pickHero(ctx).catch((err) => {
+    ctx.logger.warn("[home:hero] pickHero threw", err);
+    return null;
+  });
+}
+
+function buildRowStub(rowId: string, preview: RowPreview): HomeRowStub {
+  const provider = ROW_PROVIDERS[rowId]!;
+  const stub: HomeRowStub = {
+    rowId,
+    kind: provider.kind,
+    titleKey: provider.titleKey,
+    initialCursor: preview.initialCursor,
+  };
+  if (provider.eyebrowKey) stub.eyebrowKey = provider.eyebrowKey;
+  return stub;
 }
 
 interface RowPreview {
@@ -217,10 +227,11 @@ export async function composeRow(
 }
 
 function isRowSoftFailure(err: unknown): boolean {
-  if (err instanceof AllPluginsFailedError) return true;
-  if (err instanceof PluginCallError) return true;
-  if (err instanceof Error && err.name === "AbortError") return true;
-  return false;
+  return (
+    err instanceof AllPluginsFailedError ||
+    err instanceof PluginCallError ||
+    (err instanceof Error && err.name === "AbortError")
+  );
 }
 
 /**
@@ -236,7 +247,7 @@ function isRowSoftFailure(err: unknown): boolean {
 export async function composeDetails(
   ctx: RowContext,
   tmdbId: string,
-  mediaType: "movie" | "tv",
+  mediaType: MediaType,
 ): Promise<MediaDetailsResponse> {
   let summary = await ctx.catalog.getMetadata(tmdbId, mediaType);
   if (!summary) {

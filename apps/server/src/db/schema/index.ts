@@ -9,7 +9,7 @@ export * from "./feedback";
 export * from "./preferences";
 export * from "./id-map";
 export * from "./roles";
-export * from "./errors";
+export * from "./diagnostics";
 export * from "./user-preferences";
 export * from "./jobs";
 export * from "./notifications";

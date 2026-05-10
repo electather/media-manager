@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
-import { HttpError } from "../../errors/http-errors";
+import { HttpError } from "../../diagnostics/http-errors";
 import { makeRowCtx } from "./row-test-helpers";
 
 vi.mock("../../env", () => ({

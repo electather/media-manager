@@ -6,7 +6,7 @@ import { notificationEventSchema } from "@ent-mcp/shared/notifications";
 import { notificationDeliveries } from "../db/schema/notifications";
 import { resolveRecipients } from "./resolve-recipients";
 import { findEntry } from "../jobs/registry";
-import { newRequestId } from "../errors/request-context";
+import { newRequestId } from "../diagnostics/request-context";
 
 // fallow-ignore-next-line complexity
 export async function emit(

@@ -1,11 +1,11 @@
 import { consola } from "consola";
-import { captureError } from "../errors/capture";
+import { captureError } from "../diagnostics/capture";
 import {
   currentRequestContext,
   newRequestId,
   runWithRequestContext,
-} from "../errors/request-context";
-import type { UserFacingError } from "@ent-mcp/shared/errors";
+} from "../diagnostics/request-context";
+import type { UserFacingError } from "@ent-mcp/shared/diagnostics";
 import { badInput, EXPECTED_MCP_CODES, McpError, outputInvalid, toolNotFound } from "./errors";
 import { hasAllScopes, missingScopes } from "./scopes";
 import { forbidden } from "./errors";

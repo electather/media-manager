@@ -1,8 +1,8 @@
 import { z } from "zod";
+import type { MediaType } from "@ent-mcp/shared/media";
 import { decodeCursor, encodeCursor } from "../cursor";
-import type { CanonicalMetadata } from "../../catalog/types";
-import { fromCanonicalMetadata } from "../adapters";
-import type { InternalCompactMediaItem, RowContext, RowPage, RowProvider } from "../types";
+import type { RowContext, RowPage, RowProvider } from "../types";
+import { loadCanonicalItems } from "./_shared";
 
 const PAGE_SIZE = 12;
 const cursorSchema = z.object({ offset: z.number().int().min(0) });
@@ -15,12 +15,14 @@ const cursorSchema = z.object({ offset: z.number().int().min(0) });
 export function makeRecommendedForYou(config: {
   rowId: string;
   titleKey: string;
-  mediaType: "movie" | "tv";
+  eyebrowKey?: string;
+  mediaType: MediaType;
 }): RowProvider {
   return {
     rowId: config.rowId,
     kind: "recommendedForYou",
     titleKey: config.titleKey,
+    ...(config.eyebrowKey ? { eyebrowKey: config.eyebrowKey } : {}),
     async eligibility(ctx) {
       const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
       if (!rec) return false;
@@ -39,7 +41,7 @@ export function makeRecommendedForYou(config: {
 async function fetchPage(
   ctx: RowContext,
   cursor: string | null,
-  mediaType: "movie" | "tv",
+  mediaType: MediaType,
 ): Promise<RowPage> {
   const page = cursor === null ? { offset: 0 } : decodeCursor(cursor, cursorSchema);
   const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
@@ -50,16 +52,12 @@ async function fetchPage(
   const compositeIds = pool.map((p) => `${p.mediaType}:${p.tmdbId}`);
   const statuses = await ctx.statusBatch.get(compositeIds);
   const filtered = pool.filter((p) => statuses[`${p.mediaType}:${p.tmdbId}`] !== "available");
-  const slice = filtered.slice(page.offset, page.offset + PAGE_SIZE);
-  const metadata = await ctx.catalog.getMetadataBatch(
-    slice.map((p) => ({ tmdbId: p.tmdbId, type: p.mediaType })),
-  );
-  const items: InternalCompactMediaItem[] = [];
-  for (const p of slice) {
-    const meta = metadata[`${p.mediaType}:${p.tmdbId}`] as CanonicalMetadata | undefined;
-    if (!meta) continue;
-    items.push(fromCanonicalMetadata(meta, { topContributors: p.topContributors }));
-  }
+  const slice = filtered
+    .slice(page.offset, page.offset + PAGE_SIZE)
+    .map((p) => ({ tmdbId: p.tmdbId, type: p.mediaType, topContributors: p.topContributors }));
+  const items = await loadCanonicalItems(ctx, slice, {
+    fromOptions: (p) => ({ topContributors: p.topContributors }),
+  });
   const next =
     filtered.length > page.offset + PAGE_SIZE
       ? encodeCursor({ offset: page.offset + PAGE_SIZE })

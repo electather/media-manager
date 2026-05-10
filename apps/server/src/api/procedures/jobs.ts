@@ -7,8 +7,8 @@ import {
 } from "@ent-mcp/shared/jobs";
 import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
-import { currentRequestContext } from "../../errors/request-context";
-import { zValidator } from "../../errors/validator";
+import { currentRequestContext } from "../../diagnostics/request-context";
+import { zValidator } from "../../diagnostics/validator";
 import * as jobs from "../../jobs";
 import { jobErrors } from "../../jobs/errors";
 import type { RegistryEntry } from "../../jobs/registry";

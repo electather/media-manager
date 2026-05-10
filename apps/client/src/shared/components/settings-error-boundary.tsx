@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TriangleAlertIcon } from "lucide-react";
 
 import { ErrorBoundary } from "@/shared/components/error-boundary";
-import { shortRequestId } from "@/shared/lib/errors/request-id";
+import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 import { m } from "@/paraglide/messages";
 

@@ -1,4 +1,4 @@
-import type { HostErrorCode } from "@ent-mcp/shared/errors";
+import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 
 export interface DispatchRequest {
   userId: string;

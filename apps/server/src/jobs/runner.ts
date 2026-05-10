@@ -1,6 +1,6 @@
 import { consola } from "consola";
-import { captureError } from "../errors/capture";
-import { runWithRequestContext, newRequestId } from "../errors/request-context";
+import { captureError } from "../diagnostics/capture";
+import { runWithRequestContext, newRequestId } from "../diagnostics/request-context";
 import { emit } from "../notifications/emit";
 import { getConfig, type JobConfigRow } from "./config";
 import { finishRun, latestRun, startRun } from "./history";

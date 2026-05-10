@@ -1,12 +1,9 @@
-import type { CanonicalMetadata } from "../../catalog/types";
-import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
-import type { InternalCompactMediaItem, RowProvider } from "../types";
+import type { RowProvider } from "../types";
+import { loadCanonicalItems, probeMediaEntry, type MediaKey } from "./_shared";
 
 const PAGE_SIZE = 12;
 
-interface WatchlistKey {
-  tmdbId: string;
-  type: "movie" | "tv";
+interface WatchlistKey extends MediaKey {
   /** Plugin-supplied fallback title used when the catalog has no canonical row yet. */
   fallbackTitle?: string;
   fallbackYear?: number;
@@ -47,46 +44,33 @@ const provider: RowProvider = {
     );
     const available = present.filter((k): k is WatchlistKey => k !== null);
     const slice = available.slice(0, PAGE_SIZE);
-    const metadata = await ctx.catalog.getMetadataBatch(
-      slice.map((k) => ({ tmdbId: k.tmdbId, type: k.type })),
-    );
-    const items: InternalCompactMediaItem[] = [];
-    for (const k of slice) {
-      const meta = metadata[`${k.type}:${k.tmdbId}`] as CanonicalMetadata | undefined;
-      if (meta) {
-        items.push(fromCanonicalMetadata(meta));
-        continue;
-      }
+    const items = await loadCanonicalItems(ctx, slice, {
       // Catalog cold for this title — common when a watchlist entry has not
       // been seen by any catalog-populating job yet. Render a stub from the
       // plugin-supplied title/year so the row does not silently drop server
       // copies the user clearly cares about; artwork/facets fill in once
       // the catalog populates on the next refresh.
-      if (k.fallbackTitle) {
-        items.push({
-          id: `${k.type}:${k.tmdbId}`,
-          tmdbId: k.tmdbId,
-          mediaType: k.type,
-          title: k.fallbackTitle,
-          ...(k.fallbackYear != null ? { year: k.fallbackYear } : {}),
-        });
-      }
-    }
+      onMissing: (k) =>
+        k.fallbackTitle
+          ? {
+              id: `${k.type}:${k.tmdbId}`,
+              tmdbId: k.tmdbId,
+              mediaType: k.type,
+              title: k.fallbackTitle,
+              ...(k.fallbackYear != null ? { year: k.fallbackYear } : {}),
+            }
+          : null,
+    });
     return { items, cursor: null, partial: res.partial };
   },
 };
 
+// fallow-ignore-next-line complexity
 function toWatchlistKey(value: unknown): WatchlistKey | null {
-  // Trakt + most watchlist providers wrap entries as `{ item: {...}, addedAt }`,
-  // so the tmdb id lives on `value.item.ids`. Unwrap before probing.
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const itemRaw = (v.item ?? v) as Record<string, unknown>;
-  const tmdbId = extractTmdbId(itemRaw);
-  if (!tmdbId) return null;
-  const t = itemRaw.type;
-  const type: "movie" | "tv" = t === "movie" ? "movie" : "tv";
-  const out: WatchlistKey = { tmdbId, type };
+  const probe = probeMediaEntry(value);
+  if (!probe) return null;
+  const { key, itemRaw } = probe;
+  const out: WatchlistKey = { ...key };
   if (typeof itemRaw.title === "string" && itemRaw.title.length > 0) {
     out.fallbackTitle = itemRaw.title;
   }

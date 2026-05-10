@@ -3,7 +3,7 @@ import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
-import { badRequest, notFound, unprocessable } from "../errors/http-errors";
+import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
 import { isNil } from "es-toolkit/predicate";
 

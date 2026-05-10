@@ -1,6 +1,18 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { reportError } from "@/shared/lib/errors/report";
-import { shortRequestId } from "@/shared/lib/errors/request-id";
+import { Link } from "@tanstack/react-router";
+import { HomeIcon, RotateCcwIcon } from "lucide-react";
+
+import { m } from "@/paraglide/messages";
+import {
+  ErrorPage,
+  ErrorPageActions,
+  ErrorPageDescription,
+  ErrorPageDetails,
+  ErrorPageFrame,
+  ErrorPageHeadline,
+} from "@/shared/components/error-page";
+import { reportError } from "@/shared/lib/diagnostics/report";
+import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 
 interface Props {
@@ -14,7 +26,7 @@ interface State {
 }
 
 /** Captures render-time exceptions anywhere in its subtree, reports them to the
- *  backend via /api/errors, and shows a fallback UI that includes the short-form
+ *  backend via /api/diagnostics/errors, and shows a fallback UI that includes the short-form
  *  request id so users can reference it in support requests. */
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null, requestId: null };
@@ -45,19 +57,58 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.props.fallback) {
       return this.props.fallback({ error: this.state.error, requestId, reset: this.reset });
     }
+    const shortId = requestId ? shortRequestId(requestId) : "";
+    const rawMessage = this.state.error.message;
+    // Raw error messages may carry implementation detail (paths, response bodies,
+    // tokens). Show generic copy in the visible description and gate the raw
+    // string behind the collapsible details panel for diagnostics.
+    const detailRows = [
+      ...(shortId
+        ? [
+            {
+              label: m.errors_details_request_id(),
+              value: shortId,
+              copyValue: requestId,
+            },
+          ]
+        : []),
+      {
+        label: m.errors_details_status(),
+        value: `500 · ${m.errors_status_server_error()}`,
+      },
+      ...(rawMessage
+        ? [
+            {
+              label: m.errors_details_message(),
+              value: rawMessage,
+            },
+          ]
+        : []),
+    ];
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 text-center">
-        <h2 className="text-lg font-semibold">Something went wrong</h2>
-        <p className="text-sm text-muted-foreground">{this.state.error.message}</p>
-        {requestId ? (
-          <p className="text-xs font-mono text-muted-foreground">
-            Ref: {shortRequestId(requestId)}
-          </p>
-        ) : null}
-        <Button variant="outline" size="sm" onClick={this.reset}>
-          Try again
-        </Button>
-      </div>
+      <ErrorPage tone="danger">
+        <ErrorPageFrame>
+          <ErrorPageHeadline code="500" eyebrow={m.errors_server_eyebrow()}>
+            {m.errors_default_title()}
+          </ErrorPageHeadline>
+          <ErrorPageDescription>{m.errors_default_body()}</ErrorPageDescription>
+          <ErrorPageActions>
+            <Button onClick={this.reset}>
+              <RotateCcwIcon aria-hidden="true" />
+              {m.errors_retry()}
+            </Button>
+            <Button variant="outline" render={<Link to="/" />}>
+              <HomeIcon aria-hidden="true" />
+              {m.errors_action_back_home()}
+            </Button>
+          </ErrorPageActions>
+          <ErrorPageDetails
+            title={m.errors_details_title()}
+            reference={shortId || undefined}
+            rows={detailRows}
+          />
+        </ErrorPageFrame>
+      </ErrorPage>
     );
   }
 }

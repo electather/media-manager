@@ -1,0 +1,87 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "watchlist_eyebrow": "TODO",
+  "watchlist_title": "TODO",
+  "watchlist_total_runtime": "TODO",
+  "watchlist_runtime_days_hours": "TODO",
+  "watchlist_runtime_hours": "TODO",
+  "watchlist_runtime_hours_minutes": "TODO",
+  "watchlist_runtime_minutes": "TODO",
+  "watchlist_count_ready": "TODO",
+  "watchlist_count_awaiting": "TODO",
+  "watchlist_count_upcoming": "TODO",
+
+  "watchlist_filter_label": "TODO",
+  "watchlist_filter_all": "TODO",
+  "watchlist_filter_ready": "TODO",
+  "watchlist_filter_in_progress": "TODO",
+  "watchlist_filter_awaiting": "TODO",
+  "watchlist_filter_upcoming": "TODO",
+
+  "watchlist_sort_label": "TODO",
+  "watchlist_sort_recent": "TODO",
+  "watchlist_sort_alpha": "TODO",
+  "watchlist_sort_runtime": "TODO",
+  "watchlist_sort_status": "TODO",
+
+  "watchlist_filtered_eyebrow": "TODO",
+  "watchlist_filtered_title": "TODO",
+
+  "watchlist_tonight_eyebrow": "TODO",
+  "watchlist_tonight_title": "TODO",
+  "watchlist_tonight_caption": "TODO",
+  "watchlist_tonight_why": "TODO",
+  "watchlist_tonight_default_reason": "TODO",
+  "watchlist_tonight_alternates_kicker": "TODO",
+  "watchlist_tonight_shuffle": "TODO",
+
+  "watchlist_ready_eyebrow": "TODO",
+  "watchlist_ready_title": "TODO",
+  "watchlist_ready_scroll_prev": "TODO",
+  "watchlist_ready_scroll_next": "TODO",
+
+  "watchlist_mood_eyebrow": "TODO",
+  "watchlist_mood_title": "TODO",
+  "watchlist_mood_cluster_eyebrow": "TODO",
+  "watchlist_mood_auto_clustered": "TODO",
+  "watchlist_mood_see_all": "TODO",
+
+  "watchlist_mood_slow_burn": "TODO",
+  "watchlist_mood_slow_burn_note": "TODO",
+  "watchlist_mood_quiet_thrill": "TODO",
+  "watchlist_mood_quiet_thrill_note": "TODO",
+  "watchlist_mood_period": "TODO",
+  "watchlist_mood_period_note": "TODO",
+  "watchlist_mood_scifi": "TODO",
+  "watchlist_mood_scifi_note": "TODO",
+  "watchlist_mood_comedy": "TODO",
+  "watchlist_mood_comedy_note": "TODO",
+  "watchlist_mood_horror": "TODO",
+  "watchlist_mood_horror_note": "TODO",
+
+  "watchlist_coming_up_eyebrow": "TODO",
+  "watchlist_coming_up_title": "TODO",
+
+  "watchlist_awaiting_eyebrow": "TODO",
+  "watchlist_awaiting_title": "TODO",
+  "watchlist_awaiting_request_all": "TODO",
+
+  "watchlist_recent_eyebrow": "TODO",
+  "watchlist_recent_title": "TODO",
+  "watchlist_recent_source_recommended": "TODO",
+  "watchlist_recent_source_notification": "TODO",
+  "watchlist_recent_source_search": "TODO",
+  "watchlist_recent_source_trending": "TODO",
+  "watchlist_recent_source_friend": "TODO",
+  "watchlist_recent_time_hours_ago": "TODO",
+  "watchlist_recent_time_yesterday": "TODO",
+  "watchlist_recent_time_days_ago": "TODO",
+  "watchlist_recent_time_last_week": "TODO",
+
+  "watchlist_kind_movie": "TODO",
+  "watchlist_kind_tv": "TODO",
+  "watchlist_episodes_count": "TODO",
+
+  "watchlist_section_count_aria": "TODO"
+}

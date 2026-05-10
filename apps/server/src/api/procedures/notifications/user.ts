@@ -25,8 +25,8 @@ import { PERMISSIONS } from "../../../auth/permissions";
 import { connectionsService } from "../../../connections/service";
 import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";
-import { badRequest, forbidden, notFound, payloadTooLarge } from "../../../errors/http-errors";
-import { zValidator } from "../../../errors/validator";
+import { badRequest, forbidden, notFound, payloadTooLarge } from "../../../diagnostics/http-errors";
+import { zValidator } from "../../../diagnostics/validator";
 import { capabilityRegistry } from "../../../plugin-runtime/registry";
 import {
   deleteInboxAllForUser,

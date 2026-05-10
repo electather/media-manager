@@ -4,8 +4,8 @@ import { auth } from "./config";
 import { getDb } from "../db/client";
 import { userRoles, roles, rolePermissions } from "../db/schema/roles";
 import type { Permission } from "./permissions";
-import { currentRequestContext } from "../errors/request-context";
-import { forbidden, unauthorized } from "../errors/http-errors";
+import { currentRequestContext } from "../diagnostics/request-context";
+import { forbidden, unauthorized } from "../diagnostics/http-errors";
 
 interface UserRoleInfo {
   roleId: string;

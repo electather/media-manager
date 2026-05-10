@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import { buildFetch } from "../fetch-policy";
 import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../allowed-hosts";
-import { registerErrorSink, resetErrorSinks } from "../../errors/capture";
-import type { ErrorSink } from "../../errors/types";
-import type { ErrorRecord } from "@ent-mcp/shared/errors";
+import { registerSink, resetSinks } from "../../diagnostics/capture";
+import type { DiagnosticSink } from "../../diagnostics/types";
+import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
 
 describe("buildFetch — static + dynamic allowlist", () => {
   beforeEach(() => {
@@ -57,20 +57,20 @@ describe("buildFetch — admin allowlist + headers", () => {
 
   beforeEach(() => {
     captured = [];
-    resetErrorSinks();
-    const sink: ErrorSink = {
-      async capture(record) {
+    resetSinks();
+    const sink: DiagnosticSink = {
+      async captureError(record) {
         captured.push(record);
       },
     };
-    registerErrorSink(sink);
+    registerSink(sink);
     fetchSpy = vi.fn(async () => new Response("ok"));
     vi.stubGlobal("fetch", fetchSpy);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    resetErrorSinks();
+    resetSinks();
   });
 
   // Flush microtasks so the fire-and-forget captureError promise lands
