@@ -1,33 +1,20 @@
 // fallow-ignore-file complexity
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import {
-  EyeIcon,
-  EyeOffIcon,
-  LayersIcon,
-  LoaderCircleIcon,
-  ShieldIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { EyeIcon, EyeOffIcon, LayersIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+import { triggerAnchorDownload } from "@/shared/lib/anchor-download";
+import { authClient } from "@/shared/lib/auth";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { SettingsActionRow, SettingsCard } from "@/features/settings";
-import { MOCK_USER } from "@/features/settings/mocks";
+import { SettingsActionRow, SettingsCard, deleteAccount } from "@/features/settings";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/danger")({
   component: DangerRoute,
@@ -42,22 +29,25 @@ function DangerRoute() {
 }
 
 function DangerPage() {
-  const [reauthOpen, setReauthOpen] = useState(false);
+  const session = authClient.useSession();
+  const userEmail = session.data?.user.email ?? "";
+  const navigate = useNavigate();
+
   const [exportLocked, setExportLocked] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const startExport = () => setReauthOpen(true);
-
-  const confirmExport = () => {
-    setReauthOpen(false);
+  const startExport = () => {
     setExportLocked(true);
+    triggerAnchorDownload("/api/me/export");
     toast.success(m.settings_danger_toast_export_started());
-    window.setTimeout(() => setExportLocked(false), 1500);
+    window.setTimeout(() => setExportLocked(false), 1000);
   };
 
-  const confirmDelete = () => {
+  const onDeleted = async () => {
     setDeleteOpen(false);
     toast.success(m.settings_danger_toast_account_deleted());
+    await authClient.signOut();
+    void navigate({ to: "/auth/login", replace: true });
   };
 
   return (
@@ -114,86 +104,13 @@ function DangerPage() {
         />
       </SettingsCard>
 
-      <ReauthDialog
-        open={reauthOpen}
-        onClose={() => setReauthOpen(false)}
-        onConfirm={confirmExport}
-      />
       <DeleteAccountDialog
         open={deleteOpen}
-        email={MOCK_USER.email}
+        email={userEmail}
         onClose={() => setDeleteOpen(false)}
-        onConfirm={confirmDelete}
+        onDeleted={() => void onDeleted()}
       />
     </div>
-  );
-}
-
-// ─── Reauth (export) ────────────────────────────────────────────────────────
-
-function ReauthDialog({
-  open,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const [pw, setPw] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      setPw("");
-      setSubmitting(false);
-    }
-  }, [open]);
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pw) return;
-    setSubmitting(true);
-    window.setTimeout(() => {
-      setSubmitting(false);
-      onConfirm();
-    }, 350);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
-      <DialogContent>
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <ShieldIcon className="size-4" aria-hidden="true" />
-            </div>
-            <DialogTitle>{m.settings_danger_reauth_title()}</DialogTitle>
-          </div>
-          <DialogDescription>{m.settings_danger_reauth_description()}</DialogDescription>
-        </DialogHeader>
-        <form id="reauth-form" onSubmit={submit} className="flex flex-col gap-3">
-          <Field>
-            <FieldTitle>{m.settings_danger_reauth_password_label()}</FieldTitle>
-            <RevealInput
-              value={pw}
-              onChange={setPw}
-              placeholder={m.settings_danger_reauth_password_placeholder()}
-              autoComplete="current-password"
-              autoFocus
-            />
-          </Field>
-        </form>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            {m.settings_danger_dialog_cancel()}
-          </Button>
-          <Button form="reauth-form" type="submit" disabled={!pw || submitting}>
-            {submitting ? m.settings_danger_reauth_verifying() : m.settings_danger_reauth_cta()}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -203,12 +120,15 @@ function DeleteAccountDialog({
   open,
   email,
   onClose,
-  onConfirm,
+  onDeleted,
+  onSubmit,
 }: {
   open: boolean;
   email: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onDeleted: () => void;
+  /** Optional override used by tests; default path calls the API. */
+  onSubmit?: (input: { confirmEmail: string; currentPassword: string }) => Promise<void>;
 }) {
   const [typed, setTyped] = useState("");
   const [pw, setPw] = useState("");
@@ -225,16 +145,26 @@ function DeleteAccountDialog({
   }, [open]);
 
   const emailMatches = typed.trim().toLowerCase() === email.toLowerCase();
-  const canSubmit = emailMatches && pw.length > 0 && !submitting;
+  const canSubmit = emailMatches && pw.length > 0 && !submitting && email.length > 0;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
-    window.setTimeout(() => {
+    setError(null);
+    try {
+      const body = { confirmEmail: typed.trim(), currentPassword: pw };
+      if (onSubmit) {
+        await onSubmit(body);
+      } else {
+        await deleteAccount(body);
+      }
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : m.settings_danger_delete_failed());
+    } finally {
       setSubmitting(false);
-      onConfirm();
-    }, 350);
+    }
   };
 
   return (
@@ -248,7 +178,7 @@ function DeleteAccountDialog({
             <DialogTitle>{m.settings_danger_delete_title()}</DialogTitle>
           </div>
         </DialogHeader>
-        <form id="delete-form" onSubmit={submit} className="flex flex-col gap-3">
+        <form id="delete-form" onSubmit={(e) => void submit(e)} className="flex flex-col gap-3">
           <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-relaxed text-destructive">
             {m.settings_danger_delete_dialog_warning()}
           </p>
@@ -301,6 +231,8 @@ function DeleteAccountDialog({
     </Dialog>
   );
 }
+
+export { DeleteAccountDialog };
 
 // ─── Local password input ───────────────────────────────────────────────────
 

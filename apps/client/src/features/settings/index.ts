@@ -16,3 +16,21 @@ export {
   useSettingsDirty,
   useSettingsDirtyState,
 } from "./components/dirty-bar-context";
+
+export {
+  settingsKeys,
+  SettingsApiError,
+  deleteAccount,
+  fetchAuthorizedApps,
+  fetchPublicConfig,
+  fetchRole,
+  revokeAuthorizedApp,
+  usePublicConfig,
+  useRole,
+  useAuthorizedApps,
+  useRevokeAuthorizedApp,
+  useSessions,
+  useRevokeSession,
+  useRevokeOtherSessions,
+  type AuthSession,
+} from "./shared";

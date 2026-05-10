@@ -44,10 +44,42 @@ describe("listAuthorizedApps", () => {
     expect(named.connectedAt).toBe(1_000);
     expect(named.lastUsedAt).toBe(9_000);
     expect(named.ownedByUser).toBe(false);
+    expect(named.description).toBeNull();
+    expect(named.status).toBe("idle");
 
     const anon = apps.find((a) => a.clientId === "client-anon")!;
     expect(anon.name).toBe("client-anon");
     expect(anon.lastUsedAt).toBeNull();
+    expect(anon.description).toBeNull();
+  });
+
+  it("flags status='active' when a token was issued in the last 5 minutes", async () => {
+    const recent = Date.now() - 60_000;
+    await seedClient(db, "fresh", { ownerUserId: null, name: "Fresh" });
+    await seedConsent(db, USER, "fresh", [], recent - 1_000);
+    await seedAccessToken(db, USER, "fresh", recent);
+
+    const apps = await listAuthorizedApps(db, USER);
+    expect(apps[0]?.status).toBe("active");
+  });
+
+  it("flags status='new' for a consent under 24h with no tokens issued", async () => {
+    const recent = Date.now() - 60_000;
+    await seedClient(db, "rookie", { ownerUserId: null, name: "Rookie" });
+    await seedConsent(db, USER, "rookie", [], recent);
+
+    const apps = await listAuthorizedApps(db, USER);
+    expect(apps[0]?.status).toBe("new");
+    expect(apps[0]?.lastUsedAt).toBeNull();
+  });
+
+  it("flags status='idle' when the consent is older than 24h with no recent tokens", async () => {
+    const old = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    await seedClient(db, "stale", { ownerUserId: null, name: "Stale" });
+    await seedConsent(db, USER, "stale", [], old);
+
+    const apps = await listAuthorizedApps(db, USER);
+    expect(apps[0]?.status).toBe("idle");
   });
 
   it("excludes other users' consents", async () => {

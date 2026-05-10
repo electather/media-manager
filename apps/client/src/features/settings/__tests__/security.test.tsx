@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
-import type { AnchorHTMLAttributes } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const toastMock = vi.hoisted(() => ({
@@ -12,31 +11,20 @@ const toastMock = vi.hoisted(() => ({
 }));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
-vi.mock("@tanstack/react-router", async () => {
-  const actual =
-    await vi.importActual<typeof import("@tanstack/react-router")>("@tanstack/react-router");
-  return {
-    ...actual,
-    useNavigate: () => async () => {},
-    Link: ({ to, ...rest }: { to?: string } & AnchorHTMLAttributes<HTMLAnchorElement>) => (
-      <a href={typeof to === "string" ? to : undefined} {...rest} />
-    ),
-  };
-});
-
-import { Route as SecurityRoute } from "@/routes/_authenticated/_settings/settings/security";
+import { ChangePasswordCard } from "@/routes/_authenticated/_settings/settings/security";
+import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
+  toastMock.error.mockReset();
 });
 
 afterEach(() => cleanup());
 
-describe("Security (mock)", () => {
+describe("ChangePasswordCard", () => {
   it("expands the change-password form and validates min length", async () => {
     const user = userEvent.setup();
-    const Component = SecurityRoute.options.component!;
-    render(<Component />);
+    renderWithProviders(<ChangePasswordCard />);
 
     await user.click(screen.getByRole("button", { name: /change password/i }));
 
@@ -46,19 +34,24 @@ describe("Security (mock)", () => {
     expect(await screen.findByText(/must be at least 12/i)).toBeTruthy();
   });
 
-  it("revokes a non-current session via the confirm dialog", async () => {
+  it("calls onChangePassword with the trimmed inputs and toasts on success", async () => {
+    const onChange = vi.fn(async () => {});
     const user = userEvent.setup();
-    const Component = SecurityRoute.options.component!;
-    render(<Component />);
+    renderWithProviders(<ChangePasswordCard onChangePassword={onChange} />);
 
-    // The mock data has at least one revocable session; click its revoke button.
-    const revokeButtons = screen.getAllByRole("button", { name: /^revoke$/i });
-    expect(revokeButtons.length).toBeGreaterThan(0);
-    await user.click(revokeButtons[0]!);
+    await user.click(screen.getByRole("button", { name: /change password/i }));
+    await user.type(screen.getByTestId("current-password"), "OldPassword12!");
+    await user.type(screen.getByTestId("new-password"), "NewPassword123!");
+    await user.type(screen.getByTestId("confirm-password"), "NewPassword123!");
 
-    const confirm = await screen.findByTestId("confirm-revoke");
-    await user.click(confirm);
+    await user.click(screen.getByTestId("submit-password"));
 
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({
+        currentPassword: "OldPassword12!",
+        newPassword: "NewPassword123!",
+      }),
+    );
     await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
   });
 });

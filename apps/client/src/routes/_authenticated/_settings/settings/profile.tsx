@@ -1,6 +1,7 @@
 // fallow-ignore-file complexity
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,14 +18,21 @@ import {
 } from "@/shared/ui/dialog";
 import { Field, FieldDescription, FieldError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { UserAvatar } from "@/shared/components/user-avatar";
+import { authClient } from "@/shared/lib/auth";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { SettingsCard, SettingsCardRow, useSettingsDirty } from "@/features/settings";
-import { MOCK_ROLE, MOCK_USER, type MockUser } from "@/features/settings/mocks";
+import {
+  SettingsCard,
+  SettingsCardRow,
+  useSettingsDirty,
+  usePublicConfig,
+  useRole,
+} from "@/features/settings";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/profile")({
   component: ProfileRoute,
@@ -33,14 +41,50 @@ export const Route = createFileRoute("/_authenticated/_settings/settings/profile
 function ProfileRoute() {
   return (
     <SettingsErrorBoundary>
-      <ProfilePage />
+      <Suspense fallback={<ProfileSkeleton />}>
+        <ProfilePage />
+      </Suspense>
     </SettingsErrorBoundary>
   );
 }
 
+function ProfileSkeleton() {
+  return (
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <Skeleton className="h-72 w-full rounded-2xl" />
+      <Skeleton className="h-32 w-full rounded-2xl" />
+    </div>
+  );
+}
+
+interface ProfileViewUser {
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: string;
+}
+
 function ProfilePage() {
-  const [user, setUser] = useState<MockUser>(MOCK_USER);
-  const emailEnabled = true;
+  const session = authClient.useSession();
+  const publicConfig = usePublicConfig();
+  const emailEnabled = publicConfig.data.emailEnabled;
+  const sessionUser = session.data?.user;
+
+  if (!sessionUser) return <ProfileSkeleton />;
+
+  const user: ProfileViewUser = {
+    name: sessionUser.name,
+    email: sessionUser.email,
+    emailVerified: Boolean(sessionUser.emailVerified),
+    createdAt:
+      sessionUser.createdAt instanceof Date
+        ? sessionUser.createdAt.toISOString()
+        : String(sessionUser.createdAt),
+  };
 
   return (
     <div className="flex flex-col gap-7">
@@ -51,7 +95,7 @@ function ProfilePage() {
 
       {emailEnabled && !user.emailVerified ? <VerifyBanner email={user.email} /> : null}
 
-      <IdentityCard user={user} setUser={setUser} emailEnabled={emailEnabled} />
+      <IdentityCard user={user} emailEnabled={emailEnabled} />
       <AccountCard user={user} />
     </div>
   );
@@ -59,15 +103,7 @@ function ProfilePage() {
 
 // ─── Identity ───────────────────────────────────────────────────────────────
 
-function IdentityCard({
-  user,
-  setUser,
-  emailEnabled,
-}: {
-  user: MockUser;
-  setUser: (updater: (prev: MockUser) => MockUser) => void;
-  emailEnabled: boolean;
-}) {
+function IdentityCard({ user, emailEnabled }: { user: ProfileViewUser; emailEnabled: boolean }) {
   return (
     <SettingsCard>
       <SettingsCardRow
@@ -83,13 +119,12 @@ function IdentityCard({
         </div>
       </SettingsCardRow>
 
-      <NameRow currentName={user.name} onSave={(next) => setUser((u) => ({ ...u, name: next }))} />
+      <NameRow currentName={user.name} />
 
       <EmailRow
         currentEmail={user.email}
         emailVerified={user.emailVerified}
         emailEnabled={emailEnabled}
-        onCommit={(next) => setUser((u) => ({ ...u, email: next, emailVerified: false }))}
       />
     </SettingsCard>
   );
@@ -102,9 +137,12 @@ export function NameRow({
   onSave,
 }: {
   currentName: string;
-  onSave: (next: string) => void;
+  /** Optional override used by tests; default path calls Better Auth. */
+  onSave?: (next: string) => Promise<void> | void;
 }) {
+  const qc = useQueryClient();
   const [draft, setDraft] = useState(currentName);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setDraft(currentName);
@@ -113,16 +151,29 @@ export function NameRow({
   const trimmed = draft.trim();
   const dirty = trimmed.length > 0 && trimmed !== currentName;
 
-  const save = () => {
+  const save = async () => {
     if (!dirty) return;
-    onSave(trimmed);
-    toast.success(m.settings_profile_toast_name_updated());
+    setSubmitting(true);
+    try {
+      if (onSave) {
+        await onSave(trimmed);
+      } else {
+        const result = await authClient.updateUser({ name: trimmed });
+        if (result.error) throw new Error(result.error.message ?? "Update failed");
+      }
+      await qc.invalidateQueries();
+      toast.success(m.settings_profile_toast_name_updated());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : m.settings_profile_toast_name_failed());
+    } finally {
+      setSubmitting(false);
+    }
   };
   const discard = () => setDraft(currentName);
 
   useSettingsDirty("profile-name", dirty, {
     label: m.settings_profile_dirty_name(),
-    onSave: save,
+    onSave: () => void save(),
     onDiscard: discard,
   });
 
@@ -140,7 +191,12 @@ export function NameRow({
             data-testid="profile-name"
           />
         </Field>
-        <Button size="sm" disabled={!dirty} onClick={save} data-testid="save-name">
+        <Button
+          size="sm"
+          disabled={!dirty || submitting}
+          onClick={() => void save()}
+          data-testid="save-name"
+        >
           {m.settings_profile_name_save()}
         </Button>
       </div>
@@ -162,11 +218,14 @@ export function EmailRow({
   currentEmail: string;
   emailVerified: boolean;
   emailEnabled: boolean;
-  onCommit: (next: string) => void;
+  /** Optional override used by tests; default path calls Better Auth. */
+  onCommit?: (next: string) => Promise<void> | void;
 }) {
+  const qc = useQueryClient();
   const [draft, setDraft] = useState(currentEmail);
-  const [error] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setDraft(currentEmail);
@@ -177,16 +236,33 @@ export function EmailRow({
 
   const submit = () => {
     if (!dirty) return;
+    setError(null);
     setConfirmOpen(true);
   };
 
-  const confirm = () => {
-    onCommit(draft.trim());
-    setConfirmOpen(false);
-    if (emailEnabled) {
-      toast.success(m.settings_profile_toast_email_verification_sent());
-    } else {
-      toast.success(m.settings_profile_toast_email_updated());
+  const confirm = async () => {
+    const next = draft.trim();
+    setSubmitting(true);
+    try {
+      if (onCommit) {
+        await onCommit(next);
+      } else {
+        const result = await authClient.changeEmail(
+          emailEnabled ? { newEmail: next, callbackURL: "/settings/profile" } : { newEmail: next },
+        );
+        if (result.error) throw new Error(result.error.message ?? "Email change failed");
+      }
+      setConfirmOpen(false);
+      await qc.invalidateQueries();
+      toast.success(
+        emailEnabled
+          ? m.settings_profile_toast_email_verification_sent()
+          : m.settings_profile_toast_email_updated(),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -244,8 +320,9 @@ export function EmailRow({
         open={confirmOpen}
         emailEnabled={emailEnabled}
         target={draft.trim()}
+        submitting={submitting}
         onCancel={() => setConfirmOpen(false)}
-        onConfirm={confirm}
+        onConfirm={() => void confirm()}
       />
     </SettingsCardRow>
   );
@@ -255,12 +332,14 @@ function ChangeEmailDialog({
   open,
   emailEnabled,
   target,
+  submitting,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   emailEnabled: boolean;
   target: string;
+  submitting: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -280,10 +359,10 @@ function ChangeEmailDialog({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={submitting}>
             {m.settings_profile_email_dialog_cancel()}
           </Button>
-          <Button onClick={onConfirm} data-testid="confirm-direct-email">
+          <Button onClick={onConfirm} disabled={submitting} data-testid="confirm-direct-email">
             {emailEnabled
               ? m.settings_profile_email_dialog_send()
               : m.settings_profile_email_dialog_change()}
@@ -296,7 +375,7 @@ function ChangeEmailDialog({
 
 // ─── Account ────────────────────────────────────────────────────────────────
 
-function AccountCard({ user }: { user: MockUser }) {
+function AccountCard({ user }: { user: ProfileViewUser }) {
   const memberSince = useMemo(() => {
     try {
       return new Date(user.createdAt).toLocaleDateString(undefined, {
@@ -317,18 +396,26 @@ function AccountCard({ user }: { user: MockUser }) {
       >
         <div className="text-sm tabular-nums text-foreground">{memberSince}</div>
       </SettingsCardRow>
-      <SettingsCardRow
-        label={m.settings_profile_role_label()}
-        hint={m.settings_profile_role_default_description()}
-        borderTop
-        align="top"
-      >
-        <Badge variant="secondary" className="font-medium">
-          <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-          {MOCK_ROLE.name}
-        </Badge>
-      </SettingsCardRow>
+      <RoleRow />
     </SettingsCard>
+  );
+}
+
+function RoleRow() {
+  const role = useRole().data.role;
+  if (!role) return null;
+  return (
+    <SettingsCardRow
+      label={m.settings_profile_role_label()}
+      hint={role.description ?? m.settings_profile_role_default_description()}
+      borderTop
+      align="top"
+    >
+      <Badge variant="secondary" className="font-medium">
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
+        {role.name}
+      </Badge>
+    </SettingsCardRow>
   );
 }
 
@@ -336,8 +423,16 @@ function AccountCard({ user }: { user: MockUser }) {
 
 const VERIFICATION_COOLDOWN_SECONDS = 60;
 
-export function VerifyBanner({ email }: { email: string }) {
+export function VerifyBanner({
+  email,
+  onResend,
+}: {
+  email: string;
+  /** Optional override used by tests; default path calls Better Auth. */
+  onResend?: () => Promise<void> | void;
+}) {
   const [cooldown, setCooldown] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -345,9 +440,22 @@ export function VerifyBanner({ email }: { email: string }) {
     return () => window.clearTimeout(id);
   }, [cooldown]);
 
-  const resend = () => {
-    setCooldown(VERIFICATION_COOLDOWN_SECONDS);
-    toast.success(m.settings_profile_toast_verification_sent());
+  const resend = async () => {
+    setSubmitting(true);
+    try {
+      if (onResend) {
+        await onResend();
+      } else {
+        const result = await authClient.sendVerificationEmail({ email });
+        if (result.error) throw new Error(result.error.message ?? "Send failed");
+      }
+      setCooldown(VERIFICATION_COOLDOWN_SECONDS);
+      toast.success(m.settings_profile_toast_verification_sent());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -358,8 +466,8 @@ export function VerifyBanner({ email }: { email: string }) {
       <Button
         variant="outline"
         size="sm"
-        disabled={cooldown > 0}
-        onClick={resend}
+        disabled={cooldown > 0 || submitting}
+        onClick={() => void resend()}
         data-testid="resend-verification"
         className="col-start-2 mt-2 justify-self-start"
       >

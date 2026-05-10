@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { compact } from "es-toolkit/array";
-import type { AuthorizedApp } from "@ent-mcp/shared/users";
+import type { AuthorizedApp, AuthorizedAppStatus } from "@ent-mcp/shared/users";
 import {
   oauthAccessToken,
   oauthClient,
@@ -11,6 +11,9 @@ import type { Db } from "../../../db/client";
 import { notFound } from "../../../diagnostics/http-errors";
 
 type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+const ACTIVE_WINDOW_MS = 5 * 60 * 1000;
+const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 interface AppRow {
   clientId: string;
@@ -27,7 +30,10 @@ export async function listAuthorizedApps(db: DbOrTx, userId: string): Promise<Au
       clientId: oauthConsent.clientId,
       name: oauthClient.name,
       scopes: oauthConsent.scopes,
-      connectedAt: oauthConsent.createdAt,
+      // `MIN()` so the column is aggregated under `GROUP BY oauthConsent.clientId`
+      // — same value either way (one consent per (user, client) pair) but lets
+      // strict-mode SQL backends accept the projection.
+      connectedAt: sql<number | null>`MIN(${oauthConsent.createdAt})`,
       ownerUserId: oauthClient.userId,
       lastUsedAt: sql<number | null>`MAX(${oauthAccessToken.createdAt})`,
     })
@@ -41,20 +47,36 @@ export async function listAuthorizedApps(db: DbOrTx, userId: string): Promise<Au
       ),
     )
     .where(eq(oauthConsent.userId, userId))
-    .groupBy(oauthConsent.clientId)) as AppRow[];
+    .groupBy(oauthConsent.clientId, oauthClient.name, oauthClient.userId)) as AppRow[];
 
-  return rows.map((row) => toAuthorizedApp(row, userId));
+  const now = Date.now();
+  return rows.map((row) => toAuthorizedApp(row, userId, now));
 }
 
-function toAuthorizedApp(row: AppRow, userId: string): AuthorizedApp {
+function toAuthorizedApp(row: AppRow, userId: string, now: number): AuthorizedApp {
+  const connectedAt = toEpochMillis(row.connectedAt) ?? 0;
+  const lastUsedAt = toEpochMillis(row.lastUsedAt);
   return {
     clientId: row.clientId,
     name: row.name?.trim() || row.clientId,
     scopes: parseScopes(row.scopes),
-    connectedAt: toEpochMillis(row.connectedAt) ?? 0,
-    lastUsedAt: toEpochMillis(row.lastUsedAt),
+    connectedAt,
+    lastUsedAt,
     ownedByUser: row.ownerUserId === userId,
+    status: deriveStatus({ now, connectedAt, lastUsedAt }),
+    description: null,
   };
+}
+
+function deriveStatus(args: {
+  now: number;
+  connectedAt: number;
+  lastUsedAt: number | null;
+}): AuthorizedAppStatus {
+  const { now, connectedAt, lastUsedAt } = args;
+  if (lastUsedAt !== null && now - lastUsedAt <= ACTIVE_WINDOW_MS) return "active";
+  if (lastUsedAt === null && connectedAt > 0 && now - connectedAt <= NEW_WINDOW_MS) return "new";
+  return "idle";
 }
 
 // fallow-ignore-next-line complexity
