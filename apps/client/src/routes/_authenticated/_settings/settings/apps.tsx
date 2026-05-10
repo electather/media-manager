@@ -36,7 +36,13 @@ import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { AuthorizedAppRow, ScopeChip, SettingsCard, SettingsCardHeader } from "@/features/settings";
+import {
+  AuthorizedAppRow,
+  ScopeChip,
+  SettingsCard,
+  SettingsCardHeader,
+  SetupGuideModal,
+} from "@/features/settings";
 import {
   MCP_ENDPOINT_SCOPES,
   MOCK_AUTHORIZED_APPS,
@@ -114,6 +120,7 @@ function AppsPage() {
   const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [renameFor, setRenameFor] = useState<MockAuthorizedApp | null>(null);
+  const [setupGuideOpen, setSetupGuideOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-7">
@@ -125,6 +132,12 @@ function AppsPage() {
         endpoint={state.endpoint}
         clientCount={state.apps.length}
         onRotate={() => setConfirmRotate(true)}
+        onShowSetupGuide={() => setSetupGuideOpen(true)}
+      />
+      <SetupGuideModal
+        endpoint={state.endpoint.url}
+        open={setupGuideOpen}
+        onClose={() => setSetupGuideOpen(false)}
       />
       <AuthorizedAppsCard
         apps={state.apps}
@@ -284,14 +297,16 @@ function McpEndpointCard({
   endpoint,
   clientCount,
   onRotate,
+  onShowSetupGuide,
 }: {
   endpoint: MockMcpEndpoint;
   clientCount: number;
   onRotate: () => void;
+  onShowSetupGuide: () => void;
 }) {
   return (
     <SettingsCard>
-      <McpEndpointHeader onRotate={onRotate} />
+      <McpEndpointHeader onRotate={onRotate} onShowSetupGuide={onShowSetupGuide} />
       <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
         <McpEndpointUrl url={endpoint.url} />
         <McpEndpointMeta clientCount={clientCount} rotatedAt={endpoint.rotatedAt} />
@@ -301,7 +316,13 @@ function McpEndpointCard({
   );
 }
 
-function McpEndpointHeader({ onRotate }: { onRotate: () => void }) {
+function McpEndpointHeader({
+  onRotate,
+  onShowSetupGuide,
+}: {
+  onRotate: () => void;
+  onShowSetupGuide: () => void;
+}) {
   return (
     <div className="flex items-start gap-4 border-b border-border px-5 py-4 sm:px-6">
       <div className="min-w-0 flex-1">
@@ -326,7 +347,7 @@ function McpEndpointHeader({ onRotate }: { onRotate: () => void }) {
           }
         />
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => toast.message(m.settings_apps_endpoint_setup_guide())}>
+          <DropdownMenuItem onClick={onShowSetupGuide} data-testid="open-setup-guide">
             <InfoIcon className="size-3.5" />
             {m.settings_apps_endpoint_setup_guide()}
           </DropdownMenuItem>
