@@ -584,7 +584,10 @@ function EditChannelDialog({
 
   const dirty =
     name !== channel.name ||
-    config.some((c, i) => channel.config[i] && c.value !== channel.config[i].value);
+    config.some((c, i) => {
+      const orig = channel.config[i];
+      return orig !== undefined && c.value !== orig.value;
+    });
 
   const updateConfig = (idx: number, value: string) => {
     setConfig((prev) => prev.map((c, i) => (i === idx ? { ...c, value } : c)));

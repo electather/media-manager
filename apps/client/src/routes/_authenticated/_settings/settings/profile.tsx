@@ -96,13 +96,7 @@ function IdentityCard({
 
 // ─── Name ───────────────────────────────────────────────────────────────────
 
-function NameRow({
-  currentName,
-  onSave,
-}: {
-  currentName: string;
-  onSave: (next: string) => void;
-}) {
+function NameRow({ currentName, onSave }: { currentName: string; onSave: (next: string) => void }) {
   const [draft, setDraft] = useState(currentName);
 
   useEffect(() => {

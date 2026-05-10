@@ -21,10 +21,7 @@ import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
-import {
-  SettingsDirtyProvider,
-  useSettingsDirtyState,
-} from "@/app/settings-dirty-context";
+import { SettingsDirtyProvider, useSettingsDirtyState } from "@/app/settings-dirty-context";
 
 interface NavItem {
   to: string;
