@@ -1,5 +1,5 @@
 // fallow-ignore-file complexity
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckIcon, EyeIcon, EyeOffIcon, ShieldIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -80,7 +80,7 @@ function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
     setOpen(false);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link, Outlet } from "@tanstack/react-router";
 import {
   AlertTriangleIcon,
@@ -279,7 +280,7 @@ interface SettingsPageHeaderProps {
   title: string;
   description?: string;
   /** Optional pill or badge rendered next to the title. */
-  status?: React.ReactNode;
+  status?: ReactNode;
   /** When true, shows a back link to /settings/profile. */
   showBackOnMobile?: boolean;
 }
@@ -326,7 +327,7 @@ export function SettingsSectionLabel({
   children,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (

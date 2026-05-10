@@ -1,5 +1,5 @@
 // fallow-ignore-file complexity
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   EyeIcon,
@@ -150,7 +150,7 @@ function ReauthDialog({
     }
   }, [open]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!pw) return;
     setSubmitting(true);
@@ -227,7 +227,7 @@ function DeleteAccountDialog({
   const emailMatches = typed.trim().toLowerCase() === email.toLowerCase();
   const canSubmit = emailMatches && pw.length > 0 && !submitting;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
