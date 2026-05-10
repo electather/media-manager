@@ -15,12 +15,14 @@ const cursorSchema = z.object({ offset: z.number().int().min(0) });
 export function makeRecommendedForYou(config: {
   rowId: string;
   titleKey: string;
+  eyebrowKey?: string;
   mediaType: "movie" | "tv";
 }): RowProvider {
   return {
     rowId: config.rowId,
     kind: "recommendedForYou",
     titleKey: config.titleKey,
+    ...(config.eyebrowKey ? { eyebrowKey: config.eyebrowKey } : {}),
     async eligibility(ctx) {
       const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
       if (!rec) return false;

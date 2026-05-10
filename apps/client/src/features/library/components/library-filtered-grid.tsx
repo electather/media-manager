@@ -1,7 +1,13 @@
 import * as m from "@/paraglide/messages";
 import { Card } from "@/features/home/components/card";
+import {
+  SectionHead,
+  SectionHeadCount,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import type { LibraryFilter, LibraryItem, LibrarySort } from "../lib/types";
-import { SectionHead } from "./section-head";
 
 interface LibraryFilteredGridProps {
   items: readonly LibraryItem[];
@@ -28,14 +34,20 @@ const SORT_LABELS: Record<LibrarySort, () => string> = {
 export function LibraryFilteredGrid({ items, filter, sort, onPeek }: LibraryFilteredGridProps) {
   return (
     <section>
-      <SectionHead
-        eyebrow={m.library_filtered_eyebrow({
-          filter: FILTER_LABELS[filter](),
-          sort: SORT_LABELS[sort](),
-        })}
-        title={m.library_filtered_title()}
-        count={items.length}
-      />
+      <SectionHead>
+        <SectionHeadHeading>
+          <SectionHeadEyebrow>
+            {m.library_filtered_eyebrow({
+              filter: FILTER_LABELS[filter](),
+              sort: SORT_LABELS[sort](),
+            })}
+          </SectionHeadEyebrow>
+          <SectionHeadTitle>
+            {m.library_filtered_title()}
+            <SectionHeadCount value={items.length} />
+          </SectionHeadTitle>
+        </SectionHeadHeading>
+      </SectionHead>
       <div
         className="grid gap-x-4 gap-y-5"
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}

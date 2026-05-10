@@ -112,7 +112,7 @@ async function composeLayoutLive(ctx: RowContext): Promise<HomeLayoutResponse> {
       titleKey: provider.titleKey,
       initialCursor: preview.initialCursor,
     };
-    if (provider.subtitleKey) stub.subtitleKey = provider.subtitleKey;
+    if (provider.eyebrowKey) stub.eyebrowKey = provider.eyebrowKey;
     rows.push(stub);
   }
   return { hero, rows, generatedAt: Date.now() };

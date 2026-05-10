@@ -1,9 +1,15 @@
 import { ChevronRight, Film, Sparkles, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import { LIBRARY_ITEM_INDEX, LIBRARY_RECENT_LOG } from "../lib/mock-data";
+import {
+  SectionHead,
+  SectionHeadCount,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import { recentTimeLabel } from "../lib/format";
+import { LIBRARY_ITEM_INDEX, LIBRARY_RECENT_LOG } from "../lib/mock-data";
 import type { LibraryItem, RecentLogEntry } from "../lib/types";
-import { SectionHead } from "./section-head";
 
 interface RecentlyAddedProps {
   onPeek: (id: string) => void;
@@ -28,11 +34,15 @@ export function RecentlyAdded({ onPeek }: RecentlyAddedProps) {
   if (log.length === 0) return null;
   return (
     <section className="mb-14">
-      <SectionHead
-        eyebrow={m.library_recent_eyebrow()}
-        title={m.library_recent_title()}
-        count={log.length}
-      />
+      <SectionHead>
+        <SectionHeadHeading>
+          <SectionHeadEyebrow>{m.library_recent_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadTitle>
+            {m.library_recent_title()}
+            <SectionHeadCount value={log.length} />
+          </SectionHeadTitle>
+        </SectionHeadHeading>
+      </SectionHead>
       <ul className="m-0 overflow-hidden rounded-2xl border border-border bg-card p-0">
         {log.map((row, idx) => (
           <RecentRow

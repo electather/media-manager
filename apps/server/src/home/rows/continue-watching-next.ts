@@ -12,7 +12,7 @@ const provider: RowProvider = {
   rowId: "continueWatching-next",
   kind: "continueWatching",
   titleKey: "home_row_nextInYourShows_header",
-  subtitleKey: "home_row_nextInYourShows_subtitle",
+  eyebrowKey: "home_row_nextInYourShows_eyebrow",
   async eligibility(ctx) {
     return ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user");
   },

@@ -152,7 +152,7 @@ export interface HomeRowStub {
   /** i18n message key resolved client-side via Paraglide. */
   titleKey: string;
   /** Optional secondary line; same key flavour as `titleKey`. */
-  subtitleKey?: string;
+  eyebrowKey?: string;
   /**
    * Cursor to pass as the first `getRowContent` call. Null means first page;
    * non-null pins a seed (e.g. `becauseYouWatched`).

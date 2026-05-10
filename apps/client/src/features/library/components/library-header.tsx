@@ -1,5 +1,13 @@
 import { useMemo } from "react";
 import * as m from "@/paraglide/messages";
+import {
+  SectionHead,
+  SectionHeadActions,
+  SectionHeadCount,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import { cn } from "@/shared/lib/utils";
 import { splitRuntime, totalRuntimeMinutes } from "../lib/classify";
 import type { LibraryCounts, LibraryFilter, LibraryItem, LibrarySort } from "../lib/types";
@@ -55,46 +63,44 @@ export function LibraryHeader({
       : m.library_runtime_hours({ hours: String(hours) });
 
   return (
-    <header className="pt-8 pb-7">
-      <div className="grid items-end gap-8 md:grid-cols-[minmax(0,1fr)_auto]">
-        <div>
-          <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-primary">
-            {m.library_eyebrow()}
-          </div>
-          <h1 className="m-0 flex items-baseline gap-4 text-[clamp(44px,6vw,72px)] font-bold leading-[0.96] tracking-[-0.035em] text-foreground">
+    <header>
+      <SectionHead size="page">
+        <SectionHeadHeading>
+          <SectionHeadEyebrow size="page">{m.library_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadTitle as="h1" size="page">
             {m.library_title()}
-            <span className="font-mono text-[0.36em] font-medium tracking-[-0.02em] text-muted-foreground/70 tabular-nums">
-              {String(items.length).padStart(2, "0")}
-            </span>
-          </h1>
-        </div>
-        <dl className="flex flex-col gap-1.5 text-end font-mono text-xs tracking-[0.04em] text-muted-foreground">
-          <dt className="sr-only">{m.library_total_runtime({ value: totalRuntime })}</dt>
-          <dd>{m.library_total_runtime({ value: totalRuntime })}</dd>
-          <dd className="flex items-center justify-end gap-3">
-            <span className="inline-flex items-center gap-1.5 text-success">
-              <Pip className="bg-success" />
-              {m.library_count_ready({ n: String(counts.ready) })}
-            </span>
-            <span className="text-muted-foreground/40" aria-hidden="true">
-              ·
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-primary">
-              <Pip className="bg-primary" />
-              {m.library_count_awaiting({ n: String(counts.awaiting) })}
-            </span>
-            <span className="text-muted-foreground/40" aria-hidden="true">
-              ·
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Pip className="bg-muted-foreground" />
-              {m.library_count_upcoming({ n: String(counts.upcoming) })}
-            </span>
-          </dd>
-        </dl>
-      </div>
+            <SectionHeadCount size="page" value={items.length} />
+          </SectionHeadTitle>
+        </SectionHeadHeading>
+        <SectionHeadActions>
+          <dl className="flex flex-col gap-1.5 text-end font-mono text-xs tracking-[0.04em] text-muted-foreground">
+            <dt className="sr-only">{m.library_total_runtime({ value: totalRuntime })}</dt>
+            <dd>{m.library_total_runtime({ value: totalRuntime })}</dd>
+            <dd className="flex items-center justify-end gap-3">
+              <span className="inline-flex items-center gap-1.5 text-success">
+                <Pip className="bg-success" />
+                {m.library_count_ready({ n: String(counts.ready) })}
+              </span>
+              <span className="text-muted-foreground/40" aria-hidden="true">
+                ·
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-primary">
+                <Pip className="bg-primary" />
+                {m.library_count_awaiting({ n: String(counts.awaiting) })}
+              </span>
+              <span className="text-muted-foreground/40" aria-hidden="true">
+                ·
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Pip className="bg-muted-foreground" />
+                {m.library_count_upcoming({ n: String(counts.upcoming) })}
+              </span>
+            </dd>
+          </dl>
+        </SectionHeadActions>
+      </SectionHead>
 
-      <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-2">
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((f) => {
             const active = filter === f.id;

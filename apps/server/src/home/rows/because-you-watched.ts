@@ -27,7 +27,7 @@ const provider: RowProvider = {
   rowId: "becauseYouWatched",
   kind: "becauseYouWatched",
   titleKey: "home_row_becauseYouWatched_header",
-  subtitleKey: "home_row_becauseYouWatched_subtitle",
+  eyebrowKey: "home_row_becauseYouWatched_eyebrow",
   requiresInitialCursor: true,
   async eligibility(ctx) {
     const history = await ctx.catalog.getUserHistory(ctx.userId);

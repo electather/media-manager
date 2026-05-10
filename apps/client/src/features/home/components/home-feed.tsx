@@ -130,6 +130,6 @@ function toRowData(stub: HomeLayoutResponse["rows"][number]): RowData {
     defaultAspect: ROW_ASPECT[stub.kind] ?? "16/9",
     headerKey: stub.titleKey as RowData["headerKey"],
   };
-  if (stub.subtitleKey) out.subtitleKey = stub.subtitleKey as RowData["subtitleKey"];
+  if (stub.eyebrowKey) out.eyebrowKey = stub.eyebrowKey as RowData["eyebrowKey"];
   return out;
 }

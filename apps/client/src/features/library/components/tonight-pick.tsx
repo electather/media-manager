@@ -1,11 +1,17 @@
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { Card } from "@/features/home/components/card";
+import {
+  SectionHead,
+  SectionHeadActions,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { shortRuntimeLabel } from "../lib/format";
 import type { LibraryItem } from "../lib/types";
-import { SectionHead } from "./section-head";
 
 interface TonightPickProps {
   pick: LibraryItem;
@@ -16,15 +22,17 @@ interface TonightPickProps {
 export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
   return (
     <section className="mb-14">
-      <SectionHead
-        eyebrow={m.library_tonight_eyebrow()}
-        title={m.library_tonight_title()}
-        accessory={
+      <SectionHead>
+        <SectionHeadHeading>
+          <SectionHeadEyebrow>{m.library_tonight_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadTitle>{m.library_tonight_title()}</SectionHeadTitle>
+        </SectionHeadHeading>
+        <SectionHeadActions>
           <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70">
             {m.library_tonight_caption()}
           </span>
-        }
-      />
+        </SectionHeadActions>
+      </SectionHead>
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="relative min-w-0">

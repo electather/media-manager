@@ -1,7 +1,13 @@
 import * as m from "@/paraglide/messages";
 import { Card } from "@/features/home/components/card";
+import {
+  SectionHead,
+  SectionHeadCount,
+  SectionHeadEyebrow,
+  SectionHeadHeading,
+  SectionHeadTitle,
+} from "@/shared/components/section-head";
 import type { LibraryItem } from "../lib/types";
-import { SectionHead } from "./section-head";
 
 interface ComingUpProps {
   items: readonly LibraryItem[];
@@ -12,11 +18,15 @@ export function ComingUp({ items, onPeek }: ComingUpProps) {
   if (items.length === 0) return null;
   return (
     <section className="mb-14">
-      <SectionHead
-        eyebrow={m.library_coming_up_eyebrow()}
-        title={m.library_coming_up_title()}
-        count={items.length}
-      />
+      <SectionHead>
+        <SectionHeadHeading>
+          <SectionHeadEyebrow>{m.library_coming_up_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadTitle>
+            {m.library_coming_up_title()}
+            <SectionHeadCount value={items.length} />
+          </SectionHeadTitle>
+        </SectionHeadHeading>
+      </SectionHead>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         {items.map((it) => {
           const date = it.facets?.releaseDate ?? m.library_coming_up_default_date();
