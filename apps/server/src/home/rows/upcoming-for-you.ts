@@ -27,10 +27,13 @@ const provider: RowProvider = {
   // fallow-ignore-next-line complexity
   async fetchPage(ctx) {
     const res = await ctx.mediaService.getUpcomingFeed({ deadlineMs: ctx.deadlineMs });
-    const hits = (res.items as unknown[])
-      .map(toUpcomingHit)
-      .filter((h): h is UpcomingHit => h !== null)
-      .slice(0, PAGE_SIZE);
+    // The calendar plugin emits one entry per upcoming episode, so a show with
+    // several queued episodes returns N hits sharing the same `tmdbId`. The
+    // row renders one card per show — collapse to the earliest hit per show
+    // so React keys (`${type}:${tmdbId}`) stay unique downstream.
+    const hits = dedupeByMedia(
+      (res.items as unknown[]).map(toUpcomingHit).filter((h): h is UpcomingHit => h !== null),
+    ).slice(0, PAGE_SIZE);
     if (hits.length === 0) return { items: [], cursor: null, partial: res.partial };
     const metadata = await ctx.catalog.getMetadataBatch(
       hits.map((h) => ({ tmdbId: h.tmdbId, type: h.type })),
@@ -46,6 +49,18 @@ const provider: RowProvider = {
     return { items, cursor: null, partial: res.partial };
   },
 };
+
+function dedupeByMedia(hits: UpcomingHit[]): UpcomingHit[] {
+  const seen = new Set<string>();
+  const out: UpcomingHit[] = [];
+  for (const hit of hits) {
+    const key = `${hit.type}:${hit.tmdbId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(hit);
+  }
+  return out;
+}
 
 // fallow-ignore-next-line complexity
 function toUpcomingHit(value: unknown): UpcomingHit | null {
