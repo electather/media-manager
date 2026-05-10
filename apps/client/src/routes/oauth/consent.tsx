@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   BookOpenIcon,
+  HomeIcon,
   LockIcon,
   MailIcon,
   PuzzleIcon,
@@ -12,8 +13,6 @@ import {
   UserIcon,
 } from "lucide-react";
 import { z } from "zod";
-
-import { HomeIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";

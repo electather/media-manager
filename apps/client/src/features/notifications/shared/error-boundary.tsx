@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { HomeIcon, RotateCcwIcon } from "lucide-react";
@@ -13,10 +13,13 @@ import {
   ErrorPageFrame,
   ErrorPageHeadline,
 } from "@/shared/components/error-page";
+import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 import { notificationsKeys } from "./query-keys";
 import { NotificationsApiError } from "./types";
+
+const TELEMETRY_CODE = "client.notifications.boundary";
 
 function FallbackInner({
   error,
@@ -37,6 +40,9 @@ function FallbackInner({
       ? error.status
       : null;
   const code = status ? String(status) : "ERR";
+  useEffect(() => {
+    void reportError(error, "warning", { requestId, status: status ?? undefined }, TELEMETRY_CODE);
+  }, [error, requestId, status]);
   const onRetry = () => {
     void queryClient.resetQueries({ queryKey: notificationsKeys.all });
     reset();

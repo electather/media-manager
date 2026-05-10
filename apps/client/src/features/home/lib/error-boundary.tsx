@@ -119,7 +119,7 @@ function FallbackInner({
               ...(detail
                 ? [
                     {
-                      label: "Detail",
+                      label: m.errors_details_detail(),
                       value: detail,
                     },
                   ]

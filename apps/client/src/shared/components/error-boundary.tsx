@@ -56,13 +56,40 @@ export class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback({ error: this.state.error, requestId, reset: this.reset });
     }
     const shortId = requestId ? shortRequestId(requestId) : "";
+    const rawMessage = this.state.error.message;
+    // Raw error messages may carry implementation detail (paths, response bodies,
+    // tokens). Show generic copy in the visible description and gate the raw
+    // string behind the collapsible details panel for diagnostics.
+    const detailRows = [
+      ...(shortId
+        ? [
+            {
+              label: m.errors_details_request_id(),
+              value: shortId,
+              copyValue: requestId,
+            },
+          ]
+        : []),
+      {
+        label: m.errors_details_status(),
+        value: `500 · ${m.errors_status_server_error()}`,
+      },
+      ...(rawMessage
+        ? [
+            {
+              label: m.errors_details_message(),
+              value: rawMessage,
+            },
+          ]
+        : []),
+    ];
     return (
       <ErrorPage tone="danger">
         <ErrorPageFrame>
           <ErrorPageHeadline code="500" eyebrow={m.errors_server_eyebrow()}>
             {m.errors_default_title()}
           </ErrorPageHeadline>
-          <ErrorPageDescription>{this.state.error.message}</ErrorPageDescription>
+          <ErrorPageDescription>{m.errors_default_body()}</ErrorPageDescription>
           <ErrorPageActions>
             <Button onClick={this.reset}>
               <RotateCcwIcon aria-hidden="true" />
@@ -73,23 +100,11 @@ export class ErrorBoundary extends Component<Props, State> {
               {m.errors_action_back_home()}
             </Button>
           </ErrorPageActions>
-          {shortId ? (
-            <ErrorPageDetails
-              title={m.errors_details_title()}
-              reference={shortId}
-              rows={[
-                {
-                  label: m.errors_details_request_id(),
-                  value: shortId,
-                  copyValue: requestId,
-                },
-                {
-                  label: m.errors_details_status(),
-                  value: `500 · ${m.errors_status_server_error()}`,
-                },
-              ]}
-            />
-          ) : null}
+          <ErrorPageDetails
+            title={m.errors_details_title()}
+            reference={shortId || undefined}
+            rows={detailRows}
+          />
         </ErrorPageFrame>
       </ErrorPage>
     );
