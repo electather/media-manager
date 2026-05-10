@@ -10,17 +10,15 @@ import {
   ErrorPageFrame,
   ErrorPageHeadline,
   ErrorPageHelp,
-  ErrorPageStatus,
 } from "../error-page";
 
 afterEach(cleanup);
 
 describe("ErrorPage", () => {
-  it("renders the composed status, headline, and description with an alert frame", () => {
+  it("renders the composed headline and description with an alert frame", () => {
     render(
       <ErrorPage tone="info">
         <ErrorPageFrame>
-          <ErrorPageStatus tone="info">404 · Not found</ErrorPageStatus>
           <ErrorPageHeadline code="404" eyebrow="// route.not_found">
             We can't find that page.
           </ErrorPageHeadline>

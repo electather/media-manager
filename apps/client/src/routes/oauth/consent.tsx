@@ -24,7 +24,6 @@ import {
   ErrorPageDescription,
   ErrorPageFrame,
   ErrorPageHeadline,
-  ErrorPageStatus,
 } from "@/shared/components/error-page";
 import { Button } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
@@ -107,7 +106,6 @@ function InvalidRequestPage() {
   return (
     <ErrorPage tone="danger" className="min-h-0 p-0">
       <ErrorPageFrame>
-        <ErrorPageStatus tone="danger">400 · {m.errors_invalid_request_title()}</ErrorPageStatus>
         <ErrorPageHeadline code="400" eyebrow={m.errors_unauthorized_eyebrow()}>
           {m.errors_invalid_request_title()}
         </ErrorPageHeadline>

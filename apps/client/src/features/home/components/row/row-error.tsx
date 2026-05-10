@@ -1,5 +1,13 @@
 import { CircleAlertIcon, RotateCcwIcon } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import {
+  ErrorState,
+  ErrorStateActions,
+  ErrorStateContent,
+  ErrorStateDescription,
+  ErrorStateMedia,
+  ErrorStateTitle,
+} from "@/shared/components/error-state";
 import { Button } from "@/shared/ui/button";
 
 interface RowErrorProps {
@@ -15,33 +23,19 @@ interface RowErrorProps {
  */
 export function RowError({ error, onRetry, isRetrying }: RowErrorProps) {
   return (
-    <div
-      role="alert"
-      aria-live="polite"
-      data-testid="row-error"
-      data-error-name={error.name}
-      className="row-error-bg my-1 flex min-h-33 items-center gap-4 rounded-2xl border border-border px-5 py-5"
-    >
-      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/15 text-destructive">
-        <CircleAlertIcon className="size-5" aria-hidden="true" />
-      </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="text-sm font-semibold text-foreground">{m.home_row_error_message()}</p>
-        <p className="max-w-[56ch] text-xs leading-relaxed text-muted-foreground">
-          {m.home_row_error_body()}
-        </p>
-      </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onRetry}
-        disabled={isRetrying}
-        className="shrink-0"
-      >
-        <RotateCcwIcon className="size-3.5" aria-hidden="true" />
-        {m.home_row_error_retry()}
-      </Button>
-    </div>
+    <ErrorState data-testid="row-error" data-error-name={error.name} className="my-1">
+      <ErrorStateMedia />
+      <ErrorStateContent>
+        <ErrorStateTitle>{m.home_row_error_message()}</ErrorStateTitle>
+        <ErrorStateDescription>{m.home_row_error_body()}</ErrorStateDescription>
+      </ErrorStateContent>
+      <ErrorStateActions>
+        <Button variant="ghost" size="sm" onClick={onRetry} disabled={isRetrying}>
+          <RotateCcwIcon className="size-3.5" aria-hidden="true" />
+          {m.home_row_error_retry()}
+        </Button>
+      </ErrorStateActions>
+    </ErrorState>
   );
 }
 
@@ -64,17 +58,15 @@ export function RowErrorInlineCard({ error, onRetry, isRetrying }: RowErrorInlin
       aria-live="polite"
       data-testid="row-error-inline"
       data-error-name={error.name}
-      className="row-error-bg flex h-(--card-h) w-(--card-w) shrink-0 flex-col items-start justify-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-4"
+      className="flex h-(--card-h) w-(--card-w) shrink-0 flex-col items-start justify-center gap-1.5 rounded-xl border border-dashed border-border bg-[radial-gradient(120%_140%_at_0%_0%,color-mix(in_oklab,var(--destructive)_18%,transparent)_0%,transparent_55%),var(--card)] px-4 py-4"
     >
       <div className="mb-1 flex size-8 items-center justify-center rounded-md bg-destructive/15 text-destructive">
         <CircleAlertIcon className="size-4" aria-hidden="true" />
       </div>
-      <p className="text-sm font-semibold text-foreground">
-        {m.home_row_error_pagination_message()}
-      </p>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <ErrorStateTitle>{m.home_row_error_pagination_message()}</ErrorStateTitle>
+      <ErrorStateDescription className="max-w-none">
         {m.home_row_error_pagination_body()}
-      </p>
+      </ErrorStateDescription>
       <Button variant="ghost" size="sm" onClick={onRetry} disabled={isRetrying} className="mt-auto">
         <RotateCcwIcon className="size-3" aria-hidden="true" />
         {m.home_row_error_retry()}

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDownIcon } from "lucide-react";
 
 import { CopyButton } from "@/shared/ui/copy-button";
@@ -7,19 +8,41 @@ import { cn } from "@/shared/lib/utils";
 
 type ErrorPageTone = "info" | "warn" | "danger";
 
-interface ErrorPageProps extends React.ComponentProps<"section"> {
-  tone?: ErrorPageTone;
-}
+// Two stacked pseudo-element layers paint the stage:
+//   ::before — soft radial ambient wash, color set per tone via the
+//   `--error-page-ambient` custom property (CVA tone variants below).
+//   ::after  — fine dotted grid, masked to fade out at the edges so the
+//   pattern reads as ambient texture rather than a hard backdrop.
+const errorPageVariants = cva(
+  cn(
+    "relative isolate grid min-h-[calc(100dvh-var(--header-height,0px))] place-items-center px-8 py-12 sm:px-12 sm:py-16",
+    "before:pointer-events-none before:absolute before:inset-0 before:-z-20 before:transition-[background] before:duration-[360ms]",
+    "before:bg-[radial-gradient(60%_50%_at_50%_38%,var(--error-page-ambient),transparent_70%)]",
+    "after:pointer-events-none after:absolute after:inset-0 after:-z-10",
+    "after:bg-[radial-gradient(circle_at_1px_1px,color-mix(in_oklab,var(--muted-foreground)_30%,transparent)_1px,transparent_0)] after:bg-[length:28px_28px]",
+    "after:[mask-image:radial-gradient(ellipse_80%_60%_at_50%_45%,black_0%,transparent_75%)] after:[-webkit-mask-image:radial-gradient(ellipse_80%_60%_at_50%_45%,black_0%,transparent_75%)]",
+  ),
+  {
+    variants: {
+      tone: {
+        info: "[--error-page-ambient:color-mix(in_oklab,var(--ring)_14%,transparent)]",
+        warn: "[--error-page-ambient:color-mix(in_oklab,var(--primary)_18%,transparent)]",
+        danger: "[--error-page-ambient:color-mix(in_oklab,var(--destructive)_20%,transparent)]",
+      },
+    },
+    defaultVariants: { tone: "danger" },
+  },
+);
 
-function ErrorPage({ className, tone = "danger", ...props }: ErrorPageProps) {
+interface ErrorPageProps
+  extends Omit<React.ComponentProps<"section">, "color">, VariantProps<typeof errorPageVariants> {}
+
+function ErrorPage({ className, tone, ...props }: ErrorPageProps) {
   return (
     <section
       data-slot="error-page"
-      data-tone={tone}
-      className={cn(
-        "error-page-stage grid min-h-[calc(100dvh-var(--header-height,0px))] place-items-center px-8 py-12 sm:px-12 sm:py-16",
-        className,
-      )}
+      data-tone={tone ?? "danger"}
+      className={cn(errorPageVariants({ tone }), className)}
       {...props}
     />
   );
@@ -35,35 +58,6 @@ function ErrorPageFrame({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     />
   );
-}
-
-interface ErrorPageStatusProps extends React.ComponentProps<"span"> {
-  tone?: ErrorPageTone;
-}
-
-function ErrorPageStatus({ className, tone, ...props }: ErrorPageStatusProps) {
-  return (
-    <span
-      data-slot="error-page-status"
-      data-tone={tone}
-      className={cn(
-        "inline-flex items-center gap-2.5 self-start rounded-full border border-border bg-card py-1.5 pr-3 pl-2.5 font-mono text-xs tracking-widest text-muted-foreground uppercase",
-        "data-[tone=info]:text-ring data-[tone=warn]:text-primary data-[tone=danger]:text-destructive",
-        className,
-      )}
-      {...props}
-    >
-      <span
-        aria-hidden="true"
-        className="error-page-status-dot inline-block size-1.5 shrink-0 rounded-full"
-      />
-      <ErrorPageStatusText>{props.children}</ErrorPageStatusText>
-    </span>
-  );
-}
-
-function ErrorPageStatusText({ children }: { children: React.ReactNode }) {
-  return <span>{children}</span>;
 }
 
 interface ErrorPageHeadlineProps extends React.ComponentProps<"div"> {
@@ -90,8 +84,13 @@ function ErrorPageHeadline({
         aria-hidden="true"
         className="relative font-mono text-[clamp(64px,14vw,132px)] leading-none font-semibold tracking-[-0.04em]"
       >
-        <span className="error-page-code">{code}</span>
-        <span className="error-page-scan" />
+        <span className="bg-linear-to-b from-foreground to-muted-foreground bg-clip-text text-transparent">
+          {code}
+        </span>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-0.5 opacity-55 bg-[linear-gradient(90deg,transparent,color-mix(in_oklab,var(--primary)_80%,transparent),transparent)] motion-safe:animate-[error-page-scan_4.2s_ease-in-out_infinite] motion-reduce:opacity-0"
+        />
       </div>
       <div className="flex min-w-0 flex-col justify-end gap-1 pb-1">
         {eyebrow ? (
@@ -165,7 +164,8 @@ function ErrorPageDetails({
       <div
         data-slot="error-page-details"
         className={cn(
-          "row-error-bg overflow-hidden rounded-xl border border-border transition-colors hover:border-input",
+          "overflow-hidden rounded-xl border border-border transition-colors hover:border-input",
+          "bg-[radial-gradient(120%_140%_at_0%_0%,color-mix(in_oklab,var(--destructive)_18%,transparent)_0%,transparent_55%),var(--card)]",
           className,
         )}
       >
@@ -185,7 +185,7 @@ function ErrorPageDetails({
           </span>
           <ChevronDownIcon
             aria-hidden="true"
-            className="size-4 text-muted-foreground transition-transform duration-200 group-data-[panel-open]:rotate-180"
+            className="size-4 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-180"
           />
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t border-border bg-background/40">
@@ -246,7 +246,6 @@ export {
   ErrorPageFrame,
   ErrorPageHeadline,
   ErrorPageHelp,
-  ErrorPageStatus,
   type ErrorPageDetailRow,
   type ErrorPageTone,
 };

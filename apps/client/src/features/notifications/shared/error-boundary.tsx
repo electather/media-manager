@@ -12,7 +12,6 @@ import {
   ErrorPageDetails,
   ErrorPageFrame,
   ErrorPageHeadline,
-  ErrorPageStatus,
 } from "@/shared/components/error-page";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
@@ -46,9 +45,6 @@ function FallbackInner({
   return (
     <ErrorPage tone="danger">
       <ErrorPageFrame>
-        <ErrorPageStatus tone="danger">
-          {code} · {m.notifications_error_title()}
-        </ErrorPageStatus>
         <ErrorPageHeadline code={code} eyebrow={m.errors_server_eyebrow()}>
           {m.notifications_error_title()}
         </ErrorPageHeadline>

@@ -3,7 +3,17 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
+import {
+  ErrorScreen,
+  ErrorState,
+  ErrorStateActions,
+  ErrorStateContent,
+  ErrorStateDescription,
+  ErrorStateMedia,
+  ErrorStateTitle,
+} from "@/shared/components/error-state";
 import { api } from "@/shared/lib/api";
+import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 
 export const Route = createFileRoute("/_authenticated/_settings/oauth-callback")({
   component: OAuthCallbackPage,
@@ -84,6 +94,27 @@ function OAuthCallbackPage() {
     })();
   }, [navigate]);
 
+  if (state.kind === "error") {
+    return (
+      <ErrorScreen>
+        <ErrorState orientation="vertical" className="max-w-md">
+          <ErrorStateMedia size="lg">
+            <TriangleAlertIcon />
+          </ErrorStateMedia>
+          <ErrorStateContent>
+            <ErrorStateTitle>Authorization failed</ErrorStateTitle>
+            <ErrorStateDescription>{state.message}</ErrorStateDescription>
+          </ErrorStateContent>
+          <ErrorStateActions>
+            <Button onClick={() => void navigate({ to: "/settings/connections" })}>
+              Back to Connections
+            </Button>
+          </ErrorStateActions>
+        </ErrorState>
+      </ErrorScreen>
+    );
+  }
+
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-5 py-10">
       <div className="flex w-full max-w-md flex-col items-center gap-5 text-center">
@@ -97,7 +128,7 @@ function OAuthCallbackPage() {
               </p>
             </div>
           </>
-        ) : state.kind === "ok" ? (
+        ) : (
           <>
             <div className="flex size-12 items-center justify-center rounded-full bg-green-600/15 text-green-600 dark:text-green-400">
               <CheckIcon className="size-6" />
@@ -107,29 +138,8 @@ function OAuthCallbackPage() {
               <p className="text-sm text-muted-foreground">Taking you back to Connections…</p>
             </div>
           </>
-        ) : (
-          <>
-            <div className="flex size-12 items-center justify-center rounded-full bg-destructive/15 text-destructive">
-              <TriangleAlertIcon className="size-6" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-semibold">Authorization failed</h1>
-              <p className="max-w-[42ch] text-sm text-muted-foreground">{state.message}</p>
-            </div>
-            <Button onClick={() => void navigate({ to: "/settings/connections" })}>
-              Back to Connections
-            </Button>
-          </>
         )}
       </div>
     </div>
   );
-}
-
-async function safeJson(res: Response): Promise<unknown> {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
 }

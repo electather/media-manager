@@ -12,7 +12,6 @@ import {
   ErrorPageFrame,
   ErrorPageHeadline,
   ErrorPageHelp,
-  ErrorPageStatus,
 } from "@/shared/components/error-page";
 import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
@@ -87,9 +86,6 @@ function FallbackInner({
   return (
     <ErrorPage tone={meta.tone}>
       <ErrorPageFrame data-home-error-variant={view.variant}>
-        <ErrorPageStatus tone={meta.tone}>
-          {meta.code} · {titleFn()}
-        </ErrorPageStatus>
         <ErrorPageHeadline code={meta.code} eyebrow={eyebrowFn()}>
           {titleFn()}
         </ErrorPageHeadline>

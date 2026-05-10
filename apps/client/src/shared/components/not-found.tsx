@@ -8,7 +8,6 @@ import {
   ErrorPageDescription,
   ErrorPageFrame,
   ErrorPageHeadline,
-  ErrorPageStatus,
 } from "@/shared/components/error-page";
 import { Button } from "@/shared/ui/button";
 
@@ -16,7 +15,6 @@ export function NotFound() {
   return (
     <ErrorPage tone="info">
       <ErrorPageFrame>
-        <ErrorPageStatus tone="info">404 · {m.errors_status_not_found()}</ErrorPageStatus>
         <ErrorPageHeadline code="404" eyebrow={m.errors_not_found_eyebrow()}>
           {m.errors_not_found_headline()}
         </ErrorPageHeadline>

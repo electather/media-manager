@@ -9,7 +9,6 @@ import {
   ErrorPageDetails,
   ErrorPageFrame,
   ErrorPageHeadline,
-  ErrorPageStatus,
 } from "@/shared/components/error-page";
 import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
@@ -60,7 +59,6 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <ErrorPage tone="danger">
         <ErrorPageFrame>
-          <ErrorPageStatus tone="danger">500 · {m.errors_status_server_error()}</ErrorPageStatus>
           <ErrorPageHeadline code="500" eyebrow={m.errors_server_eyebrow()}>
             {m.errors_default_title()}
           </ErrorPageHeadline>
