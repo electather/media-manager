@@ -339,17 +339,29 @@ html[lang="fa"] {
     display: none;
   }
 
-  /* Soft red ambient gradient anchored top-start. Shared by the full-row
-     error panel and the trailing inline pagination error card so both share
-     the same warning treatment without duplicating the gradient stops. */
-  .row-error-bg {
-    background:
-      radial-gradient(
-        120% 140% at 0% 0%,
-        color-mix(in oklab, var(--destructive) 18%, transparent) 0%,
-        transparent 55%
-      ),
-      var(--card);
+  /* Single horizontal scan-line that drifts down the big-code glyph on the
+     ErrorPage. Drives the `motion-safe:animate-[error-page-scan...]` utility
+     used in `<ErrorPageHeadline>`. Keyframes live here because Tailwind
+     can't declare them inline. */
+  @keyframes error-page-scan {
+    0% {
+      transform: translateY(0);
+      opacity: 0;
+    }
+    8% {
+      opacity: 0.55;
+    }
+    50% {
+      transform: translateY(100%);
+      opacity: 0.55;
+    }
+    58% {
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
   }
 
   /* Chevrons: hover/focus-within on the row scope reveals them, but only
