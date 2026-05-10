@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { artworkGetInputSchema } from "@ent-mcp/shared/artwork";
 import { requireSession, sessionUserId } from "../../auth/middleware";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 import { ArtworkService } from "../../artwork";
 import { getCatalogService } from "../../catalog";
 

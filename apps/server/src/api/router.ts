@@ -6,7 +6,7 @@ import { settingsApp } from "./procedures/settings";
 import { pluginsApp } from "./procedures/plugins";
 import { connectionsApp } from "./procedures/connections";
 import { configPublicApp } from "./procedures/config";
-import { errorsApp, adminErrorsApp } from "./procedures/errors";
+import { diagnosticsApp, adminDiagnosticsApp } from "./procedures/diagnostics";
 import { adminJobsApp, userJobsApp } from "./procedures/jobs";
 import { adminUsersApp } from "./procedures/users";
 import { meApp } from "./procedures/me";
@@ -15,7 +15,11 @@ import { notificationsApp, adminNotificationsApp } from "./procedures/notificati
 import { artworkApp } from "./procedures/artwork";
 import { homeApp } from "./procedures/home";
 import { searchApp } from "./procedures/search";
-import { requestContextMiddleware, errorHandler } from "../errors/middleware";
+import {
+  requestContextMiddleware,
+  errorHandler,
+  httpPerfMiddleware,
+} from "../diagnostics/middleware";
 
 /** Hono sub-app that handles all /api/* RPC calls. Re-exported type for client.
  *  `requestContextMiddleware` sets up the per-request correlation id and ALS
@@ -24,6 +28,7 @@ import { requestContextMiddleware, errorHandler } from "../errors/middleware";
  *  dispatches them to this single boundary. */
 export const appRouter = new Hono()
   .use("*", requestContextMiddleware())
+  .use("*", httpPerfMiddleware())
   .route("/discover", discoverApp)
   .route("/activity", activityApp)
   .route("/requests", requestsApp)
@@ -31,8 +36,8 @@ export const appRouter = new Hono()
   .route("/plugins", pluginsApp)
   .route("/connections", connectionsApp)
   .route("/config/public", configPublicApp)
-  .route("/errors", errorsApp)
-  .route("/admin/errors", adminErrorsApp)
+  .route("/diagnostics", diagnosticsApp)
+  .route("/admin/diagnostics", adminDiagnosticsApp)
   .route("/jobs", userJobsApp)
   .route("/admin/jobs", adminJobsApp)
   .route("/admin/users", adminUsersApp)

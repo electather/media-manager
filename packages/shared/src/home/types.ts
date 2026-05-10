@@ -1,4 +1,4 @@
-import type { HostErrorCode } from "../errors";
+import type { HostErrorCode } from "../diagnostics";
 import type { HeroReason, MatchReasonKey, RowKind } from "./enums";
 
 /**

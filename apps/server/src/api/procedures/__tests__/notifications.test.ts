@@ -5,7 +5,7 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../../__tests__/helpers/in-memory-db";
-import { errorHandler, requestContextMiddleware } from "../../../errors/middleware";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import {
   notificationDeliveries,
   notificationsInbox,
@@ -46,7 +46,7 @@ vi.mock("../../../auth/middleware", async () => {
   // better-auth, which fails to init under test env. The helpers are tiny
   // and the duplication is intentional — keep the queries in lockstep with
   // auth/middleware.ts when one of them changes.
-  const { unauthorized } = await import("../../../errors/http-errors");
+  const { unauthorized } = await import("../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");
   const { userRoles, roles, rolePermissions } = await import("../../../db/schema/roles");
   type RoleInfo = { roleId: string; isSystemAdmin: boolean };

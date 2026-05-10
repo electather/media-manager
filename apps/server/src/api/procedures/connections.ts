@@ -13,7 +13,7 @@ import {
 import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
 import { PERMISSIONS } from "../../auth/permissions";
 import { connectionsService } from "../../connections/service";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 
 export const connectionsApp = new Hono()
   .use("*", requireSession)

@@ -1,7 +1,7 @@
-import type { HostErrorCode } from "@ent-mcp/shared/errors";
+import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import { isPluginError } from "@ent-mcp/plugin-sdk";
 import { AllPluginsFailedError, PluginCallError } from "../media/errors";
-import { HttpError } from "../errors/http-errors";
+import { HttpError } from "../diagnostics/http-errors";
 
 /**
  * Maps a thrown value to the `HostErrorCode` the home-feed wire surfaces on

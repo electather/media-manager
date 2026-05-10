@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { Hono } from "hono";
-import { errorHandler, requestContextMiddleware } from "../../../errors/middleware";
-import { unauthorized } from "../../../errors/http-errors";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
+import { unauthorized } from "../../../diagnostics/http-errors";
 
 // Stub the env so anything transitively pulled by the auth/db modules at
 // import time doesn't trip over missing process env.

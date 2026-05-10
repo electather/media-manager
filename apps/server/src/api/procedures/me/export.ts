@@ -8,7 +8,7 @@ import { primaryConnections } from "../../../db/schema/user-preferences";
 import { serviceConnections } from "../../../db/schema/credentials";
 import type { Db } from "../../../db/client";
 import { fetchUserRole } from "./queries";
-import { notFound } from "../../../errors/http-errors";
+import { notFound } from "../../../diagnostics/http-errors";
 import { listAuthorizedApps } from "./apps";
 
 export const EXPORT_SCHEMA_VERSION = 1;

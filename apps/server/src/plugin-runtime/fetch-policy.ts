@@ -1,7 +1,7 @@
 // fallow-ignore-file complexity
 // 6 branches all required by V2/V3/V4: URL parse, manifest check, admin check, dynamic host, rate limit, admin headers; each = distinct security gate; split → indirection ⊥ clarity gain
 import { consola } from "consola";
-import { captureError } from "../errors/capture";
+import { captureError } from "../diagnostics/capture";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 import type { PluginLogger } from "@ent-mcp/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";

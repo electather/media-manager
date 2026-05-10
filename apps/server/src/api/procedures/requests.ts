@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createMediaRequestSchema, requestTargetsQuerySchema } from "@ent-mcp/shared/media";
 import { requireSession, sessionUserId } from "../../auth/middleware";
 import { MediaService } from "../../media/service";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 
 /**
  * `GET /api/requests` lists the caller's outstanding requests.

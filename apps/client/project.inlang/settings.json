@@ -8,7 +8,8 @@
       "./messages/notifications/{locale}.json",
       "./messages/home/{locale}.json",
       "./messages/command/{locale}.json",
-      "./messages/library/{locale}.json"
+      "./messages/library/{locale}.json",
+      "./messages/diagnostics/{locale}.json"
     ]
   }
 }

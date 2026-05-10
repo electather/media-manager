@@ -8,7 +8,7 @@ import { TooltipProvider } from "./shared/ui/tooltip";
 import { Toaster } from "./shared/ui/sonner";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "./shared/components/error-boundary";
-import { installGlobalErrorHandlers } from "./shared/lib/errors/global-handlers";
+import { installGlobalErrorHandlers } from "./shared/lib/diagnostics/global-handlers";
 import { useHtmlDir } from "./shared/hooks/use-html-dir";
 import { DirectionProvider } from "./shared/ui/direction";
 

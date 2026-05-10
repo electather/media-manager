@@ -2,7 +2,7 @@ export * from "./artwork";
 export * from "./auth";
 export * from "./common";
 export * from "./connections";
-export * from "./errors";
+export * from "./diagnostics";
 export * from "./jobs";
 export * from "./media";
 export * from "./notifications";

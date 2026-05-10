@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { resetErrorSinks } from "../../errors/capture";
+import { resetSinks } from "../../diagnostics/capture";
 import type { emit as emitFn } from "../../notifications/emit";
 
 type EmitArg = Parameters<typeof emitFn>[0];
@@ -35,7 +35,7 @@ function getEmittedEvent(index: number): EmitArg {
 
 beforeEach(() => {
   emitMock.mockClear();
-  resetErrorSinks();
+  resetSinks();
 });
 
 describe("runner notification emit hook", () => {

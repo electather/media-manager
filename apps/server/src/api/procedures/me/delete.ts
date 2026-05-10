@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { user } from "../../../db/schema/auth";
 import type { Db } from "../../../db/client";
-import { badRequest, notFound, unauthorized } from "../../../errors/http-errors";
+import { badRequest, notFound, unauthorized } from "../../../diagnostics/http-errors";
 import { auth } from "../../../auth/config";
 
 export interface DeleteAccountInput {

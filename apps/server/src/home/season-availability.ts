@@ -3,7 +3,7 @@ import type {
   SeasonAvailabilityResponse,
   SeasonAvailabilityServer,
 } from "@ent-mcp/shared/home";
-import type { HostErrorCode } from "@ent-mcp/shared/errors";
+import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { resolveConnections, type ResolvedConnection } from "../media/resolve-connection";
 import { invokeOne } from "../media/invoke";

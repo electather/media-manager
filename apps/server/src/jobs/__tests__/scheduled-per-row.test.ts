@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
-import { resetErrorSinks } from "../../errors/capture";
+import { resetSinks } from "../../diagnostics/capture";
 
 const finished: Array<{
   status: string;
@@ -38,7 +38,7 @@ const { run } = await import("../runner");
 
 beforeEach(() => {
   finished.length = 0;
-  resetErrorSinks();
+  resetSinks();
 });
 
 describe("scheduled_per_row aggregate resolution (via runner statusOverride)", () => {

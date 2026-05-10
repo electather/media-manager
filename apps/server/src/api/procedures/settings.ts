@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { zValidator } from "../../errors/validator";
+import { zValidator } from "../../diagnostics/validator";
 
 const updateSettingsSchema = z.object({
   // TODO: expand with actual settings fields.

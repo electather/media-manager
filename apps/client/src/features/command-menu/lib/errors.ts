@@ -1,4 +1,4 @@
-import type { ApiErrorBody } from "@/shared/lib/errors/api-error-body";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 
 /**
  * Typed error thrown by command-menu fetchers on non-2xx responses. Lets the

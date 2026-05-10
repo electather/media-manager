@@ -1,0 +1,308 @@
+{
+  "finding_counts": {
+    "apps/client/src/features/command-menu/components/command-menu.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/client/src/features/command-menu/components/command-search-header.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/components/setting-drill.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/components/shortcuts-cheatsheet.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/hooks/use-recent-items.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/hooks/use-search-results.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/hooks/use-sections.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/hooks/use-trending.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/lib/errors.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/command-menu/lib/nav-stack.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/components/card/card-availability.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/components/card/card-image.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/components/card/card-meta.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/components/card/index.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/components/row/row-header.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/lib/card-state.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/home/lib/find-cached-item.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/jobs/components/trigger-dialog.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/detail-facts-sidebar.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/detail-hero-actions.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/detail-meta-line.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/detail-section-nav.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/media-detail-page.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/hooks/use-active-section.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/admin/deliveries-table.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/admin/retention-form.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/admin/use-retry-delivery.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/inbox/inbox-list.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/settings/channel-test-button.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/shared/error-boundary.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/shared/fetchers.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/notifications/shared/types.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/request-flow/api/errors.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/request-flow/api/use-create-request.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/request-flow/components/movie-request-action.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/request-flow/components/request-picker.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "apps/client/src/features/request-flow/components/requestable-seasons.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "apps/client/src/features/request-flow/components/season-request-action.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/request-flow/lib/request-helpers.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "apps/client/src/routes/_authenticated/_settings/admin/notifications/deliveries.tsx": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "apps/client/src/shared/components/media-detail-modal/modal-scores.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/components/media-detail-modal/modal-seasons/derive-status.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/client/src/shared/components/media-detail-modal/modal-seasons/seasons-list.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/components/media-detail-modal/modal-tv-air-info.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/lib/media-id.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/server/src/home/enrich.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/server/src/home/orchestrator.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/server/src/home/rows/your-watchlist.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/server/src/home/season-availability.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/server/src/notifications/demo-job.ts": {
+      "crap_high": {
+        "count": 2
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "apps/server/src/errors/capture.ts:high impact",
+    "apps/server/src/home/rows/upcoming-for-you.ts:untested risk",
+    "apps/server/src/home/adapters.ts:high impact",
+    "apps/server/src/preferences/incremental.ts:untested risk",
+    "apps/client/src/features/notifications/shared/query-keys.ts:high impact",
+    "apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:high impact",
+    "apps/client/src/shared/components/schema-form.tsx:complexity",
+    "apps/client/src/features/notifications/shared/fetchers.ts:high impact",
+    "apps/server/src/mcp/response-shapes.ts:high impact",
+    "apps/client/src/app/nav-items.ts:high impact",
+    "apps/client/src/features/admin/components/shared-credentials/dialog.tsx:complexity",
+    "apps/client/src/features/home/components/card/card-meta.tsx:untested risk",
+    "apps/server/src/media/parse-item.ts:untested risk",
+    "apps/server/src/home/match-reason.ts:untested risk",
+    "apps/client/src/routes/_authenticated/_settings/admin/plugins.tsx:complexity",
+    "apps/server/src/media/compact.ts:untested risk",
+    "apps/client/src/features/connections/components/connection-modal.tsx:complexity",
+    "apps/client/src/shared/components/json-viewer.tsx:complexity"
+  ]
+}

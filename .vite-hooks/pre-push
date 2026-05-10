@@ -6,5 +6,5 @@ if ! git rev-parse --verify --quiet origin/main >/dev/null; then
   exit 0
 fi
 
-react-doctor --diff origin/main --fail-on error -y || exit $?
-fallow audit --base origin/main --fail-on-issues --quiet || exit $?
+vp exec react-doctor . --diff origin/main --fail-on error --yes || exit $?
+vp exec fallow audit --base origin/main --dead-code-baseline .fallow/dead-code-baseline.json --health-baseline .fallow/health-baseline.json --dupes-baseline .fallow/dupes-baseline.json --fail-on-issues --quiet || exit $?
