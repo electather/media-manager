@@ -39,6 +39,7 @@ import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
+import { NameGlyph } from "@/shared/components/name-glyph";
 import {
   MOCK_CONNECTIONS,
   MOCK_PLUGINS,
@@ -368,7 +369,7 @@ function ConnectionRow({
         />
       ) : null}
 
-      <ConnectionLogo plugin={plugin} />
+      <NameGlyph name={plugin.name} />
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -481,18 +482,6 @@ function ConnectionRow({
   );
 }
 
-function ConnectionLogo({ plugin }: { plugin: MockPlugin }) {
-  const initial = plugin.name.charAt(0).toUpperCase();
-  return (
-    <div
-      className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-base font-semibold text-foreground"
-      aria-hidden="true"
-    >
-      {initial}
-    </div>
-  );
-}
-
 function CatalogCard({
   connections,
   onAdd,
@@ -521,7 +510,7 @@ function CatalogCard({
               className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-input"
             >
               <div className="flex items-center gap-3">
-                <ConnectionLogo plugin={plugin} />
+                <NameGlyph name={plugin.name} />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{plugin.name}</p>
                   <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/80">

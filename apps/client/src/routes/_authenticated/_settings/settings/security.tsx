@@ -1,7 +1,7 @@
 // fallow-ignore-file complexity
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckIcon, EyeIcon, EyeOffIcon, ShieldIcon, XIcon } from "lucide-react";
+import { CheckIcon, EyeIcon, EyeOffIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/shared/ui/badge";
@@ -16,6 +16,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { NameGlyph } from "@/shared/components/name-glyph";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { parseUserAgent } from "@/shared/lib/user-agent";
@@ -372,12 +373,7 @@ function SessionListRow({
         !isFirst && "border-t border-border",
       )}
     >
-      <div
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground"
-        aria-hidden="true"
-      >
-        <ShieldIcon className="size-4" />
-      </div>
+      <NameGlyph name={ua.label} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-foreground">{ua.label}</span>

@@ -1,6 +1,6 @@
 export { ActivityPill } from "./components/activity-pill";
 export { AuthorizedAppRow, type AuthorizedAppRowProps } from "./components/authorized-app-row";
-export { ClientGlyph } from "./components/client-glyph";
+export { NameGlyph } from "@/shared/components/name-glyph";
 export { ScopeChip } from "./components/scope-chip";
 export { SetupGuideModal } from "./components/setup-guide-modal";
 export { SessionRow, type SessionListItem, type SessionRowProps } from "./components/session-row";

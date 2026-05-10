@@ -307,10 +307,6 @@ export interface MockAuthorizedApp {
   clientId: string;
   name: string;
   description: string;
-  /** 1-2 char glyph used by the monogram tile. */
-  monogram: string;
-  /** OKLCH hue (0-360) used to tint the monogram tile. */
-  accentHue: number;
   /** Optional client version, rendered as a chip. */
   version: string | null;
   /** Optional device label appended to the name (e.g. "Studio Mac"). */
@@ -349,8 +345,6 @@ export const MOCK_AUTHORIZED_APPS: ReadonlyArray<MockAuthorizedApp> = [
     clientId: "claude-desktop",
     name: "Claude Desktop",
     description: "Anthropic's official desktop client.",
-    monogram: "C",
-    accentHue: 30,
     version: "0.9.4",
     deviceLabel: "Studio Mac",
     status: "active",
@@ -364,8 +358,6 @@ export const MOCK_AUTHORIZED_APPS: ReadonlyArray<MockAuthorizedApp> = [
     clientId: "cursor",
     name: "Cursor",
     description: "MCP integration for Cursor.",
-    monogram: "Cu",
-    accentHue: 220,
     version: "0.43.2",
     deviceLabel: null,
     status: "active",
@@ -379,8 +371,6 @@ export const MOCK_AUTHORIZED_APPS: ReadonlyArray<MockAuthorizedApp> = [
     clientId: "claude-web",
     name: "Claude (web)",
     description: "Anthropic's web client.",
-    monogram: "C",
-    accentHue: 30,
     version: null,
     deviceLabel: "Firefox",
     status: "idle",
@@ -394,8 +384,6 @@ export const MOCK_AUTHORIZED_APPS: ReadonlyArray<MockAuthorizedApp> = [
     clientId: "raycast",
     name: "Raycast",
     description: "MCP integration for Raycast.",
-    monogram: "R",
-    accentHue: 0,
     version: "1.92.0",
     deviceLabel: null,
     status: "idle",
@@ -409,8 +397,6 @@ export const MOCK_AUTHORIZED_APPS: ReadonlyArray<MockAuthorizedApp> = [
     clientId: "mcp-inspector",
     name: "MCP Inspector",
     description: "Local debugging client.",
-    monogram: "M",
-    accentHue: 280,
     version: "0.5.1",
     deviceLabel: "dev",
     status: "idle",

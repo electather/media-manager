@@ -31,6 +31,7 @@ import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
+import { NameGlyph } from "@/shared/components/name-glyph";
 import {
   DEFAULT_SUBSCRIPTIONS,
   MOCK_AVAILABLE_CHANNEL_PLUGINS,
@@ -314,7 +315,7 @@ function ChannelRow({
         !isFirst && "border-t border-border",
       )}
     >
-      <ChannelIcon pluginId={channel.pluginId} />
+      <NameGlyph name={channel.name} />
 
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -434,18 +435,6 @@ function ChannelRow({
   );
 }
 
-function ChannelIcon({ pluginId }: { pluginId: string }) {
-  const initial = pluginId.charAt(0).toUpperCase();
-  return (
-    <div
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-sm font-semibold text-foreground"
-      aria-hidden="true"
-    >
-      {pluginId === "inbox" ? <BellIcon className="size-4" /> : initial}
-    </div>
-  );
-}
-
 function OnlyInboxFooter({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3 border-t border-border px-6 py-8 text-center">
@@ -502,7 +491,7 @@ function AddChannelDialog({
                   already ? "opacity-60" : "hover:border-input hover:bg-muted/40",
                 )}
               >
-                <ChannelIcon pluginId={p.pluginId} />
+                <NameGlyph name={p.name} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-sm font-medium text-foreground">{p.name}</span>

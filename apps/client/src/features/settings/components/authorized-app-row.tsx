@@ -14,8 +14,9 @@ import { m } from "@/paraglide/messages";
 
 import type { MockAuthorizedApp } from "@/features/settings/mocks";
 
+import { NameGlyph } from "@/shared/components/name-glyph";
+
 import { ActivityPill } from "./activity-pill";
-import { ClientGlyph } from "./client-glyph";
 import { ScopeChip } from "./scope-chip";
 
 export interface AuthorizedAppRowProps {
@@ -57,7 +58,7 @@ export function AuthorizedAppRow({
         !isFirst && "border-t border-border",
       )}
     >
-      <ClientGlyph monogram={app.monogram} accentHue={app.accentHue} size={42} />
+      <NameGlyph name={app.name} />
 
       <div className="min-w-0">
         <AppRowHeading app={app} />
