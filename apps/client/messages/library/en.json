@@ -12,6 +12,7 @@
   "library_count_awaiting": "{n} awaiting",
   "library_count_upcoming": "{n} upcoming",
 
+  "library_filter_label": "Filter library",
   "library_filter_all": "All",
   "library_filter_ready": "Ready",
   "library_filter_in_progress": "In progress",
@@ -61,7 +62,6 @@
 
   "library_coming_up_eyebrow": "Drops, premieres, return dates",
   "library_coming_up_title": "Coming up",
-  "library_coming_up_default_date": "Soon",
 
   "library_awaiting_eyebrow": "Saved, but not on your servers yet",
   "library_awaiting_title": "Awaiting",

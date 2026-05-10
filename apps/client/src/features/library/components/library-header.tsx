@@ -8,6 +8,8 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
+import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { cn } from "@/shared/lib/utils";
 import { splitRuntime, totalRuntimeMinutes } from "../lib/classify";
 import type { LibraryCounts, LibraryFilter, LibraryItem, LibrarySort } from "../lib/types";
@@ -100,50 +102,44 @@ export function LibraryHeader({
         </SectionHeadActions>
       </SectionHead>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-2">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
+        <RadioGroup
+          value={filter}
+          onValueChange={(value) => onFilterChange(value as LibraryFilter)}
+          aria-label={m.library_filter_label()}
+        >
           {FILTERS.map((f) => {
-            const active = filter === f.id;
             const count = filterCount(f.id, items.length, counts);
             return (
-              <button
+              <RadioGroupItem
                 key={f.id}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onFilterChange(f.id)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
-                  active
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border bg-transparent text-muted-foreground hover:text-foreground",
-                )}
+                value={f.id}
+                className="group px-3.5 py-1.5 text-sm data-checked:border-foreground data-checked:bg-foreground data-checked:text-background"
               >
                 <span>{f.labelFn()}</span>
-                <span
-                  className={cn(
-                    "font-mono text-[11px] tabular-nums",
-                    active ? "opacity-55" : "opacity-60",
-                  )}
-                >
+                <span className="font-mono text-[11px] tabular-nums opacity-60 group-data-checked:opacity-55">
                   {String(count).padStart(2, "0")}
                 </span>
-              </button>
+              </RadioGroupItem>
             );
           })}
-        </div>
+        </RadioGroup>
         <label className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
           <span>{m.library_sort_label()}</span>
-          <select
-            value={sort}
-            onChange={(e) => onSortChange(e.target.value as LibrarySort)}
-            className="cursor-pointer rounded-md border border-border bg-card px-2.5 py-1.5 font-sans text-xs text-foreground"
-          >
-            {SORTS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.labelFn()}
-              </option>
-            ))}
-          </select>
+          <Select value={sort} onValueChange={(value) => onSortChange(value as LibrarySort)}>
+            <SelectTrigger size="sm" aria-label={m.library_sort_label()} className="font-sans">
+              <SelectValue>
+                {(value: LibrarySort) => SORTS.find((s) => s.id === value)?.labelFn()}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {SORTS.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.labelFn()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
     </header>

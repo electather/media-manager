@@ -12,6 +12,7 @@
   "library_count_awaiting": "TODO",
   "library_count_upcoming": "TODO",
 
+  "library_filter_label": "TODO",
   "library_filter_all": "TODO",
   "library_filter_ready": "TODO",
   "library_filter_in_progress": "TODO",
@@ -61,7 +62,6 @@
 
   "library_coming_up_eyebrow": "TODO",
   "library_coming_up_title": "TODO",
-  "library_coming_up_default_date": "TODO",
 
   "library_awaiting_eyebrow": "TODO",
   "library_awaiting_title": "TODO",
