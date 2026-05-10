@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../cursor";
-import type { CanonicalMetadata, DiscoverFeedKind, DiscoverSort } from "../../catalog/types";
-import { fromCanonicalMetadata } from "../adapters";
-import type { InternalCompactMediaItem, RowContext, RowPage, RowProvider } from "../types";
+import type { DiscoverFeedKind, DiscoverSort } from "../../catalog/types";
+import type { RowContext, RowPage, RowProvider } from "../types";
+import { loadCanonicalItems } from "./_shared";
 
 const PAGE_SIZE = 12;
 const cursorSchema = z.object({ offset: z.number().int().min(0) });
@@ -42,7 +42,6 @@ export function makeDiscoverSnapshotRow(config: {
   };
 }
 
-// fallow-ignore-next-line complexity
 async function fetchPage(
   ctx: RowContext,
   cursor: string | null,
@@ -52,12 +51,7 @@ async function fetchPage(
   const snap = await ctx.catalog.getDiscoverFeed(config.feedKind, config.sort, todayBucket());
   if (!snap) return { items: [], cursor: null, partial: false };
   const slice = snap.slice(page.offset, page.offset + PAGE_SIZE);
-  const metadata = await ctx.catalog.getMetadataBatch(slice);
-  const items: InternalCompactMediaItem[] = [];
-  for (const k of slice) {
-    const meta = metadata[`${k.type}:${k.tmdbId}`] as CanonicalMetadata | undefined;
-    if (meta) items.push(fromCanonicalMetadata(meta));
-  }
+  const items = await loadCanonicalItems(ctx, slice);
   const next =
     snap.length > page.offset + PAGE_SIZE
       ? encodeCursor({ offset: page.offset + PAGE_SIZE })

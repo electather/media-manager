@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
+import type { MediaType } from "@ent-mcp/shared/media";
 import provider from "../upcoming-for-you";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
 import type { CanonicalMetadata } from "../../../catalog/types";
 
-function meta(tmdbId: string, mediaType: "movie" | "tv" = "tv"): CanonicalMetadata {
+function meta(tmdbId: string, mediaType: MediaType = "tv"): CanonicalMetadata {
   return {
     tmdbId,
     mediaType,

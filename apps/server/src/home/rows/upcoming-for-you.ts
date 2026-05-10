@@ -1,14 +1,11 @@
 import { uniqBy } from "es-toolkit";
 
-import type { CanonicalMetadata } from "../../catalog/types";
-import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
-import type { InternalCompactMediaItem, RowProvider } from "../types";
+import type { RowProvider } from "../types";
+import { loadCanonicalItems, probeMediaEntry, type MediaKey } from "./_shared";
 
 const PAGE_SIZE = 12;
 
-interface UpcomingHit {
-  tmdbId: string;
-  type: "movie" | "tv";
+interface UpcomingHit extends MediaKey {
   episode?: { season: number; episode: number; airsAt: number; name?: string };
 }
 
@@ -26,7 +23,6 @@ const provider: RowProvider = {
   async initialCursor() {
     return null;
   },
-  // fallow-ignore-next-line complexity
   async fetchPage(ctx) {
     const res = await ctx.mediaService.getUpcomingFeed({ deadlineMs: ctx.deadlineMs });
     // The calendar plugin emits one entry per upcoming episode, so a show with
@@ -37,45 +33,36 @@ const provider: RowProvider = {
       (res.items as unknown[]).map(toUpcomingHit).filter((h): h is UpcomingHit => h !== null),
       (h) => `${h.type}:${h.tmdbId}`,
     ).slice(0, PAGE_SIZE);
-    if (hits.length === 0) return { items: [], cursor: null, partial: res.partial };
-    const metadata = await ctx.catalog.getMetadataBatch(
-      hits.map((h) => ({ tmdbId: h.tmdbId, type: h.type })),
-    );
-    const items: InternalCompactMediaItem[] = [];
-    for (const h of hits) {
-      const meta = metadata[`${h.type}:${h.tmdbId}`] as CanonicalMetadata | undefined;
-      if (!meta) continue;
-      const item = fromCanonicalMetadata(meta);
-      if (h.episode) item.episode = h.episode;
-      items.push(item);
-    }
+    const items = await loadCanonicalItems(ctx, hits, {
+      decorate: (item, hit) => {
+        if (hit.episode) item.episode = hit.episode;
+      },
+    });
     return { items, cursor: null, partial: res.partial };
   },
 };
 
-// fallow-ignore-next-line complexity
 function toUpcomingHit(value: unknown): UpcomingHit | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const itemRaw = (v.item ?? v) as Record<string, unknown>;
-  const tmdbId = extractTmdbId(itemRaw);
-  if (!tmdbId) return null;
-  const t = itemRaw.type;
-  const type: "movie" | "tv" = t === "movie" ? "movie" : "tv";
-  const out: UpcomingHit = { tmdbId, type };
-  const airsAtRaw = v.airsAt ?? v.airDate;
-  const season = typeof itemRaw.season === "number" ? itemRaw.season : undefined;
-  const episode = typeof itemRaw.episode === "number" ? itemRaw.episode : undefined;
-  const airsAt = typeof airsAtRaw === "string" ? Date.parse(airsAtRaw) : undefined;
-  if (season != null && episode != null && airsAt != null && !Number.isNaN(airsAt)) {
-    out.episode = {
-      season,
-      episode,
-      airsAt,
-      ...(typeof itemRaw.title === "string" ? { name: itemRaw.title } : {}),
-    };
-  }
+  const probe = probeMediaEntry(value);
+  if (!probe) return null;
+  const out: UpcomingHit = { ...probe.key };
+  const episode = parseEpisodePayload(probe.itemRaw, probe.outer);
+  if (episode) out.episode = episode;
   return out;
+}
+
+// fallow-ignore-next-line complexity
+function parseEpisodePayload(
+  itemRaw: Record<string, unknown>,
+  outer: Record<string, unknown>,
+): UpcomingHit["episode"] | null {
+  const season = typeof itemRaw.season === "number" ? itemRaw.season : null;
+  const episode = typeof itemRaw.episode === "number" ? itemRaw.episode : null;
+  const airsAtRaw = outer.airsAt ?? outer.airDate;
+  const airsAt = typeof airsAtRaw === "string" ? Date.parse(airsAtRaw) : Number.NaN;
+  if (season === null || episode === null || Number.isNaN(airsAt)) return null;
+  const name = typeof itemRaw.title === "string" ? itemRaw.title : undefined;
+  return { season, episode, airsAt, ...(name ? { name } : {}) };
 }
 
 export default provider;

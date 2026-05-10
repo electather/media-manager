@@ -1,4 +1,5 @@
 import type { HostErrorCode } from "../diagnostics";
+import type { MediaType } from "../media/enums";
 import type { HeroReason, MatchReasonKey, RowKind } from "./enums";
 
 /**
@@ -65,7 +66,7 @@ export interface CompactMediaItem {
   /** Composite id, e.g. `"movie:550"` or `"tv:1396"`. */
   id: string;
   tmdbId: string;
-  mediaType: "movie" | "tv";
+  mediaType: MediaType;
   title: string;
   year?: number;
   poster?: string;

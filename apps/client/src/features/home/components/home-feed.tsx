@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
@@ -41,7 +42,7 @@ function HomeFeedReady() {
   const peekParts = peek ? splitCompositeId(peek) : null;
   const detailsQuery = useHomeDetails(
     peekParts?.mediaId ?? null,
-    (peekParts?.mediaType as "movie" | "tv" | undefined) ?? null,
+    (peekParts?.mediaType as MediaType | undefined) ?? null,
   );
   const modalItem = useMemo<MediaDetailItem | null>(() => {
     const data = detailsQuery.data;

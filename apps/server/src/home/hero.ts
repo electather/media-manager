@@ -1,8 +1,9 @@
 import { groupBy, orderBy } from "es-toolkit/array";
 import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
-import type { CanonicalMetadata, MetadataKey } from "../catalog/types";
-import { fromCanonicalMetadata, fromContinueWatchingEntry } from "./adapters";
+import type { MetadataKey } from "../catalog/types";
+import { fromContinueWatchingEntry } from "./adapters";
 import { enrichItems } from "./enrich";
+import { loadCanonicalItems } from "./rows/_shared";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
 const FINISHING_THRESHOLD = 0.85;
@@ -126,25 +127,18 @@ async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInter
   return items.map((item) => stampSlide(item, "continueWatching", "continue_watching"));
 }
 
-// fallow-ignore-next-line complexity
 async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
   const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
   if (!rec || rec.items.length === 0) return [];
-  const keys = rec.items.slice(0, POOL_SIZE);
-  const metadata = await ctx.catalog.getMetadataBatch(
-    keys.map((k) => ({ tmdbId: k.tmdbId, type: k.mediaType })),
-  );
-  const slides: HeroSlideInternal[] = [];
-  for (const k of keys) {
-    const meta = metadata[`${k.mediaType}:${k.tmdbId}`] as CanonicalMetadata | undefined;
-    if (!meta) continue;
-    const item = fromCanonicalMetadata(meta, { topContributors: k.topContributors });
-    slides.push(stampSlide(item, "recommendedForYou", "recommended"));
-  }
-  return slides;
+  const keys = rec.items
+    .slice(0, POOL_SIZE)
+    .map((k) => ({ tmdbId: k.tmdbId, type: k.mediaType, topContributors: k.topContributors }));
+  const items = await loadCanonicalItems(ctx, keys, {
+    fromOptions: (k) => ({ topContributors: k.topContributors }),
+  });
+  return items.map((item) => stampSlide(item, "recommendedForYou", "recommended"));
 }
 
-// fallow-ignore-next-line complexity
 async function loadDiscoverPool(
   ctx: RowContext,
   feedKind: "trending" | "newReleases",
@@ -155,14 +149,8 @@ async function loadDiscoverPool(
   const snap = await ctx.catalog.getDiscoverFeed(feedKind, sort, todayBucket());
   if (!snap || snap.length === 0) return [];
   const keys: MetadataKey[] = snap.slice(0, POOL_SIZE);
-  const metadata = await ctx.catalog.getMetadataBatch(keys);
-  const slides: HeroSlideInternal[] = [];
-  for (const k of keys) {
-    const meta = metadata[`${k.type}:${k.tmdbId}`] as CanonicalMetadata | undefined;
-    if (!meta) continue;
-    slides.push(stampSlide(fromCanonicalMetadata(meta), source, reason));
-  }
-  return slides;
+  const items = await loadCanonicalItems(ctx, keys);
+  return items.map((item) => stampSlide(item, source, reason));
 }
 
 // fallow-ignore-next-line complexity

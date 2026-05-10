@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { orderBy } from "es-toolkit/array";
+import type { MediaType } from "@ent-mcp/shared/media";
 import { decodeCursor, encodeCursor } from "../cursor";
-import type { CanonicalMetadata } from "../../catalog/types";
-import { extractTmdbId, fromCanonicalMetadata } from "../adapters";
-import type { InternalCompactMediaItem, RowProvider } from "../types";
+import { extractTmdbId } from "../adapters";
+import type { RowProvider } from "../types";
+import { loadCanonicalItems, type MediaKey } from "./_shared";
 
 const PAGE_SIZE = 12;
 
@@ -13,10 +14,7 @@ const cursorSchema = z.object({
   offset: z.number().int().min(0),
 });
 
-interface SimilarHit {
-  tmdbId: string;
-  type: "movie" | "tv";
-}
+type SimilarHit = MediaKey;
 
 /**
  * "Because you watched X" — picks a recently completed seed from the user's
@@ -51,7 +49,6 @@ const provider: RowProvider = {
     if (!seed) return null;
     return encodeCursor({ seedId: seed.tmdbId, seedType: seed.mediaType, offset: 0 });
   },
-  // fallow-ignore-next-line complexity
   async fetchPage(ctx, cursor) {
     // `requiresInitialCursor: true` makes `composeRow` reject null cursors
     // before this runs; the non-null assertion mirrors that invariant.
@@ -67,14 +64,7 @@ const provider: RowProvider = {
       .map(toSimilarHit)
       .filter((c): c is SimilarHit => c !== null);
     const slice = candidates.slice(page.offset, page.offset + PAGE_SIZE);
-    const metadata = await ctx.catalog.getMetadataBatch(
-      slice.map((c) => ({ tmdbId: c.tmdbId, type: c.type })),
-    );
-    const items: InternalCompactMediaItem[] = [];
-    for (const c of slice) {
-      const meta = metadata[`${c.type}:${c.tmdbId}`] as CanonicalMetadata | undefined;
-      if (meta) items.push(fromCanonicalMetadata(meta));
-    }
+    const items = await loadCanonicalItems(ctx, slice);
     const next =
       candidates.length > page.offset + PAGE_SIZE
         ? encodeCursor({ ...page, offset: page.offset + PAGE_SIZE })
@@ -87,7 +77,7 @@ function toSimilarHit(value: unknown): SimilarHit | null {
   const tmdbId = extractTmdbId(value);
   if (!tmdbId) return null;
   const t = (value as { type?: string }).type;
-  const type: "movie" | "tv" = t === "tv" || t === "show" ? "tv" : "movie";
+  const type: MediaType = t === "tv" || t === "show" ? "tv" : "movie";
   return { tmdbId, type };
 }
 

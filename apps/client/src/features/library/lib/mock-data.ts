@@ -1,10 +1,11 @@
+import type { MediaType } from "@ent-mcp/shared/media";
 import type { LibraryItem, LibraryMood, RecentLogEntry } from "./types";
 
 const POSTER = (seed: string): string => `https://picsum.photos/seed/${seed}-p/400/600`;
 const BACKDROP = (seed: string): string => `https://picsum.photos/seed/${seed}-b/960/540`;
 
 function item(
-  mediaType: "movie" | "tv",
+  mediaType: MediaType,
   id: string,
   title: string,
   year: number,

@@ -1,4 +1,5 @@
 import type { ArtworkErrorCode } from "./enums";
+import type { MediaType } from "@ent-mcp/shared/media";
 
 /**
  * One ranked artwork variant. Providers return up to five per kind sorted by
@@ -42,7 +43,7 @@ export interface ArtworkRequestItem {
   /** Stable client-supplied key; opaque to the server, echoed in results. */
   key: string;
   ids: ArtworkIdMap;
-  type: "movie" | "tv";
+  type: MediaType;
 }
 
 /** Per-item error returned by the `artwork.get` RPC. */
