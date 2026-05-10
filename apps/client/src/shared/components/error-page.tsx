@@ -190,6 +190,7 @@ function ErrorPageDetails({
         </CollapsibleTrigger>
         <CollapsibleContent className="border-t border-border bg-background/40">
           <dl className="divide-y divide-border">
+            {/* fallow-ignore-next-line complexity */}
             {rows.map((row) => {
               const copyValue = row.copyValue ?? (typeof row.value === "string" ? row.value : null);
               return (

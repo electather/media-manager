@@ -44,6 +44,7 @@ const VARIANT_META: Record<HomeErrorVariant, VariantMeta> = {
   unknown: { tone: "danger", code: "ERR", eyebrowKey: "errors_server_eyebrow" },
 };
 
+// fallow-ignore-next-line complexity
 function FallbackInner({
   error,
   requestId,

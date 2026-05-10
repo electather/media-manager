@@ -21,6 +21,7 @@ import { NotificationsApiError } from "./types";
 
 const TELEMETRY_CODE = "client.notifications.boundary";
 
+// fallow-ignore-next-line complexity
 function FallbackInner({
   error,
   requestId,

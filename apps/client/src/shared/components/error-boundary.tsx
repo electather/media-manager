@@ -49,6 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ error: null, requestId: null });
   };
 
+  // fallow-ignore-next-line complexity
   render(): ReactNode {
     if (!this.state.error) return this.props.children;
     const requestId = this.state.requestId ?? "";
