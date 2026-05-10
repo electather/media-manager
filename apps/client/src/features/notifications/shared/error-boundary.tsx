@@ -55,7 +55,7 @@ function FallbackInner({
         <ErrorPageHeadline code={code} eyebrow={m.errors_server_eyebrow()}>
           {m.notifications_error_title()}
         </ErrorPageHeadline>
-        <ErrorPageDescription>{message}</ErrorPageDescription>
+        <ErrorPageDescription>{m.errors_default_body()}</ErrorPageDescription>
         <ErrorPageActions>
           <Button onClick={onRetry}>
             <RotateCcwIcon aria-hidden="true" />
@@ -66,23 +66,33 @@ function FallbackInner({
             {m.errors_action_back_home()}
           </Button>
         </ErrorPageActions>
-        {shortId ? (
-          <ErrorPageDetails
-            title={m.errors_details_title()}
-            reference={shortId}
-            rows={[
-              {
-                label: m.errors_details_request_id(),
-                value: shortId,
-                copyValue: requestId,
-              },
-              {
-                label: m.errors_details_status(),
-                value: `${code} · ${m.notifications_error_title()}`,
-              },
-            ]}
-          />
-        ) : null}
+        <ErrorPageDetails
+          title={m.errors_details_title()}
+          reference={shortId || undefined}
+          rows={[
+            ...(shortId
+              ? [
+                  {
+                    label: m.errors_details_request_id(),
+                    value: shortId,
+                    copyValue: requestId,
+                  },
+                ]
+              : []),
+            {
+              label: m.errors_details_status(),
+              value: `${code} · ${m.notifications_error_title()}`,
+            },
+            ...(message
+              ? [
+                  {
+                    label: m.errors_details_message(),
+                    value: message,
+                  },
+                ]
+              : []),
+          ]}
+        />
       </ErrorPageFrame>
     </ErrorPage>
   );

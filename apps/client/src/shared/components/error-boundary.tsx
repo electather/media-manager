@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { HomeIcon, RotateCcwIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
@@ -96,7 +97,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <RotateCcwIcon aria-hidden="true" />
               {m.errors_retry()}
             </Button>
-            <Button variant="outline" render={<a href="/" />}>
+            <Button variant="outline" render={<Link to="/" />}>
               <HomeIcon aria-hidden="true" />
               {m.errors_action_back_home()}
             </Button>

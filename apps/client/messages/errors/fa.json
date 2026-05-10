@@ -9,6 +9,9 @@
   "errors_invalid_request_title": "TODO",
   "errors_invalid_request_body": "TODO",
 
+  "errors_oauth_callback_title": "TODO",
+  "errors_oauth_callback_back": "TODO",
+
   "errors_status_not_found": "TODO",
   "errors_status_server_error": "TODO",
   "errors_status_session_expired": "TODO",
@@ -44,7 +47,6 @@
   "errors_unauthorized_action": "TODO",
 
   "errors_action_back_home": "TODO",
-  "errors_action_search": "TODO",
   "errors_action_status_page": "TODO",
   "errors_action_help_center": "TODO",
   "errors_action_report": "TODO",

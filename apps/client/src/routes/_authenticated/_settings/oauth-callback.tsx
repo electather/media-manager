@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 
+import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import {
   ErrorScreen,
@@ -102,12 +103,12 @@ function OAuthCallbackPage() {
             <TriangleAlertIcon />
           </ErrorStateMedia>
           <ErrorStateContent>
-            <ErrorStateTitle>Authorization failed</ErrorStateTitle>
+            <ErrorStateTitle>{m.errors_oauth_callback_title()}</ErrorStateTitle>
             <ErrorStateDescription>{state.message}</ErrorStateDescription>
           </ErrorStateContent>
           <ErrorStateActions>
-            <Button onClick={() => void navigate({ to: "/settings/connections" })}>
-              Back to Connections
+            <Button render={<Link to="/settings/connections" />}>
+              {m.errors_oauth_callback_back()}
             </Button>
           </ErrorStateActions>
         </ErrorState>

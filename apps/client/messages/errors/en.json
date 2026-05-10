@@ -9,6 +9,9 @@
   "errors_invalid_request_title": "Invalid authorization request",
   "errors_invalid_request_body": "This link is invalid, malformed, or has already been used. Close this tab and try connecting again from your application.",
 
+  "errors_oauth_callback_title": "Authorization failed",
+  "errors_oauth_callback_back": "Back to Connections",
+
   "errors_status_not_found": "Not found",
   "errors_status_server_error": "Server error",
   "errors_status_session_expired": "Session expired",
@@ -44,7 +47,6 @@
   "errors_unauthorized_action": "Sign in again",
 
   "errors_action_back_home": "Back home",
-  "errors_action_search": "Search",
   "errors_action_status_page": "Status page",
   "errors_action_help_center": "Help center",
   "errors_action_report": "Report this error",

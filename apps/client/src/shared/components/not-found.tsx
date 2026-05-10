@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { HomeIcon, SearchIcon } from "lucide-react";
+import { HomeIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
 import {
@@ -23,10 +23,6 @@ export function NotFound() {
           <Button render={<Link to="/" />}>
             <HomeIcon aria-hidden="true" />
             {m.errors_action_back_home()}
-          </Button>
-          <Button variant="outline" render={<Link to="/" />}>
-            <SearchIcon aria-hidden="true" />
-            {m.errors_action_search()}
           </Button>
         </ErrorPageActions>
       </ErrorPageFrame>
