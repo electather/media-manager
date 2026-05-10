@@ -28,6 +28,7 @@ import { Route as AppsRoute } from "@/routes/_authenticated/_settings/settings/a
 
 beforeEach(() => {
   toastMock.success.mockReset();
+  toastMock.message.mockReset();
 });
 
 afterEach(() => cleanup());
@@ -37,21 +38,47 @@ describe("Authorized apps (mock)", () => {
     const Component = AppsRoute.options.component!;
     render(<Component />);
 
-    // Endpoint label and at least one mock app row should be visible.
-    expect(screen.getByText(/your mcp endpoint/i)).toBeTruthy();
+    expect(screen.getByText(/mcp endpoint/i)).toBeTruthy();
     expect(screen.getByTestId("authorized-app-claude-desktop")).toBeTruthy();
+    expect(screen.getByTestId("filter-active")).toBeTruthy();
   });
 
-  it("opens the revoke dialog and confirms removal", async () => {
+  it("opens the revoke dialog from the row menu and confirms removal", async () => {
     const user = userEvent.setup();
     const Component = AppsRoute.options.component!;
     render(<Component />);
 
-    await user.click(screen.getByTestId("revoke-claude-desktop"));
+    await user.click(screen.getByTestId("actions-claude-desktop"));
+    const revokeItem = await screen.findByTestId("revoke-claude-desktop");
+    await user.click(revokeItem);
 
     const confirm = await screen.findByTestId("confirm-revoke-app");
     await user.click(confirm);
 
     await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
+  });
+
+  it("filters by active status", async () => {
+    const user = userEvent.setup();
+    const Component = AppsRoute.options.component!;
+    render(<Component />);
+
+    await user.click(screen.getByTestId("filter-idle"));
+    expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
+    expect(screen.getByTestId("authorized-app-claude-web")).toBeTruthy();
+  });
+
+  it("revokes all clients via the bulk dialog", async () => {
+    const user = userEvent.setup();
+    const Component = AppsRoute.options.component!;
+    render(<Component />);
+
+    await user.click(screen.getByTestId("revoke-all"));
+    const confirm = await screen.findByTestId("confirm-revoke-all");
+    await user.click(confirm);
+
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
+    expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
+    expect(screen.getByText(/no authorized applications/i)).toBeTruthy();
   });
 });
