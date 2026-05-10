@@ -1,0 +1,7 @@
+{
+  "clone_groups": [
+    "apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:115-121|apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:95-101",
+    "apps/server/src/home/rows/upcoming-for-you.ts:51-59|apps/server/src/home/rows/your-watchlist.ts:79-89",
+    "apps/server/src/media/service.ts:775-787|apps/server/src/media/service.ts:836-848"
+  ]
+}
