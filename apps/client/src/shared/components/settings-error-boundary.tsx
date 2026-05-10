@@ -1,8 +1,17 @@
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { TriangleAlertIcon } from "lucide-react";
+import { RotateCcwIcon } from "lucide-react";
 
 import { ErrorBoundary } from "@/shared/components/error-boundary";
+import {
+  ErrorState,
+  ErrorStateActions,
+  ErrorStateContent,
+  ErrorStateDescription,
+  ErrorStateMedia,
+  ErrorStateReference,
+  ErrorStateTitle,
+} from "@/shared/components/error-state";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 import { m } from "@/paraglide/messages";
@@ -27,33 +36,33 @@ function SettingsErrorFallback({
   };
 
   return (
-    <div
-      role="alert"
-      className="flex min-h-[40vh] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-destructive/40 bg-destructive/5 px-8 py-10 text-center"
-    >
-      <div className="flex size-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-        <TriangleAlertIcon className="size-5" aria-hidden="true" />
-      </div>
-      <h2 className="text-base font-medium text-foreground">{m.settings_error_title()}</h2>
-      <p className="max-w-md text-sm text-muted-foreground">
-        {error.message || m.settings_error_description()}
-      </p>
-      {requestId ? (
-        <p className="font-mono text-xs text-muted-foreground">
-          {m.settings_error_request_id()} {shortRequestId(requestId)}
-        </p>
-      ) : null}
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        {m.settings_error_retry()}
-      </Button>
-    </div>
+    <ErrorState orientation="vertical">
+      <ErrorStateMedia size="lg" />
+      <ErrorStateContent>
+        <ErrorStateTitle>{m.settings_error_title()}</ErrorStateTitle>
+        <ErrorStateDescription>
+          {error.message || m.settings_error_description()}
+        </ErrorStateDescription>
+        {requestId ? (
+          <ErrorStateReference>
+            {m.settings_error_request_id()} {shortRequestId(requestId)}
+          </ErrorStateReference>
+        ) : null}
+      </ErrorStateContent>
+      <ErrorStateActions>
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <RotateCcwIcon aria-hidden="true" />
+          {m.settings_error_retry()}
+        </Button>
+      </ErrorStateActions>
+    </ErrorState>
   );
 }
 
 /**
- * Reusable error boundary for settings (and any other feature surface) that
- * follows the same fallback shape across the product. Pass `resetQueryKey`
- * to reset a specific tree of React Query queries on retry.
+ * Reusable error boundary for settings and any other feature surface that
+ * needs an in-card fallback (vs. the full-screen ErrorPage). Pass
+ * `resetQueryKey` to reset a specific tree of React Query queries on retry.
  */
 export function SettingsErrorBoundary({
   children,
