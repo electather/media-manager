@@ -1,0 +1,87 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+
+  "watchlist_eyebrow": "Your watchlist · curated",
+  "watchlist_title": "Watchlist",
+  "watchlist_total_runtime": "{value} of stories",
+  "watchlist_runtime_days_hours": "{days}d {hours}h",
+  "watchlist_runtime_hours": "{hours}h",
+  "watchlist_runtime_hours_minutes": "{hours}h {minutes}m",
+  "watchlist_runtime_minutes": "{minutes}m",
+  "watchlist_count_ready": "{n} ready",
+  "watchlist_count_awaiting": "{n} awaiting",
+  "watchlist_count_upcoming": "{n} upcoming",
+
+  "watchlist_filter_label": "Filter watchlist",
+  "watchlist_filter_all": "All",
+  "watchlist_filter_ready": "Ready",
+  "watchlist_filter_in_progress": "In progress",
+  "watchlist_filter_awaiting": "Awaiting",
+  "watchlist_filter_upcoming": "Upcoming",
+
+  "watchlist_sort_label": "Sort",
+  "watchlist_sort_recent": "Recently added",
+  "watchlist_sort_alpha": "A → Z",
+  "watchlist_sort_runtime": "Shortest first",
+  "watchlist_sort_status": "By status",
+
+  "watchlist_filtered_eyebrow": "{filter} · sorted {sort}",
+  "watchlist_filtered_title": "Filtered view",
+
+  "watchlist_tonight_eyebrow": "One step further than 'Recommended'",
+  "watchlist_tonight_title": "Tonight",
+  "watchlist_tonight_caption": "Picked from your watchlist · 9:42 PM",
+  "watchlist_tonight_why": "Why",
+  "watchlist_tonight_default_reason": "Mood: contemplative · Runtime fits your evening.",
+  "watchlist_tonight_alternates_kicker": "Or maybe…",
+  "watchlist_tonight_shuffle": "Shuffle suggestion",
+
+  "watchlist_ready_eyebrow": "No request needed · stream tonight",
+  "watchlist_ready_title": "Ready to watch",
+  "watchlist_ready_scroll_prev": "Scroll left",
+  "watchlist_ready_scroll_next": "Scroll right",
+
+  "watchlist_mood_eyebrow": "Grouped by feel, not genre",
+  "watchlist_mood_title": "By mood",
+  "watchlist_mood_cluster_eyebrow": "Mood",
+  "watchlist_mood_auto_clustered": "auto-clustered · {count} moods",
+  "watchlist_mood_see_all": "See all {n}",
+
+  "watchlist_mood_slow_burn": "Slow burn",
+  "watchlist_mood_slow_burn_note": "Long takes, careful framing.",
+  "watchlist_mood_quiet_thrill": "Quiet thrillers",
+  "watchlist_mood_quiet_thrill_note": "Procedural, restrained.",
+  "watchlist_mood_period": "Period drama",
+  "watchlist_mood_period_note": "Costumes, candles, courtrooms.",
+  "watchlist_mood_scifi": "Hard sci-fi",
+  "watchlist_mood_scifi_note": "Stars, signals, silence.",
+  "watchlist_mood_comedy": "Easy laughs",
+  "watchlist_mood_comedy_note": "Ensemble, breezy.",
+  "watchlist_mood_horror": "Atmospheric horror",
+  "watchlist_mood_horror_note": "Dread without splatter.",
+
+  "watchlist_coming_up_eyebrow": "Drops, premieres, return dates",
+  "watchlist_coming_up_title": "Coming up",
+
+  "watchlist_awaiting_eyebrow": "Saved, but not on your servers yet",
+  "watchlist_awaiting_title": "Awaiting",
+  "watchlist_awaiting_request_all": "Request all missing",
+
+  "watchlist_recent_eyebrow": "Audit trail",
+  "watchlist_recent_title": "Recently added",
+  "watchlist_recent_source_recommended": "Recommended for you",
+  "watchlist_recent_source_notification": "From notification",
+  "watchlist_recent_source_search": "Search",
+  "watchlist_recent_source_trending": "Trending",
+  "watchlist_recent_source_friend": "Friend's list",
+  "watchlist_recent_time_hours_ago": "{n} hours ago",
+  "watchlist_recent_time_yesterday": "Yesterday",
+  "watchlist_recent_time_days_ago": "{n} days ago",
+  "watchlist_recent_time_last_week": "Last week",
+
+  "watchlist_kind_movie": "Movie",
+  "watchlist_kind_tv": "TV series",
+  "watchlist_episodes_count": "{n} eps",
+
+  "watchlist_section_count_aria": "{count} items"
+}

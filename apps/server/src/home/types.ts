@@ -64,7 +64,7 @@ export interface RowProvider {
   kind: RowKind;
   /** Paraglide message key resolved by the client. */
   titleKey: string;
-  subtitleKey?: string;
+  eyebrowKey?: string;
   /**
    * Cheap check the orchestrator runs to decide whether to ship the row in
    * the layout. May call into the registry or catalog; should not run plugin

@@ -70,7 +70,7 @@ describe("Row", () => {
     expect(heading.textContent?.length).toBeGreaterThan(0);
   });
 
-  it("renders a subtitle when the row kind has one", async () => {
+  it("renders an eyebrow when the row kind has one", async () => {
     mockRowFetch([]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(

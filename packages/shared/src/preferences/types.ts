@@ -1,4 +1,5 @@
 import type { Confidence, FeedbackAction, NoteSentiment, ProfileMediaType } from "./enums";
+import type { MediaType } from "@ent-mcp/shared/media";
 
 export type WeightMap = Record<string, number>;
 
@@ -27,7 +28,7 @@ export interface FeedbackRecord {
   id: string;
   userId: string;
   tmdbId: string;
-  mediaType: "movie" | "tv";
+  mediaType: MediaType;
   action: FeedbackAction;
   rating: number | null;
   note: string | null;

@@ -14,21 +14,37 @@ export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {
 };
 
 /** Row header and optional subtitle copy. Values are i18n message keys resolved via `m.<key>()`. */
-export const ROW_COPY: Record<
-  RowKind,
-  { headerKey: keyof typeof m; subtitleKey?: keyof typeof m }
-> = {
-  continueWatching: { headerKey: "home_row_continueWatching_header" },
-  recommendedForYou: { headerKey: "home_row_recommendedForYou_header" },
-  trendingNow: { headerKey: "home_row_trendingNow_header" },
-  newReleases: { headerKey: "home_row_newReleases_header" },
-  becauseYouWatched: {
-    headerKey: "home_row_becauseYouWatched_header",
-    subtitleKey: "home_row_becauseYouWatched_subtitle",
-  },
-  upcomingForYou: { headerKey: "home_row_upcomingForYou_header" },
-  yourWatchlist: { headerKey: "home_row_yourWatchlist_header" },
-};
+export const ROW_COPY: Record<RowKind, { headerKey: keyof typeof m; eyebrowKey?: keyof typeof m }> =
+  {
+    continueWatching: {
+      headerKey: "home_row_continueWatching_header",
+      eyebrowKey: "home_row_continueWatching_eyebrow",
+    },
+    recommendedForYou: {
+      headerKey: "home_row_recommendedForYou_header",
+      eyebrowKey: "home_row_recommendedForYou_eyebrow",
+    },
+    trendingNow: {
+      headerKey: "home_row_trendingNow_header",
+      eyebrowKey: "home_row_trendingNow_eyebrow",
+    },
+    newReleases: {
+      headerKey: "home_row_newReleases_header",
+      eyebrowKey: "home_row_newReleases_eyebrow",
+    },
+    becauseYouWatched: {
+      headerKey: "home_row_becauseYouWatched_header",
+      eyebrowKey: "home_row_becauseYouWatched_eyebrow",
+    },
+    upcomingForYou: {
+      headerKey: "home_row_upcomingForYou_header",
+      eyebrowKey: "home_row_upcomingForYou_eyebrow",
+    },
+    yourWatchlist: {
+      headerKey: "home_row_yourWatchlist_header",
+      eyebrowKey: "home_row_yourWatchlist_eyebrow",
+    },
+  };
 
 /** Match-reason chip copy. Parameterised via Paraglide ICU placeholders. */
 export const MATCH_REASON_COPY: Record<MatchReasonKey, (params: Record<string, string>) => string> =

@@ -363,26 +363,4 @@ html[lang="fa"] {
       opacity: 0;
     }
   }
-
-  /* Chevrons: hover/focus-within on the row scope reveals them, but only
-     when the corresponding edge isn't already the current scroll position.
-     Edge state comes from the same data attrs that drive the fade overlays. */
-  .row-prev,
-  .row-next {
-    opacity: 0;
-    pointer-events: none;
-    transition:
-      opacity 150ms ease,
-      background-color 150ms ease;
-  }
-  .row-track-scope[data-at-start="false"]:hover .row-prev,
-  .row-track-scope[data-at-start="false"]:focus-within .row-prev {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .row-track-scope[data-at-end="false"]:hover .row-next,
-  .row-track-scope[data-at-end="false"]:focus-within .row-next {
-    opacity: 1;
-    pointer-events: auto;
-  }
 }

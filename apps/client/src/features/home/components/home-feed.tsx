@@ -1,6 +1,7 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
+import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
@@ -41,7 +42,7 @@ function HomeFeedReady() {
   const peekParts = peek ? splitCompositeId(peek) : null;
   const detailsQuery = useHomeDetails(
     peekParts?.mediaId ?? null,
-    (peekParts?.mediaType as "movie" | "tv" | undefined) ?? null,
+    (peekParts?.mediaType as MediaType | undefined) ?? null,
   );
   const modalItem = useMemo<MediaDetailItem | null>(() => {
     const data = detailsQuery.data;
@@ -130,6 +131,6 @@ function toRowData(stub: HomeLayoutResponse["rows"][number]): RowData {
     defaultAspect: ROW_ASPECT[stub.kind] ?? "16/9",
     headerKey: stub.titleKey as RowData["headerKey"],
   };
-  if (stub.subtitleKey) out.subtitleKey = stub.subtitleKey as RowData["subtitleKey"];
+  if (stub.eyebrowKey) out.eyebrowKey = stub.eyebrowKey as RowData["eyebrowKey"];
   return out;
 }

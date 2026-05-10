@@ -5,14 +5,14 @@ const EDGE_SLACK_PX = 8;
 /**
  * Toggles `data-at-start` / `data-at-end` data-attrs on the scope element
  * via an rAF-throttled scroll listener + ResizeObserver. Re-runs when
- * `itemCount` grows so scrollWidth changes are picked up immediately. RTL
- * is handled by the browser flipping `scrollLeft` sign; `Math.abs()`
- * normalises it.
+ * `revalidationKey` changes so scrollWidth changes (e.g. items appended)
+ * are picked up immediately. RTL is handled by the browser flipping
+ * `scrollLeft` sign; `Math.abs()` normalises it.
  */
 export function useRowEdges(
-  trackRef: RefObject<HTMLDivElement | null>,
-  scopeRef: RefObject<HTMLDivElement | null>,
-  itemCount: number,
+  trackRef: RefObject<HTMLElement | null>,
+  scopeRef: RefObject<HTMLElement | null>,
+  revalidationKey: unknown = null,
 ): void {
   useEffect(() => {
     const track = trackRef.current;
@@ -42,5 +42,5 @@ export function useRowEdges(
       if (raf) cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [itemCount, trackRef, scopeRef]);
+  }, [revalidationKey, trackRef, scopeRef]);
 }

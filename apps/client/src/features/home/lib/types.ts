@@ -99,7 +99,7 @@ export type RowData = {
    */
   headerKey?: MessageKey;
   /** Optional subtitle override paired with `headerKey`. */
-  subtitleKey?: MessageKey;
+  eyebrowKey?: MessageKey;
 };
 
 /**
