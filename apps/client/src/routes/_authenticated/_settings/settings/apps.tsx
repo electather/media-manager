@@ -110,17 +110,54 @@ function useAppsState() {
     toast.success(m.settings_apps_toast_renamed());
   };
 
-  return { state, revokeOne, revokeAll, rotate, rename };
-}
-
-function AppsPage() {
-  const { state, revokeOne, revokeAll, rotate, rename } = useAppsState();
   const [filter, setFilter] = useState<Filter>("all");
   const [confirmRevoke, setConfirmRevoke] = useState<MockAuthorizedApp | null>(null);
   const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
   const [renameFor, setRenameFor] = useState<MockAuthorizedApp | null>(null);
   const [setupGuideOpen, setSetupGuideOpen] = useState(false);
+
+  return {
+    state,
+    revokeOne,
+    revokeAll,
+    rotate,
+    rename,
+    filter,
+    setFilter,
+    confirmRevoke,
+    setConfirmRevoke,
+    confirmRevokeAll,
+    setConfirmRevokeAll,
+    confirmRotate,
+    setConfirmRotate,
+    renameFor,
+    setRenameFor,
+    setupGuideOpen,
+    setSetupGuideOpen,
+  };
+}
+
+function AppsPage() {
+  const {
+    state,
+    revokeOne,
+    revokeAll,
+    rotate,
+    rename,
+    filter,
+    setFilter,
+    confirmRevoke,
+    setConfirmRevoke,
+    confirmRevokeAll,
+    setConfirmRevokeAll,
+    confirmRotate,
+    setConfirmRotate,
+    renameFor,
+    setRenameFor,
+    setupGuideOpen,
+    setSetupGuideOpen,
+  } = useAppsState();
 
   return (
     <div className="flex flex-col gap-7">
@@ -184,6 +221,29 @@ function AppsPage() {
 
 // ─── Authorized clients card ────────────────────────────────────────────────
 
+function useAuthorizedAppsView(apps: ReadonlyArray<MockAuthorizedApp>, filter: Filter) {
+  const counts = useMemo(
+    () => ({
+      all: apps.length,
+      active: apps.filter((a) => a.status === "active").length,
+      idle: apps.filter((a) => a.status === "idle").length,
+    }),
+    [apps],
+  );
+
+  const visible = useMemo(() => {
+    const matches = filter === "all" ? apps : apps.filter((a) => a.status === filter);
+    return matches.toSorted((a, b) => {
+      const oa = STATUS_ORDER[a.status] ?? 99;
+      const ob = STATUS_ORDER[b.status] ?? 99;
+      if (oa !== ob) return oa - ob;
+      return new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime();
+    });
+  }, [apps, filter]);
+
+  return { counts, visible };
+}
+
 function AuthorizedAppsCard({
   apps,
   filter,
@@ -199,24 +259,7 @@ function AuthorizedAppsCard({
   onRequestRename: (app: MockAuthorizedApp) => void;
   onRequestRevokeAll: () => void;
 }) {
-  const counts = useMemo(
-    () => ({
-      all: apps.length,
-      active: apps.filter((a) => a.status === "active").length,
-      idle: apps.filter((a) => a.status === "idle").length,
-    }),
-    [apps],
-  );
-
-  const visible = useMemo(() => {
-    const matches = filter === "all" ? apps : apps.filter((a) => a.status === filter);
-    return [...matches].sort((a, b) => {
-      const oa = STATUS_ORDER[a.status] ?? 99;
-      const ob = STATUS_ORDER[b.status] ?? 99;
-      if (oa !== ob) return oa - ob;
-      return new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime();
-    });
-  }, [apps, filter]);
+  const { counts, visible } = useAuthorizedAppsView(apps, filter);
 
   const onActivity = (app: MockAuthorizedApp) =>
     toast.message(m.settings_apps_toast_activity_log({ name: app.name }));

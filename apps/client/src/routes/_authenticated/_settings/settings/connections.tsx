@@ -98,7 +98,7 @@ function ConnectionsRoute() {
 
 type Filter = "all" | "issues" | "disabled";
 
-function ConnectionsPage() {
+function useConnectionsState() {
   const [conns, setConns] = useState<ReadonlyArray<MockConnection>>(MOCK_CONNECTIONS);
   const [filter, setFilter] = useState<Filter>("all");
   const [disconnectFor, setDisconnectFor] = useState<MockConnection | null>(null);
@@ -110,7 +110,7 @@ function ConnectionsPage() {
       connected: 2,
       disconnected: 3,
     };
-    return [...conns].sort((a, b) => {
+    return conns.toSorted((a, b) => {
       if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
       return order[a.status] - order[b.status];
     });
@@ -163,6 +163,27 @@ function ConnectionsPage() {
     );
   };
 
+  const handleAdd = (plugin: MockPlugin) => {
+    const newConn: MockConnection = {
+      id: `c-${plugin.id}-${Math.random().toString(36).slice(2, 7)}`,
+      pluginId: plugin.id,
+      label: plugin.name,
+      status: "connected",
+      enabled: true,
+      isDefault: !conns.some((c) => c.pluginId === plugin.id),
+      lastVerifiedAt: new Date().toISOString(),
+      tokenExpiresAt: null,
+    };
+    setConns((list) => [newConn, ...list]);
+    toast.success(m.settings_connections_catalog_connect());
+  };
+
+  const handleReconnect = (conn: MockConnection) => {
+    updateConnection(conn.id, { status: "connected", enabled: true, errorMessage: undefined });
+  };
+
+  const cancelDisconnect = () => setDisconnectFor(null);
+
   const confirmDisconnect = () => {
     if (!disconnectFor) return;
     setConns((list) => list.filter((c) => c.id !== disconnectFor.id));
@@ -170,101 +191,157 @@ function ConnectionsPage() {
     toast.success(m.settings_connections_toast_disconnected());
   };
 
+  return {
+    conns,
+    filter,
+    setFilter,
+    filtered,
+    issueCount,
+    disabledCount,
+    disconnectFor,
+    setDisconnectFor,
+    handleTest,
+    handleSetDefault,
+    handleToggleEnabled,
+    handleAdd,
+    handleReconnect,
+    cancelDisconnect,
+    confirmDisconnect,
+  };
+}
+
+function ConnectionsPage() {
+  const {
+    conns,
+    filter,
+    setFilter,
+    filtered,
+    issueCount,
+    disabledCount,
+    disconnectFor,
+    setDisconnectFor,
+    handleTest,
+    handleSetDefault,
+    handleToggleEnabled,
+    handleAdd,
+    handleReconnect,
+    cancelDisconnect,
+    confirmDisconnect,
+  } = useConnectionsState();
+
+  const disconnectPlugin = disconnectFor
+    ? (MOCK_PLUGINS.find((p) => p.id === disconnectFor.pluginId) ?? null)
+    : null;
+
   return (
     <div className="flex flex-col gap-7">
       <SettingsPageHeader
         title={m.settings_connections_title()}
         description={m.settings_connections_description()}
       />
-
-      <SettingsCard>
-        <SettingsCardHeader
-          title={m.settings_connections_connected_title()}
-          count={conns.length}
-          description={
-            issueCount > 0
-              ? issueCount === 1
-                ? m.settings_connections_attention_singular({ count: issueCount })
-                : m.settings_connections_attention_plural({ count: issueCount })
-              : undefined
-          }
-          action={
-            conns.length > 0 ? (
-              <ConnectionFilters
-                filter={filter}
-                setFilter={setFilter}
-                total={conns.length}
-                issueCount={issueCount}
-                disabledCount={disabledCount}
-              />
-            ) : undefined
-          }
-        />
-
-        {conns.length === 0 ? (
-          <ConnectionsEmpty />
-        ) : filtered.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-            {m.settings_connections_filter_empty()}
-          </p>
-        ) : (
-          <ul role="list" className="flex flex-col">
-            {filtered.map((conn, i) => {
-              const plugin = MOCK_PLUGINS.find((p) => p.id === conn.pluginId);
-              if (!plugin) return null;
-              const siblings = conns.filter((c) => c.pluginId === plugin.id);
-              return (
-                <ConnectionRow
-                  key={conn.id}
-                  conn={conn}
-                  plugin={plugin}
-                  hasSiblings={siblings.length > 1}
-                  isFirst={i === 0}
-                  onTest={() => handleTest(conn)}
-                  onSetDefault={() => handleSetDefault(conn)}
-                  onToggleEnabled={() => handleToggleEnabled(conn)}
-                  onDisconnect={() => setDisconnectFor(conn)}
-                  onReconnect={() =>
-                    updateConnection(conn.id, {
-                      status: "connected",
-                      enabled: true,
-                      errorMessage: undefined,
-                    })
-                  }
-                />
-              );
-            })}
-          </ul>
-        )}
-      </SettingsCard>
-
-      <CatalogCard
-        connections={conns}
-        onAdd={(plugin) => {
-          const newConn: MockConnection = {
-            id: `c-${plugin.id}-${Math.random().toString(36).slice(2, 7)}`,
-            pluginId: plugin.id,
-            label: plugin.name,
-            status: "connected",
-            enabled: true,
-            isDefault: !conns.some((c) => c.pluginId === plugin.id),
-            lastVerifiedAt: new Date().toISOString(),
-            tokenExpiresAt: null,
-          };
-          setConns((list) => [newConn, ...list]);
-          toast.success(m.settings_connections_catalog_connect());
-        }}
+      <ConnectionsListCard
+        conns={conns}
+        filtered={filtered}
+        issueCount={issueCount}
+        disabledCount={disabledCount}
+        filter={filter}
+        setFilter={setFilter}
+        onTest={handleTest}
+        onSetDefault={handleSetDefault}
+        onToggleEnabled={handleToggleEnabled}
+        onDisconnect={setDisconnectFor}
+        onReconnect={handleReconnect}
       />
-
+      <CatalogCard connections={conns} onAdd={handleAdd} />
       <DisconnectDialog
         conn={disconnectFor}
-        plugin={
-          disconnectFor ? (MOCK_PLUGINS.find((p) => p.id === disconnectFor.pluginId) ?? null) : null
-        }
-        onClose={() => setDisconnectFor(null)}
+        plugin={disconnectPlugin}
+        onClose={cancelDisconnect}
         onConfirm={confirmDisconnect}
       />
     </div>
+  );
+}
+
+function ConnectionsListCard({
+  conns,
+  filtered,
+  issueCount,
+  disabledCount,
+  filter,
+  setFilter,
+  onTest,
+  onSetDefault,
+  onToggleEnabled,
+  onDisconnect,
+  onReconnect,
+}: {
+  conns: ReadonlyArray<MockConnection>;
+  filtered: ReadonlyArray<MockConnection>;
+  issueCount: number;
+  disabledCount: number;
+  filter: Filter;
+  setFilter: (f: Filter) => void;
+  onTest: (conn: MockConnection) => void;
+  onSetDefault: (conn: MockConnection) => void;
+  onToggleEnabled: (conn: MockConnection) => void;
+  onDisconnect: (conn: MockConnection) => void;
+  onReconnect: (conn: MockConnection) => void;
+}) {
+  return (
+    <SettingsCard>
+      <SettingsCardHeader
+        title={m.settings_connections_connected_title()}
+        count={conns.length}
+        description={
+          issueCount > 0
+            ? issueCount === 1
+              ? m.settings_connections_attention_singular({ count: issueCount })
+              : m.settings_connections_attention_plural({ count: issueCount })
+            : undefined
+        }
+        action={
+          conns.length > 0 ? (
+            <ConnectionFilters
+              filter={filter}
+              setFilter={setFilter}
+              total={conns.length}
+              issueCount={issueCount}
+              disabledCount={disabledCount}
+            />
+          ) : undefined
+        }
+      />
+      {conns.length === 0 ? (
+        <ConnectionsEmpty />
+      ) : filtered.length === 0 ? (
+        <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+          {m.settings_connections_filter_empty()}
+        </p>
+      ) : (
+        <ul role="list" className="flex flex-col">
+          {filtered.map((conn, i) => {
+            const plugin = MOCK_PLUGINS.find((p) => p.id === conn.pluginId);
+            if (!plugin) return null;
+            const siblings = conns.filter((c) => c.pluginId === plugin.id);
+            return (
+              <ConnectionRow
+                key={conn.id}
+                conn={conn}
+                plugin={plugin}
+                hasSiblings={siblings.length > 1}
+                isFirst={i === 0}
+                onTest={() => onTest(conn)}
+                onSetDefault={() => onSetDefault(conn)}
+                onToggleEnabled={() => onToggleEnabled(conn)}
+                onDisconnect={() => onDisconnect(conn)}
+                onReconnect={() => onReconnect(conn)}
+              />
+            );
+          })}
+        </ul>
+      )}
+    </SettingsCard>
   );
 }
 
@@ -328,6 +405,147 @@ function ConnectionsEmpty() {
   );
 }
 
+function ConnectionRowMeta({
+  conn,
+  plugin,
+  hasSiblings,
+}: {
+  conn: MockConnection;
+  plugin: MockPlugin;
+  hasSiblings: boolean;
+}) {
+  return (
+    <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-foreground">
+          {plugin.name}
+          {plugin.poolable ? (
+            <>
+              {" "}
+              <span className="text-muted-foreground">·</span>{" "}
+              <span className="text-muted-foreground">{conn.label}</span>
+            </>
+          ) : null}
+        </span>
+        <ConnectionStatusBadge status={conn.status} />
+        {conn.isDefault && hasSiblings ? (
+          <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wide">
+            <StarIcon className="size-2.5" aria-hidden="true" />
+            {m.settings_connections_default_badge()}
+          </Badge>
+        ) : null}
+        {!conn.enabled ? (
+          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wide">
+            {m.settings_connections_disabled_badge()}
+          </Badge>
+        ) : null}
+      </div>
+      <p className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0 text-xs text-muted-foreground">
+        {conn.sublabel ? (
+          <span className={plugin.poolable ? "font-mono" : ""}>{conn.sublabel}</span>
+        ) : null}
+        <span>
+          {m.settings_connections_last_verified({
+            time: relativeTime(new Date(conn.lastVerifiedAt)),
+          })}
+        </span>
+        {conn.tokenExpiresAt && conn.status !== "expired" ? (
+          <span>
+            {m.settings_connections_token_expires({
+              time: relativeTime(new Date(conn.tokenExpiresAt)),
+            })}
+          </span>
+        ) : null}
+      </p>
+      {conn.status === "error" && conn.errorMessage ? (
+        <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-xs leading-relaxed text-destructive/90">
+          {conn.errorMessage}
+        </div>
+      ) : null}
+      {conn.status === "expired" && conn.tokenExpiresAt ? (
+        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          {m.settings_connections_token_expired({
+            time: relativeTime(new Date(conn.tokenExpiresAt)),
+          })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ConnectionRowActions({
+  broken,
+  conn,
+  plugin,
+  hasSiblings,
+  onTest,
+  onSetDefault,
+  onToggleEnabled,
+  onDisconnect,
+  onReconnect,
+}: {
+  broken: boolean;
+  conn: MockConnection;
+  plugin: MockPlugin;
+  hasSiblings: boolean;
+  onTest: () => void;
+  onSetDefault: () => void;
+  onToggleEnabled: () => void;
+  onDisconnect: () => void;
+  onReconnect: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      {broken ? (
+        <Button variant="outline" size="sm" onClick={onReconnect}>
+          <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+          {m.settings_connections_action_reconnect()}
+        </Button>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={m.settings_connections_action_more()}
+            >
+              <MoreHorizontalIcon className="size-4" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onTest}>
+            <RefreshCwIcon className="size-3.5" />
+            {m.settings_connections_action_test()}
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <EditIcon className="size-3.5" />
+            {m.settings_connections_action_edit()}
+          </DropdownMenuItem>
+          {plugin.poolable && hasSiblings && !conn.isDefault ? (
+            <DropdownMenuItem onClick={onSetDefault}>
+              <StarIcon className="size-3.5" />
+              {m.settings_connections_action_set_default()}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onToggleEnabled}>
+            {conn.enabled ? <XIcon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
+            {conn.enabled
+              ? m.settings_connections_action_disable()
+              : m.settings_connections_action_enable()}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onDisconnect} variant="destructive">
+            <LogOutIcon className="size-3.5" />
+            {m.settings_connections_action_disconnect()}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 function ConnectionRow({
   conn,
   plugin,
@@ -368,116 +586,19 @@ function ConnectionRow({
           )}
         />
       ) : null}
-
       <NameGlyph name={plugin.name} />
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            {plugin.name}
-            {plugin.poolable ? (
-              <>
-                {" "}
-                <span className="text-muted-foreground">·</span>{" "}
-                <span className="text-muted-foreground">{conn.label}</span>
-              </>
-            ) : null}
-          </span>
-          <ConnectionStatusBadge status={conn.status} />
-          {conn.isDefault && hasSiblings ? (
-            <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wide">
-              <StarIcon className="size-2.5" aria-hidden="true" />
-              {m.settings_connections_default_badge()}
-            </Badge>
-          ) : null}
-          {!conn.enabled ? (
-            <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wide">
-              {m.settings_connections_disabled_badge()}
-            </Badge>
-          ) : null}
-        </div>
-
-        <p className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0 text-xs text-muted-foreground">
-          {conn.sublabel ? (
-            <span className={plugin.poolable ? "font-mono" : ""}>{conn.sublabel}</span>
-          ) : null}
-          <span>
-            {m.settings_connections_last_verified({
-              time: relativeTime(new Date(conn.lastVerifiedAt)),
-            })}
-          </span>
-          {conn.tokenExpiresAt && conn.status !== "expired" ? (
-            <span>
-              {m.settings_connections_token_expires({
-                time: relativeTime(new Date(conn.tokenExpiresAt)),
-              })}
-            </span>
-          ) : null}
-        </p>
-
-        {conn.status === "error" && conn.errorMessage ? (
-          <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-xs leading-relaxed text-destructive/90">
-            {conn.errorMessage}
-          </div>
-        ) : null}
-        {conn.status === "expired" && conn.tokenExpiresAt ? (
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            {m.settings_connections_token_expired({
-              time: relativeTime(new Date(conn.tokenExpiresAt)),
-            })}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-1.5">
-        {broken ? (
-          <Button variant="outline" size="sm" onClick={onReconnect}>
-            <RefreshCwIcon className="size-3.5" aria-hidden="true" />
-            {m.settings_connections_action_reconnect()}
-          </Button>
-        ) : null}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={m.settings_connections_action_more()}
-              >
-                <MoreHorizontalIcon className="size-4" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onTest}>
-              <RefreshCwIcon className="size-3.5" />
-              {m.settings_connections_action_test()}
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <EditIcon className="size-3.5" />
-              {m.settings_connections_action_edit()}
-            </DropdownMenuItem>
-            {plugin.poolable && hasSiblings && !conn.isDefault ? (
-              <DropdownMenuItem onClick={onSetDefault}>
-                <StarIcon className="size-3.5" />
-                {m.settings_connections_action_set_default()}
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onToggleEnabled}>
-              {conn.enabled ? <XIcon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
-              {conn.enabled
-                ? m.settings_connections_action_disable()
-                : m.settings_connections_action_enable()}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDisconnect} variant="destructive">
-              <LogOutIcon className="size-3.5" />
-              {m.settings_connections_action_disconnect()}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <ConnectionRowMeta conn={conn} plugin={plugin} hasSiblings={hasSiblings} />
+      <ConnectionRowActions
+        broken={broken}
+        conn={conn}
+        plugin={plugin}
+        hasSiblings={hasSiblings}
+        onTest={onTest}
+        onSetDefault={onSetDefault}
+        onToggleEnabled={onToggleEnabled}
+        onDisconnect={onDisconnect}
+        onReconnect={onReconnect}
+      />
     </li>
   );
 }

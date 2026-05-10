@@ -56,16 +56,13 @@ function NotificationsRoute() {
 
 const ROLE_RANK: Record<string, number> = { member: 0, admin: 1 };
 
-function NotificationsPage() {
+function useNotificationsState() {
   const [channels, setChannels] = useState<ReadonlyArray<MockChannel>>(MOCK_CHANNELS);
   const [subs, setSubs] = useState<ChannelSubscriptions>(DEFAULT_SUBSCRIPTIONS);
   const [editChannel, setEditChannel] = useState<MockChannel | null>(null);
   const [deleteChannel, setDeleteChannel] = useState<MockChannel | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const role = "member";
-
-  const onlyInbox = channels.length === 1 && channels[0]?.locked === true;
 
   const handleReplaceSubs = (channelId: string, next: Record<CategoryId, boolean>) => {
     setSubs((prev) => ({ ...prev, [channelId]: next }));
@@ -133,44 +130,62 @@ function NotificationsPage() {
     setEditChannel(newChannel);
   };
 
+  return {
+    channels,
+    subs,
+    editChannel,
+    deleteChannel,
+    addOpen,
+    testingId,
+    handleReplaceSubs,
+    handleTest,
+    handleDelete,
+    handleEditSave,
+    handleAddPlugin,
+    setAddOpen,
+    setEditChannel,
+    setDeleteChannel,
+  };
+}
+
+function NotificationsPage() {
+  const {
+    channels,
+    subs,
+    editChannel,
+    deleteChannel,
+    addOpen,
+    testingId,
+    handleReplaceSubs,
+    handleTest,
+    handleEditSave,
+    handleAddPlugin,
+    setAddOpen,
+    setEditChannel,
+    setDeleteChannel,
+    handleDelete,
+  } = useNotificationsState();
+  const role = "member";
+  const onlyInbox = channels.length === 1 && channels[0]?.locked === true;
+
   return (
     <div className="flex flex-col gap-7">
       <SettingsPageHeader
         title={m.settings_notifications_title()}
         description={m.settings_notifications_description()}
       />
-
-      <SettingsCard>
-        <SettingsCardHeader
-          title={m.settings_notifications_channels_title()}
-          description={m.settings_notifications_channels_description()}
-          action={
-            <Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-              <PlusIcon className="size-3.5" />
-              {m.settings_notifications_channels_add()}
-            </Button>
-          }
-        />
-        <CategoryLegend role={role} />
-        <ul role="list" className="flex flex-col">
-          {channels.map((channel, i) => (
-            <ChannelRow
-              key={channel.id}
-              channel={channel}
-              isFirst={i === 0}
-              role={role}
-              subs={subs[channel.id]}
-              testing={testingId === channel.id}
-              onReplaceSubs={(next) => handleReplaceSubs(channel.id, next)}
-              onTest={() => handleTest(channel)}
-              onEdit={() => setEditChannel(channel)}
-              onDelete={() => setDeleteChannel(channel)}
-            />
-          ))}
-        </ul>
-        {onlyInbox ? <OnlyInboxFooter onAdd={() => setAddOpen(true)} /> : null}
-      </SettingsCard>
-
+      <NotificationsChannelsCard
+        channels={channels}
+        subs={subs}
+        role={role}
+        testingId={testingId}
+        onlyInbox={onlyInbox}
+        onAddOpen={() => setAddOpen(true)}
+        onReplaceSubs={handleReplaceSubs}
+        onTest={handleTest}
+        onEdit={setEditChannel}
+        onDelete={setDeleteChannel}
+      />
       <AddChannelDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
@@ -182,35 +197,69 @@ function NotificationsPage() {
         onClose={() => setEditChannel(null)}
         onSave={handleEditSave}
       />
-      <Dialog
-        open={!!deleteChannel}
-        onOpenChange={(o) => {
-          if (!o) setDeleteChannel(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{m.settings_notifications_dialog_delete_title()}</DialogTitle>
-            <DialogDescription>
-              {deleteChannel
-                ? m.settings_notifications_dialog_delete_body({
-                    name: deleteChannel.name,
-                    plugin: `${deleteChannel.pluginName}@${deleteChannel.pluginVersion}`,
-                  })
-                : null}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteChannel(null)}>
-              {m.settings_notifications_dialog_cancel()}
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              {m.settings_notifications_dialog_delete_confirm()}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteChannelDialog
+        channel={deleteChannel}
+        onClose={() => setDeleteChannel(null)}
+        onConfirm={handleDelete}
+      />
     </div>
+  );
+}
+
+function NotificationsChannelsCard({
+  channels,
+  subs,
+  role,
+  testingId,
+  onlyInbox,
+  onAddOpen,
+  onReplaceSubs,
+  onTest,
+  onEdit,
+  onDelete,
+}: {
+  channels: ReadonlyArray<MockChannel>;
+  subs: ChannelSubscriptions;
+  role: string;
+  testingId: string | null;
+  onlyInbox: boolean;
+  onAddOpen: () => void;
+  onReplaceSubs: (channelId: string, next: Record<CategoryId, boolean>) => void;
+  onTest: (ch: MockChannel) => void;
+  onEdit: (ch: MockChannel) => void;
+  onDelete: (ch: MockChannel) => void;
+}) {
+  return (
+    <SettingsCard>
+      <SettingsCardHeader
+        title={m.settings_notifications_channels_title()}
+        description={m.settings_notifications_channels_description()}
+        action={
+          <Button variant="outline" size="sm" onClick={onAddOpen}>
+            <PlusIcon className="size-3.5" />
+            {m.settings_notifications_channels_add()}
+          </Button>
+        }
+      />
+      <CategoryLegend role={role} />
+      <ul role="list" className="flex flex-col">
+        {channels.map((channel, i) => (
+          <ChannelRow
+            key={channel.id}
+            channel={channel}
+            isFirst={i === 0}
+            role={role}
+            subs={subs[channel.id]}
+            testing={testingId === channel.id}
+            onReplaceSubs={(next) => onReplaceSubs(channel.id, next)}
+            onTest={() => onTest(channel)}
+            onEdit={() => onEdit(channel)}
+            onDelete={() => onDelete(channel)}
+          />
+        ))}
+      </ul>
+      {onlyInbox ? <OnlyInboxFooter onAdd={onAddOpen} /> : null}
+    </SettingsCard>
   );
 }
 
@@ -290,6 +339,155 @@ interface ChannelRowProps {
   onDelete: () => void;
 }
 
+function ChannelRowHeader({ channel }: { channel: MockChannel }) {
+  return (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-foreground">{channel.name}</span>
+        <Badge variant="outline" className="font-mono text-[10px]">
+          {channel.pluginName}@{channel.pluginVersion}
+        </Badge>
+        {channel.locked ? (
+          <Badge
+            variant="secondary"
+            className="border-success/30 bg-success/10 font-mono text-[10px] uppercase tracking-wide text-success"
+          >
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
+            {m.settings_notifications_channels_always_on()}
+          </Badge>
+        ) : null}
+      </div>
+      <div className="mt-1 flex flex-col gap-y-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-3.5">
+        {channel.config.map((c) => (
+          <span key={c.label} className="flex min-w-0 items-baseline gap-1.5">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+              {c.label}
+            </span>
+            <span className="min-w-0 truncate font-mono text-foreground/80">{c.value}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ChannelRowActions({
+  channel,
+  testing,
+  onTest,
+  onEdit,
+  onDelete,
+}: {
+  channel: MockChannel;
+  testing: boolean;
+  onTest: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="col-span-2 flex flex-wrap items-center justify-end gap-1.5 sm:col-span-1 sm:self-start">
+      {channel.locked ? (
+        <span className="inline-flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
+          <ShieldIcon className="size-3.5" aria-hidden="true" />
+          {m.settings_notifications_channels_locked()}
+        </span>
+      ) : (
+        <>
+          <Button variant="outline" size="xs" onClick={onTest} disabled={testing}>
+            {testing ? (
+              <>
+                <LoaderCircleIcon className="size-3.5 animate-spin" />
+                {m.settings_notifications_channels_testing()}
+              </>
+            ) : (
+              <>
+                <PlayIcon className="size-3.5" />
+                {m.settings_notifications_channels_test()}
+              </>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onEdit}
+            aria-label={m.settings_notifications_channels_edit()}
+          >
+            <EditIcon className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onDelete}
+            aria-label={m.settings_notifications_channels_delete()}
+            className="text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+          >
+            <XIcon className="size-3.5" />
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ChannelRowDelivers({
+  inboxStyle,
+  activeCategories,
+  role,
+  onReplaceSubs,
+}: {
+  inboxStyle: boolean;
+  activeCategories: CategoryId[];
+  role: string;
+  onReplaceSubs: (next: Record<CategoryId, boolean>) => void;
+}) {
+  return (
+    <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pl-12">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+        {m.settings_notifications_channels_delivers()}
+      </span>
+      <ToggleGroup<CategoryId>
+        multiple
+        aria-label={m.settings_notifications_channels_delivers()}
+        disabled={inboxStyle}
+        value={activeCategories}
+        onValueChange={(next) =>
+          onReplaceSubs({
+            media: next.includes("media"),
+            sync: next.includes("sync"),
+            auth: next.includes("auth"),
+            system: next.includes("system"),
+          })
+        }
+        className="flex flex-wrap gap-1.5"
+      >
+        {MOCK_CATEGORIES.map((cat) => {
+          const restricted =
+            cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
+          const tooltip = inboxStyle
+            ? m.settings_notifications_channels_inbox_locked()
+            : restricted
+              ? m.settings_notifications_channels_locked_admin()
+              : undefined;
+          return (
+            <ToggleGroupItem
+              key={cat.id}
+              value={cat.id}
+              disabled={inboxStyle || !!restricted}
+              title={tooltip}
+              className={cn(
+                inboxStyle &&
+                  "data-pressed:border-success/30 data-pressed:bg-success/10 data-pressed:text-success",
+              )}
+            >
+              {CATEGORY_LABEL[cat.id]()}
+            </ToggleGroupItem>
+          );
+        })}
+      </ToggleGroup>
+    </div>
+  );
+}
+
 function ChannelRow({
   channel,
   isFirst,
@@ -316,121 +514,20 @@ function ChannelRow({
       )}
     >
       <NameGlyph name={channel.name} />
-
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-foreground">{channel.name}</span>
-          <Badge variant="outline" className="font-mono text-[10px]">
-            {channel.pluginName}@{channel.pluginVersion}
-          </Badge>
-          {channel.locked ? (
-            <Badge
-              variant="secondary"
-              className="border-success/30 bg-success/10 font-mono text-[10px] uppercase tracking-wide text-success"
-            >
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-              {m.settings_notifications_channels_always_on()}
-            </Badge>
-          ) : null}
-        </div>
-        <div className="mt-1 flex flex-col gap-y-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-3.5">
-          {channel.config.map((c) => (
-            <span key={c.label} className="flex min-w-0 items-baseline gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
-                {c.label}
-              </span>
-              <span className="min-w-0 truncate font-mono text-foreground/80">{c.value}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="col-span-2 flex flex-wrap items-center justify-end gap-1.5 sm:col-span-1 sm:self-start">
-        {channel.locked ? (
-          <span className="inline-flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
-            <ShieldIcon className="size-3.5" aria-hidden="true" />
-            {m.settings_notifications_channels_locked()}
-          </span>
-        ) : (
-          <>
-            <Button variant="outline" size="xs" onClick={onTest} disabled={testing}>
-              {testing ? (
-                <>
-                  <LoaderCircleIcon className="size-3.5 animate-spin" />
-                  {m.settings_notifications_channels_testing()}
-                </>
-              ) : (
-                <>
-                  <PlayIcon className="size-3.5" />
-                  {m.settings_notifications_channels_test()}
-                </>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onEdit}
-              aria-label={m.settings_notifications_channels_edit()}
-            >
-              <EditIcon className="size-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onDelete}
-              aria-label={m.settings_notifications_channels_delete()}
-              className="text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-            >
-              <XIcon className="size-3.5" />
-            </Button>
-          </>
-        )}
-      </div>
-
-      <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pl-12">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
-          {m.settings_notifications_channels_delivers()}
-        </span>
-        <ToggleGroup<CategoryId>
-          multiple
-          aria-label={m.settings_notifications_channels_delivers()}
-          disabled={inboxStyle}
-          value={activeCategories}
-          onValueChange={(next) =>
-            onReplaceSubs({
-              media: next.includes("media"),
-              sync: next.includes("sync"),
-              auth: next.includes("auth"),
-              system: next.includes("system"),
-            })
-          }
-          className="flex flex-wrap gap-1.5"
-        >
-          {MOCK_CATEGORIES.map((cat) => {
-            const restricted =
-              cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
-            const tooltip = inboxStyle
-              ? m.settings_notifications_channels_inbox_locked()
-              : restricted
-                ? m.settings_notifications_channels_locked_admin()
-                : undefined;
-            return (
-              <ToggleGroupItem
-                key={cat.id}
-                value={cat.id}
-                disabled={inboxStyle || !!restricted}
-                title={tooltip}
-                className={cn(
-                  inboxStyle &&
-                    "data-pressed:border-success/30 data-pressed:bg-success/10 data-pressed:text-success",
-                )}
-              >
-                {CATEGORY_LABEL[cat.id]()}
-              </ToggleGroupItem>
-            );
-          })}
-        </ToggleGroup>
-      </div>
+      <ChannelRowHeader channel={channel} />
+      <ChannelRowActions
+        channel={channel}
+        testing={testing}
+        onTest={onTest}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+      <ChannelRowDelivers
+        inboxStyle={inboxStyle}
+        activeCategories={activeCategories}
+        role={role}
+        onReplaceSubs={onReplaceSubs}
+      />
     </li>
   );
 }
@@ -520,7 +617,75 @@ function AddChannelDialog({
   );
 }
 
+// ─── Delete channel dialog ───────────────────────────────────────────────────
+
+function DeleteChannelDialog({
+  channel,
+  onClose,
+  onConfirm,
+}: {
+  channel: MockChannel | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog
+      open={!!channel}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{m.settings_notifications_dialog_delete_title()}</DialogTitle>
+          <DialogDescription>
+            {channel
+              ? m.settings_notifications_dialog_delete_body({
+                  name: channel.name,
+                  plugin: `${channel.pluginName}@${channel.pluginVersion}`,
+                })
+              : null}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {m.settings_notifications_dialog_cancel()}
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            {m.settings_notifications_dialog_delete_confirm()}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Edit channel dialog ────────────────────────────────────────────────────
+
+function ConfigFieldList({
+  config,
+  onUpdate,
+}: {
+  config: ReadonlyArray<{ label: string; value: string }>;
+  onUpdate: (idx: number, value: string) => void;
+}) {
+  return (
+    <>
+      {config.map((c, i) => (
+        <Field key={c.label}>
+          <FieldTitle className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
+            {c.label}
+          </FieldTitle>
+          <Input
+            value={c.value}
+            onChange={(e) => onUpdate(i, e.target.value)}
+            className="font-mono text-xs"
+          />
+        </Field>
+      ))}
+    </>
+  );
+}
 
 function EditChannelDialog({
   channel,
@@ -570,18 +735,7 @@ function EditChannelDialog({
             <FieldTitle>{m.settings_notifications_dialog_edit_name()}</FieldTitle>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          {config.map((c, i) => (
-            <Field key={c.label}>
-              <FieldTitle className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-                {c.label}
-              </FieldTitle>
-              <Input
-                value={c.value}
-                onChange={(e) => updateConfig(i, e.target.value)}
-                className="font-mono text-xs"
-              />
-            </Field>
-          ))}
+          <ConfigFieldList config={config} onUpdate={updateConfig} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

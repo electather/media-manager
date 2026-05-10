@@ -16,9 +16,12 @@ function nameToHue(name: string): number {
 function nameToMonogram(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length >= 2) {
-    return ((words[0]?.[0] ?? "") + (words[1]?.[0] ?? "")).toUpperCase();
+    // words[0] and words[1] are guaranteed to exist and be non-empty after the
+    // length guard and filter(Boolean) call above.
+    return (words[0]![0]! + words[1]![0]!).toUpperCase();
   }
-  return (words[0] ?? "?").slice(0, 2).toUpperCase();
+  const word = words[0];
+  return word ? word.slice(0, 2).toUpperCase() : "?";
 }
 
 /**
