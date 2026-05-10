@@ -38,7 +38,7 @@ function SecurityRoute() {
   );
 }
 
-export function SecurityPage() {
+function SecurityPage() {
   const [sessions, setSessions] = useState<ReadonlyArray<MockSession>>(MOCK_SESSIONS);
 
   const onPasswordChanged = () => {
@@ -61,7 +61,7 @@ export function SecurityPage() {
 
 const MIN_PASSWORD_LENGTH = 12;
 
-export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
+function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -244,7 +244,7 @@ function PasswordMeter({ value }: { value: string }) {
 
 // ─── Active sessions ────────────────────────────────────────────────────────
 
-export function ActiveSessionsCard({
+function ActiveSessionsCard({
   sessions,
   setSessions,
 }: {

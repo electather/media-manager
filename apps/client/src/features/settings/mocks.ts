@@ -68,7 +68,7 @@ export const MOCK_SESSIONS: ReadonlyArray<MockSession> = [
 // ─── Connections ─────────────────────────────────────────────────────────────
 
 export type ConnectionStatus = "connected" | "expired" | "error" | "disconnected";
-export type ConnectionAuthKind = "oauth" | "oauth_device" | "api_key" | "form";
+type ConnectionAuthKind = "oauth" | "oauth_device" | "api_key" | "form";
 
 export interface MockPlugin {
   id: string;
@@ -79,7 +79,7 @@ export interface MockPlugin {
   fields: ReadonlyArray<MockPluginField>;
 }
 
-export interface MockPluginField {
+interface MockPluginField {
   id: string;
   label: string;
   hint?: string;

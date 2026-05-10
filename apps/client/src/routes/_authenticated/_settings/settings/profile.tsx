@@ -96,7 +96,7 @@ function IdentityCard({
 
 // ─── Name ───────────────────────────────────────────────────────────────────
 
-export function NameRow({
+function NameRow({
   currentName,
   onSave,
 }: {
@@ -152,7 +152,7 @@ export function NameRow({
 
 // ─── Email ──────────────────────────────────────────────────────────────────
 
-export function EmailRow({
+function EmailRow({
   currentEmail,
   emailVerified,
   emailEnabled,
@@ -332,7 +332,7 @@ function AccountCard({ user }: { user: MockUser }) {
 
 const VERIFICATION_COOLDOWN_SECONDS = 60;
 
-export function VerifyBanner({ email }: { email: string }) {
+function VerifyBanner({ email }: { email: string }) {
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
