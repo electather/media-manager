@@ -5,7 +5,8 @@
 **Author:** Omid Astaraki
 **Scope:** `apps/client/`
 **Supersedes / extends:** PR 8 of `docs/2026-04-25-notifications-design.md`. Server (PRs 1–7) shipped & gated by `NOTIFICATIONS_ENABLED`. This doc = full client surface + flag flip.
-**Related:** `docs/2026-04-29-frontend-structure-design.md` (feature-first layout).
+**Related:** `docs/2026-04-29-frontend-structure-design.md` (feature-first layout); `docs/2026-04-24-user-settings-design.md` (settings shell + 6th tab wiring).
+**Amendments:** 2026-05-10 — `/settings/notifications` inbox row = always-on virtual row, ⊥ server subscription. See § "Settings inbox row (2026-05-10)".
 
 ## Summary
 
@@ -519,3 +520,18 @@ Each commit independently green under `vp check && vp test`.
 - Bulk-save in subscription matrix (`POST /subscriptions/bulk`) — defer until cell-by-cell UX shows friction; route exists.
 - Export deliveries CSV from admin.
 - Client-side delivery analytics dashboard. Server metrics ∃; surface deferred.
+
+---
+
+## Settings inbox row (2026-05-10)
+
+`/settings/notifications` channels list renders a locked first row labelled **Inbox**. Behaviour:
+
+- Always on, all categories enabled. ⊥ user-toggleable.
+- Virtual — ⊥ row in `service_connections`, ⊥ row in subscription table. Rendered statically client-side at top of channels list.
+- ⊥ delete, ⊥ test, ⊥ edit. Locked badge.
+- Categories grid disabled w/ pressed state ∀ category (visual = "delivers everything").
+
+Rationale: in-app inbox = the universal sink. Every `notifications.emit()` lands there regardless of subscriptions (per server design). Surface as locked row instead of fake subscription rows so settings tab honestly reflects: "you can't opt out of in-app".
+
+Wire change: `channels-section.tsx` prepends a literal `<InboxRow />` ahead of mapped `channels`. ⊥ data dependency. Client-only constant.

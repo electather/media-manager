@@ -1,20 +1,21 @@
 # User Settings — Design
 
-**Status:** Draft
+**Status:** Wiring in progress (amended 2026-05-10)
 **Date:** 2026-04-24
 **Author:** Omid Astaraki
+**Amendments:** 2026-05-10 — visual redesign landed; tabs grow to 6 (notifications added); MCP endpoint not per-user, no rotate; AuthorizedApp gains server-derived `status` + `description`. See § "Wiring amendment (2026-05-10)" tail.
 
 ## Summary
 
-Wire existing `/settings` mock to real Better Auth + Hono RPC. Split into nested-route layout, 5 deep-linkable tabs. Add missing account features: email verification (when email provider configured), verify-before-switch email change, active-session mgmt, authorized-apps wiring, data export, real delete-account flow. Existing `/connections` page relocates into layout as 5th tab — move only, no redesign.
+Wire existing `/settings` mock to real Better Auth + Hono RPC. Nested-route layout, 6 deep-linkable tabs. Add missing account features: email verification (when email provider configured), verify-before-switch email change, active-session mgmt, authorized-apps wiring, data export, real delete-account flow. Connections + notifications tabs wire redesigned card UI to existing `/api/connections/*` & `/api/notifications/*`.
 
-Implementation contract, not visual redesign. Styling stays in today's shadcn/ui vocabulary.
+Visual redesign already landed (2026-05-10). This doc = wiring contract for swapping `apps/client/src/features/settings/mocks.ts` consumers ⇒ live data.
 
 ## Goals
 
-- ∀ mocked field in `/settings` (name, email, password, MCP endpoint, OAuth clients, delete) → real data & real mutations. No mock constants.
-- 5 deep-linkable tabs: `/settings/profile`, `/settings/security`, `/settings/connections`, `/settings/apps`, `/settings/danger`. Bare `/settings` → redirect `/settings/profile`.
-- `/connections` relocated under settings layout. No behaviour | visual change. Top-level "Connections" sidebar entry removed. Old `/connections` → 404. No back-compat redirect (out of scope).
+- ∀ mocked field in `/settings` (name, email, password, MCP endpoint, OAuth clients, delete, channels, subscriptions) → real data & real mutations. No mock constants. `mocks.ts` deleted post-sweep.
+- 6 deep-linkable tabs: `/settings/profile`, `/settings/security`, `/settings/connections`, `/settings/apps`, `/settings/notifications`, `/settings/danger`. Bare `/settings` → redirect `/settings/profile`.
+- `/connections` relocated under settings layout w/ redesigned card UI; data still hits existing `/api/connections/*`. Top-level "Connections" sidebar entry removed. Old `/connections` → 404. No back-compat redirect (out of scope).
 - Email-dependent flows degrade gracefully when no email provider configured (self-hosted case).
 - Identity/security actions → `authClient` direct. App-specific (role lookup, authorized-app listing w/ aggregated last-used, export, delete-with-cascade) → new Hono sub-app `meApp`.
 - Signed-in user can: verify email, change email safely, change password, manage service connections, see & revoke active sessions, see & revoke authorized MCP apps, export data as ZIP, permanently delete account.
@@ -155,33 +156,38 @@ Button below session list. Confirmation dialog → `authClient.revokeOtherSessio
 
 ## Connections tab (`/settings/connections`)
 
-### Scope
+### Scope (amended 2026-05-10)
 
-Relocation only. Existing `/connections` page (`packages/client/src/routes/_authenticated/connections.tsx`, ~934 lines, fully wired to `api.connections.*`) moves under settings layout. Data flow, queries, mutations, modal components, capability badges, empty states & error handling preserved verbatim.
+Redesign + relocate. Old `/connections` page deleted. Settings tab carries new card UI (rendered today w/ mocks). Wiring step: swap `MOCK_CONNECTIONS` & `MOCK_PLUGINS` ⇒ existing `/api/connections/*` endpoints. Reuse `ConnectionModal` from `apps/client/src/features/connections/` for add/edit/test/oauth flows — same modal already wired to RPC.
 
-### What changes
+### Wire shape
 
-- **Route file:** `connections.tsx` moves to `settings/connections.tsx`. Only change: `createFileRoute` path. Component body & all imports unchanged.
-- **Old route file deleted.** `routeTree.gen.ts` regenerates without old entry.
-- **Settings left nav** gains "Connections" between "Security" & "Authorized apps".
-- **App sidebar** loses top-level "Connections" entry.
-- **Inbound links** pointing at `/connections` → updated to `/settings/connections` (grep pass).
-- **Prior design docs** (`2026-04-19-frontend-connections-design.md`, `2026-04-22-frontend-plugin-connections-design.md`) → amended with "route relocated" note pointing at this doc.
+| UI source | Server | Notes |
+| --- | --- | --- |
+| `MOCK_CONNECTIONS` | `api.connections.$get()` | Returns user's `service_connections` rows |
+| `MOCK_PLUGINS` | `api.connections.available.$get()` | Connection-capable plugin manifests |
+| Connection status | derived from row fields (`enabled`, `tokenExpiresAt`, last error) | client-side enum mapping |
+| Add / Edit / OAuth | `ConnectionModal` (existing) | covers form, oauth-redirect, oauth-device |
+| Test | `api.connections[":id"].test.$post` | existing |
+| Set primary | `api.connections[":id"].default.$post` | existing |
+| Toggle enabled | `api.connections[":id"].enabled.$patch` | existing |
+| Delete | `api.connections[":id"].$delete` | existing |
+
+No new server endpoints. No shared-type changes.
 
 ### What does not change
 
-- Component behaviour: plugin-driven sections, capability badges, modals, schema forms, primary-connection toggling, test-and-save flows.
-- No server-side work. `api.connections.*` unchanged.
-- No new shared types.
-- No new tests. Existing tests move with route file.
+- `api.connections.*` surface — already complete.
+- `ConnectionModal` internals — reused as-is.
+- Auth flows (form, oauth-redirect, oauth-device) — covered by existing modal.
 
 ### Risk
 
-Only regression path: move accidentally drops import path, component dep, or query-key collision with settings layout. PR runs full client test suite + manual smoke pass (add, edit, test, disable, set-primary).
+Status mapping divergence — redesign expects `connected | expired | error | disconnected` enum; server row carries booleans + error string. Map client-side in single helper, unit-test ∀ branch.
 
 ### Old URL
 
-`GET /connections` → 404. No banner. No redirect. Follow-up if it matters in practice.
+`GET /connections` → 404. No banner. No redirect.
 
 ## Authorized apps tab (`/settings/apps`)
 
@@ -218,12 +224,13 @@ Rationale: revoke = "remove my authorization". Cascading → destroy every other
 
 The page surface is split into two cards. The first card describes the user's MCP endpoint; the second lists clients that have authorized against it.
 
-**MCP endpoint card.**
+**MCP endpoint card.** (amended 2026-05-10 — endpoint not per-user, no rotate)
 
-- URL field: stitched `[plug-icon][URL][CopyButton]` row. URL is per-user, token-bearing (`?t=<uuid>`), backed by the same revoke set as the app list.
-- Meta line: live indicator dot, count of currently authorized clients, and `Rotated ${relativeTime(rotatedAt)}`.
-- Scope summary panel: dashed-bordered card with one short paragraph plus the full set of `read`/`write` scope chips that the endpoint can grant. Read-only; explains _what authorized clients can do_ before the user pastes the URL anywhere.
-- `⋯` menu: `Setup guide` (opens modal, see below) and destructive `Rotate URL` (confirmation dialog with explicit warning that **all currently authorized clients are revoked** as a side-effect — rotating is the leak-mitigation path).
+- URL field: stitched `[plug-icon][URL][CopyButton]`. URL = single server-wide MCP mount (`${origin}/mcp`). OAuth handles per-user authn at request time. ⊥ token-in-URL.
+- Source: `api.config.public.$get()` → `mcpEndpointUrl`. Cached infinity.
+- Meta line: live indicator dot + authorized-client count. ⊥ `rotatedAt` line (no rotate).
+- Scope summary panel: dashed-bordered card. Scope chips ⇐ `mcpScopes` ∈ same `PublicConfig` payload. Single source w/ server `MCP_SCOPES` const (moved into shared package).
+- `⋯` menu: `Setup guide` only. Rotate menu item + RotateDialog component deleted.
 
 **Setup guide modal.** Adaptive Dialog/Drawer (desktop/mobile). Three sections — Claude Desktop, Cursor, generic MCP-compatible — each with a short steps paragraph and (where applicable) a copyable JSON snippet that wires `mcpServers."media-manager".url` to the endpoint. Snippets are produced via `JSON.stringify` so a stray quote in the URL cannot break the copy-paste payload.
 
@@ -243,20 +250,19 @@ Each row:
 
 **Filter empty state.** Plain text "Nothing matches this filter." in place of the row list when the active filter has zero matches.
 
-### Mock vs. real model
+### Mock vs. real model (amended 2026-05-10)
 
-The prototype port renders against `MockAuthorizedApp`, which extends the canonical `AuthorizedApp` with UI-affordance fields:
+| Field | Server | Notes |
+| --- | --- | --- |
+| `clientId`, `name`, `scopes` | yes | from `oauthClient` / `oauthConsent` |
+| `connectedAt` | yes | `oauthConsent.createdAt`. Wire field name unchanged (`AuthorizedApp.connectedAt`); UI label = "Authorized" |
+| `lastUsedAt` | yes | `MAX(oauthAccessToken.createdAt)` for (user, client); `null` if never |
+| `status` (`active`/`idle`/`new`) | yes (server-derived this PR) | SQL `CASE` over `lastUsedAt` window. `active` if last use < 5 min, `new` if `connectedAt` < 24 h ∧ `lastUsedAt IS NULL`, else `idle`. Single source = server. |
+| `description` | yes (this PR if column exists) | `oauthClient.description` if column present; else nullable & UI hides line |
+| `ipAddress`, `deviceLabel`, `version` | ⊥ | dropped from row UI this PR. Backend introspection deferred — no telemetry tables added |
+| `callsLast24h` | ⊥ | dropped from row UI this PR. Per-call telemetry deferred |
 
-| Field                          | Server-backed today | Notes                                                                                |
-| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------ |
-| `clientId`, `name`, `scopes`   | yes                 | from `oauthClient` / `oauthConsent`                                                  |
-| `authorizedAt`                 | yes                 | renamed from `connectedAt` for naming consistency with `lastSeenAt`; same source     |
-| `lastSeenAt`                   | yes                 | `MAX(oauthAccessToken.createdAt)` for (user, client); replaces the earlier `lastUsedAt` alias |
-| `status` (`active`/`idle`/`new`) | derived           | computed from `lastSeenAt` window — server stays the source of truth                 |
-| `ipAddress`, `deviceLabel`, `version` | mock-only    | populated when token introspection / UA capture lands; nullable on the wire          |
-| `callsLast24h`                 | mock-only           | populated from access-token usage telemetry once collected                           |
-
-`ownedByUser` is server-only and not surfaced in the UI yet — admin-side "delete app entirely" remains the only place it matters, and that lives under `/admin`. When the backend lands, the integration layer maps `oauthAccessToken.lastSeenAt` (or its successor) onto the `status` enum and leaves the mock-only fields nullable until they have a real source.
+`ownedByUser` ∈ wire shape, ¬ surfaced in UI (admin-only). UI row meta = `Authorized {date} · Last active {relativeTime}` only — no IP/device/version line until backend lands. Filter pills (`All`/`Active`/`Idle`) keyed off server-supplied `status`.
 
 ### Error states
 
@@ -383,10 +389,10 @@ Config knobs only, no custom code. Verify installed version ≥ 1.2; bump in sam
 
 Extend `packages/shared/src/users/`:
 
-- `AuthorizedApp` type.
+- `AuthorizedApp` type. **Amended 2026-05-10:** add `status: 'active' | 'idle' | 'new'`, `description: string | null`. Server populates both.
 - `RoleSummary` type `{ name: string; description: string | null }`.
 - `DeleteAccountBody` zod schema `{ confirmEmail: string, currentPassword: string }`.
-- `PublicConfig` type `{ emailEnabled: boolean }`.
+- `PublicConfig` type. **Amended 2026-05-10:** `{ emailEnabled: boolean; mcpEndpointUrl: string; mcpScopes: readonly string[] }`. `mcpEndpointUrl` ⇐ `${env.PUBLIC_BASE_URL}/mcp` (or computed from request origin). `mcpScopes` ⇐ `MCP_SCOPES` const moved from `apps/server/src/mcp/scopes.ts` ⇒ shared package (re-imported by server).
 
 Export via `@ent-mcp/shared/users` subpath.
 
@@ -457,3 +463,78 @@ Single PR, no feature flag.
 7. Changeset file added per `CLAUDE.md` convention.
 
 No data migration beyond cascade audit. No rollback plan beyond `git revert` — no destructive migrations. Connections move = file relocation only; revert by restoring old route file.
+
+---
+
+## Notifications tab (`/settings/notifications`) — added 2026-05-10
+
+Sixth tab. Wire spec lives in `docs/2026-05-06-notifications-client-design.md` § Settings (sub-dir `apps/client/src/features/notifications/settings/`). All endpoints already documented:
+
+| UI source | Server |
+| --- | --- |
+| `MOCK_CHANNELS` | `api.notifications.channels.$get()` |
+| `MOCK_AVAILABLE_CHANNEL_PLUGINS` | `api.notifications.plugins.$get()` |
+| `MOCK_CATEGORIES` (w/ `requires`) | `api.notifications.categories.$get()` (carries `allowed` flag) |
+| `DEFAULT_SUBSCRIPTIONS` | `api.notifications.subscriptions.$get()` + `subscriptions.bulk.$post` |
+| Test channel | `api.notifications.channels[":id"].test.$post` |
+| Add / Edit channel | `ConnectionModal` (existing) — same flow as connections tab |
+| Delete channel | `api.connections[":id"].$delete` |
+| Inbox row | virtual, always-on, all categories. ⊥ server subscription. Rendered statically as locked first row. See notifications-client doc amendment. |
+
+Sidebar nav: notifications between "Authorized apps" & "Danger zone". Settings layout file picks up entry.
+
+---
+
+## Wiring amendment (2026-05-10)
+
+### Scope shift
+
+Visual redesign of all 6 tabs already merged. This amendment captures the wiring contract for swapping mock imports ⇒ live data in single PR.
+
+### Mock cleanup
+
+`apps/client/src/features/settings/mocks.ts` deleted post-sweep. ∀ consumer ⇒ TanStack Query against the endpoints listed in each tab section above.
+
+| Mock symbol | Replacement |
+| --- | --- |
+| `MOCK_USER` | `authClient.useSession()` |
+| `MOCK_ROLE` | `api.me.role.$get()` |
+| `MOCK_SESSIONS` | `authClient.listSessions()` |
+| `MOCK_CONNECTIONS` | `api.connections.$get()` |
+| `MOCK_PLUGINS` | `api.connections.available.$get()` |
+| `MOCK_AUTHORIZED_APPS` | `api.me.apps.$get()` (extended `AuthorizedApp`) |
+| `MOCK_MCP_ENDPOINT` | `api.config.public.$get()` → `mcpEndpointUrl` |
+| `MCP_ENDPOINT_SCOPES` | `api.config.public.$get()` → `mcpScopes` |
+| `MOCK_CHANNELS` | `api.notifications.channels.$get()` |
+| `MOCK_AVAILABLE_CHANNEL_PLUGINS` | `api.notifications.plugins.$get()` |
+| `MOCK_CATEGORIES` | `api.notifications.categories.$get()` |
+| `DEFAULT_SUBSCRIPTIONS` | `api.notifications.subscriptions.$get()` |
+
+### Data layer
+
+Co-locate fetchers + query keys under `apps/client/src/features/settings/data/`:
+
+```
+features/settings/data/
+  query-keys.ts    settingsKeys factory: profile, role, sessions, apps, mcpEndpoint
+  fetchers.ts      thin wrappers around api.me.* + api.config.public + authClient
+  mappers.ts       AuthorizedApp → row props; service_connection → ConnectionStatus
+```
+
+Existing `features/notifications/` & `features/connections/` keep their own data dirs — settings tabs import from sibling features, ⊥ duplicate.
+
+Suspense + ErrorBoundary at tab-component root (existing `SettingsErrorBoundary` already in place). Reads = `useSuspenseQuery`. Mutations = `useMutation` w/ optimistic where reasonable (revoke-app, revoke-session, toggle-subscription).
+
+### Server changes (small)
+
+1. `MCP_SCOPES` const ⇒ `packages/shared/src/users/mcp-scopes.ts`. Server re-imports.
+2. `configPublicApp` payload widens: `mcpEndpointUrl`, `mcpScopes`. URL derived from `env.PUBLIC_BASE_URL ?? c.req.url` origin.
+3. `listAuthorizedApps` SQL adds derived `status` (CASE expression on `lastUsedAt`) + `description` (left-join `oauthClient.description` if column present; verify schema first — add column nullable in a prerequisite migration if missing).
+4. `AuthorizedApp` shared type widens: `status`, `description`. Drizzle-zod schema (if any) regenerates.
+
+### Out of scope (deferred)
+
+- Token-introspection capture (ip/device/version on apps).
+- Per-call telemetry (`callsLast24h`).
+- Per-user rotatable MCP URL.
+- Notification-channel rename without going through Connections add/edit modal (rename-via-display-name only).
