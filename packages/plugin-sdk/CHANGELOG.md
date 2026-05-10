@@ -1,5 +1,12 @@
 # @ent-mcp/plugin-sdk
 
+## 0.4.0
+
+### Minor Changes
+
+- 6831fb5: Extended request listings with season numbers and request destination labels.
+- 6831fb5: Added a list-targets capability so request plugins can advertise their servers and quality profiles.
+
 ## 0.3.0
 
 ### Minor Changes

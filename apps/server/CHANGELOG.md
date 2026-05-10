@@ -1,5 +1,36 @@
 # @ent-mcp/server
 
+## 0.4.0
+
+### Minor Changes
+
+- e2556c5: Added a search endpoint that powers live results in the command menu.
+- 133cce0: Wired the `/api/discover/trending` endpoint so the command menu can list live trending TV shows and movies.
+- 018fcab: The hero now showcases a mix of continue-watching, recommended, trending, and new-release titles instead of repeating one source, with a per-slide source label that updates as the carousel cycles.
+- 5e66a73: Added an admin job that sends a demo notification to any user, useful for verifying the notifications setup.
+- 5e66a73: Notifications are now enabled by default.
+- 6831fb5: Pending request status now survives reloads, displays "awaiting approval" when an admin approval is required, and supports server-side cancellation.
+- 6831fb5: Wired the request-submission API and added a target-listing endpoint that aggregates configured request services.
+
+### Patch Changes
+
+- d8bfbf6: Fixed a crash on the home page when an old cached layout blob was served after the hero shape changed in the previous release; the home layout cache now invalidates those stale entries on first read.
+- 5e66a73: Demo notification job now lets admins pick the event type instead of the category, and builds a payload that matches the chosen type so the rendered notification reflects the selection.
+- Updated dependencies [6831fb5]
+- Updated dependencies [6831fb5]
+- Updated dependencies [6831fb5]
+  - @ent-mcp/plugin-sdk@0.4.0
+  - @ent-mcp/plugin-seerr@0.3.0
+  - @ent-mcp/plugin-discord@0.2.2
+  - @ent-mcp/plugin-inbox@0.2.2
+  - @ent-mcp/plugin-jellyfin@0.3.1
+  - @ent-mcp/plugin-ntfy@0.2.2
+  - @ent-mcp/plugin-plex@0.3.1
+  - @ent-mcp/plugin-telegram@0.2.2
+  - @ent-mcp/plugin-tmdb@0.3.1
+  - @ent-mcp/plugin-trakt@0.2.2
+  - @ent-mcp/plugin-tvdb@0.2.2
+
 ## 0.3.0
 
 ### Minor Changes

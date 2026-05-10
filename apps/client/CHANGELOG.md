@@ -1,5 +1,26 @@
 # @ent-mcp/client
 
+## 0.4.0
+
+### Minor Changes
+
+- 133cce0: Replaced custom keydown handling with TanStack Hotkeys, added vim-style page jumps (g h, g l, …) and a shortcuts cheatsheet, turned theme and locale into inline drill-in pickers, and wired command menu search to the live `/api/search` endpoint.
+- bbf1c2e: Detail modal now renders summary fields instantly from row and hero caches while the full details fetch is in flight.
+- 018fcab: The hero now showcases a mix of continue-watching, recommended, trending, and new-release titles instead of repeating one source, with a per-slide source label that updates as the carousel cycles.
+- 5e66a73: Added a notifications page so you can browse, filter, and manage everything sent to you, plus pick which channels each category goes to.
+- 6831fb5: Pending request status now survives reloads, displays "awaiting approval" when an admin approval is required, and supports server-side cancellation.
+- 6831fb5: Request submissions now hit the server, with quality-profile choices loaded from the configured request services.
+
+### Patch Changes
+
+- 300b96a: The home hero now bleeds an ambient glow behind the rows below it, the detail modal sizes to its content with a fixed cinematic backdrop, and notifications and the modal hide their scrollbars while still scrolling normally.
+- d8bfbf6: Fixed a crash on the home page when an old cached layout blob was served after the hero shape changed in the previous release; the home layout cache now invalidates those stale entries on first read.
+- 5e66a73: Job trigger dialog now renders enum fields as a select dropdown instead of a free-text input.
+- 5e66a73: Job trigger dialog now enforces required fields client-side, marking them with an asterisk and blocking submit until they are filled.
+- 5e66a73: Hardened notifications surfaces against unsafe action URLs and tightened error handling for retention, channel deletion, and delivery retries.
+- 5e66a73: Localized remaining notification surface strings, surfaced bulk inbox delete failures, and added test coverage for inbox, settings, admin, and shared notification helpers.
+- 97eb2b3: Fixed a crash where the season list could throw "Rendered more hooks than during the previous render" when seasons loaded from empty to populated.
+
 ## 0.3.0
 
 ### Minor Changes

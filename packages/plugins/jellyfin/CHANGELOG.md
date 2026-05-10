@@ -1,5 +1,13 @@
 # @ent-mcp/plugin-jellyfin
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [6831fb5]
+- Updated dependencies [6831fb5]
+  - @ent-mcp/plugin-sdk@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
