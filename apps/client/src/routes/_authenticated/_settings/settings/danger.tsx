@@ -41,7 +41,7 @@ function DangerRoute() {
   );
 }
 
-function DangerPage() {
+export function DangerPage() {
   const [reauthOpen, setReauthOpen] = useState(false);
   const [exportLocked, setExportLocked] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);

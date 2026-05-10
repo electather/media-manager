@@ -38,7 +38,7 @@ function SecurityRoute() {
   );
 }
 
-function SecurityPage() {
+export function SecurityPage() {
   const [sessions, setSessions] = useState<ReadonlyArray<MockSession>>(MOCK_SESSIONS);
 
   const onPasswordChanged = () => {

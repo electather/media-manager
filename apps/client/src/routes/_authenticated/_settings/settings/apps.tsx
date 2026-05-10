@@ -41,7 +41,7 @@ function AppsRoute() {
   );
 }
 
-function AppsPage() {
+export function AppsPage() {
   const [apps, setApps] = useState<ReadonlyArray<MockAuthorizedApp>>(MOCK_AUTHORIZED_APPS);
   const [confirmRevoke, setConfirmRevoke] = useState<MockAuthorizedApp | null>(null);
 

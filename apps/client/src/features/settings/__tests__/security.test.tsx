@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), message: vi.fn() }));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
-import { Route as SecurityRoute } from "@/routes/_authenticated/_settings/settings/security";
+import { SecurityPage } from "@/routes/_authenticated/_settings/settings/security";
 
 beforeEach(() => {
   toastMock.success.mockReset();
@@ -17,8 +17,7 @@ afterEach(() => cleanup());
 describe("Security (mock)", () => {
   it("expands the change-password form and validates min length", async () => {
     const user = userEvent.setup();
-    const Component = SecurityRoute.options.component!;
-    render(<Component />);
+    render(<SecurityPage />);
 
     await user.click(screen.getByRole("button", { name: /change password/i }));
 
@@ -30,10 +29,8 @@ describe("Security (mock)", () => {
 
   it("revokes a non-current session via the confirm dialog", async () => {
     const user = userEvent.setup();
-    const Component = SecurityRoute.options.component!;
-    render(<Component />);
+    render(<SecurityPage />);
 
-    // The mock data has at least one revocable session; click its revoke button.
     const revokeButtons = screen.getAllByRole("button", { name: /^revoke$/i });
     expect(revokeButtons.length).toBeGreaterThan(0);
     await user.click(revokeButtons[0]);

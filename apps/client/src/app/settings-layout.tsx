@@ -23,7 +23,7 @@ import { m } from "@/paraglide/messages";
 import {
   SettingsDirtyProvider,
   useSettingsDirtyState,
-} from "@/features/settings/components/dirty-bar-context";
+} from "@/app/settings-dirty-context";
 
 interface NavItem {
   to: string;

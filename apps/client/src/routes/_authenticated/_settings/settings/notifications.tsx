@@ -261,7 +261,7 @@ function CategoryLegend({ role }: { role: string }) {
             />
             <span className="font-medium text-foreground">{CATEGORY_LABEL[cat.id]()}</span>
             <span className="text-muted-foreground">{CATEGORY_HINT[cat.id]()}</span>
-            {restricted ? (
+            {restricted && cat.requires ? (
               <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wide">
                 {m.settings_notifications_admin_only({ role: cat.requires })}
               </Badge>

@@ -14,19 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { Field, FieldDescription, FieldError } from "@/shared/ui/field";
+import { Field, FieldDescription } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import {
-  InitialsAvatar,
-  SettingsCard,
-  SettingsCardRow,
-  useSettingsDirty,
-} from "@/features/settings";
+import { useSettingsDirty } from "@/app/settings-dirty-context";
+import { InitialsAvatar, SettingsCard, SettingsCardRow } from "@/features/settings";
 import { MOCK_ROLE, MOCK_USER, type MockUser } from "@/features/settings/mocks";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/profile")({
@@ -168,7 +164,6 @@ export function EmailRow({
   onCommit: (next: string) => void;
 }) {
   const [draft, setDraft] = useState(currentEmail);
-  const [error] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -205,15 +200,13 @@ export function EmailRow({
       align="top"
     >
       <div className="flex flex-wrap items-start gap-2">
-        <Field className="flex-1 min-w-[220px]" data-invalid={error ? true : undefined}>
+        <Field className="flex-1 min-w-[220px]">
           <Input
             type="email"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            aria-invalid={error ? true : undefined}
             data-testid="profile-email"
           />
-          {error ? <FieldError>{error}</FieldError> : null}
           <FieldDescription>
             <span
               className={cn(

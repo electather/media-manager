@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), message: vi.fn() }));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
-import { Route as AppsRoute } from "@/routes/_authenticated/_settings/settings/apps";
+import { AppsPage } from "@/routes/_authenticated/_settings/settings/apps";
 
 beforeEach(() => {
   toastMock.success.mockReset();
@@ -16,18 +16,15 @@ afterEach(() => cleanup());
 
 describe("Authorized apps (mock)", () => {
   it("renders the MCP endpoint card and authorized client list", () => {
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
+    render(<AppsPage />);
 
-    // Endpoint label and at least one mock app row should be visible.
     expect(screen.getByText(/your mcp endpoint/i)).toBeTruthy();
     expect(screen.getByTestId("authorized-app-claude-desktop")).toBeTruthy();
   });
 
   it("opens the revoke dialog and confirms removal", async () => {
     const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
+    render(<AppsPage />);
 
     await user.click(screen.getByTestId("revoke-claude-desktop"));
 
