@@ -1,84 +1,181 @@
-import { Link, Outlet } from "@tanstack/react-router";
-import { TvIcon, XIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  BellIcon,
+  CogIcon,
+  LayersIcon,
+  PlugIcon,
+  ShieldIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { Separator } from "@/shared/ui/separator";
+import { cn } from "@/shared/lib/utils";
+import { m } from "@/paraglide/messages";
 
-const ACCOUNT_NAV = [
-  { to: "/settings/profile", label: "Profile" },
-  { to: "/settings/security", label: "Security" },
-  { to: "/settings/connections", label: "Connections" },
-  { to: "/settings/notifications", label: "Notifications" },
-  { to: "/settings/apps", label: "Authorized apps" },
-  { to: "/settings/danger", label: "Danger zone" },
-] as const;
+import {
+  SettingsDirtyProvider,
+  useSettingsDirtyState,
+} from "@/features/settings/components/dirty-bar-context";
+import {
+  SectionIndex,
+  SectionLabel,
+  SectionLayout,
+  SectionPageHeader,
+  type SectionNavGroup,
+} from "@/app/section-shell";
 
-const ADMIN_NAV = [
-  { to: "/admin/server", label: "Server" },
-  { to: "/admin/users", label: "Users" },
-  { to: "/admin/roles", label: "Roles" },
-  { to: "/admin/plugins", label: "Plugins" },
-  { to: "/admin/jobs", label: "Jobs" },
-  { to: "/admin/diagnostics", label: "Diagnostics" },
-  { to: "/admin/notifications/deliveries", label: "Notification deliveries" },
-  { to: "/admin/notifications/settings", label: "Notification retention" },
-] as const;
+const SETTINGS_GROUPS: ReadonlyArray<SectionNavGroup> = [
+  {
+    id: "account",
+    heading: () => m.settings_group_account(),
+    items: [
+      {
+        to: "/settings/profile",
+        label: () => m.settings_nav_profile(),
+        intro: () => m.settings_nav_profile_intro(),
+        icon: CogIcon,
+      },
+      {
+        to: "/settings/security",
+        label: () => m.settings_nav_security(),
+        intro: () => m.settings_nav_security_intro(),
+        icon: ShieldIcon,
+      },
+    ],
+  },
+  {
+    id: "integrations",
+    heading: () => m.settings_group_integrations(),
+    items: [
+      {
+        to: "/settings/connections",
+        label: () => m.settings_nav_connections(),
+        intro: () => m.settings_nav_connections_intro(),
+        icon: PlugIcon,
+      },
+      {
+        to: "/settings/apps",
+        label: () => m.settings_nav_apps(),
+        intro: () => m.settings_nav_apps_intro(),
+        icon: LayersIcon,
+      },
+    ],
+  },
+  {
+    id: "preferences",
+    heading: () => m.settings_group_preferences(),
+    items: [
+      {
+        to: "/settings/notifications",
+        label: () => m.settings_nav_notifications(),
+        intro: () => m.settings_nav_notifications_intro(),
+        icon: BellIcon,
+      },
+    ],
+  },
+  {
+    id: "danger",
+    heading: () => m.settings_group_danger(),
+    items: [
+      {
+        to: "/settings/danger",
+        label: () => m.settings_nav_danger(),
+        intro: () => m.settings_nav_danger_intro(),
+        icon: AlertTriangleIcon,
+        destructive: true,
+      },
+    ],
+  },
+];
 
 export function SettingsLayout() {
   return (
-    <div className="flex min-h-svh flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:px-6">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
-          <TvIcon className="size-5" aria-hidden="true" />
-          <span>Media Manager</span>
-        </Link>
-        <Button variant="ghost" size="sm" aria-label="Close settings" render={<Link to="/" />}>
-          <XIcon className="size-4" aria-hidden="true" />
-          Close
-        </Button>
-      </header>
-      <main className="flex-1">
-        <div className="flex flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:gap-8">
-            <aside className="flex shrink-0 flex-row gap-4 overflow-x-auto lg:w-44 lg:flex-col">
-              <NavGroup heading="Account" items={ACCOUNT_NAV} />
-              <NavGroup heading="Admin" items={ADMIN_NAV} />
-            </aside>
+    <SettingsDirtyProvider>
+      <SectionLayout
+        title={m.settings_title()}
+        groups={SETTINGS_GROUPS}
+        overlay={<SettingsDirtyBar />}
+      />
+    </SettingsDirtyProvider>
+  );
+}
 
-            <Separator orientation="vertical" className="hidden lg:block" />
+// ─── Dirty / sticky save bar ────────────────────────────────────────────────
 
-            <div className="min-w-0 flex-1 pb-10">
-              <Outlet />
-            </div>
-          </div>
+function SettingsDirtyBar() {
+  const { active } = useSettingsDirtyState();
+  return (
+    <div
+      role="region"
+      aria-label={m.settings_dirty_label()}
+      data-open={active ? "true" : "false"}
+      className={cn(
+        "pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-5 transition-all duration-300 ease-out",
+        active ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0",
+      )}
+    >
+      {active ? (
+        <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-3 rounded-xl border border-border bg-card/95 py-2 pl-4 pr-2 shadow-xl backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <span
+            aria-hidden="true"
+            className="size-2 shrink-0 rounded-full bg-primary shadow-[0_0_0_4px] shadow-primary/20"
+          />
+          <div className="flex-1 truncate text-sm text-muted-foreground">{active.label}</div>
+          <Button variant="ghost" size="sm" onClick={() => active.onDiscard?.()}>
+            {m.settings_dirty_discard()}
+          </Button>
+          <Button size="sm" onClick={() => active.onSave?.()}>
+            {m.settings_dirty_save()}
+          </Button>
         </div>
-      </main>
+      ) : null}
     </div>
   );
 }
 
-function NavGroup({
-  heading,
-  items,
-}: {
-  heading: string;
-  items: ReadonlyArray<{ to: string; label: string }>;
-}) {
+// ─── Page Header (consumed by sub-pages) ────────────────────────────────────
+
+interface SettingsPageHeaderProps {
+  title: string;
+  description?: string;
+  status?: ReactNode;
+}
+
+/**
+ * Settings sub-page header — thin wrapper around `SectionPageHeader` with the
+ * back link pointing to the settings index.
+ */
+export function SettingsPageHeader({ title, description, status }: SettingsPageHeaderProps) {
   return (
-    <nav className="flex shrink-0 flex-row gap-1 lg:flex-col">
-      <div className="hidden px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground lg:block">
-        {heading}
-      </div>
-      {items.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          activeOptions={{ exact: true }}
-          className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap transition-colors data-[status=active]:bg-muted data-[status=active]:font-medium hover:bg-muted/60"
-        >
-          {item.label}
-        </Link>
-      ))}
-    </nav>
+    <SectionPageHeader
+      title={title}
+      description={description}
+      status={status}
+      backTo="/settings"
+      backLabel={m.settings_back_to_settings()}
+    />
+  );
+}
+
+export function SettingsSectionLabel({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <SectionLabel className={className}>{children}</SectionLabel>;
+}
+
+// ─── Mobile drill-down list (used by /settings index on small screens) ──────
+
+export function SettingsIndex() {
+  return (
+    <SectionIndex
+      title={m.settings_title()}
+      subtitle={m.settings_subtitle()}
+      groups={SETTINGS_GROUPS}
+      desktopRedirectTo="/settings/profile"
+    />
   );
 }

@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { ChevronDown, Library, LogOut, Plug, Settings, Sparkles } from "lucide-react";
+import { ChevronDown, Library, LogOut, Plug, Settings, ShieldCheck, Sparkles } from "lucide-react";
 import { authClient } from "@/shared/lib/auth";
 import { UserAvatar } from "@/shared/components/user-avatar";
 import {
@@ -49,6 +49,10 @@ export function UserMenu() {
         <DropdownMenuItem render={<Link to="/settings" />}>
           <Settings className="size-4" />
           Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem render={<Link to="/admin" />}>
+          <ShieldCheck className="size-4" />
+          Admin
         </DropdownMenuItem>
         <DropdownMenuItem render={<Link to="/settings/connections" />}>
           <Plug className="size-4" />

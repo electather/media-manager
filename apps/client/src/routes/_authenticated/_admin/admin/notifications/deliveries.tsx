@@ -41,7 +41,7 @@ function searchToFilters(s: AdminSearch): AdminDeliveryFilters {
   return out;
 }
 
-export const Route = createFileRoute("/_authenticated/_settings/admin/notifications/deliveries")({
+export const Route = createFileRoute("/_authenticated/_admin/admin/notifications/deliveries")({
   validateSearch: adminSearchSchema,
   loaderDeps: ({ search }) => ({ search }),
   loader: ({ context: { queryClient }, deps: { search } }) => {

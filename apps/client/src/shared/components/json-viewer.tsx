@@ -272,7 +272,7 @@ function JsonNode({
           style={theme ? { color: theme.fg } : undefined}
         >
           {pathCopied ? (
-            <CopyPlus className="size-3 text-emerald-500" />
+            <CopyPlus className="size-3 text-success" />
           ) : (
             <CopyPlus className="size-3" />
           )}
@@ -341,7 +341,7 @@ function JsonNode({
           style={theme ? { color: theme.fg } : undefined}
         >
           {pathCopied ? (
-            <CopyPlus className="size-3 text-emerald-500" />
+            <CopyPlus className="size-3 text-success" />
           ) : (
             <CopyPlus className="size-3" />
           )}
@@ -566,7 +566,7 @@ function JsonViewer({
               className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {copiedAll ? (
-                <Check className="size-3.5 text-emerald-500" />
+                <Check className="size-3.5 text-success" />
               ) : (
                 <Copy className="size-3.5" />
               )}

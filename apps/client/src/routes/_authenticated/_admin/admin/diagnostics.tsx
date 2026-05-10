@@ -16,7 +16,7 @@ const searchSchema = z.object({
   rid: z.string().optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/_settings/admin/diagnostics")({
+export const Route = createFileRoute("/_authenticated/_admin/admin/diagnostics")({
   component: AdminDiagnosticsPage,
   validateSearch: (search) => searchSchema.parse(search),
 });

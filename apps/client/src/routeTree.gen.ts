@@ -18,6 +18,7 @@ import { Route as AuthLoginRouteImport } from './routes/auth/login'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-password'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/_settings/route'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
+import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/_admin/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/_app/index'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
 import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
@@ -26,21 +27,22 @@ import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app/notifications'
 import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
+import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
 import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
 import { Route as AuthenticatedSettingsSettingsNotificationsRouteImport } from './routes/_authenticated/_settings/settings/notifications'
 import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './routes/_authenticated/_settings/settings/danger'
 import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
 import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
-import { Route as AuthenticatedSettingsAdminUsersRouteImport } from './routes/_authenticated/_settings/admin/users'
-import { Route as AuthenticatedSettingsAdminServerRouteImport } from './routes/_authenticated/_settings/admin/server'
-import { Route as AuthenticatedSettingsAdminRolesRouteImport } from './routes/_authenticated/_settings/admin/roles'
-import { Route as AuthenticatedSettingsAdminPluginsRouteImport } from './routes/_authenticated/_settings/admin/plugins'
-import { Route as AuthenticatedSettingsAdminJobsRouteImport } from './routes/_authenticated/_settings/admin/jobs'
-import { Route as AuthenticatedSettingsAdminDiagnosticsRouteImport } from './routes/_authenticated/_settings/admin/diagnostics'
-import { Route as AuthenticatedSettingsAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_settings/admin/notifications/settings'
-import { Route as AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport } from './routes/_authenticated/_settings/admin/notifications/deliveries'
+import { Route as AuthenticatedAdminAdminUsersRouteImport } from './routes/_authenticated/_admin/admin/users'
+import { Route as AuthenticatedAdminAdminServerRouteImport } from './routes/_authenticated/_admin/admin/server'
+import { Route as AuthenticatedAdminAdminRolesRouteImport } from './routes/_authenticated/_admin/admin/roles'
+import { Route as AuthenticatedAdminAdminPluginsRouteImport } from './routes/_authenticated/_admin/admin/plugins'
+import { Route as AuthenticatedAdminAdminJobsRouteImport } from './routes/_authenticated/_admin/admin/jobs'
+import { Route as AuthenticatedAdminAdminDiagnosticsRouteImport } from './routes/_authenticated/_admin/admin/diagnostics'
 import { Route as AuthenticatedAppMediaMediaTypeMediaIdRouteImport } from './routes/_authenticated/_app/media.$mediaType.$mediaId'
+import { Route as AuthenticatedAdminAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_admin/admin/notifications/settings'
+import { Route as AuthenticatedAdminAdminNotificationsDeliveriesRouteImport } from './routes/_authenticated/_admin/admin/notifications/deliveries'
 
 const OauthRouteRoute = OauthRouteRouteImport.update({
   id: '/oauth',
@@ -83,6 +85,10 @@ const AuthenticatedSettingsRouteRoute =
   } as any)
 const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
   id: '/_app',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
+  id: '/_admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
@@ -130,6 +136,12 @@ const AuthenticatedSettingsSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedAdminAdminIndexRoute =
+  AuthenticatedAdminAdminIndexRouteImport.update({
+    id: '/admin/',
+    path: '/admin/',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedSettingsSettingsSecurityRoute =
   AuthenticatedSettingsSettingsSecurityRouteImport.update({
     id: '/settings/security',
@@ -166,59 +178,59 @@ const AuthenticatedSettingsSettingsAppsRoute =
     path: '/settings/apps',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminUsersRoute =
-  AuthenticatedSettingsAdminUsersRouteImport.update({
+const AuthenticatedAdminAdminUsersRoute =
+  AuthenticatedAdminAdminUsersRouteImport.update({
     id: '/admin/users',
     path: '/admin/users',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminServerRoute =
-  AuthenticatedSettingsAdminServerRouteImport.update({
+const AuthenticatedAdminAdminServerRoute =
+  AuthenticatedAdminAdminServerRouteImport.update({
     id: '/admin/server',
     path: '/admin/server',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminRolesRoute =
-  AuthenticatedSettingsAdminRolesRouteImport.update({
+const AuthenticatedAdminAdminRolesRoute =
+  AuthenticatedAdminAdminRolesRouteImport.update({
     id: '/admin/roles',
     path: '/admin/roles',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminPluginsRoute =
-  AuthenticatedSettingsAdminPluginsRouteImport.update({
+const AuthenticatedAdminAdminPluginsRoute =
+  AuthenticatedAdminAdminPluginsRouteImport.update({
     id: '/admin/plugins',
     path: '/admin/plugins',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminJobsRoute =
-  AuthenticatedSettingsAdminJobsRouteImport.update({
+const AuthenticatedAdminAdminJobsRoute =
+  AuthenticatedAdminAdminJobsRouteImport.update({
     id: '/admin/jobs',
     path: '/admin/jobs',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
-const AuthenticatedSettingsAdminDiagnosticsRoute =
-  AuthenticatedSettingsAdminDiagnosticsRouteImport.update({
+const AuthenticatedAdminAdminDiagnosticsRoute =
+  AuthenticatedAdminAdminDiagnosticsRouteImport.update({
     id: '/admin/diagnostics',
     path: '/admin/diagnostics',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedSettingsAdminNotificationsSettingsRoute =
-  AuthenticatedSettingsAdminNotificationsSettingsRouteImport.update({
-    id: '/admin/notifications/settings',
-    path: '/admin/notifications/settings',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedSettingsAdminNotificationsDeliveriesRoute =
-  AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport.update({
-    id: '/admin/notifications/deliveries',
-    path: '/admin/notifications/deliveries',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 const AuthenticatedAppMediaMediaTypeMediaIdRoute =
   AuthenticatedAppMediaMediaTypeMediaIdRouteImport.update({
     id: '/media/$mediaType/$mediaId',
     path: '/media/$mediaType/$mediaId',
     getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAdminAdminNotificationsSettingsRoute =
+  AuthenticatedAdminAdminNotificationsSettingsRouteImport.update({
+    id: '/admin/notifications/settings',
+    path: '/admin/notifications/settings',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminAdminNotificationsDeliveriesRoute =
+  AuthenticatedAdminAdminNotificationsDeliveriesRouteImport.update({
+    id: '/admin/notifications/deliveries',
+    path: '/admin/notifications/deliveries',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -235,22 +247,23 @@ export interface FileRoutesByFullPath {
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
-  '/admin/diagnostics': typeof AuthenticatedSettingsAdminDiagnosticsRoute
-  '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
-  '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
-  '/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
-  '/admin/server': typeof AuthenticatedSettingsAdminServerRoute
-  '/admin/users': typeof AuthenticatedSettingsAdminUsersRoute
+  '/admin/diagnostics': typeof AuthenticatedAdminAdminDiagnosticsRoute
+  '/admin/jobs': typeof AuthenticatedAdminAdminJobsRoute
+  '/admin/plugins': typeof AuthenticatedAdminAdminPluginsRoute
+  '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
+  '/admin/server': typeof AuthenticatedAdminAdminServerRoute
+  '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
   '/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
+  '/admin/': typeof AuthenticatedAdminAdminIndexRoute
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
+  '/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
+  '/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
-  '/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
-  '/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedAppIndexRoute
@@ -266,28 +279,30 @@ export interface FileRoutesByTo {
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
-  '/admin/diagnostics': typeof AuthenticatedSettingsAdminDiagnosticsRoute
-  '/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
-  '/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
-  '/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
-  '/admin/server': typeof AuthenticatedSettingsAdminServerRoute
-  '/admin/users': typeof AuthenticatedSettingsAdminUsersRoute
+  '/admin/diagnostics': typeof AuthenticatedAdminAdminDiagnosticsRoute
+  '/admin/jobs': typeof AuthenticatedAdminAdminJobsRoute
+  '/admin/plugins': typeof AuthenticatedAdminAdminPluginsRoute
+  '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
+  '/admin/server': typeof AuthenticatedAdminAdminServerRoute
+  '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
   '/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
+  '/admin': typeof AuthenticatedAdminAdminIndexRoute
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
+  '/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
+  '/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
-  '/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
-  '/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
+  '/_authenticated/_admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/_settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -301,22 +316,23 @@ export interface FileRoutesById {
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
-  '/_authenticated/_settings/admin/diagnostics': typeof AuthenticatedSettingsAdminDiagnosticsRoute
-  '/_authenticated/_settings/admin/jobs': typeof AuthenticatedSettingsAdminJobsRoute
-  '/_authenticated/_settings/admin/plugins': typeof AuthenticatedSettingsAdminPluginsRoute
-  '/_authenticated/_settings/admin/roles': typeof AuthenticatedSettingsAdminRolesRoute
-  '/_authenticated/_settings/admin/server': typeof AuthenticatedSettingsAdminServerRoute
-  '/_authenticated/_settings/admin/users': typeof AuthenticatedSettingsAdminUsersRoute
+  '/_authenticated/_admin/admin/diagnostics': typeof AuthenticatedAdminAdminDiagnosticsRoute
+  '/_authenticated/_admin/admin/jobs': typeof AuthenticatedAdminAdminJobsRoute
+  '/_authenticated/_admin/admin/plugins': typeof AuthenticatedAdminAdminPluginsRoute
+  '/_authenticated/_admin/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
+  '/_authenticated/_admin/admin/server': typeof AuthenticatedAdminAdminServerRoute
+  '/_authenticated/_admin/admin/users': typeof AuthenticatedAdminAdminUsersRoute
   '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/_authenticated/_settings/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
   '/_authenticated/_settings/settings/notifications': typeof AuthenticatedSettingsSettingsNotificationsRoute
   '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
+  '/_authenticated/_admin/admin/': typeof AuthenticatedAdminAdminIndexRoute
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
+  '/_authenticated/_admin/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
+  '/_authenticated/_admin/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
   '/_authenticated/_app/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
-  '/_authenticated/_settings/admin/notifications/deliveries': typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
-  '/_authenticated/_settings/admin/notifications/settings': typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -346,10 +362,11 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
+    | '/admin/'
     | '/settings/'
-    | '/media/$mediaType/$mediaId'
     | '/admin/notifications/deliveries'
     | '/admin/notifications/settings'
+    | '/media/$mediaType/$mediaId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -377,15 +394,17 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
+    | '/admin'
     | '/settings'
-    | '/media/$mediaType/$mediaId'
     | '/admin/notifications/deliveries'
     | '/admin/notifications/settings'
+    | '/media/$mediaType/$mediaId'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/oauth'
+    | '/_authenticated/_admin'
     | '/_authenticated/_app'
     | '/_authenticated/_settings'
     | '/auth/forgot-password'
@@ -399,22 +418,23 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/setup'
     | '/auth/invite/$token'
     | '/_authenticated/_app/'
-    | '/_authenticated/_settings/admin/diagnostics'
-    | '/_authenticated/_settings/admin/jobs'
-    | '/_authenticated/_settings/admin/plugins'
-    | '/_authenticated/_settings/admin/roles'
-    | '/_authenticated/_settings/admin/server'
-    | '/_authenticated/_settings/admin/users'
+    | '/_authenticated/_admin/admin/diagnostics'
+    | '/_authenticated/_admin/admin/jobs'
+    | '/_authenticated/_admin/admin/plugins'
+    | '/_authenticated/_admin/admin/roles'
+    | '/_authenticated/_admin/admin/server'
+    | '/_authenticated/_admin/admin/users'
     | '/_authenticated/_settings/settings/apps'
     | '/_authenticated/_settings/settings/connections'
     | '/_authenticated/_settings/settings/danger'
     | '/_authenticated/_settings/settings/notifications'
     | '/_authenticated/_settings/settings/profile'
     | '/_authenticated/_settings/settings/security'
+    | '/_authenticated/_admin/admin/'
     | '/_authenticated/_settings/settings/'
+    | '/_authenticated/_admin/admin/notifications/deliveries'
+    | '/_authenticated/_admin/admin/notifications/settings'
     | '/_authenticated/_app/media/$mediaType/$mediaId'
-    | '/_authenticated/_settings/admin/notifications/deliveries'
-    | '/_authenticated/_settings/admin/notifications/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -488,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/_admin': {
+      id: '/_authenticated/_admin'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/_app/': {
       id: '/_authenticated/_app/'
       path: '/'
@@ -544,6 +571,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_admin/admin/': {
+      id: '/_authenticated/_admin/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/_settings/settings/security': {
       id: '/_authenticated/_settings/settings/security'
       path: '/settings/security'
@@ -586,61 +620,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSettingsAppsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/_settings/admin/users': {
-      id: '/_authenticated/_settings/admin/users'
+    '/_authenticated/_admin/admin/users': {
+      id: '/_authenticated/_admin/admin/users'
       path: '/admin/users'
       fullPath: '/admin/users'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminUsersRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+      preLoaderRoute: typeof AuthenticatedAdminAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/_settings/admin/server': {
-      id: '/_authenticated/_settings/admin/server'
+    '/_authenticated/_admin/admin/server': {
+      id: '/_authenticated/_admin/admin/server'
       path: '/admin/server'
       fullPath: '/admin/server'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminServerRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+      preLoaderRoute: typeof AuthenticatedAdminAdminServerRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/_settings/admin/roles': {
-      id: '/_authenticated/_settings/admin/roles'
+    '/_authenticated/_admin/admin/roles': {
+      id: '/_authenticated/_admin/admin/roles'
       path: '/admin/roles'
       fullPath: '/admin/roles'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminRolesRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+      preLoaderRoute: typeof AuthenticatedAdminAdminRolesRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/_settings/admin/plugins': {
-      id: '/_authenticated/_settings/admin/plugins'
+    '/_authenticated/_admin/admin/plugins': {
+      id: '/_authenticated/_admin/admin/plugins'
       path: '/admin/plugins'
       fullPath: '/admin/plugins'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminPluginsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+      preLoaderRoute: typeof AuthenticatedAdminAdminPluginsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/_settings/admin/jobs': {
-      id: '/_authenticated/_settings/admin/jobs'
+    '/_authenticated/_admin/admin/jobs': {
+      id: '/_authenticated/_admin/admin/jobs'
       path: '/admin/jobs'
       fullPath: '/admin/jobs'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminJobsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+      preLoaderRoute: typeof AuthenticatedAdminAdminJobsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
-    '/_authenticated/_settings/admin/diagnostics': {
-      id: '/_authenticated/_settings/admin/diagnostics'
+    '/_authenticated/_admin/admin/diagnostics': {
+      id: '/_authenticated/_admin/admin/diagnostics'
       path: '/admin/diagnostics'
       fullPath: '/admin/diagnostics'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminDiagnosticsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
-    '/_authenticated/_settings/admin/notifications/settings': {
-      id: '/_authenticated/_settings/admin/notifications/settings'
-      path: '/admin/notifications/settings'
-      fullPath: '/admin/notifications/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminNotificationsSettingsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
-    '/_authenticated/_settings/admin/notifications/deliveries': {
-      id: '/_authenticated/_settings/admin/notifications/deliveries'
-      path: '/admin/notifications/deliveries'
-      fullPath: '/admin/notifications/deliveries'
-      preLoaderRoute: typeof AuthenticatedSettingsAdminNotificationsDeliveriesRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
+      preLoaderRoute: typeof AuthenticatedAdminAdminDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
     }
     '/_authenticated/_app/media/$mediaType/$mediaId': {
       id: '/_authenticated/_app/media/$mediaType/$mediaId'
@@ -649,8 +669,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppMediaMediaTypeMediaIdRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/_admin/admin/notifications/settings': {
+      id: '/_authenticated/_admin/admin/notifications/settings'
+      path: '/admin/notifications/settings'
+      fullPath: '/admin/notifications/settings'
+      preLoaderRoute: typeof AuthenticatedAdminAdminNotificationsSettingsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/_admin/admin/notifications/deliveries': {
+      id: '/_authenticated/_admin/admin/notifications/deliveries'
+      path: '/admin/notifications/deliveries'
+      fullPath: '/admin/notifications/deliveries'
+      preLoaderRoute: typeof AuthenticatedAdminAdminNotificationsDeliveriesRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
   }
 }
+
+interface AuthenticatedAdminRouteRouteChildren {
+  AuthenticatedAdminAdminDiagnosticsRoute: typeof AuthenticatedAdminAdminDiagnosticsRoute
+  AuthenticatedAdminAdminJobsRoute: typeof AuthenticatedAdminAdminJobsRoute
+  AuthenticatedAdminAdminPluginsRoute: typeof AuthenticatedAdminAdminPluginsRoute
+  AuthenticatedAdminAdminRolesRoute: typeof AuthenticatedAdminAdminRolesRoute
+  AuthenticatedAdminAdminServerRoute: typeof AuthenticatedAdminAdminServerRoute
+  AuthenticatedAdminAdminUsersRoute: typeof AuthenticatedAdminAdminUsersRoute
+  AuthenticatedAdminAdminIndexRoute: typeof AuthenticatedAdminAdminIndexRoute
+  AuthenticatedAdminAdminNotificationsDeliveriesRoute: typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
+  AuthenticatedAdminAdminNotificationsSettingsRoute: typeof AuthenticatedAdminAdminNotificationsSettingsRoute
+}
+
+const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
+  {
+    AuthenticatedAdminAdminDiagnosticsRoute:
+      AuthenticatedAdminAdminDiagnosticsRoute,
+    AuthenticatedAdminAdminJobsRoute: AuthenticatedAdminAdminJobsRoute,
+    AuthenticatedAdminAdminPluginsRoute: AuthenticatedAdminAdminPluginsRoute,
+    AuthenticatedAdminAdminRolesRoute: AuthenticatedAdminAdminRolesRoute,
+    AuthenticatedAdminAdminServerRoute: AuthenticatedAdminAdminServerRoute,
+    AuthenticatedAdminAdminUsersRoute: AuthenticatedAdminAdminUsersRoute,
+    AuthenticatedAdminAdminIndexRoute: AuthenticatedAdminAdminIndexRoute,
+    AuthenticatedAdminAdminNotificationsDeliveriesRoute:
+      AuthenticatedAdminAdminNotificationsDeliveriesRoute,
+    AuthenticatedAdminAdminNotificationsSettingsRoute:
+      AuthenticatedAdminAdminNotificationsSettingsRoute,
+  }
+
+const AuthenticatedAdminRouteRouteWithChildren =
+  AuthenticatedAdminRouteRoute._addFileChildren(
+    AuthenticatedAdminRouteRouteChildren,
+  )
 
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
@@ -677,12 +744,6 @@ const AuthenticatedAppRouteRouteWithChildren =
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsOauthCallbackRoute: typeof AuthenticatedSettingsOauthCallbackRoute
   AuthenticatedSettingsSetupRoute: typeof AuthenticatedSettingsSetupRoute
-  AuthenticatedSettingsAdminDiagnosticsRoute: typeof AuthenticatedSettingsAdminDiagnosticsRoute
-  AuthenticatedSettingsAdminJobsRoute: typeof AuthenticatedSettingsAdminJobsRoute
-  AuthenticatedSettingsAdminPluginsRoute: typeof AuthenticatedSettingsAdminPluginsRoute
-  AuthenticatedSettingsAdminRolesRoute: typeof AuthenticatedSettingsAdminRolesRoute
-  AuthenticatedSettingsAdminServerRoute: typeof AuthenticatedSettingsAdminServerRoute
-  AuthenticatedSettingsAdminUsersRoute: typeof AuthenticatedSettingsAdminUsersRoute
   AuthenticatedSettingsSettingsAppsRoute: typeof AuthenticatedSettingsSettingsAppsRoute
   AuthenticatedSettingsSettingsConnectionsRoute: typeof AuthenticatedSettingsSettingsConnectionsRoute
   AuthenticatedSettingsSettingsDangerRoute: typeof AuthenticatedSettingsSettingsDangerRoute
@@ -690,8 +751,6 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSettingsProfileRoute: typeof AuthenticatedSettingsSettingsProfileRoute
   AuthenticatedSettingsSettingsSecurityRoute: typeof AuthenticatedSettingsSettingsSecurityRoute
   AuthenticatedSettingsSettingsIndexRoute: typeof AuthenticatedSettingsSettingsIndexRoute
-  AuthenticatedSettingsAdminNotificationsDeliveriesRoute: typeof AuthenticatedSettingsAdminNotificationsDeliveriesRoute
-  AuthenticatedSettingsAdminNotificationsSettingsRoute: typeof AuthenticatedSettingsAdminNotificationsSettingsRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
@@ -699,15 +758,6 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsOauthCallbackRoute:
       AuthenticatedSettingsOauthCallbackRoute,
     AuthenticatedSettingsSetupRoute: AuthenticatedSettingsSetupRoute,
-    AuthenticatedSettingsAdminDiagnosticsRoute:
-      AuthenticatedSettingsAdminDiagnosticsRoute,
-    AuthenticatedSettingsAdminJobsRoute: AuthenticatedSettingsAdminJobsRoute,
-    AuthenticatedSettingsAdminPluginsRoute:
-      AuthenticatedSettingsAdminPluginsRoute,
-    AuthenticatedSettingsAdminRolesRoute: AuthenticatedSettingsAdminRolesRoute,
-    AuthenticatedSettingsAdminServerRoute:
-      AuthenticatedSettingsAdminServerRoute,
-    AuthenticatedSettingsAdminUsersRoute: AuthenticatedSettingsAdminUsersRoute,
     AuthenticatedSettingsSettingsAppsRoute:
       AuthenticatedSettingsSettingsAppsRoute,
     AuthenticatedSettingsSettingsConnectionsRoute:
@@ -722,10 +772,6 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsSettingsSecurityRoute,
     AuthenticatedSettingsSettingsIndexRoute:
       AuthenticatedSettingsSettingsIndexRoute,
-    AuthenticatedSettingsAdminNotificationsDeliveriesRoute:
-      AuthenticatedSettingsAdminNotificationsDeliveriesRoute,
-    AuthenticatedSettingsAdminNotificationsSettingsRoute:
-      AuthenticatedSettingsAdminNotificationsSettingsRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =
@@ -734,11 +780,13 @@ const AuthenticatedSettingsRouteRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
   AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRouteRoute: AuthenticatedAdminRouteRouteWithChildren,
   AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
 }

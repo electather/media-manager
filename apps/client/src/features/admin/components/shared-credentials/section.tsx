@@ -387,13 +387,13 @@ function RowMeta({ entry, cooldownSec }: { entry: SharedCredentialEntry; cooldow
     const mm = String(Math.floor(cooldownSec / 60)).padStart(2, "0");
     const ss = String(cooldownSec % 60).padStart(2, "0");
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+      <span className="inline-flex items-center gap-1 text-xs text-warning">
         <ClockIcon className="size-3" /> Retry in {mm}:{ss}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+    <span className="inline-flex items-center gap-1 text-xs text-success">
       <CheckIcon className="size-3" /> Ready
     </span>
   );

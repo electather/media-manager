@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+// fallow-ignore-file complexity
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { CheckIcon, LoaderCircleIcon } from "lucide-react";
+import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import {
@@ -14,146 +15,158 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Field, FieldDescription, FieldError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { UserAvatar } from "@/shared/components/user-avatar";
-import { api } from "@/shared/lib/api";
-import { authClient } from "@/shared/lib/auth";
+import { cn } from "@/shared/lib/utils";
+import { m } from "@/paraglide/messages";
+
+import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsCard, SettingsCardRow, useSettingsDirty } from "@/features/settings";
+import { MOCK_ROLE, MOCK_USER, type MockUser } from "@/features/settings/mocks";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/profile")({
-  component: ProfileSection,
+  component: ProfileRoute,
 });
 
-const PUBLIC_CONFIG_QUERY_KEY = ["config", "public"] as const;
-const ROLE_QUERY_KEY = ["me", "role"] as const;
-const VERIFICATION_COUNTDOWN_SECONDS = 60;
+function ProfileRoute() {
+  return (
+    <SettingsErrorBoundary>
+      <ProfilePage />
+    </SettingsErrorBoundary>
+  );
+}
 
-// fallow-ignore-next-line complexity
-function ProfileSection() {
-  const session = authClient.useSession();
-  const user = session.data?.user;
-  const publicConfigQuery = useQuery({
-    queryKey: PUBLIC_CONFIG_QUERY_KEY,
-    queryFn: async () => {
-      const res = await api.config.public.$get();
-      if (!res.ok) throw new Error("failed to load public config");
-      return res.json();
-    },
-    staleTime: Infinity,
-  });
-  const emailEnabled = publicConfigQuery.data?.emailEnabled ?? false;
-
-  if (!user) {
-    return null;
-  }
+function ProfilePage() {
+  const [user, setUser] = useState<MockUser>(MOCK_USER);
+  const emailEnabled = true;
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader />
-      {emailEnabled && !user.emailVerified ? <VerificationBanner email={user.email} /> : null}
-      <AvatarHeader name={user.name} email={user.email} />
-      <NameField currentName={user.name} />
-      <EmailField currentEmail={user.email} emailEnabled={emailEnabled} />
-      <MemberSince createdAt={user.createdAt} />
-      <RoleRow />
+    <div className="flex flex-col gap-7">
+      <SettingsPageHeader
+        title={m.settings_profile_title()}
+        description={m.settings_profile_description()}
+      />
+
+      {emailEnabled && !user.emailVerified ? <VerifyBanner email={user.email} /> : null}
+
+      <IdentityCard user={user} setUser={setUser} emailEnabled={emailEnabled} />
+      <AccountCard user={user} />
     </div>
   );
 }
 
-function PageHeader() {
+// ─── Identity ───────────────────────────────────────────────────────────────
+
+function IdentityCard({
+  user,
+  setUser,
+  emailEnabled,
+}: {
+  user: MockUser;
+  setUser: (updater: (prev: MockUser) => MockUser) => void;
+  emailEnabled: boolean;
+}) {
   return (
-    <div>
-      <h2 className="text-base font-medium">Profile</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Your personal information. Initials are generated from your name and shown in other users'
-        views where relevant.
-      </p>
-    </div>
+    <SettingsCard>
+      <SettingsCardRow
+        label={m.settings_profile_avatar_label()}
+        hint={m.settings_profile_avatar_hint()}
+        align="top"
+      >
+        <div className="flex items-center gap-4">
+          <UserAvatar name={user.name} email={user.email} className="size-18" />
+          <p className="max-w-65 text-xs text-muted-foreground">
+            {m.settings_profile_avatar_hint()}
+          </p>
+        </div>
+      </SettingsCardRow>
+
+      <NameRow currentName={user.name} onSave={(next) => setUser((u) => ({ ...u, name: next }))} />
+
+      <EmailRow
+        currentEmail={user.email}
+        emailVerified={user.emailVerified}
+        emailEnabled={emailEnabled}
+        onCommit={(next) => setUser((u) => ({ ...u, email: next, emailVerified: false }))}
+      />
+    </SettingsCard>
   );
 }
 
-function AvatarHeader({ name, email }: { name: string; email: string }) {
-  return (
-    <div className="flex items-center gap-4">
-      <UserAvatar name={name} email={email} size="lg" />
-      <div>
-        <p className="text-sm font-medium">{name}</p>
-        <p className="text-xs text-muted-foreground">Avatar generated from your name.</p>
-      </div>
-    </div>
-  );
-}
+// ─── Name ───────────────────────────────────────────────────────────────────
 
-// ─── Name ─────────────────────────────────────────────────────────────────────
-
-// fallow-ignore-next-line complexity
-export function NameField({ currentName }: { currentName: string }) {
+export function NameRow({
+  currentName,
+  onSave,
+}: {
+  currentName: string;
+  onSave: (next: string) => void;
+}) {
   const [draft, setDraft] = useState(currentName);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(currentName);
   }, [currentName]);
 
-  const dirty = draft.trim().length > 0 && draft !== currentName;
+  const trimmed = draft.trim();
+  const dirty = trimmed.length > 0 && trimmed !== currentName;
 
-  const mutation = useMutation({
-    mutationFn: async (name: string) => {
-      const result = await authClient.updateUser({ name });
-      if (result.error) throw result.error;
-    },
-    onSuccess: () => {
-      toast.success("Name updated.");
-      setError(null);
-    },
-    onError: (err: unknown) => {
-      const message = (err as { message?: string } | null)?.message ?? "Could not update name.";
-      setError(message);
-    },
+  const save = () => {
+    if (!dirty) return;
+    onSave(trimmed);
+    toast.success(m.settings_profile_toast_name_updated());
+  };
+  const discard = () => setDraft(currentName);
+
+  useSettingsDirty("profile-name", dirty, {
+    label: m.settings_profile_dirty_name(),
+    onSave: save,
+    onDiscard: discard,
   });
 
   return (
-    <Field data-invalid={error ? true : undefined} className="max-w-sm">
-      <FieldTitle>Name</FieldTitle>
-      <Input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        aria-invalid={error ? true : undefined}
-        data-testid="profile-name"
-      />
-      {error ? <FieldError>{error}</FieldError> : null}
-      <div className="mt-1 flex items-center gap-2">
-        <Button
-          size="sm"
-          disabled={!dirty || mutation.isPending}
-          onClick={() => mutation.mutate(draft.trim())}
-          data-testid="save-name"
-        >
-          {mutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-          Save name
+    <SettingsCardRow
+      label={m.settings_profile_name_label()}
+      hint={m.settings_profile_name_hint()}
+      borderTop
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Field className="flex-1 min-w-55">
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            data-testid="profile-name"
+          />
+        </Field>
+        <Button size="sm" disabled={!dirty} onClick={save} data-testid="save-name">
+          {m.settings_profile_name_save()}
         </Button>
-        {!dirty && !mutation.isPending && !error ? (
-          <span className="text-xs text-muted-foreground">No changes</span>
-        ) : null}
       </div>
-    </Field>
+      {!dirty ? (
+        <p className="mt-2 text-xs text-muted-foreground">{m.settings_profile_name_no_changes()}</p>
+      ) : null}
+    </SettingsCardRow>
   );
 }
 
-// ─── Email ────────────────────────────────────────────────────────────────────
+// ─── Email ──────────────────────────────────────────────────────────────────
 
-// fallow-ignore-next-line complexity
-export function EmailField({
+export function EmailRow({
   currentEmail,
+  emailVerified,
   emailEnabled,
+  onCommit,
 }: {
   currentEmail: string;
+  emailVerified: boolean;
   emailEnabled: boolean;
+  onCommit: (next: string) => void;
 }) {
   const [draft, setDraft] = useState(currentEmail);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
-  const [pendingDirectChange, setPendingPasswordConfirm] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     setDraft(currentEmail);
@@ -162,148 +175,118 @@ export function EmailField({
   const dirty =
     draft.trim().length > 0 && draft.trim().toLowerCase() !== currentEmail.toLowerCase();
 
-  const verifiedMutation = useMutation({
-    mutationFn: async (newEmail: string) => {
-      const result = await authClient.changeEmail({
-        newEmail,
-        callbackURL: "/settings/profile",
-      });
-      if (result.error) throw result.error;
-    },
-    onSuccess: () => {
-      setConfirmation(currentEmail);
-      setError(null);
-    },
-    onError: (err: unknown) => {
-      const message = (err as { message?: string } | null)?.message ?? "Could not change email.";
-      setError(message);
-    },
-  });
-
-  // In disabled-mode the server's `sendChangeEmailConfirmation` hook is
-  // unset, so `changeEmail` flips the address immediately. The confirm
-  // dialog is a deliberate-action gate, not a password check.
-  const directMutation = useMutation({
-    mutationFn: async (newEmail: string) => {
-      const result = await authClient.changeEmail({ newEmail });
-      if (result.error) throw result.error;
-    },
-    onSuccess: () => {
-      toast.success("Email updated.");
-      setPendingPasswordConfirm(null);
-      setError(null);
-    },
-    onError: (err: unknown) => {
-      const message = (err as { message?: string } | null)?.message ?? "Could not change email.";
-      setError(message);
-    },
-  });
-
   const submit = () => {
-    setError(null);
-    const trimmed = draft.trim();
+    if (!dirty) return;
+    setConfirmOpen(true);
+  };
+
+  const confirm = () => {
+    onCommit(draft.trim());
+    setConfirmOpen(false);
     if (emailEnabled) {
-      verifiedMutation.mutate(trimmed);
+      toast.success(m.settings_profile_toast_email_verification_sent());
     } else {
-      setPendingPasswordConfirm(trimmed);
+      toast.success(m.settings_profile_toast_email_updated());
     }
   };
 
-  if (confirmation) {
-    return (
-      <Field className="max-w-sm">
-        <FieldTitle>Email</FieldTitle>
-        <p className="text-sm text-muted-foreground">
-          We've sent a confirmation link to{" "}
-          <strong className="text-foreground">{confirmation}</strong>. Click it to complete the
-          change.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setConfirmation(null)}
-          data-testid="cancel-email-confirmation"
-        >
-          Cancel
-        </Button>
-      </Field>
-    );
-  }
-
   return (
-    <Field data-invalid={error ? true : undefined} className="max-w-sm">
-      <FieldTitle>Email</FieldTitle>
-      <Input
-        type="email"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        aria-invalid={error ? true : undefined}
-        data-testid="profile-email"
-      />
-      {emailEnabled ? (
-        <FieldDescription>We'll send a verification link to your current address.</FieldDescription>
-      ) : (
-        <FieldDescription>
-          No verification email will be sent — make sure the new address is correct.
-        </FieldDescription>
-      )}
-      {error ? <FieldError>{error}</FieldError> : null}
-      <div className="mt-1">
+    <SettingsCardRow
+      label={m.settings_profile_email_label()}
+      hint={
+        emailEnabled
+          ? m.settings_profile_email_hint_verified()
+          : m.settings_profile_email_hint_unverified()
+      }
+      borderTop
+      align="top"
+    >
+      <div className="flex flex-wrap items-start gap-2">
+        <Field className="flex-1 min-w-55" data-invalid={error ? true : undefined}>
+          <Input
+            type="email"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            aria-invalid={error ? true : undefined}
+            data-testid="profile-email"
+          />
+          {error ? <FieldError>{error}</FieldError> : null}
+          <FieldDescription>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 text-xs",
+                emailVerified ? "text-success" : "text-warning",
+              )}
+            >
+              {emailVerified ? (
+                <CheckIcon className="size-3.5" aria-hidden="true" />
+              ) : (
+                <TriangleAlertIcon className="size-3.5" aria-hidden="true" />
+              )}
+              {emailVerified
+                ? m.settings_profile_email_verified()
+                : m.settings_profile_email_unverified()}
+            </span>
+          </FieldDescription>
+        </Field>
         <Button
-          size="sm"
           variant="outline"
-          disabled={!dirty || verifiedMutation.isPending || directMutation.isPending}
+          size="sm"
+          disabled={!dirty}
           onClick={submit}
           data-testid="change-email"
         >
-          {verifiedMutation.isPending || directMutation.isPending ? (
-            <LoaderCircleIcon className="animate-spin" />
-          ) : null}
-          Change email
+          {m.settings_profile_email_change()}
         </Button>
       </div>
-      <DirectChangeEmailDialog
-        target={pendingDirectChange}
-        onCancel={() => setPendingPasswordConfirm(null)}
-        onConfirm={() => pendingDirectChange && directMutation.mutate(pendingDirectChange)}
-        pending={directMutation.isPending}
+
+      <ChangeEmailDialog
+        open={confirmOpen}
+        emailEnabled={emailEnabled}
+        target={draft.trim()}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirm}
       />
-    </Field>
+    </SettingsCardRow>
   );
 }
 
-function DirectChangeEmailDialog({
+function ChangeEmailDialog({
+  open,
+  emailEnabled,
   target,
   onCancel,
   onConfirm,
-  pending,
 }: {
-  target: string | null;
+  open: boolean;
+  emailEnabled: boolean;
+  target: string;
   onCancel: () => void;
   onConfirm: () => void;
-  pending: boolean;
 }) {
   return (
-    <Dialog open={target !== null} onOpenChange={(open) => (open ? null : onCancel())}>
-      <DialogContent showCloseButton={!pending}>
+    <Dialog open={open} onOpenChange={(o) => (o ? null : onCancel())}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirm email change</DialogTitle>
+          <DialogTitle>
+            {emailEnabled
+              ? m.settings_profile_email_dialog_verified_title()
+              : m.settings_profile_email_dialog_unverified_title()}
+          </DialogTitle>
           <DialogDescription>
-            No verification email will be sent. The new address takes effect immediately.
+            {emailEnabled
+              ? m.settings_profile_email_dialog_verified_body({ email: target })
+              : m.settings_profile_email_dialog_unverified_body({ email: target })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline" onClick={onCancel} disabled={pending}>
-            Cancel
+          <Button variant="outline" onClick={onCancel}>
+            {m.settings_profile_email_dialog_cancel()}
           </Button>
-          <Button
-            variant="default"
-            onClick={onConfirm}
-            disabled={pending}
-            data-testid="confirm-direct-email"
-          >
-            {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Change email to {target}
+          <Button onClick={onConfirm} data-testid="confirm-direct-email">
+            {emailEnabled
+              ? m.settings_profile_email_dialog_send()
+              : m.settings_profile_email_dialog_change()}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -311,55 +294,49 @@ function DirectChangeEmailDialog({
   );
 }
 
-// ─── Member since ─────────────────────────────────────────────────────────────
+// ─── Account ────────────────────────────────────────────────────────────────
 
-function MemberSince({ createdAt }: { createdAt: Date | string | number | undefined }) {
-  if (!createdAt) return null;
-  const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
-  const label = date.toLocaleString("en-US", { month: "long", year: "numeric" });
-  return (
-    <Field className="max-w-sm">
-      <FieldTitle>Member since</FieldTitle>
-      <p className="text-sm">{label}</p>
-    </Field>
-  );
-}
-
-// ─── Role row ─────────────────────────────────────────────────────────────────
-
-function RoleRow() {
-  const roleQuery = useQuery({
-    queryKey: ROLE_QUERY_KEY,
-    queryFn: async () => {
-      const res = await api.me.role.$get();
-      if (!res.ok) throw new Error("failed to load role");
-      return res.json();
-    },
-  });
-
-  const role = roleQuery.data?.role;
-  if (!role) return null;
+function AccountCard({ user }: { user: MockUser }) {
+  const memberSince = useMemo(() => {
+    try {
+      return new Date(user.createdAt).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch {
+      return "—";
+    }
+  }, [user.createdAt]);
 
   return (
-    <Field className="max-w-sm">
-      <FieldTitle>Role</FieldTitle>
-      <div className="flex flex-col gap-1">
-        <Badge variant="secondary" className="w-fit">
-          {role.name}
+    <SettingsCard>
+      <SettingsCardRow
+        label={m.settings_profile_member_since_label()}
+        hint={m.settings_profile_member_since_hint()}
+      >
+        <div className="text-sm tabular-nums text-foreground">{memberSince}</div>
+      </SettingsCardRow>
+      <SettingsCardRow
+        label={m.settings_profile_role_label()}
+        hint={m.settings_profile_role_default_description()}
+        borderTop
+        align="top"
+      >
+        <Badge variant="secondary" className="font-medium">
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
+          {MOCK_ROLE.name}
         </Badge>
-        {role.description ? (
-          <p className="text-xs text-muted-foreground">{role.description}</p>
-        ) : null}
-      </div>
-    </Field>
+      </SettingsCardRow>
+    </SettingsCard>
   );
 }
 
-// ─── Verification banner ──────────────────────────────────────────────────────
+// ─── Verify banner ──────────────────────────────────────────────────────────
 
-// fallow-ignore-next-line complexity
-export function VerificationBanner({ email }: { email: string }) {
-  const [dismissed, setDismissed] = useState(false);
+const VERIFICATION_COOLDOWN_SECONDS = 60;
+
+export function VerifyBanner({ email }: { email: string }) {
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -368,55 +345,28 @@ export function VerificationBanner({ email }: { email: string }) {
     return () => window.clearTimeout(id);
   }, [cooldown]);
 
-  const resend = useMutation({
-    mutationFn: async () => {
-      const result = await authClient.sendVerificationEmail({ email });
-      if (result.error) throw result.error;
-    },
-    onSuccess: () => {
-      toast.success("Verification email sent.");
-      setCooldown(VERIFICATION_COUNTDOWN_SECONDS);
-    },
-    onError: (err: unknown) => {
-      const message = (err as { message?: string } | null)?.message ?? "Could not resend.";
-      toast.error(message);
-    },
-  });
-
-  if (dismissed) return null;
+  const resend = () => {
+    setCooldown(VERIFICATION_COOLDOWN_SECONDS);
+    toast.success(m.settings_profile_toast_verification_sent());
+  };
 
   return (
-    <div
-      role="status"
-      className="flex max-w-3xl items-center justify-between gap-4 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 dark:border-amber-700/60 dark:bg-amber-950/40"
-    >
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium">Verify your email address to secure your account.</p>
-        <p className="text-xs text-muted-foreground">
-          We sent a verification link to <strong className="text-foreground">{email}</strong>.
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={cooldown > 0 || resend.isPending}
-          onClick={() => resend.mutate()}
-          data-testid="resend-verification"
-        >
-          {resend.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-          {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => setDismissed(true)}
-          aria-label="Dismiss verification banner"
-          data-testid="dismiss-verification"
-        >
-          <CheckIcon className="size-3" />
-        </Button>
-      </div>
-    </div>
+    <Alert>
+      <TriangleAlertIcon />
+      <AlertTitle>{m.settings_profile_verify_banner_title()}</AlertTitle>
+      <AlertDescription>{m.settings_profile_verify_banner_body({ email })}</AlertDescription>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={cooldown > 0}
+        onClick={resend}
+        data-testid="resend-verification"
+        className="col-start-2 mt-2 justify-self-start"
+      >
+        {cooldown > 0
+          ? m.settings_profile_verify_resend_cooldown({ seconds: cooldown })
+          : m.settings_profile_verify_resend()}
+      </Button>
+    </Alert>
   );
 }

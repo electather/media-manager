@@ -1,24 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import type { InferResponseType } from "hono/client";
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+// fallow-ignore-file complexity
+import { useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import {
-  ArrowRightIcon,
   CheckIcon,
-  KeyIcon,
-  LoaderCircleIcon,
+  EditIcon,
+  LogOutIcon,
   MoreHorizontalIcon,
-  PencilIcon,
   PlugIcon,
-  PowerIcon,
-  RotateCwIcon,
+  PlusIcon,
+  RefreshCwIcon,
   StarIcon,
   TriangleAlertIcon,
-  UnplugIcon,
   XIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 
-import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import {
@@ -36,722 +32,560 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
-import { Skeleton } from "@/shared/ui/skeleton";
-import { api } from "@/shared/lib/api";
-import { CapabilityBadges, capabilityListSummary } from "@/shared/lib/capabilities";
+import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { cn } from "@/shared/lib/utils";
+import { m } from "@/paraglide/messages";
 
+import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 import {
-  ConnectionModal,
-  type ExistingConnection,
-  type PluginSummary,
-} from "@/features/connections";
+  MOCK_CONNECTIONS,
+  MOCK_PLUGINS,
+  type ConnectionStatus,
+  type MockConnection,
+  type MockPlugin,
+} from "@/features/settings/mocks";
 
-export const Route = createFileRoute("/_authenticated/_settings/settings/connections")({
-  component: ConnectionsPage,
-});
+const STATUS_LABEL: Record<ConnectionStatus, () => string> = {
+  connected: () => m.settings_connections_status_connected(),
+  expired: () => m.settings_connections_status_expired(),
+  error: () => m.settings_connections_status_error(),
+  disconnected: () => m.settings_connections_status_disconnected(),
+};
 
-// ─── API shapes (inferred from the server response types) ────────────────────
+const STATUS_BADGE_CLASS: Record<ConnectionStatus, string> = {
+  connected: "border border-success/40 bg-success/10 text-success",
+  expired: "border border-amber-400/40 bg-amber-400/10 text-amber-500 dark:text-amber-400",
+  error: "border border-destructive/40 bg-destructive/10 text-destructive",
+  disconnected: "border border-border bg-muted text-muted-foreground",
+};
 
-type ConnectionItem = InferResponseType<typeof api.connections.$get>["connections"][number];
-type AvailablePlugin = InferResponseType<typeof api.connections.available.$get>["plugins"][number];
+const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
+  connected: "bg-success",
+  expired: "bg-amber-500",
+  error: "bg-destructive",
+  disconnected: "bg-muted-foreground/60",
+};
 
-// ─── Queries ──────────────────────────────────────────────────────────────────
-
-function useConnectionsQuery() {
-  return useQuery({
-    queryKey: ["connections", "list"],
-    queryFn: async () => {
-      const res = await api.connections.$get();
-      if (!res.ok) throw new Error("Failed to load connections.");
-      const body = await res.json();
-      return body.connections;
-    },
-  });
-}
-
-function useAvailablePluginsQuery() {
-  return useQuery({
-    queryKey: ["connections", "available"],
-    queryFn: async () => {
-      const res = await api.connections.available.$get();
-      if (!res.ok) throw new Error("Failed to load available plugins.");
-      const body = await res.json();
-      return body.plugins;
-    },
-  });
-}
-
-// ─── Modal state ──────────────────────────────────────────────────────────────
-
-type ModalState =
-  | { kind: "none" }
-  | { kind: "create"; plugin: PluginSummary }
-  | { kind: "edit"; plugin: PluginSummary; existing: ExistingConnection }
-  | { kind: "remove"; connection: ConnectionItem };
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-// fallow-ignore-next-line complexity
-function ConnectionsPage() {
-  const connections = useConnectionsQuery();
-  const available = useAvailablePluginsQuery();
-  const qc = useQueryClient();
-  const [modal, setModal] = useState<ModalState>({ kind: "none" });
-
-  const refetch = () => {
-    void qc.invalidateQueries({ queryKey: ["connections", "list"] });
-    void qc.invalidateQueries({ queryKey: ["connections", "available"] });
-  };
-
-  const byPlugin = useMemo(() => groupByPlugin(connections.data ?? []), [connections.data]);
-  const connectedPluginIds = useMemo(() => new Set(byPlugin.map((g) => g.pluginId)), [byPlugin]);
-  const unconnected = useMemo(
-    () => (available.data ?? []).filter((p) => !connectedPluginIds.has(p.id)),
-    [available.data, connectedPluginIds],
-  );
-  const brokenCount = (connections.data ?? []).filter(isBroken).length;
-  const expiredOnly = (connections.data ?? []).every((c) => !isBroken(c) || c.status === "expired");
-  const hasAnyConnections = byPlugin.length > 0;
-  const hasAnyAvailable = unconnected.length > 0;
-  const hasAnyPlugins = hasAnyAvailable || hasAnyConnections;
-
-  const isLoading = connections.isLoading || available.isLoading;
-
-  const openCreate = (plugin: PluginSummary) => setModal({ kind: "create", plugin });
-  const openEdit = (connection: ConnectionItem) =>
-    setModal({
-      kind: "edit",
-      plugin: connection.plugin,
-      existing: { id: connection.id, displayName: connection.displayName },
-    });
-  const openReconnect = (connection: ConnectionItem) => {
-    if (connection.plugin.authKind === "form") openEdit(connection);
-    else setModal({ kind: "create", plugin: connection.plugin });
-  };
-
+function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader />
-
-      {brokenCount > 0 ? <BrokenAlert count={brokenCount} expiredOnly={expiredOnly} /> : null}
-
-      {isLoading ? (
-        <LoadingSkeleton />
-      ) : !hasAnyPlugins ? (
-        <NoPluginsState />
-      ) : (
-        <>
-          {hasAnyConnections ? (
-            <ConnectedSection
-              groups={byPlugin}
-              onAddAnother={openCreate}
-              onEdit={openEdit}
-              onRemove={(c) => setModal({ kind: "remove", connection: c })}
-              onReconnect={openReconnect}
-              onRefetch={refetch}
-            />
-          ) : null}
-
-          {hasAnyAvailable ? (
-            <AvailableSection plugins={unconnected} onConnect={openCreate} />
-          ) : null}
-        </>
-      )}
-
-      <ConnectionModal
-        open={modal.kind === "create" || modal.kind === "edit"}
-        plugin={modal.kind === "create" || modal.kind === "edit" ? modal.plugin : null}
-        existing={modal.kind === "edit" ? modal.existing : null}
-        onOpenChange={(open) => {
-          if (!open) setModal({ kind: "none" });
-        }}
-        onSuccess={refetch}
-      />
-
-      <RemoveDialog
-        open={modal.kind === "remove"}
-        connection={modal.kind === "remove" ? modal.connection : null}
-        onOpenChange={(open) => {
-          if (!open) setModal({ kind: "none" });
-        }}
-        onRemoved={refetch}
-      />
-    </div>
-  );
-}
-
-function PageHeader() {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div>
-        <h2 className="text-base font-medium">Connections</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Connect your media services to enable tracking, requesting, and personalized
-          recommendations through your AI assistant.
-        </p>
-      </div>
-      {/* Non-admin users get a 403 from /plugins which is fine — the link is harmless. Hide
-          behind a client-side permissions hook once one exists. */}
-      <Link
-        to="/admin/plugins"
-        className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
-      >
-        Manage plugins
-        <ArrowRightIcon className="size-3.5" />
-      </Link>
-    </div>
-  );
-}
-
-// fallow-ignore-next-line complexity
-function BrokenAlert({ count, expiredOnly }: { count: number; expiredOnly: boolean }) {
-  return (
-    <Alert
-      variant={expiredOnly ? "default" : "destructive"}
+    <Badge
+      variant="outline"
       className={cn(
-        "max-w-2xl",
-        expiredOnly && "border-amber-500/40 bg-amber-500/8 text-amber-900 dark:text-amber-200",
+        "gap-1.5 rounded-md px-2 py-0.5 font-mono text-[11px] tracking-wide",
+        STATUS_BADGE_CLASS[status],
       )}
     >
-      <TriangleAlertIcon />
-      <AlertTitle>
-        {count} connection{count === 1 ? "" : "s"} need{count === 1 ? "s" : ""} attention
-      </AlertTitle>
-      <AlertDescription>
-        {expiredOnly
-          ? "Some services need re-authentication. Use Reconnect on the affected card."
-          : "Features that rely on these services won't work until they're fixed."}
-      </AlertDescription>
-    </Alert>
-  );
-}
-
-// ─── Grouping ─────────────────────────────────────────────────────────────────
-
-interface PluginGroupData {
-  pluginId: string;
-  plugin: ConnectionItem["plugin"];
-  connections: ConnectionItem[];
-  /** True when any connection in the group is broken; such groups float to the top. */
-  hasBroken: boolean;
-}
-
-function groupByPlugin(items: ConnectionItem[]): PluginGroupData[] {
-  const groups = new Map<string, PluginGroupData>();
-  for (const c of items) {
-    const existing = groups.get(c.pluginId);
-    if (existing) {
-      existing.connections.push(c);
-      if (isBroken(c)) existing.hasBroken = true;
-    } else {
-      groups.set(c.pluginId, {
-        pluginId: c.pluginId,
-        plugin: c.plugin,
-        connections: [c],
-        hasBroken: isBroken(c),
-      });
-    }
-  }
-  // Broken groups float to the top; otherwise alphabetical by plugin name.
-  return [...groups.values()].sort((a, b) => {
-    if (a.hasBroken !== b.hasBroken) return a.hasBroken ? -1 : 1;
-    return a.plugin.name.localeCompare(b.plugin.name);
-  });
-}
-
-function isBroken(c: ConnectionItem): boolean {
-  return c.status === "error" || c.status === "expired";
-}
-
-// ─── Connected section ────────────────────────────────────────────────────────
-
-interface ConnectedSectionProps {
-  groups: PluginGroupData[];
-  onAddAnother: (plugin: PluginSummary) => void;
-  onEdit: (connection: ConnectionItem) => void;
-  onRemove: (connection: ConnectionItem) => void;
-  onReconnect: (connection: ConnectionItem) => void;
-  onRefetch: () => void;
-}
-
-function ConnectedSection({
-  groups,
-  onAddAnother,
-  onEdit,
-  onRemove,
-  onReconnect,
-  onRefetch,
-}: ConnectedSectionProps) {
-  return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-sm font-medium">Your connections</h3>
-        <p className="text-xs text-muted-foreground">Plugins you've authorized for your account.</p>
-      </div>
-      <div className="flex max-w-2xl flex-col gap-6">
-        {groups.map((group) => (
-          <PluginGroup
-            key={group.pluginId}
-            group={group}
-            onAddAnother={onAddAnother}
-            onEdit={onEdit}
-            onRemove={onRemove}
-            onReconnect={onReconnect}
-            onRefetch={onRefetch}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-interface PluginGroupProps {
-  group: PluginGroupData;
-  onAddAnother: (plugin: PluginSummary) => void;
-  onEdit: (connection: ConnectionItem) => void;
-  onRemove: (connection: ConnectionItem) => void;
-  onReconnect: (connection: ConnectionItem) => void;
-  onRefetch: () => void;
-}
-
-function PluginGroup({
-  group,
-  onAddAnother,
-  onEdit,
-  onRemove,
-  onReconnect,
-  onRefetch,
-}: PluginGroupProps) {
-  // Group header lists only the user-scoped capabilities — those are what a
-  // connection unlocks for the user. Global-scoped ones don't depend on a
-  // connection and live on the modal's "also provides" line instead.
-  const userScopedCaps = group.plugin.userScopedCapabilities;
-  // Per design doc § "Connected instance card": poolable plugins always
-  // surface "Set as default" (rotation assumes one); non-poolable plugins
-  // surface it only once the user has multiple instances.
-  const showDefault = group.plugin.poolable || group.connections.length > 1;
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        {group.plugin.logoUrl ? (
-          <img src={group.plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
-        ) : null}
-        <h4 className="text-sm font-medium">{group.plugin.name}</h4>
-        <CapabilityBadges entries={userScopedCaps} size="sm" />
-      </div>
-      <div className="flex flex-col divide-y divide-border rounded-xl border border-border">
-        {group.connections.map((conn) => (
-          <ConnectionRow
-            key={conn.id}
-            connection={conn}
-            showDefault={showDefault}
-            onEdit={onEdit}
-            onRemove={onRemove}
-            onReconnect={onReconnect}
-            onRefetch={onRefetch}
-          />
-        ))}
-        <button
-          type="button"
-          onClick={() => onAddAnother(group.plugin)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <PlugIcon className="size-3.5" />
-          Add another {group.plugin.name} connection
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Connection row ───────────────────────────────────────────────────────────
-
-interface ConnectionRowProps {
-  connection: ConnectionItem;
-  showDefault: boolean;
-  onEdit: (c: ConnectionItem) => void;
-  onRemove: (c: ConnectionItem) => void;
-  onReconnect: (c: ConnectionItem) => void;
-  onRefetch: () => void;
-}
-
-// fallow-ignore-next-line complexity
-function ConnectionRow({
-  connection,
-  showDefault,
-  onEdit,
-  onRemove,
-  onReconnect,
-  onRefetch,
-}: ConnectionRowProps) {
-  const { plugin } = connection;
-  const disabled = !connection.enabled;
-  const broken = isBroken(connection);
-  const displayName = connection.displayName ?? plugin.name;
-
-  const testMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.connections[":id"].test.$post({ param: { id: connection.id } });
-      if (!res.ok) throw new Error("Test failed.");
-      return await res.json();
-    },
-  });
-  const setEnabledMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      const res = await api.connections[":id"].enabled.$patch({
-        param: { id: connection.id },
-        json: { enabled },
-      });
-      if (!res.ok) throw new Error("Failed to update.");
-    },
-    onSuccess: onRefetch,
-  });
-  const setDefaultMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.connections[":id"].default.$post({
-        param: { id: connection.id },
-      });
-      if (!res.ok) throw new Error("Failed to set default.");
-    },
-    onSuccess: onRefetch,
-  });
-
-  // Auto-dismiss the test result after 3 seconds.
-  const [showTestResult, setShowTestResult] = useState(false);
-  useEffect(() => {
-    if (!testMutation.isSuccess && !testMutation.isError) return;
-    setShowTestResult(true);
-    const id = window.setTimeout(() => setShowTestResult(false), 3000);
-    return () => window.clearTimeout(id);
-  }, [testMutation.isSuccess, testMutation.isError, testMutation.data]);
-
-  useEffect(() => {
-    if (testMutation.isSuccess) onRefetch();
-  }, [testMutation.isSuccess, onRefetch]);
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-2 px-4 py-3 transition-opacity sm:flex-row sm:items-start",
-        disabled && "opacity-55",
-      )}
-    >
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-sm font-medium">{displayName}</span>
-          <StatusBadge connection={connection} />
-          {showDefault && connection.isDefault ? (
-            <Badge variant="outline" className="text-xs font-normal">
-              Default
-            </Badge>
-          ) : null}
-        </div>
-
-        {connection.displayFields.length > 0 ? (
-          <dl className="flex flex-col gap-0.5">
-            {connection.displayFields.map((p, i) => (
-              // Index suffix guards against the (theoretical) case of two
-              // schema properties sharing the same `title`.
-              <div key={`${p.label}-${i}`} className="flex items-baseline gap-2">
-                <dt className="shrink-0 text-xs text-muted-foreground">{p.label}</dt>
-                <dd
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-xs",
-                    p.mono && "font-mono text-sm text-muted-foreground",
-                  )}
-                >
-                  {p.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
-
-        <span className="text-xs text-muted-foreground">
-          {broken ? "Last verified " : "Verified "}
-          {relativeTime(connection.lastVerifiedAt)}
-        </span>
-        {broken && connection.errorMessage ? (
-          <span className="text-xs leading-snug text-destructive">{connection.errorMessage}</span>
-        ) : null}
-
-        {showTestResult ? (
-          <RowFeedback
-            data={testMutation.data}
-            isError={testMutation.isError}
-            error={testMutation.error}
-          />
-        ) : null}
-      </div>
-
-      <div className="flex items-center gap-1 self-start sm:self-center">
-        {broken ? (
-          <Button size="sm" onClick={() => onReconnect(connection)}>
-            <RotateCwIcon /> Reconnect
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => testMutation.mutate()}
-            disabled={testMutation.isPending || disabled}
-          >
-            {testMutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            {testMutation.isPending ? "Testing…" : "Test"}
-          </Button>
-        )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="More actions"
-            className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <MoreHorizontalIcon className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => onEdit(connection)}>
-              <PencilIcon /> Edit
-            </DropdownMenuItem>
-            {showDefault && !connection.isDefault && !disabled ? (
-              <DropdownMenuItem onClick={() => setDefaultMutation.mutate()}>
-                <StarIcon /> Set as default
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem
-              onClick={() => setEnabledMutation.mutate(!connection.enabled)}
-              disabled={setEnabledMutation.isPending}
-            >
-              <PowerIcon /> {disabled ? "Enable" : "Disable"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => onRemove(connection)}>
-              <XIcon /> Remove
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-  );
-}
-
-// fallow-ignore-next-line complexity
-function RowFeedback({
-  data,
-  isError,
-  error,
-}: {
-  data: { ok: boolean; message?: string } | undefined;
-  isError: boolean;
-  error: unknown;
-}) {
-  if (data?.ok) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
-        <CheckIcon className="size-3" /> Verified
-      </span>
-    );
-  }
-  if (data && !data.ok) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-destructive">
-        <XIcon className="size-3" /> {data.message ?? "Test failed"}
-      </span>
-    );
-  }
-  if (isError) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-destructive">
-        <XIcon className="size-3" /> {(error as Error).message}
-      </span>
-    );
-  }
-  return null;
-}
-
-// fallow-ignore-next-line complexity
-function StatusBadge({ connection }: { connection: ConnectionItem }) {
-  const { status, enabled } = connection;
-  if (!enabled) {
-    return <Badge variant="secondary">Disabled</Badge>;
-  }
-  if (status === "error") {
-    return (
-      <Badge variant="destructive">
-        <TriangleAlertIcon /> Error
-      </Badge>
-    );
-  }
-  if (status === "expired") {
-    return (
-      <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300">
-        <TriangleAlertIcon /> Expired
-      </Badge>
-    );
-  }
-  if (status === "disconnected") {
-    return <Badge variant="outline">Disconnected</Badge>;
-  }
-  return (
-    <Badge variant="secondary">
-      <CheckIcon /> Connected
+      <span aria-hidden="true" className={cn("size-1.5 rounded-full", STATUS_DOT_CLASS[status])} />
+      {STATUS_LABEL[status]()}
     </Badge>
   );
 }
 
-// ─── Available section ────────────────────────────────────────────────────────
+export const Route = createFileRoute("/_authenticated/_settings/settings/connections")({
+  component: ConnectionsRoute,
+});
 
-interface AvailableSectionProps {
-  plugins: AvailablePlugin[];
-  onConnect: (p: AvailablePlugin) => void;
-}
-
-function AvailableSection({ plugins, onConnect }: AvailableSectionProps) {
+function ConnectionsRoute() {
   return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-sm font-medium">Available to connect</h3>
-        <p className="text-xs text-muted-foreground">Services you can connect to.</p>
-      </div>
-      <div className="flex max-w-2xl flex-col divide-y divide-border rounded-xl border border-border">
-        {plugins.map((p) => (
-          <AvailableRow key={p.id} plugin={p} onConnect={() => onConnect(p)} />
-        ))}
-      </div>
-    </section>
+    <SettingsErrorBoundary>
+      <ConnectionsPage />
+    </SettingsErrorBoundary>
   );
 }
 
-// fallow-ignore-next-line complexity
-function AvailableRow({ plugin, onConnect }: { plugin: AvailablePlugin; onConnect: () => void }) {
-  // Per the design doc § "Available to Connect": badges represent only the
-  // user-scoped capabilities (what a connection unlocks); a muted footer
-  // line lists the global-scoped ones with "available without a connection".
-  const userScopedCaps = plugin.userScopedCapabilities;
-  const globalScopedCaps = plugin.globalScopedCapabilities;
+type Filter = "all" | "issues" | "disabled";
 
-  return (
-    <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          {plugin.logoUrl ? (
-            <img src={plugin.logoUrl} alt="" className="size-4 rounded-sm object-contain" />
-          ) : null}
-          <span className="truncate text-sm font-medium">{plugin.name}</span>
-        </div>
-        {plugin.description ? (
-          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-            {plugin.description}
-          </p>
-        ) : null}
-        {userScopedCaps.length > 0 ? <CapabilityBadges entries={userScopedCaps} size="sm" /> : null}
-        {globalScopedCaps.length > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            <span className="sr-only">Also available without a connection: </span>
-            {capabilityListSummary(globalScopedCaps)} available without a connection
-          </p>
-        ) : null}
-      </div>
+function ConnectionsPage() {
+  const [conns, setConns] = useState<ReadonlyArray<MockConnection>>(MOCK_CONNECTIONS);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [disconnectFor, setDisconnectFor] = useState<MockConnection | null>(null);
 
-      <div className="flex items-center gap-2 self-start sm:self-center">
-        {plugin.adminSharedAvailable ? (
-          <>
-            <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
-              <KeyIcon className="size-3" /> Using server key
-            </span>
-            <Button variant="outline" size="sm" onClick={onConnect}>
-              Add your own key
-            </Button>
-          </>
-        ) : (
-          <Button size="sm" onClick={onConnect}>
-            <UnplugIcon /> Connect
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+  const sorted = useMemo(() => {
+    const order: Record<MockConnection["status"], number> = {
+      error: 0,
+      expired: 1,
+      connected: 2,
+      disconnected: 3,
+    };
+    return [...conns].sort((a, b) => {
+      if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+      return order[a.status] - order[b.status];
+    });
+  }, [conns]);
 
-// ─── Empty + skeleton states ─────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    if (filter === "issues")
+      return sorted.filter((c) => c.status === "error" || c.status === "expired");
+    if (filter === "disabled") return sorted.filter((c) => !c.enabled);
+    return sorted;
+  }, [sorted, filter]);
 
-function NoPluginsState() {
-  return (
-    <div className="flex max-w-2xl flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-9 text-center">
-      <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-card">
-        <PlugIcon className="size-5 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-medium">No plugins installed</p>
-      <p className="max-w-[42ch] text-xs text-muted-foreground">
-        Ask your administrator to install plugins to connect external services.
-      </p>
-    </div>
-  );
-}
+  const issueCount = conns.filter((c) => c.status === "error" || c.status === "expired").length;
+  const disabledCount = conns.filter((c) => !c.enabled).length;
 
-function LoadingSkeleton() {
-  return (
-    <div className="flex max-w-2xl flex-col gap-4">
-      <Skeleton className="h-5 w-32" />
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <Skeleton className="h-5 w-32" />
-      <Skeleton className="h-32 w-full rounded-xl" />
-    </div>
-  );
-}
+  const updateConnection = (
+    id: string,
+    next: Partial<MockConnection> | ((c: MockConnection) => MockConnection),
+  ) => {
+    setConns((list) =>
+      list.map((c) => {
+        if (c.id !== id) return c;
+        return typeof next === "function" ? next(c) : { ...c, ...next };
+      }),
+    );
+  };
 
-// ─── Remove dialog ────────────────────────────────────────────────────────────
+  const handleTest = (conn: MockConnection) => {
+    toast.message(m.settings_connections_toast_testing());
+    window.setTimeout(() => {
+      updateConnection(conn.id, { lastVerifiedAt: new Date().toISOString() });
+      const plugin = MOCK_PLUGINS.find((p) => p.id === conn.pluginId);
+      toast.success(m.settings_connections_toast_test_ok({ name: plugin?.name ?? conn.label }));
+    }, 600);
+  };
 
-function RemoveDialog({
-  open,
-  connection,
-  onOpenChange,
-  onRemoved,
-}: {
-  open: boolean;
-  connection: ConnectionItem | null;
-  onOpenChange: (next: boolean) => void;
-  onRemoved: () => void;
-}) {
-  const [pending, setPending] = useState(false);
-  if (!connection) return null;
+  const handleSetDefault = (conn: MockConnection) => {
+    setConns((list) =>
+      list.map((c) => (c.pluginId === conn.pluginId ? { ...c, isDefault: c.id === conn.id } : c)),
+    );
+    toast.success(m.settings_connections_toast_default_updated());
+  };
 
-  const name = connection.displayName ?? connection.plugin.name;
-  const onConfirm = async () => {
-    setPending(true);
-    try {
-      const res = await api.connections[":id"].$delete({
-        param: { id: connection.id },
-      });
-      if (!res.ok) throw new Error("Failed to remove connection.");
-      onRemoved();
-      onOpenChange(false);
-    } finally {
-      setPending(false);
-    }
+  const handleToggleEnabled = (conn: MockConnection) => {
+    updateConnection(conn.id, { enabled: !conn.enabled });
+    toast.success(
+      conn.enabled
+        ? m.settings_connections_toast_disabled()
+        : m.settings_connections_toast_enabled(),
+    );
+  };
+
+  const confirmDisconnect = () => {
+    if (!disconnectFor) return;
+    setConns((list) => list.filter((c) => c.id !== disconnectFor.id));
+    setDisconnectFor(null);
+    toast.success(m.settings_connections_toast_disconnected());
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !pending && onOpenChange(v)}>
-      <DialogContent className="gap-0 p-0 sm:max-w-110" showCloseButton={!pending}>
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle className="text-destructive">
-            Remove {connection.plugin.name} connection?
-          </DialogTitle>
-          <DialogDescription>
-            This will remove your {connection.plugin.name} connection &ldquo;
-            {name}&rdquo;. Your data on {connection.plugin.name} is not affected.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="border-t border-border px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
+    <div className="flex flex-col gap-7">
+      <SettingsPageHeader
+        title={m.settings_connections_title()}
+        description={m.settings_connections_description()}
+      />
+
+      <SettingsCard>
+        <SettingsCardHeader
+          title={m.settings_connections_connected_title()}
+          count={conns.length}
+          description={
+            issueCount > 0
+              ? issueCount === 1
+                ? m.settings_connections_attention_singular({ count: issueCount })
+                : m.settings_connections_attention_plural({ count: issueCount })
+              : undefined
+          }
+          action={
+            conns.length > 0 ? (
+              <ConnectionFilters
+                filter={filter}
+                setFilter={setFilter}
+                total={conns.length}
+                issueCount={issueCount}
+                disabledCount={disabledCount}
+              />
+            ) : undefined
+          }
+        />
+
+        {conns.length === 0 ? (
+          <ConnectionsEmpty />
+        ) : filtered.length === 0 ? (
+          <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+            {m.settings_connections_filter_empty()}
+          </p>
+        ) : (
+          <ul role="list" className="flex flex-col">
+            {filtered.map((conn, i) => {
+              const plugin = MOCK_PLUGINS.find((p) => p.id === conn.pluginId);
+              if (!plugin) return null;
+              const siblings = conns.filter((c) => c.pluginId === plugin.id);
+              return (
+                <ConnectionRow
+                  key={conn.id}
+                  conn={conn}
+                  plugin={plugin}
+                  hasSiblings={siblings.length > 1}
+                  isFirst={i === 0}
+                  onTest={() => handleTest(conn)}
+                  onSetDefault={() => handleSetDefault(conn)}
+                  onToggleEnabled={() => handleToggleEnabled(conn)}
+                  onDisconnect={() => setDisconnectFor(conn)}
+                  onReconnect={() =>
+                    updateConnection(conn.id, {
+                      status: "connected",
+                      enabled: true,
+                      errorMessage: undefined,
+                    })
+                  }
+                />
+              );
+            })}
+          </ul>
+        )}
+      </SettingsCard>
+
+      <CatalogCard
+        connections={conns}
+        onAdd={(plugin) => {
+          const newConn: MockConnection = {
+            id: `c-${plugin.id}-${Math.random().toString(36).slice(2, 7)}`,
+            pluginId: plugin.id,
+            label: plugin.name,
+            status: "connected",
+            enabled: true,
+            isDefault: !conns.some((c) => c.pluginId === plugin.id),
+            lastVerifiedAt: new Date().toISOString(),
+            tokenExpiresAt: null,
+          };
+          setConns((list) => [newConn, ...list]);
+          toast.success(m.settings_connections_catalog_connect());
+        }}
+      />
+
+      <DisconnectDialog
+        conn={disconnectFor}
+        plugin={
+          disconnectFor ? (MOCK_PLUGINS.find((p) => p.id === disconnectFor.pluginId) ?? null) : null
+        }
+        onClose={() => setDisconnectFor(null)}
+        onConfirm={confirmDisconnect}
+      />
+    </div>
+  );
+}
+
+function ConnectionFilters({
+  filter,
+  setFilter,
+  total,
+  issueCount,
+  disabledCount,
+}: {
+  filter: Filter;
+  setFilter: (next: Filter) => void;
+  total: number;
+  issueCount: number;
+  disabledCount: number;
+}) {
+  const filters: ReadonlyArray<{ id: Filter; label: string; count: number }> = [
+    { id: "all", label: m.settings_connections_filter_all(), count: total },
+    { id: "issues", label: m.settings_connections_filter_issues(), count: issueCount },
+    { id: "disabled", label: m.settings_connections_filter_disabled(), count: disabledCount },
+  ];
+  return (
+    <div className="flex gap-1.5" role="tablist" aria-label="Filter connections">
+      {filters.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          role="tab"
+          aria-selected={filter === f.id}
+          onClick={() => setFilter(f.id)}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+            filter === f.id
+              ? "border-input bg-muted text-foreground"
+              : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          )}
+        >
+          {f.label}
+          <span className="font-mono text-[10px] text-muted-foreground/80">{f.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ConnectionsEmpty() {
+  return (
+    <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+      <div className="flex size-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <PlugIcon className="size-5" aria-hidden="true" />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-foreground">
+          {m.settings_connections_empty_title()}
+        </p>
+        <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+          {m.settings_connections_empty_description()}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ConnectionRow({
+  conn,
+  plugin,
+  hasSiblings,
+  isFirst,
+  onTest,
+  onSetDefault,
+  onToggleEnabled,
+  onDisconnect,
+  onReconnect,
+}: {
+  conn: MockConnection;
+  plugin: MockPlugin;
+  hasSiblings: boolean;
+  isFirst: boolean;
+  onTest: () => void;
+  onSetDefault: () => void;
+  onToggleEnabled: () => void;
+  onDisconnect: () => void;
+  onReconnect: () => void;
+}) {
+  const broken = conn.status === "error" || conn.status === "expired";
+
+  return (
+    <li
+      className={cn(
+        "relative flex flex-wrap items-start gap-3 px-5 py-4 sm:flex-nowrap sm:items-center sm:gap-4 sm:px-6",
+        !isFirst && "border-t border-border",
+        !conn.enabled && "opacity-60",
+      )}
+    >
+      {broken ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "absolute inset-y-0 left-0 w-0.5",
+            conn.status === "error" ? "bg-destructive" : "bg-amber-400",
+          )}
+        />
+      ) : null}
+
+      <ConnectionLogo plugin={plugin} />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">
+            {plugin.name}
+            {plugin.poolable ? (
+              <>
+                {" "}
+                <span className="text-muted-foreground">·</span>{" "}
+                <span className="text-muted-foreground">{conn.label}</span>
+              </>
+            ) : null}
+          </span>
+          <ConnectionStatusBadge status={conn.status} />
+          {conn.isDefault && hasSiblings ? (
+            <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wide">
+              <StarIcon className="size-2.5" aria-hidden="true" />
+              {m.settings_connections_default_badge()}
+            </Badge>
+          ) : null}
+          {!conn.enabled ? (
+            <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wide">
+              {m.settings_connections_disabled_badge()}
+            </Badge>
+          ) : null}
+        </div>
+
+        <p className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0 text-xs text-muted-foreground">
+          {conn.sublabel ? (
+            <span className={plugin.poolable ? "font-mono" : ""}>{conn.sublabel}</span>
+          ) : null}
+          <span>
+            {m.settings_connections_last_verified({
+              time: relativeTime(new Date(conn.lastVerifiedAt)),
+            })}
+          </span>
+          {conn.tokenExpiresAt && conn.status !== "expired" ? (
+            <span>
+              {m.settings_connections_token_expires({
+                time: relativeTime(new Date(conn.tokenExpiresAt)),
+              })}
+            </span>
+          ) : null}
+        </p>
+
+        {conn.status === "error" && conn.errorMessage ? (
+          <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 font-mono text-xs leading-relaxed text-destructive/90">
+            {conn.errorMessage}
+          </div>
+        ) : null}
+        {conn.status === "expired" && conn.tokenExpiresAt ? (
+          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+            {m.settings_connections_token_expired({
+              time: relativeTime(new Date(conn.tokenExpiresAt)),
+            })}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {broken ? (
+          <Button variant="outline" size="sm" onClick={onReconnect}>
+            <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+            {m.settings_connections_action_reconnect()}
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={pending}>
-            {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Remove connection
+        ) : null}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={m.settings_connections_action_more()}
+              >
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onTest}>
+              <RefreshCwIcon className="size-3.5" />
+              {m.settings_connections_action_test()}
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <EditIcon className="size-3.5" />
+              {m.settings_connections_action_edit()}
+            </DropdownMenuItem>
+            {plugin.poolable && hasSiblings && !conn.isDefault ? (
+              <DropdownMenuItem onClick={onSetDefault}>
+                <StarIcon className="size-3.5" />
+                {m.settings_connections_action_set_default()}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onToggleEnabled}>
+              {conn.enabled ? <XIcon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
+              {conn.enabled
+                ? m.settings_connections_action_disable()
+                : m.settings_connections_action_enable()}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDisconnect} variant="destructive">
+              <LogOutIcon className="size-3.5" />
+              {m.settings_connections_action_disconnect()}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </li>
+  );
+}
+
+function ConnectionLogo({ plugin }: { plugin: MockPlugin }) {
+  const initial = plugin.name.charAt(0).toUpperCase();
+  return (
+    <div
+      className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-base font-semibold text-foreground"
+      aria-hidden="true"
+    >
+      {initial}
+    </div>
+  );
+}
+
+function CatalogCard({
+  connections,
+  onAdd,
+}: {
+  connections: ReadonlyArray<MockConnection>;
+  onAdd: (plugin: MockPlugin) => void;
+}) {
+  return (
+    <SettingsCard>
+      <SettingsCardHeader
+        title={m.settings_connections_catalog_title()}
+        description={m.settings_connections_catalog_description()}
+      />
+      <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
+        {MOCK_PLUGINS.map((plugin) => {
+          const hasInstance = connections.some((c) => c.pluginId === plugin.id);
+          const canAdd = !hasInstance || plugin.poolable;
+          const cta = !canAdd
+            ? m.settings_connections_catalog_connected()
+            : plugin.poolable && hasInstance
+              ? m.settings_connections_catalog_add_another()
+              : m.settings_connections_catalog_connect();
+          return (
+            <div
+              key={plugin.id}
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-input"
+            >
+              <div className="flex items-center gap-3">
+                <ConnectionLogo plugin={plugin} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{plugin.name}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground/80">
+                    {plugin.poolable ? "Multi" : "Single"}
+                  </p>
+                </div>
+              </div>
+              <p className="line-clamp-2 min-h-9 text-xs text-muted-foreground">
+                {plugin.description}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canAdd}
+                onClick={() => canAdd && onAdd(plugin)}
+                className="w-full"
+              >
+                {canAdd ? <PlusIcon className="size-3.5" /> : <CheckIcon className="size-3.5" />}
+                {cta}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    </SettingsCard>
+  );
+}
+
+function DisconnectDialog({
+  conn,
+  plugin,
+  onClose,
+  onConfirm,
+}: {
+  conn: MockConnection | null;
+  plugin: MockPlugin | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog
+      open={!!conn}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+              <TriangleAlertIcon className="size-4" aria-hidden="true" />
+            </div>
+            <DialogTitle>
+              {m.settings_connections_disconnect_dialog_title({ name: plugin?.name ?? "" })}
+            </DialogTitle>
+          </div>
+          <DialogDescription>{m.settings_connections_disconnect_dialog_body()}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {m.settings_connections_drawer_close()}
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} data-testid="confirm-disconnect">
+            {m.settings_connections_action_disconnect()}
           </Button>
         </DialogFooter>
       </DialogContent>

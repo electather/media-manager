@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "@fontsource-variable/geist/wght.css";
 @import "@fontsource-variable/geist";
+@import "./view-transitions.css";
 
 @custom-variant dark (&:is(.dark *));
 
