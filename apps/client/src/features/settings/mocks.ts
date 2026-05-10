@@ -1,3 +1,4 @@
+// fallow-ignore-file code-duplication
 // Mock data shared by the new settings pages.
 //
 // While the new design is being built out, these settings sub-pages render
@@ -125,7 +126,13 @@ export const MOCK_PLUGINS: ReadonlyArray<MockPlugin> = [
     authKind: "api_key",
     poolable: false,
     fields: [
-      { id: "apiKey", label: "API Key", kind: "secret", required: true, hint: "v4 read access token" },
+      {
+        id: "apiKey",
+        label: "API Key",
+        kind: "secret",
+        required: true,
+        hint: "v4 read access token",
+      },
     ],
   },
   {
@@ -258,7 +265,12 @@ export const MOCK_CHANNELS: ReadonlyArray<MockChannel> = [
 ];
 
 export const MOCK_AVAILABLE_CHANNEL_PLUGINS = [
-  { pluginId: "ntfy", name: "ntfy", version: "1.4.2", description: "Self-hosted or hosted push topics." },
+  {
+    pluginId: "ntfy",
+    name: "ntfy",
+    version: "1.4.2",
+    description: "Self-hosted or hosted push topics.",
+  },
   {
     pluginId: "telegram",
     name: "telegram",

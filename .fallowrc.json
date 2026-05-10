@@ -287,6 +287,7 @@
         "from": "client-app",
         "allow": [
           "client-feat-notifications",
+          "client-feat-settings",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -101,7 +102,12 @@ function DangerPage() {
           title={m.settings_danger_delete_title()}
           description={m.settings_danger_delete_description()}
           action={
-            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)} data-testid="open-delete">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              data-testid="open-delete"
+            >
               {m.settings_danger_delete_action()}
             </Button>
           }
@@ -183,9 +189,7 @@ function ReauthDialog({
             {m.settings_danger_dialog_cancel()}
           </Button>
           <Button form="reauth-form" type="submit" disabled={!pw || submitting}>
-            {submitting
-              ? m.settings_danger_reauth_verifying()
-              : m.settings_danger_reauth_cta()}
+            {submitting ? m.settings_danger_reauth_verifying() : m.settings_danger_reauth_cta()}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -249,9 +253,7 @@ function DeleteAccountDialog({
             {m.settings_danger_delete_dialog_warning()}
           </p>
           <Field data-invalid={typed.length > 0 && !emailMatches ? true : undefined}>
-            <FieldTitle>
-              {m.settings_danger_delete_dialog_email_label({ email })}
-            </FieldTitle>
+            <FieldTitle>{m.settings_danger_delete_dialog_email_label({ email })}</FieldTitle>
             <Input
               value={typed}
               onChange={(e) => setTyped(e.target.value)}

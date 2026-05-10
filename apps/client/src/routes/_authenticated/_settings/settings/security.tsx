@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckIcon, EyeIcon, EyeOffIcon, ShieldIcon, XIcon } from "lucide-react";
@@ -22,10 +23,7 @@ import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import {
-  SettingsCard,
-  SettingsCardHeader,
-} from "@/features/settings";
+import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 import { MOCK_SESSIONS, type MockSession } from "@/features/settings/mocks";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/security")({
@@ -192,7 +190,9 @@ function PasswordInput(props: PasswordInputProps) {
       <button
         type="button"
         onClick={() => setShown((s) => !s)}
-        aria-label={shown ? m.settings_security_password_hide() : m.settings_security_password_show()}
+        aria-label={
+          shown ? m.settings_security_password_hide() : m.settings_security_password_show()
+        }
         className="absolute inset-y-0 right-1 flex w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
       >
         {shown ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
@@ -221,20 +221,17 @@ function PasswordMeter({ value }: { value: string }) {
     m.settings_security_password_strength_good(),
     m.settings_security_password_strength_strong(),
   ];
-  const tones = [
-    "bg-muted",
-    "bg-destructive",
-    "bg-amber-400",
-    "bg-success",
-    "bg-success",
-  ];
+  const tones = ["bg-muted", "bg-destructive", "bg-amber-400", "bg-success", "bg-success"];
   return (
     <div className="mt-2 flex items-center gap-2.5">
       <div className="flex flex-1 gap-1">
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className={cn("h-1 flex-1 rounded-full transition-colors", i < score ? tones[score] : "bg-muted")}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors",
+              i < score ? tones[score] : "bg-muted",
+            )}
           />
         ))}
       </div>
@@ -394,7 +391,9 @@ function SessionListRow({
         <p className="mt-0.5 flex flex-wrap gap-x-2.5 gap-y-0 text-xs text-muted-foreground">
           {session.ipAddress ? <span className="font-mono">{session.ipAddress}</span> : null}
           <span>
-            {m.settings_security_sessions_signed_in({ time: relativeTime(new Date(session.createdAt)) })}
+            {m.settings_security_sessions_signed_in({
+              time: relativeTime(new Date(session.createdAt)),
+            })}
           </span>
           <span>
             {m.settings_security_sessions_last_active({

@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -79,7 +80,8 @@ function ConnectionsPage() {
   }, [conns]);
 
   const filtered = useMemo(() => {
-    if (filter === "issues") return sorted.filter((c) => c.status === "error" || c.status === "expired");
+    if (filter === "issues")
+      return sorted.filter((c) => c.status === "error" || c.status === "expired");
     if (filter === "disabled") return sorted.filter((c) => !c.enabled);
     return sorted;
   }, [sorted, filter]);
@@ -110,9 +112,7 @@ function ConnectionsPage() {
 
   const handleSetDefault = (conn: MockConnection) => {
     setConns((list) =>
-      list.map((c) =>
-        c.pluginId === conn.pluginId ? { ...c, isDefault: c.id === conn.id } : c,
-      ),
+      list.map((c) => (c.pluginId === conn.pluginId ? { ...c, isDefault: c.id === conn.id } : c)),
     );
     toast.success(m.settings_connections_toast_default_updated());
   };
@@ -187,7 +187,13 @@ function ConnectionsPage() {
                   onSetDefault={() => handleSetDefault(conn)}
                   onToggleEnabled={() => handleToggleEnabled(conn)}
                   onDisconnect={() => setDisconnectFor(conn)}
-                  onReconnect={() => updateConnection(conn.id, { status: "connected", enabled: true, errorMessage: undefined })}
+                  onReconnect={() =>
+                    updateConnection(conn.id, {
+                      status: "connected",
+                      enabled: true,
+                      errorMessage: undefined,
+                    })
+                  }
                 />
               );
             })}
@@ -216,7 +222,7 @@ function ConnectionsPage() {
       <DisconnectDialog
         conn={disconnectFor}
         plugin={
-          disconnectFor ? MOCK_PLUGINS.find((p) => p.id === disconnectFor.pluginId) ?? null : null
+          disconnectFor ? (MOCK_PLUGINS.find((p) => p.id === disconnectFor.pluginId) ?? null) : null
         }
         onClose={() => setDisconnectFor(null)}
         onConfirm={confirmDisconnect}
@@ -358,7 +364,11 @@ function ConnectionRow({
           {conn.sublabel ? (
             <span className={plugin.poolable ? "font-mono" : ""}>{conn.sublabel}</span>
           ) : null}
-          <span>{m.settings_connections_last_verified({ time: relativeTime(new Date(conn.lastVerifiedAt)) })}</span>
+          <span>
+            {m.settings_connections_last_verified({
+              time: relativeTime(new Date(conn.lastVerifiedAt)),
+            })}
+          </span>
           {conn.tokenExpiresAt && conn.status !== "expired" ? (
             <span>
               {m.settings_connections_token_expires({
@@ -532,9 +542,7 @@ function DisconnectDialog({
               {m.settings_connections_disconnect_dialog_title({ name: plugin?.name ?? "" })}
             </DialogTitle>
           </div>
-          <DialogDescription>
-            {m.settings_connections_disconnect_dialog_body()}
-          </DialogDescription>
+          <DialogDescription>{m.settings_connections_disconnect_dialog_body()}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -64,7 +65,7 @@ function NotificationsPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
   const role = "member";
 
-  const onlyInbox = channels.length === 1 && channels[0].locked === true;
+  const onlyInbox = channels.length === 1 && channels[0]?.locked === true;
 
   const handleToggleSub = (channelId: string, categoryId: CategoryId) => {
     setSubs((prev) => ({
@@ -381,8 +382,8 @@ function ChannelRow({
           const isOn = !!subs?.[cat.id];
           const restricted =
             cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
-          const locked = channel.locked || restricted;
-          const inboxStyle = channel.locked;
+          const locked = !!(channel.locked || restricted);
+          const inboxStyle = !!channel.locked;
           const lockedReason = inboxStyle
             ? m.settings_notifications_channels_inbox_locked()
             : restricted

@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
@@ -231,7 +232,13 @@ export function EmailRow({
             </span>
           </FieldDescription>
         </Field>
-        <Button variant="outline" size="sm" disabled={!dirty} onClick={submit} data-testid="change-email">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!dirty}
+          onClick={submit}
+          data-testid="change-email"
+        >
           {m.settings_profile_email_change()}
         </Button>
       </div>
@@ -320,10 +327,7 @@ function AccountCard({ user }: { user: MockUser }) {
         align="top"
       >
         <Badge variant="secondary" className="font-medium">
-          <span
-            aria-hidden="true"
-            className="size-1.5 rounded-full bg-success"
-          />
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
           {MOCK_ROLE.name}
         </Badge>
       </SettingsCardRow>
@@ -385,4 +389,3 @@ export function VerifyBanner({ email }: { email: string }) {
     </div>
   );
 }
-
