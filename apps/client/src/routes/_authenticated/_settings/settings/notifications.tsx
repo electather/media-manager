@@ -6,7 +6,10 @@ import {
   fetchSubscriptions,
 } from "@/features/notifications/shared/fetchers";
 import { notificationsKeys } from "@/features/notifications/shared/query-keys";
-import { NotificationsErrorBoundary } from "@/features/notifications/shared/error-boundary";
+import {
+  NotificationsErrorBoundary,
+  NotificationsErrorFallback,
+} from "@/features/notifications/shared/error-boundary";
 import { NotificationsSettingsPage, SettingsSkeleton } from "@/features/notifications/settings";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/notifications")({
@@ -30,11 +33,7 @@ export const Route = createFileRoute("/_authenticated/_settings/settings/notific
       }),
     ]),
   pendingComponent: SettingsSkeleton,
-  errorComponent: ({ error }) => (
-    <NotificationsErrorBoundary>
-      <div className="p-6">{error.message}</div>
-    </NotificationsErrorBoundary>
-  ),
+  errorComponent: NotificationsErrorFallback,
   component: () => (
     <NotificationsErrorBoundary>
       <NotificationsSettingsPage />

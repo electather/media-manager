@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   BookOpenIcon,
+  HomeIcon,
   LockIcon,
   MailIcon,
   PuzzleIcon,
@@ -9,13 +10,20 @@ import {
   SendIcon,
   ShieldIcon,
   StarIcon,
-  TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
 import { z } from "zod";
 
+import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
 import { UserAvatar } from "@/shared/components/user-avatar";
+import {
+  ErrorPage,
+  ErrorPageActions,
+  ErrorPageDescription,
+  ErrorPageFrame,
+  ErrorPageHeadline,
+} from "@/shared/components/error-page";
 import { Button } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
 
@@ -95,28 +103,20 @@ export const Route = createFileRoute("/oauth/consent")({
 
 function InvalidRequestPage() {
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
-      <div className="flex flex-col items-center gap-4 px-6 pt-10 pb-8">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-destructive/10">
-          <TriangleAlertIcon className="size-5 text-destructive" />
-        </div>
-        <div className="flex flex-col items-center gap-1.5 text-center">
-          <h1 className="text-base font-semibold">Invalid authorization request</h1>
-          <p className="text-sm text-muted-foreground">
-            This link is invalid, malformed, or has already been used. Close this tab and try
-            connecting again from your application.
-          </p>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="px-6 py-5">
-        <Button variant="outline" className="w-full" render={<Link to="/" />}>
-          Go home
-        </Button>
-      </div>
-    </div>
+    <ErrorPage tone="danger" className="min-h-0 p-0">
+      <ErrorPageFrame>
+        <ErrorPageHeadline code="400" eyebrow={m.errors_unauthorized_eyebrow()}>
+          {m.errors_invalid_request_title()}
+        </ErrorPageHeadline>
+        <ErrorPageDescription>{m.errors_invalid_request_body()}</ErrorPageDescription>
+        <ErrorPageActions>
+          <Button render={<Link to="/" />}>
+            <HomeIcon aria-hidden="true" />
+            {m.errors_action_back_home()}
+          </Button>
+        </ErrorPageActions>
+      </ErrorPageFrame>
+    </ErrorPage>
   );
 }
 
