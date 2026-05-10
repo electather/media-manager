@@ -11,11 +11,11 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { shortRuntimeLabel } from "../lib/format";
-import type { LibraryItem } from "../lib/types";
+import type { WatchlistItem } from "../lib/types";
 
 interface TonightPickProps {
-  pick: LibraryItem;
-  alternates: readonly LibraryItem[];
+  pick: WatchlistItem;
+  alternates: readonly WatchlistItem[];
   onPeek: (id: string) => void;
 }
 
@@ -24,12 +24,12 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.library_tonight_eyebrow()}</SectionHeadEyebrow>
-          <SectionHeadTitle>{m.library_tonight_title()}</SectionHeadTitle>
+          <SectionHeadEyebrow>{m.watchlist_tonight_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadTitle>{m.watchlist_tonight_title()}</SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
           <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70">
-            {m.library_tonight_caption()}
+            {m.watchlist_tonight_caption()}
           </span>
         </SectionHeadActions>
       </SectionHead>
@@ -44,14 +44,14 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
           />
           <div className="mt-3.5 flex items-center gap-2.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
             <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-primary" />
-            <span>{m.library_tonight_why()} ·</span>
-            <span className="text-foreground/85">{m.library_tonight_default_reason()}</span>
+            <span>{m.watchlist_tonight_why()} ·</span>
+            <span className="text-foreground/85">{m.watchlist_tonight_default_reason()}</span>
           </div>
         </div>
 
         <aside className="self-stretch rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 pl-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            {m.library_tonight_alternates_kicker()}
+            {m.watchlist_tonight_alternates_kicker()}
           </div>
           <ul className="m-0 flex flex-col gap-1 p-0">
             {alternates.map((it, idx) => (
@@ -70,7 +70,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
               if (choice) onPeek(choice.id);
             }}
           >
-            {m.library_tonight_shuffle()}
+            {m.watchlist_tonight_shuffle()}
           </Button>
         </aside>
       </div>
@@ -79,7 +79,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
 }
 
 interface AlternateRowProps {
-  item: LibraryItem;
+  item: WatchlistItem;
   index: number;
   onPeek: (id: string) => void;
 }

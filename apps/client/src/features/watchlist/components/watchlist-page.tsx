@@ -3,18 +3,18 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { MediaDetailModal } from "@/shared/components/media-detail-modal";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { bucketize, classifyStatus, deriveCounts } from "../lib/classify";
-import { LIBRARY_ITEMS, LIBRARY_ITEM_INDEX, LIBRARY_MOODS } from "../lib/mock-data";
+import { WATCHLIST_ITEMS, WATCHLIST_ITEM_INDEX, WATCHLIST_MOODS } from "../lib/mock-data";
 import type {
-  LibraryFilter,
-  LibraryItem,
-  LibraryMoodGroup,
-  LibrarySort,
-  LibraryStatus,
+  WatchlistFilter,
+  WatchlistItem,
+  WatchlistMoodGroup,
+  WatchlistSort,
+  WatchlistStatus,
 } from "../lib/types";
 import { Awaiting } from "./awaiting";
 import { ComingUp } from "./coming-up";
-import { LibraryFilteredGrid } from "./library-filtered-grid";
-import { LibraryHeader } from "./library-header";
+import { WatchlistFilteredGrid } from "./watchlist-filtered-grid";
+import { WatchlistHeader } from "./watchlist-header";
 import { MoodMosaic } from "./mood-mosaic";
 import { ReadyRow } from "./ready-row";
 import { RecentlyAdded } from "./recently-added";
@@ -24,8 +24,8 @@ type PeekSearch = { peek?: string };
 type Buckets = ReturnType<typeof bucketize>;
 
 const BUCKET_SELECTORS: Record<
-  LibraryFilter,
-  (b: Buckets, items: readonly LibraryItem[]) => readonly LibraryItem[]
+  WatchlistFilter,
+  (b: Buckets, items: readonly WatchlistItem[]) => readonly WatchlistItem[]
 > = {
   all: (_b, items) => items,
   ready: (b) => [...b.available, ...b.inProgress],
@@ -34,7 +34,7 @@ const BUCKET_SELECTORS: Record<
   upcoming: (b) => b.upcoming,
 };
 
-const STATUS_PRIORITY: Record<LibraryStatus, number> = {
+const STATUS_PRIORITY: Record<WatchlistStatus, number> = {
   "in-progress": 0,
   available: 1,
   requested: 2,
@@ -43,7 +43,10 @@ const STATUS_PRIORITY: Record<LibraryStatus, number> = {
   unknown: 5,
 };
 
-const SORT_COMPARATORS: Record<LibrarySort, ((a: LibraryItem, b: LibraryItem) => number) | null> = {
+const SORT_COMPARATORS: Record<
+  WatchlistSort,
+  ((a: WatchlistItem, b: WatchlistItem) => number) | null
+> = {
   recent: null,
   status: (a, b) => STATUS_PRIORITY[classifyStatus(a)] - STATUS_PRIORITY[classifyStatus(b)],
   alpha: (a, b) => a.title.localeCompare(b.title),
@@ -51,49 +54,49 @@ const SORT_COMPARATORS: Record<LibrarySort, ((a: LibraryItem, b: LibraryItem) =>
   runtime: (a, b) => (a.facets?.runtimeMin ?? 999) - (b.facets?.runtimeMin ?? 999),
 };
 
-function applySort(items: readonly LibraryItem[], sort: LibrarySort): LibraryItem[] {
+function applySort(items: readonly WatchlistItem[], sort: WatchlistSort): WatchlistItem[] {
   const cmp = SORT_COMPARATORS[sort];
   return cmp ? items.slice().sort(cmp) : items.slice();
 }
 
 /**
- * Editorial library/watchlist page ported from the nama prototype. v1 ships
+ * Editorial watchlist page ported from the nama prototype. v1 ships
  * with mock data — the API surface (curated picks, mood clusters, recent log)
  * lands in a follow-up. The peek modal still flows through the route's
  * `?peek=` search param so deep links work, mirroring the home feed.
  */
 // fallow-ignore-next-line complexity
-export function LibraryPage() {
-  const items = LIBRARY_ITEMS;
+export function WatchlistPage() {
+  const items = WATCHLIST_ITEMS;
   const navigate = useNavigate();
   const { peek } = useSearch({ strict: false }) as PeekSearch;
 
-  const [filter, setFilter] = useState<LibraryFilter>("all");
-  const [sort, setSort] = useState<LibrarySort>("recent");
+  const [filter, setFilter] = useState<WatchlistFilter>("all");
+  const [sort, setSort] = useState<WatchlistSort>("recent");
   const [watchlist, setWatchlist] = useState<ReadonlySet<string>>(() => new Set());
 
   const buckets = useMemo(() => bucketize(items), [items]);
   const counts = useMemo(() => deriveCounts(buckets), [buckets]);
 
-  const tonight = useMemo<LibraryItem | null>(() => {
+  const tonight = useMemo<WatchlistItem | null>(() => {
     const candidates = [...buckets.available, ...buckets.inProgress];
     return candidates.find((i) => i.clearLogoText) ?? candidates[0] ?? null;
   }, [buckets]);
 
-  const alternates = useMemo<LibraryItem[]>(() => {
+  const alternates = useMemo<WatchlistItem[]>(() => {
     if (!tonight) return [];
     return [...buckets.available, ...buckets.inProgress]
       .filter((i) => i.id !== tonight.id)
       .slice(0, 4);
   }, [buckets, tonight]);
 
-  const moodGroups = useMemo<LibraryMoodGroup[]>(
+  const moodGroups = useMemo<WatchlistMoodGroup[]>(
     () =>
-      LIBRARY_MOODS.map((mood) => ({
+      WATCHLIST_MOODS.map((mood) => ({
         mood,
         items: mood.itemIds
-          .map((id) => LIBRARY_ITEM_INDEX.get(id))
-          .filter((i): i is LibraryItem => Boolean(i)),
+          .map((id) => WATCHLIST_ITEM_INDEX.get(id))
+          .filter((i): i is WatchlistItem => Boolean(i)),
       })),
     [],
   );
@@ -121,7 +124,7 @@ export function LibraryPage() {
     void navigate({ to: "/media/$mediaType/$mediaId", params: parts });
   }, [navigate, peek]);
 
-  const peekItem = peek ? (LIBRARY_ITEM_INDEX.get(peek) ?? null) : null;
+  const peekItem = peek ? (WATCHLIST_ITEM_INDEX.get(peek) ?? null) : null;
   const inWatchlist = peek ? watchlist.has(peek) : false;
   const handleToggleWatchlist = useCallback(() => {
     if (!peek) return;
@@ -144,7 +147,7 @@ export function LibraryPage() {
 
   return (
     <main className="mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8">
-      <LibraryHeader
+      <WatchlistHeader
         items={items}
         counts={counts}
         filter={filter}
@@ -154,7 +157,7 @@ export function LibraryPage() {
       />
       <div className="pb-32">
         {filterActive ? (
-          <LibraryFilteredGrid items={filtered} filter={filter} sort={sort} onPeek={handlePeek} />
+          <WatchlistFilteredGrid items={filtered} filter={filter} sort={sort} onPeek={handlePeek} />
         ) : (
           <>
             {tonight ? (

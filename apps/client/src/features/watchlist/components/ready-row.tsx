@@ -17,10 +17,10 @@ import {
   ScrollRowTrack,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
-import type { LibraryItem } from "../lib/types";
+import type { WatchlistItem } from "../lib/types";
 
 interface ReadyRowProps {
-  items: readonly LibraryItem[];
+  items: readonly WatchlistItem[];
   onPeek: (id: string) => void;
 }
 
@@ -38,15 +38,15 @@ export function ReadyRow({ items, onPeek }: ReadyRowProps) {
     <ScrollRow revalidationKey={items.length} className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.library_ready_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>{m.watchlist_ready_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.library_ready_title()}
+            {m.watchlist_ready_title()}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
-          <ScrollRowPrevButton aria-label={m.library_ready_scroll_prev()} />
-          <ScrollRowNextButton aria-label={m.library_ready_scroll_next()} />
+          <ScrollRowPrevButton aria-label={m.watchlist_ready_scroll_prev()} />
+          <ScrollRowNextButton aria-label={m.watchlist_ready_scroll_next()} />
         </SectionHeadActions>
       </SectionHead>
       <ScrollRowViewport style={POSTER_VARS}>

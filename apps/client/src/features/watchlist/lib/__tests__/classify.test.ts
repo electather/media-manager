@@ -7,16 +7,16 @@ import {
   splitRuntime,
   totalRuntimeMinutes,
 } from "../classify";
-import type { LibraryItem } from "../types";
+import type { WatchlistItem } from "../types";
 
-function makeItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
+function makeItem(overrides: Partial<WatchlistItem> = {}): WatchlistItem {
   return {
     id: "movie:1",
     tmdbId: "1",
     mediaType: "movie",
     title: "Test",
     ...overrides,
-  } as LibraryItem;
+  } as WatchlistItem;
 }
 
 describe("classifyStatus", () => {
@@ -25,7 +25,7 @@ describe("classifyStatus", () => {
     expect(classifyStatus(item)).toBe("in-progress");
   });
 
-  it("maps the wire status to the library status", () => {
+  it("maps the wire status to the watchlist status", () => {
     expect(classifyStatus(makeItem({ status: "available" }))).toBe("available");
     expect(classifyStatus(makeItem({ status: "requested" }))).toBe("requested");
     expect(classifyStatus(makeItem({ status: "processing" }))).toBe("requested");
@@ -52,7 +52,7 @@ describe("classifyStatus", () => {
 
 describe("bucketize", () => {
   it("splits items into the right buckets and drops unknown", () => {
-    const items: LibraryItem[] = [
+    const items: WatchlistItem[] = [
       makeItem({ id: "movie:1", status: "available" }),
       makeItem({ id: "movie:2", progress: { watched: 1, total: 10 } }),
       makeItem({ id: "movie:3", status: "requested" }),
@@ -71,7 +71,7 @@ describe("bucketize", () => {
 
 describe("deriveCounts", () => {
   it("aggregates ready as available + in-progress and awaiting as requested + unavailable", () => {
-    const items: LibraryItem[] = [
+    const items: WatchlistItem[] = [
       makeItem({ id: "movie:1", status: "available" }),
       makeItem({ id: "movie:2", status: "available" }),
       makeItem({ id: "movie:3", progress: { watched: 1, total: 10 } }),
@@ -89,7 +89,7 @@ describe("deriveCounts", () => {
 
 describe("totalRuntimeMinutes", () => {
   it("uses runtimeMin for movies and falls back to 110 minutes", () => {
-    const items: LibraryItem[] = [
+    const items: WatchlistItem[] = [
       makeItem({ id: "movie:1", facets: { runtimeMin: 100 } }),
       makeItem({ id: "movie:2" }),
     ];
@@ -97,7 +97,7 @@ describe("totalRuntimeMinutes", () => {
   });
 
   it("multiplies runtime by episode count for TV with fallbacks for missing values", () => {
-    const items: LibraryItem[] = [
+    const items: WatchlistItem[] = [
       makeItem({
         id: "tv:1",
         mediaType: "tv",

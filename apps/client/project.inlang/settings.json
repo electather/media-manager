@@ -9,8 +9,8 @@
       "./messages/diagnostics/{locale}.json",
       "./messages/errors/{locale}.json",
       "./messages/home/{locale}.json",
-      "./messages/library/{locale}.json",
-      "./messages/notifications/{locale}.json"
+      "./messages/notifications/{locale}.json",
+      "./messages/watchlist/{locale}.json"
     ]
   }
 }

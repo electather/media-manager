@@ -1,5 +1,5 @@
 import type { MediaType } from "@ent-mcp/shared/media";
-import type { LibraryItem, LibraryMood, RecentLogEntry } from "./types";
+import type { WatchlistItem, WatchlistMood, RecentLogEntry } from "./types";
 
 const POSTER = (seed: string): string => `https://picsum.photos/seed/${seed}-p/400/600`;
 const BACKDROP = (seed: string): string => `https://picsum.photos/seed/${seed}-b/960/540`;
@@ -11,8 +11,8 @@ function item(
   year: number,
   runtimeMin: number,
   episodeCount: number | undefined,
-  extra: Partial<LibraryItem>,
-): LibraryItem {
+  extra: Partial<WatchlistItem>,
+): WatchlistItem {
   const facets = episodeCount === undefined ? { runtimeMin } : { runtimeMin, episodeCount };
   return {
     id: `${mediaType}:${id}`,
@@ -32,8 +32,8 @@ function movie(
   title: string,
   year: number,
   runtimeMin: number,
-  extra: Partial<LibraryItem> = {},
-): LibraryItem {
+  extra: Partial<WatchlistItem> = {},
+): WatchlistItem {
   return item("movie", id, title, year, runtimeMin, undefined, extra);
 }
 
@@ -43,8 +43,8 @@ function tv(
   year: number,
   runtimeMin: number,
   episodeCount: number,
-  extra: Partial<LibraryItem> = {},
-): LibraryItem {
+  extra: Partial<WatchlistItem> = {},
+): WatchlistItem {
   return item("tv", id, title, year, runtimeMin, episodeCount, extra);
 }
 
@@ -55,14 +55,14 @@ function upcomingTv(
   runtimeMin: number,
   episodeCount: number,
   releaseDate: string,
-): LibraryItem {
+): WatchlistItem {
   return tv(id, title, year, runtimeMin, episodeCount, {
     status: "unknown",
     facets: { runtimeMin, episodeCount, releaseDate },
   });
 }
 
-export const LIBRARY_ITEMS: LibraryItem[] = [
+export const WATCHLIST_ITEMS: WatchlistItem[] = [
   movie("n-marble", "Marble of the Hour", 2024, 124, {
     status: "available",
     clearLogoText: "MARBLE",
@@ -134,73 +134,73 @@ export const LIBRARY_ITEMS: LibraryItem[] = [
   tv("n-still", "Still Life", 2023, 50, 6, { status: "available", genres: ["Drama"] }),
 ];
 
-export const LIBRARY_ITEM_INDEX: ReadonlyMap<string, LibraryItem> = new Map(
-  LIBRARY_ITEMS.map((it) => [it.id, it]),
+export const WATCHLIST_ITEM_INDEX: ReadonlyMap<string, WatchlistItem> = new Map(
+  WATCHLIST_ITEMS.map((it) => [it.id, it]),
 );
 
-export const LIBRARY_MOODS: LibraryMood[] = [
+export const WATCHLIST_MOODS: WatchlistMood[] = [
   {
     id: "slow-burn",
-    labelKey: "library_mood_slow_burn",
-    noteKey: "library_mood_slow_burn_note",
+    labelKey: "watchlist_mood_slow_burn",
+    noteKey: "watchlist_mood_slow_burn_note",
     itemIds: ["movie:n-blue-hour", "movie:n-water-lily", "tv:n-meridian"],
   },
   {
     id: "quiet-thrill",
-    labelKey: "library_mood_quiet_thrill",
-    noteKey: "library_mood_quiet_thrill_note",
+    labelKey: "watchlist_mood_quiet_thrill",
+    noteKey: "watchlist_mood_quiet_thrill_note",
     itemIds: ["tv:n-anchor", "movie:t-7", "tv:n-ledger"],
   },
   {
     id: "period",
-    labelKey: "library_mood_period",
-    noteKey: "library_mood_period_note",
+    labelKey: "watchlist_mood_period",
+    noteKey: "watchlist_mood_period_note",
     itemIds: ["movie:n-marble", "tv:n-still", "tv:n-lantern"],
   },
   {
     id: "scifi",
-    labelKey: "library_mood_scifi",
-    noteKey: "library_mood_scifi_note",
+    labelKey: "watchlist_mood_scifi",
+    noteKey: "watchlist_mood_scifi_note",
     itemIds: ["tv:n-gateway", "movie:n-hollow", "movie:n-sunset"],
   },
   {
     id: "comedy",
-    labelKey: "library_mood_comedy",
-    noteKey: "library_mood_comedy_note",
+    labelKey: "watchlist_mood_comedy",
+    noteKey: "watchlist_mood_comedy_note",
     itemIds: ["tv:after-party", "movie:t-2", "movie:t-4"],
   },
   {
     id: "horror",
-    labelKey: "library_mood_horror",
-    noteKey: "library_mood_horror_note",
+    labelKey: "watchlist_mood_horror",
+    noteKey: "watchlist_mood_horror_note",
     itemIds: ["tv:n-cinder", "tv:n-borderline"],
   },
 ];
 
-export const LIBRARY_RECENT_LOG: RecentLogEntry[] = [
+export const WATCHLIST_RECENT_LOG: RecentLogEntry[] = [
   {
     itemId: "movie:n-marble",
     time: { kind: "hours-ago", n: 2 },
-    sourceKey: "library_recent_source_recommended",
+    sourceKey: "watchlist_recent_source_recommended",
   },
   {
     itemId: "tv:n-gateway",
     time: { kind: "yesterday" },
-    sourceKey: "library_recent_source_notification",
+    sourceKey: "watchlist_recent_source_notification",
   },
   {
     itemId: "movie:n-hollow",
     time: { kind: "yesterday" },
-    sourceKey: "library_recent_source_search",
+    sourceKey: "watchlist_recent_source_search",
   },
   {
     itemId: "tv:long-walk",
     time: { kind: "days-ago", n: 3 },
-    sourceKey: "library_recent_source_trending",
+    sourceKey: "watchlist_recent_source_trending",
   },
   {
     itemId: "movie:n-ember",
     time: { kind: "last-week" },
-    sourceKey: "library_recent_source_friend",
+    sourceKey: "watchlist_recent_source_friend",
   },
 ];

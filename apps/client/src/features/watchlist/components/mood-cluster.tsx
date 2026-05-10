@@ -2,11 +2,11 @@ import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { shortRuntimeLabel } from "../lib/format";
-import type { LibraryItem, LibraryMood } from "../lib/types";
+import type { WatchlistItem, WatchlistMood } from "../lib/types";
 
 interface MoodClusterProps {
-  mood: LibraryMood;
-  items: readonly LibraryItem[];
+  mood: WatchlistMood;
+  items: readonly WatchlistItem[];
   onPeek: (id: string) => void;
   onSeeAll: () => void;
 }
@@ -31,18 +31,18 @@ export function MoodCluster({ mood, items, onPeek, onSeeAll }: MoodClusterProps)
         className="mt-3 w-full justify-center text-xs"
         onClick={onSeeAll}
       >
-        {m.library_mood_see_all({ n: String(items.length) })}
+        {m.watchlist_mood_see_all({ n: String(items.length) })}
       </Button>
     </article>
   );
 }
 
-function MoodHeader({ mood, count }: { mood: LibraryMood; count: number }) {
+function MoodHeader({ mood, count }: { mood: WatchlistMood; count: number }) {
   return (
     <header className="mb-3.5 flex items-baseline justify-between">
       <div>
         <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
-          {m.library_mood_cluster_eyebrow()} · {String(count).padStart(2, "0")}
+          {m.watchlist_mood_cluster_eyebrow()} · {String(count).padStart(2, "0")}
         </div>
         <h3 className="m-0 text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
           {m[mood.labelKey]()}
@@ -54,7 +54,7 @@ function MoodHeader({ mood, count }: { mood: LibraryMood; count: number }) {
 }
 
 // fallow-ignore-next-line complexity
-function MoodHero({ item, onPeek }: { item: LibraryItem; onPeek: (id: string) => void }) {
+function MoodHero({ item, onPeek }: { item: WatchlistItem; onPeek: (id: string) => void }) {
   const KindIcon = item.mediaType === "movie" ? Film : Tv;
   const src = item.backdrop ?? item.poster;
   const heroLabel = item.clearLogoText ?? item.title.toUpperCase();
@@ -94,7 +94,7 @@ function MoodHero({ item, onPeek }: { item: LibraryItem; onPeek: (id: string) =>
 }
 
 // fallow-ignore-next-line complexity
-function MoodSecondary({ item, onPeek }: { item: LibraryItem; onPeek: (id: string) => void }) {
+function MoodSecondary({ item, onPeek }: { item: WatchlistItem; onPeek: (id: string) => void }) {
   const KindIcon = item.mediaType === "movie" ? Film : Tv;
   const src = item.backdrop ?? item.poster;
   return (

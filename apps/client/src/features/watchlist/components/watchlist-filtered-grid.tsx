@@ -7,43 +7,43 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import type { LibraryFilter, LibraryItem, LibrarySort } from "../lib/types";
+import type { WatchlistFilter, WatchlistItem, WatchlistSort } from "../lib/types";
 
-interface LibraryFilteredGridProps {
-  items: readonly LibraryItem[];
-  filter: LibraryFilter;
-  sort: LibrarySort;
+interface WatchlistFilteredGridProps {
+  items: readonly WatchlistItem[];
+  filter: WatchlistFilter;
+  sort: WatchlistSort;
   onPeek: (id: string) => void;
 }
 
-const FILTER_LABELS: Record<LibraryFilter, () => string> = {
-  all: () => m.library_filter_all(),
-  ready: () => m.library_filter_ready(),
-  "in-progress": () => m.library_filter_in_progress(),
-  awaiting: () => m.library_filter_awaiting(),
-  upcoming: () => m.library_filter_upcoming(),
+const FILTER_LABELS: Record<WatchlistFilter, () => string> = {
+  all: () => m.watchlist_filter_all(),
+  ready: () => m.watchlist_filter_ready(),
+  "in-progress": () => m.watchlist_filter_in_progress(),
+  awaiting: () => m.watchlist_filter_awaiting(),
+  upcoming: () => m.watchlist_filter_upcoming(),
 };
 
-const SORT_LABELS: Record<LibrarySort, () => string> = {
-  recent: () => m.library_sort_recent(),
-  alpha: () => m.library_sort_alpha(),
-  runtime: () => m.library_sort_runtime(),
-  status: () => m.library_sort_status(),
+const SORT_LABELS: Record<WatchlistSort, () => string> = {
+  recent: () => m.watchlist_sort_recent(),
+  alpha: () => m.watchlist_sort_alpha(),
+  runtime: () => m.watchlist_sort_runtime(),
+  status: () => m.watchlist_sort_status(),
 };
 
-export function LibraryFilteredGrid({ items, filter, sort, onPeek }: LibraryFilteredGridProps) {
+export function WatchlistFilteredGrid({ items, filter, sort, onPeek }: WatchlistFilteredGridProps) {
   return (
     <section>
       <SectionHead>
         <SectionHeadHeading>
           <SectionHeadEyebrow>
-            {m.library_filtered_eyebrow({
+            {m.watchlist_filtered_eyebrow({
               filter: FILTER_LABELS[filter](),
               sort: SORT_LABELS[sort](),
             })}
           </SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.library_filtered_title()}
+            {m.watchlist_filtered_title()}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>

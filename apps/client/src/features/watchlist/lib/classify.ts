@@ -1,6 +1,6 @@
-import type { LibraryBuckets, LibraryCounts, LibraryItem, LibraryStatus } from "./types";
+import type { WatchlistBuckets, WatchlistCounts, WatchlistItem, WatchlistStatus } from "./types";
 
-const STATUS_MAP: Record<NonNullable<LibraryItem["status"]>, LibraryStatus | undefined> = {
+const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistStatus | undefined> = {
   available: "available",
   requested: "requested",
   unavailable: "unavailable",
@@ -8,13 +8,13 @@ const STATUS_MAP: Record<NonNullable<LibraryItem["status"]>, LibraryStatus | und
   unknown: undefined,
 };
 
-function isInfoOnly(item: LibraryItem): boolean {
+function isInfoOnly(item: WatchlistItem): boolean {
   const a = item.availability;
   return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
 }
 
 // fallow-ignore-next-line complexity
-export function classifyStatus(item: LibraryItem): LibraryStatus {
+export function classifyStatus(item: WatchlistItem): WatchlistStatus {
   if (item.progress) return "in-progress";
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
@@ -24,7 +24,7 @@ export function classifyStatus(item: LibraryItem): LibraryStatus {
 
 // Items classified as "unknown" are intentionally omitted — no bucket entry
 // here, so they drop out of bucketize and are excluded from header counts.
-const STATUS_TO_BUCKET: Partial<Record<LibraryStatus, keyof LibraryBuckets>> = {
+const STATUS_TO_BUCKET: Partial<Record<WatchlistStatus, keyof WatchlistBuckets>> = {
   "in-progress": "inProgress",
   available: "available",
   requested: "requested",
@@ -32,8 +32,8 @@ const STATUS_TO_BUCKET: Partial<Record<LibraryStatus, keyof LibraryBuckets>> = {
   upcoming: "upcoming",
 };
 
-export function bucketize(items: readonly LibraryItem[]): LibraryBuckets {
-  const out: LibraryBuckets = {
+export function bucketize(items: readonly WatchlistItem[]): WatchlistBuckets {
+  const out: WatchlistBuckets = {
     available: [],
     inProgress: [],
     requested: [],
@@ -47,7 +47,7 @@ export function bucketize(items: readonly LibraryItem[]): LibraryBuckets {
   return out;
 }
 
-export function deriveCounts(buckets: LibraryBuckets): LibraryCounts {
+export function deriveCounts(buckets: WatchlistBuckets): WatchlistCounts {
   return {
     ready: buckets.available.length + buckets.inProgress.length,
     inProgress: buckets.inProgress.length,
@@ -61,7 +61,7 @@ const TV_FALLBACK_EPISODE_COUNT = 8;
 const MOVIE_FALLBACK_RUNTIME = 110;
 
 // fallow-ignore-next-line complexity
-function itemRuntimeMinutes(item: LibraryItem): number {
+function itemRuntimeMinutes(item: WatchlistItem): number {
   const min = item.facets?.runtimeMin;
   if (item.mediaType === "tv") {
     const eps = item.facets?.episodeCount ?? TV_FALLBACK_EPISODE_COUNT;
@@ -70,7 +70,7 @@ function itemRuntimeMinutes(item: LibraryItem): number {
   return min ?? MOVIE_FALLBACK_RUNTIME;
 }
 
-export function totalRuntimeMinutes(items: readonly LibraryItem[]): number {
+export function totalRuntimeMinutes(items: readonly WatchlistItem[]): number {
   let total = 0;
   for (const it of items) total += itemRuntimeMinutes(it);
   return total;

@@ -10,10 +10,10 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import { Button } from "@/shared/ui/button";
-import type { LibraryItem } from "../lib/types";
+import type { WatchlistItem } from "../lib/types";
 
 interface AwaitingProps {
-  items: readonly LibraryItem[];
+  items: readonly WatchlistItem[];
   onPeek: (id: string) => void;
   onRequestAll?: () => void;
 }
@@ -24,16 +24,16 @@ export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.library_awaiting_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>{m.watchlist_awaiting_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.library_awaiting_title()}
+            {m.watchlist_awaiting_title()}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
           <Button variant="ghost" size="sm" className="text-xs" onClick={onRequestAll}>
             <Server aria-hidden="true" className="size-3" />
-            {m.library_awaiting_request_all()}
+            {m.watchlist_awaiting_request_all()}
           </Button>
         </SectionHeadActions>
       </SectionHead>

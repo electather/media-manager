@@ -6,11 +6,11 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import type { LibraryMoodGroup } from "../lib/types";
+import type { WatchlistMoodGroup } from "../lib/types";
 import { MoodCluster } from "./mood-cluster";
 
 interface MoodMosaicProps {
-  groups: readonly LibraryMoodGroup[];
+  groups: readonly WatchlistMoodGroup[];
   onPeek: (id: string) => void;
 }
 
@@ -21,12 +21,12 @@ export function MoodMosaic({ groups, onPeek }: MoodMosaicProps) {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.library_mood_eyebrow()}</SectionHeadEyebrow>
-          <SectionHeadTitle>{m.library_mood_title()}</SectionHeadTitle>
+          <SectionHeadEyebrow>{m.watchlist_mood_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadTitle>{m.watchlist_mood_title()}</SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
           <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-muted-foreground/70">
-            {m.library_mood_auto_clustered({ count: String(live.length) })}
+            {m.watchlist_mood_auto_clustered({ count: String(live.length) })}
           </span>
         </SectionHeadActions>
       </SectionHead>

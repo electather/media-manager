@@ -116,8 +116,8 @@
         "patterns": ["apps/client/src/features/notifications/**"]
       },
       {
-        "name": "client-feat-library",
-        "patterns": ["apps/client/src/features/library/**"]
+        "name": "client-feat-watchlist",
+        "patterns": ["apps/client/src/features/watchlist/**"]
       },
       {
         "name": "client-feat-diagnostics",
@@ -179,7 +179,7 @@
           "client-feat-admin",
           "client-feat-jobs",
           "client-feat-home",
-          "client-feat-library",
+          "client-feat-watchlist",
           "client-feat-notifications",
           "client-features-legacy",
           "client-shared-ui",
@@ -198,7 +198,7 @@
           "client-feat-admin",
           "client-feat-jobs",
           "client-feat-home",
-          "client-feat-library",
+          "client-feat-watchlist",
           "client-feat-media-detail",
           "client-feat-request-flow",
           "client-feat-notifications",
@@ -222,7 +222,7 @@
         ]
       },
       {
-        "from": "client-feat-library",
+        "from": "client-feat-watchlist",
         "allow": [
           "client-feat-home",
           "client-shared-ui",

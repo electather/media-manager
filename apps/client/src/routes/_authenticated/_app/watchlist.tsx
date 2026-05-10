@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_authenticated/_app/watchlist")({
-  component: WatchlistRoute,
-});
+import { WatchlistPage } from "@/features/watchlist";
+import { ErrorBoundary } from "@/shared/components/error-boundary";
 
-function WatchlistRoute() {
-  return <div>Watchlist coming soon</div>;
-}
+export const Route = createFileRoute("/_authenticated/_app/watchlist")({
+  component: () => (
+    <ErrorBoundary>
+      <WatchlistPage />
+    </ErrorBoundary>
+  ),
+});

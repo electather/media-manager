@@ -9,8 +9,8 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import { recentTimeLabel } from "../lib/format";
-import { LIBRARY_ITEM_INDEX, LIBRARY_RECENT_LOG } from "../lib/mock-data";
-import type { LibraryItem, RecentLogEntry } from "../lib/types";
+import { WATCHLIST_ITEM_INDEX, WATCHLIST_RECENT_LOG } from "../lib/mock-data";
+import type { WatchlistItem, RecentLogEntry } from "../lib/types";
 
 interface RecentlyAddedProps {
   onPeek: (id: string) => void;
@@ -18,13 +18,13 @@ interface RecentlyAddedProps {
 
 interface ResolvedEntry {
   entry: RecentLogEntry;
-  item: LibraryItem;
+  item: WatchlistItem;
 }
 
 function resolveLog(): ResolvedEntry[] {
   const out: ResolvedEntry[] = [];
-  for (const entry of LIBRARY_RECENT_LOG) {
-    const item = LIBRARY_ITEM_INDEX.get(entry.itemId);
+  for (const entry of WATCHLIST_RECENT_LOG) {
+    const item = WATCHLIST_ITEM_INDEX.get(entry.itemId);
     if (item) out.push({ entry, item });
   }
   return out;
@@ -37,9 +37,9 @@ export function RecentlyAdded({ onPeek }: RecentlyAddedProps) {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.library_recent_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>{m.watchlist_recent_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.library_recent_title()}
+            {m.watchlist_recent_title()}
             <SectionHeadCount value={log.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>
@@ -70,7 +70,7 @@ function RecentRow({
 }) {
   const { entry, item } = row;
   const Icon = item.mediaType === "movie" ? Film : Tv;
-  const kindLabel = item.mediaType === "movie" ? m.library_kind_movie() : m.library_kind_tv();
+  const kindLabel = item.mediaType === "movie" ? m.watchlist_kind_movie() : m.watchlist_kind_tv();
   const src = item.backdrop ?? item.poster;
   const sourceFn = m[entry.sourceKey];
   return (

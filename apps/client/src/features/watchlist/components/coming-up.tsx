@@ -7,10 +7,10 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import type { LibraryItem } from "../lib/types";
+import type { WatchlistItem } from "../lib/types";
 
 interface ComingUpProps {
-  items: readonly LibraryItem[];
+  items: readonly WatchlistItem[];
   onPeek: (id: string) => void;
 }
 
@@ -20,9 +20,9 @@ export function ComingUp({ items, onPeek }: ComingUpProps) {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.library_coming_up_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>{m.watchlist_coming_up_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.library_coming_up_title()}
+            {m.watchlist_coming_up_title()}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>
