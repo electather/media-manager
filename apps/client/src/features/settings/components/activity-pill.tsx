@@ -1,15 +1,15 @@
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
-import type { MockAuthorizedAppStatus } from "@/features/settings/mocks";
+export type AppStatus = "active" | "idle" | "new";
 
 interface ActivityPillProps {
-  status: MockAuthorizedAppStatus;
+  status: AppStatus;
   className?: string;
 }
 
 const TONE: Record<
-  MockAuthorizedAppStatus,
+  AppStatus,
   { dot: string; bg: string; text: string; border: string; pulse: boolean }
 > = {
   active: {
@@ -35,10 +35,6 @@ const TONE: Record<
   },
 };
 
-/**
- * Small status pill with a dot indicator. The "active" variant gently pulses
- * to draw attention to currently-online clients in the authorized list.
- */
 export function ActivityPill({ status, className }: ActivityPillProps) {
   const tone = TONE[status];
   const label =

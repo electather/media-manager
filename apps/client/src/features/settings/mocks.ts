@@ -6,6 +6,8 @@
 // their own local state copies so interactions feel real (toggles persist,
 // rows disappear on revoke, etc.).
 
+import type { AppStatus } from "./components/activity-pill";
+
 export interface MockUser {
   name: string;
   email: string;
@@ -301,7 +303,7 @@ export const DEFAULT_SUBSCRIPTIONS: ChannelSubscriptions = {
 
 // ─── Authorized apps ─────────────────────────────────────────────────────────
 
-export type MockAuthorizedAppStatus = "active" | "idle" | "new";
+export type MockAuthorizedAppStatus = AppStatus;
 
 export interface MockAuthorizedApp {
   clientId: string;
@@ -325,6 +327,8 @@ export interface MockMcpEndpoint {
   rotatedAt: string;
 }
 
+// TODO: Frozen at module load — relative-time renders will drift across long
+// dev sessions. Acceptable for fixtures; revisit when wiring real data.
 const NOW = Date.now();
 
 export const MOCK_MCP_ENDPOINT: MockMcpEndpoint = {

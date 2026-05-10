@@ -81,4 +81,64 @@ describe("Authorized apps (mock)", () => {
     expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
     expect(screen.getByText(/no authorized applications/i)).toBeTruthy();
   });
+
+  it("renames a client through the rename dialog", async () => {
+    const user = userEvent.setup();
+    const Component = AppsRoute.options.component!;
+    render(<Component />);
+
+    await user.click(screen.getByTestId("actions-claude-desktop"));
+    const renameItem = await screen.findByTestId("rename-claude-desktop");
+    await user.click(renameItem);
+
+    const input = (await screen.findByTestId("rename-input")) as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, "Studio MCP");
+    await user.click(screen.getByTestId("confirm-rename"));
+
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
+    expect(screen.getByText("Studio MCP")).toBeTruthy();
+  });
+
+  it("disables rename save when the name is blank", async () => {
+    const user = userEvent.setup();
+    const Component = AppsRoute.options.component!;
+    render(<Component />);
+
+    await user.click(screen.getByTestId("actions-claude-desktop"));
+    await user.click(await screen.findByTestId("rename-claude-desktop"));
+
+    const input = (await screen.findByTestId("rename-input")) as HTMLInputElement;
+    await user.clear(input);
+    expect((screen.getByTestId("confirm-rename") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("rotates the endpoint URL and revokes all clients", async () => {
+    const user = userEvent.setup();
+    const Component = AppsRoute.options.component!;
+    render(<Component />);
+
+    const endpointBefore = screen.getByTitle(/^https:\/\/mcp\./).textContent ?? "";
+
+    await user.click(screen.getByTestId("endpoint-actions"));
+    await user.click(await screen.findByTestId("rotate-endpoint"));
+    await user.click(await screen.findByTestId("confirm-rotate"));
+
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
+    expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
+    const endpointAfter = screen.getByTitle(/^https:\/\/mcp\./).textContent ?? "";
+    expect(endpointAfter).not.toBe(endpointBefore);
+  });
+
+  it("opens the setup guide modal", async () => {
+    const user = userEvent.setup();
+    const Component = AppsRoute.options.component!;
+    render(<Component />);
+
+    await user.click(screen.getByTestId("endpoint-actions"));
+    await user.click(await screen.findByTestId("open-setup-guide"));
+
+    expect(await screen.findByText(/connect your mcp client/i)).toBeTruthy();
+    expect(screen.getByTestId("setup-guide-copy-claude-desktop")).toBeTruthy();
+  });
 });

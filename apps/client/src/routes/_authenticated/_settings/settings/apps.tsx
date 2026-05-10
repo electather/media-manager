@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  CheckIcon,
-  CopyIcon,
   InfoIcon,
   LayersIcon,
   MoreHorizontalIcon,
@@ -13,6 +11,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
+import { CopyButton } from "@/shared/ui/copy-button";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +29,6 @@ import {
 } from "@/shared/ui/dropdown-menu";
 import { Input } from "@/shared/ui/input";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
-import { useCopyFeedback } from "@/shared/hooks/use-copy-feedback";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
@@ -38,6 +36,7 @@ import { m } from "@/paraglide/messages";
 import { SettingsPageHeader } from "@/app/settings-layout";
 import {
   AuthorizedAppRow,
+  MetaSep,
   ScopeChip,
   SettingsCard,
   SettingsCardHeader,
@@ -85,16 +84,15 @@ function useAppsState() {
   };
 
   const revokeAll = () => {
-    setState((s) => {
-      toast.success(m.settings_apps_toast_revoked_all({ count: s.apps.length }));
-      return { ...s, apps: [] };
-    });
+    const count = state.apps.length;
+    setState((s) => ({ ...s, apps: [] }));
+    toast.success(m.settings_apps_toast_revoked_all({ count }));
   };
 
   const rotate = () => {
     setState((s) => ({
       endpoint: {
-        url: s.endpoint.url.replace(/t=[^&]+/, `t=${randomToken()}`),
+        url: s.endpoint.url.replace(/([?&])t=[^&]*/, `$1t=${randomToken()}`),
         rotatedAt: new Date().toISOString(),
       },
       apps: [],
@@ -406,7 +404,6 @@ function McpEndpointHeader({
 }
 
 function McpEndpointUrl({ url }: { url: string }) {
-  const { copied, copy } = useCopyFeedback();
   return (
     <div className="flex items-stretch overflow-hidden rounded-lg border border-border bg-background">
       <div className="flex items-center border-e border-border px-3.5 text-muted-foreground">
@@ -418,21 +415,16 @@ function McpEndpointUrl({ url }: { url: string }) {
       >
         {url}
       </div>
-      <button
-        type="button"
-        onClick={() => void copy(url)}
+      <CopyButton
+        value={url}
+        label={m.settings_apps_endpoint_copy_short()}
+        copiedLabel={m.settings_apps_endpoint_copied()}
         aria-label={m.settings_apps_endpoint_copy()}
+        title={m.settings_apps_endpoint_copy()}
         data-testid="copy-endpoint"
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 border-s border-border px-3.5 text-xs font-medium transition-colors",
-          copied
-            ? "bg-success/15 text-success"
-            : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-        )}
-      >
-        {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
-        {copied ? "Copied" : "Copy"}
-      </button>
+        className="h-auto shrink-0 gap-1.5 rounded-none border-0 border-s border-border bg-muted px-3.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+        iconClassName="size-3.5"
+      />
     </div>
   );
 }
@@ -448,9 +440,9 @@ function McpEndpointMeta({ clientCount, rotatedAt }: { clientCount: number; rota
         <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
         {m.settings_apps_endpoint_status_live()}
       </span>
-      <Sep />
+      <MetaSep />
       <span>{clientLabel}</span>
-      <Sep />
+      <MetaSep />
       <span>{m.settings_apps_endpoint_rotated({ time: relativeTime(new Date(rotatedAt)) })}</span>
     </div>
   );
@@ -479,14 +471,6 @@ function McpEndpointScopeSummary() {
   );
 }
 
-function Sep() {
-  return (
-    <span aria-hidden="true" className="text-muted-foreground/60">
-      ·
-    </span>
-  );
-}
-
 // ─── Filter pills ───────────────────────────────────────────────────────────
 
 function ClientFilters({
@@ -504,7 +488,7 @@ function ClientFilters({
     { id: "idle", label: m.settings_apps_filter_idle(), count: counts.idle },
   ];
   return (
-    <div className="flex gap-1.5" role="tablist" aria-label="Filter authorized clients">
+    <div className="flex gap-1.5" role="tablist" aria-label={m.settings_apps_filter_aria()}>
       {filters.map((f) => (
         <button
           key={f.id}
@@ -756,7 +740,5 @@ function RenameDialog({
 }
 
 function randomToken(): string {
-  const part = () => Math.random().toString(36).slice(2, 10);
-  const t = `${part()}${part()}${part()}${part().slice(0, 4)}`;
-  return `${t.slice(0, 8)}-${t.slice(8, 12)}-${t.slice(12, 16)}-${t.slice(16, 20)}-${t.slice(20, 32)}`;
+  return crypto.randomUUID();
 }

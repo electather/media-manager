@@ -194,15 +194,17 @@ type AuthorizedApp = {
   clientId: string;
   name: string; // oauthClient.name, fallback to clientId
   scopes: string[]; // from oauthConsent.scopes
-  connectedAt: number; // oauthConsent.createdAt for (user, client)
-  lastUsedAt: number | null; // max(oauthAccessToken.createdAt), null if never
+  authorizedAt: number; // oauthConsent.createdAt for (user, client)
+  lastSeenAt: number | null; // max(oauthAccessToken.createdAt), null if never
   ownedByUser: boolean; // oauthClient.userId === currentUser.id
 };
 ```
 
+UI fields (`status`, `ipAddress`, `deviceLabel`, `version`, `callsLast24h`) are documented under [Mock vs. real model](#mock-vs-real-model) below — they are wired to mock data today and become nullable additions to the wire shape once their server-side sources land.
+
 ### Server
 
-- `GET /api/me/apps`: left-join `oauthConsent` with `oauthClient` on `clientId`, filter by `userId`, aggregate `MAX(oauthAccessToken.createdAt)` as `lastUsedAt`. One query, no N+1.
+- `GET /api/me/apps`: left-join `oauthConsent` with `oauthClient` on `clientId`, filter by `userId`, aggregate `MAX(oauthAccessToken.createdAt)` as `lastSeenAt`. One query, no N+1.
 - `POST /api/me/apps/:clientId/revoke`: transaction —
   1. Delete `oauthAccessToken` rows where `userId = currentUser AND clientId = :clientId`.
   2. Delete `oauthRefreshToken` rows, same filter. `revoked` timestamp col intentionally unused — user-initiated revoke = cleanup, not audit event. Hard-delete simpler; `oauthClient`/`oauthConsent` audit trail captures who had access.
@@ -214,17 +216,47 @@ Rationale: revoke = "remove my authorization". Cascading → destroy every other
 
 ### UI
 
-**MCP endpoint.** Read-only `InputGroup` with `${window.location.origin}/mcp` + copy button.
+The page surface is split into two cards. The first card describes the user's MCP endpoint; the second lists clients that have authorized against it.
 
-**App list.** Row per app:
+**MCP endpoint card.**
 
-- Primary line: `name` (bold), fallback to `clientId`.
-- `clientId` mono below, full & selectable.
-- Meta: `Connected ${relativeTime(connectedAt)} · Last active ${lastUsedAt ? relativeTime(lastUsedAt) : 'never'}`.
-- Scope badges.
-- "Revoke" → confirmation dialog. On confirm → revoke mutation, list refetches, toast "Access revoked for ${name}".
+- URL field: stitched `[plug-icon][URL][CopyButton]` row. URL is per-user, token-bearing (`?t=<uuid>`), backed by the same revoke set as the app list.
+- Meta line: live indicator dot, count of currently authorized clients, and `Rotated ${relativeTime(rotatedAt)}`.
+- Scope summary panel: dashed-bordered card with one short paragraph plus the full set of `read`/`write` scope chips that the endpoint can grant. Read-only; explains _what authorized clients can do_ before the user pastes the URL anywhere.
+- `⋯` menu: `Setup guide` (opens modal, see below) and destructive `Rotate URL` (confirmation dialog with explicit warning that **all currently authorized clients are revoked** as a side-effect — rotating is the leak-mitigation path).
 
-**Empty state.** Dashed-border card: "No authorized applications — connect an MCP client using the endpoint URL above to get started." "View setup guides" button dropped v1 (no docs page exists).
+**Setup guide modal.** Adaptive Dialog/Drawer (desktop/mobile). Three sections — Claude Desktop, Cursor, generic MCP-compatible — each with a short steps paragraph and (where applicable) a copyable JSON snippet that wires `mcpServers."media-manager".url` to the endpoint. Snippets are produced via `JSON.stringify` so a stray quote in the URL cannot break the copy-paste payload.
+
+**Authorized clients card.** Header carries the count, a description, status filter pills (`All` / `Active` / `Idle`), and a `Revoke all` action when at least one client is present.
+
+Each row:
+
+- Monogram glyph (`NameGlyph`, hue derived from name) + primary line `${name}${deviceLabel ? ' · ' + deviceLabel : ''}`, optional version chip.
+- `ActivityPill` (`Active` pulses, `Idle`, `New`).
+- Meta line: `${ipAddress} · Authorized ${date} · Last active ${relativeTime(lastSeenAt)}` — followed by `${calls}/24h` when calls > 0.
+- Granted scopes rendered as `ScopeChip`s; write-grants are visually accented.
+- Per-row `⋯` menu: `View activity`, `Rename`, separator, destructive `Revoke access`.
+
+**Bulk revoke.** Card-level `Revoke all` opens a confirmation dialog with a count-aware title and clears the list. Endpoint URL is unchanged.
+
+**Empty state.** Dashed-border card: "No authorized applications — connect an MCP client using the endpoint URL above to get started." Setup guide stays accessible via the endpoint card's `⋯` menu.
+
+**Filter empty state.** Plain text "Nothing matches this filter." in place of the row list when the active filter has zero matches.
+
+### Mock vs. real model
+
+The prototype port renders against `MockAuthorizedApp`, which extends the canonical `AuthorizedApp` with UI-affordance fields:
+
+| Field                          | Server-backed today | Notes                                                                                |
+| ------------------------------ | ------------------- | ------------------------------------------------------------------------------------ |
+| `clientId`, `name`, `scopes`   | yes                 | from `oauthClient` / `oauthConsent`                                                  |
+| `authorizedAt`                 | yes                 | renamed from `connectedAt` for naming consistency with `lastSeenAt`; same source     |
+| `lastSeenAt`                   | yes                 | `MAX(oauthAccessToken.createdAt)` for (user, client); replaces the earlier `lastUsedAt` alias |
+| `status` (`active`/`idle`/`new`) | derived           | computed from `lastSeenAt` window — server stays the source of truth                 |
+| `ipAddress`, `deviceLabel`, `version` | mock-only    | populated when token introspection / UA capture lands; nullable on the wire          |
+| `callsLast24h`                 | mock-only           | populated from access-token usage telemetry once collected                           |
+
+`ownedByUser` is server-only and not surfaced in the UI yet — admin-side "delete app entirely" remains the only place it matters, and that lives under `/admin`. When the backend lands, the integration layer maps `oauthAccessToken.lastSeenAt` (or its successor) onto the `status` enum and leaves the mock-only fields nullable until they have a real source.
 
 ### Error states
 

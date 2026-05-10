@@ -6,10 +6,6 @@ interface ScopeChipProps {
   className?: string;
 }
 
-/**
- * Compact chip rendering an OAuth scope. Write-grants are accented to make
- * destructive permissions easy to spot at a glance.
- */
 export function ScopeChip({ scope, className }: ScopeChipProps) {
   const writes = scope.endsWith(":write");
   return (

@@ -17,6 +17,7 @@ import type { MockAuthorizedApp } from "@/features/settings/mocks";
 import { NameGlyph } from "@/shared/components/name-glyph";
 
 import { ActivityPill } from "./activity-pill";
+import { MetaSep } from "./meta-sep";
 import { ScopeChip } from "./scope-chip";
 
 export interface AuthorizedAppRowProps {
@@ -39,10 +40,6 @@ function formatAuthorizedDate(iso: string): string {
   }
 }
 
-/**
- * Row for an authorized MCP client. Shows the client glyph, status pill,
- * connection metadata, granted scopes, and a `⋯` menu for per-client actions.
- */
 export function AuthorizedAppRow({
   app,
   isFirst = false,
@@ -108,29 +105,21 @@ function AppRowMeta({ app }: { app: MockAuthorizedApp }) {
   return (
     <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs tabular-nums text-muted-foreground">
       <span className="font-mono">{app.ipAddress}</span>
-      <Sep />
+      <MetaSep />
       <span>
         {m.settings_apps_meta_authorized({ date: formatAuthorizedDate(app.authorizedAt) })}
       </span>
-      <Sep />
+      <MetaSep />
       <span>
         {m.settings_apps_meta_last_active({ time: relativeTime(new Date(app.lastSeenAt)) })}
       </span>
       {app.callsLast24h > 0 ? (
         <>
-          <Sep />
+          <MetaSep />
           <span>{m.settings_apps_meta_calls({ count: app.callsLast24h.toLocaleString() })}</span>
         </>
       ) : null}
     </div>
-  );
-}
-
-function Sep() {
-  return (
-    <span aria-hidden="true" className="text-muted-foreground/60">
-      ·
-    </span>
   );
 }
 
@@ -152,7 +141,7 @@ function AppRowMenu({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={m.settings_apps_endpoint_action_more()}
+            aria-label={m.settings_apps_action_more({ name: app.name })}
             data-testid={`actions-${app.clientId}`}
           >
             <MoreHorizontalIcon className="size-4" />
@@ -164,7 +153,7 @@ function AppRowMenu({
           <EyeIcon className="size-3.5" />
           {m.settings_apps_action_view_activity()}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onRename(app)}>
+        <DropdownMenuItem onClick={() => onRename(app)} data-testid={`rename-${app.clientId}`}>
           <PencilIcon className="size-3.5" />
           {m.settings_apps_action_rename()}
         </DropdownMenuItem>

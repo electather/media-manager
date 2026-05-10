@@ -41,24 +41,14 @@ const SECTIONS: ReadonlyArray<GuideSection> = [
     title: () => m.settings_apps_setup_guide_claude_desktop_title(),
     steps: () => m.settings_apps_setup_guide_claude_desktop_steps(),
     snippet: (endpoint) =>
-      `{
-  "mcpServers": {
-    "media-manager": {
-      "url": "${endpoint}"
-    }
-  }
-}`,
+      JSON.stringify({ mcpServers: { "media-manager": { url: endpoint } } }, null, 2),
   },
   {
     id: "cursor",
     title: () => m.settings_apps_setup_guide_cursor_title(),
     steps: () => m.settings_apps_setup_guide_cursor_steps(),
     snippet: (endpoint) =>
-      `{
-  "mcpServers": {
-    "media-manager": { "url": "${endpoint}" }
-  }
-}`,
+      JSON.stringify({ mcpServers: { "media-manager": { url: endpoint } } }, null, 2),
   },
   {
     id: "generic",
@@ -68,11 +58,6 @@ const SECTIONS: ReadonlyArray<GuideSection> = [
   },
 ];
 
-/**
- * Setup guide for connecting MCP-compatible clients to the user's endpoint.
- * Renders as a Dialog on desktop and a Drawer on mobile, mirroring the
- * adaptive pattern used elsewhere in the settings area.
- */
 export function SetupGuideModal({ endpoint, open, onClose }: SetupGuideModalProps) {
   const isMobile = useIsMobile();
   const titleId = useId();

@@ -1,5 +1,4 @@
-// fallow-ignore-file complexity
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   CheckIcon,
@@ -102,6 +101,14 @@ function useConnectionsState() {
   const [conns, setConns] = useState<ReadonlyArray<MockConnection>>(MOCK_CONNECTIONS);
   const [filter, setFilter] = useState<Filter>("all");
   const [disconnectFor, setDisconnectFor] = useState<MockConnection | null>(null);
+  const testTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (testTimerRef.current !== null) window.clearTimeout(testTimerRef.current);
+    },
+    [],
+  );
 
   const sorted = useMemo(() => {
     const order: Record<MockConnection["status"], number> = {
@@ -140,7 +147,9 @@ function useConnectionsState() {
 
   const handleTest = (conn: MockConnection) => {
     toast.message(m.settings_connections_toast_testing());
-    window.setTimeout(() => {
+    if (testTimerRef.current !== null) window.clearTimeout(testTimerRef.current);
+    testTimerRef.current = window.setTimeout(() => {
+      testTimerRef.current = null;
       updateConnection(conn.id, { lastVerifiedAt: new Date().toISOString() });
       const plugin = MOCK_PLUGINS.find((p) => p.id === conn.pluginId);
       toast.success(m.settings_connections_toast_test_ok({ name: plugin?.name ?? conn.label }));
@@ -364,7 +373,7 @@ function ConnectionFilters({
     { id: "disabled", label: m.settings_connections_filter_disabled(), count: disabledCount },
   ];
   return (
-    <div className="flex gap-1.5" role="tablist" aria-label="Filter connections">
+    <div className="flex gap-1.5" role="tablist" aria-label={m.settings_connections_filter_aria()}>
       {filters.map((f) => (
         <button
           key={f.id}
@@ -508,7 +517,7 @@ function ConnectionRowActions({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={m.settings_connections_action_more()}
+              aria-label={m.settings_connections_action_more_named({ name: plugin.name })}
             >
               <MoreHorizontalIcon className="size-4" />
             </Button>

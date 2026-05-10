@@ -24,10 +24,6 @@ function nameToMonogram(name: string): string {
   return word ? word.slice(0, 2).toUpperCase() : "?";
 }
 
-/**
- * Monogram tile derived entirely from a name — hue and initials are computed
- * so each entry stays visually distinct without manual configuration.
- */
 export function NameGlyph({ name, className }: NameGlyphProps) {
   const hue = nameToHue(name);
   const sideHue = (hue + 30) % 360;
