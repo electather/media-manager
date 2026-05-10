@@ -2,4 +2,4 @@
 "@ent-mcp/client": minor
 ---
 
-Unified the error UI across error boundaries, route fallbacks, and the OAuth consent invalid-request screen with a shared, translatable error state.
+Unified the app's error pages — 404, 500, and feature fallbacks — under a shared, translatable error page with status pill, mono code, eyebrow, and a collapsible technical details card.

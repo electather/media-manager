@@ -1,17 +1,16 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { RotateCcwIcon } from "lucide-react";
+import { HomeIcon, RotateCcwIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
 import {
-  ErrorScreen,
-  ErrorState,
-  ErrorStateActions,
-  ErrorStateContent,
-  ErrorStateDescription,
-  ErrorStateMedia,
-  ErrorStateReference,
-  ErrorStateTitle,
-} from "@/shared/components/error-state";
+  ErrorPage,
+  ErrorPageActions,
+  ErrorPageDescription,
+  ErrorPageDetails,
+  ErrorPageFrame,
+  ErrorPageHeadline,
+  ErrorPageStatus,
+} from "@/shared/components/error-page";
 import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
@@ -51,34 +50,50 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ error: null, requestId: null });
   };
 
-  // fallow-ignore-next-line complexity
   render(): ReactNode {
     if (!this.state.error) return this.props.children;
     const requestId = this.state.requestId ?? "";
     if (this.props.fallback) {
       return this.props.fallback({ error: this.state.error, requestId, reset: this.reset });
     }
+    const shortId = requestId ? shortRequestId(requestId) : "";
     return (
-      <ErrorScreen>
-        <ErrorState orientation="vertical">
-          <ErrorStateMedia size="lg" />
-          <ErrorStateContent>
-            <ErrorStateTitle>{m.errors_default_title()}</ErrorStateTitle>
-            <ErrorStateDescription>{this.state.error.message}</ErrorStateDescription>
-            {requestId ? (
-              <ErrorStateReference>
-                {m.errors_ref_prefix({ ref: shortRequestId(requestId) })}
-              </ErrorStateReference>
-            ) : null}
-          </ErrorStateContent>
-          <ErrorStateActions>
-            <Button variant="outline" size="sm" onClick={this.reset}>
+      <ErrorPage tone="danger">
+        <ErrorPageFrame>
+          <ErrorPageStatus tone="danger">500 · {m.errors_status_server_error()}</ErrorPageStatus>
+          <ErrorPageHeadline code="500" eyebrow={m.errors_server_eyebrow()}>
+            {m.errors_default_title()}
+          </ErrorPageHeadline>
+          <ErrorPageDescription>{this.state.error.message}</ErrorPageDescription>
+          <ErrorPageActions>
+            <Button onClick={this.reset}>
               <RotateCcwIcon aria-hidden="true" />
               {m.errors_retry()}
             </Button>
-          </ErrorStateActions>
-        </ErrorState>
-      </ErrorScreen>
+            <Button variant="outline" render={<a href="/" />}>
+              <HomeIcon aria-hidden="true" />
+              {m.errors_action_back_home()}
+            </Button>
+          </ErrorPageActions>
+          {shortId ? (
+            <ErrorPageDetails
+              title={m.errors_details_title()}
+              reference={shortId}
+              rows={[
+                {
+                  label: m.errors_details_request_id(),
+                  value: shortId,
+                  copyValue: requestId,
+                },
+                {
+                  label: m.errors_details_status(),
+                  value: `500 · ${m.errors_status_server_error()}`,
+                },
+              ]}
+            />
+          ) : null}
+        </ErrorPageFrame>
+      </ErrorPage>
     );
   }
 }

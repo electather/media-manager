@@ -11,5 +11,51 @@
   "errors_invalid_request_body": "TODO",
 
   "errors_route_title": "TODO",
-  "errors_route_body": "TODO"
+  "errors_route_body": "TODO",
+
+  "errors_status_not_found": "TODO",
+  "errors_status_server_error": "TODO",
+  "errors_status_session_expired": "TODO",
+  "errors_status_offline": "TODO",
+  "errors_status_rate_limited": "TODO",
+  "errors_status_maintenance": "TODO",
+  "errors_status_feed_unavailable": "TODO",
+  "errors_status_unknown": "TODO",
+
+  "errors_not_found_eyebrow": "TODO",
+  "errors_not_found_headline": "TODO",
+  "errors_not_found_body": "TODO",
+
+  "errors_server_eyebrow": "TODO",
+  "errors_server_headline": "TODO",
+  "errors_server_body": "TODO",
+
+  "errors_offline_eyebrow": "TODO",
+  "errors_offline_headline": "TODO",
+  "errors_offline_body": "TODO",
+
+  "errors_rate_limited_eyebrow": "TODO",
+  "errors_rate_limited_headline": "TODO",
+  "errors_rate_limited_body": "TODO",
+
+  "errors_maintenance_eyebrow": "TODO",
+  "errors_maintenance_headline": "TODO",
+  "errors_maintenance_body": "TODO",
+
+  "errors_unauthorized_eyebrow": "TODO",
+  "errors_unauthorized_headline": "TODO",
+  "errors_unauthorized_body": "TODO",
+  "errors_unauthorized_action": "TODO",
+
+  "errors_action_back_home": "TODO",
+  "errors_action_search": "TODO",
+  "errors_action_status_page": "TODO",
+  "errors_action_help_center": "TODO",
+  "errors_action_report": "TODO",
+
+  "errors_details_title": "TODO",
+  "errors_details_request_id": "TODO",
+  "errors_details_endpoint": "TODO",
+  "errors_details_status": "TODO",
+  "errors_details_timestamp": "TODO"
 }

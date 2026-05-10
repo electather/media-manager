@@ -11,5 +11,51 @@
   "errors_invalid_request_body": "This link is invalid, malformed, or has already been used. Close this tab and try connecting again from your application.",
 
   "errors_route_title": "We couldn't load this page",
-  "errors_route_body": "Something interrupted the request. Try again — your data is safe."
+  "errors_route_body": "Something interrupted the request. Try again — your data is safe.",
+
+  "errors_status_not_found": "Not found",
+  "errors_status_server_error": "Server error",
+  "errors_status_session_expired": "Session expired",
+  "errors_status_offline": "No connection",
+  "errors_status_rate_limited": "Slow down",
+  "errors_status_maintenance": "Scheduled maintenance",
+  "errors_status_feed_unavailable": "Feed unavailable",
+  "errors_status_unknown": "Unexpected error",
+
+  "errors_not_found_eyebrow": "// route.not_found",
+  "errors_not_found_headline": "We can't find that page.",
+  "errors_not_found_body": "The link is broken, the page moved, or the title was removed from your library. Try searching for what you wanted, or jump back home.",
+
+  "errors_server_eyebrow": "// server.internal_error",
+  "errors_server_headline": "Something broke on our end.",
+  "errors_server_body": "An unexpected error came back from the server. We've logged it automatically — try again in a moment.",
+
+  "errors_offline_eyebrow": "// network.unreachable",
+  "errors_offline_headline": "You're offline.",
+  "errors_offline_body": "We can't reach the network right now. Check your connection — we'll reconnect as soon as it's back.",
+
+  "errors_rate_limited_eyebrow": "// network.rate_limited",
+  "errors_rate_limited_headline": "Too many requests, too fast.",
+  "errors_rate_limited_body": "You've hit the request limit on this endpoint. Wait a moment, then try again.",
+
+  "errors_maintenance_eyebrow": "// platform.maintenance",
+  "errors_maintenance_headline": "We're down for a quick upgrade.",
+  "errors_maintenance_body": "We're rolling out an update. Your data isn't affected — we'll be back shortly.",
+
+  "errors_unauthorized_eyebrow": "// auth.session.expired",
+  "errors_unauthorized_headline": "You've been signed out.",
+  "errors_unauthorized_body": "For your safety, your session ended. Sign back in to pick up where you left off.",
+  "errors_unauthorized_action": "Sign in again",
+
+  "errors_action_back_home": "Back home",
+  "errors_action_search": "Search",
+  "errors_action_status_page": "Status page",
+  "errors_action_help_center": "Help center",
+  "errors_action_report": "Report this error",
+
+  "errors_details_title": "Technical details",
+  "errors_details_request_id": "Request ID",
+  "errors_details_endpoint": "Endpoint",
+  "errors_details_status": "Status",
+  "errors_details_timestamp": "Timestamp"
 }

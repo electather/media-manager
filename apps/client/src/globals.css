@@ -352,6 +352,131 @@ html[lang="fa"] {
       var(--card);
   }
 
+  /* Full-page error stage. Two layers: a soft radial ambient wash anchored
+     above the frame, then a fine dotted grid masked to fade out at the
+     edges. Ambient tone is keyed off `--error-page-ambient` so each variant
+     (info / warn / danger) can paint a different color without re-declaring
+     the gradient. Dot color stays neutral so the grid reads as texture. */
+  .error-page-stage {
+    position: relative;
+    isolation: isolate;
+    --error-page-ambient: color-mix(in oklab, var(--primary) 14%, transparent);
+    --error-page-status-dot: var(--primary);
+  }
+  .error-page-stage::before,
+  .error-page-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .error-page-stage::before {
+    background: radial-gradient(60% 50% at 50% 38%, var(--error-page-ambient) 0%, transparent 70%);
+    z-index: -2;
+    transition: background 360ms ease;
+  }
+  .error-page-stage::after {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      color-mix(in oklab, var(--muted-foreground) 30%, transparent) 1px,
+      transparent 0
+    );
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 45%, black 0%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 45%, black 0%, transparent 75%);
+    z-index: -1;
+  }
+  .error-page-stage[data-tone="info"] {
+    --error-page-ambient: color-mix(in oklab, var(--ring) 14%, transparent);
+    --error-page-status-dot: var(--ring);
+  }
+  .error-page-stage[data-tone="warn"] {
+    --error-page-ambient: color-mix(in oklab, var(--primary) 18%, transparent);
+    --error-page-status-dot: var(--primary);
+  }
+  .error-page-stage[data-tone="danger"] {
+    --error-page-ambient: color-mix(in oklab, var(--destructive) 20%, transparent);
+    --error-page-status-dot: var(--destructive);
+  }
+
+  /* Status pill dot: subtle pulse via a ring shadow that breathes in size
+     and opacity. Color tracks the stage tone so a single rule covers all
+     variants. Disables under reduced motion. */
+  .error-page-status-dot {
+    background: var(--error-page-status-dot);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--error-page-status-dot) 18%, transparent);
+    animation: error-page-status-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes error-page-status-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--error-page-status-dot) 18%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 5px color-mix(in oklab, var(--error-page-status-dot) 6%, transparent);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .error-page-status-dot {
+      animation: none;
+    }
+  }
+
+  /* Big mono code gets a top-down gradient fill — primary fades to muted —
+     so the glyph reads as a soft slab rather than a flat block of color.
+     Background-clip: text restricts the gradient to the glyph shape. */
+  .error-page-code {
+    background: linear-gradient(180deg, var(--foreground) 0%, var(--muted-foreground) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Single horizontal scan-line that drifts down the code glyph on a loop —
+     the prototype's signature accent. Pinned to the top of the glyph so its
+     translateY is relative to that origin. Disables under reduced motion. */
+  .error-page-scan {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--primary) 80%, transparent),
+      transparent
+    );
+    opacity: 0.55;
+    animation: error-page-scan 4.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes error-page-scan {
+    0% {
+      transform: translateY(0);
+      opacity: 0;
+    }
+    8% {
+      opacity: 0.55;
+    }
+    50% {
+      transform: translateY(100%);
+      opacity: 0.55;
+    }
+    58% {
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .error-page-scan {
+      animation: none;
+      opacity: 0;
+    }
+  }
+
   /* Chevrons: hover/focus-within on the row scope reveals them, but only
      when the corresponding edge isn't already the current scroll position.
      Edge state comes from the same data attrs that drive the fade overlays. */

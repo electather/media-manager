@@ -1,30 +1,49 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { RotateCcwIcon } from "lucide-react";
+import { HomeIcon, RotateCcwIcon } from "lucide-react";
 
 import * as m from "@/paraglide/messages";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import {
-  ErrorScreen,
-  ErrorState,
-  ErrorStateActions,
-  ErrorStateContent,
-  ErrorStateDescription,
-  ErrorStateDetail,
-  ErrorStateMedia,
-  ErrorStateReference,
-  ErrorStateTitle,
-} from "@/shared/components/error-state";
+  ErrorPage,
+  ErrorPageActions,
+  ErrorPageDescription,
+  ErrorPageDetails,
+  ErrorPageFrame,
+  ErrorPageHeadline,
+  ErrorPageHelp,
+  ErrorPageStatus,
+} from "@/shared/components/error-page";
 import { reportError } from "@/shared/lib/diagnostics/report";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 import { HomeFeedSkeleton } from "../components/home-feed-skeleton";
-import { classifyHomeError, type HomeErrorView } from "./error-classification";
+import {
+  classifyHomeError,
+  type HomeErrorVariant,
+  type HomeErrorView,
+} from "./error-classification";
 import { homeKeys } from "./query-keys";
 
 const TELEMETRY_CODE = "client.home.boundary";
 const RELOGIN_HREF = "/login";
 const SUPPORT_HREF = "https://github.com/electather/media-manager/issues/new";
+
+interface VariantMeta {
+  tone: "info" | "warn" | "danger";
+  code: string;
+  eyebrowKey: keyof typeof m;
+}
+
+// One source of truth for variant → presentation. Code + eyebrow read like the
+// Nama prototype's mono callouts; tone drives the ambient gradient on the stage.
+const VARIANT_META: Record<HomeErrorVariant, VariantMeta> = {
+  auth: { tone: "danger", code: "401", eyebrowKey: "errors_unauthorized_eyebrow" },
+  offline: { tone: "warn", code: "OFFLINE", eyebrowKey: "errors_offline_eyebrow" },
+  network: { tone: "warn", code: "429", eyebrowKey: "errors_rate_limited_eyebrow" },
+  server: { tone: "danger", code: "500", eyebrowKey: "errors_server_eyebrow" },
+  unknown: { tone: "danger", code: "ERR", eyebrowKey: "errors_server_eyebrow" },
+};
 
 function FallbackInner({
   error,
@@ -60,27 +79,67 @@ function FallbackInner({
 
   const titleFn = m[view.titleKey] as () => string;
   const bodyFn = m[view.bodyKey] as () => string;
+  const meta = VARIANT_META[view.variant];
+  const eyebrowFn = m[meta.eyebrowKey] as () => string;
   const detail = view.devMessage;
+  const shortId = requestId ? shortRequestId(requestId) : "";
 
   return (
-    <ErrorScreen>
-      <ErrorState orientation="vertical" data-home-error-variant={view.variant}>
-        <ErrorStateMedia size="lg" />
-        <ErrorStateContent>
-          <ErrorStateTitle>{titleFn()}</ErrorStateTitle>
-          <ErrorStateDescription>{bodyFn()}</ErrorStateDescription>
-          {detail ? <ErrorStateDetail>{detail}</ErrorStateDetail> : null}
-          {requestId ? (
-            <ErrorStateReference>
-              {m.home_error_ref_prefix({ ref: shortRequestId(requestId) })}
-            </ErrorStateReference>
-          ) : null}
-        </ErrorStateContent>
-        <ErrorStateActions>
+    <ErrorPage tone={meta.tone}>
+      <ErrorPageFrame data-home-error-variant={view.variant}>
+        <ErrorPageStatus tone={meta.tone}>
+          {meta.code} · {titleFn()}
+        </ErrorPageStatus>
+        <ErrorPageHeadline code={meta.code} eyebrow={eyebrowFn()}>
+          {titleFn()}
+        </ErrorPageHeadline>
+        <ErrorPageDescription>{bodyFn()}</ErrorPageDescription>
+        {detail ? (
+          <p className="max-w-md font-mono text-xs leading-relaxed text-muted-foreground/80">
+            {detail}
+          </p>
+        ) : null}
+        <ErrorPageActions>
           <ActionButtons view={view} onRetry={onRetry} onRelogin={onRelogin} />
-        </ErrorStateActions>
-      </ErrorState>
-    </ErrorScreen>
+        </ErrorPageActions>
+        {shortId || detail ? (
+          <ErrorPageDetails
+            title={m.errors_details_title()}
+            reference={shortId || undefined}
+            rows={[
+              ...(shortId
+                ? [
+                    {
+                      label: m.errors_details_request_id(),
+                      value: shortId,
+                      copyValue: requestId,
+                    },
+                  ]
+                : []),
+              {
+                label: m.errors_details_status(),
+                value: `${meta.code} · ${titleFn()}`,
+              },
+              ...(detail
+                ? [
+                    {
+                      label: "Detail",
+                      value: detail,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        ) : null}
+        {view.variant === "server" ? (
+          <ErrorPageHelp>
+            <a href={SUPPORT_HREF} target="_blank" rel="noreferrer">
+              {m.home_error_action_contact_support()}
+            </a>
+          </ErrorPageHelp>
+        ) : null}
+      </ErrorPageFrame>
+    </ErrorPage>
   );
 }
 
@@ -96,39 +155,25 @@ function ActionButtons({
   if (view.needsRelogin) {
     return (
       <>
-        <Button variant="default" size="sm" onClick={onRelogin}>
-          {m.home_error_action_relogin()}
-        </Button>
-        <Button variant="outline" size="sm" onClick={onRetry}>
+        <Button onClick={onRelogin}>{m.home_error_action_relogin()}</Button>
+        <Button variant="outline" onClick={onRetry}>
           <RotateCcwIcon aria-hidden="true" />
           {m.home_error_retry()}
         </Button>
-      </>
-    );
-  }
-  if (view.variant === "server") {
-    return (
-      <>
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <RotateCcwIcon aria-hidden="true" />
-          {m.home_error_retry()}
-        </Button>
-        <a
-          href={SUPPORT_HREF}
-          target="_blank"
-          rel="noreferrer"
-          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-        >
-          {m.home_error_action_contact_support()}
-        </a>
       </>
     );
   }
   return (
-    <Button variant="outline" size="sm" onClick={onRetry}>
-      <RotateCcwIcon aria-hidden="true" />
-      {m.home_error_retry()}
-    </Button>
+    <>
+      <Button onClick={onRetry}>
+        <RotateCcwIcon aria-hidden="true" />
+        {m.home_error_retry()}
+      </Button>
+      <Button variant="outline" render={<a href="/" />}>
+        <HomeIcon aria-hidden="true" />
+        {m.errors_action_back_home()}
+      </Button>
+    </>
   );
 }
 

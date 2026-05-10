@@ -13,18 +13,19 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 
+import { HomeIcon } from "lucide-react";
+
 import { m } from "@/paraglide/messages";
 import { authClient } from "@/shared/lib/auth";
 import { UserAvatar } from "@/shared/components/user-avatar";
 import {
-  ErrorScreen,
-  ErrorState,
-  ErrorStateActions,
-  ErrorStateContent,
-  ErrorStateDescription,
-  ErrorStateMedia,
-  ErrorStateTitle,
-} from "@/shared/components/error-state";
+  ErrorPage,
+  ErrorPageActions,
+  ErrorPageDescription,
+  ErrorPageFrame,
+  ErrorPageHeadline,
+  ErrorPageStatus,
+} from "@/shared/components/error-page";
 import { Button } from "@/shared/ui/button";
 import { Separator } from "@/shared/ui/separator";
 
@@ -104,20 +105,21 @@ export const Route = createFileRoute("/oauth/consent")({
 
 function InvalidRequestPage() {
   return (
-    <ErrorScreen className="min-h-0 p-0">
-      <ErrorState orientation="vertical" className="w-full">
-        <ErrorStateMedia size="lg" />
-        <ErrorStateContent>
-          <ErrorStateTitle>{m.errors_invalid_request_title()}</ErrorStateTitle>
-          <ErrorStateDescription>{m.errors_invalid_request_body()}</ErrorStateDescription>
-        </ErrorStateContent>
-        <ErrorStateActions>
-          <Button variant="outline" render={<Link to="/" />}>
-            {m.errors_back_home()}
+    <ErrorPage tone="danger" className="min-h-0 p-0">
+      <ErrorPageFrame>
+        <ErrorPageStatus tone="danger">400 · {m.errors_invalid_request_title()}</ErrorPageStatus>
+        <ErrorPageHeadline code="400" eyebrow={m.errors_unauthorized_eyebrow()}>
+          {m.errors_invalid_request_title()}
+        </ErrorPageHeadline>
+        <ErrorPageDescription>{m.errors_invalid_request_body()}</ErrorPageDescription>
+        <ErrorPageActions>
+          <Button render={<Link to="/" />}>
+            <HomeIcon aria-hidden="true" />
+            {m.errors_action_back_home()}
           </Button>
-        </ErrorStateActions>
-      </ErrorState>
-    </ErrorScreen>
+        </ErrorPageActions>
+      </ErrorPageFrame>
+    </ErrorPage>
   );
 }
 

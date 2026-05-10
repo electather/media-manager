@@ -1,25 +1,24 @@
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { RotateCcwIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { HomeIcon, RotateCcwIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import {
-  ErrorScreen,
-  ErrorState,
-  ErrorStateActions,
-  ErrorStateContent,
-  ErrorStateDescription,
-  ErrorStateMedia,
-  ErrorStateReference,
-  ErrorStateTitle,
-} from "@/shared/components/error-state";
+  ErrorPage,
+  ErrorPageActions,
+  ErrorPageDescription,
+  ErrorPageDetails,
+  ErrorPageFrame,
+  ErrorPageHeadline,
+  ErrorPageStatus,
+} from "@/shared/components/error-page";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
 import { notificationsKeys } from "./query-keys";
 import { NotificationsApiError } from "./types";
 
-// fallow-ignore-next-line complexity
 function FallbackInner({
   error,
   requestId,
@@ -34,31 +33,55 @@ function FallbackInner({
     error instanceof NotificationsApiError && error.body?.message
       ? error.body.message
       : error.message;
+  const status =
+    error instanceof NotificationsApiError && typeof error.status === "number"
+      ? error.status
+      : null;
+  const code = status ? String(status) : "ERR";
   const onRetry = () => {
     void queryClient.resetQueries({ queryKey: notificationsKeys.all });
     reset();
   };
+  const shortId = requestId ? shortRequestId(requestId) : "";
   return (
-    <ErrorScreen>
-      <ErrorState orientation="vertical">
-        <ErrorStateMedia size="lg" />
-        <ErrorStateContent>
-          <ErrorStateTitle>{m.notifications_error_title()}</ErrorStateTitle>
-          <ErrorStateDescription>{message}</ErrorStateDescription>
-          {requestId ? (
-            <ErrorStateReference>
-              {m.errors_ref_prefix({ ref: shortRequestId(requestId) })}
-            </ErrorStateReference>
-          ) : null}
-        </ErrorStateContent>
-        <ErrorStateActions>
-          <Button variant="outline" size="sm" onClick={onRetry}>
+    <ErrorPage tone="danger">
+      <ErrorPageFrame>
+        <ErrorPageStatus tone="danger">
+          {code} · {m.notifications_error_title()}
+        </ErrorPageStatus>
+        <ErrorPageHeadline code={code} eyebrow={m.errors_server_eyebrow()}>
+          {m.notifications_error_title()}
+        </ErrorPageHeadline>
+        <ErrorPageDescription>{message}</ErrorPageDescription>
+        <ErrorPageActions>
+          <Button onClick={onRetry}>
             <RotateCcwIcon aria-hidden="true" />
             {m.notifications_error_retry()}
           </Button>
-        </ErrorStateActions>
-      </ErrorState>
-    </ErrorScreen>
+          <Button variant="outline" render={<Link to="/" />}>
+            <HomeIcon aria-hidden="true" />
+            {m.errors_action_back_home()}
+          </Button>
+        </ErrorPageActions>
+        {shortId ? (
+          <ErrorPageDetails
+            title={m.errors_details_title()}
+            reference={shortId}
+            rows={[
+              {
+                label: m.errors_details_request_id(),
+                value: shortId,
+                copyValue: requestId,
+              },
+              {
+                label: m.errors_details_status(),
+                value: `${code} · ${m.notifications_error_title()}`,
+              },
+            ]}
+          />
+        ) : null}
+      </ErrorPageFrame>
+    </ErrorPage>
   );
 }
 
