@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LoaderCircleIcon } from "lucide-react";
+import { CheckIcon, EyeIcon, EyeOffIcon, ShieldIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -13,417 +13,401 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { Field, FieldDescription, FieldError, FieldTitle } from "@/shared/ui/field";
+import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
-import { Skeleton } from "@/shared/ui/skeleton";
-import { SessionRow, type SessionListItem } from "@/features/settings";
-import { authClient } from "@/shared/lib/auth";
+import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+import { relativeTime } from "@/shared/lib/relative-time";
+import { parseUserAgent } from "@/shared/lib/user-agent";
+import { cn } from "@/shared/lib/utils";
+import { m } from "@/paraglide/messages";
 
-// ─── Route ────────────────────────────────────────────────────────────────────
+import { SettingsPageHeader } from "@/app/settings-layout";
+import {
+  SettingsCard,
+  SettingsCardHeader,
+} from "@/features/settings";
+import { MOCK_SESSIONS, type MockSession } from "@/features/settings/mocks";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/security")({
-  component: SecuritySection,
+  component: SecurityRoute,
 });
 
-const MIN_PASSWORD_LENGTH = 12;
-const SESSIONS_QUERY_KEY = ["security", "sessions"] as const;
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-function SecuritySection() {
+function SecurityRoute() {
   return (
-    <div className="flex flex-col gap-10">
-      <div>
-        <h2 className="text-base font-medium">Security</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your password and active sessions.
-        </p>
-      </div>
+    <SettingsErrorBoundary>
+      <SecurityPage />
+    </SettingsErrorBoundary>
+  );
+}
 
-      <ChangePasswordCard />
-      <ActiveSessionsCard />
+function SecurityPage() {
+  const [sessions, setSessions] = useState<ReadonlyArray<MockSession>>(MOCK_SESSIONS);
+
+  const onPasswordChanged = () => {
+    setSessions((list) => list.filter((s) => s.current));
+  };
+
+  return (
+    <div className="flex flex-col gap-7">
+      <SettingsPageHeader
+        title={m.settings_security_title()}
+        description={m.settings_security_description()}
+      />
+      <ChangePasswordCard onChanged={onPasswordChanged} />
+      <ActiveSessionsCard sessions={sessions} setSessions={setSessions} />
     </div>
   );
 }
 
-// ─── Change password ──────────────────────────────────────────────────────────
+// ─── Change password ────────────────────────────────────────────────────────
 
-interface PasswordFieldErrors {
-  currentPassword?: string;
-  newPassword?: string;
-  confirmPassword?: string;
-}
+const MIN_PASSWORD_LENGTH = 12;
 
-// fallow-ignore-next-line complexity
-export function ChangePasswordCard() {
-  const qc = useQueryClient();
+export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
   const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [errors, setErrors] = useState<PasswordFieldErrors>({});
+  const tooShort = next.length > 0 && next.length < MIN_PASSWORD_LENGTH;
+  const mismatch = confirm.length > 0 && confirm !== next;
+  const canSubmit =
+    current.length > 0 && next.length >= MIN_PASSWORD_LENGTH && confirm === next && !submitting;
 
   const reset = () => {
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setErrors({});
+    setCurrent("");
+    setNext("");
+    setConfirm("");
+    setOpen(false);
   };
 
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await authClient.changePassword({
-        currentPassword,
-        newPassword,
-        revokeOtherSessions: true,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Password updated — other sessions signed out.");
-      reset();
-      setOpen(false);
-      // revokeOtherSessions: true kills other sessions server-side; refetch the list.
-      void qc.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
-    },
-    // fallow-ignore-next-line complexity
-    onError: (err: unknown) => {
-      const status = (err as { status?: number } | null)?.status;
-      const code = (err as { code?: string } | null)?.code;
-      const message = (err as { message?: string } | null)?.message ?? "Could not update password.";
-
-      // Better Auth tags wrong-current-password as `code: "INVALID_PASSWORD"`
-      // (status 400). The OpenAPI doc also lists 401. Match the explicit code
-      // first; fall back to 401 or recognisable message text only when the
-      // server didn't supply a code, so other 400s (rate limit, malformed
-      // body, policy violation) don't get mislabelled.
-      const lower = message.toLowerCase();
-      const looksWrongCurrent =
-        code === "INVALID_PASSWORD" ||
-        status === 401 ||
-        lower.includes("incorrect") ||
-        lower.includes("invalid password") ||
-        lower.includes("current password");
-
-      if (looksWrongCurrent) {
-        setErrors({ currentPassword: "That password is incorrect." });
-      } else {
-        // Server-side policy violations land under new password per spec.
-        setErrors({ newPassword: message });
-      }
-    },
-  });
-
-  // fallow-ignore-next-line complexity
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const next: PasswordFieldErrors = {};
-    if (!currentPassword) next.currentPassword = "Enter your current password.";
-    if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      next.newPassword = `Use at least ${MIN_PASSWORD_LENGTH} characters.`;
-    }
-    if (confirmPassword !== newPassword) {
-      next.confirmPassword = "Passwords do not match.";
-    }
-    setErrors(next);
-    if (Object.keys(next).length > 0) return;
-    mutation.mutate();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    window.setTimeout(() => {
+      setSubmitting(false);
+      reset();
+      toast.success(m.settings_security_toast_password_updated());
+      onChanged?.();
+    }, 400);
   };
 
-  if (!open) {
-    return (
-      <section className="flex flex-col gap-3">
-        <div>
-          <h3 className="text-sm font-medium">Password</h3>
-          <p className="text-xs text-muted-foreground">
-            Change your password. Other sessions will be signed out.
-          </p>
-        </div>
-        <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOpen(true)}
-            data-testid="open-change-password"
-          >
-            Change password
-          </Button>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <h3 className="text-sm font-medium">Change password</h3>
-      </div>
-      <form
-        onSubmit={submit}
-        className="flex max-w-sm flex-col gap-4 rounded-xl border border-border p-4"
-        noValidate
-      >
-        <Field data-invalid={errors.currentPassword ? true : undefined}>
-          <FieldTitle>Current password</FieldTitle>
-          <Input
-            type="password"
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            aria-invalid={errors.currentPassword ? true : undefined}
-            data-testid="current-password"
-          />
-          {errors.currentPassword ? <FieldError>{errors.currentPassword}</FieldError> : null}
-        </Field>
-
-        <Field data-invalid={errors.newPassword ? true : undefined}>
-          <FieldTitle>New password</FieldTitle>
-          <Input
-            type="password"
-            autoComplete="new-password"
-            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            aria-invalid={errors.newPassword ? true : undefined}
-            data-testid="new-password"
-          />
-          <FieldDescription>Use at least {MIN_PASSWORD_LENGTH} characters.</FieldDescription>
-          {errors.newPassword ? <FieldError>{errors.newPassword}</FieldError> : null}
-        </Field>
-
-        <Field data-invalid={errors.confirmPassword ? true : undefined}>
-          <FieldTitle>Confirm new password</FieldTitle>
-          <Input
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            aria-invalid={errors.confirmPassword ? true : undefined}
-            data-testid="confirm-password"
-          />
-          {errors.confirmPassword ? <FieldError>{errors.confirmPassword}</FieldError> : null}
-        </Field>
-
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              reset();
-              setOpen(false);
-            }}
-            disabled={mutation.isPending}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" size="sm" disabled={mutation.isPending} data-testid="save-password">
-            {mutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Save password
-          </Button>
-        </div>
-      </form>
-    </section>
+    <SettingsCard>
+      <SettingsCardHeader
+        title={m.settings_security_password_title()}
+        description={m.settings_security_password_description()}
+        action={
+          !open ? (
+            <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+              {m.settings_security_password_change()}
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={reset}>
+              <XIcon className="size-3.5" aria-hidden="true" />
+              {m.settings_security_password_cancel()}
+            </Button>
+          )
+        }
+      />
+      {open ? (
+        <form onSubmit={submit} className="flex flex-col gap-4 p-5 sm:p-6">
+          <Field>
+            <FieldTitle>{m.settings_security_password_current()}</FieldTitle>
+            <PasswordInput
+              value={current}
+              onChange={setCurrent}
+              autoComplete="current-password"
+              placeholder={m.settings_security_password_placeholder()}
+              data-testid="current-password"
+            />
+          </Field>
+          <Field data-invalid={tooShort ? true : undefined}>
+            <FieldTitle>{m.settings_security_password_new()}</FieldTitle>
+            <PasswordInput
+              value={next}
+              onChange={setNext}
+              autoComplete="new-password"
+              placeholder={m.settings_security_password_new_placeholder()}
+              ariaInvalid={tooShort}
+              data-testid="new-password"
+            />
+            <PasswordMeter value={next} />
+            {tooShort ? <FieldError>{m.settings_security_password_too_short()}</FieldError> : null}
+          </Field>
+          <Field data-invalid={mismatch ? true : undefined}>
+            <FieldTitle>{m.settings_security_password_confirm()}</FieldTitle>
+            <PasswordInput
+              value={confirm}
+              onChange={setConfirm}
+              autoComplete="new-password"
+              placeholder={m.settings_security_password_confirm_placeholder()}
+              ariaInvalid={mismatch}
+              data-testid="confirm-password"
+            />
+            {mismatch ? <FieldError>{m.settings_security_password_mismatch()}</FieldError> : null}
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={reset}>
+              {m.settings_security_password_cancel()}
+            </Button>
+            <Button type="submit" size="sm" disabled={!canSubmit} data-testid="submit-password">
+              {submitting
+                ? m.settings_security_password_submitting()
+                : m.settings_security_password_submit()}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </SettingsCard>
   );
 }
 
-// ─── Active sessions ──────────────────────────────────────────────────────────
+interface PasswordInputProps {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder?: string;
+  autoComplete?: string;
+  ariaInvalid?: boolean;
+  "data-testid"?: string;
+}
 
-// fallow-ignore-next-line complexity
-export function ActiveSessionsCard() {
-  const qc = useQueryClient();
-  const { data: currentSession } = authClient.useSession();
-  const currentSessionId = currentSession?.session?.id ?? null;
+function PasswordInput(props: PasswordInputProps) {
+  const [shown, setShown] = useState(false);
+  const { value, onChange, ...rest } = props;
+  return (
+    <div className="relative">
+      <Input
+        type={shown ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={rest.ariaInvalid ? true : undefined}
+        autoComplete={rest.autoComplete}
+        placeholder={rest.placeholder}
+        data-testid={rest["data-testid"]}
+        className="pr-10"
+      />
+      <button
+        type="button"
+        onClick={() => setShown((s) => !s)}
+        aria-label={shown ? m.settings_security_password_hide() : m.settings_security_password_show()}
+        className="absolute inset-y-0 right-1 flex w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {shown ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+      </button>
+    </div>
+  );
+}
 
-  const sessionsQuery = useQuery({
-    queryKey: SESSIONS_QUERY_KEY,
-    queryFn: async (): Promise<SessionListItem[]> => {
-      const { data, error } = await authClient.listSessions();
-      if (error) throw new Error(error.message ?? "Failed to load active sessions.");
-      return (data ?? []) as SessionListItem[];
-    },
-  });
+function passwordScore(pw: string): number {
+  if (!pw) return 0;
+  let s = 0;
+  if (pw.length >= 8) s += 1;
+  if (pw.length >= 12) s += 1;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s += 1;
+  if (/\d/.test(pw)) s += 1;
+  if (/[^A-Za-z0-9]/.test(pw)) s += 1;
+  return Math.min(4, s);
+}
 
-  const sessions = useMemo(() => {
-    if (!sessionsQuery.data) return [] as SessionListItem[];
-    // Sort by updatedAt desc per spec.
-    return [...sessionsQuery.data].sort((a, b) => {
-      const ta = new Date(a.updatedAt).getTime();
-      const tb = new Date(b.updatedAt).getTime();
-      return tb - ta;
-    });
-  }, [sessionsQuery.data]);
+function PasswordMeter({ value }: { value: string }) {
+  const score = passwordScore(value);
+  const labels = [
+    m.settings_security_password_strength_too_short(),
+    m.settings_security_password_strength_weak(),
+    m.settings_security_password_strength_fair(),
+    m.settings_security_password_strength_good(),
+    m.settings_security_password_strength_strong(),
+  ];
+  const tones = [
+    "bg-muted",
+    "bg-destructive",
+    "bg-amber-400",
+    "bg-success",
+    "bg-success",
+  ];
+  return (
+    <div className="mt-2 flex items-center gap-2.5">
+      <div className="flex flex-1 gap-1">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={cn("h-1 flex-1 rounded-full transition-colors", i < score ? tones[score] : "bg-muted")}
+          />
+        ))}
+      </div>
+      <span className="min-w-16 text-right text-xs tabular-nums text-muted-foreground">
+        {value ? labels[score] : ""}
+      </span>
+    </div>
+  );
+}
 
-  const otherSessionCount = sessions.filter((s) => s.id !== currentSessionId).length;
+// ─── Active sessions ────────────────────────────────────────────────────────
 
-  // ── revoke-one ───────────────────────────────────────────────────────────────
-  const [confirmRevoke, setConfirmRevoke] = useState<SessionListItem | null>(null);
+export function ActiveSessionsCard({
+  sessions,
+  setSessions,
+}: {
+  sessions: ReadonlyArray<MockSession>;
+  setSessions: (updater: (prev: ReadonlyArray<MockSession>) => ReadonlyArray<MockSession>) => void;
+}) {
+  const [revokeOne, setRevokeOne] = useState<MockSession | null>(null);
+  const [revokeAll, setRevokeAll] = useState(false);
 
-  const revokeOneMutation = useMutation({
-    mutationFn: async (token: string) => {
-      const { error } = await authClient.revokeSession({ token });
-      if (error) throw new Error(error.message ?? "Failed to revoke session.");
-    },
-    onSuccess: (_data, token) => {
-      // Remove the row optimistically; refetch will confirm.
-      qc.setQueryData<SessionListItem[]>(SESSIONS_QUERY_KEY, (prev) =>
-        prev ? prev.filter((s) => s.token !== token) : prev,
-      );
-      void qc.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
-      toast.success("Session revoked.");
-      setConfirmRevoke(null);
-    },
-    onError: (err: unknown) => {
-      toast.error((err as { message?: string } | null)?.message ?? "Failed to revoke session.");
-    },
-  });
+  const others = sessions.filter((s) => !s.current).length;
 
-  // ── sign-out-everywhere ──────────────────────────────────────────────────────
-  const [confirmSignOutAll, setConfirmSignOutAll] = useState(false);
+  const doRevokeOne = () => {
+    if (!revokeOne) return;
+    setSessions((list) => list.filter((s) => s.id !== revokeOne.id));
+    toast.success(m.settings_security_toast_session_revoked());
+    setRevokeOne(null);
+  };
 
-  const revokeOthersMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await authClient.revokeOtherSessions();
-      if (error) throw new Error(error.message ?? "Failed to sign out other sessions.");
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: SESSIONS_QUERY_KEY });
-      toast.success("Signed out of other sessions.");
-      setConfirmSignOutAll(false);
-    },
-    onError: (err: unknown) => {
-      toast.error(
-        (err as { message?: string } | null)?.message ?? "Could not sign out everywhere.",
-      );
-    },
-  });
+  const doRevokeAll = () => {
+    setSessions((list) => list.filter((s) => s.current));
+    toast.success(m.settings_security_toast_signed_out_others({ count: others }));
+    setRevokeAll(false);
+  };
 
   return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <h3 className="text-sm font-medium">Active sessions</h3>
-        <p className="text-xs text-muted-foreground">
-          Devices currently signed in to your account.
+    <SettingsCard>
+      <SettingsCardHeader
+        title={m.settings_security_sessions_title()}
+        description={m.settings_security_sessions_description()}
+        action={
+          others > 0 ? (
+            <Button variant="outline" size="sm" onClick={() => setRevokeAll(true)}>
+              {m.settings_security_sessions_signout_others()}
+            </Button>
+          ) : null
+        }
+      />
+      {sessions.length === 0 ? (
+        <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+          {m.settings_security_sessions_empty()}
+        </p>
+      ) : (
+        <ul role="list" className="flex flex-col">
+          {sessions.map((s, i) => (
+            <SessionListRow
+              key={s.id}
+              session={s}
+              isFirst={i === 0}
+              onRevoke={() => setRevokeOne(s)}
+            />
+          ))}
+        </ul>
+      )}
+
+      <Dialog
+        open={!!revokeOne}
+        onOpenChange={(o) => {
+          if (!o) setRevokeOne(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{m.settings_security_revoke_dialog_title()}</DialogTitle>
+            <DialogDescription>
+              {revokeOne
+                ? m.settings_security_revoke_dialog_body({
+                    device: parseUserAgent(revokeOne.userAgent).label,
+                  })
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokeOne(null)}>
+              {m.settings_security_dialog_cancel()}
+            </Button>
+            <Button variant="destructive" onClick={doRevokeOne} data-testid="confirm-revoke">
+              {m.settings_security_revoke_dialog_confirm()}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={revokeAll}
+        onOpenChange={(o) => {
+          if (!o) setRevokeAll(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{m.settings_security_revoke_all_dialog_title()}</DialogTitle>
+            <DialogDescription>
+              {m.settings_security_revoke_all_dialog_body({ count: others })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevokeAll(false)}>
+              {m.settings_security_dialog_cancel()}
+            </Button>
+            <Button variant="destructive" onClick={doRevokeAll} data-testid="confirm-revoke-all">
+              {m.settings_security_revoke_all_confirm()}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </SettingsCard>
+  );
+}
+
+function SessionListRow({
+  session,
+  isFirst,
+  onRevoke,
+}: {
+  session: MockSession;
+  isFirst: boolean;
+  onRevoke: () => void;
+}) {
+  const ua = useMemo(() => parseUserAgent(session.userAgent), [session.userAgent]);
+  return (
+    <li
+      data-testid={`session-row-${session.id}`}
+      className={cn(
+        "flex items-start gap-3 px-5 py-4 sm:px-6",
+        !isFirst && "border-t border-border",
+      )}
+    >
+      <div
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground"
+        aria-hidden="true"
+      >
+        <ShieldIcon className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">{ua.label}</span>
+          {session.current ? (
+            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
+              <CheckIcon className="size-2.5" aria-hidden="true" />
+              {m.settings_security_sessions_this_device()}
+            </Badge>
+          ) : null}
+        </div>
+        <p className="mt-0.5 flex flex-wrap gap-x-2.5 gap-y-0 text-xs text-muted-foreground">
+          {session.ipAddress ? <span className="font-mono">{session.ipAddress}</span> : null}
+          <span>
+            {m.settings_security_sessions_signed_in({ time: relativeTime(new Date(session.createdAt)) })}
+          </span>
+          <span>
+            {m.settings_security_sessions_last_active({
+              time: relativeTime(new Date(session.updatedAt)),
+            })}
+          </span>
         </p>
       </div>
-
-      <div className="flex flex-col gap-2" data-testid="sessions-list">
-        {sessionsQuery.isPending ? (
-          <>
-            <Skeleton className="h-16 w-full rounded-lg" />
-            <Skeleton className="h-16 w-full rounded-lg" />
-          </>
-        ) : sessionsQuery.isError ? (
-          <p className="text-sm text-destructive" role="alert">
-            Could not load active sessions.{" "}
-            <button
-              type="button"
-              className="underline underline-offset-2 hover:text-foreground"
-              onClick={() => sessionsQuery.refetch()}
-            >
-              Retry
-            </button>
-          </p>
-        ) : sessions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active sessions found.</p>
-        ) : (
-          sessions.map((session) => (
-            <SessionRow
-              key={session.id}
-              session={session}
-              isCurrent={session.id === currentSessionId}
-              onRevoke={() => setConfirmRevoke(session)}
-              pending={revokeOneMutation.isPending && revokeOneMutation.variables === session.token}
-            />
-          ))
-        )}
-      </div>
-
-      {otherSessionCount > 0 ? (
-        <div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmSignOutAll(true)}
-            data-testid="sign-out-everywhere"
-          >
-            Sign out everywhere else
-          </Button>
-        </div>
+      {!session.current ? (
+        <Button variant="outline" size="sm" onClick={onRevoke}>
+          {m.settings_security_sessions_revoke()}
+        </Button>
       ) : null}
-
-      {/* Revoke-one confirmation dialog */}
-      <Dialog
-        open={confirmRevoke !== null}
-        onOpenChange={(open) => {
-          if (!open && !revokeOneMutation.isPending) setConfirmRevoke(null);
-        }}
-      >
-        <DialogContent showCloseButton={!revokeOneMutation.isPending}>
-          <DialogHeader>
-            <DialogTitle>Revoke this session?</DialogTitle>
-            <DialogDescription>
-              The device using this session will be signed out immediately.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmRevoke(null)}
-              disabled={revokeOneMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => confirmRevoke && revokeOneMutation.mutate(confirmRevoke.token)}
-              disabled={revokeOneMutation.isPending}
-              data-testid="confirm-revoke"
-            >
-              {revokeOneMutation.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-              Revoke session
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sign-out-everywhere confirmation dialog */}
-      <Dialog
-        open={confirmSignOutAll}
-        onOpenChange={(open) => {
-          if (!open && !revokeOthersMutation.isPending) setConfirmSignOutAll(false);
-        }}
-      >
-        <DialogContent showCloseButton={!revokeOthersMutation.isPending}>
-          <DialogHeader>
-            <DialogTitle>Sign out everywhere else?</DialogTitle>
-            <DialogDescription>
-              You&rsquo;ll remain signed in on this device. All other sessions will end.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmSignOutAll(false)}
-              disabled={revokeOthersMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => revokeOthersMutation.mutate()}
-              disabled={revokeOthersMutation.isPending}
-              data-testid="confirm-sign-out-everywhere"
-            >
-              {revokeOthersMutation.isPending ? (
-                <LoaderCircleIcon className="animate-spin" />
-              ) : null}
-              Sign out everywhere
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
+    </li>
   );
 }
