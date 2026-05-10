@@ -1,6 +1,6 @@
 import { ChevronRight, Film, Sparkles, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import type { RecentLogEntry } from "../lib/types";
+import type { RecentLogEntry, WatchlistItem } from "../lib/types";
 import { SectionHead } from "./section-head";
 
 interface RecentlyAddedProps {
@@ -25,7 +25,7 @@ export function RecentlyAdded({ entries, onPeek }: RecentlyAddedProps) {
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         {entries.map((entry, idx) => (
           <RecentRow
-            key={`${entry.item.id}-${idx}`}
+            key={`${entry.item.id}-${entry.added}`}
             entry={entry}
             isFirst={idx === 0}
             onPeek={onPeek}
@@ -45,9 +45,6 @@ function RecentRow({
   isFirst: boolean;
   onPeek: (id: string) => void;
 }) {
-  const KindIcon = entry.item.mediaType === "movie" ? Film : Tv;
-  const kindLabel =
-    entry.item.mediaType === "movie" ? m.watchlist_kind_movie() : m.watchlist_kind_tv();
   return (
     <button
       type="button"
@@ -59,35 +56,55 @@ function RecentRow({
       <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
         {entry.added}
       </span>
-      <div className="hidden aspect-video w-20 overflow-hidden rounded-md bg-muted sm:block">
-        {entry.item.backdrop ? (
-          <img
-            src={entry.item.backdrop}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0">
-        <div className="truncate text-sm font-medium text-foreground">{entry.item.title}</div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <KindIcon aria-hidden="true" className="size-3" />
-          <span>{kindLabel}</span>
-          {entry.item.year ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{entry.item.year}</span>
-            </>
-          ) : null}
-        </div>
-      </div>
-      <span className="hidden items-center gap-1 rounded-full border border-border bg-muted px-2 py-1 font-mono text-[11px] tracking-[0.04em] text-muted-foreground sm:inline-flex">
-        <Sparkles aria-hidden="true" className="size-3" />
-        {entry.source}
-      </span>
+      <RecentThumb item={entry.item} />
+      <RecentTitle item={entry.item} />
+      <RecentSource source={entry.source} />
       <ChevronRight aria-hidden="true" className="size-3.5 text-muted-foreground/70" />
     </button>
+  );
+}
+
+function RecentThumb({ item }: { item: WatchlistItem }) {
+  return (
+    <div className="hidden aspect-video w-20 overflow-hidden rounded-md bg-muted sm:block">
+      {item.backdrop ? (
+        <img
+          src={item.backdrop}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function RecentTitle({ item }: { item: WatchlistItem }) {
+  const KindIcon = item.mediaType === "movie" ? Film : Tv;
+  const kindLabel = item.mediaType === "movie" ? m.watchlist_kind_movie() : m.watchlist_kind_tv();
+  return (
+    <div className="min-w-0">
+      <div className="truncate text-sm font-medium text-foreground">{item.title}</div>
+      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <KindIcon aria-hidden="true" className="size-3" />
+        <span>{kindLabel}</span>
+        {item.year ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>{item.year}</span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function RecentSource({ source }: { source: string }) {
+  return (
+    <span className="hidden items-center gap-1 rounded-full border border-border bg-muted px-2 py-1 font-mono text-[11px] tracking-[0.04em] text-muted-foreground sm:inline-flex">
+      <Sparkles aria-hidden="true" className="size-3" />
+      {source}
+    </span>
   );
 }

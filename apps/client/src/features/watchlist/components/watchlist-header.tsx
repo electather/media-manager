@@ -43,7 +43,7 @@ export function WatchlistHeader({
           <div className="mb-3 font-mono text-[11px] tracking-[0.18em] text-primary uppercase">
             {m.watchlist_eyebrow()}
           </div>
-          <h1 className="text-[clamp(2.75rem,6vw,4.5rem)] leading-[0.96] font-bold tracking-[-0.035em] text-foreground">
+          <h1 className="text-[clamp(2.75rem,6vw,4.5rem)] leading-[0.96] font-semibold tracking-[-0.035em] text-foreground">
             {m.watchlist_title()}
             <span className="ms-4 align-[0.6em] font-mono text-[0.36em] font-medium tracking-tight text-muted-foreground/70">
               {String(items.length).padStart(2, "0")}

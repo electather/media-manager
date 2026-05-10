@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
 import { bucketize, countsFor } from "../lib/classify";
+import { filterItems, sortItems } from "../lib/filter-sort";
 import {
   listMockMoodGroups,
   listMockRecentLog,
@@ -48,19 +49,10 @@ export function WatchlistPage() {
       .slice(0, 4);
   }, [buckets, tonight]);
 
-  const filtered = useMemo(() => {
-    let xs: WatchlistItem[];
-    if (filter === "available") xs = [...buckets.available, ...buckets.inProgress];
-    else if (filter === "in-progress") xs = buckets.inProgress.slice();
-    else if (filter === "requested") xs = [...buckets.requested, ...buckets.unavailable];
-    else if (filter === "upcoming")
-      xs = buckets.upcoming.length > 0 ? buckets.upcoming.slice() : upcomingMock.slice();
-    else xs = items.slice();
-    if (sort === "alpha") return xs.toSorted((a, b) => a.title.localeCompare(b.title));
-    if (sort === "runtime")
-      return xs.toSorted((a, b) => (a.facets?.runtimeMin ?? 999) - (b.facets?.runtimeMin ?? 999));
-    return xs;
-  }, [items, buckets, upcomingMock, filter, sort]);
+  const filtered = useMemo(
+    () => sortItems(filterItems(items, buckets, upcomingMock, filter), sort),
+    [items, buckets, upcomingMock, filter, sort],
+  );
 
   const handlePeek = useCallback((id: string) => {
     setPeekId(id);

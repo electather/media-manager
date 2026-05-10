@@ -102,6 +102,10 @@
         "patterns": ["apps/client/src/features/notifications/**"]
       },
       {
+        "name": "client-feat-watchlist",
+        "patterns": ["apps/client/src/features/watchlist/**"]
+      },
+      {
         "name": "client-features-legacy",
         "patterns": ["apps/client/src/lib/**"]
       },
@@ -158,6 +162,7 @@
           "client-feat-jobs",
           "client-feat-home",
           "client-feat-notifications",
+          "client-feat-watchlist",
           "client-features-legacy",
           "client-shared-ui",
           "client-shared-components",
@@ -178,6 +183,7 @@
           "client-feat-media-detail",
           "client-feat-request-flow",
           "client-feat-notifications",
+          "client-feat-watchlist",
           "client-features-legacy",
           "client-shared-ui",
           "client-shared-components",
@@ -273,6 +279,17 @@
       {
         "from": "client-feat-home",
         "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-watchlist",
+        "allow": [
+          "client-feat-home",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",
