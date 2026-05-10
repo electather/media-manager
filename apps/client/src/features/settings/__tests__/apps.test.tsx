@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import type { AnchorHTMLAttributes } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,6 +11,18 @@ const toastMock = vi.hoisted(() => ({
   message: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: toastMock }));
+
+vi.mock("@tanstack/react-router", async () => {
+  const actual =
+    await vi.importActual<typeof import("@tanstack/react-router")>("@tanstack/react-router");
+  return {
+    ...actual,
+    useNavigate: () => async () => {},
+    Link: ({ to, ...rest }: { to?: string } & AnchorHTMLAttributes<HTMLAnchorElement>) => (
+      <a href={typeof to === "string" ? to : undefined} {...rest} />
+    ),
+  };
+});
 
 import { Route as AppsRoute } from "@/routes/_authenticated/_settings/settings/apps";
 
