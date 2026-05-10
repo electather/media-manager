@@ -22,6 +22,8 @@ export function classifyStatus(item: LibraryItem): LibraryStatus {
   return "unknown";
 }
 
+// Items classified as "unknown" are intentionally omitted — no bucket entry
+// here, so they drop out of bucketize and are excluded from header counts.
 const STATUS_TO_BUCKET: Partial<Record<LibraryStatus, keyof LibraryBuckets>> = {
   "in-progress": "inProgress",
   available: "available",

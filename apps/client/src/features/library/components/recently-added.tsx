@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ChevronRight, Film, Sparkles, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import {
@@ -30,7 +31,7 @@ function resolveLog(): ResolvedEntry[] {
 }
 
 export function RecentlyAdded({ onPeek }: RecentlyAddedProps) {
-  const log = resolveLog();
+  const log = useMemo(resolveLog, []);
   if (log.length === 0) return null;
   return (
     <section className="mb-14">

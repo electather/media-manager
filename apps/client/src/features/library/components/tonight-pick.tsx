@@ -62,7 +62,13 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
             variant="ghost"
             size="sm"
             className="mt-3 w-full justify-center text-xs"
-            onClick={() => alternates[0] && onPeek(alternates[0].id)}
+            disabled={alternates.length === 0}
+            onClick={() => {
+              if (alternates.length === 0) return;
+              const idx = Math.floor(Math.random() * alternates.length);
+              const choice = alternates[idx];
+              if (choice) onPeek(choice.id);
+            }}
           >
             {m.library_tonight_shuffle()}
           </Button>

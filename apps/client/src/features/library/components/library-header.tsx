@@ -75,10 +75,9 @@ export function LibraryHeader({
           </SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
-          <dl className="flex flex-col gap-1.5 text-end font-mono text-xs tracking-[0.04em] text-muted-foreground">
-            <dt className="sr-only">{m.library_total_runtime({ value: totalRuntime })}</dt>
-            <dd>{m.library_total_runtime({ value: totalRuntime })}</dd>
-            <dd className="flex items-center justify-end gap-3">
+          <div className="flex flex-col gap-1.5 text-end font-mono text-xs tracking-[0.04em] text-muted-foreground">
+            <p>{m.library_total_runtime({ value: totalRuntime })}</p>
+            <p className="flex items-center justify-end gap-3">
               <span className="inline-flex items-center gap-1.5 text-success">
                 <Pip className="bg-success" />
                 {m.library_count_ready({ n: String(counts.ready) })}
@@ -97,8 +96,8 @@ export function LibraryHeader({
                 <Pip className="bg-muted-foreground" />
                 {m.library_count_upcoming({ n: String(counts.upcoming) })}
               </span>
-            </dd>
-          </dl>
+            </p>
+          </div>
         </SectionHeadActions>
       </SectionHead>
 

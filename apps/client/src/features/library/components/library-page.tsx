@@ -2,9 +2,15 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { MediaDetailModal } from "@/shared/components/media-detail-modal";
 import { splitCompositeId } from "@/shared/lib/media-id";
-import { bucketize, deriveCounts } from "../lib/classify";
+import { bucketize, classifyStatus, deriveCounts } from "../lib/classify";
 import { LIBRARY_ITEMS, LIBRARY_ITEM_INDEX, LIBRARY_MOODS } from "../lib/mock-data";
-import type { LibraryFilter, LibraryItem, LibraryMoodGroup, LibrarySort } from "../lib/types";
+import type {
+  LibraryFilter,
+  LibraryItem,
+  LibraryMoodGroup,
+  LibrarySort,
+  LibraryStatus,
+} from "../lib/types";
 import { Awaiting } from "./awaiting";
 import { ComingUp } from "./coming-up";
 import { LibraryFilteredGrid } from "./library-filtered-grid";
@@ -28,9 +34,18 @@ const BUCKET_SELECTORS: Record<
   upcoming: (b) => b.upcoming,
 };
 
+const STATUS_PRIORITY: Record<LibraryStatus, number> = {
+  "in-progress": 0,
+  available: 1,
+  requested: 2,
+  unavailable: 3,
+  upcoming: 4,
+  unknown: 5,
+};
+
 const SORT_COMPARATORS: Record<LibrarySort, ((a: LibraryItem, b: LibraryItem) => number) | null> = {
   recent: null,
-  status: null,
+  status: (a, b) => STATUS_PRIORITY[classifyStatus(a)] - STATUS_PRIORITY[classifyStatus(b)],
   alpha: (a, b) => a.title.localeCompare(b.title),
   // fallow-ignore-next-line complexity
   runtime: (a, b) => (a.facets?.runtimeMin ?? 999) - (b.facets?.runtimeMin ?? 999),
@@ -62,8 +77,8 @@ export function LibraryPage() {
 
   const tonight = useMemo<LibraryItem | null>(() => {
     const candidates = [...buckets.available, ...buckets.inProgress];
-    return candidates.find((i) => i.clearLogoText) ?? candidates[0] ?? items[0] ?? null;
-  }, [buckets, items]);
+    return candidates.find((i) => i.clearLogoText) ?? candidates[0] ?? null;
+  }, [buckets]);
 
   const alternates = useMemo<LibraryItem[]>(() => {
     if (!tonight) return [];
