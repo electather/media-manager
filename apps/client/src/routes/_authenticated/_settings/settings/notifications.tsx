@@ -3,10 +3,8 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BellIcon,
-  CheckIcon,
   EditIcon,
   LoaderCircleIcon,
-  LockIcon,
   PlayIcon,
   PlusIcon,
   ShieldIcon,
@@ -26,6 +24,7 @@ import {
 } from "@/shared/ui/dialog";
 import { Field, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
@@ -67,14 +66,8 @@ function NotificationsPage() {
 
   const onlyInbox = channels.length === 1 && channels[0]?.locked === true;
 
-  const handleToggleSub = (channelId: string, categoryId: CategoryId) => {
-    setSubs((prev) => ({
-      ...prev,
-      [channelId]: {
-        ...(prev[channelId] ?? { media: false, sync: false, auth: false, system: false }),
-        [categoryId]: !prev[channelId]?.[categoryId],
-      },
-    }));
+  const handleReplaceSubs = (channelId: string, next: Record<CategoryId, boolean>) => {
+    setSubs((prev) => ({ ...prev, [channelId]: next }));
   };
 
   const handleTest = (ch: MockChannel) => {
@@ -167,7 +160,7 @@ function NotificationsPage() {
               role={role}
               subs={subs[channel.id]}
               testing={testingId === channel.id}
-              onToggleSub={(catId) => handleToggleSub(channel.id, catId)}
+              onReplaceSubs={(next) => handleReplaceSubs(channel.id, next)}
               onTest={() => handleTest(channel)}
               onEdit={() => setEditChannel(channel)}
               onDelete={() => setDeleteChannel(channel)}
@@ -238,37 +231,48 @@ const CATEGORY_HINT: Record<CategoryId, () => string> = {
 
 function CategoryLegend({ role }: { role: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-muted/40 px-5 py-3 sm:px-6">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+    <div className="border-b border-border bg-muted/40 px-5 py-3 sm:px-6">
+      <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:hidden">
         {m.settings_notifications_channels_categories_label()}
-      </span>
-      {MOCK_CATEGORIES.map((cat) => {
-        const restricted = cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
-        return (
-          <span
-            key={cat.id}
-            className={cn(
-              "inline-flex items-center gap-1.5 text-xs",
-              restricted ? "text-muted-foreground/70" : "text-muted-foreground",
-            )}
-          >
+      </div>
+      <div className="flex flex-col gap-1.5 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
+        <span className="hidden font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:inline">
+          {m.settings_notifications_channels_categories_label()}
+        </span>
+        {MOCK_CATEGORIES.map((cat) => {
+          const restricted =
+            cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
+          return (
             <span
-              aria-hidden="true"
+              key={cat.id}
               className={cn(
-                "size-1.5 rounded-full",
-                restricted ? "bg-muted-foreground/40" : "bg-primary",
+                "flex items-center gap-1.5",
+                restricted ? "text-muted-foreground/70" : "text-muted-foreground",
               )}
-            />
-            <span className="font-medium text-foreground">{CATEGORY_LABEL[cat.id]()}</span>
-            <span className="text-muted-foreground">{CATEGORY_HINT[cat.id]()}</span>
-            {restricted ? (
-              <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wide">
-                {m.settings_notifications_admin_only({ role: cat.requires })}
-              </Badge>
-            ) : null}
-          </span>
-        );
-      })}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "size-1.5 shrink-0 rounded-full",
+                  restricted ? "bg-muted-foreground/40" : "bg-primary",
+                )}
+              />
+              <span className="font-medium text-foreground">{CATEGORY_LABEL[cat.id]()}</span>
+              <span className="hidden text-muted-foreground sm:inline">
+                {CATEGORY_HINT[cat.id]()}
+              </span>
+              {restricted ? (
+                <Badge
+                  variant="outline"
+                  className="ml-auto shrink-0 font-mono text-[10px] uppercase tracking-wide sm:ml-0"
+                >
+                  {m.settings_notifications_admin_only({ role: cat.requires })}
+                </Badge>
+              ) : null}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -279,7 +283,7 @@ interface ChannelRowProps {
   role: string;
   subs: Record<CategoryId, boolean> | undefined;
   testing: boolean;
-  onToggleSub: (catId: CategoryId) => void;
+  onReplaceSubs: (next: Record<CategoryId, boolean>) => void;
   onTest: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -291,171 +295,142 @@ function ChannelRow({
   role,
   subs,
   testing,
-  onToggleSub,
+  onReplaceSubs,
   onTest,
   onEdit,
   onDelete,
 }: ChannelRowProps) {
+  const inboxStyle = !!channel.locked;
+  const activeCategories: CategoryId[] = MOCK_CATEGORIES.flatMap((cat) => {
+    if (inboxStyle) return [cat.id];
+    return subs?.[cat.id] ? [cat.id] : [];
+  });
+
   return (
     <li
-      className={cn("flex flex-col gap-3 px-5 py-4 sm:px-6", !isFirst && "border-t border-border")}
+      className={cn(
+        "grid gap-3 px-5 py-4 sm:px-6",
+        "grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto]",
+        !isFirst && "border-t border-border",
+      )}
     >
-      <div className="flex flex-wrap items-start gap-3">
-        <ChannelIcon pluginId={channel.pluginId} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-foreground">{channel.name}</span>
-            <Badge variant="outline" className="font-mono text-[10px]">
-              {channel.pluginName}@{channel.pluginVersion}
-            </Badge>
-            {channel.locked ? (
-              <Badge
-                variant="secondary"
-                className="border-success/30 bg-success/10 font-mono text-[10px] uppercase tracking-wide text-success"
-              >
-                <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-                {m.settings_notifications_channels_always_on()}
-              </Badge>
-            ) : null}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted-foreground">
-            {channel.config.map((c) => (
-              <span key={c.label} className="inline-flex items-baseline gap-1.5">
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
-                  {c.label}
-                </span>
-                <span className="max-w-[260px] truncate font-mono text-foreground/80">
-                  {c.value}
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+      <ChannelIcon pluginId={channel.pluginId} />
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-foreground">{channel.name}</span>
+          <Badge variant="outline" className="font-mono text-[10px]">
+            {channel.pluginName}@{channel.pluginVersion}
+          </Badge>
           {channel.locked ? (
-            <span className="inline-flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
-              <ShieldIcon className="size-3.5" aria-hidden="true" />
-              {m.settings_notifications_channels_locked()}
+            <Badge
+              variant="secondary"
+              className="border-success/30 bg-success/10 font-mono text-[10px] uppercase tracking-wide text-success"
+            >
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
+              {m.settings_notifications_channels_always_on()}
+            </Badge>
+          ) : null}
+        </div>
+        <div className="mt-1 flex flex-col gap-y-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-3.5">
+          {channel.config.map((c) => (
+            <span key={c.label} className="flex min-w-0 items-baseline gap-1.5">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                {c.label}
+              </span>
+              <span className="min-w-0 truncate font-mono text-foreground/80">{c.value}</span>
             </span>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={onTest} disabled={testing}>
-                {testing ? (
-                  <>
-                    <LoaderCircleIcon className="size-3.5 animate-spin" />
-                    {m.settings_notifications_channels_testing()}
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="size-3.5" />
-                    {m.settings_notifications_channels_test()}
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onEdit}
-                aria-label={m.settings_notifications_channels_edit()}
-              >
-                <EditIcon className="size-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onDelete}
-                aria-label={m.settings_notifications_channels_delete()}
-                className="text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-              >
-                <XIcon className="size-3.5" />
-              </Button>
-            </>
-          )}
+          ))}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pl-12 sm:pl-13">
+      <div className="col-span-2 flex flex-wrap items-center justify-end gap-1.5 sm:col-span-1 sm:self-start">
+        {channel.locked ? (
+          <span className="inline-flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
+            <ShieldIcon className="size-3.5" aria-hidden="true" />
+            {m.settings_notifications_channels_locked()}
+          </span>
+        ) : (
+          <>
+            <Button variant="outline" size="xs" onClick={onTest} disabled={testing}>
+              {testing ? (
+                <>
+                  <LoaderCircleIcon className="size-3.5 animate-spin" />
+                  {m.settings_notifications_channels_testing()}
+                </>
+              ) : (
+                <>
+                  <PlayIcon className="size-3.5" />
+                  {m.settings_notifications_channels_test()}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onEdit}
+              aria-label={m.settings_notifications_channels_edit()}
+            >
+              <EditIcon className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onDelete}
+              aria-label={m.settings_notifications_channels_delete()}
+              className="text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+            >
+              <XIcon className="size-3.5" />
+            </Button>
+          </>
+        )}
+      </div>
+
+      <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pl-12">
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
           {m.settings_notifications_channels_delivers()}
         </span>
-        {MOCK_CATEGORIES.map((cat) => {
-          const isOn = !!subs?.[cat.id];
-          const restricted =
-            cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
-          const locked = !!(channel.locked || restricted);
-          const inboxStyle = !!channel.locked;
-          const lockedReason = inboxStyle
-            ? m.settings_notifications_channels_inbox_locked()
-            : restricted
-              ? m.settings_notifications_channels_locked_admin()
-              : null;
-          return (
-            <CategoryChip
-              key={cat.id}
-              label={CATEGORY_LABEL[cat.id]()}
-              on={inboxStyle ? true : isOn}
-              locked={locked}
-              inbox={inboxStyle}
-              tooltip={lockedReason}
-              onClick={() => !locked && onToggleSub(cat.id)}
-            />
-          );
-        })}
+        <ToggleGroup<CategoryId>
+          multiple
+          aria-label={m.settings_notifications_channels_delivers()}
+          disabled={inboxStyle}
+          value={activeCategories}
+          onValueChange={(next) =>
+            onReplaceSubs({
+              media: next.includes("media"),
+              sync: next.includes("sync"),
+              auth: next.includes("auth"),
+              system: next.includes("system"),
+            })
+          }
+          className="flex flex-wrap gap-1.5"
+        >
+          {MOCK_CATEGORIES.map((cat) => {
+            const restricted =
+              cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
+            const tooltip = inboxStyle
+              ? m.settings_notifications_channels_inbox_locked()
+              : restricted
+                ? m.settings_notifications_channels_locked_admin()
+                : undefined;
+            return (
+              <ToggleGroupItem
+                key={cat.id}
+                value={cat.id}
+                disabled={inboxStyle || !!restricted}
+                title={tooltip}
+                className={cn(
+                  inboxStyle &&
+                    "data-pressed:border-success/30 data-pressed:bg-success/10 data-pressed:text-success",
+                )}
+              >
+                {CATEGORY_LABEL[cat.id]()}
+              </ToggleGroupItem>
+            );
+          })}
+        </ToggleGroup>
       </div>
     </li>
-  );
-}
-
-function CategoryChip({
-  label,
-  on,
-  locked,
-  inbox,
-  tooltip,
-  onClick,
-}: {
-  label: string;
-  on: boolean;
-  locked: boolean;
-  inbox: boolean;
-  tooltip: string | null;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role={locked ? undefined : "switch"}
-      aria-checked={locked ? undefined : on}
-      aria-disabled={locked || undefined}
-      title={tooltip ?? undefined}
-      onClick={() => !locked && onClick()}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-        inbox
-          ? "border-success/30 bg-success/10 text-success"
-          : locked
-            ? "border-border bg-muted/40 text-muted-foreground/70"
-            : on
-              ? "border-primary/40 bg-primary/15 text-primary"
-              : "border-dashed border-input bg-transparent text-muted-foreground hover:border-input hover:text-foreground",
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex size-3.5 items-center justify-center rounded-full",
-          inbox
-            ? "bg-success text-success-foreground"
-            : on
-              ? "bg-primary text-primary-foreground"
-              : "border border-input",
-        )}
-      >
-        {inbox || on ? <CheckIcon className="size-2.5" /> : null}
-        {locked && !inbox && !on ? <LockIcon className="size-2.5" /> : null}
-      </span>
-      {label}
-    </button>
   );
 }
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_authenticated/_settings/admin/roles")({
+export const Route = createFileRoute("/_authenticated/_admin/admin/roles")({
   component: AdminRolesPage,
 });
 

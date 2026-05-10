@@ -44,8 +44,9 @@ import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/utils";
 
 import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
+import { relativeTime } from "@/shared/lib/relative-time";
 
-export const Route = createFileRoute("/_authenticated/_settings/admin/jobs")({
+export const Route = createFileRoute("/_authenticated/_admin/admin/jobs")({
   component: AdminJobsPage,
 });
 
@@ -655,11 +656,11 @@ function StatusDot({ status, enabled }: { status: JobRunStatus | undefined; enab
     <span
       className={cn(
         "block size-2 rounded-full",
-        status === "running" && "animate-pulse bg-blue-500",
-        status === "succeeded" && "bg-emerald-500",
-        status === "partial_failure" && "bg-amber-500",
+        status === "running" && "animate-pulse bg-info",
+        status === "succeeded" && "bg-success",
+        status === "partial_failure" && "bg-warning",
         status === "failed" && "bg-destructive",
-        status === "timed_out" && "bg-amber-500",
+        status === "timed_out" && "bg-warning",
         status === "skipped" && "bg-muted-foreground/40",
         status === "cancelled" && "bg-muted-foreground/40",
       )}
@@ -671,11 +672,11 @@ function StatusDot({ status, enabled }: { status: JobRunStatus | undefined; enab
 function RunStatusIcon({ status }: { status: JobRunStatus }) {
   const classes = cn(
     "size-3.5 shrink-0",
-    status === "running" && "text-blue-500",
-    status === "succeeded" && "text-emerald-500",
-    status === "partial_failure" && "text-amber-500",
+    status === "running" && "text-info",
+    status === "succeeded" && "text-success",
+    status === "partial_failure" && "text-warning",
     status === "failed" && "text-destructive",
-    status === "timed_out" && "text-amber-500",
+    status === "timed_out" && "text-warning",
     status === "skipped" && "text-muted-foreground/50",
     status === "cancelled" && "text-muted-foreground/50",
   );
@@ -696,7 +697,7 @@ function RunStatusBadge({ status }: { status: JobRunStatus }) {
 
   if (status === "running") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-500">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-info">
         <RefreshCwIcon className="size-3 animate-spin" />
         {label}
       </span>
@@ -704,7 +705,7 @@ function RunStatusBadge({ status }: { status: JobRunStatus }) {
   }
   if (status === "succeeded") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-500">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
         <CircleCheckIcon className="size-3" />
         {label}
       </span>
@@ -720,7 +721,7 @@ function RunStatusBadge({ status }: { status: JobRunStatus }) {
   }
   if (status === "partial_failure" || status === "timed_out") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-500">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-warning">
         <TriangleAlertIcon className="size-3" />
         {label}
       </span>
@@ -799,12 +800,4 @@ function formatDuration(ms: number): string {
   const min = Math.floor(ms / 60_000);
   const sec = Math.round((ms % 60_000) / 1_000);
   return `${min}m ${sec}s`;
-}
-
-function relativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
 }

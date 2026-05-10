@@ -343,11 +343,7 @@ function LogViewerTerminal({
           </ToolbarButton>
 
           <ToolbarButton onClick={handleCopyAll} label={copied ? "Copied" : "Copy all logs"}>
-            {copied ? (
-              <Check className="size-3.5 text-emerald-500" />
-            ) : (
-              <Copy className="size-3.5" />
-            )}
+            {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
           </ToolbarButton>
 
           <ToolbarButton onClick={() => exportLogs(entries)} label="Download logs">
@@ -637,11 +633,7 @@ function LogViewerFilterable({
             onClick={handleCopyFiltered}
             label={copied ? "Copied" : "Copy filtered logs"}
           >
-            {copied ? (
-              <Check className="size-3.5 text-emerald-500" />
-            ) : (
-              <Copy className="size-3.5" />
-            )}
+            {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
           </ToolbarButton>
 
           <ToolbarButton onClick={() => exportLogs(filteredEntries)} label="Download logs">

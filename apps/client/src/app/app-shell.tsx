@@ -1,15 +1,14 @@
 import { Outlet } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { BottomNav } from "./bottom-nav";
 import { CommandMenu } from "./command-menu";
 import { TopNav } from "./top-nav";
 
-export function AppShell() {
+export function AppShell({ children }: { children?: ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
       <TopNav />
-      <main className="flex-1">
-        <Outlet />
-      </main>
+      <main className="flex-1">{children ?? <Outlet />}</main>
       <BottomNav />
       <CommandMenu />
     </div>

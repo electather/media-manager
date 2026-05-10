@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), message: vi.fn() }));
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  message: vi.fn(),
+}));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
 import { Route as DangerRoute } from "@/routes/_authenticated/_settings/settings/danger";
@@ -44,7 +49,7 @@ describe("Danger zone (mock)", () => {
     const confirm = await screen.findByRole("button", { name: /export data/i });
     // Type any password (mock — not validated)
     const inputs = screen.getAllByPlaceholderText(/password/i);
-    await user.type(inputs[0], "x");
+    await user.type(inputs[0]!, "x");
     await user.click(confirm);
 
     await waitFor(() => expect(toastMock.success).toHaveBeenCalled());

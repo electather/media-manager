@@ -4,6 +4,13 @@
   "settings_subtitle": "حساب، ادغام‌ها و ترجیحات.",
   "settings_back_to_settings": "تنظیمات",
 
+  "admin_title": "مدیریت",
+  "admin_subtitle": "پیکربندی و نظارت سرور.",
+  "admin_back_to_admin": "مدیریت",
+  "admin_group_general": "عمومی",
+  "admin_group_notifications": "اعلان‌ها",
+  "settings_nav_admin": "مدیریت",
+
   "settings_group_account": "حساب",
   "settings_group_integrations": "ادغام‌ها",
   "settings_group_preferences": "ترجیحات",

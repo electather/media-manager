@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CheckIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import {
@@ -17,16 +18,12 @@ import {
 import { Field, FieldDescription, FieldError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+import { UserAvatar } from "@/shared/components/user-avatar";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import {
-  InitialsAvatar,
-  SettingsCard,
-  SettingsCardRow,
-  useSettingsDirty,
-} from "@/features/settings";
+import { SettingsCard, SettingsCardRow, useSettingsDirty } from "@/features/settings";
 import { MOCK_ROLE, MOCK_USER, type MockUser } from "@/features/settings/mocks";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/profile")({
@@ -79,8 +76,8 @@ function IdentityCard({
         align="top"
       >
         <div className="flex items-center gap-4">
-          <InitialsAvatar name={user.name} />
-          <p className="max-w-[260px] text-xs text-muted-foreground">
+          <UserAvatar name={user.name} email={user.email} className="size-18" />
+          <p className="max-w-65 text-xs text-muted-foreground">
             {m.settings_profile_avatar_hint()}
           </p>
         </div>
@@ -136,7 +133,7 @@ export function NameRow({
       borderTop
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Field className="flex-1 min-w-[220px]">
+        <Field className="flex-1 min-w-55">
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -205,7 +202,7 @@ export function EmailRow({
       align="top"
     >
       <div className="flex flex-wrap items-start gap-2">
-        <Field className="flex-1 min-w-[220px]" data-invalid={error ? true : undefined}>
+        <Field className="flex-1 min-w-55" data-invalid={error ? true : undefined}>
           <Input
             type="email"
             value={draft}
@@ -218,7 +215,7 @@ export function EmailRow({
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 text-xs",
-                emailVerified ? "text-success" : "text-amber-500 dark:text-amber-400",
+                emailVerified ? "text-success" : "text-warning",
               )}
             >
               {emailVerified ? (
@@ -354,38 +351,22 @@ export function VerifyBanner({ email }: { email: string }) {
   };
 
   return (
-    <div
-      role="status"
-      className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-amber-300/40 bg-amber-50 px-4 py-3 dark:border-amber-700/50 dark:bg-amber-950/30"
-    >
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <div
-          className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-200/40 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300"
-          aria-hidden="true"
-        >
-          <TriangleAlertIcon className="size-3.5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-            {m.settings_profile_verify_banner_title()}
-          </p>
-          <p className="mt-0.5 text-xs text-amber-800/80 dark:text-amber-200/80">
-            {m.settings_profile_verify_banner_body({ email })}
-          </p>
-        </div>
-      </div>
+    <Alert>
+      <TriangleAlertIcon />
+      <AlertTitle>{m.settings_profile_verify_banner_title()}</AlertTitle>
+      <AlertDescription>{m.settings_profile_verify_banner_body({ email })}</AlertDescription>
       <Button
         variant="outline"
         size="sm"
         disabled={cooldown > 0}
         onClick={resend}
         data-testid="resend-verification"
-        className="shrink-0 border-amber-300/60 bg-transparent text-amber-900 hover:bg-amber-100/40 dark:border-amber-700/60 dark:text-amber-100 dark:hover:bg-amber-500/10"
+        className="col-start-2 mt-2 justify-self-start"
       >
         {cooldown > 0
           ? m.settings_profile_verify_resend_cooldown({ seconds: cooldown })
           : m.settings_profile_verify_resend()}
       </Button>
-    </div>
+    </Alert>
   );
 }

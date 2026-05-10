@@ -62,10 +62,7 @@ function AppsPage() {
       <McpEndpointCard />
 
       <SettingsCard>
-        <SettingsCardHeader
-          title={m.settings_apps_authorized_title()}
-          count={apps.length}
-        />
+        <SettingsCardHeader title={m.settings_apps_authorized_title()} count={apps.length} />
         {apps.length === 0 ? (
           <AppsEmpty />
         ) : (
@@ -115,8 +112,7 @@ function McpEndpointCard() {
   const { copied, copy } = useCopyFeedback();
   // window may not be defined during SSR but TanStack Start client routes are
   // browser-only — `window.location.origin` is safe inside the component body.
-  const endpoint =
-    typeof window !== "undefined" ? `${window.location.origin}/mcp` : "/mcp";
+  const endpoint = typeof window !== "undefined" ? `${window.location.origin}/mcp` : "/mcp";
 
   return (
     <SettingsCard>
@@ -182,12 +178,7 @@ function AppRow({
           </div>
         ) : null}
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRevoke}
-        data-testid={`revoke-${app.clientId}`}
-      >
+      <Button variant="outline" size="sm" onClick={onRevoke} data-testid={`revoke-${app.clientId}`}>
         {m.settings_apps_revoke_dialog_confirm()}
       </Button>
     </li>

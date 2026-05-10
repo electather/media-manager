@@ -7,7 +7,7 @@ import {
 } from "@/features/notifications/shared/error-boundary";
 import { RetentionSettingsPage } from "@/features/notifications/admin/retention-settings-page";
 
-export const Route = createFileRoute("/_authenticated/_settings/admin/notifications/settings")({
+export const Route = createFileRoute("/_authenticated/_admin/admin/notifications/settings")({
   loader: ({ context: { queryClient } }) =>
     queryClient.ensureQueryData({
       queryKey: notificationsKeys.admin.settings(),

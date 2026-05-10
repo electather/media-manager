@@ -7,7 +7,6 @@ export {
   SettingsCardRow,
   SettingsActionRow,
 } from "./components/settings-card";
-export { InitialsAvatar } from "./components/initials-avatar";
 export {
   SettingsDirtyProvider,
   useSettingsDirty,

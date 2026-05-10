@@ -4,6 +4,13 @@
   "settings_subtitle": "Account, integrations, and preferences.",
   "settings_back_to_settings": "Settings",
 
+  "admin_title": "Admin",
+  "admin_subtitle": "Server configuration and oversight.",
+  "admin_back_to_admin": "Admin",
+  "admin_group_general": "General",
+  "admin_group_notifications": "Notifications",
+  "settings_nav_admin": "Admin",
+
   "settings_group_account": "Account",
   "settings_group_integrations": "Integrations",
   "settings_group_preferences": "Preferences",
