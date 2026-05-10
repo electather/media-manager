@@ -11,6 +11,10 @@
 
   "errors_oauth_callback_title": "Authorization failed",
   "errors_oauth_callback_back": "Back to Connections",
+  "errors_oauth_callback_working_title": "Finishing authorization…",
+  "errors_oauth_callback_working_body": "Hang tight while we complete the connection.",
+  "errors_oauth_callback_success_title": "{pluginName} connected",
+  "errors_oauth_callback_success_body": "Taking you back to Connections…",
 
   "errors_status_not_found": "Not found",
   "errors_status_server_error": "Server error",

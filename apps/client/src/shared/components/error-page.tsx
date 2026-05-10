@@ -2,6 +2,7 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDownIcon } from "lucide-react";
 
+import { Button } from "@/shared/ui/button";
 import { CopyButton } from "@/shared/ui/copy-button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import { cn } from "@/shared/lib/utils";
@@ -171,9 +172,10 @@ function ErrorPageDetails({
       >
         <CollapsibleTrigger
           render={
-            <button
+            <Button
               type="button"
-              className="group flex w-full items-center justify-between px-3.5 py-3 text-left hover:bg-muted/40"
+              variant="ghost"
+              className="group h-auto w-full justify-between rounded-none px-3.5 py-3 text-left text-sm font-medium hover:bg-muted/40"
             />
           }
         >

@@ -123,9 +123,9 @@ function OAuthCallbackPage() {
           <>
             <LoaderCircleIcon className="size-7 animate-spin text-muted-foreground" />
             <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-semibold">Finishing authorization…</h1>
+              <h1 className="text-xl font-semibold">{m.errors_oauth_callback_working_title()}</h1>
               <p className="text-sm text-muted-foreground">
-                Hang tight while we complete the connection.
+                {m.errors_oauth_callback_working_body()}
               </p>
             </div>
           </>
@@ -135,8 +135,12 @@ function OAuthCallbackPage() {
               <CheckIcon className="size-6" />
             </div>
             <div className="flex flex-col gap-1">
-              <h1 className="text-xl font-semibold">{state.pluginName} connected</h1>
-              <p className="text-sm text-muted-foreground">Taking you back to Connections…</p>
+              <h1 className="text-xl font-semibold">
+                {m.errors_oauth_callback_success_title({ pluginName: state.pluginName })}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {m.errors_oauth_callback_success_body()}
+              </p>
             </div>
           </>
         )}
