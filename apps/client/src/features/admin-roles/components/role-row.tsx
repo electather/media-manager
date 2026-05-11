@@ -5,9 +5,9 @@ import { m } from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
 import { cn } from "@/shared/lib/utils";
 
+import { NameGlyph } from "@/shared/components/name-glyph";
 import { ALL_PERMISSION_KEYS } from "../lib/permission-tree";
 import type { RoleRecord } from "../lib/types";
-import { RoleGlyph } from "./role-glyph";
 
 interface Props {
   role: RoleRecord;
@@ -29,7 +29,7 @@ export function RoleRow({ role, memberCount, isFirst, onOpen }: Props) {
         !isFirst && "border-t border-border",
       )}
     >
-      <RoleGlyph roleId={role.id} />
+      <NameGlyph name={role.name} />
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-foreground">{role.name}</span>

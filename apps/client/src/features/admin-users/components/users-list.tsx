@@ -35,14 +35,21 @@ export function UsersList({
 }: Props) {
   const roles = roleSummaries();
 
-  const counts = useMemo(
-    () => ({
-      all: users.length,
-      admins: users.filter((u) => u.role?.id === "role_admin").length,
-      invites: invites.filter((i) => !(i.expired || i.expiresAt < Date.now())).length,
-    }),
-    [users, invites],
+  const rolesById = useMemo(
+    () =>
+      Object.fromEntries(roles.map((r) => [r.id, r])) as Record<
+        string,
+        { id: string; name: string }
+      >,
+    [roles],
   );
+
+  const now = Date.now();
+  const counts = {
+    all: users.length,
+    admins: users.filter((u) => u.role?.id === "role_admin").length,
+    invites: invites.filter((i) => !(i.expired || i.expiresAt < now)).length,
+  };
 
   const filtered = useMemo(() => {
     let list = users;
@@ -126,12 +133,7 @@ export function UsersList({
       {showInvites ? (
         <InvitesSection
           invites={inviteSlice}
-          rolesById={
-            Object.fromEntries(roles.map((r) => [r.id, r])) as Record<
-              string,
-              { id: string; name: string }
-            >
-          }
+          rolesById={rolesById}
           countLabelTotal={counts.invites}
           showHeader={filter !== "invites"}
           onSeeAll={() => onFilterChange("invites")}

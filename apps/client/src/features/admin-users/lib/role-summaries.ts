@@ -27,10 +27,5 @@ export function roleSummaries(): RoleSummary[] {
       name: m.admin_roles_seed_viewer_name(),
       description: m.admin_roles_seed_viewer_description(),
     },
-    {
-      id: "role_curator",
-      name: m.admin_roles_seed_curator_name(),
-      description: m.admin_roles_seed_curator_description(),
-    },
   ];
 }

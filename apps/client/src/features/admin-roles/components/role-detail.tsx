@@ -1,5 +1,6 @@
 // fallow-ignore-file complexity
 import { useEffect, useMemo, useState } from "react";
+import { useForm, useStore } from "@tanstack/react-form";
 import { ChevronLeftIcon, CopyIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,13 +19,13 @@ import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Separator } from "@/shared/ui/separator";
 import { Textarea } from "@/shared/ui/textarea";
+import { NameGlyph } from "@/shared/components/name-glyph";
 import { UserAvatar } from "@/shared/components/user-avatar";
 
 import { ALL_PERMISSION_KEYS, PERMISSION_TREE, type PermissionScope } from "../lib/permission-tree";
 import { deleteRoleMock, duplicateRoleMock, saveRoleMock } from "../lib/roles-store";
 import type { RoleMember, RoleRecord } from "../lib/types";
 import { PermissionGroup } from "./permission-group";
-import { RoleGlyph } from "./role-glyph";
 
 interface Props {
   role: RoleRecord;
@@ -33,60 +34,62 @@ interface Props {
 }
 
 export function RoleDetail({ role, members, onBack }: Props) {
-  const [draft, setDraft] = useState<RoleRecord>(role);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => setDraft(role), [role]);
+  const form = useForm({
+    defaultValues: {
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions as string[] | "*",
+    },
+  });
 
-  const allPerms = draft.permissions === "*";
+  useEffect(() => {
+    form.reset({
+      name: role.name,
+      description: role.description,
+      permissions: role.permissions as string[] | "*",
+    });
+  }, [role]);
+
+  const permissions = useStore(form.store, (s) => s.values.permissions);
+  const dirty = useStore(form.store, (s) => s.isDirty);
+
+  const allPerms = permissions === "*";
   const granted = useMemo<ReadonlySet<string>>(
-    () => (allPerms ? new Set(ALL_PERMISSION_KEYS) : new Set(draft.permissions as string[])),
-    [allPerms, draft.permissions],
+    () => (allPerms ? new Set(ALL_PERMISSION_KEYS) : new Set(permissions as string[])),
+    [allPerms, permissions],
   );
-
-  const dirty = useMemo(() => {
-    if (allPerms) return false;
-    const draftPerms = [...(draft.permissions as string[])].sort();
-    const origPerms =
-      role.permissions === "*" ? [...ALL_PERMISSION_KEYS].sort() : [...role.permissions].sort();
-    return (
-      draft.name !== role.name ||
-      draft.description !== role.description ||
-      JSON.stringify(draftPerms) !== JSON.stringify(origPerms)
-    );
-  }, [draft, role, allPerms]);
 
   const togglePerm = (key: string, on: boolean) => {
     if (allPerms) return;
-    setDraft((d) => ({
-      ...d,
-      permissions: on
-        ? Array.from(new Set([...(d.permissions as string[]), key]))
-        : (d.permissions as string[]).filter((k) => k !== key),
-    }));
+    form.setFieldValue("permissions", (prev) => {
+      const perms = prev as string[];
+      return on ? Array.from(new Set([...perms, key])) : perms.filter((k) => k !== key);
+    });
   };
 
   const toggleScope = (scope: PermissionScope, on: boolean) => {
     if (allPerms) return;
     const scopeKeys =
       PERMISSION_TREE.find((g) => g.scope === scope)?.permissions.map((p) => p.key) ?? [];
-    setDraft((d) => ({
-      ...d,
-      permissions: on
-        ? Array.from(new Set([...(d.permissions as string[]), ...scopeKeys]))
-        : (d.permissions as string[]).filter((k) => !scopeKeys.includes(k)),
-    }));
+    form.setFieldValue("permissions", (prev) => {
+      const perms = prev as string[];
+      return on
+        ? Array.from(new Set([...perms, ...scopeKeys]))
+        : perms.filter((k) => !scopeKeys.includes(k));
+    });
   };
 
   const save = () => {
-    saveRoleMock(draft);
-    toast.success(m.admin_roles_toast_saved({ name: draft.name }));
+    const values = form.state.values;
+    saveRoleMock({ ...role, ...values });
+    toast.success(m.admin_roles_toast_saved({ name: values.name }));
   };
 
   const duplicate = () => {
-    const next = duplicateRoleMock(role);
+    duplicateRoleMock(role);
     toast.success(m.admin_roles_toast_created());
-    return next;
   };
 
   const remove = () => {
@@ -99,7 +102,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
   const permCountLabel = allPerms
     ? m.admin_roles_detail_meta_perms_all({ total: String(ALL_PERMISSION_KEYS.length) })
     : m.admin_roles_detail_meta_perms_count({
-        count: String((draft.permissions as string[]).length),
+        count: String((permissions as string[]).length),
         total: String(ALL_PERMISSION_KEYS.length),
       });
 
@@ -111,7 +114,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
       </Button>
 
       <div className="flex flex-wrap items-start gap-4 rounded-xl border border-border bg-card p-5">
-        <RoleGlyph roleId={role.id} />
+        <NameGlyph name={role.name} />
         <div className="flex-1 min-w-0 flex flex-col gap-2">
           {role.isSystem ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -124,26 +127,36 @@ export function RoleDetail({ role, members, onBack }: Props) {
               ) : null}
             </div>
           ) : (
-            <Field>
-              <FieldLabel className="sr-only">Role name</FieldLabel>
-              <Input
-                value={draft.name}
-                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                className="h-10 text-lg font-semibold tracking-tight"
-              />
-            </Field>
+            <form.Field name="name">
+              {(field) => (
+                <Field>
+                  <FieldLabel className="sr-only">{m.admin_roles_detail_label_name()}</FieldLabel>
+                  <Input
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    className="h-10 text-lg font-semibold tracking-tight"
+                  />
+                </Field>
+              )}
+            </form.Field>
           )}
           {role.isSystem ? (
             <p className="text-sm text-muted-foreground">{role.description}</p>
           ) : (
-            <Field>
-              <FieldLabel className="sr-only">Description</FieldLabel>
-              <Textarea
-                value={draft.description}
-                onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-                rows={2}
-              />
-            </Field>
+            <form.Field name="description">
+              {(field) => (
+                <Field>
+                  <FieldLabel className="sr-only">
+                    {m.admin_roles_detail_label_description()}
+                  </FieldLabel>
+                  <Textarea
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    rows={2}
+                  />
+                </Field>
+              )}
+            </form.Field>
           )}
           <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
             <span>
@@ -231,7 +244,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
         </div>
         {!role.isSystem ? (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setDraft(role)} disabled={!dirty}>
+            <Button variant="ghost" size="sm" onClick={() => form.reset()} disabled={!dirty}>
               {m.admin_roles_detail_reset()}
             </Button>
             <Button size="sm" onClick={save} disabled={!dirty}>

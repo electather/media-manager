@@ -1,3 +1,4 @@
+import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
 import { Switch } from "@/shared/ui/switch";
 import type { PermissionGroupDef } from "../lib/permission-tree";
 
@@ -19,6 +20,7 @@ export function PermissionGroup({
   const keys = group.permissions.map((p) => p.key);
   const grantedCount = keys.filter((k) => granted.has(k)).length;
   const allOn = grantedCount === keys.length;
+  const noneOn = grantedCount === 0;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -36,12 +38,15 @@ export function PermissionGroup({
           <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
             {grantedCount}/{keys.length}
           </span>
-          <Switch
-            checked={allOn}
+          <RadioGroup
+            value={allOn ? "all" : noneOn ? "none" : "partial"}
+            onValueChange={(v) => onToggleScope(group.scope, v === "all")}
+            aria-label={`${group.label()} scope permissions`}
             disabled={readOnly}
-            onCheckedChange={(v) => onToggleScope(group.scope, v)}
-            aria-label={`Toggle all ${group.label()} permissions`}
-          />
+          >
+            <RadioGroupItem value="none">None</RadioGroupItem>
+            <RadioGroupItem value="all">All</RadioGroupItem>
+          </RadioGroup>
         </div>
       </header>
       <ul className="divide-y divide-border">

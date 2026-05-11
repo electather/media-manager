@@ -63,7 +63,7 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
     queryKey: adminUsersKeys.detail(userId),
     queryFn: () => fetchAdminUser(userId),
   });
-  const user = data.user as unknown as AdminUserDetail;
+  const user = data.user;
   const isSelf = selfId === user.id;
   const roles = roleSummaries();
 

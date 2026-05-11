@@ -67,11 +67,13 @@ export function useInvitesMock(): AdminInvite[] {
 }
 
 function randomId(prefix = "inv_") {
-  return prefix + Math.random().toString(36).slice(2, 10);
+  return prefix + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
 }
 
 export function generateInviteCode() {
-  return Array.from({ length: 3 }, () => Math.random().toString(36).slice(2, 6)).join("-");
+  const bytes = crypto.getRandomValues(new Uint8Array(9));
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 6)}-${hex.slice(6, 12)}-${hex.slice(12, 18)}`;
 }
 
 export function createEmailInvitesMock(

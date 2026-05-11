@@ -1,5 +1,6 @@
 // fallow-ignore-file complexity
 import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { CheckCircle2Icon, InfoIcon, LinkIcon, MailIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,7 +35,7 @@ interface Props {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailSchema = z.string().email();
 
 export function InviteDrawer({ open, onClose }: Props) {
   return (
@@ -82,7 +83,7 @@ function InviteDrawerBody({ open, onClose }: Props) {
     .split(/[\s,;]+/)
     .map((s) => s.trim())
     .filter(Boolean);
-  const validEmails = parsed.filter((s) => EMAIL_REGEX.test(s));
+  const validEmails = parsed.filter((s) => emailSchema.safeParse(s).success);
   const invalidEmails = parsed.filter((s) => !validEmails.includes(s));
   const expiresAt = Date.now() + Number(expiresInDays) * DAY;
 
