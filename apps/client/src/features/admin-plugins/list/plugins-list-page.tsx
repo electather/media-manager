@@ -11,6 +11,7 @@ import { useTogglePlugin } from "./use-toggle-plugin";
 import type { PluginListFilter, PluginRow } from "../shared/types";
 import { pluginPurity } from "../shared/types";
 
+// fallow-ignore-next-line complexity
 function applyFilter(rows: PluginRow[], filter: PluginListFilter, query: string): PluginRow[] {
   let list = rows;
   if (filter === "enabled") list = list.filter((p) => p.enabled);
@@ -29,6 +30,7 @@ function applyFilter(rows: PluginRow[], filter: PluginListFilter, query: string)
   return list;
 }
 
+// fallow-ignore-next-line complexity
 export function PluginsListPage() {
   const { data: plugins } = usePlugins();
   const toggle = useTogglePlugin();

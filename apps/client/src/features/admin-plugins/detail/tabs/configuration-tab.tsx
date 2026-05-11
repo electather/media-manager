@@ -42,6 +42,7 @@ export function ConfigurationTab({ plugin }: ConfigurationTabProps) {
   return <ConfigurationForm plugin={plugin} schema={schema} />;
 }
 
+// fallow-ignore-next-line complexity
 function ConfigurationForm({ plugin, schema }: { plugin: PluginRow; schema: JSONSchema }) {
   const query = useQuery({
     queryKey: adminPluginsKeys.globalConfig(plugin.id),

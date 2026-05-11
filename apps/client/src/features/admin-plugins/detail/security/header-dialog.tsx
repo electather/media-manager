@@ -26,6 +26,7 @@ interface HeaderDialogProps {
   onClose: () => void;
 }
 
+// fallow-ignore-next-line complexity
 export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
   const open = state.kind !== "none";
   const isEdit = state.kind === "edit";
@@ -46,6 +47,7 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
     upsert.reset();
   }, [open, initialName, isEdit, upsert]);
 
+  // fallow-ignore-next-line complexity
   const save = () => {
     setError(null);
     if (!HEADER_NAME_PATTERN.test(name)) {

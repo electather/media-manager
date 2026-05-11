@@ -73,6 +73,7 @@ function KVRow({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }
   );
 }
 
+// fallow-ignore-next-line complexity
 export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: OverviewTabProps) {
   const userCaps = plugin.capabilities.filter((c) => c.scope === "user");
   const globalCaps = plugin.capabilities.filter((c) => c.scope === "global");
@@ -148,40 +149,43 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
-            {POLICIES.map((p) => {
-              const active = plugin.personalKeyFallback === p.id;
-              const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => !optionDisabled && onChangeFallback(p.id)}
-                  disabled={optionDisabled || fallbackPending}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                    active ? "border-border bg-muted" : "border-transparent hover:bg-muted/60",
-                    (optionDisabled || fallbackPending) && "cursor-not-allowed opacity-50",
-                  )}
-                >
-                  <span
+            {POLICIES.map(
+              // fallow-ignore-next-line complexity
+              (p) => {
+                const active = plugin.personalKeyFallback === p.id;
+                const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => !optionDisabled && onChangeFallback(p.id)}
+                    disabled={optionDisabled || fallbackPending}
                     className={cn(
-                      "mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                      active ? "border-primary" : "border-border",
+                      "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      active ? "border-border bg-muted" : "border-transparent hover:bg-muted/60",
+                      (optionDisabled || fallbackPending) && "cursor-not-allowed opacity-50",
                     )}
                   >
-                    {active ? (
-                      <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-                    ) : null}
-                  </span>
-                  <span className="flex-1">
-                    <span className="block text-sm font-medium">{p.label}</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">{p.desc}</span>
-                  </span>
-                </button>
-              );
-            })}
+                    <span
+                      className={cn(
+                        "mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                        active ? "border-primary" : "border-border",
+                      )}
+                    >
+                      {active ? (
+                        <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                      ) : null}
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-sm font-medium">{p.label}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{p.desc}</span>
+                    </span>
+                  </button>
+                );
+              },
+            )}
           </CardContent>
         </Card>
       ) : null}

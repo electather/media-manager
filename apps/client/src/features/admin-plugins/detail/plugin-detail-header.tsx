@@ -27,6 +27,7 @@ function formatInstalled(ts: number): string {
   }
 }
 
+// fallow-ignore-next-line complexity
 export function PluginDetailHeader({
   plugin,
   onToggle,

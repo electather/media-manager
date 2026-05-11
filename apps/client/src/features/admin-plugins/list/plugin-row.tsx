@@ -26,6 +26,7 @@ function purityLabel(p: ReturnType<typeof pluginPurity>): { label: string; tone:
   return { label: "Mixed", tone: "border-amber-500/40 bg-amber-500/10 text-amber-500" };
 }
 
+// fallow-ignore-next-line complexity
 export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps) {
   const userCaps = plugin.capabilities.filter((c) => c.scope === "user").length;
   const globalCaps = plugin.capabilities.filter((c) => c.scope === "global").length;

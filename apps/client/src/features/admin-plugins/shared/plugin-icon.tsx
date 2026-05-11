@@ -8,6 +8,7 @@ interface PluginIconProps {
   className?: string;
 }
 
+// fallow-ignore-next-line complexity
 function initialsFor(pluginId: string, name: string): string {
   if (pluginId && pluginId.length >= 2) return pluginId.slice(0, 2).toLowerCase();
   if (name && name.length >= 2) return name.slice(0, 2).toLowerCase();

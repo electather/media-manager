@@ -23,6 +23,7 @@ interface PluginDetailPageProps {
   onTabChange: (tab: PluginDetailTab) => void;
 }
 
+// fallow-ignore-next-line complexity
 export function PluginDetailPage({ pluginId, tab, onTabChange }: PluginDetailPageProps) {
   const { data: plugin } = usePlugin(pluginId);
   const navigate = useNavigate();

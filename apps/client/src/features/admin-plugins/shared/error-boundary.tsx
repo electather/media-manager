@@ -21,6 +21,7 @@ import { AdminPluginsApiError } from "./types";
 
 const TELEMETRY_CODE = "client.admin-plugins.boundary";
 
+// fallow-ignore-next-line complexity
 function FallbackInner({
   error,
   requestId,

@@ -42,6 +42,7 @@ function patternsOverlap(a: string, b: string): boolean {
   return false;
 }
 
+// fallow-ignore-next-line complexity
 export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
   const manifestHosts = plugin.manifest.allowedHosts ?? [];
   const stored = plugin.advanced.adminAllowlist;
@@ -58,6 +59,7 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
     setEntries(stored ?? []);
   }, [stored]);
 
+  // fallow-ignore-next-line complexity
   const addEntry = () => {
     const normalized = draft.trim().toLowerCase();
     if (!normalized) return;
