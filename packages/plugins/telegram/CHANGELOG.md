@@ -1,5 +1,15 @@
 # @ent-mcp/plugin-telegram
 
+## 0.2.3
+
+### Patch Changes
+
+- a3e4fc3: Made the Telegram "Test" actually send a short labelled message to the target chat after the getMe/getChat probes pass — a passing probe alone cannot prove the bot has write permission, so a real send is the only end-to-end signal. Added structured logs on `deliver` and `testDelivery` (start, success, failure with telegram's description) so misconfigurations are easy to pinpoint in the server output. Chat ids are redacted to the last 4 chars in logs.
+- a3e4fc3: Fixed the Telegram channel test, which previously reported success whenever the bot token was valid even if the chat id was wrong or the bot was not a member of the chat. The test now also probes `getChat` and surfaces Telegram's own description (e.g. "chat not found", "bot was kicked") when the chat is unreachable.
+- Updated dependencies [ce2b0c5]
+  - @ent-mcp/shared@0.1.2
+  - @ent-mcp/plugin-sdk@0.4.1
+
 ## 0.2.2
 
 ### Patch Changes

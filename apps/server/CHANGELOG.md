@@ -1,5 +1,39 @@
 # @ent-mcp/server
 
+## 0.5.0
+
+### Minor Changes
+
+- ce2b0c5: Renamed the admin Errors page to Diagnostics and added a Performance tab that surfaces request and plugin timings with p50/p95/p99 percentiles. Retention windows for both errors and performance can now be tuned independently.
+- a3e4fc3: Hid notification-only plugins (Telegram, Discord, ntfy) from the Connections settings page so each section owns a disjoint set of plugins. They now appear only on the Notifications settings page.
+
+### Patch Changes
+
+- ce2b0c5: Excluded the admin diagnostics namespace from HTTP perf capture so polling the Performance tab no longer skews its own samples, and made the perf aggregate endpoint honour the pinned request-id filter.
+- ce2b0c5: Fixed diagnostics error rows storing raw URL paths (instead of the parameterised Hono route) and exhaustive test coverage for the retention sweep, plus hardening on the LIKE search and credential scrubber.
+- 2e4697e: Renamed the home row stub `subtitleKey` field to `eyebrowKey` to match the editorial header redesign.
+- a3e4fc3: Fixed adding a notification channel for plugins that declare `auth.kind: "none"` (Telegram, Discord, ntfy). Previously the server tried to call the plugin's `startAuth` regardless of auth kind, surfacing "plugin telegram does not export startAuth" to the user.
+- a3e4fc3: Fixed notification delivery for third-party channel plugins (Telegram, Discord, ntfy, custom). The delivery job was forwarding the raw `service_connections.user_config` JSON text to each plugin's `deliver` and `testConnection` instead of the parsed object, so plugins reading e.g. `args.channelConfig.botToken` saw `undefined` and the call silently failed against the upstream. The job now parses `user_config` once at the boundary and threads the object through. Added tagged `consola` logs at every state transition (start, succeeded, rescheduled, failed, missing capability) so delivery failures are visible without inspecting the database.
+- a3e4fc3: Fixed the notification channel test endpoint, which previously reported "plugin has no testConnection" with `ok: true` for every notification plugin (Telegram, Discord, ntfy, inbox) because those plugins declare `auth.kind: "none"` and expose their probe via `notificationDelivery.testDelivery` rather than a module-level `testConnection`. The runtime now falls back to the capability's probe so the test surfaces real upstream failures.
+- a3e4fc3: Fixed notification delivery to fan out concurrently across recipients. The `notification.deliver` job had no scope key, so emitting an event with multiple subscribed channels (e.g. inbox + Telegram) serialized at the job-runner lock — the first delivery ran and the rest immediately failed with "job notification.deliver is already running". The job now scopes its lock by `deliveryId`, so each channel's delivery runs in parallel and independently.
+- a3e4fc3: Notification deliveries now fail loudly with a precise error code when a channel's stored configuration cannot be parsed, instead of handing a raw string to the plugin and surfacing the failure as a cryptic upstream error.
+- 2e4697e: Fixed the upcoming row showing the same show multiple times when several queued episodes shared a calendar entry, which produced duplicate React keys and broke the home feed.
+- Updated dependencies [ce2b0c5]
+- Updated dependencies [a3e4fc3]
+- Updated dependencies [a3e4fc3]
+  - @ent-mcp/shared@0.1.2
+  - @ent-mcp/plugin-telegram@0.2.3
+  - @ent-mcp/plugin-sdk@0.4.1
+  - @ent-mcp/plugin-discord@0.2.3
+  - @ent-mcp/plugin-inbox@0.2.3
+  - @ent-mcp/plugin-ntfy@0.2.3
+  - @ent-mcp/plugin-jellyfin@0.3.2
+  - @ent-mcp/plugin-plex@0.3.2
+  - @ent-mcp/plugin-seerr@0.3.1
+  - @ent-mcp/plugin-tmdb@0.3.2
+  - @ent-mcp/plugin-trakt@0.2.3
+  - @ent-mcp/plugin-tvdb@0.2.3
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,5 +1,37 @@
 # @ent-mcp/client
 
+## 0.5.0
+
+### Minor Changes
+
+- a51266f: Redesigned the admin plugins page as a list-plus-detail flow with dedicated Overview, Configuration, Security, and Shared credentials tabs.
+- 50d01ed: Added admin Users and Roles & permissions pages, ported from the nama prototype. Users wires to the existing admin users API for role changes, session revocation, and deletion; pending invites and role definitions remain local until backend endpoints land.
+- c7ea341: Ported the authorized apps settings page from the Nama prototype: the MCP endpoint card now shows a live-status meta line, scope summary, and rotate-URL action, while authorized clients gained activity pills, scope chips, status filters, bulk-revoke, and per-client view-activity / rename / revoke actions.
+- ce2b0c5: Renamed the admin Errors page to Diagnostics and added a Performance tab that surfaces request and plugin timings with p50/p95/p99 percentiles. Retention windows for both errors and performance can now be tuned independently.
+- 47bafcd: Unified the app's error pages — 404, 500, and feature fallbacks — under a shared, translatable error page with status pill, mono code, eyebrow, and a collapsible technical details card.
+- 8da81a6: Improved the home page error fallback with distinct copy and recovery actions for sign-in, offline, upstream, and unknown failures.
+- 8da81a6: Redesigned the row error states with a clearer panel for failed rows and a new inline card when pagination fails so people can retry just the missing page.
+- a3e4fc3: Settings tabs now show live account, session, connection, MCP client, notification, and account-deletion data.
+- 2fb20d9: Settings and admin now share the main app top bar, and admin moved to its own /admin section so the settings sidebar fits on a desktop.
+- 2fb20d9: Redesigned the settings shell with a grouped sidebar, sticky save bar, and a refreshed look-and-feel for the Profile, Security, Connections, Notifications, Authorized apps, and Danger zone pages.
+- 2e4697e: Unified the home and library row layout under a shared editorial header with prev/next scroll buttons.
+- a3e4fc3: Hid notification-only plugins (Telegram, Discord, ntfy) from the Connections settings page so each section owns a disjoint set of plugins. They now appear only on the Notifications settings page.
+- 2e4697e: Added an editorial watchlist page with curated tonight pick, mood mosaic, coming-up calendar strip, awaiting grid, and recently-added log.
+- 2e4697e: Migrated the watchlist filter chips and sort dropdown to shadcn primitives, wrapped the page in an error boundary, and removed the duplicate date strip above each Coming Up card.
+
+### Patch Changes
+
+- ce2b0c5: Made the admin diagnostics page mobile-friendly and synced the pinned request id between the Errors and Performance tabs through the URL.
+- ce2b0c5: Excluded the admin diagnostics namespace from HTTP perf capture so polling the Performance tab no longer skews its own samples, and made the perf aggregate endpoint honour the pinned request-id filter.
+- ce2b0c5: Fixed diagnostics error rows storing raw URL paths (instead of the parameterised Hono route) and exhaustive test coverage for the retention sweep, plus hardening on the LIKE search and credential scrubber.
+- ce2b0c5: Translated the admin diagnostics page into Persian and switched its UI to design-system tokens.
+- a3e4fc3: Fixed the notification channel "Test" toast, which previously always reported success because the endpoint returns HTTP 200 even when the probe fails. The client now reads the response body and surfaces the plugin's diagnostic (e.g. "telegram bot token rejected") as an error toast.
+- 2e4697e: Fixed the notifications bell popover not scrolling on desktop when the inbox exceeded the popover height.
+- a3e4fc3: Fixed several issues in the settings wiring: failed connection tests now surface as errors instead of success toasts, bulk-revoke of authorized apps no longer leaves the cache in an inconsistent state on partial failure, the edit channel dialog no longer leaks state between channels, and profile saves no longer refetch the entire query tree.
+- a3e4fc3: The current-password error banner on the security settings page now clears as soon as the user re-types in the field, instead of lingering until the next submit attempt.
+- Updated dependencies [ce2b0c5]
+  - @ent-mcp/shared@0.1.2
+
 ## 0.4.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@ent-mcp/plugin-ntfy",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "description": "ent-mcp plugin — ntfy push notification delivery.",
   "keywords": [
