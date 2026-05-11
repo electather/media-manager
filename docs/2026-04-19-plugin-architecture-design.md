@@ -290,7 +290,7 @@ export default definePlugin({
 });
 ```
 
-`testConnection(ctx)` ! for `auth.kind !== "none"`. Called by UI "test" button, health-check cron, & pre-commit during `connection.updateUserConfig`. Pure-global plugins (`auth.kind === "none"`) → admin verifies via `plugin.testSharedCredential` (see §API).
+`testConnection(ctx)` ! for `auth.kind !== "none"`. Called by UI "test" button, health-check cron, & pre-commit during `connection.updateUserConfig`. Pure-global plugins (`auth.kind === "none"`, ∀ capabilities `scope: "global"`) → admin verifies via `plugin.testSharedCredential` (see §API). User-scoped `auth.kind === "none"` plugins (notification channels) → capability owns the probe (e.g. `notificationDelivery.testDelivery`); `testConnection` is optional & may be omitted.
 
 ## Auth Ceremony — Flow Types
 
@@ -317,9 +317,12 @@ Host orchestrates auth by `manifest.auth.kind`. Plugin functions return discrimi
 3. Frontend displays instructions, polls `connection.pollDeviceAuth(nonce)` at `intervalSec`.
 4. Each poll: host calls `pollAuth(ctx, pollState)`. Plugin → `pending` | `completed` (with optional `userConfigPatch`) | `error`.
 
-**`none`**: plugin has no per-user creds. Only legal for pure-global plugins (∀ capabilities `scope: "global"`). ⊥ `service_connections` rows.
+**`none`**: plugin has no per-user creds + no auth ceremony. Two valid shapes:
 
-On `status: "completed"`: host merges `userConfigPatch` (if any) into submitted `userConfig`, validates merged result against `userConfigSchema`, encrypts creds, creates `service_connections` row, auto-promotes to default if first instance, returns connection to frontend. **Empty-creds rows rejected**: if validated credentials payload for plugin with `credentialsSchema` missing required fields | resolves to empty object → create refused with typed error. ⊥ "parked" connections.
+1. **Pure-global** (∀ capabilities `scope: "global"`, e.g. TMDB/TVDB) → ⊥ `service_connections` rows; admin-managed via shared credentials only.
+2. **User-scoped with self-contained `userConfig`** (notification delivery plugins like Telegram, Discord, ntfy, inbox) → connection-row is the channel. `userConfig` carries everything the plugin needs (bot token, webhook URL, etc.); no separate `credentials` blob. Host **skips `startAuth`** (plugin exports none) & writes the row directly. Upstream reachability validated lazily via the capability's own test method (e.g. `notificationDelivery.testDelivery`), not at create time.
+
+On `status: "completed"` (auth kinds other than `none`): host merges `userConfigPatch` (if any) into submitted `userConfig`, validates merged result against `userConfigSchema`, encrypts creds, creates `service_connections` row, auto-promotes to default if first instance, returns connection to frontend. **Empty-creds rows rejected**: if validated credentials payload for plugin with `credentialsSchema` missing required fields | resolves to empty object → create refused with typed error. ⊥ "parked" connections. Exception: `auth.kind: "none"` user-scoped plugins persist with `credentials: {}` by design — `writeConnection({ allowEmptyCredentials: true })`.
 
 Creds & device codes ⊥ logged. `pending_auth` rows have 15-min TTL with nightly sweep.
 
@@ -824,7 +827,7 @@ service_connections
 
 **Why `user_config` & `credentials` in different columns:** independent lifecycles. `user_config` plaintext, low-stakes; `encrypted_credentials` secret material with own IV. Cron token refresh re-encrypts creds without touching config; editing Seerr URL rewrites config without touching creds.
 
-**Rows ∃ only for plugins with user-scoped capabilities.** `auth.kind: "none"` + only global capabilities → ⊥ `service_connections` rows.
+**Rows ∃ only for plugins with user-scoped capabilities.** `auth.kind: "none"` + only global capabilities → ⊥ `service_connections` rows. `auth.kind: "none"` + ≥1 user-scoped capability (notification channels) → rows persist with `encrypted_credentials` = encrypted-`{}` placeholder; `user_config` carries the channel config.
 
 ### `plugin_store`
 

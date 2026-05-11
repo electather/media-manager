@@ -1,5 +1,6 @@
 // fallow-ignore-file unused-file
 import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { consola } from "consola";
 import { randomUUID } from "node:crypto";
 import { getDb } from "../db/client";
 import { notificationDeliveries, serviceConnections } from "../db/schema";
@@ -17,11 +18,40 @@ import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../jobs/triggerable";
 import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";
 
+const log = consola.withTag("notifications.deliver");
+
+/**
+ * `service_connections.user_config` is stored as a JSON text column. Plugins
+ * expect the parsed object on `args.channelConfig` + `ctx.config.user`, so
+ * decode once at the job boundary. Returns `null` for connections that have
+ * no user-config (legitimate for no-fields plugins like inbox).
+ */
+function parseUserConfig(raw: string | null, pluginId: string): unknown {
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    log.warn("user_config parse failed; passing through raw", {
+      pluginId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return raw;
+  }
+}
+
 export function registerDeliveryJob() {
   registerTriggerable<{ deliveryId: string }, void>({
     id: "notification.deliver",
     name: "Deliver notification",
     requiredPermission: "admin:jobs",
+    // Lock the running-state per-delivery, not job-wide. emit() fans out one
+    // trigger per recipient via Promise.all, so a 2-channel event would
+    // race two triggers under the same job id; without a scope key the
+    // second collides with the first as "already running" and never runs.
+    // The deliveryId is unique per row + idempotent under retry, so it is
+    // also the right scope to dedupe overlapping triggers from the
+    // stale-pending sweep and the inline emit() path.
+    scopeKey: (input) => input.deliveryId,
     // fallow-ignore-next-line complexity
     handler: async (_ctx, input) => {
       if (!env.NOTIFICATIONS_ENABLED || !input) return;
@@ -74,10 +104,19 @@ export function registerDeliveryJob() {
         return;
       }
 
-      const loaded = await loadPluginAndContext(deliveryId, conn, delivery);
+      const channelConfig = parseUserConfig(conn.userConfig, conn.pluginId);
+      log.info("delivery start", {
+        deliveryId,
+        pluginId: conn.pluginId,
+        recipientUserId: delivery.recipientUserId,
+        eventType: event.type,
+        attempt: delivery.attemptCount + 1,
+      });
+
+      const loaded = await loadPluginAndContext(deliveryId, conn, delivery, channelConfig);
       if (!loaded) return;
 
-      await executeDelivery(deliveryId, delivery, loaded, message, event, conn);
+      await executeDelivery(deliveryId, delivery, loaded, message, event, conn, channelConfig);
     },
   });
 }
@@ -92,12 +131,14 @@ async function loadPluginAndContext(
   deliveryId: string,
   conn: ServiceConnection,
   delivery: DeliveryRow,
+  channelConfig: unknown,
 ): Promise<{ plugin: PluginModule; pluginCtx: PluginContext } | null> {
   let plugin: PluginModule;
   try {
     plugin = await pluginRuntime.getModule(conn.pluginId);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    log.error("plugin load failed", { deliveryId, pluginId: conn.pluginId, error: msg });
     await markDeliveryFailed(deliveryId, "plugin_load_failed", msg);
     return null;
   }
@@ -113,10 +154,11 @@ async function loadPluginAndContext(
       conn.pluginId,
       conn.userId,
       null,
-      conn.userConfig,
+      channelConfig,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    log.error("context build failed", { deliveryId, pluginId: conn.pluginId, error: msg });
     await markDeliveryFailed(deliveryId, "context_build_failed", msg);
     return null;
   }
@@ -155,9 +197,14 @@ async function executeDelivery(
   message: ReturnType<typeof renderTemplate>,
   event: NotificationEvent,
   conn: ServiceConnection,
+  channelConfig: unknown,
 ): Promise<void> {
   try {
     if (!plugin.capabilities?.notificationDelivery?.deliver) {
+      log.error("plugin missing notificationDelivery.deliver", {
+        deliveryId,
+        pluginId: conn.pluginId,
+      });
       await markDeliveryFailed(
         deliveryId,
         "missing_capability",
@@ -168,10 +215,13 @@ async function executeDelivery(
 
     // Third-party plugins get the SDK-typed args only. Host-privileged
     // plugins receive an extended shape so the inbox can persist with
-    // the right user id and delivery linkage.
+    // the right user id and delivery linkage. `channelConfig` is the
+    // parsed JSON object (or `null` for plugins with no userConfigSchema)
+    // — passing the raw text column was a latent bug for every non-host
+    // plugin since `cfg.botToken` etc. would resolve against a string.
     const deliverArgs = buildDeliverArgs(
       conn.pluginId,
-      { message, event, channelConfig: conn.userConfig },
+      { message, event, channelConfig },
       { deliveryId, recipientUserId: delivery.recipientUserId },
     );
     const result = await plugin.capabilities.notificationDelivery.deliver(
@@ -184,8 +234,14 @@ async function executeDelivery(
       result && typeof result === "object" && "providerMessageId" in result
         ? ((result as { providerMessageId?: string }).providerMessageId ?? null)
         : null;
+    log.success("delivery succeeded", { deliveryId, pluginId: conn.pluginId, providerMessageId });
     await updateDeliveryStatus(deliveryId, "succeeded", providerMessageId);
   } catch (err) {
+    log.warn("delivery threw — routing to failure policy", {
+      deliveryId,
+      pluginId: conn.pluginId,
+      error: err instanceof Error ? err.message : String(err),
+    });
     await handleDeliveryFailure(deliveryId, delivery, err);
   }
 }
@@ -197,9 +253,21 @@ async function handleDeliveryFailure(
 ): Promise<void> {
   const decision = decideFailure(delivery, error);
   if (decision.action === "fail") {
+    log.error("delivery marked failed", {
+      deliveryId,
+      errorCode: decision.errorCode,
+      errorMessage: decision.errorMessage,
+      attempt: delivery.attemptCount + 1,
+    });
     await markDeliveryFailed(deliveryId, decision.errorCode, decision.errorMessage);
     return;
   }
+  log.info("delivery rescheduled", {
+    deliveryId,
+    errorCode: decision.errorCode,
+    delayMs: decision.delayMs,
+    attempt: delivery.attemptCount + 1,
+  });
   await rescheduleDeliveryAttempt(
     deliveryId,
     Date.now() + decision.delayMs,

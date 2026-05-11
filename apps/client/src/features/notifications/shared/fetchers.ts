@@ -104,7 +104,18 @@ export async function fetchToggleSubscription(input: {
 export async function fetchTestChannel(connectionId: string) {
   const res = await api.notifications.channels[":id"].test.$post({ param: { id: connectionId } });
   if (!res.ok) await throwOnError(res);
-  return res.json();
+  // The server endpoint always returns HTTP 200 with `{ ok, message? }` — a
+  // failed probe (bad bot token, chat not found, bot blocked) carries
+  // `ok: false` plus the plugin's diagnostic. Promote that to a thrown error
+  // so `useTestChannel`'s `onSuccess` only fires for genuine successes.
+  const body = (await res.json()) as { ok: boolean; message?: string };
+  if (!body.ok) {
+    throw new NotificationsApiError(200, {
+      code: "notifications.test_failed",
+      message: body.message ?? "test failed",
+    });
+  }
+  return body;
 }
 
 function adminDeliveriesQuery(filters: AdminDeliveryFilters, cursor: string | null) {

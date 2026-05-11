@@ -338,6 +338,7 @@ Manifest field ! JSON Schema — matches all other manifest schemas in SDK. Auth
 - Channel config = connection's `userConfig`, validated against `userConfigSchema`.
 - Multi-target ("two ntfy phones") → create multiple connections.
 - Cascade deletes flow naturally: `connections` → `notification_subscriptions` → `notification_deliveries`.
+- `auth.kind: "none"` + user-scoped capability (∀ v1 channels) → no `startAuth` export required. Host's `createFormConnection` validates required `userConfigSchema` fields, then persists the row with `credentials: {}` (encrypted) directly. Upstream reachability deferred to `POST /api/notifications/channels/:id/test`, which invokes the plugin's `notificationDelivery.testDelivery`.
 
 Future plugin needing OAuth-with-multi-target → optional `channelConfigSchema` manifest field, additive. v1 plugins keep working.
 

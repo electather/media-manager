@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 const apiMock = vi.hoisted(() => ({
   inboxGet: vi.fn(),
   unreadCountGet: vi.fn(),
+  channelTestPost: vi.fn(),
 }));
 
 vi.mock("@/shared/lib/api", () => ({
@@ -13,11 +14,16 @@ vi.mock("@/shared/lib/api", () => ({
         $get: (args: unknown) => apiMock.inboxGet(args),
         "unread-count": { $get: () => apiMock.unreadCountGet() },
       },
+      channels: {
+        ":id": {
+          test: { $post: (args: unknown) => apiMock.channelTestPost(args) },
+        },
+      },
     },
   },
 }));
 
-import { fetchInboxPage, fetchUnreadCount } from "../fetchers";
+import { fetchInboxPage, fetchTestChannel, fetchUnreadCount } from "../fetchers";
 import { NotificationsApiError } from "../types";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -30,6 +36,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 beforeEach(() => {
   apiMock.inboxGet.mockReset();
   apiMock.unreadCountGet.mockReset();
+  apiMock.channelTestPost.mockReset();
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -57,5 +64,32 @@ describe("fetchers error normalisation", () => {
   it("returns parsed JSON on 2xx", async () => {
     apiMock.unreadCountGet.mockResolvedValue(jsonResponse({ count: 7 }));
     await expect(fetchUnreadCount()).resolves.toEqual({ count: 7 });
+  });
+});
+
+describe("fetchTestChannel — body.ok routing", () => {
+  it("resolves when the server reports ok: true", async () => {
+    apiMock.channelTestPost.mockResolvedValue(jsonResponse({ ok: true }));
+    await expect(fetchTestChannel("conn_1")).resolves.toEqual({ ok: true });
+  });
+
+  it("throws when the server reports ok: false even on HTTP 200", async () => {
+    // Regression: the test endpoint always returns HTTP 200 with the plugin's
+    // `{ ok, message }` payload. The previous implementation only inspected
+    // `res.ok`, so the UI fired the success toast for failed probes.
+    apiMock.channelTestPost.mockResolvedValue(
+      jsonResponse({ ok: false, message: "telegram bot token rejected" }),
+    );
+    const err = await fetchTestChannel("conn_1").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotificationsApiError);
+    expect((err as NotificationsApiError).code).toBe("notifications.test_failed");
+    expect((err as NotificationsApiError).body?.message).toBe("telegram bot token rejected");
+  });
+
+  it("supplies a fallback message when ok: false has no description", async () => {
+    apiMock.channelTestPost.mockResolvedValue(jsonResponse({ ok: false }));
+    const err = await fetchTestChannel("conn_1").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NotificationsApiError);
+    expect((err as NotificationsApiError).body?.message).toBe("test failed");
   });
 });
