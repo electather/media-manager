@@ -20,7 +20,7 @@ env:
 jobs:
   release:
     name: Create Version PR or Release
-    runs-on: [media-manager, sandboxed]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4

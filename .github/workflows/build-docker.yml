@@ -20,10 +20,6 @@ env:
 jobs:
   build-and-push:
     name: Build multi-arch image
-    # Runs on GitHub-hosted runners because the self-hosted `[media-manager,
-    # sandboxed]` runners do not have Docker Buildx available. The build needs
-    # no application secrets (only the auto-provided GITHUB_TOKEN for ghcr.io),
-    # so the relaxed sandbox is not a security concern.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository

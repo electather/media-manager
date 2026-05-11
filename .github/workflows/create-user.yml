@@ -58,7 +58,7 @@ env:
 jobs:
   create-user:
     name: Create user
-    runs-on: [media-manager, sandboxed]
+    runs-on: ubuntu-latest
     steps:
       # Mask the password in logs before any other step runs. GitHub does
       # not auto-mask `workflow_dispatch` inputs, so without this a stray

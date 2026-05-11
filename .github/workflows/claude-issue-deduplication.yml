@@ -10,7 +10,8 @@ env:
 
 jobs:
   deduplicate:
-    runs-on: [media-manager, sandboxed]
+    if: contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
@@ -28,7 +29,6 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          allowed_non_write_users: "*"
           prompt: |
             Analyze issue #${{ github.event.issue.number }} in ${{ github.repository }} and determine if it is a duplicate.
 

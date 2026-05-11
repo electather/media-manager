@@ -159,7 +159,7 @@ A separate `on: pull_request: types: [closed]` job in `deploy-cloudflare.yml` fi
 
 Triggers on push to `main` and on release tags (`v*`). Never runs on PRs.
 
-- Runs on `ubuntu-latest` (GitHub-hosted runner — Docker Buildx is not available on the self-hosted `[media-manager, sandboxed]` runners). This is acceptable because the Docker build requires no application secrets — only the auto-provided `GITHUB_TOKEN` for ghcr.io login — so the relaxed sandbox is not a security concern.
+- Runs on `ubuntu-latest` GitHub-hosted runners, matching the public repository CI baseline and avoiding any dependency on repository-specific runner labels.
 - Logs into `ghcr.io` with `GITHUB_TOKEN`
 - Sets up Docker Buildx for multi-arch builds
 - Builds `linux/amd64,linux/arm64` in a single `docker buildx build --push`
