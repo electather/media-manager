@@ -36,6 +36,7 @@ function seedRoles(): RoleRecord[] {
       permissions: ["media:discover", "media:details", "media:activity"],
     },
     {
+      // UI-only example role — backend seed only creates role_admin, role_member, role_viewer.
       id: "role_curator",
       name: m.admin_roles_seed_curator_name(),
       description: m.admin_roles_seed_curator_description(),
@@ -75,7 +76,7 @@ export function useRolesMock() {
 }
 
 function randomId() {
-  return "role_" + Math.random().toString(36).slice(2, 10);
+  return "role_" + crypto.randomUUID().replace(/-/g, "").slice(0, 8);
 }
 
 export function saveRoleMock(updated: RoleRecord) {

@@ -1,5 +1,7 @@
 import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
 import { Switch } from "@/shared/ui/switch";
+
+import { m } from "@/paraglide/messages";
 import type { PermissionGroupDef } from "../lib/permission-tree";
 
 interface Props {
@@ -44,8 +46,8 @@ export function PermissionGroup({
             aria-label={`${group.label()} scope permissions`}
             disabled={readOnly}
           >
-            <RadioGroupItem value="none">None</RadioGroupItem>
-            <RadioGroupItem value="all">All</RadioGroupItem>
+            <RadioGroupItem value="none">{m.admin_roles_perm_group_none()}</RadioGroupItem>
+            <RadioGroupItem value="all">{m.admin_roles_perm_group_all()}</RadioGroupItem>
           </RadioGroup>
         </div>
       </header>

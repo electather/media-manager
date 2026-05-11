@@ -122,6 +122,8 @@
   "admin_roles_detail_permissions_subtitle_default": "Toggle individual permissions, or whole scopes via the scope header.",
   "admin_roles_detail_label_name": "Role name",
   "admin_roles_detail_label_description": "Description",
+  "admin_roles_perm_group_none": "None",
+  "admin_roles_perm_group_all": "All",
   "admin_roles_detail_members_section_title": "Members ({count})",
   "admin_roles_detail_members_section_empty": "No users currently have this role.",
   "admin_roles_detail_members_section_subtitle": "Users with this role today.",
