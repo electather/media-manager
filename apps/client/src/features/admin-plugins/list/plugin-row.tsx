@@ -1,6 +1,8 @@
 import { ChevronRightIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
+import { m } from "@/paraglide/messages";
+
 import { Badge } from "@/shared/ui/badge";
 import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
@@ -17,13 +19,19 @@ interface PluginRowItemProps {
 
 function purityLabel(p: ReturnType<typeof pluginPurity>): { label: string; tone: string } | null {
   if (p === "user")
-    return { label: "User-scoped", tone: "border-sky-500/40 bg-sky-500/10 text-sky-500" };
+    return {
+      label: m.admin_plugins_row_purity_user(),
+      tone: "border-sky-500/40 bg-sky-500/10 text-sky-500",
+    };
   if (p === "global")
     return {
-      label: "Metadata-only",
+      label: m.admin_plugins_row_purity_global(),
       tone: "border-emerald-500/40 bg-emerald-500/10 text-emerald-500",
     };
-  return { label: "Mixed", tone: "border-amber-500/40 bg-amber-500/10 text-amber-500" };
+  return {
+    label: m.admin_plugins_row_purity_mixed(),
+    tone: "border-amber-500/40 bg-amber-500/10 text-amber-500",
+  };
 }
 
 // fallow-ignore-next-line complexity
@@ -46,7 +54,7 @@ export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps
       <Link
         to="/admin/plugins/$pluginId"
         params={{ pluginId: plugin.id }}
-        aria-label={`Open ${plugin.manifest.name}`}
+        aria-label={m.admin_plugins_row_open_aria({ name: plugin.manifest.name })}
         className="flex min-w-0 items-center gap-3 sm:gap-4"
       >
         <PluginIcon plugin={plugin} size={40} />
@@ -65,7 +73,7 @@ export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps
           </span>
           {plugin.isBuiltin ? (
             <Badge variant="secondary" className="text-[11px] font-normal">
-              Built-in
+              {m.admin_plugins_row_builtin()}
             </Badge>
           ) : null}
           {purity ? (
@@ -82,13 +90,15 @@ export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps
         <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <StatusDot tone={disabled ? "disabled" : "ok"} size={7} />
-            {disabled ? "Disabled" : "Enabled"}
+            {disabled ? m.admin_plugins_row_disabled() : m.admin_plugins_row_enabled()}
           </span>
           <span className="text-muted-foreground/40" aria-hidden="true">
             ·
           </span>
           <span>
-            {globalCaps} global · {userCaps} user {userCaps === 1 ? "capability" : "capabilities"}
+            {userCaps === 1
+              ? m.admin_plugins_row_caps_one({ global: globalCaps, user: userCaps })
+              : m.admin_plugins_row_caps_many({ global: globalCaps, user: userCaps })}
           </span>
           {poolTotal > 0 ? (
             <>
@@ -96,7 +106,7 @@ export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps
                 ·
               </span>
               <span className="font-mono">
-                pool {poolEnabled}/{poolTotal}
+                {m.admin_plugins_row_pool({ enabled: poolEnabled, total: poolTotal })}
               </span>
             </>
           ) : null}
@@ -107,13 +117,15 @@ export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps
         onCheckedChange={onToggle}
         disabled={toggling}
         aria-label={
-          plugin.enabled ? `Disable ${plugin.manifest.name}` : `Enable ${plugin.manifest.name}`
+          plugin.enabled
+            ? m.admin_plugins_row_disable_aria({ name: plugin.manifest.name })
+            : m.admin_plugins_row_enable_aria({ name: plugin.manifest.name })
         }
       />
       <Link
         to="/admin/plugins/$pluginId"
         params={{ pluginId: plugin.id }}
-        aria-label={`Open ${plugin.manifest.name}`}
+        aria-label={m.admin_plugins_row_open_aria({ name: plugin.manifest.name })}
         className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <ChevronRightIcon className="size-4" aria-hidden="true" />

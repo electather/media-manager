@@ -2,6 +2,8 @@ import { RadioGroup } from "@base-ui/react/radio-group";
 import { Radio } from "@base-ui/react/radio";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 
+import { m } from "@/paraglide/messages";
+
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { CapabilityBadges } from "@/shared/lib/capabilities";
@@ -17,27 +19,25 @@ interface OverviewTabProps {
   fallbackPending: boolean;
 }
 
-const POLICIES: ReadonlyArray<{
-  id: PersonalKeyFallbackPolicy;
-  label: string;
-  desc: string;
-}> = [
-  {
-    id: "off",
-    label: "Off",
-    desc: "Admin and user keys stay separate. User-scoped calls use the user's own keys only.",
-  },
-  {
-    id: "admin-first",
-    label: "Admin first",
-    desc: "Try shared credentials first; fall back to the user's personal connection when exhausted.",
-  },
-  {
-    id: "personal-first",
-    label: "Personal first",
-    desc: "Try the user's connection first; fall back to shared credentials if it fails or is missing.",
-  },
-];
+function getPolicies() {
+  return [
+    {
+      id: "off" as PersonalKeyFallbackPolicy,
+      label: m.admin_plugins_overview_policy_off_label(),
+      desc: m.admin_plugins_overview_policy_off_desc(),
+    },
+    {
+      id: "admin-first" as PersonalKeyFallbackPolicy,
+      label: m.admin_plugins_overview_policy_admin_first_label(),
+      desc: m.admin_plugins_overview_policy_admin_first_desc(),
+    },
+    {
+      id: "personal-first" as PersonalKeyFallbackPolicy,
+      label: m.admin_plugins_overview_policy_personal_first_label(),
+      desc: m.admin_plugins_overview_policy_personal_first_desc(),
+    },
+  ];
+}
 
 function StatCell({
   label,
@@ -82,44 +82,50 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
   const hasShared = Boolean(plugin.manifest.sharedCredentialsSchema);
   const purity = pluginPurity(plugin);
 
+  const scopeLabel =
+    purity === "user"
+      ? m.admin_plugins_overview_scope_user()
+      : purity === "global"
+        ? m.admin_plugins_overview_scope_global()
+        : m.admin_plugins_overview_scope_mixed();
+
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <StatCell
-          label="Status"
-          value={plugin.enabled ? "Enabled" : "Disabled"}
+          label={m.admin_plugins_overview_stat_status()}
+          value={
+            plugin.enabled
+              ? m.admin_plugins_overview_stat_enabled()
+              : m.admin_plugins_overview_stat_disabled()
+          }
           tone={plugin.enabled ? "ok" : "disabled"}
         />
         <StatCell
-          label="Shared keys"
+          label={m.admin_plugins_overview_stat_shared_keys()}
           value={
             hasShared
               ? `${plugin.sharedCredentialsEnabledCount} / ${plugin.sharedCredentialsCount}`
               : "—"
           }
         />
-        <StatCell label="Capabilities" value={String(plugin.capabilities.length)} />
         <StatCell
-          label="Scope"
-          value={
-            purity === "user" ? "User-scoped" : purity === "global" ? "Metadata-only" : "Mixed"
-          }
+          label={m.admin_plugins_overview_stat_capabilities()}
+          value={String(plugin.capabilities.length)}
         />
+        <StatCell label={m.admin_plugins_overview_stat_scope()} value={scopeLabel} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Capabilities</CardTitle>
-          <CardDescription>
-            What this plugin can do. Global capabilities work without any connection. User
-            capabilities require each user to connect their own account.
-          </CardDescription>
+          <CardTitle>{m.admin_plugins_overview_caps_title()}</CardTitle>
+          <CardDescription>{m.admin_plugins_overview_caps_description()}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {globalCaps.length > 0 ? (
             <div>
               <div className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground/80">
-                Global
+                {m.admin_plugins_overview_caps_global()}
               </div>
               <CapabilityBadges
                 entries={globalCaps.map((c) => ({ id: c.id, version: c.version }))}
@@ -130,7 +136,7 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
           {userCaps.length > 0 ? (
             <div>
               <div className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground/80">
-                Per-user
+                {m.admin_plugins_overview_caps_user()}
               </div>
               <CapabilityBadges
                 entries={userCaps.map((c) => ({ id: c.id, version: c.version }))}
@@ -144,20 +150,19 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
       {userCaps.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Personal-key fallback policy</CardTitle>
+            <CardTitle>{m.admin_plugins_overview_fallback_title()}</CardTitle>
             <CardDescription>
-              When a user's request needs a {plugin.manifest.name} call, which credentials does the
-              server try?
+              {m.admin_plugins_overview_fallback_description({ name: plugin.manifest.name })}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
             <RadioGroup
               value={plugin.personalKeyFallback}
               onValueChange={(value) => onChangeFallback(value as PersonalKeyFallbackPolicy)}
-              aria-label="Personal-key fallback policy"
+              aria-label={m.admin_plugins_overview_fallback_aria()}
               className="flex flex-col gap-1"
             >
-              {POLICIES.map((p) => {
+              {getPolicies().map((p) => {
                 const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
                 return (
                   <Radio.Root
@@ -193,23 +198,41 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
 
       <Card>
         <CardHeader>
-          <CardTitle>Identity</CardTitle>
+          <CardTitle>{m.admin_plugins_overview_identity_title()}</CardTitle>
         </CardHeader>
         <CardContent>
-          <KVRow k="Plugin ID" v={<code className="font-mono">{plugin.id}</code>} />
-          {plugin.manifest.author ? <KVRow k="Vendor" v={plugin.manifest.author.name} /> : null}
-          <KVRow k="Version" v={<code className="font-mono">{plugin.version}</code>} />
-          <KVRow k="Source" v={plugin.isBuiltin ? "Built-in" : plugin.sourceType} />
-          <KVRow k="Installed" v={new Date(plugin.installedAt).toLocaleString()} />
           <KVRow
-            k="Pool eligible"
+            k={m.admin_plugins_overview_identity_id()}
+            v={<code className="font-mono">{plugin.id}</code>}
+          />
+          {plugin.manifest.author ? (
+            <KVRow k={m.admin_plugins_overview_identity_vendor()} v={plugin.manifest.author.name} />
+          ) : null}
+          <KVRow
+            k={m.admin_plugins_overview_identity_version()}
+            v={<code className="font-mono">{plugin.version}</code>}
+          />
+          <KVRow
+            k={m.admin_plugins_overview_identity_source()}
+            v={
+              plugin.isBuiltin
+                ? m.admin_plugins_overview_identity_source_builtin()
+                : plugin.sourceType
+            }
+          />
+          <KVRow
+            k={m.admin_plugins_overview_identity_installed()}
+            v={new Date(plugin.installedAt).toLocaleString()}
+          />
+          <KVRow
+            k={m.admin_plugins_overview_identity_pool_eligible()}
             v={
               plugin.poolable ? (
                 <Badge variant="secondary" className="text-xs font-normal">
-                  Yes
+                  {m.admin_plugins_overview_identity_pool_yes()}
                 </Badge>
               ) : (
-                "No"
+                m.admin_plugins_overview_identity_pool_no()
               )
             }
             last

@@ -1,5 +1,7 @@
 import { SearchIcon, PlusIcon } from "lucide-react";
 
+import { m } from "@/paraglide/messages";
+
 import { Button } from "@/shared/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/ui/input-group";
 import { cn } from "@/shared/lib/utils";
@@ -23,14 +25,6 @@ interface FilterBarProps {
   onInstall: () => void;
 }
 
-const CHIPS: ReadonlyArray<{ id: PluginListFilter; label: string }> = [
-  { id: "all", label: "All" },
-  { id: "enabled", label: "Enabled" },
-  { id: "disabled", label: "Disabled" },
-  { id: "user", label: "User-scoped" },
-  { id: "metadata", label: "Metadata" },
-];
-
 export function FilterBar({
   filter,
   onFilterChange,
@@ -39,10 +33,18 @@ export function FilterBar({
   counts,
   onInstall,
 }: FilterBarProps) {
+  const chips: ReadonlyArray<{ id: PluginListFilter; label: string }> = [
+    { id: "all", label: m.admin_plugins_filter_all() },
+    { id: "enabled", label: m.admin_plugins_filter_enabled() },
+    { id: "disabled", label: m.admin_plugins_filter_disabled() },
+    { id: "user", label: m.admin_plugins_filter_user() },
+    { id: "metadata", label: m.admin_plugins_filter_metadata() },
+  ];
+
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
       <div className="flex flex-wrap gap-1.5">
-        {CHIPS.map((chip) => {
+        {chips.map((chip) => {
           const active = filter === chip.id;
           return (
             <button
@@ -78,13 +80,13 @@ export function FilterBar({
           <InputGroupInput
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Filter plugins…"
-            aria-label="Filter plugins"
+            placeholder={m.admin_plugins_filter_placeholder()}
+            aria-label={m.admin_plugins_filter_aria()}
           />
         </InputGroup>
       </div>
       <Button size="sm" onClick={onInstall}>
-        <PlusIcon /> Install plugin
+        <PlusIcon /> {m.admin_plugins_install_cta()}
       </Button>
     </div>
   );

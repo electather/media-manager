@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { LoaderCircleIcon } from "lucide-react";
 import { PLUGIN_RESERVED_HEADER_NAMES } from "@ent-mcp/shared/plugins";
 
+import { m } from "@/paraglide/messages";
+
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -51,11 +53,11 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
   const save = () => {
     setError(null);
     if (!HEADER_NAME_PATTERN.test(name)) {
-      setError("Invalid header name — use RFC 7230 token characters only.");
+      setError(m.admin_plugins_header_dialog_error_invalid_name());
       return;
     }
     if ((PLUGIN_RESERVED_HEADER_NAMES as readonly string[]).includes(name.toLowerCase())) {
-      setError("Header is reserved by the runtime.");
+      setError(m.admin_plugins_header_dialog_error_reserved());
       return;
     }
     if (isEdit && preserveValue) {
@@ -63,11 +65,11 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
       return;
     }
     if (!value) {
-      setError("Value cannot be empty — use the delete action to remove.");
+      setError(m.admin_plugins_header_dialog_error_empty_value());
       return;
     }
     if (/[\r\n]/.test(value)) {
-      setError("Value contains CR/LF.");
+      setError(m.admin_plugins_header_dialog_error_crlf());
       return;
     }
     upsert.mutate(
@@ -82,14 +84,16 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : undefined)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? `Edit header ${initialName}` : "Add header"}</DialogTitle>
-          <DialogDescription>
-            Values are stored encrypted on the server and never displayed after save.
-          </DialogDescription>
+          <DialogTitle>
+            {isEdit
+              ? m.admin_plugins_header_dialog_title_edit({ name: initialName })
+              : m.admin_plugins_header_dialog_title_add()}
+          </DialogTitle>
+          <DialogDescription>{m.admin_plugins_header_dialog_description()}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <Field>
-            <FieldTitle>Name</FieldTitle>
+            <FieldTitle>{m.admin_plugins_header_dialog_field_name()}</FieldTitle>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -97,7 +101,9 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
               placeholder="X-Corp-Key"
             />
             {isEdit ? (
-              <FieldDescription>To rename a header, delete and re-add it.</FieldDescription>
+              <FieldDescription>
+                {m.admin_plugins_header_dialog_field_name_rename_hint()}
+              </FieldDescription>
             ) : null}
           </Field>
           {isEdit ? (
@@ -107,12 +113,12 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
                 checked={preserveValue}
                 onChange={(e) => setPreserveValue(e.target.checked)}
               />
-              Preserve existing value
+              {m.admin_plugins_header_dialog_preserve()}
             </label>
           ) : null}
           {!preserveValue ? (
             <Field>
-              <FieldTitle>Value</FieldTitle>
+              <FieldTitle>{m.admin_plugins_header_dialog_field_value()}</FieldTitle>
               <Input
                 type="password"
                 value={value}
@@ -125,11 +131,11 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={upsert.isPending}>
-            Cancel
+            {m.admin_plugins_header_dialog_cancel()}
           </Button>
           <Button onClick={save} disabled={upsert.isPending}>
             {upsert.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Save
+            {m.admin_plugins_header_dialog_save()}
           </Button>
         </DialogFooter>
       </DialogContent>

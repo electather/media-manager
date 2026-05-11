@@ -1,3 +1,5 @@
+import { m } from "@/paraglide/messages";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Separator } from "@/shared/ui/separator";
 
@@ -13,11 +15,8 @@ export function SecurityTab({ plugin }: SecurityTabProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Network policy</CardTitle>
-        <CardDescription>
-          Restrict the hosts this plugin can reach and inject extra headers into every outbound
-          request. Enforced by the plugin runtime at the fetch boundary.
-        </CardDescription>
+        <CardTitle>{m.admin_plugins_security_title()}</CardTitle>
+        <CardDescription>{m.admin_plugins_security_description()}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         <AllowlistPanel plugin={plugin} />

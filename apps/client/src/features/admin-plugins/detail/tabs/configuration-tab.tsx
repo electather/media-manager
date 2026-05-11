@@ -3,6 +3,8 @@ import { isEqual } from "es-toolkit";
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 
+import { m } from "@/paraglide/messages";
+
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
@@ -31,9 +33,9 @@ export function ConfigurationTab({ plugin }: ConfigurationTabProps) {
       <Card>
         <Empty className="border-0">
           <EmptyHeader>
-            <EmptyTitle>No configuration</EmptyTitle>
+            <EmptyTitle>{m.admin_plugins_config_no_config_title()}</EmptyTitle>
             <EmptyDescription>
-              {plugin.manifest.name} has no plaintext admin configuration.
+              {m.admin_plugins_config_no_config_description({ name: plugin.manifest.name })}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -88,10 +90,9 @@ function ConfigurationForm({ plugin, schema }: { plugin: PluginRow; schema: JSON
   return (
     <Card className="gap-0 p-0">
       <CardHeader className="border-b border-border px-6 pt-5 pb-4">
-        <CardTitle>Plaintext global configuration</CardTitle>
+        <CardTitle>{m.admin_plugins_config_title()}</CardTitle>
         <CardDescription>
-          Server-wide settings for {plugin.manifest.name}. Secret fields stay encrypted on the
-          server and are never displayed after save — leave blank to keep the existing value.
+          {m.admin_plugins_config_description({ name: plugin.manifest.name })}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 px-6 py-5">
@@ -114,11 +115,11 @@ function ConfigurationForm({ plugin, schema }: { plugin: PluginRow; schema: JSON
       </CardContent>
       <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-3.5">
         <Button variant="ghost" onClick={reset} disabled={!dirty || update.isPending}>
-          Discard
+          {m.admin_plugins_config_discard()}
         </Button>
         <Button onClick={onSave} disabled={!dirty || update.isPending || query.isLoading}>
           {update.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-          Save configuration
+          {m.admin_plugins_config_save()}
         </Button>
       </div>
     </Card>

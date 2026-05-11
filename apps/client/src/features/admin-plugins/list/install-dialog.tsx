@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { TriangleAlertIcon } from "lucide-react";
 
+import { m } from "@/paraglide/messages";
+
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -32,23 +34,22 @@ export function InstallDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Install plugin from URL</DialogTitle>
-          <DialogDescription>
-            Paste a manifest URL. Built-in plugins register on server boot; third-party plugin
-            installs ship in a later version.
-          </DialogDescription>
+          <DialogTitle>{m.admin_plugins_install_dialog_title()}</DialogTitle>
+          <DialogDescription>{m.admin_plugins_install_dialog_description()}</DialogDescription>
         </DialogHeader>
         {!sandboxAvailable ? (
           <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <TriangleAlertIcon className="mt-0.5 size-4" aria-hidden="true" />
             <div>
-              <strong className="font-medium">Sandbox unavailable.</strong> Remote install is
-              disabled until the QuickJS sandbox is running.
+              <strong className="font-medium">
+                {m.admin_plugins_install_dialog_sandbox_unavailable()}
+              </strong>{" "}
+              {m.admin_plugins_install_dialog_sandbox_note()}
             </div>
           </div>
         ) : null}
         <Field>
-          <FieldTitle>Manifest URL</FieldTitle>
+          <FieldTitle>{m.admin_plugins_install_dialog_field_title()}</FieldTitle>
           <Input
             type="url"
             value={url}
@@ -57,18 +58,15 @@ export function InstallDialog({
             disabled={!sandboxAvailable}
             autoComplete="off"
           />
-          <FieldDescription>
-            Drop the plugin's <code className="font-mono">plugin.json</code> URL — relative asset
-            paths resolve from it.
-          </FieldDescription>
+          <FieldDescription>{m.admin_plugins_install_dialog_field_hint()}</FieldDescription>
         </Field>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {m.admin_plugins_install_dialog_cancel()}
           </Button>
           {/* TODO: wire install mutation once third-party plugin installs ship. */}
           <Button disabled={!sandboxAvailable || url.trim().length === 0}>
-            Verify &amp; install
+            {m.admin_plugins_install_dialog_install()}
           </Button>
         </DialogFooter>
       </DialogContent>

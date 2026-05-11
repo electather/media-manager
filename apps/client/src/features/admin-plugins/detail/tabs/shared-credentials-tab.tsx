@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import type { JSONSchema } from "@ent-mcp/shared";
 
+import { m } from "@/paraglide/messages";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
 import { SharedCredentialsSection } from "@/features/admin";
@@ -31,10 +33,9 @@ export function SharedCredentialsTab({ plugin }: SharedCredentialsTabProps) {
       <Card>
         <Empty className="border-0">
           <EmptyHeader>
-            <EmptyTitle>No shared credentials for this plugin</EmptyTitle>
+            <EmptyTitle>{m.admin_plugins_shared_creds_no_creds_title()}</EmptyTitle>
             <EmptyDescription>
-              {plugin.manifest.name} only exposes user-scoped capabilities. Each user must connect
-              their own account from Settings → Connections.
+              {m.admin_plugins_shared_creds_no_creds_description({ name: plugin.manifest.name })}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -45,11 +46,14 @@ export function SharedCredentialsTab({ plugin }: SharedCredentialsTabProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Shared credentials pool</CardTitle>
+        <CardTitle>{m.admin_plugins_shared_creds_title()}</CardTitle>
         <CardDescription>
           {plugin.poolable
-            ? `${plugin.sharedCredentialsEnabledCount} of ${plugin.sharedCredentialsCount} active. The server rotates between enabled keys when one hits a rate limit.`
-            : `${plugin.manifest.name} accepts a single shared key. Replace the existing entry rather than adding another.`}
+            ? m.admin_plugins_shared_creds_pool_description({
+                enabled: plugin.sharedCredentialsEnabledCount,
+                total: plugin.sharedCredentialsCount,
+              })
+            : m.admin_plugins_shared_creds_single_description({ name: plugin.manifest.name })}
         </CardDescription>
       </CardHeader>
       <CardContent>

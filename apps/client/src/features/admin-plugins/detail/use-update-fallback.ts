@@ -1,5 +1,7 @@
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 
+import { m } from "@/paraglide/messages";
+
 import { fetchSetFallback } from "../shared/fetchers";
 import { useOptimisticPluginMutation } from "../shared/use-plugin-mutation";
 
@@ -10,7 +12,7 @@ export function useUpdateFallback() {
       ...p,
       personalKeyFallback: input.policy,
     }),
-    "Couldn't update fallback policy",
-    "Fallback policy updated",
+    m.admin_plugins_toast_fallback_error(),
+    m.admin_plugins_toast_fallback_saved(),
   );
 }

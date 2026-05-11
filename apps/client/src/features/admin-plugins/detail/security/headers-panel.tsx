@@ -2,6 +2,8 @@ import { useState } from "react";
 import { PlusIcon, XIcon } from "lucide-react";
 import { PLUGIN_ADMIN_HEADERS_MAX } from "@ent-mcp/shared/plugins";
 
+import { m } from "@/paraglide/messages";
+
 import { Button } from "@/shared/ui/button";
 
 import { HeaderDialog, type HeaderDialogState } from "./header-dialog";
@@ -21,11 +23,9 @@ export function HeadersPanel({ plugin }: HeadersPanelProps) {
     <section className="flex flex-col gap-3">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-medium">Custom request headers</h3>
+          <h3 className="text-sm font-medium">{m.admin_plugins_headers_title()}</h3>
           <p className="text-xs text-muted-foreground">
-            Injected into every request {plugin.manifest.name} makes. Admin values override
-            plugin-supplied headers on conflict. Values are encrypted on the server and never
-            returned.
+            {m.admin_plugins_headers_description({ name: plugin.manifest.name })}
           </p>
         </div>
         <Button
@@ -34,18 +34,18 @@ export function HeadersPanel({ plugin }: HeadersPanelProps) {
           onClick={() => setDialog({ kind: "add" })}
           disabled={headers.length >= PLUGIN_ADMIN_HEADERS_MAX}
         >
-          <PlusIcon /> Add header
+          <PlusIcon /> {m.admin_plugins_headers_add()}
         </Button>
       </header>
       {headers.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic">No custom headers configured.</p>
+        <p className="text-xs text-muted-foreground italic">{m.admin_plugins_headers_empty()}</p>
       ) : (
         <div className="overflow-hidden rounded-md border border-border">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left text-muted-foreground">
-                <th className="px-3 py-1.5 font-normal">Name</th>
-                <th className="px-3 py-1.5 font-normal">Value</th>
+                <th className="px-3 py-1.5 font-normal">{m.admin_plugins_headers_col_name()}</th>
+                <th className="px-3 py-1.5 font-normal">{m.admin_plugins_headers_col_value()}</th>
                 <th className="w-28 py-1.5" />
               </tr>
             </thead>
@@ -60,13 +60,13 @@ export function HeadersPanel({ plugin }: HeadersPanelProps) {
                       variant="ghost"
                       onClick={() => setDialog({ kind: "edit", name })}
                     >
-                      Edit
+                      {m.admin_plugins_headers_edit()}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => del.mutate(name)}
-                      aria-label={`Delete ${name}`}
+                      aria-label={m.admin_plugins_headers_delete_aria({ name })}
                       disabled={del.isPending}
                     >
                       <XIcon />

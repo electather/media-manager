@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
+import { m } from "@/paraglide/messages";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
 import { Button } from "@/shared/ui/button";
@@ -36,13 +38,14 @@ export function PluginDetailPage({ pluginId, tab, onTabChange }: PluginDetailPag
       <div className="flex flex-col gap-4 px-4 py-6 lg:px-6">
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>Plugin not found</EmptyTitle>
+            <EmptyTitle>{m.admin_plugins_detail_not_found_title()}</EmptyTitle>
             <EmptyDescription>
-              No plugin with id <code className="font-mono">{pluginId}</code> is currently
-              registered.
+              {m.admin_plugins_detail_not_found_description({ id: pluginId })}
             </EmptyDescription>
           </EmptyHeader>
-          <Button onClick={() => navigate({ to: "/admin/plugins" })}>Back to plugins</Button>
+          <Button onClick={() => navigate({ to: "/admin/plugins" })}>
+            {m.admin_plugins_detail_back()}
+          </Button>
         </Empty>
       </div>
     );
@@ -62,13 +65,13 @@ export function PluginDetailPage({ pluginId, tab, onTabChange }: PluginDetailPag
 
       <Tabs value={tab} onValueChange={(v) => onTabChange(v as PluginDetailTab)}>
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="overview">{m.admin_plugins_detail_tab_overview()}</TabsTrigger>
           <TabsTrigger value="configuration" disabled={!hasConfig}>
-            Configuration
+            {m.admin_plugins_detail_tab_configuration()}
           </TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="security">{m.admin_plugins_detail_tab_security()}</TabsTrigger>
           <TabsTrigger value="shared" disabled={!hasShared}>
-            Shared credentials
+            {m.admin_plugins_detail_tab_shared()}
             {hasShared ? (
               <span className="ml-1.5 rounded-sm border border-border px-1 font-mono text-[10.5px] text-muted-foreground">
                 {plugin.sharedCredentialsCount}

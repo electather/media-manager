@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 
+import { m } from "@/paraglide/messages";
+
 import { Card } from "@/shared/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
 
@@ -54,10 +56,9 @@ export function PluginsListPage() {
   return (
     <div className="flex flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-3xl font-semibold tracking-tight">Plugins</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">{m.admin_plugins_list_title()}</h1>
         <p className="max-w-[64ch] text-sm text-muted-foreground">
-          Manage plugins that provide external service integrations. Toggle individual plugins,
-          drill in to manage shared credentials, configuration, and security policy.
+          {m.admin_plugins_list_description()}
         </p>
       </header>
 
@@ -74,11 +75,8 @@ export function PluginsListPage() {
         <Card className="gap-0 overflow-hidden p-0">
           <Empty className="border-0">
             <EmptyHeader>
-              <EmptyTitle>No plugins installed</EmptyTitle>
-              <EmptyDescription>
-                Built-in plugins register on server boot. If the list is empty, check the server
-                logs for startup errors.
-              </EmptyDescription>
+              <EmptyTitle>{m.admin_plugins_list_empty_title()}</EmptyTitle>
+              <EmptyDescription>{m.admin_plugins_list_empty_description()}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         </Card>
@@ -86,8 +84,8 @@ export function PluginsListPage() {
         <Card className="gap-0 overflow-hidden p-0">
           <Empty className="border-0">
             <EmptyHeader>
-              <EmptyTitle>No matches</EmptyTitle>
-              <EmptyDescription>Try a different filter or clear the search.</EmptyDescription>
+              <EmptyTitle>{m.admin_plugins_list_no_matches_title()}</EmptyTitle>
+              <EmptyDescription>{m.admin_plugins_list_no_matches_description()}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent />
           </Empty>

@@ -1,6 +1,8 @@
 import { ChevronLeftIcon, BadgeCheckIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
+import { m } from "@/paraglide/messages";
+
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
@@ -42,7 +44,7 @@ export function PluginDetailHeader({
         className="-ml-2 self-start text-muted-foreground hover:text-foreground"
         render={<Link to="/admin/plugins" />}
       >
-        <ChevronLeftIcon /> All plugins
+        <ChevronLeftIcon /> {m.admin_plugins_header_back()}
       </Button>
       <div className="flex flex-wrap items-start gap-4">
         <PluginIcon plugin={plugin} size={52} />
@@ -52,18 +54,22 @@ export function PluginDetailHeader({
             <span className="font-mono text-xs text-muted-foreground">v{plugin.version}</span>
             {plugin.isBuiltin ? (
               <Badge variant="secondary" className="text-xs font-normal">
-                <BadgeCheckIcon /> Built-in
+                <BadgeCheckIcon /> {m.admin_plugins_header_builtin()}
               </Badge>
             ) : null}
             {!plugin.enabled ? (
               <Badge variant="outline" className="text-xs font-normal">
-                Disabled
+                {m.admin_plugins_header_disabled_badge()}
               </Badge>
             ) : null}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {plugin.manifest.author ? `By ${plugin.manifest.author.name} · ` : null}
-            Installed {formatInstalled(plugin.installedAt)}
+            {plugin.manifest.author
+              ? m.admin_plugins_header_installed_by({
+                  author: plugin.manifest.author.name,
+                  date: formatInstalled(plugin.installedAt),
+                })
+              : m.admin_plugins_header_installed({ date: formatInstalled(plugin.installedAt) })}
           </p>
           {plugin.manifest.description ? (
             <p className="mt-2 max-w-[72ch] text-sm text-muted-foreground">
@@ -73,21 +79,27 @@ export function PluginDetailHeader({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
-            {plugin.enabled ? "Enabled" : "Disabled"}
+            {plugin.enabled
+              ? m.admin_plugins_header_enabled_label()
+              : m.admin_plugins_header_disabled_label()}
           </span>
           <Switch
             checked={plugin.enabled}
             onCheckedChange={onToggle}
             disabled={toggling}
-            aria-label={plugin.enabled ? "Disable plugin" : "Enable plugin"}
+            aria-label={
+              plugin.enabled
+                ? m.admin_plugins_header_disable_aria()
+                : m.admin_plugins_header_enable_aria()
+            }
           />
         </div>
       </div>
       {!plugin.isBuiltin ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-destructive/40 bg-destructive/5 px-4 py-2.5 text-sm text-muted-foreground">
-          <span>Uninstalling removes this plugin and all of its user connections.</span>
+          <span>{m.admin_plugins_header_uninstall_warning()}</span>
           <Button variant="outline" size="sm" onClick={onUninstall}>
-            Uninstall…
+            {m.admin_plugins_header_uninstall_cta()}
           </Button>
         </div>
       ) : null}

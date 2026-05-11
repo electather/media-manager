@@ -91,7 +91,7 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
     mode === "restrict" &&
     (entries.length === 0 ||
       (manifestHosts.length > 0 &&
-        !entries.some((a) => manifestHosts.some((m) => patternsOverlap(a, m)))));
+        !entries.some((a) => manifestHosts.some((b) => patternsOverlap(a, b)))));
 
   const save = () => {
     update.mutate(mode === "inherit" ? null : entries);
@@ -100,17 +100,16 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
   return (
     <section className="flex flex-col gap-3">
       <header>
-        <h3 className="text-sm font-medium">Network destinations</h3>
+        <h3 className="text-sm font-medium">{m.admin_plugins_allowlist_title()}</h3>
         <p className="text-xs text-muted-foreground">
-          Limit which hosts {plugin.manifest.name} can reach. Narrows the plugin's declared hosts;
-          user-supplied server URLs (x-allowed-host) are unaffected.
+          {m.admin_plugins_allowlist_description({ name: plugin.manifest.name })}
         </p>
       </header>
 
       {manifestHosts.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-muted-foreground/80">
-            Declared by manifest
+            {m.admin_plugins_allowlist_declared_label()}
           </span>
           <div className="flex flex-wrap gap-1.5">
             {manifestHosts.map((h) => (
@@ -129,11 +128,11 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
       >
         <Label className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-normal hover:bg-muted/50">
           <RadioGroupItem value="inherit" className="mt-0.5" />
-          <span>Inherit manifest (default)</span>
+          <span>{m.admin_plugins_allowlist_mode_inherit()}</span>
         </Label>
         <Label className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm font-normal hover:bg-muted/50">
           <RadioGroupItem value="restrict" className="mt-0.5" />
-          <span>Restrict to specific hosts</span>
+          <span>{m.admin_plugins_allowlist_mode_restrict()}</span>
         </Label>
       </RadioGroup>
 
@@ -149,7 +148,7 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
                 {entry}
                 <button
                   type="button"
-                  aria-label={`Remove ${entry}`}
+                  aria-label={m.admin_plugins_allowlist_remove_aria({ host: entry })}
                   onClick={() => setEntries(entries.filter((e) => e !== entry))}
                   className="inline-flex size-3.5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
@@ -159,7 +158,7 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
             ))}
             {entries.length === 0 ? (
               <span className="text-xs text-muted-foreground italic">
-                No hosts — every outbound request will be blocked.
+                {m.admin_plugins_allowlist_empty()}
               </span>
             ) : null}
           </div>
@@ -176,19 +175,18 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
                   addEntry();
                 }
               }}
-              placeholder="api.example.com or *.example.com"
+              placeholder={m.admin_plugins_allowlist_placeholder()}
               className="h-8 max-w-xs font-mono text-xs"
             />
             <Button type="button" size="sm" variant="outline" onClick={addEntry}>
-              <PlusIcon /> Add
+              <PlusIcon /> {m.admin_plugins_allowlist_add()}
             </Button>
           </div>
           {draftError ? <p className="text-xs text-destructive">{draftError}</p> : null}
           {intersectionEmpty ? (
             <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-500">
               <TriangleAlertIcon className="mt-px size-3.5 shrink-0" />
-              Plugin will make no network calls with this configuration. User-supplied server URLs
-              (x-allowed-host) are unaffected.
+              {m.admin_plugins_allowlist_warning()}
             </p>
           ) : null}
         </div>
@@ -197,7 +195,7 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={save} disabled={update.isPending}>
           {update.isPending ? <LoaderCircleIcon className="animate-spin" /> : null}
-          Save allowlist
+          {m.admin_plugins_allowlist_save()}
         </Button>
       </div>
     </section>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { LoaderCircleIcon } from "lucide-react";
 
+import { m } from "@/paraglide/messages";
+
 import { Button } from "@/shared/ui/button";
 import {
   Dialog,
@@ -39,16 +41,16 @@ export function UninstallDialog({ plugin, open, onOpenChange }: UninstallDialogP
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <DialogContent className="gap-0 p-0 sm:max-w-[28rem]">
         <DialogHeader className="p-6 pb-4">
-          <DialogTitle className="text-destructive">Uninstall {plugin.manifest.name}?</DialogTitle>
+          <DialogTitle className="text-destructive">
+            {m.admin_plugins_uninstall_title({ name: plugin.manifest.name })}
+          </DialogTitle>
           <DialogDescription>
-            This removes the plugin and deletes every user connection associated with it. Data on
-            the external service is not affected. To confirm, type{" "}
-            <strong className="font-medium text-foreground">{plugin.manifest.name}</strong> below.
+            {m.admin_plugins_uninstall_description({ name: plugin.manifest.name })}
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-4">
           <Field>
-            <FieldTitle>Plugin name</FieldTitle>
+            <FieldTitle>{m.admin_plugins_uninstall_field_title()}</FieldTitle>
             <Input
               autoFocus
               value={typed}
@@ -56,7 +58,7 @@ export function UninstallDialog({ plugin, open, onOpenChange }: UninstallDialogP
               placeholder={plugin.manifest.name}
               disabled={pending}
             />
-            <FieldDescription>Must match exactly.</FieldDescription>
+            <FieldDescription>{m.admin_plugins_uninstall_field_hint()}</FieldDescription>
           </Field>
           {uninstall.error ? (
             <p className="mt-3 text-sm text-destructive">{uninstall.error.message}</p>
@@ -64,7 +66,7 @@ export function UninstallDialog({ plugin, open, onOpenChange }: UninstallDialogP
         </div>
         <DialogFooter className="border-t border-border px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-            Cancel
+            {m.admin_plugins_uninstall_cancel()}
           </Button>
           <Button
             variant="destructive"
@@ -72,7 +74,7 @@ export function UninstallDialog({ plugin, open, onOpenChange }: UninstallDialogP
             disabled={!match || pending}
           >
             {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Uninstall plugin
+            {m.admin_plugins_uninstall_confirm()}
           </Button>
         </DialogFooter>
       </DialogContent>
