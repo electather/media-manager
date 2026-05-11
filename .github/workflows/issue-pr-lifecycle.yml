@@ -21,7 +21,7 @@ env:
 jobs:
   issue-intake:
     if: github.event_name == 'issues'
-    runs-on: [media-manager, sandboxed]
+    runs-on: ubuntu-latest
     steps:
       - name: Add triage status
         run: 'gh issue edit "$ISSUE_NUMBER" --add-label "status: needs-triage"'
@@ -30,7 +30,7 @@ jobs:
 
   pr-status:
     if: github.event_name == 'pull_request_target'
-    runs-on: [media-manager, sandboxed]
+    runs-on: ubuntu-latest
     steps:
       - name: Refresh PR status label
         run: |

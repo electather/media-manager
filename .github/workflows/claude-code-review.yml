@@ -10,8 +10,10 @@ env:
 
 jobs:
   claude-review:
-    if: github.event.pull_request.draft == false
-    runs-on: [media-manager, sandboxed]
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write

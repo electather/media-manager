@@ -21,7 +21,7 @@ jobs:
       contents: read
       pull-requests: write # fallow comment: true
       security-events: write # upload-sarif    name: CI
-    runs-on: [media-manager, sandboxed]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
