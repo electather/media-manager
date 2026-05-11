@@ -47,6 +47,7 @@ import { ConnectionModal } from "@/features/connections";
 import type { PluginSummary as ModalPluginSummary } from "@/features/connections";
 import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
 import { type ConnectionStatus } from "@ent-mcp/shared/connections";
+import { isNotificationOnlyPlugin } from "@ent-mcp/shared/plugins";
 
 const STATUS_LABEL: Record<ConnectionStatus, () => string> = {
   connected: () => m.settings_connections_status_connected(),
@@ -227,9 +228,21 @@ function useDeleteConnection() {
 }
 
 function ConnectionsPage() {
-  const conns = useConnections().data;
+  const allConns = useConnections().data;
   const plugins = useAvailablePlugins().data;
   const qc = useQueryClient();
+
+  // Notification-only channels (Telegram, Discord, ntfy) live on the
+  // Notifications settings page. Filter them out of the Connections list so
+  // the two sections own disjoint plugin sets — the `listAvailablePlugins`
+  // server query already excludes them from the catalog grid below.
+  const conns = useMemo(
+    () =>
+      allConns.filter(
+        (c) => !isNotificationOnlyPlugin(c.plugin.userScopedCapabilities.map((cap) => cap.id)),
+      ),
+    [allConns],
+  );
 
   const test = useTestConnection();
   const toggle = useToggleEnabled();

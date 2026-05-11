@@ -615,14 +615,17 @@ All routes: `/api/notifications/...` & `/api/admin/notifications/...` in `apps/s
 
 ```
 GET  /api/notifications/plugins
-     → { plugins: Array<{
-         id: string;            name: string;             description: string;
-         authKind: "none" | "oauth_device" | "oauth_redirect" | "custom";
-         supportsKinds: NotificationContentKind[];
-         userConfigSchema: JSONSchema;
-         iconUrl?: string;
-       }>}
-     Filters plugin registry to those exposing notificationDelivery@v1.
+     → { plugins: Array<PluginSummary & { supportsKinds: NotificationContentKind[] }> }
+     Filters plugin registry to those exposing notificationDelivery@v1 and
+     returns the same PluginSummary shape that /api/connections/available
+     uses (id, name, version, description, logoUrl?, authKind, poolable,
+     userScopedCapabilities, globalScopedCapabilities, userConfigSchema,
+     credentialsSchema, adminSharedAvailable) plus `supportsKinds`. The
+     summary fields let the settings/notifications page hand a picker entry
+     straight to ConnectionModal without a second /connections/available
+     round-trip. /connections/available reciprocally excludes notification-
+     only plugins (sole user-scoped cap = notificationDelivery) so the two
+     sections own disjoint plugin sets.
 
 GET  /api/notifications/categories
      → { categories: Array<{

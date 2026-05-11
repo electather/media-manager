@@ -27,7 +27,6 @@ import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";
 import { badRequest, forbidden, notFound, payloadTooLarge } from "../../../diagnostics/http-errors";
 import { zValidator } from "../../../diagnostics/validator";
-import { capabilityRegistry } from "../../../plugin-runtime/registry";
 import {
   deleteInboxAllForUser,
   deleteInboxForUser,
@@ -58,22 +57,11 @@ export const notificationsApp = new Hono()
   // fallow-ignore-next-line complexity
   .get("/plugins", async (c) => {
     const ids = notificationCapablePluginIds();
-    const plugins = [];
-    for (const id of ids) {
-      const entry = capabilityRegistry.get(id);
-      if (!entry) continue;
-      const manifest = entry.module.manifest;
-      plugins.push({
-        id: manifest.id,
-        name: manifest.name,
-        description: manifest.description,
-        authKind: manifest.auth.kind,
-        supportsKinds: manifestSupportsKinds(id),
-        userConfigSchema:
-          (manifest.userConfigSchema as Record<string, unknown> | undefined) ?? null,
-        ...(manifest.logoUrl ? { iconUrl: manifest.logoUrl } : {}),
-      });
-    }
+    const summaries = await connectionsService.listNotificationPlugins(ids);
+    const plugins = summaries.map((summary) => ({
+      ...summary,
+      supportsKinds: manifestSupportsKinds(summary.id),
+    }));
     return c.json({ plugins });
   })
   .get("/categories", async (c) => {

@@ -170,14 +170,27 @@ export const categoryEntrySchema = z.object({
   allowed: z.boolean(),
 });
 
+/**
+ * Notification picker entries are full plugin summaries (the same shape served
+ * by `/api/connections/available`) plus the per-channel `supportsKinds` list.
+ * Returning the summary shape lets the Notifications settings page hand the
+ * entry straight to `ConnectionModal` without a second `/connections/available`
+ * round-trip.
+ */
 export const pluginEntrySchema = z.object({
   id: z.string(),
   name: z.string(),
+  version: z.string(),
   description: z.string(),
+  logoUrl: z.string().optional(),
   authKind: z.enum(AUTH_KINDS),
-  supportsKinds: z.array(notificationContentKindSchema),
+  poolable: z.boolean(),
+  userScopedCapabilities: z.array(z.object({ id: z.string(), version: z.string() })),
+  globalScopedCapabilities: z.array(z.object({ id: z.string(), version: z.string() })),
   userConfigSchema: z.record(z.string(), z.unknown()).nullable(),
-  iconUrl: z.string().optional(),
+  credentialsSchema: z.record(z.string(), z.unknown()).nullable(),
+  adminSharedAvailable: z.boolean(),
+  supportsKinds: z.array(notificationContentKindSchema),
 });
 
 export const subscriptionRowSchema = z.object({

@@ -68,17 +68,15 @@ function NotificationsSkeleton() {
 }
 
 const PLUGINS_KEY = ["settings", "notifications", "plugins"] as const;
-const AVAILABLE_PLUGINS_KEY = ["settings", "connections", "available"] as const;
 
-interface NotificationPluginEntry {
-  id: string;
-  name: string;
-  description: string;
-  authKind: string;
-  supportsKinds: string[];
-  userConfigSchema: Record<string, unknown> | null;
-  iconUrl?: string;
-}
+/**
+ * Server-returned shape of `/notifications/plugins`: every notification-capable
+ * plugin's full `PluginSummary` plus its `supportsKinds` list. The summary
+ * fields let us pass the entry straight to `ConnectionModal` without a second
+ * `/connections/available` round-trip — the Connections endpoint now hides
+ * notification-only plugins anyway, so it would no longer return them.
+ */
+type NotificationPluginEntry = PluginSummary & { supportsKinds: string[] };
 
 interface ChannelRowData {
   id: string;
@@ -106,18 +104,6 @@ function useNotificationPlugins() {
   });
 }
 
-function useAvailableConnectionPlugins() {
-  return useSuspenseQuery({
-    queryKey: AVAILABLE_PLUGINS_KEY,
-    queryFn: async () => {
-      const res = await api.connections.available.$get();
-      if (!res.ok) throw new Error("Failed to load available connection plugins");
-      const body = (await res.json()) as { plugins: PluginSummary[] };
-      return body.plugins;
-    },
-  });
-}
-
 function useDeleteChannel() {
   const qc = useQueryClient();
   return useMutation({
@@ -137,7 +123,6 @@ function NotificationsPage() {
   const categoriesResp = useCategories().data.categories;
   const subsResp = useSubscriptions().data.subscriptions;
   const notificationPlugins = useNotificationPlugins().data;
-  const availablePlugins = useAvailableConnectionPlugins().data;
   const qc = useQueryClient();
 
   const toggle = useToggleSubscription();
@@ -192,13 +177,13 @@ function NotificationsPage() {
   };
 
   const handleAddPickerSelect = (entry: NotificationPluginEntry) => {
-    const matching = availablePlugins.find((p) => p.id === entry.id) ?? null;
-    if (!matching) {
-      toast.error(m.settings_notifications_toast_plugin_unavailable({ name: entry.name }));
-      return;
-    }
     setAddOpen(false);
-    setModalPlugin(matching);
+    // The notifications endpoint returns the same `PluginSummary` shape that
+    // `/connections/available` does, with an extra `supportsKinds` field.
+    // `ConnectionModal` only reads the summary fields, so we hand `entry`
+    // straight through — extra keys are ignored at the structural type
+    // boundary.
+    setModalPlugin(entry);
   };
 
   const handleDeleteConfirm = () => {
