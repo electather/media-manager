@@ -630,7 +630,7 @@ function ConnectionRowActions({
             </Button>
           }
         />
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="min-w-40">
           <DropdownMenuItem onClick={onTest}>
             <RefreshCwIcon className="size-3.5" />
             {m.settings_connections_action_test()}
