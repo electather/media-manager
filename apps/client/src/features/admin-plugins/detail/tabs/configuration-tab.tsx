@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isEqual } from "es-toolkit";
 import { useQuery } from "@tanstack/react-query";
 import { LoaderCircleIcon, TriangleAlertIcon } from "lucide-react";
 
@@ -68,9 +69,7 @@ function ConfigurationForm({ plugin, schema }: { plugin: PluginRow; schema: JSON
     setValues(initialValues);
   }, [initialValues]);
 
-  const dirty = useMemo(() => {
-    return JSON.stringify(values) !== JSON.stringify(initialValues);
-  }, [values, initialValues]);
+  const dirty = useMemo(() => !isEqual(values, initialValues), [values, initialValues]);
 
   const onSave = () => {
     const errors = validateSchema(schema, values);

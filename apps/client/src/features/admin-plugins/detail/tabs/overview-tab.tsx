@@ -148,19 +148,40 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
               server try?
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-1">
+          <CardContent
+            className="flex flex-col gap-1"
+            role="radiogroup"
+            aria-label="Personal-key fallback policy"
+          >
             {POLICIES.map(
               // fallow-ignore-next-line complexity
-              (p) => {
+              (p, idx) => {
                 const active = plugin.personalKeyFallback === p.id;
                 const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
+                const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+                  let next = -1;
+                  if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    next = (idx + 1) % POLICIES.length;
+                  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    next = (idx - 1 + POLICIES.length) % POLICIES.length;
+                  }
+                  if (next === -1) return;
+                  e.preventDefault();
+                  const nextPolicy = POLICIES[next];
+                  if (!nextPolicy) return;
+                  const nextDisabled =
+                    nextPolicy.id !== "off" && !plugin.isPureGlobal && !hasShared;
+                  if (!nextDisabled && !fallbackPending) onChangeFallback(nextPolicy.id);
+                };
                 return (
                   <button
                     key={p.id}
                     type="button"
                     role="radio"
                     aria-checked={active}
+                    tabIndex={active ? 0 : -1}
                     onClick={() => !optionDisabled && onChangeFallback(p.id)}
+                    onKeyDown={handleKeyDown}
                     disabled={optionDisabled || fallbackPending}
                     className={cn(
                       "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",

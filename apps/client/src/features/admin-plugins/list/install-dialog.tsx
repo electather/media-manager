@@ -66,6 +66,7 @@ export function InstallDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
+          {/* TODO: wire install mutation once third-party plugin installs ship. */}
           <Button disabled={!sandboxAvailable || url.trim().length === 0}>
             Verify &amp; install
           </Button>

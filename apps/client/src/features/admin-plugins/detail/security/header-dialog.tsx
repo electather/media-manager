@@ -45,7 +45,7 @@ export function HeaderDialog({ pluginId, state, onClose }: HeaderDialogProps) {
     setPreserveValue(isEdit);
     setError(null);
     upsert.reset();
-  }, [open, initialName, isEdit, upsert]);
+  }, [open, initialName, isEdit, upsert.reset]);
 
   // fallow-ignore-next-line complexity
   const save = () => {

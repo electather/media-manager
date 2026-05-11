@@ -1,7 +1,6 @@
 import { SearchIcon, PlusIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/ui/input-group";
 import { cn } from "@/shared/lib/utils";
 
@@ -90,6 +89,3 @@ export function FilterBar({
     </div>
   );
 }
-
-// Re-export Input for callers that prefer a plain input.
-export { Input as PluginsFilterInput };

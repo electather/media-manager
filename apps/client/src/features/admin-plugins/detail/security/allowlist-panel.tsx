@@ -54,10 +54,13 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
   const [draftError, setDraftError] = useState<string | null>(null);
   const update = useUpdateAllowlist(plugin.id);
 
+  // Serialize to avoid re-syncing when the array reference changes but contents are identical.
+  const storedKey = JSON.stringify(stored);
   useEffect(() => {
     setMode(stored === null ? "inherit" : "restrict");
     setEntries(stored ?? []);
-  }, [stored]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedKey]);
 
   // fallow-ignore-next-line complexity
   const addEntry = () => {
