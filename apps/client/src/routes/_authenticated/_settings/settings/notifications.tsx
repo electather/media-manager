@@ -31,7 +31,7 @@ import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { SettingsCard, SettingsCardHeader } from "@/features/settings";
+import { SettingsCard, SettingsCardHeader, settingsKeys } from "@/features/settings";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import {
   useChannels,
@@ -67,8 +67,6 @@ function NotificationsSkeleton() {
   );
 }
 
-const PLUGINS_KEY = ["settings", "notifications", "plugins"] as const;
-
 /**
  * Server-returned shape of `/notifications/plugins`: every notification-capable
  * plugin's full `PluginSummary` plus its `supportsKinds` list. The summary
@@ -94,7 +92,7 @@ function isInboxRow(channel: { pluginId: string }): boolean {
 
 function useNotificationPlugins() {
   return useSuspenseQuery({
-    queryKey: PLUGINS_KEY,
+    queryKey: settingsKeys.notificationPlugins(),
     queryFn: async () => {
       const res = await api.notifications.plugins.$get();
       if (!res.ok) throw new Error("Failed to load notification plugins");

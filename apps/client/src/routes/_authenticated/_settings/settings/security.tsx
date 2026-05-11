@@ -243,7 +243,13 @@ export function ChangePasswordCard({
           current={current}
           next={next}
           confirm={confirm}
-          setCurrent={setCurrent}
+          setCurrent={(v) => {
+            setCurrent(v);
+            // Clear the "wrong password" server error as soon as the user
+            // edits the current-password field, so the red banner does not
+            // outlast the input that triggered it.
+            if (serverError) setServerError(null);
+          }}
           setNext={setNext}
           setConfirm={setConfirm}
           tooShort={tooShort}

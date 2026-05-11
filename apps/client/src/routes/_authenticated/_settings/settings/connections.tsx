@@ -41,7 +41,7 @@ import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { SettingsCard, SettingsCardHeader } from "@/features/settings";
+import { SettingsCard, SettingsCardHeader, settingsKeys } from "@/features/settings";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { ConnectionModal } from "@/features/connections";
 import type { PluginSummary as ModalPluginSummary } from "@/features/connections";
@@ -69,9 +69,6 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
   error: "bg-destructive",
   disconnected: "bg-muted-foreground/60",
 };
-
-const CONNECTIONS_KEY = ["settings", "connections"] as const;
-const AVAILABLE_PLUGINS_KEY = ["settings", "connections", "available"] as const;
 
 function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
   return (
@@ -121,7 +118,7 @@ interface ModalTarget {
 
 function useConnections() {
   return useSuspenseQuery({
-    queryKey: CONNECTIONS_KEY,
+    queryKey: settingsKeys.connections(),
     queryFn: async () => {
       const res = await api.connections.$get();
       if (!res.ok) throw new Error("Failed to load connections");
@@ -133,7 +130,7 @@ function useConnections() {
 
 function useAvailablePlugins() {
   return useSuspenseQuery({
-    queryKey: AVAILABLE_PLUGINS_KEY,
+    queryKey: settingsKeys.availablePlugins(),
     queryFn: async () => {
       const res = await api.connections.available.$get();
       if (!res.ok) throw new Error("Failed to load available plugins");
@@ -158,7 +155,7 @@ function useTestConnection() {
       return body;
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+      void qc.invalidateQueries({ queryKey: settingsKeys.connections() });
     },
   });
 }
@@ -174,21 +171,21 @@ function useToggleEnabled() {
       if (!res.ok) throw new Error("Failed to update enabled state");
     },
     onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: CONNECTIONS_KEY });
-      const prev = qc.getQueryData<ConnectionListItem[]>(CONNECTIONS_KEY);
+      await qc.cancelQueries({ queryKey: settingsKeys.connections() });
+      const prev = qc.getQueryData<ConnectionListItem[]>(settingsKeys.connections());
       if (prev) {
         qc.setQueryData<ConnectionListItem[]>(
-          CONNECTIONS_KEY,
+          settingsKeys.connections(),
           prev.map((c) => (c.id === input.id ? { ...c, enabled: input.enabled } : c)),
         );
       }
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CONNECTIONS_KEY, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(settingsKeys.connections(), ctx.prev);
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+      void qc.invalidateQueries({ queryKey: settingsKeys.connections() });
     },
   });
 }
@@ -201,7 +198,7 @@ function useSetDefault() {
       if (!res.ok) throw new Error("Failed to set default");
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+      void qc.invalidateQueries({ queryKey: settingsKeys.connections() });
     },
   });
 }
@@ -214,21 +211,21 @@ function useDeleteConnection() {
       if (!res.ok) throw new Error("Failed to delete connection");
     },
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: CONNECTIONS_KEY });
-      const prev = qc.getQueryData<ConnectionListItem[]>(CONNECTIONS_KEY);
+      await qc.cancelQueries({ queryKey: settingsKeys.connections() });
+      const prev = qc.getQueryData<ConnectionListItem[]>(settingsKeys.connections());
       if (prev) {
         qc.setQueryData<ConnectionListItem[]>(
-          CONNECTIONS_KEY,
+          settingsKeys.connections(),
           prev.filter((c) => c.id !== id),
         );
       }
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(CONNECTIONS_KEY, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(settingsKeys.connections(), ctx.prev);
     },
     onSettled: () => {
-      void qc.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+      void qc.invalidateQueries({ queryKey: settingsKeys.connections() });
     },
   });
 }
@@ -373,7 +370,7 @@ function ConnectionsPage() {
           if (!open) setModal(null);
         }}
         onSuccess={() => {
-          void qc.invalidateQueries({ queryKey: CONNECTIONS_KEY });
+          void qc.invalidateQueries({ queryKey: settingsKeys.connections() });
         }}
       />
     </div>
