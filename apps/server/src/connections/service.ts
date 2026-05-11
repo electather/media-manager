@@ -56,6 +56,18 @@ function capabilitiesAtScope(
     .map(([id, cap]) => ({ id, version: cap.version }));
 }
 
+type EnabledPluginRow = Awaited<ReturnType<typeof selectEnabledPlugins>>[number];
+
+async function toAvailablePluginSummary(row: EnabledPluginRow): Promise<PluginSummary | null> {
+  if (!capabilityRegistry.get(row.id)) return null;
+  const manifest = parseManifest(row.manifest);
+  const userScoped = capabilitiesAtScope(manifest, "user");
+  if (userScoped.length === 0) return null;
+  if (isNotificationOnlyPlugin(userScoped.map((c) => c.id))) return null;
+  const adminSharedAvailable = (await sharedCredentialsService.countEnabled(row.id)) > 0;
+  return buildPluginSummary(row.id, manifest, adminSharedAvailable);
+}
+
 // fallow-ignore-next-line complexity
 function buildPluginSummary(
   pluginId: string,
@@ -401,17 +413,8 @@ export const connectionsService = {
    */
   async listAvailablePlugins(): Promise<PluginSummary[]> {
     const rows = await selectEnabledPlugins();
-    const out: PluginSummary[] = [];
-    for (const row of rows) {
-      if (!capabilityRegistry.get(row.id)) continue;
-      const manifest = parseManifest(row.manifest);
-      const userScoped = capabilitiesAtScope(manifest, "user");
-      if (userScoped.length === 0) continue;
-      if (isNotificationOnlyPlugin(userScoped.map((c) => c.id))) continue;
-      const adminSharedAvailable = (await sharedCredentialsService.countEnabled(row.id)) > 0;
-      out.push(buildPluginSummary(row.id, manifest, adminSharedAvailable));
-    }
-    return out;
+    const summaries = await Promise.all(rows.map(toAvailablePluginSummary));
+    return summaries.filter((s): s is PluginSummary => s !== null);
   },
 
   /**

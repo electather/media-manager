@@ -321,9 +321,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       onSuccess();
       onOpenChange(false);
     } catch (err) {
-      setTopError(
-        err instanceof Error ? err.message : m.settings_connections_modal_error_generic(),
-      );
+      setTopError(toGenericErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -518,4 +516,8 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       </SheetContent>
     </Sheet>
   );
+}
+
+function toGenericErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : m.settings_connections_modal_error_generic();
 }

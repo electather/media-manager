@@ -42,12 +42,10 @@ export function ConnectionModalHeader({
   return (
     <div className="shrink-0 border-b border-border px-6 pt-5 pb-4">
       <div className="flex items-start gap-3">
-        {plugin.logoUrl ? (
-          <img src={plugin.logoUrl} alt="" className="mt-0.5 size-9 rounded-md object-contain" />
-        ) : null}
+        <HeaderLogo url={plugin.logoUrl} />
         <div className="flex flex-1 flex-col gap-0.5">
           <Title className={cn("text-base")}>{title}</Title>
-          {plugin.description ? <Description>{plugin.description}</Description> : null}
+          <HeaderDescription Description={Description} text={plugin.description} />
         </div>
         <Button
           variant="ghost"
@@ -60,19 +58,53 @@ export function ConnectionModalHeader({
           <XIcon className="size-4" aria-hidden="true" />
         </Button>
       </div>
-      {plugin.userScopedCapabilities.length > 0 ? (
-        <div className="mt-3">
-          <CapabilityBadges entries={plugin.userScopedCapabilities} size="sm" />
-        </div>
-      ) : null}
-      {plugin.globalScopedCapabilities.length > 0 ? (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          <span className="sr-only">{m.settings_connections_modal_also_provides_sr_prefix()}</span>
-          {m.settings_connections_modal_also_provides({
-            list: capabilityListSummary(plugin.globalScopedCapabilities),
-          })}
-        </p>
-      ) : null}
+      <HeaderCapabilities plugin={plugin} />
     </div>
+  );
+}
+
+function HeaderLogo({ url }: { url: string | null | undefined }) {
+  if (!url) return null;
+  return <img src={url} alt="" className="mt-0.5 size-9 rounded-md object-contain" />;
+}
+
+function HeaderDescription({
+  Description,
+  text,
+}: {
+  Description: ComponentType<SlotProps>;
+  text: string | null | undefined;
+}) {
+  if (!text) return null;
+  return <Description>{text}</Description>;
+}
+
+function HeaderCapabilities({ plugin }: { plugin: PluginSummary }) {
+  return (
+    <>
+      <UserCapabilities entries={plugin.userScopedCapabilities} />
+      <GlobalCapabilities entries={plugin.globalScopedCapabilities} />
+    </>
+  );
+}
+
+function UserCapabilities({ entries }: { entries: PluginSummary["userScopedCapabilities"] }) {
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-3">
+      <CapabilityBadges entries={entries} size="sm" />
+    </div>
+  );
+}
+
+function GlobalCapabilities({ entries }: { entries: PluginSummary["globalScopedCapabilities"] }) {
+  if (entries.length === 0) return null;
+  return (
+    <p className="mt-1.5 text-xs text-muted-foreground">
+      <span className="sr-only">{m.settings_connections_modal_also_provides_sr_prefix()}</span>
+      {m.settings_connections_modal_also_provides({
+        list: capabilityListSummary(entries),
+      })}
+    </p>
   );
 }

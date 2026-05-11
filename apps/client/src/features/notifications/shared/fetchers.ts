@@ -1,9 +1,9 @@
 import type { NotificationCategory, AdminSettingsBody } from "@ent-mcp/shared/notifications";
 import { api } from "@/shared/lib/api";
-import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
+import { readOkJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
 import { NotificationsApiError, type AdminDeliveryFilters, type InboxFilters } from "./types";
 
-const throwOnError = (res: Response) => throwOnApiError(res, NotificationsApiError);
+const readJson = <R extends Response>(res: R) => readOkJson(res, NotificationsApiError);
 
 function inboxQuery(filters: InboxFilters, cursor: string | null) {
   return {
@@ -16,76 +16,58 @@ function inboxQuery(filters: InboxFilters, cursor: string | null) {
 }
 
 export async function fetchInboxPage(filters: InboxFilters, cursor: string | null) {
-  const res = await api.notifications.inbox.$get({ query: inboxQuery(filters, cursor) });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.inbox.$get({ query: inboxQuery(filters, cursor) }));
 }
 
 export async function fetchUnreadCount() {
-  const res = await api.notifications.inbox["unread-count"].$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.inbox["unread-count"].$get());
 }
 
 export async function fetchPlugins() {
-  const res = await api.notifications.plugins.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.plugins.$get());
 }
 
 export async function fetchChannels() {
-  const res = await api.notifications.channels.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.channels.$get());
 }
 
 export async function fetchCategories() {
-  const res = await api.notifications.categories.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.categories.$get());
 }
 
 export async function fetchSubscriptions() {
-  const res = await api.notifications.subscriptions.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.subscriptions.$get());
 }
 
 export async function fetchMarkRead(ids: string[]) {
-  const res = await api.notifications.inbox["mark-read"].$post({ json: { ids } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.inbox["mark-read"].$post({ json: { ids } }));
 }
 
 export async function fetchMarkUnread(ids: string[]) {
-  const res = await api.notifications.inbox["mark-unread"].$post({ json: { ids } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.inbox["mark-unread"].$post({ json: { ids } }));
 }
 
 export async function fetchMarkAllRead(input: { category?: NotificationCategory }) {
-  const res = await api.notifications.inbox["mark-all-read"].$post({
-    json: input.category ? { category: input.category } : {},
-  });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(
+    await api.notifications.inbox["mark-all-read"].$post({
+      json: input.category ? { category: input.category } : {},
+    }),
+  );
 }
 
 export async function fetchDismiss(ids: string[]) {
-  const res = await api.notifications.inbox.$delete({ json: { ids } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.notifications.inbox.$delete({ json: { ids } }));
 }
 
 export async function fetchDeleteInboxAll(input: { readOnly?: boolean; olderThan?: string }) {
-  const res = await api.notifications.inbox.all.$delete({
-    json: {
-      ...(input.readOnly !== undefined ? { readOnly: input.readOnly } : {}),
-      ...(input.olderThan ? { olderThan: input.olderThan } : {}),
-    },
-  });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(
+    await api.notifications.inbox.all.$delete({
+      json: {
+        ...(input.readOnly !== undefined ? { readOnly: input.readOnly } : {}),
+        ...(input.olderThan ? { olderThan: input.olderThan } : {}),
+      },
+    }),
+  );
 }
 
 export async function fetchToggleSubscription(input: {
@@ -93,17 +75,17 @@ export async function fetchToggleSubscription(input: {
   category: NotificationCategory;
   enabled: boolean;
 }) {
-  const res = await api.notifications.subscriptions[":connectionId"][":category"].$put({
-    param: { connectionId: input.connectionId, category: input.category },
-    json: { enabled: input.enabled },
-  });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(
+    await api.notifications.subscriptions[":connectionId"][":category"].$put({
+      param: { connectionId: input.connectionId, category: input.category },
+      json: { enabled: input.enabled },
+    }),
+  );
 }
 
 export async function fetchTestChannel(connectionId: string) {
   const res = await api.notifications.channels[":id"].test.$post({ param: { id: connectionId } });
-  if (!res.ok) await throwOnError(res);
+  if (!res.ok) await throwOnApiError(res, NotificationsApiError);
   // The server endpoint always returns HTTP 200 with `{ ok, message? }` — a
   // failed probe (bad bot token, chat not found, bot blocked) carries
   // `ok: false` plus the plugin's diagnostic. Promote that to a thrown error
@@ -135,33 +117,25 @@ export async function fetchAdminDeliveriesPage(
   filters: AdminDeliveryFilters,
   cursor: string | null,
 ) {
-  const res = await api.admin.notifications.deliveries.$get({
-    query: adminDeliveriesQuery(filters, cursor),
-  });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(
+    await api.admin.notifications.deliveries.$get({
+      query: adminDeliveriesQuery(filters, cursor),
+    }),
+  );
 }
 
 export async function fetchAdminDelivery(id: string) {
-  const res = await api.admin.notifications.deliveries[":id"].$get({ param: { id } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.notifications.deliveries[":id"].$get({ param: { id } }));
 }
 
 export async function fetchRetryDelivery(id: string) {
-  const res = await api.admin.notifications.deliveries[":id"].retry.$post({ param: { id } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.notifications.deliveries[":id"].retry.$post({ param: { id } }));
 }
 
 export async function fetchAdminSettings() {
-  const res = await api.admin.notifications.settings.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.notifications.settings.$get());
 }
 
 export async function fetchUpdateAdminSettings(body: AdminSettingsBody) {
-  const res = await api.admin.notifications.settings.$patch({ json: body });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.notifications.settings.$patch({ json: body }));
 }

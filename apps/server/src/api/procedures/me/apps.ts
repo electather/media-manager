@@ -74,9 +74,17 @@ function deriveStatus(args: {
   lastUsedAt: number | null;
 }): AuthorizedAppStatus {
   const { now, connectedAt, lastUsedAt } = args;
-  if (lastUsedAt !== null && now - lastUsedAt <= ACTIVE_WINDOW_MS) return "active";
-  if (lastUsedAt === null && connectedAt > 0 && now - connectedAt <= NEW_WINDOW_MS) return "new";
+  if (isActiveUse(now, lastUsedAt)) return "active";
+  if (isRecentConnection(now, connectedAt, lastUsedAt)) return "new";
   return "idle";
+}
+
+function isActiveUse(now: number, lastUsedAt: number | null): boolean {
+  return lastUsedAt !== null && now - lastUsedAt <= ACTIVE_WINDOW_MS;
+}
+
+function isRecentConnection(now: number, connectedAt: number, lastUsedAt: number | null): boolean {
+  return lastUsedAt === null && connectedAt > 0 && now - connectedAt <= NEW_WINDOW_MS;
 }
 
 // fallow-ignore-next-line complexity

@@ -18,18 +18,29 @@ function rewriteCredentialsEmpty(
   schemaFieldNames: ReadonlyArray<string>,
   schemaProperties: Record<string, Record<string, unknown> | undefined>,
 ): FormErrorResult | null {
-  if (!body || body.code !== "plugin.credentials_empty") return null;
-  const field = typeof body.params?.field === "string" ? body.params.field : null;
+  if (!isCredentialsEmptyError(body)) return null;
+  const field = readFieldParam(body);
   if (!field || !schemaFieldNames.includes(field)) return null;
-  const fieldTitle = readFieldTitle(schemaProperties, field);
-  // The template is `"Enter a {field.title}"`; for titles that start with a
-  // vowel sound (e.g. "API Key") the literal "a" is incorrect. First-character
-  // vowel detection covers the common case here without dragging in a full
-  // a/an library — every current plugin's title fits it.
-  const message = /^[aeiou]/i.test(fieldTitle)
+  const message = formatCredentialsEmptyMessage(readFieldTitle(schemaProperties, field));
+  return { message, fieldErrors: { [field]: message } };
+}
+
+function isCredentialsEmptyError(body: FormErrorBody | null): body is FormErrorBody {
+  return body !== null && body.code === "plugin.credentials_empty";
+}
+
+function readFieldParam(body: FormErrorBody): string | null {
+  const field = body.params?.field;
+  return typeof field === "string" ? field : null;
+}
+
+// The template is `"Enter a {field.title}"`; for titles that start with a
+// vowel sound (e.g. "API Key") the literal "a" is incorrect. First-character
+// vowel detection covers the common case without a full a/an library.
+function formatCredentialsEmptyMessage(fieldTitle: string): string {
+  return /^[aeiou]/i.test(fieldTitle)
     ? m.settings_connections_modal_error_credentials_empty_an({ field: fieldTitle })
     : m.settings_connections_modal_error_credentials_empty_a({ field: fieldTitle });
-  return { message, fieldErrors: { [field]: message } };
 }
 
 /**

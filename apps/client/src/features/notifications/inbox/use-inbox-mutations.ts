@@ -68,17 +68,24 @@ function invalidateInboxAndCount(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: notificationsKeys.unreadCount() });
 }
 
-export function useMarkRead() {
+/**
+ * Shared optimistic-mutation shape for inbox writes: snapshot every inbox
+ * query, apply `update` to each page, restore on error, invalidate inbox +
+ * unread-count once settled. Lets each hook just declare its fetcher + the
+ * cache transform.
+ */
+function useOptimisticInboxMutation<TInput>(args: {
+  mutationFn: (input: TInput) => Promise<unknown>;
+  update: (data: InboxLikeData | undefined, input: TInput) => InboxLikeData | undefined;
+}) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (ids: string[]) => fetchMarkRead(ids),
-    onMutate: async (ids) => {
+    mutationFn: args.mutationFn,
+    onMutate: async (input: TInput) => {
       await qc.cancelQueries({ queryKey: notificationsKeys.inboxAll() });
       const snapshot = snapshotInbox(qc);
-      const idSet = new Set(ids);
-      const now = Date.now();
       qc.setQueriesData<InboxLikeData>({ queryKey: notificationsKeys.inboxAll() }, (data) =>
-        applyToPages(data, setReadAt(idSet, now)),
+        args.update(data, input),
       );
       return { snapshot };
     },
@@ -86,73 +93,47 @@ export function useMarkRead() {
       if (ctx?.snapshot) restore(qc, ctx.snapshot);
     },
     onSettled: () => invalidateInboxAndCount(qc),
+  });
+}
+
+export function useMarkRead() {
+  return useOptimisticInboxMutation({
+    mutationFn: (ids: string[]) => fetchMarkRead(ids),
+    update: (data, ids) => applyToPages(data, setReadAt(new Set(ids), Date.now())),
   });
 }
 
 export function useMarkUnread() {
-  const qc = useQueryClient();
-  return useMutation({
+  return useOptimisticInboxMutation({
     mutationFn: (ids: string[]) => fetchMarkUnread(ids),
-    onMutate: async (ids) => {
-      await qc.cancelQueries({ queryKey: notificationsKeys.inboxAll() });
-      const snapshot = snapshotInbox(qc);
-      const idSet = new Set(ids);
-      qc.setQueriesData<InboxLikeData>({ queryKey: notificationsKeys.inboxAll() }, (data) =>
-        applyToPages(data, setReadAt(idSet, null)),
-      );
-      return { snapshot };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot) restore(qc, ctx.snapshot);
-    },
-    onSettled: () => invalidateInboxAndCount(qc),
+    update: (data, ids) => applyToPages(data, setReadAt(new Set(ids), null)),
   });
 }
 
 export function useDismiss() {
-  const qc = useQueryClient();
-  return useMutation({
+  return useOptimisticInboxMutation({
     mutationFn: (ids: string[]) => fetchDismiss(ids),
-    onMutate: async (ids) => {
-      await qc.cancelQueries({ queryKey: notificationsKeys.inboxAll() });
-      const snapshot = snapshotInbox(qc);
-      const idSet = new Set(ids);
-      qc.setQueriesData<InboxLikeData>({ queryKey: notificationsKeys.inboxAll() }, (data) =>
-        applyToPages(data, removeIds(idSet)),
-      );
-      return { snapshot };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot) restore(qc, ctx.snapshot);
-    },
-    onSettled: () => invalidateInboxAndCount(qc),
+    update: (data, ids) => applyToPages(data, removeIds(new Set(ids))),
   });
 }
 
 export function useMarkAllRead() {
-  const qc = useQueryClient();
-  return useMutation({
+  return useOptimisticInboxMutation({
     mutationFn: (input: { category?: NotificationCategory }) => fetchMarkAllRead(input),
-    onMutate: async (input) => {
-      await qc.cancelQueries({ queryKey: notificationsKeys.inboxAll() });
-      const snapshot = snapshotInbox(qc);
-      const now = Date.now();
-      qc.setQueriesData<InboxLikeData>({ queryKey: notificationsKeys.inboxAll() }, (data) =>
-        applyToPages(data, (items) =>
-          items.map((i) =>
-            (!input.category || i.category === input.category) && i.readAt === null
-              ? { ...i, readAt: now }
-              : i,
-          ),
-        ),
-      );
-      return { snapshot };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.snapshot) restore(qc, ctx.snapshot);
-    },
-    onSettled: () => invalidateInboxAndCount(qc),
+    update: (data, input) => markAllReadUpdate(data, input.category),
   });
+}
+
+function markAllReadUpdate(
+  data: InboxLikeData | undefined,
+  category: NotificationCategory | undefined,
+): InboxLikeData | undefined {
+  const now = Date.now();
+  return applyToPages(data, (items) =>
+    items.map((i) =>
+      (!category || i.category === category) && i.readAt === null ? { ...i, readAt: now } : i,
+    ),
+  );
 }
 
 export function useDeleteInboxAll() {
