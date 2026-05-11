@@ -58,24 +58,15 @@ export async function fetchSetAdminAllowlist(input: {
   );
 }
 
-export async function fetchUpsertAdminHeader(input: {
+export async function fetchSetAdminHeader(input: {
   pluginId: string;
   name: string;
-  value: string;
+  value: string | null;
 }) {
   return readJson(
     await api.plugins[":id"]["admin-headers"].$put({
       param: { id: input.pluginId },
       json: { headers: { [input.name]: input.value } },
-    }),
-  );
-}
-
-export async function fetchDeleteAdminHeader(input: { pluginId: string; name: string }) {
-  return readJson(
-    await api.plugins[":id"]["admin-headers"].$put({
-      param: { id: input.pluginId },
-      json: { headers: { [input.name]: null } },
     }),
   );
 }

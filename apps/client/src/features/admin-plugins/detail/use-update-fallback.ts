@@ -4,26 +4,17 @@ import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 
 import { fetchSetFallback } from "../shared/fetchers";
 import { adminPluginsKeys } from "../shared/query-keys";
-import type { PluginRow } from "../shared/types";
+import { makeOptimisticListHandlers } from "../shared/use-plugin-mutation";
 
 export function useUpdateFallback() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fetchSetFallback,
-    onMutate: async (input: { pluginId: string; policy: PersonalKeyFallbackPolicy }) => {
-      await qc.cancelQueries({ queryKey: adminPluginsKeys.list() });
-      const snapshot = qc.getQueryData<PluginRow[]>(adminPluginsKeys.list());
-      qc.setQueryData<PluginRow[] | undefined>(adminPluginsKeys.list(), (rows) =>
-        rows?.map((p) =>
-          p.id === input.pluginId ? { ...p, personalKeyFallback: input.policy } : p,
-        ),
-      );
-      return { snapshot };
-    },
-    onError: (_err, _input, ctx) => {
-      if (ctx?.snapshot) qc.setQueryData(adminPluginsKeys.list(), ctx.snapshot);
-      toast.error("Couldn't update fallback policy");
-    },
+    ...makeOptimisticListHandlers<{ pluginId: string; policy: PersonalKeyFallbackPolicy }>(
+      qc,
+      (p, input) => ({ ...p, personalKeyFallback: input.policy }),
+      "Couldn't update fallback policy",
+    ),
     onSuccess: () => {
       toast.success("Fallback policy updated");
     },

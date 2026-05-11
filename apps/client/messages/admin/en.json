@@ -1,6 +1,10 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
 
+  "admin_plugins_allowlist_error_pattern": "Must be \"*\", a hostname, or \"*.domain\"",
+  "admin_plugins_allowlist_error_duplicate": "Already in list",
+  "admin_plugins_allowlist_error_max": "At most {max} entries",
+
   "admin_users_title": "Users",
   "admin_users_description": "Invite, assign roles, and manage user accounts.",
   "admin_users_count_summary": "{active} active · {admins} admin · {pending} pending",

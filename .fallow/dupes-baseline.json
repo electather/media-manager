@@ -2,11 +2,6 @@
   "clone_groups": [
     "apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:115-121|apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:95-101",
     "apps/server/src/home/rows/upcoming-for-you.ts:51-59|apps/server/src/home/rows/your-watchlist.ts:79-89",
-    "apps/server/src/media/service.ts:775-787|apps/server/src/media/service.ts:836-848",
-    "apps/client/src/features/admin-plugins/detail/use-update-fallback.ts:14-27|apps/client/src/features/admin-plugins/list/use-toggle-plugin.ts:13-24",
-    "apps/client/src/features/admin-plugins/shared/fetchers.ts:27-39|apps/client/src/features/admin-plugins/shared/fetchers.ts:51-63",
-    "apps/client/src/features/admin-plugins/shared/fetchers.ts:32-44|apps/client/src/features/admin-plugins/shared/fetchers.ts:69-78",
-    "apps/client/src/features/admin-plugins/detail/use-admin-headers.ts:11-19|apps/client/src/features/admin-plugins/detail/use-admin-headers.ts:25-33",
-    "apps/client/src/features/admin-plugins/detail/use-admin-headers.ts:25-33|apps/client/src/features/admin-plugins/detail/use-update-allowlist.ts:10-18"
+    "apps/server/src/media/service.ts:775-787|apps/server/src/media/service.ts:836-848"
   ]
 }

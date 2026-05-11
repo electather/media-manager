@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { LoaderCircleIcon, PlusIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { PLUGIN_ADMIN_ALLOWLIST_MAX } from "@ent-mcp/shared/plugins";
 
+import { m } from "@/paraglide/messages";
+
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -18,6 +20,8 @@ interface AllowlistPanelProps {
   plugin: PluginRow;
 }
 
+// Returns true when two host patterns can both match the same hostname — used to detect
+// when the admin allowlist would block all traffic the manifest declared.
 // fallow-ignore-next-line complexity
 function patternsOverlap(a: string, b: string): boolean {
   const la = a.toLowerCase();
@@ -67,15 +71,15 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
     const normalized = draft.trim().toLowerCase();
     if (!normalized) return;
     if (!HOST_PATTERN.test(normalized)) {
-      setDraftError('Must be "*", a hostname, or "*.domain"');
+      setDraftError(m.admin_plugins_allowlist_error_pattern());
       return;
     }
     if (entries.includes(normalized)) {
-      setDraftError("Already in list");
+      setDraftError(m.admin_plugins_allowlist_error_duplicate());
       return;
     }
     if (entries.length >= PLUGIN_ADMIN_ALLOWLIST_MAX) {
-      setDraftError(`At most ${PLUGIN_ADMIN_ALLOWLIST_MAX} entries`);
+      setDraftError(m.admin_plugins_allowlist_error_max({ max: PLUGIN_ADMIN_ALLOWLIST_MAX }));
       return;
     }
     setEntries([...entries, normalized]);

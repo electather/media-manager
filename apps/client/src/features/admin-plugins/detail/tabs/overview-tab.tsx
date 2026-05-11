@@ -1,3 +1,5 @@
+import { RadioGroup } from "@base-ui/react/radio-group";
+import { Radio } from "@base-ui/react/radio";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 
 import { Badge } from "@/shared/ui/badge";
@@ -71,29 +73,6 @@ function KVRow({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }
       <div className="text-foreground">{v}</div>
     </div>
   );
-}
-
-// fallow-ignore-next-line complexity
-function handlePolicyKeyDown(
-  e: React.KeyboardEvent<HTMLButtonElement>,
-  idx: number,
-  isPureGlobal: boolean,
-  hasShared: boolean,
-  fallbackPending: boolean,
-  onChangeFallback: (p: PersonalKeyFallbackPolicy) => void,
-) {
-  let next = -1;
-  if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-    next = (idx + 1) % POLICIES.length;
-  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-    next = (idx - 1 + POLICIES.length) % POLICIES.length;
-  }
-  if (next === -1) return;
-  e.preventDefault();
-  const nextPolicy = POLICIES[next];
-  if (!nextPolicy) return;
-  const nextDisabled = nextPolicy.id !== "off" && !isPureGlobal && !hasShared;
-  if (!nextDisabled && !fallbackPending) onChangeFallback(nextPolicy.id);
 }
 
 // fallow-ignore-next-line complexity
@@ -171,59 +150,43 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
               server try?
             </CardDescription>
           </CardHeader>
-          <CardContent
-            className="flex flex-col gap-1"
-            role="radiogroup"
-            aria-label="Personal-key fallback policy"
-          >
-            {POLICIES.map(
-              // fallow-ignore-next-line complexity
-              (p, idx) => {
-                const active = plugin.personalKeyFallback === p.id;
+          <CardContent className="flex flex-col gap-1">
+            <RadioGroup
+              value={plugin.personalKeyFallback}
+              onValueChange={(value) => onChangeFallback(value as PersonalKeyFallbackPolicy)}
+              aria-label="Personal-key fallback policy"
+              className="flex flex-col gap-1"
+            >
+              {POLICIES.map((p) => {
                 const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
                 return (
-                  <button
+                  <Radio.Root
                     key={p.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    tabIndex={active ? 0 : -1}
-                    onClick={() => !optionDisabled && onChangeFallback(p.id)}
-                    onKeyDown={(e) =>
-                      handlePolicyKeyDown(
-                        e,
-                        idx,
-                        plugin.isPureGlobal,
-                        hasShared,
-                        fallbackPending,
-                        onChangeFallback,
-                      )
-                    }
+                    value={p.id}
                     disabled={optionDisabled || fallbackPending}
                     className={cn(
-                      "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-                      active ? "border-border bg-muted" : "border-transparent hover:bg-muted/60",
-                      (optionDisabled || fallbackPending) && "cursor-not-allowed opacity-50",
+                      "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      "border-transparent hover:bg-muted/60",
+                      "data-[checked]:border-border data-[checked]:bg-muted",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
                     )}
                   >
-                    <span
+                    <Radio.Indicator
                       className={cn(
                         "mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                        active ? "border-primary" : "border-border",
+                        "border-border data-[checked]:border-primary",
                       )}
                     >
-                      {active ? (
-                        <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-                      ) : null}
-                    </span>
+                      <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                    </Radio.Indicator>
                     <span className="flex-1">
                       <span className="block text-sm font-medium">{p.label}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">{p.desc}</span>
                     </span>
-                  </button>
+                  </Radio.Root>
                 );
-              },
-            )}
+              })}
+            </RadioGroup>
           </CardContent>
         </Card>
       ) : null}
