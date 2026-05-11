@@ -19,6 +19,7 @@ import { Field, FieldLabel } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Separator } from "@/shared/ui/separator";
 import { Textarea } from "@/shared/ui/textarea";
+import { DetailSection } from "@/shared/components/detail-section";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { UserAvatar } from "@/shared/components/user-avatar";
 
@@ -50,7 +51,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
       description: role.description,
       permissions: role.permissions as string[] | "*",
     });
-  }, [role]);
+  }, [role, form]);
 
   const permissions = useStore(form.store, (s) => s.values.permissions);
   const dirty = useStore(form.store, (s) => s.isDirty);
@@ -284,25 +285,5 @@ export function RoleDetail({ role, members, onBack }: Props) {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function DetailSection({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-        {subtitle ? <p className="max-w-prose text-xs text-muted-foreground">{subtitle}</p> : null}
-      </header>
-      <div>{children}</div>
-    </section>
   );
 }

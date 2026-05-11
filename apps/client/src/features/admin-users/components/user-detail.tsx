@@ -17,6 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Separator } from "@/shared/ui/separator";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { DetailSection } from "@/shared/components/detail-section";
 import { UserAvatar } from "@/shared/components/user-avatar";
 
 import { fetchAdminUser } from "../lib/fetchers";
@@ -229,34 +230,6 @@ function IdentityCard({
         <RoleTag role={user.role} />
       </div>
     </div>
-  );
-}
-
-function DetailSection({
-  title,
-  subtitle,
-  tone,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  tone?: "danger";
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <header className="flex flex-col gap-1">
-        <h3
-          className={`text-sm font-semibold tracking-tight ${
-            tone === "danger" ? "text-destructive" : "text-foreground"
-          }`}
-        >
-          {title}
-        </h3>
-        {subtitle ? <p className="max-w-prose text-xs text-muted-foreground">{subtitle}</p> : null}
-      </header>
-      <div>{children}</div>
-    </section>
   );
 }
 
