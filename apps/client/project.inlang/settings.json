@@ -5,6 +5,7 @@
   "modules": ["https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@latest/dist/index.js"],
   "plugin.inlang.messageFormat": {
     "pathPattern": [
+      "./messages/admin/{locale}.json",
       "./messages/command/{locale}.json",
       "./messages/diagnostics/{locale}.json",
       "./messages/errors/{locale}.json",

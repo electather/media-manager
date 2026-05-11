@@ -1,20 +1,41 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Suspense } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
+
+import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+
+import { RolesPage, RolesSkeleton } from "@/features/admin-roles";
+import { adminUsersKeys, fetchAdminUsers } from "@/features/admin-users";
+
+const searchSchema = z
+  .object({
+    role: z.string().optional(),
+  })
+  .strict();
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/roles")({
-  component: AdminRolesPage,
+  validateSearch: searchSchema,
+  loader: ({ context: { queryClient } }) =>
+    queryClient.ensureQueryData({
+      queryKey: adminUsersKeys.list(),
+      queryFn: fetchAdminUsers,
+    }),
+  component: AdminRolesRoute,
 });
 
-/** Gated by admin:roles permission. */
-function AdminRolesPage() {
+function AdminRolesRoute() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const selectedRoleId = search.role ?? null;
+
+  const onSelectRole = (id: string | null) =>
+    void navigate({ to: Route.fullPath, search: id ? { role: id } : {} });
+
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6">
-      <h1 className="text-2xl font-bold">Roles</h1>
-      <p className="text-muted-foreground">
-        Role and permission management. Lists all roles with permission counts. Create custom roles
-        with name and description. Permission editor with grouped toggles by domain (Media, Account,
-        Admin) — system roles show locked permissions. Deleting a role requires reassigning its
-        users first.
-      </p>
-    </div>
+    <SettingsErrorBoundary resetQueryKey={adminUsersKeys.all}>
+      <Suspense fallback={<RolesSkeleton />}>
+        <RolesPage selectedRoleId={selectedRoleId} onSelectRole={onSelectRole} />
+      </Suspense>
+    </SettingsErrorBoundary>
   );
 }

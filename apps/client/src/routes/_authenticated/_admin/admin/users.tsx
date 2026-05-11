@@ -1,19 +1,40 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Suspense } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
+
+import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+
+import { adminUsersKeys, fetchAdminUsers, UsersPage, UsersSkeleton } from "@/features/admin-users";
+
+const searchSchema = z
+  .object({
+    user: z.string().optional(),
+  })
+  .strict();
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/users")({
-  component: AdminUsersPage,
+  validateSearch: searchSchema,
+  loader: ({ context: { queryClient } }) =>
+    queryClient.ensureQueryData({
+      queryKey: adminUsersKeys.list(),
+      queryFn: fetchAdminUsers,
+    }),
+  component: AdminUsersRoute,
 });
 
-/** Gated by admin:users permission. */
-function AdminUsersPage() {
+function AdminUsersRoute() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const selectedUserId = search.user ?? null;
+
+  const onSelectUser = (id: string | null) =>
+    void navigate({ to: Route.fullPath, search: id ? { user: id } : {} });
+
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6">
-      <h1 className="text-2xl font-bold">Users</h1>
-      <p className="text-muted-foreground">
-        User management. Table of all users with name, email, role, status, last active, and
-        connected services count. Actions: invite new user (generates a link with expiry), assign or
-        change role per user, and disable or remove a user.
-      </p>
-    </div>
+    <SettingsErrorBoundary resetQueryKey={adminUsersKeys.all}>
+      <Suspense fallback={<UsersSkeleton />}>
+        <UsersPage selectedUserId={selectedUserId} onSelectUser={onSelectUser} />
+      </Suspense>
+    </SettingsErrorBoundary>
   );
 }
