@@ -1,5 +1,11 @@
 # @ent-mcp/shared
 
+## 0.1.2
+
+### Patch Changes
+
+- ce2b0c5: Excluded the admin diagnostics namespace from HTTP perf capture so polling the Performance tab no longer skews its own samples, and made the perf aggregate endpoint honour the pinned request-id filter.
+
 ## 0.1.1
 
 ### Patch Changes

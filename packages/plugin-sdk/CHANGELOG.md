@@ -1,5 +1,12 @@
 # @ent-mcp/plugin-sdk
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [ce2b0c5]
+  - @ent-mcp/shared@0.1.2
+
 ## 0.4.0
 
 ### Minor Changes
