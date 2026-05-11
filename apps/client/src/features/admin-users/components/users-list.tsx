@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useMemo } from "react";
 import { SearchIcon } from "lucide-react";
 

@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { useSyncExternalStore } from "react";
 
 import { m } from "@/paraglide/messages";

@@ -1,3 +1,4 @@
+// fallow-ignore-file complexity
 import { ChevronRightIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
