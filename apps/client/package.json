@@ -2,6 +2,15 @@
   "name": "@ent-mcp/client",
   "version": "0.4.0",
   "private": false,
+  "description": "React dashboard for ent-mcp — browse watchlist, history, requests, and settings for your self-hosted entertainment platform.",
+  "keywords": [
+    "dashboard",
+    "mcp",
+    "media-manager",
+    "react",
+    "self-hosted"
+  ],
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vp dev",

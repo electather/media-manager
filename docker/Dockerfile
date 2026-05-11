@@ -8,6 +8,17 @@ COPY package.json bun.lock* ./
 COPY apps/server/package.json ./apps/server/package.json
 COPY apps/client/package.json ./apps/client/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
+COPY packages/plugin-sdk/package.json ./packages/plugin-sdk/package.json
+COPY packages/plugins/discord/package.json ./packages/plugins/discord/package.json
+COPY packages/plugins/inbox/package.json ./packages/plugins/inbox/package.json
+COPY packages/plugins/jellyfin/package.json ./packages/plugins/jellyfin/package.json
+COPY packages/plugins/ntfy/package.json ./packages/plugins/ntfy/package.json
+COPY packages/plugins/plex/package.json ./packages/plugins/plex/package.json
+COPY packages/plugins/seerr/package.json ./packages/plugins/seerr/package.json
+COPY packages/plugins/telegram/package.json ./packages/plugins/telegram/package.json
+COPY packages/plugins/tmdb/package.json ./packages/plugins/tmdb/package.json
+COPY packages/plugins/trakt/package.json ./packages/plugins/trakt/package.json
+COPY packages/plugins/tvdb/package.json ./packages/plugins/tvdb/package.json
 
 # `--ignore-scripts` skips the root `prepare` hook (`vp config`), which is a
 # local developer-tooling step and requires `git` — not present in oven/bun.
@@ -29,6 +40,8 @@ FROM deps AS server-build
 WORKDIR /app
 
 COPY packages/shared ./packages/shared
+COPY packages/plugin-sdk ./packages/plugin-sdk
+COPY packages/plugins ./packages/plugins
 COPY apps/server ./apps/server
 COPY tsconfig.base.json ./
 

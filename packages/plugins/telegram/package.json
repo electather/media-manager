@@ -2,6 +2,14 @@
   "name": "@ent-mcp/plugin-telegram",
   "version": "0.2.2",
   "private": false,
+  "description": "ent-mcp plugin — Telegram notification delivery.",
+  "keywords": [
+    "ent-mcp",
+    "mcp",
+    "plugin",
+    "telegram"
+  ],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

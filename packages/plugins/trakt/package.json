@@ -2,6 +2,14 @@
   "name": "@ent-mcp/plugin-trakt",
   "version": "0.2.2",
   "private": false,
+  "description": "ent-mcp plugin — Trakt watch history, watchlist, ratings, and recommendations.",
+  "keywords": [
+    "ent-mcp",
+    "mcp",
+    "plugin",
+    "trakt"
+  ],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

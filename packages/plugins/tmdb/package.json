@@ -2,6 +2,14 @@
   "name": "@ent-mcp/plugin-tmdb",
   "version": "0.3.1",
   "private": false,
+  "description": "ent-mcp plugin — TMDB metadata, artwork, and search.",
+  "keywords": [
+    "ent-mcp",
+    "mcp",
+    "plugin",
+    "tmdb"
+  ],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

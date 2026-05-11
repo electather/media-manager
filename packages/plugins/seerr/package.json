@@ -2,6 +2,14 @@
   "name": "@ent-mcp/plugin-seerr",
   "version": "0.3.0",
   "private": false,
+  "description": "ent-mcp plugin — media request integration for Overseerr and Jellyseerr.",
+  "keywords": [
+    "ent-mcp",
+    "mcp",
+    "plugin",
+    "seerr"
+  ],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
