@@ -2,8 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import { classifyPluginPurpose, isNotificationOnlyPlugin } from "../purpose";
 
 describe("classifyPluginPurpose", () => {
-  it("treats a plugin with no user-scoped capabilities as a connection (pure-global)", () => {
-    expect(classifyPluginPurpose([])).toBe("connection");
+  it("returns `none` for a pure-global plugin with no user-scoped capabilities", () => {
+    expect(classifyPluginPurpose([])).toBe("none");
   });
 
   it("returns `notification` when the only user-scoped capability is notificationDelivery", () => {

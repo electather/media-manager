@@ -8,15 +8,23 @@
 
 export const NOTIFICATION_CAPABILITY_ID = "notificationDelivery";
 
-export type PluginPurpose = "connection" | "notification" | "both";
+/**
+ * - `"none"` — pure-global plugin (no user-scoped capabilities). Neither
+ *   the Connections list nor the Notifications picker should offer it.
+ * - `"notification"` — only user-scoped capability is `notificationDelivery`.
+ *   Owned by Settings → Notifications.
+ * - `"connection"` — at least one non-notification user-scoped capability.
+ *   Owned by Settings → Connections.
+ * - `"both"` — mixes `notificationDelivery` with another user-scoped
+ *   capability; surfaces in both sections.
+ */
+export type PluginPurpose = "none" | "connection" | "notification" | "both";
 
 /**
- * Classifies a plugin from the ids of its user-scoped capabilities. Pure-global
- * plugins (no user-scoped capabilities) are reported as `"connection"`; callers
- * filter them out separately if needed.
+ * Classifies a plugin from the ids of its user-scoped capabilities.
  */
 export function classifyPluginPurpose(userScopedCapabilityIds: readonly string[]): PluginPurpose {
-  if (userScopedCapabilityIds.length === 0) return "connection";
+  if (userScopedCapabilityIds.length === 0) return "none";
   const hasNotification = userScopedCapabilityIds.includes(NOTIFICATION_CAPABILITY_ID);
   const hasOther = userScopedCapabilityIds.some((id) => id !== NOTIFICATION_CAPABILITY_ID);
   if (hasNotification && hasOther) return "both";

@@ -1,5 +1,5 @@
 // fallow-ignore-file complexity
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
@@ -118,6 +118,22 @@ function useDeleteChannel() {
   });
 }
 
+function useRenameChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; displayName: string }) => {
+      const res = await api.connections[":id"]["display-name"].$patch({
+        param: { id: input.id },
+        json: { displayName: input.displayName },
+      });
+      if (!res.ok) throw new Error("Failed to save channel");
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: notificationsKeys.channels() });
+    },
+  });
+}
+
 function NotificationsPage() {
   const channels = useChannels().data.channels as ChannelRowData[];
   const categoriesResp = useCategories().data.categories;
@@ -128,6 +144,7 @@ function NotificationsPage() {
   const toggle = useToggleSubscription();
   const test = useTestChannel();
   const deleteChannel = useDeleteChannel();
+  const renameChannel = useRenameChannel();
 
   const [addOpen, setAddOpen] = useState(false);
   const [modalPlugin, setModalPlugin] = useState<PluginSummary | null>(null);
@@ -160,20 +177,16 @@ function NotificationsPage() {
 
   const handleEditSave = (id: string, displayName: string) => {
     if (!editTarget) return;
-    void (async () => {
-      try {
-        const res = await api.connections[":id"]["display-name"].$patch({
-          param: { id },
-          json: { displayName },
-        });
-        if (!res.ok) throw new Error("Failed to save channel");
-        await qc.invalidateQueries({ queryKey: notificationsKeys.channels() });
-        toast.success(m.settings_notifications_toast_updated());
-        setEditTarget(null);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed");
-      }
-    })();
+    renameChannel.mutate(
+      { id, displayName },
+      {
+        onSuccess: () => {
+          toast.success(m.settings_notifications_toast_updated());
+          setEditTarget(null);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
   };
 
   const handleAddPickerSelect = (entry: NotificationPluginEntry) => {
@@ -241,6 +254,7 @@ function NotificationsPage() {
       />
       <EditChannelDialog
         channel={editTarget}
+        submitting={renameChannel.isPending}
         onClose={() => setEditTarget(null)}
         onSave={handleEditSave}
       />
@@ -706,17 +720,23 @@ function DeleteChannelDialog({
 
 function EditChannelDialog({
   channel,
+  submitting,
   onClose,
   onSave,
 }: {
   channel: ChannelRowData | null;
+  submitting: boolean;
   onClose: () => void;
   onSave: (id: string, displayName: string) => void;
 }) {
-  const [name, setName] = useState(channel?.displayName ?? "");
+  const [name, setName] = useState("");
 
-  // Sync local state when the dialog target changes.
-  if (channel && name === "" && channel.displayName) setName(channel.displayName);
+  // Reset local form state whenever the dialog target changes — without this,
+  // typing in one channel's edit dialog would leak into the next channel
+  // opened in the same session.
+  useEffect(() => {
+    setName(channel?.displayName ?? "");
+  }, [channel?.id, channel?.displayName]);
 
   if (!channel) return null;
 
@@ -745,10 +765,11 @@ function EditChannelDialog({
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             {m.settings_notifications_dialog_cancel()}
           </Button>
-          <Button disabled={!dirty} onClick={() => onSave(channel.id, name.trim())}>
+          <Button disabled={!dirty || submitting} onClick={() => onSave(channel.id, name.trim())}>
+            {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
             {m.settings_notifications_dialog_save()}
           </Button>
         </DialogFooter>

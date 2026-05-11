@@ -1,6 +1,7 @@
 // fallow-ignore-file complexity
 import { Suspense, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { InfoIcon, LayersIcon, MoreHorizontalIcon, PlugIcon, ShieldCheckIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,10 +29,13 @@ import { m } from "@/paraglide/messages";
 import { SettingsPageHeader } from "@/app/settings-layout";
 import {
   AuthorizedAppRow,
+  MetaSep,
   ScopeChip,
   SettingsCard,
   SettingsCardHeader,
   SetupGuideModal,
+  revokeAuthorizedApp,
+  settingsKeys,
   useAuthorizedApps,
   usePublicConfig,
   useRevokeAuthorizedApp,
@@ -85,18 +89,30 @@ function AppsPage() {
     });
   };
 
-  // Bulk revoke. There is no server-side bulk endpoint — call sequentially
-  // so the cache seed from the *last* response reflects the final state.
+  const qc = useQueryClient();
+  // Bulk revoke. There is no server-side bulk endpoint — call sequentially via
+  // the raw fetcher so each request does not run the single-revoke hook's
+  // optimistic update + rollback chain. That chain snapshots the cache after
+  // every prior optimistic delete, so a mid-loop failure would roll back to a
+  // half-mutated snapshot and either show ghost rows or hide already-revoked
+  // ones. Here we leave the cache untouched until the loop settles, then
+  // invalidate to refetch the server's authoritative list.
   const onRevokeAll = async () => {
     setConfirmRevokeAll(false);
     const count = apps.length;
-    for (const app of apps) {
+    const targets = apps.map((a) => a.clientId);
+    let failed = 0;
+    for (const clientId of targets) {
       try {
-        await revoke.mutateAsync(app.clientId);
+        await revokeAuthorizedApp(clientId);
       } catch {
-        toast.error(m.settings_apps_toast_revoke_all_failed());
-        return;
+        failed += 1;
       }
+    }
+    await qc.invalidateQueries({ queryKey: settingsKeys.apps() });
+    if (failed > 0) {
+      toast.error(m.settings_apps_toast_revoke_all_failed());
+      return;
     }
     toast.success(m.settings_apps_toast_revoked_all({ count }));
   };
@@ -156,8 +172,8 @@ function useAuthorizedAppsView(apps: ReadonlyArray<AuthorizedApp>, filter: Filte
   const visible = useMemo(() => {
     const matches = filter === "all" ? apps : apps.filter((a) => a.status === filter);
     return matches.toSorted((a, b) => {
-      const oa = STATUS_ORDER[a.status] ?? 99;
-      const ob = STATUS_ORDER[b.status] ?? 99;
+      const oa = STATUS_ORDER[a.status];
+      const ob = STATUS_ORDER[b.status];
       if (oa !== ob) return oa - ob;
       return (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0);
     });
@@ -331,7 +347,7 @@ function McpEndpointMeta({ clientCount }: { clientCount: number }) {
         <span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
         {m.settings_apps_endpoint_status_live()}
       </span>
-      <span aria-hidden="true">·</span>
+      <MetaSep />
       <span>{clientLabel}</span>
     </div>
   );

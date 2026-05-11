@@ -246,13 +246,16 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
   // fallow-ignore-next-line complexity
   const handleSaveForm = async () => {
     if (!userConfigSchema) return;
+    // Wipe stale server-side errors before validation runs — otherwise an
+    // earlier server error banner would persist while the user re-edits and
+    // re-submits, even though the new attempt has not been to the server yet.
+    clearPendingErrors();
     const errors = validateSchema(userConfigSchema, values);
     if (Object.keys(errors).length > 0) {
       setSubmitAttempted(true);
       return;
     }
     setSaving(true);
-    clearPendingErrors();
     try {
       const submission = isEdit ? stripEmptySecrets(userConfigSchema, values) : values;
       const fallback = isEdit

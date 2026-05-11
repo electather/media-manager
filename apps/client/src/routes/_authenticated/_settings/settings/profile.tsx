@@ -29,6 +29,7 @@ import { SettingsPageHeader } from "@/app/settings-layout";
 import {
   SettingsCard,
   SettingsCardRow,
+  settingsKeys,
   useSettingsDirty,
   usePublicConfig,
   useRole,
@@ -161,7 +162,11 @@ export function NameRow({
         const result = await authClient.updateUser({ name: trimmed });
         if (result.error) throw new Error(result.error.message ?? "Update failed");
       }
-      await qc.invalidateQueries();
+      // Better Auth's `useSession` is reactive and refreshes on its own after
+      // `updateUser`, so the only React Query data tied to the user identity
+      // worth refreshing is the role summary (which inlines the display name
+      // server-side in its description payload).
+      await qc.invalidateQueries({ queryKey: settingsKeys.role() });
       toast.success(m.settings_profile_toast_name_updated());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : m.settings_profile_toast_name_failed());
@@ -221,7 +226,6 @@ export function EmailRow({
   /** Optional override used by tests; default path calls Better Auth. */
   onCommit?: (next: string) => Promise<void> | void;
 }) {
-  const qc = useQueryClient();
   const [draft, setDraft] = useState(currentEmail);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -253,7 +257,9 @@ export function EmailRow({
         if (result.error) throw new Error(result.error.message ?? "Email change failed");
       }
       setConfirmOpen(false);
-      await qc.invalidateQueries();
+      // Better Auth refreshes the active session reactively; nothing in the
+      // React Query cache is keyed on the user's email today, so we skip
+      // invalidation here rather than refetch the entire query tree.
       toast.success(
         emailEnabled
           ? m.settings_profile_toast_email_verification_sent()

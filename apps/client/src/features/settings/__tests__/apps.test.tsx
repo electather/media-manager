@@ -47,7 +47,6 @@ const ACTIVE_APP: AuthorizedApp = {
   lastUsedAt: NOW - 1000 * 60 * 2,
   ownedByUser: false,
   status: "active",
-  description: null,
 };
 
 describe("AuthorizedAppRow (live shape)", () => {

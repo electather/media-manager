@@ -64,7 +64,6 @@ function toAuthorizedApp(row: AppRow, userId: string, now: number): AuthorizedAp
     lastUsedAt,
     ownedByUser: row.ownerUserId === userId,
     status: deriveStatus({ now, connectedAt, lastUsedAt }),
-    description: null,
   };
 }
 

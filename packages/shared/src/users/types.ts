@@ -28,11 +28,6 @@ export interface AuthorizedApp {
   ownedByUser: boolean;
   /** Server-derived activity bucket; rendered as a pill in the UI. */
   status: AuthorizedAppStatus;
-  /**
-   * Long-form description from `oauthClient.description`; column does not
-   * exist yet so this is always `null` until a follow-up migration adds it.
-   */
-  description: string | null;
 }
 
 /** Compact shape of a role used by user-facing surfaces (e.g. settings profile). */

@@ -44,13 +44,11 @@ describe("listAuthorizedApps", () => {
     expect(named.connectedAt).toBe(1_000);
     expect(named.lastUsedAt).toBe(9_000);
     expect(named.ownedByUser).toBe(false);
-    expect(named.description).toBeNull();
     expect(named.status).toBe("idle");
 
     const anon = apps.find((a) => a.clientId === "client-anon")!;
     expect(anon.name).toBe("client-anon");
     expect(anon.lastUsedAt).toBeNull();
-    expect(anon.description).toBeNull();
   });
 
   it("flags status='active' when a token was issued in the last 5 minutes", async () => {

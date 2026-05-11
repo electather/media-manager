@@ -149,7 +149,13 @@ function useTestConnection() {
     mutationFn: async (id: string) => {
       const res = await api.connections[":id"].test.$post({ param: { id } });
       if (!res.ok) throw new Error("Test failed");
-      return (await res.json()) as { ok: boolean; message?: string };
+      // The server endpoint returns HTTP 200 with `{ ok, message? }` even when
+      // the probe itself fails (bad credentials, host unreachable, etc.). Treat
+      // `body.ok === false` as a thrown error so the caller's `onSuccess`
+      // doesn't fire success toasts for failed tests.
+      const body = (await res.json()) as { ok: boolean; message?: string };
+      if (!body.ok) throw new Error(body.message ?? "Test failed");
+      return body;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: CONNECTIONS_KEY });

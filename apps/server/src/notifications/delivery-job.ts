@@ -20,22 +20,29 @@ import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./deliv
 
 const log = consola.withTag("notifications.deliver");
 
+class UserConfigParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserConfigParseError";
+  }
+}
+
 /**
  * `service_connections.user_config` is stored as a JSON text column. Plugins
  * expect the parsed object on `args.channelConfig` + `ctx.config.user`, so
  * decode once at the job boundary. Returns `null` for connections that have
- * no user-config (legitimate for no-fields plugins like inbox).
+ * no user-config (legitimate for no-fields plugins like inbox). Throws
+ * `UserConfigParseError` on malformed JSON so the caller can mark the
+ * delivery failed with a precise error code instead of handing the raw
+ * string to a plugin that expects an object (every downstream `cfg.x` lookup
+ * would resolve to `undefined`, surfacing as a cryptic upstream 4xx).
  */
-function parseUserConfig(raw: string | null, pluginId: string): unknown {
+function parseUserConfig(raw: string | null): unknown {
   if (raw === null) return null;
   try {
     return JSON.parse(raw);
   } catch (err) {
-    log.warn("user_config parse failed; passing through raw", {
-      pluginId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return raw;
+    throw new UserConfigParseError(err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -104,7 +111,20 @@ export function registerDeliveryJob() {
         return;
       }
 
-      const channelConfig = parseUserConfig(conn.userConfig, conn.pluginId);
+      let channelConfig: unknown;
+      try {
+        channelConfig = parseUserConfig(conn.userConfig);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("user_config parse failed", {
+          deliveryId,
+          pluginId: conn.pluginId,
+          error: msg,
+        });
+        await markDeliveryFailed(deliveryId, "config_parse_failed", msg);
+        return;
+      }
+
       log.info("delivery start", {
         deliveryId,
         pluginId: conn.pluginId,
