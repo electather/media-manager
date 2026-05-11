@@ -73,6 +73,29 @@ function KVRow({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }
   );
 }
 
+function makePolicyKeyDown(
+  idx: number,
+  isPureGlobal: boolean,
+  hasShared: boolean,
+  fallbackPending: boolean,
+  onChangeFallback: (p: PersonalKeyFallbackPolicy) => void,
+) {
+  return (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    let next = -1;
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+      next = (idx + 1) % POLICIES.length;
+    } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+      next = (idx - 1 + POLICIES.length) % POLICIES.length;
+    }
+    if (next === -1) return;
+    e.preventDefault();
+    const nextPolicy = POLICIES[next];
+    if (!nextPolicy) return;
+    const nextDisabled = nextPolicy.id !== "off" && !isPureGlobal && !hasShared;
+    if (!nextDisabled && !fallbackPending) onChangeFallback(nextPolicy.id);
+  };
+}
+
 // fallow-ignore-next-line complexity
 export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: OverviewTabProps) {
   const userCaps = plugin.capabilities.filter((c) => c.scope === "user");
@@ -158,21 +181,13 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
               (p, idx) => {
                 const active = plugin.personalKeyFallback === p.id;
                 const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
-                const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-                  let next = -1;
-                  if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-                    next = (idx + 1) % POLICIES.length;
-                  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-                    next = (idx - 1 + POLICIES.length) % POLICIES.length;
-                  }
-                  if (next === -1) return;
-                  e.preventDefault();
-                  const nextPolicy = POLICIES[next];
-                  if (!nextPolicy) return;
-                  const nextDisabled =
-                    nextPolicy.id !== "off" && !plugin.isPureGlobal && !hasShared;
-                  if (!nextDisabled && !fallbackPending) onChangeFallback(nextPolicy.id);
-                };
+                const handleKeyDown = makePolicyKeyDown(
+                  idx,
+                  plugin.isPureGlobal,
+                  hasShared,
+                  fallbackPending,
+                  onChangeFallback,
+                );
                 return (
                   <button
                     key={p.id}
