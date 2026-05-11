@@ -73,6 +73,7 @@ function KVRow({ k, v, last }: { k: string; v: React.ReactNode; last?: boolean }
   );
 }
 
+// fallow-ignore-next-line complexity
 function makePolicyKeyDown(
   idx: number,
   isPureGlobal: boolean,
