@@ -1,4 +1,4 @@
-import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { adminPluginsKeys } from "./query-keys";
@@ -22,13 +22,16 @@ export function usePluginMutation<TInput>(
   });
 }
 
-export function makeOptimisticListHandlers<TInput extends { pluginId: string }>(
-  qc: QueryClient,
+export function useOptimisticPluginMutation<TInput extends { pluginId: string }, TOutput = unknown>(
+  mutationFn: (input: TInput) => Promise<TOutput>,
   patch: (plugin: PluginRow, input: TInput) => PluginRow,
   errorMsg: string,
+  successMsg?: string,
 ) {
-  return {
-    onMutate: async (input: TInput) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onMutate: async (input) => {
       await qc.cancelQueries({ queryKey: adminPluginsKeys.list() });
       const snapshot = qc.getQueryData<PluginRow[]>(adminPluginsKeys.list());
       qc.setQueryData<PluginRow[] | undefined>(adminPluginsKeys.list(), (rows) =>
@@ -36,9 +39,17 @@ export function makeOptimisticListHandlers<TInput extends { pluginId: string }>(
       );
       return { snapshot };
     },
-    onError: (_err: unknown, _input: TInput, ctx?: { snapshot: PluginRow[] | undefined }) => {
+    onError: (_err, _input, ctx) => {
       if (ctx?.snapshot) qc.setQueryData(adminPluginsKeys.list(), ctx.snapshot);
       toast.error(errorMsg);
     },
-  };
+    onSuccess: successMsg
+      ? () => {
+          toast.success(successMsg);
+        }
+      : undefined,
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: adminPluginsKeys.list() });
+    },
+  });
 }
