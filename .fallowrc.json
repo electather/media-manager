@@ -96,6 +96,10 @@
         "patterns": ["apps/client/src/features/admin/**"]
       },
       {
+        "name": "client-feat-admin-plugins",
+        "patterns": ["apps/client/src/features/admin-plugins/**"]
+      },
+      {
         "name": "client-feat-admin-users",
         "patterns": ["apps/client/src/features/admin-users/**"]
       },
@@ -215,7 +219,19 @@
           "client-feat-request-flow",
           "client-feat-notifications",
           "client-feat-diagnostics",
+          "client-feat-admin-plugins",
           "client-features-legacy",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-admin-plugins",
+        "allow": [
+          "client-feat-admin",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",
