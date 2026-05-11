@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "$comment": "TODO: translate all keys — currently mirroring en.json as a placeholder until FA translations land.",
 
   "admin_users_title": "Users",
   "admin_users_description": "Invite, assign roles, and manage user accounts.",

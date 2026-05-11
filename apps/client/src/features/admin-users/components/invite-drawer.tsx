@@ -91,7 +91,7 @@ function InviteDrawerBody({ open, onClose }: Props) {
     createEmailInvitesMock(validEmails, roleId, expiresAt);
     toast.success(
       validEmails.length === 1
-        ? m.admin_users_invite_toast_sent_one({ email: validEmails[0] ?? "" })
+        ? m.admin_users_invite_toast_sent_one({ email: validEmails[0]! })
         : m.admin_users_invite_toast_sent_many({ count: String(validEmails.length) }),
     );
     onClose();
@@ -107,11 +107,11 @@ function InviteDrawerBody({ open, onClose }: Props) {
     if (!generated) return;
     try {
       await navigator.clipboard.writeText(generated.url);
+      linkInputRef.current?.select();
+      toast.success(m.admin_users_invite_toast_copied());
     } catch {
-      // Best-effort: clipboard may be unavailable in insecure contexts.
+      // Clipboard API may be unavailable in insecure contexts; silently ignore.
     }
-    linkInputRef.current?.select();
-    toast.success(m.admin_users_invite_toast_copied());
   };
 
   return (

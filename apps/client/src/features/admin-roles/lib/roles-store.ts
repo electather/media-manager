@@ -53,6 +53,7 @@ function seedRoles(): RoleRecord[] {
   ];
 }
 
+// Module-level state resets on Vite HMR — expected while this is a mock store.
 let roles: RoleRecord[] = seedRoles();
 const listeners = new Set<() => void>();
 

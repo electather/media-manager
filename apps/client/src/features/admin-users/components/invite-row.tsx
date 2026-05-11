@@ -25,11 +25,10 @@ export function InviteRow({ invite, role, isFirst }: Props) {
     if (!invite.code) return;
     try {
       await navigator.clipboard.writeText(inviteUrl(invite.code));
+      toast.success(m.admin_users_invite_toast_copied());
     } catch {
-      // Clipboard API may be denied by the browser; the toast still tells the
-      // user we attempted the action so they know the click registered.
+      // Clipboard API may be denied by the browser; silently ignore.
     }
-    toast.success(m.admin_users_invite_toast_copied());
   };
 
   const onResend = () => {

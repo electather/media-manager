@@ -20,6 +20,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { UserAvatar } from "@/shared/components/user-avatar";
 
 import { fetchAdminUser } from "../lib/fetchers";
+import { adminUsersKeys } from "../lib/query-keys";
 import { useAssignRole } from "../hooks/use-assign-role";
 import { useDeleteUser } from "../hooks/use-delete-user";
 import { useRevokeSessions } from "../hooks/use-revoke-sessions";
@@ -59,7 +60,7 @@ function UserDetailSkeleton() {
 
 function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId: string | null }) {
   const { data } = useSuspenseQuery({
-    queryKey: ["admin-users", "detail", userId] as const,
+    queryKey: adminUsersKeys.detail(userId),
     queryFn: () => fetchAdminUser(userId),
   });
   const user = data.user as unknown as AdminUserDetail;

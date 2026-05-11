@@ -36,7 +36,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
   const [draft, setDraft] = useState<RoleRecord>(role);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  useEffect(() => setDraft(role), [role.id, role]);
+  useEffect(() => setDraft(role), [role]);
 
   const allPerms = draft.permissions === "*";
   const granted = useMemo<ReadonlySet<string>>(

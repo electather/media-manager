@@ -19,7 +19,6 @@ export function PermissionGroup({
   const keys = group.permissions.map((p) => p.key);
   const grantedCount = keys.filter((k) => granted.has(k)).length;
   const allOn = grantedCount === keys.length;
-  const someOn = grantedCount > 0 && !allOn;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -39,7 +38,6 @@ export function PermissionGroup({
           </span>
           <Switch
             checked={allOn}
-            data-state={someOn ? "indeterminate" : undefined}
             disabled={readOnly}
             onCheckedChange={(v) => onToggleScope(group.scope, v)}
             aria-label={`Toggle all ${group.label()} permissions`}
