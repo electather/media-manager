@@ -246,6 +246,22 @@ export async function createFormConnection(args: {
   if (blank) {
     throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
   }
+  // No-auth plugins (e.g. notification channels like Telegram, Discord, ntfy)
+  // do not export `startAuth` — userConfig itself carries everything the plugin
+  // needs and there is no upstream credential exchange. Persist the row directly;
+  // upstream reachability is exercised later via the capability's `testDelivery`
+  // or the channel test endpoint.
+  if (module.manifest.auth.kind === "none") {
+    const id = await writeConnection({
+      userId: args.userId,
+      pluginId: args.pluginId,
+      credentials: {},
+      userConfig: sanitized,
+      displayName: args.displayName,
+      allowEmptyCredentials: true,
+    });
+    return { id };
+  }
   const result = (await pluginRuntime.runAuth(
     args.pluginId,
     "startAuth",

@@ -1,6 +1,7 @@
 // fallow-ignore-file complexity
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
   BellIcon,
   EditIcon,
@@ -22,25 +23,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
-import { Field, FieldTitle } from "@/shared/ui/field";
-import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/shared/ui/toggle-group";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { SettingsCard, SettingsCardHeader } from "@/features/settings";
+import { SettingsCard, SettingsCardHeader, settingsKeys } from "@/features/settings";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import {
-  DEFAULT_SUBSCRIPTIONS,
-  MOCK_AVAILABLE_CHANNEL_PLUGINS,
-  MOCK_CATEGORIES,
-  MOCK_CHANNELS,
-  type CategoryId,
-  type ChannelSubscriptions,
-  type MockChannel,
-} from "@/features/settings/mocks";
+  useChannels,
+  useCategories,
+  useSubscriptions,
+  useToggleSubscription,
+  useTestChannel,
+} from "@/features/notifications/settings";
+import { notificationsKeys } from "@/features/notifications/shared/query-keys";
+import type { NotificationCategory } from "@ent-mcp/shared/notifications";
+import { ConnectionModal, type PluginSummary } from "@/features/connections";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/notifications")({
   component: NotificationsRoute,
@@ -49,124 +51,168 @@ export const Route = createFileRoute("/_authenticated/_settings/settings/notific
 function NotificationsRoute() {
   return (
     <SettingsErrorBoundary>
-      <NotificationsPage />
+      <Suspense fallback={<NotificationsSkeleton />}>
+        <NotificationsPage />
+      </Suspense>
     </SettingsErrorBoundary>
   );
 }
 
-const ROLE_RANK: Record<string, number> = { member: 0, admin: 1 };
+function NotificationsSkeleton() {
+  return (
+    <div className="flex flex-col gap-7">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-96 w-full rounded-2xl" />
+    </div>
+  );
+}
 
-function useNotificationsState() {
-  const [channels, setChannels] = useState<ReadonlyArray<MockChannel>>(MOCK_CHANNELS);
-  const [subs, setSubs] = useState<ChannelSubscriptions>(DEFAULT_SUBSCRIPTIONS);
-  const [editChannel, setEditChannel] = useState<MockChannel | null>(null);
-  const [deleteChannel, setDeleteChannel] = useState<MockChannel | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [testingId, setTestingId] = useState<string | null>(null);
+/**
+ * Server-returned shape of `/notifications/plugins`: every notification-capable
+ * plugin's full `PluginSummary` plus its `supportsKinds` list. The summary
+ * fields let us pass the entry straight to `ConnectionModal` without a second
+ * `/connections/available` round-trip — the Connections endpoint now hides
+ * notification-only plugins anyway, so it would no longer return them.
+ */
+type NotificationPluginEntry = PluginSummary & { supportsKinds: string[] };
 
-  const handleReplaceSubs = (channelId: string, next: Record<CategoryId, boolean>) => {
-    setSubs((prev) => ({ ...prev, [channelId]: next }));
-  };
+interface ChannelRowData {
+  id: string;
+  pluginId: string;
+  displayName: string | null;
+  status: string;
+  enabled: boolean;
+  plugin: { id: string; name: string; version: string };
+  displayFields: Array<{ label: string; value: string; mono?: boolean }>;
+}
 
-  const handleTest = (ch: MockChannel) => {
-    setTestingId(ch.id);
-    window.setTimeout(() => {
-      setTestingId(null);
-      toast.success(m.settings_notifications_toast_test_sent({ name: ch.name }));
-    }, 700);
-  };
+function isInboxRow(channel: { pluginId: string }): boolean {
+  return channel.pluginId === "inbox";
+}
 
-  const handleDelete = () => {
-    if (!deleteChannel) return;
-    const removed = deleteChannel;
-    setChannels((list) => list.filter((c) => c.id !== removed.id));
-    setSubs((prev) => {
-      const next = { ...prev };
-      delete next[removed.id];
-      return next;
-    });
-    toast.success(m.settings_notifications_toast_removed({ name: removed.name }));
-    setDeleteChannel(null);
-  };
+function useNotificationPlugins() {
+  return useSuspenseQuery({
+    queryKey: settingsKeys.notificationPlugins(),
+    queryFn: async () => {
+      const res = await api.notifications.plugins.$get();
+      if (!res.ok) throw new Error("Failed to load notification plugins");
+      const body = (await res.json()) as { plugins: NotificationPluginEntry[] };
+      return body.plugins;
+    },
+  });
+}
 
-  const handleEditSave = (next: MockChannel) => {
-    setChannels((list) => list.map((c) => (c.id === next.id ? next : c)));
-    setEditChannel(null);
-    toast.success(m.settings_notifications_toast_updated());
-  };
+function useDeleteChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.connections[":id"].$delete({ param: { id } });
+      if (!res.ok) throw new Error("Failed to delete channel");
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: notificationsKeys.channels() });
+      void qc.invalidateQueries({ queryKey: notificationsKeys.subscriptions() });
+    },
+  });
+}
 
-  const handleAddPlugin = (pluginId: string) => {
-    const meta = MOCK_AVAILABLE_CHANNEL_PLUGINS.find((p) => p.pluginId === pluginId);
-    if (!meta) return;
-    const seedConfig: Record<string, ReadonlyArray<{ label: string; value: string }>> = {
-      ntfy: [
-        { label: "topic", value: "" },
-        { label: "server", value: "https://ntfy.sh" },
-      ],
-      telegram: [
-        { label: "chat_id", value: "" },
-        { label: "bot", value: "" },
-      ],
-      discord: [{ label: "webhook", value: "" }],
-      webhook: [
-        { label: "url", value: "" },
-        { label: "method", value: "POST" },
-      ],
-    };
-    const newChannel: MockChannel = {
-      id: `ch-${Date.now().toString(36)}`,
-      pluginId,
-      pluginName: meta.name,
-      pluginVersion: meta.version,
-      name: `New ${meta.name}`,
-      config: seedConfig[pluginId] ?? [],
-    };
-    setChannels((list) => [...list, newChannel]);
-    setSubs((prev) => ({
-      ...prev,
-      [newChannel.id]: { media: true, sync: true, auth: false, system: false },
-    }));
-    setAddOpen(false);
-    setEditChannel(newChannel);
-  };
-
-  return {
-    channels,
-    subs,
-    editChannel,
-    deleteChannel,
-    addOpen,
-    testingId,
-    handleReplaceSubs,
-    handleTest,
-    handleDelete,
-    handleEditSave,
-    handleAddPlugin,
-    setAddOpen,
-    setEditChannel,
-    setDeleteChannel,
-  };
+function useRenameChannel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; displayName: string }) => {
+      const res = await api.connections[":id"]["display-name"].$patch({
+        param: { id: input.id },
+        json: { displayName: input.displayName },
+      });
+      if (!res.ok) throw new Error("Failed to save channel");
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: notificationsKeys.channels() });
+    },
+  });
 }
 
 function NotificationsPage() {
-  const {
-    channels,
-    subs,
-    editChannel,
-    deleteChannel,
-    addOpen,
-    testingId,
-    handleReplaceSubs,
-    handleTest,
-    handleEditSave,
-    handleAddPlugin,
-    setAddOpen,
-    setEditChannel,
-    setDeleteChannel,
-    handleDelete,
-  } = useNotificationsState();
-  const role = "member";
-  const onlyInbox = channels.length === 1 && channels[0]?.locked === true;
+  const channels = useChannels().data.channels as ChannelRowData[];
+  const categoriesResp = useCategories().data.categories;
+  const subsResp = useSubscriptions().data.subscriptions;
+  const notificationPlugins = useNotificationPlugins().data;
+  const qc = useQueryClient();
+
+  const toggle = useToggleSubscription();
+  const test = useTestChannel();
+  const deleteChannel = useDeleteChannel();
+  const renameChannel = useRenameChannel();
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [modalPlugin, setModalPlugin] = useState<PluginSummary | null>(null);
+  const [editTarget, setEditTarget] = useState<ChannelRowData | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChannelRowData | null>(null);
+
+  const subsByChannel = useMemo(() => {
+    const map = new Map<string, Set<NotificationCategory>>();
+    for (const s of subsResp) {
+      if (!s.enabled) continue;
+      const set = map.get(s.connectionId) ?? new Set<NotificationCategory>();
+      set.add(s.category);
+      map.set(s.connectionId, set);
+    }
+    return map;
+  }, [subsResp]);
+
+  const handleReplaceSubs = (channelId: string, next: NotificationCategory[]) => {
+    const current = subsByChannel.get(channelId) ?? new Set<NotificationCategory>();
+    const nextSet = new Set(next);
+    for (const cat of categoriesResp) {
+      const wasOn = current.has(cat.id);
+      const willBeOn = nextSet.has(cat.id);
+      if (wasOn === willBeOn) continue;
+      toggle.mutate({ connectionId: channelId, category: cat.id, enabled: willBeOn });
+    }
+  };
+
+  const handleTest = (ch: ChannelRowData) => test.mutate(ch.id);
+
+  const handleEditSave = (id: string, displayName: string) => {
+    if (!editTarget) return;
+    renameChannel.mutate(
+      { id, displayName },
+      {
+        onSuccess: () => {
+          toast.success(m.settings_notifications_toast_updated());
+          setEditTarget(null);
+        },
+        onError: (err) => toast.error(err.message),
+      },
+    );
+  };
+
+  const handleAddPickerSelect = (entry: NotificationPluginEntry) => {
+    setAddOpen(false);
+    // The notifications endpoint returns the same `PluginSummary` shape that
+    // `/connections/available` does, with an extra `supportsKinds` field.
+    // `ConnectionModal` only reads the summary fields, so we hand `entry`
+    // straight through — extra keys are ignored at the structural type
+    // boundary.
+    setModalPlugin(entry);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    deleteChannel.mutate(target.id, {
+      onSuccess: () =>
+        toast.success(
+          m.settings_notifications_toast_removed({
+            name: target.displayName ?? target.plugin.name,
+          }),
+        ),
+      onError: (err) => toast.error(err.message),
+    });
+    setDeleteTarget(null);
+  };
+
+  const onlyInbox = channels.length === 1 && isInboxRow(channels[0]!);
 
   return (
     <div className="flex flex-col gap-7">
@@ -176,40 +222,60 @@ function NotificationsPage() {
       />
       <NotificationsChannelsCard
         channels={channels}
-        subs={subs}
-        role={role}
-        testingId={testingId}
+        categories={categoriesResp}
+        subsByChannel={subsByChannel}
+        testingId={test.isPending ? ((test.variables as string | undefined) ?? null) : null}
         onlyInbox={onlyInbox}
         onAddOpen={() => setAddOpen(true)}
         onReplaceSubs={handleReplaceSubs}
         onTest={handleTest}
-        onEdit={setEditChannel}
-        onDelete={setDeleteChannel}
+        onEdit={setEditTarget}
+        onDelete={setDeleteTarget}
       />
       <AddChannelDialog
         open={addOpen}
         onClose={() => setAddOpen(false)}
+        plugins={notificationPlugins}
         existingPluginIds={channels.map((c) => c.pluginId)}
-        onPick={(p) => handleAddPlugin(p.pluginId)}
+        onPick={handleAddPickerSelect}
+      />
+      <ConnectionModal
+        open={!!modalPlugin}
+        plugin={modalPlugin}
+        existing={null}
+        onOpenChange={(open) => {
+          if (!open) setModalPlugin(null);
+        }}
+        onSuccess={() => {
+          void qc.invalidateQueries({ queryKey: notificationsKeys.channels() });
+        }}
       />
       <EditChannelDialog
-        channel={editChannel}
-        onClose={() => setEditChannel(null)}
+        channel={editTarget}
+        submitting={renameChannel.isPending}
+        onClose={() => setEditTarget(null)}
         onSave={handleEditSave}
       />
       <DeleteChannelDialog
-        channel={deleteChannel}
-        onClose={() => setDeleteChannel(null)}
-        onConfirm={handleDelete}
+        channel={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   );
 }
 
+interface NotifCategory {
+  id: NotificationCategory;
+  label: string;
+  description: string;
+  allowed: boolean;
+}
+
 function NotificationsChannelsCard({
   channels,
-  subs,
-  role,
+  categories,
+  subsByChannel,
   testingId,
   onlyInbox,
   onAddOpen,
@@ -218,16 +284,16 @@ function NotificationsChannelsCard({
   onEdit,
   onDelete,
 }: {
-  channels: ReadonlyArray<MockChannel>;
-  subs: ChannelSubscriptions;
-  role: string;
+  channels: ReadonlyArray<ChannelRowData>;
+  categories: ReadonlyArray<NotifCategory>;
+  subsByChannel: Map<string, Set<NotificationCategory>>;
   testingId: string | null;
   onlyInbox: boolean;
   onAddOpen: () => void;
-  onReplaceSubs: (channelId: string, next: Record<CategoryId, boolean>) => void;
-  onTest: (ch: MockChannel) => void;
-  onEdit: (ch: MockChannel) => void;
-  onDelete: (ch: MockChannel) => void;
+  onReplaceSubs: (channelId: string, next: NotificationCategory[]) => void;
+  onTest: (ch: ChannelRowData) => void;
+  onEdit: (ch: ChannelRowData) => void;
+  onDelete: (ch: ChannelRowData) => void;
 }) {
   return (
     <SettingsCard>
@@ -241,45 +307,36 @@ function NotificationsChannelsCard({
           </Button>
         }
       />
-      <CategoryLegend role={role} />
+      <CategoryLegend categories={categories} />
       <ul role="list" className="flex flex-col">
-        {channels.map((channel, i) => (
-          <ChannelRow
-            key={channel.id}
-            channel={channel}
-            isFirst={i === 0}
-            role={role}
-            subs={subs[channel.id]}
-            testing={testingId === channel.id}
-            onReplaceSubs={(next) => onReplaceSubs(channel.id, next)}
-            onTest={() => onTest(channel)}
-            onEdit={() => onEdit(channel)}
-            onDelete={() => onDelete(channel)}
-          />
-        ))}
+        {channels.map((channel, i) => {
+          const inbox = isInboxRow(channel);
+          const active = inbox
+            ? new Set<NotificationCategory>(categories.map((c) => c.id))
+            : (subsByChannel.get(channel.id) ?? new Set<NotificationCategory>());
+          return (
+            <ChannelRow
+              key={channel.id}
+              channel={channel}
+              isFirst={i === 0}
+              inboxStyle={inbox}
+              categories={categories}
+              activeCategories={[...active]}
+              testing={testingId === channel.id}
+              onReplaceSubs={(next) => onReplaceSubs(channel.id, next)}
+              onTest={() => onTest(channel)}
+              onEdit={() => onEdit(channel)}
+              onDelete={() => onDelete(channel)}
+            />
+          );
+        })}
       </ul>
       {onlyInbox ? <OnlyInboxFooter onAdd={onAddOpen} /> : null}
     </SettingsCard>
   );
 }
 
-// ─── Pieces ─────────────────────────────────────────────────────────────────
-
-const CATEGORY_LABEL: Record<CategoryId, () => string> = {
-  media: () => m.settings_notifications_category_media(),
-  sync: () => m.settings_notifications_category_sync(),
-  auth: () => m.settings_notifications_category_auth(),
-  system: () => m.settings_notifications_category_system(),
-};
-
-const CATEGORY_HINT: Record<CategoryId, () => string> = {
-  media: () => m.settings_notifications_category_media_hint(),
-  sync: () => m.settings_notifications_category_sync_hint(),
-  auth: () => m.settings_notifications_category_auth_hint(),
-  system: () => m.settings_notifications_category_system_hint(),
-};
-
-function CategoryLegend({ role }: { role: string }) {
+function CategoryLegend({ categories }: { categories: ReadonlyArray<NotifCategory> }) {
   return (
     <div className="border-b border-border bg-muted/40 px-5 py-3 sm:px-6">
       <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:hidden">
@@ -289,9 +346,8 @@ function CategoryLegend({ role }: { role: string }) {
         <span className="hidden font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:inline">
           {m.settings_notifications_channels_categories_label()}
         </span>
-        {MOCK_CATEGORIES.map((cat) => {
-          const restricted =
-            cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
+        {categories.map((cat) => {
+          const restricted = !cat.allowed;
           return (
             <span
               key={cat.id}
@@ -307,16 +363,14 @@ function CategoryLegend({ role }: { role: string }) {
                   restricted ? "bg-muted-foreground/40" : "bg-primary",
                 )}
               />
-              <span className="font-medium text-foreground">{CATEGORY_LABEL[cat.id]()}</span>
-              <span className="hidden text-muted-foreground sm:inline">
-                {CATEGORY_HINT[cat.id]()}
-              </span>
+              <span className="font-medium text-foreground">{cat.label}</span>
+              <span className="hidden text-muted-foreground sm:inline">{cat.description}</span>
               {restricted ? (
                 <Badge
                   variant="outline"
                   className="ml-auto shrink-0 font-mono text-[10px] uppercase tracking-wide sm:ml-0"
                 >
-                  {m.settings_notifications_admin_only({ role: cat.requires })}
+                  {m.settings_notifications_admin_only({ role: "admin" })}
                 </Badge>
               ) : null}
             </span>
@@ -327,27 +381,73 @@ function CategoryLegend({ role }: { role: string }) {
   );
 }
 
-interface ChannelRowProps {
-  channel: MockChannel;
+function ChannelRow({
+  channel,
+  isFirst,
+  inboxStyle,
+  categories,
+  activeCategories,
+  testing,
+  onReplaceSubs,
+  onTest,
+  onEdit,
+  onDelete,
+}: {
+  channel: ChannelRowData;
   isFirst: boolean;
-  role: string;
-  subs: Record<CategoryId, boolean> | undefined;
+  inboxStyle: boolean;
+  categories: ReadonlyArray<NotifCategory>;
+  activeCategories: NotificationCategory[];
   testing: boolean;
-  onReplaceSubs: (next: Record<CategoryId, boolean>) => void;
+  onReplaceSubs: (next: NotificationCategory[]) => void;
   onTest: () => void;
   onEdit: () => void;
   onDelete: () => void;
+}) {
+  return (
+    <li
+      className={cn(
+        "grid gap-3 px-5 py-4 sm:px-6",
+        "grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto]",
+        !isFirst && "border-t border-border",
+      )}
+    >
+      <NameGlyph name={channel.displayName ?? channel.plugin.name} />
+      <ChannelRowHeader channel={channel} inboxStyle={inboxStyle} />
+      <ChannelRowActions
+        inboxStyle={inboxStyle}
+        testing={testing}
+        onTest={onTest}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+      <ChannelRowDelivers
+        inboxStyle={inboxStyle}
+        categories={categories}
+        activeCategories={activeCategories}
+        onReplaceSubs={onReplaceSubs}
+      />
+    </li>
+  );
 }
 
-function ChannelRowHeader({ channel }: { channel: MockChannel }) {
+function ChannelRowHeader({
+  channel,
+  inboxStyle,
+}: {
+  channel: ChannelRowData;
+  inboxStyle: boolean;
+}) {
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{channel.name}</span>
+        <span className="text-sm font-medium text-foreground">
+          {channel.displayName ?? channel.plugin.name}
+        </span>
         <Badge variant="outline" className="font-mono text-[10px]">
-          {channel.pluginName}@{channel.pluginVersion}
+          {channel.plugin.name}@{channel.plugin.version}
         </Badge>
-        {channel.locked ? (
+        {inboxStyle ? (
           <Badge
             variant="secondary"
             className="border-success/30 bg-success/10 font-mono text-[10px] uppercase tracking-wide text-success"
@@ -358,12 +458,19 @@ function ChannelRowHeader({ channel }: { channel: MockChannel }) {
         ) : null}
       </div>
       <div className="mt-1 flex flex-col gap-y-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-3.5">
-        {channel.config.map((c) => (
+        {channel.displayFields.map((c) => (
           <span key={c.label} className="flex min-w-0 items-baseline gap-1.5">
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
               {c.label}
             </span>
-            <span className="min-w-0 truncate font-mono text-foreground/80">{c.value}</span>
+            <span
+              className={cn(
+                "min-w-0 truncate text-foreground/80",
+                c.mono ? "font-mono" : undefined,
+              )}
+            >
+              {c.value}
+            </span>
           </span>
         ))}
       </div>
@@ -372,13 +479,13 @@ function ChannelRowHeader({ channel }: { channel: MockChannel }) {
 }
 
 function ChannelRowActions({
-  channel,
+  inboxStyle,
   testing,
   onTest,
   onEdit,
   onDelete,
 }: {
-  channel: MockChannel;
+  inboxStyle: boolean;
   testing: boolean;
   onTest: () => void;
   onEdit: () => void;
@@ -386,7 +493,7 @@ function ChannelRowActions({
 }) {
   return (
     <div className="col-span-2 flex flex-wrap items-center justify-end gap-1.5 sm:col-span-1 sm:self-start">
-      {channel.locked ? (
+      {inboxStyle ? (
         <span className="inline-flex items-center gap-1.5 px-2 text-xs text-muted-foreground">
           <ShieldIcon className="size-3.5" aria-hidden="true" />
           {m.settings_notifications_channels_locked()}
@@ -431,38 +538,30 @@ function ChannelRowActions({
 
 function ChannelRowDelivers({
   inboxStyle,
+  categories,
   activeCategories,
-  role,
   onReplaceSubs,
 }: {
   inboxStyle: boolean;
-  activeCategories: CategoryId[];
-  role: string;
-  onReplaceSubs: (next: Record<CategoryId, boolean>) => void;
+  categories: ReadonlyArray<NotifCategory>;
+  activeCategories: NotificationCategory[];
+  onReplaceSubs: (next: NotificationCategory[]) => void;
 }) {
   return (
     <div className="col-span-2 flex flex-col gap-1.5 sm:col-span-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:pl-12">
       <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
         {m.settings_notifications_channels_delivers()}
       </span>
-      <ToggleGroup<CategoryId>
+      <ToggleGroup<NotificationCategory>
         multiple
         aria-label={m.settings_notifications_channels_delivers()}
         disabled={inboxStyle}
         value={activeCategories}
-        onValueChange={(next) =>
-          onReplaceSubs({
-            media: next.includes("media"),
-            sync: next.includes("sync"),
-            auth: next.includes("auth"),
-            system: next.includes("system"),
-          })
-        }
+        onValueChange={(next) => onReplaceSubs(next)}
         className="flex flex-wrap gap-1.5"
       >
-        {MOCK_CATEGORIES.map((cat) => {
-          const restricted =
-            cat.requires && (ROLE_RANK[role] ?? 0) < (ROLE_RANK[cat.requires] ?? 0);
+        {categories.map((cat) => {
+          const restricted = !cat.allowed;
           const tooltip = inboxStyle
             ? m.settings_notifications_channels_inbox_locked()
             : restricted
@@ -472,63 +571,19 @@ function ChannelRowDelivers({
             <ToggleGroupItem
               key={cat.id}
               value={cat.id}
-              disabled={inboxStyle || !!restricted}
+              disabled={inboxStyle || restricted}
               title={tooltip}
               className={cn(
                 inboxStyle &&
                   "data-pressed:border-success/30 data-pressed:bg-success/10 data-pressed:text-success",
               )}
             >
-              {CATEGORY_LABEL[cat.id]()}
+              {cat.label}
             </ToggleGroupItem>
           );
         })}
       </ToggleGroup>
     </div>
-  );
-}
-
-function ChannelRow({
-  channel,
-  isFirst,
-  role,
-  subs,
-  testing,
-  onReplaceSubs,
-  onTest,
-  onEdit,
-  onDelete,
-}: ChannelRowProps) {
-  const inboxStyle = !!channel.locked;
-  const activeCategories: CategoryId[] = MOCK_CATEGORIES.flatMap((cat) => {
-    if (inboxStyle) return [cat.id];
-    return subs?.[cat.id] ? [cat.id] : [];
-  });
-
-  return (
-    <li
-      className={cn(
-        "grid gap-3 px-5 py-4 sm:px-6",
-        "grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto]",
-        !isFirst && "border-t border-border",
-      )}
-    >
-      <NameGlyph name={channel.name} />
-      <ChannelRowHeader channel={channel} />
-      <ChannelRowActions
-        channel={channel}
-        testing={testing}
-        onTest={onTest}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
-      <ChannelRowDelivers
-        inboxStyle={inboxStyle}
-        activeCategories={activeCategories}
-        role={role}
-        onReplaceSubs={onReplaceSubs}
-      />
-    </li>
   );
 }
 
@@ -559,13 +614,15 @@ function OnlyInboxFooter({ onAdd }: { onAdd: () => void }) {
 function AddChannelDialog({
   open,
   onClose,
+  plugins,
   existingPluginIds,
   onPick,
 }: {
   open: boolean;
   onClose: () => void;
+  plugins: ReadonlyArray<NotificationPluginEntry>;
   existingPluginIds: ReadonlyArray<string>;
-  onPick: (plugin: { pluginId: string; name: string; version: string }) => void;
+  onPick: (plugin: NotificationPluginEntry) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
@@ -575,11 +632,11 @@ function AddChannelDialog({
           <DialogDescription>{m.settings_notifications_dialog_add_description()}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          {MOCK_AVAILABLE_CHANNEL_PLUGINS.map((p) => {
-            const already = existingPluginIds.includes(p.pluginId);
+          {plugins.map((p) => {
+            const already = existingPluginIds.includes(p.id);
             return (
               <button
-                key={p.pluginId}
+                key={p.id}
                 type="button"
                 disabled={already}
                 onClick={() => !already && onPick(p)}
@@ -592,9 +649,6 @@ function AddChannelDialog({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <span className="text-sm font-medium text-foreground">{p.name}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground/80">
-                      v{p.version}
-                    </span>
                     {already ? (
                       <span className="text-xs text-muted-foreground">
                         · {m.settings_notifications_dialog_add_already()}
@@ -624,7 +678,7 @@ function DeleteChannelDialog({
   onClose,
   onConfirm,
 }: {
-  channel: MockChannel | null;
+  channel: ChannelRowData | null;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -641,8 +695,8 @@ function DeleteChannelDialog({
           <DialogDescription>
             {channel
               ? m.settings_notifications_dialog_delete_body({
-                  name: channel.name,
-                  plugin: `${channel.pluginName}@${channel.pluginVersion}`,
+                  name: channel.displayName ?? channel.plugin.name,
+                  plugin: `${channel.plugin.name}@${channel.plugin.version}`,
                 })
               : null}
           </DialogDescription>
@@ -662,86 +716,58 @@ function DeleteChannelDialog({
 
 // ─── Edit channel dialog ────────────────────────────────────────────────────
 
-function ConfigFieldList({
-  config,
-  onUpdate,
-}: {
-  config: ReadonlyArray<{ label: string; value: string }>;
-  onUpdate: (idx: number, value: string) => void;
-}) {
-  return (
-    <>
-      {config.map((c, i) => (
-        <Field key={c.label}>
-          <FieldTitle className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/80">
-            {c.label}
-          </FieldTitle>
-          <Input
-            value={c.value}
-            onChange={(e) => onUpdate(i, e.target.value)}
-            className="font-mono text-xs"
-          />
-        </Field>
-      ))}
-    </>
-  );
-}
-
 function EditChannelDialog({
   channel,
+  submitting,
   onClose,
   onSave,
 }: {
-  channel: MockChannel | null;
+  channel: ChannelRowData | null;
+  submitting: boolean;
   onClose: () => void;
-  onSave: (next: MockChannel) => void;
+  onSave: (id: string, displayName: string) => void;
 }) {
-  const [name, setName] = useState(channel?.name ?? "");
-  const [config, setConfig] = useState<ReadonlyArray<{ label: string; value: string }>>(
-    channel?.config ?? [],
-  );
+  const [name, setName] = useState("");
 
-  // Sync local form state when the dialog target changes.
+  // Reset local form state whenever the dialog target changes — without this,
+  // typing in one channel's edit dialog would leak into the next channel
+  // opened in the same session.
   useEffect(() => {
-    if (channel) {
-      setName(channel.name);
-      setConfig(channel.config.map((c) => ({ ...c })));
-    }
-  }, [channel]);
+    setName(channel?.displayName ?? "");
+  }, [channel?.id, channel?.displayName]);
 
   if (!channel) return null;
 
-  const dirty =
-    name !== channel.name ||
-    config.some((c, i) => channel.config[i] && c.value !== channel.config[i].value);
-
-  const updateConfig = (idx: number, value: string) => {
-    setConfig((prev) => prev.map((c, i) => (i === idx ? { ...c, value } : c)));
-  };
+  const initial = channel.displayName ?? "";
+  const dirty = name.trim() !== initial.trim();
 
   return (
     <Dialog open={!!channel} onOpenChange={(o) => (o ? null : onClose())}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {m.settings_notifications_dialog_edit_title({ name: channel.pluginName })}
+            {m.settings_notifications_dialog_edit_title({ name: channel.plugin.name })}
           </DialogTitle>
           <DialogDescription>
             {m.settings_notifications_dialog_edit_description()}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
-          <Field>
-            <FieldTitle>{m.settings_notifications_dialog_edit_name()}</FieldTitle>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
-          <ConfigFieldList config={config} onUpdate={updateConfig} />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={channel.plugin.name}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            data-testid="edit-channel-name"
+          />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             {m.settings_notifications_dialog_cancel()}
           </Button>
-          <Button disabled={!dirty} onClick={() => onSave({ ...channel, name, config })}>
+          <Button disabled={!dirty || submitting} onClick={() => onSave(channel.id, name.trim())}>
+            {submitting ? <LoaderCircleIcon className="size-4 animate-spin" /> : null}
             {m.settings_notifications_dialog_save()}
           </Button>
         </DialogFooter>

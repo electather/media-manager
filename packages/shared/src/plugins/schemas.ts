@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AUTH_KINDS, CAPABILITY_SCOPES, PERSONAL_KEY_FALLBACK_POLICIES } from "./enums";
 import { NOTIFICATION_CONTENT_KINDS } from "../notifications/enums";
+import { isNotificationOnlyPlugin } from "./purpose";
 
 export const authKindSchema = z.enum(AUTH_KINDS);
 export const capabilityScopeSchema = z.enum(CAPABILITY_SCOPES);
@@ -126,11 +127,8 @@ export const pluginManifestSchema = manifestShape.superRefine((manifest, ctx) =>
   const userScopedCapabilityIds = capabilityEntries
     .filter(([, c]) => c.scope === "user")
     .map(([id]) => id);
-  const isNotificationOnlyChannel =
-    userScopedCapabilityIds.length > 0 &&
-    userScopedCapabilityIds.every((id) => id === "notificationDelivery");
 
-  if (isNotificationOnlyChannel) {
+  if (isNotificationOnlyPlugin(userScopedCapabilityIds)) {
     return;
   }
 

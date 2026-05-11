@@ -6,6 +6,7 @@ import { pluginRuntime } from "../plugin-runtime/runtime";
 import { capabilityRegistry } from "../plugin-runtime/registry";
 import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
 import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
+import { isNotificationOnlyPlugin } from "@ent-mcp/shared/plugins";
 import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { invalidateUserCache } from "../media/dispatcher";
@@ -53,6 +54,18 @@ function capabilitiesAtScope(
   return entries
     .filter(([, cap]) => cap.scope === scope)
     .map(([id, cap]) => ({ id, version: cap.version }));
+}
+
+type EnabledPluginRow = Awaited<ReturnType<typeof selectEnabledPlugins>>[number];
+
+async function toAvailablePluginSummary(row: EnabledPluginRow): Promise<PluginSummary | null> {
+  if (!capabilityRegistry.get(row.id)) return null;
+  const manifest = parseManifest(row.manifest);
+  const userScoped = capabilitiesAtScope(manifest, "user");
+  if (userScoped.length === 0) return null;
+  if (isNotificationOnlyPlugin(userScoped.map((c) => c.id))) return null;
+  const adminSharedAvailable = (await sharedCredentialsService.countEnabled(row.id)) > 0;
+  return buildPluginSummary(row.id, manifest, adminSharedAvailable);
 }
 
 // fallow-ignore-next-line complexity
@@ -392,16 +405,34 @@ export const connectionsService = {
   /**
    * Plugins a user can create a connection for. Filters to plugins that expose
    * at least one user-scoped capability — pure-global plugins (TMDB v2, TVDB
-   * v2) have no user-side surface and are excluded.
+   * v2) have no user-side surface and are excluded. Notification-only plugins
+   * (whose sole user-scoped capability is `notificationDelivery`) are owned by
+   * Settings → Notifications and are excluded from the Connections catalog;
+   * plugins that mix notificationDelivery with another user-scoped capability
+   * remain available here.
    */
   async listAvailablePlugins(): Promise<PluginSummary[]> {
     const rows = await selectEnabledPlugins();
+    const summaries = await Promise.all(rows.map(toAvailablePluginSummary));
+    return summaries.filter((s): s is PluginSummary => s !== null);
+  },
+
+  /**
+   * Mirror of `listAvailablePlugins` for the Notifications settings catalog:
+   * returns full plugin summaries for plugins whose user-scoped capabilities
+   * include `notificationDelivery`. Pure-global plugins are excluded
+   * (notifications still require a per-user channel even when delivery is
+   * shared).
+   */
+  async listNotificationPlugins(
+    notificationCapableIds: ReadonlySet<string>,
+  ): Promise<PluginSummary[]> {
+    const rows = await selectEnabledPlugins();
     const out: PluginSummary[] = [];
     for (const row of rows) {
+      if (!notificationCapableIds.has(row.id)) continue;
       if (!capabilityRegistry.get(row.id)) continue;
       const manifest = parseManifest(row.manifest);
-      const userScoped = capabilitiesAtScope(manifest, "user");
-      if (userScoped.length === 0) continue;
       const adminSharedAvailable = (await sharedCredentialsService.countEnabled(row.id)) > 0;
       out.push(buildPluginSummary(row.id, manifest, adminSharedAvailable));
     }

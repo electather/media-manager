@@ -15,3 +15,16 @@ export async function throwOnApiError(res: Response, ErrorCtor: ApiErrorCtor): P
   const body = (await safeJson(res)) as ApiErrorBody | null;
   throw new ErrorCtor(res.status, body);
 }
+
+/**
+ * Runs the `if (!res.ok) await throwOnApiError; return res.json()` tail that
+ * every feature's fetcher module re-implements. The generic preserves Hono's
+ * typed `res.json()` return so callers keep their inferred response type.
+ */
+export async function readOkJson<R extends Response>(
+  res: R,
+  ErrorCtor: ApiErrorCtor,
+): Promise<R extends { json(): Promise<infer T> } ? T : unknown> {
+  if (!res.ok) await throwOnApiError(res, ErrorCtor);
+  return res.json() as Promise<R extends { json(): Promise<infer T> } ? T : unknown>;
+}

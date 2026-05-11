@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const toastMock = vi.hoisted(() => ({
@@ -16,6 +16,7 @@ import {
   EmailRow,
   VerifyBanner,
 } from "@/routes/_authenticated/_settings/settings/profile";
+import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
@@ -24,30 +25,30 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe("NameRow (mock)", () => {
+describe("NameRow", () => {
   it("commits the trimmed name and toasts on save", async () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
-    render(<NameRow currentName="Alex" onSave={onSave} />);
+    renderWithProviders(<NameRow currentName="Alex" onSave={onSave} />);
 
     await user.clear(screen.getByTestId("profile-name"));
     await user.type(screen.getByTestId("profile-name"), "  Alex Morgan  ");
     await user.click(screen.getByTestId("save-name"));
 
-    expect(onSave).toHaveBeenCalledWith("Alex Morgan");
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith("Alex Morgan"));
     expect(toastMock.success).toHaveBeenCalled();
   });
 
   it("shows 'No changes' when the draft equals the current name", () => {
-    render(<NameRow currentName="Alex" onSave={() => {}} />);
+    renderWithProviders(<NameRow currentName="Alex" />);
     expect(screen.getByText(/no changes/i)).toBeTruthy();
   });
 });
 
-describe("EmailRow (mock)", () => {
+describe("EmailRow", () => {
   it("opens the confirmation dialog when the draft differs from the current email", async () => {
     const user = userEvent.setup();
-    render(
+    renderWithProviders(
       <EmailRow
         currentEmail="me@example.com"
         emailVerified={false}
@@ -62,15 +63,35 @@ describe("EmailRow (mock)", () => {
 
     expect(await screen.findByTestId("confirm-direct-email")).toBeTruthy();
   });
+
+  it("calls onCommit with the new email when confirmed", async () => {
+    const onCommit = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <EmailRow
+        currentEmail="me@example.com"
+        emailVerified={false}
+        emailEnabled={false}
+        onCommit={onCommit}
+      />,
+    );
+
+    await user.clear(screen.getByTestId("profile-email"));
+    await user.type(screen.getByTestId("profile-email"), "new@example.com");
+    await user.click(screen.getByTestId("change-email"));
+    await user.click(await screen.findByTestId("confirm-direct-email"));
+
+    await waitFor(() => expect(onCommit).toHaveBeenCalledWith("new@example.com"));
+  });
 });
 
-describe("VerifyBanner (mock)", () => {
+describe("VerifyBanner", () => {
   it("starts a cooldown after a successful resend", async () => {
     const user = userEvent.setup();
-    render(<VerifyBanner email="me@example.com" />);
+    renderWithProviders(<VerifyBanner email="me@example.com" onResend={async () => {}} />);
 
     await user.click(screen.getByTestId("resend-verification"));
-    expect(toastMock.success).toHaveBeenCalled();
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
     expect(await screen.findByText(/resend in 60s/i)).toBeTruthy();
   });
 });

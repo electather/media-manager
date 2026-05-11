@@ -165,51 +165,144 @@ export const telegramPlugin = definePlugin({
         const { message, channelConfig: cfg } = args as DeliverArgs;
         const replyMarkup = inlineKeyboardFromActions(message.actions);
         const useMarkdown = typeof message.bodyMarkdown === "string";
+        const chatIdRedacted = redactChatId(cfg.chatId);
+        c.log.info("deliver: start", {
+          chatId: chatIdRedacted,
+          kind: message.image?.url ? "photo" : "text",
+          hasMarkdown: useMarkdown,
+          actionCount: message.actions?.length ?? 0,
+        });
 
-        if (message.image?.url) {
-          // Image events use sendPhoto. Telegram caption is limited to 1024
-          // chars but the host's templates produce short strings, so no
-          // truncation logic here.
-          const caption = useMarkdown
+        try {
+          if (message.image?.url) {
+            // Image events use sendPhoto. Telegram caption is limited to 1024
+            // chars but the host's templates produce short strings, so no
+            // truncation logic here.
+            const caption = useMarkdown
+              ? message.bodyMarkdown!
+              : `*${escapeMarkdownV2(message.title)}*\n${escapeMarkdownV2(message.body)}`;
+            const json = await callTelegram(c, cfg, "sendPhoto", {
+              chat_id: cfg.chatId,
+              photo: message.image.url,
+              caption,
+              parse_mode: "MarkdownV2",
+              ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+            });
+            const id = readMessageId(json);
+            c.log.info("deliver: ok", { method: "sendPhoto", providerMessageId: id ?? null });
+            return id ? { providerMessageId: id } : {};
+          }
+
+          const text = useMarkdown
             ? message.bodyMarkdown!
             : `*${escapeMarkdownV2(message.title)}*\n${escapeMarkdownV2(message.body)}`;
-          const json = await callTelegram(c, cfg, "sendPhoto", {
+          const json = await callTelegram(c, cfg, "sendMessage", {
             chat_id: cfg.chatId,
-            photo: message.image.url,
-            caption,
+            text,
             parse_mode: "MarkdownV2",
             ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
           });
           const id = readMessageId(json);
+          c.log.info("deliver: ok", { method: "sendMessage", providerMessageId: id ?? null });
           return id ? { providerMessageId: id } : {};
+        } catch (err) {
+          // Re-throw so the host's retry/backoff policy kicks in, but log
+          // first so the failure is visible without parsing the runner's
+          // captured error payload.
+          c.log.error("deliver: failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          throw err;
         }
-
-        const text = useMarkdown
-          ? message.bodyMarkdown!
-          : `*${escapeMarkdownV2(message.title)}*\n${escapeMarkdownV2(message.body)}`;
-        const json = await callTelegram(c, cfg, "sendMessage", {
-          chat_id: cfg.chatId,
-          text,
-          parse_mode: "MarkdownV2",
-          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        });
-        const id = readMessageId(json);
-        return id ? { providerMessageId: id } : {};
       },
 
       testDelivery: async (ctx, args) => {
         const c = ctx as Ctx;
         const { channelConfig: cfg } = args as TestArgs;
-        // getMe is the canonical reachability + auth check; it does not
-        // produce any chat-visible side-effect.
-        const url = `${TELEGRAM_API_BASE}/bot${encodeURIComponent(cfg.botToken)}/getMe`;
-        const res = await c.fetch(url, { method: "GET" });
-        if (res.status === 401) return { ok: false, message: "telegram bot token rejected" };
-        if (!res.ok) return { ok: false, message: `telegram ${res.status}` };
+        const base = `${TELEGRAM_API_BASE}/bot${encodeURIComponent(cfg.botToken)}`;
+        const chatIdRedacted = redactChatId(cfg.chatId);
+        c.log.info("testDelivery: start", { chatId: chatIdRedacted });
+
+        // 1. getMe validates botToken. Telegram returns 401 when the token
+        // is malformed/revoked and 404 when the bot id doesn't exist; both
+        // surface to the user as a rejected token.
+        const meRes = await c.fetch(`${base}/getMe`, { method: "GET" });
+        if (meRes.status === 401 || meRes.status === 404) {
+          c.log.warn("testDelivery: getMe rejected", { status: meRes.status });
+          return { ok: false, message: "telegram bot token rejected" };
+        }
+        if (!meRes.ok) {
+          c.log.warn("testDelivery: getMe non-2xx", { status: meRes.status });
+          return { ok: false, message: `telegram getMe ${meRes.status}` };
+        }
+        c.log.debug("testDelivery: getMe ok");
+
+        // 2. getChat validates chatId + bot reachability without producing
+        // any chat-visible side-effect. Passing this step means the bot can
+        // see the chat, but it does not prove the bot can write to it
+        // (channels with restricted posting, supergroups with locked threads,
+        // etc.).
+        const chatRes = await c.fetch(`${base}/getChat`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chat_id: cfg.chatId }),
+        });
+        if (!chatRes.ok) {
+          const body = (await chatRes.json().catch(() => null)) as {
+            description?: string;
+          } | null;
+          const desc =
+            typeof body?.description === "string" && body.description.length > 0
+              ? `telegram: ${body.description}`
+              : `telegram getChat ${chatRes.status}`;
+          c.log.warn("testDelivery: getChat failed", { status: chatRes.status, description: desc });
+          return { ok: false, message: desc };
+        }
+        c.log.debug("testDelivery: getChat ok");
+
+        // 3. Send a real test message so the user can confirm end-to-end
+        // delivery (a passing getChat probe alone has produced false
+        // positives — bots can read chats they cannot post to). Kept short
+        // so users in shared chats see something obviously diagnostic.
+        const sendRes = await c.fetch(`${base}/sendMessage`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            chat_id: cfg.chatId,
+            text: "✅ Test from Media Manager — Telegram channel is wired up.",
+            disable_notification: true,
+          }),
+        });
+        if (!sendRes.ok) {
+          const body = (await sendRes.json().catch(() => null)) as {
+            description?: string;
+          } | null;
+          const desc =
+            typeof body?.description === "string" && body.description.length > 0
+              ? `telegram: ${body.description}`
+              : `telegram sendMessage ${sendRes.status}`;
+          c.log.warn("testDelivery: sendMessage failed", {
+            status: sendRes.status,
+            description: desc,
+          });
+          return { ok: false, message: desc };
+        }
+        c.log.info("testDelivery: sendMessage ok");
         return { ok: true };
       },
     },
   },
 });
+
+/**
+ * Redacts the chat id for logs. Telegram chat ids are not strictly secret
+ * (they appear in webhook payloads, group invite links, etc.), but they still
+ * identify a target chat — keep only the trailing 4 chars so log lines remain
+ * useful for diagnosing the right channel without making the full id grep-able.
+ */
+function redactChatId(chatId: string): string {
+  if (chatId.length <= 4) return chatId;
+  return `***${chatId.slice(-4)}`;
+}
 
 export default telegramPlugin;

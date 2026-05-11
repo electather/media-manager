@@ -13,27 +13,52 @@ describe("configPublicApp", () => {
     vi.doUnmock("../../../env");
   });
 
-  it("returns emailEnabled: true when EMAIL_PROVIDER_CONFIGURED is true", async () => {
+  it("returns emailEnabled: true plus mcp endpoint + scopes when EMAIL_PROVIDER_CONFIGURED is true", async () => {
+    vi.doMock("../../../env", () => ({
+      env: {
+        EMAIL_PROVIDER_CONFIGURED: true,
+        APP_EXTERNAL_URL: "https://media.example.com",
+      },
+    }));
+    const { configPublicApp } = await import("../config");
+    const { MCP_SCOPES } = await import("@ent-mcp/shared/users");
+
+    const res = await configPublicApp.request("/");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      emailEnabled: boolean;
+      mcpEndpointUrl: string;
+      mcpScopes: string[];
+    };
+    expect(body.emailEnabled).toBe(true);
+    expect(body.mcpEndpointUrl).toBe("https://media.example.com/mcp");
+    expect(body.mcpScopes).toEqual([...MCP_SCOPES]);
+  });
+
+  it("returns emailEnabled: false when EMAIL_PROVIDER_CONFIGURED is false", async () => {
+    vi.doMock("../../../env", () => ({
+      env: {
+        EMAIL_PROVIDER_CONFIGURED: false,
+        APP_EXTERNAL_URL: "https://media.example.com",
+      },
+    }));
+    const { configPublicApp } = await import("../config");
+
+    const res = await configPublicApp.request("/");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { emailEnabled: boolean; mcpEndpointUrl: string };
+    expect(body.emailEnabled).toBe(false);
+    expect(body.mcpEndpointUrl).toBe("https://media.example.com/mcp");
+  });
+
+  it("falls back to request origin when APP_EXTERNAL_URL is missing", async () => {
     vi.doMock("../../../env", () => ({
       env: { EMAIL_PROVIDER_CONFIGURED: true },
     }));
     const { configPublicApp } = await import("../config");
 
-    const res = await configPublicApp.request("/");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { emailEnabled: boolean };
-    expect(body).toEqual({ emailEnabled: true });
-  });
-
-  it("returns emailEnabled: false when EMAIL_PROVIDER_CONFIGURED is false", async () => {
-    vi.doMock("../../../env", () => ({
-      env: { EMAIL_PROVIDER_CONFIGURED: false },
-    }));
-    const { configPublicApp } = await import("../config");
-
-    const res = await configPublicApp.request("/");
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { emailEnabled: boolean };
-    expect(body).toEqual({ emailEnabled: false });
+    const res = await configPublicApp.request("http://localhost:3000/");
+    const body = (await res.json()) as { mcpEndpointUrl: string };
+    expect(body.mcpEndpointUrl).toBe("http://localhost:3000/mcp");
   });
 });

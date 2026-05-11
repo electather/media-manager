@@ -1,18 +1,17 @@
-import { EyeIcon, LogOutIcon, MoreHorizontalIcon, PencilIcon } from "lucide-react";
+import { LogOutIcon, MoreHorizontalIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 import { cn } from "@/shared/lib/utils";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { m } from "@/paraglide/messages";
 
-import type { MockAuthorizedApp } from "@/features/settings/mocks";
+import type { AuthorizedApp } from "@ent-mcp/shared/users";
 
 import { NameGlyph } from "@/shared/components/name-glyph";
 
@@ -21,16 +20,15 @@ import { MetaSep } from "./meta-sep";
 import { ScopeChip } from "./scope-chip";
 
 export interface AuthorizedAppRowProps {
-  app: MockAuthorizedApp;
+  app: AuthorizedApp;
   isFirst?: boolean;
-  onRevoke: (app: MockAuthorizedApp) => void;
-  onRename: (app: MockAuthorizedApp) => void;
-  onViewActivity: (app: MockAuthorizedApp) => void;
+  onRevoke: (app: AuthorizedApp) => void;
 }
 
-function formatAuthorizedDate(iso: string): string {
+function formatAuthorizedDate(epochMs: number): string {
+  if (!epochMs) return "—";
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(epochMs).toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -40,13 +38,7 @@ function formatAuthorizedDate(iso: string): string {
   }
 }
 
-export function AuthorizedAppRow({
-  app,
-  isFirst = false,
-  onRevoke,
-  onRename,
-  onViewActivity,
-}: AuthorizedAppRowProps) {
+export function AuthorizedAppRow({ app, isFirst = false, onRevoke }: AuthorizedAppRowProps) {
   return (
     <li
       data-testid={`authorized-app-${app.clientId}`}
@@ -69,54 +61,32 @@ export function AuthorizedAppRow({
         ) : null}
       </div>
 
-      <AppRowMenu
-        app={app}
-        onRevoke={onRevoke}
-        onRename={onRename}
-        onViewActivity={onViewActivity}
-      />
+      <AppRowMenu app={app} onRevoke={onRevoke} />
     </li>
   );
 }
 
-function AppRowHeading({ app }: { app: MockAuthorizedApp }) {
+function AppRowHeading({ app }: { app: AuthorizedApp }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium tracking-tight text-foreground">
-        {app.name}
-        {app.deviceLabel ? (
-          <>
-            <span className="mx-1.5 font-normal text-muted-foreground/60">·</span>
-            <span className="font-normal text-muted-foreground">{app.deviceLabel}</span>
-          </>
-        ) : null}
-      </span>
+      <span className="text-sm font-medium tracking-tight text-foreground">{app.name}</span>
       <ActivityPill status={app.status} />
-      {app.version ? (
-        <span className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10.5px] tracking-wider text-muted-foreground">
-          {app.version}
-        </span>
-      ) : null}
     </div>
   );
 }
 
-function AppRowMeta({ app }: { app: MockAuthorizedApp }) {
+function AppRowMeta({ app }: { app: AuthorizedApp }) {
   return (
     <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs tabular-nums text-muted-foreground">
-      <span className="font-mono">{app.ipAddress}</span>
-      <MetaSep />
       <span>
-        {m.settings_apps_meta_authorized({ date: formatAuthorizedDate(app.authorizedAt) })}
+        {m.settings_apps_meta_authorized({ date: formatAuthorizedDate(app.connectedAt) })}
       </span>
-      <MetaSep />
-      <span>
-        {m.settings_apps_meta_last_active({ time: relativeTime(new Date(app.lastSeenAt)) })}
-      </span>
-      {app.callsLast24h > 0 ? (
+      {app.lastUsedAt ? (
         <>
           <MetaSep />
-          <span>{m.settings_apps_meta_calls({ count: app.callsLast24h.toLocaleString() })}</span>
+          <span>
+            {m.settings_apps_meta_last_active({ time: relativeTime(new Date(app.lastUsedAt)) })}
+          </span>
         </>
       ) : null}
     </div>
@@ -126,13 +96,9 @@ function AppRowMeta({ app }: { app: MockAuthorizedApp }) {
 function AppRowMenu({
   app,
   onRevoke,
-  onRename,
-  onViewActivity,
 }: {
-  app: MockAuthorizedApp;
-  onRevoke: (app: MockAuthorizedApp) => void;
-  onRename: (app: MockAuthorizedApp) => void;
-  onViewActivity: (app: MockAuthorizedApp) => void;
+  app: AuthorizedApp;
+  onRevoke: (app: AuthorizedApp) => void;
 }) {
   return (
     <DropdownMenu>
@@ -149,15 +115,6 @@ function AppRowMenu({
         }
       />
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onViewActivity(app)}>
-          <EyeIcon className="size-3.5" />
-          {m.settings_apps_action_view_activity()}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onRename(app)} data-testid={`rename-${app.clientId}`}>
-          <PencilIcon className="size-3.5" />
-          {m.settings_apps_action_rename()}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
           onClick={() => onRevoke(app)}

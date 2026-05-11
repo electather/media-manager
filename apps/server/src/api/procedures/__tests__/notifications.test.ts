@@ -155,6 +155,37 @@ vi.mock("../../../connections/service", () => ({
           },
         }));
     },
+    // Mirror the production helper by reading from the mock capability
+    // registry. Each entry exposes the same `PluginSummary` fields the real
+    // implementation derives from manifests; the notifications endpoint
+    // layers `supportsKinds` on top.
+    listNotificationPlugins: async (ids: ReadonlySet<string>) => {
+      const out: any[] = [];
+      for (const id of ids) {
+        const entry = mockCapabilityRegistry.get(id);
+        if (!entry) continue;
+        const manifest = entry.module.manifest as any;
+        out.push({
+          id,
+          name: manifest.name ?? id,
+          version: manifest.version ?? "0.0.0",
+          description: manifest.description ?? "",
+          logoUrl: manifest.logoUrl,
+          authKind: manifest.auth?.kind ?? "none",
+          poolable: manifest.poolable ?? false,
+          userScopedCapabilities: Object.entries(manifest.capabilities ?? {})
+            .filter(([, c]: [string, any]) => c.scope === "user")
+            .map(([capId, c]: [string, any]) => ({ id: capId, version: c.version })),
+          globalScopedCapabilities: Object.entries(manifest.capabilities ?? {})
+            .filter(([, c]: [string, any]) => c.scope === "global")
+            .map(([capId, c]: [string, any]) => ({ id: capId, version: c.version })),
+          userConfigSchema: manifest.userConfigSchema ?? null,
+          credentialsSchema: manifest.credentialsSchema ?? null,
+          adminSharedAvailable: false,
+        });
+      }
+      return out;
+    },
     test: async () => ({ ok: true, message: "stub ok" }),
   },
 }));

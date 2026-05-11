@@ -1,10 +1,10 @@
 import type { DiagnosticsConfigBody } from "@ent-mcp/shared/diagnostics";
 import { api } from "@/shared/lib/api";
-import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
+import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { rangeToWindow } from "./format";
 import { DiagnosticsApiError, type ErrorsFilters, type PerfFilters } from "./types";
 
-const throwOnError = (res: Response) => throwOnApiError(res, DiagnosticsApiError);
+const readJson = <R extends Response>(res: R) => readOkJson(res, DiagnosticsApiError);
 
 /** Builds the comma-delimited query shape the backend expects for list endpoints.
  *  One branch per optional filter is intrinsic to the API contract. */
@@ -28,21 +28,15 @@ function errorsQuery(filters: ErrorsFilters) {
 }
 
 export async function fetchErrorList(filters: ErrorsFilters) {
-  const res = await api.admin.diagnostics.errors.$get({ query: errorsQuery(filters) });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.errors.$get({ query: errorsQuery(filters) }));
 }
 
 export async function fetchErrorDetail(id: string) {
-  const res = await api.admin.diagnostics.errors[":id"].$get({ param: { id } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.errors[":id"].$get({ param: { id } }));
 }
 
 export async function fetchErrorSummary() {
-  const res = await api.admin.diagnostics.errors.summary.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.errors.summary.$get());
 }
 
 function perfAggregateQuery(filters: PerfFilters) {
@@ -57,33 +51,23 @@ function perfAggregateQuery(filters: PerfFilters) {
 }
 
 export async function fetchPerfAggregate(filters: PerfFilters) {
-  const res = await api.admin.diagnostics.perf.aggregate.$get({
-    query: perfAggregateQuery(filters),
-  });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(
+    await api.admin.diagnostics.perf.aggregate.$get({ query: perfAggregateQuery(filters) }),
+  );
 }
 
 export async function fetchPerfSummary() {
-  const res = await api.admin.diagnostics.perf.summary.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.perf.summary.$get());
 }
 
 export async function fetchPerfDetail(id: string) {
-  const res = await api.admin.diagnostics.perf[":id"].$get({ param: { id } });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.perf[":id"].$get({ param: { id } }));
 }
 
 export async function fetchDiagnosticsConfig() {
-  const res = await api.admin.diagnostics.config.$get();
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.config.$get());
 }
 
 export async function fetchUpdateDiagnosticsConfig(body: DiagnosticsConfigBody) {
-  const res = await api.admin.diagnostics.config.$put({ json: body });
-  if (!res.ok) await throwOnError(res);
-  return res.json();
+  return readJson(await api.admin.diagnostics.config.$put({ json: body }));
 }

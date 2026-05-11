@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { AnchorHTMLAttributes } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const toastMock = vi.hoisted(() => ({
@@ -24,7 +24,8 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-import { Route as DangerRoute } from "@/routes/_authenticated/_settings/settings/danger";
+import { DeleteAccountDialog } from "@/routes/_authenticated/_settings/settings/danger";
+import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
@@ -33,13 +34,18 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe("Danger zone (mock)", () => {
-  it("opens the delete dialog and disables submit until email + password are filled", async () => {
+describe("DeleteAccountDialog", () => {
+  it("disables submit until both email + password are valid", async () => {
     const user = userEvent.setup();
-    const Component = DangerRoute.options.component!;
-    render(<Component />);
-
-    await user.click(screen.getByTestId("open-delete"));
+    renderWithProviders(
+      <DeleteAccountDialog
+        open
+        email="alex@example.com"
+        onClose={() => {}}
+        onDeleted={() => {}}
+        onSubmit={async () => {}}
+      />,
+    );
 
     const confirm = await screen.findByTestId("confirm-delete");
     expect((confirm as HTMLButtonElement).disabled).toBe(true);
@@ -51,20 +57,30 @@ describe("Danger zone (mock)", () => {
     );
   });
 
-  it("toasts when starting an export", async () => {
+  it("calls onSubmit with the trimmed email + password", async () => {
+    const onSubmit = vi.fn(async () => {});
+    const onDeleted = vi.fn();
     const user = userEvent.setup();
-    const Component = DangerRoute.options.component!;
-    render(<Component />);
+    renderWithProviders(
+      <DeleteAccountDialog
+        open
+        email="alex@example.com"
+        onClose={() => {}}
+        onDeleted={onDeleted}
+        onSubmit={onSubmit}
+      />,
+    );
 
-    await user.click(screen.getByTestId("export-data"));
+    await user.type(screen.getByTestId("delete-email"), "alex@example.com");
+    await user.type(screen.getByTestId("delete-password"), "Secret123!");
+    await user.click(screen.getByTestId("confirm-delete"));
 
-    // Reauth dialog opens; confirm to trigger the export toast.
-    const confirm = await screen.findByRole("button", { name: /export data/i });
-    // Type any password (mock — not validated)
-    const inputs = screen.getAllByPlaceholderText(/password/i);
-    await user.type(inputs[0]!, "x");
-    await user.click(confirm);
-
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        confirmEmail: "alex@example.com",
+        currentPassword: "Secret123!",
+      }),
+    );
+    await waitFor(() => expect(onDeleted).toHaveBeenCalled());
   });
 });

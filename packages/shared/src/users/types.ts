@@ -5,6 +5,15 @@
  * Date fields are epoch millis to match the shared/RPC convention used by
  * other shared types in this package (see `connections/types.ts`).
  */
+/**
+ * Server-derived activity status for an authorized OAuth client.
+ *
+ * - `active`  — token issued within the last 5 minutes.
+ * - `new`     — consent created within the last 24h with no tokens issued yet.
+ * - `idle`    — anything else (default).
+ */
+export type AuthorizedAppStatus = "active" | "idle" | "new";
+
 export interface AuthorizedApp {
   clientId: string;
   /** `oauthClient.name`, falling back to `clientId` when missing. */
@@ -17,6 +26,8 @@ export interface AuthorizedApp {
   lastUsedAt: number | null;
   /** `oauthClient.userId === currentUser.id`. */
   ownedByUser: boolean;
+  /** Server-derived activity bucket; rendered as a pill in the UI. */
+  status: AuthorizedAppStatus;
 }
 
 /** Compact shape of a role used by user-facing surfaces (e.g. settings profile). */
@@ -34,4 +45,12 @@ export interface RoleSummary {
  */
 export interface PublicConfig {
   emailEnabled: boolean;
+  /**
+   * Public-facing MCP endpoint URL (single mount; OAuth handles authn).
+   * Built from `env.APP_EXTERNAL_URL` plus `/mcp`, falling back to the
+   * request origin when the env var is missing in development.
+   */
+  mcpEndpointUrl: string;
+  /** Coarse OAuth scopes published by the MCP server. */
+  mcpScopes: readonly string[];
 }

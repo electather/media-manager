@@ -16,20 +16,32 @@ import {
 } from "@/shared/ui/dialog";
 import { Field, FieldError, FieldTitle } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
+import { authClient } from "@/shared/lib/auth";
 import { relativeTime } from "@/shared/lib/relative-time";
 import { parseUserAgent } from "@/shared/lib/user-agent";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
 import { SettingsPageHeader } from "@/app/settings-layout";
-import { SettingsCard, SettingsCardHeader } from "@/features/settings";
-import { MOCK_SESSIONS, type MockSession } from "@/features/settings/mocks";
+import {
+  SettingsCard,
+  SettingsCardHeader,
+  useRevokeOtherSessions,
+  useRevokeSession,
+  useSessions,
+  type AuthSession,
+} from "@/features/settings";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/security")({
   component: SecurityRoute,
 });
+
+interface DisplaySession extends AuthSession {
+  current: boolean;
+}
 
 function SecurityRoute() {
   return (
@@ -40,11 +52,14 @@ function SecurityRoute() {
 }
 
 function SecurityPage() {
-  const [sessions, setSessions] = useState<ReadonlyArray<MockSession>>(MOCK_SESSIONS);
+  const sessions = useSessions();
+  const session = authClient.useSession();
+  const currentSessionId = session.data?.session.id ?? null;
 
-  const onPasswordChanged = () => {
-    setSessions((list) => list.filter((s) => s.current));
-  };
+  const list: DisplaySession[] = useMemo(() => {
+    const raw = sessions.data ?? [];
+    return raw.map((s) => ({ ...s, current: s.id === currentSessionId }));
+  }, [sessions.data, currentSessionId]);
 
   return (
     <div className="flex flex-col gap-7">
@@ -52,8 +67,12 @@ function SecurityPage() {
         title={m.settings_security_title()}
         description={m.settings_security_description()}
       />
-      <ChangePasswordCard onChanged={onPasswordChanged} />
-      <ActiveSessionsCard sessions={sessions} setSessions={setSessions} />
+      <ChangePasswordCard />
+      {sessions.isLoading || !session.data ? (
+        <Skeleton className="h-48 w-full rounded-2xl" />
+      ) : (
+        <ActiveSessionsCard sessions={list} />
+      )}
     </div>
   );
 }
@@ -73,6 +92,7 @@ function PasswordChangeForm({
   mismatch,
   canSubmit,
   submitting,
+  serverError,
   onSubmit,
   onCancel,
 }: {
@@ -86,20 +106,23 @@ function PasswordChangeForm({
   mismatch: boolean;
   canSubmit: boolean;
   submitting: boolean;
+  serverError: string | null;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
 }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4 p-5 sm:p-6">
-      <Field>
+      <Field data-invalid={serverError ? true : undefined}>
         <FieldTitle>{m.settings_security_password_current()}</FieldTitle>
         <PasswordInput
           value={current}
           onChange={setCurrent}
           autoComplete="current-password"
           placeholder={m.settings_security_password_placeholder()}
+          ariaInvalid={!!serverError}
           data-testid="current-password"
         />
+        {serverError ? <FieldError>{serverError}</FieldError> : null}
       </Field>
       <Field data-invalid={tooShort ? true : undefined}>
         <FieldTitle>{m.settings_security_password_new()}</FieldTitle>
@@ -140,12 +163,18 @@ function PasswordChangeForm({
   );
 }
 
-export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
+export function ChangePasswordCard({
+  onChangePassword,
+}: {
+  /** Optional override used by tests; default path calls Better Auth. */
+  onChangePassword?: (input: { currentPassword: string; newPassword: string }) => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const tooShort = next.length > 0 && next.length < MIN_PASSWORD_LENGTH;
   const mismatch = confirm.length > 0 && confirm !== next;
@@ -156,19 +185,39 @@ export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
     setCurrent("");
     setNext("");
     setConfirm("");
+    setServerError(null);
     setOpen(false);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);
-    window.setTimeout(() => {
-      setSubmitting(false);
+    setServerError(null);
+    try {
+      if (onChangePassword) {
+        await onChangePassword({ currentPassword: current, newPassword: next });
+      } else {
+        const result = await authClient.changePassword({
+          currentPassword: current,
+          newPassword: next,
+          revokeOtherSessions: true,
+        });
+        if (result.error) {
+          if (result.error.status === 401) {
+            setServerError(m.settings_security_password_wrong());
+            return;
+          }
+          throw new Error(result.error.message ?? "Password change failed");
+        }
+      }
       reset();
       toast.success(m.settings_security_toast_password_updated());
-      onChanged?.();
-    }, 400);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -194,14 +243,21 @@ export function ChangePasswordCard({ onChanged }: { onChanged?: () => void }) {
           current={current}
           next={next}
           confirm={confirm}
-          setCurrent={setCurrent}
+          setCurrent={(v) => {
+            setCurrent(v);
+            // Clear the "wrong password" server error as soon as the user
+            // edits the current-password field, so the red banner does not
+            // outlast the input that triggered it.
+            if (serverError) setServerError(null);
+          }}
           setNext={setNext}
           setConfirm={setConfirm}
           tooShort={tooShort}
           mismatch={mismatch}
           canSubmit={canSubmit}
           submitting={submitting}
-          onSubmit={submit}
+          serverError={serverError}
+          onSubmit={(e) => void submit(e)}
           onCancel={reset}
         />
       ) : null}
@@ -295,7 +351,7 @@ function RevokeSessionDialog({
   onClose,
   onConfirm,
 }: {
-  session: MockSession | null;
+  session: DisplaySession | null;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -312,7 +368,7 @@ function RevokeSessionDialog({
           <DialogDescription>
             {session
               ? m.settings_security_revoke_dialog_body({
-                  device: parseUserAgent(session.userAgent).label,
+                  device: parseUserAgent(session.userAgent ?? null).label,
                 })
               : null}
           </DialogDescription>
@@ -368,28 +424,29 @@ function RevokeAllSessionsDialog({
   );
 }
 
-export function ActiveSessionsCard({
-  sessions,
-  setSessions,
-}: {
-  sessions: ReadonlyArray<MockSession>;
-  setSessions: (updater: (prev: ReadonlyArray<MockSession>) => ReadonlyArray<MockSession>) => void;
-}) {
-  const [revokeOne, setRevokeOne] = useState<MockSession | null>(null);
+export function ActiveSessionsCard({ sessions }: { sessions: ReadonlyArray<DisplaySession> }) {
+  const revokeOne = useRevokeSession();
+  const revokeOthers = useRevokeOtherSessions();
+  const [revokeOneTarget, setRevokeOneTarget] = useState<DisplaySession | null>(null);
   const [revokeAll, setRevokeAll] = useState(false);
 
   const others = sessions.filter((s) => !s.current).length;
 
   const doRevokeOne = () => {
-    if (!revokeOne) return;
-    setSessions((list) => list.filter((s) => s.id !== revokeOne.id));
-    toast.success(m.settings_security_toast_session_revoked());
-    setRevokeOne(null);
+    if (!revokeOneTarget) return;
+    revokeOne.mutate(revokeOneTarget.token, {
+      onSuccess: () => toast.success(m.settings_security_toast_session_revoked()),
+      onError: (err) => toast.error(err.message),
+    });
+    setRevokeOneTarget(null);
   };
 
   const doRevokeAll = () => {
-    setSessions((list) => list.filter((s) => s.current));
-    toast.success(m.settings_security_toast_signed_out_others({ count: others }));
+    revokeOthers.mutate(undefined, {
+      onSuccess: () =>
+        toast.success(m.settings_security_toast_signed_out_others({ count: others })),
+      onError: (err) => toast.error(err.message),
+    });
     setRevokeAll(false);
   };
 
@@ -417,14 +474,14 @@ export function ActiveSessionsCard({
               key={s.id}
               session={s}
               isFirst={i === 0}
-              onRevoke={() => setRevokeOne(s)}
+              onRevoke={() => setRevokeOneTarget(s)}
             />
           ))}
         </ul>
       )}
       <RevokeSessionDialog
-        session={revokeOne}
-        onClose={() => setRevokeOne(null)}
+        session={revokeOneTarget}
+        onClose={() => setRevokeOneTarget(null)}
         onConfirm={doRevokeOne}
       />
       <RevokeAllSessionsDialog
@@ -442,11 +499,14 @@ function SessionListRow({
   isFirst,
   onRevoke,
 }: {
-  session: MockSession;
+  session: DisplaySession;
   isFirst: boolean;
   onRevoke: () => void;
 }) {
-  const ua = useMemo(() => parseUserAgent(session.userAgent), [session.userAgent]);
+  const ua = useMemo(() => parseUserAgent(session.userAgent ?? null), [session.userAgent]);
+  const showIp = !ua.unknown && !!session.ipAddress;
+  const created = new Date(session.createdAt);
+  const updated = new Date(session.updatedAt);
   return (
     <li
       data-testid={`session-row-${session.id}`}
@@ -467,15 +527,15 @@ function SessionListRow({
           ) : null}
         </div>
         <p className="mt-0.5 flex flex-wrap gap-x-2.5 gap-y-0 text-xs text-muted-foreground">
-          {session.ipAddress ? <span className="font-mono">{session.ipAddress}</span> : null}
+          {showIp ? <span className="font-mono">{session.ipAddress}</span> : null}
           <span>
             {m.settings_security_sessions_signed_in({
-              time: relativeTime(new Date(session.createdAt)),
+              time: relativeTime(created),
             })}
           </span>
           <span>
             {m.settings_security_sessions_last_active({
-              time: relativeTime(new Date(session.updatedAt)),
+              time: relativeTime(updated),
             })}
           </span>
         </p>

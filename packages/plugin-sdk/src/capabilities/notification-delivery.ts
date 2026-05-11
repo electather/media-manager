@@ -22,8 +22,13 @@ export interface NotificationDeliveryCapabilityV1<TConfig = unknown> {
   ): Promise<{ providerMessageId?: string }>;
 
   /**
-   * Validate config + verify reachability. Called from the "Test" button in UI
-   * and once at channel-create time. Should NOT actually deliver.
+   * Validate config + verify reachability. Called from the "Test" button in
+   * UI and once at channel-create time. Plugins MAY send a short, clearly
+   * labelled probe message (e.g. "Test from Media Manager") when that is the
+   * only way to prove end-to-end delivery — silent reachability probes have
+   * produced false positives where the bot/token can read a chat but cannot
+   * write to it. Plugins that can verify without a side-effect should still
+   * prefer the silent path.
    */
   testDelivery(
     ctx: PluginContext<unknown, unknown, TConfig>,

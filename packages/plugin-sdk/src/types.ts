@@ -145,6 +145,13 @@ export type McpToolHandler<I = unknown, O = unknown> = (ctx: PluginContext, inpu
 
 export interface PluginModule {
   manifest: PluginManifest;
+  /**
+   * Required when `manifest.auth.kind !== "none"`. The host invokes it during
+   * connection creation (and re-runs it on form-auth edits) to exchange the
+   * submitted `userConfig` for the persisted credentials blob. Omit for
+   * `auth.kind: "none"` plugins — the host skips the call entirely and
+   * persists the connection with empty credentials.
+   */
   startAuth?: (ctx: PluginContext, input: unknown) => Promise<AuthResult>;
   completeAuth?: (
     ctx: PluginContext,
@@ -153,6 +160,11 @@ export interface PluginModule {
   ) => Promise<AuthResult>;
   pollAuth?: (ctx: PluginContext, pollState: unknown) => Promise<AuthResult>;
   refreshAuth?: (ctx: PluginContext, credentials: unknown) => Promise<unknown>;
+  /**
+   * Required when `manifest.auth.kind !== "none"`. For `auth.kind: "none"`
+   * plugins the capability owns the probe (e.g. `notificationDelivery.testDelivery`),
+   * so this module-level function is optional and typically omitted.
+   */
   testConnection?: (ctx: PluginContext) => Promise<{ ok: boolean; message?: string }>;
   /**
    * Optional probe for pure-global plugins (auth.kind: "none") to verify a

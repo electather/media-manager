@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
 import type { AnchorHTMLAttributes } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+import { AuthorizedAppRow } from "@/features/settings/components/authorized-app-row";
+import type { AuthorizedApp } from "@ent-mcp/shared/users";
 
 const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
@@ -24,121 +27,54 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-import { Route as AppsRoute } from "@/routes/_authenticated/_settings/settings/apps";
+import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {
   toastMock.success.mockReset();
+  toastMock.error.mockReset();
   toastMock.message.mockReset();
 });
 
 afterEach(() => cleanup());
 
-describe("Authorized apps (mock)", () => {
-  it("renders the MCP endpoint card and authorized client list", () => {
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
+const NOW = Date.now();
 
-    expect(screen.getByText(/mcp endpoint/i)).toBeTruthy();
-    expect(screen.getByTestId("authorized-app-claude-desktop")).toBeTruthy();
-    expect(screen.getByTestId("filter-active")).toBeTruthy();
+const ACTIVE_APP: AuthorizedApp = {
+  clientId: "claude-desktop",
+  name: "Claude Desktop",
+  scopes: ["mcp.read", "mcp.write.feedback"],
+  connectedAt: NOW - 1000 * 60 * 60 * 24 * 18,
+  lastUsedAt: NOW - 1000 * 60 * 2,
+  ownedByUser: false,
+  status: "active",
+};
+
+describe("AuthorizedAppRow (live shape)", () => {
+  it("renders the app name, status pill, and scope chips", () => {
+    renderWithProviders(
+      <ul>
+        <AuthorizedAppRow app={ACTIVE_APP} onRevoke={() => {}} />
+      </ul>,
+    );
+
+    expect(screen.getByTestId(`authorized-app-${ACTIVE_APP.clientId}`)).toBeTruthy();
+    expect(screen.getByText("Claude Desktop")).toBeTruthy();
+    expect(screen.getByText(/mcp\.read/)).toBeTruthy();
   });
 
-  it("opens the revoke dialog from the row menu and confirms removal", async () => {
+  it("invokes onRevoke from the row menu", async () => {
     const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
+    const onRevoke = vi.fn();
+    renderWithProviders(
+      <ul>
+        <AuthorizedAppRow app={ACTIVE_APP} onRevoke={onRevoke} />
+      </ul>,
+    );
 
-    await user.click(screen.getByTestId("actions-claude-desktop"));
-    const revokeItem = await screen.findByTestId("revoke-claude-desktop");
-    await user.click(revokeItem);
+    await user.click(screen.getByTestId(`actions-${ACTIVE_APP.clientId}`));
+    const item = await screen.findByTestId(`revoke-${ACTIVE_APP.clientId}`);
+    await user.click(item);
 
-    const confirm = await screen.findByTestId("confirm-revoke-app");
-    await user.click(confirm);
-
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
-  });
-
-  it("filters by active status", async () => {
-    const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
-
-    await user.click(screen.getByTestId("filter-idle"));
-    expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
-    expect(screen.getByTestId("authorized-app-claude-web")).toBeTruthy();
-  });
-
-  it("revokes all clients via the bulk dialog", async () => {
-    const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
-
-    await user.click(screen.getByTestId("revoke-all"));
-    const confirm = await screen.findByTestId("confirm-revoke-all");
-    await user.click(confirm);
-
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
-    expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
-    expect(screen.getByText(/no authorized applications/i)).toBeTruthy();
-  });
-
-  it("renames a client through the rename dialog", async () => {
-    const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
-
-    await user.click(screen.getByTestId("actions-claude-desktop"));
-    const renameItem = await screen.findByTestId("rename-claude-desktop");
-    await user.click(renameItem);
-
-    const input = (await screen.findByTestId("rename-input")) as HTMLInputElement;
-    await user.clear(input);
-    await user.type(input, "Studio MCP");
-    await user.click(screen.getByTestId("confirm-rename"));
-
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
-    expect(screen.getByText("Studio MCP")).toBeTruthy();
-  });
-
-  it("disables rename save when the name is blank", async () => {
-    const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
-
-    await user.click(screen.getByTestId("actions-claude-desktop"));
-    await user.click(await screen.findByTestId("rename-claude-desktop"));
-
-    const input = (await screen.findByTestId("rename-input")) as HTMLInputElement;
-    await user.clear(input);
-    expect((screen.getByTestId("confirm-rename") as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it("rotates the endpoint URL and revokes all clients", async () => {
-    const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
-
-    const endpointBefore = screen.getByTitle(/^https:\/\/mcp\./).textContent ?? "";
-
-    await user.click(screen.getByTestId("endpoint-actions"));
-    await user.click(await screen.findByTestId("rotate-endpoint"));
-    await user.click(await screen.findByTestId("confirm-rotate"));
-
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalled());
-    expect(screen.queryByTestId("authorized-app-claude-desktop")).toBeNull();
-    const endpointAfter = screen.getByTitle(/^https:\/\/mcp\./).textContent ?? "";
-    expect(endpointAfter).not.toBe(endpointBefore);
-  });
-
-  it("opens the setup guide modal", async () => {
-    const user = userEvent.setup();
-    const Component = AppsRoute.options.component!;
-    render(<Component />);
-
-    await user.click(screen.getByTestId("endpoint-actions"));
-    await user.click(await screen.findByTestId("open-setup-guide"));
-
-    expect(await screen.findByText(/connect your mcp client/i)).toBeTruthy();
-    expect(screen.getByTestId("setup-guide-copy-claude-desktop")).toBeTruthy();
+    await waitFor(() => expect(onRevoke).toHaveBeenCalledWith(ACTIVE_APP));
   });
 });

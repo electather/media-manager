@@ -458,7 +458,20 @@ export class PluginRuntime {
     }
   }
 
-  /** Runs testConnection for a user's connection; used by the "test" button and health cron. */
+  /**
+   * Runs the probe associated with a user's connection. Used by the "test"
+   * button and the health cron.
+   *
+   * Resolution order:
+   * 1. Module-level `testConnection`, if exported. Standard path for plugins
+   *    with `auth.kind !== "none"` (Seerr, Jellyfin, etc.).
+   * 2. `notificationDelivery.testDelivery`, if the plugin implements that
+   *    capability. Notification channels declare `auth.kind: "none"` and have
+   *    no module-level probe — the capability owns reachability. Without
+   *    this fallback, the test endpoint would report a false-positive
+   *    "plugin has no testConnection" for Telegram, Discord, ntfy, inbox.
+   * 3. Otherwise, ok with a "no probe available" note.
+   */
   // fallow-ignore-next-line complexity
   async testConnection(
     pluginId: string,
@@ -467,7 +480,8 @@ export class PluginRuntime {
     userConfig: unknown,
   ): Promise<{ ok: boolean; message?: string }> {
     const module = await this.getModule(pluginId);
-    if (typeof module.testConnection !== "function") {
+    const notificationProbe = module.capabilities?.notificationDelivery?.testDelivery;
+    if (typeof module.testConnection !== "function" && typeof notificationProbe !== "function") {
       return { ok: true, message: "plugin has no testConnection" };
     }
     try {
@@ -475,7 +489,16 @@ export class PluginRuntime {
       // field (user-input error) returns a friendly `{ ok: false, message }`
       // instead of escaping as an uncaught throw.
       const ctx = await this.buildAuxContext(pluginId, userId, credentials, userConfig);
-      return await module.testConnection(ctx);
+      if (typeof module.testConnection === "function") {
+        return await module.testConnection(ctx);
+      }
+      // Notification probe contract: the plugin reads `args.channelConfig`,
+      // which mirrors the persisted `userConfig`. See
+      // `packages/plugin-sdk/src/capabilities/notification-delivery.ts`.
+      return (await notificationProbe!(ctx, { channelConfig: userConfig })) as {
+        ok: boolean;
+        message?: string;
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       await captureError(err, {

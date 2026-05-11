@@ -250,8 +250,12 @@ export async function writeConnection(args: {
   credentials: unknown;
   userConfig: unknown;
   tokenExpiresAt?: number;
+  // No-auth plugins (manifest.auth.kind === "none") legitimately have no
+  // credentials — userConfig carries everything (e.g. Telegram bot token).
+  // The empty-credentials guard would reject these otherwise.
+  allowEmptyCredentials?: boolean;
 }): Promise<string> {
-  if (!hasRealCredentials(args.credentials)) {
+  if (!args.allowEmptyCredentials && !hasRealCredentials(args.credentials)) {
     throw internal(
       "connection.verify_failed",
       "cannot create connection with empty credentials — the plugin must return a populated credentials payload",

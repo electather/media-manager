@@ -1,13 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+// fallow-ignore-file complexity
+import { Suspense, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  InfoIcon,
-  LayersIcon,
-  MoreHorizontalIcon,
-  PlugIcon,
-  RotateCwIcon,
-  ShieldCheckIcon,
-} from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { InfoIcon, LayersIcon, MoreHorizontalIcon, PlugIcon, ShieldCheckIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/shared/ui/button";
@@ -24,12 +19,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
-import { Input } from "@/shared/ui/input";
+import { Skeleton } from "@/shared/ui/skeleton";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
-import { relativeTime } from "@/shared/lib/relative-time";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
@@ -41,15 +34,13 @@ import {
   SettingsCard,
   SettingsCardHeader,
   SetupGuideModal,
+  revokeAuthorizedApp,
+  settingsKeys,
+  useAuthorizedApps,
+  usePublicConfig,
+  useRevokeAuthorizedApp,
 } from "@/features/settings";
-import {
-  MCP_ENDPOINT_SCOPES,
-  MOCK_AUTHORIZED_APPS,
-  MOCK_MCP_ENDPOINT,
-  type MockAuthorizedApp,
-  type MockAuthorizedAppStatus,
-  type MockMcpEndpoint,
-} from "@/features/settings/mocks";
+import type { AuthorizedApp, AuthorizedAppStatus } from "@ent-mcp/shared/users";
 
 export const Route = createFileRoute("/_authenticated/_settings/settings/apps")({
   component: AppsRoute,
@@ -58,104 +49,73 @@ export const Route = createFileRoute("/_authenticated/_settings/settings/apps")(
 function AppsRoute() {
   return (
     <SettingsErrorBoundary>
-      <AppsPage />
+      <Suspense fallback={<AppsSkeleton />}>
+        <AppsPage />
+      </Suspense>
     </SettingsErrorBoundary>
   );
 }
 
-type Filter = "all" | "active" | "idle";
-
-const STATUS_ORDER: Record<MockAuthorizedAppStatus, number> = { active: 0, new: 1, idle: 2 };
-
-interface AppsState {
-  endpoint: MockMcpEndpoint;
-  apps: ReadonlyArray<MockAuthorizedApp>;
+function AppsSkeleton() {
+  return (
+    <div className="flex flex-col gap-7">
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-48 w-full rounded-2xl" />
+      <Skeleton className="h-72 w-full rounded-2xl" />
+    </div>
+  );
 }
 
-function useAppsState() {
-  const [state, setState] = useState<AppsState>({
-    endpoint: MOCK_MCP_ENDPOINT,
-    apps: MOCK_AUTHORIZED_APPS,
-  });
+type Filter = "all" | "active" | "idle" | "new";
 
-  const revokeOne = (id: string, name: string) => {
-    setState((s) => ({ ...s, apps: s.apps.filter((a) => a.clientId !== id) }));
-    toast.success(m.settings_apps_toast_revoked({ name }));
-  };
-
-  const revokeAll = () => {
-    const count = state.apps.length;
-    setState((s) => ({ ...s, apps: [] }));
-    toast.success(m.settings_apps_toast_revoked_all({ count }));
-  };
-
-  const rotate = () => {
-    setState((s) => ({
-      endpoint: {
-        url: s.endpoint.url.replace(/([?&])t=[^&]*/, `$1t=${randomToken()}`),
-        rotatedAt: new Date().toISOString(),
-      },
-      apps: [],
-    }));
-    toast.success(m.settings_apps_toast_rotated());
-  };
-
-  const rename = (id: string, next: string) => {
-    setState((s) => ({
-      ...s,
-      apps: s.apps.map((a) => (a.clientId === id ? { ...a, name: next } : a)),
-    }));
-    toast.success(m.settings_apps_toast_renamed());
-  };
-
-  const [filter, setFilter] = useState<Filter>("all");
-  const [confirmRevoke, setConfirmRevoke] = useState<MockAuthorizedApp | null>(null);
-  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
-  const [confirmRotate, setConfirmRotate] = useState(false);
-  const [renameFor, setRenameFor] = useState<MockAuthorizedApp | null>(null);
-  const [setupGuideOpen, setSetupGuideOpen] = useState(false);
-
-  return {
-    state,
-    revokeOne,
-    revokeAll,
-    rotate,
-    rename,
-    filter,
-    setFilter,
-    confirmRevoke,
-    setConfirmRevoke,
-    confirmRevokeAll,
-    setConfirmRevokeAll,
-    confirmRotate,
-    setConfirmRotate,
-    renameFor,
-    setRenameFor,
-    setupGuideOpen,
-    setSetupGuideOpen,
-  };
-}
+const STATUS_ORDER: Record<AuthorizedAppStatus, number> = { active: 0, new: 1, idle: 2 };
 
 function AppsPage() {
-  const {
-    state,
-    revokeOne,
-    revokeAll,
-    rotate,
-    rename,
-    filter,
-    setFilter,
-    confirmRevoke,
-    setConfirmRevoke,
-    confirmRevokeAll,
-    setConfirmRevokeAll,
-    confirmRotate,
-    setConfirmRotate,
-    renameFor,
-    setRenameFor,
-    setupGuideOpen,
-    setSetupGuideOpen,
-  } = useAppsState();
+  const apps = useAuthorizedApps().data;
+  const publicConfig = usePublicConfig().data;
+  const revoke = useRevokeAuthorizedApp();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [confirmRevoke, setConfirmRevoke] = useState<AuthorizedApp | null>(null);
+  const [confirmRevokeAll, setConfirmRevokeAll] = useState(false);
+  const [setupGuideOpen, setSetupGuideOpen] = useState(false);
+
+  const onRevoke = () => {
+    if (!confirmRevoke) return;
+    const target = confirmRevoke;
+    setConfirmRevoke(null);
+    revoke.mutate(target.clientId, {
+      onSuccess: () => toast.success(m.settings_apps_toast_revoked({ name: target.name })),
+      onError: (err) => toast.error(err.message),
+    });
+  };
+
+  const qc = useQueryClient();
+  // Bulk revoke. There is no server-side bulk endpoint — call sequentially via
+  // the raw fetcher so each request does not run the single-revoke hook's
+  // optimistic update + rollback chain. That chain snapshots the cache after
+  // every prior optimistic delete, so a mid-loop failure would roll back to a
+  // half-mutated snapshot and either show ghost rows or hide already-revoked
+  // ones. Here we leave the cache untouched until the loop settles, then
+  // invalidate to refetch the server's authoritative list.
+  const onRevokeAll = async () => {
+    setConfirmRevokeAll(false);
+    const count = apps.length;
+    const targets = apps.map((a) => a.clientId);
+    let failed = 0;
+    for (const clientId of targets) {
+      try {
+        await revokeAuthorizedApp(clientId);
+      } catch {
+        failed += 1;
+      }
+    }
+    await qc.invalidateQueries({ queryKey: settingsKeys.apps() });
+    if (failed > 0) {
+      toast.error(m.settings_apps_toast_revoke_all_failed());
+      return;
+    }
+    toast.success(m.settings_apps_toast_revoked_all({ count }));
+  };
 
   return (
     <div className="flex flex-col gap-7">
@@ -164,54 +124,33 @@ function AppsPage() {
         description={m.settings_apps_description()}
       />
       <McpEndpointCard
-        endpoint={state.endpoint}
-        clientCount={state.apps.length}
-        onRotate={() => setConfirmRotate(true)}
+        endpointUrl={publicConfig.mcpEndpointUrl}
+        scopes={publicConfig.mcpScopes}
+        clientCount={apps.length}
         onShowSetupGuide={() => setSetupGuideOpen(true)}
       />
       <SetupGuideModal
-        endpoint={state.endpoint.url}
+        endpoint={publicConfig.mcpEndpointUrl}
         open={setupGuideOpen}
         onClose={() => setSetupGuideOpen(false)}
       />
       <AuthorizedAppsCard
-        apps={state.apps}
+        apps={apps}
         filter={filter}
         setFilter={setFilter}
         onRequestRevoke={setConfirmRevoke}
-        onRequestRename={setRenameFor}
         onRequestRevokeAll={() => setConfirmRevokeAll(true)}
       />
-      <AppsDialogs
-        confirmRevoke={confirmRevoke}
-        confirmRevokeAll={confirmRevokeAll}
-        confirmRotate={confirmRotate}
-        renameFor={renameFor}
-        totalApps={state.apps.length}
-        onCloseRevoke={() => setConfirmRevoke(null)}
-        onCloseRevokeAll={() => setConfirmRevokeAll(false)}
-        onCloseRotate={() => setConfirmRotate(false)}
-        onCloseRename={() => setRenameFor(null)}
-        onRevoke={() => {
-          if (confirmRevoke) {
-            revokeOne(confirmRevoke.clientId, confirmRevoke.name);
-            setConfirmRevoke(null);
-          }
-        }}
-        onRevokeAll={() => {
-          revokeAll();
-          setConfirmRevokeAll(false);
-        }}
-        onRotate={() => {
-          rotate();
-          setConfirmRotate(false);
-        }}
-        onRename={(name) => {
-          if (renameFor) {
-            rename(renameFor.clientId, name);
-            setRenameFor(null);
-          }
-        }}
+      <RevokeOneDialog
+        app={confirmRevoke}
+        onCancel={() => setConfirmRevoke(null)}
+        onConfirm={onRevoke}
+      />
+      <RevokeAllDialog
+        open={confirmRevokeAll}
+        count={apps.length}
+        onCancel={() => setConfirmRevokeAll(false)}
+        onConfirm={() => void onRevokeAll()}
       />
     </div>
   );
@@ -219,12 +158,13 @@ function AppsPage() {
 
 // ─── Authorized clients card ────────────────────────────────────────────────
 
-function useAuthorizedAppsView(apps: ReadonlyArray<MockAuthorizedApp>, filter: Filter) {
+function useAuthorizedAppsView(apps: ReadonlyArray<AuthorizedApp>, filter: Filter) {
   const counts = useMemo(
     () => ({
       all: apps.length,
       active: apps.filter((a) => a.status === "active").length,
       idle: apps.filter((a) => a.status === "idle").length,
+      new: apps.filter((a) => a.status === "new").length,
     }),
     [apps],
   );
@@ -232,10 +172,10 @@ function useAuthorizedAppsView(apps: ReadonlyArray<MockAuthorizedApp>, filter: F
   const visible = useMemo(() => {
     const matches = filter === "all" ? apps : apps.filter((a) => a.status === filter);
     return matches.toSorted((a, b) => {
-      const oa = STATUS_ORDER[a.status] ?? 99;
-      const ob = STATUS_ORDER[b.status] ?? 99;
+      const oa = STATUS_ORDER[a.status];
+      const ob = STATUS_ORDER[b.status];
       if (oa !== ob) return oa - ob;
-      return new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime();
+      return (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0);
     });
   }, [apps, filter]);
 
@@ -247,20 +187,15 @@ function AuthorizedAppsCard({
   filter,
   setFilter,
   onRequestRevoke,
-  onRequestRename,
   onRequestRevokeAll,
 }: {
-  apps: ReadonlyArray<MockAuthorizedApp>;
+  apps: ReadonlyArray<AuthorizedApp>;
   filter: Filter;
   setFilter: (next: Filter) => void;
-  onRequestRevoke: (app: MockAuthorizedApp) => void;
-  onRequestRename: (app: MockAuthorizedApp) => void;
+  onRequestRevoke: (app: AuthorizedApp) => void;
   onRequestRevokeAll: () => void;
 }) {
   const { counts, visible } = useAuthorizedAppsView(apps, filter);
-
-  const onActivity = (app: MockAuthorizedApp) =>
-    toast.message(m.settings_apps_toast_activity_log({ name: app.name }));
 
   return (
     <SettingsCard>
@@ -284,13 +219,7 @@ function AuthorizedAppsCard({
           ) : null
         }
       />
-      <AuthorizedAppsBody
-        empty={apps.length === 0}
-        visible={visible}
-        onRevoke={onRequestRevoke}
-        onRename={onRequestRename}
-        onViewActivity={onActivity}
-      />
+      <AuthorizedAppsBody empty={apps.length === 0} visible={visible} onRevoke={onRequestRevoke} />
     </SettingsCard>
   );
 }
@@ -299,14 +228,10 @@ function AuthorizedAppsBody({
   empty,
   visible,
   onRevoke,
-  onRename,
-  onViewActivity,
 }: {
   empty: boolean;
-  visible: ReadonlyArray<MockAuthorizedApp>;
-  onRevoke: (app: MockAuthorizedApp) => void;
-  onRename: (app: MockAuthorizedApp) => void;
-  onViewActivity: (app: MockAuthorizedApp) => void;
+  visible: ReadonlyArray<AuthorizedApp>;
+  onRevoke: (app: AuthorizedApp) => void;
 }) {
   if (empty) return <AppsEmpty />;
   if (visible.length === 0) {
@@ -319,14 +244,7 @@ function AuthorizedAppsBody({
   return (
     <ul role="list" className="flex flex-col">
       {visible.map((app, i) => (
-        <AuthorizedAppRow
-          key={app.clientId}
-          app={app}
-          isFirst={i === 0}
-          onRevoke={onRevoke}
-          onRename={onRename}
-          onViewActivity={onViewActivity}
-        />
+        <AuthorizedAppRow key={app.clientId} app={app} isFirst={i === 0} onRevoke={onRevoke} />
       ))}
     </ul>
   );
@@ -335,35 +253,29 @@ function AuthorizedAppsBody({
 // ─── MCP endpoint card ──────────────────────────────────────────────────────
 
 function McpEndpointCard({
-  endpoint,
+  endpointUrl,
+  scopes,
   clientCount,
-  onRotate,
   onShowSetupGuide,
 }: {
-  endpoint: MockMcpEndpoint;
+  endpointUrl: string;
+  scopes: ReadonlyArray<string>;
   clientCount: number;
-  onRotate: () => void;
   onShowSetupGuide: () => void;
 }) {
   return (
     <SettingsCard>
-      <McpEndpointHeader onRotate={onRotate} onShowSetupGuide={onShowSetupGuide} />
+      <McpEndpointHeader onShowSetupGuide={onShowSetupGuide} />
       <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
-        <McpEndpointUrl url={endpoint.url} />
-        <McpEndpointMeta clientCount={clientCount} rotatedAt={endpoint.rotatedAt} />
-        <McpEndpointScopeSummary />
+        <McpEndpointUrl url={endpointUrl} />
+        <McpEndpointMeta clientCount={clientCount} />
+        <McpEndpointScopeSummary scopes={scopes} />
       </div>
     </SettingsCard>
   );
 }
 
-function McpEndpointHeader({
-  onRotate,
-  onShowSetupGuide,
-}: {
-  onRotate: () => void;
-  onShowSetupGuide: () => void;
-}) {
+function McpEndpointHeader({ onShowSetupGuide }: { onShowSetupGuide: () => void }) {
   return (
     <div className="flex items-start gap-4 border-b border-border px-5 py-4 sm:px-6">
       <div className="min-w-0 flex-1">
@@ -391,11 +303,6 @@ function McpEndpointHeader({
           <DropdownMenuItem onClick={onShowSetupGuide} data-testid="open-setup-guide">
             <InfoIcon className="size-3.5" />
             {m.settings_apps_endpoint_setup_guide()}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={onRotate} data-testid="rotate-endpoint">
-            <RotateCwIcon className="size-3.5" />
-            {m.settings_apps_endpoint_action_rotate()}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -429,7 +336,7 @@ function McpEndpointUrl({ url }: { url: string }) {
   );
 }
 
-function McpEndpointMeta({ clientCount, rotatedAt }: { clientCount: number; rotatedAt: string }) {
+function McpEndpointMeta({ clientCount }: { clientCount: number }) {
   const clientLabel =
     clientCount === 1
       ? m.settings_apps_endpoint_clients_singular({ count: clientCount })
@@ -442,13 +349,11 @@ function McpEndpointMeta({ clientCount, rotatedAt }: { clientCount: number; rota
       </span>
       <MetaSep />
       <span>{clientLabel}</span>
-      <MetaSep />
-      <span>{m.settings_apps_endpoint_rotated({ time: relativeTime(new Date(rotatedAt)) })}</span>
     </div>
   );
 }
 
-function McpEndpointScopeSummary() {
+function McpEndpointScopeSummary({ scopes }: { scopes: ReadonlyArray<string> }) {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-muted/40 px-3.5 py-3">
       <span
@@ -462,7 +367,7 @@ function McpEndpointScopeSummary() {
           {m.settings_apps_endpoint_scope_summary()}
         </p>
         <div className="flex flex-wrap gap-1">
-          {MCP_ENDPOINT_SCOPES.map((scope) => (
+          {scopes.map((scope) => (
             <ScopeChip key={scope} scope={scope} />
           ))}
         </div>
@@ -480,11 +385,12 @@ function ClientFilters({
 }: {
   filter: Filter;
   setFilter: (next: Filter) => void;
-  counts: { all: number; active: number; idle: number };
+  counts: { all: number; active: number; idle: number; new: number };
 }) {
   const filters: ReadonlyArray<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: m.settings_apps_filter_all(), count: counts.all },
     { id: "active", label: m.settings_apps_filter_active(), count: counts.active },
+    { id: "new", label: m.settings_apps_filter_new(), count: counts.new },
     { id: "idle", label: m.settings_apps_filter_idle(), count: counts.idle },
   ];
   return (
@@ -532,54 +438,12 @@ function AppsEmpty() {
 
 // ─── Dialogs ────────────────────────────────────────────────────────────────
 
-function AppsDialogs(props: {
-  confirmRevoke: MockAuthorizedApp | null;
-  confirmRevokeAll: boolean;
-  confirmRotate: boolean;
-  renameFor: MockAuthorizedApp | null;
-  totalApps: number;
-  onCloseRevoke: () => void;
-  onCloseRevokeAll: () => void;
-  onCloseRotate: () => void;
-  onCloseRename: () => void;
-  onRevoke: () => void;
-  onRevokeAll: () => void;
-  onRotate: () => void;
-  onRename: (name: string) => void;
-}) {
-  return (
-    <>
-      <RevokeOneDialog
-        app={props.confirmRevoke}
-        onCancel={props.onCloseRevoke}
-        onConfirm={props.onRevoke}
-      />
-      <RevokeAllDialog
-        open={props.confirmRevokeAll}
-        count={props.totalApps}
-        onCancel={props.onCloseRevokeAll}
-        onConfirm={props.onRevokeAll}
-      />
-      <RotateDialog
-        open={props.confirmRotate}
-        onCancel={props.onCloseRotate}
-        onConfirm={props.onRotate}
-      />
-      <RenameDialog
-        app={props.renameFor}
-        onCancel={props.onCloseRename}
-        onConfirm={props.onRename}
-      />
-    </>
-  );
-}
-
 function RevokeOneDialog({
   app,
   onCancel,
   onConfirm,
 }: {
-  app: MockAuthorizedApp | null;
+  app: AuthorizedApp | null;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -648,97 +512,4 @@ function RevokeAllDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function RotateDialog({
-  open,
-  onCancel,
-  onConfirm,
-}: {
-  open: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) onCancel();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{m.settings_apps_rotate_dialog_title()}</DialogTitle>
-          <DialogDescription>{m.settings_apps_rotate_dialog_body()}</DialogDescription>
-        </DialogHeader>
-        <p className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
-          {m.settings_apps_rotate_dialog_warning()}
-        </p>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            {m.settings_apps_revoke_dialog_cancel()}
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} data-testid="confirm-rotate">
-            {m.settings_apps_rotate_dialog_confirm()}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function RenameDialog({
-  app,
-  onCancel,
-  onConfirm,
-}: {
-  app: MockAuthorizedApp | null;
-  onCancel: () => void;
-  onConfirm: (name: string) => void;
-}) {
-  const [value, setValue] = useState("");
-  useEffect(() => {
-    if (app) setValue(app.name);
-  }, [app]);
-
-  const trimmed = value.trim();
-
-  return (
-    <Dialog
-      open={!!app}
-      onOpenChange={(o) => {
-        if (!o) onCancel();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{m.settings_apps_rename_dialog_title()}</DialogTitle>
-          <DialogDescription>{m.settings_apps_rename_dialog_body()}</DialogDescription>
-        </DialogHeader>
-        <Input
-          value={value}
-          autoFocus
-          onChange={(e) => setValue(e.target.value)}
-          placeholder={m.settings_apps_rename_dialog_placeholder()}
-          data-testid="rename-input"
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            {m.settings_apps_revoke_dialog_cancel()}
-          </Button>
-          <Button
-            disabled={trimmed.length === 0}
-            onClick={() => onConfirm(trimmed)}
-            data-testid="confirm-rename"
-          >
-            {m.settings_apps_rename_dialog_save()}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function randomToken(): string {
-  return crypto.randomUUID();
 }
