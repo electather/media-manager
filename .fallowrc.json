@@ -96,6 +96,14 @@
         "patterns": ["apps/client/src/features/admin/**"]
       },
       {
+        "name": "client-feat-admin-users",
+        "patterns": ["apps/client/src/features/admin-users/**"]
+      },
+      {
+        "name": "client-feat-admin-roles",
+        "patterns": ["apps/client/src/features/admin-roles/**"]
+      },
+      {
         "name": "client-feat-jobs",
         "patterns": ["apps/client/src/features/jobs/**"]
       },
@@ -177,6 +185,8 @@
           "client-feat-connections",
           "client-feat-settings",
           "client-feat-admin",
+          "client-feat-admin-users",
+          "client-feat-admin-roles",
           "client-feat-jobs",
           "client-feat-home",
           "client-feat-watchlist",
@@ -196,6 +206,8 @@
           "client-feat-connections",
           "client-feat-settings",
           "client-feat-admin",
+          "client-feat-admin-users",
+          "client-feat-admin-roles",
           "client-feat-jobs",
           "client-feat-home",
           "client-feat-watchlist",
@@ -266,6 +278,29 @@
       {
         "from": "client-feat-admin",
         "allow": [
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-admin-users",
+        "allow": [
+          "client-app",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-admin-roles",
+        "allow": [
+          "client-app",
+          "client-feat-admin-users",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",
