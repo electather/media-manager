@@ -1,0 +1,95 @@
+import { SearchIcon, PlusIcon } from "lucide-react";
+
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/shared/ui/input-group";
+import { cn } from "@/shared/lib/utils";
+
+import type { PluginListFilter } from "../shared/types";
+
+interface FilterCounts {
+  all: number;
+  enabled: number;
+  disabled: number;
+  user: number;
+  metadata: number;
+}
+
+interface FilterBarProps {
+  filter: PluginListFilter;
+  onFilterChange: (value: PluginListFilter) => void;
+  query: string;
+  onQueryChange: (value: string) => void;
+  counts: FilterCounts;
+  onInstall: () => void;
+}
+
+const CHIPS: ReadonlyArray<{ id: PluginListFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "enabled", label: "Enabled" },
+  { id: "disabled", label: "Disabled" },
+  { id: "user", label: "User-scoped" },
+  { id: "metadata", label: "Metadata" },
+];
+
+export function FilterBar({
+  filter,
+  onFilterChange,
+  query,
+  onQueryChange,
+  counts,
+  onInstall,
+}: FilterBarProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="flex flex-wrap gap-1.5">
+        {CHIPS.map((chip) => {
+          const active = filter === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => onFilterChange(chip.id)}
+              data-active={active}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+                active
+                  ? "border-border bg-muted text-foreground"
+                  : "border-border/60 bg-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+              )}
+            >
+              {chip.label}
+              <span
+                className={cn(
+                  "font-mono text-[10.5px]",
+                  active ? "text-muted-foreground" : "text-muted-foreground/60",
+                )}
+              >
+                {counts[chip.id]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="min-w-[180px] flex-1">
+        <InputGroup>
+          <InputGroupAddon>
+            <SearchIcon aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Filter plugins…"
+            aria-label="Filter plugins"
+          />
+        </InputGroup>
+      </div>
+      <Button size="sm" onClick={onInstall}>
+        <PlusIcon /> Install plugin
+      </Button>
+    </div>
+  );
+}
+
+// Re-export Input for callers that prefer a plain input.
+export { Input as PluginsFilterInput };
