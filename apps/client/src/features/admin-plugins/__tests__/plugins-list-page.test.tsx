@@ -23,9 +23,16 @@ vi.mock("@/shared/lib/diagnostics/report", () => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, ...props }: { children?: ReactNode }) => (
-    <a {...(props as object)}>{children}</a>
-  ),
+  Link: ({
+    children,
+    to: _to,
+    params: _params,
+    ...rest
+  }: {
+    children?: ReactNode;
+    to?: unknown;
+    params?: unknown;
+  }) => <a {...(rest as object)}>{children}</a>,
 }));
 
 import { AdminPluginsErrorBoundary, PluginsListPage, PluginsListSkeleton } from "../index";
@@ -90,8 +97,8 @@ describe("admin plugins list — query state coverage", () => {
     // Never-resolving promise keeps Suspense in the pending state for the
     // duration of the assertion.
     fetchersMock.fetchPluginsList.mockReturnValue(new Promise(() => {}));
-    const { container } = renderPage();
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    renderPage();
+    expect(screen.getByRole("status", { name: /loading plugins/i })).toBeTruthy();
     expect(screen.queryByText(/no plugins installed/i)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
