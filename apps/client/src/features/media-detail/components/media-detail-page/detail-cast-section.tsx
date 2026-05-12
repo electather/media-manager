@@ -3,8 +3,7 @@ import type { HomeMediaItem } from "@/features/home/lib/types";
 import { DetailCastGrid } from "../detail-cast-grid";
 import { DetailSection } from "../detail-section";
 
-export function DetailCastSection({ item }: { item: HomeMediaItem }) {
-  const hasCast = (item.cast?.length ?? 0) > 0 || Boolean(item.director);
+export function DetailCastSection({ item, hasCast }: { item: HomeMediaItem; hasCast: boolean }) {
   if (!hasCast) return null;
   return (
     <DetailSection id="cast" title={m.media_detail_section_cast()}>

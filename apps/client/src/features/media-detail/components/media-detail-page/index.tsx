@@ -29,7 +29,9 @@ export function MediaDetailPage({ compositeId }: Props) {
   const { item, isLoading } = useMediaItem(compositeId);
   const sections = useMemo(() => buildSections(item), [item]);
   const sectionIds = useMemo(() => sections.map((section) => section.id), [sections]);
-  const navStackPx = useMemo(readNavStackPx, []);
+  const hasCast = sections.some((s) => s.id === "cast");
+  const hasSeason = sections.some((s) => s.id === "seasons");
+  const navStackPx = readNavStackPx();
   const activeId = useActiveSection(sectionIds, navStackPx);
 
   const handleJump = useCallback((id: string) => scrollToSection(id, navStackPx), [navStackPx]);
@@ -91,8 +93,8 @@ export function MediaDetailPage({ compositeId }: Props) {
         <div className="mx-auto grid max-w-[1600px] gap-12 px-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-14">
             <DetailOverviewSection item={item} />
-            <DetailCastSection item={item} />
-            <DetailSeasonsSection item={item} />
+            <DetailCastSection item={item} hasCast={hasCast} />
+            <DetailSeasonsSection item={item} hasSeason={hasSeason} />
             <DetailYourTakeSection />
             <DetailRelatedSection
               item={item}

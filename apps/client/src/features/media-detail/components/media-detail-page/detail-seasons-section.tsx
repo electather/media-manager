@@ -5,8 +5,14 @@ import type { HomeMediaItem } from "@/features/home/lib/types";
 import { DetailSection } from "../detail-section";
 import { UnpaddedModalSlot } from "./unpadded-modal-slot";
 
-export function DetailSeasonsSection({ item }: { item: HomeMediaItem }) {
-  if ((item.seasons?.length ?? 0) === 0) return null;
+export function DetailSeasonsSection({
+  item,
+  hasSeason,
+}: {
+  item: HomeMediaItem;
+  hasSeason: boolean;
+}) {
+  if (!hasSeason) return null;
   return (
     <DetailSection id="seasons" title={m.media_detail_section_seasons()}>
       <UnpaddedModalSlot>
