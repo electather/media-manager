@@ -42,7 +42,7 @@ describe("classifyScopes", () => {
     };
   }
 
-  it("TestV65 marks personal-key fallback supported only for shared user-scoped plugins", () => {
+  it("marks personal-key fallback supported only for shared user-scoped plugins (V65)", () => {
     const sharedUserScoped = makeClassifiableManifest(
       {
         watchHistory: { version: "v1", scope: "user" },
@@ -50,6 +50,10 @@ describe("classifyScopes", () => {
       { sharedCredentialsSchema: { type: "object" } },
     );
     const noSharedUserScoped = makeClassifiableManifest({
+      watchHistory: { version: "v1", scope: "user" },
+    });
+    const mixedWithoutShared = makeClassifiableManifest({
+      metadata: { version: "v1", scope: "global" },
       watchHistory: { version: "v1", scope: "user" },
     });
     const pureGlobal = makeClassifiableManifest(
@@ -66,6 +70,9 @@ describe("classifyScopes", () => {
       supportsPersonalKeyFallback: true,
     });
     expect(classifyScopes(noSharedUserScoped)).toMatchObject({
+      supportsPersonalKeyFallback: false,
+    });
+    expect(classifyScopes(mixedWithoutShared)).toMatchObject({
       supportsPersonalKeyFallback: false,
     });
     expect(classifyScopes(pureGlobal)).toMatchObject({

@@ -13,6 +13,7 @@ interface MakePluginOptions {
   scope?: "user" | "global" | "mixed";
   sharedCredentialsSchema?: Record<string, unknown>;
   isPureGlobal?: boolean;
+  supportsPersonalKeyFallback?: boolean;
 }
 
 function makePlugin(options: MakePluginOptions = {}): PluginRow {
@@ -20,6 +21,8 @@ function makePlugin(options: MakePluginOptions = {}): PluginRow {
   const sharedCredentialsSchema =
     "sharedCredentialsSchema" in options ? options.sharedCredentialsSchema : { type: "object" };
   const isPureGlobal = options.isPureGlobal ?? false;
+  const supportsPersonalKeyFallback =
+    options.supportsPersonalKeyFallback ?? (Boolean(sharedCredentialsSchema) && scope !== "global");
   const capabilities =
     scope === "mixed"
       ? [
@@ -58,7 +61,7 @@ function makePlugin(options: MakePluginOptions = {}): PluginRow {
       ),
     },
     isPureGlobal,
-    supportsPersonalKeyFallback: Boolean(sharedCredentialsSchema) && scope !== "global",
+    supportsPersonalKeyFallback,
     installedAt: 0,
     updatedAt: 0,
     isBuiltin: true,
@@ -73,10 +76,10 @@ function renderOverview(plugin: PluginRow, onChangeFallback = vi.fn()) {
   return onChangeFallback;
 }
 
-describe("OverviewTab personal-key fallback policy", () => {
-  it("TestV65 enables fallback choices for shared user-scoped plugins", async () => {
+describe("OverviewTab personal-key fallback policy (V65)", () => {
+  it("renders fallback choices when server marks the plugin eligible", async () => {
     const user = userEvent.setup();
-    const onChangeFallback = renderOverview(makePlugin());
+    const onChangeFallback = renderOverview(makePlugin({ supportsPersonalKeyFallback: true }));
 
     expect(screen.getByText("Personal-key fallback policy")).toBeTruthy();
 
@@ -87,17 +90,18 @@ describe("OverviewTab personal-key fallback policy", () => {
     );
   });
 
-  it("TestV65 hides fallback choices when no shared credentials schema exists", () => {
-    renderOverview(makePlugin({ sharedCredentialsSchema: undefined }));
+  it("hides fallback choices when the server marks the plugin ineligible", () => {
+    renderOverview(makePlugin({ supportsPersonalKeyFallback: false }));
 
     expect(screen.queryByText("Personal-key fallback policy")).toBeNull();
   });
 
-  it("TestV65 hides fallback choices for pure-global plugins", () => {
+  it("hides fallback choices for pure-global plugins regardless of capability list", () => {
     renderOverview(
       makePlugin({
         scope: "global",
         isPureGlobal: true,
+        supportsPersonalKeyFallback: false,
       }),
     );
 
