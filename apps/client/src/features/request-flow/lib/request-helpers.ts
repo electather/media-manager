@@ -38,13 +38,20 @@ export function describeTargetDestination(
 
 export type SeasonActionModel =
   | { kind: "request"; status: RequestStatus; label: "Request missing" | "Request season" }
+  | { kind: "no-plugin"; status: RequestStatus }
   | { kind: "status"; status: RequestStatus };
+
+function isRequestableStatus(status: RequestStatus): boolean {
+  return status === "partial" || status === "missing" || status === "upcoming";
+}
 
 export function getSeasonActionModel(
   status: RequestStatus,
   pluginConfigured: boolean,
 ): SeasonActionModel {
-  if (!pluginConfigured) return { kind: "status", status };
+  if (!pluginConfigured) {
+    return isRequestableStatus(status) ? { kind: "no-plugin", status } : { kind: "status", status };
+  }
   if (status === "partial" || status === "missing") {
     return { kind: "request", status, label: "Request missing" };
   }

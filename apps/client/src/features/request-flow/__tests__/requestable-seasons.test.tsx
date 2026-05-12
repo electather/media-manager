@@ -152,6 +152,32 @@ describe("RequestableSeasons", () => {
     await waitFor(() => expect(screen.queryByText(/awaiting approval/i)).toBeNull());
   });
 
+  it("renders a disabled 'no plugin configured' affordance when pluginConfigured is false", async () => {
+    apiMock.targets.mockResolvedValue([]);
+
+    const Wrapper = withClient();
+    render(
+      <Wrapper>
+        <RequestableSeasons
+          itemId="tv:123"
+          itemTitle="Show"
+          seasons={seasons}
+          pluginConfigured={false}
+        />
+      </Wrapper>,
+    );
+
+    const disabledButtons = await waitFor(() =>
+      screen.getAllByRole("button", { name: /no plugin configured/i }),
+    );
+    expect(disabledButtons.length).toBe(seasons.length);
+    for (const btn of disabledButtons) {
+      expect((btn as HTMLButtonElement).disabled).toBe(true);
+    }
+    expect(screen.queryByRole("button", { name: /request missing/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /request all/i })).toBeNull();
+  });
+
   it("derives per-season pending only for seasons listed in the matching row", async () => {
     const row: MediaRequest = {
       id: "r-7",
