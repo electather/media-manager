@@ -20,7 +20,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { authClient } from "@/shared/lib/auth";
-import { relativeTime } from "@/shared/lib/relative-time";
+import { relativeTime } from "@/shared/lib/time-format";
 import { parseUserAgent } from "@/shared/lib/user-agent";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";

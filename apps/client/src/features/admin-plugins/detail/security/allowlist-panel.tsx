@@ -12,6 +12,7 @@ import { Label } from "@/shared/ui/label";
 
 import { useUpdateAllowlist } from "../use-update-allowlist";
 import type { PluginRow } from "../../shared/types";
+import { isNil } from "es-toolkit/predicate";
 
 const HOST_PATTERN =
   /^(?:\*|(?:\*\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*)$/;
@@ -50,9 +51,7 @@ function patternsOverlap(a: string, b: string): boolean {
 export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
   const manifestHosts = plugin.manifest.allowedHosts ?? [];
   const stored = plugin.advanced.adminAllowlist;
-  const [mode, setMode] = useState<"inherit" | "restrict">(
-    stored === null ? "inherit" : "restrict",
-  );
+  const [mode, setMode] = useState<"inherit" | "restrict">(isNil(stored) ? "inherit" : "restrict");
   const [entries, setEntries] = useState<string[]>(stored ?? []);
   const [draft, setDraft] = useState("");
   const [draftError, setDraftError] = useState<string | null>(null);
@@ -61,7 +60,7 @@ export function AllowlistPanel({ plugin }: AllowlistPanelProps) {
   // Serialize to avoid re-syncing when the array reference changes but contents are identical.
   const storedKey = JSON.stringify(stored);
   useEffect(() => {
-    setMode(stored === null ? "inherit" : "restrict");
+    setMode(isNil(stored) ? "inherit" : "restrict");
     setEntries(stored ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storedKey]);

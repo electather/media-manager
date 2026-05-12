@@ -1,4 +1,5 @@
 import { sortBy } from "es-toolkit/array";
+import { invariant } from "es-toolkit/util";
 import { sha256 } from "../crypto/hash";
 import { MemoryCache } from "../cache/memory";
 import { RedisCache } from "../cache/redis";
@@ -64,7 +65,7 @@ let provider: CacheProvider | undefined;
 export function getCacheProvider(): CacheProvider {
   if (provider) return provider;
   if (env.CACHE_PROVIDER === "redis") {
-    if (!env.REDIS_URL) throw new Error("CACHE_PROVIDER=redis but REDIS_URL is unset");
+    invariant(env.REDIS_URL, "CACHE_PROVIDER=redis but REDIS_URL is unset");
     provider = new RedisCache(env.REDIS_URL);
   } else {
     provider = new MemoryCache();

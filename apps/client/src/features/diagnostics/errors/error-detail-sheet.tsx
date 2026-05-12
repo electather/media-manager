@@ -5,9 +5,9 @@ import { CopyButton } from "@/shared/ui/copy-button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Separator } from "@/shared/ui/separator";
+import { absoluteDateTime } from "@/shared/lib/time-format";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchErrorDetail } from "../shared/fetchers";
-import { formatAbs } from "../shared/format";
 import { ThreadChip } from "../thread-chip";
 import type { ErrorDetail } from "../shared/types";
 
@@ -54,7 +54,7 @@ function ErrorDetailContent({
         <SheetTitle className="font-mono text-sm">
           {detail.code ?? m.diagnostics_detail_title_fallback()}
         </SheetTitle>
-        <p className="text-xs text-muted-foreground">{formatAbs(detail.createdAt)}</p>
+        <p className="text-xs text-muted-foreground">{absoluteDateTime(detail.createdAt)}</p>
       </SheetHeader>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <ErrorBody detail={detail} onJumpThread={onJumpThread} />

@@ -36,7 +36,7 @@ import {
 import { Skeleton } from "@/shared/ui/skeleton";
 import { SettingsErrorBoundary } from "@/shared/components/settings-error-boundary";
 import { api } from "@/shared/lib/api";
-import { relativeTime } from "@/shared/lib/relative-time";
+import { relativeTime } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 

@@ -11,6 +11,7 @@
       "./messages/errors/{locale}.json",
       "./messages/home/{locale}.json",
       "./messages/notifications/{locale}.json",
+      "./messages/shared/{locale}.json",
       "./messages/settings/{locale}.json",
       "./messages/watchlist/{locale}.json"
     ]

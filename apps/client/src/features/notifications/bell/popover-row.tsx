@@ -1,7 +1,7 @@
 import { XIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button, buttonVariants } from "@/shared/ui/button";
-import { relativeTime } from "@/shared/lib/relative-time";
+import { relativeTime } from "@/shared/lib/time-format";
 import { m } from "@/paraglide/messages";
 import { SeverityIcon } from "../shared/severity-icon";
 import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";

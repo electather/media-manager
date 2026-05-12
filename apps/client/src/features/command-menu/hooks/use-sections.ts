@@ -2,6 +2,7 @@ import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { useMemo } from "react";
 
 import type { CommandScope, MediaItem, NavFrame } from "../types";
+import { isNil } from "es-toolkit/predicate";
 
 const TRENDING_LIMIT = 12;
 const RECENTS_LIMIT = 4;
@@ -61,7 +62,7 @@ export function useSections({
   }, [isRoot, recents, value]);
 
   const trendingPool = useMemo<MediaItem[]>(() => {
-    if (scope === null || !trendingResults) return [];
+    if (isNil(scope) || !trendingResults) return [];
     return trendingResults.slice(0, TRENDING_LIMIT);
   }, [scope, trendingResults]);
 
@@ -69,7 +70,7 @@ export function useSections({
     mediaItems: MediaItem[];
     mediaSection: MediaSection;
   }>(() => {
-    if (scope === null) {
+    if (isNil(scope)) {
       return { mediaItems: [], mediaSection: null };
     }
     // Once the server has answered the current query, honour that answer —

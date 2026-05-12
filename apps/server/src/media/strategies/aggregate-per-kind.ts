@@ -1,4 +1,5 @@
 import { orderBy } from "es-toolkit/array";
+import { invariant } from "es-toolkit/util";
 import { consola } from "consola";
 import { z } from "zod";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
@@ -200,12 +201,11 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   req: DispatchRequest,
 ): Promise<T> {
   const capability = requireCapability(req.capability, req.version);
-  if (capability.strategy.kind !== "aggregate_per_kind") {
-    throw new Error(
-      `dispatchAggregatePerKind called for capability ${req.capability}@${req.version} ` +
-        `with strategy ${capability.strategy.kind}`,
-    );
-  }
+  invariant(
+    capability.strategy.kind === "aggregate_per_kind",
+    `dispatchAggregatePerKind called for capability ${req.capability}@${req.version} ` +
+      `with strategy ${capability.strategy.kind}`,
+  );
   const perKindFields = capability.strategy.perKindFields;
   const scope = scopeForRequest(capability, req.input);
 
