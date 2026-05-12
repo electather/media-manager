@@ -211,7 +211,7 @@ function SeasonRow({
   const subline = buildSubline(season, status);
   const hasEpisodes = season.episodes.length > 0;
 
-  const action = pluginConfigured ? (
+  const action = (
     <SeasonRequestAction
       itemTitle={itemTitle}
       seasonNumber={season.number}
@@ -223,8 +223,6 @@ function SeasonRow({
       onSubmit={onRequest}
       onCancelPending={onCancelPending}
     />
-  ) : (
-    <RequestStatusBadge status={status} />
   );
 
   const titleBlock = (
