@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { m } from "@/paraglide/messages";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import {
   ErrorState,
@@ -13,7 +14,6 @@ import {
 } from "@/shared/components/error-state";
 import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 import { Button } from "@/shared/ui/button";
-import { m } from "@/paraglide/messages";
 
 function SettingsErrorFallback({
   error,

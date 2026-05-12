@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 // happy-dom lacks Element.getAnimations; Base UI ScrollArea Viewport polls it
 // from a setTimeout that fires after assertions complete.
@@ -34,7 +34,11 @@ function renderWithClient(node: ReactNode) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return render(<QueryClientProvider client={qc}>{node}</QueryClientProvider>);
+  return render(
+    <QueryClientProvider client={qc}>
+      <Suspense fallback={null}>{node}</Suspense>
+    </QueryClientProvider>,
+  );
 }
 
 const SAMPLE_ITEMS = [
@@ -97,7 +101,7 @@ afterEach(() => {
 describe("BellPopoverShell category counts", () => {
   it("category chip counts stay constant when active filter changes", async () => {
     const user = userEvent.setup();
-    renderWithClient(<BellPopoverShell open density="comfortable" intensity="subtle" />);
+    renderWithClient(<BellPopoverShell density="comfortable" intensity="subtle" unreadCount={3} />);
 
     await waitFor(() => {
       expect(fetchersMock.fetchInboxPage).toHaveBeenCalled();
@@ -123,7 +127,7 @@ describe("BellPopoverShell category counts", () => {
   });
 
   it("fetches inbox without server-side category filter", async () => {
-    renderWithClient(<BellPopoverShell open density="comfortable" intensity="subtle" />);
+    renderWithClient(<BellPopoverShell density="comfortable" intensity="subtle" unreadCount={3} />);
     await waitFor(() => {
       expect(fetchersMock.fetchInboxPage).toHaveBeenCalled();
     });

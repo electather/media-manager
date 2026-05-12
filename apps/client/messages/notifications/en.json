@@ -59,6 +59,7 @@
   "notifications_bulk_delete": "Delete selected",
   "notifications_bulk_mark_read": "Mark selected as read",
   "notifications_bulk_mark_unread": "Mark selected as unread",
+  "notifications_bulk_clear_selection": "Clear selection",
   "notifications_bulk_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -120,6 +121,7 @@
   "notifications_admin_filter_all": "All",
   "notifications_loading": "Loading…",
   "notifications_error_title": "Couldn't load notifications",
+  "notifications_error_body": "We couldn't load this panel. Try again, or open the full notifications page.",
   "notifications_error_retry": "Try again",
   "notifications_bulk_delete_failed": "Could not delete: {message}"
 }

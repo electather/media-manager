@@ -44,10 +44,6 @@ function readEnumOptions(schema: any): EnumOption[] | null {
   });
 }
 
-function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === "";
-}
-
 interface FieldItemProps {
   fieldKey: string;
   schema: any;
@@ -145,7 +141,7 @@ export function DynamicTriggerDialog({
   }, [job?.inputSchema?.required]);
 
   const missingFields = useMemo(
-    () => required.filter((key) => isMissing(formData[key])),
+    () => required.filter((key) => !formData[key]),
     [required, formData],
   );
 
@@ -214,7 +210,7 @@ export function DynamicTriggerDialog({
                       schema={schema}
                       value={formData[key]}
                       required={required.includes(key)}
-                      invalid={showErrors && required.includes(key) && isMissing(formData[key])}
+                      invalid={showErrors && required.includes(key) && !formData[key]}
                       onChange={(v) => setFormData({ ...formData, [key]: v })}
                     />
                   ))}

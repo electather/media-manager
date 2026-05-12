@@ -1,4 +1,4 @@
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { BellIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
@@ -7,7 +7,6 @@ import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { m } from "@/paraglide/messages";
 import { cn } from "@/shared/lib/utils";
 import { BellPopoverShell } from "./bell-popover-shell";
-import { PopoverSkeleton } from "./popover-skeleton";
 import { useUnreadCount } from "./use-unread-count";
 import type { Density, Intensity } from "../shared/types";
 
@@ -43,9 +42,7 @@ export function NotificationBell({ density = "comfortable", intensity = "subtle"
   const unreadCount = data?.count ?? 0;
 
   const body = (
-    <Suspense fallback={<PopoverSkeleton />}>
-      <BellPopoverShell open={open} density={density} intensity={intensity} />
-    </Suspense>
+    <BellPopoverShell density={density} intensity={intensity} unreadCount={unreadCount} />
   );
 
   if (isMobile) {
@@ -62,9 +59,12 @@ export function NotificationBell({ density = "comfortable", intensity = "subtle"
         </Button>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerContent className="h-[75dvh] gap-0 p-0">
-            <Suspense fallback={<PopoverSkeleton />}>
-              <BellPopoverShell open={open} density={density} intensity={intensity} mobile />
-            </Suspense>
+            <BellPopoverShell
+              density={density}
+              intensity={intensity}
+              unreadCount={unreadCount}
+              mobile
+            />
           </DrawerContent>
         </Drawer>
       </>
