@@ -17,9 +17,15 @@ export function classifyScopes(manifest: ValidatedManifest): {
   hasUserScoped: boolean;
   hasGlobalScoped: boolean;
   isPureGlobal: boolean;
+  supportsPersonalKeyFallback: boolean;
 } {
   const scopes = new Set(Object.values(manifest.capabilities).map((c) => c.scope));
   const hasUserScoped = scopes.has("user");
   const hasGlobalScoped = scopes.has("global");
-  return { hasUserScoped, hasGlobalScoped, isPureGlobal: hasGlobalScoped && !hasUserScoped };
+  return {
+    hasUserScoped,
+    hasGlobalScoped,
+    isPureGlobal: hasGlobalScoped && !hasUserScoped,
+    supportsPersonalKeyFallback: hasUserScoped && Boolean(manifest.sharedCredentialsSchema),
+  };
 }

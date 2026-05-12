@@ -136,6 +136,13 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V62. `@ent-mcp/shared` ⊥ paraglide imports. v1 i18n boundary = client only. Server payload shape ⊥ change for translation; client owns event-kind→message map.
 - V63. Locale strategy chain frozen `["localStorage", "preferredLanguage", "baseLocale"]` v1. ⊥ add `url`/`cookie` w/o spec amend — URL strategy needs redirect-loop audit w/ modal navigation.
 - V64. `<html dir>` attr managed by single root hook reading `getLocale()`. RTL set ⇔ `RTL_LOCALES = ["fa"] as const` includes locale. ⊥ component-local `dir` attrs.
+- V65. Admin plugin personal-key fallback controls render iff server-derived `supportsPersonalKeyFallback` is true: plugin declares `sharedCredentialsSchema` ∧ at least one user-scoped capability. Pure-global plugins and user-scoped plugins without shared credentials schema ⊥ show fallback mode choices.
+
+## §B Bugs
+
+| id | date       | root cause                                                                                                  | catches |
+| -- | ---------- | ----------------------------------------------------------------------------------------------------------- | ------- |
+| B1 | 2026-05-12 | Admin plugin fallback UI inferred eligibility locally instead of using shared-credentials + user-scope rule. | V65     |
 
 | id  | status | desc                                                                                                                                                                                                                            | cites                                      |
 | --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
@@ -163,4 +170,3 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 | T40 | .      | Verification gates — `vp check` + `vp test` + `vp dlx fallow` zero-warning baseline after ∀ T33-T37 step. Fallow run = boundary gate; ⊥ skip. `.fallowrc.json` must encode V60 zone + allow-rule contract; CI rejects PRs that add `features/<x>/` without matching `client-feat-<x>` zone, or weaken allow rules. **Per C13: pre-existing tests pass unmodified after T34-T37 — only test import paths may change, ⊥ test bodies. Diff audit: any non-import line change in moved file = C13 violation, redo PR.**                                                                                  | C13,V51-V60                          |
 | T41 | ✓      | Paraglide infra — `vp add @inlang/paraglide-js`, `apps/client/project.inlang/settings.json` w/ `en`+`fa`, `messages/{en,fa}.json` skeleton, `paraglideVitePlugin` in `vite.config.ts`, `.gitignore` `apps/client/src/paraglide/`, root `<html dir>` hook, locale init wiring strategy `[localStorage, preferredLanguage, baseLocale]`. | C14,C15,V61,V62,V63,V64,I.i18n |
 | T42 | ✓      | Notifications panel chrome translation POC — extract translatable strings from `notification-panel.tsx`, `notification-panel-body.tsx`, `notification-empty-state.tsx`, `notification-item.tsx`, `notification-category-chip.tsx` to `messages/{en,fa}.json`. Scope: "Notifications" header, "Mark all read", "{count} unread" plural, category labels (media/sync/auth/system), "All" chip, empty-state copy, "Admin" badge, dismiss aria, "Notification settings", "View all", bell aria-label w/ unread count plural. ⊥ translate fixture `title`/`body` (deferred). Plural via paraglide ICU. | T41,V61,I.i18n,I.notifications |
-
