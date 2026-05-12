@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import * as m from "@/paraglide/messages";
 import type { SeasonInfo } from "@ent-mcp/shared/home";
+import { useRequestTargets } from "@/features/request-flow/api/use-request-targets";
 import { RequestableSeasons } from "@/features/request-flow/components/requestable-seasons";
 import type { Season } from "@/features/request-flow/lib/types";
 import { joinSeasonAvailability } from "./derive-status";
@@ -15,9 +16,10 @@ type Props = {
 /**
  * Joins canonical `SeasonInfo[]` with the per-server availability response,
  * filters specials with no presence, and renders the `RequestableSeasons`
- * accordion. The picker self-suspends inside its own boundary and renders an
- * empty-state when the user has no eligible request services configured, so
- * the seasons list stays a thin join + render layer.
+ * accordion. Reads `useRequestTargets("tv")` so the seasons list can surface
+ * a disabled "no plugin configured" affordance upfront when no request
+ * service is available — rather than letting users click through to an empty
+ * picker.
  *
  * Per-plugin failures arrive as `errors[]` on the response and render as
  * single-line "{server} unreachable" hints alongside the surviving servers.
@@ -25,6 +27,8 @@ type Props = {
  */
 export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
   const { data } = useSeasonAvailability(tmdbId);
+  const targets = useRequestTargets("tv");
+  const pluginConfigured = targets.length > 0;
   const joined = useMemo<Season[]>(
     () => joinSeasonAvailability(seasons, data.servers),
     [seasons, data.servers],
@@ -61,7 +65,12 @@ export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
           {m.home_detail_seasons_no_servers()}
         </p>
       ) : null}
-      <RequestableSeasons itemId={tmdbId} itemTitle={itemTitle} seasons={joined} />
+      <RequestableSeasons
+        itemId={tmdbId}
+        itemTitle={itemTitle}
+        seasons={joined}
+        pluginConfigured={pluginConfigured}
+      />
     </div>
   );
 }
