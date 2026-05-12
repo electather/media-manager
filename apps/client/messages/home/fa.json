@@ -193,6 +193,9 @@
   "media_detail_not_found_title": "TODO",
   "media_detail_back_to_home": "TODO",
   "media_detail_view_full_page": "TODO",
+  "media_detail_partial_details_title": "TODO",
+  "media_detail_partial_details_body": "TODO",
+  "media_detail_partial_details_code": "TODO {code}",
 
   "request_action_button": "TODO",
   "request_action_no_plugin": "TODO",

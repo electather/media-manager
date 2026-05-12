@@ -26,7 +26,7 @@ type Props = {
 };
 
 export function MediaDetailPage({ compositeId }: Props) {
-  const { item, isLoading } = useMediaItem(compositeId);
+  const { item, isLoading, detailsErrorCode } = useMediaItem(compositeId);
   const sections = useMemo(() => buildSections(item), [item]);
   const sectionIds = useMemo(() => sections.map((section) => section.id), [sections]);
   const hasCast = sections.some((s) => s.id === "cast");
@@ -92,7 +92,7 @@ export function MediaDetailPage({ compositeId }: Props) {
         <DetailSectionNav sections={sections} activeId={activeId} onJump={handleJump} />
         <div className="mx-auto grid max-w-[1600px] gap-12 px-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-14">
-            <DetailOverviewSection item={item} />
+            <DetailOverviewSection item={item} detailsErrorCode={detailsErrorCode} />
             <DetailCastSection item={item} hasCast={hasCast} />
             <DetailSeasonsSection item={item} hasSeason={hasSeason} />
             <DetailYourTakeSection />
