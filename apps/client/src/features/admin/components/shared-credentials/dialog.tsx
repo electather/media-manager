@@ -61,12 +61,16 @@ type TestState =
   | { kind: "ok"; message?: string }
   | { kind: "err"; message: string };
 
+function hasFilledValues(value: Record<string, unknown>): boolean {
+  return Object.values(value).some((v) => v !== "" && v !== undefined && v !== null);
+}
+
 /**
- * Add / Edit shared credential dialog. The primary `Test & save` button
- * runs the **ephemeral** test endpoint (`POST /shared-credentials/test-ephemeral`)
- * against the unsaved value, then persists on `{ ok: true }`. On `{ ok: false }`
- * the dialog surfaces the error inline and promotes `Save without test` so the
- * admin can choose to proceed anyway.
+ * Add / Edit shared credential dialog. The primary `Test & save` button tests
+ * the unsaved value with the ephemeral endpoint when values are filled, or the
+ * persisted credential when an edit leaves secret fields blank. On `{ ok:
+ * false }` the dialog surfaces the error inline and promotes `Save without
+ * test` so the admin can choose to proceed anyway.
  */
 // fallow-ignore-next-line complexity
 export function SharedCredentialDialog({
@@ -112,6 +116,8 @@ export function SharedCredentialDialog({
     Record<string, unknown> | undefined
   >;
   const schemaFieldNames = Object.keys(schemaProperties);
+  const credentialValue = stripEmptySecrets(schema, values);
+  const hasFilledCredentialValues = hasFilledValues(credentialValue);
 
   const applyFormError = (routed: FormErrorResult) => {
     setServerErrors(routed.fieldErrors);
@@ -125,7 +131,25 @@ export function SharedCredentialDialog({
     mutationFn: async () => {
       const res = await api.plugins[":id"]["shared-credentials"]["test-ephemeral"].$post({
         param: { id: pluginId },
-        json: { value: stripEmptySecrets(schema, values) },
+        json: { value: credentialValue },
+      });
+      if (!res.ok) {
+        const routed = await parseFormErrorResponse(res, schemaFieldNames, "Test failed.");
+        return { ok: false as const, message: routed.message ?? "Test failed.", routed };
+      }
+      const body = (await res.json()) as { ok: boolean; message?: string };
+      return body.ok
+        ? { ok: true as const, message: body.message }
+        : { ok: false as const, message: body.message ?? "Test failed.", routed: null };
+    },
+  });
+
+  const persistedTest = useMutation({
+    // fallow-ignore-next-line complexity
+    mutationFn: async () => {
+      if (!existing) throw new Error("Missing shared credential.");
+      const res = await api.plugins[":id"]["shared-credentials"][":credId"].test.$post({
+        param: { id: pluginId, credId: existing.id },
       });
       if (!res.ok) {
         const routed = await parseFormErrorResponse(res, schemaFieldNames, "Test failed.");
@@ -145,8 +169,7 @@ export function SharedCredentialDialog({
       if (isEdit && existing) {
         const patch: { label?: string; value?: unknown; enabled?: boolean } = {};
         if (label.trim() !== existing.label) patch.label = label.trim();
-        const hasFilledValues = Object.values(values).some((v) => v !== "" && v !== undefined);
-        if (hasFilledValues) patch.value = stripEmptySecrets(schema, values);
+        if (hasFilledCredentialValues) patch.value = credentialValue;
         const enabledChanged = enabled !== existing.enabled;
         if (enabledChanged) patch.enabled = enabled;
         const res = await api.plugins[":id"]["shared-credentials"][":credId"].$patch({
@@ -194,8 +217,7 @@ export function SharedCredentialDialog({
     }
     // On edit we only validate the form when the admin actually filled in
     // new values; otherwise the existing ciphertext stays.
-    const hasFilledValues = Object.values(values).some((v) => v !== "" && v !== undefined);
-    if (!isEdit || hasFilledValues) {
+    if (!isEdit || hasFilledCredentialValues) {
       const errs = validateSchema(schema, values);
       if (Object.keys(errs).length > 0) return false;
     }
@@ -208,7 +230,8 @@ export function SharedCredentialDialog({
     if (!validate()) return;
     setTest({ kind: "testing" });
     try {
-      const result = await ephemeralTest.mutateAsync();
+      const testMutation = isEdit && !hasFilledCredentialValues ? persistedTest : ephemeralTest;
+      const result = await testMutation.mutateAsync();
       if (!result.ok) {
         setTest({ kind: "err", message: result.message });
         if (result.routed) applyFormError(result.routed);
@@ -229,7 +252,7 @@ export function SharedCredentialDialog({
   };
 
   const onClose = () => {
-    if (saveMutation.isPending || ephemeralTest.isPending) return;
+    if (saveMutation.isPending || ephemeralTest.isPending || persistedTest.isPending) return;
     onOpenChange(false);
   };
 
