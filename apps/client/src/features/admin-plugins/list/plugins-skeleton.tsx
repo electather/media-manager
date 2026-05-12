@@ -3,7 +3,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 export function PluginsListSkeleton() {
   return (
-    <div className="flex flex-col gap-4">
+    <div role="status" aria-label="Loading plugins" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <Skeleton className="h-7 w-14" />
         <Skeleton className="h-7 w-20" />
