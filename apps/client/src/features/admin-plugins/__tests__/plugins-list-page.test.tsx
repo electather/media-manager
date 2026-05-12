@@ -75,6 +75,9 @@ function renderPage() {
 beforeEach(() => {
   for (const fn of Object.values(fetchersMock)) fn.mockReset();
   reportSpy.mockClear();
+  // Suppress React error boundary console noise for all tests; only error
+  // state tests trigger it, but restoring per-test via afterEach is sufficient.
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -122,8 +125,6 @@ describe("admin plugins list — query state coverage", () => {
   });
 
   it("renders the error/retry state instead of the empty state when the query fails", async () => {
-    // Suppress the React error boundary noise — we expect the throw.
-    vi.spyOn(console, "error").mockImplementation(() => {});
     fetchersMock.fetchPluginsList.mockRejectedValue(
       new AdminPluginsApiError(500, { code: "plugins.internal", message: "boom" }),
     );
@@ -136,10 +137,10 @@ describe("admin plugins list — query state coverage", () => {
     expect(screen.queryByText(/no plugins installed/i)).toBeNull();
     expect(screen.getByText(/couldn't load plugins/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy();
+    expect(reportSpy).toHaveBeenCalledOnce();
   });
 
   it("retries the plugins query when the user clicks Retry from the error state", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     fetchersMock.fetchPluginsList
       .mockRejectedValueOnce(new AdminPluginsApiError(500, { code: "plugins.internal" }))
       .mockResolvedValueOnce({ plugins: [makePlugin({ id: "tmdb", name: "TMDB" })] });
