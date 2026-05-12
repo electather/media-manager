@@ -1,8 +1,9 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import { take } from "es-toolkit/array";
+import { isNil } from "es-toolkit/predicate";
 import { useMemo } from "react";
 
 import type { CommandScope, MediaItem, NavFrame } from "../types";
-import { isNil } from "es-toolkit/predicate";
 
 const TRENDING_LIMIT = 12;
 const RECENTS_LIMIT = 4;
@@ -58,12 +59,12 @@ export function useSections({
 
   const recentItems = useMemo(() => {
     if (!isRoot || value) return [] as MediaItem[];
-    return recents.slice(0, RECENTS_LIMIT);
+    return take(recents, RECENTS_LIMIT);
   }, [isRoot, recents, value]);
 
   const trendingPool = useMemo<MediaItem[]>(() => {
     if (isNil(scope) || !trendingResults) return [];
-    return trendingResults.slice(0, TRENDING_LIMIT);
+    return take(trendingResults, TRENDING_LIMIT);
   }, [scope, trendingResults]);
 
   const { mediaItems, mediaSection } = useMemo<{

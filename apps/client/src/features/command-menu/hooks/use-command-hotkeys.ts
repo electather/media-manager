@@ -1,12 +1,15 @@
 import {
   type Hotkey,
   type HotkeySequence,
+  type UseHotkeyDefinition,
+  type UseHotkeySequenceDefinition,
   useHotkey,
   useHotkeySequences,
   useHotkeys,
 } from "@tanstack/react-hotkeys";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { compact } from "es-toolkit/array";
+import { useEffect, useMemo } from "react";
 
 import { m } from "@/paraglide/messages";
 
@@ -39,6 +42,8 @@ interface UseCommandHotkeysInput {
   /** Run a contribution's row handler — called by per-row hotkey callbacks. */
   runContribution: (item: Contribution) => void;
 }
+
+type HotkeyContribution = Contribution & { hotkey: string };
 
 /**
  * Single owner of every menu-related keyboard binding. Replaces the previous
@@ -89,42 +94,56 @@ export function useCommandHotkeys({
   // Page sequences (`g h`, `g l`, …) are only useful while the menu is closed
   // — typing into the cmdk input must not arm a sequence.
   const navigate = useNavigate();
-  useHotkeySequences(
-    COMMAND_PAGES.filter((page) => page.sequence && page.sequence.length > 0).map((page) => ({
-      sequence: [...(page.sequence ?? [])] as HotkeySequence,
-      callback: () => {
-        void navigate({ to: page.to });
-      },
-      options: {
-        enabled: !open,
-        meta: {
-          name: t(page.labelKey),
-          description: t(page.hintKey),
-          group: "navigate",
-        },
-      },
-    })),
+  const pageSequences = useMemo<UseHotkeySequenceDefinition[]>(
+    () =>
+      compact(
+        COMMAND_PAGES.map((page) => {
+          if (!page.sequence || page.sequence.length === 0) return null;
+          return {
+            sequence: [...page.sequence] as HotkeySequence,
+            callback: () => {
+              void navigate({ to: page.to });
+            },
+            options: {
+              enabled: !open,
+              meta: {
+                name: t(page.labelKey),
+                description: t(page.hintKey),
+                group: "navigate",
+              },
+            },
+          };
+        }),
+      ),
+    [navigate, open],
   );
+  useHotkeySequences(pageSequences);
 
-  // Per-row hotkeys for any contribution that declares one. Filtering
-  // produces a stable, dynamic array — `useHotkeys` is the rules-of-hooks-safe
-  // single call required for variable-length lists.
-  useHotkeys(
-    contributions
-      .filter((c): c is Contribution & { hotkey: string } => Boolean(c.hotkey))
-      .map((c) => ({
-        hotkey: c.hotkey as Hotkey,
-        callback: () => runContribution(c),
-        options: {
-          enabled: open,
-          meta: {
-            name: t(c.labelKey),
-            description: t(c.hintKey),
-            group: "action",
-          },
-        },
-      })),
+  // Per-row hotkeys for any contribution that declares one. Memoizing the
+  // dynamic array keeps the hotkey registrations stable between renders.
+  const contributionHotkeys = useMemo<UseHotkeyDefinition[]>(
+    () =>
+      compact(
+        contributions.map((contribution) => {
+          if (!contribution.hotkey) return null;
+          const hotkeyContribution = contribution as HotkeyContribution;
+          return {
+            hotkey: hotkeyContribution.hotkey as Hotkey,
+            callback: () => runContribution(hotkeyContribution),
+            options: {
+              enabled: open,
+              meta: {
+                name: t(hotkeyContribution.labelKey),
+                description: t(hotkeyContribution.hintKey),
+                group: "action",
+              },
+            },
+          };
+        }),
+      ),
+    [contributions, open, runContribution],
   );
+  useHotkeys(contributionHotkeys);
 
   // Legacy window event used by `CommandMenuTrigger` so the search button in
   // the top nav keeps opening the menu without coupling to the hotkey lib.

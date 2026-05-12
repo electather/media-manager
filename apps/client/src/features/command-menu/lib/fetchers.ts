@@ -5,7 +5,7 @@ import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { safeJson } from "@/shared/lib/diagnostics/safe-json";
 
-import { CommandMenuApiError } from "./errors";
+import { CommandMenuApiError } from "../types";
 
 async function throwOnError(res: Response): Promise<never> {
   const body = (await safeJson(res)) as ApiErrorBody | null;

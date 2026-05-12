@@ -1,9 +1,10 @@
 import { CornerDownLeft, type LucideIcon } from "lucide-react";
-import { formatForDisplay } from "@tanstack/react-hotkeys";
 import type { ReactNode } from "react";
 
 import { CommandShortcut } from "@/shared/ui/command";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
+
+import { formatHotkeyChips } from "../lib/format-hotkey-chips";
 
 export function RowIcon({ Icon }: { Icon: LucideIcon }) {
   return (
@@ -38,14 +39,7 @@ export function RowContent({
 }
 
 function RowHotkey({ hotkey }: { hotkey: string }) {
-  const platform: "mac" | "windows" =
-    typeof navigator !== "undefined" && /mac|iphone|ipad|ipod/i.test(navigator.userAgent)
-      ? "mac"
-      : "windows";
-  const chips = formatForDisplay(hotkey, { platform })
-    .split("+")
-    .map((s: string) => s.trim())
-    .filter(Boolean);
+  const chips = formatHotkeyChips(hotkey);
   return (
     <KbdGroup className="gap-1">
       {chips.map((chip, idx) => (

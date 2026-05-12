@@ -1,3 +1,5 @@
+import { last, take } from "es-toolkit/array";
+
 import type { NavFrame } from "../types";
 
 export type NavState = { frames: readonly NavFrame[] };
@@ -17,14 +19,16 @@ export function navReducer(state: NavState, action: NavAction): NavState {
     case "push":
       return { frames: [...state.frames, action.frame] };
     case "pop":
-      return state.frames.length > 1 ? { frames: state.frames.slice(0, -1) } : state;
+      return state.frames.length > 1
+        ? { frames: take(state.frames, state.frames.length - 1) }
+        : state;
     case "reset":
       return initialNavState;
   }
 }
 
 export function topFrame(state: NavState): NavFrame {
-  return state.frames[state.frames.length - 1] ?? ROOT_FRAME;
+  return last(state.frames) ?? ROOT_FRAME;
 }
 
 export function isRoot(state: NavState): boolean {

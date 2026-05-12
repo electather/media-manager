@@ -1,12 +1,13 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { SearchKind } from "@ent-mcp/shared/search";
+import { isNil } from "es-toolkit/predicate";
+import { trim } from "es-toolkit/string";
 import { useDeferredValue } from "react";
 
 import { fetchSearch, type SearchResult } from "../lib/fetchers";
 import { commandMenuKeys } from "../lib/query-keys";
 import { useDebouncedValue } from "../lib/use-debounced-value";
 import type { CommandScope } from "../types";
-import { isNil } from "es-toolkit/predicate";
 
 const MIN_QUERY_LENGTH = 2;
 const DEBOUNCE_MS = 200;
@@ -38,7 +39,7 @@ export interface UseSearchResultsResult {
 export function useSearchResults(rawQuery: string, scope: CommandScope): UseSearchResultsResult {
   const deferred = useDeferredValue(rawQuery);
   const debounced = useDebouncedValue(deferred, DEBOUNCE_MS);
-  const trimmed = debounced.trim();
+  const trimmed = trim(debounced);
   const enabled = trimmed.length >= MIN_QUERY_LENGTH;
   const kind = scopeToKind(scope);
 

@@ -1,4 +1,5 @@
 import { Film, Tv } from "lucide-react";
+import { compact, take } from "es-toolkit/array";
 
 import { m } from "@/paraglide/messages";
 import { CommandItem } from "@/shared/ui/command";
@@ -8,17 +9,15 @@ import type { MediaItem } from "../types";
 import { RowAffordance, RowContent } from "./command-row";
 
 function mediaGenresLabel(item: MediaItem): string {
-  const genres = (item.genres ?? []).slice(0, 2).filter(Boolean);
+  const genres = take(compact(item.genres ?? []), 2);
   if (genres.length > 0) return genres.join(" · ");
   return item.mediaType === "tv" ? m.command_menu_kind_series() : m.command_menu_kind_film();
 }
 
 function mediaSubtitle(item: MediaItem): string {
-  const parts: string[] = [];
-  if (item.year) parts.push(String(item.year));
-  parts.push(mediaGenresLabel(item));
-  if (item.runtime) parts.push(item.runtime);
-  return parts.join(" · ");
+  return compact([item.year ? String(item.year) : null, mediaGenresLabel(item), item.runtime]).join(
+    " · ",
+  );
 }
 
 function MediaThumb({ item }: { item: MediaItem }) {

@@ -1,4 +1,5 @@
 import { useTheme } from "next-themes";
+import { isString } from "es-toolkit/predicate";
 import { useMemo } from "react";
 
 import { getLocale, locales, setLocale } from "@/paraglide/runtime";
@@ -11,7 +12,7 @@ import type { SettingItem } from "../types";
 type Locale = (typeof locales)[number];
 
 function isTheme(value: string | undefined): value is ThemeName {
-  return THEMES.includes(value as ThemeName);
+  return isString(value) && THEMES.includes(value as ThemeName);
 }
 
 /**
