@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plug, Plus } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
@@ -92,8 +92,34 @@ export function SeasonRequestAction({
   }
 
   if (model.kind === "status") {
-    // Upcoming or any non-requestable terminal state without plugin support.
     return <RequestStatusBadge status={model.status} />;
+  }
+
+  if (model.kind === "no-plugin") {
+    // Surfaces "configure a plugin" upfront rather than letting the user open
+    // an empty picker. Mirrors `MovieRequestAction`'s no-plugin affordance,
+    // sized for the inline season row.
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled
+                className="border-dashed font-mono uppercase tracking-[0.04em] opacity-60"
+              >
+                <Plug aria-hidden="true" className="size-3" />
+                {m.request_action_no_plugin()}
+              </Button>
+            }
+          />
+          <TooltipContent>{m.request_action_no_plugin_tooltip()}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   const label =

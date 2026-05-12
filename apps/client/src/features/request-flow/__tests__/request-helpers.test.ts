@@ -87,8 +87,15 @@ describe("inferSeasonStatus", () => {
 });
 
 describe("getSeasonActionModel", () => {
-  it("returns a status model when no plugin is configured", () => {
-    expect(getSeasonActionModel("missing", false)).toEqual({ kind: "status", status: "missing" });
+  it("surfaces a no-plugin model for requestable statuses when no plugin is configured", () => {
+    for (const status of ["missing", "partial", "upcoming"] as const) {
+      expect(getSeasonActionModel(status, false)).toEqual({ kind: "no-plugin", status });
+    }
+  });
+  it("keeps a plain status model for already-actioned statuses without a plugin", () => {
+    for (const status of ["available", "in-progress", "pending"] as const) {
+      expect(getSeasonActionModel(status, false)).toEqual({ kind: "status", status });
+    }
   });
   it("offers 'Request missing' for partial and missing seasons", () => {
     expect(getSeasonActionModel("partial", true)).toEqual({
