@@ -147,7 +147,7 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
         </CardContent>
       </Card>
 
-      {userCaps.length > 0 ? (
+      {plugin.supportsPersonalKeyFallback ? (
         <Card>
           <CardHeader>
             <CardTitle>{m.admin_plugins_overview_fallback_title()}</CardTitle>
@@ -163,12 +163,11 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
               className="flex flex-col gap-1"
             >
               {getPolicies().map((p) => {
-                const optionDisabled = p.id !== "off" && !plugin.isPureGlobal && !hasShared;
                 return (
                   <Radio.Root
                     key={p.id}
                     value={p.id}
-                    disabled={optionDisabled || fallbackPending}
+                    disabled={fallbackPending}
                     className={cn(
                       "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
                       "border-transparent hover:bg-muted/60",

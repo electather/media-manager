@@ -2,6 +2,7 @@ import { describe, it, expect } from "vite-plus/test";
 import type { ManifestCapability } from "@ent-mcp/shared/plugins";
 import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
 import { capabilityKey, getCapability } from "@ent-mcp/plugin-sdk";
+import { classifyScopes } from "../manifest";
 import { CapabilityRegistry } from "../registry";
 import type { PluginModule } from "@ent-mcp/plugin-sdk";
 
@@ -12,6 +13,64 @@ describe("capability catalog helpers", () => {
 
   it("returns undefined for unknown versions", () => {
     expect(getCapability("metadata", "v99")).toBeUndefined();
+  });
+});
+
+describe("classifyScopes", () => {
+  type ClassifiableManifest = Parameters<typeof classifyScopes>[0];
+
+  function makeClassifiableManifest(
+    capabilities: ClassifiableManifest["capabilities"],
+    options: {
+      sharedCredentialsSchema?: Record<string, unknown>;
+      authKind?: ClassifiableManifest["auth"]["kind"];
+    } = {},
+  ): ClassifiableManifest {
+    const authKind = options.authKind ?? "form";
+    return {
+      id: "test-plugin",
+      name: "Test Plugin",
+      version: "1.0.0",
+      description: "",
+      author: { name: "Test" },
+      sdkVersion: "^1.0.0",
+      allowedHosts: [],
+      auth: { kind: authKind },
+      credentialsSchema: authKind === "none" ? undefined : { type: "object" },
+      sharedCredentialsSchema: options.sharedCredentialsSchema,
+      capabilities,
+    };
+  }
+
+  it("TestV65 marks personal-key fallback supported only for shared user-scoped plugins", () => {
+    const sharedUserScoped = makeClassifiableManifest(
+      {
+        watchHistory: { version: "v1", scope: "user" },
+      },
+      { sharedCredentialsSchema: { type: "object" } },
+    );
+    const noSharedUserScoped = makeClassifiableManifest({
+      watchHistory: { version: "v1", scope: "user" },
+    });
+    const pureGlobal = makeClassifiableManifest(
+      {
+        metadata: { version: "v1", scope: "global" },
+      },
+      {
+        authKind: "none",
+        sharedCredentialsSchema: { type: "object" },
+      },
+    );
+
+    expect(classifyScopes(sharedUserScoped)).toMatchObject({
+      supportsPersonalKeyFallback: true,
+    });
+    expect(classifyScopes(noSharedUserScoped)).toMatchObject({
+      supportsPersonalKeyFallback: false,
+    });
+    expect(classifyScopes(pureGlobal)).toMatchObject({
+      supportsPersonalKeyFallback: false,
+    });
   });
 });
 
