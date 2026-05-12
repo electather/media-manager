@@ -110,7 +110,6 @@ export function SeasonRequestAction({
                 variant="outline"
                 disabled
                 className="border-dashed font-mono uppercase tracking-[0.04em] opacity-60"
-                onClick={(event) => event.stopPropagation()}
               >
                 <Plug aria-hidden="true" className="size-3" />
                 {m.request_action_no_plugin()}
