@@ -58,11 +58,15 @@ const API_KEY_SCHEMA = {
   },
 } satisfies JSONSchema;
 
-const EXISTING_CREDENTIAL = {
+const EXISTING_CREDENTIAL: ExistingCredential = {
   id: "cred-1",
   label: "Primary key",
   enabled: true,
-} as ExistingCredential;
+  lastExhaustedAt: null,
+  retryAfter: null,
+  createdAt: 0,
+  updatedAt: 0,
+};
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -152,6 +156,24 @@ describe("SharedCredentialDialog edit testing", () => {
       json: { enabled: false },
     });
     expect(onSaved).toHaveBeenCalledWith(true);
+  });
+
+  it("surfaces a persisted-test failure and skips save", async () => {
+    apiMock.persistedTest.mockResolvedValueOnce(
+      jsonResponse({ ok: false, message: "Stored credential is invalid." }),
+    );
+    const user = userEvent.setup();
+    const { onSaved } = renderDialog();
+
+    const label = screen.getByDisplayValue("Primary key");
+    await user.clear(label);
+    await user.type(label, "Renamed key");
+    await user.click(screen.getByRole("button", { name: /test & save/i }));
+
+    await waitFor(() => expect(apiMock.persistedTest).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Stored credential is invalid.")).toBeTruthy();
+    expect(apiMock.patch).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it("tests unsaved credential values with the ephemeral endpoint before saving", async () => {

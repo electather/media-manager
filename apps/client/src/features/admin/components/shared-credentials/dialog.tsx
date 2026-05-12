@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CheckIcon, LoaderCircleIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { omit } from "es-toolkit/object";
 import type { InferResponseType } from "hono/client";
 
 import { Button } from "@/shared/ui/button";
@@ -116,8 +117,11 @@ export function SharedCredentialDialog({
     Record<string, unknown> | undefined
   >;
   const schemaFieldNames = Object.keys(schemaProperties);
-  const credentialValue = stripEmptySecrets(schema, values);
-  const hasFilledCredentialValues = hasFilledValues(credentialValue);
+  const credentialValue = useMemo(() => stripEmptySecrets(schema, values), [schema, values]);
+  const hasFilledCredentialValues = useMemo(
+    () => hasFilledValues(credentialValue),
+    [credentialValue],
+  );
 
   const applyFormError = (routed: FormErrorResult) => {
     setServerErrors(routed.fieldErrors);
@@ -286,10 +290,7 @@ export function SharedCredentialDialog({
               onChange={(e) => {
                 setLabel(e.target.value);
                 if (labelError) setLabelError(null);
-                if (serverErrors.label) {
-                  const { label: _label, ...rest } = serverErrors;
-                  setServerErrors(rest);
-                }
+                if (serverErrors.label) setServerErrors(omit(serverErrors, ["label"]));
               }}
               placeholder="e.g. Primary key"
               disabled={saving || testing}
