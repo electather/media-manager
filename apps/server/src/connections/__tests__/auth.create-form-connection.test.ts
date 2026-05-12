@@ -93,4 +93,34 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
     expect(writeConnection).not.toHaveBeenCalled();
     expect(runAuth).not.toHaveBeenCalled();
   });
+
+  it("rejects malformed x-allowed-host fields before persisting", async () => {
+    getModule.mockResolvedValueOnce({
+      manifest: {
+        auth: { kind: "none" },
+        userConfigSchema: {
+          type: "object",
+          properties: {
+            serverUrl: { type: "string", "x-allowed-host": true },
+          },
+          required: ["serverUrl"],
+        },
+      },
+    });
+    writeConnection.mockResolvedValueOnce("conn-1");
+
+    await expect(
+      createFormConnection({
+        userId: "user-1",
+        pluginId: "custom-webhook",
+        userConfig: { serverUrl: "not-a-url" },
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: "plugin.invalid_base_url",
+      params: { field: "serverUrl" },
+    });
+    expect(writeConnection).not.toHaveBeenCalled();
+    expect(runAuth).not.toHaveBeenCalled();
+  });
 });

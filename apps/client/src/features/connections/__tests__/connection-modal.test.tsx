@@ -56,8 +56,39 @@ const traktPlugin: PluginSummary = {
   adminSharedAvailable: true,
 };
 
+const noAuthPlugin: PluginSummary = {
+  id: "ntfy",
+  name: "ntfy",
+  version: "1.0.0",
+  description: "Self-hosted push notifications.",
+  authKind: "none",
+  userScopedCapabilities: [{ id: "notificationDelivery", version: "v1" }],
+  globalScopedCapabilities: [],
+  userConfigSchema: {
+    type: "object",
+    required: ["serverUrl"],
+    properties: {
+      serverUrl: {
+        type: "string",
+        title: "ntfy server URL",
+        format: "uri",
+      },
+    },
+  },
+  adminSharedAvailable: false,
+};
+
 function stubFetch(impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   vi.stubGlobal("fetch", vi.fn(impl));
+}
+
+async function requestJson(input: RequestInfo | URL, init?: RequestInit): Promise<unknown> {
+  if (typeof init?.body === "string") return JSON.parse(init.body) as unknown;
+  if (input instanceof Request) {
+    const text = await input.clone().text();
+    return text ? (JSON.parse(text) as unknown) : null;
+  }
+  return null;
 }
 
 async function fillRequiredFields() {
@@ -183,5 +214,42 @@ describe("ConnectionModal — typed errors and scoped capabilities", () => {
     await waitFor(() => {
       expect(screen.getAllByText(/External URL is not a valid URL/i).length).toBeGreaterThan(0);
     });
+  });
+
+  it("posts auth-none schema values through the create connection path", async () => {
+    const posts: unknown[] = [];
+    stubFetch(async (input, init) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith("/connections") || url.endsWith("/connections/")) {
+        posts.push(await requestJson(input, init));
+        return new Response(JSON.stringify({ id: "conn-1" }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    const onSuccess = vi.fn();
+
+    render(
+      <ConnectionModal
+        open
+        plugin={noAuthPlugin}
+        existing={null}
+        onOpenChange={() => {}}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    await userEvent.type(screen.getByPlaceholderText("https://example.com"), "https://ntfy.sh");
+    await userEvent.click(screen.getByRole("button", { name: /save connection/i }));
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+    expect(posts).toEqual([
+      {
+        pluginId: "ntfy",
+        userConfig: { serverUrl: "https://ntfy.sh" },
+      },
+    ]);
   });
 });

@@ -2,10 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
-import type { AuthResult } from "@ent-mcp/plugin-sdk";
+import { isPluginError, type AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
 import { isNil } from "es-toolkit/predicate";
+import { resolveAllowedHostsFromSchema } from "../plugin-runtime/allowed-hosts";
 
 /**
  * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.
@@ -100,6 +101,21 @@ function rethrowAuthError(result: AuthResult): never {
     message,
     ...(field ? { field } : {}),
   });
+}
+
+function validateAllowedHostFields(
+  pluginId: string,
+  schema: Parameters<typeof resolveAllowedHostsFromSchema>[1],
+  userConfig: unknown,
+): void {
+  try {
+    resolveAllowedHostsFromSchema(pluginId, schema, userConfig);
+  } catch (err) {
+    if (isPluginError(err) && err.code === "plugin.invalid_base_url") {
+      throw badRequest("plugin.invalid_base_url", err.message, err.params);
+    }
+    throw err;
+  }
 }
 
 type PendingAuthLookup =
@@ -252,6 +268,7 @@ export async function createFormConnection(args: {
   // upstream reachability is exercised later via the capability's `testDelivery`
   // or the channel test endpoint.
   if (module.manifest.auth.kind === "none") {
+    validateAllowedHostFields(args.pluginId, module.manifest.userConfigSchema, sanitized);
     const id = await writeConnection({
       userId: args.userId,
       pluginId: args.pluginId,
