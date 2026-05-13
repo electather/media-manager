@@ -123,5 +123,17 @@
   "notifications_error_title": "بارگذاری اعلان‌ها ممکن نشد",
   "notifications_error_body": "بارگذاری این پنل ممکن نشد. دوباره تلاش کنید یا صفحه کامل اعلان‌ها را باز کنید.",
   "notifications_error_retry": "تلاش دوباره",
-  "notifications_bulk_delete_failed": "حذف انجام نشد: {message}"
+  "notifications_bulk_delete_failed": "حذف انجام نشد: {message}",
+  "notifications_toast_cluster_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "+{count} اعلان جدید دیگر",
+        "countPlural=other": "+{count} اعلان جدید دیگر"
+      }
+    }
+  ],
+  "notifications_toast_dismiss_aria": "رد کردن اعلان",
+  "notifications_toast_action_button": "مشاهده"
 }

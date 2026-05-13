@@ -6,6 +6,7 @@ import { routeTree } from "./routeTree.gen";
 import "./globals.css";
 import { TooltipProvider } from "./shared/ui/tooltip";
 import { Toaster } from "./shared/ui/sonner";
+import { NotificationToasterHost } from "./features/notifications";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ErrorBoundary } from "./shared/components/error-boundary";
 import { installGlobalErrorHandlers } from "./shared/lib/diagnostics/global-handlers";
@@ -41,6 +42,7 @@ createRoot(rootEl).render(
             <RouterProvider router={router} />
           </TooltipProvider>
           <Toaster />
+          <NotificationToasterHost />
           <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
       </I18nRoot>
