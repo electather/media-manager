@@ -55,6 +55,8 @@ function resolveInboxCursor(q: { after?: string; cursor?: string }): {
   rawCursor: string | undefined;
   direction: "before" | "after";
 } {
+  // Schema refine already rejects both fields being set, so this precedence
+  // only fires if the schema changes — kept as a cheap safety net.
   if (q.after) return { rawCursor: q.after, direction: "after" };
   return { rawCursor: q.cursor, direction: "before" };
 }

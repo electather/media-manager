@@ -5,18 +5,20 @@ import { NotificationsApiError, type AdminDeliveryFilters, type InboxFilters } f
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, NotificationsApiError);
 
-function inboxQuery(filters: InboxFilters, cursor: string | null) {
+function inboxQuery(filters: InboxFilters, cursor: string | null, limit = 50) {
   return {
     ...(filters.unreadOnly ? { unreadOnly: "true" as const } : {}),
     ...(filters.category ? { category: filters.category } : {}),
     ...(filters.severity ? { severity: filters.severity } : {}),
     ...(cursor ? { cursor } : {}),
-    limit: "50",
+    limit: String(limit),
   };
 }
 
-export async function fetchInboxPage(filters: InboxFilters, cursor: string | null) {
-  return readJson(await api.notifications.inbox.$get({ query: inboxQuery(filters, cursor) }));
+export async function fetchInboxPage(filters: InboxFilters, cursor: string | null, limit = 50) {
+  return readJson(
+    await api.notifications.inbox.$get({ query: inboxQuery(filters, cursor, limit) }),
+  );
 }
 
 export async function fetchUnreadCount() {

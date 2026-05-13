@@ -134,6 +134,5 @@
       }
     }
   ],
-  "notifications_toast_dismiss_aria": "Dismiss notification",
-  "notifications_toast_action_button": "View"
+  "notifications_toast_dismiss_aria": "Dismiss notification"
 }

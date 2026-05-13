@@ -26,11 +26,28 @@ function advanceCursor(ref: MutableRefObject<string | null>, items: Notification
 
 async function seedCursor(ref: MutableRefObject<string | null>): Promise<void> {
   try {
-    const page = await fetchInboxPage({}, null);
+    const page = await fetchInboxPage({}, null, 1);
     const newest = page.items[0];
     if (newest) ref.current = encodeCursor(newest.createdAt, newest.id);
   } catch {
     // Seed failure is non-fatal; cursor stays null and next poll retries.
+  }
+}
+
+// Called when a delta is detected but cursor is null (seed failed at boot, or
+// count was 0 when seeded). Fetches the single newest unread item, seeds the
+// cursor, and toasts it — all in one pass so the item is never missed.
+async function seedAndToast(ref: MutableRefObject<string | null>, deps: ToastDeps): Promise<void> {
+  try {
+    const page = await fetchInboxPage({ unreadOnly: true }, null, 1);
+    const newest = page.items[0];
+    if (!newest) return;
+    ref.current = encodeCursor(newest.createdAt, newest.id);
+    if (!deps.broadcast.has(newest.id) && isToastable(newest)) {
+      renderToast(newest, deps);
+    }
+  } catch {
+    // Non-fatal; cursor stays null and next poll retries.
   }
 }
 
@@ -40,7 +57,7 @@ async function renderFreshItems(
   deps: ToastDeps,
 ): Promise<void> {
   const page = await fetchInboxAfter(cursor, { unreadOnly: true, limit: 10 });
-  const fresh = page.items.filter((i) => !deps.broadcast.has(i.id)).filter(isToastable);
+  const fresh = page.items.filter((i) => !deps.broadcast.has(i.id) && isToastable(i));
   advanceCursor(cursorRef, page.items);
   if (fresh.length === 0) return;
   const capped = fresh.slice(0, MAX_TOASTS_PER_CYCLE);
@@ -55,8 +72,9 @@ async function handleDelta(
 ): Promise<void> {
   const cursor = cursorRef.current;
   if (!cursor) {
-    // Cursor not seeded yet (seed failed on boot); retry seed and skip toasting.
-    await seedCursor(cursorRef);
+    // Cursor null: seed failed at boot, or count was 0 when seeded.
+    // Fetch newest unread, seed cursor, and toast in one pass.
+    await seedAndToast(cursorRef, deps);
     return;
   }
   await renderFreshItems(cursor, cursorRef, deps);
@@ -70,6 +88,15 @@ export function useNotificationToaster(): void {
   const navigate = useNavigate();
   const markReadMutation = useMarkRead();
 
+  // Stash mutable deps in refs so the effect closure always reads the latest
+  // values without listing them as deps (avoids stale-closure trap on React 19).
+  const navigateRef = useRef(navigate);
+  const markReadMutationRef = useRef(markReadMutation);
+  const broadcastRef = useRef(broadcast);
+  navigateRef.current = navigate;
+  markReadMutationRef.current = markReadMutation;
+  broadcastRef.current = broadcast;
+
   useEffect(() => {
     const count = countResult ? countResult.count : 0;
     const prev = prevCountRef.current;
@@ -82,7 +109,10 @@ export function useNotificationToaster(): void {
     }
     if (count <= prev) return;
 
-    void handleDelta(lastSeenCursorRef, { navigate, markReadMutation, broadcast });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void handleDelta(lastSeenCursorRef, {
+      navigate: navigateRef.current,
+      markReadMutation: markReadMutationRef.current,
+      broadcast: broadcastRef.current,
+    });
   }, [countResult?.count]);
 }

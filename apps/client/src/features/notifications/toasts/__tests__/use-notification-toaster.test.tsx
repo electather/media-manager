@@ -136,6 +136,31 @@ describe("useNotificationToaster", () => {
     expect(renderClusterToastMock).toHaveBeenCalledWith(3, expect.anything());
   });
 
+  it("null-cursor recovery: count 0→1 with null cursor toasts newest item and seeds cursor", async () => {
+    // Boot with count=0; seed returns no items so cursor stays null.
+    mockCount = 0;
+    fetchInboxPageMock.mockResolvedValueOnce({ items: [] });
+
+    const freshItem = makeItem("fresh");
+    // seedAndToast call: fetchInboxPage with unreadOnly:true returns the fresh item.
+    fetchInboxPageMock.mockResolvedValue({ items: [freshItem] });
+
+    const { rerender } = renderHook(() => useNotificationToaster(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(fetchInboxPageMock).toHaveBeenCalledTimes(1));
+    expect(renderToastMock).not.toHaveBeenCalled();
+
+    // Count goes 0 → 1; cursor is still null — seedAndToast path must fire.
+    mockCount = 1;
+    await act(async () => {
+      rerender();
+    });
+
+    await waitFor(() => expect(renderToastMock).toHaveBeenCalledTimes(1));
+    expect(renderToastMock).toHaveBeenCalledWith(freshItem, expect.anything());
+    expect(fetchInboxAfterMock).not.toHaveBeenCalled();
+  });
+
   it("dedup: items already in broadcast are not rendered", async () => {
     mockCount = 5;
     const items = [makeItem("dup"), makeItem("fresh")];
