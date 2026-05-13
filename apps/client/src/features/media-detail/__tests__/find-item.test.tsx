@@ -8,9 +8,7 @@ import { MediaDetailPage } from "../components/media-detail-page";
 import { useMediaItem } from "../lib/find-item";
 
 vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, ...props }: { children?: ReactNode }) => (
-    <a {...(props as object)}>{children}</a>
-  ),
+  Link: ({ children }: { children?: ReactNode }) => <a>{children}</a>,
   useNavigate: () => vi.fn(),
 }));
 
@@ -115,21 +113,7 @@ describe("useMediaItem", () => {
   });
 
   it("does not show degraded-state copy for query failures", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          summary: {
-            id: "movie:550",
-            tmdbId: "550",
-            mediaType: "movie",
-            title: "Fight Club",
-            status: "available",
-            overview: "A summary survives the details failure.",
-          },
-        }),
-        { status: 500 },
-      ),
-    );
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("network failed"));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     render(

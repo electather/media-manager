@@ -32,6 +32,6 @@ export function useMediaItem(compositeId: string): FindMediaItemResult {
     if (!data) return null;
     return { ...data.summary, ...data.details };
   }, [data]);
-  const detailsErrorCode = data?.details === null ? (data.error?.code ?? null) : null;
+  const detailsErrorCode = data?.error?.code ?? null;
   return { item, isLoading, isError, detailsErrorCode };
 }
