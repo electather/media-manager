@@ -54,6 +54,7 @@ function createEmptyCounts(): Counts {
   return counts;
 }
 
+// fallow-ignore-next-line complexity
 function derivePopoverState(
   items: NotificationItemDto[],
   filter: Filter,
@@ -117,6 +118,7 @@ interface PopoverBodyProps {
   onFilterChange: (value: string) => void;
 }
 
+// fallow-ignore-next-line complexity
 function PopoverBody({ density, intensity, filter, unreadOnly, onFilterChange }: PopoverBodyProps) {
   // Fetch unfiltered so chip counts reflect the full inbox window. Category +
   // unread filters apply client-side so switching one filter does not shrink

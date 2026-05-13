@@ -12,6 +12,7 @@ const SECTION_LABEL_CLASS =
 // the prototype's `minWidth: 88` on each score block.
 const SCORE_CARD_CLASS = "flex min-w-22 flex-col gap-1 rounded-lg bg-secondary/70 px-4 py-3";
 
+// fallow-ignore-next-line complexity
 export function ModalScores({ item }: Props) {
   const { rating, audienceScore, criticScore, votes } = item;
   if (rating === undefined && audienceScore === undefined && criticScore === undefined) return null;

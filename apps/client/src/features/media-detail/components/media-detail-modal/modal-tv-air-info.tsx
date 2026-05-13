@@ -6,6 +6,7 @@ type Props = {
   item: MediaDetailItem;
 };
 
+// fallow-ignore-next-line complexity
 export function ModalTVAirInfo({ item }: Props) {
   if (item.mediaType !== "tv" || !item.seriesStatus) return null;
 

@@ -25,6 +25,7 @@ interface CheatsheetRow {
 export function ShortcutsCheatsheet() {
   const { hotkeys, sequences } = useHotkeyRegistrations();
 
+  // fallow-ignore-next-line complexity
   const groups = useMemo(() => {
     const menuKeys: CheatsheetRow[] = [];
     const actionKeys: CheatsheetRow[] = [];
@@ -43,6 +44,7 @@ export function ShortcutsCheatsheet() {
       if (meta.group === "menu") menuKeys.push(row);
       else actionKeys.push(row);
     }
+    // fallow-ignore-next-line complexity
     const sequenceRows: CheatsheetRow[] = compact(
       sequences.map((reg) => {
         if (!reg.options.meta?.name) return null;

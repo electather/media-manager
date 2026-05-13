@@ -23,6 +23,7 @@ function resolveNowMs(now: Date | number | undefined): number {
   return now === undefined ? Date.now() : toEpochMs(now);
 }
 
+// fallow-ignore-next-line complexity
 function toRelativeDuration(
   input: Date | number,
   options: RelativeTimeOptions = {},

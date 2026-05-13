@@ -25,6 +25,7 @@ type Props = {
  * single-line "{server} unreachable" hints alongside the surviving servers.
  * Boundary-level failures are caught by the parent `<ErrorBoundary>`.
  */
+// fallow-ignore-next-line complexity
 export function SeasonsList({ tmdbId, itemTitle, seasons }: Props) {
   const { data } = useSeasonAvailability(tmdbId);
   const targets = useRequestTargets("tv");

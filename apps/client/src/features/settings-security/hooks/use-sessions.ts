@@ -4,6 +4,7 @@ import {
   useSuspenseQuery,
   type UseSuspenseQueryResult,
 } from "@tanstack/react-query";
+import { useOptimisticArrayMutation } from "@/shared/hooks/use-optimistic-array-mutation";
 import { fetchRevokeOtherSessions, fetchRevokeSession, fetchSessions } from "../lib/fetchers";
 import { settingsSecurityKeys } from "../lib/query-keys";
 import type { AuthSession } from "../lib/types";
@@ -24,26 +25,10 @@ export function useSessions(): UseSuspenseQueryResult<AuthSession[]> {
  * surfaces.
  */
 export function useRevokeSession() {
-  const qc = useQueryClient();
-  return useMutation({
+  return useOptimisticArrayMutation<AuthSession, string>({
+    queryKey: settingsSecurityKeys.sessions(),
     mutationFn: fetchRevokeSession,
-    onMutate: async (token) => {
-      await qc.cancelQueries({ queryKey: settingsSecurityKeys.sessions() });
-      const prev = qc.getQueryData<AuthSession[]>(settingsSecurityKeys.sessions());
-      if (prev) {
-        qc.setQueryData<AuthSession[]>(
-          settingsSecurityKeys.sessions(),
-          prev.filter((s) => s.token !== token),
-        );
-      }
-      return { prev };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(settingsSecurityKeys.sessions(), ctx.prev);
-    },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: settingsSecurityKeys.sessions() });
-    },
+    update: (prev, token) => prev.filter((s) => s.token !== token),
   });
 }
 

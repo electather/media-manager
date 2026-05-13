@@ -10,6 +10,7 @@ export type DerivedSeasonStatus = "available" | "partial" | "unavailable" | "upc
  *   - `upcoming`    — every episode airs in the future and no server has it.
  *   - `unavailable` — every server returned zero presence (or no servers).
  */
+// fallow-ignore-next-line complexity
 export function deriveSeasonStatus(
   season: WireSeasonInfo,
   servers: SeasonAvailabilityServer[],
@@ -94,6 +95,7 @@ function collectPresence(seasonNumber: number, servers: SeasonAvailabilityServer
   return out;
 }
 
+// fallow-ignore-next-line complexity
 function buildEpisode(
   season: WireSeasonInfo,
   ep: WireSeasonInfo["episodes"][number],

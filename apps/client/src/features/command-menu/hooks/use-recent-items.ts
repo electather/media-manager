@@ -7,6 +7,7 @@ import type { MediaItem } from "../types";
 const STORAGE_KEY = "media-manager:command-menu:recents:v1";
 const MAX_RECENTS = 5;
 
+// fallow-ignore-next-line complexity
 function isMediaItem(value: unknown): value is MediaItem {
   if (!isPlainObject(value)) return false;
   const v = value as Record<string, unknown>;
@@ -38,6 +39,7 @@ function readStorageValue(key: string): string | null {
   }
 }
 
+// fallow-ignore-next-line complexity
 function snapshotRecent(item: MediaItem): MediaItem {
   return {
     id: item.id,

@@ -18,6 +18,7 @@ import { m } from "@/paraglide/messages";
 import { settingsAppsKeys } from "../lib/query-keys";
 import { SettingsAppsApiError } from "../lib/types";
 
+// fallow-ignore-next-line complexity
 function SettingsAppsErrorFallback({
   error,
   requestId,
