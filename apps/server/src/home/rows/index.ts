@@ -4,6 +4,7 @@ import continueWatchingNext from "./continue-watching-next";
 import newReleases from "./new-releases";
 import recommendedForYouMovies from "./recommended-for-you-movies";
 import recommendedForYouTv from "./recommended-for-you-tv";
+import similarTo from "./similar-to";
 import trendingNow from "./trending-now";
 import upcomingForYou from "./upcoming-for-you";
 import yourWatchlist from "./your-watchlist";
@@ -16,7 +17,8 @@ import type { RowProvider } from "../types";
  *   3. Place a sibling test in `home/rows/__tests__/<slug>.test.ts`
  *
  * `ROW_ORDER` pins the static layout sequence the orchestrator emits in
- * `HomeLayoutResponse.rows`.
+ * `HomeLayoutResponse.rows`. Rows not listed in `ROW_ORDER` (e.g. `similarTo`)
+ * are still reachable via `composeRow` but never appear in the home layout.
  */
 export const ROW_PROVIDERS: Record<string, RowProvider> = {
   "continueWatching-active": continueWatchingActive,
@@ -28,6 +30,17 @@ export const ROW_PROVIDERS: Record<string, RowProvider> = {
   upcomingForYou,
   trendingNow,
   newReleases,
+  similarTo,
 };
 
-export const ROW_ORDER: string[] = Object.keys(ROW_PROVIDERS);
+export const ROW_ORDER: string[] = [
+  "continueWatching-active",
+  "continueWatching-next",
+  "becauseYouWatched",
+  "recommendedForYou-tv",
+  "recommendedForYou-movies",
+  "yourWatchlist",
+  "upcomingForYou",
+  "trendingNow",
+  "newReleases",
+];

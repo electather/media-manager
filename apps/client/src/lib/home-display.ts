@@ -23,4 +23,5 @@ export const ROW_DISPLAY: Record<RowKind, RowDisplayConfig> = {
   trendingNow: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
   newReleases: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
   yourWatchlist: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
+  similarTo: { slot: "main", aspectRatio: "poster", showMatchReasonInline: false },
 };
