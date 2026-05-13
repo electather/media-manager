@@ -72,6 +72,10 @@ const noAuthPlugin: PluginSummary = {
         type: "string",
         title: "ntfy server URL",
         format: "uri",
+        // Mirrors the real ntfy manifest — the server validates this field
+        // through `resolveAllowedHostsFromSchema` on the no-auth create path,
+        // so the test schema carries the marker to keep the round-trip honest.
+        "x-allowed-host": true,
       },
     },
   },

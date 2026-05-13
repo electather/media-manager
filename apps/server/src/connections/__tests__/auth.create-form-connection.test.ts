@@ -109,6 +109,9 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
     });
     writeConnection.mockResolvedValueOnce("conn-1");
 
+    // `params.field` is the routing contract the modal reads to mark the
+    // offending input — assert it explicitly so a refactor that drops the
+    // hint fails this test instead of silently breaking field attribution.
     await expect(
       createFormConnection({
         userId: "user-1",

@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import type { JSONSchema } from "@ent-mcp/shared";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
 import { pluginRuntime } from "../plugin-runtime/runtime";
@@ -103,9 +104,16 @@ function rethrowAuthError(result: AuthResult): never {
   });
 }
 
+/**
+ * Mirrors the runtime's `buildAuxContext` x-allowed-host check for the no-auth
+ * create path. Plugins with `auth.kind !== "none"` go through `runAuth`, where
+ * `buildAuxContext` resolves the same fields and `rethrowAuthError` maps the
+ * resulting PluginError to a 400 — no-auth plugins skip that flow and would
+ * persist malformed URLs without this guard.
+ */
 function validateAllowedHostFields(
   pluginId: string,
-  schema: Parameters<typeof resolveAllowedHostsFromSchema>[1],
+  schema: JSONSchema | undefined,
   userConfig: unknown,
 ): void {
   try {
