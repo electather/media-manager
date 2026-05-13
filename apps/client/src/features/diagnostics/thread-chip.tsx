@@ -6,6 +6,10 @@ import { shortRequestId } from "@/shared/lib/diagnostics/request-id";
 interface Props {
   requestId: string | null | undefined;
   onJump?: (requestId: string) => void;
+  /** Set when rendered inside another interactive element (e.g. a <button> row)
+   *  to avoid invalid button-in-button nesting. Renders a <span> with ARIA
+   *  button semantics instead of a native <button>. */
+  nested?: boolean;
   className?: string;
 }
 
@@ -15,21 +19,35 @@ interface Props {
 // Chip toggles between span/button modes; the attribute and class branches
 // are intrinsic to that bimodal API.
 // fallow-ignore-next-line complexity
-export function ThreadChip({ requestId, onJump, className }: Props) {
+export function ThreadChip({ requestId, onJump, nested = false, className }: Props) {
   if (!requestId) return null;
   const interactive = typeof onJump === "function";
-  const Tag = interactive ? "button" : "span";
+  // Use a span with ARIA semantics when nested inside another button to avoid
+  // invalid <button> descendant of <button> HTML.
+  const Tag = interactive && !nested ? "button" : "span";
+  const handleClick = interactive
+    ? (event: React.MouseEvent) => {
+        event.stopPropagation();
+        onJump?.(requestId);
+      }
+    : undefined;
+  const handleKeyDown =
+    interactive && nested
+      ? (event: React.KeyboardEvent) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            event.stopPropagation();
+            onJump?.(requestId);
+          }
+        }
+      : undefined;
   return (
     <Tag
-      type={interactive ? "button" : undefined}
-      onClick={
-        interactive
-          ? (event) => {
-              event.stopPropagation();
-              onJump?.(requestId);
-            }
-          : undefined
-      }
+      role={interactive && nested ? "button" : undefined}
+      tabIndex={interactive && nested ? 0 : undefined}
+      type={interactive && !nested ? "button" : undefined}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
       title={interactive ? m.diagnostics_thread_chip_title({ requestId }) : requestId}
       className={cn(
         "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-xs font-medium whitespace-nowrap transition-colors",

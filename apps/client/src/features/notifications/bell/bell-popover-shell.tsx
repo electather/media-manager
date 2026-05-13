@@ -1,5 +1,5 @@
-import { Suspense, startTransition, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Suspense, startTransition, useMemo, useState, useSyncExternalStore } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCheckIcon, RotateCcwIcon, SettingsIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { isNull } from "es-toolkit/predicate";
@@ -24,7 +24,7 @@ import { PopoverRow } from "./popover-row";
 import { PopoverSkeleton } from "./popover-skeleton";
 import { usePopoverInbox } from "./use-popover-inbox";
 import { useMarkAllRead } from "../inbox/use-inbox-mutations";
-import { fetchInboxPage } from "../shared/fetchers";
+import type { fetchInboxPage } from "../shared/fetchers";
 import { notificationsKeys } from "../shared/query-keys";
 import { CATEGORY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
@@ -199,18 +199,20 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
   const [filter, setFilter] = useState<Filter>("all");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const markAllRead = useMarkAllRead();
+  const queryClient = useQueryClient();
 
   // Observe the popover-inbox cache without fetching. `usePopoverInbox` in the
   // Suspense child below owns the fetch; this hook only subscribes so the
   // mark-all button reflects the unread rows actually rendered. The polled
   // `unreadCount` prop can lag a mark-all/dismiss invalidation by up to 30s,
   // which would otherwise leave the button enabled on an empty inbox.
-  const inboxObserver = useQuery({
-    queryKey: notificationsKeys.popoverInbox({}),
-    queryFn: () => fetchInboxPage({}, null),
-    enabled: false,
-  });
-  const inboxItems = inboxObserver.data?.items;
+  const inboxItems = useSyncExternalStore(
+    (cb) => queryClient.getQueryCache().subscribe(cb),
+    () =>
+      queryClient.getQueryData<Awaited<ReturnType<typeof fetchInboxPage>>>(
+        notificationsKeys.popoverInbox({}),
+      )?.items,
+  );
   const inboxUnread = useMemo(() => {
     if (!inboxItems) return 0;
     let n = 0;
@@ -275,6 +277,7 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
         <Button
           variant="ghost"
           size="sm"
+          nativeButton={false}
           className="gap-1.5 text-xs text-muted-foreground"
           render={<Link to="/settings/notifications" />}
         >
@@ -284,6 +287,7 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
         <Button
           variant="ghost"
           size="sm"
+          nativeButton={false}
           className="text-xs text-muted-foreground"
           render={<Link to="/notifications" />}
         >

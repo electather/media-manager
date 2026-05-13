@@ -43,7 +43,7 @@ export function HeadersPanel({ plugin }: HeadersPanelProps) {
         <div className="overflow-hidden rounded-md border border-border">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-muted-foreground">
+              <tr className="border-b border-border bg-muted/40 text-start text-muted-foreground">
                 <th className="px-3 py-1.5 font-normal">{m.admin_plugins_headers_col_name()}</th>
                 <th className="px-3 py-1.5 font-normal">{m.admin_plugins_headers_col_value()}</th>
                 <th className="w-28 py-1.5" />
