@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useUnreadCount } from "../bell/use-unread-count";
 import { useMarkRead } from "../inbox/use-inbox-mutations";
 import { fetchInboxPage } from "../shared/fetchers";
@@ -17,14 +17,14 @@ function encodeCursor(createdAt: number, id: string): string {
   return btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
-function advanceCursor(ref: MutableRefObject<string | null>, items: NotificationItemDto[]): void {
+function advanceCursor(ref: RefObject<string | null>, items: NotificationItemDto[]): void {
   if (items.length === 0) return;
   // Items from ?after are ASC (oldest→newest). Last item is the newest.
   const newest = items[items.length - 1]!;
   ref.current = encodeCursor(newest.createdAt, newest.id);
 }
 
-async function seedCursor(ref: MutableRefObject<string | null>): Promise<void> {
+async function seedCursor(ref: RefObject<string | null>): Promise<void> {
   try {
     const page = await fetchInboxPage({}, null, 1);
     const newest = page.items[0];
@@ -41,7 +41,7 @@ function renderIfFresh(item: NotificationItemDto, deps: ToastDeps): void {
 // Called when a delta is detected but cursor is null (seed failed at boot, or
 // count was 0 when seeded). Fetches the single newest unread item, seeds the
 // cursor, and toasts it — all in one pass so the item is never missed.
-async function seedAndToast(ref: MutableRefObject<string | null>, deps: ToastDeps): Promise<void> {
+async function seedAndToast(ref: RefObject<string | null>, deps: ToastDeps): Promise<void> {
   try {
     const page = await fetchInboxPage({ unreadOnly: true }, null, 1);
     const newest = page.items[0];
@@ -55,12 +55,22 @@ async function seedAndToast(ref: MutableRefObject<string | null>, deps: ToastDep
 
 async function renderFreshItems(
   cursor: string,
-  cursorRef: MutableRefObject<string | null>,
+  cursorRef: RefObject<string | null>,
   deps: ToastDeps,
 ): Promise<void> {
-  const page = await fetchInboxAfter(cursor, { unreadOnly: true, limit: 10 });
-  const fresh = page.items.filter((i) => !deps.broadcast.has(i.id) && isToastable(i));
-  advanceCursor(cursorRef, page.items);
+  const fresh: NotificationItemDto[] = [];
+  let nextCursor: string | undefined = cursor;
+
+  // Drain all pages so bursts larger than the per-page limit are never silently dropped.
+  while (nextCursor !== undefined) {
+    const page = await fetchInboxAfter(nextCursor, { unreadOnly: true, limit: 10 });
+    advanceCursor(cursorRef, page.items);
+    for (const item of page.items) {
+      if (!deps.broadcast.has(item.id) && isToastable(item)) fresh.push(item);
+    }
+    nextCursor = page.nextCursor;
+  }
+
   if (fresh.length === 0) return;
   const capped = fresh.slice(0, MAX_TOASTS_PER_CYCLE);
   for (const item of capped) renderToast(item, deps);
@@ -68,10 +78,7 @@ async function renderFreshItems(
   if (overflow > 0) renderClusterToast(overflow, deps);
 }
 
-async function handleDelta(
-  cursorRef: MutableRefObject<string | null>,
-  deps: ToastDeps,
-): Promise<void> {
+async function handleDelta(cursorRef: RefObject<string | null>, deps: ToastDeps): Promise<void> {
   const cursor = cursorRef.current;
   if (!cursor) {
     // Cursor null: seed failed at boot, or count was 0 when seeded.
