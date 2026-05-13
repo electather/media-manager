@@ -34,6 +34,10 @@ async function seedCursor(ref: MutableRefObject<string | null>): Promise<void> {
   }
 }
 
+function renderIfFresh(item: NotificationItemDto, deps: ToastDeps): void {
+  if (!deps.broadcast.has(item.id) && isToastable(item)) renderToast(item, deps);
+}
+
 // Called when a delta is detected but cursor is null (seed failed at boot, or
 // count was 0 when seeded). Fetches the single newest unread item, seeds the
 // cursor, and toasts it — all in one pass so the item is never missed.
@@ -43,9 +47,7 @@ async function seedAndToast(ref: MutableRefObject<string | null>, deps: ToastDep
     const newest = page.items[0];
     if (!newest) return;
     ref.current = encodeCursor(newest.createdAt, newest.id);
-    if (!deps.broadcast.has(newest.id) && isToastable(newest)) {
-      renderToast(newest, deps);
-    }
+    renderIfFresh(newest, deps);
   } catch {
     // Non-fatal; cursor stays null and next poll retries.
   }
