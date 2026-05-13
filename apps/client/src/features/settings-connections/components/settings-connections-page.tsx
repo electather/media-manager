@@ -1,6 +1,7 @@
 // fallow-ignore-file complexity
 import { Suspense, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { cva } from "class-variance-authority";
 import { keyBy } from "es-toolkit/array";
 import {
   CheckIcon,
@@ -62,30 +63,35 @@ const STATUS_LABEL: Record<ConnectionStatus, () => string> = {
   disconnected: () => m.settings_connections_status_disconnected(),
 };
 
-const STATUS_BADGE_CLASS: Record<ConnectionStatus, string> = {
-  connected: "border border-success/40 bg-success/10 text-success",
-  expired: "border border-amber-400/40 bg-amber-400/10 text-amber-500 dark:text-amber-400",
-  error: "border border-destructive/40 bg-destructive/10 text-destructive",
-  disconnected: "border border-border bg-muted text-muted-foreground",
-};
+const statusBadgeVariants = cva(
+  "gap-1.5 rounded-md px-2 py-0.5 font-mono text-[11px] tracking-wide",
+  {
+    variants: {
+      status: {
+        connected: "border border-success/40 bg-success/10 text-success",
+        expired: "border border-amber-400/40 bg-amber-400/10 text-amber-500 dark:text-amber-400",
+        error: "border border-destructive/40 bg-destructive/10 text-destructive",
+        disconnected: "border border-border bg-muted text-muted-foreground",
+      } satisfies Record<ConnectionStatus, string>,
+    },
+  },
+);
 
-const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
-  connected: "bg-success",
-  expired: "bg-amber-500",
-  error: "bg-destructive",
-  disconnected: "bg-muted-foreground/60",
-};
+const statusDotVariants = cva("size-1.5 rounded-full", {
+  variants: {
+    status: {
+      connected: "bg-success",
+      expired: "bg-amber-500",
+      error: "bg-destructive",
+      disconnected: "bg-muted-foreground/60",
+    } satisfies Record<ConnectionStatus, string>,
+  },
+});
 
 function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) {
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "gap-1.5 rounded-md px-2 py-0.5 font-mono text-[11px] tracking-wide",
-        STATUS_BADGE_CLASS[status],
-      )}
-    >
-      <span aria-hidden="true" className={cn("size-1.5 rounded-full", STATUS_DOT_CLASS[status])} />
+    <Badge variant="outline" className={statusBadgeVariants({ status })}>
+      <span aria-hidden="true" className={statusDotVariants({ status })} />
       {STATUS_LABEL[status]()}
     </Badge>
   );

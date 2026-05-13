@@ -2,30 +2,23 @@ import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connecti
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { SettingsConnectionsApiError } from "./types";
+import { invariant } from "es-toolkit";
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, SettingsConnectionsApiError);
 
 export async function fetchConnections(): Promise<ConnectionListItem[]> {
-  const body = (await readJson(await api.connections.$get())) as {
-    connections: ConnectionListItem[];
-  };
+  const body = await readJson(await api.connections.$get());
   return body.connections;
 }
 
 export async function fetchAvailablePlugins(): Promise<PluginSummary[]> {
-  const body = (await readJson(await api.connections.available.$get())) as {
-    plugins: PluginSummary[];
-  };
+  const body = await readJson(await api.connections.available.$get());
   return body.plugins;
 }
 
 export async function fetchTestConnection(id: string): Promise<{ ok: boolean; message?: string }> {
-  const body = (await readJson(await api.connections[":id"].test.$post({ param: { id } }))) as {
-    ok: boolean;
-    message?: string;
-  };
-
-  if (!body.ok) throw new Error(body.message ?? "Test failed");
+  const body = await readJson(await api.connections[":id"].test.$post({ param: { id } }));
+  invariant(body.ok, body.message ?? "Test failed");
   return body;
 }
 

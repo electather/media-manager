@@ -16,8 +16,6 @@ export async function fetchAuthorizedApps(): Promise<AuthorizedApp[]> {
 }
 
 export async function revokeAuthorizedApp(clientId: string): Promise<AuthorizedApp[]> {
-  const body = (await readJson(
-    await api.me.apps[":clientId"].revoke.$post({ param: { clientId } }),
-  )) as { ok: true; apps: AuthorizedApp[] };
+  const body = await readJson(await api.me.apps[":clientId"].revoke.$post({ param: { clientId } }));
   return body.apps;
 }
