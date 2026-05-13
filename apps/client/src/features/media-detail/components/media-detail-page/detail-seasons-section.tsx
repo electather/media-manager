@@ -1,6 +1,6 @@
 import * as m from "@/paraglide/messages";
-import { ModalSeasons } from "@/shared/components/media-detail-modal/modal-seasons";
-import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
+import { ModalSeasons } from "../media-detail-modal/modal-seasons";
+import type { MediaDetailItem } from "../media-detail-modal";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 import { DetailSection } from "../detail-section";
 import { UnpaddedModalSlot } from "./unpadded-modal-slot";

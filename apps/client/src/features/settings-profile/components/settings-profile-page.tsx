@@ -25,7 +25,7 @@ import { authClient } from "@/shared/lib/auth";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
-import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import {
   SettingsCard,
   SettingsCardRow,

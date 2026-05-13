@@ -14,7 +14,7 @@ import { triggerAnchorDownload } from "@/shared/lib/anchor-download";
 import { authClient } from "@/shared/lib/auth";
 import { m } from "@/paraglide/messages";
 
-import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { SettingsActionRow, SettingsCard, deleteAccount } from "@/features/settings";
 
 export function SettingsDangerRoute() {

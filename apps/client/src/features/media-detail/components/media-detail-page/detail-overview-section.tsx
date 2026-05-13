@@ -1,6 +1,6 @@
 import * as m from "@/paraglide/messages";
-import { ModalTVAirInfo } from "@/shared/components/media-detail-modal/modal-tv-air-info";
-import type { MediaDetailItem } from "@/shared/components/media-detail-modal";
+import { ModalTVAirInfo } from "../media-detail-modal/modal-tv-air-info";
+import type { MediaDetailItem } from "../media-detail-modal";
 import type { HomeMediaItem } from "@/features/home/lib/types";
 import { DetailBreadcrumb } from "../detail-breadcrumb";
 import { DetailSection } from "../detail-section";

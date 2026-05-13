@@ -40,7 +40,7 @@ import { relativeTime } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
-import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 import { NameGlyph } from "@/shared/components/name-glyph";
 import { ConnectionModal } from "@/features/connections";

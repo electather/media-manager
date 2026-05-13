@@ -4,7 +4,7 @@ import { PlusIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { m } from "@/paraglide/messages";
 
-import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 
 import {

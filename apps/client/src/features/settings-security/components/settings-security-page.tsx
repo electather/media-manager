@@ -24,7 +24,7 @@ import { parseUserAgent } from "@/shared/lib/user-agent";
 import { cn } from "@/shared/lib/utils";
 import { m } from "@/paraglide/messages";
 
-import { SettingsPageHeader } from "@/app/settings-layout";
+import { SettingsPageHeader } from "@/shared/components/settings-page-header";
 import { SettingsCard, SettingsCardHeader } from "@/features/settings";
 import { settingsSecurityKeys } from "../lib/query-keys";
 import {
