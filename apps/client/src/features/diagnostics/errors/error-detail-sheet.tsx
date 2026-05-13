@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { m } from "@/paraglide/messages";
-import { CopyButton } from "@/shared/ui/copy-button";
+import { CopyButton } from "@/shared/components/copy-button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Separator } from "@/shared/ui/separator";

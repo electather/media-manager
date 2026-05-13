@@ -1,7 +1,7 @@
 import { ClockIcon, ExternalLinkIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
-import { CopyButton } from "@/shared/ui/copy-button";
+import { CopyButton } from "@/shared/components/copy-button";
 
 import type { DeviceState } from "../lib/types";
 

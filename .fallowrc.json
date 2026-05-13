@@ -92,6 +92,30 @@
         "patterns": ["apps/client/src/features/settings/**"]
       },
       {
+        "name": "client-feat-settings-apps",
+        "patterns": ["apps/client/src/features/settings-apps/**"]
+      },
+      {
+        "name": "client-feat-settings-connections",
+        "patterns": ["apps/client/src/features/settings-connections/**"]
+      },
+      {
+        "name": "client-feat-settings-danger",
+        "patterns": ["apps/client/src/features/settings-danger/**"]
+      },
+      {
+        "name": "client-feat-settings-notifications",
+        "patterns": ["apps/client/src/features/settings-notifications/**"]
+      },
+      {
+        "name": "client-feat-settings-profile",
+        "patterns": ["apps/client/src/features/settings-profile/**"]
+      },
+      {
+        "name": "client-feat-settings-security",
+        "patterns": ["apps/client/src/features/settings-security/**"]
+      },
+      {
         "name": "client-feat-admin",
         "patterns": ["apps/client/src/features/admin/**"]
       },
@@ -126,6 +150,10 @@
       {
         "name": "client-feat-notifications",
         "patterns": ["apps/client/src/features/notifications/**"]
+      },
+      {
+        "name": "client-feat-command-menu",
+        "patterns": ["apps/client/src/features/command-menu/**"]
       },
       {
         "name": "client-feat-watchlist",
@@ -188,6 +216,12 @@
           "client-app",
           "client-feat-connections",
           "client-feat-settings",
+          "client-feat-settings-apps",
+          "client-feat-settings-connections",
+          "client-feat-settings-danger",
+          "client-feat-settings-notifications",
+          "client-feat-settings-profile",
+          "client-feat-settings-security",
           "client-feat-admin",
           "client-feat-admin-users",
           "client-feat-admin-roles",
@@ -195,6 +229,7 @@
           "client-feat-home",
           "client-feat-watchlist",
           "client-feat-notifications",
+          "client-feat-command-menu",
           "client-features-legacy",
           "client-shared-ui",
           "client-shared-components",
@@ -209,6 +244,12 @@
           "client-app",
           "client-feat-connections",
           "client-feat-settings",
+          "client-feat-settings-apps",
+          "client-feat-settings-connections",
+          "client-feat-settings-danger",
+          "client-feat-settings-notifications",
+          "client-feat-settings-profile",
+          "client-feat-settings-security",
           "client-feat-admin",
           "client-feat-admin-users",
           "client-feat-admin-roles",
@@ -218,6 +259,7 @@
           "client-feat-media-detail",
           "client-feat-request-flow",
           "client-feat-notifications",
+          "client-feat-command-menu",
           "client-feat-diagnostics",
           "client-feat-admin-plugins",
           "client-features-legacy",
@@ -292,6 +334,81 @@
         ]
       },
       {
+        "from": "client-feat-settings-apps",
+        "allow": [
+          "client-app",
+          "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-settings-connections",
+        "allow": [
+          "client-app",
+          "client-feat-connections",
+          "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-settings-danger",
+        "allow": [
+          "client-app",
+          "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-settings-notifications",
+        "allow": [
+          "client-app",
+          "client-feat-connections",
+          "client-feat-notifications",
+          "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-settings-profile",
+        "allow": [
+          "client-app",
+          "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-settings-security",
+        "allow": [
+          "client-app",
+          "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
         "from": "client-feat-admin",
         "allow": [
           "client-shared-ui",
@@ -338,7 +455,18 @@
         "from": "client-app",
         "allow": [
           "client-feat-notifications",
+          "client-feat-command-menu",
           "client-feat-settings",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-command-menu",
+        "allow": [
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

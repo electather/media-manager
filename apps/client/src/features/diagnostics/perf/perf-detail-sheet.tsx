@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { m } from "@/paraglide/messages";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { CopyButton } from "@/shared/ui/copy-button";
+import { CopyButton } from "@/shared/components/copy-button";
 import { Separator } from "@/shared/ui/separator";
 import { absoluteDateTime, formatDuration } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";

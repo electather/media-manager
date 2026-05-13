@@ -1,7 +1,7 @@
 import { InfoIcon, MoreHorizontalIcon, PlugIcon, ShieldCheckIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
-import { CopyButton } from "@/shared/ui/copy-button";
+import { CopyButton } from "@/shared/components/copy-button";
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -1,3 +1,4 @@
+// fallow-ignore-file unresolved-import
 import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
