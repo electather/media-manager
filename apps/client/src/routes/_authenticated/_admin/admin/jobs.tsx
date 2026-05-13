@@ -44,7 +44,7 @@ import { api } from "@/shared/lib/api";
 import { cn } from "@/shared/lib/utils";
 
 import type { JobRunStatus, JobKind, JobRunSummary, JobHandle } from "@ent-mcp/shared/jobs";
-import { relativeTime } from "@/shared/lib/relative-time";
+import { formatDuration, relativeTime } from "@/shared/lib/time-format";
 
 export const Route = createFileRoute("/_authenticated/_admin/admin/jobs")({
   component: AdminJobsPage,
@@ -792,12 +792,4 @@ function runStatusLabel(status: JobRunStatus): string {
     cancelled: "Cancelled",
   };
   return labels[status];
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1_000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1_000).toFixed(1)}s`;
-  const min = Math.floor(ms / 60_000);
-  const sec = Math.round((ms % 60_000) / 1_000);
-  return `${min}m ${sec}s`;
 }

@@ -1,4 +1,4 @@
-import type { AuthorizedApp, PublicConfig, RoleSummary } from "@ent-mcp/shared/users";
+import type { PublicConfig, RoleSummary } from "@ent-mcp/shared/users";
 import type { DeleteAccountBody } from "@ent-mcp/shared/users";
 import { api } from "@/shared/lib/api";
 import { readOkJson, throwOnApiError } from "@/shared/lib/api/throw-on-error";
@@ -12,17 +12,6 @@ export async function fetchPublicConfig(): Promise<PublicConfig> {
 
 export async function fetchRole(): Promise<{ role: RoleSummary | null }> {
   return (await readJson(await api.me.role.$get())) as { role: RoleSummary | null };
-}
-
-export async function fetchAuthorizedApps(): Promise<AuthorizedApp[]> {
-  return (await readJson(await api.me.apps.$get())) as AuthorizedApp[];
-}
-
-export async function revokeAuthorizedApp(clientId: string): Promise<AuthorizedApp[]> {
-  const body = (await readJson(
-    await api.me.apps[":clientId"].revoke.$post({ param: { clientId } }),
-  )) as { ok: true; apps: AuthorizedApp[] };
-  return body.apps;
 }
 
 export async function deleteAccount(body: DeleteAccountBody): Promise<void> {

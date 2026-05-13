@@ -108,7 +108,15 @@
 
   "diagnostics_thread_chip_title": "ردیابی درخواست {requestId} در میان تب‌ها",
   "diagnostics_pinned_thread_pinned_to": "سنجاق‌شده به",
-  "diagnostics_pinned_thread_match_one": "— {count} مطابقت.",
-  "diagnostics_pinned_thread_match_other": "— {count} مطابقت.",
+  "diagnostics_pinned_thread_match": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "— {count} مطابقت.",
+        "countPlural=other": "— {count} مطابقت."
+      }
+    }
+  ],
   "diagnostics_pinned_thread_clear": "پاک‌کردن رشته"
 }

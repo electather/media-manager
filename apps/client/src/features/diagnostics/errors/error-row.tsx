@@ -1,10 +1,10 @@
 import type { ErrorSource } from "@ent-mcp/shared/diagnostics";
 import { ChevronRightIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
+import { absoluteDateTime, compactRelativeTime } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 import { SEVERITY_BG, SEVERITY_TEXT, SeverityDot } from "@/shared/components/severity-dot";
 import { ThreadChip } from "../thread-chip";
-import { formatAbs, formatRel } from "../shared/format";
 import type { ErrorListRow } from "../shared/types";
 
 interface Props {
@@ -55,9 +55,9 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
       <div className="flex flex-wrap items-center gap-2 sm:contents">
         <div
           className="font-mono text-xs text-muted-foreground sm:col-start-1 sm:row-start-1 sm:min-w-16"
-          title={formatAbs(row.createdAt)}
+          title={absoluteDateTime(row.createdAt)}
         >
-          {formatRel(row.createdAt)}
+          {compactRelativeTime(row.createdAt)}
         </div>
 
         <SeverityDot severity={row.severity} glow className="sm:col-start-2 sm:row-start-1" />

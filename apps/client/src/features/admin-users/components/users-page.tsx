@@ -2,7 +2,7 @@ import { useState } from "react";
 import { PlusIcon } from "lucide-react";
 
 import { m } from "@/paraglide/messages";
-import { AdminPageHeader } from "@/app/admin-layout";
+import { AdminPageHeader } from "@/shared/components/admin-page-header";
 import { Button } from "@/shared/ui/button";
 import { authClient } from "@/shared/lib/auth";
 

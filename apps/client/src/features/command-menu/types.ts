@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type * as messages from "@/paraglide/messages";
+import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
+import { BaseApiError } from "@/shared/lib/diagnostics/api-error";
 
 /**
  * Static / parameter-less Paraglide message keys. The dynamic `t(key)`
@@ -100,3 +102,13 @@ export type ActionContext = {
 };
 
 export type MediaItem = CommandMenuMediaItem;
+
+/**
+ * Typed error thrown by command-menu fetchers on non-2xx responses. Lets the
+ * inline retry row read `status` / `code` without re-parsing the wire body.
+ */
+export class CommandMenuApiError extends BaseApiError {
+  constructor(status: number, body: ApiErrorBody | null) {
+    super("CommandMenuApiError", status, body, `command-menu request failed (${status})`);
+  }
+}

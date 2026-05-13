@@ -2,7 +2,7 @@ import { PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { m } from "@/paraglide/messages";
-import { AdminPageHeader } from "@/app/admin-layout";
+import { AdminPageHeader } from "@/shared/components/admin-page-header";
 import { Button } from "@/shared/ui/button";
 
 import { useAdminUsers } from "@/features/admin-users/hooks/use-admin-users";

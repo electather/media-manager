@@ -51,7 +51,12 @@ export function InboxBulkBar({ ids, onClear }: Props) {
           <Trash2Icon className="size-4" />
           {m.notifications_bulk_delete()}
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={onClear} aria-label="Clear selection">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onClear}
+          aria-label={m.notifications_bulk_clear_selection()}
+        >
           <XIcon className="size-4" />
         </Button>
       </div>

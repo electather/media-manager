@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { isNil } from "es-toolkit/predicate";
 import { CircleCheckIcon, PlayIcon, RefreshCwIcon } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import {
@@ -31,6 +32,10 @@ interface EnumOption {
   label: string;
 }
 
+function isMissing(value: unknown): boolean {
+  return isNil(value) || value === "";
+}
+
 function readEnumOptions(schema: any): EnumOption[] | null {
   if (!Array.isArray(schema?.enum) || schema.enum.length === 0) return null;
   const labels = schema["x-enum-labels"];
@@ -42,10 +47,6 @@ function readEnumOptions(schema: any): EnumOption[] | null {
         : value;
     return { value, label };
   });
-}
-
-function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === "";
 }
 
 interface FieldItemProps {

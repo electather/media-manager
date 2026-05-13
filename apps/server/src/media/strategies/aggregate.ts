@@ -1,3 +1,4 @@
+import { flatten } from "es-toolkit/array";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { resolveConnections } from "../resolve-connection";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
@@ -23,7 +24,7 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
       return connections.map((conn) => ({ pluginId, conn }));
     }),
   );
-  const candidates = perPlugin.flat();
+  const candidates = flatten(perPlugin);
 
   const outcomes = await invokeAll<T>(candidates, req, capability);
   await harvestFromOutcomes(outcomes, req.mediaType);

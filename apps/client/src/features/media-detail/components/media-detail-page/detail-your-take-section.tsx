@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import * as m from "@/paraglide/messages";
-import { ModalNote } from "@/shared/components/media-detail-modal/modal-note";
+import { ModalNote } from "../media-detail-modal/modal-note";
 import { DetailSection } from "../detail-section";
 import { UnpaddedModalSlot } from "./unpadded-modal-slot";
 

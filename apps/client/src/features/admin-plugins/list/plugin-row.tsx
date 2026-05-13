@@ -95,11 +95,7 @@ export function PluginRowItem({ plugin, onToggle, toggling }: PluginRowItemProps
           <span className="text-muted-foreground/40" aria-hidden="true">
             ·
           </span>
-          <span>
-            {userCaps === 1
-              ? m.admin_plugins_row_caps_one({ global: globalCaps, user: userCaps })
-              : m.admin_plugins_row_caps_many({ global: globalCaps, user: userCaps })}
-          </span>
+          <span>{m.admin_plugins_row_caps({ global: globalCaps, user: userCaps })}</span>
           {poolTotal > 0 ? (
             <>
               <span className="text-muted-foreground/40" aria-hidden="true">

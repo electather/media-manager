@@ -52,7 +52,7 @@ export function RoleRow({ role, memberCount, isFirst, onOpen }: Props) {
       <div className="flex flex-col items-end gap-0.5 text-right">
         <span className="font-mono text-sm tabular-nums text-foreground">{memberCount}</span>
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          {memberCount === 1 ? m.admin_roles_members_one() : m.admin_roles_members_many()}
+          {m.admin_roles_members({ count: memberCount })}
         </span>
       </div>
       <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden="true" />

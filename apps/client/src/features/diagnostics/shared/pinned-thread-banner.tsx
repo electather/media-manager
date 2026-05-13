@@ -18,9 +18,7 @@ export function PinnedThreadBanner({ label, requestId, matches, onClearRequestId
       <ThreadChip requestId={requestId} />
       {matches !== undefined ? (
         <span className="text-muted-foreground">
-          {matches === 1
-            ? m.diagnostics_pinned_thread_match_one({ count: matches })
-            : m.diagnostics_pinned_thread_match_other({ count: matches })}
+          {m.diagnostics_pinned_thread_match({ count: matches })}
         </span>
       ) : null}
       <Button variant="outline" size="sm" onClick={onClearRequestId} className="ms-auto">

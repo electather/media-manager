@@ -1,7 +1,7 @@
 import { ChevronRightIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
+import { compactRelativeTime, formatDuration } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
-import { formatMs, formatRel } from "../shared/format";
 import type { PerfAggregateGroup } from "../shared/types";
 
 interface Props {
@@ -55,7 +55,7 @@ export function PerfRow({ group, isOpen, onOpen }: Props) {
           <div className="mt-1 font-mono text-xs text-muted-foreground/80">
             {m.diagnostics_perf_calls_last_seen({
               count: group.count.toLocaleString(),
-              when: formatRel(group.lastAt),
+              when: compactRelativeTime(group.lastAt),
             })}
           </div>
         </div>
@@ -109,7 +109,7 @@ function Latency({
       <div className="font-mono text-xs tracking-wider text-muted-foreground/80 uppercase">
         {PERF_LABELS[labelKey]()}
       </div>
-      <div className={cn("font-mono text-xs font-medium", toneClass)}>{formatMs(ms)}</div>
+      <div className={cn("font-mono text-xs font-medium", toneClass)}>{formatDuration(ms)}</div>
     </div>
   );
 }

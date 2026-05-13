@@ -1,4 +1,6 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import { take } from "es-toolkit/array";
+import { isNil } from "es-toolkit/predicate";
 import { useMemo } from "react";
 
 import type { CommandScope, MediaItem, NavFrame } from "../types";
@@ -57,19 +59,19 @@ export function useSections({
 
   const recentItems = useMemo(() => {
     if (!isRoot || value) return [] as MediaItem[];
-    return recents.slice(0, RECENTS_LIMIT);
+    return take(recents, RECENTS_LIMIT);
   }, [isRoot, recents, value]);
 
   const trendingPool = useMemo<MediaItem[]>(() => {
-    if (scope === null || !trendingResults) return [];
-    return trendingResults.slice(0, TRENDING_LIMIT);
+    if (isNil(scope) || !trendingResults) return [];
+    return take(trendingResults, TRENDING_LIMIT);
   }, [scope, trendingResults]);
 
   const { mediaItems, mediaSection } = useMemo<{
     mediaItems: MediaItem[];
     mediaSection: MediaSection;
   }>(() => {
-    if (scope === null) {
+    if (isNil(scope)) {
       return { mediaItems: [], mediaSection: null };
     }
     // Once the server has answered the current query, honour that answer —

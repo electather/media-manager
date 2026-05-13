@@ -2,6 +2,7 @@ import { Calendar, ChevronDown, Plus, Server } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { cn } from "@/shared/lib/utils";
 import type { CardAvailabilityState } from "../../lib/card-state";
+import { isNil } from "es-toolkit/predicate";
 
 type Props = { state: CardAvailabilityState };
 
@@ -33,11 +34,11 @@ function Glyph({ kind }: { kind: CardAvailabilityState["kind"] }) {
 
 export function CardAvailability({ state }: Props) {
   const label = getLabel(state);
-  if (label === null) return null;
+  if (isNil(label)) return null;
   return (
     <span
       className={cn(
-        "pointer-events-none absolute start-2 top-2 inline-flex items-center gap-1 rounded-full border bg-card/65 px-2 py-0.5 text-xs font-medium backdrop-blur-md",
+        "pointer-events-none absolute inset-s-2 top-2 inline-flex items-center gap-1 rounded-full border bg-card/65 px-2 py-0.5 text-xs font-medium backdrop-blur-md",
         TONE[state.kind],
       )}
     >

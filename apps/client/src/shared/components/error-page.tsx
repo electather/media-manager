@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { ChevronDownIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
-import { CopyButton } from "@/shared/ui/copy-button";
+import { CopyButton } from "./copy-button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/shared/ui/collapsible";
 import { cn } from "@/shared/lib/utils";
 

@@ -1,3 +1,4 @@
+// fallow-ignore-file unresolved-import
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
