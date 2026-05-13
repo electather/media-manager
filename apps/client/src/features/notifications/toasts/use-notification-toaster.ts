@@ -71,7 +71,7 @@ export function useNotificationToaster(): void {
   const markReadMutation = useMarkRead();
 
   useEffect(() => {
-    const count = countResult?.count ?? 0;
+    const count = countResult ? countResult.count : 0;
     const prev = prevCountRef.current;
     prevCountRef.current = count;
 
