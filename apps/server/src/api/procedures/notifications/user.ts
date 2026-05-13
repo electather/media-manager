@@ -179,12 +179,14 @@ export const notificationsApp = new Hono()
   .get("/inbox", zValidator("query", inboxListQuerySchema), async (c) => {
     const userId = sessionUserId(c);
     const q = c.req.valid("query");
-    const cursor = decodeKeysetCursor(q.cursor);
+    const direction = q.after ? "after" : "before";
+    const cursor = decodeKeysetCursor(q.after ?? q.cursor);
     const items = await listInboxForUser(
       userId,
       { unreadOnly: q.unreadOnly, category: q.category, severity: q.severity },
       cursor,
       q.limit,
+      { direction },
     );
     const unreadCount = await getUnreadCount(userId);
     const lastItem = items.length === q.limit ? last(items) : undefined;

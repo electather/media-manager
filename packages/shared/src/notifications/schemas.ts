@@ -85,9 +85,14 @@ export const inboxListQuerySchema = z
     category: notificationCategorySchema.optional(),
     severity: notificationSeveritySchema.optional(),
     cursor: z.string().optional(),
+    after: z.string().optional(),
     limit: paginatedLimitField,
   })
-  .strict();
+  .strict()
+  .refine((d) => !(d.cursor && d.after), {
+    message: "cursor_and_after_mutually_exclusive",
+    path: ["after"],
+  });
 
 export const subscriptionUpdateBodySchema = z.object({ enabled: z.boolean() });
 
