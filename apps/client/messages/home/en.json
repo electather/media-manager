@@ -193,6 +193,9 @@
   "media_detail_not_found_title": "We couldn't find that title.",
   "media_detail_back_to_home": "Back to home",
   "media_detail_view_full_page": "View full page",
+  "media_detail_partial_details_title": "Some details did not load",
+  "media_detail_partial_details_body": "We could only load the summary for this title. Refresh in a moment if cast, seasons, ratings, or other details are missing.",
+  "media_detail_partial_details_code": "Details error: {code}",
 
   "request_action_button": "Request",
   "request_action_no_plugin": "No plugin configured",
