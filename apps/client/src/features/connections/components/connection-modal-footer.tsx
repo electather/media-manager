@@ -80,11 +80,7 @@ export function ConnectionModalFooter(props: Props) {
             ) : test.kind === "ok" ? (
               <CheckIcon />
             ) : null}
-            {test.kind === "testing"
-              ? m.settings_connections_modal_action_testing()
-              : test.kind === "ok"
-                ? m.settings_connections_modal_action_tested()
-                : m.settings_connections_modal_action_test()}
+            {m.settings_connections_modal_action_test({ state: test.kind })}
           </Button>
           {test.kind === "ok" ? (
             <span className="text-center text-xs text-success sm:text-left">

@@ -44,6 +44,14 @@ new feature?
 
 Promote flat → split when a second surface lands. Don't demote; cost outweighs benefit.
 
+Flat layout means **single-surface**, not **root-flat**. Keep implementation files under
+`components/`, query/mutation hooks under `hooks/`, and data/helpers under `lib/`. The feature
+root should normally contain only `index.ts` and optional docs/fixtures.
+
+If the project or user asks for sibling surface features instead of nested surfaces, use
+`features/<domain>-<surface>/` for each surface, but still keep the flat subfolders inside each
+feature. Example: `features/settings-security/{index.ts, components/, hooks/, lib/}`.
+
 ## Hard rules
 
 Cite by number in PR descriptions and reviews.
@@ -94,5 +102,5 @@ Skip vercel-* skills for `packages/server`, `packages/shared`, `packages/plugins
 2. Skim hard rules.
 3. Open the right reference for the section you're touching (data layer, react-query, composition, i18n).
 4. Invoke companion skills.
-5. Cross-check against `apps/client/src/features/notifications/` if uncertain.
+5. Cross-check against `apps/client/src/features/home/` for flat single-surface layout, or `apps/client/src/features/notifications/` for split multi-surface layout.
 6. Run new-feature or retrofit checklist before opening PR.

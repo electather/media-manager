@@ -24,7 +24,7 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
-import { DeleteAccountDialog } from "@/routes/_authenticated/_settings/settings/danger";
+import { DeleteAccountDialog } from "@/features/settings-danger/components/settings-danger-page";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {

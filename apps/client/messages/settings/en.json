@@ -203,9 +203,17 @@
   "settings_connections_modal_action_connect": "Connect",
   "settings_connections_modal_action_save_connection": "Save connection",
   "settings_connections_modal_action_save_changes": "Save changes",
-  "settings_connections_modal_action_test": "Test connection",
-  "settings_connections_modal_action_testing": "Testing…",
-  "settings_connections_modal_action_tested": "Tested",
+  "settings_connections_modal_action_test": [
+    {
+      "declarations": ["input state"],
+      "selectors": ["state"],
+      "match": {
+        "state=testing": "Testing…",
+        "state=ok": "Tested",
+        "state=*": "Test connection"
+      }
+    }
+  ],
   "settings_connections_modal_test_verified": "Connection verified",
   "settings_connections_modal_error_fix_fields": "Fix the highlighted fields before testing.",
   "settings_connections_modal_error_test_failed": "Test failed.",
