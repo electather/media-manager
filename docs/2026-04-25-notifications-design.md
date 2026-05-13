@@ -684,7 +684,7 @@ Permission: `ACCOUNT_CONNECTIONS`.
 
 ```
 GET  /api/notifications/inbox
-     query: ?unreadOnly=&category=&severity=&cursor=&limit=
+     query: ?unreadOnly=&category=&severity=&cursor=&after=&limit=
      → {
          items: Array<{
            id: string;          createdAt: string;       readAt: string | null;
@@ -702,6 +702,11 @@ GET  /api/notifications/inbox
      The `|` separator is required because epoch ms is interleaved with the
      row id; same encoding is reused by `GET /admin/notifications/deliveries`.
      Stable across pagination even when new rows arrive at head.
+     `?after=<cursor>` (added 2026-05-13 for toast pipeline) flips direction:
+     returns rows with `(created_at, id) > cursor` sorted ASCENDING (oldest→
+     newest). `cursor` and `after` mutually exclusive (both present → 400).
+     Powers the client toast layer's "give me items since last seen" poll;
+     see `docs/2026-05-06-notifications-client-design.md § Toasts (2026-05-13)`.
 
 GET  /api/notifications/inbox/unread-count
      → { count: number }
