@@ -51,6 +51,14 @@ import {
   notificationCapablePluginIds,
 } from "./helpers";
 
+function resolveInboxCursor(q: { after?: string; cursor?: string }): {
+  rawCursor: string | undefined;
+  direction: "before" | "after";
+} {
+  if (q.after) return { rawCursor: q.after, direction: "after" };
+  return { rawCursor: q.cursor, direction: "before" };
+}
+
 export const notificationsApp = new Hono()
   .use("*", flagGate())
   .use("*", requireSession)
@@ -179,8 +187,8 @@ export const notificationsApp = new Hono()
   .get("/inbox", zValidator("query", inboxListQuerySchema), async (c) => {
     const userId = sessionUserId(c);
     const q = c.req.valid("query");
-    const direction = q.after ? "after" : "before";
-    const cursor = decodeKeysetCursor(q.after ?? q.cursor);
+    const { rawCursor, direction } = resolveInboxCursor(q);
+    const cursor = decodeKeysetCursor(rawCursor);
     const items = await listInboxForUser(
       userId,
       { unreadOnly: q.unreadOnly, category: q.category, severity: q.severity },

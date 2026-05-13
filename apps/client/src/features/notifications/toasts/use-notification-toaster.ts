@@ -49,6 +49,19 @@ async function renderFreshItems(
   if (overflow > 0) renderClusterToast(overflow, deps);
 }
 
+async function handleDelta(
+  cursorRef: MutableRefObject<string | null>,
+  deps: ToastDeps,
+): Promise<void> {
+  const cursor = cursorRef.current;
+  if (!cursor) {
+    // Cursor not seeded yet (seed failed on boot); retry seed and skip toasting.
+    await seedCursor(cursorRef);
+    return;
+  }
+  await renderFreshItems(cursor, cursorRef, deps);
+}
+
 export function useNotificationToaster(): void {
   const { data: countResult } = useUnreadCount();
   const prevCountRef = useRef<number | null>(null);
@@ -69,15 +82,7 @@ export function useNotificationToaster(): void {
     }
     if (count <= prev) return;
 
-    void (async () => {
-      const cursor = lastSeenCursorRef.current;
-      if (!cursor) {
-        // Cursor not seeded yet (seed failed on boot); retry seed and skip toasting.
-        await seedCursor(lastSeenCursorRef);
-        return;
-      }
-      await renderFreshItems(cursor, lastSeenCursorRef, { navigate, markReadMutation, broadcast });
-    })();
+    void handleDelta(lastSeenCursorRef, { navigate, markReadMutation, broadcast });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countResult?.count]);
 }
