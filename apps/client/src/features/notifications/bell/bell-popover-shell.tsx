@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CheckCheckIcon, RotateCcwIcon, SettingsIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
-import { isNil } from "es-toolkit/predicate";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { RadioGroup } from "@/shared/ui/radio-group";
@@ -27,6 +26,7 @@ import { useMarkAllRead } from "../inbox/use-inbox-mutations";
 import { notificationsKeys } from "../shared/query-keys";
 import { CATEGORY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
+import { isNull } from "es-toolkit";
 
 type Filter = "all" | NotificationCategory;
 type CountKey = Filter | "unread";
@@ -40,11 +40,6 @@ interface Props {
 }
 
 const CATEGORY_KEYS = Object.keys(CATEGORY_META) as NotificationCategory[];
-const EMPTY_ITEMS: NotificationItemDto[] = [];
-
-function isUnread(item: NotificationItemDto): boolean {
-  return isNil(item.readAt);
-}
 
 function createEmptyCounts(): Counts {
   const counts = { all: 0, unread: 0 } as Counts;
@@ -64,7 +59,7 @@ function derivePopoverState(
   const filtered: NotificationItemDto[] = [];
 
   for (const item of items) {
-    const unread = isUnread(item);
+    const unread = isNull(item.readAt);
     if (unread) counts.unread += 1;
     if (unreadOnly && !unread) continue;
 
@@ -124,7 +119,7 @@ function PopoverBody({ density, intensity, filter, unreadOnly, onFilterChange }:
   // unread filters apply client-side so switching one filter does not shrink
   // the others' counts.
   const { data } = usePopoverInbox();
-  const items = (data?.items ?? EMPTY_ITEMS) as NotificationItemDto[];
+  const items = data.items as NotificationItemDto[];
 
   const { counts, filtered } = useMemo(
     () => derivePopoverState(items, filter, unreadOnly),

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { isNil } from "es-toolkit/predicate";
 import { CircleCheckIcon, PlayIcon, RefreshCwIcon } from "lucide-react";
 import { api } from "@/shared/lib/api";
 import {
@@ -29,6 +30,10 @@ function MetaRow({ label, value, mono }: { label: string; value: string; mono?: 
 interface EnumOption {
   value: string;
   label: string;
+}
+
+function isMissing(value: unknown): boolean {
+  return isNil(value) || value === "";
 }
 
 function readEnumOptions(schema: any): EnumOption[] | null {
@@ -141,7 +146,7 @@ export function DynamicTriggerDialog({
   }, [job?.inputSchema?.required]);
 
   const missingFields = useMemo(
-    () => required.filter((key) => !formData[key]),
+    () => required.filter((key) => isMissing(formData[key])),
     [required, formData],
   );
 
@@ -210,7 +215,7 @@ export function DynamicTriggerDialog({
                       schema={schema}
                       value={formData[key]}
                       required={required.includes(key)}
-                      invalid={showErrors && required.includes(key) && !formData[key]}
+                      invalid={showErrors && required.includes(key) && isMissing(formData[key])}
                       onChange={(v) => setFormData({ ...formData, [key]: v })}
                     />
                   ))}

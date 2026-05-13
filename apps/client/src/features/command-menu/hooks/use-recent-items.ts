@@ -1,5 +1,6 @@
 import { take } from "es-toolkit/array";
-import { isPlainObject, isString } from "es-toolkit/predicate";
+import { omitBy } from "es-toolkit/object";
+import { isNil, isPlainObject, isString } from "es-toolkit/predicate";
 import { useCallback, useEffect, useState } from "react";
 
 import type { MediaItem } from "../types";
@@ -39,19 +40,21 @@ function readStorageValue(key: string): string | null {
   }
 }
 
-// fallow-ignore-next-line complexity
 function snapshotRecent(item: MediaItem): MediaItem {
-  return {
-    id: item.id,
-    tmdbId: item.tmdbId,
-    mediaType: item.mediaType,
-    title: item.title,
-    ...(item.year ? { year: item.year } : {}),
-    ...(item.genres ? { genres: item.genres } : {}),
-    ...(item.runtime ? { runtime: item.runtime } : {}),
-    ...(item.poster ? { poster: item.poster } : {}),
-    ...(item.backdrop ? { backdrop: item.backdrop } : {}),
-  };
+  return omitBy(
+    {
+      id: item.id,
+      tmdbId: item.tmdbId,
+      mediaType: item.mediaType,
+      title: item.title,
+      year: item.year,
+      genres: item.genres,
+      runtime: item.runtime,
+      poster: item.poster,
+      backdrop: item.backdrop,
+    },
+    isNil,
+  ) as MediaItem;
 }
 
 function readStorage(): MediaItem[] {

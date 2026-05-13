@@ -7,7 +7,6 @@ export function rangeToWindow(range: "24h" | "7d" | "30d"): { since: number } {
     case "30d":
       return { since: now - 30 * 24 * 60 * 60_000 };
     case "24h":
-    default:
       return { since: now - 24 * 60 * 60_000 };
   }
 }

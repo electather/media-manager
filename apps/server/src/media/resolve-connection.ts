@@ -1,4 +1,3 @@
-import { head } from "es-toolkit/array";
 import { getDb } from "../db/client";
 import { queryEnabledConnectionsForPlugin } from "../db/queries";
 import { decryptField } from "../crypto/helpers";
@@ -60,7 +59,7 @@ export async function resolveConnections(
       kind: "shared",
       pluginId,
       connectionId: null,
-      credentials: head(shared)!.value,
+      credentials: shared[0]!.value,
       userConfig: null,
     },
   ];

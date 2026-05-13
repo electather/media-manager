@@ -18,13 +18,12 @@ export function ClientFilters({ filter, setFilter, counts }: ClientFiltersProps)
   ];
 
   return (
-    <div className="flex gap-1.5" role="tablist" aria-label={m.settings_apps_filter_aria()}>
+    <div className="flex gap-1.5" role="group" aria-label={m.settings_apps_filter_aria()}>
       {filters.map((item) => (
         <button
           key={item.id}
           type="button"
-          role="tab"
-          aria-selected={filter === item.id}
+          aria-pressed={filter === item.id}
           onClick={() => setFilter(item.id)}
           data-testid={`filter-${item.id}`}
           className={cn(

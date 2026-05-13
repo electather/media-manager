@@ -12,6 +12,7 @@ import { compact } from "es-toolkit/array";
 import { useEffect, useMemo } from "react";
 
 import { m } from "@/paraglide/messages";
+import { getLocale } from "@/paraglide/runtime";
 
 import { COMMAND_PAGES } from "../registry/pages";
 import { t } from "../lib/i18n";
@@ -94,6 +95,9 @@ export function useCommandHotkeys({
   // Page sequences (`g h`, `g l`, …) are only useful while the menu is closed
   // — typing into the cmdk input must not arm a sequence.
   const navigate = useNavigate();
+  // Non-reactive read; including it in `useMemo` deps re-builds meta strings
+  // when the user hot-swaps locale via the menu's settings entry.
+  const locale = getLocale();
   const pageSequences = useMemo<UseHotkeySequenceDefinition[]>(
     () =>
       compact(
@@ -115,7 +119,7 @@ export function useCommandHotkeys({
           };
         }),
       ),
-    [navigate, open],
+    [navigate, open, locale],
   );
   useHotkeySequences(pageSequences);
 
@@ -141,7 +145,7 @@ export function useCommandHotkeys({
           };
         }),
       ),
-    [contributions, open, runContribution],
+    [contributions, open, runContribution, locale],
   );
   useHotkeys(contributionHotkeys);
 

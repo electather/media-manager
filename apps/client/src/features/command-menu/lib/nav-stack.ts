@@ -1,4 +1,4 @@
-import { last, take } from "es-toolkit/array";
+import { last } from "es-toolkit/array";
 
 import type { NavFrame } from "../types";
 
@@ -19,9 +19,7 @@ export function navReducer(state: NavState, action: NavAction): NavState {
     case "push":
       return { frames: [...state.frames, action.frame] };
     case "pop":
-      return state.frames.length > 1
-        ? { frames: take(state.frames, state.frames.length - 1) }
-        : state;
+      return state.frames.length > 1 ? { frames: state.frames.slice(0, -1) } : state;
     case "reset":
       return initialNavState;
   }

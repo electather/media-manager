@@ -1,4 +1,3 @@
-import { head } from "es-toolkit/array";
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations } from "../dispatch-cache";
 import { invokeOne, harvestFromOutcomes } from "../invoke";
@@ -22,8 +21,7 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
       null,
     );
   }
-  const pluginId =
-    req.pluginId && providers.includes(req.pluginId) ? req.pluginId : head(providers)!;
+  const pluginId = req.pluginId && providers.includes(req.pluginId) ? req.pluginId : providers[0]!;
   const conn = await pickSingleConnection(req.userId, pluginId);
   if (!conn) {
     throw new PluginCallError(

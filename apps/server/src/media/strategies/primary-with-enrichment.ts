@@ -1,4 +1,4 @@
-import { compact, drop, head } from "es-toolkit/array";
+import { compact } from "es-toolkit/array";
 import { cloneDeep } from "es-toolkit/object";
 import { isNil, isPlainObject } from "es-toolkit/predicate";
 import { getPrimaryConnection } from "../primary-preference";
@@ -45,12 +45,12 @@ async function resolveOrderedCandidates(
 
 // fallow-ignore-next-line complexity
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
-  const first = head(successes)!;
-  if (Array.isArray(first.data) || typeof first.data !== "object") {
-    return first.data as T;
+  const [first, ...rest] = successes;
+  if (Array.isArray(first!.data) || typeof first!.data !== "object") {
+    return first!.data as T;
   }
-  const base: Record<string, unknown> = cloneDeep(first.data as Record<string, unknown>);
-  for (const outcome of drop(successes, 1)) {
+  const base: Record<string, unknown> = cloneDeep(first!.data as Record<string, unknown>);
+  for (const outcome of rest) {
     if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
       fillGaps(base, outcome.data as Record<string, unknown>);
     }
@@ -77,7 +77,7 @@ export async function dispatchPrimary<T>(req: DispatchRequest): Promise<Aggregat
     capabilityKey: `${req.capability}@${req.version}`,
     mediaType: req.mediaType,
   });
-  const primaryPlugin = primary?.pluginId ?? head(providers)!;
+  const primaryPlugin = primary?.pluginId ?? providers[0]!;
   const ordered = [primaryPlugin, ...providers.filter((p) => p !== primaryPlugin)];
   const candidates = await resolveOrderedCandidates(req.userId, ordered);
 
