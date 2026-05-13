@@ -1,17 +1,21 @@
+import { take } from "es-toolkit/array";
+import { omitBy } from "es-toolkit/object";
+import { isNil, isPlainObject, isString } from "es-toolkit/predicate";
 import { useCallback, useEffect, useState } from "react";
 
 import type { MediaItem } from "../types";
 
-const STORAGE_KEY = "media-manager:command-menu:recents";
+const STORAGE_KEY = "media-manager:command-menu:recents:v1";
 const MAX_RECENTS = 5;
 
+// fallow-ignore-next-line complexity
 function isMediaItem(value: unknown): value is MediaItem {
-  if (!value || typeof value !== "object") return false;
+  if (!isPlainObject(value)) return false;
   const v = value as Record<string, unknown>;
   return (
-    typeof v.id === "string" &&
-    typeof v.tmdbId === "string" &&
-    typeof v.title === "string" &&
+    isString(v.id) &&
+    isString(v.tmdbId) &&
+    isString(v.title) &&
     (v.mediaType === "tv" || v.mediaType === "movie")
   );
 }
@@ -27,15 +31,40 @@ function safeParseRecents(raw: string | null): MediaItem[] {
   }
 }
 
+function readStorageValue(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function snapshotRecent(item: MediaItem): MediaItem {
+  return omitBy(
+    {
+      id: item.id,
+      tmdbId: item.tmdbId,
+      mediaType: item.mediaType,
+      title: item.title,
+      year: item.year,
+      genres: item.genres,
+      runtime: item.runtime,
+      poster: item.poster,
+      backdrop: item.backdrop,
+    },
+    isNil,
+  ) as MediaItem;
+}
+
 function readStorage(): MediaItem[] {
-  if (typeof window === "undefined") return [];
-  return safeParseRecents(window.localStorage.getItem(STORAGE_KEY));
+  return take(safeParseRecents(readStorageValue(STORAGE_KEY)), MAX_RECENTS);
 }
 
 function writeStorage(items: MediaItem[]): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(snapshotRecent)));
   } catch {
     // Ignore quota / privacy mode failures.
   }
@@ -50,13 +79,13 @@ export function useRecentItems(): {
   // TODO(cross-tab-sync): listen on `window.addEventListener("storage", ...)`
   // so a recent added in another tab shows up here without requiring a reload.
   useEffect(() => {
-    setRecents(readStorage().slice(0, MAX_RECENTS));
+    setRecents(readStorage());
   }, []);
 
   const pushRecent = useCallback((item: MediaItem) => {
     setRecents((prev) => {
-      const next = [item, ...prev.filter((existing) => existing.id !== item.id)].slice(
-        0,
+      const next = take(
+        [snapshotRecent(item), ...prev.filter((existing) => existing.id !== item.id)],
         MAX_RECENTS,
       );
       writeStorage(next);

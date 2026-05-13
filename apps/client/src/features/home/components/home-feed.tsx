@@ -2,7 +2,7 @@ import { Suspense, useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
-import { MediaDetailModal, type MediaDetailItem } from "@/shared/components/media-detail-modal";
+import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";

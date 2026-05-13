@@ -1,4 +1,6 @@
+import { compact } from "es-toolkit/array";
 import { cloneDeep } from "es-toolkit/object";
+import { isNil, isPlainObject } from "es-toolkit/predicate";
 import { getPrimaryConnection } from "../primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
@@ -6,15 +8,10 @@ import { harvestFromOutcomes } from "../invoke";
 import type { InvocationOutcome } from "../errors";
 import type { DispatchRequest, AggregateResult } from "../types";
 import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
-import { isNil } from "es-toolkit/predicate";
 
 function isEmptyValue(v: unknown): boolean {
   if (isNil(v) || v === "") return true;
   return Array.isArray(v) && v.length === 0;
-}
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 // fallow-ignore-next-line complexity
@@ -38,19 +35,22 @@ async function resolveOrderedCandidates(
   const conns = await Promise.all(
     orderedPluginIds.map((pluginId) => pickSingleConnection(userId, pluginId)),
   );
-  return orderedPluginIds
-    .map((pluginId, i) => (conns[i] ? { pluginId, conn: conns[i]! } : null))
-    .filter((c): c is Candidate => c !== null);
+  return compact(
+    orderedPluginIds.map((pluginId, i) => {
+      const conn = conns[i];
+      return conn ? { pluginId, conn } : null;
+    }),
+  );
 }
 
 // fallow-ignore-next-line complexity
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
-  const first = successes[0]!;
-  if (Array.isArray(first.data) || typeof first.data !== "object") {
-    return first.data as T;
+  const [first, ...rest] = successes;
+  if (Array.isArray(first!.data) || typeof first!.data !== "object") {
+    return first!.data as T;
   }
-  const base: Record<string, unknown> = cloneDeep(first.data as Record<string, unknown>);
-  for (const outcome of successes.slice(1)) {
+  const base: Record<string, unknown> = cloneDeep(first!.data as Record<string, unknown>);
+  for (const outcome of rest) {
     if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
       fillGaps(base, outcome.data as Record<string, unknown>);
     }

@@ -91,9 +91,10 @@ function InviteDrawerBody({ open, onClose }: Props) {
     if (!validEmails.length) return;
     createEmailInvitesMock(validEmails, roleId, expiresAt);
     toast.success(
-      validEmails.length === 1
-        ? m.admin_users_invite_toast_sent_one({ email: validEmails[0]! })
-        : m.admin_users_invite_toast_sent_many({ count: String(validEmails.length) }),
+      m.admin_users_invite_toast_sent({
+        count: validEmails.length,
+        email: validEmails[0] ?? "",
+      }),
     );
     onClose();
   };
@@ -221,9 +222,7 @@ function InviteDrawerBody({ open, onClose }: Props) {
               {m.admin_users_invite_cancel()}
             </Button>
             <Button onClick={sendEmails} disabled={!validEmails.length}>
-              {validEmails.length === 1
-                ? m.admin_users_invite_send_one()
-                : m.admin_users_invite_send_many({ count: String(validEmails.length || "") })}
+              {m.admin_users_invite_send({ count: validEmails.length })}
             </Button>
           </>
         ) : (

@@ -69,6 +69,7 @@ export const pluginsApp = new Hono()
           })),
           manifest,
           isPureGlobal: scopes.isPureGlobal,
+          supportsPersonalKeyFallback: scopes.supportsPersonalKeyFallback,
           installedAt: r.installedAt,
           updatedAt: r.updatedAt,
           isBuiltin: !!getBuiltin(r.id),
@@ -172,10 +173,10 @@ export const pluginsApp = new Hono()
     if (!row) throw badRequest("plugin.not_found", `plugin ${pluginId} not installed`);
     const manifest = parseManifest(row.manifest);
     const scopes = classifyScopes(manifest);
-    if (scopes.isPureGlobal && policy !== "off") {
+    if (!scopes.supportsPersonalKeyFallback && policy !== "off") {
       throw badRequest(
         "plugin.scope_invalid",
-        "personalKeyFallback only applies to plugins with user-scoped capabilities",
+        "personalKeyFallback only applies to plugins with shared credentials and user-scoped capabilities",
       );
     }
     await pluginRuntime.setPersonalKeyFallback(pluginId, policy);

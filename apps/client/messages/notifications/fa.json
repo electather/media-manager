@@ -59,6 +59,7 @@
   "notifications_bulk_delete": "حذف موارد انتخاب‌شده",
   "notifications_bulk_mark_read": "علامت‌گذاری موارد انتخاب‌شده به‌عنوان خوانده‌شده",
   "notifications_bulk_mark_unread": "علامت‌گذاری موارد انتخاب‌شده به‌عنوان خوانده‌نشده",
+  "notifications_bulk_clear_selection": "پاک‌کردن انتخاب",
   "notifications_bulk_count": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -120,6 +121,7 @@
   "notifications_admin_filter_all": "همه",
   "notifications_loading": "در حال بارگذاری…",
   "notifications_error_title": "بارگذاری اعلان‌ها ممکن نشد",
+  "notifications_error_body": "بارگذاری این پنل ممکن نشد. دوباره تلاش کنید یا صفحه کامل اعلان‌ها را باز کنید.",
   "notifications_error_retry": "تلاش دوباره",
   "notifications_bulk_delete_failed": "حذف انجام نشد: {message}"
 }

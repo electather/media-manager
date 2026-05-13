@@ -2,12 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { m } from "@/paraglide/messages";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { CopyButton } from "@/shared/ui/copy-button";
+import { CopyButton } from "@/shared/components/copy-button";
 import { Separator } from "@/shared/ui/separator";
+import { absoluteDateTime, formatDuration } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 import { diagnosticsKeys } from "../shared/query-keys";
 import { fetchPerfDetail } from "../shared/fetchers";
-import { formatAbs, formatMs } from "../shared/format";
 import { ThreadChip } from "../thread-chip";
 import type { PerfAggregateGroup } from "../shared/types";
 
@@ -76,7 +76,7 @@ function PerfDetailHeader({
         <p className="text-xs text-muted-foreground">
           {m.diagnostics_perf_detail_calls_last_seen({
             count: group.count.toLocaleString(),
-            when: formatAbs(group.lastAt),
+            when: absoluteDateTime(group.lastAt),
           })}
         </p>
       ) : null}
@@ -131,10 +131,10 @@ function GroupBody({ group }: { group: PerfAggregateGroup }) {
         </h3>
         <div className="rounded-md border border-border bg-background p-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Stat labelKey="p50" value={formatMs(group.p50)} />
-            <Stat labelKey="p95" value={formatMs(group.p95)} highlight="primary" />
-            <Stat labelKey="p99" value={formatMs(group.p99)} highlight="destructive" />
-            <Stat labelKey="max" value={formatMs(group.max)} />
+            <Stat labelKey="p50" value={formatDuration(group.p50)} />
+            <Stat labelKey="p95" value={formatDuration(group.p95)} highlight="primary" />
+            <Stat labelKey="p99" value={formatDuration(group.p99)} highlight="destructive" />
+            <Stat labelKey="max" value={formatDuration(group.max)} />
           </div>
         </div>
       </section>
@@ -185,7 +185,7 @@ function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
         <p className="text-foreground/90">
           {record.method ? `${record.method} ` : ""}
           {record.route ?? record.pluginId ?? m.diagnostics_errors_table_unknown()} —{" "}
-          {formatMs(record.durationMs)}
+          {formatDuration(record.durationMs)}
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <ThreadChip requestId={record.requestId} onJump={onJumpThread} />
@@ -193,7 +193,7 @@ function SingleBody({ record, correlated, onJumpThread }: SingleBodyProps) {
           {record.status !== null ? (
             <span>{m.diagnostics_detail_http_status({ status: record.status })}</span>
           ) : null}
-          <span className="font-mono">{formatAbs(record.createdAt)}</span>
+          <span className="font-mono">{absoluteDateTime(record.createdAt)}</span>
         </div>
       </section>
 

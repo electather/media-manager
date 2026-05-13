@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { m } from "@/paraglide/messages";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
-import { relativeTime } from "@/shared/lib/relative-time";
+import { relativeTime } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 
 import { inviteUrl, resendInviteMock, revokeInviteMock } from "../lib/invites-mock";

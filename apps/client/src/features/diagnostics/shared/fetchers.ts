@@ -1,7 +1,7 @@
 import type { DiagnosticsConfigBody } from "@ent-mcp/shared/diagnostics";
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
-import { rangeToWindow } from "./format";
+import { rangeToWindow } from "./ranges";
 import { DiagnosticsApiError, type ErrorsFilters, type PerfFilters } from "./types";
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, DiagnosticsApiError);

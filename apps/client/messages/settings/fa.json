@@ -138,8 +138,16 @@
   "settings_connections_title": "اتصال‌ها",
   "settings_connections_description": "پیوند به سرورهای رسانه و منابع متادیتا.",
   "settings_connections_connected_title": "متصل",
-  "settings_connections_attention_singular": "{count} اتصال نیاز به توجه دارد.",
-  "settings_connections_attention_plural": "{count} اتصال نیاز به توجه دارند.",
+  "settings_connections_attention": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} اتصال نیاز به توجه دارد.",
+        "countPlural=other": "{count} اتصال نیاز به توجه دارند."
+      }
+    }
+  ],
   "settings_connections_filter_all": "همه",
   "settings_connections_filter_issues": "مشکلات",
   "settings_connections_filter_disabled": "غیرفعال",
@@ -232,8 +240,16 @@
   "settings_apps_endpoint_copy_short": "کپی",
   "settings_apps_endpoint_copied": "کپی شد",
   "settings_apps_endpoint_status_live": "نقطه پایانی فعال",
-  "settings_apps_endpoint_clients_singular": "{count} کلاینت مجاز شده",
-  "settings_apps_endpoint_clients_plural": "{count} کلاینت مجاز شده",
+  "settings_apps_endpoint_clients": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} کلاینت مجاز شده",
+        "countPlural=other": "{count} کلاینت مجاز شده"
+      }
+    }
+  ],
   "settings_apps_endpoint_setup_guide": "راهنمای راه‌اندازی",
   "settings_apps_setup_guide_title": "اتصال کلاینت MCP",
   "settings_apps_setup_guide_description": "برنامه‌ای که می‌خواهید به آن دسترسی بدهید را انتخاب کنید. هر کدام کمی متفاوت پیکربندی می‌شود — قطعه کد را کپی کنید و مراحل را دنبال کنید.",
@@ -271,8 +287,16 @@
   "settings_apps_revoke_dialog_body": "این کلاینت دیگر نمی‌تواند به حساب شما دسترسی داشته باشد.",
   "settings_apps_revoke_dialog_confirm": "لغو دسترسی",
   "settings_apps_revoke_dialog_cancel": "انصراف",
-  "settings_apps_revoke_all_dialog_title_singular": "لغو {count} کلاینت؟",
-  "settings_apps_revoke_all_dialog_title_plural": "لغو همه {count} کلاینت؟",
+  "settings_apps_revoke_all_dialog_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "لغو {count} کلاینت؟",
+        "countPlural=other": "لغو همه {count} کلاینت؟"
+      }
+    }
+  ],
   "settings_apps_revoke_all_dialog_body": "همه دستیارهای هوش مصنوعی مجاز فوراً دسترسی خود را از دست خواهند داد. URL نقطه پایانی شما همان می‌ماند — می‌توانید هر برنامه را به‌طور جداگانه دوباره مجاز کنید.",
   "settings_apps_revoke_all_dialog_confirm": "لغو همه",
   "settings_apps_toast_revoked": "دسترسی برای {name} لغو شد.",

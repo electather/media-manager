@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { MediaDetailModal } from "@/shared/components/media-detail-modal";
+import { MediaDetailModal } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { bucketize, classifyStatus, deriveCounts } from "../lib/classify";
 import { WATCHLIST_ITEMS, WATCHLIST_ITEM_INDEX, WATCHLIST_MOODS } from "../lib/mock-data";

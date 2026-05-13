@@ -1,9 +1,12 @@
-import { formatForDisplay, useHotkeyRegistrations } from "@tanstack/react-hotkeys";
+import { useHotkeyRegistrations } from "@tanstack/react-hotkeys";
+import { compact } from "es-toolkit/array";
 import { useMemo } from "react";
 
 import { m } from "@/paraglide/messages";
 import { CommandGroup, CommandItem } from "@/shared/ui/command";
 import { Kbd, KbdGroup } from "@/shared/ui/kbd";
+
+import { formatHotkeyChips } from "../lib/format-hotkey-chips";
 
 interface CheatsheetRow {
   id: string;
@@ -11,21 +14,6 @@ interface CheatsheetRow {
   description?: string;
   /** Pre-formatted keys ("⌘", "K") to render in `<Kbd>` chips. */
   chips: readonly string[];
-}
-
-function platform(): "mac" | "windows" {
-  if (typeof navigator === "undefined") return "windows";
-  return /mac|iphone|ipad|ipod/i.test(navigator.userAgent) ? "mac" : "windows";
-}
-
-function formatChips(hotkey: string): string[] {
-  // `formatForDisplay` returns the platform-canonical string ("⌘+K" on mac).
-  // Split on "+" so we can render each modifier as its own `<Kbd>` chip.
-  const display = formatForDisplay(hotkey, { platform: platform() });
-  return display
-    .split("+")
-    .map((s: string) => s.trim())
-    .filter(Boolean);
 }
 
 /**
@@ -37,6 +25,7 @@ function formatChips(hotkey: string): string[] {
 export function ShortcutsCheatsheet() {
   const { hotkeys, sequences } = useHotkeyRegistrations();
 
+  // fallow-ignore-next-line complexity
   const groups = useMemo(() => {
     const menuKeys: CheatsheetRow[] = [];
     const actionKeys: CheatsheetRow[] = [];
@@ -47,7 +36,7 @@ export function ShortcutsCheatsheet() {
         id: reg.id,
         label: meta.name,
         description: meta.description,
-        chips: formatChips(reg.hotkey),
+        chips: formatHotkeyChips(reg.hotkey),
       };
       // `meta.group` is set at registration time in `use-command-hotkeys.ts`
       // — sorting on a structural discriminant survives translation,
@@ -55,17 +44,21 @@ export function ShortcutsCheatsheet() {
       if (meta.group === "menu") menuKeys.push(row);
       else actionKeys.push(row);
     }
-    const sequenceRows: CheatsheetRow[] = sequences
-      .filter((reg) => reg.options.meta?.name)
-      .map((reg) => ({
-        id: reg.id,
-        label: reg.options.meta?.name ?? reg.sequence.join(" "),
-        description: reg.options.meta?.description,
-        chips: reg.sequence.flatMap((key, idx, arr) => {
-          const chips = formatChips(key);
-          return idx < arr.length - 1 ? [...chips, "→"] : chips;
-        }),
-      }));
+    // fallow-ignore-next-line complexity
+    const sequenceRows: CheatsheetRow[] = compact(
+      sequences.map((reg) => {
+        if (!reg.options.meta?.name) return null;
+        return {
+          id: reg.id,
+          label: reg.options.meta?.name ?? reg.sequence.join(" "),
+          description: reg.options.meta?.description,
+          chips: reg.sequence.flatMap((key, idx, arr) => {
+            const chips = formatHotkeyChips(key);
+            return idx < arr.length - 1 ? [...chips, "→"] : chips;
+          }),
+        };
+      }),
+    );
     return { menuKeys, actionKeys, sequenceRows };
   }, [hotkeys, sequences]);
 

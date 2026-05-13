@@ -1,3 +1,5 @@
+import { compact } from "es-toolkit/array";
+
 import type {
   ActionItem,
   MediaItem,
@@ -16,7 +18,7 @@ import { t } from "./i18n";
  * `tv:tt0898266` don't leak into fuzzy space.
  */
 export function mediaMatchValue(item: MediaItem): string {
-  return [
+  return compact([
     item.title,
     item.year,
     item.genres?.join(" "),
@@ -24,9 +26,7 @@ export function mediaMatchValue(item: MediaItem): string {
     item.mediaType === "tv" ? "tv show series" : "movie film",
     item.director,
     item.cast?.join(" "),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ]).join(" ");
 }
 
 export function pageMatchValue(page: PageItem): string {

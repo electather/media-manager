@@ -138,8 +138,16 @@
   "settings_connections_title": "Connections",
   "settings_connections_description": "Link your media servers and metadata sources.",
   "settings_connections_connected_title": "Connected",
-  "settings_connections_attention_singular": "{count} connection needs attention.",
-  "settings_connections_attention_plural": "{count} connections need attention.",
+  "settings_connections_attention": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} connection needs attention.",
+        "countPlural=other": "{count} connections need attention."
+      }
+    }
+  ],
   "settings_connections_filter_all": "All",
   "settings_connections_filter_issues": "Issues",
   "settings_connections_filter_disabled": "Disabled",
@@ -203,9 +211,17 @@
   "settings_connections_modal_action_connect": "Connect",
   "settings_connections_modal_action_save_connection": "Save connection",
   "settings_connections_modal_action_save_changes": "Save changes",
-  "settings_connections_modal_action_test": "Test connection",
-  "settings_connections_modal_action_testing": "Testing…",
-  "settings_connections_modal_action_tested": "Tested",
+  "settings_connections_modal_action_test": [
+    {
+      "declarations": ["input state"],
+      "selectors": ["state"],
+      "match": {
+        "state=testing": "Testing…",
+        "state=ok": "Tested",
+        "state=*": "Test connection"
+      }
+    }
+  ],
   "settings_connections_modal_test_verified": "Connection verified",
   "settings_connections_modal_error_fix_fields": "Fix the highlighted fields before testing.",
   "settings_connections_modal_error_test_failed": "Test failed.",
@@ -276,8 +292,16 @@
   "settings_apps_endpoint_copy_short": "Copy",
   "settings_apps_endpoint_copied": "Copied",
   "settings_apps_endpoint_status_live": "Endpoint live",
-  "settings_apps_endpoint_clients_singular": "{count} client authorized",
-  "settings_apps_endpoint_clients_plural": "{count} clients authorized",
+  "settings_apps_endpoint_clients": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} client authorized",
+        "countPlural=other": "{count} clients authorized"
+      }
+    }
+  ],
   "settings_apps_endpoint_setup_guide": "Setup guide",
   "settings_apps_setup_guide_title": "Connect your MCP client",
   "settings_apps_setup_guide_description": "Pick the app you want to give access to. Each one wires up a little differently — copy the snippet and follow the steps.",
@@ -315,8 +339,16 @@
   "settings_apps_revoke_dialog_body": "This client will no longer be able to access your account. You'll need to re-authorize it to reconnect.",
   "settings_apps_revoke_dialog_confirm": "Revoke access",
   "settings_apps_revoke_dialog_cancel": "Cancel",
-  "settings_apps_revoke_all_dialog_title_singular": "Revoke {count} client?",
-  "settings_apps_revoke_all_dialog_title_plural": "Revoke all {count} clients?",
+  "settings_apps_revoke_all_dialog_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Revoke {count} client?",
+        "countPlural=other": "Revoke all {count} clients?"
+      }
+    }
+  ],
   "settings_apps_revoke_all_dialog_body": "All authorized AI assistants will lose access immediately. Your endpoint URL stays the same — you can re-authorize each app individually.",
   "settings_apps_revoke_all_dialog_confirm": "Revoke all",
   "settings_apps_toast_revoked": "Access revoked for {name}.",

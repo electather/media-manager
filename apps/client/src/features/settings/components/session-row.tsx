@@ -3,7 +3,7 @@ import { LoaderCircleIcon } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
-import { relativeTime } from "@/shared/lib/relative-time";
+import { relativeTime } from "@/shared/lib/time-format";
 import { parseUserAgent } from "@/shared/lib/user-agent";
 
 export interface SessionListItem {

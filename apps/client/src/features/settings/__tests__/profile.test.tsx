@@ -15,7 +15,7 @@ import {
   NameRow,
   EmailRow,
   VerifyBanner,
-} from "@/routes/_authenticated/_settings/settings/profile";
+} from "@/features/settings-profile/components/settings-profile-page";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {

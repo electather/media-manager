@@ -1,10 +1,10 @@
 import type { ErrorSource } from "@ent-mcp/shared/diagnostics";
 import { ChevronRightIcon } from "lucide-react";
 import { m } from "@/paraglide/messages";
+import { absoluteDateTime, compactRelativeTime } from "@/shared/lib/time-format";
 import { cn } from "@/shared/lib/utils";
 import { SEVERITY_BG, SEVERITY_TEXT, SeverityDot } from "@/shared/components/severity-dot";
 import { ThreadChip } from "../thread-chip";
-import { formatAbs, formatRel } from "../shared/format";
 import type { ErrorListRow } from "../shared/types";
 
 interface Props {
@@ -26,25 +26,18 @@ const SOURCE_LABELS: Record<ErrorSource, () => string> = {
 // fallow-ignore-next-line complexity
 export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={() => onOpen(row.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(row.id);
-        }
-      }}
       className={cn(
-        "relative grid cursor-pointer gap-2 border-t border-border px-4 py-3 ps-6 transition-colors",
+        "relative grid w-full cursor-pointer gap-2 border-t border-border px-4 py-3 ps-6 text-left transition-colors",
         "sm:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4",
         isOpen ? "bg-muted/55" : "hover:bg-muted/40",
       )}
     >
       <span
         aria-hidden
-        className={cn("absolute inset-y-0 start-0 w-[3px]", SEVERITY_BG[row.severity])}
+        className={cn("absolute inset-y-0 inset-s-0 w-1", SEVERITY_BG[row.severity])}
       />
 
       <div className="min-w-0 sm:col-start-4 sm:row-start-1">
@@ -62,9 +55,9 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
       <div className="flex flex-wrap items-center gap-2 sm:contents">
         <div
           className="font-mono text-xs text-muted-foreground sm:col-start-1 sm:row-start-1 sm:min-w-16"
-          title={formatAbs(row.createdAt)}
+          title={absoluteDateTime(row.createdAt)}
         >
-          {formatRel(row.createdAt)}
+          {compactRelativeTime(row.createdAt)}
         </div>
 
         <SeverityDot severity={row.severity} glow className="sm:col-start-2 sm:row-start-1" />
@@ -85,6 +78,6 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
           <ChevronRightIcon className="size-3.5 text-muted-foreground" />
         </div>
       </div>
-    </div>
+    </button>
   );
 }

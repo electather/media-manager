@@ -20,7 +20,6 @@ import {
   SectionIndex,
   SectionLabel,
   SectionLayout,
-  SectionPageHeader,
   type SectionNavGroup,
 } from "@/app/section-shell";
 
@@ -130,30 +129,6 @@ function SettingsDirtyBar() {
         </div>
       ) : null}
     </div>
-  );
-}
-
-// ─── Page Header (consumed by sub-pages) ────────────────────────────────────
-
-interface SettingsPageHeaderProps {
-  title: string;
-  description?: string;
-  status?: ReactNode;
-}
-
-/**
- * Settings sub-page header — thin wrapper around `SectionPageHeader` with the
- * back link pointing to the settings index.
- */
-export function SettingsPageHeader({ title, description, status }: SettingsPageHeaderProps) {
-  return (
-    <SectionPageHeader
-      title={title}
-      description={description}
-      status={status}
-      backTo="/settings"
-      backLabel={m.settings_back_to_settings()}
-    />
   );
 }
 

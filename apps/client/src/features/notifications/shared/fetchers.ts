@@ -27,6 +27,19 @@ export async function fetchPlugins() {
   return readJson(await api.notifications.plugins.$get());
 }
 
+export async function fetchDeleteChannel(id: string) {
+  return readJson(await api.connections[":id"].$delete({ param: { id } }));
+}
+
+export async function fetchRenameChannel(input: { id: string; displayName: string }) {
+  return readJson(
+    await api.connections[":id"]["display-name"].$patch({
+      param: { id: input.id },
+      json: { displayName: input.displayName },
+    }),
+  );
+}
+
 export async function fetchChannels() {
   return readJson(await api.notifications.channels.$get());
 }

@@ -11,7 +11,7 @@ const toastMock = vi.hoisted(() => ({
 }));
 vi.mock("sonner", () => ({ toast: toastMock }));
 
-import { ChangePasswordCard } from "@/routes/_authenticated/_settings/settings/security";
+import { ChangePasswordCard } from "@/features/settings-security/components/settings-security-page";
 import { renderWithProviders } from "./test-utils";
 
 beforeEach(() => {

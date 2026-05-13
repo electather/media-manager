@@ -1,0 +1,70 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "shared_time_missing": "—",
+  "shared_time_never": "هرگز",
+  "shared_time_just_now": "همین حالا",
+  "shared_time_relative_long": [
+    {
+      "declarations": [
+        "input duration",
+        "input unit",
+        "local formattedDuration = duration: relativetime unit=$unit numeric=auto"
+      ],
+      "match": {
+        "duration=*, unit=*": "{formattedDuration}"
+      }
+    }
+  ],
+  "shared_time_relative_narrow": [
+    {
+      "declarations": [
+        "input duration",
+        "input unit",
+        "local formattedDuration = duration: relativetime unit=$unit numeric=auto style=narrow"
+      ],
+      "match": {
+        "duration=*, unit=*": "{formattedDuration}"
+      }
+    }
+  ],
+  "shared_time_short_date": [
+    {
+      "declarations": [
+        "input date",
+        "local formattedDate = date: datetime month=short day=numeric"
+      ],
+      "match": {
+        "date=*": "{formattedDate}"
+      }
+    }
+  ],
+  "shared_time_absolute": [
+    {
+      "declarations": [
+        "input date",
+        "local formattedDate = date: datetime month=short day=numeric hour=2-digit minute=2-digit second=2-digit"
+      ],
+      "match": {
+        "date=*": "{formattedDate}"
+      }
+    }
+  ],
+  "shared_time_duration": [
+    {
+      "declarations": [
+        "input unit",
+        "input value",
+        "input secondaryValue",
+        "local formattedValue = value: number maximumFractionDigits=2",
+        "local formattedSecondaryValue = secondaryValue: number maximumFractionDigits=0"
+      ],
+      "selectors": ["unit"],
+      "match": {
+        "unit=sub_ms": "<۱ ms",
+        "unit=ms": "{formattedValue} ms",
+        "unit=s": "{formattedValue} s",
+        "unit=min_s": "{formattedValue}m {formattedSecondaryValue}s"
+      }
+    }
+  ]
+}

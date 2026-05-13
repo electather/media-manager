@@ -1,4 +1,5 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import { take } from "es-toolkit/array";
 
 /**
  * Subset of the plugin-SDK `mediaItem` the menu actually consumes. The
@@ -32,7 +33,7 @@ function applyOptionalFields(item: CompactMediaItem, raw: PluginMediaRaw): void 
   if (raw.overview) item.overview = raw.overview;
   // Cap at three genres to match the home-row chip strip — keeps the menu row
   // visually balanced and the wire payload small.
-  if (raw.genres && raw.genres.length > 0) item.genres = raw.genres.slice(0, 3);
+  if (raw.genres && raw.genres.length > 0) item.genres = take(raw.genres, 3);
   if (raw.rating != null) item.rating = raw.rating;
   const facets = buildFacets(raw);
   if (facets) item.facets = facets;

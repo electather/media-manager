@@ -122,11 +122,18 @@
         "count": 1
       }
     },
-    "apps/client/src/features/media-detail/components/media-detail-page.tsx": {
-      "crap_critical": {
-        "count": 1
-      },
+    "apps/client/src/features/media-detail/components/media-detail-page/build-sections.ts": {
       "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/media-detail-page/detail-cast-section.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/media-detail/components/media-detail-page/index.tsx": {
+      "crap_moderate": {
         "count": 1
       }
     },

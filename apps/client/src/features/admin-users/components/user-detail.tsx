@@ -129,11 +129,7 @@ function UserDetail({ userId, selfId, onBack }: Omit<Props, "selfId"> & { selfId
 
       <DetailSection
         title={m.admin_users_detail_sessions_title()}
-        subtitle={
-          user.activeSessions === 1
-            ? m.admin_users_detail_sessions_subtitle_one()
-            : m.admin_users_detail_sessions_subtitle_many({ count: String(user.activeSessions) })
-        }
+        subtitle={m.admin_users_detail_sessions_subtitle({ count: user.activeSessions })}
       >
         <Button
           variant="outline"
@@ -221,9 +217,7 @@ function IdentityCard({
         <p className="mt-1 font-mono text-xs text-muted-foreground">{user.email}</p>
         <p className="mt-2 text-xs text-muted-foreground">
           {m.admin_users_detail_joined()} <span className="text-foreground">{joined}</span> ·{" "}
-          {user.activeSessions === 1
-            ? m.admin_users_detail_active_session_one()
-            : m.admin_users_detail_active_session_many({ count: String(user.activeSessions) })}
+          {m.admin_users_detail_active_session({ count: user.activeSessions })}
         </p>
       </div>
       <div className="flex flex-col items-end gap-2">
