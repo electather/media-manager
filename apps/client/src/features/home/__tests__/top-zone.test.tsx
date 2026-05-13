@@ -85,7 +85,7 @@ describe("TopZone", () => {
   it("lets the ambient glow extend past the hero into the rows below", () => {
     render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
     const ambient = screen.getByTestId("top-zone-ambient");
-    expect(ambient.className).toContain("-bottom-80");
+    expect(ambient.className).toContain("-bottom-32");
     expect(ambient.className).toContain("-top-32");
     expect(ambient.className).not.toContain("overflow-hidden");
   });
