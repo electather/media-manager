@@ -41,10 +41,6 @@ export function NotificationBell({ density = "comfortable", intensity = "subtle"
   const { data } = useUnreadCount();
   const unreadCount = data?.count ?? 0;
 
-  const body = (
-    <BellPopoverShell density={density} intensity={intensity} unreadCount={unreadCount} />
-  );
-
   if (isMobile) {
     return (
       <>
@@ -87,7 +83,7 @@ export function NotificationBell({ density = "comfortable", intensity = "subtle"
         className="flex h-[min(640px,calc(100dvh-80px))] w-100 flex-col overflow-hidden p-0"
         aria-label={m.notifications_title()}
       >
-        {body}
+        <BellPopoverShell density={density} intensity={intensity} unreadCount={unreadCount} />
       </PopoverContent>
     </Popover>
   );

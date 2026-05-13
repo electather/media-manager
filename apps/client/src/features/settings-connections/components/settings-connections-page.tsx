@@ -157,7 +157,7 @@ function ConnectionsPage() {
       connected: 2,
       disconnected: 3,
     };
-    return conns.toSorted((a, b) => {
+    return [...conns].sort((a, b) => {
       if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
       return order[a.status] - order[b.status];
     });

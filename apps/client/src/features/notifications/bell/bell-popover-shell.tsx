@@ -1,7 +1,8 @@
 import { Suspense, startTransition, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCheckIcon, RotateCcwIcon, SettingsIcon } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { isNull } from "es-toolkit/predicate";
 import type { NotificationCategory } from "@ent-mcp/shared/notifications";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -23,10 +24,10 @@ import { PopoverRow } from "./popover-row";
 import { PopoverSkeleton } from "./popover-skeleton";
 import { usePopoverInbox } from "./use-popover-inbox";
 import { useMarkAllRead } from "../inbox/use-inbox-mutations";
+import { fetchInboxPage } from "../shared/fetchers";
 import { notificationsKeys } from "../shared/query-keys";
 import { CATEGORY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
-import { isNull } from "es-toolkit";
 
 type Filter = "all" | NotificationCategory;
 type CountKey = Filter | "unread";
@@ -199,6 +200,26 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
   const [unreadOnly, setUnreadOnly] = useState(false);
   const markAllRead = useMarkAllRead();
 
+  // Observe the popover-inbox cache without fetching. `usePopoverInbox` in the
+  // Suspense child below owns the fetch; this hook only subscribes so the
+  // mark-all button reflects the unread rows actually rendered. The polled
+  // `unreadCount` prop can lag a mark-all/dismiss invalidation by up to 30s,
+  // which would otherwise leave the button enabled on an empty inbox.
+  const inboxObserver = useQuery({
+    queryKey: notificationsKeys.popoverInbox({}),
+    queryFn: () => fetchInboxPage({}, null),
+    staleTime: 30_000,
+    enabled: false,
+  });
+  const inboxItems = inboxObserver.data?.items as NotificationItemDto[] | undefined;
+  const inboxUnread = useMemo(() => {
+    if (!inboxItems) return 0;
+    let n = 0;
+    for (const item of inboxItems) if (isNull(item.readAt)) n += 1;
+    return n;
+  }, [inboxItems]);
+  const markAllDisabled = inboxItems ? inboxUnread === 0 : unreadCount === 0;
+
   const onFilterChange = (v: string) => {
     startTransition(() => setFilter(v as Filter));
   };
@@ -229,7 +250,7 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
           variant="ghost"
           size="icon-sm"
           onClick={onMarkAllRead}
-          disabled={unreadCount === 0}
+          disabled={markAllDisabled}
           aria-label={m.notifications_mark_all_read()}
           title={m.notifications_mark_all_read()}
         >

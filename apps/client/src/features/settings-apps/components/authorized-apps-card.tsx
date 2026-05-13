@@ -45,14 +45,13 @@ function useAuthorizedAppsView(
       }
     }
 
-    return {
-      counts,
-      visible: matched.toSorted((a, b) => {
-        const statusOrder = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-        if (statusOrder !== 0) return statusOrder;
-        return (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0);
-      }),
-    };
+    matched.sort((a, b) => {
+      const statusOrder = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      if (statusOrder !== 0) return statusOrder;
+      return (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0);
+    });
+
+    return { counts, visible: matched };
   }, [apps, filter]);
 }
 

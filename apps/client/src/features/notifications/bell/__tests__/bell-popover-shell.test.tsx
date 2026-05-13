@@ -98,6 +98,34 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe("BellPopoverShell error fallback", () => {
+  beforeEach(() => {
+    // Silence React's expected error-boundary stderr noise so the suite stays
+    // readable when we deliberately throw from the inbox fetcher below.
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("renders the popover error state and resets the inbox query on retry", async () => {
+    const user = userEvent.setup();
+    const failure = new Error("inbox boom");
+    failure.name = "InboxError";
+    fetchersMock.fetchInboxPage.mockRejectedValueOnce(failure);
+
+    renderWithClient(<BellPopoverShell density="comfortable" intensity="subtle" unreadCount={3} />);
+
+    const errorState = await screen.findByTestId("notifications-popover-error");
+    expect(errorState.dataset.errorName).toBe("InboxError");
+
+    const retry = screen.getByRole("button", { name: /retry|try again/i });
+    await user.click(retry);
+
+    await waitFor(() => {
+      expect(fetchersMock.fetchInboxPage).toHaveBeenCalledTimes(2);
+    });
+    await screen.findByRole("radio", { name: /^all/i });
+  });
+});
+
 describe("BellPopoverShell category counts", () => {
   it("category chip counts stay constant when active filter changes", async () => {
     const user = userEvent.setup();
