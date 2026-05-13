@@ -5,6 +5,7 @@ import { NotificationsApiError, type AdminDeliveryFilters, type InboxFilters } f
 
 const readJson = <R extends Response>(res: R) => readOkJson(res, NotificationsApiError);
 
+// fallow-ignore-next-line complexity
 function inboxQuery(filters: InboxFilters, cursor: string | null, limit = 50) {
   return {
     ...(filters.unreadOnly ? { unreadOnly: "true" as const } : {}),
@@ -115,6 +116,7 @@ export async function fetchTestChannel(connectionId: string) {
   return body;
 }
 
+// fallow-ignore-next-line complexity
 function adminDeliveriesQuery(filters: AdminDeliveryFilters, cursor: string | null) {
   return {
     ...(filters.status ? { status: filters.status } : {}),

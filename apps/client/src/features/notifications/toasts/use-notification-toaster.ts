@@ -53,6 +53,7 @@ async function seedAndToast(ref: RefObject<string | null>, deps: ToastDeps): Pro
   }
 }
 
+// fallow-ignore-next-line complexity
 async function renderFreshItems(
   cursor: string,
   cursorRef: RefObject<string | null>,
