@@ -58,10 +58,7 @@ export function RevokeAllDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const title =
-    count === 1
-      ? m.settings_apps_revoke_all_dialog_title_singular({ count })
-      : m.settings_apps_revoke_all_dialog_title_plural({ count });
+  const title = m.settings_apps_revoke_all_dialog_title({ count });
 
   return (
     <Dialog

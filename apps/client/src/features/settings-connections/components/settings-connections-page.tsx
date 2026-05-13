@@ -304,11 +304,7 @@ function ConnectionsListCard({
         title={m.settings_connections_connected_title()}
         count={conns.length}
         description={
-          issueCount > 0
-            ? issueCount === 1
-              ? m.settings_connections_attention_singular({ count: issueCount })
-              : m.settings_connections_attention_plural({ count: issueCount })
-            : undefined
+          issueCount > 0 ? m.settings_connections_attention({ count: issueCount }) : undefined
         }
         action={
           conns.length > 0 ? (

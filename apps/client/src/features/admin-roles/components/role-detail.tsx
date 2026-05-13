@@ -160,11 +160,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
             </form.Field>
           )}
           <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-            <span>
-              {memberCount === 1
-                ? m.admin_roles_detail_meta_members_one()
-                : m.admin_roles_detail_meta_members_many({ count: String(memberCount) })}
-            </span>
+            <span>{m.admin_roles_detail_meta_members({ count: memberCount })}</span>
             <span aria-hidden="true">·</span>
             <span>{permCountLabel}</span>
           </p>
@@ -264,11 +260,7 @@ export function RoleDetail({ role, members, onBack }: Props) {
             <DialogDescription>
               {memberCount === 0
                 ? m.admin_roles_detail_confirm_delete_body_empty()
-                : memberCount === 1
-                  ? m.admin_roles_detail_confirm_delete_body_some_one()
-                  : m.admin_roles_detail_confirm_delete_body_some_many({
-                      count: String(memberCount),
-                    })}
+                : m.admin_roles_detail_confirm_delete_body_some({ count: memberCount })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

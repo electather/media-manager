@@ -101,10 +101,7 @@ function McpEndpointUrl({ url }: { url: string }) {
 }
 
 function McpEndpointMeta({ clientCount }: { clientCount: number }) {
-  const clientLabel =
-    clientCount === 1
-      ? m.settings_apps_endpoint_clients_singular({ count: clientCount })
-      : m.settings_apps_endpoint_clients_plural({ count: clientCount });
+  const clientLabel = m.settings_apps_endpoint_clients({ count: clientCount });
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums text-muted-foreground">

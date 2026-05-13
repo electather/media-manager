@@ -39,10 +39,26 @@
   "admin_users_invite_cancel": "Cancel",
   "admin_users_invite_done": "Done",
   "admin_users_invite_generate": "Generate link",
-  "admin_users_invite_send_one": "Send invite",
-  "admin_users_invite_send_many": "Send {count} invites",
-  "admin_users_invite_toast_sent_one": "Invite sent to {email}",
-  "admin_users_invite_toast_sent_many": "{count} invites sent",
+  "admin_users_invite_send": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Send invite",
+        "countPlural=other": "Send {count} invites"
+      }
+    }
+  ],
+  "admin_users_invite_toast_sent": [
+    {
+      "declarations": ["input count", "input email", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Invite sent to {email}",
+        "countPlural=other": "{count} invites sent"
+      }
+    }
+  ],
   "admin_users_invite_toast_resent": "Invite resent",
   "admin_users_invite_toast_revoked": "Invite revoked",
   "admin_users_invite_toast_copied": "Invite link copied",
@@ -67,15 +83,31 @@
   "admin_users_invite_revoke": "Revoke",
 
   "admin_users_detail_back": "All users",
-  "admin_users_detail_active_session_one": "1 active session",
-  "admin_users_detail_active_session_many": "{count} active sessions",
+  "admin_users_detail_active_session": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "1 active session",
+        "countPlural=other": "{count} active sessions"
+      }
+    }
+  ],
   "admin_users_detail_joined": "Joined",
   "admin_users_detail_role_title": "Role",
   "admin_users_detail_role_subtitle": "Determines which areas of Media Manager this user can access.",
   "admin_users_detail_role_self_lock": "You can't demote yourself from admin while you are the only admin. Promote another user first.",
   "admin_users_detail_sessions_title": "Sessions",
-  "admin_users_detail_sessions_subtitle_one": "1 active session across this user's devices.",
-  "admin_users_detail_sessions_subtitle_many": "{count} active sessions across this user's devices.",
+  "admin_users_detail_sessions_subtitle": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "1 active session across this user's devices.",
+        "countPlural=other": "{count} active sessions across this user's devices."
+      }
+    }
+  ],
   "admin_users_detail_sessions_revoke": "Sign out all devices",
   "admin_users_detail_danger_title": "Danger zone",
   "admin_users_detail_danger_subtitle": "Permanently deletes the account, sessions, watchlist, and feedback. This can't be undone.",
@@ -99,8 +131,16 @@
   "admin_roles_group_system_hint": "Built-in. Can't be deleted or renamed.",
   "admin_roles_group_custom": "Custom roles",
   "admin_roles_group_custom_hint": "Defined for this server. Edit, duplicate, or delete.",
-  "admin_roles_members_one": "Member",
-  "admin_roles_members_many": "Members",
+  "admin_roles_members": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Member",
+        "countPlural=other": "Members"
+      }
+    }
+  ],
   "admin_roles_badge_system": "System",
   "admin_roles_badge_all_perms": "All permissions",
   "admin_roles_seed_admin_name": "Admin",
@@ -114,8 +154,16 @@
 
   "admin_roles_detail_back": "All roles",
   "admin_roles_detail_system_notice": "System roles are seeded by the server and can't be edited or removed. Duplicate this role to use it as a starting point for a custom role.",
-  "admin_roles_detail_meta_members_one": "1 member",
-  "admin_roles_detail_meta_members_many": "{count} members",
+  "admin_roles_detail_meta_members": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "1 member",
+        "countPlural=other": "{count} members"
+      }
+    }
+  ],
   "admin_roles_detail_meta_perms_all": "All of {total} permissions",
   "admin_roles_detail_meta_perms_count": "{count} of {total} permissions",
   "admin_roles_detail_permissions_title": "Permissions",
@@ -134,8 +182,16 @@
   "admin_roles_detail_save": "Save changes",
   "admin_roles_detail_confirm_delete_title": "Delete role \"{name}\"?",
   "admin_roles_detail_confirm_delete_body_empty": "No users have this role, so this is safe.",
-  "admin_roles_detail_confirm_delete_body_some_one": "1 user will be moved to \"Member\" before this role is deleted.",
-  "admin_roles_detail_confirm_delete_body_some_many": "{count} users will be moved to \"Member\" before this role is deleted.",
+  "admin_roles_detail_confirm_delete_body_some": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "1 user will be moved to \"Member\" before this role is deleted.",
+        "countPlural=other": "{count} users will be moved to \"Member\" before this role is deleted."
+      }
+    }
+  ],
   "admin_roles_detail_confirm_delete_cta": "Delete role",
   "admin_roles_detail_cancel": "Cancel",
   "admin_roles_toast_saved": "Role \"{name}\" saved",
@@ -297,8 +353,16 @@
   "admin_plugins_row_purity_user": "User-scoped",
   "admin_plugins_row_purity_global": "Metadata-only",
   "admin_plugins_row_purity_mixed": "Mixed",
-  "admin_plugins_row_caps_one": "{global} global · {user} user capability",
-  "admin_plugins_row_caps_many": "{global} global · {user} user capabilities",
+  "admin_plugins_row_caps": [
+    {
+      "declarations": ["input global", "input user", "local userPlural = user: plural"],
+      "selectors": ["userPlural"],
+      "match": {
+        "userPlural=one": "{global} global · {user} user capability",
+        "userPlural=other": "{global} global · {user} user capabilities"
+      }
+    }
+  ],
   "admin_plugins_row_pool": "pool {enabled}/{total}",
   "admin_plugins_row_open_aria": "Open {name}",
   "admin_plugins_row_enable_aria": "Enable {name}",

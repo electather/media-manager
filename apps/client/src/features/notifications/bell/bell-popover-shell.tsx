@@ -208,10 +208,9 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
   const inboxObserver = useQuery({
     queryKey: notificationsKeys.popoverInbox({}),
     queryFn: () => fetchInboxPage({}, null),
-    staleTime: 30_000,
     enabled: false,
   });
-  const inboxItems = inboxObserver.data?.items as NotificationItemDto[] | undefined;
+  const inboxItems = inboxObserver.data?.items;
   const inboxUnread = useMemo(() => {
     if (!inboxItems) return 0;
     let n = 0;
@@ -277,7 +276,7 @@ export function BellPopoverShell({ density, intensity, unreadCount, mobile = fal
           variant="ghost"
           size="sm"
           className="gap-1.5 text-xs text-muted-foreground"
-          render={<a href="/settings/notifications" />}
+          render={<Link to="/settings/notifications" />}
         >
           <SettingsIcon className="size-3.5" />
           {m.notifications_settings_button()}

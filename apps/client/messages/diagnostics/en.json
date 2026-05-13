@@ -108,7 +108,15 @@
 
   "diagnostics_thread_chip_title": "Trace request {requestId} across tabs",
   "diagnostics_pinned_thread_pinned_to": "Pinned to",
-  "diagnostics_pinned_thread_match_one": "— {count} match.",
-  "diagnostics_pinned_thread_match_other": "— {count} matches.",
+  "diagnostics_pinned_thread_match": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "— {count} match.",
+        "countPlural=other": "— {count} matches."
+      }
+    }
+  ],
   "diagnostics_pinned_thread_clear": "Clear thread"
 }
