@@ -8,7 +8,7 @@ import type { NotificationItemDto } from "../shared/types";
 import { fetchInboxAfter } from "./fetch-inbox-after";
 import { isToastable } from "./is-toastable";
 import { MAX_TOASTS_PER_CYCLE } from "./constants";
-import { renderClusterToast, renderToast } from "./toast-renderer";
+import { renderClusterToast, renderToast, type ToastDeps } from "./toast-renderer";
 import { useToastBroadcast } from "./use-toast-broadcast";
 
 // Cursor format mirrors the server's keyset: base64url(<createdAt_ms>|<id>).
@@ -32,6 +32,21 @@ async function seedCursor(ref: MutableRefObject<string | null>): Promise<void> {
   } catch {
     // Seed failure is non-fatal; cursor stays null and next poll retries.
   }
+}
+
+async function renderFreshItems(
+  cursor: string,
+  cursorRef: MutableRefObject<string | null>,
+  deps: ToastDeps,
+): Promise<void> {
+  const page = await fetchInboxAfter(cursor, { unreadOnly: true, limit: 10 });
+  const fresh = page.items.filter((i) => !deps.broadcast.has(i.id)).filter(isToastable);
+  advanceCursor(cursorRef, page.items);
+  if (fresh.length === 0) return;
+  const capped = fresh.slice(0, MAX_TOASTS_PER_CYCLE);
+  for (const item of capped) renderToast(item, deps);
+  const overflow = fresh.length - capped.length;
+  if (overflow > 0) renderClusterToast(overflow, deps);
 }
 
 export function useNotificationToaster(): void {
@@ -61,16 +76,7 @@ export function useNotificationToaster(): void {
         await seedCursor(lastSeenCursorRef);
         return;
       }
-      const page = await fetchInboxAfter(cursor, { unreadOnly: true, limit: 10 });
-      const fresh = page.items.filter((i) => !broadcast.has(i.id)).filter(isToastable);
-      advanceCursor(lastSeenCursorRef, page.items);
-      if (fresh.length === 0) return;
-
-      const deps = { navigate, markReadMutation, broadcast };
-      const capped = fresh.slice(0, MAX_TOASTS_PER_CYCLE);
-      for (const item of capped) renderToast(item, deps);
-      const overflow = fresh.length - capped.length;
-      if (overflow > 0) renderClusterToast(overflow, deps);
+      await renderFreshItems(cursor, lastSeenCursorRef, { navigate, markReadMutation, broadcast });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countResult?.count]);
