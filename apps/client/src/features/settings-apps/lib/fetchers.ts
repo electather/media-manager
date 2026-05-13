@@ -10,7 +10,7 @@ const readJson = <R extends Response>(res: R) => readOkJson(res, SettingsAppsApi
 export { fetchPublicConfig } from "@/features/settings/shared/fetchers";
 
 export async function fetchAuthorizedApps(): Promise<AuthorizedApp[]> {
-  return (await readJson(await api.me.apps.$get())) as AuthorizedApp[];
+  return await readJson(await api.me.apps.$get());
 }
 
 export async function revokeAuthorizedApp(clientId: string): Promise<AuthorizedApp[]> {
