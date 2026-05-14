@@ -33,7 +33,7 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none select-none absolute inset-x-0 -top-8 -bottom-32"
+      className="pointer-events-none select-none absolute inset-x-0 -top-32 -bottom-32"
     >
       {layers.map((layer) => (
         <img

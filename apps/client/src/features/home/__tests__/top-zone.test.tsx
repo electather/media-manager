@@ -149,4 +149,33 @@ describe("TopZone", () => {
     fireEvent.click(within(screen.getByTestId("top-zone-alternates")).getAllByRole("button")[2]!);
     expect(screen.getByTestId("top-zone-source-label").textContent).toBe("Trending now");
   });
+
+  it("renders the active slide availability pill in the hero frame top right", () => {
+    render(
+      <TopZone
+        slides={[
+          {
+            ...SLIDES[0]!,
+            availability: {
+              hasAnyServerCopy: true,
+              requestEligible: false,
+              servers: [{ id: "plex", label: "Plex" }],
+            },
+          },
+        ]}
+        onPeek={vi.fn()}
+      />,
+    );
+
+    const pill = screen.getByText("Plex").closest("span");
+    expect(pill).toBeTruthy();
+    expect(screen.getByTestId("top-zone-hero-frame").contains(pill)).toBe(true);
+    expect(pill!.className).toContain("absolute");
+    expect(pill!.className).toContain("top-4");
+    expect(pill!.className).toContain("end-4");
+    expect(pill!.className).toContain("rounded-full");
+    expect(pill!.className).toContain("gap-1");
+    expect(pill!.className).toContain("border-success/40");
+    expect(pill!.querySelector("svg")).toBeTruthy();
+  });
 });
