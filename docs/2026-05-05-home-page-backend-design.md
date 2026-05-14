@@ -331,8 +331,16 @@ home/rows/index.ts:
     "upcomingForYou":             require("./upcoming-for-you").default,
     "trendingNow":                require("./trending-now").default,
     "newReleases":                require("./new-releases").default,
+    "similarTo":                  require("./similar-to").default,    // detail-page only
   };
-  export const ROW_ORDER = Object.keys(ROW_PROVIDERS);    // static order
+  // Static layout order for the home feed. `similarTo` is reachable via
+  // `composeRow` from the media detail page but never appears in the home
+  // layout, so it is excluded from ROW_ORDER.
+  export const ROW_ORDER: string[] = [
+    "continueWatching-active", "continueWatching-next", "becauseYouWatched",
+    "recommendedForYou-tv", "recommendedForYou-movies", "yourWatchlist",
+    "upcomingForYou", "trendingNow", "newReleases",
+  ];
 ```
 
 Adding row = drop file in `rows/`, register in `index.ts`, write test in `__tests__/`. ⊥ touch orchestrator.

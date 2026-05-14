@@ -32,6 +32,7 @@ export function pickMatchReason(
       }
       return { key: "continuing_series", params: {} };
     case "becauseYouWatched":
+    case "similarTo":
       return { key: "similar_to_seed", params: { seedTitle: ctx.seedTitle ?? "" } };
     case "recommendedForYou-tv":
     case "recommendedForYou-movies":
