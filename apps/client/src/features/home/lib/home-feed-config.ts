@@ -11,6 +11,7 @@ export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {
   trendingNow: "2/3",
   newReleases: "2/3",
   yourWatchlist: "2/3",
+  similarTo: "2/3",
 };
 
 /** Row header and optional subtitle copy. Values are i18n message keys resolved via `m.<key>()`. */
@@ -43,6 +44,9 @@ export const ROW_COPY: Record<RowKind, { headerKey: keyof typeof m; eyebrowKey?:
     yourWatchlist: {
       headerKey: "home_row_yourWatchlist_header",
       eyebrowKey: "home_row_yourWatchlist_eyebrow",
+    },
+    similarTo: {
+      headerKey: "media_detail_section_related",
     },
   };
 

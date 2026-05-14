@@ -8,6 +8,48 @@ export interface MediaKey {
   type: MediaType;
 }
 
+/**
+ * Probes a raw `metadata@v1.getSimilar` result entry for `{ tmdbId, type }`.
+ * Shared by every row that paginates a similar-feed (becauseYouWatched,
+ * similarTo) so the entry-shape rules live in one place.
+ */
+export function toSimilarHit(value: unknown): MediaKey | null {
+  const tmdbId = extractTmdbId(value);
+  if (!tmdbId) return null;
+  const t = (value as { type?: string }).type;
+  const type: MediaType = t === "tv" || t === "show" ? "tv" : "movie";
+  return { tmdbId, type };
+}
+
+/**
+ * Shared page fetch for similar-feed rows. Wraps the `getSimilarFeed` call,
+ * candidate extraction, catalog enrichment, pagination, and seedTitle hookup
+ * — every consumer differs only in cursor schema. Returns the typed page
+ * plus a `hasMore` flag so the caller can encode its own next cursor.
+ */
+export async function fetchSimilarPage(
+  ctx: RowContext,
+  seed: { id: string; type: MediaType; offset: number; pageSize: number },
+): Promise<{ items: InternalCompactMediaItem[]; hasMore: boolean; partial: boolean }> {
+  const res = await ctx.mediaService.getSimilarFeed({
+    id: seed.id,
+    type: seed.type,
+    ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
+  });
+  const seedMeta = await ctx.catalog.getMetadata(seed.id, seed.type);
+  if (seedMeta) ctx.seedTitle = seedMeta.title;
+  const candidates = (res.items as unknown[])
+    .map(toSimilarHit)
+    .filter((c): c is MediaKey => c !== null);
+  const slice = candidates.slice(seed.offset, seed.offset + seed.pageSize);
+  const items = await loadCanonicalItems(ctx, slice);
+  return {
+    items,
+    hasMore: candidates.length > seed.offset + seed.pageSize,
+    partial: res.partial,
+  };
+}
+
 interface LoadCanonicalOptions<T> {
   /** Per-input options forwarded to `fromCanonicalMetadata` (e.g. `topContributors`). */
   fromOptions?: (input: T) => Parameters<typeof fromCanonicalMetadata>[1];

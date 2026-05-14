@@ -46,7 +46,7 @@ export interface RowContext {
   /** Request-scoped memo for `mediaRequest@v1.getStatusBatch` ids. */
   statusBatch: StatusBatchMemo;
   logger: ConsolaInstance;
-  /** Filled by `becauseYouWatched` from its cursor seed; consumed by match-reason. */
+  /** Filled by `becauseYouWatched` and `similarTo` from their cursor seed; consumed by match-reason. */
   seedTitle?: string;
   /** Carried by `continueWatching-*` for the `matches_recent_picks` chip. */
   recentPickCount?: number;

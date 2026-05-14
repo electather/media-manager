@@ -14,6 +14,7 @@ export const ROW_KINDS = [
   "becauseYouWatched",
   "upcomingForYou",
   "yourWatchlist",
+  "similarTo",
 ] as const;
 
 export type RowKind = (typeof ROW_KINDS)[number];

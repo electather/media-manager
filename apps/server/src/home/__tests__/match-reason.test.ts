@@ -63,6 +63,11 @@ describe("pickMatchReason", () => {
     expect(r).toEqual({ key: "similar_to_seed", params: { seedTitle: "Heat" } });
   });
 
+  it("returns similar_to_seed for similarTo with the seedTitle param", () => {
+    const r = pickMatchReason("similarTo", item(), ctx({ seedTitle: "Heat" }));
+    expect(r).toEqual({ key: "similar_to_seed", params: { seedTitle: "Heat" } });
+  });
+
   it("returns from_genre_you_love for recommendedForYou-* with a genre top contributor", () => {
     const r = pickMatchReason(
       "recommendedForYou-tv",

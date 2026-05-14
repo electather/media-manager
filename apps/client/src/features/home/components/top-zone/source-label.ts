@@ -21,6 +21,8 @@ const LABELS: Record<RowKind, () => string> = {
   yourWatchlist: m.home_row_continueWatching_header,
   becauseYouWatched: m.home_row_recommendedForYou_header,
   upcomingForYou: m.home_row_newReleases_header,
+  // Hero mixer never emits `similarTo` — arm kept for exhaustiveness only.
+  similarTo: m.home_row_recommendedForYou_header,
 };
 
 export function sourceLabel(source: RowKind): string {

@@ -1,21 +1,28 @@
-import type { RowKind } from "@ent-mcp/shared/home";
 import { ROW_ASPECT } from "@/features/home/lib/home-feed-config";
 import type { HomeMediaItem, RowData } from "@/features/home/lib/types";
 
-const RELATED_ROW_KIND: RowKind = "recommendedForYou";
+/**
+ * Encodes a seed payload into the base64url cursor format the server's
+ * `similarTo` row provider expects. Mirrors `encodeCursor` in the server's
+ * cursor module using the browser's `btoa`.
+ */
+function encodeSimilarCursor(tmdbId: string, mediaType: "movie" | "tv"): string {
+  const json = JSON.stringify({ tmdbId, mediaType, offset: 0 });
+  return btoa(json).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "");
+}
 
 /**
- * Builds a synthetic `RowData` stub the detail page hands to `<Row>`. The
- * row scroller hits `useHomeRow` against the chosen registry slug, so the
- * detail "Related" strip rides whichever recommended-for-you row matches
- * the title's media type — the orchestrator already filters those by type.
+ * Builds a `RowData` stub for the detail page's "More like this" strip. The
+ * cursor encodes the current title's `tmdbId` and `mediaType` so the server
+ * fetches items similar to THIS title rather than a generic recommendation
+ * feed. Different titles produce distinct cursors, keeping React Query cache
+ * entries separate across detail-page navigations.
  */
 export function buildRelatedRow(item: HomeMediaItem): RowData {
-  const rowId = item.mediaType === "tv" ? "recommendedForYou-tv" : "recommendedForYou-movies";
   return {
-    id: rowId,
-    kind: RELATED_ROW_KIND,
-    initialCursor: null,
-    defaultAspect: ROW_ASPECT[RELATED_ROW_KIND],
+    id: "similarTo",
+    kind: "similarTo",
+    initialCursor: encodeSimilarCursor(item.tmdbId, item.mediaType),
+    defaultAspect: ROW_ASPECT["similarTo"],
   };
 }
