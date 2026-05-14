@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { HeroSlideUI } from "../lib/types";
 import { TopZone } from "../components/top-zone";
@@ -31,6 +31,7 @@ const SLIDES: HeroSlideUI[] = [
     tmdbId: "alt-1",
     mediaType: "movie",
     title: "Alt 1",
+    poster: "https://example.test/alt-1.jpg",
     source: "recommendedForYou",
     reason: "recommended",
     resumeUrl: null,
@@ -40,11 +41,18 @@ const SLIDES: HeroSlideUI[] = [
     tmdbId: "alt-2",
     mediaType: "movie",
     title: "Alt 2",
+    poster: "https://example.test/alt-2.jpg",
     source: "trendingNow",
     reason: "trending",
     resumeUrl: null,
   },
 ];
+
+function ambientImages(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLImageElement>('[data-testid="top-zone-ambient"] img'),
+  );
+}
 
 describe("TopZone", () => {
   it("renders the hero title, year, and rating", () => {
@@ -88,6 +96,22 @@ describe("TopZone", () => {
     expect(ambient.className).toContain("-bottom-32");
     expect(ambient.className).toContain("-top-32");
     expect(ambient.className).not.toContain("overflow-hidden");
+  });
+
+  it("V66 fades the previous ambient image while the next ambient image fades in", async () => {
+    const { container } = render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
+    await waitFor(() => expect(ambientImages(container)).toHaveLength(1));
+
+    const altsNav = screen.getByTestId("top-zone-alternates");
+    const dots = within(altsNav).getAllByRole("button");
+    fireEvent.click(dots[1]!);
+
+    await waitFor(() => expect(ambientImages(container)).toHaveLength(2));
+    const [outgoing, incoming] = ambientImages(container);
+    expect(outgoing!.src).toContain("bg.jpg");
+    expect(Array.from(outgoing!.classList)).toContain("opacity-0");
+    expect(incoming!.src).toContain("alt-1.jpg");
+    expect(Array.from(incoming!.classList)).toContain("opacity-90");
   });
 
   it("uses a Safari-safe clip path for the rounded hero artwork", () => {
