@@ -171,14 +171,14 @@ export function OverviewTab({ plugin, onChangeFallback, fallbackPending }: Overv
                     className={cn(
                       "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
                       "border-transparent hover:bg-muted/60",
-                      "data-[checked]:border-border data-[checked]:bg-muted",
+                      "data-checked:border-border data-checked:bg-muted",
                       "disabled:cursor-not-allowed disabled:opacity-50",
                     )}
                   >
                     <Radio.Indicator
                       className={cn(
                         "mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
-                        "border-border data-[checked]:border-primary",
+                        "border-border data-checked:border-primary",
                       )}
                     >
                       <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />

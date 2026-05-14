@@ -30,7 +30,7 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
       type="button"
       onClick={() => onOpen(row.id)}
       className={cn(
-        "relative grid w-full cursor-pointer gap-2 border-t border-border px-4 py-3 ps-6 text-left transition-colors",
+        "relative grid w-full cursor-pointer gap-2 border-t border-border px-4 py-3 ps-6 text-start transition-colors",
         "sm:grid-cols-[auto_auto_auto_minmax(0,1fr)_auto] sm:items-center sm:gap-4",
         isOpen ? "bg-muted/55" : "hover:bg-muted/40",
       )}
@@ -74,7 +74,7 @@ export function ErrorRow({ row, isOpen, onOpen, onJumpThread }: Props) {
         </div>
 
         <div className="ms-auto flex items-center gap-2 sm:col-start-5 sm:row-start-1 sm:ms-0">
-          <ThreadChip requestId={row.requestId} onJump={onJumpThread} />
+          <ThreadChip requestId={row.requestId} onJump={onJumpThread} nested />
           <ChevronRightIcon className="size-3.5 text-muted-foreground" />
         </div>
       </div>

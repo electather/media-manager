@@ -656,3 +656,77 @@ describe("notifications HTTP — admin settings persistence", () => {
     });
   });
 });
+
+describe("notifications HTTP — inbox ?after forward cursor", () => {
+  async function seedInboxRow(userId: string, id: string, createdAt: number) {
+    await db.insert(notificationsInbox).values({
+      id,
+      deliveryId: null,
+      userId,
+      title: id,
+      body: id,
+      severity: "info",
+      category: "media",
+      actionUrl: null,
+      imageUrl: null,
+      imageAlt: null,
+      readAt: null,
+      createdAt,
+    });
+  }
+
+  it("returns all items after the cursor in ASC order", async () => {
+    mockUserId = "u-fwd";
+    await seedUser("u-fwd");
+    // Seed 5 rows with distinct ascending timestamps.
+    await seedInboxRow("u-fwd", "r1", 100);
+    await seedInboxRow("u-fwd", "r2", 200);
+    await seedInboxRow("u-fwd", "r3", 300);
+    await seedInboxRow("u-fwd", "r4", 400);
+    await seedInboxRow("u-fwd", "r5", 500);
+
+    // Construct a cursor pointing to (createdAt=50, id="r0") — before all seeded rows.
+    const { encodeKeysetCursor } = await import("../notifications/helpers");
+    const beforeAll = encodeKeysetCursor(50, "r0");
+
+    const res = await buildApp().request(
+      `/notifications/inbox?after=${encodeURIComponent(beforeAll)}&limit=10`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: Array<{ id: string; createdAt: number }> };
+    expect(body.items.map((i) => i.id)).toEqual(["r1", "r2", "r3", "r4", "r5"]);
+    // Verify strictly ascending order by createdAt.
+    const times = body.items.map((i) => i.createdAt);
+    expect(times).toEqual([100, 200, 300, 400, 500]);
+  });
+
+  it("returns 400 when both cursor and after are present", async () => {
+    mockUserId = "u-fwd";
+    await seedUser("u-fwd");
+    const { encodeKeysetCursor } = await import("../notifications/helpers");
+    const cursor = encodeKeysetCursor(100, "r1");
+    const res = await buildApp().request(
+      `/notifications/inbox?cursor=${encodeURIComponent(cursor)}&after=${encodeURIComponent(cursor)}`,
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { message?: string };
+    expect(JSON.stringify(body)).toContain("cursor_and_after_mutually_exclusive");
+  });
+
+  it("returns empty items and no nextCursor when after points past the newest row", async () => {
+    mockUserId = "u-fwd";
+    await seedUser("u-fwd");
+    await seedInboxRow("u-fwd", "r1", 100);
+
+    const { encodeKeysetCursor } = await import("../notifications/helpers");
+    const afterLast = encodeKeysetCursor(999, "zzz");
+
+    const res = await buildApp().request(
+      `/notifications/inbox?after=${encodeURIComponent(afterLast)}&limit=10`,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: unknown[]; nextCursor?: string };
+    expect(body.items).toHaveLength(0);
+    expect(body.nextCursor).toBeUndefined();
+  });
+});

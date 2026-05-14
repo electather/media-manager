@@ -157,24 +157,14 @@ Co-tenancy: `inbox-row.tsx` & `popover-row.tsx` share `shared/notification-card-
 
 `features/notifications/shared/query-keys.ts`:
 
-```ts
-export const notificationsKeys = {
-  all: ["notifications"] as const,
-  unreadCount: () => [...notificationsKeys.all, "unread-count"] as const,
-  inbox: (filters: InboxFilters) => [...notificationsKeys.all, "inbox", filters] as const,
-  inboxAll: () => [...notificationsKeys.all, "inbox"] as const,
-  channels: () => [...notificationsKeys.all, "channels"] as const,
-  plugins: () => [...notificationsKeys.all, "plugins"] as const,
-  categories: () => [...notificationsKeys.all, "categories"] as const,
-  subscriptions: () => [...notificationsKeys.all, "subscriptions"] as const,
-  admin: {
-    deliveries: (filters: AdminDeliveryFilters) =>
-      [...notificationsKeys.all, "admin", "deliveries", filters] as const,
-    deliveriesAll: () => [...notificationsKeys.all, "admin", "deliveries"] as const,
-    delivery: (id: string) => [...notificationsKeys.all, "admin", "delivery", id] as const,
-    settings: () => [...notificationsKeys.all, "admin", "settings"] as const,
-  },
-} as const;
+```
+notificationsKeys
+  .unreadCount()
+  .inbox(filters)          // filters: { unreadOnly?, category?, severity? }
+  .inboxAll()
+  .channels()  .plugins()  .categories()  .subscriptions()
+  .admin.deliveries(filters)  .admin.deliveriesAll()
+  .admin.delivery(id)  .admin.settings()
 ```
 
 `InboxFilters = { unreadOnly?: boolean; category?: NotificationCategory; severity?: NotificationSeverity }`. Stable JSON-serialisable shape ⇒ TanStack Query can hash → cache.
@@ -189,23 +179,11 @@ export const notificationsKeys = {
 
 Example:
 
-```ts
-export async function fetchInboxPage(
-  filters: InboxFilters,
-  cursor: string | null,
-): Promise<InboxPage> {
-  const res = await api.notifications.inbox.$get({
-    query: {
-      unreadOnly: filters.unreadOnly ? "1" : undefined,
-      category: filters.category,
-      severity: filters.severity,
-      cursor: cursor ?? undefined,
-      limit: "50",
-    },
-  });
-  if (!res.ok) throw new NotificationsApiError(res.status, await safeJson(res));
-  return res.json();
-}
+```
+fetchInboxPage(filters, cursor)
+  → GET /api/notifications/inbox?{filters}&cursor&limit=50
+  → !ok → throw NotificationsApiError(status, body)
+  → return InboxPage (type inferred from Hono RPC, zero hand-typed DTO)
 ```
 
 ### Hooks
@@ -226,24 +204,12 @@ export async function fetchInboxPage(
 
 ### Optimistic mark-read / dismiss
 
-```ts
-function useInboxMutations(filters: InboxFilters) {
-  const qc = useQueryClient();
-  const [optimisticActions, dispatch] = useOptimistic<
-    { ids: ReadonlySet<string>; readAt: number | null }[],
-    InboxAction
-  >([], reducer);
-
-  const markRead = useMutation({
-    mutationFn: (ids: string[]) => fetchMarkRead(ids),
-    onMutate: (ids) => dispatch({ kind: "markRead", ids }),
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: notificationsKeys.inboxAll() });
-      void qc.invalidateQueries({ queryKey: notificationsKeys.unreadCount() });
-    },
-  });
-  // …
-}
+```
+markRead(ids)
+  onMutate  → dispatch optimistic { kind:"markRead", ids } → rows flip readAt instantly
+  mutate    → POST /api/notifications/inbox/mark-read
+  onSettled → invalidate inboxAll() + unreadCount()
+  on throw  → React 19 rolls back optimistic state
 ```
 
 `InboxRow` consumes `optimisticActions` to flip `readAt` immediately. React 19 rolls back state on throw; mutation `onSettled` re-fetches authoritative state.
@@ -252,45 +218,24 @@ function useInboxMutations(filters: InboxFilters) {
 
 Requires router context wiring — micro-change to `apps/client/src/main.tsx`:
 
-```ts
-const queryClient = new QueryClient();
-const router = createRouter({ routeTree, context: { queryClient } });
+```
+createRouter({ routeTree, context: { queryClient } })
 ```
 
 Plus root route declares `context<{ queryClient: QueryClient }>()`. Existing routes ⊥ touch context ⇒ ⊥ break.
 
 Per-route loader pattern:
 
-```ts
-export const Route = createFileRoute("/_authenticated/_app/notifications")({
-  loader: ({ context: { queryClient } }) =>
-    queryClient.ensureInfiniteQueryData({
-      queryKey: notificationsKeys.inbox({}),
-      queryFn: ({ pageParam }) => fetchInboxPage({}, pageParam),
-      initialPageParam: null,
-    }),
-  pendingComponent: InboxPageSkeleton,
-  errorComponent: NotificationsErrorBoundary,
-  component: InboxPage,
-});
 ```
+/notifications route:
+  loader  → ensureInfiniteQueryData(inbox({}))
+  pending → InboxPageSkeleton
+  error   → NotificationsErrorBoundary
+  view    → InboxPage
 
-Settings page parallel-prefetches 4 queries:
-
-```ts
-loader: ({ context: { queryClient } }) =>
-  Promise.all([
-    queryClient.ensureQueryData({ queryKey: notificationsKeys.plugins(), queryFn: fetchPlugins }),
-    queryClient.ensureQueryData({ queryKey: notificationsKeys.channels(), queryFn: fetchChannels }),
-    queryClient.ensureQueryData({
-      queryKey: notificationsKeys.categories(),
-      queryFn: fetchCategories,
-    }),
-    queryClient.ensureQueryData({
-      queryKey: notificationsKeys.subscriptions(),
-      queryFn: fetchSubscriptions,
-    }),
-  ]);
+/settings/notifications route:
+  loader  → Promise.all [ plugins, channels, categories, subscriptions ]
+             each via ensureQueryData(notificationsKeys.<key>())
 ```
 
 ## Surface specs
@@ -474,9 +419,8 @@ CI: `vp test` covers ∀; `vp check` for type + lint.
 
 Same PR adds:
 
-```ts
-// apps/server/src/config.ts (or env loader)
-NOTIFICATIONS_ENABLED: z.coerce.boolean().default(true), // was false
+```
+NOTIFICATIONS_ENABLED: boolean, default true  // was false
 ```
 
 Or removes the gate entirely if all gating call-sites are server-internal — verify w/ `grep "NOTIFICATIONS_ENABLED" apps/server/`. Drop the env flag iff all server tests pass w/o it; otherwise flip default & remove next release.
@@ -535,3 +479,169 @@ Each commit independently green under `vp check && vp test`.
 Rationale: in-app inbox = the universal sink. Every `notifications.emit()` lands there regardless of subscriptions (per server design). Surface as locked row instead of fake subscription rows so settings tab honestly reflects: "you can't opt out of in-app".
 
 Wire change: `channels-section.tsx` prepends a literal `<InboxRow />` ahead of mapped `channels`. ⊥ data dependency. Client-only constant.
+
+---
+
+## Toasts (2026-05-13)
+
+Surface fresh notification events as `sonner` toasts in-app. Poll-driven (no SSE | SW). Web push deferred.
+
+### Scope
+
+- ∀ new inbox row matching toast-filter → sonner toast.
+- Filter v1: `severity ∈ {warn, error}` only. `event.type` carve-out deferred (CON-003: `notifications_inbox` table has no `event_type` column; adding it requires a migration out of scope for this PR).
+- Boot-suppress: first poll seeds `lastSeenCursor` w/ newest item id, ⊥ toast catch-up backlog.
+- Cross-tab dedup via `BroadcastChannel('notifications.toast')`.
+- Click toast body → router nav to `actionUrl` + POST `/mark-read?ids=[id]`.
+- X button → dismiss visually only; ⊥ mark-read.
+- Duration: 5s for `info|warn`; `error` sticky (⊥ auto-dismiss).
+- Per-poll cap: max 3 individual toasts. Overflow (> 3 new items in one cycle) → 3 individual + 1 cluster toast `"+N more"` linking to `/notifications`.
+
+### Detection
+
+Reuse existing `useUnreadCount` (poll 30s). On `count` increase since last observed value:
+
+1. Compute `delta = currentCount - prevCount`.
+2. If `lastSeenCursor === null` (boot): fetch newest 1 item → seed cursor → ⊥ toast.
+3. Else: page-drain via `GET /api/notifications/inbox?after=<cursor>&unreadOnly=1&limit=10`. Follow `nextCursor` until exhausted so bursts > 10 are not silently dropped.
+4. Filter via `isToastable(item)`.
+5. Dedup via `BroadcastChannel` w/ in-memory `Set<id>`. Other tabs that already toasted item ⇒ skip.
+6. Render ≤ 3 sonner toasts + optional cluster.
+7. Advance `lastSeenCursor` → newest returned `(createdAt, id)` across all drained pages.
+
+`lastSeenCursor` lives **in-memory only** (per-tab). New tab | reload = fresh seed. Matches boot-suppress semantics: toasts represent events that arrived **while this tab was running**.
+
+### Server change
+
+Single query param on existing `GET /api/notifications/inbox`:
+
+```
+?after=<cursor>        forward keyset cursor (created_at_ms|id)
+                       returns rows w/ (created_at, id) > cursor
+                       sorted ASCENDING (oldest→newest)
+                       capped at limit (default 50, max 200)
+```
+
+Cursor encoding identical to existing `cursor` / `nextCursor` (`base64url(<created_at_ms>|<id>)`). Mutually exclusive w/ existing `cursor` (backward pagination); both present → 400.
+
+Server delta (one route, one schema, one repo):
+
+- `packages/shared/src/notifications/schemas.ts` — `inboxListQuerySchema` adds `after?: string`. `.refine(d => !(d.cursor && d.after), { message: "cursor and after mutually exclusive" })`.
+- `apps/server/src/notifications/repos.ts` — `listInboxForUser` accepts `{ direction: 'before' | 'after' }`. `after`: predicate flips `>`, `ORDER BY created_at ASC, id ASC`.
+- `apps/server/src/api/procedures/notifications/user.ts:179` — branch on which cursor present; pass `direction` to repo.
+- ⊥ new route, ⊥ migration, ⊥ DTO change.
+
+Response shape unchanged. `nextCursor` semantics inside `after` mode: points to NEWER cursor for forward-paginate (rare; only when delta > limit and caller wants to drain).
+
+### Client architecture
+
+New subdir: `apps/client/src/features/notifications/toasts/`.
+
+```
+toasts/
+├── notification-toaster-host.tsx   # root mount; owns runtime state
+├── use-notification-toaster.ts     # hook orchestrating poll → fetch → dedup → render
+├── use-toast-broadcast.ts          # BroadcastChannel wrapper, ref-counted Set<id>
+├── fetch-inbox-after.ts            # fetcher wrapping api.notifications.inbox.$get w/ ?after
+├── is-toastable.ts                 # filter predicate (severity-only v1; event-type deferred CON-003)
+├── toast-renderer.tsx              # maps NotificationInboxDto → sonner.toast(...) call
+├── constants.ts                    # MAX_TOASTS_PER_CYCLE, BROADCAST_CHANNEL_NAME, BROADCAST_WINDOW_MS
+├── __tests__/
+└── index.ts
+```
+
+`<NotificationToasterHost />` mounted in `apps/client/src/routes/__root.tsx` (root route component). Component renders null; useEffect-driven runtime. ⊥ render path. Must be inside the router tree — `useNotificationToaster` calls `useNavigate()` which requires router context.
+
+```
+__root.tsx → RootComponent: <NotificationToasterHost /> + <Outlet />
+```
+
+Why root route: poll runs regardless of active route (notification arrives while on `/home` → toast fires; user must not lose toasts when navigating).
+
+### Hook contract — `useNotificationToaster()`
+
+```
+useNotificationToaster():  watches countResult.count (30s poll)
+  on count increase:
+    first call      → seedCursor(newest item) → no toast (boot-suppress)
+    cursor null     → seedAndToast: fetch 1 unread, seed cursor, toast if fresh
+    cursor present  → drain ?after pages via nextCursor until exhausted
+                      → filter isToastable + broadcast.has dedup
+                      → renderToast(≤3) + clusterToast(overflow)
+                      → advanceCursor to last item across all drained pages
+  mutable deps (navigate, markRead, broadcast) stashed in refs → safe eslint-disable
+```
+
+### BroadcastChannel dedup
+
+```
+useToastBroadcast():
+  state  → ids: Map<id, epochMs>  (in-memory per-tab)
+  open   → BroadcastChannel('notifications.toast')
+  recv   → {kind:"toasted", id, at} → ids.set(id, at)
+  has(id)  → GC entries > 5min, return ids.has(id)
+  publish(id) → ids.set + broadcast {kind:"toasted", id, at}
+  close  → cleanup on unmount
+  fallback: BroadcastChannel undefined → per-tab only (acceptable)
+```
+
+### Toast rendering
+
+```
+renderToast(item, deps):
+  duration  = severity=error ? Infinity : 5s
+  sonner.custom(<NotificationToastCard
+    onClick  → markRead(id) + navigate(actionUrl) + dismiss
+    onDismiss → dismiss only
+  />, { duration, id: "notif:<item.id>" })    // sonner dedupes by id
+  broadcast.publish(item.id)
+```
+
+`<NotificationToastCard>` reuses existing `<SeverityIcon />` + `<CategoryChip />` from `features/notifications/shared/`. ⊥ duplicate styling.
+
+### Cluster toast (overflow)
+
+When `fresh.length > 3`:
+
+- Render 3 individual toasts (oldest-first → newest-first ordering preserved).
+- Render 1 cluster toast: `{severity: 'info', title: t('notifications_toast_cluster_title', { count: N }), actionUrl: '/notifications'}`.
+- Cluster click → nav to `/notifications`; ⊥ mark-read (would require N ids; defer to inbox page).
+
+### i18n keys
+
+```
+notifications_toast_cluster_title       "+{count} more new notifications"
+notifications_toast_dismiss_aria        "Dismiss notification"
+notifications_toast_action_button       "View"
+```
+
+`fa.json` mirrored.
+
+### Tests
+
+`toasts/__tests__/`:
+
+- `is-toastable.test.ts` — filter table over (severity, event.type) cartesian.
+- `use-notification-toaster.test.tsx` — boot-suppress: first poll ⊥ toasts; second poll w/ delta toasts.
+- `use-notification-toaster.test.tsx` — overflow → 3 + cluster.
+- `use-toast-broadcast.test.ts` — BroadcastChannel mock; `publish` in tab A → `has` returns true in tab B.
+- `toast-renderer.test.tsx` — click body → mark-read + nav; X → dismiss only.
+- `toast-renderer.test.tsx` — error severity = sticky (`duration: Infinity`).
+
+### Risks & open questions
+
+- **`BroadcastChannel` cleanup across page reload.** Map state reset per tab on reload — same-tab reload may double-toast events fired in last 5 min. Mitigation: cursor advance + sonner's own `id: "notif:<id>"` dedup (sonner ⊥ render second toast w/ identical id while first lives). Acceptable.
+- **Poll cadence vs toast freshness.** 30s ceiling on delay-to-toast. Acceptable v1. Future SSE migration: replace `useUnreadCount` driver w/ event stream; toast pipeline downstream unchanged.
+- **Sonner toast positioning.** Existing `<Toaster />` mounted w/ default position. If notif toasts conflict w/ action toasts (test-channel success, etc.), separate positions (top-right vs bottom-right). Defer until clash observed.
+- **Cluster toast → mark-read.** Cluster currently doesn't mark-read. Could call `mark-all-read?category=...` but loses granularity. Acceptable v1; user marks-read on inbox visit.
+- **Multi-tab leader election.** Skipped v1. Every foreground tab polls + dedupes via broadcast. Backgrounded tabs already paused (`refetchIntervalInBackground: false`). Revisit if poll volume becomes problem.
+
+### Out of v1 (deferred, ⊥ lost)
+
+- Web Push / Service Worker / VAPID — separate design.
+- SSE / WebSocket — separate design; same toast pipeline downstream.
+- `event.type ∈ USER_ACTIONABLE_EVENT_TYPES` toast filter — blocked by CON-003 (`notifications_inbox` has no `event_type` column). Requires migration + DTO change before `isToastable` can use it.
+- User preference: per-category toast on/off — add column to subscription matrix when first asked.
+- Quiet hours, snooze, per-event suppression.
+- Native OS notifications via `Notification` API (browser-prompted, no SW).
+- Toast positioning configurability.

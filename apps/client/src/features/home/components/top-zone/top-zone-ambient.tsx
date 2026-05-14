@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { cn } from "@/shared/lib/utils";
+import { useEffect, useRef, useState, startTransition } from "react";
 
-const FADE_DELAY_MS = 20;
 const FADE_OUT_MS = 900;
 
-type Layer = { id: number; src: string; visible: boolean };
+type Layer = { id: number; src: string };
 
 /**
  * Crossfading blurred backdrop. Sits behind the hero card and bleeds outside
@@ -19,34 +17,29 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
   useEffect(() => {
     if (!src) return;
     const id = ++idRef.current;
-    setLayers((prev) => [...prev.slice(-1), { id, src, visible: false }]);
-    const showTimer = window.setTimeout(() => {
-      setLayers((prev) => prev.map((l) => (l.id === id ? { ...l, visible: true } : l)));
-    }, FADE_DELAY_MS);
-    const cleanupTimer = window.setTimeout(() => {
+    startTransition(() => {
+      setLayers((prev) => [...prev.slice(-1), { id, src }]);
+    });
+    const timer = window.setTimeout(() => {
       setLayers((prev) => prev.filter((l) => l.id >= id));
     }, FADE_OUT_MS);
-    return () => {
-      window.clearTimeout(showTimer);
-      window.clearTimeout(cleanupTimer);
-    };
+    return () => window.clearTimeout(timer);
   }, [src]);
 
   return (
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none absolute inset-x-0 -top-32 -bottom-80"
+      className="pointer-events-none select-none absolute inset-x-0 -top-32 -bottom-32"
     >
       {layers.map((layer) => (
         <img
           key={layer.id}
           src={layer.src}
           alt=""
-          className={cn(
-            "absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.9] transition-opacity duration-700 ease-out [backface-visibility:hidden] will-change-[opacity]",
-            layer.visible ? "opacity-90" : "opacity-0",
-          )}
+          fetchPriority="low"
+          decoding="async"
+          className="absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.9] transition-opacity duration-700 ease-out backface-hidden will-change-[opacity] opacity-90 starting:opacity-0"
         />
       ))}
     </div>
