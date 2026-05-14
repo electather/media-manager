@@ -1,9 +1,7 @@
 import { z } from "zod";
-import type { MediaType } from "@ent-mcp/shared/media";
 import { decodeCursor, encodeCursor } from "../cursor";
-import { extractTmdbId } from "../adapters";
 import type { RowProvider } from "../types";
-import { loadCanonicalItems, type MediaKey } from "./_shared";
+import { fetchSimilarPage } from "./_shared";
 
 const PAGE_SIZE = 12;
 
@@ -12,8 +10,6 @@ const cursorSchema = z.object({
   mediaType: z.enum(["movie", "tv"]),
   offset: z.number().int().min(0),
 });
-
-type SimilarHit = MediaKey;
 
 /**
  * "Similar to X" — title-specific row for the media detail page. The cursor
@@ -38,32 +34,15 @@ const provider: RowProvider = {
   },
   async fetchPage(ctx, cursor) {
     const page = decodeCursor(cursor!, cursorSchema);
-    const res = await ctx.mediaService.getSimilarFeed({
+    const { items, hasMore, partial } = await fetchSimilarPage(ctx, {
       id: page.tmdbId,
       type: page.mediaType,
-      ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
+      offset: page.offset,
+      pageSize: PAGE_SIZE,
     });
-    const seedMeta = await ctx.catalog.getMetadata(page.tmdbId, page.mediaType);
-    if (seedMeta) ctx.seedTitle = seedMeta.title;
-    const candidates = (res.items as unknown[])
-      .map(toSimilarHit)
-      .filter((c): c is SimilarHit => c !== null);
-    const slice = candidates.slice(page.offset, page.offset + PAGE_SIZE);
-    const items = await loadCanonicalItems(ctx, slice);
-    const next =
-      candidates.length > page.offset + PAGE_SIZE
-        ? encodeCursor({ ...page, offset: page.offset + PAGE_SIZE })
-        : null;
-    return { items, cursor: next, partial: res.partial };
+    const next = hasMore ? encodeCursor({ ...page, offset: page.offset + PAGE_SIZE }) : null;
+    return { items, cursor: next, partial };
   },
 };
-
-function toSimilarHit(value: unknown): SimilarHit | null {
-  const tmdbId = extractTmdbId(value);
-  if (!tmdbId) return null;
-  const t = (value as { type?: string }).type;
-  const type: MediaType = t === "tv" || t === "show" ? "tv" : "movie";
-  return { tmdbId, type };
-}
 
 export default provider;
