@@ -94,6 +94,13 @@ export function useNotificationToaster(): void {
   const { data: countResult } = useUnreadCount();
   const prevCountRef = useRef<number | null>(null);
   const lastSeenCursorRef = useRef<string | null>(null);
+  // Single-flight guard. Concurrent deltas firing while a previous drain is
+  // still in flight would share `lastSeenCursorRef` and could double-render an
+  // item before its `broadcast.publish` lands. We instead drain serially and
+  // remember the highest pending count so we re-run once the in-flight pass
+  // finishes (covers bursts that arrive mid-drain).
+  const drainingRef = useRef(false);
+  const pendingCountRef = useRef<number | null>(null);
   const broadcast = useToastBroadcast();
   const navigate = useNavigate();
   const markReadMutation = useMarkRead();
@@ -119,10 +126,33 @@ export function useNotificationToaster(): void {
     }
     if (count <= prev) return;
 
-    void handleDelta(lastSeenCursorRef, {
-      navigate: navigateRef.current,
-      markReadMutation: markReadMutationRef.current,
-      broadcast: broadcastRef.current,
-    });
+    const drain = async () => {
+      if (drainingRef.current) {
+        pendingCountRef.current = count;
+        return;
+      }
+      drainingRef.current = true;
+      try {
+        await handleDelta(lastSeenCursorRef, {
+          navigate: navigateRef.current,
+          markReadMutation: markReadMutationRef.current,
+          broadcast: broadcastRef.current,
+        });
+        while (pendingCountRef.current !== null) {
+          pendingCountRef.current = null;
+          await handleDelta(lastSeenCursorRef, {
+            navigate: navigateRef.current,
+            markReadMutation: markReadMutationRef.current,
+            broadcast: broadcastRef.current,
+          });
+        }
+      } finally {
+        drainingRef.current = false;
+      }
+    };
+    void drain();
+    // Only the unread-count delta drives this effect; deps below are mutable
+    // and read through refs by design (see comment above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countResult?.count]);
 }

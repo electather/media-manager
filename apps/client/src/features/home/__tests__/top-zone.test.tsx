@@ -94,7 +94,7 @@ describe("TopZone", () => {
     render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
     const ambient = screen.getByTestId("top-zone-ambient");
     expect(ambient.className).toContain("-bottom-32");
-    expect(ambient.className).toContain("-top-32");
+    expect(ambient.className).toContain("-top-10");
     expect(ambient.className).not.toContain("overflow-hidden");
   });
 
@@ -111,7 +111,7 @@ describe("TopZone", () => {
     expect(outgoing!.src).toContain("bg.jpg");
     expect(Array.from(outgoing!.classList)).toContain("opacity-0");
     expect(incoming!.src).toContain("alt-1.jpg");
-    expect(Array.from(incoming!.classList)).toContain("opacity-90");
+    expect(Array.from(incoming!.classList)).toContain("opacity-60");
   });
 
   it("uses a Safari-safe clip path for the rounded hero artwork", () => {

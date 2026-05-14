@@ -99,12 +99,15 @@ describe("theme", () => {
 
   it("loads the stored theme before the React bundle", () => {
     const html = readFileSync("apps/client/index.html", "utf8");
-    const bootScriptIndex = html.indexOf('const storageKey = "theme";');
+    const bootScriptIndex = html.indexOf('src="/theme-init.js"');
     const appScriptIndex = html.indexOf("/src/main.tsx");
 
     expect(bootScriptIndex).toBeGreaterThan(-1);
     expect(appScriptIndex).toBeGreaterThan(-1);
     expect(bootScriptIndex).toBeLessThan(appScriptIndex);
     expect(html).not.toContain('<html lang="en" class="dark">');
+
+    const bootScript = readFileSync("apps/client/public/theme-init.js", "utf8");
+    expect(bootScript).toContain('const STORAGE_KEY = "theme";');
   });
 });

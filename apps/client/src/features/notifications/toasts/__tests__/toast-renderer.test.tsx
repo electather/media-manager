@@ -124,12 +124,12 @@ describe("NotificationToastCard", () => {
 });
 
 describe("renderToast", () => {
-  it("uses duration=Infinity for error severity", () => {
+  it("uses a long but bounded duration for error severity so bursts don't pin the viewport", () => {
     const deps = makeDeps();
     renderToast(makeItem("e", "error"), deps);
     expect(sonnerCustomMock).toHaveBeenCalledTimes(1);
     const opts = sonnerCustomMock.mock.calls[0]![1] as { duration: number };
-    expect(opts.duration).toBe(Infinity);
+    expect(opts.duration).toBe(30_000);
   });
 
   it("uses duration=5000 for warn severity", () => {

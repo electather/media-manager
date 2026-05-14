@@ -21,33 +21,101 @@ export function toSimilarHit(value: unknown): MediaKey | null {
   return { tmdbId, type };
 }
 
+interface SimilarFeedEntry {
+  expiresAt: number;
+  candidates: MediaKey[];
+  partial: boolean;
+  seedTitle: string | undefined;
+}
+
+// Cache resolved candidate lists per seed so paginating row consumers don't
+// re-fetch the full `metadata@v1.getSimilar` feed (and the seed catalog
+// metadata) on every page request. The plugin call is the expensive bit;
+// candidate decoding + seed-meta lookup are deterministic over the same seed,
+// so caching for a short window keeps wall-clock latency low without staling
+// out across user sessions. Per-user keyed for safety even though
+// `metadata@v1.getSimilar` is itself user-agnostic — keeps cache invalidation
+// trivially user-scoped if we ever start mixing identity into the response.
+const SIMILAR_FEED_TTL_MS = 60_000;
+const SIMILAR_FEED_CACHE_MAX = 256;
+const similarFeedCache = new Map<string, SimilarFeedEntry>();
+
+function similarCacheKey(userId: string, seedId: string, seedType: MediaType): string {
+  return `${userId}:${seedType}:${seedId}`;
+}
+
+function readSimilarCache(key: string): SimilarFeedEntry | undefined {
+  const entry = similarFeedCache.get(key);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    similarFeedCache.delete(key);
+    return undefined;
+  }
+  // Touch the entry's insertion order so the FIFO eviction below acts roughly
+  // like LRU for hot seeds.
+  similarFeedCache.delete(key);
+  similarFeedCache.set(key, entry);
+  return entry;
+}
+
+function writeSimilarCache(key: string, entry: SimilarFeedEntry): void {
+  similarFeedCache.set(key, entry);
+  while (similarFeedCache.size > SIMILAR_FEED_CACHE_MAX) {
+    const oldest = similarFeedCache.keys().next().value;
+    if (oldest === undefined) break;
+    similarFeedCache.delete(oldest);
+  }
+}
+
 /**
  * Shared page fetch for similar-feed rows. Wraps the `getSimilarFeed` call,
  * candidate extraction, catalog enrichment, pagination, and seedTitle hookup
  * — every consumer differs only in cursor schema. Returns the typed page
  * plus a `hasMore` flag so the caller can encode its own next cursor.
+ *
+ * Mutates `ctx.seedTitle` so the orchestrator's match-reason resolver
+ * (`similar_to_seed`) can surface the seed title without a second lookup.
+ *
+ * The resolved candidate list is cached per `(userId, seedType, seedId)` for
+ * `SIMILAR_FEED_TTL_MS` so subsequent page requests against the same seed
+ * skip the round-trip into the metadata plugin and the catalog.
  */
 export async function fetchSimilarPage(
   ctx: RowContext,
   seed: { id: string; type: MediaType; offset: number; pageSize: number },
 ): Promise<{ items: InternalCompactMediaItem[]; hasMore: boolean; partial: boolean }> {
-  const res = await ctx.mediaService.getSimilarFeed({
-    id: seed.id,
-    type: seed.type,
-    ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
-  });
-  const seedMeta = await ctx.catalog.getMetadata(seed.id, seed.type);
-  if (seedMeta) ctx.seedTitle = seedMeta.title;
-  const candidates = (res.items as unknown[])
-    .map(toSimilarHit)
-    .filter((c): c is MediaKey => c !== null);
-  const slice = candidates.slice(seed.offset, seed.offset + seed.pageSize);
+  const cacheKey = similarCacheKey(ctx.userId, seed.id, seed.type);
+  let entry = readSimilarCache(cacheKey);
+  if (!entry) {
+    const res = await ctx.mediaService.getSimilarFeed({
+      id: seed.id,
+      type: seed.type,
+      ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
+    });
+    const seedMeta = await ctx.catalog.getMetadata(seed.id, seed.type);
+    entry = {
+      expiresAt: Date.now() + SIMILAR_FEED_TTL_MS,
+      candidates: (res.items as unknown[])
+        .map(toSimilarHit)
+        .filter((c): c is MediaKey => c !== null),
+      partial: res.partial,
+      seedTitle: seedMeta?.title,
+    };
+    writeSimilarCache(cacheKey, entry);
+  }
+  if (entry.seedTitle) ctx.seedTitle = entry.seedTitle;
+  const slice = entry.candidates.slice(seed.offset, seed.offset + seed.pageSize);
   const items = await loadCanonicalItems(ctx, slice);
   return {
     items,
-    hasMore: candidates.length > seed.offset + seed.pageSize,
-    partial: res.partial,
+    hasMore: entry.candidates.length > seed.offset + seed.pageSize,
+    partial: entry.partial,
   };
+}
+
+// fallow-ignore-next-line unused-export
+export function __clearSimilarFeedCacheForTests(): void {
+  similarFeedCache.clear();
 }
 
 interface LoadCanonicalOptions<T> {

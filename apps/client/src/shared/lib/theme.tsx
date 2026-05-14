@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import useLocalStorageState from "use-local-storage-state";
 import { isString } from "es-toolkit/predicate";
 
+// Pre-hydration bootstrap in `public/theme-init.js` (referenced by
+// `index.html`) duplicates the storage key + resolve rule so the very first
+// paint avoids a flash of the wrong palette. Update both sides in lockstep.
 export const THEME_STORAGE_KEY = "theme";
 export const THEME_PREFERENCES = ["system", "light", "dark"] as const;
 

@@ -2,34 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <script>
-      (() => {
-        const storageKey = "theme";
-        let preference = "system";
-
-        try {
-          const stored = localStorage.getItem(storageKey);
-          if (stored === "system" || stored === "light" || stored === "dark") {
-            preference = stored;
-          }
-        } catch {
-          /* Ignore storage access failures in restricted browser contexts. */
-        }
-
-        let systemPrefersDark = false;
-
-        try {
-          systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        } catch {
-          /* Ignore media query failures and fall back to light mode. */
-        }
-
-        const resolvedTheme =
-          preference === "system" ? (systemPrefersDark ? "dark" : "light") : preference;
-        document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
-        document.documentElement.style.colorScheme = resolvedTheme;
-      })();
-    </script>
+    <!-- Pre-hydration theme bootstrap. Body lives in `public/theme-init.js`;
+         rules must stay aligned with `src/shared/lib/theme.tsx`. -->
+    <script src="/theme-init.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"

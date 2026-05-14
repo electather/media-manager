@@ -29,18 +29,28 @@ export function useToastBroadcast(): ToastBroadcast {
     };
   }, []);
 
+  function sweepExpired(now: number): void {
+    for (const [k, t] of ids.current) {
+      if (now - t > BROADCAST_WINDOW_MS) ids.current.delete(k);
+    }
+  }
+
   function has(id: string): boolean {
+    const now = Date.now();
     const at = ids.current.get(id);
     if (at === undefined) return false;
-    return Date.now() - at <= BROADCAST_WINDOW_MS;
+    if (now - at > BROADCAST_WINDOW_MS) {
+      // Sweep on read so a listener-only tab (never publishes) doesn't grow
+      // the map unbounded as cross-tab announcements accumulate.
+      sweepExpired(now);
+      return false;
+    }
+    return true;
   }
 
   function publish(id: string): void {
     const at = Date.now();
-    // GC entries older than BROADCAST_WINDOW_MS on publish to prevent unbounded growth.
-    for (const [k, t] of ids.current) {
-      if (at - t > BROADCAST_WINDOW_MS) ids.current.delete(k);
-    }
+    sweepExpired(at);
     ids.current.set(id, at);
     channelRef.current?.postMessage({ kind: "toasted", id, at } satisfies ToastedMessage);
   }

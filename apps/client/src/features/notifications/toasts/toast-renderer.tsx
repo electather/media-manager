@@ -10,6 +10,9 @@ import type { MarkReadMutation } from "../inbox/use-inbox-mutations";
 import type { ToastBroadcast } from "./use-toast-broadcast";
 
 const TOAST_BODY_MAX_CHARS = 140;
+// Errors stay sticky for 30s — long enough to read without auto-dismissing,
+// but bounded so a delivery burst can't pin a stack of toasts to the viewport.
+const TOAST_DURATION_BY_SEVERITY = { error: 30_000, warn: 5_000 } as const;
 
 export interface ToastDeps {
   navigate: ReturnType<typeof useNavigate>;
@@ -57,7 +60,8 @@ export function NotificationToastCard({ item, onClick, onDismiss }: CardProps) {
 export function renderToast(item: NotificationItemDto, deps: ToastDeps): void {
   const { navigate, markReadMutation, broadcast } = deps;
   const toastId = `notif:${item.id}`;
-  const duration = item.severity === "error" ? Infinity : 5_000;
+  const duration =
+    item.severity === "error" ? TOAST_DURATION_BY_SEVERITY.error : TOAST_DURATION_BY_SEVERITY.warn;
 
   sonnerToast.custom(
     (id) => (
