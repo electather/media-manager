@@ -21,12 +21,9 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 const fetchInboxPageMock = vi.fn();
+const fetchInboxAfterMock = vi.fn();
 vi.mock("../../shared/fetchers", () => ({
   fetchInboxPage: (...args: unknown[]) => fetchInboxPageMock(...args),
-}));
-
-const fetchInboxAfterMock = vi.fn();
-vi.mock("../fetch-inbox-after", () => ({
   fetchInboxAfter: (...args: unknown[]) => fetchInboxAfterMock(...args),
 }));
 
