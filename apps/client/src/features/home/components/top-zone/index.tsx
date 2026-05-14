@@ -5,6 +5,7 @@ import type { HeroSlideUI, HomeMediaItem } from "../../lib/types";
 import { ProgressOverlay } from "../progress-overlay";
 import { TopZoneAmbient } from "./top-zone-ambient";
 import { TopZoneHeroCard } from "./top-zone-hero-card";
+import { cn } from "@/shared/lib/utils";
 
 function progressPercent(progress: HomeMediaItem["progress"]): number | null {
   if (!progress) return null;
@@ -35,7 +36,7 @@ function HeroFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="relative z-10 aspect-2/3 max-h-[60lvh] w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:max-h-none sm:h-[clamp(26rem,58vh,42rem)] lg:h-[clamp(30rem,64vh,46rem)]">
+    <div className="dark relative z-10 aspect-2/3 max-h-[60lvh] w-full rounded-4xl bg-card shadow-hero sm:aspect-auto sm:max-h-none sm:h-[clamp(22rem,40lvh,30rem)] lg:h-[clamp(30rem,64vh,46rem)]">
       <div
         data-testid="top-zone-hero-frame"
         className="absolute inset-0 isolate overflow-hidden rounded-4xl bg-card transform-gpu backface-hidden [clip-path:inset(0_round_var(--radius-4xl))]"
@@ -90,11 +91,12 @@ function HeroAlternates({
             aria-current={isActive ? "true" : undefined}
             aria-label={item.title}
             onClick={() => onSelect(index)}
-            className={
+            className={cn(
+              "size-2 rounded-full",
               isActive
                 ? "size-2 rounded-full bg-primary"
-                : "size-2 rounded-full bg-muted-foreground/40 transition-colors hover:bg-muted-foreground"
-            }
+                : "size-2 rounded-full bg-muted-foreground/40 transition-colors hover:bg-muted-foreground",
+            )}
           />
         );
       })}

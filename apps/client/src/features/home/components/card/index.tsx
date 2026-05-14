@@ -63,7 +63,7 @@ export const Card = memo(function Card({
       <button
         type="button"
         onClick={onClick ? () => onClick(item.id) : undefined}
-        aria-label={`${m.home_card_open_details()} ${item.title}`}
+        aria-label={m.home_card_open_details({ title: item.title })}
         className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </article>

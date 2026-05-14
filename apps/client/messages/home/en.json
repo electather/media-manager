@@ -73,7 +73,7 @@
   "home_card_add_watchlist": "Add to watchlist",
   "home_card_remove_watchlist": "Remove from watchlist",
   "home_card_progress_watched": "{percent}% watched",
-  "home_card_open_details": "Open details for",
+  "home_card_open_details": "Open details for {title}",
 
   "home_card_available": "Available",
   "home_card_requested": "Requested",
