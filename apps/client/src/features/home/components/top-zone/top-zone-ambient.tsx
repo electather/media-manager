@@ -33,7 +33,7 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none select-none absolute inset-x-0 -top-32 -bottom-32"
+      className="pointer-events-none select-none absolute inset-x-0 -top-10 -bottom-32"
     >
       {layers.map((layer) => (
         <img
@@ -43,8 +43,8 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
           fetchPriority="low"
           decoding="async"
           className={cn(
-            "absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.9] transition-opacity duration-700 ease-out backface-hidden will-change-[opacity]",
-            layer.id === activeLayerId ? "opacity-90 starting:opacity-0" : "opacity-0",
+            "absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.3] transition-opacity duration-700 ease-out backface-hidden will-change-[opacity]",
+            layer.id === activeLayerId ? "opacity-60 starting:opacity-0" : "opacity-0",
           )}
         />
       ))}
