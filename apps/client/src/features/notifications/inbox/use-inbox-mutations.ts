@@ -96,6 +96,8 @@ function useOptimisticInboxMutation<TInput>(args: {
   });
 }
 
+export type MarkReadMutation = ReturnType<typeof useMarkRead>;
+
 export function useMarkRead() {
   return useOptimisticInboxMutation({
     mutationFn: (ids: string[]) => fetchMarkRead(ids),

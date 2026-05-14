@@ -1,9 +1,11 @@
 import { consola } from "consola";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -289,26 +291,43 @@ export async function listInboxForUser(
   filters: InboxListFilters,
   cursor: InboxCursor | undefined,
   limit: number,
+  opts: { direction?: "before" | "after" } = {},
 ): Promise<(typeof notificationsInbox.$inferSelect)[]> {
   const db = getDb();
+  const direction = opts.direction ?? "before";
   const conditions = [eq(notificationsInbox.userId, userId)];
   if (filters.unreadOnly) conditions.push(isNull(notificationsInbox.readAt));
   if (filters.category) conditions.push(eq(notificationsInbox.category, filters.category));
   if (filters.severity) conditions.push(eq(notificationsInbox.severity, filters.severity));
   if (cursor) {
-    // Keyset: (createdAt, id) < cursor — older rows come after the cursor.
-    const tieBreaker = and(
-      eq(notificationsInbox.createdAt, cursor.createdAt),
-      lt(notificationsInbox.id, cursor.id),
-    );
-    const keyset = or(lt(notificationsInbox.createdAt, cursor.createdAt), tieBreaker);
-    if (keyset) conditions.push(keyset);
+    if (direction === "after") {
+      // Keyset: (createdAt, id) > cursor — newer rows come after the cursor.
+      const tieBreaker = and(
+        eq(notificationsInbox.createdAt, cursor.createdAt),
+        gt(notificationsInbox.id, cursor.id),
+      );
+      const keyset = or(gt(notificationsInbox.createdAt, cursor.createdAt), tieBreaker);
+      if (keyset) conditions.push(keyset);
+    } else {
+      // Keyset: (createdAt, id) < cursor — older rows come after the cursor.
+      const tieBreaker = and(
+        eq(notificationsInbox.createdAt, cursor.createdAt),
+        lt(notificationsInbox.id, cursor.id),
+      );
+      const keyset = or(lt(notificationsInbox.createdAt, cursor.createdAt), tieBreaker);
+      if (keyset) conditions.push(keyset);
+    }
   }
   return db
     .select()
     .from(notificationsInbox)
     .where(and(...conditions))
-    .orderBy(desc(notificationsInbox.createdAt), desc(notificationsInbox.id))
+    .orderBy(
+      direction === "after"
+        ? asc(notificationsInbox.createdAt)
+        : desc(notificationsInbox.createdAt),
+      direction === "after" ? asc(notificationsInbox.id) : desc(notificationsInbox.id),
+    )
     .limit(limit)
     .all();
 }
