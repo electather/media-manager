@@ -63,15 +63,16 @@ describe("Row", () => {
   });
 
   it("renders a visible heading for the row", async () => {
-    mockRowFetch([]);
+    mockRowFetch([item("a")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(screen.getByText("Movie a")).toBeTruthy());
     const heading = screen.getByRole("heading");
     expect(heading.textContent?.length).toBeGreaterThan(0);
   });
 
   it("renders an eyebrow when the row kind has one", async () => {
-    mockRowFetch([]);
+    mockRowFetch([item("a")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <Row
@@ -83,16 +84,40 @@ describe("Row", () => {
       />,
       { wrapper: withClient(client) },
     );
+    await waitFor(() => expect(screen.getByText("Movie a")).toBeTruthy());
     expect(screen.getByText(/themed picks/i)).toBeTruthy();
   });
 
-  it("keeps the card scroller inside the page's max-width container so the first card aligns with the title", () => {
-    mockRowFetch([]);
+  it("keeps the card scroller inside the page's max-width container so the first card aligns with the title", async () => {
+    mockRowFetch([item("a")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(screen.getByText("Movie a")).toBeTruthy());
     const bleed = container.querySelector('[data-testid="row-scroller-bleed"]');
     expect(bleed).toBeTruthy();
     expect(bleed?.className).not.toContain("w-screen");
     expect(bleed?.className).not.toContain("translate-x");
+  });
+
+  it("hides an algorithmic row when the fetch returns zero items", async () => {
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(container.querySelector('[data-slot="scroll-row"]')).toBeNull());
+    expect(container.querySelector("h2")).toBeNull();
+    expect(container.querySelector('[data-testid="row-scroller-bleed"]')).toBeNull();
+  });
+
+  it("keeps the heading and renders an empty-state message for an empty user-driven row", async () => {
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <Row row={makeRow({ id: "yourWatchlist", kind: "yourWatchlist", defaultAspect: "2/3" })} />,
+      { wrapper: withClient(client) },
+    );
+    await waitFor(() => expect(screen.getByText(/add something to your watchlist/i)).toBeTruthy());
+    const empty = screen.getByRole("status");
+    expect(empty.textContent?.length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading").textContent?.length).toBeGreaterThan(0);
   });
 });

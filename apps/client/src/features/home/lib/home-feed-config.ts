@@ -1,6 +1,20 @@
 import * as m from "@/paraglide/messages";
 import type { RowKind } from "@ent-mcp/shared/home";
-import type { MatchReasonKey } from "./types";
+import type { MatchReasonKey, MessageKey } from "./types";
+
+/**
+ * Row kinds whose content is populated by the user (watchlist, viewing
+ * history). When these rows come back empty we keep the section heading
+ * and render an empty-state nudge — the row is teaching the user what it
+ * is for. Algorithmic/editorial rows hide entirely when empty.
+ */
+export const USER_DRIVEN_ROWS = new Set<RowKind>(["continueWatching", "yourWatchlist"]);
+
+/** Empty-state copy for user-driven rows. Keys exist for every entry of `USER_DRIVEN_ROWS`. */
+export const ROW_EMPTY_COPY: Partial<Record<RowKind, MessageKey>> = {
+  continueWatching: "home_row_continueWatching_empty",
+  yourWatchlist: "home_row_yourWatchlist_empty",
+};
 
 /** Drives card image ratio for each row. Not present in the wire format. */
 export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {
