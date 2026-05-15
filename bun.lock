@@ -14,7 +14,7 @@
     },
     "apps/client": {
       "name": "@ent-mcp/client",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "dependencies": {
         "@base-ui/react": "^1.4.1",
         "@better-auth/oauth-provider": "catalog:",
@@ -63,7 +63,7 @@
     },
     "apps/server": {
       "name": "@ent-mcp/server",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "dependencies": {
         "@better-auth/oauth-provider": "catalog:",
         "@ent-mcp/plugin-discord": "workspace:*",
@@ -197,7 +197,7 @@
     },
     "packages/plugins/tmdb": {
       "name": "@ent-mcp/plugin-tmdb",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "dependencies": {
         "@ent-mcp/plugin-sdk": "workspace:*",
       },
