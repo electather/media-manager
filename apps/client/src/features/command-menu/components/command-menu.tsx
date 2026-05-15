@@ -21,7 +21,7 @@ import {
 } from "@/shared/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import { Logo } from "@/shared/components/logo";
-import { Kbd, KbdGroup } from "@/shared/ui/kbd";
+import { Kbd } from "@/shared/ui/kbd";
 
 import { useBoundSettings } from "../hooks/use-bound-settings";
 import { useCommandHotkeys } from "../hooks/use-command-hotkeys";
@@ -29,7 +29,6 @@ import { useRecentItems } from "../hooks/use-recent-items";
 import { useSearchResults } from "../hooks/use-search-results";
 import { useSections } from "../hooks/use-sections";
 import { useTrending } from "../hooks/use-trending";
-import { t } from "../lib/i18n";
 import { actionMatchValue, pageMatchValue, searchModeMatchValue } from "../lib/match-values";
 import { initialNavState, isRoot, navReducer, topFrame } from "../lib/nav-stack";
 import { COMMAND_ACTIONS } from "../registry/actions";
@@ -45,7 +44,6 @@ import type {
   PageItem,
   SearchModeItem,
   SettingItem,
-  StaticMessageKey,
 } from "../types";
 import { CommandSearchHeader } from "./command-search-header";
 import { RowAffordance, RowContent, RowIcon } from "./command-row";
@@ -193,7 +191,7 @@ export function CommandMenu() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="top-[12vh] translate-y-0 overflow-hidden rounded-xl! p-0 sm:max-w-[640px]"
+        className="top-[12vh] translate-y-0 overflow-hidden rounded-xl! p-0 sm:max-w-160"
       >
         <DialogTitle className="sr-only">{m.command_menu_title()}</DialogTitle>
         <DialogDescription className="sr-only">{m.command_menu_description()}</DialogDescription>
@@ -243,7 +241,7 @@ export function CommandMenu() {
             {top.kind !== "cheatsheet" && top.kind !== "setting" && (
               <>
                 {sections.showSearchModes && (
-                  <CommandGroup heading={t("command_menu_section_search")}>
+                  <CommandGroup heading={m.command_menu_section_search()}>
                     {COMMAND_SEARCH_MODES.map((mode) => (
                       <CommandItem
                         key={mode.id}
@@ -251,7 +249,7 @@ export function CommandMenu() {
                         onSelect={() => handleSelectSearchMode(mode)}
                       >
                         <RowIcon Icon={mode.Icon} />
-                        <RowContent label={t(mode.labelKey)} hint={t(mode.hintKey)} />
+                        <RowContent label={m[mode.labelKey]()} hint={m[mode.hintKey]()} />
                         <RowAffordance label={m.command_menu_action_open()} />
                       </CommandItem>
                     ))}
@@ -259,7 +257,7 @@ export function CommandMenu() {
                 )}
 
                 {sections.recentItems.length > 0 && (
-                  <CommandGroup heading={t("command_menu_section_recent")}>
+                  <CommandGroup heading={m.command_menu_section_recent()}>
                     {sections.recentItems.map((item) => (
                       <MediaRow
                         key={`recent:${item.id}`}
@@ -271,7 +269,7 @@ export function CommandMenu() {
                 )}
 
                 {sections.showPages && (
-                  <CommandGroup heading={t("command_menu_section_pages")}>
+                  <CommandGroup heading={m.command_menu_section_pages()}>
                     {COMMAND_PAGES.map((page) => (
                       <CommandItem
                         key={page.id}
@@ -279,7 +277,7 @@ export function CommandMenu() {
                         onSelect={() => handleSelectPage(page)}
                       >
                         <RowIcon Icon={page.Icon} />
-                        <RowContent label={t(page.labelKey)} hint={t(page.hintKey)} />
+                        <RowContent label={m[page.labelKey]()} hint={m[page.hintKey]()} />
                         <RowAffordance label={m.command_menu_action_go()} />
                       </CommandItem>
                     ))}
@@ -300,7 +298,10 @@ export function CommandMenu() {
 
                 {sections.mediaItems.length > 0 && sections.mediaSection && (
                   <CommandGroup
-                    heading={t(getMediaHeadingKey(sections.mediaSection, sections.scope))}
+                    heading={m.command_menu_section_media_heading({
+                      section: sections.mediaSection,
+                      scope: sections.scope ?? "all",
+                    })}
                   >
                     {sections.mediaItems.map((item) => (
                       <MediaRow
@@ -313,17 +314,17 @@ export function CommandMenu() {
                 )}
 
                 {sections.showSettings && settings.length > 0 && (
-                  <CommandGroup heading={t("command_menu_section_settings")}>
+                  <CommandGroup heading={m.command_menu_section_settings()}>
                     {settings.map((setting) => (
                       <CommandItem
                         key={setting.id}
-                        value={`${setting.id} ${t(setting.labelKey)} ${t(setting.hintKey)}`}
+                        value={`${setting.id} ${m[setting.labelKey]()} ${m[setting.hintKey]()}`}
                         onSelect={() => handleSelectSetting(setting)}
                       >
                         <RowIcon Icon={setting.Icon} />
                         <RowContent
-                          label={t(setting.labelKey)}
-                          hint={t(setting.hintKey)}
+                          label={m[setting.labelKey]()}
+                          hint={m[setting.hintKey]()}
                           hotkey={setting.hotkey}
                           badge={
                             <span className="shrink-0 rounded-sm border border-border bg-muted px-1.5 py-px font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -338,7 +339,7 @@ export function CommandMenu() {
                 )}
 
                 {sections.showActions && COMMAND_ACTIONS.length > 0 && (
-                  <CommandGroup heading={t("command_menu_section_actions")}>
+                  <CommandGroup heading={m.command_menu_section_actions()}>
                     {COMMAND_ACTIONS.map((action) => (
                       <CommandItem
                         key={action.id}
@@ -347,8 +348,8 @@ export function CommandMenu() {
                       >
                         <RowIcon Icon={action.Icon} />
                         <RowContent
-                          label={t(action.labelKey)}
-                          hint={t(action.hintKey)}
+                          label={m[action.labelKey]()}
+                          hint={m[action.hintKey]()}
                           hotkey={action.hotkey}
                         />
                         <RowAffordance label={m.command_menu_action_run()} />
@@ -370,50 +371,33 @@ export function CommandMenu() {
 function currentSettingValueLabel(setting: SettingItem<string>): string {
   const current = setting.read();
   const opt = setting.options.find((o) => o.id === current);
-  return opt ? t(opt.labelKey) : current;
-}
-
-function getMediaHeadingKey(
-  section: "results" | "trending",
-  scope: CommandScope,
-): StaticMessageKey {
-  if (section === "trending") {
-    return scope === "tv"
-      ? "command_menu_section_trending_tv"
-      : "command_menu_section_trending_movie";
-  }
-  if (scope === "tv") return "command_menu_section_results_tv";
-  if (scope === "movie") return "command_menu_section_results_movie";
-  return "command_menu_section_results";
+  return opt ? m[opt.labelKey]() : current;
 }
 
 function CommandFooter() {
   return (
     <footer className="flex items-center justify-between gap-3 border-t border-border bg-card/40 px-3 py-2 text-[11px] text-muted-foreground/80">
-      {/* Keyboard hints are only meaningful on devices with a real keyboard
-          (i.e. a fine pointer). Touch-first devices hide the group entirely
-          and let the brand fill the row. */}
-      <KbdGroup className="hidden gap-3.5 pointer-fine:inline-flex">
+      <div className="hidden gap-3.5 pointer-fine:inline-flex">
         <span className="inline-flex items-center gap-1.5">
-          <Kbd className="border border-border">
+          <Kbd>
             <ChevronUp className="size-3" />
           </Kbd>
-          <Kbd className="border border-border">
+          <Kbd>
             <ChevronDown className="size-3" />
           </Kbd>
           {m.command_menu_footer_navigate()}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <Kbd className="border border-border">
+          <Kbd>
             <CornerDownLeft className="size-3" />
           </Kbd>
           {m.command_menu_footer_select()}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <Kbd className="border border-border">esc</Kbd>
+          <Kbd>esc</Kbd>
           {m.command_menu_footer_close()}
         </span>
-      </KbdGroup>
+      </div>
       <Logo aria-label={m.home_nav_brand_label()} className="ms-auto size-4 shrink-0" />
     </footer>
   );

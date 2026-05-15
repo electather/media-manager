@@ -15,8 +15,6 @@ vi.mock("sonner", () => ({
 vi.mock("@/paraglide/messages", () => ({
   m: {
     notifications_toast_dismiss_aria: () => "Dismiss",
-    notifications_toast_cluster_title: ({ count }: { count: number }) =>
-      `+${count} more new notifications`,
   },
 }));
 
@@ -39,7 +37,7 @@ vi.mock("@/shared/lib/utils", () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 }));
 
-import { NotificationToastCard, renderToast, renderClusterToast } from "../toast-renderer";
+import { NotificationToastCard, renderToast } from "../toast-renderer";
 import type { ToastDeps } from "../toast-renderer";
 
 function makeItem(
@@ -124,12 +122,12 @@ describe("NotificationToastCard", () => {
 });
 
 describe("renderToast", () => {
-  it("uses duration=Infinity for error severity", () => {
+  it("uses a long but bounded duration for error severity so bursts don't pin the viewport", () => {
     const deps = makeDeps();
     renderToast(makeItem("e", "error"), deps);
     expect(sonnerCustomMock).toHaveBeenCalledTimes(1);
     const opts = sonnerCustomMock.mock.calls[0]![1] as { duration: number };
-    expect(opts.duration).toBe(Infinity);
+    expect(opts.duration).toBe(30_000);
   });
 
   it("uses duration=5000 for warn severity", () => {
@@ -150,14 +148,5 @@ describe("renderToast", () => {
     renderToast(makeItem("abc"), deps);
     const opts = sonnerCustomMock.mock.calls[0]![1] as { id: string };
     expect(opts.id).toBe("notif:abc");
-  });
-});
-
-describe("renderClusterToast", () => {
-  it("calls sonner.custom with duration=5000", () => {
-    const deps = makeDeps();
-    renderClusterToast(3, deps);
-    const opts = sonnerCustomMock.mock.calls[0]![1] as { duration: number };
-    expect(opts.duration).toBe(5_000);
   });
 });

@@ -15,14 +15,20 @@
   "command_menu_section_pages": "TODO",
   "command_menu_section_actions": "TODO",
   "command_menu_section_settings": "TODO",
-  "command_menu_section_results": "TODO",
-  "command_menu_section_results_tv": "TODO",
-  "command_menu_section_results_movie": "TODO",
+  "command_menu_section_media_heading": [
+    {
+      "match": {
+        "section=trending, scope=tv": "TODO",
+        "section=trending, scope=*": "TODO",
+        "section=results, scope=tv": "TODO",
+        "section=results, scope=movie": "TODO",
+        "section=results, scope=*": "TODO"
+      }
+    }
+  ],
   "command_menu_section_media_default": "TODO",
   "command_menu_section_media_tv": "TODO",
   "command_menu_section_media_movie": "TODO",
-  "command_menu_section_trending_tv": "TODO",
-  "command_menu_section_trending_movie": "TODO",
   "command_menu_section_shortcuts_menu": "TODO",
   "command_menu_section_shortcuts_navigate": "TODO",
   "command_menu_section_shortcuts_actions": "TODO",
@@ -69,7 +75,6 @@
 
   "command_menu_setting_theme_label": "TODO",
   "command_menu_setting_theme_hint": "TODO",
-  "command_menu_setting_theme_toast": "TODO",
   "command_menu_setting_locale_label": "TODO",
   "command_menu_setting_locale_hint": "TODO",
   "command_menu_setting_locale_toast": "TODO",

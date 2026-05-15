@@ -10,6 +10,9 @@ import type { MarkReadMutation } from "../inbox/use-inbox-mutations";
 import type { ToastBroadcast } from "./use-toast-broadcast";
 
 const TOAST_BODY_MAX_CHARS = 140;
+// Errors stay sticky for 30s — long enough to read without auto-dismissing,
+// but bounded so a delivery burst can't pin a stack of toasts to the viewport.
+const TOAST_DURATION_BY_SEVERITY = { error: 30_000, warn: 5_000 } as const;
 
 export interface ToastDeps {
   navigate: ReturnType<typeof useNavigate>;
@@ -33,7 +36,9 @@ export function NotificationToastCard({ item, onClick, onDismiss }: CardProps) {
     <div className="flex w-full items-start gap-3 rounded-lg border bg-background p-3 shadow-md">
       <button
         type="button"
-        className={cn("flex min-w-0 flex-1 cursor-pointer select-none items-start gap-3 text-left")}
+        className={cn(
+          "flex min-w-0 flex-1 cursor-pointer select-none items-start gap-3 text-start",
+        )}
         onClick={onClick}
       >
         <SeverityIcon severity={item.severity} />
@@ -57,7 +62,8 @@ export function NotificationToastCard({ item, onClick, onDismiss }: CardProps) {
 export function renderToast(item: NotificationItemDto, deps: ToastDeps): void {
   const { navigate, markReadMutation, broadcast } = deps;
   const toastId = `notif:${item.id}`;
-  const duration = item.severity === "error" ? Infinity : 5_000;
+  const duration =
+    item.severity === "error" ? TOAST_DURATION_BY_SEVERITY.error : TOAST_DURATION_BY_SEVERITY.warn;
 
   sonnerToast.custom(
     (id) => (
@@ -74,29 +80,4 @@ export function renderToast(item: NotificationItemDto, deps: ToastDeps): void {
     { duration, id: toastId },
   );
   broadcast.publish(item.id);
-}
-
-let clusterSeq = 0;
-
-export function renderClusterToast(overflowCount: number, deps: ToastDeps): void {
-  const { navigate } = deps;
-  const toastId = `notif:cluster:${overflowCount}:${++clusterSeq}`;
-
-  sonnerToast.custom(
-    (id) => (
-      <button
-        type="button"
-        className="flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-start shadow-md"
-        onClick={() => {
-          void navigate({ to: "/notifications" });
-          sonnerToast.dismiss(id);
-        }}
-      >
-        <p className="text-sm font-medium text-foreground">
-          {m.notifications_toast_cluster_title({ count: overflowCount })}
-        </p>
-      </button>
-    ),
-    { duration: 5_000, id: toastId },
-  );
 }

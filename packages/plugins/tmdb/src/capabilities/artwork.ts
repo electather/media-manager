@@ -39,10 +39,15 @@ export const artwork = {
     const posterSize = artworkSize(c, "poster");
     const backdropSize = artworkSize(c, "backdrop");
     const clearLogoSize = artworkSize(c, "clearLogo");
+    // Backdrops are background art behind localised text in the UI, so
+    // textless variants ("00") rank above any language-tagged version.
+    // Posters and logos keep the caller's preference order since their
+    // baked-in text is the point.
+    const backdropLangs = ["00", ...langs.filter((l) => l !== "00")];
 
     return {
       poster: mapTmdbImages(data.posters, base, posterSize, langs),
-      backdrop: mapTmdbImages(data.backdrops, base, backdropSize, langs),
+      backdrop: mapTmdbImages(data.backdrops, base, backdropSize, backdropLangs),
       clearLogo: mapTmdbImages(data.logos, base, clearLogoSize, langs),
       // TMDB has no thumb concept; empty array lets the per-kind merge
       // fall through to fanart.

@@ -1,9 +1,10 @@
 import type { RowKind } from "@ent-mcp/shared/home";
-import * as m from "@/paraglide/messages";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
-import { deriveCardState, type CardAvailabilityState } from "../../lib/card-state";
+import { cn } from "@/shared/lib/utils";
+import { deriveCardState } from "../../lib/card-state";
 import { MATCH_REASON_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem } from "../../lib/types";
+import { AvailabilityPill } from "../availability-pill";
 import { sourceLabel } from "./source-label";
 import { TopZoneHeroActions } from "./top-zone-hero-actions";
 
@@ -20,24 +21,6 @@ type Props = {
   onMoreInfo: () => void;
   onDismiss?: () => void;
 };
-
-function formatServerKicker(state: CardAvailabilityState): string | null {
-  if (state.serverLabel) return state.serverLabel;
-  if (state.serverPicker) return m.home_card_servers_count({ n: String(state.serverCount) });
-  return null;
-}
-
-const KICKER_COPY_BY_KIND = {
-  request: m.home_card_request,
-  requested: m.home_card_requested,
-  upcoming: m.home_card_upcoming,
-  info: () => null,
-} satisfies Record<Exclude<CardAvailabilityState["kind"], "server">, () => string | null>;
-
-function formatKicker(state: CardAvailabilityState): string | null {
-  if (state.kind === "server") return formatServerKicker(state);
-  return KICKER_COPY_BY_KIND[state.kind]();
-}
 
 function matchReasonFor(hero: HomeMediaItem): string | null {
   if (!hero.matchReason) return null;
@@ -75,19 +58,10 @@ function HeroClearLogo({
   );
 }
 
-function HeroKicker({ value }: { value: string | null }) {
-  if (!value) return null;
-  return (
-    <div className="inline-flex min-h-5.5 w-fit items-center rounded-md border border-border bg-card/40 px-2 font-mono text-xs uppercase tracking-[0.04em] text-primary">
-      {value}
-    </div>
-  );
-}
-
 function HeroOverview({ value }: { value: string | undefined }) {
   if (!value) return null;
   return (
-    <p className="m-0 line-clamp-3 max-w-170 text-pretty text-sm leading-[1.5] text-foreground/85 sm:line-clamp-4 sm:text-base sm:leading-[1.58]">
+    <p className="m-0 line-clamp-3 max-w-170 text-pretty text-sm leading-normal text-foreground/85 sm:line-clamp-4 sm:text-base sm:leading-[1.58]">
       {value}
     </p>
   );
@@ -110,33 +84,49 @@ function HeroSourceLabel({ value }: { value: string }) {
 }
 
 export function TopZoneHeroCard({ hero, source, percent, onPlay, onMoreInfo, onDismiss }: Props) {
-  const kicker = formatKicker(deriveCardState(hero));
+  const availability = deriveCardState(hero);
   const reason = matchReasonFor(hero);
+  // For movies the clear logo is the stylized title artwork, so showing a
+  // separate heading underneath duplicates the same words. Keep the heading
+  // in the accessibility tree (sr-only) so the section still has a level-1
+  // landmark and screen-reader users get a heading to navigate to.
+  const logoActsAsTitle =
+    hero.mediaType === "movie" && Boolean(hero.clearLogo ?? hero.clearLogoText);
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9">
-      <HeroSourceLabel value={sourceLabel(source)} />
-      <HeroClearLogo src={hero.clearLogo} text={hero.clearLogoText} alt={hero.title} />
-      <HeroKicker value={kicker} />
-      <h1 className="m-0 max-w-180 text-balance font-heading text-3xl font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl sm:leading-[1.03]">
-        {hero.title}
-      </h1>
-      <MediaMetaRow
-        year={hero.year}
-        runtime={hero.runtime}
-        ageRating={hero.ageRating}
-        rating={hero.rating}
-        genres={hero.genres}
-        className="text-foreground/75 sm:text-base"
+    <>
+      <AvailabilityPill
+        state={availability}
+        className="pointer-events-none absolute inset-e-4 top-4 z-4 max-w-[calc(100%-2rem)] overflow-hidden text-ellipsis whitespace-nowrap sm:inset-e-6 sm:top-6"
       />
-      <HeroOverview value={hero.overview} />
-      <HeroReason value={reason} />
-      <TopZoneHeroActions
-        hasProgress={percent !== null}
-        onPlay={onPlay}
-        onMoreInfo={onMoreInfo}
-        onDismiss={onDismiss}
-      />
-    </div>
+      <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9">
+        <HeroSourceLabel value={sourceLabel(source)} />
+        <HeroClearLogo src={hero.clearLogo} text={hero.clearLogoText} alt={hero.title} />
+        <h1
+          className={cn(
+            "m-0 max-w-180 text-balance font-heading text-3xl font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl sm:leading-[1.03]",
+            logoActsAsTitle && "sr-only",
+          )}
+        >
+          {hero.title}
+        </h1>
+        <MediaMetaRow
+          year={hero.year}
+          runtime={hero.runtime}
+          ageRating={hero.ageRating}
+          rating={hero.rating}
+          genres={hero.genres}
+          className="text-foreground/75 sm:text-base"
+        />
+        <HeroOverview value={hero.overview} />
+        <HeroReason value={reason} />
+        <TopZoneHeroActions
+          hasProgress={percent !== null}
+          onPlay={onPlay}
+          onMoreInfo={onMoreInfo}
+          onDismiss={onDismiss}
+        />
+      </div>
+    </>
   );
 }

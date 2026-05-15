@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AVAILABILITY_STATUSES, MEDIA_TYPES } from "../media/enums";
 import { MATCH_REASON_KEYS } from "./enums";
+import { mediaTypeSchema } from "../media/schema-base";
 
 /** `home.getLayout` takes no input. Strict empty schema rejects extra keys. */
 export const homeGetLayoutInputSchema = z.object({}).strict();
@@ -116,7 +117,7 @@ export const homeGetRowContentInputSchema = z
 export const homeGetDetailsInputSchema = z
   .object({
     tmdbId: z.string().min(1),
-    mediaType: z.enum(["movie", "tv"]),
+    mediaType: mediaTypeSchema,
   })
   .strict();
 

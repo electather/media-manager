@@ -41,6 +41,7 @@
     "**/plan/**",
     "**/docs/**",
     "**/docker/**",
+    "apps/client/public/**",
     "packages/plugins/**"
   ],
   "rules": {

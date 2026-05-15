@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { MediaItemShape } from "@ent-mcp/plugin-sdk";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 
 const availabilityStatusSchema = z.enum([
   "available",
@@ -15,7 +16,7 @@ export type AvailabilityStatus = z.infer<typeof availabilityStatusSchema>;
 export const compactMediaResultSchema = z.object({
   id: z.string(),
   title: z.string(),
-  type: z.enum(["movie", "tv"]),
+  type: mediaTypeSchema,
   year: z.number().int().optional(),
   genres: z.array(z.string()).optional(),
   rating: z.number().optional(),

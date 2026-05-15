@@ -1,9 +1,9 @@
-import { useTheme } from "next-themes";
 import { isString } from "es-toolkit/predicate";
 import { useMemo } from "react";
 
 import { getLocale, locales, setLocale } from "@/paraglide/runtime";
 import { applyLocaleStyling } from "@/shared/lib/i18n/apply";
+import { useTheme } from "@/shared/lib/theme";
 
 import { COMMAND_SETTINGS } from "../registry/settings";
 import { type ThemeName, THEMES } from "../registry/settings/theme";
@@ -17,7 +17,7 @@ function isTheme(value: string | undefined): value is ThemeName {
 
 /**
  * Returns the static settings catalog with `read` / `write` bound to runtime
- * helpers (`next-themes`, Paraglide). Keeping the binding here lets the
+ * helpers (the app theme provider, Paraglide). Keeping the binding here lets the
  * registry stay free of React hooks while the menu still picks up the live
  * value when re-rendering.
  */
@@ -38,7 +38,10 @@ export function useBoundSettings(): readonly SettingItem<string>[] {
             const candidate = theme ?? resolvedTheme;
             return isTheme(candidate) ? candidate : "system";
           },
-          write: (next) => setTheme(next),
+          write: (next) => {
+            if (!isTheme(next)) throw new Error("Unsupported theme");
+            setTheme(next);
+          },
         };
       }
       if (setting.id === "setting:locale") {

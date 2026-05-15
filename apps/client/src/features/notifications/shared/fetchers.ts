@@ -22,6 +22,21 @@ export async function fetchInboxPage(filters: InboxFilters, cursor: string | nul
   );
 }
 
+export async function fetchInboxAfter(
+  cursor: string,
+  opts: { unreadOnly?: boolean; limit?: number },
+) {
+  return readJson(
+    await api.notifications.inbox.$get({
+      query: {
+        after: cursor,
+        ...(opts.unreadOnly ? { unreadOnly: "true" as const } : {}),
+        limit: String(opts.limit ?? 10),
+      },
+    }),
+  );
+}
+
 export async function fetchUnreadCount() {
   return readJson(await api.notifications.inbox["unread-count"].$get());
 }

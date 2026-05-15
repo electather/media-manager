@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { encodeCursor } from "@ent-mcp/shared/home";
 import { HttpError } from "../diagnostics/http-errors";
 
 /**
@@ -7,18 +8,15 @@ import { HttpError } from "../diagnostics/http-errors";
  * a client cannot craft a payload that smuggles unknown fields past the
  * provider.
  *
+ * `encodeCursor` lives in `@ent-mcp/shared/home` because the few clients
+ * that have to mint a seed cursor without a round-trip (media-detail's
+ * "Similar to" row) must agree on the byte string. Decoding stays here
+ * because it couples to zod schemas + `HttpError`.
+ *
  * Decoding errors throw `HttpError 400 "home.bad_input"` so cursor failures
  * land on the same code as the orchestrator's missing-cursor rejection,
  * keeping the home-feed error namespace single-prefixed.
  */
-
-function base64urlEncode(input: string): string {
-  return Buffer.from(input, "utf8")
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/u, "");
-}
 
 function base64urlDecode(input: string): string {
   const pad = (4 - (input.length % 4)) % 4;
@@ -26,9 +24,7 @@ function base64urlDecode(input: string): string {
   return Buffer.from(normalized, "base64").toString("utf8");
 }
 
-export function encodeCursor(payload: unknown): string {
-  return base64urlEncode(JSON.stringify(payload));
-}
+export { encodeCursor };
 
 export function decodeCursor<T>(cursor: string, schema: z.ZodType<T>): T {
   let decoded: string;

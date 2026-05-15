@@ -7,9 +7,8 @@ describe("THEME_SETTING", () => {
     expect(THEME_SETTING.options.map((o) => o.id)).toEqual([...THEMES]);
   });
 
-  it("declares a hotkey + toast key", () => {
-    expect(THEME_SETTING.hotkey).toBe("Mod+Shift+T");
-    expect(THEME_SETTING.toastKey).toBe("command_menu_setting_theme_toast");
+  it("declares a hotkey", () => {
+    expect(THEME_SETTING.hotkey).toBe("Mod+Alt+T");
   });
 
   it("uses unique option ids", () => {

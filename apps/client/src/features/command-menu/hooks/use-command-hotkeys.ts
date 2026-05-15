@@ -15,7 +15,6 @@ import { m } from "@/paraglide/messages";
 import { getLocale } from "@/paraglide/runtime";
 
 import { COMMAND_PAGES } from "../registry/pages";
-import { t } from "../lib/i18n";
 import type { Contribution } from "../types";
 
 // Custom-event opener fired by the top-nav search button. Kept on its current
@@ -111,8 +110,8 @@ export function useCommandHotkeys({
             options: {
               enabled: !open,
               meta: {
-                name: t(page.labelKey),
-                description: t(page.hintKey),
+                name: m[page.labelKey](),
+                description: m[page.hintKey](),
                 group: "navigate",
               },
             },
@@ -137,8 +136,8 @@ export function useCommandHotkeys({
             options: {
               enabled: open,
               meta: {
-                name: t(hotkeyContribution.labelKey),
-                description: t(hotkeyContribution.hintKey),
+                name: m[hotkeyContribution.labelKey](),
+                description: m[hotkeyContribution.hintKey](),
                 group: "action",
               },
             },

@@ -11,6 +11,7 @@ import { ErrorBoundary } from "./shared/components/error-boundary";
 import { installGlobalErrorHandlers } from "./shared/lib/diagnostics/global-handlers";
 import { useHtmlDir } from "./shared/hooks/use-html-dir";
 import { DirectionProvider } from "./shared/ui/direction";
+import { ThemeProvider } from "./shared/lib/theme";
 
 installGlobalErrorHandlers();
 
@@ -36,13 +37,15 @@ createRoot(rootEl).render(
   <StrictMode>
     <ErrorBoundary>
       <I18nRoot>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <RouterProvider router={router} />
-          </TooltipProvider>
-          <Toaster />
-          <ReactQueryDevtools initialIsOpen={false} />
-        </QueryClientProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <RouterProvider router={router} />
+            </TooltipProvider>
+            <Toaster />
+            <ReactQueryDevtools initialIsOpen={false} />
+          </QueryClientProvider>
+        </ThemeProvider>
       </I18nRoot>
     </ErrorBoundary>
   </StrictMode>,

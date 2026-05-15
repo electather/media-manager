@@ -1,12 +1,16 @@
-import { describe, expect, it } from "vite-plus/test";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 import provider from "../because-you-watched";
+import { __clearSimilarFeedCacheForTests } from "../_shared";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
 import { decodeCursor, encodeCursor } from "../../cursor";
+import { mediaTypeSchema } from "@ent-mcp/shared";
+
+beforeEach(() => __clearSimilarFeedCacheForTests());
 
 const cursorSchema = z.object({
   seedId: z.string().min(1),
-  seedType: z.enum(["movie", "tv"]),
+  seedType: mediaTypeSchema,
   offset: z.number().int().min(0),
 });
 

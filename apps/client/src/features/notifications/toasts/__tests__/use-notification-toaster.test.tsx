@@ -21,20 +21,15 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 const fetchInboxPageMock = vi.fn();
+const fetchInboxAfterMock = vi.fn();
 vi.mock("../../shared/fetchers", () => ({
   fetchInboxPage: (...args: unknown[]) => fetchInboxPageMock(...args),
-}));
-
-const fetchInboxAfterMock = vi.fn();
-vi.mock("../fetch-inbox-after", () => ({
   fetchInboxAfter: (...args: unknown[]) => fetchInboxAfterMock(...args),
 }));
 
 const renderToastMock = vi.fn();
-const renderClusterToastMock = vi.fn();
 vi.mock("../toast-renderer", () => ({
   renderToast: (...args: unknown[]) => renderToastMock(...args),
-  renderClusterToast: (...args: unknown[]) => renderClusterToastMock(...args),
 }));
 
 // Stable broadcast stub — has() always returns false unless overridden per test.
@@ -76,7 +71,6 @@ beforeEach(() => {
   fetchInboxPageMock.mockReset();
   fetchInboxAfterMock.mockReset();
   renderToastMock.mockReset();
-  renderClusterToastMock.mockReset();
   // Default seed: one item so cursor gets set.
   fetchInboxPageMock.mockResolvedValue({ items: [makeItem("seed")] });
 });
@@ -113,10 +107,9 @@ describe("useNotificationToaster", () => {
     await waitFor(() => expect(renderToastMock).toHaveBeenCalledTimes(2));
     expect(renderToastMock).toHaveBeenCalledWith(items[0], expect.anything());
     expect(renderToastMock).toHaveBeenCalledWith(items[1], expect.anything());
-    expect(renderClusterToastMock).not.toHaveBeenCalled();
   });
 
-  it("overflow: 6 new toastable items → 3 individual toasts + cluster with count=3", async () => {
+  it("bursts: every fresh item renders individually (Sonner clusters in the UI)", async () => {
     mockCount = 5;
     const items = Array.from({ length: 6 }, (_, i) => makeItem(`n-${i}`));
     fetchInboxAfterMock.mockResolvedValue({ items });
@@ -130,10 +123,7 @@ describe("useNotificationToaster", () => {
       rerender();
     });
 
-    await waitFor(() => expect(renderToastMock).toHaveBeenCalledTimes(3));
-    expect(renderClusterToastMock).toHaveBeenCalledTimes(1);
-    // Cluster receives the overflow count (6 total - 3 shown = 3).
-    expect(renderClusterToastMock).toHaveBeenCalledWith(3, expect.anything());
+    await waitFor(() => expect(renderToastMock).toHaveBeenCalledTimes(6));
   });
 
   it("null-cursor recovery: count 0→1 with null cursor toasts newest item and seeds cursor", async () => {
@@ -159,6 +149,29 @@ describe("useNotificationToaster", () => {
     await waitFor(() => expect(renderToastMock).toHaveBeenCalledTimes(1));
     expect(renderToastMock).toHaveBeenCalledWith(freshItem, expect.anything());
     expect(fetchInboxAfterMock).not.toHaveBeenCalled();
+  });
+
+  it("multi-page drain: follows nextCursor until exhausted, renders every item", async () => {
+    mockCount = 5;
+    const page1 = Array.from({ length: 10 }, (_, i) => makeItem(`p1-${i}`));
+    const page2 = Array.from({ length: 4 }, (_, i) => makeItem(`p2-${i}`));
+    fetchInboxAfterMock
+      .mockResolvedValueOnce({ items: page1, nextCursor: "cursor-page-2" })
+      .mockResolvedValueOnce({ items: page2 });
+
+    const { rerender } = renderHook(() => useNotificationToaster(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(fetchInboxPageMock).toHaveBeenCalledTimes(1));
+
+    mockCount = 19;
+    await act(async () => {
+      rerender();
+    });
+
+    // Both pages must be drained — guards against the single-page regression
+    // where the loop exits before nextCursor is followed.
+    await waitFor(() => expect(fetchInboxAfterMock).toHaveBeenCalledTimes(2));
+    expect(renderToastMock).toHaveBeenCalledTimes(14);
   });
 
   it("dedup: items already in broadcast are not rendered", async () => {

@@ -10,8 +10,10 @@
     "imdb",
     "inlang",
     "paraglide",
+    "recents",
     "SEERR",
     "tmdb",
+    "toastable",
     "Triggerable",
     "tvdb",
     "watchlist"

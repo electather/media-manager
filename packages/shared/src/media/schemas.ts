@@ -2,10 +2,9 @@
 
 import { z } from "zod";
 import { compactMediaItemSchema } from "../home/schemas";
-import { AVAILABILITY_STATUSES, MEDIA_TYPES } from "./enums";
+import { availabilityStatusSchema, mediaTypeSchema } from "./schema-base";
 
-export const mediaTypeSchema = z.enum(MEDIA_TYPES);
-export const availabilityStatusSchema = z.enum(AVAILABILITY_STATUSES);
+export { availabilityStatusSchema, mediaTypeSchema };
 
 /** Query for `GET /api/discover/search`. */
 export const discoverSearchQuerySchema = z.object({
@@ -111,7 +110,7 @@ export type RequestTargetsQuery = z.infer<typeof requestTargetsQuerySchema>;
 export const mediaRequestSchema = z.object({
   id: z.string(),
   tmdbId: z.string(),
-  type: z.enum(MEDIA_TYPES),
+  type: mediaTypeSchema,
   title: z.string(),
   status: z.enum(["pending", "approved", "processing", "available", "failed"]),
   seasons: z.array(z.number().int().nonnegative()),

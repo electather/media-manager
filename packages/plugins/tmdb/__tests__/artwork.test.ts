@@ -41,6 +41,40 @@ describe("artwork capability contract", () => {
     expect(bundle.thumb).toEqual([]);
   });
 
+  it("ranks textless backdrops above language-tagged variants", async () => {
+    // Backdrops are the background layer behind UI text — text baked into
+    // the image clashes with localised overlays. Posters/logos still prefer
+    // the caller's language order since their text is the point.
+    const ctx = makeCtx([
+      jsonRes({
+        posters: [
+          { file_path: "/p-en.jpg", iso_639_1: "en", vote_average: 9 },
+          { file_path: "/p-textless.jpg", iso_639_1: null, vote_average: 1 },
+        ],
+        backdrops: [
+          { file_path: "/b-en.jpg", iso_639_1: "en", vote_average: 9 },
+          { file_path: "/b-textless.jpg", iso_639_1: null, vote_average: 1 },
+        ],
+        logos: [],
+      }),
+    ]);
+    const out = await tmdbPlugin.capabilities.artwork!.getArtwork!(ctx, {
+      ids: { tmdb: "550" },
+      type: "movie",
+      languages: ["en", "00"],
+    });
+    const bundle = out as {
+      poster: Array<{ url: string; language: string }>;
+      backdrop: Array<{ url: string; language: string }>;
+    };
+    // Posters keep English-first preference even with a higher-voted textless.
+    expect(bundle.poster[0]?.language).toBe("en");
+    // Backdrops invert: textless wins regardless of votes.
+    expect(bundle.backdrop[0]?.language).toBe("00");
+    expect(bundle.backdrop[0]?.url).toContain("/b-textless.jpg");
+    expect(bundle.backdrop[1]?.language).toBe("en");
+  });
+
   it("throws plugin.input_invalid without tmdb id (defensive guard)", async () => {
     const ctx = makeCtx([]);
     await expect(

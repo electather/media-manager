@@ -2,12 +2,13 @@ import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../cursor";
 import type { RowProvider } from "../types";
 import { fetchSimilarPage } from "./_shared";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 
 const PAGE_SIZE = 12;
 
 const cursorSchema = z.object({
   tmdbId: z.string().min(1),
-  mediaType: z.enum(["movie", "tv"]),
+  mediaType: mediaTypeSchema,
   offset: z.number().int().min(0),
 });
 

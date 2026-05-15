@@ -1,21 +1,22 @@
-import { orderBy } from "es-toolkit/array";
+import { orderBy, zip } from "es-toolkit/array";
+import { isNil, isNotNil } from "es-toolkit/predicate";
 import { invariant } from "es-toolkit/util";
 import { consola } from "consola";
 import { z } from "zod";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
-
-const perKindInputSchema = z.object({
-  ids: z.record(z.string(), z.unknown()).optional(),
-  type: z.enum(["movie", "tv"]).optional(),
-});
+import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { invokeOne } from "../invoke";
 import { PluginCallError, type InvocationOutcome } from "../errors";
 import type { DispatchRequest } from "../types";
-import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
-import { isNil } from "es-toolkit/predicate";
+
+const perKindInputSchema = z.object({
+  ids: z.record(z.string(), z.unknown()).optional(),
+  type: mediaTypeSchema.optional(),
+});
 
 interface PerKindProvider {
   pluginId: string;
@@ -64,7 +65,7 @@ function canServePerKind(
   ids: Record<string, unknown>,
   type: "movie" | "tv",
 ): boolean {
-  return provider.supportedIdTypes[type].some((t) => Boolean(ids[t]));
+  return provider.supportedIdTypes[type].some((t) => isNotNil(ids[t]));
 }
 
 // fallow-ignore-next-line complexity
@@ -142,8 +143,8 @@ function collectSuccessful(
 ): { successful: Array<Record<string, unknown[]>>; allFailed: boolean } {
   const successful: Array<Record<string, unknown[]>> = [];
   let allFailed = true;
-  for (const [idx, outcome] of settled.entries()) {
-    const provider = providers[idx]!;
+  for (const [outcome, provider] of zip(settled, providers)) {
+    if (!outcome || !provider) continue;
     if (outcome.status !== "fulfilled") {
       consola.debug(
         `[dispatcher] ${req.capability}@${req.version} provider ${provider.pluginId} rejected:`,
@@ -167,23 +168,18 @@ function collectSuccessful(
   return { successful, allFailed };
 }
 
-// fallow-ignore-next-line complexity
 function mergeBundle(
   perKindFields: readonly string[],
   successful: Array<Record<string, unknown[]>>,
 ): Record<string, unknown[]> {
-  const bundle: Record<string, unknown[]> = {};
-  for (const field of perKindFields) bundle[field] = [];
-  for (const field of perKindFields) {
-    for (const result of successful) {
-      const arr = result[field];
-      if (Array.isArray(arr) && arr.length > 0) {
-        bundle[field] = arr;
-        break;
-      }
-    }
-  }
-  return bundle;
+  return Object.fromEntries(
+    perKindFields.map((field) => {
+      const winner = successful.find(
+        (r) => Array.isArray(r[field]) && (r[field] as unknown[]).length > 0,
+      );
+      return [field, winner?.[field] ?? []];
+    }),
+  );
 }
 
 /**

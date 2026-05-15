@@ -137,12 +137,14 @@ Shared schemas + event registry: `@ent-mcp/shared/notifications`.
 - V63. Locale strategy chain frozen `["localStorage", "preferredLanguage", "baseLocale"]` v1. ⊥ add `url`/`cookie` w/o spec amend — URL strategy needs redirect-loop audit w/ modal navigation.
 - V64. `<html dir>` attr managed by single root hook reading `getLocale()`. RTL set ⇔ `RTL_LOCALES = ["fa"] as const` includes locale. ⊥ component-local `dir` attrs.
 - V65. Admin plugin personal-key fallback controls render iff server-derived `supportsPersonalKeyFallback` is true: plugin declares `sharedCredentialsSchema` ∧ at least one user-scoped capability. Pure-global plugins and user-scoped plugins without shared credentials schema ⊥ show fallback mode choices.
+- V66. TopZone ambient src switch → retained old layer opacity-0 while active layer opacity-90. ⊥ two opacity-90 ambient imgs overlap.
 
 ## §B Bugs
 
 | id | date       | root cause                                                                                                  | catches |
 | -- | ---------- | ----------------------------------------------------------------------------------------------------------- | ------- |
 | B1 | 2026-05-12 | Admin plugin fallback UI inferred eligibility locally instead of using shared-credentials + user-scope rule. | V65     |
+| B2 | 2026-05-14 | TopZoneAmbient retained outgoing layer at `opacity-90` during src switch.                                   | V66     |
 
 | id  | status | desc                                                                                                                                                                                                                            | cites                                      |
 | --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |

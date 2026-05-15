@@ -1,3 +1,4 @@
+import { cn } from "@/shared/lib/utils";
 import { useEffect, useRef, useState, startTransition } from "react";
 
 const FADE_OUT_MS = 900;
@@ -26,11 +27,13 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
     return () => window.clearTimeout(timer);
   }, [src]);
 
+  const activeLayerId = layers.at(-1)?.id;
+
   return (
     <div
       aria-hidden="true"
       data-testid="top-zone-ambient"
-      className="pointer-events-none select-none absolute inset-x-0 -top-32 -bottom-32"
+      className="pointer-events-none select-none absolute inset-x-0 -top-10 -bottom-32"
     >
       {layers.map((layer) => (
         <img
@@ -39,7 +42,10 @@ export function TopZoneAmbient({ src }: { src: string | undefined }) {
           alt=""
           fetchPriority="low"
           decoding="async"
-          className="absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.9] transition-opacity duration-700 ease-out backface-hidden will-change-[opacity] opacity-90 starting:opacity-0"
+          className={cn(
+            "absolute inset-0 size-full transform-gpu object-cover blur-[110px] saturate-[1.3] transition-opacity duration-700 ease-out backface-hidden will-change-[opacity]",
+            layer.id === activeLayerId ? "opacity-60 starting:opacity-0" : "opacity-0",
+          )}
         />
       ))}
     </div>
