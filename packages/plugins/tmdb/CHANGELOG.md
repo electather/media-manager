@@ -1,5 +1,11 @@
 # @ent-mcp/plugin-tmdb
 
+## 0.3.3
+
+### Patch Changes
+
+- a389685: Backdrops now prefer textless variants over language-tagged versions, so UI overlays no longer clash with text baked into the artwork.
+
 ## 0.3.2
 
 ### Patch Changes

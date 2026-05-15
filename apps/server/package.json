@@ -1,6 +1,6 @@
 {
   "name": "@ent-mcp/server",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": false,
   "description": "MCP server and API backend for ent-mcp — self-hosted entertainment management with Hono, Better Auth, and a plugin system.",
   "keywords": [

@@ -1,5 +1,28 @@
 # @ent-mcp/client
 
+## 0.6.0
+
+### Minor Changes
+
+- e80b956: Fresh notifications now surface as in-app toasts when you're on the page, with click-to-open and dismiss actions.
+- 8a9f3f5: The "More like this" section on media detail pages now fetches items similar to the current title instead of a generic recommendation feed.
+- 4d9f95d: Added request actions to TV seasons on the media detail page, with a disabled "No plugin configured" affordance when no request service is available.
+
+### Patch Changes
+
+- 536f4aa: Fixed admin plugin personal-key fallback controls for shared user-scoped plugins.
+- ee5a02b: Fixed shared credential metadata edits so the existing credential is tested before saving.
+- a389685: Improved logo contrast when using light mode.
+- c1bf5c2: Improved localized time and duration formatting across the client.
+- 0813d5b: Surfaced partial media detail warnings when provider details failed.
+- a389685: Removed the "+N more" cluster toast; bursts of new notifications now stack individually and rely on the toaster's native grouping.
+- a389685: Fixed home hero overlays so availability and ambient glow no longer crowd the copy.
+- a389685: Rebound the theme picker shortcut to Mod+Alt+T so it no longer clashes with the browser's "reopen closed tab" binding.
+- a389685: Fixed the top navigation scrim so it adapts to light and dark themes.
+- a389685: Fixed the home hero ambient backdrop crossfade so switching highlights no longer doubled the glow.
+- a389685: Fixed the hero carousel snapping back to the first slide when pressing More Info, made slide swaps feel snappier by preloading the next backdrop and deferring the ambient blur, and removed the duplicate movie title that repeated the clear logo artwork.
+- a389685: Fixed theme switching so light and dark mode persist without a first-paint flash.
+
 ## 0.5.0
 
 ### Minor Changes
