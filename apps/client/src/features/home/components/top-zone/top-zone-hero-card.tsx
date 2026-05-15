@@ -1,5 +1,6 @@
 import type { RowKind } from "@ent-mcp/shared/home";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
+import { cn } from "@/shared/lib/utils";
 import { deriveCardState } from "../../lib/card-state";
 import { MATCH_REASON_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem } from "../../lib/types";
@@ -85,17 +86,28 @@ function HeroSourceLabel({ value }: { value: string }) {
 export function TopZoneHeroCard({ hero, source, percent, onPlay, onMoreInfo, onDismiss }: Props) {
   const availability = deriveCardState(hero);
   const reason = matchReasonFor(hero);
+  // For movies the clear logo is the stylized title artwork, so showing a
+  // separate heading underneath duplicates the same words. Keep the heading
+  // in the accessibility tree (sr-only) so the section still has a level-1
+  // landmark and screen-reader users get a heading to navigate to.
+  const logoActsAsTitle =
+    hero.mediaType === "movie" && Boolean(hero.clearLogo ?? hero.clearLogoText);
 
   return (
     <>
       <AvailabilityPill
         state={availability}
-        className="pointer-events-none absolute end-4 top-4 z-4 max-w-[calc(100%-2rem)] overflow-hidden text-ellipsis whitespace-nowrap sm:end-6 sm:top-6"
+        className="pointer-events-none absolute inset-e-4 top-4 z-4 max-w-[calc(100%-2rem)] overflow-hidden text-ellipsis whitespace-nowrap sm:inset-e-6 sm:top-6"
       />
       <div className="absolute inset-x-0 bottom-0 z-3 flex w-[88%] max-w-205 flex-col items-start gap-2.5 px-5 pt-6 pb-5 text-foreground sm:gap-3 sm:px-9 sm:pt-9 sm:pb-8 md:px-10 md:pb-9">
         <HeroSourceLabel value={sourceLabel(source)} />
         <HeroClearLogo src={hero.clearLogo} text={hero.clearLogoText} alt={hero.title} />
-        <h1 className="m-0 max-w-180 text-balance font-heading text-3xl font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl sm:leading-[1.03]">
+        <h1
+          className={cn(
+            "m-0 max-w-180 text-balance font-heading text-3xl font-bold leading-[1.08] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)] sm:text-5xl sm:leading-[1.03]",
+            logoActsAsTitle && "sr-only",
+          )}
+        >
           {hero.title}
         </h1>
         <MediaMetaRow

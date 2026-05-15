@@ -1,4 +1,12 @@
-import { useCallback, useState, type ReactNode } from "react";
+import {
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useState,
+  ViewTransition,
+  type ReactNode,
+} from "react";
+import { preload } from "react-dom";
 import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
 import type { HeroSlideUI, HomeMediaItem } from "../../lib/types";
@@ -127,34 +135,55 @@ export function TopZone({ slides, onPeek }: Props) {
   return <TopZoneCarousel key={slidesKey} slides={slides} onPeek={onPeek} />;
 }
 
+function ambientSrcFor(slide: HeroSlideUI): string | undefined {
+  return slide.backdrop ?? slide.poster;
+}
+
 function TopZoneCarousel({ slides, onPeek }: Props) {
   const candidates = slides;
   const [activeIndex, setActiveIndex] = useState(0);
   const active = candidates[activeIndex] ?? candidates[0]!;
-  const ambientSrc = active.backdrop ?? active.poster;
+  // Defer the blurred ambient backdrop so hero copy/buttons snap immediately
+  // on slide swap; the expensive blur+saturate filter catches up after.
+  const ambientSrc = useDeferredValue(ambientSrcFor(active));
   const percent = progressPercent(active.progress);
 
+  // Warm the next slide's ambient image so dot-clicks don't wait on a fetch.
+  // `preload` is render-safe and deduped by React DOM per href.
+  const nextSrc = ambientSrcFor(candidates[(activeIndex + 1) % candidates.length] ?? active);
+  if (nextSrc) preload(nextSrc, { as: "image", fetchPriority: "low" });
+
+  const selectIndex = useCallback((index: number) => {
+    startTransition(() => {
+      setActiveIndex(index);
+    });
+  }, []);
   const cycleAlternate = useCallback(() => {
-    setActiveIndex((idx) => (idx + 1) % candidates.length);
+    startTransition(() => {
+      setActiveIndex((idx) => (idx + 1) % candidates.length);
+    });
   }, [candidates.length]);
 
   return (
     <section data-testid="top-zone" aria-label={active.title} className="relative isolate mb-2">
       <TopZoneAmbient src={ambientSrc} />
       <HeroFrame ambientSrc={ambientSrc} percent={percent}>
-        <TopZoneHeroCard
-          hero={active}
-          source={active.source}
-          percent={percent}
-          // v1: `slide.resumeUrl === null` (R2 / Amendment 3 §Server composition
-          // step 6) — plugin SDK has no `playback@v1.getResumeUrl` method, so
-          // Play opens the detail modal as a nav-to-detail action.
-          onPlay={() => onPeek(active.id)}
-          onMoreInfo={() => onPeek(active.id)}
-          onDismiss={dismissHandler(candidates, cycleAlternate)}
-        />
+        <ViewTransition name="top-zone-hero">
+          <TopZoneHeroCard
+            key={`${active.source}:${active.id}`}
+            hero={active}
+            source={active.source}
+            percent={percent}
+            // v1: `slide.resumeUrl === null` (R2 / Amendment 3 §Server composition
+            // step 6) — plugin SDK has no `playback@v1.getResumeUrl` method, so
+            // Play opens the detail modal as a nav-to-detail action.
+            onPlay={() => onPeek(active.id)}
+            onMoreInfo={() => onPeek(active.id)}
+            onDismiss={dismissHandler(candidates, cycleAlternate)}
+          />
+        </ViewTransition>
       </HeroFrame>
-      <HeroAlternates candidates={candidates} activeIndex={activeIndex} onSelect={setActiveIndex} />
+      <HeroAlternates candidates={candidates} activeIndex={activeIndex} onSelect={selectIndex} />
     </section>
   );
 }

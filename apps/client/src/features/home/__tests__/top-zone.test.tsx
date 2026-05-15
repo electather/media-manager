@@ -175,6 +175,36 @@ describe("TopZone", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Different Hero" })).toBeTruthy();
   });
 
+  it("hides the duplicate movie title visually when the clear logo carries it, keeping the heading for screen readers", () => {
+    render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
+    const heading = screen.getByRole("heading", { level: 1, name: SLIDES[0]!.title });
+    expect(heading.className).toContain("sr-only");
+  });
+
+  it("keeps the title visible for movies that have no clear logo or logo text", () => {
+    const slide: HeroSlideUI = {
+      ...SLIDES[0]!,
+      title: "Plain Title",
+      clearLogo: undefined,
+      clearLogoText: undefined,
+    };
+    render(<TopZone slides={[slide]} onPeek={vi.fn()} />);
+    const heading = screen.getByRole("heading", { level: 1, name: "Plain Title" });
+    expect(heading.className).not.toContain("sr-only");
+  });
+
+  it("keeps the heading visible for TV shows even when a clear logo is present", () => {
+    const slide: HeroSlideUI = {
+      ...SLIDES[0]!,
+      mediaType: "tv",
+      title: "Show Title",
+      clearLogoText: "SHOW·LOGO",
+    };
+    render(<TopZone slides={[slide]} onPeek={vi.fn()} />);
+    const heading = screen.getByRole("heading", { level: 1, name: "Show Title" });
+    expect(heading.className).not.toContain("sr-only");
+  });
+
   it("renders the active slide availability pill in the hero frame top right", () => {
     render(
       <TopZone
@@ -197,7 +227,7 @@ describe("TopZone", () => {
     expect(screen.getByTestId("top-zone-hero-frame").contains(pill)).toBe(true);
     expect(pill!.className).toContain("absolute");
     expect(pill!.className).toContain("top-4");
-    expect(pill!.className).toContain("end-4");
+    expect(pill!.className).toContain("inset-e-4");
     expect(pill!.className).toContain("rounded-full");
     expect(pill!.className).toContain("gap-1");
     expect(pill!.className).toContain("border-success/40");
