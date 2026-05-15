@@ -4,12 +4,13 @@ import provider from "../similar-to";
 import { __clearSimilarFeedCacheForTests } from "../_shared";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
 import { decodeCursor, encodeCursor } from "../../cursor";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 
 beforeEach(() => __clearSimilarFeedCacheForTests());
 
 const cursorSchema = z.object({
   tmdbId: z.string().min(1),
-  mediaType: z.enum(["movie", "tv"]),
+  mediaType: mediaTypeSchema,
   offset: z.number().int().min(0),
 });
 

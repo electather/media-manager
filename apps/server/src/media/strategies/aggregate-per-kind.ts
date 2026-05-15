@@ -3,6 +3,7 @@ import { isNil, isNotNil } from "es-toolkit/predicate";
 import { invariant } from "es-toolkit/util";
 import { consola } from "consola";
 import { z } from "zod";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
 import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime/registry";
@@ -14,7 +15,7 @@ import type { DispatchRequest } from "../types";
 
 const perKindInputSchema = z.object({
   ids: z.record(z.string(), z.unknown()).optional(),
-  type: z.enum(["movie", "tv"]).optional(),
+  type: mediaTypeSchema.optional(),
 });
 
 interface PerKindProvider {

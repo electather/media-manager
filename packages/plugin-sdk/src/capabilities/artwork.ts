@@ -6,6 +6,7 @@ import {
   ARTWORK_ID_TYPES,
 } from "@ent-mcp/shared/artwork";
 import { defineCapability, method } from "../define";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 
 /**
  * artwork@v1 — HD posters, backdrops, clear logos, and thumbs per item.
@@ -29,7 +30,7 @@ export const ArtworkV1 = defineCapability({
     getArtwork: method(
       z.object({
         ids: artworkIdMapSchema,
-        type: z.enum(["movie", "tv"]),
+        type: mediaTypeSchema,
         languages: z.array(z.string().min(2).max(8)).max(8).default(["en", "00"]),
       }),
       artworkBundleSchema,

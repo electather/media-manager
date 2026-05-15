@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ARTWORK_ERROR_CODES, MAX_VARIANTS_PER_KIND } from "./enums";
+import { mediaTypeSchema } from "../media/schema-base";
 
 /**
  * Schemas for artwork wire types. Used by the SDK capability definition
@@ -39,7 +40,7 @@ export const artworkIdMapSchema = z
 export const artworkRequestItemSchema = z.object({
   key: z.string().min(1).max(128),
   ids: artworkIdMapSchema,
-  type: z.enum(["movie", "tv"]),
+  type: mediaTypeSchema,
 });
 
 export const artworkErrorSchema = z.object({

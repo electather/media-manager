@@ -3,12 +3,13 @@ import { orderBy } from "es-toolkit/array";
 import { decodeCursor, encodeCursor } from "../cursor";
 import type { RowProvider } from "../types";
 import { fetchSimilarPage } from "./_shared";
+import { mediaTypeSchema } from "@ent-mcp/shared";
 
 const PAGE_SIZE = 12;
 
 const cursorSchema = z.object({
   seedId: z.string().min(1),
-  seedType: z.enum(["movie", "tv"]),
+  seedType: mediaTypeSchema,
   offset: z.number().int().min(0),
 });
 
