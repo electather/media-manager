@@ -12,10 +12,7 @@ const headerClassName = cn(
   "sticky top-0 z-20 isolate flex justify-center",
   "border-b border-transparent bg-transparent",
   topNavMotionClassName,
-  "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-32",
-  "before:transition-opacity before:duration-320 before:content-['']",
   "data-[scrolled=true]:px-6 data-[scrolled=true]:pt-2.5",
-  "data-[scrolled=true]:before:opacity-0",
 );
 
 const navFrameClassName = cn(
