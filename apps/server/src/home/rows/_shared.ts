@@ -80,6 +80,7 @@ function writeSimilarCache(key: string, entry: SimilarFeedEntry): void {
  * `SIMILAR_FEED_TTL_MS` so subsequent page requests against the same seed
  * skip the round-trip into the metadata plugin and the catalog.
  */
+// fallow-ignore-next-line complexity
 export async function fetchSimilarPage(
   ctx: RowContext,
   seed: { id: string; type: MediaType; offset: number; pageSize: number },

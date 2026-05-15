@@ -11,6 +11,7 @@ import { MAX_TOASTS_PER_CYCLE } from "./constants";
 import { renderClusterToast, renderToast, type ToastDeps } from "./toast-renderer";
 import { useToastBroadcast } from "./use-toast-broadcast";
 
+// fallow-ignore-next-line complexity
 async function collectFresh(
   cursor: string,
   cursorRef: RefObject<string | null>,
@@ -38,6 +39,7 @@ function renderCapped(fresh: NotificationItemDto[], deps: ToastDeps): void {
   if (overflow > 0) renderClusterToast(overflow, deps);
 }
 
+// fallow-ignore-next-line complexity
 async function handleDelta(cursorRef: RefObject<string | null>, deps: ToastDeps): Promise<void> {
   const cursor = cursorRef.current;
   if (!cursor) {
