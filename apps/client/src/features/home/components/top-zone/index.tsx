@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
 import type { HeroSlideUI, HomeMediaItem } from "../../lib/types";
@@ -118,14 +118,18 @@ function dismissHandler(candidates: readonly HeroSlideUI[], onDismiss: () => voi
  * label which row the slide is drawn from.
  */
 export function TopZone({ slides, onPeek }: Props) {
+  // Identity key derived from slide ids — when the upstream content actually
+  // changes the inner carousel remounts and `activeIndex` resets to 0. A new
+  // `slides` array reference with the same content (e.g. a parent re-render
+  // from an unrelated search-param change) keeps the same key and preserves
+  // the selected slide.
+  const slidesKey = slides.map((s) => `${s.source}:${s.id}`).join("|");
+  return <TopZoneCarousel key={slidesKey} slides={slides} onPeek={onPeek} />;
+}
+
+function TopZoneCarousel({ slides, onPeek }: Props) {
   const candidates = slides;
   const [activeIndex, setActiveIndex] = useState(0);
-  // Reset to the lead slide when the upstream slides array changes — keeps
-  // the dots nav and active card aligned if the new array is shorter than
-  // the previous `activeIndex`.
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [slides]);
   const active = candidates[activeIndex] ?? candidates[0]!;
   const ambientSrc = active.backdrop ?? active.poster;
   const percent = progressPercent(active.progress);

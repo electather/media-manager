@@ -150,6 +150,31 @@ describe("TopZone", () => {
     expect(screen.getByTestId("top-zone-source-label").textContent).toBe("Trending now");
   });
 
+  it("preserves the active slide when the parent re-renders with a new slides array of the same content", () => {
+    // Regression: pressing More Info adds `?peek=<id>` which re-renders the
+    // parent and produces a new `slides` array reference. The selected slide
+    // must persist — previously a `useEffect([slides])` reset it to index 0.
+    const { rerender } = render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
+    fireEvent.click(within(screen.getByTestId("top-zone-alternates")).getAllByRole("button")[1]!);
+    expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
+
+    rerender(<TopZone slides={SLIDES.map((s) => ({ ...s }))} onPeek={vi.fn()} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
+  });
+
+  it("resets to the first slide when the upstream slides content actually changes", () => {
+    const { rerender } = render(<TopZone slides={SLIDES} onPeek={vi.fn()} />);
+    fireEvent.click(within(screen.getByTestId("top-zone-alternates")).getAllByRole("button")[1]!);
+    expect(screen.getByRole("heading", { level: 1, name: "Alt 1" })).toBeTruthy();
+
+    const swapped: HeroSlideUI[] = [
+      { ...SLIDES[0]!, id: "movie:hero-2", title: "Different Hero" },
+      SLIDES[1]!,
+    ];
+    rerender(<TopZone slides={swapped} onPeek={vi.fn()} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Different Hero" })).toBeTruthy();
+  });
+
   it("renders the active slide availability pill in the hero frame top right", () => {
     render(
       <TopZone
