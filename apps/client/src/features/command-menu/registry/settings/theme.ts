@@ -18,8 +18,7 @@ export const THEME_SETTING: SettingItem<string> = {
   Icon: Sparkles,
   labelKey: "command_menu_setting_theme_label",
   hintKey: "command_menu_setting_theme_hint",
-  hotkey: "Mod+Shift+T",
-  toastKey: "command_menu_setting_theme_toast",
+  hotkey: "Mod+Alt+T",
   options: [
     { id: "system", Icon: Monitor, labelKey: "theme_system_label" },
     { id: "light", Icon: Sun, labelKey: "theme_light_label" },

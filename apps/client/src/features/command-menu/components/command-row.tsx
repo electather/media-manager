@@ -2,7 +2,7 @@ import { CornerDownLeft, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { CommandShortcut } from "@/shared/ui/command";
-import { Kbd, KbdGroup } from "@/shared/ui/kbd";
+import { Kbd } from "@/shared/ui/kbd";
 
 import { formatHotkeyChips } from "../lib/format-hotkey-chips";
 
@@ -41,16 +41,11 @@ export function RowContent({
 function RowHotkey({ hotkey }: { hotkey: string }) {
   const chips = formatHotkeyChips(hotkey);
   return (
-    <KbdGroup className="gap-1">
+    <span className="gap-1">
       {chips.map((chip, idx) => (
-        <Kbd
-          key={`${idx}:${chip}`}
-          className="border border-border font-mono text-[10px] uppercase"
-        >
-          {chip}
-        </Kbd>
+        <Kbd key={`${idx}:${chip}`}>{chip}</Kbd>
       ))}
-    </KbdGroup>
+    </span>
   );
 }
 

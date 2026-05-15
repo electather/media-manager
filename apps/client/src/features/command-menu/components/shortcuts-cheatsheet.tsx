@@ -100,12 +100,7 @@ function CheatsheetItem({ row }: { row: CheatsheetRow }) {
       </div>
       <KbdGroup className="gap-1">
         {row.chips.map((chip, idx) => (
-          <Kbd
-            key={`${row.id}:${idx}:${chip}`}
-            className="border border-border font-mono text-[10px] uppercase"
-          >
-            {chip}
-          </Kbd>
+          <Kbd key={`${row.id}:${idx}:${chip}`}>{chip}</Kbd>
         ))}
       </KbdGroup>
     </CommandItem>

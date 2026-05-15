@@ -15,14 +15,20 @@
   "command_menu_section_pages": "Jump to",
   "command_menu_section_actions": "Actions",
   "command_menu_section_settings": "Settings",
-  "command_menu_section_results": "Results",
-  "command_menu_section_results_tv": "TV results",
-  "command_menu_section_results_movie": "Movie results",
+  "command_menu_section_media_heading": [
+    {
+      "match": {
+        "section=trending, scope=tv": "Trending TV shows",
+        "section=trending, scope=*": "Trending movies",
+        "section=results, scope=tv": "TV results",
+        "section=results, scope=movie": "Movie results",
+        "section=results, scope=*": "Results"
+      }
+    }
+  ],
   "command_menu_section_media_default": "Shows & Movies",
   "command_menu_section_media_tv": "TV Shows",
   "command_menu_section_media_movie": "Movies",
-  "command_menu_section_trending_tv": "Trending TV shows",
-  "command_menu_section_trending_movie": "Trending movies",
   "command_menu_section_shortcuts_menu": "Menu",
   "command_menu_section_shortcuts_navigate": "Navigate",
   "command_menu_section_shortcuts_actions": "Actions",
@@ -69,7 +75,6 @@
 
   "command_menu_setting_theme_label": "Theme",
   "command_menu_setting_theme_hint": "Switch between system, light and dark",
-  "command_menu_setting_theme_toast": "Theme switched",
   "command_menu_setting_locale_label": "Language",
   "command_menu_setting_locale_hint": "Change the interface language",
   "command_menu_setting_locale_toast": "Language updated",
