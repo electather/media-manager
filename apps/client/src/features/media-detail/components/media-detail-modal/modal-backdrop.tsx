@@ -11,14 +11,14 @@ export function ModalBackdrop({ src }: { src: string }) {
   return (
     <div
       aria-hidden="true"
-      className="scroll-driven-modal-backdrop-fade pointer-events-none absolute inset-x-0 top-0 h-72 -z-10 overflow-hidden sm:h-96 [mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]"
+      className="scroll-driven-modal-backdrop-fade pointer-events-none absolute inset-x-0 top-0 h-72 -z-10 overflow-hidden sm:h-96 mask-[linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_0%,black_70%,transparent_100%)]"
     >
       <img src={src} alt="" className="size-full object-cover" />
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, oklch(0 0 0 / 0.60) 0%, oklch(0 0 0 / 0.65) 30%, oklch(0 0 0 / 0.78) 55%, oklch(0 0 0 / 0.90) 80%, oklch(0 0 0 / 0.95) 100%)",
+            "linear-gradient(to bottom, color-mix(in oklch, var(--background) 60%, transparent) 0%, color-mix(in oklch, var(--background) 65%, transparent) 30%, color-mix(in oklch, var(--background) 78%, transparent) 55%, color-mix(in oklch, var(--background) 90%, transparent) 80%, color-mix(in oklch, var(--background) 95%, transparent) 100%)",
         }}
       />
     </div>

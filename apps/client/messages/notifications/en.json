@@ -124,15 +124,5 @@
   "notifications_error_body": "We couldn't load this panel. Try again, or open the full notifications page.",
   "notifications_error_retry": "Try again",
   "notifications_bulk_delete_failed": "Could not delete: {message}",
-  "notifications_toast_cluster_title": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "+{count} more new notification",
-        "countPlural=other": "+{count} more new notifications"
-      }
-    }
-  ],
   "notifications_toast_dismiss_aria": "Dismiss notification"
 }

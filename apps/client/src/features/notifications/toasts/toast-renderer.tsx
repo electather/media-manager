@@ -36,7 +36,9 @@ export function NotificationToastCard({ item, onClick, onDismiss }: CardProps) {
     <div className="flex w-full items-start gap-3 rounded-lg border bg-background p-3 shadow-md">
       <button
         type="button"
-        className={cn("flex min-w-0 flex-1 cursor-pointer select-none items-start gap-3 text-left")}
+        className={cn(
+          "flex min-w-0 flex-1 cursor-pointer select-none items-start gap-3 text-start",
+        )}
         onClick={onClick}
       >
         <SeverityIcon severity={item.severity} />
@@ -78,29 +80,4 @@ export function renderToast(item: NotificationItemDto, deps: ToastDeps): void {
     { duration, id: toastId },
   );
   broadcast.publish(item.id);
-}
-
-let clusterSeq = 0;
-
-export function renderClusterToast(overflowCount: number, deps: ToastDeps): void {
-  const { navigate } = deps;
-  const toastId = `notif:cluster:${overflowCount}:${++clusterSeq}`;
-
-  sonnerToast.custom(
-    (id) => (
-      <button
-        type="button"
-        className="flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-start shadow-md"
-        onClick={() => {
-          void navigate({ to: "/notifications" });
-          sonnerToast.dismiss(id);
-        }}
-      >
-        <p className="text-sm font-medium text-foreground">
-          {m.notifications_toast_cluster_title({ count: overflowCount })}
-        </p>
-      </button>
-    ),
-    { duration: 5_000, id: toastId },
-  );
 }

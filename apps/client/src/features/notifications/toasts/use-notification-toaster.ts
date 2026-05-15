@@ -7,8 +7,7 @@ import { fetchInboxAfter } from "../shared/fetchers";
 import type { NotificationItemDto } from "../shared/types";
 import { advanceCursor, fetchNewestUnread, seedCursor } from "./cursor";
 import { isToastable } from "./is-toastable";
-import { MAX_TOASTS_PER_CYCLE } from "./constants";
-import { renderClusterToast, renderToast, type ToastDeps } from "./toast-renderer";
+import { renderToast, type ToastDeps } from "./toast-renderer";
 import { useToastBroadcast } from "./use-toast-broadcast";
 
 // fallow-ignore-next-line complexity
@@ -31,12 +30,8 @@ async function collectFresh(
   return fresh;
 }
 
-function renderCapped(fresh: NotificationItemDto[], deps: ToastDeps): void {
-  if (fresh.length === 0) return;
-  const capped = fresh.slice(0, MAX_TOASTS_PER_CYCLE);
-  for (const item of capped) renderToast(item, deps);
-  const overflow = fresh.length - capped.length;
-  if (overflow > 0) renderClusterToast(overflow, deps);
+function renderAll(fresh: NotificationItemDto[], deps: ToastDeps): void {
+  for (const item of fresh) renderToast(item, deps);
 }
 
 // fallow-ignore-next-line complexity
@@ -52,7 +47,7 @@ async function handleDelta(cursorRef: RefObject<string | null>, deps: ToastDeps)
     return;
   }
   const fresh = await collectFresh(cursor, cursorRef, deps);
-  renderCapped(fresh, deps);
+  renderAll(fresh, deps);
 }
 
 interface DrainState {
