@@ -1,6 +1,6 @@
 {
   "name": "@ent-mcp/plugin-tmdb",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": false,
   "description": "ent-mcp plugin — TMDB metadata, artwork, and search.",
   "keywords": [

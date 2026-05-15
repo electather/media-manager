@@ -1,5 +1,19 @@
 # @ent-mcp/server
 
+## 0.6.0
+
+### Minor Changes
+
+- 8a9f3f5: The "More like this" section on media detail pages now fetches items similar to the current title instead of a generic recommendation feed.
+
+### Patch Changes
+
+- e9510bf: Validated no-auth connection URLs before saving user-scoped plugin connections.
+- 536f4aa: Fixed admin plugin personal-key fallback controls for shared user-scoped plugins.
+- e80b956: Inbox listing now supports forward keyset pagination via an `after` query parameter.
+- Updated dependencies [a389685]
+  - @ent-mcp/plugin-tmdb@0.3.3
+
 ## 0.5.0
 
 ### Minor Changes
