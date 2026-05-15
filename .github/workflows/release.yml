@@ -36,7 +36,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: vp dlx changeset version
+          version: vp dlx changeset version && vp install
           publish: vp dlx changeset tag
           commit: "chore: version packages"
           title: "chore: version packages"
