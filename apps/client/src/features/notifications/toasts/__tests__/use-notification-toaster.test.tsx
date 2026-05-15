@@ -158,6 +158,32 @@ describe("useNotificationToaster", () => {
     expect(fetchInboxAfterMock).not.toHaveBeenCalled();
   });
 
+  it("multi-page drain: follows nextCursor until exhausted, then caps overflow", async () => {
+    mockCount = 5;
+    const page1 = Array.from({ length: 10 }, (_, i) => makeItem(`p1-${i}`));
+    const page2 = Array.from({ length: 4 }, (_, i) => makeItem(`p2-${i}`));
+    fetchInboxAfterMock
+      .mockResolvedValueOnce({ items: page1, nextCursor: "cursor-page-2" })
+      .mockResolvedValueOnce({ items: page2 });
+
+    const { rerender } = renderHook(() => useNotificationToaster(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(fetchInboxPageMock).toHaveBeenCalledTimes(1));
+
+    mockCount = 19;
+    await act(async () => {
+      rerender();
+    });
+
+    // Both pages must be drained — guards against the single-page regression
+    // where the loop exits before nextCursor is followed.
+    await waitFor(() => expect(fetchInboxAfterMock).toHaveBeenCalledTimes(2));
+    expect(renderToastMock).toHaveBeenCalledTimes(3);
+    expect(renderClusterToastMock).toHaveBeenCalledTimes(1);
+    // 14 total fresh items - 3 shown = 11 overflow.
+    expect(renderClusterToastMock).toHaveBeenCalledWith(11, expect.anything());
+  });
+
   it("dedup: items already in broadcast are not rendered", async () => {
     mockCount = 5;
     const items = [makeItem("dup"), makeItem("fresh")];

@@ -363,15 +363,21 @@ function SettingDrill<T extends string>({ setting, onPop }: Props<T>) {
 
 ### 9.1 Theme contribution
 
+> **Amendment (2026-05-15):** `id` is `setting:theme` (the registry standard prefix, not the
+> `set:` short form drafted here); `hotkey` is `Mod+Alt+T` (rebound to avoid the browser's
+> Mod+Shift+T "reopen closed tab" conflict — see `.changeset/theme-hotkey-rebind.md`);
+> `toastKey` was dropped because the bound theme writer flips the document class
+> synchronously, so a follow-up toast carries no extra information.
+
 ```ts
 // registry/settings/theme.ts
 export const THEME_SETTING: SettingItem<"system" | "light" | "dark"> = {
   kind: "setting",
-  id: "set:theme",
+  id: "setting:theme",
   Icon: Sparkles,
   labelKey: "command_menu_setting_theme_label",
   hintKey: "command_menu_setting_theme_hint",
-  hotkey: "Mod+Shift+T",
+  hotkey: "Mod+Alt+T",
   options: [
     { id: "system", labelKey: "theme_system_label", Icon: Monitor },
     { id: "light",  labelKey: "theme_light_label",  Icon: Sun },
@@ -380,7 +386,6 @@ export const THEME_SETTING: SettingItem<"system" | "light" | "dark"> = {
   // Bound at runtime via useTheme() — see §9.3.
   read: () => "system",
   write: () => {},
-  toastKey: "command_menu_action_toggle_theme_toast",
 };
 ```
 

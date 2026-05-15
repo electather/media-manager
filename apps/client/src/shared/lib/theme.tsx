@@ -64,8 +64,6 @@ function useSystemTheme() {
 
     const media = window.matchMedia(DARK_MODE_QUERY);
     const updateSystemTheme = () => setSystemTheme(media.matches ? "dark" : "light");
-
-    updateSystemTheme();
     media.addEventListener("change", updateSystemTheme);
     return () => media.removeEventListener("change", updateSystemTheme);
   }, []);

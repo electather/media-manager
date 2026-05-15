@@ -98,6 +98,10 @@ describe("theme", () => {
   });
 
   it("loads the stored theme before the React bundle", () => {
+    // Paths are repo-root relative because `vp test` (the project's only
+    // sanctioned test runner) always runs from the repo root. Vite transforms
+    // `import.meta.url` into an http(s) URL inside test files, so the
+    // file-URL trick doesn't work here.
     const html = readFileSync("apps/client/index.html", "utf8");
     const bootScriptIndex = html.indexOf('src="/theme-init.js"');
     const appScriptIndex = html.indexOf("/src/main.tsx");
