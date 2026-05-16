@@ -120,4 +120,42 @@ describe("Row", () => {
     expect(empty.textContent?.length).toBeGreaterThan(0);
     expect(screen.getByRole("heading").textContent?.length).toBeGreaterThan(0);
   });
+
+  it("keeps the heading and renders an empty-state message for an empty continueWatching row", async () => {
+    mockRowFetch([]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <Row
+        row={makeRow({ id: "continueWatching", kind: "continueWatching", defaultAspect: "16/9" })}
+      />,
+      { wrapper: withClient(client) },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(/start watching something to pick up where you left off/i),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByRole("status").textContent?.length).toBeGreaterThan(0);
+  });
+
+  it("does not hide a partial row that returned zero items (algorithmic kind)", async () => {
+    mockRowFetch([], { partial: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(container.querySelector('[data-slot="scroll-row"]')).not.toBeNull());
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not show the empty-state nudge for a partial user-driven row", async () => {
+    mockRowFetch([], { partial: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <Row row={makeRow({ id: "yourWatchlist", kind: "yourWatchlist", defaultAspect: "2/3" })} />,
+      { wrapper: withClient(client) },
+    );
+    // Heading should render via the regular row path, no empty-state copy.
+    await waitFor(() => expect(screen.getByRole("heading").textContent?.length).toBeGreaterThan(0));
+    expect(screen.queryByText(/add something to your watchlist/i)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
 });

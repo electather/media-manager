@@ -18,7 +18,7 @@ import {
 } from "@/shared/components/scroll-row";
 import { Card } from "../card/index";
 import { useHomeRow } from "../../hooks/use-home-row";
-import { ROW_COPY, ROW_EMPTY_COPY, USER_DRIVEN_ROWS } from "../../lib/home-feed-config";
+import { ROW_COPY, ROW_EMPTY_COPY, isUserDrivenRow } from "../../lib/home-feed-config";
 import type { HomeMediaItem, MessageKey, RowData } from "../../lib/types";
 import { RowError, RowErrorInlineCard } from "./row-error";
 import { usePrefetchObserver } from "./use-prefetch-observer";
@@ -76,13 +76,19 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
     error,
     refetch,
     isRefetching,
+    partial,
   } = useHomeRow(row.id, row.initialCursor);
   const { attachTrack, attachPrefetch } = usePrefetchObserver({ hasNextPage, fetchNextPage });
 
   const showInitialError = error !== null && items.length === 0;
   const showInlineError = error !== null && items.length > 0;
   const showSkeletons = !showInitialError && isLoading && items.length === 0;
-  const showEmpty = !showInitialError && !isLoading && error === null && items.length === 0;
+  // `partial: true` with zero items means a soft plugin failure, not an
+  // empty feed. Skip the hide/empty-state path in that case so an
+  // algorithmic row does not disappear and a user-driven row does not
+  // show a misleading "add something" nudge.
+  const showEmpty =
+    !showInitialError && !isLoading && error === null && items.length === 0 && !partial;
   const prefetchIndex = items.length === 0 ? -1 : Math.max(0, items.length - PREFETCH_OFFSET);
 
   if (showInitialError) {
@@ -99,12 +105,8 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
   }
 
   if (showEmpty) {
-    if (!USER_DRIVEN_ROWS.has(row.kind)) return null;
-    const emptyKey = ROW_EMPTY_COPY[row.kind];
-    const emptyFn = emptyKey ? (m[emptyKey] as () => string) : null;
-    if (import.meta.env.DEV && !emptyFn) {
-      throw new Error(`Row: missing empty-state copy for user-driven kind "${row.kind}"`);
-    }
+    if (!isUserDrivenRow(row.kind)) return null;
+    const emptyFn = m[ROW_EMPTY_COPY[row.kind]] as () => string;
     return (
       <ScrollRow revalidationKey={0} className="mb-8">
         <SectionHead>
@@ -118,9 +120,9 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
             <li
               role="status"
               data-slot="scroll-row-empty"
-              className="text-muted-foreground flex min-h-[var(--card-h)] w-full items-center px-2 text-sm"
+              className="text-muted-foreground flex min-h-(--card-h) w-full items-center px-2 text-sm"
             >
-              {emptyFn ? emptyFn() : null}
+              {emptyFn()}
             </li>
           </ScrollRowTrack>
         </ScrollRowViewport>

@@ -8,10 +8,19 @@ import type { MatchReasonKey, MessageKey } from "./types";
  * and render an empty-state nudge — the row is teaching the user what it
  * is for. Algorithmic/editorial rows hide entirely when empty.
  */
-export const USER_DRIVEN_ROWS = new Set<RowKind>(["continueWatching", "yourWatchlist"]);
+export const USER_DRIVEN_ROW_KINDS = ["continueWatching", "yourWatchlist"] as const;
 
-/** Empty-state copy for user-driven rows. Keys exist for every entry of `USER_DRIVEN_ROWS`. */
-export const ROW_EMPTY_COPY: Partial<Record<RowKind, MessageKey>> = {
+export type UserDrivenRowKind = (typeof USER_DRIVEN_ROW_KINDS)[number];
+
+const USER_DRIVEN_ROWS_SET: ReadonlySet<RowKind> = new Set(USER_DRIVEN_ROW_KINDS);
+
+/** Narrowing helper: predicates that `kind` is a user-driven row so callers can index `ROW_EMPTY_COPY` without a null guard. */
+export function isUserDrivenRow(kind: RowKind): kind is UserDrivenRowKind {
+  return USER_DRIVEN_ROWS_SET.has(kind);
+}
+
+/** Empty-state copy for user-driven rows. Required for every member of `UserDrivenRowKind`. */
+export const ROW_EMPTY_COPY: Record<UserDrivenRowKind, MessageKey> = {
   continueWatching: "home_row_continueWatching_empty",
   yourWatchlist: "home_row_yourWatchlist_empty",
 };
