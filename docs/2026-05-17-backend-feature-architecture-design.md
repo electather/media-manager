@@ -201,7 +201,7 @@ export function on<P>(name: EventName, schema: z.ZodType<P>, handler: (payload: 
   handlerLists.set(name, list);
   registerJob(name, async (raw) => {
     for (const h of list) {
-      await h(raw);                           // sequential; one failed handler does not poison the rest only if jobs/runner.ts isolates per-handler errors. See note below.
+      await h(raw);                           // sequential; first throw aborts the remaining handlers and the job runner retries the whole event.
     }
   });
 }
@@ -250,12 +250,29 @@ async addMedia(input: ...) {
 ```ts
 // notifications/jobs/on-catalog-media-added.ts (consumer)
 import { on } from "../../jobs/events";
-import { CATALOG_EVENTS, mediaAddedPayload } from "../../catalog";
+import { CATALOG_EVENTS, mediaAddedPayload } from "../../catalog";  // barrel — required; ../../catalog/events would be a deep import
 import { getNotificationsService } from "..";
 
-on(CATALOG_EVENTS.MEDIA_ADDED, mediaAddedPayload, async (payload) => {
-  await getNotificationsService().notifyMediaAdded(payload);
-});
+export function registerOnCatalogMediaAdded(): void {
+  on(CATALOG_EVENTS.MEDIA_ADDED, mediaAddedPayload, async (payload) => {
+    await getNotificationsService().notifyMediaAdded(payload);
+  });
+}
+```
+
+```ts
+// notifications/jobs/index.ts
+import { registerOnCatalogMediaAdded } from "./on-catalog-media-added";
+// ...other handler registrations
+export function registerJobs(): void {
+  registerOnCatalogMediaAdded();
+  // ...
+}
+```
+
+```ts
+// notifications/index.ts (barrel) re-exports registerJobs
+export { registerJobs } from "./jobs";
 ```
 
 Conventions:
@@ -264,13 +281,13 @@ Conventions:
 - Payloads validated by zod on enqueue and on dispatch.
 - Handlers are idempotent. Job retry semantics already enforce this in `jobs/runner.ts`.
 - Emitting fails-closed: if `events.ts` zod validation fails at enqueue, the calling sync operation rolls back.
-- One event may have multiple handlers across modules. `jobs/registry` supports `registerJob` for the same name from multiple modules (this is a Phase 2 capability — current `registerJob` is single-handler; the typed wrapper above coordinates fan-out).
+- One event may have multiple handlers across modules. `registerJob` itself remains single-handler; multi-handler fan-out arrives the moment the typed `emit`/`on` wrapper lands (Phase 2, alongside the notifications exemplar). From then on, any module may call `on(EVENT, ...)` for an event already subscribed to elsewhere and both handlers run in registration order.
 
 ### Boot order
 
 Handler registration must complete before any event fires. Two-stage boot, with **no top-level registration side effects**:
 
-1. **Stage A (synchronous, deterministic):** `apps/server/src/index.ts` and `apps/server/src/worker.ts` call `<module>.registerJobs()` for every module in a fixed order. Each module's barrel re-exports `registerJobs` from `<module>/jobs/index.ts`. The function imperatively invokes per-handler `registerHandler()` functions, which in turn call `on(EVENT_NAME, schema, handler)`. No module performs registration at top-level import time.
+1. **Stage A (synchronous, deterministic):** `apps/server/src/index.ts` and `apps/server/src/worker.ts` call `<module>.registerJobs()` for every module in a fixed **alphabetical** order. Each module's barrel re-exports `registerJobs` from `<module>/jobs/index.ts`. The function imperatively invokes per-handler `register<X>()` functions, which in turn call `on(EVENT_NAME, schema, handler)`. No module performs registration at top-level import time. Alphabetical order is enforced by `boot.test.ts` so reordering cannot silently change handler precedence (which matters because handler fan-out is sequential — see §"Typed wrapper").
 2. **Stage B (after Stage A):** the job runner begins polling and dispatching. Web routes accept requests.
 
 Boot order rules:
