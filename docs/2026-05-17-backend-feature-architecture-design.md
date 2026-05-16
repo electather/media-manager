@@ -12,7 +12,7 @@ Convert `apps/server/src/` from a loosely-grouped set of domain directories into
 
 The design replaces the current coarse fallow zones (`server-domains` lumps seven domains together; `server-infra` lumps five) with per-module zones plus per-module `internal` sub-zones that block deep imports across modules. The barrel/internal split exploits fallow's documented **first-match-wins** zone-membership semantics (`BoundaryZone` schema: *"A file belongs to the first zone whose pattern matches."*) — list `server-mod-<x>` (matching only `<x>/index.ts`) before `server-mod-<x>-internal` (matching all of `<x>/**`) and `index.ts` falls into the public zone while everything else falls into the internal zone. No negated globs required.
 
-Boundary violations are fixed in-PR — fallow rules go to `error` from day one. The full deep-import survey (71 occurrences across 9 modules; see Appendix A) is included in this design, not deferred. A four-phase migration plan retrofits all nine modules, starting with `notifications/`, while leaving adapters and infra free of new constraints. `jobs/` is treated as **infra**, not a module: it exposes `enqueue` and `registerJob` as the bus API, and modules import it the same way they import `db/` or `cache/`.
+Boundary violations are fixed in-PR — fallow rules go to `error` from day one. The full deep-import survey (71 occurrences across 8 modules; see Appendix A) is included in this design, not deferred. A four-phase migration plan retrofits all eight modules, starting with `notifications/`, while leaving adapters and infra free of new constraints. `jobs/` is treated as **infra**, not a module: it exposes `enqueue` and `registerJob` as the bus API, and modules import it the same way they import `db/` or `cache/`.
 
 ## Goals
 
@@ -45,7 +45,7 @@ Boundary violations are fixed in-PR — fallow rules go to `error` from day one.
 | 6 | Skill at `.agents/skills/backend-feature-architecture/` | Naming symmetry with frontend skill. Same `.claude/skills/` symlink pattern. |
 | 7 | `notifications/` is the canonical exemplar | Most complete module: service, repos, delivery-job (async pattern), templates, error-sink, tests. Cleanest mapping to flat shape. Mirrors frontend's choice of notifications as exemplar. |
 | 8 | Phase 1 fallow rules set to `error` immediately | No allowlist for existing violations. Fixed in-PR alongside zone splits. Otherwise debt accrues and boundaries become advisory. |
-| 9 | Plan all nine modules in design, execute `notifications/` first as exemplar | Plan gives effort visibility. Executing one first proves the skill template before broad rollout. |
+| 9 | Plan all eight modules in design, execute `notifications/` first as exemplar | Plan gives effort visibility. Executing one first proves the skill template before broad rollout. |
 
 ## Module map
 
@@ -108,7 +108,8 @@ Flat layout with reserved files. A file is created only when its role is needed 
 | `errors.ts` | Typed error classes. | nothing | Pure. |
 | `types.ts` | Public domain types. | shared-pkg, own `errors.ts` | Pure. |
 | `repo.ts` | Drizzle queries on **owned** tables. | `db/`, own `types.ts`, own `errors.ts`, shared-pkg | The only place `import { ... } from "drizzle-orm"` is allowed inside a module. |
-| `jobs/<x>.ts` | Async handler. Registers via `registerJob(EVENT_NAME, fn)`. | own `service.ts`, own `repo.ts`, own `events.ts`, `jobs/` infra, other modules' `events.ts` (allowed because it's a re-export from the barrel; payload schema is part of the published contract), other modules' barrels | One file per event handled. File name matches event handled. |
+| `jobs/<x>.ts` | Async handler. Exports `register<X>(): void` which calls `on(EVENT_NAME, schema, fn)` from `jobs/events`. No top-level side effects. | own `service.ts`, own `repo.ts`, own `events.ts`, `jobs/` infra, other modules' `events.ts` (allowed because it's a re-export from the barrel; payload schema is part of the published contract), other modules' barrels | One file per event handled. File name matches event handled. |
+| `jobs/index.ts` | Single `registerJobs()` function that calls every `register<X>()` in this module. Re-exported via the module barrel. | own `jobs/<x>.ts` files | Sole entry point used by `apps/server/src/{index,worker}.ts`. |
 | `internal/` | Private helpers. | own files, shared infra | Never imported from outside the module — enforced by `<module>-internal` sub-zone. |
 
 ### Promotion rules
@@ -174,7 +175,7 @@ import { getCatalogService } from "../catalog";        // barrel — OK
 
 ### Typed wrapper around `jobs/` for events
 
-The async contract is enforced by a thin typed wrapper added to `jobs/` (this is the previously-open Q4, now resolved into the design):
+The async contract is enforced by a thin typed wrapper added to `jobs/` (this is the previously-open Q4, now resolved into the design). The wrapper builds **fan-out on top of the existing single-handler `registerJob` API** without requiring any change to the job registry:
 
 ```ts
 // jobs/events.ts (new, in jobs/ infra)
@@ -182,18 +183,35 @@ import type { z } from "zod";
 
 export type EventName = string & { readonly __brand: "EventName" };
 
+const handlerLists = new Map<string, Array<(raw: unknown) => Promise<void>>>();
+
 export async function emit<P>(name: EventName, schema: z.ZodType<P>, payload: P): Promise<void> {
-  const validated = schema.parse(payload);  // fail-closed at enqueue
+  const validated = schema.parse(payload);    // fail-closed at enqueue
   await enqueue(name, validated);
 }
 
 export function on<P>(name: EventName, schema: z.ZodType<P>, handler: (payload: P) => Promise<void>): void {
+  const validated = async (raw: unknown) => handler(schema.parse(raw));  // fail-closed at dispatch
+  const existing = handlerLists.get(name);
+  if (existing) {
+    existing.push(validated);
+    return;
+  }
+  const list: Array<(raw: unknown) => Promise<void>> = [validated];
+  handlerLists.set(name, list);
   registerJob(name, async (raw) => {
-    const validated = schema.parse(raw);    // fail-closed at dispatch
-    return handler(validated);
+    for (const h of list) {
+      await h(raw);                           // sequential; one failed handler does not poison the rest only if jobs/runner.ts isolates per-handler errors. See note below.
+    }
   });
 }
 ```
+
+Fan-out semantics:
+
+- The first `on(...)` for an event registers a single dispatcher with `jobs/registry`; subsequent `on(...)` calls append to the in-memory handler list and rely on the already-registered dispatcher to invoke them. The job registry remains single-handler — the wrapper coordinates fan-out.
+- Handlers run sequentially in registration order. If any handler throws, the dispatcher rethrows and the job runner records the failure / retries the whole event. This matches existing job retry semantics.
+- A future variant (`onParallel`) for cases where handlers are independent is a follow-up, not in this design.
 
 Modules use `emit` and `on` exclusively for cross-module signals. Raw `enqueue` and `registerJob` remain available for in-module scheduled work that has no public contract (e.g. a periodic sweep job).
 
@@ -250,16 +268,19 @@ Conventions:
 
 ### Boot order
 
-Handler registration must complete before any event fires. Two-stage boot:
+Handler registration must complete before any event fires. Two-stage boot, with **no top-level registration side effects**:
 
-1. **Stage A (synchronous, deterministic):** `apps/server/src/index.ts` imports `<module>/jobs` for each module in a fixed order. Each module's `jobs/index.ts` imports its handler files; each handler file calls `on(...)` at module-load time. Side-effect imports — no runtime registry pass.
+1. **Stage A (synchronous, deterministic):** `apps/server/src/index.ts` and `apps/server/src/worker.ts` call `<module>.registerJobs()` for every module in a fixed order. Each module's barrel re-exports `registerJobs` from `<module>/jobs/index.ts`. The function imperatively invokes per-handler `registerHandler()` functions, which in turn call `on(EVENT_NAME, schema, handler)`. No module performs registration at top-level import time.
 2. **Stage B (after Stage A):** the job runner begins polling and dispatching. Web routes accept requests.
 
 Boot order rules:
 
-- A module's `jobs/index.ts` is the sole place that triggers handler-file side effects. The barrel `index.ts` MUST NOT import `jobs/`.
-- Apps/server's `index.ts` and `worker.ts` import every module's `jobs/index.ts` explicitly. Adding a new module = one line added at the entry point.
-- A `boot.test.ts` asserts that for every event name declared in any `<module>/events.ts`, at least one `on(...)` registration is reachable from the entry points. This catches "module added events.ts but never wired handler" regressions.
+- Each `<module>/jobs/<x>.ts` exports `export function register<X>(): void { on(EVENT, schema, handler); }`. No top-level `on(...)` calls.
+- `<module>/jobs/index.ts` exports a single `registerJobs()` function that calls every per-handler `register<X>()` in order.
+- `<module>/index.ts` re-exports `registerJobs` only — it does not re-export anything else from `jobs/`.
+- `apps/server/src/{index,worker}.ts` import each module's barrel and call `module.registerJobs()`. Adding a new module = two lines added at each entry point.
+- The boundaries test treats `apps/server/src/index.ts` and `apps/server/src/worker.ts` as the **only** files allowed to call `registerJobs` from another module's barrel. The deep-import rule (no `<module>/jobs/**` from outside the module) is unaffected because re-export goes through the barrel, not a deep import.
+- `boot.test.ts` asserts that for every event name declared in any `<module>/events.ts`, calling all modules' `registerJobs()` (in a fresh process) results in at least one `on(...)` registration for that event. Catches "module added events.ts but never wired handler" regressions.
 
 If the import graph between two modules' `events.ts` is acyclic but the event-flow graph is cyclic (A emits → B handles → B emits → A handles), that's allowed: events break the static import cycle. Document the runtime cycle in `events-and-jobs.md` with a sequence diagram so future readers don't introduce unbounded loops.
 
@@ -302,7 +323,7 @@ A small Node script under `tools/check-table-ownership.ts`:
 4. TS path aliases (`@/...`) and relative paths normalized by resolving against `tsconfig.json` `paths`.
 5. Exit code 1 on violations; printed list of `<file>:<line>: imports <table> owned by <other-module>`.
 
-Script lives in `tools/`; wired into `vp staged` and CI. ~150 LOC, no new dependency (uses `ts-morph` already in repo or a hand-rolled AST visit via the TypeScript compiler API).
+Script lives in `tools/`; wired into `vp staged` and CI. ~150 LOC, AST parsing via `ts-morph` if already declared in `apps/server/package.json`, otherwise via the TypeScript compiler API. The Phase 1 spike confirms the dependency choice and the same library is reused by `boundaries.test.ts` to avoid duplicate AST plumbing.
 
 ### Goal-language correction
 
@@ -380,7 +401,7 @@ For each module `<x>`:
 }
 ```
 
-(`jobs/` is part of `server-infra` so it doesn't need a separate entry in the allow list.)
+(`jobs/` is part of `server-infra` so it doesn't need a separate entry in the allow list. Note: `jobs/` as referenced here is the **top-level** `apps/server/src/jobs/` infra directory. Each module's own `<module>/jobs/**` is part of `server-mod-<x>-internal`, not `server-infra` — only the module itself imports from its own `jobs/` subdirectory.)
 
 Key property: **no rule allows `server-mod-<x>-internal` to be imported from `server-mod-<y>-internal` or `server-mod-<y>`** (for `y ≠ x`). That's the entire trick.
 
@@ -515,11 +536,12 @@ Skip frontend-specific render/UI skills (`vercel-react-*`, `shadcn`, `web-design
 - Split `.fallowrc.json` `server-domains` mega-zone into 8 per-module zones + 8 `-internal` sub-zones (`jobs/` rolls into `server-infra`).
 - Lock `server-infra` allow list to `shared-pkg` + `plugin-sdk` only.
 - Add zone rules per the contract above.
-- Fix every cross-module deep import that fallow now flags. Full survey: **71 deep imports** (see Appendix A for the breakdown). No allowlist.
+- Fix the **trivial** cross-module deep imports flagged by fallow: every case that becomes a one-line barrel re-export (types, errors, factory accessors). Approximately 50 of the 71 (see Appendix A breakdown for the non-trivial subset).
+- **Defer to Phase 2 / Phase 3**: cross-module imports that require converting a function call into an event (`notifications/emit` ×3, plus any other case where source and consumer modules both need code changes). These are listed in Phase 2 (for notifications) and Phase 3 (per source module).
 - Add file-size pre-commit script under `tools/check-file-sizes.ts`.
 - Add table-ownership pre-commit script under `tools/check-table-ownership.ts`. Phase 1 also lands the `@owner:` annotations on every drizzle schema file.
 
-Exit criteria: `vp check`, `vp test`, `fallow dead-code`, `fallow health` all green. Zero allowlisted violations. `tools/check-table-ownership.ts` green.
+Exit criteria: `vp check`, `vp test`, `fallow dead-code`, `fallow health` all green. Allowlist limited to the deferred event-conversion cases, each tagged `// fallow-allow: phase-2 event conversion` and tracked in Phase 2/3 issue. `tools/check-table-ownership.ts` green.
 
 ### Phase 2 — Skill + exemplar (single PR)
 
@@ -580,7 +602,7 @@ Phase 1 adds ~1.5 engineer-days for the zone split + 71 import fixes + ownership
 | Risk | Mitigation |
 |---|---|
 | Fallow does not support per-zone health budgets | Tighten project-wide to 15; exempt adapters via `health.ignore` patterns. |
-| Fallow boundary trick (root vs `-internal` zone) is fragile if it can't negate patterns | Test on a single module first (`preferences/`) before splitting all nine. Fall back to convention + grep pre-commit if needed. |
+| Fallow boundary trick (root vs `-internal` zone) depends on documented first-match-wins ordering, not negated patterns | Schema verified in iteration 2; spike on `preferences/` in Phase 1 is the final smoke test before splitting the remaining seven. Fall back to convention + grep pre-commit if behavior diverges from schema. |
 | File-size cap script blocks emergency fixes | Cap is hard-error on hard limit only; soft cap is warning. CI bypass requires `--allow-large-files` flag with explicit justification. |
 | Skill drifts from code over time | Skill links to live files (no copies). Phase 2 PR adds a CI check that `notifications/` matches the template (file presence + barrel export shape). |
 | Cross-module event handlers create implicit cycles | Fallow `circular-deps: error` for `server-mod-*` catches direct cycles. Async cycles (A emits → B handles → B emits → A handles) are detectable via `fallow` import graph; document the pattern in `events-and-jobs.md`. |
@@ -631,22 +653,24 @@ Phase 1 adds ~1.5 engineer-days for the zone split + 71 import fixes + ownership
 
 Generated by `grep -rEh 'from "\.\./(artwork|auth|catalog|home|media|notifications|preferences|plugin-runtime|jobs)/[a-z][^"]*"' apps/server/src --include='*.ts'` on 2026-05-17 against `main`. 71 total occurrences, grouped by target.
 
-**plugin-runtime (15)**
+Group totals sum to 71. `jobs/` is included as an "import target" but is infra, so its 9 occurrences become legal infra imports after Phase 1 and require no source fix.
+
+**plugin-runtime (21)**
 - `../plugin-runtime/runtime` ×8
-- `../plugin-runtime/registry` ×8 (actual count after de-dup)
+- `../plugin-runtime/registry` ×8
 - `../plugin-runtime/shared-credentials` ×2
 - `../plugin-runtime/loader` ×1
 - `../plugin-runtime/host-bridge` ×1
 - `../plugin-runtime/allowed-hosts` ×1
 
-**catalog (7)**
+**catalog (11)**
 - `../catalog/types` ×5
 - `../catalog/canonical` ×3
 - `../catalog/jobs/recommendation-build` ×1
 - `../catalog/jobs` ×1
 - `../catalog/features` ×1
 
-**media (13)**
+**media (14)**
 - `../media/service` ×3
 - `../media/errors` ×3
 - `../media/dispatcher` ×3
@@ -656,7 +680,7 @@ Generated by `grep -rEh 'from "\.\./(artwork|auth|catalog|home|media|notificatio
 - `../media/invoke` ×1
 - `../media/capability-lookup` ×1
 
-**notifications (5)**
+**notifications (6)**
 - `../notifications/emit` ×3
 - `../notifications/stale-pending-sweep` ×1
 - `../notifications/demo-job` ×1
@@ -679,13 +703,14 @@ Generated by `grep -rEh 'from "\.\./(artwork|auth|catalog|home|media|notificatio
 **artwork (1)**
 - `../artwork/service` ×1
 
-**jobs (8)** — these become infra-style imports after Phase 1, no fix needed
+**jobs (9)** — these become infra-style imports after Phase 1, no fix needed
 - `../jobs/triggerable` ×3
 - `../jobs/registry` ×2
 - `../jobs/types` ×1
 - `../jobs/scheduled` ×1
 - `../jobs/scheduled-per-row` ×1
 - `../jobs/coalesced` ×1
+- (one `../jobs/...` deep import not de-duped above; full grep is reproducible from the command in the appendix header.)
 
 Phase 1 PR converts every domain target above to a barrel re-export. For each, the destination is one of:
 
@@ -710,7 +735,7 @@ The 8 `jobs/` deep imports are not violations after Phase 1 — `jobs/` is infra
 | `references/checklist.md` | 58 |
 | **Total** | **892** |
 
-`backend-feature-architecture` targets the same envelope: `SKILL.md` ≤ 220 lines, total ≤ 1000 lines across SKILL.md + 6 references + 3 example files.
+`backend-feature-architecture` targets a comparable envelope, slightly larger to absorb 3 worked examples (`new-module.md`, `add-event.md`, `retrofit-existing.md`) that the frontend skill does not have: `SKILL.md` ≤ 220 lines, total ≤ 1000 lines across SKILL.md + 6 references + 3 example files. Line-count rule: physical lines in the file (frontmatter included, code-block contents counted). Trailing blank lines excluded.
 
 ## Appendix C — Example new module (skeleton)
 
