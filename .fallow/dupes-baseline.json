@@ -1,8 +1,8 @@
 {
   "clone_groups": [
-    "apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:115-121|apps/client/src/features/notifications/inbox/use-inbox-mutations.ts:95-101",
-    "apps/server/src/home/rows/upcoming-for-you.ts:51-59|apps/server/src/home/rows/your-watchlist.ts:79-89",
+    "apps/client/src/features/admin-users/hooks/use-assign-role.ts:24-29|apps/client/src/features/admin-users/hooks/use-delete-user.ts:17-20",
+    "apps/client/src/features/admin-users/hooks/use-assign-role.ts:30-41|apps/client/src/features/admin-users/hooks/use-delete-user.ts:20-28",
     "apps/server/src/media/service.ts:775-787|apps/server/src/media/service.ts:836-848",
-    "apps/client/src/features/admin-plugins/shared/fetchers.ts:27-39|apps/client/src/features/admin-plugins/shared/fetchers.ts:51-63"
+    "packages/shared/src/diagnostics/schemas.ts:44-48|packages/shared/src/diagnostics/schemas.ts:57-61"
   ]
 }
