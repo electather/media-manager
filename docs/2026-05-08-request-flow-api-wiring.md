@@ -92,7 +92,7 @@ Notes:
 - `dispatchToConnection` skips dispatch cache by design. Freshness owned by React Query.
 - Per-connection rejects swallowed → empty list valid. Picker renders empty-state.
 - Per-target regex check defends against version skew even though SDK schema enforces same regex.
-- `getRequests()` swallow-on-error → `[]`; loose `{items}` shape intentional, history schema = follow-up.
+- `getRequests()` catches `PluginCallError("media.no_connection")` → `[]`; other throws propagate. Loose `{items}` shape intentional, history schema = follow-up.
 
 ## Plugin SDK → [packages/plugin-sdk/src/capabilities/media-request.ts](packages/plugin-sdk/src/capabilities/media-request.ts)
 
@@ -189,6 +189,7 @@ Same-mediaType visits warm session-wide cache. First picker open = zero loading 
 | ------ | -------------------------- | ------------------------------------------------ | ------------------------------- |
 | 400    | `request.invalid_input`    | zod fail OR malformed `serviceId`                | `request_error_invalid_input`   |
 | 404    | `request.unknown_service`  | conn missing/disabled/cap-not-impl (mcp.target_not_found) | `request_error_unknown_service` |
+| 422    | `media.no_connection`      | user has no connection for plugin (⊥ Seerr configured) | `request_error_generic`   |
 | 502    | `request.provider_failed`  | plugin success:false OR plugin.{input_invalid,upstream_error,timeout} | `request_error_provider_failed` |
 | else   | —                          | net / 5xx / unknown                              | `request_error_generic`         |
 
