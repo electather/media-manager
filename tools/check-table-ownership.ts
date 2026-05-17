@@ -42,8 +42,15 @@ const MODULES = [
 ];
 
 // Pre-existing cross-module schema imports. Each entry: "<rel-file>:<symbol>" → plan-task reference.
-// Phase 2/3 retrofit will route these reads through the owning module's barrel + repo.
+// Phase 2/3 retrofit routes the reads through the owning module's barrel + repo.
 // Adding to this list is a one-way ratchet — paired plan task required.
+//
+// Phase 2 (TASK-019) resolved 7 entries: all notifications reads now route
+// through `auth.{listUsersHavingPermission, usersHavingPermission}` and
+// `pluginRuntime.{getConnectionById, listEnabledConnectionsForUsers,
+// ensureInboxConnection}`. The plugin-runtime/user-pool entry dropped because
+// `serviceConnections` ownership moved from `preferences` to `plugin-runtime`
+// (Phase 1 mis-classified it; the table is owned by plugin-runtime).
 const ALLOWLIST: Record<string, string> = {
   "apps/server/src/catalog/jobs/user-mirror-sync.ts:serviceConnections":
     "TASK-045: catalog reads via plugin-runtime/preferences barrel",
@@ -60,20 +67,6 @@ const ALLOWLIST: Record<string, string> = {
     "TASK-047: media reads via preferences barrel",
   "apps/server/src/media/primary-preference.ts:serviceConnections":
     "TASK-047: media reads via plugin-runtime barrel",
-  "apps/server/src/notifications/delivery-job.ts:serviceConnections":
-    "TASK-019: notifications reads via plugin-runtime barrel",
-  "apps/server/src/notifications/demo-job.ts:serviceConnections":
-    "TASK-019: notifications reads via plugin-runtime barrel",
-  "apps/server/src/notifications/resolve-recipients.ts:user":
-    "TASK-019: notifications reads via auth barrel",
-  "apps/server/src/notifications/resolve-recipients.ts:userRoles":
-    "TASK-019: notifications reads via auth barrel",
-  "apps/server/src/notifications/resolve-recipients.ts:rolePermissions":
-    "TASK-019: notifications reads via auth barrel",
-  "apps/server/src/notifications/resolve-recipients.ts:serviceConnections":
-    "TASK-019: notifications reads via plugin-runtime barrel",
-  "apps/server/src/plugin-runtime/user-pool.ts:serviceConnections":
-    "TASK-048: plugin-runtime self-owns serviceConnections after retrofit",
 };
 
 type OwnerInfo = { owner: string; sourceFile: string };

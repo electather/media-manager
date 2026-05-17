@@ -36,3 +36,18 @@ export {
 export { invokeOne, invokeWithTimeout, harvestFromOutcomes, type InvokeRequest } from "./invoke";
 export { requireCapability, scopeForRequest, pickSingleConnection } from "./capability-lookup";
 export { resolveConnections, type ResolvedConnection } from "./resolve-connection";
+export {
+  MEDIA_EVENTS,
+  connectionAuthExpiredPayload,
+  type ConnectionAuthExpiredPayload,
+} from "./events";
+
+/**
+ * No-op for now. Media has no scheduled jobs and no event handlers in Phase 2.
+ * It only emits events. Phase 3 retrofit will introduce `jobs/index.ts` and
+ * replace this stub. Boot tests exercise the call site to keep alphabetical
+ * wiring stable across modules.
+ */
+export function registerJobs(): void {
+  /* no-op until Phase 3 */
+}

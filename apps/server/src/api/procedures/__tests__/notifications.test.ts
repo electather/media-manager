@@ -591,7 +591,7 @@ describe("notifications HTTP — admin retry resets and reschedules", () => {
     // row transitions to in_progress between the read and the write, the
     // single conditional UPDATE will not flip it back to pending. We
     // exercise the repo helper directly so we don't depend on timing.
-    const { resetDeliveryForRetry } = await import("../../../notifications/repos");
+    const { resetDeliveryForRetry } = await import("../../../notifications/repo/deliveries");
     await seedUser("u-x");
     await db.insert(notificationDeliveries).values({
       id: "d-atomic",

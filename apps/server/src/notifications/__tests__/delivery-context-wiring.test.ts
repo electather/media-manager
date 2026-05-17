@@ -12,23 +12,26 @@ import { describe, expect, it } from "vite-plus/test";
 // dynamic `x-allowed-host` entries, and the admin allowlist/headers in a
 // single place.
 const here = dirname(fileURLToPath(import.meta.url));
-const deliveryJobSource = readFileSync(resolve(here, "../delivery-job.ts"), "utf-8");
+// The plugin-context wiring lives in the delivery handler helper now (split
+// out so jobs/delivery.ts stays under the 200 LOC cap); this guard pins the
+// invariant on the file that actually does the wiring.
+const deliverHandlerSource = readFileSync(resolve(here, "../internal/deliver-handler.ts"), "utf-8");
 
 describe("delivery-job: context wiring", () => {
   it("uses pluginRuntime.buildJobContext to build per-delivery contexts", () => {
-    expect(deliveryJobSource).toContain("pluginRuntime.buildJobContext(");
+    expect(deliverHandlerSource).toContain("pluginRuntime.buildJobContext(");
   });
 
   it("does not pass an empty allowedHosts list to buildContext (regression)", () => {
-    expect(deliveryJobSource).not.toContain("allowedHosts: []");
+    expect(deliverHandlerSource).not.toContain("allowedHosts: []");
   });
 
   it("does not import the raw buildContext helper", () => {
     // buildJobContext is the right entry point; importing buildContext
     // directly is what introduced the empty-allowlist bug. Block the
     // import path so a future refactor cannot silently re-introduce it.
-    expect(deliveryJobSource).not.toMatch(
-      /import\s*\{[^}]*\bbuildContext\b[^}]*\}\s*from\s*["']\.\.\/plugin-runtime\/context["']/,
+    expect(deliverHandlerSource).not.toMatch(
+      /import\s*\{[^}]*\bbuildContext\b[^}]*\}\s*from\s*["']\.\.\/\.\.\/plugin-runtime\/context["']/,
     );
   });
 });

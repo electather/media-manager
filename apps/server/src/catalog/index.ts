@@ -9,7 +9,7 @@ export {
   type RawCanonicalSource,
 } from "./canonical";
 export { toCandidateFeatures, extractFeatures, candidateId } from "./features";
-export { registerCatalogJobs } from "./jobs";
+export { registerCatalogJobs, registerCatalogJobs as registerJobs } from "./jobs";
 export { writeRecommendationsForUser } from "./jobs/recommendation-build";
 
 let instance: CatalogService | undefined;

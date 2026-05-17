@@ -1,9 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { consola } from "consola";
 import { buildFetch, buildLogger } from "./fetch-policy";
 import { buildStore } from "./host-bridge";
-// fallow-allow: phase-2 event conversion
-// fallow-ignore-next-line boundary-violation
-import { emit as hostEmit } from "../notifications/emit";
+import { emit } from "../jobs/events";
+import { PLUGIN_RUNTIME_EVENTS, notifyRequestedPayload } from "./events";
 import type { PluginContext, PoolSignalingApi } from "@ent-mcp/plugin-sdk";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 
@@ -78,17 +78,29 @@ export function buildContext(args: BuildContextArgs): PluginContext {
 }
 
 /**
- * Produces the default `ctx.notify` that funnels plugin-emitted events into
- * the host's `emit()`. Failures are logged via `consola` and never propagate
- * — a misbehaving notification path must not break the plugin's primary
- * operation.
+ * Produces the default `ctx.notify` that funnels plugin-emitted events through
+ * the typed event bus. Wraps the partial event the plugin returns into a fully
+ * formed `NotificationEvent` (host-generated id + occurredAt) and emits
+ * `plugin-runtime.notify.requested`; the notifications module subscribes and
+ * routes through its delivery pipeline.
+ *
+ * Failures are logged via `consola` and never propagate — a misbehaving
+ * notification path must not break the plugin's primary operation.
  */
 function buildHostNotify(
   pluginId: string,
 ): (event: Omit<NotificationEvent, "id" | "occurredAt">) => Promise<void> {
   return async (event) => {
+    const fullEvent = {
+      ...event,
+      id: randomUUID(),
+      occurredAt: new Date().toISOString(),
+    } as NotificationEvent;
     try {
-      await hostEmit(event);
+      await emit(PLUGIN_RUNTIME_EVENTS.NOTIFY_REQUESTED, notifyRequestedPayload, {
+        pluginId,
+        event: fullEvent,
+      });
     } catch (err) {
       consola.error(`[plugin:${pluginId}] ctx.notify failed:`, err);
     }

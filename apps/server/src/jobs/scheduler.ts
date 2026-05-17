@@ -1,32 +1,25 @@
 import { consola } from "consola";
-// fallow-allow: phase-2 infra-to-module decoupling
-// fallow-ignore-next-line boundary-violation
-import { sweepExpiredStore } from "../plugin-runtime";
 import { sweepPendingAuth } from "../connections/service";
 import { sweepDiagnostics } from "../diagnostics/retention";
-// fallow-allow: phase-2 infra-to-module decoupling
-// fallow-ignore-next-line boundary-violation
-import { registerCatalogJobs } from "../catalog";
-// fallow-allow: phase-2 infra-to-module decoupling
-// fallow-ignore-next-line boundary-violation
-import { registerPreferenceJobs } from "../preferences";
-// fallow-allow: phase-2 infra-to-module decoupling
-// fallow-ignore-next-line boundary-violation
-import { registerHomeLayoutWarmJob } from "../home";
-// prettier-ignore
-// fallow-allow: phase-2 infra-to-module decoupling
-// fallow-ignore-next-line boundary-violation
-import { registerDeliveryJob, registerStalePendingSweep, registerDemoNotificationJob } from "../notifications";
 import { cacheCleanupJob } from "./cache-cleanup";
 import { registerAllPluginJobs } from "./plugin-jobs";
 import { registerScheduled } from "./scheduled";
 import { stopAll, list } from "./index";
 
 /**
- * Registers every host-internal scheduled job. Each registration is a thin
- * wrapper around the underlying sweep, following the one-place convention
- * described in `docs/2026-04-20-job-service-design.md`. Plugin-declared
- * jobs are registered afterward.
+ * Registers every host-scheduled job owned by the infrastructure layer. Each
+ * registration is a thin wrapper around the underlying sweep, following the
+ * one-place convention from `docs/2026-04-20-job-service-design.md`.
+ *
+ * Module-owned jobs (catalog, home, notifications, plugin-runtime,
+ * preferences) are NOT registered here — they live behind each module's
+ * barrel-exported `registerJobs()` and are wired from
+ * `apps/server/src/{index,worker}.ts` in alphabetical order. This file kept
+ * to infra-only schedules so `server-infra` no longer needs to import any
+ * `server-mod-*` barrel.
+ *
+ * Plugin-declared jobs (declared via plugin manifests, not modules) are still
+ * registered after host schedules so they observe a settled host registry.
  */
 export const scheduler = {
   async start(): Promise<void> {
@@ -38,17 +31,6 @@ export const scheduler = {
       adminTriggerable: true,
       handler: async (ctx) => {
         await cacheCleanupJob(ctx);
-      },
-    });
-    registerScheduled({
-      id: "host.plugin_store.expired_sweep",
-      name: "Plugin store cleanup",
-      description: "Sweeps expired rows from the plugin key-value store.",
-      schedule: "*/10 * * * *",
-      adminTriggerable: true,
-      handler: async () => {
-        const removed = await sweepExpiredStore();
-        if (removed > 0) consola.debug(`plugin-store-sweep removed ${removed} rows`);
       },
     });
     registerScheduled({
@@ -75,13 +57,6 @@ export const scheduler = {
         }
       },
     });
-
-    registerPreferenceJobs();
-    registerCatalogJobs();
-    registerHomeLayoutWarmJob();
-    registerDeliveryJob();
-    registerStalePendingSweep();
-    registerDemoNotificationJob();
 
     const pluginCount = await registerAllPluginJobs();
     const total = (await list()).length;

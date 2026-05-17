@@ -44,6 +44,7 @@ export {
   PREFERENCE_INCREMENTAL_JOB_ID,
   PREFERENCE_MANUAL_REBUILD_JOB_ID,
   registerPreferenceJobs,
+  registerPreferenceJobs as registerJobs,
 } from "./jobs";
 export {
   listUsersNeedingRebuild,

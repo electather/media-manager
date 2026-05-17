@@ -9,11 +9,17 @@ import { runMigrations } from "./db/migrate";
 import { scheduler } from "./jobs/scheduler";
 import { markOrphanedRunsFailed } from "./jobs/history";
 import { registerBuiltinPlugins } from "./plugins/registry";
-import { pluginRuntime } from "./plugin-runtime";
+import * as artwork from "./artwork";
+import * as auth from "./auth";
+import * as catalog from "./catalog";
+import * as home from "./home";
+import * as media from "./media";
+import * as notifications from "./notifications";
+import * as preferences from "./preferences";
+import * as pluginRuntime from "./plugin-runtime";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
-import { NotificationErrorSink } from "./notifications";
 
 async function bootstrap(): Promise<void> {
   getDb();
@@ -24,12 +30,30 @@ async function bootstrap(): Promise<void> {
   // step instead and uses a separate Workers entry point.
   await runMigrations();
   registerSink(new DatabaseSink());
-  registerSink(new NotificationErrorSink());
+
+  // Phase 2 boundaries: every domain module exposes registerJobs() via its
+  // barrel. Called in fixed alphabetical order so handler fan-out timing is
+  // deterministic — boot.test.ts enforces this ordering. Modules without
+  // jobs yet expose a no-op (artwork, auth, media); Phase 3 fills them in.
+  artwork.registerJobs();
+  auth.registerJobs();
+  catalog.registerJobs();
+  home.registerJobs();
+  media.registerJobs();
+  notifications.registerJobs();
+  pluginRuntime.registerJobs();
+  preferences.registerJobs();
+
+  // The error sink publishes via the notifications service, so register it
+  // after notifications.registerJobs() so the delivery job is already in the
+  // job registry by the time the first error fires.
+  notifications.registerNotificationErrorSink();
+
   const orphaned = await markOrphanedRunsFailed();
   if (orphaned > 0) consola.warn(`[jobs] marked ${orphaned} orphaned run(s) as failed on startup`);
   registerBuiltinPlugins();
   bootstrapMcpHostTools();
-  await pluginRuntime.bootstrapBuiltins();
+  await pluginRuntime.pluginRuntime.bootstrapBuiltins();
   await scheduler.start();
 }
 

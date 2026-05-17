@@ -3,9 +3,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { encryptJson } from "../crypto/helpers";
-// fallow-allow: phase-2 event conversion
-// fallow-ignore-next-line boundary-violation
-import { emit } from "../notifications/emit";
+import { emit } from "../jobs/events";
+import { MEDIA_EVENTS, connectionAuthExpiredPayload } from "./events";
 
 export async function emitAuthExpired(args: {
   connectionId: string;
@@ -13,13 +12,7 @@ export async function emitAuthExpired(args: {
   userId: string;
 }): Promise<void> {
   try {
-    await emit({
-      type: "connection.auth.expired",
-      category: "auth",
-      severity: "warn",
-      audience: { kind: "user", userId: args.userId },
-      payload: { connectionId: args.connectionId, pluginId: args.pluginId },
-    });
+    await emit(MEDIA_EVENTS.CONNECTION_AUTH_EXPIRED, connectionAuthExpiredPayload, args);
   } catch (err) {
     consola.error("[dispatcher] auth-expired notification emit failed:", err);
   }

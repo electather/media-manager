@@ -3,11 +3,17 @@ import { registerApiRoutes } from "./api/register-routes";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { registerBuiltinPlugins } from "./plugins/registry";
-import { pluginRuntime } from "./plugin-runtime";
+import * as artwork from "./artwork";
+import * as auth from "./auth";
+import * as catalog from "./catalog";
+import * as home from "./home";
+import * as media from "./media";
+import * as notifications from "./notifications";
+import * as preferences from "./preferences";
+import * as pluginRuntime from "./plugin-runtime";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
-import { NotificationErrorSink } from "./notifications";
 
 // Cloudflare Workers entry point. Diverges from `index.ts` by excluding the
 // pieces of the local server that don't work in the Workers runtime:
@@ -44,8 +50,21 @@ function ensureRuntimeReady(): Promise<void> {
   runtimeReady ??= (async () => {
     getDb();
     registerSink(new DatabaseSink());
-    registerSink(new NotificationErrorSink());
-    await pluginRuntime.bootstrapBuiltins();
+
+    // Phase 2 boundaries: register module jobs in alphabetical order, same
+    // contract as index.ts. Modules without jobs (artwork, auth, media) are
+    // no-ops in Phase 2.
+    artwork.registerJobs();
+    auth.registerJobs();
+    catalog.registerJobs();
+    home.registerJobs();
+    media.registerJobs();
+    notifications.registerJobs();
+    pluginRuntime.registerJobs();
+    preferences.registerJobs();
+
+    notifications.registerNotificationErrorSink();
+    await pluginRuntime.pluginRuntime.bootstrapBuiltins();
   })().catch((err) => {
     runtimeReady = undefined;
     throw err;

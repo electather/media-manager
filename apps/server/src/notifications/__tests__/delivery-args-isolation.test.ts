@@ -4,7 +4,7 @@ import inboxPlugin from "@ent-mcp/plugin-inbox";
 import ntfyPlugin from "@ent-mcp/plugin-ntfy";
 import telegramPlugin from "@ent-mcp/plugin-telegram";
 import discordPlugin from "@ent-mcp/plugin-discord";
-import { buildDeliverArgs, isHostPrivilegedPlugin } from "../delivery-policy";
+import { buildDeliverArgs, isHostPrivilegedPlugin } from "../internal/delivery-policy";
 
 const event: NotificationEvent = {
   id: "evt-1",

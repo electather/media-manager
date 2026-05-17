@@ -6,4 +6,7 @@ export {
   type ComposeOptions,
 } from "./orchestrator";
 export { composeSeasonAvailability } from "./season-availability";
-export { registerHomeLayoutWarmJob } from "./jobs/layout-warm";
+export {
+  registerHomeLayoutWarmJob,
+  registerHomeLayoutWarmJob as registerJobs,
+} from "./jobs/layout-warm";

@@ -41,3 +41,15 @@ export {
   type PoolPick,
 } from "./shared-credentials";
 export { isBlockedHostname, resolveAllowedHostsFromSchema, unionHostSets } from "./allowed-hosts";
+export {
+  getConnectionById,
+  listEnabledConnectionsForUsers,
+  ensureInboxConnection,
+  type ConnectionRow,
+} from "./connections-access";
+export {
+  PLUGIN_RUNTIME_EVENTS,
+  notifyRequestedPayload,
+  type NotifyRequestedPayload,
+} from "./events";
+export { registerJobs } from "./jobs";
