@@ -152,3 +152,20 @@ describe("event handler coverage", () => {
     expect(missing, "declared events without a matching on(...) call").toEqual([]);
   });
 });
+
+/**
+ * `runner.emitJobOutcome` skips outcome emission when the failing job is one
+ * of the typed-runtime-event dispatchers — otherwise a fault inside the
+ * `jobs.run.failed` handler re-emits the same event for itself and cascades
+ * unboundedly. The skip-list lives next to the event constants
+ * (`runtime-events.ts`); this test pins the invariant that every value in
+ * `JOB_EVENTS` is present in `EVENT_DISPATCHER_JOB_IDS`, so adding a new
+ * runtime event without adding it to the skip-list fails CI.
+ */
+describe("runner skip-list ↔ JOB_EVENTS invariant", () => {
+  it("every JOB_EVENTS value appears in EVENT_DISPATCHER_JOB_IDS", async () => {
+    const { JOB_EVENTS, EVENT_DISPATCHER_JOB_IDS } = await import("../jobs/runtime-events");
+    const missing = Object.values(JOB_EVENTS).filter((name) => !EVENT_DISPATCHER_JOB_IDS.has(name));
+    expect(missing, "events declared without a dispatcher-skip entry").toEqual([]);
+  });
+});

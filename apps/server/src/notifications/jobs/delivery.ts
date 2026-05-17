@@ -3,13 +3,13 @@ import { env } from "../../env";
 import { renderTemplate } from "../templates";
 import * as repo from "../repo";
 import { getConnectionById } from "../../plugin-runtime";
-import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../../jobs/triggerable";
 import {
   executeDelivery,
   loadPluginAndContext,
   parseUserConfig,
 } from "../internal/deliver-handler";
+import { parseStoredEventPayload } from "../internal/parse-event-payload";
 
 const log = consola.withTag("notifications.deliver");
 
@@ -39,7 +39,19 @@ export function registerDelivery(): void {
       if (!claimed) return;
 
       const delivery = claimed;
-      const event = JSON.parse(delivery.eventPayload) as NotificationEvent;
+      // Schema-validate the stored payload instead of casting blind. Schema
+      // drift across deploys (or a row stored before a payload-shape change)
+      // surfaces here as a typed failure rather than a partial object that
+      // would silently flow into `renderTemplate` + the plugin deliver call.
+      const event = parseStoredEventPayload(delivery.eventPayload);
+      if (!event) {
+        await repo.markDeliveryFailed(
+          deliveryId,
+          "invalid_payload",
+          "stored event payload failed schema validation",
+        );
+        return;
+      }
       const message = renderTemplate(event, "en");
 
       if (!delivery.recipientConnectionId) {

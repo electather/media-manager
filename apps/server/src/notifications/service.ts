@@ -14,6 +14,7 @@ import { notificationEventSchema } from "@ent-mcp/shared/notifications";
 import * as repo from "./repo";
 import { resolveRecipients } from "./internal/resolve-recipients";
 import { NotificationErrorSink } from "./internal/error-sink";
+import { parseStoredEventPayload } from "./internal/parse-event-payload";
 import type { NotificationSettings } from "./types";
 
 /**
@@ -181,24 +182,6 @@ export class NotificationsService {
       ),
     );
   }
-}
-
-/**
- * Safely parses a stored delivery event payload. Returns `null` when the
- * JSON is corrupt OR when the parsed shape no longer matches the current
- * `notificationEventSchema` — schema drift across deploys is silent
- * otherwise, and casting through `as NotificationEvent` would surface
- * partial objects to the admin detail view.
- */
-function parseStoredEventPayload(raw: string): NotificationEvent | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-  const result = notificationEventSchema.safeParse(parsed);
-  return result.success ? (result.data as NotificationEvent) : null;
 }
 
 /**

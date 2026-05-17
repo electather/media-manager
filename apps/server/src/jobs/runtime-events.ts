@@ -11,6 +11,22 @@ export const JOB_EVENTS = {
   SYNC_SUCCEEDED: "jobs.sync.succeeded" as EventName,
 } as const;
 
+/**
+ * Job ids that ARE the dispatcher jobs registered by `jobs/on.ts` for the
+ * runtime events declared above. `runner.emitJobOutcome` skips outcome
+ * emission when a failing job's id appears in this set so a transient
+ * downstream fault inside the handler does not cascade into an unbounded
+ * chain of `jobs.run.failed` events.
+ *
+ * **Invariant**: every value in `JOB_EVENTS` MUST appear here. Pinned by
+ * `apps/server/src/__tests__/boot.test.ts` so adding a new entry to
+ * `JOB_EVENTS` without adding it to the skip-list fails CI.
+ */
+export const EVENT_DISPATCHER_JOB_IDS: ReadonlySet<string> = new Set<string>([
+  JOB_EVENTS.RUN_FAILED as string,
+  JOB_EVENTS.SYNC_SUCCEEDED as string,
+]);
+
 export const jobRunFailedPayload = z.object({
   jobId: z.string(),
   runId: z.string(),

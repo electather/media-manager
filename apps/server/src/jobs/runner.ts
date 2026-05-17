@@ -2,7 +2,12 @@ import { consola } from "consola";
 import { captureError } from "../diagnostics/capture";
 import { runWithRequestContext, newRequestId } from "../diagnostics/request-context";
 import { emit } from "./emit";
-import { JOB_EVENTS, jobRunFailedPayload, jobSyncSucceededPayload } from "./runtime-events";
+import {
+  EVENT_DISPATCHER_JOB_IDS,
+  JOB_EVENTS,
+  jobRunFailedPayload,
+  jobSyncSucceededPayload,
+} from "./runtime-events";
 import { getConfig, type JobConfigRow } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
@@ -250,19 +255,6 @@ function resolveStatus(outcome: {
  * Emit failures must never propagate to the host operation — logged and
  * swallowed.
  */
-/**
- * Job ids that ARE the dispatcher jobs registered by `jobs/on.ts` for the
- * typed runtime events. If one of them fails we MUST NOT emit
- * `jobs.run.failed` for it — that would re-enqueue the same dispatcher and a
- * transient downstream fault (e.g. notifications DB unavailable) would
- * cascade into an unbounded chain of failed event jobs instead of being
- * swallowed by the runner.
- */
-const EVENT_DISPATCHER_JOB_IDS: ReadonlySet<string> = new Set([
-  JOB_EVENTS.RUN_FAILED as string,
-  JOB_EVENTS.SYNC_SUCCEEDED as string,
-]);
-
 // fallow-ignore-next-line complexity
 async function emitJobOutcome(
   req: RunRequest,
