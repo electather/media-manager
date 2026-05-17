@@ -1,8 +1,9 @@
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import { listUsersNeedingDailyRebuild, type RebuildRow } from "../internal/rebuild-row-source";
 import { getPreferencesService } from "../service";
+import { PREFERENCE_DAILY_JOB_ID } from "./ids";
 
-export const PREFERENCE_DAILY_JOB_ID = "host.preference.daily_rebuild";
+export { PREFERENCE_DAILY_JOB_ID } from "./ids";
 
 /**
  * Daily safety-net rebuild. Walks the `listUsersNeedingDailyRebuild` row

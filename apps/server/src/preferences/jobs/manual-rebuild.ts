@@ -7,8 +7,9 @@ import {
   rebuildPartitions,
   summarisePartitions,
 } from "../internal/manual-rebuild-helpers";
+import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "./ids";
 
-export const PREFERENCE_MANUAL_REBUILD_JOB_ID = "feature.preference.rebuild";
+export { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "./ids";
 
 /**
  * Triggerable on-demand rebuild. Used by the user-facing settings page

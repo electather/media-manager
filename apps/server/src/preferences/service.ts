@@ -25,15 +25,9 @@ import {
   listUsersNeedingRebuild,
   type RebuildRow,
 } from "./internal/rebuild-row-source";
+import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "./jobs/ids";
+import { triggerIncremental } from "./jobs/incremental-handle";
 import type { PreferenceDataProvider, RankedCandidate, UserItemFeedback } from "./types";
-
-/**
- * Job IDs the service owns. Kept as module-private constants so external
- * callers cannot couple to the literals; the barrel exposes typed service
- * methods (`triggerManualRebuild`, `getManualRebuildStatus`, etc.) instead.
- */
-const MANUAL_REBUILD_JOB_ID = "feature.preference.rebuild";
-const INCREMENTAL_JOB_ID = "host.preference.incremental_update";
 
 /**
  * Public sync surface for `preferences/`. Other modules call methods on the
@@ -156,11 +150,11 @@ export class PreferencesService {
    * while a rebuild is in flight — eviction would race rec-list writes.
    */
   isManualRebuildRunning(): boolean {
-    return anyRunning([MANUAL_REBUILD_JOB_ID]);
+    return anyRunning([PREFERENCE_MANUAL_REBUILD_JOB_ID]);
   }
 
   getManualRebuildStatus(userId: string): Promise<JobRunSummary | null> {
-    return latestRun(MANUAL_REBUILD_JOB_ID, userId);
+    return latestRun(PREFERENCE_MANUAL_REBUILD_JOB_ID, userId);
   }
 
   // ─── Job triggers ────────────────────────────────────────────────────────
@@ -174,12 +168,12 @@ export class PreferencesService {
     input: { userId: string },
     meta: TriggerSource,
   ): Promise<{ runId: string; result: unknown }> {
-    const entry = findJobEntry(MANUAL_REBUILD_JOB_ID);
+    const entry = findJobEntry(PREFERENCE_MANUAL_REBUILD_JOB_ID);
     if (!entry || entry.kind !== "triggerable") {
-      throw new Error(`job ${MANUAL_REBUILD_JOB_ID} is not registered`);
+      throw new Error(`job ${PREFERENCE_MANUAL_REBUILD_JOB_ID} is not registered`);
     }
     if (!entry.triggerFromApi) {
-      throw new Error(`job ${MANUAL_REBUILD_JOB_ID} has no triggerFromApi handler`);
+      throw new Error(`job ${PREFERENCE_MANUAL_REBUILD_JOB_ID} has no triggerFromApi handler`);
     }
     return entry.triggerFromApi(input, meta);
   }
@@ -187,19 +181,13 @@ export class PreferencesService {
   /**
    * Best-effort trigger for the coalesced incremental-update job. Silently
    * no-ops when the job is not registered — the caller (`ent_feedback`) has
-   * already persisted the feedback row, and the daily rebuild will pick it
-   * up if the live trigger is unavailable.
+   * already persisted the feedback row, and the daily rebuild safety net
+   * picks it up if the live trigger never lands. Routes through the
+   * `incremental-handle` leaf module rather than the registry because only
+   * the `CoalescedJobHandle` exposes `trigger()`.
    */
-  // fallow-ignore-next-line complexity
   triggerIncrementalUpdate(userId: string): void {
-    const entry = findJobEntry(INCREMENTAL_JOB_ID);
-    if (!entry || entry.kind !== "coalesced") return;
-    const trigger = (
-      entry as unknown as {
-        trigger?: (input: { scopeKey: string } & Record<string, unknown>) => void;
-      }
-    ).trigger;
-    if (typeof trigger === "function") trigger({ scopeKey: userId, userId });
+    triggerIncremental(userId);
   }
 
   // ─── Internal hooks (in-module callers only) ─────────────────────────────

@@ -59,12 +59,12 @@ export async function listFeedbackForItem(
 }
 
 export async function countFeedbackSince(userId: string, sinceMs: number): Promise<number> {
-  const rows = await getDb()
-    .select({ id: feedback.id })
+  const row = await getDb()
+    .select({ count: sql<number>`count(*)` })
     .from(feedback)
     .where(and(eq(feedback.userId, userId), gt(feedback.createdAt, sinceMs)))
-    .all();
-  return rows.length;
+    .get();
+  return row?.count ?? 0;
 }
 
 // ─── rebuild row source (cross-table joins between feedback + profiles) ──────
