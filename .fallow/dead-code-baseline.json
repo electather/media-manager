@@ -2,6 +2,7 @@
   "unused_files": [],
   "unused_exports": [],
   "unused_types": [],
+  "private_type_leaks": [],
   "unused_dependencies": [],
   "unused_dev_dependencies": [],
   "circular_dependencies": [
@@ -9,6 +10,7 @@
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
+    "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/prune.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
@@ -17,31 +19,20 @@
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
-    "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/index.ts->apps/server/src/catalog/jobs/user-mirror-sync.ts->apps/server/src/db/client.ts->apps/server/src/db/schema/catalog.ts->apps/server/src/db/schema/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
     "apps/server/src/catalog/index.ts->apps/server/src/catalog/jobs/recommendation-build.ts->apps/server/src/preferences/catalog-provider.ts->apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts",
-    "apps/server/src/catalog/index.ts->apps/server/src/catalog/service.ts->apps/server/src/db/schema/catalog.ts",
-    "apps/server/src/catalog/index.ts->apps/server/src/db/client.ts->apps/server/src/db/schema/catalog.ts->apps/server/src/db/schema/index.ts",
     "apps/server/src/preferences/index.ts->apps/server/src/preferences/jobs.ts"
   ],
   "unused_optional_dependencies": [],
   "unused_enum_members": [],
-  "unused_class_members": [
-    "apps/server/src/home/status-batch.ts:StatusBatchMemo.get",
-    "apps/server/src/media/service.ts:MediaService.getDetails",
-    "apps/server/src/media/service.ts:MediaService.getShowSeasons",
-    "apps/server/src/media/service.ts:MediaService.getWatchlistCount",
-    "apps/server/src/media/service.ts:MediaService.getCalendarProgressCount",
-    "apps/server/src/media/service.ts:MediaService.hasCapabilityProvider",
-    "apps/server/src/media/service.ts:MediaService.getMatchingServers"
-  ],
+  "unused_class_members": [],
   "unresolved_imports": [],
   "unlisted_dependencies": [],
   "duplicate_exports": [],
   "type_only_dependencies": [],
   "test_only_dependencies": [],
   "boundary_violations": [],
-  "stale_suppressions": ["apps/client/vite.config.ts:1", "vite.config.ts:1"]
+  "stale_suppressions": []
 }
