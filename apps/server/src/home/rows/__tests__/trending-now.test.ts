@@ -3,7 +3,7 @@ import { z } from "zod";
 import provider from "../trending-now";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
 import { decodeCursor } from "../../cursor";
-import type { CanonicalMetadata, MetadataKey } from "../../../catalog/types";
+import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
 
 const offsetSchema = z.object({ offset: z.number().int().min(0) });
 

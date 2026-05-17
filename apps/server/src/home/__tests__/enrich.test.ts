@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { makeRowCtx } from "./row-test-helpers";
-import type { CanonicalMetadata } from "../../catalog/types";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

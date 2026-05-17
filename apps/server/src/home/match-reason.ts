@@ -1,5 +1,5 @@
 import type { MatchReason } from "@ent-mcp/shared/home";
-import type { TopContributor } from "../catalog";
+import type { TopContributor } from "@ent-mcp/shared/catalog";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
 const FINISHING_SOON_THRESHOLD = 0.85;

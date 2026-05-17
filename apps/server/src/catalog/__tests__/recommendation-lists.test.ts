@@ -17,7 +17,7 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
-import type { RecItem } from "../types";
+import type { RecItem } from "@ent-mcp/shared/catalog";
 import { seedUser } from "./helpers";
 
 afterAll(() => cleanupInMemoryDbs());

@@ -14,7 +14,7 @@ vi.mock("../../env", () => ({
 import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
 import { toCanonicalRow } from "../canonical";
-import type { CanonicalMetadata, MetadataKey } from "../types";
+import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
 
 afterAll(() => cleanupInMemoryDbs());
 

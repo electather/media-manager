@@ -6,7 +6,7 @@ import { MediaService, identifyItem, parseHistoryBase, parseItemDate } from "../
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
-import type { HistoryEvent, RatingEvent } from "../types";
+import type { HistoryEvent, RatingEvent } from "@ent-mcp/shared/catalog";
 import { isNil } from "es-toolkit/predicate";
 
 const PER_ROW_TIMEOUT_SEC = 60;

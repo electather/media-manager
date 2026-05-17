@@ -1,5 +1,5 @@
+import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "@ent-mcp/shared/catalog";
 import type { CandidateFeatures, RawMediaItem } from "../preferences";
-import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "./types";
 import { dedupeStrings, nullableString } from "./util";
 
 /**

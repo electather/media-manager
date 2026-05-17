@@ -13,7 +13,7 @@ vi.mock("../../env", () => ({
 
 import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
-import type { MetadataKey } from "../types";
+import type { MetadataKey } from "@ent-mcp/shared/catalog";
 
 afterAll(() => cleanupInMemoryDbs());
 

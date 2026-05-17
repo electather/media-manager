@@ -1,5 +1,5 @@
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
-import type { CanonicalMetadata, TopContributor } from "../catalog";
+import type { CanonicalMetadata, TopContributor } from "@ent-mcp/shared/catalog";
 import type { InternalCompactMediaItem } from "./types";
 
 /**

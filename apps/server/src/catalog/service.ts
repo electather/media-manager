@@ -9,8 +9,6 @@ import {
   userRatingsMirror,
 } from "../db/schema/catalog";
 import { idMap } from "../db/schema/id-map";
-import { candidateId } from "./features";
-import { PerUserMutex } from "./mutex";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,
@@ -24,7 +22,9 @@ import type {
   RecItem,
   RecommendationList,
   RecommendationListKind,
-} from "./types";
+} from "@ent-mcp/shared/catalog";
+import { candidateId } from "./features";
+import { PerUserMutex } from "./mutex";
 
 type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
