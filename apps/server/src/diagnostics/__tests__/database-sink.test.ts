@@ -6,6 +6,7 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { errorRecords, perfRecords } from "../../db/schema/diagnostics";
+import { user } from "../../db/schema/auth";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -67,7 +68,15 @@ describe("DatabaseSink — system user sentinel", () => {
     expect(row!.userId).toBeNull();
   });
 
-  it("preserves real user_id values", async () => {
+  it("preserves real user_id values unchanged", async () => {
+    await db.insert(user).values({
+      id: "user-abc",
+      name: "Test User",
+      email: "test@example.com",
+      emailVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
     const sink = new DatabaseSink();
     await sink.capturePerf({
       id: "perf-2",
@@ -78,11 +87,11 @@ describe("DatabaseSink — system user sentinel", () => {
       method: "GET",
       status: 200,
       pluginId: null,
-      userId: null,
+      userId: "user-abc",
       createdAt: Date.now(),
     });
     const row = await db.select().from(perfRecords).where(eq(perfRecords.id, "perf-2")).get();
     expect(row).toBeDefined();
-    expect(row!.userId).toBeNull();
+    expect(row!.userId).toBe("user-abc");
   });
 });

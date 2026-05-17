@@ -2,13 +2,12 @@ import type { ErrorRecord, PerfRecord } from "@ent-mcp/shared/diagnostics";
 import { getDb } from "../db/client";
 import { errorRecords, perfRecords } from "../db/schema/diagnostics";
 import type { DiagnosticSink } from "./types";
+import { SYSTEM_USER_ID } from "../catalog/jobs/constants";
 
-// System job sentinel — no user-table row exists for this value, so FK
-// constraints reject it. Normalise to null before any DB insert.
-const SYSTEM_USER_SENTINEL = "__system__";
-
+// __system__ has no user-table row, so FK constraints reject it.
+// Normalise to null before any DB insert.
 function toUserFkValue(userId: string | null | undefined): string | null {
-  return userId === SYSTEM_USER_SENTINEL ? null : (userId ?? null);
+  return userId === SYSTEM_USER_ID ? null : (userId ?? null);
 }
 
 /** Built-in sink that persists both error and perf records to SQLite. */
