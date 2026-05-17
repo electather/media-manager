@@ -49,6 +49,7 @@ Self-host diag svc. 2 record kinds: `error_records` ∧ `perf_records`. Shared: 
 | BE      | RPC mw 5xx throw                     | `error`, req-id stamp, rethrow                                        |
 | BE      | RPC mw 4xx handler bug               | `error`                                                               |
 | BE      | RPC mw 4xx user input                | ⊥ captured (auth denied / 404 / bad input)                            |
+| BE      | `PluginCallError` w/ `info` code     | ⊥ captured; → 422 structured body; ⊥ notification (§PluginErr)        |
 | Plugin  | sandbox throw                        | `error`, src+pluginId+stack+req-id, mark conn errored                 |
 | Plugin  | output Zod fail                      | `warning`, host → empty results                                       |
 | Plugin  | OOM \| timeout                       | `error` w/ cause                                                      |
@@ -83,6 +84,7 @@ HOST_ERROR_CODES = {
   "plugin.bad_credentials": { severity: "info" },
   "plugin.upstream_error": { severity: "error" },
   "plugin.output_invalid": { severity: "warning" },
+  "media.no_connection": { severity: "info" },   // user has no plugin connected — expected
   "artwork.bad_input": { severity: "info" },
   "artwork.unsupported_id_combo": { severity: "info" },
   "artwork.internal": { severity: "error" },
@@ -91,6 +93,50 @@ HOST_ERROR_CODES = {
 ```
 
 `captureError` effective sev: 1) caller param wins; 2) registry; 3) unknown → `error`.
+
+## §PluginErr PluginCallError boundary contract
+
+`PluginCallError` (thrown by `single` ∧ `aggregate_per_kind` strategies) ⊥ treated as generic 500. `errorHandler` has explicit branch before fallback else:
+
+```
+errorHandler(err, c):
+  | err instanceof HttpError:            // unchanged
+    ...
+  | err instanceof PluginCallError:      // NEW — B fix
+    sev = severityFor(err.code)          // registry; unknown → "error"
+    sev ≠ "info" → captureError(err, {severity:sev, source:"backend", code:err.code,
+                                      pluginId:err.pluginId, httpStatus:422, ...})
+    → c.json({code:err.code, devMessage:err.message, requestId}, 422)
+  | else:                                // unchanged — http.internal_error
+    ...
+```
+
+`media.no_connection` (`severity:"info"`) → ⊥ captureError → ⊥ notification → ⊥ log entry. Client receives `{code:"media.no_connection"}` 422.
+
+### Service-layer fixes (C — stop throw escaping)
+
+Prevent `PluginCallError("media.no_connection")` from reaching boundary for known call sites:
+
+```
+// media/errors.ts — mapRequestPluginError addition
+media.no_connection → HttpError(422, "media.no_connection", err.message)
+
+// media/strategies/aggregate-per-kind.ts — invokeProvider, no-conn case
+conn = pickSingleConnection(userId, pluginId)
+conn ⊥ → log.debug("no_connection", pluginId); return          // skip provider, ⊥ throw
+
+// media/service.ts — getRequests()
+try: dispatchSingle(...)
+catch PluginCallError e where e.code=="media.no_connection": return []
+```
+
+V: `cancelRequest` already uses `mapRequestPluginError` → picks up mapping automatically after fix.
+
+### Invariants
+
+V4: `PluginCallError` w/ `info` severity ⊥ trigger notification ∧ ⊥ captureError.
+V5: ∀ `PluginCallError` reaching `errorHandler` → 422 (⊥ 500), code preserved in body.
+V6: `aggregate_per_kind` missing-conn provider → skip (partial result), ⊥ throw.
 
 ## §Corr Request-ID
 
@@ -432,6 +478,10 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 | Unit        | param route extraction (`/x/123` → `/x/:id` from hono match).      |
 | Unit        | percentile calc js fallback (sorted slice).                        |
 | Integration | RPC mw 5xx captured, expected 4xx user ⊥ captured.                 |
+| Unit        | `PluginCallError("media.no_connection")` → 422, ⊥ captureError (V4,V5). |
+| Unit        | `PluginCallError` unknown code → `severity:"error"` → captureError + 422. |
+| Unit        | `aggregate_per_kind` missing conn → provider skipped, result partial (V6). |
+| Unit        | `mapRequestPluginError("media.no_connection")` → `HttpError(422)`.  |
 | Integration | HTTP perf mw writes row on success ∧ failure (still timed).        |
 | Integration | HTTP perf mw skips streaming + `/api/diagnostics/*`.               |
 | Integration | plugin runtime: throw → err record; success → perf record.         |
