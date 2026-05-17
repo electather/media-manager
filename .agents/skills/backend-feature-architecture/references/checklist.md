@@ -54,6 +54,8 @@ Cite hard-rule numbers from [SKILL.md](../SKILL.md).
 - [ ] R10 — adapters call barrels only
 - [ ] R11 — no junk-drawer filenames
 - [ ] R12 — event names via constant, never literal
+- [ ] R13 — new error codes registered in `packages/shared/src/diagnostics/codes.ts` w/ correct severity; expected user-state → `info`, recovered → `warning`, fault → `error`
+- [ ] R14 — service methods that handle expected plugin absence (no connection, token expired) catch typed error at service boundary; ⊥ naked `PluginCallError` reaches HTTP boundary
 - [ ] Boot: `registerJobs` re-exported from barrel; entry points call alphabetically
 - [ ] Size + complexity budgets respected → [module-layout.md](module-layout.md)
 - [ ] Companion skills invoked (esp. `clean-code` for fn-level scrutiny)

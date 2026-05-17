@@ -111,9 +111,13 @@ errorHandler(err, c):
     ...
 ```
 
-`media.no_connection` (`severity:"info"`) → ⊥ captureError → ⊥ notification → ⊥ log entry. Client receives `{code:"media.no_connection"}` 422.
+∀ `PluginCallError` w/ `info` severity (e.g. `media.no_connection`, `plugin.bad_credentials`, `plugin.token_expired`, `connection.not_found`) → ⊥ captureError → ⊥ notification → ⊥ log entry. Client receives structured 422 w/ code preserved.
 
-### Service-layer fixes (C — stop throw escaping)
+`warning`/`error` codes → captureError w/ registry severity (⊥ `http.internal_error` override).
+
+Other `info`-severity codes that bubble through different call sites need C-style fixes at their own service boundary. Known `info` codes from registry: `plugin.input_invalid`, `plugin.bad_credentials`, `plugin.token_expired`, `plugin.disabled`, `connection.test_failed`, `connection.not_found`, `connection.verify_failed`, `media.no_connection`.
+
+### Service-layer fixes (C — stop throw escaping) — `media.no_connection` initial set
 
 Prevent `PluginCallError("media.no_connection")` from reaching boundary for known call sites:
 
@@ -134,9 +138,10 @@ V: `cancelRequest` already uses `mapRequestPluginError` → picks up mapping aut
 
 ### Invariants
 
-V4: `PluginCallError` w/ `info` severity ⊥ trigger notification ∧ ⊥ captureError.
-V5: ∀ `PluginCallError` reaching `errorHandler` → 422 (⊥ 500), code preserved in body.
+V4: ∀ `PluginCallError` w/ registry `info` severity → ⊥ captureError ∧ ⊥ notification.
+V5: ∀ `PluginCallError` reaching `errorHandler` → 422 (⊥ 500), original code preserved in body.
 V6: `aggregate_per_kind` missing-conn provider → skip (partial result), ⊥ throw.
+V7: service methods swallowing expected plugin absence → catch at service boundary; ⊥ naked `PluginCallError` reaches HTTP boundary.
 
 ## §Corr Request-ID
 

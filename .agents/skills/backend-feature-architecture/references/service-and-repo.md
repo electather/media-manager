@@ -96,6 +96,9 @@ Rules:
 - One base error per module: `<Module>Error`. Specific subclasses extend it
 - Carry structured fields (`code`, ids, http status hints) so adapters map without parsing message
 - Never expose internal stack details (DB/drizzle errors) to consumers — wrap them
+- Code severity (`packages/shared/src/diagnostics/codes.ts`) must match intent: expected user-state failures (no plugin connected, bad credentials, token expired) → `info`; recovered degraded path → `warning`; genuine fault → `error`
+- `info`-severity codes → ⊥ trigger notification ∧ ⊥ captureError. `errorHandler` uses registry automatically (§PluginErr in diagnostics design); no callsite annotation needed
+- Service methods that swallow expected plugin absence (no connection → empty result) → catch typed error at service boundary, ⊥ let it propagate to HTTP boundary naked
 
 ## Tests
 
