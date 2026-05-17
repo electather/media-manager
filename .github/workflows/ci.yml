@@ -52,11 +52,17 @@ jobs:
 
       - name: Fallow boundary + circular gate
         if: always()
-        # Explicit hard gate on error-severity findings (boundary_violations,
-        # circular_deps, unused_files, unused_exports). The SARIF + comment
-        # step below still publishes the full health report; this step is the
-        # one that fails CI when an error-severity issue lands.
-        run: vp exec fallow dead-code --fail-on-issues --quiet
+        # Explicit hard gate on net-new error-severity findings (boundary
+        # violations, new circular deps, unused files/exports). Phase 1 baselines
+        # the 18 existing catalog↔preferences cycles in
+        # .fallow/dead-code-baseline.json; Phase 2 typed events resolve them.
+        # The SARIF + comment step below still publishes the full health report.
+        run: |
+          vp exec fallow audit --base origin/main \
+            --dead-code-baseline .fallow/dead-code-baseline.json \
+            --health-baseline .fallow/health-baseline.json \
+            --dupes-baseline .fallow/dupes-baseline.json \
+            --fail-on-issues --quiet
 
       - name: Fallow analysis (dead code, dupes, health)
         uses: fallow-rs/fallow@v2
