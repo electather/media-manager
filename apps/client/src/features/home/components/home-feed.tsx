@@ -67,7 +67,7 @@ function HomeFeedReady() {
   );
 
   const handleClose = useCallback(() => {
-    void navigate({ to: ".", search: {}, replace: false, resetScroll: false });
+    void navigate({ to: ".", search: {}, replace: true, resetScroll: false });
   }, [navigate]);
 
   const toggleWatchlistId = useCallback((id: string) => {
