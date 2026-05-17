@@ -16,13 +16,20 @@
  * (importer must be <module>/repo.ts or <module>/repo/**) requires per-module
  * repo.ts which is built in Phase 2/3 — once repo.ts lands for a module, this
  * script should also assert the importer path.
+ *
+ * Import specifier resolution covers two shapes:
+ *   - relative (`./x`, `../x`) — resolved against the importer's directory.
+ *   - tsconfig path alias (`@/x`) — resolved against `apps/server/src/`,
+ *     matching the `paths` entry in `apps/server/tsconfig.json`.
+ * Other specifiers (workspace packages, externals) are skipped.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const SCHEMA_DIR = join(ROOT, "apps/server/src/db/schema");
+const SERVER_SRC = join(ROOT, "apps/server/src");
+const SCHEMA_DIR = join(SERVER_SRC, "db/schema");
 const MODULES = [
   "artwork",
   "auth",
@@ -164,8 +171,12 @@ const IMPORT_BLOCK_RE =
   /import\s+(?:type\s+)?(?:\*\s+as\s+[A-Za-z0-9_]+|[A-Za-z0-9_]+|\{[^}]*\}|[A-Za-z0-9_]+\s*,\s*\{[^}]*\})\s+from\s+["']([^"']+)["']/g;
 
 function resolveImportPath(importerDir: string, spec: string): string | null {
-  if (!spec.startsWith(".")) return null;
-  return resolve(importerDir, spec);
+  if (spec.startsWith(".")) return resolve(importerDir, spec);
+  // Mirror the `@/*` path alias declared in `apps/server/tsconfig.json` so
+  // imports like `@/db/schema/catalog` are checked the same as the relative
+  // `../../db/schema/catalog` form.
+  if (spec.startsWith("@/")) return resolve(SERVER_SRC, spec.slice(2));
+  return null;
 }
 
 function isSchemaImport(resolvedPath: string): boolean {
