@@ -123,10 +123,10 @@ Flat layout with reserved files. A file is created only when its role is needed 
 
 | Target | Soft cap | Hard cap | Enforcement |
 |---|---|---|---|
-| `service.ts` LOC | 300 | 500 | pre-commit / CI script (`wc -l`) |
-| `repo.ts` LOC | 200 | 300 | pre-commit / CI script |
-| `events.ts` LOC | 150 | 200 | pre-commit / CI script |
-| `jobs/<x>.ts` LOC | 150 | 200 | pre-commit / CI script |
+| `service.ts` LOC | 400 | 500 | pre-commit / CI script (`wc -l`) |
+| `repo.ts` LOC | 240 | 300 | pre-commit / CI script |
+| `events.ts` LOC | 160 | 200 | pre-commit / CI script |
+| `jobs/<x>.ts` LOC | 160 | 200 | pre-commit / CI script |
 | any function LOC | — | 50 | review |
 | cyclomatic per function | — | 15 | fallow `health.maxCyclomatic` lowered to 15 for module code, 20 stays for adapters |
 | cognitive per function | — | 15 | fallow `health.maxCognitive` (unchanged) |
