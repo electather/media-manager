@@ -483,10 +483,10 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 | Unit        | param route extraction (`/x/123` → `/x/:id` from hono match).      |
 | Unit        | percentile calc js fallback (sorted slice).                        |
 | Integration | RPC mw 5xx captured, expected 4xx user ⊥ captured.                 |
-| Unit        | `PluginCallError("media.no_connection")` → 422, ⊥ captureError (V4,V5). |
-| Unit        | `PluginCallError` unknown code → `severity:"error"` → captureError + 422. |
-| Unit        | `aggregate_per_kind` missing conn → provider skipped, result partial (V6). |
-| Unit        | `mapRequestPluginError("media.no_connection")` → `HttpError(422)`.  |
+| Unit        | `PluginCallError("media.no_connection")` → 422, ⊥ captureError (V4,V5). **(planned — §PluginErr impl PR)** |
+| Unit        | `PluginCallError` unknown code → `severity:"error"` → captureError + 422. **(planned)** |
+| Unit        | `aggregate_per_kind` missing conn → provider skipped, result partial (V6). **(planned)** |
+| Unit        | `mapRequestPluginError("media.no_connection")` → `HttpError(422)`. **(planned)** |
 | Integration | HTTP perf mw writes row on success ∧ failure (still timed).        |
 | Integration | HTTP perf mw skips streaming + `/api/diagnostics/*`.               |
 | Integration | plugin runtime: throw → err record; success → perf record.         |
