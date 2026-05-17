@@ -61,7 +61,7 @@ function HomeFeedReady() {
 
   const handlePeek = useCallback(
     (id: string) => {
-      void navigate({ to: ".", search: { peek: id }, replace: true, resetScroll: false });
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
     },
     [navigate],
   );
