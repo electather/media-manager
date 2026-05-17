@@ -1,4 +1,4 @@
-import { registerBuiltin } from "../plugin-runtime/loader";
+import { registerBuiltin } from "../plugin-runtime";
 import traktPlugin from "@ent-mcp/plugin-trakt";
 import tmdbPlugin from "@ent-mcp/plugin-tmdb";
 import tvdbPlugin from "@ent-mcp/plugin-tvdb";

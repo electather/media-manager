@@ -4,6 +4,10 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   staged: {
     "*": "vp check --fix",
+    "apps/server/src/{artwork,auth,catalog,home,media,notifications,preferences,plugin-runtime}/**/*.ts":
+      "bun tools/check-file-sizes.ts",
+    "apps/server/src/{db/schema,artwork,auth,catalog,home,media,notifications,preferences,plugin-runtime}/**/*.ts":
+      "bun tools/check-table-ownership.ts",
   },
   fmt: {
     ignorePatterns: [

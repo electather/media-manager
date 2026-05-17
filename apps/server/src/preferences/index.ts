@@ -38,3 +38,16 @@ export { PreferenceEngine } from "./engine";
 export { feedbackLog } from "./feedback-log";
 export * from "./types";
 export type { PreferenceDataProvider, HistorySignal, RatingSignal } from "./provider";
+export type { RawMediaItem } from "./provider";
+export {
+  PREFERENCE_DAILY_JOB_ID,
+  PREFERENCE_INCREMENTAL_JOB_ID,
+  PREFERENCE_MANUAL_REBUILD_JOB_ID,
+  registerPreferenceJobs,
+} from "./jobs";
+export {
+  listUsersNeedingRebuild,
+  listUsersNeedingDailyRebuild,
+  type RebuildRow,
+} from "./rebuild-row-source";
+export { profileStorage } from "./storage";

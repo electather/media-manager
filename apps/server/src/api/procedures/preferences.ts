@@ -1,13 +1,12 @@
 import { Hono } from "hono";
 import { profileQuerySchema } from "@ent-mcp/shared/preferences";
-import { requireSession, sessionUserId } from "../../auth/middleware";
+import { requireSession, sessionUserId } from "../../auth";
 import { currentRequestContext } from "../../diagnostics/request-context";
 import { zValidator } from "../../diagnostics/validator";
 import * as jobs from "../../jobs";
 import { jobErrors } from "../../jobs/errors";
 import { latestRun } from "../../jobs/history";
-import { getPreferenceEngine } from "../../preferences";
-import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences/jobs";
+import { getPreferenceEngine, PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences";
 
 export const preferencesApp = new Hono()
   .use("*", requireSession)

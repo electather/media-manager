@@ -1,7 +1,7 @@
 import { anyRunning } from "../../jobs";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
-import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences/jobs";
+import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences";
 import type { CatalogService } from "../../catalog";
 import { CATALOG_RECOMMENDATION_BUILD_JOB_ID } from "./recommendation-build";
 

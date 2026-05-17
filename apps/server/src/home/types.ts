@@ -1,8 +1,7 @@
 import type { ConsolaInstance } from "consola";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
-import type { CatalogService } from "../catalog";
-import type { TopContributor } from "../catalog/types";
-import type { MediaService } from "../media/service";
+import type { CatalogService, TopContributor } from "../catalog";
+import type { MediaService } from "../media";
 import type { StatusBatchMemo } from "./status-batch";
 
 /**

@@ -1,5 +1,5 @@
 import type { MediaType } from "@ent-mcp/shared/media";
-import type { RawMediaItem } from "../preferences/provider";
+import type { RawMediaItem } from "../preferences";
 import { extractFeatures } from "./features";
 import type { CanonicalMetadata, MetadataKey } from "./types";
 import { dedupeStrings, nullableString } from "./util";

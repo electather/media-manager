@@ -5,8 +5,7 @@ import {
   jobRunsQuerySchema as runsQuerySchema,
   triggerBodySchema,
 } from "@ent-mcp/shared/jobs";
-import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
-import { PERMISSIONS } from "../../auth/permissions";
+import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from "../../auth";
 import { currentRequestContext } from "../../diagnostics/request-context";
 import { zValidator } from "../../diagnostics/validator";
 import * as jobs from "../../jobs";

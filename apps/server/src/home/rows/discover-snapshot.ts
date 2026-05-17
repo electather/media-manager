@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../cursor";
-import type { DiscoverFeedKind, DiscoverSort } from "../../catalog/types";
+import type { DiscoverFeedKind, DiscoverSort } from "../../catalog";
 import type { RowContext, RowPage, RowProvider } from "../types";
 import { loadCanonicalItems } from "./_shared";
 

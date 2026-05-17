@@ -1,14 +1,12 @@
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import { assignRoleSchema, createUserSchema, updateUserSchema } from "@ent-mcp/shared/users";
-import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
-import { PERMISSIONS } from "../../auth/permissions";
+import { requireSession, requirePermission, sessionUserId, PERMISSIONS, auth } from "../../auth";
 import { getDb } from "../../db/client";
 import { user, session } from "../../db/schema/auth";
 import { userRoles, roles } from "../../db/schema/roles";
 import { zValidator } from "../../diagnostics/validator";
 import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
-import { auth } from "../../auth/config";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

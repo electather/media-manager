@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { diagnosticsConfigSchema } from "@ent-mcp/shared/diagnostics";
-import { requireSession, requirePermission } from "../../../auth/middleware";
-import { PERMISSIONS } from "../../../auth/permissions";
+import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import {
   getAppConfig,
   setErrorRetentionDays,

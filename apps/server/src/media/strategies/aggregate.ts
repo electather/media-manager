@@ -1,5 +1,5 @@
 import { flatten } from "es-toolkit/array";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { capabilityRegistry } from "../../plugin-runtime";
 import { resolveConnections } from "../resolve-connection";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";

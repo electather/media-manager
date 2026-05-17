@@ -1,8 +1,8 @@
 // fallow-ignore-file complexity
 import { z } from "zod";
 import { zodToItemSchema } from "@ent-mcp/shared/common";
-import { dispatchAggregate } from "../../media/dispatcher";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { dispatchAggregate } from "../../media";
+import { capabilityRegistry } from "../../plugin-runtime";
 import {
   compactList,
   compactMediaResultSchema,

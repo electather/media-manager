@@ -1,8 +1,8 @@
 import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-mcp/shared/home";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
-import type { CanonicalMetadata } from "../catalog/types";
-import { capabilityRegistry } from "../plugin-runtime/registry";
-import { ArtworkService } from "../artwork/service";
+import type { CanonicalMetadata } from "../catalog";
+import { capabilityRegistry } from "../plugin-runtime";
+import { ArtworkService } from "../artwork";
 import { pickMatchReason } from "./match-reason";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 

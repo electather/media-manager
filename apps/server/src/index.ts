@@ -9,11 +9,11 @@ import { runMigrations } from "./db/migrate";
 import { scheduler } from "./jobs/scheduler";
 import { markOrphanedRunsFailed } from "./jobs/history";
 import { registerBuiltinPlugins } from "./plugins/registry";
-import { pluginRuntime } from "./plugin-runtime/runtime";
+import { pluginRuntime } from "./plugin-runtime";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
-import { NotificationErrorSink } from "./notifications/error-sink";
+import { NotificationErrorSink } from "./notifications";
 
 async function bootstrap(): Promise<void> {
   getDb();

@@ -1,5 +1,4 @@
-import type { CandidateFeatures } from "../preferences/types";
-import type { RawMediaItem } from "../preferences/provider";
+import type { CandidateFeatures, RawMediaItem } from "../preferences";
 import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "./types";
 import { dedupeStrings, nullableString } from "./util";
 

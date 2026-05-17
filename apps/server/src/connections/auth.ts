@@ -2,12 +2,13 @@ import { and, eq } from "drizzle-orm";
 import type { JSONSchema } from "@ent-mcp/shared";
 import { getDb } from "../db/client";
 import { pendingAuth } from "../db/schema";
-import { pluginRuntime } from "../plugin-runtime/runtime";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { pluginRuntime, resolveAllowedHostsFromSchema } from "../plugin-runtime";
 import { isPluginError, type AuthResult } from "@ent-mcp/plugin-sdk";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import { encryptJson, decryptJson, stripRequestFields, writeConnection } from "./helpers";
 import { isNil } from "es-toolkit/predicate";
-import { resolveAllowedHostsFromSchema } from "../plugin-runtime/allowed-hosts";
 
 /**
  * Merges a plugin-returned `userConfigPatch` into the submitted `userConfig`.

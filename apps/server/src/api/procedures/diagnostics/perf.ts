@@ -5,8 +5,7 @@ import {
   perfListQuerySchema,
   type PerfKind,
 } from "@ent-mcp/shared/diagnostics";
-import { requireSession, requirePermission } from "../../../auth/middleware";
-import { PERMISSIONS } from "../../../auth/permissions";
+import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { errorRecords, perfRecords } from "../../../db/schema/diagnostics";
 import { zValidator } from "../../../diagnostics/validator";

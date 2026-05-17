@@ -5,12 +5,12 @@ import {
   type NotificationCategory,
   type NotificationContentKind,
 } from "@ent-mcp/shared/notifications";
-import { loadUserRole, roleHasPermission } from "../../../auth/middleware";
+import { loadUserRole, roleHasPermission } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";
 import { env } from "../../../env";
 import { badRequest, forbidden, notFound } from "../../../diagnostics/http-errors";
-import { capabilityRegistry } from "../../../plugin-runtime/registry";
+import { capabilityRegistry } from "../../../plugin-runtime";
 
 export const NOTIFICATION_CAPABILITY_ID = "notificationDelivery";
 export const NOTIFICATION_CAPABILITY_VERSION = "v1";

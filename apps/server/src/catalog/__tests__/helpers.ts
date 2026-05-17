@@ -1,3 +1,4 @@
+// fallow-ignore-next-line boundary-violation
 import type { Db } from "../../__tests__/helpers/in-memory-db";
 import { user } from "../../db/schema/auth";
 

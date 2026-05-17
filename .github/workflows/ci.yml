@@ -36,6 +36,14 @@ jobs:
       - name: Check code quality (lint, format, types)
         run: vp check
 
+      - name: Backend module file-size and naming caps
+        if: always()
+        run: bun tools/check-file-sizes.ts
+
+      - name: Backend drizzle table-ownership
+        if: always()
+        run: bun tools/check-table-ownership.ts
+
       - name: Run tests
         if: always()
         run: vp test

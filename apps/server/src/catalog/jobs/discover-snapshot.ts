@@ -1,5 +1,4 @@
-import { MediaService } from "../../media/service";
-import { splitCombinedId } from "../../media/parse-item";
+import { MediaService, splitCombinedId } from "../../media";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";

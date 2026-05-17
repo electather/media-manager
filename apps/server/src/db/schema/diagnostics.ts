@@ -1,3 +1,4 @@
+// @owner: server-infra
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { ERROR_SEVERITIES, ERROR_SOURCES, PERF_KINDS } from "@ent-mcp/shared/diagnostics";

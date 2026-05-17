@@ -3,7 +3,7 @@ import { getDb } from "../db/client";
 import { queryEnabledConnectionsForPlugin } from "../db/queries";
 import { serviceConnections } from "../db/schema";
 import { decryptField } from "../crypto/helpers";
-import { pluginRuntime } from "../plugin-runtime/runtime";
+import { pluginRuntime } from "../plugin-runtime";
 import { notConnected } from "./errors";
 
 export interface ExtensionCallRequest {

@@ -1,6 +1,6 @@
 import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import { isPluginError } from "@ent-mcp/plugin-sdk";
-import { AllPluginsFailedError, PluginCallError } from "../media/errors";
+import { AllPluginsFailedError, PluginCallError } from "../media";
 import { HttpError } from "../diagnostics/http-errors";
 
 /**

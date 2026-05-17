@@ -1,6 +1,8 @@
 import { consola } from "consola";
 import { captureError } from "../diagnostics/capture";
 import { runWithRequestContext, newRequestId } from "../diagnostics/request-context";
+// fallow-allow: phase-2 event conversion
+// fallow-ignore-next-line boundary-violation
 import { emit } from "../notifications/emit";
 import { getConfig, type JobConfigRow } from "./config";
 import { finishRun, latestRun, startRun } from "./history";

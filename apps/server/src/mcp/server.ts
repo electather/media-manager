@@ -7,10 +7,7 @@ import { withOAuthAuth } from "./auth";
 import { jsonRpcResponse, jsonRpcError, type JsonRpcRequest } from "./jsonrpc";
 import { newRequestId } from "../diagnostics/request-context";
 
-export {
-  oauthAuthorizationServerHandler,
-  oauthProtectedResourceHandler,
-} from "../auth/oauth-metadata";
+export { oauthAuthorizationServerHandler, oauthProtectedResourceHandler } from "../auth";
 
 interface ToolsListEntry {
   name: string;

@@ -4,7 +4,9 @@ import { serviceConnections } from "../db/schema";
 import { env } from "../env";
 import { encrypt, decrypt } from "../crypto/vault";
 import { internal } from "../diagnostics/http-errors";
-import { invalidateUserCache } from "../media/dispatcher";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { invalidateUserCache } from "../media";
 import { isNil } from "es-toolkit/predicate";
 
 function split(combined: string): { iv: string; data: string } {

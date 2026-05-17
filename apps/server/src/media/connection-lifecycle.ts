@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { encryptJson } from "../crypto/helpers";
+// fallow-allow: phase-2 event conversion
+// fallow-ignore-next-line boundary-violation
 import { emit } from "../notifications/emit";
 
 export async function emitAuthExpired(args: {

@@ -1,4 +1,4 @@
-import { MediaService } from "../../media/service";
+import { MediaService } from "../../media";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";

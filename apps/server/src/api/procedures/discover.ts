@@ -6,9 +6,8 @@ import {
   discoverTrendingQuerySchema as trendingSchema,
 } from "@ent-mcp/shared/media";
 
-import { requireSession, sessionUserId } from "../../auth/middleware";
-import { MediaService } from "../../media/service";
-import { compactFromRaw, type PluginMediaRaw } from "../../media/compact";
+import { requireSession, sessionUserId } from "../../auth";
+import { MediaService, compactFromRaw, type PluginMediaRaw } from "../../media";
 import { zValidator } from "../../diagnostics/validator";
 
 export const discoverApp = new Hono()

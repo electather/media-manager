@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import type { RoleSummary } from "@ent-mcp/shared/users";
 import { deleteAccountSchema } from "@ent-mcp/shared/users";
-import { requireSession, sessionUserId } from "../../auth/middleware";
+import { requireSession, sessionUserId } from "../../auth";
 import { getDb } from "../../db/client";
 import { fetchUserRole } from "./me/queries";
 import { listAuthorizedApps, revokeAuthorizedApp } from "./me/apps";

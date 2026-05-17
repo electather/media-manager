@@ -8,9 +8,8 @@ import type {
   RowContentResponse,
 } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
-import { getCatalogService } from "../catalog";
-import { toCanonicalRow, type RawCanonicalSource } from "../catalog/canonical";
-import { MediaService } from "../media/service";
+import { getCatalogService, toCanonicalRow, type RawCanonicalSource } from "../catalog";
+import { MediaService, AllPluginsFailedError, PluginCallError } from "../media";
 import { HttpError } from "../diagnostics/http-errors";
 import { classifyError } from "./errors";
 import { pickHero } from "./hero";
@@ -19,7 +18,6 @@ import { ROW_ORDER, ROW_PROVIDERS } from "./rows";
 import { StatusBatchMemo } from "./status-batch";
 import { enrichItems } from "./enrich";
 import { fromCanonicalMetadata } from "./adapters";
-import { AllPluginsFailedError, PluginCallError } from "../media/errors";
 import type { RowContext, RowPage } from "./types";
 
 const DEFAULT_DEADLINE_MS = 8000;

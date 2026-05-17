@@ -3,8 +3,9 @@ import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
 import { encryptJson, decryptJson } from "../crypto/helpers";
-import { capabilityRegistry } from "../plugin-runtime/registry";
-import { pluginRuntime } from "../plugin-runtime/runtime";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";

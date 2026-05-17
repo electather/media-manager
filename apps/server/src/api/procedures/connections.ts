@@ -10,8 +10,7 @@ import {
   oauthRedirectStartSchema as redirectStartSchema,
   oauthRedirectCompleteSchema as redirectCompleteSchema,
 } from "@ent-mcp/shared/connections";
-import { requireSession, requirePermission, sessionUserId } from "../../auth/middleware";
-import { PERMISSIONS } from "../../auth/permissions";
+import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from "../../auth";
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../diagnostics/validator";
 

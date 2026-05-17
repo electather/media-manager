@@ -16,7 +16,24 @@ export type {
   RecItem,
   RecommendationList,
   RecommendationListKind,
+  TopContributor,
+  TopContributorCategory,
 } from "./types";
+export {
+  DISCOVER_FEED_KINDS,
+  DISCOVER_SORTS,
+  RECOMMENDATION_LIST_KINDS,
+  TOP_CONTRIBUTOR_CATEGORIES,
+} from "./types";
+export {
+  toCanonicalRow,
+  asMetadataKey,
+  type RawArtwork,
+  type RawCanonicalSource,
+} from "./canonical";
+export { toCandidateFeatures, extractFeatures, candidateId } from "./features";
+export { registerCatalogJobs } from "./jobs";
+export { writeRecommendationsForUser } from "./jobs/recommendation-build";
 
 let instance: CatalogService | undefined;
 
