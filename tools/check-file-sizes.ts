@@ -52,10 +52,21 @@ const CAPS: Record<string, Cap> = {
 };
 const JOBS_CAP: Cap = { warn: 160, fail: 200 };
 
-function walk(dir: string, acc: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
+export function walk(dir: string, acc: string[] = []): string[] {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return acc;
+  }
+  for (const entry of entries) {
     const full = join(dir, entry);
-    const stat = statSync(full);
+    let stat;
+    try {
+      stat = statSync(full);
+    } catch {
+      continue;
+    }
     if (stat.isDirectory()) {
       if (entry === "__tests__" || entry === "node_modules" || entry === "dist") continue;
       walk(full, acc);
@@ -78,46 +89,47 @@ function capFor(rel: string): Cap | null {
   return null;
 }
 
-const failures: string[] = [];
-const warnings: string[] = [];
+function main(): void {
+  const failures: string[] = [];
+  const warnings: string[] = [];
 
-for (const mod of MODULES) {
-  const base = join(ROOT, "apps/server/src", mod);
-  let files: string[];
-  try {
-    files = walk(base);
-  } catch {
-    continue;
-  }
-  for (const file of files) {
-    const rel = relative(ROOT, file);
-    const fileName = rel.split("/").pop()!;
-    if (BANNED_NAMES.has(fileName)) {
-      failures.push(`${rel}: junk-drawer filename '${fileName}' is banned (GUD-003)`);
-      continue;
-    }
-    const cap = capFor(rel);
-    if (!cap) continue;
-    const lines = loc(file);
-    if (lines > cap.fail) {
-      if (ALLOWLIST[rel]) {
-        warnings.push(
-          `${rel}: ${lines} LOC > ${cap.fail} hard cap [allowlisted: ${ALLOWLIST[rel]}]`,
-        );
-      } else {
-        failures.push(`${rel}: ${lines} LOC > ${cap.fail} hard cap`);
+  for (const mod of MODULES) {
+    const base = join(ROOT, "apps/server/src", mod);
+    const files = walk(base);
+    for (const file of files) {
+      const rel = relative(ROOT, file);
+      const fileName = rel.split("/").pop()!;
+      if (BANNED_NAMES.has(fileName)) {
+        failures.push(`${rel}: junk-drawer filename '${fileName}' is banned (GUD-003)`);
+        continue;
       }
-    } else if (lines > cap.warn) {
-      warnings.push(`${rel}: ${lines} LOC > ${cap.warn} soft cap (hard cap ${cap.fail})`);
+      const cap = capFor(rel);
+      if (!cap) continue;
+      const lines = loc(file);
+      if (lines > cap.fail) {
+        if (ALLOWLIST[rel]) {
+          warnings.push(
+            `${rel}: ${lines} LOC > ${cap.fail} hard cap [allowlisted: ${ALLOWLIST[rel]}]`,
+          );
+        } else {
+          failures.push(`${rel}: ${lines} LOC > ${cap.fail} hard cap`);
+        }
+      } else if (lines > cap.warn) {
+        warnings.push(`${rel}: ${lines} LOC > ${cap.warn} soft cap (hard cap ${cap.fail})`);
+      }
     }
   }
+
+  for (const w of warnings) console.warn(`warn ${w}`);
+  for (const f of failures) console.error(`fail ${f}`);
+
+  if (failures.length > 0) {
+    console.error(`\n${failures.length} file-size or naming violation(s).`);
+    process.exit(1);
+  }
+  console.log(`tools/check-file-sizes: 0 hard failures, ${warnings.length} soft warning(s).`);
 }
 
-for (const w of warnings) console.warn(`warn ${w}`);
-for (const f of failures) console.error(`fail ${f}`);
-
-if (failures.length > 0) {
-  console.error(`\n${failures.length} file-size or naming violation(s).`);
-  process.exit(1);
+if (import.meta.main) {
+  main();
 }
-console.log(`tools/check-file-sizes: 0 hard failures, ${warnings.length} soft warning(s).`);

@@ -13,8 +13,8 @@ import { registerPreferenceJobs } from "../preferences";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { registerHomeLayoutWarmJob } from "../home";
-// fallow-allow: phase-2 infra-to-module decoupling
 // prettier-ignore
+// fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { registerDeliveryJob, registerStalePendingSweep, registerDemoNotificationJob } from "../notifications";
 import { cacheCleanupJob } from "./cache-cleanup";

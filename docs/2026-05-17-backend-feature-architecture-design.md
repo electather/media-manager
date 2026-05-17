@@ -555,10 +555,12 @@ Skip frontend-specific render/UI skills (`vercel-react-*`, `shadcn`, `web-design
 - Add zone rules per the contract above.
 - Fix the **trivial** cross-module deep imports flagged by fallow: every case that becomes a one-line barrel re-export (types, errors, factory accessors). Approximately 50 of the 71 (see Appendix A breakdown for the non-trivial subset).
 - **Defer to Phase 2 / Phase 3**: cross-module imports that require converting a function call into an event (`notifications/emit` ×3, plus any other case where source and consumer modules both need code changes). These are listed in Phase 2 (for notifications) and Phase 3 (per source module).
+- Phase 1 carries 14 tagged `fallow-allow` suppressions: 3 `phase-2 event conversion` imports (`plugin-runtime/context.ts`, `jobs/runner.ts`, `media/connection-lifecycle.ts`) and 11 `phase-2 infra-to-module decoupling` imports (`connections/auth.ts`, `connections/helpers.ts`, `connections/service.ts` ×2, `db/seed.ts`, `jobs/plugin-jobs.ts`, `jobs/scheduler.ts` ×5). Every suppression keeps the adjacent two-line `fallow-allow` then `fallow-ignore-next-line` pattern so the deferred debt stays grepable.
 - Add file-size pre-commit script under `tools/check-file-sizes.ts`.
 - Add table-ownership pre-commit script under `tools/check-table-ownership.ts`. Phase 1 also lands the `@owner:` annotations on every drizzle schema file.
+- `tools/**` remains excluded from type-aware lint until a dedicated tools `tsconfig.json` lands; the scripts still run directly through `vp staged` and CI.
 
-Exit criteria: `vp check`, `vp test`, `fallow dead-code`, `fallow health` all green. Allowlist limited to the deferred event-conversion cases, each tagged `// fallow-allow: phase-2 event conversion` and tracked in Phase 2/3 issue. `tools/check-table-ownership.ts` green.
+Exit criteria: `vp check`, `vp test`, `fallow dead-code`, `fallow health` all green. Allowlist limited to the 14 tagged Phase 1 deferrals above, each tracked in the Phase 2/3 plan. `tools/check-table-ownership.ts` green.
 
 ### Phase 2 — Skill + exemplar (single PR)
 
@@ -731,7 +733,7 @@ Group totals sum to 71. `jobs/` is included as an "import target" but is infra, 
 
 Phase 1 PR converts every domain target above to a barrel re-export. For each, the destination is one of:
 
-1. **Re-export from `index.ts`** — for types, classes, factory accessors that genuinely belong in the public surface (e.g. `MediaService`, `AllPluginsFailedError`, `CanonicalMedia` types).
+1. **Re-export from `index.ts`** — for types, classes, factory accessors that genuinely belong in the public surface (e.g. `MediaService`, `AllPluginsFailedError`, `CanonicalMedia` types). Temporary job-function exports such as `catalog.writeRecommendationsForUser` and `home.registerHomeLayoutWarmJob` are Phase 3 cleanup items, not permanent public API.
 2. **Move under `internal/`** — for helpers consumers were using because there was no public alternative (e.g. `parse-item`, `aggregate-per-kind`); replace the consumer's call with a barrel-exported method.
 3. **Convert to event consumer** — for the `notifications/emit` calls from other modules: those become `on(...)` registrations in `notifications/jobs/` for events the source module now emits, rather than direct cross-module function calls.
 
