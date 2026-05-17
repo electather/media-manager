@@ -129,21 +129,18 @@ export class NotificationsService {
 
   /**
    * Returns the delivery DTO plus the parsed event payload for the admin
-   * detail view. `eventPayload` is `null` when the stored JSON is corrupt;
-   * the client hides the section when the field is missing rather than
-   * showing a confusing empty object.
+   * detail view. `eventPayload` is `null` when the stored JSON is corrupt OR
+   * when its shape no longer matches the current `notificationEventSchema`
+   * (schema drift between an old row and a newer notion of the event); the
+   * client hides the section when the field is missing rather than rendering
+   * a confusing partial object.
    */
   async getDeliveryDetail(
     id: string,
   ): Promise<{ delivery: AdminDeliveryRow; eventPayload: NotificationEvent | null } | null> {
     const row = await repo.getDelivery(id);
     if (!row) return null;
-    let eventPayload: NotificationEvent | null = null;
-    try {
-      eventPayload = JSON.parse(row.eventPayload) as NotificationEvent;
-    } catch {
-      eventPayload = null;
-    }
+    const eventPayload = parseStoredEventPayload(row.eventPayload);
     return { delivery: repo.deliveryRowToDto(row), eventPayload };
   }
 
@@ -168,16 +165,40 @@ export class NotificationsService {
 
   // ─── internal fan-out ────────────────────────────────────────────────────
 
+  /**
+   * Per-row trigger fan-out used by `publishNotification`. Marked `cron` so
+   * the `job_runs` audit trail attributes these as system-initiated; the
+   * admin path (`triggerDeliveryRetry`) keeps `admin` because that one IS a
+   * direct admin action.
+   */
   private async triggerDeliveryFanout(deliveryIds: readonly string[]): Promise<void> {
     const jobEntry = findEntry("notification.deliver");
     if (!jobEntry?.triggerFromApi) return;
     const triggerApi = jobEntry.triggerFromApi;
     await Promise.all(
       deliveryIds.map((deliveryId) =>
-        triggerApi({ deliveryId }, { triggeredBy: "admin", requestId: newRequestId() }),
+        triggerApi({ deliveryId }, { triggeredBy: "cron", requestId: newRequestId() }),
       ),
     );
   }
+}
+
+/**
+ * Safely parses a stored delivery event payload. Returns `null` when the
+ * JSON is corrupt OR when the parsed shape no longer matches the current
+ * `notificationEventSchema` — schema drift across deploys is silent
+ * otherwise, and casting through `as NotificationEvent` would surface
+ * partial objects to the admin detail view.
+ */
+function parseStoredEventPayload(raw: string): NotificationEvent | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const result = notificationEventSchema.safeParse(parsed);
+  return result.success ? (result.data as NotificationEvent) : null;
 }
 
 /**
@@ -222,12 +243,16 @@ export function registerNotificationErrorSink(): void {
   registerSink(new NotificationErrorSink((event) => service.publishNotification(event)));
 }
 
-/** Used by the stale-pending sweep to retrigger one delivery row. */
-export async function triggerDeliveryForId(deliveryId: string): Promise<void> {
+/**
+ * Used by the stale-pending sweep to retrigger one delivery row. Returns
+ * `true` when the trigger fired, `false` when the delivery job is not yet
+ * registered (cold worker before `registerJobs()` settles); the caller logs
+ * the no-op so the row does not silently spin in pending-reset purgatory.
+ * Marked `cron` because the sweep is a scheduled retry, not an admin action.
+ */
+export async function triggerDeliveryForId(deliveryId: string): Promise<boolean> {
   const jobEntry = findEntry("notification.deliver");
-  if (!jobEntry?.triggerFromApi) return;
-  await jobEntry.triggerFromApi(
-    { deliveryId },
-    { triggeredBy: "admin", requestId: newRequestId() },
-  );
+  if (!jobEntry?.triggerFromApi) return false;
+  await jobEntry.triggerFromApi({ deliveryId }, { triggeredBy: "cron", requestId: newRequestId() });
+  return true;
 }

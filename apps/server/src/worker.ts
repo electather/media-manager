@@ -3,14 +3,8 @@ import { registerApiRoutes } from "./api/register-routes";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { registerBuiltinPlugins } from "./plugins/registry";
-import * as artwork from "./artwork";
-import * as auth from "./auth";
-import * as catalog from "./catalog";
-import * as home from "./home";
-import * as media from "./media";
 import * as notifications from "./notifications";
-import * as preferences from "./preferences";
-import * as pluginRuntime from "./plugin-runtime";
+import { pluginRuntime } from "./plugin-runtime";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
@@ -26,6 +20,12 @@ import { errorHandler } from "./diagnostics/middleware";
 //      Worker that performs a network DB write at module init.
 //   4. Running `migrate.ts` — migrations run as a pre-deploy CI step against
 //      the target Turso database instead.
+//   5. Module `registerJobs()` for catalog, home, plugin-runtime, preferences
+//      — each registers croner-backed scheduled work that would fail in the
+//      Workers isolate. Only `notifications.registerJobs({ scheduled: false })`
+//      runs here so the triggerable delivery + demo jobs and the four typed-
+//      event handlers stay wired (so HTTP-route-triggered emits still land
+//      on delivery), while the stale-pending sweep is skipped.
 //
 // Module init only runs in-memory registration. `getDb()` and the error sink
 // touch `env` (secrets/vars), which Cloudflare only populates at request
@@ -51,20 +51,12 @@ function ensureRuntimeReady(): Promise<void> {
     getDb();
     registerSink(new DatabaseSink());
 
-    // Phase 2 boundaries: register module jobs in alphabetical order, same
-    // contract as index.ts. Modules without jobs (artwork, auth, media) are
-    // no-ops in Phase 2.
-    artwork.registerJobs();
-    auth.registerJobs();
-    catalog.registerJobs();
-    home.registerJobs();
-    media.registerJobs();
-    notifications.registerJobs();
-    pluginRuntime.registerJobs();
-    preferences.registerJobs();
-
+    // Workers can run notification triggerables + event handlers — they fire
+    // from HTTP requests. Scheduled work is skipped (see comment 5 above).
+    notifications.registerJobs({ scheduled: false });
     notifications.registerNotificationErrorSink();
-    await pluginRuntime.pluginRuntime.bootstrapBuiltins();
+
+    await pluginRuntime.bootstrapBuiltins();
   })().catch((err) => {
     runtimeReady = undefined;
     throw err;

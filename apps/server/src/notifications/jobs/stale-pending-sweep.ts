@@ -30,6 +30,7 @@ export function registerStalePendingSweep(): void {
 
       let resetCount = 0;
       let triggerCount = 0;
+      let unregisteredCount = 0;
       for (const delivery of eligible) {
         if (delivery.status === "in_progress") {
           await repo.resetInProgressToPending(delivery.id);
@@ -37,14 +38,27 @@ export function registerStalePendingSweep(): void {
         }
 
         try {
-          await triggerDeliveryForId(delivery.id);
-          triggerCount += 1;
+          const fired = await triggerDeliveryForId(delivery.id);
+          if (fired) {
+            triggerCount += 1;
+          } else {
+            // Surface the missing-job-registration path so a row reset back
+            // to pending without a paired trigger doesn't loop silently —
+            // happens on a cold worker before `notifications.registerJobs()`
+            // completes. Logged once per sweep tick, not per row.
+            unregisteredCount += 1;
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           ctx.logger.warn(`Failed to requeue delivery ${delivery.id}: ${msg}`);
         }
       }
 
+      if (unregisteredCount > 0) {
+        ctx.logger.warn(
+          `Notification sweep: ${unregisteredCount} row(s) reset to pending but the notification.deliver job is not registered; next sweep tick will retry`,
+        );
+      }
       ctx.logger.info(
         `Notification sweep: requeued ${triggerCount} (reset ${resetCount} in_progress)`,
       );

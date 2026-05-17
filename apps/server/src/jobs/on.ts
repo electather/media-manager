@@ -16,6 +16,11 @@ const handlerLists = new Map<string, Handler[]>();
  * Registers a single dispatcher for an event with the triggerable job
  * registry. The dispatcher iterates the handler list sequentially; a handler
  * throw rethrows to the runner so retry semantics apply to the whole event.
+ *
+ * Side effect on the public API surface: the event name doubles as a
+ * triggerable job id. That means every event is admin-triggerable from the
+ * admin jobs API under `requiredPermission: "admin:jobs"` — intentional
+ * (manual replay + debugging) but worth knowing when picking event names.
  */
 function registerJob(name: string, handler: Handler): void {
   registerTriggerable<unknown, void>({
@@ -23,7 +28,13 @@ function registerJob(name: string, handler: Handler): void {
     name,
     requiredPermission: "admin:jobs",
     handler: async (_ctx, input) => {
-      if (input === null) return;
+      // `null` here would mean the runner fired a cron-style tick with no
+      // payload — `emit` always validates and passes a payload, so the only
+      // way to reach this is a wiring bug (someone registered the dispatcher
+      // outside the wrapper). Throw rather than swallow so it surfaces.
+      if (input === null) {
+        throw new Error(`event "${name}" dispatcher called with null input — emitter wiring bug`);
+      }
       await handler(input);
     },
   });

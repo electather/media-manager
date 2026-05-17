@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,11 +8,11 @@ const ROOT = resolve(HERE, "../../../..");
 const SERVER_SRC = resolve(ROOT, "apps/server/src");
 
 /**
- * Alphabetical module order. `plugin-runtime` sorts before `preferences`
- * because directory names are compared char-by-char: 'p','l' < 'p','r'. The
- * boot test holds both entry points (index.ts and worker.ts) to this ordering.
+ * Alphabetical module order for the Node entry point (`index.ts`).
+ * `plugin-runtime` sorts before `preferences` because directory names are
+ * compared char-by-char: 'p','l' < 'p','r'.
  */
-const EXPECTED_ORDER = [
+const INDEX_EXPECTED_ORDER = [
   "artwork",
   "auth",
   "catalog",
@@ -22,6 +22,15 @@ const EXPECTED_ORDER = [
   "plugin-runtime",
   "preferences",
 ];
+
+/**
+ * Cloudflare Worker entry point (`worker.ts`) registers ONLY notifications
+ * jobs (with `scheduled: false`) — the other module registerJobs() calls
+ * register croner-backed scheduled work that cannot run inside the Workers
+ * isolate. The worker test pins this subset so the Workers-safe carve-out
+ * does not silently regrow.
+ */
+const WORKER_EXPECTED_ORDER = ["notifications"];
 
 /**
  * Maps the *namespace identifier* used at the call site to the canonical
@@ -48,7 +57,10 @@ function stripComments(text: string): string {
 
 function extractRegisterJobsOrder(file: string): string[] {
   const text = stripComments(readFileSync(file, "utf8"));
-  const re = /(\w+)\.registerJobs\(\s*\)/g;
+  // Match `<namespace>.registerJobs(...)` with any (possibly nested-brace)
+  // argument list. The Worker passes `{ scheduled: false }`; the index path
+  // calls with no arg. Both must be picked up.
+  const re = /(\w+)\.registerJobs\([^)]*\)/g;
   const order: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
@@ -64,12 +76,12 @@ function extractRegisterJobsOrder(file: string): string[] {
 describe("boot order", () => {
   it("apps/server/src/index.ts invokes every module's registerJobs() in alphabetical order", () => {
     const order = extractRegisterJobsOrder(resolve(SERVER_SRC, "index.ts"));
-    expect(order).toEqual(EXPECTED_ORDER);
+    expect(order).toEqual(INDEX_EXPECTED_ORDER);
   });
 
-  it("apps/server/src/worker.ts invokes every module's registerJobs() in alphabetical order", () => {
+  it("apps/server/src/worker.ts only invokes notifications.registerJobs() (Workers can't run croner)", () => {
     const order = extractRegisterJobsOrder(resolve(SERVER_SRC, "worker.ts"));
-    expect(order).toEqual(EXPECTED_ORDER);
+    expect(order).toEqual(WORKER_EXPECTED_ORDER);
   });
 });
 
@@ -117,18 +129,13 @@ describe("event handler coverage", () => {
       "preferences/jobs",
       "plugin-runtime/jobs",
     ];
-    const {
-      readdirSync,
-      existsSync,
-      readFileSync: read,
-    } = require("node:fs") as typeof import("node:fs");
     const chunks: string[] = [];
     for (const dir of moduleDirs) {
       const full = resolve(SERVER_SRC, dir);
       if (!existsSync(full)) continue;
       for (const entry of readdirSync(full)) {
         if (!entry.startsWith("on-") || !entry.endsWith(".ts")) continue;
-        chunks.push(read(resolve(full, entry), "utf8"));
+        chunks.push(readFileSync(resolve(full, entry), "utf8"));
       }
     }
     return chunks.join("\n");

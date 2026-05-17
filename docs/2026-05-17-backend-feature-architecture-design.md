@@ -46,6 +46,9 @@ Boundary violations are fixed in-PR — fallow rules go to `error` from day one.
 | 7 | `notifications/` is the canonical exemplar | Most complete module: service, repos, delivery-job (async pattern), templates, error-sink, tests. Cleanest mapping to flat shape. Mirrors frontend's choice of notifications as exemplar. |
 | 8 | Phase 1 fallow rules set to `error` immediately | No allowlist for existing violations. Fixed in-PR alongside zone splits. Otherwise debt accrues and boundaries become advisory. |
 | 9 | Plan all eight modules in design, execute `notifications/` first as exemplar | Plan gives effort visibility. Executing one first proves the skill template before broad rollout. |
+| 10 | Wrapper splits across `jobs/{event-name,emit,on,events}.ts` instead of a single `jobs/events.ts` (Phase 2 finding) | A single file would route `runner.ts` (emits `jobs.run.failed`) → `events.ts` → `triggerable.ts` → `runner.ts` — a static cycle fallow rejects under `circular-deps: error`. The split keeps `emit` independent of `triggerable`, so `runner.ts` imports `./emit` directly and the cycle never forms. Public API (`import { emit, on } from "../jobs/events"`) is unchanged. |
+| 11 | Runner skips `emitJobOutcome` when the failing job IS the dispatcher of a typed runtime event | Otherwise a downstream fault inside the `jobs.run.failed` handler (notifications DB unavailable, etc.) would re-emit `jobs.run.failed` for the handler-job and cascade unboundedly. The runner maintains an internal `EVENT_DISPATCHER_JOB_IDS` set; new typed runtime events must be added there. |
+| 12 | Cloudflare Worker entry point registers ONLY `notifications.registerJobs({ scheduled: false })` | Workers has no persistent process, so croner-backed scheduled jobs (catalog/home/preferences/plugin-runtime/stale-pending-sweep) would fail in the isolate. Notifications' triggerable delivery + demo jobs and the four typed-event handlers stay registered so HTTP-triggered emits still land on delivery; the sweep is the only piece skipped, and it has no Workers equivalent. |
 
 ## Module map
 
@@ -175,10 +178,10 @@ import { getCatalogService } from "../catalog";        // barrel — OK
 
 ### Typed wrapper around `jobs/` for events
 
-The async contract is enforced by a thin typed wrapper added to `jobs/` (this is the previously-open Q4, now resolved into the design). The wrapper builds **fan-out on top of the existing single-handler `registerJob` API** without requiring any change to the job registry:
+The async contract is enforced by a thin typed wrapper added to `jobs/` (this is the previously-open Q4, now resolved into the design). The wrapper builds **fan-out on top of the existing single-handler `registerJob` API** without requiring any change to the job registry. The wrapper ships as three sibling files in `jobs/` (see Phase 2 decision below) — `emit.ts`, `on.ts`, and `event-name.ts` — re-exported by `jobs/events.ts` so consumers continue to write `import { emit, on } from "../jobs/events"`. Logical shape (single-file form for clarity):
 
 ```ts
-// jobs/events.ts (new, in jobs/ infra)
+// Combined view of jobs/{emit,on,event-name,events}.ts
 import type { z } from "zod";
 
 export type EventName = string & { readonly __brand: "EventName" };
@@ -206,6 +209,17 @@ export function on<P>(name: EventName, schema: z.ZodType<P>, handler: (payload: 
   });
 }
 ```
+
+**Phase 2 file split (cycle-break).** The wrapper was originally drafted as a single `jobs/events.ts` file. In implementation it caused a static import cycle — `jobs/runner.ts` (which emits `jobs.run.failed`) imports `emit`, while `on` imports `registerTriggerable` from `jobs/triggerable.ts`, which imports `run` from the runner. Fallow's `circular-deps: error` rule rejected the chain `events → triggerable → runner → events`. The wrapper therefore ships as four sibling files:
+
+- `jobs/event-name.ts` — `EventName` brand only. Leaf with no imports.
+- `jobs/emit.ts` — `emit` + the private `enqueue`. Imports only `./registry` (for `findEntry`).
+- `jobs/on.ts` — `on` + the private `registerJob` + handler-list state. Imports `./triggerable`.
+- `jobs/events.ts` — re-export barrel for the three above.
+
+`runner.ts` imports `emit` directly from `./emit` (skipping the barrel) so the runner → emit edge no longer transits the file that imports `triggerable`. The public API is unchanged: modules write `import { emit, on } from "../jobs/events"` exactly as the single-file design specified. Recorded as Decision #10 below.
+
+**Recursive-failure guard.** A `jobs.run.failed` handler's run is itself a job. If that handler-job fails (e.g. transient notifications DB outage), the runner would emit `jobs.run.failed` for the failed dispatcher and the next run would fail the same way — an unbounded chain. The runner therefore checks the failing job id against an internal `EVENT_DISPATCHER_JOB_IDS` set (currently `jobs.run.failed` + `jobs.sync.succeeded`) and skips `emitJobOutcome` for those. The same constraint applies to any future event whose dispatcher publishes via the typed bus.
 
 Fan-out semantics:
 

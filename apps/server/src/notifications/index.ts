@@ -14,4 +14,4 @@ export {
 export { NOTIFICATIONS_EVENTS } from "./events";
 export { NotificationError, UserConfigParseError } from "./errors";
 export type { NotificationSettings, Recipient, NotificationCategory } from "./types";
-export { registerJobs } from "./jobs";
+export { registerJobs, type RegisterJobsOptions } from "./jobs";

@@ -76,6 +76,10 @@ export async function ensureInboxConnection(userId: string): Promise<string> {
     if (existing) return existing.id;
     const id = randomUUID();
     const now = Date.now();
+    // The inbox is a host-managed pseudo-plugin; it has no real upstream
+    // credentials. The `{ kind: "inbox" }` sentinel keeps the encrypted
+    // payload non-empty (the schema requires `encryptedCredentials`) without
+    // implying a secret is being stored. Do NOT replace with real credentials.
     const credEnc = await encryptJson({ kind: "inbox" });
     await tx.insert(serviceConnections).values({
       id,
