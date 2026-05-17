@@ -89,18 +89,26 @@ async function hydrateArtwork(
  * here even when `hydrateArtwork` skipped a request because canonical art was
  * already complete (otherwise hero + CW rows render with null images).
  */
+function pickArtworkUrl(
+  current: string | null | undefined,
+  fresh: string | null | undefined,
+  fallback: string | null | undefined,
+): string | undefined {
+  if (current) return current;
+  return fresh ?? fallback ?? current ?? undefined;
+}
+
 function mergeArtwork(
   item: InternalCompactMediaItem,
   meta: CanonicalMetadata | undefined,
   bundle: ArtworkBundle | undefined,
 ): InternalCompactMediaItem {
-  const out = { ...item };
-  if (!out.poster) out.poster = bundle?.poster[0]?.url ?? meta?.posterUrl ?? out.poster;
-  if (!out.backdrop) out.backdrop = bundle?.backdrop[0]?.url ?? meta?.backdropUrl ?? out.backdrop;
-  if (!out.clearLogo) {
-    out.clearLogo = bundle?.clearLogo[0]?.url ?? meta?.clearLogoUrl ?? out.clearLogo;
-  }
-  return out;
+  return {
+    ...item,
+    poster: pickArtworkUrl(item.poster, bundle?.poster[0]?.url, meta?.posterUrl),
+    backdrop: pickArtworkUrl(item.backdrop, bundle?.backdrop[0]?.url, meta?.backdropUrl),
+    clearLogo: pickArtworkUrl(item.clearLogo, bundle?.clearLogo[0]?.url, meta?.clearLogoUrl),
+  };
 }
 
 async function deriveAvailability(
