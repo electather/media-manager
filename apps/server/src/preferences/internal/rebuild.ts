@@ -10,11 +10,11 @@ import type {
 } from "@ent-mcp/shared/preferences";
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
-import { profileStorage } from "./storage";
+import { profileStorage } from "./profile-storage";
 import { normalizeProfile } from "./scoring";
-import type { PreferenceDataProvider } from "./provider";
 import { classifySentiment } from "./sentiment";
-import { deriveConfidence, emptyFeatures, type CandidateFeatures } from "./types";
+import { deriveConfidence, emptyFeatures } from "./constants";
+import type { CandidateFeatures, PreferenceDataProvider } from "../types";
 
 const HALF_LIFE_MS = 2 * 365 * 24 * 60 * 60 * 1000;
 const DECAY_CATEGORIES = new Set<FeatureCategory>(["genres", "keywords"]);

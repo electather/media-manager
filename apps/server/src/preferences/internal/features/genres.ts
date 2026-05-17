@@ -1,5 +1,5 @@
 import type { FeatureScorer } from "./index";
-import { CATEGORY_WEIGHTS } from "../types";
+import { CATEGORY_WEIGHTS } from "../constants";
 
 export const genresScorer: FeatureScorer = {
   id: "genres",

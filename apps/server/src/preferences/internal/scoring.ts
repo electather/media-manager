@@ -7,13 +7,8 @@ import type {
   ProfileFeatures,
 } from "@ent-mcp/shared/preferences";
 import { SCORERS, isDictScorer, type FeatureScorer } from "./features";
-import {
-  CATEGORY_WEIGHTS,
-  CONFIDENCE_THRESHOLDS,
-  type CandidateFeatures,
-  type FeatureContribution,
-  type RankedCandidate,
-} from "./types";
+import { CATEGORY_WEIGHTS, CONFIDENCE_THRESHOLDS } from "./constants";
+import type { CandidateFeatures, FeatureContribution, RankedCandidate } from "../types";
 
 const DEFAULT_ALPHA = 0.7;
 const MIN_ALPHA = 0.3;

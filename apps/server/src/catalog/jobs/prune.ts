@@ -1,7 +1,7 @@
 import { anyRunning } from "../../jobs";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
-import { PREFERENCE_MANUAL_REBUILD_JOB_ID } from "../../preferences";
+import { getPreferencesService } from "../../preferences";
 import type { CatalogService } from "../../catalog";
 import { CATALOG_RECOMMENDATION_BUILD_JOB_ID } from "./recommendation-build";
 
@@ -36,7 +36,10 @@ export function registerCatalogPruneJob(deps: CatalogPruneDeps): void {
 }
 
 export async function runCatalogPrune(deps: CatalogPruneDeps, ctx: JobRunContext): Promise<void> {
-  if (anyRunning([CATALOG_RECOMMENDATION_BUILD_JOB_ID, PREFERENCE_MANUAL_REBUILD_JOB_ID])) {
+  if (
+    anyRunning([CATALOG_RECOMMENDATION_BUILD_JOB_ID]) ||
+    getPreferencesService().isManualRebuildRunning()
+  ) {
     ctx.logger.info(
       "[catalog:prune] skipped — recommendation build is currently running; eviction would race rec-list writes",
     );

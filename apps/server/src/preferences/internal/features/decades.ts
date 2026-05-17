@@ -1,5 +1,5 @@
 import type { FeatureScorer } from "./index";
-import { CATEGORY_WEIGHTS } from "../types";
+import { CATEGORY_WEIGHTS } from "../constants";
 
 /** Maps a release year to its decade label, e.g. 1997 → "1990s". */
 export function decadeFor(year: number): string {

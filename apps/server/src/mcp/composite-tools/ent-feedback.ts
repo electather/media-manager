@@ -5,8 +5,7 @@ import {
   dispatchPrimary,
   type EligibleConnection,
 } from "../../media";
-import { getPreferenceEngine, feedbackLog, PREFERENCE_INCREMENTAL_JOB_ID } from "../../preferences";
-import * as jobs from "../../jobs";
+import { getPreferencesService } from "../../preferences";
 import type { ToolHandler, ToolRegistration } from "../registry";
 import { parseMediaId } from "../media-id";
 import { badInput, targetNotFound } from "../errors";
@@ -137,14 +136,7 @@ async function fanOutRating(
 }
 
 function triggerIncremental(userId: string): void {
-  const entry = jobs.find(PREFERENCE_INCREMENTAL_JOB_ID);
-  if (!entry || entry.kind !== "coalesced") return;
-  const trigger = (
-    entry as unknown as {
-      trigger?: (input: { scopeKey: string } & Record<string, unknown>) => void;
-    }
-  ).trigger;
-  if (typeof trigger === "function") trigger({ scopeKey: userId, userId });
+  getPreferencesService().triggerIncrementalUpdate(userId);
 }
 
 // fallow-ignore-next-line complexity
@@ -166,7 +158,8 @@ export const entFeedbackHandler: ToolHandler = async (ctx, rawInput) => {
   const parsed = parseMediaId(input.id);
   const metadata = await loadMetadata(ctx.userId, parsed.tmdbId, parsed.type);
 
-  await feedbackLog.record({
+  const service = getPreferencesService();
+  await service.recordFeedback({
     userId: ctx.userId,
     tmdbId: parsed.tmdbId,
     mediaType: parsed.type,
@@ -177,8 +170,7 @@ export const entFeedbackHandler: ToolHandler = async (ctx, rawInput) => {
   });
 
   const mediaItem = toMediaItemShape(metadata, parsed.tmdbId, parsed.type);
-  const engine = getPreferenceEngine();
-  const profileUpdate = await engine.previewFeedbackEffect(ctx.userId, mediaItem, input.action, {
+  const profileUpdate = await service.previewFeedbackEffect(ctx.userId, mediaItem, input.action, {
     rating: input.rating,
     note: input.note,
   });

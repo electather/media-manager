@@ -14,7 +14,7 @@ vi.mock("../../db/client", () => ({
   getDb: () => testDb,
 }));
 
-const { listUsersNeedingDailyRebuild } = await import("../rebuild-row-source");
+const { listUsersNeedingDailyRebuild } = await import("../internal/rebuild-row-source");
 const { user } = await import("../../db/schema/auth");
 const { feedback, preferenceProfiles } = await import("../../db/schema");
 

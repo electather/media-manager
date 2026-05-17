@@ -1,6 +1,6 @@
 import { dispatchPrimary, dispatchAggregate } from "../../media";
 import { capabilityRegistry } from "../../plugin-runtime";
-import { getPreferenceEngine } from "../../preferences";
+import { getPreferencesService } from "../../preferences";
 import type { ToolCallContext, ToolHandler } from "../registry";
 import { compactMediaItem, truncate } from "../response-shapes";
 import { parseMediaId } from "../media-id";
@@ -41,7 +41,7 @@ async function readOwnFeedback(
   tmdbId: string,
   mediaType: "movie" | "tv",
 ): Promise<{ rating: number | null; liked?: boolean; noted?: boolean }> {
-  const own = await getPreferenceEngine().getUserFeedbackFor(userId, tmdbId, mediaType);
+  const own = await getPreferencesService().getUserFeedbackFor(userId, tmdbId, mediaType);
   if (!own) return { rating: null };
   const out: { rating: number | null; liked?: boolean; noted?: boolean } = {
     rating: typeof own.rated === "number" ? own.rated : null,

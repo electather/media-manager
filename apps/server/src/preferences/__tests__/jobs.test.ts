@@ -16,8 +16,14 @@ vi.mock("../../jobs/coalesced", () => ({
   registerCoalesced: vi.fn(),
 }));
 
-vi.mock("../index", () => ({
-  getPreferenceEngine: vi.fn(),
+const servicePreferencesMock = {
+  rebuildProfile: vi.fn(),
+  applyIncrementalUpdate: vi.fn(),
+  consumeFeatureCacheMetrics: vi.fn(() => null),
+  getStoredProfile: vi.fn(async () => null),
+};
+vi.mock("../service", () => ({
+  getPreferencesService: vi.fn(() => servicePreferencesMock),
 }));
 
 vi.mock("../../catalog", async () => {
@@ -41,13 +47,13 @@ vi.mock("consola", () => ({
   consola: consolaMock,
 }));
 
-const { registerPreferenceJobs, PREFERENCE_MANUAL_REBUILD_JOB_ID } = await import("../jobs");
+const { registerJobs } = await import("../jobs");
+const { PREFERENCE_MANUAL_REBUILD_JOB_ID } = await import("../jobs/manual-rebuild");
 const { registerTriggerable } = await import("../../jobs/triggerable");
-const { getPreferenceEngine } = await import("../index");
 
-describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
+describe("manual rebuild job handler", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let triggerableHandler: any;
-  let mockEngine: any;
   let mockLogger: {
     info: ReturnType<typeof vi.fn>;
     warn: ReturnType<typeof vi.fn>;
@@ -61,10 +67,9 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockEngine = {
-      rebuildProfile: vi.fn(),
-    };
-    vi.mocked(getPreferenceEngine).mockReturnValue(mockEngine);
+    servicePreferencesMock.rebuildProfile.mockReset();
+    servicePreferencesMock.consumeFeatureCacheMetrics.mockReturnValue(null);
+    servicePreferencesMock.getStoredProfile.mockResolvedValue(null);
 
     mockLogger = {
       info: vi.fn(),
@@ -75,9 +80,8 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
     };
     mockCtx = { abortSignal: mockAbortSignal, logger: mockLogger };
 
-    registerPreferenceJobs();
+    registerJobs();
 
-    // Find the handler passed to registerTriggerable
     const calls = vi.mocked(registerTriggerable).mock.calls;
     const manualRebuildCall = calls.find((call) => call[0].id === PREFERENCE_MANUAL_REBUILD_JOB_ID);
     expect(manualRebuildCall).toBeDefined();
@@ -92,12 +96,14 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   });
 
   it("adds warning if sampleSize is 0", async () => {
-    mockEngine.rebuildProfile.mockImplementation(async (userId: string, mediaType: string) => ({
-      userId,
-      mediaType,
-      sampleSize: 0,
-      confidence: "low",
-    }));
+    servicePreferencesMock.rebuildProfile.mockImplementation(
+      async (userId: string, mediaType: string) => ({
+        userId,
+        mediaType,
+        sampleSize: 0,
+        confidence: "low",
+      }),
+    );
 
     const result = await triggerableHandler(mockCtx, { userId: "u1" });
 
@@ -106,9 +112,17 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
     expect(result.warnings).not.toContain(
       "Profile for movie has low confidence (insufficient data points)",
     );
-    expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "movie", mockAbortSignal);
-    expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "tv", mockAbortSignal);
-    expect(mockEngine.rebuildProfile).toHaveBeenCalledWith("u1", "combined", mockAbortSignal);
+    expect(servicePreferencesMock.rebuildProfile).toHaveBeenCalledWith(
+      "u1",
+      "movie",
+      mockAbortSignal,
+    );
+    expect(servicePreferencesMock.rebuildProfile).toHaveBeenCalledWith("u1", "tv", mockAbortSignal);
+    expect(servicePreferencesMock.rebuildProfile).toHaveBeenCalledWith(
+      "u1",
+      "combined",
+      mockAbortSignal,
+    );
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("Completed with warnings for user u1"),
       expect.any(Object),
@@ -116,12 +130,14 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   });
 
   it("adds warning if confidence is low and sampleSize > 0", async () => {
-    mockEngine.rebuildProfile.mockImplementation(async (userId: string, mediaType: string) => {
-      if (mediaType === "tv") {
-        return { userId, mediaType, sampleSize: 5, confidence: "low" };
-      }
-      return { userId, mediaType, sampleSize: 50, confidence: "high" };
-    });
+    servicePreferencesMock.rebuildProfile.mockImplementation(
+      async (userId: string, mediaType: string) => {
+        if (mediaType === "tv") {
+          return { userId, mediaType, sampleSize: 5, confidence: "low" };
+        }
+        return { userId, mediaType, sampleSize: 50, confidence: "high" };
+      },
+    );
 
     const result = await triggerableHandler(mockCtx, { userId: "u1" });
 
@@ -138,12 +154,14 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
   });
 
   it("returns empty warnings array on success", async () => {
-    mockEngine.rebuildProfile.mockImplementation(async (userId: string, mediaType: string) => ({
-      userId,
-      mediaType,
-      sampleSize: 100,
-      confidence: "high",
-    }));
+    servicePreferencesMock.rebuildProfile.mockImplementation(
+      async (userId: string, mediaType: string) => ({
+        userId,
+        mediaType,
+        sampleSize: 100,
+        confidence: "high",
+      }),
+    );
 
     const result = await triggerableHandler(mockCtx, { userId: "u1" });
 
@@ -159,7 +177,7 @@ describe("PREFERENCE_MANUAL_REBUILD_JOB_ID handler", () => {
 
   it("catches, logs, and re-throws errors from rebuildProfile", async () => {
     const error = new Error("Database offline");
-    mockEngine.rebuildProfile.mockRejectedValue(error);
+    servicePreferencesMock.rebuildProfile.mockRejectedValue(error);
 
     await expect(triggerableHandler(mockCtx, { userId: "u1" })).rejects.toThrow("Database offline");
 

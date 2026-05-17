@@ -5,17 +5,17 @@ import {
   identifyItem,
   parseHistoryBase,
   parseItemDate,
-} from "../media";
+} from "../../media";
 import type {
+  CandidateFeatures,
   CommentSignal,
   HistorySignal,
   PreferenceDataProvider,
   RatingSignal,
   RawMediaItem,
   WatchlistSignal,
-} from "./provider";
-import { rawItemToCandidateFeatures } from "./provider";
-import type { CandidateFeatures } from "./types";
+} from "../types";
+import { rawItemToCandidateFeatures } from "./raw-item";
 
 interface HistoryItem {
   item?: {

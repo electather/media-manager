@@ -18,9 +18,8 @@ vi.mock("../../env", () => ({
 import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../../catalog/service";
 import { toCanonicalRow } from "../../catalog/canonical";
-import { CatalogPreferenceProvider } from "../catalog-provider";
-import type { HistorySignal, PreferenceDataProvider } from "../provider";
-import type { CandidateFeatures } from "../types";
+import { CatalogPreferenceProvider } from "../internal/catalog-provider";
+import type { CandidateFeatures, HistorySignal, PreferenceDataProvider } from "../types";
 
 afterAll(() => cleanupInMemoryDbs());
 
