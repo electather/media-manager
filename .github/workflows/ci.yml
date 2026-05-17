@@ -50,6 +50,14 @@ jobs:
         if: always()
         run: vp test
 
+      - name: Fallow boundary + circular gate
+        if: always()
+        # Explicit hard gate on error-severity findings (boundary_violations,
+        # circular_deps, unused_files, unused_exports). The SARIF + comment
+        # step below still publishes the full health report; this step is the
+        # one that fails CI when an error-severity issue lands.
+        run: vp exec fallow dead-code --fail-on-issues --quiet
+
       - name: Fallow analysis (dead code, dupes, health)
         uses: fallow-rs/fallow@v2
         if: always()
