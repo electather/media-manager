@@ -1,0 +1,33 @@
+{
+  "name": "backend-feature-architecture",
+  "version": "1.0.0",
+  "scope": "apps/server/src/<module>/**",
+  "modules": [
+    "artwork",
+    "auth",
+    "catalog",
+    "home",
+    "media",
+    "notifications",
+    "preferences",
+    "plugin-runtime"
+  ],
+  "canonicalExample": "apps/server/src/notifications/",
+  "infraExcluded": [
+    "apps/server/src/api/**",
+    "apps/server/src/mcp/**",
+    "apps/server/src/db/**",
+    "apps/server/src/cache/**",
+    "apps/server/src/crypto/**",
+    "apps/server/src/connections/**",
+    "apps/server/src/diagnostics/**",
+    "apps/server/src/jobs/**"
+  ],
+  "companions": [
+    "clean-code",
+    "fallow",
+    "es-toolkit",
+    "backprop",
+    "frontend-feature-architecture"
+  ]
+}
