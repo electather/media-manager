@@ -9,7 +9,7 @@ vi.mock("../../../env", () => ({
 
 let mockUserId: string | null = null;
 
-vi.mock("../../../auth/middleware", async () => {
+vi.mock("../../../auth", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   return {
     requireSession: async (
@@ -33,15 +33,19 @@ const listRequestTargets = vi.fn<(mediaType: "movie" | "tv") => Promise<unknown>
 const requestDownload = vi.fn<(input: unknown) => Promise<unknown>>();
 const cancelRequest = vi.fn<(requestId: string) => Promise<void>>();
 
-vi.mock("../../../media/service", () => ({
-  MediaService: class {
-    constructor(public readonly userId: string) {}
-    getRequests = getRequests;
-    listRequestTargets = listRequestTargets;
-    requestDownload = requestDownload;
-    cancelRequest = cancelRequest;
-  },
-}));
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    MediaService: class {
+      constructor(public readonly userId: string) {}
+      getRequests = getRequests;
+      listRequestTargets = listRequestTargets;
+      requestDownload = requestDownload;
+      cancelRequest = cancelRequest;
+    },
+  };
+});
 
 const { requestsApp } = await import("../requests");
 

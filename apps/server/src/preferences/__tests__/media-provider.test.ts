@@ -5,10 +5,14 @@ vi.mock("../../env", () => ({
 }));
 
 const dispatchPrimaryMock = vi.fn();
-vi.mock("../../media/dispatcher", () => ({
-  dispatchPrimary: (...args: unknown[]) => dispatchPrimaryMock(...args),
-  dispatchAggregate: vi.fn(async () => ({ data: [] })),
-}));
+vi.mock("../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../media")>("../../media");
+  return {
+    ...actual,
+    dispatchPrimary: (...args: unknown[]) => dispatchPrimaryMock(...args),
+    dispatchAggregate: vi.fn(async () => ({ data: [] })),
+  };
+});
 
 const { MediaServicePreferenceProvider } = await import("../media-provider");
 

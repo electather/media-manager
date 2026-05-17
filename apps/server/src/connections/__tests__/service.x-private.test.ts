@@ -145,26 +145,20 @@ vi.mock("../../crypto/vault", () => ({
 const runAuthMock = vi.fn();
 const testConnectionMock = vi.fn();
 
-vi.mock("../../plugin-runtime/runtime", () => ({
+vi.mock("../../plugin-runtime", () => ({
   pluginRuntime: {
     runAuth: (...args: unknown[]) => runAuthMock(...args),
     testConnection: (...args: unknown[]) => testConnectionMock(...args),
   },
-}));
-
-vi.mock("../../plugin-runtime/registry", () => ({
   capabilityRegistry: {
     get: (id: string) => (state.plugins.some((p) => p.id === id) ? {} : undefined),
   },
-}));
-
-vi.mock("../../plugin-runtime/shared-credentials", () => ({
   sharedCredentialsService: {
     countEnabled: async () => 0,
   },
 }));
 
-vi.mock("../../media/dispatcher", () => ({
+vi.mock("../../media", () => ({
   invalidateUserCache: vi.fn(),
 }));
 

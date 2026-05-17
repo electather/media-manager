@@ -20,7 +20,7 @@ vi.mock("../../../env", () => ({
 // surfaces. The `meApp` reads `sessionUserId(c)` so we wire that up too.
 let mockUserId: string | null = null;
 
-vi.mock("../../../auth/middleware", () => ({
+vi.mock("../../../auth", () => ({
   requireSession: async (c: any, next: any) => {
     if (!mockUserId) {
       throw unauthorized();

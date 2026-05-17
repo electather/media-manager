@@ -1,4 +1,16 @@
-import { describe, expect, it, beforeEach, afterAll } from "vite-plus/test";
+import { describe, expect, it, beforeEach, afterAll, vi } from "vite-plus/test";
+
+vi.mock("../../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,

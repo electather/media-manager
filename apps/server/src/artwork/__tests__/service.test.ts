@@ -2,17 +2,32 @@ import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import type { ArtworkBundle } from "@ent-mcp/shared/artwork";
 import type { CatalogService } from "../../catalog";
 
+vi.mock("../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 // `vi.mock` is hoisted above any module-scope `const`, so `dispatchMock` has
 // to be hoisted alongside it — otherwise the factory closure captures
 // `undefined` and the call wrapper dies with `TypeError: undefined is not a
 // function`.
 const { dispatchMock } = vi.hoisted(() => ({ dispatchMock: vi.fn() }));
-vi.mock("../../media/strategies/aggregate-per-kind", () => ({
-  dispatchAggregatePerKind: dispatchMock,
-}));
+vi.mock("../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../media")>("../../media");
+  return {
+    ...actual,
+    dispatchAggregatePerKind: dispatchMock,
+  };
+});
 
 const { ArtworkService } = await import("../service");
-const { PluginCallError } = await import("../../media/errors");
+const { PluginCallError } = await import("../../media");
 
 function bundle(overrides: Partial<ArtworkBundle> = {}): ArtworkBundle {
   return {

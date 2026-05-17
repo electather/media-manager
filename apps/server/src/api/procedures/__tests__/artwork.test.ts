@@ -15,7 +15,7 @@ vi.mock("../../../env", () => ({
 }));
 
 let mockUserId: string | null = null;
-vi.mock("../../../auth/middleware", () => ({
+vi.mock("../../../auth", () => ({
   requireSession: async (c: any, next: any) => {
     if (!mockUserId) throw unauthorized();
     c.set("session", { user: { id: mockUserId } });

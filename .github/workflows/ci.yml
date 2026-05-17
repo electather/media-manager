@@ -38,11 +38,13 @@ jobs:
 
       - name: Backend module file-size and naming caps
         if: always()
-        run: bun tools/check-file-sizes.ts
+        # `vp run` exposes bun on PATH via the package manager. Calling `bun`
+        # directly would fail because setup-vp does not surface it.
+        run: vp run check:file-sizes
 
       - name: Backend drizzle table-ownership
         if: always()
-        run: bun tools/check-table-ownership.ts
+        run: vp run check:table-ownership
 
       - name: Run tests
         if: always()

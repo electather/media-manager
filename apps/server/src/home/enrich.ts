@@ -89,13 +89,9 @@ async function hydrateArtwork(
  * here even when `hydrateArtwork` skipped a request because canonical art was
  * already complete (otherwise hero + CW rows render with null images).
  */
-function pickArtworkUrl(
-  current: string | null | undefined,
-  fresh: string | null | undefined,
-  fallback: string | null | undefined,
-): string | undefined {
-  if (current) return current;
-  return fresh ?? fallback ?? current ?? undefined;
+function pickArtworkUrl(...candidates: Array<string | null | undefined>): string | undefined {
+  for (const value of candidates) if (value) return value;
+  return undefined;
 }
 
 function mergeArtwork(

@@ -9,7 +9,7 @@ vi.mock("../../../env", () => ({
 
 let mockUserId: string | null = null;
 
-vi.mock("../../../auth/middleware", async () => {
+vi.mock("../../../auth", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   return {
     requireSession: async (
@@ -28,19 +28,19 @@ vi.mock("../../../auth/middleware", async () => {
   };
 });
 
-vi.mock("../../../home/orchestrator", () => ({
-  buildContext: vi.fn().mockReturnValue({ userId: "u1" }),
-  composeLayout: vi.fn(),
-  composeRow: vi.fn(),
-  composeDetails: vi.fn(),
-}));
+vi.mock("../../../home", async () => {
+  const actual = await vi.importActual<typeof import("../../../home")>("../../../home");
+  return {
+    ...actual,
+    buildContext: vi.fn().mockReturnValue({ userId: "u1" }),
+    composeLayout: vi.fn(),
+    composeRow: vi.fn(),
+    composeDetails: vi.fn(),
+    composeSeasonAvailability: vi.fn(),
+  };
+});
 
-vi.mock("../../../home/season-availability", () => ({
-  composeSeasonAvailability: vi.fn(),
-}));
-
-const orchestrator = await import("../../../home/orchestrator");
-const seasonAvailability = await import("../../../home/season-availability");
+const home = await import("../../../home");
 const { homeApp } = await import("../home");
 
 function buildApp() {
@@ -63,7 +63,7 @@ describe("home API", () => {
   it("returns 200 + layout for authenticated user", async () => {
     mockUserId = "u1";
     const fake = { hero: null, rows: [], generatedAt: 1 };
-    vi.mocked(orchestrator.composeLayout).mockResolvedValueOnce(fake);
+    vi.mocked(home.composeLayout).mockResolvedValueOnce(fake);
     const res = await buildApp().request("/home/layout");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(fake);
@@ -71,19 +71,19 @@ describe("home API", () => {
 
   it("forwards row queries to composeRow", async () => {
     mockUserId = "u1";
-    vi.mocked(orchestrator.composeRow).mockResolvedValueOnce({
+    vi.mocked(home.composeRow).mockResolvedValueOnce({
       items: [],
       cursor: null,
     });
     const res = await buildApp().request("/home/row?rowId=trendingNow");
     expect(res.status).toBe(200);
-    expect(orchestrator.composeRow).toHaveBeenCalledWith(expect.anything(), "trendingNow", null);
+    expect(home.composeRow).toHaveBeenCalledWith(expect.anything(), "trendingNow", null);
   });
 
   it("returns 404 when composeRow throws home.row_unavailable", async () => {
     mockUserId = "u1";
     const { HttpError } = await import("../../../diagnostics/http-errors");
-    vi.mocked(orchestrator.composeRow).mockRejectedValueOnce(
+    vi.mocked(home.composeRow).mockRejectedValueOnce(
       new HttpError(404, "home.row_unavailable", "unknown"),
     );
     const res = await buildApp().request("/home/row?rowId=nope");
@@ -109,7 +109,7 @@ describe("home API", () => {
       },
       details: { cast: [] },
     };
-    vi.mocked(orchestrator.composeDetails).mockResolvedValueOnce(payload);
+    vi.mocked(home.composeDetails).mockResolvedValueOnce(payload);
     const res = await buildApp().request("/home/details?tmdbId=1&mediaType=movie");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(payload);
@@ -138,14 +138,11 @@ describe("home API", () => {
         },
       ],
     };
-    vi.mocked(seasonAvailability.composeSeasonAvailability).mockResolvedValueOnce(payload);
+    vi.mocked(home.composeSeasonAvailability).mockResolvedValueOnce(payload);
     const res = await buildApp().request("/home/season-availability?tmdbId=1396");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(payload);
-    expect(seasonAvailability.composeSeasonAvailability).toHaveBeenCalledWith(
-      expect.anything(),
-      "1396",
-    );
+    expect(home.composeSeasonAvailability).toHaveBeenCalledWith(expect.anything(), "1396");
   });
 
   it("rejects /season-availability without tmdbId with 400", async () => {

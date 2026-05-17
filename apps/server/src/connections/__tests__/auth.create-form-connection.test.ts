@@ -11,9 +11,14 @@ vi.mock("../../env", () => ({
 
 const runAuth = vi.fn();
 const getModule = vi.fn();
-vi.mock("../../plugin-runtime/runtime", () => ({
-  pluginRuntime: { runAuth, getModule },
-}));
+vi.mock("../../plugin-runtime", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../plugin-runtime")>("../../plugin-runtime");
+  return {
+    ...actual,
+    pluginRuntime: { runAuth, getModule },
+  };
+});
 
 const writeConnection = vi.fn();
 vi.mock("../helpers", async () => {

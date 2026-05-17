@@ -1,5 +1,17 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { and, eq } from "drizzle-orm";
+
+vi.mock("../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,
@@ -23,7 +35,9 @@ vi.mock("../../crypto/helpers", () => ({
   }),
 }));
 
-const emitMock = vi.fn<(event: unknown) => Promise<void>>(async () => undefined);
+const { emitMock } = vi.hoisted(() => ({
+  emitMock: vi.fn<(event: unknown) => Promise<void>>(async () => undefined),
+}));
 vi.mock("../emit", () => ({ emit: emitMock }));
 
 let registeredHandler: ((ctx: unknown, input: unknown) => Promise<unknown>) | null = null;

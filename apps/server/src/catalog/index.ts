@@ -34,6 +34,7 @@ export {
 export { toCandidateFeatures, extractFeatures, candidateId } from "./features";
 export { registerCatalogJobs } from "./jobs";
 export { writeRecommendationsForUser } from "./jobs/recommendation-build";
+export { SYSTEM_USER_ID } from "./jobs/constants";
 
 let instance: CatalogService | undefined;
 
