@@ -40,8 +40,20 @@ vi.mock("../diagnostics/database-sink", () => ({
 }));
 
 vi.mock("../notifications", () => ({
-  NotificationErrorSink: class {},
+  registerJobs: vi.fn(),
+  // The real implementation calls `registerSink(new NotificationErrorSink())`.
+  // Mirror that so the test still asserts "two sinks registered" without
+  // pulling in the full notifications module.
+  registerNotificationErrorSink: () => {
+    registerSinkMock({});
+  },
 }));
+
+vi.mock("../artwork", () => ({ registerJobs: vi.fn() }));
+vi.mock("../catalog", () => ({ registerJobs: vi.fn() }));
+vi.mock("../home", () => ({ registerJobs: vi.fn() }));
+vi.mock("../media", () => ({ registerJobs: vi.fn() }));
+vi.mock("../preferences", () => ({ registerJobs: vi.fn() }));
 
 vi.mock("../plugins/registry", () => ({
   registerBuiltinPlugins: (...args: unknown[]) => registerBuiltinPluginsMock(...args),
@@ -55,6 +67,7 @@ vi.mock("../plugin-runtime", () => ({
   pluginRuntime: {
     bootstrapBuiltins: () => bootstrapBuiltinsMock(),
   },
+  registerJobs: vi.fn(),
 }));
 
 vi.mock("../api/router", async () => {
@@ -64,6 +77,7 @@ vi.mock("../api/router", async () => {
 
 vi.mock("../auth", () => ({
   authRouteHandler: vi.fn(async () => new Response(null)),
+  registerJobs: vi.fn(),
 }));
 
 vi.mock("../mcp/server", () => ({

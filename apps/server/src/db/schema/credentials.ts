@@ -1,4 +1,4 @@
-// @owner: preferences
+// @owner: plugin-runtime
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { CONNECTION_STATUSES } from "@ent-mcp/shared/connections";

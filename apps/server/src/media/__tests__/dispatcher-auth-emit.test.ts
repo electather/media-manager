@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { PluginError } from "@ent-mcp/plugin-sdk";
-import type { emit as emitFn } from "../../notifications/emit";
 
-type EmitArg = Parameters<typeof emitFn>[0];
+interface TypedEmitCall {
+  name: string;
+  payload: Record<string, unknown>;
+}
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -16,7 +18,15 @@ const refreshAuthMock = vi.fn();
 const resolveConnectionsMock = vi.fn();
 const listProvidersMock = vi.fn();
 const registryAllMock = vi.fn();
-const emitMock = vi.fn<(event: EmitArg) => Promise<void>>(async () => undefined);
+const emitMock = vi.fn<(name: string, schema: unknown, payload: unknown) => Promise<void>>(
+  async () => undefined,
+);
+
+function getEmittedCall(index: number): TypedEmitCall {
+  const call = emitMock.mock.calls[index];
+  if (!call) throw new Error(`expected emit call at index ${index}`);
+  return { name: call[0] as string, payload: call[2] as Record<string, unknown> };
+}
 
 vi.mock("../../plugin-runtime/runtime", () => ({
   pluginRuntime: {
@@ -61,7 +71,7 @@ vi.mock("../../crypto/hash", () => ({
   sha256: async (s: string) => s.slice(0, 32).padEnd(32, "0"),
 }));
 
-vi.mock("../../notifications/emit", () => ({
+vi.mock("../../jobs/events", () => ({
   emit: emitMock,
 }));
 
@@ -116,14 +126,12 @@ describe("dispatcher auth-expired emit", () => {
     ).rejects.toThrow();
 
     expect(emitMock).toHaveBeenCalledTimes(1);
-    const call = emitMock.mock.calls[0];
-    if (!call) throw new Error("expected emit call");
-    expect(call[0]).toMatchObject({
-      type: "connection.auth.expired",
-      category: "auth",
-      severity: "warn",
-      audience: { kind: "user", userId: "user-1" },
-      payload: { connectionId: "conn-99", pluginId: "seerr" },
+    const call = getEmittedCall(0);
+    expect(call.name).toBe("media.connection.auth-expired");
+    expect(call.payload).toEqual({
+      connectionId: "conn-99",
+      pluginId: "seerr",
+      userId: "user-1",
     });
   });
 

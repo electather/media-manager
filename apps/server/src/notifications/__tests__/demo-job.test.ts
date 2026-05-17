@@ -9,6 +9,7 @@ vi.mock("../../env", () => ({
     BETTER_AUTH_SECRET: "x".repeat(32),
     BETTER_AUTH_URL: "http://localhost",
     APP_EXTERNAL_URL: "http://localhost",
+    NOTIFICATIONS_ENABLED: true,
   },
 }));
 
@@ -35,10 +36,13 @@ vi.mock("../../crypto/helpers", () => ({
   }),
 }));
 
-const { emitMock } = vi.hoisted(() => ({
-  emitMock: vi.fn<(event: unknown) => Promise<void>>(async () => undefined),
+const { publishMock } = vi.hoisted(() => ({
+  publishMock: vi.fn<(event: unknown) => Promise<void>>(async () => undefined),
 }));
-vi.mock("../emit", () => ({ emit: emitMock }));
+
+vi.mock("../service", () => ({
+  getNotificationsService: () => ({ publishNotification: publishMock }),
+}));
 
 let registeredHandler: ((ctx: unknown, input: unknown) => Promise<unknown>) | null = null;
 
@@ -49,7 +53,7 @@ vi.mock("../../jobs/triggerable", () => ({
   },
 }));
 
-const { registerDemoNotificationJob } = await import("../demo-job");
+const { registerDemo } = await import("../jobs/demo");
 
 async function runDemo(input: unknown) {
   if (!registeredHandler) throw new Error("handler not registered");
@@ -84,21 +88,21 @@ async function seedInboxPlugin() {
 
 beforeEach(async () => {
   db = await createInMemoryDb();
-  emitMock.mockReset();
+  publishMock.mockReset();
   registeredHandler = null;
   await seedInboxPlugin();
   await seedUser("user-1");
   await seedUser("user-2");
   await seedUser("user-3");
   await seedUser("u");
-  registerDemoNotificationJob();
+  registerDemo();
 });
 
 afterAll(() => {
   cleanupInMemoryDbs();
 });
 
-describe("registerDemoNotificationJob", () => {
+describe("registerDemo", () => {
   it("derives category from event type and seeds subscription for it", async () => {
     await runDemo({ userId: "user-1", eventType: "connection.auth.expired" });
     const conn = await db
@@ -126,10 +130,10 @@ describe("registerDemoNotificationJob", () => {
     expect(conns).toHaveLength(1);
   });
 
-  it("emits a media.request.available event by default", async () => {
+  it("publishes a media.request.available event by default", async () => {
     await runDemo({ userId: "user-3" });
-    expect(emitMock).toHaveBeenCalledTimes(1);
-    expect(emitMock.mock.calls[0]![0]).toMatchObject({
+    expect(publishMock).toHaveBeenCalledTimes(1);
+    expect(publishMock.mock.calls[0]![0]).toMatchObject({
       type: "media.request.available",
       category: "media",
       severity: "info",
@@ -137,9 +141,9 @@ describe("registerDemoNotificationJob", () => {
     });
   });
 
-  it("emits the chosen event type with matching category and severity (auth)", async () => {
+  it("publishes the chosen event type with matching category and severity (auth)", async () => {
     await runDemo({ userId: "user-3", eventType: "connection.auth.expired" });
-    expect(emitMock.mock.calls[0]![0]).toMatchObject({
+    expect(publishMock.mock.calls[0]![0]).toMatchObject({
       type: "connection.auth.expired",
       category: "auth",
       severity: "warn",
@@ -148,9 +152,9 @@ describe("registerDemoNotificationJob", () => {
     });
   });
 
-  it("emits system.error correctly when chosen", async () => {
+  it("publishes system.error correctly when chosen", async () => {
     await runDemo({ userId: "user-3", eventType: "system.error" });
-    expect(emitMock.mock.calls[0]![0]).toMatchObject({
+    expect(publishMock.mock.calls[0]![0]).toMatchObject({
       type: "system.error",
       category: "system",
       severity: "error",

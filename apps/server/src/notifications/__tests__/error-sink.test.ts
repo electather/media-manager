@@ -1,16 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
-import type { emit as emitFn } from "../emit";
+import type { NotificationEvent } from "@ent-mcp/shared/notifications";
+import { NotificationErrorSink } from "../internal/error-sink";
 
-type EmitArg = Parameters<typeof emitFn>[0];
+type PublishArg = Omit<NotificationEvent, "id" | "occurredAt">;
 
-const emitMock = vi.fn<(event: EmitArg) => Promise<void>>(async () => undefined);
-
-vi.mock("../emit", () => ({
-  emit: emitMock,
-}));
-
-const { NotificationErrorSink } = await import("../error-sink");
+const publishMock = vi.fn<(event: PublishArg) => Promise<void>>(async () => undefined);
 
 function makeRecord(overrides: Partial<ErrorRecord> = {}): ErrorRecord {
   return {
@@ -33,17 +28,17 @@ function makeRecord(overrides: Partial<ErrorRecord> = {}): ErrorRecord {
 }
 
 beforeEach(() => {
-  emitMock.mockReset();
+  publishMock.mockReset();
 });
 
 describe("NotificationErrorSink", () => {
-  it("emits system.error for severity=error with admin audience", async () => {
-    const sink = new NotificationErrorSink();
+  it("publishes system.error for severity=error with admin audience", async () => {
+    const sink = new NotificationErrorSink(publishMock);
     await sink.captureError(makeRecord({ devMessage: "kaboom", source: "plugin" }));
 
-    expect(emitMock).toHaveBeenCalledTimes(1);
-    const call = emitMock.mock.calls[0];
-    if (!call) throw new Error("expected emit call");
+    expect(publishMock).toHaveBeenCalledTimes(1);
+    const call = publishMock.mock.calls[0];
+    if (!call) throw new Error("expected publish call");
     expect(call[0]).toMatchObject({
       type: "system.error",
       category: "system",
@@ -54,21 +49,21 @@ describe("NotificationErrorSink", () => {
     });
   });
 
-  it("does not emit for severity=warning", async () => {
-    const sink = new NotificationErrorSink();
+  it("does not publish for severity=warning", async () => {
+    const sink = new NotificationErrorSink(publishMock);
     await sink.captureError(makeRecord({ severity: "warning" }));
-    expect(emitMock).not.toHaveBeenCalled();
+    expect(publishMock).not.toHaveBeenCalled();
   });
 
-  it("does not emit for severity=info", async () => {
-    const sink = new NotificationErrorSink();
+  it("does not publish for severity=info", async () => {
+    const sink = new NotificationErrorSink(publishMock);
     await sink.captureError(makeRecord({ severity: "info" }));
-    expect(emitMock).not.toHaveBeenCalled();
+    expect(publishMock).not.toHaveBeenCalled();
   });
 
-  it("swallows emit failures so capture stays reliable", async () => {
-    emitMock.mockRejectedValueOnce(new Error("emit boom"));
-    const sink = new NotificationErrorSink();
+  it("swallows publish failures so capture stays reliable", async () => {
+    publishMock.mockRejectedValueOnce(new Error("publish boom"));
+    const sink = new NotificationErrorSink(publishMock);
     await expect(sink.captureError(makeRecord())).resolves.toBeUndefined();
   });
 });

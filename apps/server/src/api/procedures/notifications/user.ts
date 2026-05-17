@@ -27,18 +27,7 @@ import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";
 import { badRequest, forbidden, notFound, payloadTooLarge } from "../../../diagnostics/http-errors";
 import { zValidator } from "../../../diagnostics/validator";
-import {
-  deleteInboxAllForUser,
-  deleteInboxForUser,
-  getUnreadCount,
-  inboxRowToDto,
-  listInboxForUser,
-  listSubscriptionsForConnections,
-  markAllReadForUser,
-  markInboxReadForUser,
-  markInboxUnreadForUser,
-  upsertSubscription,
-} from "../../../notifications";
+import { getNotificationsService } from "../../../notifications";
 import {
   CATEGORY_LABELS,
   SUBSCRIPTION_BULK_LIMIT,
@@ -135,7 +124,7 @@ export const notificationsApp = new Hono()
     const capable = notificationCapablePluginIds();
     const userConns = await connectionsService.listForUser(userId);
     const channelIds = userConns.filter((c0) => capable.has(c0.pluginId)).map((c0) => c0.id);
-    const subscriptions = await listSubscriptionsForConnections(channelIds);
+    const subscriptions = await getNotificationsService().listSubscriptions(channelIds);
     return c.json({ subscriptions });
   })
   .put(
@@ -161,7 +150,11 @@ export const notificationsApp = new Hono()
         .get();
       if (!conn) throw notFound("notifications.channel_not_found", "channel not found");
 
-      await upsertSubscription(connectionId, category, c.req.valid("json").enabled);
+      await getNotificationsService().upsertSubscription(
+        connectionId,
+        category,
+        c.req.valid("json").enabled,
+      );
       return c.json({ ok: true });
     },
   )
@@ -180,8 +173,9 @@ export const notificationsApp = new Hono()
       }
       await assertOwnsConnections(userId, uniq(updates.map((u) => u.connectionId)));
       await assertCanWriteCategories(userId, uniq(updates.map((u) => u.category)));
+      const service = getNotificationsService();
       for (const u of updates) {
-        await upsertSubscription(u.connectionId, u.category, u.enabled);
+        await service.upsertSubscription(u.connectionId, u.category, u.enabled);
       }
       return c.json({ updated: updates.length });
     },
@@ -191,53 +185,57 @@ export const notificationsApp = new Hono()
     const q = c.req.valid("query");
     const { rawCursor, direction } = resolveInboxCursor(q);
     const cursor = decodeKeysetCursor(rawCursor);
-    const items = await listInboxForUser(
+    const service = getNotificationsService();
+    const items = await service.listInbox(
       userId,
       { unreadOnly: q.unreadOnly, category: q.category, severity: q.severity },
       cursor,
       q.limit,
       { direction },
     );
-    const unreadCount = await getUnreadCount(userId);
+    const unreadCount = await service.getUnreadCount(userId);
     const lastItem = items.length === q.limit ? last(items) : undefined;
     const nextCursor = lastItem ? encodeKeysetCursor(lastItem.createdAt, lastItem.id) : undefined;
     return c.json({
-      items: items.map(inboxRowToDto),
+      items,
       ...(nextCursor !== undefined ? { nextCursor } : {}),
       unreadCount,
     });
   })
   .get("/inbox/unread-count", async (c) => {
     const userId = sessionUserId(c);
-    const count = await getUnreadCount(userId);
+    const count = await getNotificationsService().getUnreadCount(userId);
     return c.json({ count });
   })
   .post("/inbox/mark-read", zValidator("json", inboxMarkBodySchema), async (c) => {
     const userId = sessionUserId(c);
-    const updated = await markInboxReadForUser(userId, c.req.valid("json").ids);
+    const updated = await getNotificationsService().markInboxRead(userId, c.req.valid("json").ids);
     return c.json({ updated });
   })
   .post("/inbox/mark-unread", zValidator("json", inboxMarkBodySchema), async (c) => {
     const userId = sessionUserId(c);
-    const updated = await markInboxUnreadForUser(userId, c.req.valid("json").ids);
+    const updated = await getNotificationsService().markInboxUnread(
+      userId,
+      c.req.valid("json").ids,
+    );
     return c.json({ updated });
   })
   .post("/inbox/mark-all-read", zValidator("json", inboxMarkAllReadBodySchema), async (c) => {
     const userId = sessionUserId(c);
     const { category } = c.req.valid("json");
-    const updated = await markAllReadForUser(userId, category);
+    const updated = await getNotificationsService().markAllInboxRead(userId, category);
     return c.json({ updated });
   })
   .delete("/inbox", zValidator("json", inboxDeleteBodySchema), async (c) => {
     const userId = sessionUserId(c);
-    const deleted = await deleteInboxForUser(userId, c.req.valid("json").ids);
+    const deleted = await getNotificationsService().deleteInbox(userId, c.req.valid("json").ids);
     return c.json({ deleted });
   })
   .delete("/inbox/all", zValidator("json", inboxDeleteAllBodySchema), async (c) => {
     const userId = sessionUserId(c);
     const body = c.req.valid("json");
     const olderThanMs = body.olderThan ? Date.parse(body.olderThan) : undefined;
-    const deleted = await deleteInboxAllForUser(userId, {
+    const deleted = await getNotificationsService().deleteAllInbox(userId, {
       readOnly: body.readOnly,
       ...(olderThanMs !== undefined ? { olderThanMs } : {}),
     });

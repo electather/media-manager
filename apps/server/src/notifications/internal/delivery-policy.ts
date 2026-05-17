@@ -12,15 +12,11 @@ export const BACKOFF_INTERVALS_MS: readonly number[] = [
 ];
 
 /** Hard cap on attempts (initial + retries). Sized so every entry in
- *  `BACKOFF_INTERVALS_MS` can be used: 1 initial + 5 retries = 6 attempts,
- *  the last reschedule lands on the 12h delay before the cap fires on the
- *  sixth failure. The cap is applied after the failed attempt is counted,
- *  so a delivery may run up to MAX_ATTEMPTS times before we mark it
- *  terminally failed. */
+ *  `BACKOFF_INTERVALS_MS` can be used: 1 initial + 5 retries = 6 attempts. */
 export const MAX_ATTEMPTS = 6;
 
-/** The plugins that the host trusts with extended deliver args (`deliveryId`
- *  and `recipientUserId`) and with the host-privileged `ctx.inbox` capability.
+/** Plugins that the host trusts with extended deliver args (`deliveryId` and
+ *  `recipientUserId`) and with the host-privileged `ctx.inbox` capability.
  *  Third-party plugins receive only the SDK-typed `{ message, event,
  *  channelConfig }` shape so they cannot persist server-owned state. */
 const HOST_PRIVILEGED_PLUGIN_IDS: ReadonlySet<string> = new Set(["inbox"]);
@@ -95,14 +91,11 @@ export function decideFailure(delivery: { attemptCount: number }, error: unknown
   const errorCode = signals.code ?? "unknown_error";
   const errorMessage = error instanceof Error ? error.message : String(error);
 
-  // attemptCount is the number of attempts already counted before this one;
-  // the attempt that just failed becomes attempt N = attemptCount + 1.
   const nextAttemptCount = delivery.attemptCount + 1;
 
   // A plain error without an explicit `retryable` flag is treated as
-  // retryable for the first attempt only — that mirrors the design's
-  // "defensive default" while still letting plugin authors opt in to
-  // multi-attempt retries by setting the flag.
+  // retryable for the first attempt only — mirrors the design's defensive
+  // default while letting plugin authors opt in to multi-attempt retries.
   const retryable =
     typeof signals.retryable === "boolean" ? signals.retryable : delivery.attemptCount < 1;
 

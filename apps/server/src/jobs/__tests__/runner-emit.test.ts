@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { resetSinks } from "../../diagnostics/capture";
-import type { emit as emitFn } from "../../notifications/emit";
-
-type EmitArg = Parameters<typeof emitFn>[0];
 
 vi.mock("../history", () => ({
   startRun: async () => undefined,
@@ -19,18 +16,20 @@ vi.mock("../config", () => ({
   effectiveSchedule: (d: string | undefined) => d,
 }));
 
-const emitMock = vi.fn<(event: EmitArg) => Promise<void>>(async () => undefined);
+const emitMock = vi.fn<(name: string, schema: unknown, payload: unknown) => Promise<void>>(
+  async () => undefined,
+);
 
-vi.mock("../../notifications/emit", () => ({
+vi.mock("../emit", () => ({
   emit: emitMock,
 }));
 
 const { run } = await import("../runner");
 
-function getEmittedEvent(index: number): EmitArg {
+function getEmittedEvent(index: number): { name: string; payload: Record<string, unknown> } {
   const call = emitMock.mock.calls[index];
   if (!call) throw new Error(`expected emit call at index ${index}`);
-  return call[0];
+  return { name: call[0] as string, payload: call[2] as Record<string, unknown> };
 }
 
 beforeEach(() => {
@@ -38,8 +37,8 @@ beforeEach(() => {
   resetSinks();
 });
 
-describe("runner notification emit hook", () => {
-  it("emits job.run.failed on failure with admin audience", async () => {
+describe("runner typed-event hook", () => {
+  it("emits jobs.run.failed on failure", async () => {
     await run({
       jobId: "host.test.fail",
       kind: "scheduled",
@@ -51,18 +50,16 @@ describe("runner notification emit hook", () => {
 
     expect(emitMock).toHaveBeenCalledTimes(1);
     const event = getEmittedEvent(0);
-    expect(event.type).toBe("job.run.failed");
-    expect(event.category).toBe("system");
-    expect(event.severity).toBe("error");
-    expect(event.audience).toEqual({ kind: "admin", permission: "admin:server" });
+    expect(event.name).toBe("jobs.run.failed");
     expect(event.payload).toMatchObject({
       jobId: "host.test.fail",
+      status: "failed",
       error: "boom",
     });
-    expect((event.payload as { runId?: string }).runId).toBeTruthy();
+    expect(event.payload.runId).toBeTruthy();
   });
 
-  it("emits job.run.failed on timed_out", async () => {
+  it("emits jobs.run.failed on timed_out", async () => {
     await run({
       jobId: "host.test.timeout",
       kind: "scheduled",
@@ -74,10 +71,10 @@ describe("runner notification emit hook", () => {
     });
 
     expect(emitMock).toHaveBeenCalledTimes(1);
-    expect(getEmittedEvent(0).type).toBe("job.run.failed");
+    expect(getEmittedEvent(0).name).toBe("jobs.run.failed");
   });
 
-  it("emits job.run.failed on partial_failure via statusOverride", async () => {
+  it("emits jobs.run.failed on partial_failure via statusOverride", async () => {
     await run({
       jobId: "host.test.partial",
       kind: "scheduled_per_row",
@@ -92,7 +89,7 @@ describe("runner notification emit hook", () => {
     });
 
     expect(emitMock).toHaveBeenCalledTimes(1);
-    expect(getEmittedEvent(0).type).toBe("job.run.failed");
+    expect(getEmittedEvent(0).name).toBe("jobs.run.failed");
   });
 
   it("does not emit on success when not sync-classified", async () => {
@@ -106,7 +103,7 @@ describe("runner notification emit hook", () => {
     expect(emitMock).not.toHaveBeenCalled();
   });
 
-  it("emits connection.sync.succeeded when sync job succeeds with triggeredByUserId", async () => {
+  it("emits jobs.sync.succeeded when sync job succeeds with triggeredByUserId", async () => {
     await run({
       jobId: "plugin.seerr.requestStatusSync",
       kind: "scheduled_per_row",
@@ -124,16 +121,17 @@ describe("runner notification emit hook", () => {
 
     expect(emitMock).toHaveBeenCalledTimes(1);
     const event = getEmittedEvent(0);
-    expect(event.type).toBe("connection.sync.succeeded");
-    expect(event.audience).toEqual({ kind: "user", userId: "user-1" });
-    expect(event.payload).toEqual({
+    expect(event.name).toBe("jobs.sync.succeeded");
+    expect(event.payload).toMatchObject({
+      jobId: "plugin.seerr.requestStatusSync",
       connectionId: "conn-42",
       pluginId: "seerr",
       itemCount: 3,
+      triggeredByUserId: "user-1",
     });
   });
 
-  it("does not emit connection.sync.succeeded when triggeredByUserId is null", async () => {
+  it("does not emit jobs.sync.succeeded when triggeredByUserId is null", async () => {
     await run({
       jobId: "plugin.seerr.requestStatusSync",
       kind: "scheduled_per_row",

@@ -1,9 +1,13 @@
 import { consola } from "consola";
 import { captureError } from "../diagnostics/capture";
 import { runWithRequestContext, newRequestId } from "../diagnostics/request-context";
-// fallow-allow: phase-2 event conversion
-// fallow-ignore-next-line boundary-violation
-import { emit } from "../notifications/emit";
+import { emit } from "./emit";
+import {
+  EVENT_DISPATCHER_JOB_IDS,
+  JOB_EVENTS,
+  jobRunFailedPayload,
+  jobSyncSucceededPayload,
+} from "./runtime-events";
 import { getConfig, type JobConfigRow } from "./config";
 import { finishRun, latestRun, startRun } from "./history";
 import { createRunLogger, runWithLogCapture, serializeRunLogs } from "./run-logger";
@@ -237,36 +241,40 @@ function resolveStatus(outcome: {
 }
 
 /**
- * Notification emit hook fired after every run finishes. Two events surface:
- *   - `job.run.failed` for any non-success terminal status (admin audience).
- *   - `connection.sync.succeeded` for sync-classified jobs whose user trigger
- *     completed (user audience). Cron-fired runs (no `triggeredByUserId`) are
- *     skipped silently per design.
+ * Notification emit hook fired after every run finishes. Two typed events
+ * surface on the typed bus:
+ *   - `jobs.run.failed` for any non-success terminal status. Consumed by
+ *     `notifications/jobs/on-jobs-run-failed.ts`, which routes to an admin
+ *     `job.run.failed` notification.
+ *   - `jobs.sync.succeeded` for sync-classified jobs whose user trigger
+ *     completed. Consumed by `notifications/jobs/on-jobs-sync-succeeded.ts`,
+ *     which routes to a user `connection.sync.succeeded` notification.
+ *     Cron-fired runs (no `triggeredByUserId`) are skipped silently per
+ *     design.
  *
- * Emit failures must never propagate to the host operation — they are logged
- * and swallowed.
+ * Emit failures must never propagate to the host operation — logged and
+ * swallowed.
  */
 // fallow-ignore-next-line complexity
 async function emitJobOutcome(
   req: RunRequest,
   outcome: { runId: string; status: JobRunStatus; thrown: unknown; rowsSucceeded: number | null },
 ): Promise<void> {
+  if (EVENT_DISPATCHER_JOB_IDS.has(req.jobId)) return;
+
   if (
     outcome.status === "failed" ||
     outcome.status === "timed_out" ||
     outcome.status === "partial_failure"
   ) {
-    await safeEmit({
-      type: "job.run.failed",
-      category: "system",
-      severity: "error",
-      audience: { kind: "admin", permission: "admin:server" },
-      payload: {
+    await safeEmit(() =>
+      emit(JOB_EVENTS.RUN_FAILED, jobRunFailedPayload, {
         jobId: req.jobId,
         runId: outcome.runId,
-        error: errorMessageFrom(outcome.thrown) ?? outcome.status,
-      },
-    });
+        status: outcome.status,
+        error: errorMessageFrom(outcome.thrown),
+      }),
+    );
     return;
   }
 
@@ -276,24 +284,23 @@ async function emitJobOutcome(
 
   const pluginId = pluginIdFromJobId(req.jobId) ?? "host";
   const connectionId = req.scopeKey ?? "";
-  await safeEmit({
-    type: "connection.sync.succeeded",
-    category: "sync",
-    severity: "info",
-    audience: { kind: "user", userId: req.triggeredByUserId },
-    payload: {
+  await safeEmit(() =>
+    emit(JOB_EVENTS.SYNC_SUCCEEDED, jobSyncSucceededPayload, {
+      jobId: req.jobId,
+      runId: outcome.runId,
       connectionId,
       pluginId,
       itemCount: outcome.rowsSucceeded ?? 0,
-    },
-  });
+      triggeredByUserId: req.triggeredByUserId,
+    }),
+  );
 }
 
-async function safeEmit(event: Parameters<typeof emit>[0]): Promise<void> {
+async function safeEmit(fn: () => Promise<void>): Promise<void> {
   try {
-    await emit(event);
+    await fn();
   } catch (err) {
-    consola.error(`[runner] notification emit failed for ${event.type}:`, err);
+    consola.error(`[runner] notification emit failed:`, err);
   }
 }
 

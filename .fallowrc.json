@@ -50,7 +50,8 @@
     "unused-exports": "error",
     "unused-types": "warn",
     "unused-deps": "warn",
-    "circular-deps": "error"
+    "circular-deps": "error",
+    "duplicate-exports": "warn"
   },
   "duplicates": {
     "mode": "semantic",
