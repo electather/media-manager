@@ -2,64 +2,63 @@
 
 ## New module
 
-- [ ] Pick a name. Confirm it's a real domain (not infra, not an adapter).
-- [ ] Create folder `apps/server/src/<module>/` with canonical layout — see [`module-layout.md`](module-layout.md).
-- [ ] `index.ts` (barrel) — re-exports service + events + errors + types + `registerJobs`.
-- [ ] `service.ts` — class + `get<Module>Service()` factory. No `drizzle-orm` imports.
-- [ ] `repo.ts` — drizzle queries on owned tables only. Sole place `drizzle-orm` is imported.
-- [ ] `errors.ts` — one base error + specific subclasses.
-- [ ] `types.ts` — public domain types. Pure.
-- [ ] `events.ts` (if module emits events) — `<MODULE>_EVENTS as const` + zod schemas + types.
-- [ ] `jobs/` — one handler file per event; `jobs/index.ts` aggregates via `registerJobs()`. No top-level `on(...)`.
-- [ ] `internal/` — private helpers.
-- [ ] `__tests__/` — unit tests mocking `repo.ts`.
-- [ ] Add 2 zones to `.fallowrc.json` (narrower listed first) + 2 rules — see [`fallow-zones.md`](fallow-zones.md).
-- [ ] Update other modules' rules / adapter rules to include `server-mod-<new>` where needed.
-- [ ] Annotate any new drizzle schema files with `// @owner: <module>` — see [`db-ownership.md`](db-ownership.md).
-- [ ] Wire `<module>.registerJobs()` into `apps/server/src/{index,worker}.ts` in alphabetical position.
-- [ ] Companion skills invoked: `clean-code`, `fallow`, `es-toolkit`, `backprop`. `frontend-feature-architecture` if there's a paired client feature.
-- [ ] Changeset added (per `CLAUDE.md` Pull Requests and Versioning).
-- [ ] `vp check` + `vp test` clean. `fallow dead-code` shows `boundary_violations: []`.
-- [ ] `tools/check-table-ownership.ts` and `tools/check-file-sizes.ts` green.
+- [ ] Name = real domain (not infra, not adapter)
+- [ ] Folder `apps/server/src/<module>/` w/ canonical layout → [module-layout.md](module-layout.md)
+- [ ] `index.ts` barrel re-exports: service + events + errors + types + `registerJobs`
+- [ ] `service.ts` — class + `get<Module>Service()` factory, no drizzle imports
+- [ ] `repo.ts` — drizzle queries on owned tables only. Sole drizzle import site
+- [ ] `errors.ts` — base error + subclasses
+- [ ] `types.ts` — public domain types, pure
+- [ ] `events.ts` (if emits) — `<MODULE>_EVENTS as const` + zod schemas + types
+- [ ] `jobs/` — one handler file per event; `jobs/index.ts` aggregates via `registerJobs()`, no top-level `on(...)`
+- [ ] `internal/` — private helpers
+- [ ] `__tests__/` — unit tests mocking `repo.ts`
+- [ ] Add 2 zones to `.fallowrc.json` (narrow first) + 2 rules → [fallow-zones.md](fallow-zones.md)
+- [ ] Update other modules' + adapter rules to include `server-mod-<new>` where needed
+- [ ] Annotate new drizzle schema files `// @owner: <module>` → [db-ownership.md](db-ownership.md)
+- [ ] Wire `<module>.registerJobs()` into `{index,worker}.ts` alphabetically
+- [ ] Companion skills invoked: `clean-code`, `fallow`, `es-toolkit`, `backprop`; `frontend-feature-architecture` if paired
+- [ ] Changeset added (CLAUDE.md versioning)
+- [ ] `vp check` + `vp test` clean; `fallow dead-code` → `boundary_violations: []`
+- [ ] `tools/check-table-ownership.ts` + `tools/check-file-sizes.ts` green
 
 ## Retrofit
 
-- [ ] Inventory: list current files, map each to a reserved role.
-- [ ] Extract `repo.ts` from existing data-access code. `service.ts` calls only `repo.*`, never drizzle.
-- [ ] Move private helpers under `internal/`.
-- [ ] Rename "junk-drawer" files (`helpers.ts`, `utils.ts`, `misc.ts`) to responsibility-driven names.
-- [ ] Split files exceeding hard caps (see [`module-layout.md`](module-layout.md)). Use directories with `index.ts`.
-- [ ] Convert deep imports from other modules into barrel imports. If you need a name not yet exposed, extend that module's `index.ts` in the same PR.
-- [ ] Convert deep imports into your module (from other modules) into barrel re-exports.
-- [ ] If the module emits events, formalize them in `events.ts` and switch emit sites to typed `emit(...)`.
-- [ ] Convert any top-level `on(...)` calls to `register<X>()` exports. Add `jobs/index.ts` with `registerJobs()`.
-- [ ] Re-export `registerJobs` from `index.ts`. Wire into entry points if not already.
-- [ ] Enable boundaries test coverage for this module (remove any temporary skip).
-- [ ] `vp check` + `vp test` clean. `fallow dead-code` shows `boundary_violations: []` for this module.
-- [ ] Changeset: `minor` if external surface changed; empty frontmatter if pure refactor.
+- [ ] Inventory: list files, map each to reserved role
+- [ ] Extract `repo.ts` from existing data-access code; `service.ts` calls only `repo.*`, never drizzle
+- [ ] Move private helpers under `internal/`
+- [ ] Rename junk-drawer files (`helpers/utils/misc.ts`) to responsibility-driven names
+- [ ] Split files exceeding hard caps → dirs with `index.ts` (see [module-layout.md](module-layout.md))
+- [ ] Convert deep imports FROM other modules → barrel imports; extend that barrel if name not yet exposed
+- [ ] Convert deep imports INTO this module (from other modules) → barrel re-exports
+- [ ] Events: formalize in `events.ts`, switch emit sites to typed `emit(...)`
+- [ ] Convert top-level `on(...)` calls → `register<X>()` exports; add `jobs/index.ts` w/ `registerJobs()`
+- [ ] Re-export `registerJobs` from `index.ts`; wire entry points if not done
+- [ ] Enable boundaries test coverage for module (remove any temp skip)
+- [ ] `vp check` + `vp test` clean; `fallow dead-code` → `boundary_violations: []` for this module
+- [ ] Changeset: `minor` if external surface changed; empty frontmatter if pure refactor
 
 ## PR review
 
-When reviewing a module-folder PR, cite hard-rule numbers from [`SKILL.md`](../SKILL.md).
+Cite hard-rule numbers from [SKILL.md](../SKILL.md).
 
-- [ ] Rule 1 — no deep imports of another module's `repo.ts`, `internal/`, `jobs/<x>.ts`. Barrel only.
-- [ ] Rule 2 — `drizzle-orm` imports only in `repo.ts` / `repo/**`.
-- [ ] Rule 3 — `@owner:` directive matches the importing module's `repo.ts`.
-- [ ] Rule 4 — cross-module side effects go through typed `emit(...)`, not direct function calls.
-- [ ] Rule 5 — `events.ts` changes carry a changeset entry.
-- [ ] Rule 6 — tests next to code, mock `repo.ts`.
-- [ ] Rule 7 — one handler file per event; `register<X>()` export pattern.
-- [ ] Rule 8 — `internal/` not imported from outside.
-- [ ] Rule 9 — no static cycles; runtime cycles documented if they exist.
-- [ ] Rule 10 — adapters call barrels only.
-- [ ] Rule 11 — no junk-drawer filenames.
-- [ ] Rule 12 — event names referenced via constant, never literal.
-- [ ] Boot order: `registerJobs` re-exported from barrel; entry points call alphabetically.
-- [ ] Size and complexity budgets respected (see [`module-layout.md`](module-layout.md)).
-- [ ] Companion skills invoked (esp. `clean-code` for function-level scrutiny).
+- [ ] R1 — no deep imports of `repo.ts`, `internal/`, `jobs/<x>.ts` from outside. Barrel only
+- [ ] R2 — `drizzle-orm` imports only in `repo.ts` / `repo/**`
+- [ ] R3 — `@owner:` matches importing module's `repo.ts`
+- [ ] R4 — cross-mod side effects via typed `emit(...)`, not direct calls
+- [ ] R5 — `events.ts` changes carry changeset
+- [ ] R6 — tests next to code, mock `repo.ts`
+- [ ] R7 — one handler file per event; `register<X>()` export pattern
+- [ ] R8 — `internal/` not imported from outside
+- [ ] R9 — no static cycles; runtime cycles documented
+- [ ] R10 — adapters call barrels only
+- [ ] R11 — no junk-drawer filenames
+- [ ] R12 — event names via constant, never literal
+- [ ] Boot: `registerJobs` re-exported from barrel; entry points call alphabetically
+- [ ] Size + complexity budgets respected → [module-layout.md](module-layout.md)
+- [ ] Companion skills invoked (esp. `clean-code` for fn-level scrutiny)
 
 ## See also
 
-- [`SKILL.md`](../SKILL.md) — hard rules.
-- [`module-layout.md`](module-layout.md), [`service-and-repo.md`](service-and-repo.md), [`events-and-jobs.md`](events-and-jobs.md), [`db-ownership.md`](db-ownership.md), [`fallow-zones.md`](fallow-zones.md).
-- Worked examples: [`examples/new-module.md`](examples/new-module.md), [`examples/add-event.md`](examples/add-event.md), [`examples/retrofit-existing.md`](examples/retrofit-existing.md).
+- [SKILL.md](../SKILL.md), [module-layout.md](module-layout.md), [service-and-repo.md](service-and-repo.md), [events-and-jobs.md](events-and-jobs.md), [db-ownership.md](db-ownership.md), [fallow-zones.md](fallow-zones.md)
+- Examples: [new-module.md](examples/new-module.md), [add-event.md](examples/add-event.md), [retrofit-existing.md](examples/retrofit-existing.md)

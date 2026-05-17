@@ -1,163 +1,118 @@
 # Service & repo contract
 
-The sync API contract between modules. Two layers per module: `service.ts` (public, called by other modules) and `repo.ts` (private, owns drizzle access).
+Sync API contract between modules. Two layers: `service.ts` (public, called by other modules) + `repo.ts` (private, owns drizzle access).
 
-## Service: the public sync surface
+## Service: public sync surface
 
-```ts
+```
 // catalog/service.ts
-import type { CatalogRepo } from "./repo";
-import type { CanonicalMedia } from "./types";
-import { CatalogNotFoundError } from "./errors";
+class CatalogService(repo: CatalogRepo):
+  getCanonical(id) → CanonicalMedia:
+    row = repo.findCanonicalById(id)
+    if !row: throw CatalogNotFoundError(id)
+    return row
 
-export class CatalogService {
-  constructor(private repo: CatalogRepo) {}
+  search(query) → CanonicalMedia[]:
+    return repo.searchCanonical(query)
 
-  async getCanonical(id: string): Promise<CanonicalMedia> {
-    const row = await this.repo.findCanonicalById(id);
-    if (!row) throw new CatalogNotFoundError(id);
-    return row;
-  }
-
-  async search(query: string): Promise<CanonicalMedia[]> {
-    return this.repo.searchCanonical(query);
-  }
-}
-
-let instance: CatalogService | null = null;
-export function getCatalogService(): CatalogService {
-  if (!instance) instance = new CatalogService(/* injected repo */);
-  return instance;
-}
+singleton: getCatalogService() → new CatalogService(repo) on first call
 ```
 
 Rules:
+- Methods named for what they do, not how (`getCanonical` not `fetchFromDb`)
+- Throws typed errors from `errors.ts`. No string-message `Error` instances
+- Takes plain data, returns plain data. Never return drizzle rows directly (map in `repo.ts`)
+- No `drizzle-orm` imports. Only `repo.ts` touches drizzle
+- Singleton factory accessor fine; explicit DI also fine. Don't expose constructor via barrel without reason
 
-- Methods named for what they do, not how (`getCanonical`, not `fetchFromDb`).
-- Throws typed errors from `errors.ts`. No string-message `Error` instances.
-- Takes plain data, returns plain data. Never returns drizzle rows directly (map in `repo.ts`).
-- No direct `drizzle-orm` imports here. Only `repo.ts` touches drizzle.
-- Singleton-style factory accessor is fine; explicit DI also fine. Don't expose the class constructor as part of the barrel unless you have a reason.
+## Repo: private data layer
 
-## Repo: the private data layer
-
-```ts
+```
 // catalog/repo.ts
-import { db } from "../db";
-import { canonicalMedia } from "../db/schema/catalog";  // @owner: catalog
-import { eq, ilike } from "drizzle-orm";
-import type { CanonicalMedia } from "./types";
+import { db } from "../db"
+import { canonicalMedia } from "../db/schema/catalog"  // @owner: catalog
+import { eq, ilike } from "drizzle-orm"
 
-export class CatalogRepo {
-  async findCanonicalById(id: string): Promise<CanonicalMedia | null> {
-    const [row] = await db.select().from(canonicalMedia).where(eq(canonicalMedia.id, id));
-    return row ? this.toCanonical(row) : null;
-  }
+class CatalogRepo:
+  findCanonicalById(id) → CanonicalMedia | null:
+    [row] = db.select().from(canonicalMedia).where(eq(id))
+    return row ? toCanonical(row) : null
 
-  async searchCanonical(query: string): Promise<CanonicalMedia[]> {
-    const rows = await db.select().from(canonicalMedia).where(ilike(canonicalMedia.title, `%${query}%`));
-    return rows.map(this.toCanonical);
-  }
+  searchCanonical(query) → CanonicalMedia[]:
+    rows = db.select().from(canonicalMedia).where(ilike(title, `%${query}%`))
+    return rows.map(toCanonical)
 
-  private toCanonical(row: typeof canonicalMedia.$inferSelect): CanonicalMedia {
-    return { id: row.id, title: row.title /* ... */ };
-  }
-}
+  private toCanonical(row) → CanonicalMedia: { id, title, ... }
 ```
 
 Rules:
-
-- Sole place `import { ... } from "drizzle-orm"` appears in the module.
-- Imports tables only from `db/schema/<this-module>` or unmarked schema files — never tables owned by another module.
-- Maps drizzle row shapes to the module's public types. Don't leak `$inferSelect` shapes outside `repo.ts`.
-- Async-only. No sync drizzle calls.
-- One class per module is fine; for larger modules, promote to `repo/` directory with one file per entity.
+- Sole place `drizzle-orm` imported in module
+- Imports tables only from `db/schema/<this-module>` or unmarked schema files — never another module's tables
+- Maps drizzle rows to module's public types. Don't leak `$inferSelect` shapes outside `repo.ts`
+- Async-only. No sync drizzle calls
+- One class per module fine; promote to `repo/` dir for larger modules (one file per entity)
 
 ## How another module consumes you
 
-```ts
-// home/internal/orchestrator.ts (not orchestrator at module root — that's the public service or internal helper)
-import { getCatalogService } from "../../catalog";          // barrel — required
-import { getMediaService, AllPluginsFailedError } from "../../media";
+```
+// home/internal/orchestrator.ts
+import { getCatalogService } from "../../catalog"      // barrel — required
+import { getMediaService, AllPluginsFailedError } from "../../media"
 
-async function composeRow(/* ... */) {
-  const catalog = getCatalogService();
-  const media = getMediaService();
-  try {
-    const canonical = await catalog.getCanonical(id);
-    const dispatch = await media.dispatch(canonical);
-    return { canonical, dispatch };
-  } catch (err) {
-    if (err instanceof AllPluginsFailedError) {
-      return { canonical, dispatch: null };
-    }
-    throw err;
-  }
-}
+composeRow(...):
+  canonical = await getCatalogService().getCanonical(id)
+  dispatch  = await getMediaService().dispatch(canonical)
+  return { canonical, dispatch }
+  catch AllPluginsFailedError: return { canonical, dispatch: null }
 ```
 
-Forbidden patterns:
-
-```ts
-// ❌ deep import — fallow rejects
-import { CatalogRepo } from "../../catalog/repo";
-
-// ❌ raw drizzle from outside repo
-import { canonicalMedia } from "../../db/schema/catalog";   // OK only inside catalog/repo.ts
-
-// ❌ reaching past barrel for an internal helper
-import { toCanonicalRow } from "../../catalog/canonical";   // belongs in catalog/internal or behind a service method
+Forbidden:
+```
+import { CatalogRepo } from "../../catalog/repo"                    // deep import — fallow rejects
+import { canonicalMedia } from "../../db/schema/catalog"            // only OK inside catalog/repo.ts
+import { toCanonicalRow } from "../../catalog/canonical"            // internal — use service method
 ```
 
-## When to add a new method to `service.ts`
+## When to add new method to `service.ts`
 
-- A consumer needs data and currently does the work itself by reaching into your internals → add the method.
-- A consumer needs a side-effect (notify, index, refresh) → don't add a sync method, emit an event. See [`events-and-jobs.md`](events-and-jobs.md).
+```
+consumer reaches into internals for data     → add sync method to service
+consumer needs side-effect (notify/index)    → emit event instead (events-and-jobs.md)
+```
 
 ## Error design
 
-```ts
+```
 // catalog/errors.ts
-export class CatalogError extends Error {
-  constructor(message: string, public code: string) {
-    super(message);
-    this.name = "CatalogError";
-  }
-}
-export class CatalogNotFoundError extends CatalogError {
-  constructor(public id: string) {
-    super(`Catalog item not found: ${id}`, "CATALOG_NOT_FOUND");
-    this.name = "CatalogNotFoundError";
-  }
-}
+class CatalogError(msg, code): extends Error
+  name = "CatalogError"
+
+class CatalogNotFoundError(id): extends CatalogError
+  super(`Catalog item not found: ${id}`, "CATALOG_NOT_FOUND")
+  name = "CatalogNotFoundError"
 ```
 
 Rules:
-
-- One base error per module, named `<Module>Error`. Specific subclasses extend it.
-- Carry structured fields (`code`, ids, http status hints) so adapters can map without parsing the message.
-- Never expose internal stack details (DB errors, drizzle errors) to consumers — wrap them.
+- One base error per module: `<Module>Error`. Specific subclasses extend it
+- Carry structured fields (`code`, ids, http status hints) so adapters map without parsing message
+- Never expose internal stack details (DB/drizzle errors) to consumers — wrap them
 
 ## Tests
 
-```ts
+```
 // catalog/__tests__/service.test.ts
-import { describe, it, expect, vi } from "vite-plus/test";
-import { CatalogService } from "../service";
-import type { CatalogRepo } from "../repo";
+import { vi } from "vite-plus/test"
 
-const repo = { findCanonicalById: vi.fn(), searchCanonical: vi.fn() } satisfies Partial<CatalogRepo>;
+repo = { findCanonicalById: vi.fn(), searchCanonical: vi.fn() }
 
-describe("CatalogService.getCanonical", () => {
-  it("returns the row when present", async () => { /* ... */ });
-  it("throws CatalogNotFoundError when missing", async () => { /* ... */ });
-});
+test "getCanonical returns row when present"
+test "getCanonical throws CatalogNotFoundError when missing"
 ```
 
-Mock `repo.ts`, not drizzle. Mock other modules' barrels, not their internals.
+Mock `repo.ts`, not drizzle. Mock other modules' barrels, not internals.
 
 ## See also
 
-- [`module-layout.md`](module-layout.md) — file shape.
-- [`events-and-jobs.md`](events-and-jobs.md) — when to emit instead of adding a sync method.
-- [`db-ownership.md`](db-ownership.md) — table ownership rules.
+- [module-layout.md](module-layout.md) — file shape
+- [events-and-jobs.md](events-and-jobs.md) — when to emit instead of adding sync method
+- [db-ownership.md](db-ownership.md) — table ownership rules

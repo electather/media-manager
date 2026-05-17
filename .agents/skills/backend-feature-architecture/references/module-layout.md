@@ -1,6 +1,6 @@
 # Module layout
 
-Flat layout with reserved file roles. Promote to subdirectory only when caps hit.
+Flat layout w/ reserved file roles. Promote to subdir only when caps hit.
 
 ## Shape
 
@@ -12,53 +12,52 @@ apps/server/src/<module>/
 ├── errors.ts         # typed error classes
 ├── types.ts          # public domain types
 ├── repo.ts           # drizzle queries on owned tables
-├── jobs/             # async handlers
+├── jobs/
 │   ├── index.ts      # exports registerJobs() aggregating all handlers
 │   └── <handler>.ts  # one file per event; exports register<X>(): void
-├── internal/         # private helpers (not exported via barrel)
+├── internal/
 │   └── <helper>.ts
 └── __tests__/
     ├── service.test.ts
     └── <handler>.test.ts
 ```
 
-Files exist only when the role is needed. Empty role → omit file, not empty file.
+File exists only when role needed. Empty role → omit file, not empty file.
 
 ## Reserved file roles
 
 | File | Role | May import | Forbidden |
 |---|---|---|---|
-| `index.ts` | Barrel. Re-exports public surface. | own files | re-exporting `repo.ts`, `internal/`, individual handler files |
-| `service.ts` | Sync methods other modules call. | own `repo.ts`, `events.ts`, `types.ts`, `errors.ts`, `internal/**`, infra (`db/`, `cache/`, `crypto/`, `connections/`, `diagnostics/`, `jobs/`), shared-pkg, other modules' barrels | `drizzle-orm` and drizzle helpers (go via `repo.ts`) |
-| `events.ts` | Event names + zod schemas + types. Pure. | shared-pkg, `zod` | runtime side effects, infra |
-| `errors.ts` | Typed error classes. Pure. | nothing | anything beyond JS builtins |
-| `types.ts` | Public domain types. Pure. | shared-pkg, own `errors.ts` | drizzle, infra |
-| `repo.ts` | Drizzle queries on **owned** tables only. | `db/`, own `types.ts`, own `errors.ts`, shared-pkg | other modules' tables |
-| `jobs/<x>.ts` | Async handler. Exports `register<X>(): void` calling `on(...)`. | own `service.ts`, own `repo.ts`, own `events.ts`, `jobs/events`, other modules' barrels | top-level `on(...)` calls |
-| `jobs/index.ts` | Aggregates handlers. Exports single `registerJobs(): void`. | own `jobs/<x>.ts` files | anything else |
-| `internal/<helper>.ts` | Private helpers. | own files, infra | being imported from outside the module |
+| `index.ts` | Barrel, re-exports public surface | own files | re-exporting `repo.ts`, `internal/`, individual handler files |
+| `service.ts` | Sync methods other modules call | own `repo/events/types/errors/internal/**`, infra, shared-pkg, other modules' barrels | `drizzle-orm` (go via `repo.ts`) |
+| `events.ts` | Event names + zod schemas + types. Pure | shared-pkg, `zod` | runtime side effects, infra |
+| `errors.ts` | Typed error classes. Pure | nothing | anything beyond JS builtins |
+| `types.ts` | Public domain types. Pure | shared-pkg, own `errors.ts` | drizzle, infra |
+| `repo.ts` | Drizzle queries on **owned** tables only | `db/`, own `types/errors`, shared-pkg | other modules' tables |
+| `jobs/<x>.ts` | Async handler. Exports `register<X>(): void` | own `service/repo/events`, `jobs/events`, other modules' barrels | top-level `on(...)` |
+| `jobs/index.ts` | Aggregates handlers → single `registerJobs(): void` | own `jobs/<x>.ts` | anything else |
+| `internal/<x>.ts` | Private helpers | own files, infra | being imported from outside module |
 
-## Barrel `index.ts` template
+## Barrel `index.ts` pattern
 
-```ts
-// <module>/index.ts
-export { <Module>Service, get<Module>Service } from "./service";
-export * from "./events";                   // CONST + schemas + types
-export * from "./errors";                   // error classes
-export type * from "./types";               // type-only
-export { registerJobs } from "./jobs";      // for entry-point wiring
 ```
-
-Adapters and other modules consume only what the barrel exposes.
+// <module>/index.ts
+export { <Module>Service, get<Module>Service } from "./service"
+export * from "./events"         // CONST + schemas + types
+export * from "./errors"         // error classes
+export type * from "./types"     // type-only
+export { registerJobs } from "./jobs"
+```
 
 ## Promotion rules
 
-Triggered by hitting size caps:
-
-- `service.ts` > 500 LOC → split into `service/` directory, re-export from `service/index.ts`. One file per responsibility (`canonicalize.ts`, `enrich.ts`, `search.ts`). Never `helpers.ts`, `utils.ts`, `misc.ts`.
-- `repo.ts` > 300 LOC → `repo/` directory, one file per entity.
-- `internal/` is already a directory; extract more helpers as the module grows.
-- Same rule for `jobs/` if a single handler file balloons (rare — handlers should be thin).
+```
+service.ts > 500 LOC  →  service/ dir, re-export from service/index.ts
+                          one file per responsibility (never helpers/utils/misc.ts)
+repo.ts > 300 LOC     →  repo/ dir, one file per entity
+internal/              already a dir; extract more helpers as module grows
+jobs/<x>.ts ballooned  →  same rule (rare — handlers should be thin)
+```
 
 ## Size and complexity budgets
 
@@ -68,21 +67,28 @@ Triggered by hitting size caps:
 | `repo.ts` LOC | 200 | 300 | same |
 | `events.ts` LOC | 150 | 200 | same |
 | `jobs/<x>.ts` LOC | 150 | 200 | same |
-| any function LOC | — | 50 | review (clean-code skill) |
-| cyclomatic per function | — | 15 | fallow `health.maxCyclomatic` |
-| cognitive per function | — | 15 | fallow `health.maxCognitive` |
-| parameters per function | — | 3 | review (clean-code skill) |
+| any function LOC | — | 50 | review (`clean-code` skill) |
+| cyclomatic/fn | — | 15 | fallow `health.maxCyclomatic` |
+| cognitive/fn | — | 15 | fallow `health.maxCognitive` |
+| params/fn | — | 3 | review (`clean-code` skill) |
 
-## When a file does too much
+## When file does too much
 
-Signals:
+```
+mixed responsibilities:
+  service.ts handles HTTP retries AND business rules
+  → extract retry policy to internal/retry.ts
 
-- Mixed responsibilities: `service.ts` handles HTTP retries AND business rules → extract retry policy to `internal/retry.ts`.
-- Drift back to drizzle: helper functions inside `internal/` start importing drizzle → move them into `repo.ts` (or a `repo/`-subfile after promotion).
-- "Generic" naming creeping in: rename to a responsibility-driven name before the next commit.
+drizzle drift in internal/:
+  helpers inside internal/ start importing drizzle
+  → move to repo.ts (or repo/<x>.ts after promotion)
+
+generic naming creeping in:
+  → rename to responsibility-driven name before next commit
+```
 
 ## See also
 
-- [`service-and-repo.md`](service-and-repo.md) — sync API design.
-- [`events-and-jobs.md`](events-and-jobs.md) — async API design.
-- [`fallow-zones.md`](fallow-zones.md) — how the barrel/internal split is enforced.
+- [service-and-repo.md](service-and-repo.md) — sync API design
+- [events-and-jobs.md](events-and-jobs.md) — async API design
+- [fallow-zones.md](fallow-zones.md) — barrel/internal split enforcement
