@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { consola } from "consola";
 import { isNil } from "es-toolkit/predicate";
 import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
 import * as repo from "../repo";
@@ -33,7 +34,7 @@ function processNoteFields(
   const noteSentiment = classifySentiment(note);
   const keywords = extractNoteKeywords(note, itemKeywords);
   if (note.length > 20 && keywords.length === 0) {
-    console.warn("[feedback-log] non-trivial note produced no keywords", {
+    consola.warn("[feedback-log] non-trivial note produced no keywords", {
       userId: context.userId,
       tmdbId: context.tmdbId,
       noteLength: note.length,

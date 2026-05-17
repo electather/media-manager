@@ -222,5 +222,3 @@ function hasRichFeatures(candidate: CandidateFeatures): boolean {
   const languagePresent = Boolean(candidate.originalLanguage);
   return keywordsPresent && peoplePresent && runtimePresent && languagePresent;
 }
-
-export { feedbackLog };
