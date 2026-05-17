@@ -9,7 +9,7 @@ vi.mock("../../../env", () => ({
 
 let mockUserId: string | null = null;
 
-vi.mock("../../../auth/middleware", async () => {
+vi.mock("../../../auth", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   return {
     requireSession: async (
@@ -31,12 +31,16 @@ vi.mock("../../../auth/middleware", async () => {
 const search =
   vi.fn<(q: string, type: "movie" | "tv" | undefined, limit?: number) => Promise<unknown>>();
 
-vi.mock("../../../media/service", () => ({
-  MediaService: class {
-    constructor(public readonly userId: string) {}
-    search = search;
-  },
-}));
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    MediaService: class {
+      constructor(public readonly userId: string) {}
+      search = search;
+    },
+  };
+});
 
 const { searchApp } = await import("../search");
 

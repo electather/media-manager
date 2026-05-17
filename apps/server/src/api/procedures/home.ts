@@ -6,10 +6,15 @@ import {
   homeGetRowContentInputSchema,
   homeGetSeasonAvailabilityInputSchema,
 } from "@ent-mcp/shared/home";
-import { requireSession, sessionUserId } from "../../auth/middleware";
+import { requireSession, sessionUserId } from "../../auth";
 import { zValidator } from "../../diagnostics/validator";
-import { buildContext, composeDetails, composeLayout, composeRow } from "../../home/orchestrator";
-import { composeSeasonAvailability } from "../../home/season-availability";
+import {
+  buildContext,
+  composeDetails,
+  composeLayout,
+  composeRow,
+  composeSeasonAvailability,
+} from "../../home";
 
 /**
  * `cursor` arrives as a query string — `null` is encoded as the literal

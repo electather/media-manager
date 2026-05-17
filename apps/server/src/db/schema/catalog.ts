@@ -1,7 +1,7 @@
+// @owner: catalog
 import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { MEDIA_TYPES } from "@ent-mcp/shared/media";
-import { user } from "./auth";
 import {
   DISCOVER_FEED_KINDS,
   DISCOVER_SORTS,
@@ -12,16 +12,8 @@ import {
   type PluginCursors,
   type RatingEvent,
   type RecItem,
-} from "../../catalog/types";
-
-export {
-  DISCOVER_FEED_KINDS,
-  DISCOVER_SORTS,
-  RECOMMENDATION_LIST_KINDS,
-  type DiscoverFeedKind,
-  type DiscoverSort,
-  type RecommendationListKind,
-} from "../../catalog/types";
+} from "@ent-mcp/shared/catalog";
+import { user } from "./auth";
 
 // JSON columns store text on disk but carry a richer TS shape.
 // `$type<T>()` documents the serialization contract at the schema level so

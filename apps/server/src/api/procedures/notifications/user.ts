@@ -20,8 +20,8 @@ import {
   roleHasPermission,
   sessionUserId,
   userHasPermission,
-} from "../../../auth/middleware";
-import { PERMISSIONS } from "../../../auth/permissions";
+  PERMISSIONS,
+} from "../../../auth";
 import { connectionsService } from "../../../connections/service";
 import { getDb } from "../../../db/client";
 import { serviceConnections } from "../../../db/schema";
@@ -38,7 +38,7 @@ import {
   markInboxReadForUser,
   markInboxUnreadForUser,
   upsertSubscription,
-} from "../../../notifications/repos";
+} from "../../../notifications";
 import {
   CATEGORY_LABELS,
   SUBSCRIPTION_BULK_LIMIT,

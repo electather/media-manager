@@ -1,14 +1,16 @@
 import type { FeatureCategory, ProfileMediaType } from "@ent-mcp/shared/preferences";
-import { listUsersNeedingRebuild, type RebuildRow } from "../../preferences/rebuild-row-source";
-import { getPreferenceEngine } from "../../preferences";
-import { profileStorage } from "../../preferences/storage";
-import { MediaService } from "../../media/service";
+import {
+  listUsersNeedingRebuild,
+  getPreferenceEngine,
+  profileStorage,
+  type RebuildRow,
+  type FeatureContribution,
+} from "../../preferences";
+import { MediaService, identifyItem, splitCombinedId } from "../../media";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
-import type { FeatureContribution } from "../../preferences/types";
-import { identifyItem, splitCombinedId } from "../../media/parse-item";
-import type { RecItem, TopContributor, TopContributorCategory } from "../types";
+import type { RecItem, TopContributor, TopContributorCategory } from "@ent-mcp/shared/catalog";
 
 const TOP_N = 60;
 const CANDIDATE_LIMIT = 180;

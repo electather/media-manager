@@ -1,6 +1,8 @@
 import { consola } from "consola";
 import { buildFetch, buildLogger } from "./fetch-policy";
 import { buildStore } from "./host-bridge";
+// fallow-allow: phase-2 event conversion
+// fallow-ignore-next-line boundary-violation
 import { emit as hostEmit } from "../notifications/emit";
 import type { PluginContext, PoolSignalingApi } from "@ent-mcp/plugin-sdk";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";

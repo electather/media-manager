@@ -12,7 +12,7 @@ import {
   updateDeliveryStatus,
   type InsertInboxItemInput,
 } from "./repos";
-import { pluginRuntime } from "../plugin-runtime/runtime";
+import { pluginRuntime } from "../plugin-runtime";
 import type { NotificationEvent } from "@ent-mcp/shared/notifications";
 import { registerTriggerable } from "../jobs/triggerable";
 import { buildDeliverArgs, decideFailure, isHostPrivilegedPlugin } from "./delivery-policy";

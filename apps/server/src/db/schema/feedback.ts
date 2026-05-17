@@ -1,3 +1,4 @@
+// @owner: preferences
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { MEDIA_TYPES } from "@ent-mcp/shared/media";

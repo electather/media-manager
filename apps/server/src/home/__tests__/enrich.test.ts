@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { makeRowCtx } from "./row-test-helpers";
-import type { CanonicalMetadata } from "../../catalog/types";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-vi.mock("../../artwork/service", () => ({
+vi.mock("../../artwork", () => ({
   ArtworkService: class {
     async getArtwork() {
       return { results: {}, generatedAt: 0 };
@@ -14,9 +14,14 @@ vi.mock("../../artwork/service", () => ({
   },
 }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
-  capabilityRegistry: { listProviders: () => [] },
-}));
+vi.mock("../../plugin-runtime", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../plugin-runtime")>("../../plugin-runtime");
+  return {
+    ...actual,
+    capabilityRegistry: { listProviders: () => [] },
+  };
+});
 
 const { enrichItems } = await import("../enrich");
 

@@ -39,7 +39,7 @@ vi.mock("../../../db/client", () => ({
   getDb: () => db,
 }));
 
-vi.mock("../../../auth/middleware", async () => {
+vi.mock("../../../auth", async () => {
   // Reimplement the role / permission helpers against the in-memory db so
   // tests drive permission semantics by seeding role_permissions rows. We
   // avoid `importOriginal()` here because the real module pulls in
@@ -49,6 +49,7 @@ vi.mock("../../../auth/middleware", async () => {
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");
   const { userRoles, roles, rolePermissions } = await import("../../../db/schema/roles");
+  const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
   type RoleInfo = { roleId: string; isSystemAdmin: boolean };
   async function loadUserRole(userId: string): Promise<RoleInfo | null> {
     const row = await db
@@ -95,27 +96,35 @@ vi.mock("../../../auth/middleware", async () => {
     loadUserRole,
     roleHasPermission,
     userHasPermission,
+    PERMISSIONS,
   };
 });
 
-const mockCapabilityRegistry = {
-  providers: new Map<string, { manifest: any }>(),
-  listProviders(_cap: string, _ver: string, _scope: string): string[] {
-    return Array.from(this.providers.keys());
+const { mockCapabilityRegistry } = vi.hoisted(() => ({
+  mockCapabilityRegistry: {
+    providers: new Map<string, { manifest: any }>(),
+    listProviders(_cap: string, _ver: string, _scope: string): string[] {
+      return Array.from(this.providers.keys());
+    },
+    get(id: string) {
+      const entry = this.providers.get(id);
+      if (!entry) return undefined;
+      return { module: { manifest: entry.manifest }, pluginId: id, enabled: true };
+    },
+    reset() {
+      this.providers.clear();
+    },
   },
-  get(id: string) {
-    const entry = this.providers.get(id);
-    if (!entry) return undefined;
-    return { module: { manifest: entry.manifest }, pluginId: id, enabled: true };
-  },
-  reset() {
-    this.providers.clear();
-  },
-};
-
-vi.mock("../../../plugin-runtime/registry", () => ({
-  capabilityRegistry: mockCapabilityRegistry,
 }));
+
+vi.mock("../../../plugin-runtime", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../../plugin-runtime")>("../../../plugin-runtime");
+  return {
+    ...actual,
+    capabilityRegistry: mockCapabilityRegistry,
+  };
+});
 
 vi.mock("../../../connections/service", () => ({
   connectionsService: {

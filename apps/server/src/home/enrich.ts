@@ -1,8 +1,8 @@
 import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-mcp/shared/home";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
-import type { CanonicalMetadata } from "../catalog/types";
-import { capabilityRegistry } from "../plugin-runtime/registry";
-import { ArtworkService } from "../artwork/service";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import { capabilityRegistry } from "../plugin-runtime";
+import { ArtworkService } from "../artwork";
 import { pickMatchReason } from "./match-reason";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
@@ -89,18 +89,22 @@ async function hydrateArtwork(
  * here even when `hydrateArtwork` skipped a request because canonical art was
  * already complete (otherwise hero + CW rows render with null images).
  */
+function pickArtworkUrl(...candidates: Array<string | null | undefined>): string | undefined {
+  for (const value of candidates) if (value) return value;
+  return undefined;
+}
+
 function mergeArtwork(
   item: InternalCompactMediaItem,
   meta: CanonicalMetadata | undefined,
   bundle: ArtworkBundle | undefined,
 ): InternalCompactMediaItem {
-  const out = { ...item };
-  if (!out.poster) out.poster = bundle?.poster[0]?.url ?? meta?.posterUrl ?? out.poster;
-  if (!out.backdrop) out.backdrop = bundle?.backdrop[0]?.url ?? meta?.backdropUrl ?? out.backdrop;
-  if (!out.clearLogo) {
-    out.clearLogo = bundle?.clearLogo[0]?.url ?? meta?.clearLogoUrl ?? out.clearLogo;
-  }
-  return out;
+  return {
+    ...item,
+    poster: pickArtworkUrl(item.poster, bundle?.poster[0]?.url, meta?.posterUrl),
+    backdrop: pickArtworkUrl(item.backdrop, bundle?.backdrop[0]?.url, meta?.backdropUrl),
+    clearLogo: pickArtworkUrl(item.clearLogo, bundle?.clearLogo[0]?.url, meta?.clearLogoUrl),
+  };
 }
 
 async function deriveAvailability(

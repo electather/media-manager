@@ -1,6 +1,5 @@
 import { consola } from "consola";
-import { pluginRuntime } from "../plugin-runtime/runtime";
-import { capabilityRegistry } from "../plugin-runtime/registry";
+import { pluginRuntime, capabilityRegistry } from "../plugin-runtime";
 import { harvestIds } from "./id-resolver";
 import { type InvocationOutcome, normalizeError } from "./errors";
 import type { ResolvedConnection } from "./resolve-connection";

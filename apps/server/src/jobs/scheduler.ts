@@ -1,13 +1,22 @@
 import { consola } from "consola";
-import { sweepExpiredStore } from "../plugin-runtime/host-bridge";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { sweepExpiredStore } from "../plugin-runtime";
 import { sweepPendingAuth } from "../connections/service";
 import { sweepDiagnostics } from "../diagnostics/retention";
-import { registerCatalogJobs } from "../catalog/jobs";
-import { registerPreferenceJobs } from "../preferences/jobs";
-import { registerHomeLayoutWarmJob } from "../home/jobs/layout-warm";
-import { registerDeliveryJob } from "../notifications/delivery-job";
-import { registerStalePendingSweep } from "../notifications/stale-pending-sweep";
-import { registerDemoNotificationJob } from "../notifications/demo-job";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { registerCatalogJobs } from "../catalog";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { registerPreferenceJobs } from "../preferences";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { registerHomeLayoutWarmJob } from "../home";
+// prettier-ignore
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { registerDeliveryJob, registerStalePendingSweep, registerDemoNotificationJob } from "../notifications";
 import { cacheCleanupJob } from "./cache-cleanup";
 import { registerAllPluginJobs } from "./plugin-jobs";
 import { registerScheduled } from "./scheduled";

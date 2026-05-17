@@ -20,13 +20,14 @@ vi.mock("../index", () => ({
   getPreferenceEngine: vi.fn(),
 }));
 
-vi.mock("../../catalog", () => ({
-  getCatalogService: vi.fn(() => ({})),
-}));
-
-vi.mock("../../catalog/jobs/recommendation-build", () => ({
-  writeRecommendationsForUser: vi.fn(async () => undefined),
-}));
+vi.mock("../../catalog", async () => {
+  const actual = await vi.importActual<typeof import("../../catalog")>("../../catalog");
+  return {
+    ...actual,
+    getCatalogService: vi.fn(() => ({})),
+    writeRecommendationsForUser: vi.fn(async () => undefined),
+  };
+});
 
 const consolaMock = {
   info: vi.fn(),

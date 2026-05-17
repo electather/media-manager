@@ -1,8 +1,20 @@
-import { afterAll, describe, expect, it } from "vite-plus/test";
+import { afterAll, describe, expect, it, vi } from "vite-plus/test";
+
+vi.mock("../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 import { cleanupInMemoryDbs, createInMemoryDb } from "../../__tests__/helpers/in-memory-db";
 import { CatalogService } from "../service";
 import { toCanonicalRow } from "../canonical";
-import type { CanonicalMetadata, MetadataKey } from "../types";
+import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
 
 afterAll(() => cleanupInMemoryDbs());
 

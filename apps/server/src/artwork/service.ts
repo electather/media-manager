@@ -7,8 +7,7 @@ import type {
   ArtworkRequestItem,
 } from "@ent-mcp/shared/artwork";
 import type { CatalogService } from "../catalog";
-import { dispatchAggregatePerKind } from "../media/strategies/aggregate-per-kind";
-import { PluginCallError } from "../media/errors";
+import { dispatchAggregatePerKind, PluginCallError } from "../media";
 
 /**
  * Stateless per-request orchestrator for the `artwork.get` RPC. Given a batch

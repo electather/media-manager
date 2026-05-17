@@ -39,7 +39,7 @@ vi.mock("../diagnostics/database-sink", () => ({
   DatabaseSink: class {},
 }));
 
-vi.mock("../notifications/error-sink", () => ({
+vi.mock("../notifications", () => ({
   NotificationErrorSink: class {},
 }));
 
@@ -51,7 +51,7 @@ vi.mock("../mcp/bootstrap", () => ({
   bootstrapMcpHostTools: (...args: unknown[]) => bootstrapMcpHostToolsMock(...args),
 }));
 
-vi.mock("../plugin-runtime/runtime", () => ({
+vi.mock("../plugin-runtime", () => ({
   pluginRuntime: {
     bootstrapBuiltins: () => bootstrapBuiltinsMock(),
   },
@@ -62,7 +62,7 @@ vi.mock("../api/router", async () => {
   return { appRouter: new Hono() };
 });
 
-vi.mock("../auth/oauth-handler", () => ({
+vi.mock("../auth", () => ({
   authRouteHandler: vi.fn(async () => new Response(null)),
 }));
 

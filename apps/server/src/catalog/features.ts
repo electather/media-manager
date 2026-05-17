@@ -1,6 +1,5 @@
-import type { CandidateFeatures } from "../preferences/types";
-import type { RawMediaItem } from "../preferences/provider";
-import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "./types";
+import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "@ent-mcp/shared/catalog";
+import type { CandidateFeatures, RawMediaItem } from "../preferences";
 import { dedupeStrings, nullableString } from "./util";
 
 /**

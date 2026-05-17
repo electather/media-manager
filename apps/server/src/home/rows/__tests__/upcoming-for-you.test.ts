@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { MediaType } from "@ent-mcp/shared/media";
 import provider from "../upcoming-for-you";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import type { CanonicalMetadata } from "../../../catalog/types";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 
 function meta(tmdbId: string, mediaType: MediaType = "tv"): CanonicalMetadata {
   return {

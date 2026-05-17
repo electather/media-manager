@@ -18,21 +18,26 @@ vi.mock("../../db/queries", () => ({
 
 vi.mock("../../db/client", () => ({ getDb: () => ({}) }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
-  capabilityRegistry: {
-    get: (id: string) => (state.plugins.some((p) => p.id === id) ? {} : undefined),
-  },
-}));
+vi.mock("../../plugin-runtime", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../plugin-runtime")>("../../plugin-runtime");
+  return {
+    ...actual,
+    capabilityRegistry: {
+      get: (id: string) => (state.plugins.some((p) => p.id === id) ? {} : undefined),
+    },
+    sharedCredentialsService: { countEnabled: async () => 0 },
+    pluginRuntime: { runAuth: vi.fn(), testConnection: vi.fn() },
+  };
+});
 
-vi.mock("../../plugin-runtime/shared-credentials", () => ({
-  sharedCredentialsService: { countEnabled: async () => 0 },
-}));
-
-vi.mock("../../plugin-runtime/runtime", () => ({
-  pluginRuntime: { runAuth: vi.fn(), testConnection: vi.fn() },
-}));
-
-vi.mock("../../media/dispatcher", () => ({ invalidateUserCache: vi.fn() }));
+vi.mock("../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../media")>("../../media");
+  return {
+    ...actual,
+    invalidateUserCache: vi.fn(),
+  };
+});
 
 vi.mock("../../crypto/vault", () => ({
   encrypt: async (s: string) => `iv:${s}`,

@@ -1,3 +1,4 @@
+// @owner: preferences
 import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { user } from "./auth";

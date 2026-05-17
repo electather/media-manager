@@ -4,6 +4,10 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   staged: {
     "*": "vp check --fix",
+    "apps/server/src/{artwork,auth,catalog,home,media,notifications,preferences,plugin-runtime}/**/*.ts":
+      "bun tools/check-file-sizes.ts",
+    "apps/server/src/{db/schema,artwork,auth,catalog,home,media,notifications,preferences,plugin-runtime}/**/*.ts":
+      "bun tools/check-table-ownership.ts",
   },
   fmt: {
     ignorePatterns: [
@@ -18,7 +22,10 @@ export default defineConfig({
     options: { typeAware: true, typeCheck: true },
   },
   lint: {
-    ignorePatterns: ["dist/**", "docs/**", "plan/**", ".claude/**", ".agents/**"],
+    // tools/ scripts run via bun and have no tsconfig context — vp staged
+    // invokes vp check on individual staged files where oxc-resolver loses
+    // node-types resolution. Whole-project lint still catches real issues.
+    ignorePatterns: ["dist/**", "docs/**", "plan/**", ".claude/**", ".agents/**", "tools/**"],
     options: { typeAware: true, typeCheck: true },
   },
   // The client uses an "@/" path alias defined in apps/client/vite.config.ts.

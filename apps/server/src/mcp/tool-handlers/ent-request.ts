@@ -1,9 +1,9 @@
 import {
   dispatchToConnection,
   listEligibleConnections,
+  dispatchAggregate,
   type EligibleConnection,
-} from "../../media/connection-targeted";
-import { dispatchAggregate } from "../../media/dispatcher";
+} from "../../media";
 import type { ToolCallContext, ToolHandler } from "../registry";
 import { parseMediaId } from "../media-id";
 import { ambiguousTarget, badInput, notConnected, targetNotFound } from "../errors";

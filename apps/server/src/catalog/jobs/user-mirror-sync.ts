@@ -1,13 +1,12 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { capabilityRegistry } from "../../plugin-runtime";
 import { getDb } from "../../db/client";
 import { serviceConnections } from "../../db/schema/credentials";
-import { MediaService } from "../../media/service";
-import { identifyItem, parseHistoryBase, parseItemDate } from "../../media/parse-item";
+import { MediaService, identifyItem, parseHistoryBase, parseItemDate } from "../../media";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import type { JobRunContext } from "../../jobs/types";
-import type { HistoryEvent, RatingEvent } from "../types";
+import type { HistoryEvent, RatingEvent } from "@ent-mcp/shared/catalog";
 import { isNil } from "es-toolkit/predicate";
 
 const PER_ROW_TIMEOUT_SEC = 60;

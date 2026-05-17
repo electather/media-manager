@@ -12,18 +12,17 @@ import {
 } from "@ent-mcp/shared/plugins";
 import { getDb } from "../../db/client";
 import { plugins } from "../../db/schema";
-import { requireSession, requirePermission } from "../../auth/middleware";
-import { PERMISSIONS } from "../../auth/permissions";
-import { pluginRuntime } from "../../plugin-runtime/runtime";
-import { getBuiltin } from "../../plugin-runtime/loader";
-import { sharedCredentialsService } from "../../plugin-runtime/shared-credentials";
+import { requireSession, requirePermission, PERMISSIONS } from "../../auth";
 import {
+  pluginRuntime,
+  getBuiltin,
+  sharedCredentialsService,
   loadPluginPolicy,
   setAdminAllowlist,
   updateAdminHeaders,
-} from "../../plugin-runtime/admin-policy";
+  classifyScopes,
+} from "../../plugin-runtime";
 import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
-import { classifyScopes } from "../../plugin-runtime/manifest";
 import { zValidator } from "../../diagnostics/validator";
 import { badRequest } from "../../diagnostics/http-errors";
 import { PluginError } from "@ent-mcp/plugin-sdk";

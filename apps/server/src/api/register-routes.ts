@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 import { appRouter } from "./router";
-import { authRouteHandler } from "../auth/oauth-handler";
+import { authRouteHandler } from "../auth";
 import { HttpError } from "../diagnostics/http-errors";
 import {
   createMcpHandler,

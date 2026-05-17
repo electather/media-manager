@@ -1,5 +1,5 @@
 import type { CapabilityDefinition } from "@ent-mcp/plugin-sdk";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { capabilityRegistry } from "../../plugin-runtime";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache } from "../dispatch-cache";
 import type { InvocationOutcome } from "../errors";

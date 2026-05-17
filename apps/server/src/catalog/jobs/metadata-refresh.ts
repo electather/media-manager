@@ -1,10 +1,10 @@
-import { MediaService } from "../../media/service";
+import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
+import { SYSTEM_USER_ID } from "@ent-mcp/shared/jobs";
+import { MediaService } from "../../media";
 import { registerScheduled } from "../../jobs/scheduled";
 import type { JobRunContext } from "../../jobs/types";
 import type { CatalogService } from "../../catalog";
 import { toCanonicalRow, type RawCanonicalSource } from "../canonical";
-import type { CanonicalMetadata, MetadataKey } from "../types";
-import { SYSTEM_USER_ID } from "./constants";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

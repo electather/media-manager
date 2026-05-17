@@ -3,8 +3,9 @@ import { consola } from "consola";
 import { getDb } from "./client";
 import { user } from "./schema/auth";
 import { roles, rolePermissions, userRoles } from "./schema/roles";
-import { ALL_PERMISSIONS, PERMISSIONS } from "../auth/permissions";
-import { auth } from "../auth/config";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { ALL_PERMISSIONS, PERMISSIONS, auth } from "../auth";
 
 /** Built-in roles seeded on first run. Permissions for Admin are enforced in code, not DB. */
 const SYSTEM_ROLES = [

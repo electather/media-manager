@@ -1,7 +1,10 @@
 import { consola } from "consola";
-import type { CatalogService } from "../catalog";
-import { toCanonicalRow, type RawCanonicalSource } from "../catalog/canonical";
-import { toCandidateFeatures } from "../catalog/features";
+import {
+  toCanonicalRow,
+  toCandidateFeatures,
+  type CatalogService,
+  type RawCanonicalSource,
+} from "../catalog";
 import type {
   CommentSignal,
   HistorySignal,

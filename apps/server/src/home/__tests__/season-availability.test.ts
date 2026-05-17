@@ -17,24 +17,27 @@ const registryGetMock = vi.fn();
 const resolveConnectionsMock = vi.fn();
 const invokeOneMock = vi.fn();
 
-vi.mock("../../plugin-runtime/registry", () => ({
-  capabilityRegistry: {
-    listProviders: (...args: unknown[]) => listProvidersMock(...args),
-    get: (...args: unknown[]) => registryGetMock(...args),
-  },
-}));
+vi.mock("../../plugin-runtime", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../plugin-runtime")>("../../plugin-runtime");
+  return {
+    ...actual,
+    capabilityRegistry: {
+      listProviders: (...args: unknown[]) => listProvidersMock(...args),
+      get: (...args: unknown[]) => registryGetMock(...args),
+    },
+  };
+});
 
-vi.mock("../../media/resolve-connection", () => ({
-  resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
-}));
-
-vi.mock("../../media/invoke", () => ({
-  invokeOne: (...args: unknown[]) => invokeOneMock(...args),
-}));
-
-vi.mock("../../media/capability-lookup", () => ({
-  requireCapability: () => ({ defaultTimeoutMs: 15_000 }),
-}));
+vi.mock("../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../media")>("../../media");
+  return {
+    ...actual,
+    resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
+    invokeOne: (...args: unknown[]) => invokeOneMock(...args),
+    requireCapability: () => ({ defaultTimeoutMs: 15_000 }),
+  };
+});
 
 const { composeSeasonAvailability } = await import("../season-availability");
 

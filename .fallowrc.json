@@ -42,14 +42,15 @@
     "**/docs/**",
     "**/docker/**",
     "apps/client/public/**",
-    "packages/plugins/**"
+    "packages/plugins/**",
+    "tools/**"
   ],
   "rules": {
     "unused-files": "error",
     "unused-exports": "error",
     "unused-types": "warn",
     "unused-deps": "warn",
-    "circular-deps": "warn"
+    "circular-deps": "error"
   },
   "duplicates": {
     "mode": "semantic",
@@ -69,7 +70,7 @@
     ]
   },
   "health": {
-    "maxCyclomatic": 20,
+    "maxCyclomatic": 15,
     "maxCognitive": 15,
     "maxCrap": 30,
     "ignore": [
@@ -77,7 +78,9 @@
       "**/*.test.tsx",
       "**/*.spec.ts",
       "**/*.spec.tsx",
-      "packages/plugins/**"
+      "packages/plugins/**",
+      "apps/server/src/api/**",
+      "apps/server/src/mcp/**"
     ]
   },
   "boundaries": {
@@ -176,22 +179,73 @@
 
       { "name": "server-api", "patterns": ["apps/server/src/api/**"] },
       { "name": "server-mcp", "patterns": ["apps/server/src/mcp/**"] },
-      { "name": "server-jobs", "patterns": ["apps/server/src/jobs/**"] },
       {
-        "name": "server-domains",
-        "patterns": [
-          "apps/server/src/artwork/**",
-          "apps/server/src/auth/**",
-          "apps/server/src/catalog/**",
-          "apps/server/src/home/**",
-          "apps/server/src/media/**",
-          "apps/server/src/notifications/**",
-          "apps/server/src/preferences/**"
-        ]
+        "name": "server-mod-artwork",
+        "patterns": ["apps/server/src/artwork/index.ts"]
       },
       {
-        "name": "server-plugins",
-        "patterns": ["apps/server/src/plugin-runtime/**", "apps/server/src/plugins/**"]
+        "name": "server-mod-artwork-internal",
+        "patterns": ["apps/server/src/artwork/**"]
+      },
+      {
+        "name": "server-mod-auth",
+        "patterns": ["apps/server/src/auth/index.ts"]
+      },
+      {
+        "name": "server-mod-auth-internal",
+        "patterns": ["apps/server/src/auth/**"]
+      },
+      {
+        "name": "server-mod-catalog",
+        "patterns": ["apps/server/src/catalog/index.ts"]
+      },
+      {
+        "name": "server-mod-catalog-internal",
+        "patterns": ["apps/server/src/catalog/**"]
+      },
+      {
+        "name": "server-mod-home",
+        "patterns": ["apps/server/src/home/index.ts"]
+      },
+      {
+        "name": "server-mod-home-internal",
+        "patterns": ["apps/server/src/home/**"]
+      },
+      {
+        "name": "server-mod-media",
+        "patterns": ["apps/server/src/media/index.ts"]
+      },
+      {
+        "name": "server-mod-media-internal",
+        "patterns": ["apps/server/src/media/**"]
+      },
+      {
+        "name": "server-mod-notifications",
+        "patterns": ["apps/server/src/notifications/index.ts"]
+      },
+      {
+        "name": "server-mod-notifications-internal",
+        "patterns": ["apps/server/src/notifications/**"]
+      },
+      {
+        "name": "server-mod-preferences",
+        "patterns": ["apps/server/src/preferences/index.ts"]
+      },
+      {
+        "name": "server-mod-preferences-internal",
+        "patterns": ["apps/server/src/preferences/**"]
+      },
+      {
+        "name": "server-mod-plugin-runtime",
+        "patterns": ["apps/server/src/plugin-runtime/index.ts"]
+      },
+      {
+        "name": "server-mod-plugin-runtime-internal",
+        "patterns": ["apps/server/src/plugin-runtime/**"]
+      },
+      {
+        "name": "server-plugin-bundles",
+        "patterns": ["apps/server/src/plugins/**"]
       },
       {
         "name": "server-infra",
@@ -200,7 +254,9 @@
           "apps/server/src/cache/**",
           "apps/server/src/crypto/**",
           "apps/server/src/connections/**",
-          "apps/server/src/diagnostics/**"
+          "apps/server/src/diagnostics/**",
+          "apps/server/src/jobs/**",
+          "apps/server/src/env.ts"
         ]
       },
       { "name": "server-root", "patterns": ["apps/server/src/*.*"] },
@@ -524,24 +580,33 @@
         "allow": [
           "server-api",
           "server-mcp",
-          "server-jobs",
-          "server-domains",
-          "server-plugins",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-plugin-bundles",
           "server-infra",
           "shared-pkg",
-          "plugin-sdk",
-          "plugins"
+          "plugin-sdk"
         ]
       },
       {
         "from": "server-api",
         "allow": [
-          "server-root",
-          "server-domains",
-          "server-plugins",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
           "server-infra",
           "server-mcp",
-          "server-jobs",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -549,43 +614,281 @@
       {
         "from": "server-mcp",
         "allow": [
-          "server-root",
-          "server-domains",
-          "server-infra",
-          "shared-pkg",
-          "server-plugins",
-          "plugin-sdk",
-          "server-jobs"
-        ]
-      },
-      {
-        "from": "server-jobs",
-        "allow": [
-          "server-root",
-          "server-domains",
-          "server-plugins",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
           "server-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
       },
       {
-        "from": "server-domains",
+        "from": "server-mod-artwork",
         "allow": [
-          "server-root",
-          "server-jobs",
-          "server-mcp",
+          "server-mod-artwork-internal",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
           "server-infra",
           "shared-pkg",
-          "plugin-sdk",
-          "server-plugins"
+          "plugin-sdk"
         ]
       },
       {
-        "from": "server-plugins",
+        "from": "server-mod-artwork-internal",
         "allow": [
-          "server-root",
-          "server-domains",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-auth",
+        "allow": [
+          "server-mod-auth-internal",
+          "server-mod-artwork",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-auth-internal",
+        "allow": [
+          "server-mod-auth",
+          "server-mod-artwork",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-catalog",
+        "allow": [
+          "server-mod-catalog-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-catalog-internal",
+        "allow": [
+          "server-mod-catalog",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-home",
+        "allow": [
+          "server-mod-home-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-home-internal",
+        "allow": [
+          "server-mod-home",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-media",
+        "allow": [
+          "server-mod-media-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-media-internal",
+        "allow": [
+          "server-mod-media",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-notifications",
+        "allow": [
+          "server-mod-notifications-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-notifications-internal",
+        "allow": [
+          "server-mod-notifications",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-preferences",
+        "allow": [
+          "server-mod-preferences-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-preferences-internal",
+        "allow": [
+          "server-mod-preferences",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-plugin-runtime",
+        "allow": [
+          "server-mod-plugin-runtime-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk",
+          "plugins"
+        ]
+      },
+      {
+        "from": "server-mod-plugin-runtime-internal",
+        "allow": [
+          "server-mod-plugin-runtime",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk",
+          "plugins"
+        ]
+      },
+      {
+        "from": "server-plugin-bundles",
+        "allow": [
+          "server-mod-plugin-runtime",
           "server-infra",
           "shared-pkg",
           "plugin-sdk",
@@ -594,7 +897,7 @@
       },
       {
         "from": "server-infra",
-        "allow": ["server-root", "shared-pkg", "server-plugins", "plugin-sdk", "server-domains"]
+        "allow": ["shared-pkg", "plugin-sdk"]
       },
 
       { "from": "plugins", "allow": ["plugin-sdk", "shared-pkg"] },

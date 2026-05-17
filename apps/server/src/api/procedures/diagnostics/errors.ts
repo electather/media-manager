@@ -6,8 +6,7 @@ import {
   type ErrorSeverity,
   type ErrorSource,
 } from "@ent-mcp/shared/diagnostics";
-import { requireSession, requirePermission } from "../../../auth/middleware";
-import { PERMISSIONS } from "../../../auth/permissions";
+import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { errorRecords } from "../../../db/schema/diagnostics";
 import { captureError } from "../../../diagnostics/capture";

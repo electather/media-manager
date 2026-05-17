@@ -1,5 +1,5 @@
-import { dispatchPrimary, dispatchAggregate } from "../../media/dispatcher";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { dispatchPrimary, dispatchAggregate } from "../../media";
+import { capabilityRegistry } from "../../plugin-runtime";
 import { getPreferenceEngine } from "../../preferences";
 import type { ToolCallContext, ToolHandler } from "../registry";
 import { compactMediaItem, truncate } from "../response-shapes";

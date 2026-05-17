@@ -1,6 +1,11 @@
 import { consola } from "consola";
-import { dispatchAggregate, dispatchPrimary } from "../media/dispatcher";
-import { identifyItem, parseHistoryBase, parseItemDate } from "../media/parse-item";
+import {
+  dispatchAggregate,
+  dispatchPrimary,
+  identifyItem,
+  parseHistoryBase,
+  parseItemDate,
+} from "../media";
 import type {
   CommentSignal,
   HistorySignal,

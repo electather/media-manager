@@ -2,21 +2,15 @@ import { getDb } from "../db/client";
 import { CatalogService } from "./service";
 
 export { CatalogService, type CatalogServiceOptions } from "./service";
-export type {
-  CanonicalMetadata,
-  CanonicalMetadataWithIds,
-  CanonicalFeatures,
-  DiscoverFeedKind,
-  DiscoverSort,
-  HistoryEvent,
-  IdMap,
-  MetadataKey,
-  PluginCursors,
-  RatingEvent,
-  RecItem,
-  RecommendationList,
-  RecommendationListKind,
-} from "./types";
+export {
+  toCanonicalRow,
+  asMetadataKey,
+  type RawArtwork,
+  type RawCanonicalSource,
+} from "./canonical";
+export { toCandidateFeatures, extractFeatures, candidateId } from "./features";
+export { registerCatalogJobs } from "./jobs";
+export { writeRecommendationsForUser } from "./jobs/recommendation-build";
 
 let instance: CatalogService | undefined;
 

@@ -3,11 +3,11 @@ import { registerApiRoutes } from "./api/register-routes";
 import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { registerBuiltinPlugins } from "./plugins/registry";
-import { pluginRuntime } from "./plugin-runtime/runtime";
+import { pluginRuntime } from "./plugin-runtime";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
-import { NotificationErrorSink } from "./notifications/error-sink";
+import { NotificationErrorSink } from "./notifications";
 
 // Cloudflare Workers entry point. Diverges from `index.ts` by excluding the
 // pieces of the local server that don't work in the Workers runtime:

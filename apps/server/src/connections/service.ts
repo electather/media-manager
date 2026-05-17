@@ -2,14 +2,16 @@ import { and, desc, eq, lt } from "drizzle-orm";
 import { getDb, type Db } from "../db/client";
 import { serviceConnections, pendingAuth, plugins } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
-import { pluginRuntime } from "../plugin-runtime/runtime";
-import { capabilityRegistry } from "../plugin-runtime/registry";
-import { sharedCredentialsService } from "../plugin-runtime/shared-credentials";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { pluginRuntime, capabilityRegistry, sharedCredentialsService } from "../plugin-runtime";
 import type { CapabilityScope, ManifestCapability, PluginManifest } from "@ent-mcp/shared/plugins";
 import { isNotificationOnlyPlugin } from "@ent-mcp/shared/plugins";
 import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
-import { invalidateUserCache } from "../media/dispatcher";
+// fallow-allow: phase-2 infra-to-module decoupling
+// fallow-ignore-next-line boundary-violation
+import { invalidateUserCache } from "../media";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
 import {
   computeDisplayFields,

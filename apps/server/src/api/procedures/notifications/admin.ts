@@ -8,8 +8,7 @@ import {
   adminDeliveriesQuerySchema,
   adminSettingsBodySchema,
 } from "@ent-mcp/shared/notifications";
-import { requirePermission, requireSession } from "../../../auth/middleware";
-import { PERMISSIONS } from "../../../auth/permissions";
+import { requirePermission, requireSession, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
 import { notificationDeliveries } from "../../../db/schema";
 import { conflict, notFound } from "../../../diagnostics/http-errors";
@@ -20,8 +19,9 @@ import {
   deliveryRowToDto,
   listDeliveries,
   resetDeliveryForRetry,
-} from "../../../notifications/repos";
-import { getNotificationSettings, setNotificationSettings } from "../../../notifications/settings";
+  getNotificationSettings,
+  setNotificationSettings,
+} from "../../../notifications";
 import { decodeKeysetCursor, encodeKeysetCursor, flagGate } from "./helpers";
 
 export const adminNotificationsApp = new Hono()

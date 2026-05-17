@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { createMediaRequestSchema, requestTargetsQuerySchema } from "@ent-mcp/shared/media";
-import { requireSession, sessionUserId } from "../../auth/middleware";
-import { MediaService } from "../../media/service";
+import { requireSession, sessionUserId } from "../../auth";
+import { MediaService } from "../../media";
 import { zValidator } from "../../diagnostics/validator";
 
 /**

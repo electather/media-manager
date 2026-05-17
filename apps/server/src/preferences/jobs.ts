@@ -4,8 +4,7 @@ import {
   type RebuildResult,
 } from "@ent-mcp/shared/preferences";
 
-import { getCatalogService } from "../catalog";
-import { writeRecommendationsForUser } from "../catalog/jobs/recommendation-build";
+import { getCatalogService, writeRecommendationsForUser } from "../catalog";
 import { registerCoalesced } from "../jobs/coalesced";
 import { registerScheduledPerRow } from "../jobs/scheduled-per-row";
 import { registerTriggerable } from "../jobs/triggerable";

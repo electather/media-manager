@@ -14,10 +14,10 @@ import {
 } from "@ent-mcp/shared/media";
 import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
-import { capabilityRegistry } from "../plugin-runtime/registry";
+import { capabilityRegistry } from "../plugin-runtime";
 import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "./errors";
 import { HttpError, badRequest } from "../diagnostics/http-errors";
-import type { RawCanonicalSource } from "../catalog/canonical";
+import type { RawCanonicalSource } from "../catalog";
 import { resolveConnections } from "./resolve-connection";
 import { invokeOne } from "./invoke";
 import { requireCapability } from "./capability-lookup";

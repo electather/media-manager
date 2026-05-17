@@ -36,9 +36,33 @@ jobs:
       - name: Check code quality (lint, format, types)
         run: vp check
 
+      - name: Backend module file-size and naming caps
+        if: always()
+        # `vp run` exposes bun on PATH via the package manager. Calling `bun`
+        # directly would fail because setup-vp does not surface it.
+        run: vp run check:file-sizes
+
+      - name: Backend drizzle table-ownership
+        if: always()
+        run: vp run check:table-ownership
+
       - name: Run tests
         if: always()
         run: vp test
+
+      - name: Fallow boundary + circular gate
+        if: always()
+        # Explicit hard gate on net-new error-severity findings (boundary
+        # violations, new circular deps, unused files/exports). Phase 1 baselines
+        # the 18 existing catalog↔preferences cycles in
+        # .fallow/dead-code-baseline.json; Phase 2 typed events resolve them.
+        # The SARIF + comment step below still publishes the full health report.
+        run: |
+          vp exec fallow audit --base origin/main \
+            --dead-code-baseline .fallow/dead-code-baseline.json \
+            --health-baseline .fallow/health-baseline.json \
+            --dupes-baseline .fallow/dupes-baseline.json \
+            --fail-on-issues --quiet
 
       - name: Fallow analysis (dead code, dupes, health)
         uses: fallow-rs/fallow@v2

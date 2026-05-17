@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import provider from "../recommended-for-you-movies";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
-import type { CanonicalMetadata } from "../../../catalog/types";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 
 function meta(tmdbId: string): CanonicalMetadata {
   return {

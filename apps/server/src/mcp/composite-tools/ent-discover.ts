@@ -1,7 +1,7 @@
 import { compact } from "es-toolkit/array";
 import { zodToItemSchema } from "@ent-mcp/shared/common";
-import { dispatchAggregate, dispatchPrimary } from "../../media/dispatcher";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { dispatchAggregate, dispatchPrimary } from "../../media";
+import { capabilityRegistry } from "../../plugin-runtime";
 import {
   compactList,
   compactMediaResultSchema,

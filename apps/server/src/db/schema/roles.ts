@@ -1,3 +1,4 @@
+// @owner: auth
 import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 

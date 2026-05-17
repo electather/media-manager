@@ -16,19 +16,18 @@ vi.mock("../../../media/service", () => ({ MediaService: FakeMediaService }));
 const rankCandidatesMock = vi.fn();
 const explainRankedMock = vi.fn();
 const rebuildProfileMock = vi.fn();
+const profileReadMock = vi.fn();
+const listUsersNeedingRebuildMock = vi.fn();
 vi.mock("../../../preferences", () => ({
   getPreferenceEngine: () => ({
     rankCandidates: (...args: unknown[]) => rankCandidatesMock(...args),
     explainRanked: (...args: unknown[]) => explainRankedMock(...args),
     rebuildProfile: (...args: unknown[]) => rebuildProfileMock(...args),
   }),
-}));
-
-const profileReadMock = vi.fn();
-vi.mock("../../../preferences/storage", () => ({
   profileStorage: {
     read: (...args: unknown[]) => profileReadMock(...args),
   },
+  listUsersNeedingRebuild: (...args: unknown[]) => listUsersNeedingRebuildMock(...args),
 }));
 
 const { cleanupInMemoryDbs, createInMemoryDb } =

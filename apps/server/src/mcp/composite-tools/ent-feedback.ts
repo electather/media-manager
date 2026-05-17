@@ -2,12 +2,11 @@ import { consola } from "consola";
 import {
   dispatchToConnection,
   listEligibleConnections,
+  dispatchPrimary,
   type EligibleConnection,
-} from "../../media/connection-targeted";
-import { dispatchPrimary } from "../../media/dispatcher";
-import { getPreferenceEngine, feedbackLog } from "../../preferences";
+} from "../../media";
+import { getPreferenceEngine, feedbackLog, PREFERENCE_INCREMENTAL_JOB_ID } from "../../preferences";
 import * as jobs from "../../jobs";
-import { PREFERENCE_INCREMENTAL_JOB_ID } from "../../preferences/jobs";
 import type { ToolHandler, ToolRegistration } from "../registry";
 import { parseMediaId } from "../media-id";
 import { badInput, targetNotFound } from "../errors";

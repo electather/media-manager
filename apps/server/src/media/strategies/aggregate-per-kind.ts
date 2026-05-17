@@ -6,7 +6,7 @@ import { z } from "zod";
 import { mediaTypeSchema } from "@ent-mcp/shared";
 import { artworkV1ManifestExtrasSchema } from "@ent-mcp/plugin-sdk";
 import type { ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
-import { capabilityRegistry } from "../../plugin-runtime/registry";
+import { capabilityRegistry } from "../../plugin-runtime";
 import { requireCapability, scopeForRequest, pickSingleConnection } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
 import { invokeOne } from "../invoke";
