@@ -97,6 +97,14 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 
 Skip @ server, shared, plugin pkgs.
 
+## Backend Skills
+
+∀ server module change @ `apps/server/src/{artwork,auth,catalog,home,media,notifications,preferences,plugin-runtime}/` → skill ! before edit:
+
+- `backend-feature-architecture` — new|retrofit module, add event, review module PR
+
+Skip @ adapters (`api/`, `mcp/`) and infra (`db/`, `cache/`, `crypto/`, `connections/`, `diagnostics/`, `jobs/`).
+
 ## Pull Requests and Versioning
 
 Project use [Changesets](https://github.com/changesets/changesets). Every PR need `.changeset/<slug>.md` file or CI fail. Create file direct — no CLI run.

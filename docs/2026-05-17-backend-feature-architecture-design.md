@@ -1,6 +1,6 @@
 # Backend Feature Architecture — Design
 
-**Status:** Draft
+**Status:** Approved
 **Date:** 2026-05-17
 **Author:** Omid Astaraki
 **Scope:** `apps/server/src/<module>/` for each domain module. Adapters (`api/`, `mcp/`) and infra (`db/`, `cache/`, `crypto/`, `connections/`, `diagnostics/`, `jobs/`) are referenced but not modules.
