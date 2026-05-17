@@ -4,6 +4,7 @@ import { bootstrapMcpHostTools } from "./mcp/bootstrap";
 import { getDb } from "./db/client";
 import { registerBuiltinPlugins } from "./plugins/registry";
 import * as notifications from "./notifications";
+import * as preferences from "./preferences";
 import { pluginRuntime } from "./plugin-runtime";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
@@ -20,12 +21,14 @@ import { errorHandler } from "./diagnostics/middleware";
 //      Worker that performs a network DB write at module init.
 //   4. Running `migrate.ts` — migrations run as a pre-deploy CI step against
 //      the target Turso database instead.
-//   5. Module `registerJobs()` for catalog, home, plugin-runtime, preferences
-//      — each registers croner-backed scheduled work that would fail in the
-//      Workers isolate. Only `notifications.registerJobs({ scheduled: false })`
-//      runs here so the triggerable delivery + demo jobs and the four typed-
-//      event handlers stay wired (so HTTP-route-triggered emits still land
-//      on delivery), while the stale-pending sweep is skipped.
+//   5. Module `registerJobs()` for catalog, home, plugin-runtime — each
+//      registers croner-backed scheduled work that would fail in the Workers
+//      isolate. `notifications.registerJobs({ scheduled: false })` and
+//      `preferences.registerJobs({ scheduled: false })` run here so the
+//      triggerable + coalesced + event-handler jobs stay wired (so HTTP-route
+//      and ent_feedback triggers still land), while the cron-scheduled
+//      registrations (stale-pending sweep, daily preference rebuild) are
+//      skipped.
 //
 // Module init only runs in-memory registration. `getDb()` and the error sink
 // touch `env` (secrets/vars), which Cloudflare only populates at request
@@ -51,9 +54,11 @@ function ensureRuntimeReady(): Promise<void> {
     getDb();
     registerSink(new DatabaseSink());
 
-    // Workers can run notification triggerables + event handlers — they fire
-    // from HTTP requests. Scheduled work is skipped (see comment 5 above).
+    // Workers can run notification + preference triggerables, coalesced
+    // jobs, and event handlers — they fire from HTTP requests. Scheduled
+    // cron-driven work is skipped (see comment 5 above).
     notifications.registerJobs({ scheduled: false });
+    preferences.registerJobs({ scheduled: false });
     notifications.registerNotificationErrorSink();
 
     await pluginRuntime.bootstrapBuiltins();

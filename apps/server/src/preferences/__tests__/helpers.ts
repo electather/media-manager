@@ -1,11 +1,11 @@
-import type { CandidateFeatures } from "../types";
 import type {
-  PreferenceDataProvider,
+  CandidateFeatures,
+  CommentSignal,
   HistorySignal,
+  PreferenceDataProvider,
   RatingSignal,
   WatchlistSignal,
-  CommentSignal,
-} from "../provider";
+} from "../types";
 
 export abstract class NullPreferenceDataProvider implements PreferenceDataProvider {
   abstract getItemFeatures(

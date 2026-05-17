@@ -24,13 +24,14 @@ const INDEX_EXPECTED_ORDER = [
 ];
 
 /**
- * Cloudflare Worker entry point (`worker.ts`) registers ONLY notifications
- * jobs (with `scheduled: false`) — the other module registerJobs() calls
- * register croner-backed scheduled work that cannot run inside the Workers
- * isolate. The worker test pins this subset so the Workers-safe carve-out
- * does not silently regrow.
+ * Cloudflare Worker entry point (`worker.ts`) registers the modules whose
+ * jobs are Workers-safe (with `scheduled: false`) — currently notifications
+ * and preferences. Other `registerJobs()` calls register croner-backed
+ * scheduled work that cannot run inside the Workers isolate; those modules
+ * stay excluded. The worker test pins this subset so the Workers-safe
+ * carve-out does not silently regrow.
  */
-const WORKER_EXPECTED_ORDER = ["notifications"];
+const WORKER_EXPECTED_ORDER = ["notifications", "preferences"];
 
 /**
  * Maps the *namespace identifier* used at the call site to the canonical

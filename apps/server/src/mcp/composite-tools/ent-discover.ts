@@ -11,7 +11,7 @@ import {
 import { badInput, notConnected } from "../errors";
 import type { ToolCallContext, ToolHandler, ToolRegistration } from "../registry";
 import { formatMediaId } from "../media-id";
-import { getPreferenceEngine } from "../../preferences";
+import { getPreferencesService } from "../../preferences";
 import type { MediaItem } from "@ent-mcp/shared/media";
 
 type DiscoverMode = "search" | "recommend" | "similar" | "trending" | "discover";
@@ -201,9 +201,9 @@ async function rerankCompactResults(
   limit: number,
 ): Promise<CompactMediaResult[]> {
   if (candidates.length === 0) return [];
-  const engine = getPreferenceEngine();
+  const service = getPreferencesService();
   const items = candidates.map(compactToMediaItem);
-  const ranked = await engine.rankCandidates(userId, items, {
+  const ranked = await service.rankCandidates(userId, items, {
     mediaType: mediaType ?? "any",
   });
   const byId = new Map(candidates.map((c) => [c.id, c]));
@@ -215,7 +215,7 @@ async function rerankCompactResults(
     top.map(async (item, index) => {
       const rankedEntry = ranked[index];
       if (!rankedEntry || rankedEntry.confidence === "low") return item;
-      const reason = engine.renderMatchReason(rankedEntry);
+      const reason = service.renderMatchReason(rankedEntry);
       return reason ? { ...item, match_reason: reason } : item;
     }),
   );

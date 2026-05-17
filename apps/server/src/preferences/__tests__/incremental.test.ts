@@ -10,32 +10,32 @@ const profileWriteMock = vi.fn();
 const feedbackLogReadSinceMock = vi.fn();
 const rebuildProfileMock = vi.fn();
 
-vi.mock("../storage", () => ({
+vi.mock("../internal/profile-storage", () => ({
   profileStorage: {
     read: (...args: unknown[]) => profileReadMock(...args),
     write: (p: unknown) => profileWriteMock(p),
   },
 }));
 
-vi.mock("../feedback-log", () => ({
+vi.mock("../internal/feedback-log", () => ({
   feedbackLog: {
     readSince: (userId: string, since: number) => feedbackLogReadSinceMock(userId, since),
   },
 }));
 
-vi.mock("../rebuild", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../rebuild")>();
+vi.mock("../internal/rebuild", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../internal/rebuild")>();
   return {
     ...actual,
     rebuildProfile: (...args: unknown[]) => rebuildProfileMock(...args),
   };
 });
 
-const { applyIncrementalUpdate } = await import("../incremental");
+const { applyIncrementalUpdate } = await import("../internal/incremental");
 import type { CandidateFeatures } from "../types";
-import { emptyFeatures } from "../types";
+import { emptyFeatures } from "../internal/constants";
 import { NullPreferenceDataProvider } from "./helpers";
-import type { StoredPreferenceProfile } from "../storage";
+import type { StoredPreferenceProfile } from "../internal/profile-storage";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

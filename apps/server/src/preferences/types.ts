@@ -1,7 +1,7 @@
-import type { Confidence, FeatureCategory, ProfileFeatures } from "@ent-mcp/shared/preferences";
+import type { Confidence, FeatureCategory } from "@ent-mcp/shared/preferences";
 import type { MediaItem } from "@ent-mcp/shared/media";
 
-// ─── Server-only scoring and feature-extraction types ─────────────────────────
+// ─── Public domain types ──────────────────────────────────────────────────
 
 export interface FeatureContribution {
   category: FeatureCategory;
@@ -52,33 +52,58 @@ export interface CandidateFeatures extends MediaItemFields {
   type: "movie" | "tv";
 }
 
-/** Score dictionary projection for the six categories. */
-export function emptyFeatures(): ProfileFeatures {
-  return { genres: {}, keywords: {}, people: {}, decades: {}, runtimes: {}, languages: {} };
+export interface RawMediaItem extends MediaItemFields {
+  id?: string;
+  type?: "movie" | "tv";
+  ids?: { tmdb_id?: string };
 }
 
-export const FEATURE_CATEGORIES: FeatureCategory[] = [
-  "genres",
-  "keywords",
-  "people",
-  "decades",
-  "runtimes",
-  "languages",
-];
+// ─── Provider data-fetch facade (test seam) ───────────────────────────────
 
-export const CATEGORY_WEIGHTS: Record<FeatureCategory, number> = {
-  genres: 0.3,
-  keywords: 0.3,
-  people: 0.15,
-  decades: 0.1,
-  runtimes: 0.05,
-  languages: 0.1,
-};
+/**
+ * Narrow facade the engine depends on. Keeps the engine decoupled from the
+ * concrete MediaService and makes rebuild/incremental trivially testable with
+ * in-memory fixtures.
+ */
+export interface PreferenceDataProvider {
+  getItemFeatures(
+    userId: string,
+    tmdbId: string,
+    mediaType: "movie" | "tv",
+  ): Promise<CandidateFeatures | null>;
 
-export const CONFIDENCE_THRESHOLDS = { low: 15, medium: 50 } as const;
+  getHistory(userId: string): Promise<HistorySignal[]>;
 
-export function deriveConfidence(sampleSize: number): Confidence {
-  if (sampleSize < CONFIDENCE_THRESHOLDS.low) return "low";
-  if (sampleSize < CONFIDENCE_THRESHOLDS.medium) return "medium";
-  return "high";
+  getAllRatings(userId: string): Promise<RatingSignal[]>;
+
+  getWatchlist(userId: string): Promise<WatchlistSignal[]>;
+
+  getComments(userId: string): Promise<CommentSignal[]>;
+}
+
+export interface HistorySignal {
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  watchedAt: number;
+  progress: number | null;
+}
+
+export interface RatingSignal {
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  rating: number;
+  ratedAt: number;
+}
+
+export interface WatchlistSignal {
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  addedAt: number;
+}
+
+export interface CommentSignal {
+  tmdbId: string;
+  mediaType: "movie" | "tv";
+  text: string;
+  createdAt: number;
 }

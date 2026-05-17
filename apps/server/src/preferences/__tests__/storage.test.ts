@@ -6,7 +6,7 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { user } from "../../db/schema/auth";
-import { emptyFeatures } from "../types";
+import { emptyFeatures } from "../internal/constants";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
@@ -15,7 +15,7 @@ vi.mock("../../env", () => ({
 let testDb: Db;
 vi.mock("../../db/client", () => ({ getDb: () => testDb }));
 
-const { profileStorage } = await import("../storage");
+const { profileStorage } = await import("../internal/profile-storage");
 
 beforeAll(async () => {
   testDb = await createInMemoryDb();

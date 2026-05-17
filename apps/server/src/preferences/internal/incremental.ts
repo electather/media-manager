@@ -8,9 +8,9 @@ import type {
 import { feedbackLog } from "./feedback-log";
 import { SCORERS, isDictScorer } from "./features";
 import { rebuildProfile, SIGNAL_WEIGHTS, NOTE_KEYWORD_BOOST } from "./rebuild";
-import { profileStorage, type StoredPreferenceProfile } from "./storage";
-import type { PreferenceDataProvider } from "./provider";
-import { deriveConfidence } from "./types";
+import { profileStorage, type StoredPreferenceProfile } from "./profile-storage";
+import type { PreferenceDataProvider } from "../types";
+import { deriveConfidence } from "./constants";
 
 export interface IncrementalDeps {
   provider: PreferenceDataProvider;
@@ -74,7 +74,7 @@ export async function applyIncrementalUpdate(
 // fallow-ignore-next-line complexity
 function applyRecordToPartitions(
   record: FeedbackRecord,
-  contribution: import("./types").CandidateFeatures,
+  contribution: import("../types").CandidateFeatures,
   weight: number,
   partitions: ProfileMediaType[],
   existing: Map<ProfileMediaType, StoredPreferenceProfile | null>,
@@ -121,7 +121,7 @@ function recordWeight(record: FeedbackRecord): number {
 // fallow-ignore-next-line complexity
 function applyToProfile(
   profile: PreferenceProfile,
-  candidate: import("./types").CandidateFeatures,
+  candidate: import("../types").CandidateFeatures,
   weight: number,
   record: FeedbackRecord,
 ): void {

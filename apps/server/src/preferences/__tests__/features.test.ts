@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vite-plus/test";
-import { genresScorer } from "../features/genres";
-import { keywordsScorer } from "../features/keywords";
-import { peopleScorer } from "../features/people";
-import { decadesScorer, decadeFor } from "../features/decades";
-import { runtimeScorer, runtimeBucketFor } from "../features/runtime";
-import { languagesScorer } from "../features/languages";
+import { genresScorer } from "../internal/features/genres";
+import { keywordsScorer } from "../internal/features/keywords";
+import { peopleScorer } from "../internal/features/people";
+import { decadesScorer, decadeFor } from "../internal/features/decades";
+import { runtimeScorer, runtimeBucketFor } from "../internal/features/runtime";
+import { languagesScorer } from "../internal/features/languages";
 import type { CandidateFeatures } from "../types";
 
 function fixture(overrides: Partial<CandidateFeatures> = {}): CandidateFeatures {

@@ -10,11 +10,16 @@ import { feedbackLog } from "./feedback-log";
 import { renderMatchReason, renderProfileUpdate, explainAgainstProfile } from "./explain";
 import { applyIncrementalUpdate } from "./incremental";
 import { rebuildProfile } from "./rebuild";
-import { profileStorage } from "./storage";
+import { profileStorage } from "./profile-storage";
 import { rankCandidatesAgainst, resolveEffectiveProfile } from "./scoring";
-import type { PreferenceDataProvider } from "./provider";
-import { rawItemToCandidateFeatures, type RawMediaItem } from "./provider";
-import type { CandidateFeatures, RankedCandidate, UserItemFeedback } from "./types";
+import { rawItemToCandidateFeatures } from "./raw-item";
+import type {
+  CandidateFeatures,
+  PreferenceDataProvider,
+  RankedCandidate,
+  RawMediaItem,
+  UserItemFeedback,
+} from "../types";
 
 export interface PreferenceEngineDeps {
   provider: PreferenceDataProvider;
@@ -217,5 +222,3 @@ function hasRichFeatures(candidate: CandidateFeatures): boolean {
   const languagePresent = Boolean(candidate.originalLanguage);
   return keywordsPresent && peoplePresent && runtimePresent && languagePresent;
 }
-
-export { feedbackLog };

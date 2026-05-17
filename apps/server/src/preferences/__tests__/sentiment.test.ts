@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { classifySentiment, extractNoteKeywords } from "../sentiment";
+import { classifySentiment, extractNoteKeywords } from "../internal/sentiment";
 
 describe("classifySentiment", () => {
   it("classifies clearly positive notes", () => {

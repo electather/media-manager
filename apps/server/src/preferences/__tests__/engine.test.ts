@@ -7,15 +7,15 @@ vi.mock("../../env", () => ({
 }));
 
 const profileReadMock = vi.fn();
-vi.mock("../storage", () => ({
+vi.mock("../internal/profile-storage", () => ({
   profileStorage: {
     read: (...args: unknown[]) => profileReadMock(...args),
     write: vi.fn(),
   },
 }));
 
-const { PreferenceEngine } = await import("../engine");
-const { emptyFeatures } = await import("../types");
+const { PreferenceEngine } = await import("../internal/engine");
+const { emptyFeatures } = await import("../internal/constants");
 import type { CandidateFeatures } from "../types";
 import { NullPreferenceDataProvider } from "./helpers";
 

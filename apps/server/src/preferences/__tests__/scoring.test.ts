@@ -6,10 +6,10 @@ import {
   rankCandidatesAgainst,
   resolveEffectiveProfile,
   scoreCandidate,
-} from "../scoring";
+} from "../internal/scoring";
 import type { PreferenceProfile } from "@ent-mcp/shared/preferences";
 import type { CandidateFeatures } from "../types";
-import { emptyFeatures } from "../types";
+import { emptyFeatures } from "../internal/constants";
 
 function mediaItem(overrides: Partial<MediaItem> = {}): MediaItem {
   return {

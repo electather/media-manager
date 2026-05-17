@@ -1,10 +1,8 @@
 import type { FeatureCategory, ProfileMediaType } from "@ent-mcp/shared/preferences";
 import {
-  listUsersNeedingRebuild,
-  getPreferenceEngine,
-  profileStorage,
-  type RebuildRow,
+  getPreferencesService,
   type FeatureContribution,
+  type RebuildRow,
 } from "../../preferences";
 import { MediaService, identifyItem, splitCombinedId } from "../../media";
 import type { CatalogService } from "../../catalog";
@@ -67,7 +65,7 @@ export function registerCatalogRecommendationBuildJob(deps: CatalogRecommendatio
     runTimeoutSec: RUN_TIMEOUT_SEC,
     adminTriggerable: true,
     continueOnRowError: true,
-    rowSource: () => listUsersNeedingRebuild(),
+    rowSource: () => getPreferencesService().listUsersNeedingRebuild(),
     handler: (ctx, row) => buildRecommendationsForUser(deps, ctx, row.userId),
   });
 }
@@ -81,10 +79,10 @@ async function buildRecommendationsForUser(
   ctx: JobRunContext,
   userId: string,
 ): Promise<void> {
-  const engine = getPreferenceEngine();
+  const service = getPreferencesService();
   for (const partition of PARTITIONS) {
     ctx.abortSignal.throwIfAborted();
-    await engine.rebuildProfile(userId, partition, ctx.abortSignal);
+    await service.rebuildProfile(userId, partition, ctx.abortSignal);
   }
   await writeRecommendationsForUser(
     deps,
@@ -107,14 +105,14 @@ export async function writeRecommendationsForUser(
   abortSignal: AbortSignal,
   log: (msg: string) => void = () => {},
 ): Promise<void> {
-  const engine = getPreferenceEngine();
+  const service = getPreferencesService();
   abortSignal.throwIfAborted();
   // Capture the profile version *before* ranking so a concurrent rebuild
   // (manual `feature.preference.rebuild` or a future webhook ingestion)
   // cannot bump the version mid-flight and leave the rec list referencing
   // a profile state it was not actually ranked against. The rec list now
   // pins the exact version that drove the ranking.
-  const profile = await profileStorage.read(userId, "combined");
+  const profile = await service.getStoredProfile(userId, "combined");
   const profileVersion = profile?.version ?? 0;
 
   const media = new MediaService(userId);
@@ -141,14 +139,14 @@ export async function writeRecommendationsForUser(
   if (adapted.length === 0) return;
 
   const deadlineMs = Date.now() + PER_ROW_DEADLINE_SEC * 1000;
-  const ranked = await engine.rankCandidates(userId, adapted, { deadlineMs });
+  const ranked = await service.rankCandidates(userId, adapted, { deadlineMs });
   abortSignal.throwIfAborted();
   const topN = ranked.slice(0, TOP_N);
   if (topN.length === 0) return;
 
   const recItems: RecItem[] = await Promise.all(
     topN.map(async (entry) => {
-      const reason = await engine.explainRanked(userId, entry).catch(() => null);
+      const reason = await service.explainRanked(userId, entry).catch(() => null);
       return {
         tmdbId: splitCombinedId(entry.item.id)?.id ?? "",
         mediaType: entry.item.type,

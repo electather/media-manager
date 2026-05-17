@@ -14,7 +14,7 @@ vi.mock("../../media", async () => {
   };
 });
 
-const { MediaServicePreferenceProvider } = await import("../media-provider");
+const { MediaServicePreferenceProvider } = await import("../internal/media-provider");
 
 describe("MediaServicePreferenceProvider.getItemFeatures", () => {
   it("does not pass skipCache:true — the metadata cache is what keeps TMDB rate-limited rebuilds healthy", async () => {

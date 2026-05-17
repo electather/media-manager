@@ -7,7 +7,7 @@ import type {
 import { SCORERS, isDictScorer } from "./features";
 import { decadeFor } from "./features/decades";
 import { runtimeBucketFor } from "./features/runtime";
-import type { CandidateFeatures, FeatureContribution } from "./types";
+import type { CandidateFeatures, FeatureContribution } from "../types";
 import { scoreCandidate } from "./scoring";
 
 const MIN_CONTRIBUTION_FRACTION = 0.1;

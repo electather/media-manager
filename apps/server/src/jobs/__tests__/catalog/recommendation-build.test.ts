@@ -16,18 +16,16 @@ vi.mock("../../../media/service", () => ({ MediaService: FakeMediaService }));
 const rankCandidatesMock = vi.fn();
 const explainRankedMock = vi.fn();
 const rebuildProfileMock = vi.fn();
-const profileReadMock = vi.fn();
+const getStoredProfileMock = vi.fn();
 const listUsersNeedingRebuildMock = vi.fn();
 vi.mock("../../../preferences", () => ({
-  getPreferenceEngine: () => ({
+  getPreferencesService: () => ({
     rankCandidates: (...args: unknown[]) => rankCandidatesMock(...args),
     explainRanked: (...args: unknown[]) => explainRankedMock(...args),
     rebuildProfile: (...args: unknown[]) => rebuildProfileMock(...args),
+    getStoredProfile: (...args: unknown[]) => getStoredProfileMock(...args),
+    listUsersNeedingRebuild: (...args: unknown[]) => listUsersNeedingRebuildMock(...args),
   }),
-  profileStorage: {
-    read: (...args: unknown[]) => profileReadMock(...args),
-  },
-  listUsersNeedingRebuild: (...args: unknown[]) => listUsersNeedingRebuildMock(...args),
 }));
 
 const { cleanupInMemoryDbs, createInMemoryDb } =
@@ -43,7 +41,7 @@ beforeEach(() => {
   rankCandidatesMock.mockReset();
   explainRankedMock.mockReset();
   rebuildProfileMock.mockReset();
-  profileReadMock.mockReset();
+  getStoredProfileMock.mockReset();
 });
 
 async function setup() {
@@ -89,7 +87,7 @@ describe("writeRecommendationsForUser", () => {
       },
     ]);
     explainRankedMock.mockResolvedValueOnce("noir mood").mockResolvedValueOnce(null);
-    profileReadMock.mockResolvedValue({ version: 5 });
+    getStoredProfileMock.mockResolvedValue({ version: 5 });
 
     const ctrl = new AbortController();
     await writeRecommendationsForUser({ catalog }, "u1", ctrl.signal);
@@ -112,7 +110,7 @@ describe("writeRecommendationsForUser", () => {
     const { catalog } = await setup();
     getRecommendationsFeedMock.mockResolvedValue({ items: [], partial: false });
     rankCandidatesMock.mockResolvedValue([]);
-    profileReadMock.mockResolvedValue(null);
+    getStoredProfileMock.mockResolvedValue(null);
 
     await writeRecommendationsForUser({ catalog }, "u1", new AbortController().signal);
 
@@ -144,7 +142,7 @@ describe("writeRecommendationsForUser", () => {
       },
     ]);
     explainRankedMock.mockResolvedValue(null);
-    profileReadMock.mockResolvedValue({ version: 0 });
+    getStoredProfileMock.mockResolvedValue({ version: 0 });
     void consola;
 
     await writeRecommendationsForUser({ catalog }, "u1", new AbortController().signal);

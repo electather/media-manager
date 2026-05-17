@@ -7,22 +7,21 @@ vi.mock("../../env", () => ({
 const profileWriteMock = vi.fn();
 const feedbackLogReadAllMock = vi.fn();
 
-vi.mock("../storage", () => ({
+vi.mock("../internal/profile-storage", () => ({
   profileStorage: {
     read: vi.fn(),
     write: (p: unknown) => profileWriteMock(p),
   },
 }));
 
-vi.mock("../feedback-log", () => ({
+vi.mock("../internal/feedback-log", () => ({
   feedbackLog: {
     readAllForUser: (userId: string) => feedbackLogReadAllMock(userId),
   },
 }));
 
-const { rebuildProfile } = await import("../rebuild");
-import type { RatingSignal } from "../provider";
-import type { CandidateFeatures } from "../types";
+const { rebuildProfile } = await import("../internal/rebuild");
+import type { CandidateFeatures, RatingSignal } from "../types";
 import { NullPreferenceDataProvider } from "./helpers";
 
 class FakeProvider extends NullPreferenceDataProvider {

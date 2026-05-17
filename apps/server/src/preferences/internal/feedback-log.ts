@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gt } from "drizzle-orm";
-import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
-import { getDb } from "../db/client";
-import { feedback } from "../db/schema";
-import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
-import type { UserItemFeedback } from "./types";
+import { consola } from "consola";
 import { isNil } from "es-toolkit/predicate";
+import type { FeedbackAction, FeedbackRecord } from "@ent-mcp/shared/preferences";
+import * as repo from "../repo";
+import type { UserItemFeedback } from "../types";
+import { classifySentiment, extractNoteKeywords, type NoteSentiment } from "./sentiment";
 
 export interface RecordFeedbackInput {
   userId: string;
@@ -35,7 +34,7 @@ function processNoteFields(
   const noteSentiment = classifySentiment(note);
   const keywords = extractNoteKeywords(note, itemKeywords);
   if (note.length > 20 && keywords.length === 0) {
-    console.warn("[feedback-log] non-trivial note produced no keywords", {
+    consola.warn("[feedback-log] non-trivial note produced no keywords", {
       userId: context.userId,
       tmdbId: context.tmdbId,
       noteLength: note.length,
@@ -72,7 +71,7 @@ export const feedbackLog = {
       noteKeywords: noteKeywordsJson,
       createdAt,
     };
-    await getDb().insert(feedback).values(row);
+    await repo.insertFeedback(row);
     return {
       id: row.id,
       userId: row.userId,
@@ -88,22 +87,12 @@ export const feedbackLog = {
   },
 
   async readAllForUser(userId: string): Promise<FeedbackRecord[]> {
-    const rows = await getDb()
-      .select()
-      .from(feedback)
-      .where(eq(feedback.userId, userId))
-      .orderBy(desc(feedback.createdAt))
-      .all();
+    const rows = await repo.listFeedbackForUser(userId);
     return rows.map(toRecord);
   },
 
   async readSince(userId: string, sinceMs: number): Promise<FeedbackRecord[]> {
-    const rows = await getDb()
-      .select()
-      .from(feedback)
-      .where(and(eq(feedback.userId, userId), gt(feedback.createdAt, sinceMs)))
-      .orderBy(desc(feedback.createdAt))
-      .all();
+    const rows = await repo.listFeedbackSince(userId, sinceMs);
     return rows.map(toRecord);
   },
 
@@ -112,33 +101,17 @@ export const feedbackLog = {
     tmdbId: string,
     mediaType: "movie" | "tv",
   ): Promise<UserItemFeedback | null> {
-    const rows = await getDb()
-      .select()
-      .from(feedback)
-      .where(
-        and(
-          eq(feedback.userId, userId),
-          eq(feedback.tmdbId, tmdbId),
-          eq(feedback.mediaType, mediaType),
-        ),
-      )
-      .orderBy(desc(feedback.createdAt))
-      .all();
+    const rows = await repo.listFeedbackForItem(userId, tmdbId, mediaType);
     if (rows.length === 0) return null;
     return aggregateForItem(rows.map(toRecord));
   },
 
   async countSince(userId: string, sinceMs: number): Promise<number> {
-    const rows = await getDb()
-      .select({ id: feedback.id })
-      .from(feedback)
-      .where(and(eq(feedback.userId, userId), gt(feedback.createdAt, sinceMs)))
-      .all();
-    return rows.length;
+    return repo.countFeedbackSince(userId, sinceMs);
   },
 };
 
-function toRecord(row: typeof feedback.$inferSelect): FeedbackRecord {
+function toRecord(row: repo.FeedbackRow): FeedbackRecord {
   return {
     id: row.id,
     userId: row.userId,
