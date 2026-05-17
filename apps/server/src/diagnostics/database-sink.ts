@@ -2,6 +2,13 @@ import type { ErrorRecord, PerfRecord } from "@ent-mcp/shared/diagnostics";
 import { getDb } from "../db/client";
 import { errorRecords, perfRecords } from "../db/schema/diagnostics";
 import type { DiagnosticSink } from "./types";
+import { SYSTEM_USER_ID } from "../catalog/jobs/constants";
+
+// __system__ has no user-table row, so FK constraints reject it.
+// Normalise to null before any DB insert.
+function toUserFkValue(userId: string | null | undefined): string | null {
+  return userId === SYSTEM_USER_ID ? null : (userId ?? null);
+}
 
 /** Built-in sink that persists both error and perf records to SQLite. */
 export class DatabaseSink implements DiagnosticSink {
@@ -15,7 +22,7 @@ export class DatabaseSink implements DiagnosticSink {
       code: record.code,
       devMessage: record.devMessage,
       stack: record.stack,
-      userId: record.userId,
+      userId: toUserFkValue(record.userId),
       pluginId: record.pluginId,
       connectionId: record.connectionId,
       route: record.route,
@@ -36,7 +43,7 @@ export class DatabaseSink implements DiagnosticSink {
       method: record.method,
       status: record.status,
       pluginId: record.pluginId,
-      userId: record.userId,
+      userId: toUserFkValue(record.userId),
       createdAt: record.createdAt,
     });
   }

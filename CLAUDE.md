@@ -91,6 +91,7 @@ For GitHub Actions, consider using [`voidzero-dev/setup-vp`](https://github.com/
 
 ∀ React change @ `apps/client/` → skill ! before edit:
 
+- `frontend-feature-architecture` — new feature, retrofit feature folder, review feature PR
 - `vercel-react-best-practices` — new|edit component, hook, data fetch
 - `vercel-composition-patterns` — ≥3 bool props | reusable API
 - `vercel-react-view-transitions` — route|page|list anim
