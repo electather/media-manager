@@ -2,10 +2,10 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
-import { getDb } from "../db/client";
-import { env } from "../env";
+import { getDb } from "../../db/client";
+import { env } from "../../env";
 import { MCP_SCOPES } from "@ent-mcp/shared/users";
-import * as schema from "../db/schema/index";
+import * as schema from "../../db/schema/index";
 import { sendEmail } from "./email";
 import { isNil } from "es-toolkit/predicate";
 
