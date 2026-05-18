@@ -82,6 +82,36 @@ describe("seerr auth lifecycle", () => {
     }
   });
 
+  it("startAuth: returns error when baseUrl uses http on a non-loopback host", async () => {
+    const ctx = makeTestContext({
+      responses: [],
+      overrides: {
+        config: { global: { baseUrl: "http://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.code).toBe("plugin.bad_credentials");
+    }
+  });
+
+  it("startAuth: allows http on localhost for development", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 1 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "http://localhost:5055" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+  });
+
   it("testConnection: returns ok true on 200", async () => {
     const ctx = makeTestContext({
       responses: [statusRes(200)],

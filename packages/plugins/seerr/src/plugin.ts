@@ -78,6 +78,27 @@ export default definePlugin({
       };
     }
     const trimmed = base.replace(/\/$/, "");
+    // Require HTTPS for credential submission except on loopback.
+    try {
+      const parsedBase = new URL(trimmed);
+      const isLoopback =
+        parsedBase.hostname === "localhost" ||
+        parsedBase.hostname === "127.0.0.1" ||
+        parsedBase.hostname === "::1";
+      if (parsedBase.protocol !== "https:" && !isLoopback) {
+        return {
+          status: "error",
+          code: "plugin.bad_credentials",
+          devMessage: "Seerr baseUrl must use HTTPS to protect credentials in transit",
+        };
+      }
+    } catch {
+      return {
+        status: "error",
+        code: "plugin.bad_credentials",
+        devMessage: "Seerr baseUrl is not a valid URL",
+      };
+    }
 
     const email = cfg?.username;
     const password = cfg?.password;
