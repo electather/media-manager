@@ -37,11 +37,21 @@ export async function listReadyUserConnections(
 
   const picks: UserConnectionPick[] = [];
   for (const row of rows) {
+    let userConfig: unknown = null;
+    if (row.userConfig) {
+      try {
+        userConfig = JSON.parse(row.userConfig) as unknown;
+      } catch {
+        // Skip the corrupted row; log for ops visibility.
+        console.warn(`[user-pool] malformed userConfig for connection ${row.id}, skipping`);
+        continue;
+      }
+    }
     picks.push({
       connectionId: row.id,
       isDefault: row.isDefault === 1,
       credentials: await decryptJson(row.credentialsIv, row.encryptedCredentials),
-      userConfig: row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null,
+      userConfig,
     });
   }
   return picks;
