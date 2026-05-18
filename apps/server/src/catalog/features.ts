@@ -1,6 +1,6 @@
 import type { CanonicalMetadata, CanonicalFeatures, MetadataKey } from "@ent-mcp/shared/catalog";
 import type { CandidateFeatures, RawMediaItem } from "../preferences";
-import { dedupeStrings, nullableString } from "./util";
+import { dedupeStrings, nullableString } from "./internal/strings";
 
 /**
  * Single source for projecting a plugin metadata payload onto the catalog

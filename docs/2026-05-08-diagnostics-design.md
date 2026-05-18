@@ -149,8 +149,8 @@ V7: service methods swallowing expected plugin absence → catch at service boun
 
 | surface | gen                                                                                                                                                                               |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FE      | **per RPC call** (fresh UUID); page-load also gens one for boundary/global handlers. Sent as `X-Request-Id` header on ∀ outbound RPC ∧ in body of `POST /api/diagnostics/errors`. |
-| BE      | read header \| gen if absent → AsyncLocalStorage → plugin runtime                                                                                                                 |
+| FE      | **per RPC call** (fresh UUID); page-load also gens one for boundary/global handlers. Sent as `X-Request-Id` header on ∀ outbound RPC — header only; body field accepted for forwards-compat but server uses ALS value. |
+| BE      | read header → validate `^[0-9a-zA-Z_-]{1,64}$` (gen on absent **or** invalid) → AsyncLocalStorage → plugin runtime                                                                 |
 | Plugin  | tag `ctx.log`, stamp record                                                                                                                                                       |
 | Cron    | gen @ job start                                                                                                                                                                   |
 
@@ -205,8 +205,8 @@ error_records
 ├── severity        text NOT NULL        "error"|"warning"|"info"
 ├── source          text NOT NULL        "frontend"|"backend"|"plugin"|"cron"
 ├── code            text                 nullable for unhandled
-├── dev_message     text NOT NULL
-├── stack           text
+├── dev_message     text NOT NULL       free-text scrubbed (§DM.Ctx)
+├── stack           text                 free-text scrubbed (§DM.Ctx)
 ├── user_id         text FK→user.id      nullable
 ├── plugin_id       text FK→plugins.id   nullable
 ├── connection_id   text FK→service_connections.id  nullable
@@ -250,11 +250,17 @@ app_config (existing row)
 ├── perf_retention_days    int   default 7      ← new
 ```
 
-### §DM.Ctx Context blob (errors only)
+### §DM.Ctx Context blob + free-text scrubbing (errors only)
 
-JSON + scrub on write. Allowed: RPC input shape (names+types ⊥ values), handler fields worked, plugin method, HTTP status, UA. Scrubbed: ∀ value ∈ credentials | `user_config` | `global_config`; key match `password|api_key|token|authorization|secret|credentials|apikey|api-key`; `Set-Cookie|Authorization` headers.
+**Context blob.** JSON + scrub on write. Allowed: RPC input shape (names+types ⊥ values), handler fields worked, plugin method, HTTP status, UA. Scrubbed: ∀ value ∈ credentials | `user_config` | `global_config`; key match `password|passwd|pwd|api_key|apikey|api-key|token|authorization|bearer|secret|credentials|cookie|private_key`; `Set-Cookie|Authorization` headers.
 
-Scrubber @ `apps/server/src/diagnostics/scrubber.ts`. Explicit patterns; additions reviewed.
+**Free-text fields.** `dev_message` ∧ `stack` ⊥ structured → key-based scrub ⊥ apply. `scrubText` runs on write covering:
+
+- `Bearer <token>` → `Bearer [REDACTED]` (auth headers leaked into error strings).
+- URL query params matching `SENSITIVE_KEY_PATTERNS` substring → `name=[REDACTED]` (covers OAuth `access_token`/`refresh_token`/`id_token`, `client_secret`, bare `token`/`api_key`/`password`/`cookie`).
+- JWT-shaped strings (`eyJ…` three base64url segments) → `[JWT_REDACTED]`.
+
+Scrubber @ `apps/server/src/diagnostics/scrubber.ts` — sole owner of `SENSITIVE_KEY_PATTERNS`, `scrub`, `scrubText`, `serializeContext`. Explicit patterns; additions reviewed.
 
 **Credentials ⊥ enter diag layer.** Sandbox throws ⊥ pull `ctx`. RPC ⊥ auto-capture bodies. Arch guarantee, ⊥ scrubber as safety. Perf records → no context blob (no risk surface).
 
@@ -291,9 +297,10 @@ Both read `requestId` from AsyncLocalStorage. Both fan-out via `Promise.allSettl
 // apps/client/src/shared/lib/diagnostics/report.ts
 
 reportError(err, severity, context?, code?): Promise<void>
-// POST /api/diagnostics/errors w/ body { ..., requestId }
-// requestId = current page/RPC req-id from DOM (`document.documentElement.dataset.requestId`)
-// header `X-Request-Id` ALSO set on POST so BE mw chain matches if body missing.
+// POST /api/diagnostics/errors w/ header `X-Request-Id` (canonical source).
+// body.requestId accepted-but-ignored for forwards-compat; BE always uses the ALS
+// requestId derived from the header (or freshly minted if absent) — prevents a
+// client from spoofing the correlation id on stored records.
 // silent drop on fail
 ```
 
@@ -493,6 +500,9 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 | Integration | `perf/aggregate` returns p50/p95/p99 sorted by p95 desc.           |
 | Integration | retention sweep: insert range → run → verify deletions ∀ tables.   |
 | E2E         | FE err → viewer Errors tab w/ req-id → Perf tab same req-id chain. |
+| Unit        | `POST /api/diagnostics/errors` rejects msg > 2000, context > 20 keys, ctx str > 1000, nested ctx. |
+| Unit        | `POST /api/diagnostics/errors` 11th rapid req → 429 + `Retry-After`; oversized body still 429 when bucket empty (mw before validator). |
+| Unit        | `POST /api/diagnostics/errors` w/o session → 401 via `requireSession`. |
 
 ## §Q Open Questions / Deferred
 
@@ -502,7 +512,7 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 | Error grouping         | v2     | Sentry-style "400× same" deferred. Fingerprint col later.                       |
 | External sinks         | v2     | Iface v1; ⊥ concrete (DB+notify only). Sentry/GlitchTip/OTel adapter on demand. |
 | Incident pages         | v2     | "We know" banner cross plugin breaks deferred. Conn card state OK v1.           |
-| Rate limiting          | v2?    | v1 assumes moderate. Add if vol high.                                           |
+| Rate limiting          | done   | Per-user token bucket (10 burst, ~10/min refill) on `POST /api/diagnostics/errors` w/ `Retry-After`. Mw runs before validator. Multi-replica shared store still v2. |
 | DB query timing        | v2     | Drizzle wrapper. Defer until HTTP timing surfaces specific slow routes.         |
 | FE Web Vitals          | v2     | LCP/INP/CLS via PerformanceObserver → POST `/api/diagnostics/perf`. Deferred.   |
 | Sampling               | v2?    | v1 capture-all. Add reservoir sampling if perf vol > N/day.                     |

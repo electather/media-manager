@@ -114,43 +114,55 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
   const startedAt = Date.now();
   const route = `job:${req.jobId}`;
 
-  const cfg = await getConfig(req.jobId);
-  const logger = createRunLogger(req.jobId, runId, requestId);
-
-  await startRun({
-    id: runId,
-    jobId: req.jobId,
-    scopeKey: req.scopeKey ?? null,
-    triggeredBy: req.triggeredBy,
-    triggeredByUserId: req.triggeredByUserId ?? null,
-    requestId,
-    startedAt,
-    coalescedCount: req.coalescedCount ?? null,
-  });
-
   let timedOut = false;
-
-  const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
-  const timeoutHandle = setTimeout(() => {
-    timedOut = true;
-    controller.abort(new Error("job timed out"));
-  }, timeoutMs);
-
-  const ctx: JobRunContext = {
-    runId,
-    triggeredBy: req.triggeredBy,
-    triggeredByUserId: req.triggeredByUserId ?? undefined,
-    scopeKey: req.scopeKey ?? undefined,
-    requestId,
-    logger,
-    abortSignal: controller.signal,
-  };
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  let runStarted = false;
 
   let execResult: Awaited<ReturnType<typeof executeHandlerWithCapture>>;
   try {
+    const cfg = await getConfig(req.jobId);
+    const logger = createRunLogger(req.jobId, runId, requestId);
+
+    await startRun({
+      id: runId,
+      jobId: req.jobId,
+      scopeKey: req.scopeKey ?? null,
+      triggeredBy: req.triggeredBy,
+      triggeredByUserId: req.triggeredByUserId ?? null,
+      requestId,
+      startedAt,
+      coalescedCount: req.coalescedCount ?? null,
+    });
+    runStarted = true;
+
+    const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
+    timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      controller.abort(new Error("job timed out"));
+    }, timeoutMs);
+
+    const ctx: JobRunContext = {
+      runId,
+      triggeredBy: req.triggeredBy,
+      triggeredByUserId: req.triggeredByUserId ?? undefined,
+      scopeKey: req.scopeKey ?? undefined,
+      requestId,
+      logger,
+      abortSignal: controller.signal,
+    };
+
     execResult = await executeHandlerWithCapture(req, ctx, cfg, requestId, route);
+  } catch (err) {
+    // If startRun succeeded but a later step threw before executeHandlerWithCapture
+    // could finalize the row, finalize it here as failed so the row does not stay
+    // stuck at "running". executeHandlerWithCapture has its own try/catch today and
+    // never re-throws — this guards future code added between startRun and execute.
+    if (runStarted) {
+      await finalizeOrphanedRunAsFailed({ runId, jobId: req.jobId, startedAt });
+    }
+    throw err;
   } finally {
-    clearTimeout(timeoutHandle);
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
     active.delete(activeKey(req.jobId, req.scopeKey));
   }
 
@@ -301,6 +313,32 @@ async function safeEmit(fn: () => Promise<void>): Promise<void> {
     await fn();
   } catch (err) {
     consola.error(`[runner] notification emit failed:`, err);
+  }
+}
+
+async function finalizeOrphanedRunAsFailed(args: {
+  runId: string;
+  jobId: string;
+  startedAt: number;
+}): Promise<void> {
+  const finishedAt = Date.now();
+  try {
+    await finishRun({
+      id: args.runId,
+      jobId: args.jobId,
+      status: "failed",
+      finishedAt,
+      durationMs: finishedAt - args.startedAt,
+      errorRecordId: null,
+      result: undefined,
+      logs: null,
+      logsTruncated: 0,
+      rowsTotal: null,
+      rowsSucceeded: null,
+      rowsFailed: null,
+    });
+  } catch (err) {
+    consola.error(`[runner] failed to finalize orphaned run ${args.runId}:`, err);
   }
 }
 

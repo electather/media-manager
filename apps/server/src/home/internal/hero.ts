@@ -1,0 +1,265 @@
+import { groupBy, orderBy } from "es-toolkit/array";
+import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
+import type { MetadataKey } from "@ent-mcp/shared/catalog";
+import { fromContinueWatchingEntry } from "./adapters";
+import { enrichItems } from "./enrich";
+import { loadCanonicalItems } from "../rows/_shared";
+import type { InternalCompactMediaItem, RowContext } from "./types";
+
+const FINISHING_THRESHOLD = 0.85;
+const HERO_TARGET = 6;
+// Per-source pool ceiling. Set to `HERO_TARGET` so the worst-case backfill —
+// every other source empty, one source carries the full hero — has enough
+// candidates to fill `HERO_TARGET` slots without re-fetching.
+const POOL_SIZE = 6;
+
+const QUOTA: Partial<Record<RowKind, number>> = {
+  continueWatching: 1,
+  recommendedForYou: 2,
+  trendingNow: 2,
+  newReleases: 1,
+};
+
+const PRIORITY: RowKind[] = ["continueWatching", "recommendedForYou", "trendingNow", "newReleases"];
+
+interface HeroSlideInternal {
+  item: InternalCompactMediaItem;
+  source: RowKind;
+  reason: HeroReason;
+  resumeUrl: string | null;
+}
+
+type PoolMap = Partial<Record<RowKind, HeroSlideInternal[]>>;
+
+function slideKey(slide: HeroSlideInternal): string {
+  return `${slide.source}:${slide.item.tmdbId}`;
+}
+
+function stampSlide(
+  item: InternalCompactMediaItem,
+  source: RowKind,
+  reason: HeroReason,
+): HeroSlideInternal {
+  return { item, source, reason, resumeUrl: null };
+}
+
+/**
+ * Hero mixer — Amendment 3 (rev 4) of `docs/2026-05-05-home-page-backend-design.md`.
+ *
+ * Replaces the old first-source-wins cascade with a fixed-quota mix across all
+ * four sources: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1
+ * newReleases (= 6). When a source is short, `backfill` walks the priority
+ * order `[CW, rec, trend, new]` taking the next unused candidate per pass
+ * until either the target is reached or every pool is exhausted (degenerate
+ * fill ships < 6). Final ordering: lead = first non-empty priority source;
+ * remainder = round-robin interleave by priority. Within hero, slides are
+ * unique by `${source}:${tmdbId}` by construction; no dedup against the rows
+ * below.
+ */
+export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
+  const pools = await Promise.all(PRIORITY.map((src) => loadPool(src, ctx)));
+  const poolsByKind: PoolMap = {};
+  PRIORITY.forEach((src, i) => {
+    poolsByKind[src] = pools[i] ?? [];
+  });
+
+  const drafts = drawByQuota(poolsByKind, QUOTA, PRIORITY);
+  const filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY);
+  if (filled.length === 0) return null;
+
+  const ordered = orderCascadeLeadInterleave(filled, PRIORITY);
+  const enriched = await enrichItems(
+    ordered.map((s) => s.item),
+    ctx,
+    { rowId: "hero" },
+  );
+  const slides: HeroSlide[] = ordered.map((s, i) => ({
+    item: enriched[i]!,
+    source: s.source,
+    reason: s.reason,
+    resumeUrl: resolveResumeUrl(s),
+  }));
+  return { slides };
+}
+
+/**
+ * Always `null` v1 — plugin SDK has no `playback@v1.getResumeUrl` method, so
+ * Play is rendered as nav-to-detail. Per Amendment 3 §Wire shape (R2).
+ */
+function resolveResumeUrl(_slide: HeroSlideInternal): string | null {
+  return null;
+}
+
+// fallow-ignore-next-line complexity
+function loadPool(source: RowKind, ctx: RowContext): Promise<HeroSlideInternal[]> {
+  switch (source) {
+    case "continueWatching":
+      return loadContinueWatchingPool(ctx);
+    case "recommendedForYou":
+      return loadRecommendedPool(ctx);
+    case "trendingNow":
+      return loadDiscoverPool(ctx, "trending", "popularity_desc", "trendingNow", "trending");
+    case "newReleases":
+      return loadDiscoverPool(ctx, "newReleases", "popularity_desc", "newReleases", "new_release");
+    default:
+      return Promise.resolve([]);
+  }
+}
+
+async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
+  if (!(await ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user"))) {
+    return [];
+  }
+  const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
+  // fallow-ignore-next-line complexity
+  const eligible = res.items.filter((entry) => {
+    const ms = entry.progressMs;
+    if (ms === undefined || ms <= 0) return false;
+    const total = entry.item.durationSec;
+    if (total === undefined || total <= 0) return true;
+    return ms / 1000 / total < FINISHING_THRESHOLD;
+  });
+  const sorted = orderBy(eligible, [(entry) => entry.lastPlayedAt ?? ""], ["desc"]);
+  const items = sorted
+    .slice(0, POOL_SIZE)
+    .map((entry) => fromContinueWatchingEntry(entry))
+    .filter((item): item is InternalCompactMediaItem => item !== null);
+  return items.map((item) => stampSlide(item, "continueWatching", "continue_watching"));
+}
+
+async function loadRecommendedPool(ctx: RowContext): Promise<HeroSlideInternal[]> {
+  const rec = await ctx.catalog.getRecommendations(ctx.userId, "default");
+  if (!rec || rec.items.length === 0) return [];
+  const keys = rec.items
+    .slice(0, POOL_SIZE)
+    .map((k) => ({ tmdbId: k.tmdbId, type: k.mediaType, topContributors: k.topContributors }));
+  const items = await loadCanonicalItems(ctx, keys, {
+    fromOptions: (k) => ({ topContributors: k.topContributors }),
+  });
+  return items.map((item) => stampSlide(item, "recommendedForYou", "recommended"));
+}
+
+async function loadDiscoverPool(
+  ctx: RowContext,
+  feedKind: "trending" | "newReleases",
+  sort: "popularity_desc",
+  source: RowKind,
+  reason: HeroReason,
+): Promise<HeroSlideInternal[]> {
+  const snap = await ctx.catalog.getDiscoverFeed(feedKind, sort, todayBucket());
+  if (!snap || snap.length === 0) return [];
+  const keys: MetadataKey[] = snap.slice(0, POOL_SIZE);
+  const items = await loadCanonicalItems(ctx, keys);
+  return items.map((item) => stampSlide(item, source, reason));
+}
+
+// fallow-ignore-next-line complexity
+export function drawByQuota(
+  poolsByKind: PoolMap,
+  quota: Partial<Record<RowKind, number>>,
+  priority: RowKind[],
+): HeroSlideInternal[] {
+  const drafts: HeroSlideInternal[] = [];
+  for (const src of priority) {
+    const pool = poolsByKind[src] ?? [];
+    const n = Math.min(pool.length, quota[src] ?? 0);
+    for (let i = 0; i < n; i++) drafts.push(pool[i]!);
+  }
+  return drafts;
+}
+
+// fallow-ignore-next-line complexity
+function fillOnePass(
+  out: HeroSlideInternal[],
+  used: Set<string>,
+  poolsByKind: PoolMap,
+  target: number,
+  priority: RowKind[],
+): boolean {
+  let progressed = false;
+  for (const src of priority) {
+    if (out.length >= target) break;
+    const pool = poolsByKind[src] ?? [];
+    const next = pool.find((s) => !used.has(slideKey(s)));
+    if (!next) continue;
+    out.push(next);
+    used.add(slideKey(next));
+    progressed = true;
+  }
+  return progressed;
+}
+
+export function backfill(
+  drafts: HeroSlideInternal[],
+  poolsByKind: PoolMap,
+  target: number,
+  priority: RowKind[],
+): HeroSlideInternal[] {
+  if (drafts.length >= target) return drafts;
+  const out = [...drafts];
+  const used = new Set(out.map(slideKey));
+  while (out.length < target && fillOnePass(out, used, poolsByKind, target, priority)) {
+    // Loop until no source can contribute more or target met.
+  }
+  return out;
+}
+
+type Queues = Record<string, HeroSlideInternal[]>;
+
+function buildQueues(slides: HeroSlideInternal[], priority: RowKind[]): Queues {
+  const grouped = groupBy(slides, (s) => s.source) as Partial<Record<RowKind, HeroSlideInternal[]>>;
+  const queues: Queues = {};
+  for (const src of priority) queues[src] = [...(grouped[src] ?? [])];
+  return queues;
+}
+
+function shiftLead(
+  queues: Queues,
+  priority: RowKind[],
+): { lead: HeroSlideInternal; leadIdx: number } | null {
+  for (let i = 0; i < priority.length; i++) {
+    const q = queues[priority[i]!]!;
+    if (q.length > 0) return { lead: q.shift()!, leadIdx: i };
+  }
+  return null;
+}
+
+function interleaveRest(queues: Queues, priority: RowKind[]): HeroSlideInternal[] {
+  const rest: HeroSlideInternal[] = [];
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    for (const src of priority) {
+      const q = queues[src]!;
+      if (q.length === 0) continue;
+      rest.push(q.shift()!);
+      progressed = true;
+    }
+  }
+  return rest;
+}
+
+/**
+ * After picking the lead, the remainder is round-robin-interleaved starting
+ * from the priority slot AFTER the lead's source — matches the new-user
+ * worked example in `docs/2026-05-05-home-page-backend-design.md` §Hero
+ * composition (`[rec#1, trend#1, new#1, rec#2, trend#2, rec#3]`). The lead's
+ * source falls to the end of the rotation so it does not double-fire on the
+ * first pass.
+ */
+export function orderCascadeLeadInterleave(
+  slides: HeroSlideInternal[],
+  priority: RowKind[],
+): HeroSlideInternal[] {
+  if (slides.length === 0) return slides;
+  const queues = buildQueues(slides, priority);
+  const head = shiftLead(queues, priority);
+  if (!head) return slides;
+  const rotated = [...priority.slice(head.leadIdx + 1), ...priority.slice(0, head.leadIdx + 1)];
+  return [head.lead, ...interleaveRest(queues, rotated)];
+}
+
+function todayBucket(): number {
+  const d = new Date();
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}

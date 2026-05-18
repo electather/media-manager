@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import provider from "../continue-watching-active";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import { decodeCursor } from "../../cursor";
+import { decodeCursor } from "../../internal/cursor";
 import { z } from "zod";
 
 const offsetSchema = z.object({ offset: z.number().int().min(0) });
