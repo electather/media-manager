@@ -27,7 +27,11 @@ function isSensitiveKey(key: string): boolean {
 
 /** Scrubs secrets embedded in a plain string value.
  *  Handles Bearer/token auth headers, sensitive query params in URLs,
- *  JWT-shaped strings, and high-entropy hex/base64 substrings. */
+ *  JWT-shaped strings, and `key: value` / `key=value` pairs that name a
+ *  sensitive key. Deliberately does NOT redact bare high-entropy strings —
+ *  a length-based entropy heuristic also matches CUID2s, SHA256 hashes,
+ *  request IDs, route keys, and SQL identifiers, which are the diagnostic
+ *  context this module exists to preserve. */
 export function scrubStringValue(s: string): string {
   // Replace Bearer/token auth headers.
   let result = s.replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
@@ -41,8 +45,15 @@ export function scrubStringValue(s: string): string {
     /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
     "[JWT_REDACTED]",
   );
-  // Redact high-entropy hex/base64 substrings ≥32 chars that look like secrets.
-  result = result.replace(/\b[A-Za-z0-9+/]{32,}={0,2}\b/g, "[REDACTED]");
+  // Redact `key: value` / `key=value` pairs naming a sensitive key, anywhere
+  // in the string (catches log-line and prose embeds without touching bare
+  // identifiers). The value is a single token — bounded by whitespace,
+  // separators (`,;&`), quotes, or another `=` so we don't eat the rest of
+  // a query string or surrounding context.
+  result = result.replace(
+    /\b(password|api[_-]?key|token|authorization|secret|credentials|cookie|private[_-]?key)\s*[:=]\s*("[^"]*"|'[^']*'|[^\s,;&"'=]+)/gi,
+    "$1=[REDACTED]",
+  );
   return result;
 }
 

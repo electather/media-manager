@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { scrub, serializeContext } from "../scrubber";
+import { scrub, scrubStringValue, serializeContext } from "../scrubber";
 
 describe("scrub", () => {
   it("redacts values under sensitive top-level keys", () => {
@@ -54,6 +54,44 @@ describe("scrub", () => {
     }
     const out = scrub(root);
     expect(out).toBeDefined();
+  });
+});
+
+describe("scrubStringValue", () => {
+  it("redacts the token portion of `Authorization: Bearer …` headers", () => {
+    // Doesn't care whether the redacted form keeps the literal "Bearer" or
+    // collapses to `Authorization=[REDACTED]` — what matters is that the
+    // raw token never survives the scrub.
+    const out = scrubStringValue("Authorization: Bearer abc.def.ghi");
+    expect(out).toContain("[REDACTED]");
+    expect(out).not.toContain("abc.def.ghi");
+  });
+
+  it("redacts sensitive URL query parameters", () => {
+    const out = scrubStringValue("https://example.com/cb?token=abc123&user=alice");
+    expect(out).toContain("token=[REDACTED]");
+    expect(out).toContain("user=alice");
+  });
+
+  it("redacts JWT-shaped substrings", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMSJ9.signatureGoesHere";
+    expect(scrubStringValue(`saw ${jwt} in log`)).toContain("[JWT_REDACTED]");
+  });
+
+  it("redacts inline key=value pairs naming a sensitive key", () => {
+    expect(scrubStringValue("password=hunter2 and other stuff")).toContain("password=[REDACTED]");
+    expect(scrubStringValue("api_key: ak_xyz123")).toContain("api_key=[REDACTED]");
+  });
+
+  it("does NOT redact bare high-entropy identifiers (CUID2, SHA256, slugs)", () => {
+    // Regression: the previous length-only heuristic gobbled these and
+    // destroyed the diagnostic context this scrubber exists to preserve.
+    const cuid2 = "k2x9p3m4n5q6r7s8t9u0v1w2";
+    const sha256 = "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e";
+    const slug = "request-7f3a9b2c4d5e6f1a8b9c0d2e";
+    expect(scrubStringValue(cuid2)).toBe(cuid2);
+    expect(scrubStringValue(sha256)).toBe(sha256);
+    expect(scrubStringValue(slug)).toBe(slug);
   });
 });
 
