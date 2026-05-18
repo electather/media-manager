@@ -609,7 +609,7 @@ Only surface plugin can touch outside its own code. Built fresh by host per call
 ```ts
 interface PluginContext<TCred, TSharedCred, TUserCfg, TGlobalCfg> {
   // Networking — only way plugins reach the outside world.
-  fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts ∪ x-allowed-host hosts + per-plugin rate limit
+  fetch(url: string, init?: RequestInit): Promise<Response>; // enforces manifest.allowedHosts ∪ x-allowed-host hosts + per-plugin rate limit; redirects always rejected (redirect: 'manual')
 
   // Media-manager's own public URL (APP_EXTERNAL_URL). Used by plugins to build
   // OAuth redirect_uri values and any client-facing link-back. Never the
@@ -745,7 +745,7 @@ Only meaningful for plugins with `poolable: true` & ≥1 user-scoped capability.
 
 **Security enforcement points:**
 
-- `ctx.fetch`: hostname check against `manifest.allowedHosts` ∪ hostnames from `x-allowed-host` fields in active `userConfig`/`shared_credentials`/`globalConfig`; per-plugin token-bucket rate limit.
+- `ctx.fetch`: hostname check against `manifest.allowedHosts` ∪ hostnames from `x-allowed-host` fields in active `userConfig`/`shared_credentials`/`globalConfig`; per-plugin token-bucket rate limit; HTTP redirects always rejected (`redirect: 'manual'`) to prevent redirect-based SSRF bypassing the allowlist.
 - `ctx.store`: server-side namespacing by `(plugin_id, user_id, key)`. Plugins ⊥ see other plugins' | other users' data.
 - `ctx.log`: tagged & filtered by host.
 - `ctx.pool.markExhausted` purely advisory to host; ⊥ leak state across plugins | users.
@@ -1012,6 +1012,8 @@ When both set: **fetch via internal, return external in ∀ fields leaving serve
 - Link-local outside metadata blocklist: `169.254.0.0/16` & `fe80::/10`.
 
 DNS resolution for `x-allowed-host` URLs happens inside `ctx.fetch` → runtime applies blocklist to resolved address (not just hostname string) to mitigate DNS-rebinding. RFC1918 / ULA / unique-local ranges deliberately **allowed** — expected topology for docker-compose & LAN deployments.
+
+**Redirect rejection.** `ctx.fetch` forces `redirect: 'manual'` on every outbound call. Any HTTP 3xx response throws `plugin.upstream_error`, preventing a plugin (or attacker-controlled server) from redirecting to an internal endpoint that would bypass the hostname allowlist.
 
 **App-level external URL for OAuth & link-backs.** Host reads `APP_EXTERNAL_URL` (env var) for:
 

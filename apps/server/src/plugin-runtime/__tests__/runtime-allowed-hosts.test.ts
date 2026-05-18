@@ -217,7 +217,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ items: [] });
     expect(observedResponse).toEqual({ ok: true });
-    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/library/sections", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/library/sections", {
+      redirect: "manual",
+    });
   });
 
   it("rejects ctx.fetch to a hostname not in the static list nor derived from userConfig", async () => {
@@ -335,7 +337,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ items: [] });
     expect(observedJson).toEqual({ ok: true });
-    expect(fetchSpy).toHaveBeenCalledWith("https://ops.internal.example.com/status", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://ops.internal.example.com/status", {
+      redirect: "manual",
+    });
   });
 
   // Regression: the submitted userConfig for startAuth must flow through to
@@ -376,7 +380,7 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ status: "completed", credentials: { token: "t" } });
     expect(observedBase).toBe("https://my.plex.box:32400");
-    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/auth", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/auth", { redirect: "manual" });
   });
 
   // Regression: a malformed x-allowed-host value (e.g. the user typed "asd"
@@ -510,7 +514,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ items: [] });
     expect(observedResponse).toEqual({ ok: true });
-    expect(fetchSpy).toHaveBeenCalledWith("https://requests.example.com/api/v1/request", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://requests.example.com/api/v1/request", {
+      redirect: "manual",
+    });
   });
 
   // Regression for PR #412 review feedback: an admin-set `globalConfig.baseUrl`
