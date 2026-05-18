@@ -57,6 +57,24 @@ export function resetSinks(): void {
   sinks.length = 0;
 }
 
+/** Scrubs secrets from a plain text string (e.g. error messages and stack traces).
+ *  Handles Bearer auth headers, sensitive URL query params, and JWT-shaped strings. */
+function scrubText(text: string): string {
+  // Strip Bearer/token values from auth headers.
+  let result = text.replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
+  // Strip sensitive query parameters from URLs.
+  result = result.replace(
+    /([?&])(api[_-]?key|token|authorization|secret|password|credential|private_key)=([^&\s#"']+)/gi,
+    "$1$2=[REDACTED]",
+  );
+  // Redact JWT-shaped strings (header.payload.signature).
+  result = result.replace(
+    /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+    "[JWT_REDACTED]",
+  );
+  return result;
+}
+
 // fallow-ignore-next-line complexity
 function devMessageFrom(err: unknown): string {
   if (isNil(err)) return "unknown error";
@@ -116,8 +134,13 @@ function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
     severity,
     source: meta.source,
     code: meta.code ?? null,
-    devMessage: meta.devMessage ?? devMessageFrom(err),
-    stack: meta.stack ?? stackFrom(err),
+    devMessage: scrubText(meta.devMessage ?? devMessageFrom(err)),
+    stack:
+      meta.stack != null
+        ? scrubText(meta.stack)
+        : stackFrom(err) != null
+          ? scrubText(stackFrom(err)!)
+          : null,
     userId: meta.userId ?? ctx?.userId ?? null,
     pluginId: meta.pluginId ?? null,
     connectionId: meta.connectionId ?? null,
