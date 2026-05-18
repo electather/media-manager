@@ -104,6 +104,40 @@ describe("errorHandler", () => {
     expect(res.headers.get("x-request-id")).toBe("req-from-client");
   });
 
+  it("accepts X-Request-Id at the 64-character boundary", async () => {
+    const app = buildApp();
+    const max = "a".repeat(64);
+    const res = await app.request("/ok", { headers: { "x-request-id": max } });
+    expect(res.headers.get("x-request-id")).toBe(max);
+  });
+
+  it("rejects oversized X-Request-Id and generates a new one", async () => {
+    const app = buildApp();
+    const oversized = "a".repeat(65);
+    const res = await app.request("/ok", { headers: { "x-request-id": oversized } });
+    const returned = res.headers.get("x-request-id");
+    expect(returned).not.toBe(oversized);
+    expect(returned).toBeTruthy();
+    expect(returned!.length).toBeLessThanOrEqual(64);
+  });
+
+  it("rejects X-Request-Id with disallowed characters and generates a new one", async () => {
+    const app = buildApp();
+    const injection = "'; DROP TABLE errors;--";
+    const res = await app.request("/ok", { headers: { "x-request-id": injection } });
+    const returned = res.headers.get("x-request-id");
+    expect(returned).not.toBe(injection);
+    expect(returned).toBeTruthy();
+  });
+
+  it("rejects empty X-Request-Id and generates a new one", async () => {
+    const app = buildApp();
+    const res = await app.request("/ok", { headers: { "x-request-id": "" } });
+    const returned = res.headers.get("x-request-id");
+    expect(returned).toBeTruthy();
+    expect(returned).not.toBe("");
+  });
+
   it("validation failures surface as structured 400", async () => {
     const app = buildApp();
     const res = await app.request("/validate", {
