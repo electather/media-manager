@@ -86,9 +86,18 @@ export async function dispatchTool(
   caller: DispatchCaller,
   rawInput: unknown,
 ): Promise<DispatchResult> {
-  const tool = mcpToolRegistry.get(toolName);
   const requestId = caller.requestId ?? currentRequestContext()?.requestId ?? newRequestId();
 
+  // Rate limit is the first gate after caller identity is known: unknown-tool
+  // and missing-scope branches must still consume a token, otherwise an
+  // authenticated client can issue an unbounded stream of cheap-failing
+  // requests without ever depleting its bucket (issue #343).
+  const limited = defaultMcpLimiter.check(caller.userId);
+  if (limited) {
+    return { ok: false, error: limited.toUserFacing(requestId) };
+  }
+
+  const tool = mcpToolRegistry.get(toolName);
   if (!tool) {
     const err = toolNotFound(toolName);
     return { ok: false, error: err.toUserFacing(requestId) };
@@ -103,11 +112,6 @@ export async function dispatchTool(
           const missing = missingScopes(caller.scopes, tool.requiredScopes);
           const err = forbidden(missing);
           return { ok: false, error: err.toUserFacing(requestId) };
-        }
-
-        const limited = defaultMcpLimiter.check(caller.userId);
-        if (limited) {
-          return { ok: false, error: limited.toUserFacing(requestId) };
         }
 
         const input = isNil(rawInput) ? {} : rawInput;
