@@ -1,7 +1,7 @@
 export class CatalogServiceError extends Error {
   readonly code: string;
 
-  constructor(code: string, message: string) {
+  constructor(message: string, code: string) {
     super(message);
     this.name = "CatalogServiceError";
     this.code = code;
