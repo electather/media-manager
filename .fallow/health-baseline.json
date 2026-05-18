@@ -189,12 +189,12 @@
         "count": 1
       }
     },
-    "apps/server/src/home/enrich.ts": {
+    "apps/server/src/home/internal/enrich.ts": {
       "crap_high": {
         "count": 2
       }
     },
-    "apps/server/src/home/season-availability.ts": {
+    "apps/server/src/home/internal/season-availability.ts": {
       "crap_high": {
         "count": 1
       }
@@ -206,9 +206,9 @@
     "apps/client/src/shared/components/schema-form.tsx:complexity",
     "apps/client/src/features/admin/components/shared-credentials/dialog.tsx:complexity",
     "apps/client/src/features/notifications/shared/query-keys.ts:high impact",
-    "apps/server/src/home/adapters.ts:high impact",
+    "apps/server/src/home/internal/adapters.ts:high impact",
     "apps/server/src/preferences/service.ts:circular dependency",
-    "apps/server/src/home/match-reason.ts:untested risk",
+    "apps/server/src/home/internal/match-reason.ts:untested risk",
     "apps/server/src/catalog/jobs/prune.ts:circular dependency",
     "apps/server/src/catalog/jobs/recommendation-build.ts:circular dependency",
     "apps/server/src/diagnostics/capture.ts:high impact",
