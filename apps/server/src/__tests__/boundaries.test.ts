@@ -12,7 +12,7 @@ const SERVER_SRC = join(ROOT, "apps/server/src");
  * notifications exemplar; Phase 3 retrofits the remaining seven and extends
  * this list as each lands so the rules stay in lock-step with the code.
  */
-const ENABLED_MODULES = ["notifications", "preferences", "auth", "artwork", "home"];
+const ENABLED_MODULES = ["notifications", "preferences", "auth", "artwork", "catalog", "home"];
 const ALL_MODULES = [
   "artwork",
   "auth",
