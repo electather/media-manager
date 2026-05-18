@@ -115,8 +115,9 @@ export async function pollAuth(ctx: PluginContext, pollState: unknown): Promise<
         name?: string;
         connections?: Array<{ uri?: string; local?: boolean }>;
       }>;
-      const owned = resources.find((r) => r.provides?.includes("server") && (r.owned ?? true));
-      const firstServer = owned ?? resources.find((r) => r.provides?.includes("server"));
+      // Only trust servers the authenticated user owns. Shared servers are
+      // excluded to prevent SSRF via an attacker-controlled server URL.
+      const firstServer = resources.find((r) => r.provides?.includes("server") && r.owned === true);
       if (firstServer) {
         userConfigPatch["machineIdentifier"] = firstServer.clientIdentifier;
         // Auto-fill `externalServerUrl` from the first public connection so
