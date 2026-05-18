@@ -150,7 +150,7 @@ V7: service methods swallowing expected plugin absence → catch at service boun
 | surface | gen                                                                                                                                                                               |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | FE      | **per RPC call** (fresh UUID); page-load also gens one for boundary/global handlers. Sent as `X-Request-Id` header on ∀ outbound RPC — header only; body field accepted for forwards-compat but server uses ALS value. |
-| BE      | read header \| gen if absent → AsyncLocalStorage → plugin runtime                                                                                                                 |
+| BE      | read header → validate `^[0-9a-zA-Z_-]{1,64}$` (gen on absent **or** invalid) → AsyncLocalStorage → plugin runtime                                                                 |
 | Plugin  | tag `ctx.log`, stamp record                                                                                                                                                       |
 | Cron    | gen @ job start                                                                                                                                                                   |
 
