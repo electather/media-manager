@@ -12,6 +12,10 @@ import { errorRecords } from "../../../db/schema/diagnostics";
 import { captureError } from "../../../diagnostics/capture";
 import { zValidator } from "../../../diagnostics/validator";
 import { notFound } from "../../../diagnostics/http-errors";
+import { TokenBucketLimiter } from "../../../mcp/rate-limit";
+
+/** Max 10 error reports per minute per authenticated user. */
+const errorReportLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSec: 10 / 60 });
 
 interface SessionCtx {
   user: { id: string };
@@ -31,6 +35,12 @@ export const errorsReportApp = new Hono()
         get: (key: "session") => SessionCtx | undefined;
       }
     ).get("session");
+    if (session?.user.id) {
+      const limited = errorReportLimiter.check(session.user.id);
+      if (limited) {
+        return c.json({ ok: false, error: "rate_limited" }, 429);
+      }
+    }
     try {
       const syntheticError = new Error(body.message);
       syntheticError.name = body.name ?? "FrontendError";
