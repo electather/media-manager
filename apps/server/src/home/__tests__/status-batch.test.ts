@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { StatusBatchMemo } from "../status-batch";
+import { StatusBatchMemo } from "../internal/status-batch";
 import type { MediaService } from "../../media/service";
 
 function fakeMediaService(impl: (ids: string[]) => Promise<Record<string, string>>) {

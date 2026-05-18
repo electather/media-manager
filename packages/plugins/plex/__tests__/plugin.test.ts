@@ -159,6 +159,54 @@ describe("plex startAuth / pollAuth", () => {
     expect(r.userConfigPatch?.["externalServerUrl"]).toBe("https://plex.example.com");
   });
 
+  it("pollAuth ignores shared servers (owned: false) and leaves machineIdentifier unpopulated", async () => {
+    // Regression for #350 SSRF: the previous `owned ?? true` defaulted missing
+    // owned to truthy and would auto-populate externalServerUrl from a shared
+    // server's connection URL.
+    const ctx = makeCtx([
+      jsonRes({ id: 999, authToken: "tok_abc" }),
+      jsonRes({ id: 42 }),
+      jsonRes([
+        {
+          clientIdentifier: "shared-server",
+          provides: "server",
+          owned: false,
+          connections: [{ uri: "https://attacker.example.com", local: false }],
+        },
+      ]),
+    ]);
+    const r = await plexPlugin.pollAuth!(ctx, { pinId: 999, pinCode: "ABCD" });
+    if (r.status !== "completed") throw new Error("unreachable");
+    expect(r.userConfigPatch?.["machineIdentifier"]).toBeUndefined();
+    expect(r.userConfigPatch?.["externalServerUrl"]).toBeUndefined();
+  });
+
+  it("pollAuth ignores servers with absent owned field (treats missing as not owned)", async () => {
+    const ctx = makeCtx([
+      jsonRes({ id: 999, authToken: "tok_abc" }),
+      jsonRes({ id: 42 }),
+      jsonRes([{ clientIdentifier: "mystery-server", provides: "server" }]),
+    ]);
+    const r = await plexPlugin.pollAuth!(ctx, { pinId: 999, pinCode: "ABCD" });
+    if (r.status !== "completed") throw new Error("unreachable");
+    expect(r.userConfigPatch?.["machineIdentifier"]).toBeUndefined();
+    expect(r.userConfigPatch?.["externalServerUrl"]).toBeUndefined();
+  });
+
+  it("pollAuth prefers the owned server when a shared server appears earlier in the list", async () => {
+    const ctx = makeCtx([
+      jsonRes({ id: 999, authToken: "tok_abc" }),
+      jsonRes({ id: 42 }),
+      jsonRes([
+        { clientIdentifier: "shared-first", provides: "server", owned: false },
+        { clientIdentifier: "owned-second", provides: "server", owned: true },
+      ]),
+    ]);
+    const r = await plexPlugin.pollAuth!(ctx, { pinId: 999, pinCode: "ABCD" });
+    if (r.status !== "completed") throw new Error("unreachable");
+    expect(r.userConfigPatch?.["machineIdentifier"]).toBe("owned-second");
+  });
+
   it("pollAuth surfaces token_expired when Plex returns 404 for the PIN", async () => {
     const ctx = makeCtx([statusRes(404)]);
     const r = await plexPlugin.pollAuth!(ctx, { pinId: 999, pinCode: "ABCD" });

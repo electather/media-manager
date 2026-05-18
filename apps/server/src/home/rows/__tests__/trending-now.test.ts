@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 import provider from "../trending-now";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
-import { decodeCursor } from "../../cursor";
+import { decodeCursor } from "../../internal/cursor";
 import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
 
 const offsetSchema = z.object({ offset: z.number().int().min(0) });
