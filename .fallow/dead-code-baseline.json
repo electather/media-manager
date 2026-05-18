@@ -32,7 +32,9 @@
   "unused_class_members": [],
   "unresolved_imports": [],
   "unlisted_dependencies": [],
-  "duplicate_exports": [],
+  "duplicate_exports": [
+    "registerJobs|apps/server/src/artwork/jobs/index.ts|apps/server/src/auth/jobs/index.ts|apps/server/src/catalog/index.ts|apps/server/src/home/jobs/index.ts|apps/server/src/media/index.ts|apps/server/src/notifications/jobs/index.ts|apps/server/src/plugin-runtime/jobs/index.ts|apps/server/src/preferences/jobs/index.ts"
+  ],
   "type_only_dependencies": [],
   "test_only_dependencies": [],
   "boundary_violations": [],

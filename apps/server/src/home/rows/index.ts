@@ -8,7 +8,7 @@ import similarTo from "./similar-to";
 import trendingNow from "./trending-now";
 import upcomingForYou from "./upcoming-for-you";
 import yourWatchlist from "./your-watchlist";
-import type { RowProvider } from "../types";
+import type { RowProvider } from "../internal/types";
 
 /**
  * Registry of every row pipeline. Adding a new row means:
