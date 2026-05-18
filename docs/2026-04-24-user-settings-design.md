@@ -308,6 +308,7 @@ Table names map to schema in `packages/server/src/db/schema/`: `user`, `session`
 **Failure modes.**
 
 - Auth missing → 401; existing middleware → login.
+- Rate limited → 429 with `Retry-After` header (seconds). Per-user token bucket: 5 requests/hour, burst of 5. The ZIP is buffered in memory, so the cap exists to prevent memory exhaustion from a single user flooding the endpoint. Body: `{ code: "mcp.rate_limited", devMessage, params: { retry_after }, details: { retry_after }, requestId }`. Anchor-nav clients fall through to the browser's "download failed" UI; programmatic clients should back off by `Retry-After`. Note: limit is enforced in-process, so multi-replica deployments will under-count — a shared store (Redis / Valkey) is needed before horizontal scale-out.
 - Tx error → 500. Anchor-nav errors don't bubble through `window.error` → silent failure accepted v1. User sees browser "download failed" UI + can retry. v2 path = async job + token-protected download link. Not worth building now.
 - Very large user (hypothetical): not optimized v1.
 
@@ -354,7 +355,7 @@ Client RPC: `api.me.role.$get()`, `api.me.apps.$get()`, `api.me.apps[":clientId"
 | `/me/role`                  | GET    | —                                   | `{ role: { name, description } \| null }` — always HTTP 200 |
 | `/me/apps`                  | GET    | —                                   | `AuthorizedApp[]`                                           |
 | `/me/apps/:clientId/revoke` | POST   | —                                   | `{ ok: true }`                                              |
-| `/me/export`                | GET    | —                                   | `application/zip` stream                                    |
+| `/me/export`                | GET    | —                                   | `application/zip` stream \| 429 + `Retry-After` (5/hr/user) |
 | `/me/delete`                | POST   | `{ confirmEmail, currentPassword }` | `{ ok: true }` \| 401/400                                   |
 
 ### `configPublicApp`
@@ -380,10 +381,11 @@ Add to `packages/server/src/env.ts`: `z.coerce.boolean().default(false)`.
 ### Better Auth config
 
 - `user.changeEmail.sendChangeEmailConfirmation` → targets current (old) email (Better Auth 1.6 hook name; old revisions used `sendChangeEmailVerification`).
-- Post-switch notification to old address enabled.
+- Post-switch notification to old address: synthesised via a `databaseHooks.user.update` pair (`before` captures the row's current email keyed by `ctx.context.session.user.id`; `after` emails the captured address when the row's new email differs). BA 1.6 has no built-in post-switch notification, so this is the minimum custom code needed; the factory lives in `apps/server/src/auth/internal/email-change-hooks.ts` and is unit-tested with mocked `readUserEmail` / `sendEmail`. Memory and concurrency tradeoffs documented inline.
 - `changePassword` called with `revokeOtherSessions: true`.
 
-Config knobs only, no custom code. Verify installed version ≥ 1.2; bump in same PR if needed.
+Configuration is config-knob-driven; the only handwritten server code is the
+email-change-notification hook above. Verify installed Better Auth ≥ 1.6; bump in same PR if needed.
 
 ### Shared types
 
