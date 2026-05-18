@@ -1,7 +1,7 @@
-import { and, eq, inArray, type SQL } from "drizzle-orm";
-import { getDb } from "../../db/client";
-import { rolePermissions, roles, userRoles } from "../../db/schema/roles";
-import type { Permission } from "../types";
+import { and, eq, inArray } from "drizzle-orm";
+import { getDb } from "../db/client";
+import { rolePermissions, roles, userRoles } from "../db/schema/roles";
+import type { Permission } from "./types";
 
 export interface UserRoleRow {
   roleId: string;
@@ -35,20 +35,22 @@ export async function checkRolePermission(
   return !!row;
 }
 
-// Shared base query: rolePermissions ⟶ userRoles filtered by permission + optional user subset.
+// Shared query: rolePermissions ⟶ userRoles, filtered by permission + optional user-set condition.
+// Avoids duplicating the join across listUsersWithPermission and filterUsersWithPermission.
 async function selectUsersByPermission(
   permission: Permission,
-  extraWhere?: SQL,
+  extraWhere?: ReturnType<typeof inArray>,
 ): Promise<string[]> {
   const db = getDb();
-  const where: SQL = extraWhere
-    ? and(extraWhere, eq(rolePermissions.permission, permission))!
-    : eq(rolePermissions.permission, permission);
   const rows = await db
     .select({ userId: userRoles.userId })
     .from(rolePermissions)
     .innerJoin(userRoles, eq(rolePermissions.roleId, userRoles.roleId))
-    .where(where)
+    .where(
+      extraWhere
+        ? and(extraWhere, eq(rolePermissions.permission, permission))
+        : eq(rolePermissions.permission, permission),
+    )
     .all();
   return rows.map((r) => r.userId);
 }
