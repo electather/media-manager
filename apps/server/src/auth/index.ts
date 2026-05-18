@@ -1,23 +1,28 @@
-export { auth, type Auth } from "./config";
+/**
+ * Public barrel for `auth/`. Boundaries test asserts re-exports come only
+ * from `./service`, `./events`, `./errors`, `./types`, and `./jobs`.
+ * `./repo/**` and `./internal/**` are deliberately not re-exported —
+ * external callers go through the service.
+ */
 export {
+  auth,
+  type Auth,
+  AuthService,
+  getAuthService,
+  resetAuthServiceForTest,
+  authRouteHandler,
+  oauthAuthorizationServerHandler,
+  oauthProtectedResourceHandler,
   loadUserRole,
   roleHasPermission,
   userHasPermission,
   sessionUserId,
   requireSession,
   requirePermission,
-} from "./middleware";
-export { PERMISSIONS, type Permission, ALL_PERMISSIONS } from "./permissions";
-export { authRouteHandler } from "./oauth-handler";
-export { oauthAuthorizationServerHandler, oauthProtectedResourceHandler } from "./oauth-metadata";
-export { listUsersHavingPermission, usersHavingPermission } from "./recipients";
-
-/**
- * No-op for now. Auth emits no events and registers no scheduled jobs in
- * Phase 2; Phase 3 retrofit will introduce `jobs/index.ts` and replace this
- * stub. Boot tests exercise the call site to keep the alphabetical wiring
- * stable across modules.
- */
-export function registerJobs(): void {
-  /* no-op until Phase 3 */
-}
+  listUsersHavingPermission,
+  usersHavingPermission,
+} from "./service";
+export { AUTH_EVENTS } from "./events";
+export { AuthError } from "./errors";
+export { PERMISSIONS, type Permission, ALL_PERMISSIONS, type UserRoleInfo } from "./types";
+export { registerJobs } from "./jobs";

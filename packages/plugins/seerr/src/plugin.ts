@@ -13,8 +13,9 @@ export default definePlugin({
       "Media request management via Seerr. Admins set the server URL; users sign in with their Seerr email and password and the plugin keeps a session cookie per user.",
     author: { name: "Media Manager", url: "https://github.com/" },
     sdkVersion: "^1.0.0",
-    // Allow-all because the host is admin-configurable at runtime.
-    allowedHosts: ["*"],
+    // The baseUrl is admin-configured and marked x-allowed-host so the runtime
+    // adds it to the per-request allowlist after passing it through isBlockedHostname.
+    allowedHosts: [],
     globalConfigSchema: {
       type: "object",
       properties: {
@@ -22,6 +23,7 @@ export default definePlugin({
           type: "string",
           title: "Seerr URL",
           description: "Base URL of your Seerr instance (e.g. https://requests.example.com).",
+          "x-allowed-host": true,
         },
       },
       required: ["baseUrl"],

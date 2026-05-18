@@ -15,6 +15,7 @@ export default defineConfig({
       "**/*.gen.{ts,tsx}",
       ".claude/**",
       ".agents/**",
+      ".deepsec/**",
       "SPEC.md",
       "docs/**",
       "plan/**",
@@ -25,7 +26,15 @@ export default defineConfig({
     // tools/ scripts run via bun and have no tsconfig context — vp staged
     // invokes vp check on individual staged files where oxc-resolver loses
     // node-types resolution. Whole-project lint still catches real issues.
-    ignorePatterns: ["dist/**", "docs/**", "plan/**", ".claude/**", ".agents/**", "tools/**"],
+    ignorePatterns: [
+      "dist/**",
+      "docs/**",
+      "plan/**",
+      ".claude/**",
+      ".agents/**",
+      ".deepsec/**",
+      "tools/**",
+    ],
     options: { typeAware: true, typeCheck: true },
   },
   // The client uses an "@/" path alias defined in apps/client/vite.config.ts.
