@@ -325,11 +325,29 @@ export class PluginRuntime {
     }
 
     // Connection-targeted dispatch: credentials are user-scoped, so resolve
-    // `x-allowed-host` hosts from the `userConfigSchema`.
-    const dynamicAllowedHosts = resolveAllowedHostsFromSchema(
-      args.pluginId,
-      module.manifest.userConfigSchema,
-      args.userConfig,
+    // `x-allowed-host` hosts from the `userConfigSchema`. Also union in any
+    // hosts declared on the admin-set `globalConfigSchema` (e.g. Seerr's
+    // single-instance baseUrl) and on `sharedCredentialsSchema` (whose value
+    // is the admin credential threaded in via `peekAdminCredential` below),
+    // since those still need to reach ctx.fetch and the other two
+    // context-building paths walk all three schemas.
+    const sharedCredentials = await this.peekAdminCredential(args.pluginId);
+    const dynamicAllowedHosts = unionHostSets(
+      resolveAllowedHostsFromSchema(
+        args.pluginId,
+        module.manifest.userConfigSchema,
+        args.userConfig,
+      ),
+      resolveAllowedHostsFromSchema(
+        args.pluginId,
+        module.manifest.sharedCredentialsSchema,
+        sharedCredentials,
+      ),
+      resolveAllowedHostsFromSchema(
+        args.pluginId,
+        module.manifest.globalConfigSchema,
+        globalConfig,
+      ),
     );
     const adminPolicy = await loadPluginPolicy(args.pluginId);
     const ctx = buildContext({
@@ -341,7 +359,7 @@ export class PluginRuntime {
       userId: args.userId,
       appBaseUrl: env.APP_EXTERNAL_URL,
       credentials: args.credentials,
-      sharedCredentials: await this.peekAdminCredential(args.pluginId),
+      sharedCredentials,
       userConfig: args.userConfig,
       globalConfig,
     });
@@ -714,8 +732,11 @@ export class PluginRuntime {
         : await this.peekAdminCredential(pluginId);
     // Aux contexts (auth, job handlers, testConnection, refresh) don't know
     // ahead of time whether the user config or shared credentials are in
-    // play, so union hosts from both schemas against whichever values are
-    // present. Missing values simply contribute nothing.
+    // play, so union hosts from all three schemas against whichever values
+    // are present. Missing values simply contribute nothing. `globalConfig`
+    // is included so plugins that put their upstream URL on
+    // `globalConfigSchema` (e.g. Seerr's admin-set baseUrl) still get the
+    // host added to ctx.fetch's allowlist.
     const dynamicAllowedHosts = unionHostSets(
       resolveAllowedHostsFromSchema(pluginId, module.manifest.userConfigSchema, userConfig),
       resolveAllowedHostsFromSchema(
@@ -723,6 +744,7 @@ export class PluginRuntime {
         module.manifest.sharedCredentialsSchema,
         sharedCredentials,
       ),
+      resolveAllowedHostsFromSchema(pluginId, module.manifest.globalConfigSchema, globalConfig),
     );
     const adminPolicy = await loadPluginPolicy(pluginId);
     return buildContext({
@@ -833,16 +855,22 @@ export class PluginRuntime {
       pool,
     } = opts;
     // For user picks, inject an admin credential as sharedCredentials (e.g. Trakt's
-    // OAuth client id). Skip any admin pick already marked exhausted so we don't hand
-    // a rate-limited secret to a subsequent user call.
+    // OAuth client id). Prefer a non-exhausted admin pick so we don't hand a
+    // rate-limited access token to a subsequent user call, but fall back to any
+    // admin pick when all are exhausted: the admin credential used as an OAuth
+    // client id is not rate-limited itself — only the user's access token was.
     const adminPick =
       pick.side === "admin"
         ? pick
-        : plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId));
+        : (plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId)) ??
+          plan.find((p) => p.side === "admin"));
     // Resolve per-invocation `x-allowed-host` hostnames from whichever config
     // matches the current pick: user-scoped picks read `userConfigSchema` against
     // the stored `userConfig`; admin-scoped picks read `sharedCredentialsSchema`.
-    const dynamicAllowedHosts =
+    // Also union in hosts declared on the admin-set `globalConfigSchema`
+    // (e.g. Seerr's single-instance baseUrl) so they reach ctx.fetch
+    // regardless of the pick side.
+    const dynamicAllowedHosts = unionHostSets(
       pick.side === "user"
         ? resolveAllowedHostsFromSchema(
             args.pluginId,
@@ -853,7 +881,13 @@ export class PluginRuntime {
             args.pluginId,
             module.manifest.sharedCredentialsSchema,
             pick.value,
-          );
+          ),
+      resolveAllowedHostsFromSchema(
+        args.pluginId,
+        module.manifest.globalConfigSchema,
+        globalConfig,
+      ),
+    );
     return buildContext({
       pluginId: args.pluginId,
       allowedHosts: module.manifest.allowedHosts,

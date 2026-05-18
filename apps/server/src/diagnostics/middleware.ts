@@ -5,6 +5,9 @@ import { runWithRequestContext, newRequestId } from "./request-context";
 import { HttpError, isExpectedUserError } from "./http-errors";
 
 const REQUEST_ID_HEADER = "x-request-id";
+// Accepts request IDs that are 1–64 characters of alphanumeric, hyphen, or underscore only.
+// Rejects anything else (oversized, path-injection chars, etc.) and falls back to a generated ID.
+const REQUEST_ID_PATTERN = /^[0-9a-zA-Z_-]{1,64}$/;
 
 /** Hono middleware that opens a request-scoped AsyncLocalStorage frame with a
  *  request ID (reused from `X-Request-Id` header when present). Also attaches the
@@ -19,8 +22,8 @@ const REQUEST_ID_HEADER = "x-request-id";
  *  distinct id), violating the design-doc invariant `route ⊥ raw URL`. */
 export function requestContextMiddleware() {
   return async (c: Context, next: Next): Promise<void> => {
-    const incoming = c.req.header(REQUEST_ID_HEADER);
-    const requestId = incoming && incoming.length > 0 ? incoming : newRequestId();
+    const raw = c.req.header(REQUEST_ID_HEADER);
+    const requestId = raw && REQUEST_ID_PATTERN.test(raw) ? raw : newRequestId();
     c.set("requestId", requestId);
     try {
       await runWithRequestContext({ requestId, userId: null, route: null }, async () => {

@@ -229,6 +229,86 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listTargets.output.safeParse(out).success).toBe(true);
   });
 
+  // ID-guard rejection tests. The guard exists to stop attacker-controlled
+  // strings from being interpolated into Seerr API paths (e.g. `/movie/<id>`,
+  // `/request/<id>`). Without it, inputs like `../foo` or `1/../../admin`
+  // would let a caller pivot to other Seerr endpoints. These tests must fail
+  // if the guard is ever removed or weakened — they assert no HTTP call is
+  // made and a `plugin.input_invalid` PluginError is raised.
+  describe("mediaRequest: rejects unsafe IDs before any HTTP call", () => {
+    const unsafeIds: Array<[string, string]> = [
+      ["path-traversal segment", "../admin"],
+      ["embedded slash", "1/../../user"],
+      ["leading dash (negative)", "-1"],
+      ["non-integer decimal", "1.5"],
+      ["non-numeric", "abc"],
+      ["empty string", ""],
+      ["whitespace", " 1 "],
+      ["scientific notation", "1e3"],
+      ["literal NaN", "NaN"],
+      ["hex", "0x1"],
+      ["url-encoded traversal", "%2E%2E%2Fadmin"],
+    ];
+
+    for (const [label, badId] of unsafeIds) {
+      it(`checkAvailability rejects ${label} (${JSON.stringify(badId)}) without calling Seerr`, async () => {
+        const ctx = makeCtx([]);
+        await expect(
+          seerrPlugin.capabilities.mediaRequest!.checkAvailability!(ctx, {
+            tmdbId: badId,
+            type: "movie",
+          }),
+        ).rejects.toMatchObject({ name: "PluginError", code: "plugin.input_invalid" });
+        expect(ctx.calls.length).toBe(0);
+      });
+
+      it(`createRequest rejects ${label} tmdbId (${JSON.stringify(badId)}) without calling Seerr`, async () => {
+        const ctx = makeCtx([]);
+        await expect(
+          seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {
+            tmdbId: badId,
+            type: "movie",
+          }),
+        ).rejects.toMatchObject({ name: "PluginError", code: "plugin.input_invalid" });
+        expect(ctx.calls.length).toBe(0);
+      });
+
+      it(`cancelRequest rejects ${label} requestId (${JSON.stringify(badId)}) without calling Seerr`, async () => {
+        const ctx = makeCtx([]);
+        await expect(
+          seerrPlugin.capabilities.mediaRequest!.cancelRequest!(ctx, {
+            requestId: badId,
+          }),
+        ).rejects.toMatchObject({ name: "PluginError", code: "plugin.input_invalid" });
+        expect(ctx.calls.length).toBe(0);
+      });
+    }
+
+    it("createRequest rejects unsafe targetId without calling Seerr", async () => {
+      const ctx = makeCtx([]);
+      await expect(
+        seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {
+          tmdbId: "550",
+          type: "movie",
+          targetId: "../admin",
+        }),
+      ).rejects.toMatchObject({ name: "PluginError", code: "plugin.input_invalid" });
+      expect(ctx.calls.length).toBe(0);
+    });
+
+    it("createRequest rejects unsafe profileId without calling Seerr", async () => {
+      const ctx = makeCtx([]);
+      await expect(
+        seerrPlugin.capabilities.mediaRequest!.createRequest!(ctx, {
+          tmdbId: "550",
+          type: "movie",
+          profileId: "1; DROP",
+        }),
+      ).rejects.toMatchObject({ name: "PluginError", code: "plugin.input_invalid" });
+      expect(ctx.calls.length).toBe(0);
+    });
+  });
+
   it("mediaRequest.listRequests: paginates when a full page comes back, accumulating across pages", async () => {
     const fullPage = Array.from({ length: 100 }, (_, i) => ({
       id: i + 1,

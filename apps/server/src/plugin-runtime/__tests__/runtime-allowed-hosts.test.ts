@@ -217,7 +217,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ items: [] });
     expect(observedResponse).toEqual({ ok: true });
-    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/library/sections", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/library/sections", {
+      redirect: "manual",
+    });
   });
 
   it("rejects ctx.fetch to a hostname not in the static list nor derived from userConfig", async () => {
@@ -335,7 +337,9 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ items: [] });
     expect(observedJson).toEqual({ ok: true });
-    expect(fetchSpy).toHaveBeenCalledWith("https://ops.internal.example.com/status", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://ops.internal.example.com/status", {
+      redirect: "manual",
+    });
   });
 
   // Regression: the submitted userConfig for startAuth must flow through to
@@ -376,7 +380,7 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
     expect(result).toEqual({ status: "completed", credentials: { token: "t" } });
     expect(observedBase).toBe("https://my.plex.box:32400");
-    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/auth", undefined);
+    expect(fetchSpy).toHaveBeenCalledWith("https://my.plex.box:32400/auth", { redirect: "manual" });
   });
 
   // Regression: a malformed x-allowed-host value (e.g. the user typed "asd"
@@ -427,6 +431,176 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
       code: "plugin.invalid_base_url",
       pluginId: "plex-like",
     });
+  });
+
+  // Regression for PR #412 review feedback: a plugin (Seerr) declares its
+  // upstream URL on `globalConfigSchema` because the admin sets a single
+  // instance for everyone. The runtime must walk `globalConfigSchema` too —
+  // not just userConfigSchema / sharedCredentialsSchema — otherwise every
+  // ctx.fetch rejects with "host not in allowlist".
+  it("resolves x-allowed-host from globalConfigSchema for admin-set plugin URLs", async () => {
+    pluginRows.set("seerr-like", {
+      id: "seerr-like",
+      // Stored as JSON; runtime parses with JSON.parse during loadInvocationSetup.
+      globalConfig: JSON.stringify({ baseUrl: "https://requests.example.com" }),
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-1",
+        isDefault: true,
+        credentials: { sessionCookie: "connect.sid=abc" },
+        // userConfig has no URL — the URL lives on globalConfig.
+        userConfig: { username: "u", password: "p" },
+      },
+    ]);
+
+    let observedResponse: unknown;
+    capabilityRegistry.register({
+      pluginId: "seerr-like",
+      module: {
+        manifest: {
+          id: "seerr-like",
+          name: "Seerr-like",
+          version: "1.0.0",
+          description: "",
+          author: { name: "t" },
+          sdkVersion: "^1.0.0",
+          allowedHosts: [],
+          globalConfigSchema: {
+            type: "object",
+            properties: {
+              baseUrl: { type: "string", "x-allowed-host": true },
+            },
+            required: ["baseUrl"],
+          },
+          userConfigSchema: {
+            type: "object",
+            properties: {
+              username: { type: "string" },
+              password: { type: "string", "x-secret": true },
+            },
+          },
+          credentialsSchema: { type: "object" },
+          auth: { kind: "form" },
+          capabilities: { library: { version: "v1", scope: "user" } },
+          poolable: false,
+        },
+        capabilities: {
+          library: {
+            list: async (ctx) => {
+              const c = ctx as {
+                fetch: (url: string, init?: RequestInit) => Promise<Response>;
+              };
+              const res = await c.fetch("https://requests.example.com/api/v1/request");
+              observedResponse = await res.json();
+              return { items: [] };
+            },
+          },
+        },
+      },
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.invoke<{ items: unknown[] }>({
+      pluginId: "seerr-like",
+      capability: "library",
+      version: "v1",
+      method: "list",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(result).toEqual({ items: [] });
+    expect(observedResponse).toEqual({ ok: true });
+    expect(fetchSpy).toHaveBeenCalledWith("https://requests.example.com/api/v1/request", {
+      redirect: "manual",
+    });
+  });
+
+  // Regression for PR #412 review feedback: an admin-set `globalConfig.baseUrl`
+  // pointing at a blocked address (cloud IMDS, loopback, link-local) must be
+  // rejected by `isBlockedHostname` before `ctx.fetch` executes. The SSRF block
+  // is enforced inside `hostnameFromValue` (covered by fetch-policy.test.ts at
+  // the unit level); this case locks it in through the full invoke() path so a
+  // future change to runtime context construction cannot silently lose the
+  // gate for the Seerr-shaped config.
+  it("rejects globalConfig.baseUrl pointing at a blocked address before ctx.fetch runs", async () => {
+    pluginRows.set("seerr-like", {
+      id: "seerr-like",
+      globalConfig: JSON.stringify({ baseUrl: "http://169.254.169.254" }),
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-1",
+        isDefault: true,
+        credentials: { sessionCookie: "connect.sid=abc" },
+        userConfig: { username: "u", password: "p" },
+      },
+    ]);
+
+    const capabilitySpy = vi.fn();
+    capabilityRegistry.register({
+      pluginId: "seerr-like",
+      module: {
+        manifest: {
+          id: "seerr-like",
+          name: "Seerr-like",
+          version: "1.0.0",
+          description: "",
+          author: { name: "t" },
+          sdkVersion: "^1.0.0",
+          allowedHosts: [],
+          globalConfigSchema: {
+            type: "object",
+            properties: {
+              baseUrl: { type: "string", "x-allowed-host": true },
+            },
+            required: ["baseUrl"],
+          },
+          userConfigSchema: {
+            type: "object",
+            properties: {
+              username: { type: "string" },
+              password: { type: "string", "x-secret": true },
+            },
+          },
+          credentialsSchema: { type: "object" },
+          auth: { kind: "form" },
+          capabilities: { library: { version: "v1", scope: "user" } },
+          poolable: false,
+        },
+        capabilities: {
+          library: {
+            list: async () => {
+              capabilitySpy();
+              return { items: [] };
+            },
+          },
+        },
+      },
+      enabled: true,
+    });
+
+    await expect(
+      pluginRuntime.invoke({
+        pluginId: "seerr-like",
+        capability: "library",
+        version: "v1",
+        method: "list",
+        input: {},
+        scope: "user",
+        userId: "user-1",
+      }),
+    ).rejects.toMatchObject({
+      code: "plugin.invalid_base_url",
+      params: { field: "baseUrl", hostname: "169.254.169.254" },
+    });
+    expect(capabilitySpy).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   // Regression: an `x-allowed-host` field on a `sharedCredentialsSchema` whose

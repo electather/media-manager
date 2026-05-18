@@ -103,7 +103,7 @@ export const ntfyPlugin = definePlugin({
     version: "0.1.0",
     sdkVersion: "^1.0.0",
     author: { name: "Media Manager" },
-    allowedHosts: ["*"],
+    allowedHosts: [],
     auth: { kind: "none" },
     capabilities: {
       notificationDelivery: {
@@ -120,6 +120,7 @@ export const ntfyPlugin = definePlugin({
           format: "uri",
           title: "ntfy server URL",
           description: "Base URL of your ntfy instance (e.g. https://ntfy.sh).",
+          "x-allowed-host": true,
         },
         topic: {
           type: "string",
