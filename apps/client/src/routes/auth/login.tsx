@@ -22,7 +22,8 @@ export const Route = createFileRoute("/auth/login")({
     redirect: z
       .string()
       .regex(/^\/(?!\/)/)
-      .optional(),
+      .optional()
+      .catch(() => undefined),
   }),
   component: LoginPage,
 });
