@@ -69,3 +69,88 @@ describe("withOAuthAuth audience verification", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe("withOAuthAuth claim validation", () => {
+  beforeEach(() => {
+    verifyAccessTokenMock.mockReset();
+  });
+
+  function reqWithBearer() {
+    return new Request("https://example.com/api/mcp", {
+      headers: { authorization: "Bearer token-abc" },
+    });
+  }
+
+  it("returns 401 when sub claim is missing", async () => {
+    // Regression: previously a missing sub claim was cast to string and
+    // propagated to the handler as `undefined`, breaking downstream code that
+    // assumed a valid userId.
+    verifyAccessTokenMock.mockResolvedValueOnce({ scope: "openid" });
+    const handler = vi.fn();
+
+    const res = await withOAuthAuth(reqWithBearer(), handler);
+
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 when sub claim is an empty string", async () => {
+    verifyAccessTokenMock.mockResolvedValueOnce({ sub: "", scope: "openid" });
+    const handler = vi.fn();
+
+    const res = await withOAuthAuth(reqWithBearer(), handler);
+
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 when sub claim is not a string", async () => {
+    verifyAccessTokenMock.mockResolvedValueOnce({ sub: 42, scope: "openid" });
+    const handler = vi.fn();
+
+    const res = await withOAuthAuth(reqWithBearer(), handler);
+
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 when scope claim is present but not a string", async () => {
+    // The spec allows scope to be absent or a space-delimited string. Anything
+    // else (array, number, object) is malformed and must be rejected rather
+    // than coerced.
+    verifyAccessTokenMock.mockResolvedValueOnce({ sub: "user-1", scope: ["openid"] });
+    const handler = vi.fn();
+
+    const res = await withOAuthAuth(reqWithBearer(), handler);
+
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("invokes the handler with an empty scope list when scope is absent", async () => {
+    verifyAccessTokenMock.mockResolvedValueOnce({ sub: "user-1" });
+    const handler = vi.fn().mockResolvedValue(new Response("ok"));
+
+    await withOAuthAuth(reqWithBearer(), handler);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const [, userId, scopes] = handler.mock.calls[0] as [Request, string, string[]];
+    expect(userId).toBe("user-1");
+    expect(scopes).toEqual([]);
+  });
+
+  it("invokes the handler with parsed scopes when scope is a valid string", async () => {
+    verifyAccessTokenMock.mockResolvedValueOnce({
+      sub: "user-1",
+      scope: "openid mcp:read mcp:write",
+    });
+    const handler = vi.fn().mockResolvedValue(new Response("ok"));
+
+    await withOAuthAuth(reqWithBearer(), handler);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const [, userId, scopes] = handler.mock.calls[0] as [Request, string, string[]];
+    expect(userId).toBe("user-1");
+    expect(scopes).toEqual(["openid", "mcp:read", "mcp:write"]);
+  });
+});
