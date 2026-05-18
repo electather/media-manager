@@ -156,17 +156,22 @@ export const adminUsersApp = new Hono()
     const body = c.req.valid("json");
     const db = getDb();
 
-    await requireUser(id);
+    const existing = await db.select({ email: user.email }).from(user).where(eq(user.id, id)).get();
+    if (!existing) throw userNotFound(id);
 
     if (body.email) {
       await requireUniqueEmail(body.email, id);
     }
+
+    // Only reset emailVerified when the email actually changes.
+    const emailChanged = body.email !== undefined && body.email !== existing.email;
 
     await db
       .update(user)
       .set({
         ...(body.name !== undefined && { name: body.name }),
         ...(body.email !== undefined && { email: body.email }),
+        ...(emailChanged && { emailVerified: false }),
       })
       .where(eq(user.id, id));
 

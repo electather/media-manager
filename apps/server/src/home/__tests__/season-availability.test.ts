@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { RowContext } from "../types";
+import type { RowContext } from "../internal/types";
 
 vi.mock("../../env", () => ({
   env: {
@@ -39,7 +39,7 @@ vi.mock("../../media", async () => {
   };
 });
 
-const { composeSeasonAvailability } = await import("../season-availability");
+const { composeSeasonAvailability } = await import("../internal/season-availability");
 
 function manifest(name: string) {
   return { module: { manifest: { name } } };
