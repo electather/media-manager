@@ -356,7 +356,14 @@ export const connectionsService = {
     const db = getDb();
     const row = await fetchConnectionByOwner(db, args.connectionId, args.userId);
     if (!row) return;
-    await db.delete(serviceConnections).where(eq(serviceConnections.id, args.connectionId));
+    await db
+      .delete(serviceConnections)
+      .where(
+        and(
+          eq(serviceConnections.id, args.connectionId),
+          eq(serviceConnections.userId, args.userId),
+        ),
+      );
     await invalidateUserCache(args.userId);
     if (row.isDefault === 1) {
       // Promote another enabled connection to default if any remain.
@@ -407,7 +414,12 @@ export const connectionsService = {
         lastVerifiedAt: result.ok ? Date.now() : row.lastVerifiedAt,
         updatedAt: Date.now(),
       })
-      .where(eq(serviceConnections.id, args.connectionId));
+      .where(
+        and(
+          eq(serviceConnections.id, args.connectionId),
+          eq(serviceConnections.userId, args.userId),
+        ),
+      );
     return result;
   },
 
