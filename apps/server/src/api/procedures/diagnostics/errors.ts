@@ -75,7 +75,6 @@ export const errorsReportApp = new Hono()
         code: body.code,
         route: body.route,
         userId: session?.user.id ?? null,
-        requestId: body.requestId,
         context: body.context,
       });
     } catch {

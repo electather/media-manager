@@ -21,12 +21,10 @@ function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | 
 
 /** Frontend-side error capture. Fires a fire-and-forget POST to
  *  `/api/diagnostics/errors` with the serialized error. Threads any ambient
- *  request id off the DOM so the record chains with the Hono RPC call that
- *  triggered it — sent both as the `X-Request-Id` header and inside the body
- *  so the server picks it up even when the AsyncLocalStorage frame is missing
- *  (e.g. global window.error fires outside an RPC). Swallows transport
- *  failures intentionally — we never want "error capture failed" to surface
- *  in the UI.
+ *  request id off the DOM via the `X-Request-Id` header so the record chains
+ *  with the Hono RPC call that triggered it (server picks it up through the
+ *  request-context middleware). Swallows transport failures intentionally —
+ *  we never want "error capture failed" to surface in the UI.
  *
  *  Note: we deliberately do *not* attach `window.location.pathname` as the
  *  `route` field. The diagnostics design doc requires `route` to be a
@@ -45,7 +43,6 @@ export async function reportError(
       severity,
       code,
       context,
-      ...(requestId ? { requestId } : {}),
       ...serialize(err),
     };
     const headers: Record<string, string> = { "content-type": "application/json" };

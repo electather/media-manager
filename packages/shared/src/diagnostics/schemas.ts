@@ -26,7 +26,6 @@ export const errorReportSchema = z.object({
   stack: z.string().max(10000).optional(),
   route: z.string().max(500).optional(),
   code: z.string().max(200).optional(),
-  requestId: z.string().max(100).optional(),
   // Cap at 20 keys × 1000-char string values to keep total context size bounded;
   // anything richer should be flattened on the client before reporting.
   context: z

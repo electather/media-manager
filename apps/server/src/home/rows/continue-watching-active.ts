@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { orderBy } from "es-toolkit/array";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
-import { decodeCursor, encodeCursor } from "../cursor";
-import { fromContinueWatchingEntry } from "../adapters";
-import type { RowProvider } from "../types";
+import { decodeCursor, encodeCursor } from "../internal/cursor";
+import { fromContinueWatchingEntry } from "../internal/adapters";
+import type { RowProvider } from "../internal/types";
 
 const PAGE_SIZE = 12;
 const FINISHING_THRESHOLD = 0.85;
