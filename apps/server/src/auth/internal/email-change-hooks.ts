@@ -67,30 +67,47 @@ export interface EmailChangeHooks {
  *   the Map slot. SQLite serialises writes so this is unlikely in practice,
  *   and at worst it skips a notification rather than misdirecting one.
  */
+function extractTargetUserId(ctx: unknown): string | null {
+  const id = (ctx as UpdateHookCtxLike)?.context?.session?.user?.id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
 export function createEmailChangeHooks(deps: EmailChangeHookDeps): EmailChangeHooks {
   const pending = new Map<string, string>();
   const log = deps.logger ?? consola;
 
+  const capturePreviousEmail = async (targetId: string): Promise<void> => {
+    try {
+      const email = await deps.readUserEmail(targetId);
+      if (email !== null) pending.set(targetId, email);
+    } catch (err) {
+      log.warn("[auth] failed to capture pre-update email for change notification", err);
+    }
+  };
+
+  const dispatchNotification = async (previousEmail: string, newEmail: string): Promise<void> => {
+    try {
+      await deps.sendEmail({
+        to: previousEmail,
+        subject: "Your email address was changed",
+        text: `Your account email was changed to ${newEmail}. If you did not approve this, contact support immediately.`,
+      });
+    } catch (err) {
+      log.warn("[auth] failed to send email-change notification", err);
+    }
+  };
+
   return {
     before: async (_data, ctx) => {
-      const targetId = (ctx as UpdateHookCtxLike)?.context?.session?.user?.id;
-      if (typeof targetId !== "string" || targetId.length === 0) return;
-      try {
-        const email = await deps.readUserEmail(targetId);
-        if (email !== null) pending.set(targetId, email);
-      } catch (err) {
-        log.warn("[auth] failed to capture pre-update email for change notification", err);
-      }
+      const targetId = extractTargetUserId(ctx);
+      if (targetId === null) return;
+      await capturePreviousEmail(targetId);
     },
     after: async (updatedUser) => {
       const previousEmail = pending.get(updatedUser.id);
       pending.delete(updatedUser.id);
       if (!previousEmail || previousEmail === updatedUser.email) return;
-      await deps.sendEmail({
-        to: previousEmail,
-        subject: "Your email address was changed",
-        text: `Your account email was changed to ${updatedUser.email}. If you did not approve this, contact support immediately.`,
-      });
+      await dispatchNotification(previousEmail, updatedUser.email);
     },
   };
 }

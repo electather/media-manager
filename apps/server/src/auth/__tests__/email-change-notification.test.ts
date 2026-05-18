@@ -70,6 +70,23 @@ describe("createEmailChangeHooks", () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
+  it("swallows sendEmail errors so the user update is not blocked", async () => {
+    const sendEmail = vi.fn().mockRejectedValue(new Error("smtp down"));
+    const warn = vi.fn();
+    const hooks = createEmailChangeHooks({
+      readUserEmail: async () => "old@example.com",
+      sendEmail,
+      logger: { warn },
+    });
+
+    await hooks.before({ email: "new@example.com" }, ctxFor("user-1"));
+    // The after hook must NOT throw — provider failure is a side effect, not
+    // a reason to surface a 500 on the underlying user update.
+    await expect(hooks.after({ id: "user-1", email: "new@example.com" })).resolves.toBeUndefined();
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("swallows DB read errors so the user update is not blocked", async () => {
     const sendEmail = vi.fn().mockResolvedValue(undefined);
     const warn = vi.fn();
