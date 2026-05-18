@@ -122,4 +122,22 @@ describe("captureError", () => {
     });
     expect(collector.records.at(-1)!.severity).toBe("error");
   });
+
+  it("ignores body.requestId — ALS wins", async () => {
+    // Regression for issue #286: the frontend error report endpoint must not
+    // let a client-supplied `body.requestId` override the server-issued ALS
+    // value, or a malicious client could spoof correlation ids on records.
+    // The procedure no longer forwards `body.requestId` to `captureError`, so
+    // captures made inside `runWithRequestContext` always stamp the ALS id.
+    await runWithRequestContext(
+      { requestId: "server-req-id", userId: null, route: null },
+      async () => {
+        await captureError(new Error("spoof"), {
+          severity: "error",
+          source: "frontend",
+        });
+      },
+    );
+    expect(collector.records.at(-1)!.requestId).toBe("server-req-id");
+  });
 });

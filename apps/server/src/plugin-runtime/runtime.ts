@@ -846,12 +846,15 @@ export class PluginRuntime {
       pool,
     } = opts;
     // For user picks, inject an admin credential as sharedCredentials (e.g. Trakt's
-    // OAuth client id). Skip any admin pick already marked exhausted so we don't hand
-    // a rate-limited secret to a subsequent user call.
+    // OAuth client id). Prefer a non-exhausted admin pick so we don't hand a
+    // rate-limited access token to a subsequent user call, but fall back to any
+    // admin pick when all are exhausted: the admin credential used as an OAuth
+    // client id is not rate-limited itself — only the user's access token was.
     const adminPick =
       pick.side === "admin"
         ? pick
-        : plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId));
+        : (plan.find((p) => p.side === "admin" && !exhaustedAdminIds.has(p.entryId)) ??
+          plan.find((p) => p.side === "admin"));
     // Resolve per-invocation `x-allowed-host` hostnames from whichever config
     // matches the current pick: user-scoped picks read `userConfigSchema` against
     // the stored `userConfig`; admin-scoped picks read `sharedCredentialsSchema`.
