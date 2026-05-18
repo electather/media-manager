@@ -1,6 +1,6 @@
 import { uniqBy } from "es-toolkit";
 
-import type { RowProvider } from "../types";
+import type { RowProvider } from "../internal/types";
 import { loadCanonicalItems, probeMediaEntry, type MediaKey } from "./_shared";
 
 const PAGE_SIZE = 12;
