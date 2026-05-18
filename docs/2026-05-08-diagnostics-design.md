@@ -205,8 +205,8 @@ error_records
 ├── severity        text NOT NULL        "error"|"warning"|"info"
 ├── source          text NOT NULL        "frontend"|"backend"|"plugin"|"cron"
 ├── code            text                 nullable for unhandled
-├── dev_message     text NOT NULL
-├── stack           text
+├── dev_message     text NOT NULL       free-text scrubbed (§DM.Ctx)
+├── stack           text                 free-text scrubbed (§DM.Ctx)
 ├── user_id         text FK→user.id      nullable
 ├── plugin_id       text FK→plugins.id   nullable
 ├── connection_id   text FK→service_connections.id  nullable
@@ -250,11 +250,17 @@ app_config (existing row)
 ├── perf_retention_days    int   default 7      ← new
 ```
 
-### §DM.Ctx Context blob (errors only)
+### §DM.Ctx Context blob + free-text scrubbing (errors only)
 
-JSON + scrub on write. Allowed: RPC input shape (names+types ⊥ values), handler fields worked, plugin method, HTTP status, UA. Scrubbed: ∀ value ∈ credentials | `user_config` | `global_config`; key match `password|api_key|token|authorization|secret|credentials|apikey|api-key`; `Set-Cookie|Authorization` headers.
+**Context blob.** JSON + scrub on write. Allowed: RPC input shape (names+types ⊥ values), handler fields worked, plugin method, HTTP status, UA. Scrubbed: ∀ value ∈ credentials | `user_config` | `global_config`; key match `password|passwd|pwd|api_key|apikey|api-key|token|authorization|bearer|secret|credentials|cookie|private_key`; `Set-Cookie|Authorization` headers.
 
-Scrubber @ `apps/server/src/diagnostics/scrubber.ts`. Explicit patterns; additions reviewed.
+**Free-text fields.** `dev_message` ∧ `stack` ⊥ structured → key-based scrub ⊥ apply. `scrubText` runs on write covering:
+
+- `Bearer <token>` → `Bearer [REDACTED]` (auth headers leaked into error strings).
+- URL query params matching `SENSITIVE_KEY_PATTERNS` substring → `name=[REDACTED]` (covers OAuth `access_token`/`refresh_token`/`id_token`, `client_secret`, bare `token`/`api_key`/`password`/`cookie`).
+- JWT-shaped strings (`eyJ…` three base64url segments) → `[JWT_REDACTED]`.
+
+Scrubber @ `apps/server/src/diagnostics/scrubber.ts` — sole owner of `SENSITIVE_KEY_PATTERNS`, `scrub`, `scrubText`, `serializeContext`. Explicit patterns; additions reviewed.
 
 **Credentials ⊥ enter diag layer.** Sandbox throws ⊥ pull `ctx`. RPC ⊥ auto-capture bodies. Arch guarantee, ⊥ scrubber as safety. Perf records → no context blob (no risk surface).
 

@@ -111,6 +111,54 @@ describe("captureError", () => {
     expect(collector.records.at(-1)!.severity).toBe("error");
   });
 
+  it("redacts OAuth-style query params in devMessage and stack", async () => {
+    // OAuth flows produce URLs with credential-bearing query params; the
+    // capture regex must catch the full family of `*_token` / `*_secret`
+    // names, not just the literal `token`/`secret` keys.
+    const err = new Error("request to https://idp.example.com/cb?refresh_token=xyz failed");
+    err.stack = [
+      "Error: oauth boom",
+      "    at https://idp.example.com/cb?access_token=abc&state=42",
+      "    at next (https://idp.example.com/exchange?client_secret=shh)",
+      "    at legacy (https://api.example.com/v1?token=plain)",
+    ].join("\n");
+
+    await captureError(err, { source: "backend" });
+    const record = collector.records.at(-1)!;
+
+    expect(record.devMessage).toContain("refresh_token=[REDACTED]");
+    expect(record.devMessage).not.toContain("xyz");
+
+    expect(record.stack).toContain("access_token=[REDACTED]");
+    expect(record.stack).not.toContain("abc");
+    expect(record.stack).toContain("client_secret=[REDACTED]");
+    expect(record.stack).not.toContain("shh");
+    // Bare `token=` still works (regression for the original regex behaviour).
+    expect(record.stack).toContain("token=[REDACTED]");
+    expect(record.stack).not.toContain("plain");
+    // Non-sensitive params are left alone.
+    expect(record.stack).toContain("state=42");
+  });
+
+  it("redacts Bearer headers and JWT-shaped tokens in devMessage", async () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    await captureError(new Error(`auth failed: Bearer abc123 (jwt=${jwt})`), { source: "backend" });
+    const record = collector.records.at(-1)!;
+    expect(record.devMessage).toContain("Bearer [REDACTED]");
+    expect(record.devMessage).not.toContain("abc123");
+    expect(record.devMessage).toContain("[JWT_REDACTED]");
+    expect(record.devMessage).not.toContain(jwt);
+  });
+
+  it("leaves stack as null when neither meta.stack nor err.stack is set", async () => {
+    // Non-Error throw value → stackFrom returns null; scrub must not run on null.
+    await captureError("plain string failure", { source: "backend" });
+    const record = collector.records.at(-1)!;
+    expect(record.stack).toBeNull();
+    expect(record.devMessage).toBe("plain string failure");
+  });
+
   it("respects an explicit severity override from the caller", async () => {
     // `plugin.output_invalid` defaults to warning but a caller can bump it
     // up (or down) for a specific path.
