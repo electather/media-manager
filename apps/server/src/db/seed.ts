@@ -68,7 +68,7 @@ export async function seedRoles(): Promise<void> {
 
 /**
  * Seeds a local admin user for development. Never called in production.
- * Credentials: admin@me.com / password123
+ * A random password is generated on first run and printed to stdout once.
  */
 export async function seedDevUser(): Promise<void> {
   const db = getDb();
@@ -85,11 +85,13 @@ export async function seedDevUser(): Promise<void> {
   if (existing) {
     userId = existing.id;
   } else {
+    // Generate a random password so the hardcoded fallback never persists.
+    const password = crypto.randomUUID().replace(/-/g, "");
     const result = await auth.api.signUpEmail({
-      body: { email: "admin@me.com", password: "password123", name: "Admin" },
+      body: { email: "admin@me.com", password, name: "Admin" },
     });
     userId = result.user.id;
-    consola.success("Dev admin user created: admin@me.com / password123");
+    consola.success(`Dev admin user created: admin@me.com / ${password}`);
   }
 
   // Assign admin role, no-op if already assigned.
