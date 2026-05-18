@@ -326,6 +326,8 @@ On `status: "completed"` (auth kinds other than `none`): host merges `userConfig
 
 Creds & device codes ⊥ logged. `pending_auth` rows have 15-min TTL with nightly sweep.
 
+**Atomic nonce consumption.** Completion paths (`oauth_redirect`, `oauth_device`) consume the `pending_auth` row via `DELETE ... RETURNING` keyed on `(nonce, userId)` BEFORE writing the `service_connections` row. Only the caller whose DELETE returns a row proceeds to `writeConnection`; concurrent completions for the same nonce see zero returned rows and surface a typed error (`oauth.concurrent_completion` on `completeRedirectAuth`, `{ status: "error", message: "auth nonce already consumed by a concurrent request" }` on `pollDeviceAuth`). Prevents the TOCTOU window where two callbacks racing on the same nonce both pass `loadPendingAuth` and write duplicate connection rows. Trade-off: if `writeConnection` throws after the DELETE succeeds, the nonce is gone and the user restarts OAuth — accepted, duplicate rows are the worse failure mode.
+
 ## Capability Interfaces
 
 Typed contract between host & plugin. Host defines as Zod schemas; build script generates `.d.ts` committed to repo. Plugin authors import generated types for dev-time safety.

@@ -169,7 +169,9 @@ async function loadPendingAuth(
     .get();
   if (!row) return { found: false, reason: "not_found" };
   if (row.expiresAt < Date.now()) {
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, nonce));
+    await db
+      .delete(pendingAuth)
+      .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)));
     return { found: false, reason: "expired" };
   }
   const state = await decryptJson(row.stateIv, row.state);
@@ -191,8 +193,24 @@ async function runStartAuth<S extends "redirect" | "display_code">(
   return result as Extract<AuthResult, { status: S }>;
 }
 
-/** Writes a connection row and deletes the consumed `pendingAuth` record. */
-async function writeAndCleanupPendingAuth(
+/**
+ * Atomically consumes the `pendingAuth` row before writing the connection.
+ *
+ * Uses `DELETE ... RETURNING` so only the caller that actually removes the
+ * row proceeds to `writeConnection`. Concurrent completions for the same
+ * nonce see zero rows returned and signal via `consumed: false`, allowing
+ * callers to surface a typed error instead of creating duplicate rows.
+ *
+ * The DELETE filters on both `nonce` and `userId` to mirror `loadPendingAuth`'s
+ * predicate — a request authenticated as one user cannot consume another
+ * user's pending row even if the nonce somehow leaks.
+ *
+ * Order matters: the delete happens BEFORE `writeConnection`. If the write
+ * throws, the nonce is already gone and the user must restart the OAuth flow.
+ * That trade-off is deliberate — a failed write is recoverable, a duplicate
+ * connection row is not. Do not "fix" this by swapping the order.
+ */
+async function consumeAndWritePendingAuth(
   db: ReturnType<typeof getDb>,
   nonce: string,
   {
@@ -204,15 +222,19 @@ async function writeAndCleanupPendingAuth(
     pluginId: string;
     result: Extract<AuthResult, { status: "completed" }>;
   },
-): Promise<string> {
+): Promise<{ consumed: true; id: string } | { consumed: false }> {
+  const deleted = await db
+    .delete(pendingAuth)
+    .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)))
+    .returning({ nonce: pendingAuth.nonce });
+  if (deleted.length === 0) return { consumed: false };
   const id = await writeConnection({
     userId,
     pluginId,
     credentials: result.credentials,
     userConfig: applyUserConfigPatch(null, result.userConfigPatch),
   });
-  await db.delete(pendingAuth).where(eq(pendingAuth.nonce, nonce));
-  return id;
+  return { consumed: true, id };
 }
 
 // fallow-ignore-next-line complexity
@@ -378,7 +400,9 @@ export async function completeRedirectAuth(args: {
   )) as AuthResult;
   if (result.status !== "completed") {
     if (result.status === "error") {
-      await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+      await db
+        .delete(pendingAuth)
+        .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)));
       throw unprocessable("connection.verify_failed", result.devMessage, {
         message: result.devMessage,
       });
@@ -387,12 +411,18 @@ export async function completeRedirectAuth(args: {
       status: result.status,
     });
   }
-  const connectionId = await writeAndCleanupPendingAuth(db, args.nonce, {
+  const outcome = await consumeAndWritePendingAuth(db, args.nonce, {
     userId: args.userId,
     pluginId: auth.row.pluginId,
     result,
   });
-  return { connectionId };
+  if (!outcome.consumed) {
+    throw unprocessable(
+      "oauth.concurrent_completion",
+      "auth nonce already consumed by a concurrent request",
+    );
+  }
+  return { connectionId: outcome.id };
 }
 
 export async function initiateDeviceAuth(args: { userId: string; pluginId: string }): Promise<{
@@ -445,15 +475,23 @@ export async function pollDeviceAuth(args: {
   )) as AuthResult;
   if (result.status === "pending") return { status: "pending" };
   if (result.status === "completed") {
-    const connectionId = await writeAndCleanupPendingAuth(db, args.nonce, {
+    const outcome = await consumeAndWritePendingAuth(db, args.nonce, {
       userId: args.userId,
       pluginId: auth.row.pluginId,
       result,
     });
-    return { status: "completed", connectionId };
+    if (!outcome.consumed) {
+      return {
+        status: "error",
+        message: "auth nonce already consumed by a concurrent request",
+      };
+    }
+    return { status: "completed", connectionId: outcome.id };
   }
   if (result.status === "error") {
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+    await db
+      .delete(pendingAuth)
+      .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)));
     return { status: "error", message: result.devMessage };
   }
   return { status: "error", message: `unexpected status: ${result.status}` };
