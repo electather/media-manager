@@ -210,7 +210,7 @@ export async function promoteToDefault(
     await tx
       .update(serviceConnections)
       .set({ isDefault: 1, updatedAt: now })
-      .where(eq(serviceConnections.id, connectionId));
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
   });
 }
 
@@ -229,7 +229,7 @@ async function ensureDefaultIfFirst(
     await db
       .update(serviceConnections)
       .set({ isDefault: 1 })
-      .where(eq(serviceConnections.id, connectionId));
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
   }
 }
 

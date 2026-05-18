@@ -343,7 +343,12 @@ export const connectionsService = {
         lastVerifiedAt: Date.now(),
         updatedAt: Date.now(),
       })
-      .where(eq(serviceConnections.id, args.connectionId));
+      .where(
+        and(
+          eq(serviceConnections.id, args.connectionId),
+          eq(serviceConnections.userId, args.userId),
+        ),
+      );
     await invalidateUserCache(args.userId);
   },
 
@@ -371,7 +376,9 @@ export const connectionsService = {
         await db
           .update(serviceConnections)
           .set({ isDefault: 1, updatedAt: Date.now() })
-          .where(eq(serviceConnections.id, next.id));
+          .where(
+            and(eq(serviceConnections.id, next.id), eq(serviceConnections.userId, args.userId)),
+          );
       }
     }
   },
