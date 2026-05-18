@@ -116,6 +116,7 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
 
   let timedOut = false;
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  let runStarted = false;
 
   let execResult: Awaited<ReturnType<typeof executeHandlerWithCapture>>;
   try {
@@ -132,6 +133,7 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
       startedAt,
       coalescedCount: req.coalescedCount ?? null,
     });
+    runStarted = true;
 
     const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
     timeoutHandle = setTimeout(() => {
@@ -150,6 +152,15 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
     };
 
     execResult = await executeHandlerWithCapture(req, ctx, cfg, requestId, route);
+  } catch (err) {
+    // If startRun succeeded but a later step threw before executeHandlerWithCapture
+    // could finalize the row, finalize it here as failed so the row does not stay
+    // stuck at "running". executeHandlerWithCapture has its own try/catch today and
+    // never re-throws — this guards future code added between startRun and execute.
+    if (runStarted) {
+      await finalizeOrphanedRunAsFailed({ runId, jobId: req.jobId, startedAt });
+    }
+    throw err;
   } finally {
     if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
     active.delete(activeKey(req.jobId, req.scopeKey));
@@ -302,6 +313,32 @@ async function safeEmit(fn: () => Promise<void>): Promise<void> {
     await fn();
   } catch (err) {
     consola.error(`[runner] notification emit failed:`, err);
+  }
+}
+
+async function finalizeOrphanedRunAsFailed(args: {
+  runId: string;
+  jobId: string;
+  startedAt: number;
+}): Promise<void> {
+  const finishedAt = Date.now();
+  try {
+    await finishRun({
+      id: args.runId,
+      jobId: args.jobId,
+      status: "failed",
+      finishedAt,
+      durationMs: finishedAt - args.startedAt,
+      errorRecordId: null,
+      result: undefined,
+      logs: null,
+      logsTruncated: 0,
+      rowsTotal: null,
+      rowsSucceeded: null,
+      rowsFailed: null,
+    });
+  } catch (err) {
+    consola.error(`[runner] failed to finalize orphaned run ${args.runId}:`, err);
   }
 }
 
