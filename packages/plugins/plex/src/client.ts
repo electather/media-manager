@@ -83,7 +83,13 @@ export async function plexServerFetch(
   const cfg = readUserConfig(ctx);
   const url = `${pickFetchBase(cfg)}${path}`;
   const headers = { ...serverHeaders(ctx), ...(init.headers as Record<string, string>) };
-  return ctx.fetch(url, { ...init, headers });
+  // Disable automatic redirect following so that X-Plex-Token is never
+  // forwarded to a third-party host via a redirect response.
+  const res = await ctx.fetch(url, { ...init, headers, redirect: "manual" });
+  if (res.status >= 300 && res.status < 400) {
+    throw pluginError("plugin.upstream_error", `Plex returned unexpected redirect (${res.status})`);
+  }
+  return res;
 }
 
 /**
