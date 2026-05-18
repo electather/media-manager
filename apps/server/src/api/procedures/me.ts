@@ -12,7 +12,7 @@ import { TokenBucketLimiter } from "../../mcp/rate-limit";
 
 // 5 exports per hour per user. The export builds a multi-table ZIP in memory,
 // so a low burst cap is intentional to prevent memory exhaustion from flooding.
-const exportLimiter = new TokenBucketLimiter({ capacity: 5, refillPerSec: 5 / 3600 });
+export const exportLimiter = new TokenBucketLimiter({ capacity: 5, refillPerSec: 5 / 3600 });
 
 export const meApp = new Hono()
   .use("*", requireSession)
@@ -32,8 +32,11 @@ export const meApp = new Hono()
   })
   .get("/export", async (c) => {
     const userId = sessionUserId(c);
-    if (exportLimiter.check(userId) !== null) {
-      return c.json({ code: "rate_limited", message: "too many export requests" }, 429);
+    const limited = exportLimiter.check(userId);
+    if (limited !== null) {
+      const retryAfter =
+        (limited.details as { retry_after: number } | undefined)?.retry_after ?? 3600;
+      return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
     }
     const { zipBytes, filename } = await buildUserExport(getDb(), userId);
     return new Response(zipBytes, {
