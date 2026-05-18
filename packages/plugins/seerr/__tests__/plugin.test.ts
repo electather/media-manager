@@ -82,6 +82,25 @@ describe("seerr auth lifecycle", () => {
     }
   });
 
+  it("startAuth: userConfigPatch nulls the password on success", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 7 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc123; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+    if (result.status === "completed") {
+      expect(result.userConfigPatch).toEqual({ password: null });
+    }
+  });
+
   it("testConnection: returns ok true on 200", async () => {
     const ctx = makeTestContext({
       responses: [statusRes(200)],

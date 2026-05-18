@@ -127,6 +127,7 @@ export default definePlugin({
         sessionCookie,
         userId: user.id,
       },
+      userConfigPatch: { password: null },
     };
   },
 
