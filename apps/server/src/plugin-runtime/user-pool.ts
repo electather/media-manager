@@ -41,9 +41,11 @@ export async function listReadyUserConnections(
     if (row.userConfig) {
       try {
         userConfig = JSON.parse(row.userConfig) as unknown;
-      } catch {
+      } catch (err) {
         // Skip the corrupted row; log for ops visibility.
-        console.warn(`[user-pool] malformed userConfig for connection ${row.id}, skipping`);
+        console.warn(
+          `[user-pool] malformed userConfig row id=${row.id}: ${(err as Error).message}`,
+        );
         continue;
       }
     }
