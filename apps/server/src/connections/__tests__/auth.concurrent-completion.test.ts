@@ -18,37 +18,8 @@ vi.mock("../../plugin-runtime", async () => {
 });
 
 const writeConnection = vi.fn();
-vi.mock("../helpers", async () => {
-  const actual = await vi.importActual<typeof import("../helpers")>("../helpers");
-  return { ...actual, writeConnection };
-});
-
-// Stub the db layer so tests control what DELETE...RETURNING returns.
-const mockDelete = vi.fn();
-const mockWhere = vi.fn();
-const mockReturning = vi.fn();
-vi.mock("../../db/client", () => ({
-  getDb: () => ({
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({
-            nonce: "nonce-1",
-            userId: "user-1",
-            pluginId: "trakt",
-            state: "encrypted-state",
-            stateIv: "iv",
-            createdAt: Date.now() - 1000,
-            expiresAt: Date.now() + 60_000,
-          }),
-        }),
-      }),
-    }),
-    delete: mockDelete,
-  }),
-}));
-
-// Stub encryptJson / decryptJson so the test doesn't need real crypto.
+// Stubs encryptJson / decryptJson alongside writeConnection so the test does
+// not exercise real crypto or assume a particular helper export shape.
 vi.mock("../helpers", async () => {
   const actual = await vi.importActual<typeof import("../helpers")>("../helpers");
   return {
@@ -58,6 +29,34 @@ vi.mock("../helpers", async () => {
     decryptJson: vi.fn().mockResolvedValue({ token: "tok" }),
   };
 });
+
+// Captures the predicate handed to the pending-auth SELECT so the race tests
+// can assert the nonce + userId filters are not silently dropped or inverted.
+const selectWhere = vi.fn();
+const mockDelete = vi.fn();
+vi.mock("../../db/client", () => ({
+  getDb: () => ({
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: (predicate: unknown) => {
+          selectWhere(predicate);
+          return {
+            get: vi.fn().mockResolvedValue({
+              nonce: "nonce-1",
+              userId: "user-1",
+              pluginId: "trakt",
+              state: "encrypted-state",
+              stateIv: "iv",
+              createdAt: Date.now() - 1000,
+              expiresAt: Date.now() + 60_000,
+            }),
+          };
+        },
+      }),
+    }),
+    delete: mockDelete,
+  }),
+}));
 
 const { completeRedirectAuth, pollDeviceAuth } = await import("../auth");
 
@@ -71,13 +70,12 @@ function makeDeleteChain(rows: Array<{ nonce: string }>) {
   return chain;
 }
 
-describe("writeAndCleanupPendingAuth — concurrent nonce consumption", () => {
+describe("consumeAndWritePendingAuth — concurrent nonce consumption", () => {
   beforeEach(() => {
     runAuth.mockReset();
     writeConnection.mockReset();
     mockDelete.mockReset();
-    mockWhere.mockReset();
-    mockReturning.mockReset();
+    selectWhere.mockReset();
   });
 
   describe("completeRedirectAuth", () => {
@@ -107,7 +105,8 @@ describe("writeAndCleanupPendingAuth — concurrent nonce consumption", () => {
 
     it("returns connectionId when DELETE...RETURNING succeeds (nonce consumed first)", async () => {
       // Normal path: this call wins the race and gets the nonce.
-      mockDelete.mockReturnValue(makeDeleteChain([{ nonce: "nonce-1" }]));
+      const chain = makeDeleteChain([{ nonce: "nonce-1" }]);
+      mockDelete.mockReturnValue(chain);
 
       runAuth.mockResolvedValueOnce({
         status: "completed",
@@ -124,6 +123,11 @@ describe("writeAndCleanupPendingAuth — concurrent nonce consumption", () => {
 
       expect(result).toEqual({ connectionId: "conn-1" });
       expect(writeConnection).toHaveBeenCalledOnce();
+      // Sanity-check that loadPendingAuth filtered on the caller's nonce + userId
+      // rather than dropping the predicate.
+      expect(selectWhere).toHaveBeenCalledOnce();
+      const predicate = selectWhere.mock.calls[0]?.[0];
+      expect(predicate).toBeTruthy();
     });
   });
 
