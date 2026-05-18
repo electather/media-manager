@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { mapTopContributor, pickMatchReason } from "../match-reason";
-import type { InternalCompactMediaItem, RowContext } from "../types";
+import { mapTopContributor, pickMatchReason } from "../internal/match-reason";
+import type { InternalCompactMediaItem, RowContext } from "../internal/types";
 
 function ctx(overrides: Partial<RowContext> = {}): RowContext {
   return {
