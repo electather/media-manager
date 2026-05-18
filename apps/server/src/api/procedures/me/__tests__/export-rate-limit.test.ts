@@ -78,6 +78,10 @@ describe("/me/export rate limit", () => {
     };
     expect(body.code).toBe("mcp.rate_limited");
     expect(body.details?.retry_after).toBe(Number(retryAfter));
+
+    // The whole point of the limit is that the expensive ZIP build is *skipped*
+    // when rate-limited — so the spy must still show only the 5 passing calls.
+    expect(buildExportSpy).toHaveBeenCalledTimes(5);
   });
 
   it("isolates buckets per user", async () => {

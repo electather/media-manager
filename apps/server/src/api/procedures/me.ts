@@ -34,7 +34,7 @@ export const meApp = new Hono()
     const userId = sessionUserId(c);
     const limited = exportLimiter.check(userId);
     if (limited !== null) {
-      const retryAfter = (limited.params?.retry_after as number | undefined) ?? 3600;
+      const retryAfter = Number(limited.params?.retry_after ?? 3600);
       return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
     }
     const { zipBytes, filename } = await buildUserExport(getDb(), userId);
