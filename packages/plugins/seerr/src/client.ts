@@ -57,8 +57,8 @@ export async function seerrGet<T>(ctx: Ctx, path: string): Promise<T> {
   });
   handleStatus(res);
   if (!res.ok) {
-    const body = (await res.text()).slice(0, 200);
-    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${body}`);
+    const errBody = (await res.text()).slice(0, 200);
+    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${errBody}`);
   }
   return res.json() as Promise<T>;
 }
@@ -74,8 +74,8 @@ export async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promi
   });
   handleStatus(res);
   if (!res.ok) {
-    const body = (await res.text()).slice(0, 200);
-    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${body}`);
+    const errBody = (await res.text()).slice(0, 200);
+    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${errBody}`);
   }
   return res.json() as Promise<T>;
 }
