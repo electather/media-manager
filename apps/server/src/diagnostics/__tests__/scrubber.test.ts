@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { scrub, serializeContext } from "../scrubber";
+import { scrub, scrubStringValue, serializeContext } from "../scrubber";
 
 describe("scrub", () => {
   it("redacts values under sensitive top-level keys", () => {
@@ -54,6 +54,62 @@ describe("scrub", () => {
     }
     const out = scrub(root);
     expect(out).toBeDefined();
+  });
+});
+
+describe("scrubStringValue", () => {
+  it("redacts the token after `Bearer `", () => {
+    expect(scrubStringValue("Authorization header is Bearer abc123def456")).toBe(
+      "Authorization header is Bearer [REDACTED]",
+    );
+  });
+
+  it("redacts sensitive `key=value` pairs in URL query strings", () => {
+    expect(scrubStringValue("https://api.example.com/v1?token=ak_live_xyz&user=alice")).toBe(
+      "https://api.example.com/v1?token=[REDACTED]&user=alice",
+    );
+  });
+
+  it("redacts sensitive `key=value` pairs in bare log-like text", () => {
+    expect(scrubStringValue("login failed: password=hunter2 user=alice")).toBe(
+      "login failed: password=[REDACTED] user=alice",
+    );
+  });
+
+  it("redacts sensitive `key: value` pairs in header-style text", () => {
+    expect(scrubStringValue("authorization: ak_live_xyz request_id=42")).toBe(
+      "authorization: [REDACTED] request_id=42",
+    );
+  });
+
+  it("redacts JWT-shaped strings", () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    expect(scrubStringValue(`token is ${jwt}`)).toBe("token is [JWT_REDACTED]");
+  });
+
+  it("does not redact SHA-256 hex digests in plain text", () => {
+    // 64-char hex looks high-entropy but is not a secret in our diagnostic context.
+    const sha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    expect(scrubStringValue(`commit ${sha256} merged`)).toBe(`commit ${sha256} merged`);
+  });
+
+  it("does not redact UUIDs without dashes in plain text", () => {
+    const uuid = "550e8400e29b41d4a716446655440000";
+    expect(scrubStringValue(`request ${uuid} completed`)).toBe(`request ${uuid} completed`);
+  });
+
+  it("does not redact CUID2 identifiers in plain text", () => {
+    // CUID2 is ~24 chars of mixed-case alphanum, typical of internal record IDs.
+    const cuid2 = "ckpvj8q3z0000m1n3o5p7r9t2";
+    expect(scrubStringValue(`record ${cuid2} not found`)).toBe(`record ${cuid2} not found`);
+  });
+
+  it("does not redact long base64-looking identifiers without a sensitive-key context", () => {
+    // A 44-char alphanum run with mixed case and digits; in the old broad
+    // regex this would have been redacted as a false positive.
+    const payload = "abcdefABCDEF0123456789abcdefABCDEF0123456789AB";
+    expect(scrubStringValue(`payload ${payload} processed`)).toBe(`payload ${payload} processed`);
   });
 });
 

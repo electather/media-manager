@@ -20,29 +20,45 @@ const SENSITIVE_KEY_PATTERNS = [
 
 const REDACTED = "[REDACTED]";
 
+/** Regex-escaped alternation of sensitive key fragments, derived from
+ *  `SENSITIVE_KEY_PATTERNS` so the two lists never drift apart. */
+const SENSITIVE_KEYS_ALTERNATION = SENSITIVE_KEY_PATTERNS.map((p) =>
+  p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+).join("|");
+
+/** Matches `<sensitive_key>=<value>` in query strings or log-like text.
+ *  Captures the key in group 1 so we can preserve it in the replacement. */
+const KEY_VALUE_PAIR_RE = new RegExp(`\\b(${SENSITIVE_KEYS_ALTERNATION})=([^&\\s#"']+)`, "gi");
+
+/** Matches `<sensitive_key>: <value>` in header-style or log-like text.
+ *  Stops at common delimiters so we don't eat unrelated trailing content. */
+const KEY_COLON_VALUE_RE = new RegExp(
+  `\\b(${SENSITIVE_KEYS_ALTERNATION})\\s*:\\s*([^\\s,;"']+)`,
+  "gi",
+);
+
 function isSensitiveKey(key: string): boolean {
   const lower = key.toLowerCase();
   return SENSITIVE_KEY_PATTERNS.some((p) => lower.includes(p));
 }
 
 /** Scrubs secrets embedded in a plain string value.
- *  Handles Bearer/token auth headers, sensitive query params in URLs,
- *  JWT-shaped strings, and high-entropy hex/base64 substrings. */
+ *  Only redacts in known token contexts (Bearer/key=value/key: value) and
+ *  JWT-shaped strings. Plain high-entropy substrings (SHA-256, UUIDs,
+ *  CUID2s, encoded payloads) are left intact so diagnostic context stays
+ *  debuggable. */
 export function scrubStringValue(s: string): string {
-  // Replace Bearer/token auth headers.
-  let result = s.replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
-  // Strip sensitive query parameters from URL-shaped strings.
-  result = result.replace(
-    /([?&])(password|api_key|apikey|api-key|token|authorization|bearer|secret|credentials|cookie|private_key)=([^&\s#"']+)/gi,
-    "$1$2=[REDACTED]",
-  );
+  // Replace Bearer auth headers.
+  let result = s.replace(/\bBearer\s+\S+/gi, `Bearer ${REDACTED}`);
+  // Strip `<key>=<value>` pairs (covers URL query params and log lines).
+  result = result.replace(KEY_VALUE_PAIR_RE, `$1=${REDACTED}`);
+  // Strip `<key>: <value>` pairs (covers `Authorization: <token>` style headers).
+  result = result.replace(KEY_COLON_VALUE_RE, `$1: ${REDACTED}`);
   // Redact JWT-shaped strings (header.payload.signature, each segment ≥10 chars).
   result = result.replace(
     /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
     "[JWT_REDACTED]",
   );
-  // Redact high-entropy hex/base64 substrings ≥32 chars that look like secrets.
-  result = result.replace(/\b[A-Za-z0-9+/]{32,}={0,2}\b/g, "[REDACTED]");
   return result;
 }
 
