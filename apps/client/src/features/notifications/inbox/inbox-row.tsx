@@ -8,6 +8,7 @@ import { m } from "@/paraglide/messages";
 import { SeverityIcon } from "../shared/severity-icon";
 import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";
 import type { NotificationItemDto } from "../shared/types";
+import { isSafeActionUrl } from "../shared/url";
 import { useDismiss, useMarkRead } from "./use-inbox-mutations";
 
 interface Props {
@@ -20,15 +21,6 @@ function actionVariant(style: string | undefined): "default" | "destructive" | "
   if (style === "primary") return "default";
   if (style === "danger") return "destructive";
   return "outline";
-}
-
-function isSafeActionUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url, window.location.origin);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 // fallow-ignore-next-line complexity
