@@ -478,7 +478,7 @@ describe("pluginRuntime.invoke — scope + pool", () => {
     expect(markUserConnectionExhaustedMock).not.toHaveBeenCalledWith("conn-b", expect.anything());
   });
 
-  it("does not inject an exhausted admin as sharedCredentials on later user picks", async () => {
+  it("falls back to any admin pick for sharedCredentials when all admin picks are exhausted", async () => {
     pluginRows.set("trakt", {
       id: "trakt",
       globalConfig: null,
@@ -531,9 +531,13 @@ describe("pluginRuntime.invoke — scope + pool", () => {
       scope: "user",
       userId: "user-1",
     });
-    // The final (user) call must not see an admin credential that was just marked exhausted.
+    // Regression guard for issue #295: when every admin pick is exhausted, the
+    // user call must still receive an admin credential as sharedCredentials —
+    // the admin credential (e.g. an OAuth client id) is not rate-limited itself,
+    // only the user's access token was, so resolving it to null would break
+    // plugins that require sharedCredentials to authenticate the request.
     const userCall = observed.find((o) => o.side === "user");
-    expect(userCall?.shared).toBeNull();
+    expect(userCall?.shared).toEqual({ clientId: "c1", clientSecret: "s1" });
   });
 });
 

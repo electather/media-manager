@@ -106,6 +106,34 @@ describe("AuthService.userHasPermission", () => {
   });
 });
 
+describe("AuthService.sessionUserId", () => {
+  it("throws unauthorized when no session is set on the context", () => {
+    const c = makeContext();
+    expect(() => service.sessionUserId(c as never)).toThrowError(
+      expect.objectContaining({ status: 401 }),
+    );
+  });
+
+  it("throws unauthorized when session has no user", () => {
+    const c = makeContext({} as never);
+    expect(() => service.sessionUserId(c as never)).toThrowError(
+      expect.objectContaining({ status: 401 }),
+    );
+  });
+
+  it("throws unauthorized when session.user has no id", () => {
+    const c = makeContext({ user: {} } as never);
+    expect(() => service.sessionUserId(c as never)).toThrowError(
+      expect.objectContaining({ status: 401 }),
+    );
+  });
+
+  it("returns the user id when the session is well-formed", () => {
+    const c = makeContext({ user: { id: "u1" } });
+    expect(service.sessionUserId(c as never)).toBe("u1");
+  });
+});
+
 describe("AuthService.requireSession", () => {
   it("throws unauthorized when better-auth returns no session", async () => {
     mockGetSession.mockResolvedValue(null);
@@ -114,6 +142,26 @@ describe("AuthService.requireSession", () => {
       status: 401,
     });
     expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it("throws unauthorized when better-auth returns a session without user", async () => {
+    mockGetSession.mockResolvedValue({} as never);
+    const c = makeContext();
+    await expect(service.requireSession(c as never, mockNext)).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(mockNext).not.toHaveBeenCalled();
+    expect(c.set).not.toHaveBeenCalled();
+  });
+
+  it("throws unauthorized when better-auth returns a session.user without id", async () => {
+    mockGetSession.mockResolvedValue({ user: {} } as never);
+    const c = makeContext();
+    await expect(service.requireSession(c as never, mockNext)).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(mockNext).not.toHaveBeenCalled();
+    expect(c.set).not.toHaveBeenCalled();
   });
 
   it("sets session on context and calls next when session exists", async () => {
@@ -131,6 +179,20 @@ describe("AuthService.requirePermission", () => {
     const middleware = service.requirePermission(PERM);
     const c = makeContext();
     await expect(middleware(c as never, mockNext)).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("throws unauthorized when session has no user", async () => {
+    const middleware = service.requirePermission(PERM);
+    const c = makeContext({} as never);
+    await expect(middleware(c as never, mockNext)).rejects.toMatchObject({ status: 401 });
+    expect(mockFindUserRole).not.toHaveBeenCalled();
+  });
+
+  it("throws unauthorized when session.user has no id", async () => {
+    const middleware = service.requirePermission(PERM);
+    const c = makeContext({ user: {} } as never);
+    await expect(middleware(c as never, mockNext)).rejects.toMatchObject({ status: 401 });
+    expect(mockFindUserRole).not.toHaveBeenCalled();
   });
 
   it("throws forbidden when user has no role", async () => {
