@@ -14,7 +14,7 @@ import { zValidator } from "../../../diagnostics/validator";
 import { notFound, unauthorized } from "../../../diagnostics/http-errors";
 import { TokenBucketLimiter } from "../../../mcp/rate-limit";
 
-/** Max 10 error reports per minute per authenticated user. */
+/** Per-user error-report limiter: 10-token burst, ~10/min sustained refill. */
 const errorReportLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSec: 10 / 60 });
 
 interface SessionCtx {
