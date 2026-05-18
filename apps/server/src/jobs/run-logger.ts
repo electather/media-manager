@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { consola, type ConsolaInstance, type LogType } from "consola";
-import { scrub } from "../diagnostics/scrubber";
+import { scrub, scrubText } from "../diagnostics/scrubber";
 import type { LogLevel } from "@ent-mcp/shared/jobs";
 import { isPrimitive } from "es-toolkit/predicate";
 
@@ -131,7 +131,7 @@ export function serializeRunLogs(): {
 
   const scrubbed = ctx.buffer.map((entry) => ({
     ...entry,
-    msg: scrubString(entry.msg),
+    msg: scrubText(entry.msg),
     meta: entry.meta ? (scrub(entry.meta) as Record<string, unknown>) : undefined,
   }));
 
@@ -259,11 +259,4 @@ function estimateEntryBytes(entry: LogEntry): number {
   }
   if (entry.row) size += entry.row.length + 8;
   return size;
-}
-
-/** Applies pattern-based scrubbing to a string (credential-shaped tokens). */
-function scrubString(input: string): string {
-  return input
-    .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
-    .replace(/(?:api[_-]?key|token|secret|password|authorization)\s*[:=]\s*\S+/gi, "[REDACTED]");
 }
