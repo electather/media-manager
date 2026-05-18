@@ -36,7 +36,7 @@ function serialize(err: unknown): Pick<ErrorReportPayload, "name" | "message" | 
 export async function reportError(
   err: unknown,
   severity: ErrorSeverity,
-  context?: Record<string, unknown>,
+  context?: ErrorReportPayload["context"],
   code?: string,
 ): Promise<void> {
   try {

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context, type Next } from "hono";
 import { and, desc, eq, gte, inArray, or, sql, type SQL } from "drizzle-orm";
 import {
   errorListQuerySchema as listSchema,
@@ -11,7 +11,7 @@ import { getDb } from "../../../db/client";
 import { errorRecords } from "../../../db/schema/diagnostics";
 import { captureError } from "../../../diagnostics/capture";
 import { zValidator } from "../../../diagnostics/validator";
-import { notFound } from "../../../diagnostics/http-errors";
+import { notFound, unauthorized } from "../../../diagnostics/http-errors";
 import { TokenBucketLimiter } from "../../../mcp/rate-limit";
 
 /** Max 10 error reports per minute per authenticated user. */
@@ -21,12 +21,42 @@ interface SessionCtx {
   user: { id: string };
 }
 
+/** Middleware that consumes one rate-limit token per authenticated caller.
+ *  Runs after `requireSession` and before `zValidator` so spammy callers
+ *  cannot force JSON parsing/validation by sending oversized bodies. */
+async function errorReportRateLimit(c: Context, next: Next): Promise<void> {
+  const session = (
+    c as unknown as {
+      get: (key: "session") => SessionCtx | undefined;
+    }
+  ).get("session");
+  // `requireSession` already populates the session; if it is missing the
+  // request is unauthenticated and must not bypass the limiter silently.
+  if (!session?.user.id) {
+    throw unauthorized();
+  }
+  const limited = errorReportLimiter.check(session.user.id);
+  if (limited) {
+    const retryAfter = limited.details?.retry_after;
+    const retryAfterSec = typeof retryAfter === "number" ? retryAfter : null;
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (retryAfterSec !== null) headers["Retry-After"] = String(retryAfterSec);
+    c.res = new Response(
+      JSON.stringify({ ok: false, error: "rate_limited", retry_after: retryAfterSec }),
+      { status: 429, headers },
+    );
+    return;
+  }
+  await next();
+}
+
 /** Frontend-facing endpoint mounted at `/api/diagnostics/errors` (POST).
  *  Scrubbed and persisted with `source="frontend"`. Silently accepts even
  *  malformed bodies so we never surface "error capture failed" to the end user. */
 // fallow-ignore-next-line complexity
 export const errorsReportApp = new Hono()
   .use("*", requireSession)
+  .use("*", errorReportRateLimit)
   // fallow-ignore-next-line complexity
   .post("/", zValidator("json", reportSchema), async (c) => {
     const body = c.req.valid("json");
@@ -35,12 +65,6 @@ export const errorsReportApp = new Hono()
         get: (key: "session") => SessionCtx | undefined;
       }
     ).get("session");
-    if (session?.user.id) {
-      const limited = errorReportLimiter.check(session.user.id);
-      if (limited) {
-        return c.json({ ok: false, error: "rate_limited" }, 429);
-      }
-    }
     try {
       const syntheticError = new Error(body.message);
       syntheticError.name = body.name ?? "FrontendError";
