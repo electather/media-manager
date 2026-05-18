@@ -1,5 +1,5 @@
 import { vi } from "vite-plus/test";
-import type { RowContext } from "../types";
+import type { RowContext } from "../internal/types";
 
 /**
  * Lightweight RowContext stub. Tests pass partial overrides via the `ctx`

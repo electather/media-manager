@@ -122,7 +122,7 @@ export function buildFetch(
     if (!bucket.take()) {
       throw new PluginError("plugin.rate_limited", `[${pluginId}] rate limit exceeded`);
     }
-    if (adminHeaders && Object.keys(adminHeaders).length > 0) {
+    if (adminHeaders && Object.keys(adminHeaders).length > 0 && staticAllowed) {
       const merged = new Headers(init?.headers);
       for (const [name, value] of Object.entries(adminHeaders)) {
         merged.set(name, value);

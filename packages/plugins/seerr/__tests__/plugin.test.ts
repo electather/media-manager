@@ -9,6 +9,37 @@ describe("seerr plugin passes loader validation", () => {
   });
 });
 
+describe("seerr manifest privacy invariants", () => {
+  // These assertions guard the issue #319 fix at the manifest level so a
+  // future edit cannot accidentally re-introduce plaintext password storage
+  // without tripping the suite.
+  it("marks password with both x-secret and writeOnly", () => {
+    const props = (
+      seerrPlugin.manifest.userConfigSchema as {
+        properties: Record<string, Record<string, unknown>>;
+      }
+    ).properties;
+    expect(props.password?.["x-secret"]).toBe(true);
+    expect(props.password?.writeOnly).toBe(true);
+  });
+
+  it("promotes the password into credentialsSchema — it must never be persisted to userConfig", () => {
+    const credProps = (
+      seerrPlugin.manifest.credentialsSchema as {
+        properties: Record<string, Record<string, unknown>>;
+      }
+    ).properties;
+    expect(credProps.password?.type).toBe("string");
+    expect(
+      (
+        seerrPlugin.manifest.userConfigSchema as {
+          required: string[];
+        }
+      ).required,
+    ).not.toContain("password");
+  });
+});
+
 describe("seerr auth lifecycle", () => {
   it("plugin exposes startAuth and testConnection", () => {
     expect(typeof seerrPlugin.startAuth).toBe("function");
@@ -79,6 +110,88 @@ describe("seerr auth lifecycle", () => {
     expect(result.status).toBe("error");
     if (result.status === "error") {
       expect(result.code).toBe("plugin.bad_credentials");
+    }
+  });
+
+  it("startAuth: userConfigPatch nulls the password on success", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 7 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc123; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+    if (result.status === "completed") {
+      expect(result.userConfigPatch).toEqual({ password: null });
+    }
+  });
+
+  it("startAuth: persists submitted password into credentials on success", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 7 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=abc123; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com", password: "pw" });
+    expect(result.status).toBe("completed");
+    if (result.status === "completed") {
+      const creds = result.credentials as { password?: string };
+      expect(creds.password).toBe("pw");
+    }
+  });
+
+  it("startAuth: re-auth uses password from prior credentials when userConfig omits it", async () => {
+    // Simulates the updateUserConfig path: the form-stripped userConfig has no
+    // password, but startAuth is invoked with the prior encrypted credentials
+    // exposed via ctx.credentials.
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ id: 7 }), {
+          status: 200,
+          headers: { "set-cookie": "connect.sid=new-session; Path=/; HttpOnly" },
+        }),
+      ],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+        credentials: { sessionCookie: "connect.sid=old", userId: 7, password: "kept" },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, {
+      username: "u@example.com",
+      // No password in incoming config — mirrors the stripped edit-form payload.
+    });
+    expect(result.status).toBe("completed");
+    if (result.status === "completed") {
+      const creds = result.credentials as { sessionCookie: string; password?: string };
+      expect(creds.sessionCookie).toContain("connect.sid=new-session");
+      expect(creds.password).toBe("kept");
+    }
+  });
+
+  it("startAuth: returns plugin.input_invalid with field=password when no password is anywhere", async () => {
+    const ctx = makeTestContext({
+      responses: [],
+      overrides: {
+        config: { global: { baseUrl: "https://seerr.example.com" }, user: null },
+      },
+    });
+    const result = await seerrPlugin.startAuth!(ctx, { username: "u@example.com" });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.code).toBe("plugin.input_invalid");
+      expect(result.params?.field).toBe("password");
     }
   });
 

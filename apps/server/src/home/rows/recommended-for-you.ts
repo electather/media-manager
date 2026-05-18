@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { MediaType } from "@ent-mcp/shared/media";
-import { decodeCursor, encodeCursor } from "../cursor";
-import type { RowContext, RowPage, RowProvider } from "../types";
+import { decodeCursor, encodeCursor } from "../internal/cursor";
+import type { RowContext, RowPage, RowProvider } from "../internal/types";
 import { loadCanonicalItems } from "./_shared";
 
 const PAGE_SIZE = 12;
