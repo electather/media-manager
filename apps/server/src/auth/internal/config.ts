@@ -2,17 +2,27 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
+import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
 import { MCP_SCOPES } from "@ent-mcp/shared/users";
 import * as schema from "../../db/schema/index";
+import { user } from "../../db/schema/auth";
 import { sendEmail } from "./email";
-import { isNil } from "es-toolkit/predicate";
+import { createEmailChangeHooks } from "./email-change-hooks";
 
 // Strip any trailing slashes from the configured base URL so we can derive
 // both audience forms (with and without trailing slash) from one source. The
 // MCP verifier in mcp/auth.ts must accept the same set.
 const normalisedBaseUrl = env.BETTER_AUTH_URL.replace(/\/+$/, "");
+
+const emailChangeHooks = createEmailChangeHooks({
+  readUserEmail: async (id) => {
+    const row = await getDb().select({ email: user.email }).from(user).where(eq(user.id, id)).get();
+    return row?.email ?? null;
+  },
+  sendEmail,
+});
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
@@ -69,42 +79,13 @@ export const auth = betterAuth({
         : undefined,
     },
   },
+  // Better Auth 1.6 has no built-in post-switch notification for an email
+  // change, so we synthesise one via the user-update database hook. See
+  // ./email-change-hooks.ts for the rationale and tradeoffs (memory, concurrency,
+  // why the session id is the only viable target-id source inside the hook).
   databaseHooks: {
     user: {
-      update: {
-        // After a successful update, if the email field changed, notify the
-        // OLD address. Better Auth 1.6 has no built-in post-switch
-        // notification, so we synthesise one here. The session context still
-        // holds the previous email at this point because the session row
-        // updates lazily. sendEmail no-ops when the provider is off; throws
-        // on misconfiguration (flag=true but no adapter wired).
-        //
-        // The `ctx?.context?.session?.user?.email` path reads Better Auth's
-        // internal hook context shape — not part of the public API. If the
-        // path resolves to undefined (admin-driven update, migration, or a
-        // shape change in a Better Auth version bump), we skip the
-        // notification rather than guess the previous email. Pin Better Auth
-        // tightly in the catalog so a minor bump doesn't silently regress
-        // this path; revisit when the library exposes an official old-email
-        // accessor.
-        after: async (user, ctx) => {
-          const previousEmail = ctx?.context?.session?.user?.email;
-          if (isNil(previousEmail)) {
-            console.warn(
-              "[auth.databaseHooks.user.update] previous email unavailable from ctx; " +
-                "old-address notification skipped. Likely an admin-driven update or a " +
-                "Better Auth context-shape change.",
-            );
-            return;
-          }
-          if (previousEmail === user.email) return;
-          await sendEmail({
-            to: previousEmail,
-            subject: "Your email address was changed",
-            text: `Your account email was changed to ${user.email}. If you did not approve this, contact support immediately.`,
-          });
-        },
-      },
+      update: emailChangeHooks,
     },
   },
   plugins: [
