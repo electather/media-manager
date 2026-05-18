@@ -12,6 +12,7 @@ import {
   oauthClient,
   oauthAccessToken,
   oauthRefreshToken,
+  oauthConsent,
 } from "../../../db/schema/auth";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { unauthorized } from "../../../diagnostics/http-errors";
@@ -106,6 +107,15 @@ async function seedTargetWithTokens() {
     createdAt: new Date(),
     scopes: [],
   });
+
+  await db.insert(oauthConsent).values({
+    id: "consent-target",
+    clientId: "c-target",
+    userId: TARGET_ID,
+    scopes: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
 }
 
 beforeEach(async () => {
@@ -116,7 +126,7 @@ beforeEach(async () => {
 afterAll(() => cleanupInMemoryDbs());
 
 describe("POST /admin/users/:id/revoke-sessions", () => {
-  it("clears sessions, OAuth access tokens, and OAuth refresh tokens for the target user", async () => {
+  it("clears sessions, OAuth access tokens, refresh tokens, and consent rows for the target user", async () => {
     mockUserId = ADMIN_ID;
     await seedTargetWithTokens();
 
@@ -137,10 +147,16 @@ describe("POST /admin/users/:id/revoke-sessions", () => {
       .from(oauthRefreshToken)
       .where(eq(oauthRefreshToken.userId, TARGET_ID))
       .all();
+    const consents = await db
+      .select()
+      .from(oauthConsent)
+      .where(eq(oauthConsent.userId, TARGET_ID))
+      .all();
 
     expect(sessions).toHaveLength(0);
     expect(accessTokens).toHaveLength(0);
     expect(refreshTokens).toHaveLength(0);
+    expect(consents).toHaveLength(0);
   });
 
   it("returns 400 when an admin attempts to revoke their own sessions", async () => {
@@ -187,6 +203,8 @@ describe("POST /admin/users/:id/revoke-sessions", () => {
       redirectUris: [],
       userId: OTHER_ID,
     });
+    // Seed all four token-type rows for OTHER_ID so a regression that wrongly
+    // scopes the DELETE wider than `userId = TARGET_ID` is caught here.
     await db.insert(oauthAccessToken).values({
       id: "at-other",
       token: "access-other",
@@ -195,6 +213,23 @@ describe("POST /admin/users/:id/revoke-sessions", () => {
       expiresAt: new Date(Date.now() + 3_600_000),
       createdAt: new Date(),
       scopes: [],
+    });
+    await db.insert(oauthRefreshToken).values({
+      id: "rt-other",
+      token: "refresh-other",
+      clientId: "c-other",
+      userId: OTHER_ID,
+      expiresAt: new Date(Date.now() + 86_400_000),
+      createdAt: new Date(),
+      scopes: [],
+    });
+    await db.insert(oauthConsent).values({
+      id: "consent-other",
+      clientId: "c-other",
+      userId: OTHER_ID,
+      scopes: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const res = await buildApp().request(`/admin/users/${TARGET_ID}/revoke-sessions`, {
@@ -208,7 +243,19 @@ describe("POST /admin/users/:id/revoke-sessions", () => {
       .from(oauthAccessToken)
       .where(eq(oauthAccessToken.userId, OTHER_ID))
       .all();
+    const otherRefreshTokens = await db
+      .select()
+      .from(oauthRefreshToken)
+      .where(eq(oauthRefreshToken.userId, OTHER_ID))
+      .all();
+    const otherConsents = await db
+      .select()
+      .from(oauthConsent)
+      .where(eq(oauthConsent.userId, OTHER_ID))
+      .all();
     expect(otherSessions).toHaveLength(1);
     expect(otherAccessTokens).toHaveLength(1);
+    expect(otherRefreshTokens).toHaveLength(1);
+    expect(otherConsents).toHaveLength(1);
   });
 });
