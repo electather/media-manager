@@ -140,6 +140,25 @@ describe("captureError", () => {
     expect(record.stack).toContain("state=42");
   });
 
+  it("redacts Bearer headers and JWT-shaped tokens in devMessage", async () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    await captureError(new Error(`auth failed: Bearer abc123 (jwt=${jwt})`), { source: "backend" });
+    const record = collector.records.at(-1)!;
+    expect(record.devMessage).toContain("Bearer [REDACTED]");
+    expect(record.devMessage).not.toContain("abc123");
+    expect(record.devMessage).toContain("[JWT_REDACTED]");
+    expect(record.devMessage).not.toContain(jwt);
+  });
+
+  it("leaves stack as null when neither meta.stack nor err.stack is set", async () => {
+    // Non-Error throw value → stackFrom returns null; scrub must not run on null.
+    await captureError("plain string failure", { source: "backend" });
+    const record = collector.records.at(-1)!;
+    expect(record.stack).toBeNull();
+    expect(record.devMessage).toBe("plain string failure");
+  });
+
   it("respects an explicit severity override from the caller", async () => {
     // `plugin.output_invalid` defaults to warning but a caller can bump it
     // up (or down) for a specific path.

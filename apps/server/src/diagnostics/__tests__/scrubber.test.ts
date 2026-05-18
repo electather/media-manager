@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { scrub, serializeContext } from "../scrubber";
+import { scrub, scrubText, serializeContext } from "../scrubber";
 
 describe("scrub", () => {
   it("redacts values under sensitive top-level keys", () => {
@@ -54,6 +54,50 @@ describe("scrub", () => {
     }
     const out = scrub(root);
     expect(out).toBeDefined();
+  });
+});
+
+describe("scrubText", () => {
+  it("redacts Bearer auth tokens", () => {
+    expect(scrubText("Authorization: Bearer abc.def.ghi")).toBe("Authorization: Bearer [REDACTED]");
+    // Case-insensitive on the keyword itself.
+    expect(scrubText("bearer xyz123")).toBe("Bearer [REDACTED]");
+  });
+
+  it("redacts sensitive URL query params, including OAuth families", () => {
+    const out = scrubText("https://idp.example.com/cb?access_token=abc&refresh_token=def&state=42");
+    expect(out).toContain("access_token=[REDACTED]");
+    expect(out).toContain("refresh_token=[REDACTED]");
+    expect(out).toContain("state=42");
+    expect(out).not.toContain("abc");
+    expect(out).not.toContain("def");
+  });
+
+  it("redacts client_secret and bare token in URLs", () => {
+    const out = scrubText(
+      "GET https://api.example.com/v1?token=plain https://idp.example.com/exchange?client_secret=shh",
+    );
+    expect(out).toContain("token=[REDACTED]");
+    expect(out).toContain("client_secret=[REDACTED]");
+    expect(out).not.toContain("plain");
+    expect(out).not.toContain("shh");
+  });
+
+  it("redacts JWT-shaped strings", () => {
+    const jwt =
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    expect(scrubText(`token issued: ${jwt} (expired)`)).toBe(
+      "token issued: [JWT_REDACTED] (expired)",
+    );
+  });
+
+  it("leaves non-sensitive text unchanged", () => {
+    const msg = "Failed to load resource https://api.example.com/v1/items?page=2";
+    expect(scrubText(msg)).toBe(msg);
+  });
+
+  it("returns empty string unchanged (null/undefined are filtered upstream)", () => {
+    expect(scrubText("")).toBe("");
   });
 });
 
