@@ -4,6 +4,6 @@
  * asserts alphabetical call order across all modules, so every module must
  * expose this function even when it has nothing to register.
  */
-export function registerJobs(_opts?: { scheduled?: boolean }): void {
+export function registerJobs(): void {
   // no-op
 }

@@ -2,4 +2,4 @@
 "@ent-mcp/server": minor
 ---
 
-Retrofitted the artwork module to the canonical modular monolith layout with dedicated events, errors, and jobs files.
+Added `ArtworkServiceError` and `ARTWORK_EVENTS` to the artwork module's public API.
