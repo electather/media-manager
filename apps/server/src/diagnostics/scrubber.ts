@@ -59,26 +59,32 @@ export function serializeContext(context: Record<string, unknown> | undefined): 
   }
 }
 
-/** URL query-param key matcher: any param whose key *contains* one of the
- *  shared `SENSITIVE_KEY_PATTERNS` fragments. Substring semantics match the
- *  scrubber's object-key behaviour, so `access_token`, `refresh_token`,
- *  `id_token`, `client_secret`, etc. all hit without per-name entries. */
-const SENSITIVE_QUERY_PARAM_RE = new RegExp(
-  `([?&])([\\w-]*(?:${SENSITIVE_KEY_PATTERNS.join("|")})[\\w-]*)=([^&\\s#"']+)`,
+const BEARER_RE = /\bBearer\s+\S+/gi;
+
+/** Header/payload/signature triplet of base64url segments. Matches free-form JWTs
+ *  that leak into error strings or log lines. */
+const JWT_RE = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
+
+/** Key=value / key: value matcher for sensitive keys. Substring semantics around the
+ *  pattern fragment cover OAuth variants (`access_token`, `refresh_token`, `id_token`,
+ *  `client_secret`, `accessToken`, etc.) without per-name entries. Works for both URL
+ *  query params (`?api_key=x`) and log-line pairs (`api_key: x`). The `(?!Bearer\b)`
+ *  lookahead avoids re-matching `Authorization: Bearer …` after the Bearer pass
+ *  scrubbed it, so the redaction reads cleanly. Value stops at whitespace, `&`,
+ *  quotes, and `#` so URL boundaries are respected. */
+const SENSITIVE_KV_RE = new RegExp(
+  `\\b([\\w-]*(?:${SENSITIVE_KEY_PATTERNS.join("|")})[\\w-]*)(\\s*[:=]\\s*)(?!Bearer\\b)([^\\s#"'&]+)`,
   "gi",
 );
 
-/** Scrubs secrets from a plain text string (e.g. error messages and stack traces).
- *  Handles Bearer auth headers, sensitive URL query params, and JWT-shaped strings. */
+/** Scrubs secrets from a plain text string (e.g. error messages, stack traces, job log
+ *  buffer lines). Handles Bearer auth headers, sensitive key=value / key: value pairs
+ *  (URL params and log lines alike), and JWT-shaped strings. Shared between the
+ *  diagnostics capture path and the job run logger so both pull from the same pattern
+ *  inventory. */
 export function scrubText(text: string): string {
-  // Strip Bearer/token values from auth headers.
-  let result = text.replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
-  // Strip sensitive query parameters from URLs.
-  result = result.replace(SENSITIVE_QUERY_PARAM_RE, "$1$2=[REDACTED]");
-  // Redact JWT-shaped strings (header.payload.signature).
-  result = result.replace(
-    /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
-    "[JWT_REDACTED]",
-  );
-  return result;
+  return text
+    .replace(BEARER_RE, "Bearer [REDACTED]")
+    .replace(SENSITIVE_KV_RE, "$1$2[REDACTED]")
+    .replace(JWT_RE, "[JWT_REDACTED]");
 }
