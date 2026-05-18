@@ -38,24 +38,14 @@ export function buildStore(pluginId: string, callerUserId: string | null): Plugi
         return row.value;
       }
     },
-    // fallow-ignore-next-line complexity
     async set(key, value, opts) {
       const now = Date.now();
       const effective = resolveScope(callerUserId, opts?.scope);
       const serialized = JSON.stringify(value);
       const expiresAt = opts?.ttlSec ? now + opts.ttlSec * 1000 : null;
-      const existing = await db
-        .select({ pluginId: pluginStore.pluginId })
-        .from(pluginStore)
-        .where(matchScope(pluginId, effective, key))
-        .get();
-      if (existing) {
-        await db
-          .update(pluginStore)
-          .set({ value: serialized, expiresAt, updatedAt: now })
-          .where(matchScope(pluginId, effective, key));
-      } else {
-        await db.insert(pluginStore).values({
+      await db
+        .insert(pluginStore)
+        .values({
           pluginId,
           userId: effective,
           key,
@@ -63,8 +53,11 @@ export function buildStore(pluginId: string, callerUserId: string | null): Plugi
           expiresAt,
           createdAt: now,
           updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [pluginStore.pluginId, pluginStore.userId, pluginStore.key],
+          set: { value: serialized, expiresAt, updatedAt: now },
         });
-      }
     },
     async delete(key, opts) {
       const effective = resolveScope(callerUserId, opts?.scope);
