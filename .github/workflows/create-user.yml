@@ -64,7 +64,9 @@ jobs:
       # not auto-mask `workflow_dispatch` inputs, so without this a stray
       # `echo`/`set -x` downstream would print the plaintext password.
       - name: Mask password in logs
-        run: echo "::add-mask::${{ inputs.password }}"
+        env:
+          PASSWORD: ${{ inputs.password }}
+        run: echo "::add-mask::$PASSWORD"
 
       - name: Checkout repository
         uses: actions/checkout@v4
