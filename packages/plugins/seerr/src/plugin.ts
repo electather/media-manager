@@ -2,7 +2,7 @@ import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
 import type { AuthResult } from "@ent-mcp/plugin-sdk";
 import { getBaseUrl, getSessionCookie, extractSessionCookie } from "./client";
 import { mediaRequest, syncRequestStatuses } from "./capabilities/media-request";
-import type { Ctx, SeerrUserCfg, SeerrGlobalCfg } from "./types";
+import type { Ctx, SeerrCreds, SeerrUserCfg, SeerrGlobalCfg } from "./types";
 
 export default definePlugin({
   manifest: {
@@ -49,6 +49,7 @@ export default definePlugin({
       properties: {
         sessionCookie: { type: "string" },
         userId: { type: "number" },
+        password: { type: "string" },
       },
       required: ["sessionCookie", "userId"],
     },
@@ -81,8 +82,12 @@ export default definePlugin({
     }
     const trimmed = base.replace(/\/$/, "");
 
+    // On re-auth (e.g. updateUserConfig), the form-stripped userConfig no
+    // longer carries the password — fall back to the copy kept in the
+    // encrypted credentials blob, mirroring the Jellyfin pattern.
+    const priorCreds = ctx.credentials as Pick<SeerrCreds, "password"> | null;
     const email = cfg?.username;
-    const password = cfg?.password;
+    const password = cfg?.password ?? priorCreds?.password;
     if (!email || !password) {
       return {
         status: "error",
@@ -128,7 +133,8 @@ export default definePlugin({
       credentials: {
         sessionCookie,
         userId: user.id,
-      },
+        password,
+      } satisfies SeerrCreds,
       userConfigPatch: { password: null },
     };
   },

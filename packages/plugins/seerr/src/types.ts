@@ -3,6 +3,7 @@ import type { PluginContext } from "@ent-mcp/plugin-sdk";
 export interface SeerrCreds {
   sessionCookie: string;
   userId: number;
+  password?: string;
 }
 
 export interface SeerrSharedCreds {}
