@@ -2,4 +2,4 @@
 "@ent-mcp/server": minor
 ---
 
-Restructured the home module to the canonical flat-with-reserved-files layout; orchestrator and helper files moved under `internal/`, drizzle queries collapsed into a single `repo.ts`, and the public barrel surface is unchanged.
+Restructured the home module to the canonical flat-with-reserved-files layout. The public barrel now exports `HOME_EVENTS` and `HomeServiceError`; the temporary `registerHomeLayoutWarmJob` job-function export was removed in favour of the standard `registerJobs` entry point. Behaviour is unchanged.

@@ -17,7 +17,7 @@ import { HttpError } from "../../diagnostics/http-errors";
 // fallow-ignore-next-line complexity
 export function classifyError(err: unknown): HostErrorCode {
   if (err instanceof HttpError) {
-    return (err.code as HostErrorCode) ?? "home.internal";
+    return err.code as HostErrorCode;
   }
   if (err instanceof PluginCallError) return err.code;
   if (err instanceof AllPluginsFailedError) {
