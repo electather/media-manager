@@ -108,7 +108,7 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       scopes: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       allowDynamicClientRegistration: true,
-      allowUnauthenticatedClientRegistration: true,
+      allowUnauthenticatedClientRegistration: false,
       // Accept both trailing-slash and non-trailing-slash forms of the base URL,
       // since MCP clients derive the resource indicator from discovery metadata
       // and may append a trailing slash.
