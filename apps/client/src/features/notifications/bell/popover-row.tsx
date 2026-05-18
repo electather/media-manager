@@ -40,9 +40,9 @@ function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
   if (!safeActions.length) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-2">
-      {safeActions.map((action) => (
+      {safeActions.map((action, i) => (
         <a
-          key={action.label}
+          key={`${i}-${action.url}`}
           href={action.url}
           target="_blank"
           rel="noopener noreferrer"
