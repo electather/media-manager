@@ -38,7 +38,13 @@ export async function withOAuthAuth(
         audience: `${baseUrl}/`,
       },
     });
-    const userId = payload.sub as string;
+    if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+      throw new Error("missing or invalid sub claim");
+    }
+    if (payload.scope !== undefined && typeof payload.scope !== "string") {
+      throw new Error("invalid scope claim type");
+    }
+    const userId = payload.sub;
     const scopes = parseScopes(payload.scope as string | undefined);
     consola.debug("[mcp-auth] token verified", { userId, scopes });
     return handler(req, userId, scopes);
