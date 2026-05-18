@@ -127,6 +127,70 @@ describe("discord notificationDelivery error semantics", () => {
     }
   });
 
+  it("429: retry_after JSON body above 1h cap clamps to 3_600_000ms", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ retry_after: 7200, message: "slow" }), {
+          status: 429,
+          headers: { "content-type": "application/json" },
+        }),
+      ],
+    });
+    await expect(
+      discordPlugin.capabilities.notificationDelivery!.deliver(ctx, {
+        message,
+        event: sampleEvent,
+        channelConfig,
+      }),
+    ).rejects.toMatchObject({
+      code: "plugin.rate_limited",
+      retryable: true,
+      retryAfterMs: 3_600_000,
+    });
+  });
+
+  it("429: retry_after JSON body at exactly 3600s yields 3_600_000ms boundary", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ retry_after: 3600 }), {
+          status: 429,
+          headers: { "content-type": "application/json" },
+        }),
+      ],
+    });
+    await expect(
+      discordPlugin.capabilities.notificationDelivery!.deliver(ctx, {
+        message,
+        event: sampleEvent,
+        channelConfig,
+      }),
+    ).rejects.toMatchObject({
+      code: "plugin.rate_limited",
+      retryAfterMs: 3_600_000,
+    });
+  });
+
+  it("429: retry-after header above cap clamps to 3_600_000ms", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response("null", {
+          status: 429,
+          headers: { "content-type": "application/json", "retry-after": "7200" },
+        }),
+      ],
+    });
+    await expect(
+      discordPlugin.capabilities.notificationDelivery!.deliver(ctx, {
+        message,
+        event: sampleEvent,
+        channelConfig,
+      }),
+    ).rejects.toMatchObject({
+      code: "plugin.rate_limited",
+      retryAfterMs: 3_600_000,
+    });
+  });
+
   it("401: throws non-retryable plugin.bad_credentials", async () => {
     const ctx = makeTestContext({
       responses: [statusRes(401, JSON.stringify({ message: "no" }))],

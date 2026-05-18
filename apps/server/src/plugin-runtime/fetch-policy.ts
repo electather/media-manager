@@ -122,15 +122,33 @@ export function buildFetch(
     if (!bucket.take()) {
       throw new PluginError("plugin.rate_limited", `[${pluginId}] rate limit exceeded`);
     }
-    if (adminHeaders && Object.keys(adminHeaders).length > 0) {
+    if (adminHeaders && Object.keys(adminHeaders).length > 0 && staticAllowed) {
       const merged = new Headers(init?.headers);
       for (const [name, value] of Object.entries(adminHeaders)) {
         merged.set(name, value);
       }
-      return fetch(url, { ...init, headers: merged });
+      return fetchNoRedirect(pluginId, url, { ...init, headers: merged });
     }
-    return fetch(url, init);
+    return fetchNoRedirect(pluginId, url, init);
   };
+}
+
+/**
+ * Wraps fetch with redirect: 'manual' and throws a PluginError if the
+ * upstream returns a 3xx response. This prevents redirect-based SSRF where
+ * an attacker-controlled host redirects the server to an internal endpoint
+ * (e.g. the cloud instance-metadata service).
+ */
+async function fetchNoRedirect(
+  pluginId: string,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const response = await fetch(url, { ...init, redirect: "manual" });
+  if (response.status >= 300 && response.status < 400) {
+    throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);
+  }
+  return response;
 }
 
 export function buildLogger(pluginId: string): PluginLogger {
