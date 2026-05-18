@@ -9,6 +9,11 @@ import * as schema from "../../db/schema/index";
 import { sendEmail } from "./email";
 import { isNil } from "es-toolkit/predicate";
 
+// Strip any trailing slashes from the configured base URL so we can derive
+// both audience forms (with and without trailing slash) from one source. The
+// MCP verifier in mcp/auth.ts must accept the same set.
+const normalisedBaseUrl = env.BETTER_AUTH_URL.replace(/\/+$/, "");
+
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
@@ -71,7 +76,8 @@ export const auth = betterAuth({
         // OLD address. Better Auth 1.6 has no built-in post-switch
         // notification, so we synthesise one here. The session context still
         // holds the previous email at this point because the session row
-        // updates lazily. sendEmail no-ops when the provider is off.
+        // updates lazily. sendEmail no-ops when the provider is off; throws
+        // on misconfiguration (flag=true but no adapter wired).
         //
         // The `ctx?.context?.session?.user?.email` path reads Better Auth's
         // internal hook context shape — not part of the public API. If the
@@ -124,7 +130,7 @@ export const auth = betterAuth({
       // Accept both trailing-slash and non-trailing-slash forms of the base URL,
       // since MCP clients derive the resource indicator from discovery metadata
       // and may append a trailing slash.
-      validAudiences: [env.BETTER_AUTH_URL],
+      validAudiences: [normalisedBaseUrl, `${normalisedBaseUrl}/`],
       advertisedMetadata: {
         scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       },
