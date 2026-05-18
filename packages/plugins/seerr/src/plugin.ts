@@ -60,6 +60,10 @@ export default definePlugin({
         userId: { type: "number" },
         password: { type: "string" },
       },
+      // `password` is intentionally not required. Connections created before
+      // this fix have no `password` in their credentials blob, and we want
+      // the schema to keep validating them; `startAuth` re-populates the
+      // field on the next successful auth round-trip.
       required: ["sessionCookie", "userId"],
     },
     auth: { kind: "form" },
