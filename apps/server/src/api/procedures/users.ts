@@ -36,7 +36,7 @@ async function requireUser(userId: string) {
 async function requireRole(roleId: string) {
   const db = getDb();
   const roleExists = await db
-    .select({ id: roles.id, isSystem: roles.isSystem })
+    .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
     .from(roles)
     .where(eq(roles.id, roleId))
     .get();
@@ -135,7 +135,10 @@ export const adminUsersApp = new Hono()
 
     await requireUniqueEmail(email);
     if (roleId) {
-      await requireRole(roleId);
+      const role = await requireRole(roleId);
+      if (role.isSystem && role.name === "Admin") {
+        throw forbidden("users.system_role", "system roles cannot be assigned via this endpoint");
+      }
     }
 
     const result = await auth.api.signUpEmail({
@@ -182,7 +185,7 @@ export const adminUsersApp = new Hono()
     await requireUser(id);
     const role = await requireRole(roleId);
 
-    if (role.isSystem) {
+    if (role.isSystem && role.name === "Admin") {
       throw forbidden("users.system_role", "system roles cannot be assigned via this endpoint");
     }
 

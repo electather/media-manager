@@ -24,8 +24,13 @@ let db: Db;
 
 const ADMIN_ID = "admin-user";
 const TARGET_ID = "target-user";
-const SYSTEM_ROLE_ID = "system-admin-role";
-const REGULAR_ROLE_ID = "editor-role";
+// The seeded system Admin role — the one the guard must block.
+const ADMIN_ROLE_ID = "role_admin";
+// A seeded role with isSystem=1 that is NOT the Admin role (e.g. Member).
+// The guard must allow this to be assigned.
+const MEMBER_ROLE_ID = "role_member";
+// A custom role with isSystem=0 — always assignable.
+const CUSTOM_ROLE_ID = "editor-role";
 
 beforeEach(async () => {
   db = await createInMemoryDb();
@@ -35,18 +40,27 @@ beforeEach(async () => {
     { id: TARGET_ID, name: "Target", email: "target@example.com" },
   ]);
 
-  // A system-protected role (isSystem = 1).
+  // Mirrors the seeded Admin role: isSystem=1 AND name='Admin' → isSystemAdmin=true.
   await db.insert(roles).values({
-    id: SYSTEM_ROLE_ID,
-    name: "System Admin",
+    id: ADMIN_ROLE_ID,
+    name: "Admin",
     isSystem: 1,
     createdAt: 0,
     updatedAt: 0,
   });
 
-  // A normal assignable role (isSystem = 0).
+  // Mirrors the seeded Member role: isSystem=1 but name≠'Admin' → NOT isSystemAdmin.
   await db.insert(roles).values({
-    id: REGULAR_ROLE_ID,
+    id: MEMBER_ROLE_ID,
+    name: "Member",
+    isSystem: 1,
+    createdAt: 0,
+    updatedAt: 0,
+  });
+
+  // A custom role: isSystem=0 → freely assignable.
+  await db.insert(roles).values({
+    id: CUSTOM_ROLE_ID,
     name: "Editor",
     isSystem: 0,
     createdAt: 0,
@@ -56,62 +70,62 @@ beforeEach(async () => {
 
 afterAll(() => cleanupInMemoryDbs());
 
-// These tests verify the DB-level shape that the requireRole helper and PUT
-// handler rely on. The guard reads role.isSystem from the DB; we confirm that
-// field is correctly set and that the assignment can be blocked at the DB
-// query level.
-describe("users role-assignment guard: system role protection", () => {
-  it("system role has isSystem = 1 in the DB", async () => {
+// These tests verify the DB-level shape the requireRole helper and PUT/POST handlers rely on.
+// The guard fires when isSystem===1 AND name==='Admin', mirroring the isSystemAdmin condition
+// in auth/service.ts. isSystem=1 alone is not sufficient — Member and Viewer are also isSystem=1
+// but are legitimate assignable roles.
+describe("users role-assignment guard: system Admin role protection", () => {
+  it("Admin role satisfies both guard conditions (isSystem=1 AND name='Admin')", async () => {
     const row = await db
-      .select({ id: roles.id, isSystem: roles.isSystem })
+      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
       .from(roles)
-      .where(eq(roles.id, SYSTEM_ROLE_ID))
+      .where(eq(roles.id, ADMIN_ROLE_ID))
       .get();
 
     expect(row).toBeDefined();
-    // The guard rejects when this value is truthy.
     expect(row?.isSystem).toBe(1);
+    expect(row?.name).toBe("Admin");
   });
 
-  it("regular role has isSystem = 0 in the DB", async () => {
+  it("Member role has isSystem=1 but name≠'Admin' — guard does NOT fire", async () => {
     const row = await db
-      .select({ id: roles.id, isSystem: roles.isSystem })
+      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
       .from(roles)
-      .where(eq(roles.id, REGULAR_ROLE_ID))
+      .where(eq(roles.id, MEMBER_ROLE_ID))
       .get();
 
     expect(row).toBeDefined();
-    // The guard allows assignment when this value is falsy.
-    expect(row?.isSystem).toBe(0);
+    expect(row?.isSystem).toBe(1);
+    // Guard checks isSystem && name==='Admin'. Member has isSystem=1 but name='Member',
+    // so it is NOT blocked and can be freely assigned.
+    expect(row?.name).not.toBe("Admin");
   });
 
-  it("assigning a regular role succeeds (guard does not block)", async () => {
-    // Simulate what the handler does after the guard passes.
+  it("Member role (isSystem=1, non-Admin) can be inserted into userRoles", async () => {
     await db
       .insert(userRoles)
-      .values({ userId: TARGET_ID, roleId: REGULAR_ROLE_ID, assignedAt: Date.now() })
+      .values({ userId: TARGET_ID, roleId: MEMBER_ROLE_ID, assignedAt: Date.now() })
       .onConflictDoUpdate({
         target: userRoles.userId,
-        set: { roleId: REGULAR_ROLE_ID, assignedAt: Date.now() },
+        set: { roleId: MEMBER_ROLE_ID, assignedAt: Date.now() },
       });
 
     const row = await db.select().from(userRoles).where(eq(userRoles.userId, TARGET_ID)).get();
-
-    expect(row?.roleId).toBe(REGULAR_ROLE_ID);
+    expect(row?.roleId).toBe(MEMBER_ROLE_ID);
   });
 
-  it("system role is NOT inserted into userRoles when the guard fires", async () => {
-    // Simulate the guard: fetch role, check isSystem, skip insert.
+  it("Admin role is NOT inserted into userRoles when the guard fires", async () => {
+    // Simulate the guard: fetch role, evaluate isSystem && name==='Admin', skip insert.
     const role = await db
-      .select({ id: roles.id, isSystem: roles.isSystem })
+      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
       .from(roles)
-      .where(eq(roles.id, SYSTEM_ROLE_ID))
+      .where(eq(roles.id, ADMIN_ROLE_ID))
       .get();
 
-    // The handler throws before reaching the insert; verify the guard fires.
-    expect(role?.isSystem).toBeTruthy();
+    // The handler throws before reaching the insert; verify the guard condition holds.
+    expect(role?.isSystem === 1 && role?.name === "Admin").toBe(true);
 
-    // Confirm no userRoles row was created (the handler would have thrown).
+    // Confirm no userRoles row was created (the handler would have thrown before inserting).
     const assignment = await db
       .select()
       .from(userRoles)
@@ -119,5 +133,18 @@ describe("users role-assignment guard: system role protection", () => {
       .get();
 
     expect(assignment).toBeUndefined();
+  });
+
+  it("custom role (isSystem=0) can be assigned", async () => {
+    await db
+      .insert(userRoles)
+      .values({ userId: TARGET_ID, roleId: CUSTOM_ROLE_ID, assignedAt: Date.now() })
+      .onConflictDoUpdate({
+        target: userRoles.userId,
+        set: { roleId: CUSTOM_ROLE_ID, assignedAt: Date.now() },
+      });
+
+    const row = await db.select().from(userRoles).where(eq(userRoles.userId, TARGET_ID)).get();
+    expect(row?.roleId).toBe(CUSTOM_ROLE_ID);
   });
 });
