@@ -42,6 +42,48 @@ describe("scrub", () => {
     expect(scrub(undefined)).toBe(undefined);
   });
 
+  it("converts Date to its ISO string", () => {
+    expect(scrub(new Date("2024-01-01T00:00:00.000Z"))).toBe("2024-01-01T00:00:00.000Z");
+  });
+
+  it("returns 'Invalid Date' for an invalid Date instead of throwing", () => {
+    expect(() => scrub(new Date("not-a-date"))).not.toThrow();
+    expect(scrub(new Date("not-a-date"))).toBe("Invalid Date");
+  });
+
+  it("survives an invalid Date nested in a context blob without losing siblings", () => {
+    const out = scrub({ when: new Date("bad"), safe: "ok" }) as Record<string, unknown>;
+    expect(out.when).toBe("Invalid Date");
+    expect(out.safe).toBe("ok");
+  });
+
+  it("serializes a context containing an invalid Date without falling back to error blob", () => {
+    const out = serializeContext({ when: new Date("bad") });
+    expect(out).not.toBeNull();
+    const parsed = JSON.parse(out!) as { when: string };
+    expect(parsed.when).toBe("Invalid Date");
+    expect(out).not.toContain("__serialize_error");
+  });
+
+  it("converts URL to its string form", () => {
+    expect(scrub(new URL("https://example.com"))).toBe("https://example.com/");
+  });
+
+  it("converts Error to a loggable {name, message} pair", () => {
+    const out = scrub(new Error("boom")) as { name: string; message: string };
+    expect(out.name).toBe("Error");
+    expect(out.message).toBe("boom");
+  });
+
+  it("redacts sensitive keys inside a Map", () => {
+    const out = scrub(new Map([["token", "secret"]])) as Record<string, unknown>;
+    expect(out.token).toBe("[REDACTED]");
+  });
+
+  it("converts Set to an array, scrubbing each element", () => {
+    expect(scrub(new Set([1, 2, 3]))).toEqual([1, 2, 3]);
+  });
+
   it("bounds recursion at a safe depth", () => {
     // Builds a cycle so naive recursion would stack-overflow; we just check the
     // scrubber returns without throwing and stops descending past the limit.

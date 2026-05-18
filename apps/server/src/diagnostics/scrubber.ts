@@ -34,7 +34,10 @@ export function scrub(value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
   if (typeof value !== "object") return value;
   // Non-plain objects: convert to a loggable primitive rather than silently dropping fields.
-  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Date) {
+    // `toISOString()` throws `RangeError` for invalid dates; fall back to a stable string.
+    return Number.isFinite(value.getTime()) ? value.toISOString() : "Invalid Date";
+  }
   if (value instanceof URL) return value.toString();
   if (value instanceof Error) return { name: value.name, message: value.message };
   if (value instanceof Map) return scrub(Object.fromEntries(value), depth + 1);
