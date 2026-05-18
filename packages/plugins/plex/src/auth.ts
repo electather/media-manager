@@ -110,7 +110,9 @@ export async function pollAuth(ctx: PluginContext, pollState: unknown): Promise<
     if (resourcesRes.ok) {
       const resources = (await resourcesRes.json()) as Array<{
         clientIdentifier: string;
-        provides: string;
+        // `provides` is documented but the real Plex API has been observed
+        // omitting it on some resource rows; treat as optional.
+        provides?: string;
         owned?: boolean;
         name?: string;
         connections?: Array<{ uri?: string; local?: boolean }>;
