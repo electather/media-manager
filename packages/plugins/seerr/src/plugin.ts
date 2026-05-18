@@ -38,6 +38,8 @@ export default definePlugin({
         password: {
           type: "string",
           title: "Password",
+          description:
+            "Collected from the form and promoted into the encrypted credentials blob by startAuth; never persisted in userConfig.",
           "x-secret": true,
           writeOnly: true,
         },
