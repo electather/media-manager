@@ -210,9 +210,14 @@ export const adminUsersApp = new Hono()
       throw badRequest("users.self_revoke", "cannot revoke your own sessions");
     }
 
-    await db.delete(session).where(eq(session.userId, id));
-    await db.delete(oauthAccessToken).where(eq(oauthAccessToken.userId, id));
-    await db.delete(oauthRefreshToken).where(eq(oauthRefreshToken.userId, id));
+    // Wrap in a transaction so a failure mid-sequence cannot leave a refresh
+    // token behind after sessions have already been cleared — that would let
+    // the holder mint fresh access tokens indefinitely.
+    await db.transaction(async (tx) => {
+      await tx.delete(session).where(eq(session.userId, id));
+      await tx.delete(oauthAccessToken).where(eq(oauthAccessToken.userId, id));
+      await tx.delete(oauthRefreshToken).where(eq(oauthRefreshToken.userId, id));
+    });
 
     return c.json({ ok: true });
   })
