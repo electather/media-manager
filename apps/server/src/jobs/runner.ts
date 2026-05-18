@@ -114,43 +114,44 @@ export async function run(req: RunRequest): Promise<RunOutcome> {
   const startedAt = Date.now();
   const route = `job:${req.jobId}`;
 
-  const cfg = await getConfig(req.jobId);
-  const logger = createRunLogger(req.jobId, runId, requestId);
-
-  await startRun({
-    id: runId,
-    jobId: req.jobId,
-    scopeKey: req.scopeKey ?? null,
-    triggeredBy: req.triggeredBy,
-    triggeredByUserId: req.triggeredByUserId ?? null,
-    requestId,
-    startedAt,
-    coalescedCount: req.coalescedCount ?? null,
-  });
-
   let timedOut = false;
-
-  const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
-  const timeoutHandle = setTimeout(() => {
-    timedOut = true;
-    controller.abort(new Error("job timed out"));
-  }, timeoutMs);
-
-  const ctx: JobRunContext = {
-    runId,
-    triggeredBy: req.triggeredBy,
-    triggeredByUserId: req.triggeredByUserId ?? undefined,
-    scopeKey: req.scopeKey ?? undefined,
-    requestId,
-    logger,
-    abortSignal: controller.signal,
-  };
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
   let execResult: Awaited<ReturnType<typeof executeHandlerWithCapture>>;
   try {
+    const cfg = await getConfig(req.jobId);
+    const logger = createRunLogger(req.jobId, runId, requestId);
+
+    await startRun({
+      id: runId,
+      jobId: req.jobId,
+      scopeKey: req.scopeKey ?? null,
+      triggeredBy: req.triggeredBy,
+      triggeredByUserId: req.triggeredByUserId ?? null,
+      requestId,
+      startedAt,
+      coalescedCount: req.coalescedCount ?? null,
+    });
+
+    const timeoutMs = (req.timeoutSec ?? DEFAULT_TIMEOUT_SEC) * 1000;
+    timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      controller.abort(new Error("job timed out"));
+    }, timeoutMs);
+
+    const ctx: JobRunContext = {
+      runId,
+      triggeredBy: req.triggeredBy,
+      triggeredByUserId: req.triggeredByUserId ?? undefined,
+      scopeKey: req.scopeKey ?? undefined,
+      requestId,
+      logger,
+      abortSignal: controller.signal,
+    };
+
     execResult = await executeHandlerWithCapture(req, ctx, cfg, requestId, route);
   } finally {
-    clearTimeout(timeoutHandle);
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
     active.delete(activeKey(req.jobId, req.scopeKey));
   }
 
