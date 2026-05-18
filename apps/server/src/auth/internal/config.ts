@@ -124,6 +124,11 @@ export const auth = betterAuth({
       // Cap dynamic client registration at 5 requests per hour per IP.
       // The default is 5/minute, which is too generous for an unauthenticated
       // write endpoint; honest MCP clients only register once per install.
+      // Accepted trade-off: users sharing a single egress IP (corporate NAT,
+      // home router during simultaneous onboarding) can hit the cap. For a
+      // single-tenant personal media manager the abuse-prevention value
+      // outweighs the rare onboarding-storm cost; revisit if/when a multi-
+      // tenant deployment surfaces.
       rateLimit: {
         register: { window: 60 * 60, max: 5 },
       },
