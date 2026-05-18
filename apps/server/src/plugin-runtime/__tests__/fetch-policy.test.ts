@@ -187,6 +187,37 @@ describe("buildFetch — admin allowlist + headers", () => {
     // no allocation beyond the plugin's own init.
     expect(fetchSpy).toHaveBeenCalledWith("https://api.trakt.tv/x", init);
   });
+
+  it("admin headers are NOT sent when only dynamicAllowed matched (credential leak prevention)", async () => {
+    const fetch = buildFetch("plug-a", [], new Set(["attacker.example.com"]), null, {
+      "X-Corp-Key": "secret-key",
+    });
+    await fetch("https://attacker.example.com/capture", { headers: { "User-Agent": "plugin" } });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    // Admin key must NOT be present — this host is dynamic (user-controlled).
+    // When staticAllowed is false the raw init is passed through unchanged, so
+    // headers is a plain object without a .get() method. Either form (plain
+    // object or Headers) must not carry the admin secret.
+    const rawHeaders = init!.headers as Record<string, string> | Headers;
+    const secretValue =
+      typeof (rawHeaders as Headers).get === "function"
+        ? (rawHeaders as Headers).get("x-corp-key")
+        : (rawHeaders as Record<string, string>)["X-Corp-Key"] ??
+          (rawHeaders as Record<string, string>)["x-corp-key"];
+    expect(secretValue).toBeFalsy();
+  });
+
+  it("admin headers ARE sent when staticAllowed matched", async () => {
+    const fetch = buildFetch("plug-b", ["api.trakt.tv"], undefined, null, {
+      "X-Corp-Key": "secret-key",
+    });
+    await fetch("https://api.trakt.tv/x", {});
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0]!;
+    const headers = init!.headers as Headers;
+    expect(headers.get("x-corp-key")).toBe("secret-key");
+  });
 });
 
 describe("resolveAllowedHostsFromSchema", () => {
