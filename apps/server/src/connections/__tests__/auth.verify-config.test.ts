@@ -20,19 +20,12 @@ vi.mock("../../plugin-runtime", async () => {
   };
 });
 
-const writeConnection = vi.fn();
-vi.mock("../helpers", async () => {
-  const actual = await vi.importActual<typeof import("../helpers")>("../helpers");
-  return { ...actual, writeConnection };
-});
-
 const { verifyConfig } = await import("../auth");
 
 describe("verifyConfig — x-plugin-resolved field stripping", () => {
   beforeEach(() => {
     runAuth.mockReset();
     getModule.mockReset();
-    writeConnection.mockReset();
   });
 
   it("strips x-plugin-resolved fields before passing userConfig to startAuth", async () => {
@@ -88,5 +81,92 @@ describe("verifyConfig — x-plugin-resolved field stripping", () => {
     });
 
     expect(result).toEqual({ ok: true });
+  });
+});
+
+const formManifest = {
+  manifest: {
+    auth: { kind: "form" },
+    userConfigSchema: {
+      type: "object",
+      properties: { serverUrl: { type: "string" } },
+      required: ["serverUrl"],
+    },
+  },
+} as const;
+
+describe("verifyConfig — error paths", () => {
+  beforeEach(() => {
+    runAuth.mockReset();
+    getModule.mockReset();
+  });
+
+  it("returns ok: false with message+field when startAuth returns a non-invalid_base_url error", async () => {
+    getModule.mockResolvedValueOnce(formManifest);
+    runAuth.mockResolvedValueOnce({
+      status: "error",
+      code: "plugin.credentials_invalid",
+      devMessage: "bad credentials",
+      params: { field: "serverUrl" },
+    });
+
+    const result = await verifyConfig({
+      userId: "user-1",
+      pluginId: "jellyfin",
+      userConfig: { serverUrl: "http://jellyfin.local" },
+    });
+
+    expect(result).toEqual({ ok: false, message: "bad credentials", field: "serverUrl" });
+  });
+
+  it("throws plugin.invalid_base_url badRequest when startAuth surfaces that code", async () => {
+    // Asserts the modal-routing contract: the typed error reaches the client
+    // with `params.field` so the offending input can be highlighted. A refactor
+    // that drops the rethrow would silently degrade this to `{ ok: false }`.
+    getModule.mockResolvedValueOnce(formManifest);
+    runAuth.mockResolvedValueOnce({
+      status: "error",
+      code: "plugin.invalid_base_url",
+      devMessage: "unreachable host",
+      params: { field: "serverUrl" },
+    });
+
+    await expect(
+      verifyConfig({
+        userId: "user-1",
+        pluginId: "jellyfin",
+        userConfig: { serverUrl: "http://bogus.local" },
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: "plugin.invalid_base_url",
+      params: { field: "serverUrl" },
+    });
+  });
+
+  it("returns ok: false with 'unexpected status' when startAuth returns a non-terminal status", async () => {
+    getModule.mockResolvedValueOnce(formManifest);
+    runAuth.mockResolvedValueOnce({ status: "redirect", url: "https://example/", state: {} });
+
+    const result = await verifyConfig({
+      userId: "user-1",
+      pluginId: "jellyfin",
+      userConfig: { serverUrl: "http://jellyfin.local" },
+    });
+
+    expect(result).toEqual({ ok: false, message: "unexpected status: redirect" });
+  });
+
+  it("returns ok: false with the error message when startAuth throws a non-HTTP error", async () => {
+    getModule.mockResolvedValueOnce(formManifest);
+    runAuth.mockRejectedValueOnce(new Error("network down"));
+
+    const result = await verifyConfig({
+      userId: "user-1",
+      pluginId: "jellyfin",
+      userConfig: { serverUrl: "http://jellyfin.local" },
+    });
+
+    expect(result).toEqual({ ok: false, message: "network down" });
   });
 });
