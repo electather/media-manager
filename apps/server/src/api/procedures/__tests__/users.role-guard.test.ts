@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 
 vi.mock("../../../env", () => ({
@@ -12,6 +13,40 @@ vi.mock("../../../env", () => ({
   },
 }));
 
+let db: Db;
+let mockUserId: string | null = "acting-admin";
+const mockSignUpEmail = vi.fn();
+
+vi.mock("../../../db/client", () => ({
+  getDb: () => db,
+}));
+
+vi.mock("../../../auth", async () => {
+  const { unauthorized } = await import("../../../diagnostics/http-errors");
+  const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
+  return {
+    requireSession: async (c: any, next: any) => {
+      if (!mockUserId) throw unauthorized();
+      c.set("session", { user: { id: mockUserId } });
+      await next();
+    },
+    sessionUserId: (c: any) => {
+      const s = c.get("session") as { user: { id: string } } | undefined;
+      if (!s) throw unauthorized();
+      return s.user.id;
+    },
+    requirePermission: () => async (_c: any, next: any) => {
+      await next();
+    },
+    PERMISSIONS,
+    auth: {
+      api: {
+        signUpEmail: (...args: any[]) => mockSignUpEmail(...args),
+      },
+    },
+  };
+});
+
 import {
   cleanupInMemoryDbs,
   createInMemoryDb,
@@ -19,105 +54,155 @@ import {
 } from "../../../__tests__/helpers/in-memory-db";
 import { user } from "../../../db/schema/auth";
 import { roles, userRoles } from "../../../db/schema/roles";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
+import { adminUsersApp } from "../users";
 
-let db: Db;
-
-const ADMIN_ID = "admin-user";
+const ACTING_ADMIN_ID = "acting-admin";
 const TARGET_ID = "target-user";
-const SYSTEM_ROLE_ID = "system-admin-role";
-const REGULAR_ROLE_ID = "editor-role";
+const ADMIN_ROLE_ID = "role_admin";
+const MEMBER_ROLE_ID = "role_member";
 
-beforeEach(async () => {
-  db = await createInMemoryDb();
+function buildApp() {
+  return new Hono()
+    .use("*", requestContextMiddleware())
+    .route("/admin/users", adminUsersApp)
+    .onError(errorHandler);
+}
 
+async function seedBaseData() {
   await db.insert(user).values([
-    { id: ADMIN_ID, name: "Admin", email: "admin@example.com" },
+    { id: ACTING_ADMIN_ID, name: "Admin", email: "admin@example.com" },
     { id: TARGET_ID, name: "Target", email: "target@example.com" },
   ]);
 
-  // A system-protected role (isSystem = 1).
-  await db.insert(roles).values({
-    id: SYSTEM_ROLE_ID,
-    name: "System Admin",
-    isSystem: 1,
-    createdAt: 0,
-    updatedAt: 0,
-  });
+  await db.insert(roles).values([
+    { id: ADMIN_ROLE_ID, name: "Admin", isSystem: 1, createdAt: 0, updatedAt: 0 },
+    { id: MEMBER_ROLE_ID, name: "Member", isSystem: 1, createdAt: 0, updatedAt: 0 },
+  ]);
+}
 
-  // A normal assignable role (isSystem = 0).
-  await db.insert(roles).values({
-    id: REGULAR_ROLE_ID,
-    name: "Editor",
-    isSystem: 0,
-    createdAt: 0,
-    updatedAt: 0,
-  });
+beforeEach(async () => {
+  db = await createInMemoryDb();
+  mockUserId = ACTING_ADMIN_ID;
+  // Simulate better-auth's sign-up by inserting the user into the DB so the
+  // subsequent userRoles FK insert doesn't fail.
+  mockSignUpEmail.mockImplementation(
+    async ({ body }: { body: { name: string; email: string } }) => {
+      const newId = "newly-created-id";
+      await db.insert(user).values({ id: newId, name: body.name, email: body.email });
+      return { user: { id: newId } };
+    },
+  );
 });
 
 afterAll(() => cleanupInMemoryDbs());
 
-// These tests verify the DB-level shape that the requireRole helper and PUT
-// handler rely on. The guard reads role.isSystem from the DB; we confirm that
-// field is correctly set and that the assignment can be blocked at the DB
-// query level.
-describe("users role-assignment guard: system role protection", () => {
-  it("system role has isSystem = 1 in the DB", async () => {
+// ─── DB shape tests ──────────────────────────────────────────────────────────
+// Verify the schema properties the guard condition depends on.
+
+describe("users role-assignment guard: DB shape", () => {
+  beforeEach(seedBaseData);
+
+  it("Admin role satisfies both guard conditions (isSystem=1 AND name='Admin')", async () => {
     const row = await db
-      .select({ id: roles.id, isSystem: roles.isSystem })
+      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
       .from(roles)
-      .where(eq(roles.id, SYSTEM_ROLE_ID))
+      .where(eq(roles.id, ADMIN_ROLE_ID))
       .get();
 
-    expect(row).toBeDefined();
-    // The guard rejects when this value is truthy.
     expect(row?.isSystem).toBe(1);
+    expect(row?.name).toBe("Admin");
   });
 
-  it("regular role has isSystem = 0 in the DB", async () => {
+  it("Member role has isSystem=1 but name≠'Admin' — does NOT match the guard condition", async () => {
     const row = await db
-      .select({ id: roles.id, isSystem: roles.isSystem })
+      .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
       .from(roles)
-      .where(eq(roles.id, REGULAR_ROLE_ID))
+      .where(eq(roles.id, MEMBER_ROLE_ID))
       .get();
 
-    expect(row).toBeDefined();
-    // The guard allows assignment when this value is falsy.
-    expect(row?.isSystem).toBe(0);
+    expect(row?.isSystem).toBe(1);
+    expect(row?.name).not.toBe("Admin");
+  });
+});
+
+// ─── HTTP handler tests ──────────────────────────────────────────────────────
+// These tests call the actual Hono handlers and assert on HTTP status codes.
+
+describe("PUT /admin/users/:id/role — system Admin guard", () => {
+  beforeEach(seedBaseData);
+
+  it("returns 403 when assigning the Admin role", async () => {
+    const res = await buildApp().request(`/admin/users/${TARGET_ID}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleId: ADMIN_ROLE_ID }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.system_role");
   });
 
-  it("assigning a regular role succeeds (guard does not block)", async () => {
-    // Simulate what the handler does after the guard passes.
-    await db
-      .insert(userRoles)
-      .values({ userId: TARGET_ID, roleId: REGULAR_ROLE_ID, assignedAt: Date.now() })
-      .onConflictDoUpdate({
-        target: userRoles.userId,
-        set: { roleId: REGULAR_ROLE_ID, assignedAt: Date.now() },
-      });
+  it("returns 200 and assigns the role when assigning a non-Admin role", async () => {
+    const res = await buildApp().request(`/admin/users/${TARGET_ID}/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roleId: MEMBER_ROLE_ID }),
+    });
 
-    const row = await db.select().from(userRoles).where(eq(userRoles.userId, TARGET_ID)).get();
+    expect(res.status).toBe(200);
 
-    expect(row?.roleId).toBe(REGULAR_ROLE_ID);
-  });
-
-  it("system role is NOT inserted into userRoles when the guard fires", async () => {
-    // Simulate the guard: fetch role, check isSystem, skip insert.
-    const role = await db
-      .select({ id: roles.id, isSystem: roles.isSystem })
-      .from(roles)
-      .where(eq(roles.id, SYSTEM_ROLE_ID))
-      .get();
-
-    // The handler throws before reaching the insert; verify the guard fires.
-    expect(role?.isSystem).toBeTruthy();
-
-    // Confirm no userRoles row was created (the handler would have thrown).
-    const assignment = await db
-      .select()
+    const assigned = await db
+      .select({ roleId: userRoles.roleId })
       .from(userRoles)
       .where(eq(userRoles.userId, TARGET_ID))
       .get();
+    expect(assigned?.roleId).toBe(MEMBER_ROLE_ID);
+  });
+});
 
-    expect(assignment).toBeUndefined();
+describe("POST /admin/users — system Admin guard on new user creation", () => {
+  beforeEach(seedBaseData);
+
+  it("returns 403 when creating a user with the Admin role", async () => {
+    const res = await buildApp().request("/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "New User",
+        email: "new@example.com",
+        password: "password123",
+        roleId: ADMIN_ROLE_ID,
+      }),
+    });
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe("users.system_role");
+    expect(mockSignUpEmail).not.toHaveBeenCalled();
+  });
+
+  it("returns 201 and assigns the role when creating a user with a non-Admin role", async () => {
+    const res = await buildApp().request("/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "New User",
+        email: "new@example.com",
+        password: "password123",
+        roleId: MEMBER_ROLE_ID,
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockSignUpEmail).toHaveBeenCalledOnce();
+
+    const assigned = await db
+      .select({ roleId: userRoles.roleId })
+      .from(userRoles)
+      .where(eq(userRoles.userId, "newly-created-id"))
+      .get();
+    expect(assigned?.roleId).toBe(MEMBER_ROLE_ID);
   });
 });
