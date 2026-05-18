@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/client";
 import { oauthProviderAuthServerMetadata } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 import { auth } from "./config";
-import { env } from "../env";
+import { env } from "../../env";
 
 const serverClient = createAuthClient({
   plugins: [oauthProviderResourceClient()],

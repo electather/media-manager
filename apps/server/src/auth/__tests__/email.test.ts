@@ -6,7 +6,7 @@ vi.mock("../../env", () => ({
 }));
 
 import { env } from "../../env";
-import { sendEmail, isEmailEnabled } from "../email";
+import { sendEmail, isEmailEnabled } from "../internal/email";
 
 const mutableEnv = env as { EMAIL_PROVIDER_CONFIGURED: boolean };
 
