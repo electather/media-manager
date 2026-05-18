@@ -35,10 +35,12 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
     writeConnection.mockReset();
   });
 
-  it("skips startAuth and writes the connection directly with empty credentials", async () => {
+  it("skips startAuth and moves x-secret fields into the encrypted credentials blob", async () => {
     // Regression: notification plugins like Telegram declare auth.kind: "none"
     // and export no startAuth. The prior implementation always called runAuth,
     // which surfaced "plugin telegram does not export startAuth" to the user.
+    // Security: x-secret fields must land in the encrypted credentials column,
+    // not the plaintext userConfig column.
     getModule.mockResolvedValueOnce({
       manifest: {
         auth: { kind: "none" },
@@ -66,8 +68,10 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
       expect.objectContaining({
         userId: "user-1",
         pluginId: "telegram",
-        credentials: {},
-        userConfig: { botToken: "123:abc", chatId: "456" },
+        // x-secret botToken goes to the encrypted credentials blob.
+        credentials: { botToken: "123:abc" },
+        // Plaintext userConfig only holds non-secret fields.
+        userConfig: { chatId: "456" },
         allowEmptyCredentials: true,
       }),
     );
