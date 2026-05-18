@@ -114,7 +114,24 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       scopes: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       allowDynamicClientRegistration: true,
+      // Endpoint-only MCP clients (Claude/Cursor/generic) bootstrap from the
+      // bare `/mcp` URL and rely on unauthenticated RFC 7591 registration to
+      // obtain a client id before the user can authorize. Requiring auth here
+      // would break first-connect for every MCP client we ship docs for.
+      // Abuse is bounded by the rate limit below, which the better-auth
+      // oauth-provider applies per IP at the framework layer.
       allowUnauthenticatedClientRegistration: true,
+      // Cap dynamic client registration at 5 requests per hour per IP.
+      // The default is 5/minute, which is too generous for an unauthenticated
+      // write endpoint; honest MCP clients only register once per install.
+      // Accepted trade-off: users sharing a single egress IP (corporate NAT,
+      // home router during simultaneous onboarding) can hit the cap. For a
+      // single-tenant personal media manager the abuse-prevention value
+      // outweighs the rare onboarding-storm cost; revisit if/when a multi-
+      // tenant deployment surfaces.
+      rateLimit: {
+        register: { window: 60 * 60, max: 5 },
+      },
       // Accept both trailing-slash and non-trailing-slash forms of the base URL,
       // since MCP clients derive the resource indicator from discovery metadata
       // and may append a trailing slash.
