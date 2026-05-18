@@ -1,4 +1,6 @@
 import { consola } from "consola";
+import { mapValues } from "es-toolkit/object";
+import { scrub } from "../../diagnostics/scrubber";
 import { auth } from "./config";
 
 async function parseBody(message: Request | Response): Promise<unknown> {
@@ -50,15 +52,28 @@ async function normalizeTokenRequest(req: Request): Promise<Request> {
   });
 }
 
+/** OAuth-specific sensitive keys not covered by the diagnostics scrubber's general
+ *  patterns (`token`, `secret`, etc.): the authorization `code` and the PKCE
+ *  `code_verifier`. Both can be exchanged for tokens, so they must not appear in logs. */
+const OAUTH_SENSITIVE_KEYS = new Set(["code", "code_verifier"]);
+
+export function scrubOAuthBody(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return scrub(body);
+  const prePass = mapValues(body as Record<string, unknown>, (v, k) =>
+    OAUTH_SENSITIVE_KEYS.has(k) ? "[REDACTED]" : v,
+  );
+  return scrub(prePass);
+}
+
 async function debugLogRequest(path: string, req: Request): Promise<Response> {
   const reqClone = req.clone();
   const reqBody = await parseBody(reqClone);
-  consola.debug(`[oauth] → ${path}`, JSON.stringify(reqBody));
+  consola.debug(`[oauth] → ${path}`, JSON.stringify(scrubOAuthBody(reqBody)));
 
   const res = await auth.handler(req);
   const resClone = res.clone();
   const resBody = await parseBody(resClone);
-  consola.debug(`[oauth] ← ${path} ${res.status}`, JSON.stringify(resBody));
+  consola.debug(`[oauth] ← ${path} ${res.status}`, JSON.stringify(scrubOAuthBody(resBody)));
 
   return res;
 }
