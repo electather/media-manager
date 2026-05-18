@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { assignRoleSchema, createUserSchema, updateUserSchema } from "@ent-mcp/shared/users";
 import { requireSession, requirePermission, sessionUserId, PERMISSIONS, auth } from "../../auth";
 import { getDb } from "../../db/client";
-import { user, session } from "../../db/schema/auth";
+import { user, session, oauthAccessToken, oauthRefreshToken } from "../../db/schema/auth";
 import { userRoles, roles } from "../../db/schema/roles";
 import { zValidator } from "../../diagnostics/validator";
 import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
@@ -206,6 +206,8 @@ export const adminUsersApp = new Hono()
     }
 
     await db.delete(session).where(eq(session.userId, id));
+    await db.delete(oauthAccessToken).where(eq(oauthAccessToken.userId, id));
+    await db.delete(oauthRefreshToken).where(eq(oauthRefreshToken.userId, id));
 
     return c.json({ ok: true });
   })
