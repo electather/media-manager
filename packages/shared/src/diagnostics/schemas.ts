@@ -8,12 +8,12 @@ export const perfKindSchema = z.enum(PERF_KINDS);
 /** Payload the client posts to `POST /api/diagnostics/errors` when reporting a surfaced error. */
 export const errorReportSchema = z.object({
   severity: errorSeveritySchema,
-  name: z.string().optional(),
-  message: z.string(),
-  stack: z.string().optional(),
-  route: z.string().optional(),
-  code: z.string().optional(),
-  requestId: z.string().optional(),
+  name: z.string().max(200).optional(),
+  message: z.string().max(2000),
+  stack: z.string().max(10000).optional(),
+  route: z.string().max(500).optional(),
+  code: z.string().max(200).optional(),
+  requestId: z.string().max(100).optional(),
   context: z.record(z.string(), z.unknown()).optional(),
 });
 export type ErrorReportPayload = z.infer<typeof errorReportSchema>;
