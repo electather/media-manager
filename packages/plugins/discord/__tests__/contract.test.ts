@@ -127,6 +127,52 @@ describe("discord notificationDelivery error semantics", () => {
     }
   });
 
+  it("429: retry_after above 1 hour is clamped to the cap", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(JSON.stringify({ retry_after: 7200, message: "slow" }), {
+          status: 429,
+          headers: { "content-type": "application/json" },
+        }),
+      ],
+    });
+    try {
+      await discordPlugin.capabilities.notificationDelivery!.deliver(ctx, {
+        message,
+        event: sampleEvent,
+        channelConfig,
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(isPluginError(err)).toBe(true);
+      expect((err as { code: string }).code).toBe("plugin.rate_limited");
+      expect((err as { retryAfterMs: number }).retryAfterMs).toBe(3_600_000);
+    }
+  });
+
+  it("429: retry-after header above 1 hour is clamped to the cap", async () => {
+    const ctx = makeTestContext({
+      responses: [
+        new Response(null, {
+          status: 429,
+          headers: { "retry-after": "9999" },
+        }),
+      ],
+    });
+    try {
+      await discordPlugin.capabilities.notificationDelivery!.deliver(ctx, {
+        message,
+        event: sampleEvent,
+        channelConfig,
+      });
+      throw new Error("should have thrown");
+    } catch (err) {
+      expect(isPluginError(err)).toBe(true);
+      expect((err as { code: string }).code).toBe("plugin.rate_limited");
+      expect((err as { retryAfterMs: number }).retryAfterMs).toBe(3_600_000);
+    }
+  });
+
   it("401: throws non-retryable plugin.bad_credentials", async () => {
     const ctx = makeTestContext({
       responses: [statusRes(401, JSON.stringify({ message: "no" }))],
