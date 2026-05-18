@@ -10,7 +10,10 @@ export interface SeerrSharedCreds {}
 
 export interface SeerrUserCfg {
   username: string;
-  password: string;
+  // Optional because, after the initial auth round-trip, password is promoted
+  // out of the persisted userConfig into the encrypted credentials blob.
+  // `startAuth` falls back to the prior credentials when the form omits it.
+  password?: string;
 }
 
 export interface SeerrGlobalCfg {

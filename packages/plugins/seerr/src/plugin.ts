@@ -41,7 +41,13 @@ export default definePlugin({
           "x-secret": true,
         },
       },
-      required: ["username", "password"],
+      // Password is omitted from `required` so the edit form does not block
+      // submit/test on a connection that has already promoted its password
+      // into the encrypted credentials blob. `startAuth` enforces presence
+      // at the input stage and returns `plugin.input_invalid` with
+      // `params.field = "password"` when neither the form nor the prior
+      // credentials carry one, matching the Jellyfin plugin's behaviour.
+      required: ["username"],
       additionalProperties: false,
     },
     credentialsSchema: {
