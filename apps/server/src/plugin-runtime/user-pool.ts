@@ -37,10 +37,26 @@ export async function listReadyUserConnections(
 
   const picks: UserConnectionPick[] = [];
   for (const row of rows) {
-    const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+    let credentials: unknown;
+    try {
+      credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+    } catch (err) {
+      // Corrupt ciphertext (tampered bytes, wrong key, truncated base64) — skip
+      // this row rather than aborting the whole pool lookup so remaining valid
+      // connections are still tried.
+      console.warn(
+        `[user-pool] skipping connection ${row.id}: decryptJson threw`,
+        err,
+      );
+      continue;
+    }
     if (credentials === null) {
-      // Skip rows where credential ciphertext is missing or corrupt — a null
-      // decrypt result would silently produce an unauthenticated plugin invocation.
+      // Skip rows with no stored ciphertext (null iv or data). A null result
+      // means no credentials were ever written; passing null to the plugin
+      // would produce a silent unauthenticated invocation.
+      console.warn(
+        `[user-pool] skipping connection ${row.id}: decryptJson returned null`,
+      );
       continue;
     }
     picks.push({

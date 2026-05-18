@@ -91,4 +91,36 @@ describe("listReadyUserConnections", () => {
     const result = await listReadyUserConnections("user-1", "plex");
     expect(result).toHaveLength(1);
   });
+
+  it("skips rows where decryptJson throws (corrupt ciphertext)", async () => {
+    fakeRows = [
+      {
+        id: "bad",
+        isDefault: 0,
+        credentialsIv: "iv",
+        encryptedCredentials: "data",
+        retryAfter: null,
+        userConfig: null,
+      },
+      {
+        id: "good",
+        isDefault: 1,
+        credentialsIv: "iv2",
+        encryptedCredentials: "data2",
+        retryAfter: null,
+        userConfig: null,
+      },
+    ];
+    decryptJsonMock
+      .mockRejectedValueOnce(new Error("decryption failed"))
+      .mockResolvedValueOnce({ token: "ok" });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await listReadyUserConnections("user-1", "plex");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.connectionId).toBe("good");
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
 });
