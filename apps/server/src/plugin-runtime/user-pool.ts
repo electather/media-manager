@@ -1,4 +1,6 @@
+import { consola } from "consola";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { attempt } from "es-toolkit/util";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema/credentials";
 import { decryptJson } from "../crypto/helpers";
@@ -37,11 +39,21 @@ export async function listReadyUserConnections(
 
   const picks: UserConnectionPick[] = [];
   for (const row of rows) {
+    let userConfig: unknown = null;
+    const raw = row.userConfig;
+    if (raw) {
+      const [err, parsed] = attempt(() => JSON.parse(raw));
+      if (err) {
+        consola.warn(`[user-pool] malformed userConfig row id=${row.id}, skipping`, err);
+        continue;
+      }
+      userConfig = parsed;
+    }
     picks.push({
       connectionId: row.id,
       isDefault: row.isDefault === 1,
       credentials: await decryptJson(row.credentialsIv, row.encryptedCredentials),
-      userConfig: row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null,
+      userConfig,
     });
   }
   return picks;

@@ -13,6 +13,7 @@ export const errorReportSchema = z.object({
   stack: z.string().optional(),
   route: z.string().optional(),
   code: z.string().optional(),
+  // Accepted for forwards-compat; server ignores — ALS requestId wins.
   requestId: z.string().optional(),
   context: z.record(z.string(), z.unknown()).optional(),
 });
