@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, notExists } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { env } from "../env";
@@ -220,17 +220,30 @@ async function ensureDefaultIfFirst(
   connectionId: string,
 ): Promise<void> {
   const db = getDb();
-  const count = await db
-    .select({ id: serviceConnections.id })
-    .from(serviceConnections)
-    .where(and(eq(serviceConnections.userId, userId), eq(serviceConnections.pluginId, pluginId)))
-    .all();
-  if (count.length === 1) {
-    await db
-      .update(serviceConnections)
-      .set({ isDefault: 1 })
-      .where(eq(serviceConnections.id, connectionId));
-  }
+  // Single atomic conditional UPDATE: sets isDefault only when no other row for
+  // this (userId, pluginId) already carries isDefault=1, eliminating the
+  // SELECT→UPDATE race window.
+  await db
+    .update(serviceConnections)
+    .set({ isDefault: 1 })
+    .where(
+      and(
+        eq(serviceConnections.id, connectionId),
+        notExists(
+          db
+            .select({ id: serviceConnections.id })
+            .from(serviceConnections)
+            .where(
+              and(
+                eq(serviceConnections.userId, userId),
+                eq(serviceConnections.pluginId, pluginId),
+                eq(serviceConnections.isDefault, 1),
+                ne(serviceConnections.id, connectionId),
+              ),
+            ),
+        ),
+      ),
+    );
 }
 
 /**
