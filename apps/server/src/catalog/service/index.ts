@@ -1,14 +1,14 @@
 import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { groupBy, uniqBy } from "es-toolkit/array";
-import type { Db } from "../db/client";
+import { getDb, type Db } from "../../db/client";
 import {
   canonicalMetadata,
   discoverSnapshots,
   recommendationLists,
   userHistoryMirror,
   userRatingsMirror,
-} from "../db/schema/catalog";
-import { idMap } from "../db/schema/id-map";
+} from "../../db/schema/catalog";
+import { idMap } from "../../db/schema/id-map";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,
@@ -23,12 +23,12 @@ import type {
   RecommendationList,
   RecommendationListKind,
 } from "@ent-mcp/shared/catalog";
-import { candidateId } from "./features";
-import { PerUserMutex } from "./mutex";
+import { candidateId } from "../features";
+import { PerUserMutex } from "../internal/mutex";
 
 type DbTransaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
+export const DEFAULT_RECORD_ACCESS_THROTTLE_MS = 60 * 60 * 1000;
 
 export interface CatalogServiceOptions {
   recordAccessThrottleMs?: number;
@@ -241,7 +241,6 @@ export class CatalogService {
     return row?.items ?? null;
   }
 
-  // fallow-ignore-next-line unused-class-member
   async getRecommendations(
     userId: string,
     kind: RecommendationListKind = "default",
@@ -561,6 +560,29 @@ export class CatalogService {
       .returning({ day: discoverSnapshots.day });
     return { deleted: deleted.length };
   }
+}
+
+let instance: CatalogService | undefined;
+
+/**
+ * Returns the process-wide singleton. The catalog is intentionally a single
+ * instance per process so per-process state (Phase 6's `recordAccess`
+ * throttle map) stays consistent across every read site — preference
+ * engine, scheduled jobs, and home-feed handlers all share one map.
+ */
+export function getCatalogService(): CatalogService {
+  if (!instance) instance = new CatalogService(getDb());
+  return instance;
+}
+
+/** Test helper: drop the singleton so the next `get` rebuilds from scratch. */
+export function resetCatalogServiceForTest(): void {
+  instance = undefined;
+}
+
+/** Test helper: install an arbitrary catalog instance (e.g. with an in-memory DB). */
+export function setCatalogServiceForTest(svc: CatalogService): void {
+  instance = svc;
 }
 
 // fallow-ignore-next-line complexity
