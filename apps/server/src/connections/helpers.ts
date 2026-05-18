@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, notExists } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { env } from "../env";
@@ -210,7 +210,7 @@ export async function promoteToDefault(
     await tx
       .update(serviceConnections)
       .set({ isDefault: 1, updatedAt: now })
-      .where(eq(serviceConnections.id, connectionId));
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
   });
 }
 
@@ -220,17 +220,34 @@ async function ensureDefaultIfFirst(
   connectionId: string,
 ): Promise<void> {
   const db = getDb();
-  const count = await db
-    .select({ id: serviceConnections.id })
-    .from(serviceConnections)
-    .where(and(eq(serviceConnections.userId, userId), eq(serviceConnections.pluginId, pluginId)))
-    .all();
-  if (count.length === 1) {
-    await db
-      .update(serviceConnections)
-      .set({ isDefault: 1 })
-      .where(eq(serviceConnections.id, connectionId));
-  }
+  // Single atomic conditional UPDATE: sets isDefault only when no other row for
+  // this (userId, pluginId) already carries isDefault=1, eliminating the
+  // SELECT→UPDATE race window. Bumps updatedAt so the row's audit timestamp
+  // reflects the silent promotion to default, matching promoteToDefault. The
+  // outer userId predicate is defense-in-depth so a forged connectionId can
+  // never flip a row owned by another user.
+  await db
+    .update(serviceConnections)
+    .set({ isDefault: 1, updatedAt: Date.now() })
+    .where(
+      and(
+        eq(serviceConnections.id, connectionId),
+        eq(serviceConnections.userId, userId),
+        notExists(
+          db
+            .select({ id: serviceConnections.id })
+            .from(serviceConnections)
+            .where(
+              and(
+                eq(serviceConnections.userId, userId),
+                eq(serviceConnections.pluginId, pluginId),
+                eq(serviceConnections.isDefault, 1),
+                ne(serviceConnections.id, connectionId),
+              ),
+            ),
+        ),
+      ),
+    );
 }
 
 /**

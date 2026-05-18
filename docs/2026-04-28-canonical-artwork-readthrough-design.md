@@ -118,6 +118,7 @@ ARTWORK.GET
 | patchArtwork throw               | `consola.error("[artwork] patch failed", e)`, 200 to client                                     |
 | patchArtwork: row absent (race)  | 0 rows updated, no error, next read writes                                                      |
 | 2 concurrent gets, same cold key | first hits plugin, second hits `mv:` cache; both patch, COALESCE safe                           |
+| caller exceeds per-user rate limit | 429 + `Retry-After: N` header + `{ code: "mcp.rate_limited" }` body; TMDB call skipped. Bucket capacity 60, refill 1/s, charged per unique canonical lookup in batch. |
 
 ## Schema migration
 

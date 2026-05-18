@@ -4,11 +4,11 @@ import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
-vi.mock("../enrich", () => ({
+vi.mock("../internal/enrich", () => ({
   enrichItems: vi.fn(async (items: unknown[]) => items),
 }));
 
-const { pickHero } = await import("../hero");
+const { pickHero } = await import("../internal/hero");
 const { makeRowCtx } = await import("./row-test-helpers");
 
 /**

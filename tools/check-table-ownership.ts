@@ -55,9 +55,9 @@ const ALLOWLIST: Record<string, string> = {
   "apps/server/src/catalog/jobs/user-mirror-sync.ts:serviceConnections":
     "TASK-045: catalog reads via plugin-runtime/preferences barrel",
   "apps/server/src/home/jobs/layout-warm.ts:feedback":
-    "TASK-046: home reads via preferences barrel",
+    "TASK-046: warm job lists active users via direct schema reads; routing through preferences/catalog barrels deferred so the parallel Phase 3d catalog refactor can shape its own list-user-ids surface without merge churn",
   "apps/server/src/home/jobs/layout-warm.ts:userHistoryMirror":
-    "TASK-046: home reads via catalog barrel",
+    "TASK-046: warm job lists active users via direct schema reads; routing through preferences/catalog barrels deferred so the parallel Phase 3d catalog refactor can shape its own list-user-ids surface without merge churn",
   "apps/server/src/media/connection-lifecycle.ts:serviceConnections":
     "TASK-047: media reads via plugin-runtime barrel",
   "apps/server/src/media/connection-targeted.ts:serviceConnections":
