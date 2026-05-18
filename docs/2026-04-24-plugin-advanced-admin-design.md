@@ -146,13 +146,13 @@ After allowlist check passes & rate-limiter takes token:
 
 ```ts
 const hdrs = new Headers(init?.headers);
-if (adminHeaders) {
+if (adminHeaders && staticAllowed) {
   for (const [name, value] of Object.entries(adminHeaders)) hdrs.set(name, value); // admin wins
 }
 return fetch(url, { ...init, headers: hdrs });
 ```
 
-`Headers.set` case-insensitive → admin-wins uniform regardless of casing. Merge only runs when `adminHeaders` populated. Admin header values ⊥ logged.
+`Headers.set` case-insensitive → admin-wins uniform regardless of casing. Merge only runs when `adminHeaders` populated **and** the host matched the static allowlist — dynamic hosts (user-supplied via `x-allowed-host`) never receive admin credentials. Admin header values ⊥ logged.
 
 ### Context wiring — `context.ts`
 
