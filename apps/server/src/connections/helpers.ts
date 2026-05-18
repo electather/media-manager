@@ -222,10 +222,11 @@ async function ensureDefaultIfFirst(
   const db = getDb();
   // Single atomic conditional UPDATE: sets isDefault only when no other row for
   // this (userId, pluginId) already carries isDefault=1, eliminating the
-  // SELECT→UPDATE race window.
+  // SELECT→UPDATE race window. Bumps updatedAt so the row's audit timestamp
+  // reflects the silent promotion to default, matching promoteToDefault.
   await db
     .update(serviceConnections)
-    .set({ isDefault: 1 })
+    .set({ isDefault: 1, updatedAt: Date.now() })
     .where(
       and(
         eq(serviceConnections.id, connectionId),
