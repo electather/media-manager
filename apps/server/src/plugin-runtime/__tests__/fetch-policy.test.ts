@@ -199,8 +199,8 @@ describe("buildFetch — admin allowlist + headers", () => {
     const secretValue =
       typeof (rawHeaders as Headers).get === "function"
         ? (rawHeaders as Headers).get("x-corp-key")
-        : (rawHeaders as Record<string, string>)["X-Corp-Key"] ??
-          (rawHeaders as Record<string, string>)["x-corp-key"];
+        : ((rawHeaders as Record<string, string>)["X-Corp-Key"] ??
+          (rawHeaders as Record<string, string>)["x-corp-key"]);
     expect(secretValue).toBeUndefined();
   });
 
