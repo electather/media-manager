@@ -129,6 +129,35 @@ describe("deleteAccount", () => {
     expect(stillThere).toBeDefined();
   });
 
+  it("rejects with 401 when verifyPassword resolves to {} (fail-closed guard)", async () => {
+    verifyPassword.mockResolvedValue({});
+
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "secret",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
+  });
+
+  it("rejects with 401 when verifyPassword resolves to { user: {} } (fail-closed guard)", async () => {
+    verifyPassword.mockResolvedValue({ user: {} });
+
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "secret",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+  });
+
   it("matches email case-insensitively", async () => {
     verifyPassword.mockResolvedValue({ valid: true });
 

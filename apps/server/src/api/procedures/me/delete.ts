@@ -68,5 +68,5 @@ function isVerifyPasswordOk(result: unknown): boolean {
   if (!result || typeof result !== "object") return false;
   if ("error" in result && (result as { error?: unknown }).error) return false;
   if ("valid" in result) return Boolean((result as { valid?: unknown }).valid);
-  return true;
+  return false; // fail-closed: require explicit { valid: true }
 }
