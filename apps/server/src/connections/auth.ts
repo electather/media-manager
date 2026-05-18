@@ -246,8 +246,11 @@ export async function verifyConfig(args: {
   // Surface blank-required-field submissions as a typed error before any
   // plugin work. Mirrors the create path; the modal routes the result to the
   // offending input via `params.field`.
+  // `x-plugin-resolved` fields are owned by the plugin; drop any value the
+  // client tried to submit before reaching `startAuth`, matching the create path.
   const module = await pluginRuntime.getModule(args.pluginId);
-  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, args.userConfig);
+  const sanitized = stripRequestFields(module.manifest.userConfigSchema, args.userConfig);
+  const blank = firstBlankRequiredField(module.manifest.userConfigSchema, sanitized);
   if (blank) {
     throw badRequest("plugin.credentials_empty", `${blank} is required`, { field: blank });
   }
@@ -256,7 +259,7 @@ export async function verifyConfig(args: {
       args.pluginId,
       "startAuth",
       args.userId,
-      args.userConfig,
+      sanitized,
     )) as AuthResult;
     if (result.status === "completed") return { ok: true };
     if (result.status === "error" && result.code === "plugin.invalid_base_url") {
