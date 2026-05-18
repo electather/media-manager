@@ -69,10 +69,12 @@ describe("scrub", () => {
     expect(scrub(new URL("https://example.com"))).toBe("https://example.com/");
   });
 
-  it("converts Error to a loggable {name, message} pair", () => {
-    const out = scrub(new Error("boom")) as { name: string; message: string };
+  it("converts Error to a loggable {name, message, stack} object", () => {
+    const err = new Error("boom");
+    const out = scrub(err) as { name: string; message: string; stack: string | undefined };
     expect(out.name).toBe("Error");
     expect(out.message).toBe("boom");
+    expect(out.stack).toBe(err.stack);
   });
 
   it("redacts sensitive keys inside a Map", () => {
