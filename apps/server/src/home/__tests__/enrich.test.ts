@@ -23,7 +23,7 @@ vi.mock("../../plugin-runtime", async () => {
   };
 });
 
-const { enrichItems } = await import("../enrich");
+const { enrichItems } = await import("../internal/enrich");
 
 function meta(overrides: Partial<CanonicalMetadata>): CanonicalMetadata {
   return {

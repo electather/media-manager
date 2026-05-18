@@ -11,14 +11,16 @@ import type { MediaType } from "@ent-mcp/shared/media";
 import { getCatalogService, toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import { MediaService, AllPluginsFailedError, PluginCallError } from "../media";
 import { HttpError } from "../diagnostics/http-errors";
-import { classifyError } from "./errors";
-import { pickHero } from "./hero";
-import * as layoutCache from "./layout-cache";
+import { classifyError } from "./internal/classify-error";
+import { pickHero } from "./internal/hero";
+import * as repo from "./repo";
 import { ROW_ORDER, ROW_PROVIDERS } from "./rows";
-import { StatusBatchMemo } from "./status-batch";
-import { enrichItems } from "./enrich";
-import { fromCanonicalMetadata } from "./adapters";
-import type { RowContext, RowPage } from "./types";
+import { StatusBatchMemo } from "./internal/status-batch";
+import { enrichItems } from "./internal/enrich";
+import { fromCanonicalMetadata } from "./internal/adapters";
+import type { RowContext, RowPage } from "./internal/types";
+
+export { composeSeasonAvailability } from "./internal/season-availability";
 
 const DEFAULT_DEADLINE_MS = 8000;
 
@@ -65,14 +67,14 @@ export async function composeLayout(
   opts: ComposeOptions = {},
 ): Promise<HomeLayoutResponse> {
   if (!opts.forceFresh) {
-    const cached = await layoutCache.read(ctx.userId);
-    if (cached && layoutCache.isFresh(cached)) {
+    const cached = await repo.read(ctx.userId);
+    if (cached && repo.isFresh(cached)) {
       return cached.layout;
     }
   }
   const blob = await composeLayoutLive(ctx);
   if (!opts.skipWriteback) {
-    void layoutCache
+    void repo
       .write(ctx.userId, blob)
       .catch((err) => ctx.logger.warn("[home:layout-cache] write failed", err));
   }

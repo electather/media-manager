@@ -33,6 +33,28 @@ export function parseUserConfig(raw: string | null): unknown {
   }
 }
 
+/**
+ * Merges decrypted credential fields back into the channel config the plugin
+ * `deliver()` handler reads from. No-auth plugins (Telegram, ntfy, …) declare
+ * secret fields like `botToken` with `x-secret: true`; the connection create
+ * path moves those into the encrypted credentials blob so they're encrypted at
+ * rest, but the plugins still read them from `args.channelConfig`. Credentials
+ * win on key collisions so the encrypted-at-rest value is the source of truth.
+ * Non-object credentials (e.g. the inbox `{ kind: "inbox" }` sentinel or a
+ * plain string) are ignored — only an object payload can carry x-secret fields.
+ */
+// fallow-ignore-next-line complexity
+export function mergeSecretCredentials(channelConfig: unknown, credentials: unknown): unknown {
+  if (!credentials || typeof credentials !== "object" || Array.isArray(credentials)) {
+    return channelConfig;
+  }
+  const base =
+    channelConfig && typeof channelConfig === "object" && !Array.isArray(channelConfig)
+      ? (channelConfig as Record<string, unknown>)
+      : {};
+  return { ...base, ...(credentials as Record<string, unknown>) };
+}
+
 // fallow-ignore-next-line complexity
 export async function loadPluginAndContext(
   deliveryId: string,

@@ -38,7 +38,6 @@ const BANNED_NAMES = new Set(["utils.ts", "helpers.ts", "misc.ts"]);
 // Each entry: path → plan-task reference. Adding a file here is a one-way ratchet;
 // new files cannot be allowlisted without a paired plan task that schedules the split.
 const ALLOWLIST: Record<string, string> = {
-  "apps/server/src/catalog/service.ts": "TASK-045: split into service/ directory",
   "apps/server/src/media/service.ts": "TASK-047: split into service/ directory",
   "apps/server/src/catalog/jobs/recommendation-build.ts": "TASK-045: catalog jobs reshape",
   "apps/server/src/catalog/jobs/user-mirror-sync.ts": "TASK-045: catalog jobs reshape",
