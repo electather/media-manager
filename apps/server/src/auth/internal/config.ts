@@ -9,6 +9,11 @@ import * as schema from "../../db/schema/index";
 import { sendEmail } from "./email";
 import { isNil } from "es-toolkit/predicate";
 
+// Strip any trailing slashes from the configured base URL so we can derive
+// both audience forms (with and without trailing slash) from one source. The
+// MCP verifier in mcp/auth.ts must accept the same set.
+const normalisedBaseUrl = env.BETTER_AUTH_URL.replace(/\/+$/, "");
+
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
@@ -112,10 +117,7 @@ export const auth = betterAuth({
       // Accept both trailing-slash and non-trailing-slash forms of the base URL,
       // since MCP clients derive the resource indicator from discovery metadata
       // and may append a trailing slash.
-      validAudiences: [
-        env.BETTER_AUTH_URL.replace(/\/+$/, ""),
-        env.BETTER_AUTH_URL.replace(/\/+$/, "") + "/",
-      ],
+      validAudiences: [normalisedBaseUrl, `${normalisedBaseUrl}/`],
       advertisedMetadata: {
         scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       },
