@@ -48,7 +48,7 @@ export async function withOAuthAuth(
       throw new Error("invalid scope claim type");
     }
     const userId = payload.sub;
-    const scopes = parseScopes(payload.scope as string | undefined);
+    const scopes = parseScopes(payload.scope);
     consola.debug("[mcp-auth] token verified", { userId, scopes });
     return handler(req, userId, scopes);
   } catch (err) {
