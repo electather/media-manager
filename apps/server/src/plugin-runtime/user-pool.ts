@@ -37,10 +37,16 @@ export async function listReadyUserConnections(
 
   const picks: UserConnectionPick[] = [];
   for (const row of rows) {
+    const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
+    if (credentials === null) {
+      // Skip rows where credential ciphertext is missing or corrupt — a null
+      // decrypt result would silently produce an unauthenticated plugin invocation.
+      continue;
+    }
     picks.push({
       connectionId: row.id,
       isDefault: row.isDefault === 1,
-      credentials: await decryptJson(row.credentialsIv, row.encryptedCredentials),
+      credentials,
       userConfig: row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null,
     });
   }
