@@ -327,12 +327,21 @@ export class PluginRuntime {
     // Connection-targeted dispatch: credentials are user-scoped, so resolve
     // `x-allowed-host` hosts from the `userConfigSchema`. Also union in any
     // hosts declared on the admin-set `globalConfigSchema` (e.g. Seerr's
-    // single-instance baseUrl), since those still need to reach ctx.fetch.
+    // single-instance baseUrl) and on `sharedCredentialsSchema` (whose value
+    // is the admin credential threaded in via `peekAdminCredential` below),
+    // since those still need to reach ctx.fetch and the other two
+    // context-building paths walk all three schemas.
+    const sharedCredentials = await this.peekAdminCredential(args.pluginId);
     const dynamicAllowedHosts = unionHostSets(
       resolveAllowedHostsFromSchema(
         args.pluginId,
         module.manifest.userConfigSchema,
         args.userConfig,
+      ),
+      resolveAllowedHostsFromSchema(
+        args.pluginId,
+        module.manifest.sharedCredentialsSchema,
+        sharedCredentials,
       ),
       resolveAllowedHostsFromSchema(
         args.pluginId,
@@ -350,7 +359,7 @@ export class PluginRuntime {
       userId: args.userId,
       appBaseUrl: env.APP_EXTERNAL_URL,
       credentials: args.credentials,
-      sharedCredentials: await this.peekAdminCredential(args.pluginId),
+      sharedCredentials,
       userConfig: args.userConfig,
       globalConfig,
     });
