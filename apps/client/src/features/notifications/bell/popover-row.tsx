@@ -44,6 +44,7 @@ function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
         <a
           key={action.label}
           href={action.url}
+          target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className={cn(buttonVariants({ variant: actionVariant(action.style), size: "xs" }))}

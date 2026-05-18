@@ -82,6 +82,7 @@ export function InboxRow({ item, selected, onToggleSelect }: Props) {
                 <a
                   key={`${i}-${a.url}`}
                   href={a.url}
+                  target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
                   className={cn(buttonVariants({ variant: actionVariant(a.style), size: "xs" }))}
