@@ -1,6 +1,12 @@
 import { consola } from "consola";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+vi.mock("../../env", () => ({
+  env: {
+    ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef",
+  },
+}));
+
 interface Row {
   id: string;
   userId: string;
@@ -40,11 +46,17 @@ const dbMock = {
 
 vi.mock("../../db/client", () => ({ getDb: () => dbMock }));
 
+vi.mock("../../db/schema/credentials", () => ({
+  serviceConnections: {},
+}));
+
+const decryptJsonMock = vi.fn(async (_iv: string | null, data: string | null) => {
+  if (!data) return null;
+  return { secret: data };
+});
+
 vi.mock("../../crypto/helpers", () => ({
-  async decryptJson(_iv: string | null, data: string | null) {
-    if (!data) return null;
-    return { secret: data };
-  },
+  decryptJson: (iv: string | null, data: string | null) => decryptJsonMock(iv, data),
 }));
 
 const { listReadyUserConnections } = await import("../user-pool");
@@ -67,6 +79,11 @@ function seed(partial: Partial<Row>): Row {
 
 beforeEach(() => {
   state.rows = [];
+  decryptJsonMock.mockReset();
+  decryptJsonMock.mockImplementation(async (_iv, data) => {
+    if (!data) return null;
+    return { secret: data };
+  });
   vi.restoreAllMocks();
 });
 
@@ -96,6 +113,38 @@ describe("listReadyUserConnections", () => {
     const picks = await listReadyUserConnections("u1", "p1");
     expect(picks.map((p) => p.connectionId)).toEqual(["good"]);
     expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("bad");
+  });
+
+  it("skips rows where decryptJson returns null", async () => {
+    // Regression for #336: a row with null ciphertext used to pass null
+    // credentials straight to the plugin, causing silent unauthenticated calls.
+    const warnSpy = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
+    state.rows = [
+      seed({ id: "null-row", credentialsIv: null, encryptedCredentials: null }),
+      seed({ id: "good", credentialsIv: "iv", encryptedCredentials: "data" }),
+    ];
+    const picks = await listReadyUserConnections("u1", "p1");
+    expect(picks.map((p) => p.connectionId)).toEqual(["good"]);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(warnSpy.mock.calls[0]?.[0]).toContain("null-row");
+  });
+
+  it("skips rows where decryptJson throws (corrupt ciphertext)", async () => {
+    // Regression for #336 follow-up: corrupt ciphertext makes decryptJson throw.
+    // The throw used to abort the whole pool lookup, dropping every later valid
+    // connection. Guard catches and skips just the bad row.
+    const warnSpy = vi.spyOn(consola, "warn").mockImplementation(() => undefined);
+    decryptJsonMock.mockImplementationOnce(async () => {
+      throw new Error("decryption failed");
+    });
+    state.rows = [
+      seed({ id: "bad", credentialsIv: "iv", encryptedCredentials: "data" }),
+      seed({ id: "good", credentialsIv: "iv2", encryptedCredentials: "data2" }),
+    ];
+    const picks = await listReadyUserConnections("u1", "p1");
+    expect(picks.map((p) => p.connectionId)).toEqual(["good"]);
+    expect(warnSpy).toHaveBeenCalled();
     expect(warnSpy.mock.calls[0]?.[0]).toContain("bad");
   });
 });
