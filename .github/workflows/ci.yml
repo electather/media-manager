@@ -24,12 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
       - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
+        uses: voidzero-dev/setup-vp@9446e853b27985e00fb1b21193be026fc09198db # v1
         with:
           cache: true
 
@@ -65,7 +65,7 @@ jobs:
             --fail-on-issues --quiet
 
       - name: Fallow analysis (dead code, dupes, health)
-        uses: fallow-rs/fallow@v2
+        uses: fallow-rs/fallow@cb70d5823fd7ba0b9a5d33fc2a6186143668fe99 # v2
         if: always()
         with:
           format: sarif
@@ -78,7 +78,7 @@ jobs:
           fail-on-issues: false
 
       - name: Upload Fallow results to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@7c1e4cf0b20d7c1872b26569c00ba908797a59bf # v4
         if: always()
         # Code Scanning (GitHub Advanced Security) is not enabled on this
         # repository, so the upload returns "Resource not accessible by
