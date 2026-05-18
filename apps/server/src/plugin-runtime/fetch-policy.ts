@@ -139,13 +139,14 @@ export function buildFetch(
  * an attacker-controlled host redirects the server to an internal endpoint
  * (e.g. the cloud instance-metadata service).
  */
-async function fetchNoRedirect(pluginId: string, url: string, init?: RequestInit): Promise<Response> {
+async function fetchNoRedirect(
+  pluginId: string,
+  url: string,
+  init?: RequestInit,
+): Promise<Response> {
   const response = await fetch(url, { ...init, redirect: "manual" });
   if (response.status >= 300 && response.status < 400) {
-    throw new PluginError(
-      "plugin.upstream_error",
-      `[${pluginId}] redirects are not permitted`,
-    );
+    throw new PluginError("plugin.upstream_error", `[${pluginId}] redirects are not permitted`);
   }
   return response;
 }

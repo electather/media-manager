@@ -190,26 +190,6 @@ describe("buildFetch — admin allowlist + headers", () => {
       redirect: "manual",
     });
   });
-});
-
-describe("buildFetch — redirect prevention", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(null, { status: 302, headers: { Location: "http://169.254.169.254/latest/meta-data/" } })),
-    );
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it("throws when upstream returns a redirect", async () => {
-    const fetch = buildFetch("plug-redirect", ["api.example.com"]);
-    await expect(fetch("https://api.example.com/path")).rejects.toMatchObject({
-      code: "plugin.upstream_error",
-    });
-  });
 
   it("admin headers are NOT sent when only dynamicAllowed matched (credential leak prevention)", async () => {
     const fetch = buildFetch("plug-a", [], new Set(["attacker.example.com"]), null, {
@@ -236,6 +216,32 @@ describe("buildFetch — redirect prevention", () => {
     const [, init] = fetchSpy.mock.calls[0]!;
     const headers = init!.headers as Headers;
     expect(headers.get("x-corp-key")).toBe("secret-key");
+  });
+});
+
+describe("buildFetch — redirect prevention", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(null, {
+            status: 302,
+            headers: { Location: "http://169.254.169.254/latest/meta-data/" },
+          }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("throws when upstream returns a redirect", async () => {
+    const fetch = buildFetch("plug-redirect", ["api.example.com"]);
+    await expect(fetch("https://api.example.com/path")).rejects.toMatchObject({
+      code: "plugin.upstream_error",
+    });
   });
 });
 
