@@ -1,8 +1,21 @@
-import { isPluginError } from "@ent-mcp/plugin-sdk";
-import type { Ctx } from "../types";
+import { isPluginError, pluginError } from "@ent-mcp/plugin-sdk";
 import { seerrGet, seerrPost, seerrDeleteRaw, fetchAllRequests, isHostActionable } from "../client";
 import { mapMediaStatus, mapRequestStatus } from "../mappers";
 import { REQUEST_STATUS_STORE_KEY } from "../constants";
+import type { Ctx } from "../types";
+
+/**
+ * Validates that `id` is a non-negative integer string safe for use in a URL
+ * path segment. Throws a PluginError when validation fails.
+ */
+function assertNonNegativeIntId(id: string, label: string): void {
+  if (!/^\d+$/.test(id)) {
+    throw pluginError(
+      "plugin.input_invalid",
+      `invalid ID: must be a non-negative integer (${label})`,
+    );
+  }
+}
 
 /**
  * Per-connection job that detects request-status transitions in Seerr and
@@ -66,6 +79,7 @@ export const mediaRequest = {
   async checkAvailability(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
     const { tmdbId, type } = input as { tmdbId: string; type: "movie" | "tv" };
+    assertNonNegativeIntId(tmdbId, "tmdbId");
     const path = type === "movie" ? `/movie/${tmdbId}` : `/tv/${tmdbId}`;
     try {
       const data = await seerrGet<{ mediaInfo?: { status: number } }>(c, path);
@@ -90,6 +104,9 @@ export const mediaRequest = {
       targetId?: string;
       profileId?: string;
     };
+    assertNonNegativeIntId(tmdbId, "tmdbId");
+    if (targetId !== undefined) assertNonNegativeIntId(targetId, "targetId");
+    if (profileId !== undefined) assertNonNegativeIntId(profileId, "profileId");
     const body: Record<string, unknown> = {
       mediaType: type,
       mediaId: Number(tmdbId),
@@ -168,6 +185,7 @@ export const mediaRequest = {
   async cancelRequest(ctx: unknown, input: unknown) {
     const c = ctx as Ctx;
     const { requestId } = input as { requestId: string };
+    assertNonNegativeIntId(requestId, "requestId");
     try {
       // Use seerrDeleteRaw so 404 is not converted into a thrown error —
       // Seerr returns 204 on success and 404 when the row has already
