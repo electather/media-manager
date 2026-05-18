@@ -15,6 +15,12 @@ const okSchema = {
   properties: {},
 } as const;
 
+// Matches `defaultMcpLimiter`'s bucket capacity in `../rate-limit.ts`.
+// Kept in lockstep manually since the limiter does not expose its capacity;
+// if that constant changes, update this loop bound (or the assertions
+// on the (capacity+1)-th call will trip prematurely).
+const BUCKET_CAPACITY = 60;
+
 function registerEchoTool() {
   mcpToolRegistry.register({
     name: "echo",
@@ -40,21 +46,21 @@ describe("dispatchTool — rate limit ordering (issue #343)", () => {
   });
 
   it("consumes a token on unknown-tool dispatch", async () => {
-    // Drain the bucket via 60 unknown-tool calls.
-    for (let i = 0; i < 60; i += 1) {
+    // Drain the bucket via unknown-tool calls — each must consume a token.
+    for (let i = 0; i < BUCKET_CAPACITY; i += 1) {
       const res = await dispatchTool("does-not-exist", { userId: "user-A", scopes: [] }, {});
       expect(res.ok).toBe(false);
       expect(res.error?.code).toBe("mcp.tool_not_found");
     }
 
-    // 61st call must be rate-limited, not tool-not-found.
+    // Capacity+1 must be rate-limited, not tool-not-found.
     const res = await dispatchTool("does-not-exist", { userId: "user-A", scopes: [] }, {});
     expect(res.ok).toBe(false);
     expect(res.error?.code).toBe("mcp.rate_limited");
   });
 
   it("consumes a token on missing-scope dispatch", async () => {
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < BUCKET_CAPACITY; i += 1) {
       const res = await dispatchTool("echo", { userId: "user-A", scopes: [] }, {});
       expect(res.ok).toBe(false);
       expect(res.error?.code).toBe("mcp.forbidden");
@@ -67,7 +73,7 @@ describe("dispatchTool — rate limit ordering (issue #343)", () => {
 
   it("rate-limit gate runs before tool lookup", async () => {
     // Exhaust the bucket with successful calls.
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < BUCKET_CAPACITY; i += 1) {
       const res = await dispatchTool("echo", { userId: "user-A", scopes: ["mcp:read"] }, {});
       expect(res.ok).toBe(true);
     }
@@ -79,7 +85,7 @@ describe("dispatchTool — rate limit ordering (issue #343)", () => {
   });
 
   it("rate-limit gate runs before scope validation", async () => {
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < BUCKET_CAPACITY; i += 1) {
       await dispatchTool("echo", { userId: "user-A", scopes: ["mcp:read"] }, {});
     }
 
@@ -90,7 +96,7 @@ describe("dispatchTool — rate limit ordering (issue #343)", () => {
   });
 
   it("buckets are per-user: exhausting userA leaves userB unaffected", async () => {
-    for (let i = 0; i < 60; i += 1) {
+    for (let i = 0; i < BUCKET_CAPACITY; i += 1) {
       await dispatchTool("does-not-exist", { userId: "user-A", scopes: [] }, {});
     }
 

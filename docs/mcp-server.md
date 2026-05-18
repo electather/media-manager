@@ -53,6 +53,7 @@ Follows token-efficiency discipline: small set of outcome-oriented tools, aggres
                                ▼
                 ┌──────────────────────────────┐
                 │ Tool Dispatcher               │
+                │  • rate-limit check           │
                 │  • registry lookup            │
                 │  • scope check                │
                 │  • ajv input validation       │
@@ -89,7 +90,7 @@ MCP subsystem: 5 concerns, each distinct module:
 
 - **Transport & auth.** Hono route wrapped by Better Auth's `mcpHandler`; well-known endpoints for discovery.
 - **Tool registry.** In-memory, rebuilt on plugin lifecycle events; holds capability-owned, composite & `ext_*` tools uniformly.
-- **Tool dispatcher.** Validates input, checks scope, runs handlers, validates output, captures errors per error-management pipeline.
+- **Tool dispatcher.** Enforces per-user rate limit first, then validates input, checks scope, runs handlers, validates output, captures errors per error-management pipeline.
 - **Tool handlers.** Pure translation between MCP surface & `MediaService`. No DB, no runtime, no auth — all below.
 - **Response compression.** Pure functions shaping `MediaItem` & other `MediaService` outputs into compact agent-facing shapes.
 
@@ -789,7 +790,7 @@ Stateless at app level. MCP session IDs live in Postgres & Redis via `CacheProvi
 2 layers:
 
 1. **Better Auth's built-in per-IP rate limiting** on OAuth endpoints (`/oauth2/token`, `/oauth2/authorize`, etc.). Defaults fine.
-2. **Per-user MCP rate limiting** on `/api/mcp`: token bucket keyed by JWT `sub`, default 60 tool calls per minute, configurable via env. Excess → `mcp.rate_limited` with `retry_after` param.
+2. **Per-user MCP rate limiting** on `/api/mcp`: token bucket keyed by JWT `sub`, default 60 tool calls per minute, configurable via env. Excess → `mcp.rate_limited` with `retry_after` param. Limiter is the first gate in `dispatchTool` — `mcp.tool_not_found` and `mcp.forbidden` paths also consume a token so unknown-tool or missing-scope traffic cannot bypass the bucket.
 
 Per-user limit prevents over-eager agent from hammering server (& transitively external APIs). Per-external-API rate limits remain responsibility of each plugin's `ctx.fetch` enforcement.
 
