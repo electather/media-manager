@@ -8,7 +8,7 @@ import type {
 } from "@ent-mcp/shared/diagnostics";
 import { severityFor } from "@ent-mcp/shared/diagnostics";
 import { currentRequestContext, newRequestId } from "./request-context";
-import { serializeContext } from "./scrubber";
+import { SENSITIVE_KEY_PATTERNS, serializeContext } from "./scrubber";
 import type { DiagnosticSink } from "./types";
 import { isNil } from "es-toolkit/predicate";
 
@@ -57,16 +57,22 @@ export function resetSinks(): void {
   sinks.length = 0;
 }
 
+/** URL query-param key matcher: any param whose key *contains* one of the
+ *  shared `SENSITIVE_KEY_PATTERNS` fragments. Substring semantics match the
+ *  scrubber's object-key behaviour, so `access_token`, `refresh_token`,
+ *  `id_token`, `client_secret`, etc. all hit without per-name entries. */
+const SENSITIVE_QUERY_PARAM_RE = new RegExp(
+  `([?&])([\\w-]*(?:${SENSITIVE_KEY_PATTERNS.join("|")})[\\w-]*)=([^&\\s#"']+)`,
+  "gi",
+);
+
 /** Scrubs secrets from a plain text string (e.g. error messages and stack traces).
  *  Handles Bearer auth headers, sensitive URL query params, and JWT-shaped strings. */
 function scrubText(text: string): string {
   // Strip Bearer/token values from auth headers.
   let result = text.replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
   // Strip sensitive query parameters from URLs.
-  result = result.replace(
-    /([?&])(api[_-]?key|token|authorization|secret|password|credential|private_key)=([^&\s#"']+)/gi,
-    "$1$2=[REDACTED]",
-  );
+  result = result.replace(SENSITIVE_QUERY_PARAM_RE, "$1$2=[REDACTED]");
   // Redact JWT-shaped strings (header.payload.signature).
   result = result.replace(
     /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,

@@ -111,6 +111,35 @@ describe("captureError", () => {
     expect(collector.records.at(-1)!.severity).toBe("error");
   });
 
+  it("redacts OAuth-style query params in devMessage and stack", async () => {
+    // OAuth flows produce URLs with credential-bearing query params; the
+    // capture regex must catch the full family of `*_token` / `*_secret`
+    // names, not just the literal `token`/`secret` keys.
+    const err = new Error("request to https://idp.example.com/cb?refresh_token=xyz failed");
+    err.stack = [
+      "Error: oauth boom",
+      "    at https://idp.example.com/cb?access_token=abc&state=42",
+      "    at next (https://idp.example.com/exchange?client_secret=shh)",
+      "    at legacy (https://api.example.com/v1?token=plain)",
+    ].join("\n");
+
+    await captureError(err, { source: "backend" });
+    const record = collector.records.at(-1)!;
+
+    expect(record.devMessage).toContain("refresh_token=[REDACTED]");
+    expect(record.devMessage).not.toContain("xyz");
+
+    expect(record.stack).toContain("access_token=[REDACTED]");
+    expect(record.stack).not.toContain("abc");
+    expect(record.stack).toContain("client_secret=[REDACTED]");
+    expect(record.stack).not.toContain("shh");
+    // Bare `token=` still works (regression for the original regex behaviour).
+    expect(record.stack).toContain("token=[REDACTED]");
+    expect(record.stack).not.toContain("plain");
+    // Non-sensitive params are left alone.
+    expect(record.stack).toContain("state=42");
+  });
+
   it("respects an explicit severity override from the caller", async () => {
     // `plugin.output_invalid` defaults to warning but a caller can bump it
     // up (or down) for a specific path.

@@ -1,13 +1,17 @@
 import { isNil } from "es-toolkit/predicate";
 
 /** Case-insensitive key fragments that cause a value to be replaced with `[REDACTED]`
- *  before the error context blob is persisted. Additions here are reviewed. */
-const SENSITIVE_KEY_PATTERNS = [
+ *  before the error context blob is persisted. Additions here are reviewed.
+ *  Also reused by `capture.ts` to build the URL query-param scrub regex, so a
+ *  fragment added here automatically covers both object keys and URL params. */
+export const SENSITIVE_KEY_PATTERNS = [
   "password",
+  "passwd",
+  "pwd",
   "api_key",
   "apikey",
   "api-key",
-  // `token` also catches `refresh_token`, `id_token`, etc.
+  // `token` also catches `access_token`, `refresh_token`, `id_token`, etc.
   "token",
   "authorization",
   "bearer",
