@@ -2,4 +2,4 @@
 "@ent-mcp/server": patch
 ---
 
-Guarded JSON.parse in plugin-runtime user pool against malformed userConfig rows.
+Fixed a single corrupted connection record no longer wiping out every linked app for a user.
