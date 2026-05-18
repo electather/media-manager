@@ -500,6 +500,9 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 | Integration | `perf/aggregate` returns p50/p95/p99 sorted by p95 desc.           |
 | Integration | retention sweep: insert range → run → verify deletions ∀ tables.   |
 | E2E         | FE err → viewer Errors tab w/ req-id → Perf tab same req-id chain. |
+| Unit        | `POST /api/diagnostics/errors` rejects msg > 2000, context > 20 keys, ctx str > 1000, nested ctx. |
+| Unit        | `POST /api/diagnostics/errors` 11th rapid req → 429 + `Retry-After`; oversized body still 429 when bucket empty (mw before validator). |
+| Unit        | `POST /api/diagnostics/errors` w/o session → 401 via `requireSession`. |
 
 ## §Q Open Questions / Deferred
 
@@ -509,7 +512,7 @@ Pre-stable → DB & API breaking changes acceptable. Steps:
 | Error grouping         | v2     | Sentry-style "400× same" deferred. Fingerprint col later.                       |
 | External sinks         | v2     | Iface v1; ⊥ concrete (DB+notify only). Sentry/GlitchTip/OTel adapter on demand. |
 | Incident pages         | v2     | "We know" banner cross plugin breaks deferred. Conn card state OK v1.           |
-| Rate limiting          | v2?    | v1 assumes moderate. Add if vol high.                                           |
+| Rate limiting          | done   | Per-user token bucket (10 burst, ~10/min refill) on `POST /api/diagnostics/errors` w/ `Retry-After`. Mw runs before validator. Multi-replica shared store still v2. |
 | DB query timing        | v2     | Drizzle wrapper. Defer until HTTP timing surfaces specific slow routes.         |
 | FE Web Vitals          | v2     | LCP/INP/CLS via PerformanceObserver → POST `/api/diagnostics/perf`. Deferred.   |
 | Sampling               | v2?    | v1 capture-all. Add reservoir sampling if perf vol > N/day.                     |

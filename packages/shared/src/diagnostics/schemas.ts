@@ -5,17 +5,35 @@ export const errorSeveritySchema = z.enum(ERROR_SEVERITIES);
 export const errorSourceSchema = z.enum(ERROR_SOURCES);
 export const perfKindSchema = z.enum(PERF_KINDS);
 
+/** Bounded value type accepted inside an error report `context`. Scalars only so
+ *  authenticated clients cannot smuggle large blobs past the per-field string
+ *  caps via an unbounded nested object. `undefined` is accepted at the type
+ *  level for ergonomic client call sites — JSON serialization strips it before
+ *  the server ever sees it. */
+const errorReportContextValueSchema = z.union([
+  z.string().max(1000),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.undefined(),
+]);
+
 /** Payload the client posts to `POST /api/diagnostics/errors` when reporting a surfaced error. */
 export const errorReportSchema = z.object({
   severity: errorSeveritySchema,
-  name: z.string().optional(),
-  message: z.string(),
-  stack: z.string().optional(),
-  route: z.string().optional(),
-  code: z.string().optional(),
-  // Accepted for forwards-compat; server ignores — ALS requestId wins.
-  requestId: z.string().optional(),
-  context: z.record(z.string(), z.unknown()).optional(),
+  name: z.string().max(200).optional(),
+  message: z.string().max(2000),
+  stack: z.string().max(10000).optional(),
+  route: z.string().max(500).optional(),
+  code: z.string().max(200).optional(),
+  // Cap at 20 keys × 1000-char string values to keep total context size bounded;
+  // anything richer should be flattened on the client before reporting.
+  context: z
+    .record(z.string().max(100), errorReportContextValueSchema)
+    .refine((v) => Object.keys(v).length <= 20, {
+      message: "context may not have more than 20 keys",
+    })
+    .optional(),
 });
 export type ErrorReportPayload = z.infer<typeof errorReportSchema>;
 
