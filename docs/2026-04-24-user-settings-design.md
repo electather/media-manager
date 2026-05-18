@@ -308,7 +308,7 @@ Table names map to schema in `packages/server/src/db/schema/`: `user`, `session`
 **Failure modes.**
 
 - Auth missing → 401; existing middleware → login.
-- Rate limited → 429 with `Retry-After` header (seconds). Per-user token bucket: 5 requests/hour, burst of 5. The ZIP is buffered in memory, so the cap exists to prevent memory exhaustion from a single user flooding the endpoint. Body: `{ code: "mcp.rate_limited", devMessage, params: { retry_after }, details: { retry_after } }`. Anchor-nav clients fall through to the browser's "download failed" UI; programmatic clients should back off by `Retry-After`.
+- Rate limited → 429 with `Retry-After` header (seconds). Per-user token bucket: 5 requests/hour, burst of 5. The ZIP is buffered in memory, so the cap exists to prevent memory exhaustion from a single user flooding the endpoint. Body: `{ code: "mcp.rate_limited", devMessage, params: { retry_after }, details: { retry_after }, requestId }`. Anchor-nav clients fall through to the browser's "download failed" UI; programmatic clients should back off by `Retry-After`. Note: limit is enforced in-process, so multi-replica deployments will under-count — a shared store (Redis / Valkey) is needed before horizontal scale-out.
 - Tx error → 500. Anchor-nav errors don't bubble through `window.error` → silent failure accepted v1. User sees browser "download failed" UI + can retry. v2 path = async job + token-protected download link. Not worth building now.
 - Very large user (hypothetical): not optimized v1.
 

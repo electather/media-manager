@@ -9,6 +9,7 @@ import { listAuthorizedApps, revokeAuthorizedApp } from "./me/apps";
 import { buildUserExport } from "./me/export";
 import { deleteAccount } from "./me/delete";
 import { TokenBucketLimiter } from "../../mcp/rate-limit";
+import { currentRequestContext } from "../../diagnostics/request-context";
 
 // 5 exports per hour per user. The export builds a multi-table ZIP in memory,
 // so a low burst cap is intentional to prevent memory exhaustion from flooding.
@@ -35,7 +36,8 @@ export const meApp = new Hono()
     const limited = exportLimiter.check(userId);
     if (limited !== null) {
       const retryAfter = Number(limited.params?.retry_after ?? 3600);
-      return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
+      const requestId = currentRequestContext()?.requestId;
+      return c.json(limited.toUserFacing(requestId), 429, { "Retry-After": String(retryAfter) });
     }
     const { zipBytes, filename } = await buildUserExport(getDb(), userId);
     return new Response(zipBytes, {

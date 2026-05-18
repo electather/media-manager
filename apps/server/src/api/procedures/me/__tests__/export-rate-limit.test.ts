@@ -75,9 +75,13 @@ describe("/me/export rate limit", () => {
     const body = (await limited.json()) as {
       code: string;
       details?: { retry_after?: number };
+      requestId?: string;
     };
     expect(body.code).toBe("mcp.rate_limited");
     expect(body.details?.retry_after).toBe(Number(retryAfter));
+    // Body must carry the request-scoped ID so a rate-limited user can correlate
+    // the failure with server logs — same shape as every other error response.
+    expect(body.requestId).toBe(limited.headers.get("x-request-id"));
 
     // The whole point of the limit is that the expensive ZIP build is *skipped*
     // when rate-limited — so the spy must still show only the 5 passing calls.
