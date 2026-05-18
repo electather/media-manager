@@ -256,6 +256,37 @@ export async function verifyConfig(args: {
   }
 }
 
+/** Returns the top-level `properties` object on a JSON schema, or `{}` when
+ *  the schema is missing one. Narrows the loose `JSONSchema` shape once so
+ *  call sites can index `properties[key]` without re-asserting. */
+function schemaProperties(schema: JSONSchema | undefined): Record<string, JSONSchema> {
+  const props = (schema as { properties?: Record<string, JSONSchema> } | undefined)?.properties;
+  return props ?? {};
+}
+
+/** Separates x-secret fields out of a userConfig object so they can be stored
+ *  in the encrypted credentials blob rather than the plaintext userConfig column.
+ *  Non-object configs short-circuit to empty buckets — the caller's schema
+ *  guarantees an object root, so this branch only protects against malformed
+ *  inputs reaching `Object.entries`. */
+// fallow-ignore-next-line complexity
+function extractSecretFields(
+  schema: JSONSchema | undefined,
+  config: unknown,
+): { credentials: Record<string, unknown>; userConfig: Record<string, unknown> } {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    return { credentials: {}, userConfig: {} };
+  }
+  const props = schemaProperties(schema);
+  const credentials: Record<string, unknown> = {};
+  const userConfig: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(config as Record<string, unknown>)) {
+    if (props[key]?.["x-secret"] === true) credentials[key] = value;
+    else userConfig[key] = value;
+  }
+  return { credentials, userConfig };
+}
+
 export async function createFormConnection(args: {
   userId: string;
   pluginId: string;
@@ -278,11 +309,17 @@ export async function createFormConnection(args: {
   // or the channel test endpoint.
   if (module.manifest.auth.kind === "none") {
     validateAllowedHostFields(args.pluginId, module.manifest.userConfigSchema, sanitized);
+    // Lift x-secret fields out of userConfig into the encrypted credentials blob
+    // so no-auth plugins honour the "encrypted at rest" guarantee.
+    const { credentials: secretCredentials, userConfig: strippedConfig } = extractSecretFields(
+      module.manifest.userConfigSchema,
+      sanitized,
+    );
     const id = await writeConnection({
       userId: args.userId,
       pluginId: args.pluginId,
-      credentials: {},
-      userConfig: sanitized,
+      credentials: secretCredentials,
+      userConfig: strippedConfig,
       displayName: args.displayName,
       allowEmptyCredentials: true,
     });

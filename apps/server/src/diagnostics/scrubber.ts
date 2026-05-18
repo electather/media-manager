@@ -1,3 +1,4 @@
+import { mapValues } from "es-toolkit/object";
 import { isNil } from "es-toolkit/predicate";
 
 /** Case-insensitive key fragments that cause a value to be replaced with `[REDACTED]`
@@ -30,7 +31,8 @@ function isSensitiveKey(key: string): boolean {
 }
 
 /** Recursively clones a value, replacing any value under a sensitive key with `[REDACTED]`.
- *  Walks into arrays and objects. String leaves are passed through `scrubText` so secrets
+ *  Walks into arrays and objects, converts non-plain objects (Date, URL, Error, Map, Set)
+ *  to loggable primitives, and pipes every string leaf through `scrubText` so secrets
  *  embedded inside free-text fields under non-sensitive keys (e.g. `error.stack`,
  *  `error.message`) are caught too — defense in depth on top of the key-based pass. */
 // fallow-ignore-next-line complexity
@@ -40,16 +42,23 @@ export function scrub(value: unknown, depth = 0): unknown {
   if (typeof value === "string") return scrubText(value);
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
   if (typeof value !== "object") return value;
-  const obj = value as Record<string, unknown>;
-  const out: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(obj)) {
-    if (isSensitiveKey(key)) {
-      out[key] = REDACTED;
-    } else {
-      out[key] = scrub(val, depth + 1);
-    }
+  // Non-plain objects: convert to a loggable primitive rather than silently dropping fields.
+  if (value instanceof Date) {
+    // `toISOString()` throws `RangeError` for invalid dates; fall back to a stable string.
+    return Number.isFinite(value.getTime()) ? value.toISOString() : "Invalid Date";
   }
-  return out;
+  if (value instanceof URL) return scrubText(value.toString());
+  // `stack` is included so diagnostics retain the trace; callers must already trust the
+  // error origin since stacks can carry file paths. The recursive call routes
+  // `message` and `stack` strings through `scrubText` so leaked secrets inside the
+  // error text are redacted while the trace structure is preserved.
+  if (value instanceof Error)
+    return scrub({ name: value.name, message: value.message, stack: value.stack }, depth + 1);
+  if (value instanceof Map) return scrub(Object.fromEntries(value), depth + 1);
+  if (value instanceof Set) return Array.from(value).map((item) => scrub(item, depth + 1));
+  return mapValues(value as Record<string, unknown>, (val, key) =>
+    isSensitiveKey(key) ? REDACTED : scrub(val, depth + 1),
+  );
 }
 
 /** Serializes a scrubbed context blob to JSON; returns null for empty or non-serializable input. */

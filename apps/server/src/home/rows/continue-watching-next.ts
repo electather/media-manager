@@ -1,5 +1,5 @@
-import { fromContinueWatchingEntry } from "../adapters";
-import type { RowProvider } from "../types";
+import { fromContinueWatchingEntry } from "../internal/adapters";
+import type { RowProvider } from "../internal/types";
 
 const PAGE_SIZE = 12;
 
