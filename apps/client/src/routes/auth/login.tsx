@@ -16,7 +16,14 @@ import {
 import { Input } from "@/shared/ui/input";
 
 export const Route = createFileRoute("/auth/login")({
-  validateSearch: z.object({ redirect: z.string().optional() }),
+  // Restrict redirect to same-origin path-only values to prevent open-redirect
+  // and javascript: URI execution via a crafted ?redirect= param.
+  validateSearch: z.object({
+    redirect: z
+      .string()
+      .regex(/^\/(?!\/)/)
+      .optional(),
+  }),
   component: LoginPage,
 });
 
@@ -30,11 +37,7 @@ function LoginPage() {
       if (error) throw new Error(error.message ?? "Login failed.");
     },
     onSuccess: () => {
-      if (redirect) {
-        window.location.href = redirect;
-      } else {
-        void navigate({ to: "/" });
-      }
+      void navigate({ to: redirect ?? "/" });
     },
   });
 
