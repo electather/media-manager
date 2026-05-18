@@ -133,7 +133,7 @@ interface PluginManifest {
 
 **`x-private` extension.** Properties marked `"x-private": true` → stored plaintext but stripped from every API response. Protects operationally-sensitive-but-non-secret values (private-network server URL) without encryption cost of `x-secret`. Read-side mirrors `x-secret`: omitted fields on `updateUserConfig` preserved by merge. Field may carry both `x-secret` & `x-private` → encrypted at rest AND stripped.
 
-**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` in `userConfigSchema` | `sharedCredentialsSchema` → URL-valued fields whose hostname added to per-call `ctx.fetch` allowlist, unioned with static `manifest.allowedHosts`. Enables self-hosted services (Plex, Jellyfin) with user-supplied URLs unpredictable at manifest time. Host resolves dynamic host set every invocation: user-scoped reads active connection's `userConfig`; admin/global reads picked `shared_credentials` entry. Malformed URL in `x-allowed-host` field → `plugin.input_invalid`; allowlist ⊥ silently degrade.
+**`x-allowed-host` extension.** Properties marked `"x-allowed-host": true` in `userConfigSchema` | `sharedCredentialsSchema` | `globalConfigSchema` → URL-valued fields whose hostname added to per-call `ctx.fetch` allowlist, unioned with static `manifest.allowedHosts`. Enables self-hosted services (Plex, Jellyfin) with user-supplied URLs unpredictable at manifest time, and admin-set single-instance plugins (Seerr) whose baseUrl lives on `globalConfig`. Host resolves dynamic host set every invocation: user-scoped reads active connection's `userConfig`; admin-scoped reads picked `shared_credentials` entry; `globalConfigSchema` hosts unioned in regardless of pick side. Malformed URL in `x-allowed-host` field → `plugin.invalid_base_url`; allowlist ⊥ silently degrade.
 
 **`x-plugin-resolved` extension.** Properties marked `"x-plugin-resolved": true` in `userConfigSchema` → values plugin sets, ⊥ user. On `createFormConnection` & `updateUserConfig`, host strips these keys from client payload before reaching `startAuth` or persisted row; plugin repopulates via `userConfigPatch` (e.g. Jellyfin resolves `userId` from `/Users/Me`). Hostile client ⊥ impersonate another account by spoofing value. Frontend hides `x-plugin-resolved` fields from create form, renders disabled on edit form. Complements `readOnly: true` (`readOnly` = frontend-only hint; `x-plugin-resolved` adds server-side stripping). Plugins needing both → set both.
 
@@ -743,7 +743,7 @@ Only meaningful for plugins with `poolable: true` & ≥1 user-scoped capability.
 
 **Security enforcement points:**
 
-- `ctx.fetch`: hostname check against `manifest.allowedHosts` ∪ hostnames from `x-allowed-host` fields in active `userConfig`/`shared_credentials`; per-plugin token-bucket rate limit.
+- `ctx.fetch`: hostname check against `manifest.allowedHosts` ∪ hostnames from `x-allowed-host` fields in active `userConfig`/`shared_credentials`/`globalConfig`; per-plugin token-bucket rate limit.
 - `ctx.store`: server-side namespacing by `(plugin_id, user_id, key)`. Plugins ⊥ see other plugins' | other users' data.
 - `ctx.log`: tagged & filtered by host.
 - `ctx.pool.markExhausted` purely advisory to host; ⊥ leak state across plugins | users.
@@ -1001,7 +1001,7 @@ Design handles this in three places.
 
 When both set: **fetch via internal, return external in ∀ fields leaving server.**
 
-**Dynamic `ctx.fetch` allowlist.** `manifest.allowedHosts` = static floor. For hosts unpredictable at manifest time, runtime unions hostname of every `"x-allowed-host": true` field on current call's connection (| shared-credentials entry). Allowlist recomputed per invocation → rotating to different connection reshapes what `ctx.fetch` can reach.
+**Dynamic `ctx.fetch` allowlist.** `manifest.allowedHosts` = static floor. For hosts unpredictable at manifest time, runtime unions hostname of every `"x-allowed-host": true` field on current call's connection (| shared-credentials entry | admin-set `globalConfig`). Allowlist recomputed per invocation → rotating to different connection reshapes what `ctx.fetch` can reach. `globalConfigSchema` hosts cover plugins like Seerr where a single admin-configured baseUrl serves every user.
 
 **SSRF mitigation on `x-allowed-host` fields.** Self-hosted deployments require host to reach private-network addresses (`internalServerUrl: http://plex:32400` = the whole point) → blanket RFC1918 block defeats design. Instead, runtime applies narrow blocklist to hostnames resolved from `x-allowed-host` fields before adding to per-call allowlist:
 
