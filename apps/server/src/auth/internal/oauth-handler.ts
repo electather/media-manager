@@ -50,15 +50,34 @@ async function normalizeTokenRequest(req: Request): Promise<Request> {
   });
 }
 
+/** OAuth fields that are safe to log. All other fields are replaced with "[REDACTED]". */
+const SAFE_OAUTH_FIELDS = new Set([
+  "grant_type",
+  "scope",
+  "redirect_uri",
+  "client_id",
+  "response_type",
+  "token_type",
+]);
+
+function scrubOAuthBody(body: unknown): unknown {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+  const scrubbed: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
+    scrubbed[k] = SAFE_OAUTH_FIELDS.has(k) ? v : "[REDACTED]";
+  }
+  return scrubbed;
+}
+
 async function debugLogRequest(path: string, req: Request): Promise<Response> {
   const reqClone = req.clone();
   const reqBody = await parseBody(reqClone);
-  consola.debug(`[oauth] → ${path}`, JSON.stringify(reqBody));
+  consola.debug(`[oauth] → ${path}`, JSON.stringify(scrubOAuthBody(reqBody)));
 
   const res = await auth.handler(req);
   const resClone = res.clone();
   const resBody = await parseBody(resClone);
-  consola.debug(`[oauth] ← ${path} ${res.status}`, JSON.stringify(resBody));
+  consola.debug(`[oauth] ← ${path} ${res.status}`, JSON.stringify(scrubOAuthBody(resBody)));
 
   return res;
 }
