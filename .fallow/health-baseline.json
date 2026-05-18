@@ -1,6 +1,4 @@
 {
   "runtime_coverage_findings": [],
-  "target_keys": [
-    "apps/server/src/catalog/jobs/index.ts:circular dependency"
-  ]
+  "target_keys": ["apps/server/src/catalog/jobs/index.ts:circular dependency"]
 }
