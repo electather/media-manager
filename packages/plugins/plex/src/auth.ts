@@ -110,13 +110,16 @@ export async function pollAuth(ctx: PluginContext, pollState: unknown): Promise<
     if (resourcesRes.ok) {
       const resources = (await resourcesRes.json()) as Array<{
         clientIdentifier: string;
-        provides: string;
+        // `provides` is documented but the real Plex API has been observed
+        // omitting it on some resource rows; treat as optional.
+        provides?: string;
         owned?: boolean;
         name?: string;
         connections?: Array<{ uri?: string; local?: boolean }>;
       }>;
-      const owned = resources.find((r) => r.provides?.includes("server") && (r.owned ?? true));
-      const firstServer = owned ?? resources.find((r) => r.provides?.includes("server"));
+      // Only trust servers the authenticated user owns. Shared servers are
+      // excluded to prevent SSRF via an attacker-controlled server URL.
+      const firstServer = resources.find((r) => r.provides?.includes("server") && r.owned === true);
       if (firstServer) {
         userConfigPatch["machineIdentifier"] = firstServer.clientIdentifier;
         // Auto-fill `externalServerUrl` from the first public connection so

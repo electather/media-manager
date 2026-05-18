@@ -8,7 +8,7 @@ import type {
 } from "@ent-mcp/shared/diagnostics";
 import { severityFor } from "@ent-mcp/shared/diagnostics";
 import { currentRequestContext, newRequestId } from "./request-context";
-import { serializeContext } from "./scrubber";
+import { scrubText, serializeContext } from "./scrubber";
 import type { DiagnosticSink } from "./types";
 import { isNil } from "es-toolkit/predicate";
 
@@ -110,14 +110,15 @@ function buildErrorRecord(err: unknown, meta: CaptureMeta): ErrorRecord {
   // Explicit `meta.severity` wins (callers bump recovered paths to `warning`); otherwise use the code's registered classification.
   const severity = meta.severity ?? severityFor(meta.code ?? "");
   const ctx = currentRequestContext();
+  const rawStack = meta.stack ?? stackFrom(err);
   return {
     id: crypto.randomUUID(),
     requestId: meta.requestId ?? ctx?.requestId ?? newRequestId(),
     severity,
     source: meta.source,
     code: meta.code ?? null,
-    devMessage: meta.devMessage ?? devMessageFrom(err),
-    stack: meta.stack ?? stackFrom(err),
+    devMessage: scrubText(meta.devMessage ?? devMessageFrom(err)),
+    stack: rawStack != null ? scrubText(rawStack) : null,
     userId: meta.userId ?? ctx?.userId ?? null,
     pluginId: meta.pluginId ?? null,
     connectionId: meta.connectionId ?? null,

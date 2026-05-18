@@ -4,6 +4,8 @@ import { resetSinks } from "../../diagnostics/capture";
 const started: unknown[] = [];
 const finished: unknown[] = [];
 const skips: unknown[] = [];
+let nextStartRunError: Error | null = null;
+let nextGetConfigError: Error | null = null;
 
 vi.mock("../../notifications/emit", () => ({
   emit: async () => undefined,
@@ -11,6 +13,11 @@ vi.mock("../../notifications/emit", () => ({
 
 vi.mock("../history", () => ({
   startRun: async (args: unknown) => {
+    if (nextStartRunError) {
+      const err = nextStartRunError;
+      nextStartRunError = null;
+      throw err;
+    }
     started.push(args);
   },
   finishRun: async (args: unknown) => {
@@ -25,11 +32,18 @@ vi.mock("../history", () => ({
 }));
 
 vi.mock("../config", () => ({
-  getConfig: async (jobId: string) => ({
-    jobId,
-    enabled: true,
-    scheduleOverride: null,
-  }),
+  getConfig: async (jobId: string) => {
+    if (nextGetConfigError) {
+      const err = nextGetConfigError;
+      nextGetConfigError = null;
+      throw err;
+    }
+    return {
+      jobId,
+      enabled: true,
+      scheduleOverride: null,
+    };
+  },
   updateConfig: async () => ({
     jobId: "x",
     enabled: true,
@@ -46,6 +60,8 @@ beforeEach(() => {
   started.length = 0;
   finished.length = 0;
   skips.length = 0;
+  nextStartRunError = null;
+  nextGetConfigError = null;
   registry.clear();
   resetSinks();
 });
@@ -117,6 +133,36 @@ describe("scheduled runner", () => {
     expect(second.status).toBe("failed");
     await slow;
     expect(isRunning("host.test.slow2")).toBe(false);
+  });
+
+  it("clears active key when getConfig throws", async () => {
+    nextGetConfigError = new Error("db down");
+    await expect(
+      run({
+        jobId: "host.test.getconfig-fail",
+        kind: "scheduled",
+        triggeredBy: "cron",
+        handler: async () => undefined,
+      }),
+    ).rejects.toThrow("db down");
+    expect(isRunning("host.test.getconfig-fail")).toBe(false);
+    expect(started).toHaveLength(0);
+    expect(finished).toHaveLength(0);
+  });
+
+  it("clears active key and finalizes the row as failed when startRun throws", async () => {
+    nextStartRunError = new Error("db down");
+    await expect(
+      run({
+        jobId: "host.test.startrun-fail",
+        kind: "scheduled",
+        triggeredBy: "cron",
+        handler: async () => undefined,
+      }),
+    ).rejects.toThrow("db down");
+    expect(isRunning("host.test.startrun-fail")).toBe(false);
+    // startRun threw before runStarted was set, so no row exists to finalize.
+    expect(finished).toHaveLength(0);
   });
 });
 

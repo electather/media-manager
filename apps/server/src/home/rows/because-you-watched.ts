@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { orderBy } from "es-toolkit/array";
-import { decodeCursor, encodeCursor } from "../cursor";
-import type { RowProvider } from "../types";
+import { decodeCursor, encodeCursor } from "../internal/cursor";
+import type { RowProvider } from "../internal/types";
 import { fetchSimilarPage } from "./_shared";
 import { mediaTypeSchema } from "@ent-mcp/shared";
 
