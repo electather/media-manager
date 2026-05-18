@@ -3,7 +3,7 @@ import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared
 import type { MetadataKey } from "@ent-mcp/shared/catalog";
 import { fromContinueWatchingEntry } from "./adapters";
 import { enrichItems } from "./enrich";
-import { loadCanonicalItems } from "./rows/_shared";
+import { loadCanonicalItems } from "../rows/_shared";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
 const FINISHING_THRESHOLD = 0.85;

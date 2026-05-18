@@ -4,13 +4,13 @@ import type {
   SeasonAvailabilityServer,
 } from "@ent-mcp/shared/home";
 import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
-import { capabilityRegistry } from "../plugin-runtime";
+import { capabilityRegistry } from "../../plugin-runtime";
 import {
   resolveConnections,
   invokeOne,
   requireCapability,
   type ResolvedConnection,
-} from "../media";
+} from "../../media";
 import type { RowContext } from "./types";
 
 /**

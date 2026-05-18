@@ -4,8 +4,8 @@ import { getDb } from "../../db/client";
 import { feedback } from "../../db/schema/feedback";
 import { userHistoryMirror } from "../../db/schema/catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
-import { buildContext, composeLayout } from "../orchestrator";
-import { write as writeLayoutCache } from "../layout-cache";
+import { buildContext, composeLayout } from "../service";
+import { write as writeLayoutCache } from "../repo";
 
 const ACTIVE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const RUN_TIMEOUT_SEC = 30 * 60;
@@ -21,6 +21,16 @@ interface ActiveUserRow {
  * Returns every user with activity in the last 14 days. "Activity" = either
  * a feedback event (likes / ratings) or a fresh history-mirror sync. The
  * union keeps users who watch but never rate eligible for warm fills.
+ *
+ * Reads `feedback` (owned by preferences) and `userHistoryMirror` (owned by
+ * catalog) directly — both imports are listed in
+ * `tools/check-table-ownership.ts` under TASK-046 with the same reason: the
+ * warm job is the sole cross-module query path here, and routing through
+ * service barrels would require adding cross-module list-user-id surfaces
+ * on `preferences` and `catalog` purely for this job. The barrel additions
+ * are deferred to a follow-up so this PR stays scoped to the layout
+ * retrofit and the parallel Phase 3d catalog refactor can shape its own
+ * surface without merge churn.
  */
 export async function listActiveUsers(now: number = Date.now()): Promise<ActiveUserRow[]> {
   const db = getDb();
@@ -46,7 +56,7 @@ export async function listActiveUsers(now: number = Date.now()): Promise<ActiveU
  * single user's compose at 60s; the run-wide cap (`RUN_TIMEOUT_SEC = 30 min`)
  * matches the cron interval so back-to-back runs never overlap.
  */
-export function registerHomeLayoutWarmJob(): void {
+export function registerHomeLayoutWarm(): void {
   registerScheduledPerRow<ActiveUserRow>({
     id: HOME_LAYOUT_WARM_JOB_ID,
     name: "Home layout warm",
