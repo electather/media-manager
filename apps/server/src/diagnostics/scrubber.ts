@@ -1,3 +1,4 @@
+import { mapValues } from "es-toolkit/object";
 import { isNil } from "es-toolkit/predicate";
 
 /** Case-insensitive key fragments that cause a value to be replaced with `[REDACTED]`
@@ -26,23 +27,29 @@ function isSensitiveKey(key: string): boolean {
 }
 
 /** Recursively clones a value, replacing any value under a sensitive key with `[REDACTED]`.
- *  Walks into arrays and objects, stops at primitives, and leaves non-plain objects as-is. */
+ *  Walks into arrays and objects, stops at primitives, and converts non-plain objects
+ *  (Date, URL, Error, Map, Set) to loggable primitives. */
 // fallow-ignore-next-line complexity
 export function scrub(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[DEPTH_LIMIT]";
   if (isNil(value)) return value;
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
   if (typeof value !== "object") return value;
-  const obj = value as Record<string, unknown>;
-  const out: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(obj)) {
-    if (isSensitiveKey(key)) {
-      out[key] = REDACTED;
-    } else {
-      out[key] = scrub(val, depth + 1);
-    }
+  // Non-plain objects: convert to a loggable primitive rather than silently dropping fields.
+  if (value instanceof Date) {
+    // `toISOString()` throws `RangeError` for invalid dates; fall back to a stable string.
+    return Number.isFinite(value.getTime()) ? value.toISOString() : "Invalid Date";
   }
-  return out;
+  if (value instanceof URL) return value.toString();
+  // `stack` is included so diagnostics retain the trace; callers must already trust the
+  // error origin since stacks can carry file paths.
+  if (value instanceof Error)
+    return { name: value.name, message: value.message, stack: value.stack };
+  if (value instanceof Map) return scrub(Object.fromEntries(value), depth + 1);
+  if (value instanceof Set) return Array.from(value).map((item) => scrub(item, depth + 1));
+  return mapValues(value as Record<string, unknown>, (val, key) =>
+    isSensitiveKey(key) ? REDACTED : scrub(val, depth + 1),
+  );
 }
 
 /** Serializes a scrubbed context blob to JSON; returns null for empty or non-serializable input. */

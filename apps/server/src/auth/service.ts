@@ -66,15 +66,18 @@ export class AuthService {
 
   /** Returns the authenticated user's id from the Hono context. */
   sessionUserId(c: Context): string {
-    const session = c.get("session") as { user: { id: string } } | undefined;
-    if (!session) throw unauthorized();
+    const session = c.get("session") as { user?: { id?: string } } | undefined;
+    if (!session?.user?.id) throw unauthorized();
     return session.user.id;
   }
 
   /** Hono middleware that validates the Better Auth session. */
   async requireSession(c: Context, next: Next): Promise<void> {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
-    if (!session) {
+    // Guard against malformed sessions (e.g. stale cookies, race conditions in
+    // Better Auth) where the session object exists but `user` or `user.id` is
+    // missing. Without this we would crash with a TypeError 500 below.
+    if (!session?.user?.id) {
       throw unauthorized();
     }
     c.set("session", session);
@@ -96,11 +99,8 @@ export class AuthService {
    */
   requirePermission(permission: Permission): (c: Context, next: Next) => Promise<void> {
     return async (c: Context, next: Next): Promise<void> => {
-      const session = c.get("session") as { user: { id: string } } | undefined;
-      if (!session) {
-        throw unauthorized();
-      }
-      const role = await this.loadUserRole(session.user.id);
+      const userId = this.sessionUserId(c);
+      const role = await this.loadUserRole(userId);
       if (!role) {
         throw forbidden();
       }

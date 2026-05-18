@@ -133,6 +133,39 @@ describe("writeConnection default-flag invariant (issue #302)", () => {
     expect(rows.filter((r) => r.isDefault === 1)).toHaveLength(1);
   });
 
+  it("auto-promotes a new write when existing rows all have isDefault=0", async () => {
+    // Semantic shift vs the old `count === 1` guard: if a prior bug or manual
+    // recovery left orphan rows for (user, plugin) with no row holding the
+    // default flag, the new `notExists` predicate promotes the next write
+    // instead of skipping. The old code would have left the plugin without
+    // any default. This locks in the behaviour change so a future refactor
+    // that resurrects the count-based guard fails loudly.
+    await testDb.insert(serviceConnections).values({
+      id: "orphan-1",
+      userId: "u1",
+      pluginId: "p1",
+      isDefault: 0,
+      status: "connected",
+      enabled: 1,
+      encryptedCredentials: "x",
+      credentialsIv: "iv",
+      lastVerifiedAt: Date.now(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const id = await writeConnection({
+      userId: "u1",
+      pluginId: "p1",
+      credentials: { token: "t" },
+      userConfig: null,
+    });
+
+    const rows = await loadRows();
+    expect(rows.filter((r) => r.isDefault === 1)).toHaveLength(1);
+    expect(rows.find((r) => r.id === id)?.isDefault).toBe(1);
+  });
+
   it("re-promotes correctly via `promoteToDefault` after the initial default", async () => {
     // Sanity check: the surgical `notExists` predicate must not break the
     // explicit promotion path used by the connections service.

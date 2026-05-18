@@ -118,7 +118,7 @@ export default definePlugin({
         // TVDB's /search/remoteid/{id} returns matches across all known source types.
         const source = from === "tmdb" ? "tmdb" : from === "imdb" ? "imdb" : null;
         if (!source) return {};
-        const data = (await tvdbGet(ctx as Ctx, `/search/remoteid/${id}`)) as {
+        const data = (await tvdbGet(ctx as Ctx, `/search/remoteid/${encodeURIComponent(id)}`)) as {
           data?: Array<{
             movie?: { id: number };
             series?: { id: number };

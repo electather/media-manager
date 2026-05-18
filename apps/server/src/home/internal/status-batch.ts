@@ -1,4 +1,4 @@
-import type { MediaService } from "../media";
+import type { MediaService } from "../../media";
 
 type Status = "available" | "requested" | "processing" | "unavailable" | "unknown";
 
