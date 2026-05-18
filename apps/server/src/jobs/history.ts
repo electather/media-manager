@@ -115,21 +115,25 @@ export async function recordSkipped(args: {
 export async function pruneSuccessfulRuns(jobId: string): Promise<number> {
   if (!jobId) return 0;
   const db = getDb();
-  const keep = await db
-    .select({ id: jobRuns.id })
-    .from(jobRuns)
-    .where(and(eq(jobRuns.jobId, jobId), eq(jobRuns.status, "succeeded")))
-    .orderBy(desc(jobRuns.startedAt))
-    .limit(SUCCESS_RETENTION_PER_JOB)
-    .all();
-  const keepIds = keep.map((r) => r.id);
+  // Single atomic statement: DELETE rows not in the top-N succeeded for this job.
+  // The subquery and delete predicate execute in one snapshot, avoiding the
+  // SELECT/DELETE race where a concurrent finishRun could insert a new row
+  // between the two statements.
   const deleted = await db
     .delete(jobRuns)
     .where(
       and(
         eq(jobRuns.jobId, jobId),
         eq(jobRuns.status, "succeeded"),
-        keepIds.length > 0 ? notInArray(jobRuns.id, keepIds) : undefined,
+        notInArray(
+          jobRuns.id,
+          db
+            .select({ id: jobRuns.id })
+            .from(jobRuns)
+            .where(and(eq(jobRuns.jobId, jobId), eq(jobRuns.status, "succeeded")))
+            .orderBy(desc(jobRuns.startedAt))
+            .limit(SUCCESS_RETENTION_PER_JOB),
+        ),
       ),
     )
     .returning({ id: jobRuns.id });

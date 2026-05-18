@@ -27,15 +27,18 @@ export async function withOAuthAuth(
   }
 
   const accessToken = authorization.slice(7);
-  const baseUrl = env.BETTER_AUTH_URL.replace(/\/$/, "");
+  const baseUrl = env.BETTER_AUTH_URL.replace(/\/+$/, "");
   try {
     const payload = await verifyAccessToken(accessToken, {
       jwksUrl: `${baseUrl}/api/auth/jwks`,
       verifyOptions: {
         // Better-auth sets iss to baseURL + "/api/auth".
         issuer: `${baseUrl}/api/auth`,
-        // MCP clients always send the resource with a trailing slash.
-        audience: `${baseUrl}/`,
+        // Accept both trailing-slash and non-trailing-slash forms because MCP
+        // clients derive the resource indicator from discovery metadata and
+        // some normalise the trailing slash off. Must stay in sync with
+        // validAudiences in auth/internal/config.ts.
+        audience: [baseUrl, `${baseUrl}/`],
       },
     });
     if (typeof payload.sub !== "string" || payload.sub.length === 0) {
