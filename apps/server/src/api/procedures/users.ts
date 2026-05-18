@@ -36,7 +36,7 @@ async function requireUser(userId: string) {
 async function requireRole(roleId: string) {
   const db = getDb();
   const roleExists = await db
-    .select({ id: roles.id })
+    .select({ id: roles.id, isSystem: roles.isSystem })
     .from(roles)
     .where(eq(roles.id, roleId))
     .get();
@@ -180,7 +180,11 @@ export const adminUsersApp = new Hono()
     const db = getDb();
 
     await requireUser(id);
-    await requireRole(roleId);
+    const role = await requireRole(roleId);
+
+    if (role.isSystem) {
+      throw forbidden("users.system_role", "system roles cannot be assigned via this endpoint");
+    }
 
     await db
       .insert(userRoles)
