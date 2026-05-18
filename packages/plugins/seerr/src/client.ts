@@ -56,8 +56,10 @@ export async function seerrGet<T>(ctx: Ctx, path: string): Promise<T> {
     headers: { Cookie: getSessionCookie(ctx) },
   });
   handleStatus(res);
-  if (!res.ok)
-    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 200);
+    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${body}`);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -71,8 +73,10 @@ export async function seerrPost<T>(ctx: Ctx, path: string, body: unknown): Promi
     body: JSON.stringify(body),
   });
   handleStatus(res);
-  if (!res.ok)
-    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 200);
+    throw pluginError("plugin.upstream_error", `Seerr ${res.status}: ${body}`);
+  }
   return res.json() as Promise<T>;
 }
 
