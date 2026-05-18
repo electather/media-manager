@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { decodeCursor, encodeCursor } from "../cursor";
+import { decodeCursor, encodeCursor } from "../internal/cursor";
 import type { DiscoverFeedKind, DiscoverSort } from "@ent-mcp/shared/catalog";
-import type { RowContext, RowPage, RowProvider } from "../types";
+import type { RowContext, RowPage, RowProvider } from "../internal/types";
 import { loadCanonicalItems } from "./_shared";
 
 const PAGE_SIZE = 12;

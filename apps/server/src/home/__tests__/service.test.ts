@@ -7,9 +7,11 @@ vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-vi.mock("../layout-cache");
-vi.mock("../hero", () => ({ pickHero: vi.fn() }));
-vi.mock("../enrich", () => ({ enrichItems: vi.fn(async (items: unknown[]) => items) }));
+vi.mock("../repo");
+vi.mock("../internal/hero", () => ({ pickHero: vi.fn() }));
+vi.mock("../internal/enrich", () => ({
+  enrichItems: vi.fn(async (items: unknown[]) => items),
+}));
 vi.mock("../rows", async () => {
   const trendingItem = {
     id: "movie:1",
@@ -42,9 +44,9 @@ vi.mock("../rows", async () => {
   };
 });
 
-const layoutCache = await import("../layout-cache");
-const hero = await import("../hero");
-const orchestrator = await import("../orchestrator");
+const layoutCache = await import("../repo");
+const hero = await import("../internal/hero");
+const orchestrator = await import("../service");
 
 function freshLayout(): HomeLayoutResponse {
   return {

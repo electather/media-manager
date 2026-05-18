@@ -210,7 +210,7 @@ export async function promoteToDefault(
     await tx
       .update(serviceConnections)
       .set({ isDefault: 1, updatedAt: now })
-      .where(eq(serviceConnections.id, connectionId));
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)));
   });
 }
 
@@ -223,13 +223,16 @@ async function ensureDefaultIfFirst(
   // Single atomic conditional UPDATE: sets isDefault only when no other row for
   // this (userId, pluginId) already carries isDefault=1, eliminating the
   // SELECT→UPDATE race window. Bumps updatedAt so the row's audit timestamp
-  // reflects the silent promotion to default, matching promoteToDefault.
+  // reflects the silent promotion to default, matching promoteToDefault. The
+  // outer userId predicate is defense-in-depth so a forged connectionId can
+  // never flip a row owned by another user.
   await db
     .update(serviceConnections)
     .set({ isDefault: 1, updatedAt: Date.now() })
     .where(
       and(
         eq(serviceConnections.id, connectionId),
+        eq(serviceConnections.userId, userId),
         notExists(
           db
             .select({ id: serviceConnections.id })
