@@ -82,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           TURSO_VERSION="v1.0.0"
-          curl -sSfL "https://github.com/tursodatabase/turso-cli/releases/download/${TURSO_VERSION}/turso_linux_amd64.tar.gz" -o /tmp/turso.tgz
+          curl -sSfL "https://github.com/tursodatabase/turso-cli/releases/download/${TURSO_VERSION}/turso-cli_Linux_x86_64.tar.gz" -o /tmp/turso.tgz
           tar -xzf /tmp/turso.tgz -C /tmp/
           mkdir -p "$HOME/.local/bin"
           cp /tmp/turso "$HOME/.local/bin/turso"
@@ -253,7 +253,7 @@ jobs:
         run: |
           set -euo pipefail
           TURSO_VERSION="v1.0.0"
-          curl -sSfL "https://github.com/tursodatabase/turso-cli/releases/download/${TURSO_VERSION}/turso_linux_amd64.tar.gz" -o /tmp/turso.tgz
+          curl -sSfL "https://github.com/tursodatabase/turso-cli/releases/download/${TURSO_VERSION}/turso-cli_Linux_x86_64.tar.gz" -o /tmp/turso.tgz
           tar -xzf /tmp/turso.tgz -C /tmp/
           mkdir -p "$HOME/.local/bin"
           cp /tmp/turso "$HOME/.local/bin/turso"
