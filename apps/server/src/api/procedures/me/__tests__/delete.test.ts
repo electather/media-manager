@@ -59,7 +59,7 @@ afterAll(() => cleanupInMemoryDbs());
 
 describe("deleteAccount", () => {
   it("removes the user and cascades every user-scoped row, while preserving SET-NULL history", async () => {
-    verifyPassword.mockResolvedValue({ valid: true });
+    verifyPassword.mockResolvedValue({ status: true });
 
     await seedFullUserGraph(db, USER);
     await seedJobHistory(db, USER);
@@ -97,8 +97,8 @@ describe("deleteAccount", () => {
     expect(stillThere).toBeDefined();
   });
 
-  it("rejects with 401 when verifyPassword resolves to { valid: false }", async () => {
-    verifyPassword.mockResolvedValue({ valid: false });
+  it("rejects with 401 when verifyPassword resolves to { status: false }", async () => {
+    verifyPassword.mockResolvedValue({ status: false });
 
     await expect(
       deleteAccount(db, {
@@ -114,7 +114,7 @@ describe("deleteAccount", () => {
   });
 
   it("rejects with 400 when the email confirmation does not match", async () => {
-    verifyPassword.mockResolvedValue({ valid: true });
+    verifyPassword.mockResolvedValue({ status: true });
 
     await expect(
       deleteAccount(db, {
@@ -129,8 +129,56 @@ describe("deleteAccount", () => {
     expect(stillThere).toBeDefined();
   });
 
-  it("matches email case-insensitively", async () => {
+  it("rejects with 401 when verifyPassword resolves to {} (fail-closed guard)", async () => {
+    verifyPassword.mockResolvedValue({});
+
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "secret",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
+  });
+
+  it("rejects with 401 when verifyPassword resolves to { user: {} } (fail-closed guard)", async () => {
+    verifyPassword.mockResolvedValue({ user: {} });
+
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "secret",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
+  });
+
+  it("rejects with 401 when verifyPassword resolves to { valid: true } (phantom shape, fail-closed)", async () => {
     verifyPassword.mockResolvedValue({ valid: true });
+
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "secret",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
+  });
+
+  it("matches email case-insensitively", async () => {
+    verifyPassword.mockResolvedValue({ status: true });
 
     await deleteAccount(db, {
       userId: USER,

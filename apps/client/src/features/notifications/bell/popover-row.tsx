@@ -7,6 +7,7 @@ import { SeverityIcon } from "../shared/severity-icon";
 import { CATEGORY_META, SEVERITY_META, categoryLabel } from "../shared/types";
 import type { Density, Intensity, NotificationItemDto } from "../shared/types";
 import { useDismiss, useMarkRead } from "../inbox/use-inbox-mutations";
+import { isSafeActionUrl } from "../shared/url";
 import Markdown from "react-markdown";
 
 interface Props {
@@ -35,12 +36,16 @@ function ItemBody({ item, compact }: { item: NotificationItemDto; compact: boole
 
 function ItemActions({ actions }: { actions: NotificationItemDto["actions"] }) {
   if (!actions?.length) return null;
+  const safeActions = actions.filter((a) => isSafeActionUrl(a.url));
+  if (!safeActions.length) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-2">
-      {actions.map((action) => (
+      {safeActions.map((action, i) => (
         <a
-          key={action.label}
+          key={`${i}-${action.url}`}
           href={action.url}
+          target="_blank"
+          rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           className={cn(buttonVariants({ variant: actionVariant(action.style), size: "xs" }))}
         >

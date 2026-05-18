@@ -46,7 +46,7 @@ Intentionally small. Path restrictions, per-host header scoping, per-connection 
 Plugin runtime exposes one network surface: `ctx.fetch`. Built per-invocation in `packages/server/src/plugin-runtime/context.ts`, gated in `packages/server/src/plugin-runtime/fetch-policy.ts`. Two allowlist inputs merge into gate:
 
 - `manifest.allowedHosts: string[]` — author-declared. Supports `"*"`, exact hostnames, `*.domain.com` wildcards via `isHostAllowed`.
-- `dynamicAllowedHosts?: ReadonlySet<string>` — resolved per-invocation from `x-allowed-host` JSON Schema fields on `userConfigSchema` & `sharedCredentialsSchema`. `allowed-hosts.ts` walker produces set; `isBlockedHostname` already refuses loopback, cloud IMDS, link-local even from user input.
+- `dynamicAllowedHosts?: ReadonlySet<string>` — resolved per-invocation from `x-allowed-host` JSON Schema fields on `userConfigSchema`, `sharedCredentialsSchema` & `globalConfigSchema`. `allowed-hosts.ts` walker produces set; `isBlockedHostname` already refuses loopback, cloud IMDS, link-local even from user input.
 
 Both inputs: author-controlled (manifest) | user-controlled (connection). ⊥ admin control surface. Spec adds exactly one admin input at plugin level, threads through same `buildFetch` call site — ⊥ new runtime layers.
 
@@ -146,13 +146,13 @@ After allowlist check passes & rate-limiter takes token:
 
 ```ts
 const hdrs = new Headers(init?.headers);
-if (adminHeaders) {
+if (adminHeaders && staticAllowed) {
   for (const [name, value] of Object.entries(adminHeaders)) hdrs.set(name, value); // admin wins
 }
 return fetch(url, { ...init, headers: hdrs });
 ```
 
-`Headers.set` case-insensitive → admin-wins uniform regardless of casing. Merge only runs when `adminHeaders` populated. Admin header values ⊥ logged.
+`Headers.set` case-insensitive → admin-wins uniform regardless of casing. Merge only runs when `adminHeaders` populated **and** the host matched the static allowlist — dynamic hosts (user-supplied via `x-allowed-host`) never receive admin credentials. Admin header values ⊥ logged.
 
 ### Context wiring — `context.ts`
 

@@ -32,6 +32,19 @@ describe("ntfy plugin passes loader validation", () => {
   });
 });
 
+describe("ntfy SSRF mitigation", () => {
+  it("serverUrl has x-allowed-host: true to gate SSRF via isBlockedHostname", () => {
+    const schema = ntfyPlugin.manifest.userConfigSchema as {
+      properties?: Record<string, Record<string, unknown>>;
+    };
+    expect(schema?.properties?.["serverUrl"]?.["x-allowed-host"]).toBe(true);
+  });
+
+  it("manifest does not use wildcard allowedHosts", () => {
+    expect(ntfyPlugin.manifest.allowedHosts).not.toContain("*");
+  });
+});
+
 describe("ntfy notificationDelivery contract", () => {
   it("deliver: POSTs to ${serverUrl}/${topic} with headers + body", async () => {
     const ctx = makeTestContext({ responses: [jsonRes({ id: "abc123" })] });

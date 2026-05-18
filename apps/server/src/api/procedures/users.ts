@@ -3,7 +3,13 @@ import { eq, sql } from "drizzle-orm";
 import { assignRoleSchema, createUserSchema, updateUserSchema } from "@ent-mcp/shared/users";
 import { requireSession, requirePermission, sessionUserId, PERMISSIONS, auth } from "../../auth";
 import { getDb } from "../../db/client";
-import { user, session } from "../../db/schema/auth";
+import {
+  user,
+  session,
+  oauthAccessToken,
+  oauthRefreshToken,
+  oauthConsent,
+} from "../../db/schema/auth";
 import { userRoles, roles } from "../../db/schema/roles";
 import { zValidator } from "../../diagnostics/validator";
 import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
@@ -156,17 +162,22 @@ export const adminUsersApp = new Hono()
     const body = c.req.valid("json");
     const db = getDb();
 
-    await requireUser(id);
+    const existing = await db.select({ email: user.email }).from(user).where(eq(user.id, id)).get();
+    if (!existing) throw userNotFound(id);
 
     if (body.email) {
       await requireUniqueEmail(body.email, id);
     }
+
+    // Only reset emailVerified when the email actually changes.
+    const emailChanged = body.email !== undefined && body.email !== existing.email;
 
     await db
       .update(user)
       .set({
         ...(body.name !== undefined && { name: body.name }),
         ...(body.email !== undefined && { email: body.email }),
+        ...(emailChanged && { emailVerified: false }),
       })
       .where(eq(user.id, id));
 
@@ -209,7 +220,22 @@ export const adminUsersApp = new Hono()
       throw badRequest("users.self_revoke", "cannot revoke your own sessions");
     }
 
-    await db.delete(session).where(eq(session.userId, id));
+    // Wrap in a transaction so a failure mid-sequence cannot leave a refresh
+    // token (or consent row) behind after sessions have already been cleared
+    // — that would let the holder mint fresh access tokens indefinitely or
+    // silently re-authorize without a consent prompt.
+    //
+    // Consent rows are cleared so the next OAuth grant from the same client
+    // requires an explicit re-consent. This mirrors the user-initiated
+    // revoke flow in `me/apps.ts` (see `revokeAuthorizedApp`) and matches
+    // the security intent of an admin "force sign-out": a hard reset, not a
+    // silent re-attach.
+    await db.transaction(async (tx) => {
+      await tx.delete(session).where(eq(session.userId, id));
+      await tx.delete(oauthAccessToken).where(eq(oauthAccessToken.userId, id));
+      await tx.delete(oauthRefreshToken).where(eq(oauthRefreshToken.userId, id));
+      await tx.delete(oauthConsent).where(eq(oauthConsent.userId, id));
+    });
 
     return c.json({ ok: true });
   })

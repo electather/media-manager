@@ -1,10 +1,8 @@
-export { ArtworkService } from "./service";
-
 /**
- * No-op for now. Artwork has no scheduled jobs and no event handlers in
- * Phase 2; Phase 3 retrofit will introduce `jobs/index.ts` and replace this
- * stub. Boot tests exercise the call site to keep alphabetical wiring stable.
+ * Public barrel for `artwork/`. Boundaries test asserts re-exports come only
+ * from `./service`, `./events`, `./errors`, and `./jobs`.
  */
-export function registerJobs(): void {
-  /* no-op until Phase 3 */
-}
+export { ArtworkService } from "./service";
+export { ARTWORK_EVENTS } from "./events";
+export { ArtworkServiceError } from "./errors";
+export { registerJobs } from "./jobs";
