@@ -39,14 +39,15 @@ export default definePlugin({
           type: "string",
           title: "Password",
           "x-secret": true,
+          writeOnly: true,
         },
       },
       // Password is omitted from `required` so the edit form does not block
       // submit/test on a connection that has already promoted its password
       // into the encrypted credentials blob. `startAuth` enforces presence
-      // at the input stage and returns `plugin.input_invalid` with
-      // `params.field = "password"` when neither the form nor the prior
-      // credentials carry one, matching the Jellyfin plugin's behaviour.
+      // at the input stage and returns `plugin.input_invalid` (with
+      // `params.field` pointing at the missing input) when neither the
+      // form nor the prior credentials carry one.
       required: ["username"],
       additionalProperties: false,
     },
@@ -94,11 +95,20 @@ export default definePlugin({
     const priorCreds = ctx.credentials as Pick<SeerrCreds, "password"> | null;
     const email = cfg?.username;
     const password = cfg?.password ?? priorCreds?.password;
-    if (!email || !password) {
+    if (!email) {
       return {
         status: "error",
         code: "plugin.input_invalid",
-        devMessage: "username and password are required",
+        devMessage: "username is required",
+        params: { field: "username" },
+      };
+    }
+    if (!password) {
+      return {
+        status: "error",
+        code: "plugin.input_invalid",
+        devMessage: "password is required",
+        params: { field: "password" },
       };
     }
 

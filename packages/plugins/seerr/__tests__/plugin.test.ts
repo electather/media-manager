@@ -9,6 +9,37 @@ describe("seerr plugin passes loader validation", () => {
   });
 });
 
+describe("seerr manifest privacy invariants", () => {
+  // These assertions guard the issue #319 fix at the manifest level so a
+  // future edit cannot accidentally re-introduce plaintext password storage
+  // without tripping the suite.
+  it("marks password with both x-secret and writeOnly", () => {
+    const props = (
+      seerrPlugin.manifest.userConfigSchema as {
+        properties: Record<string, Record<string, unknown>>;
+      }
+    ).properties;
+    expect(props.password?.["x-secret"]).toBe(true);
+    expect(props.password?.writeOnly).toBe(true);
+  });
+
+  it("promotes the password into credentialsSchema — it must never be persisted to userConfig", () => {
+    const credProps = (
+      seerrPlugin.manifest.credentialsSchema as {
+        properties: Record<string, Record<string, unknown>>;
+      }
+    ).properties;
+    expect(credProps.password?.type).toBe("string");
+    expect(
+      (
+        seerrPlugin.manifest.userConfigSchema as {
+          required: string[];
+        }
+      ).required,
+    ).not.toContain("password");
+  });
+});
+
 describe("seerr auth lifecycle", () => {
   it("plugin exposes startAuth and testConnection", () => {
     expect(typeof seerrPlugin.startAuth).toBe("function");
@@ -149,7 +180,7 @@ describe("seerr auth lifecycle", () => {
     }
   });
 
-  it("startAuth: returns plugin.input_invalid when no password is anywhere", async () => {
+  it("startAuth: returns plugin.input_invalid with field=password when no password is anywhere", async () => {
     const ctx = makeTestContext({
       responses: [],
       overrides: {
@@ -160,6 +191,7 @@ describe("seerr auth lifecycle", () => {
     expect(result.status).toBe("error");
     if (result.status === "error") {
       expect(result.code).toBe("plugin.input_invalid");
+      expect(result.params?.field).toBe("password");
     }
   });
 
