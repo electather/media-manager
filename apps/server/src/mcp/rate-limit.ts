@@ -44,17 +44,19 @@ export class TokenBucketLimiter {
   }
 
   /**
-   * Consumes one token for `key`. Returns `null` on success; on failure returns
-   * an `McpError` with `details.retry_after` (seconds, rounded up).
+   * Consumes `count` tokens for `key` (defaults to 1). Returns `null` on
+   * success; on failure returns an `McpError` with `details.retry_after`
+   * (seconds, rounded up). `count` larger than `capacity` always fails so
+   * the bucket can never go more than empty.
    */
-  check(key: string): ReturnType<typeof rateLimited> | null {
+  check(key: string, count = 1): ReturnType<typeof rateLimited> | null {
     const now = Date.now();
     const bucket = this.advance(key, now);
-    if (bucket.tokens >= 1) {
-      bucket.tokens -= 1;
+    if (count <= this.capacity && bucket.tokens >= count) {
+      bucket.tokens -= count;
       return null;
     }
-    const missing = 1 - bucket.tokens;
+    const missing = count - bucket.tokens;
     const retryAfter = Math.max(1, Math.ceil(missing / this.refillPerSec));
     return rateLimited(retryAfter);
   }

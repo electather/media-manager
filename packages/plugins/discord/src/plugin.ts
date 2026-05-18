@@ -27,17 +27,22 @@ const COLOR_BY_SEVERITY: Record<NotificationMessage["severity"], number> = {
   error: 0xef4444,
 };
 
+// 1 hour upper bound for retry-after delays.
+const MAX_RETRY_AFTER_MS = 3_600_000;
+
 function parseRetryAfterMs(res: Response, body: unknown): number | undefined {
   // Discord returns `retry_after` (seconds, can be fractional) inside the
   // JSON body. Prefer it; fall back to the standard header.
   if (typeof body === "object" && body !== null && "retry_after" in body) {
     const seconds = Number((body as { retry_after?: unknown }).retry_after);
-    if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+    if (Number.isFinite(seconds) && seconds >= 0)
+      return Math.min(Math.round(seconds * 1000), MAX_RETRY_AFTER_MS);
   }
   const header = res.headers.get("retry-after");
   if (!header) return undefined;
   const seconds = Number(header);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  if (Number.isFinite(seconds) && seconds >= 0)
+    return Math.min(Math.round(seconds * 1000), MAX_RETRY_AFTER_MS);
   return undefined;
 }
 
