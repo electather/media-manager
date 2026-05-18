@@ -35,10 +35,12 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
     writeConnection.mockReset();
   });
 
-  it("skips startAuth and writes the connection directly with empty credentials", async () => {
+  it("skips startAuth and moves x-secret fields into the encrypted credentials blob", async () => {
     // Regression: notification plugins like Telegram declare auth.kind: "none"
     // and export no startAuth. The prior implementation always called runAuth,
     // which surfaced "plugin telegram does not export startAuth" to the user.
+    // Security: x-secret fields must land in the encrypted credentials column,
+    // not the plaintext userConfig column.
     getModule.mockResolvedValueOnce({
       manifest: {
         auth: { kind: "none" },
@@ -66,8 +68,44 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
       expect.objectContaining({
         userId: "user-1",
         pluginId: "telegram",
-        credentials: {},
-        userConfig: { botToken: "123:abc", chatId: "456" },
+        // x-secret botToken goes to the encrypted credentials blob.
+        credentials: { botToken: "123:abc" },
+        // Plaintext userConfig only holds non-secret fields.
+        userConfig: { chatId: "456" },
+        allowEmptyCredentials: true,
+      }),
+    );
+  });
+
+  it("collapses userConfig to {} when every field is x-secret", async () => {
+    // Exercises the `allowEmptyCredentials` path end-to-end: when the entire
+    // schema is x-secret, the plaintext column ends up empty and the
+    // encrypted credentials blob carries every submitted field.
+    getModule.mockResolvedValueOnce({
+      manifest: {
+        auth: { kind: "none" },
+        userConfigSchema: {
+          type: "object",
+          properties: {
+            botToken: { type: "string", "x-secret": true },
+            apiKey: { type: "string", "x-secret": true },
+          },
+          required: ["botToken", "apiKey"],
+        },
+      },
+    });
+    writeConnection.mockResolvedValueOnce("conn-2");
+
+    await createFormConnection({
+      userId: "user-1",
+      pluginId: "all-secret",
+      userConfig: { botToken: "t", apiKey: "k" },
+    });
+
+    expect(writeConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credentials: { botToken: "t", apiKey: "k" },
+        userConfig: {},
         allowEmptyCredentials: true,
       }),
     );

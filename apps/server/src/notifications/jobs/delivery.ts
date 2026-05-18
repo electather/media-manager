@@ -1,5 +1,6 @@
 import { consola } from "consola";
 import { env } from "../../env";
+import { decryptJson } from "../../crypto/helpers";
 import { renderTemplate } from "../templates";
 import * as repo from "../repo";
 import { getConnectionById } from "../../plugin-runtime";
@@ -7,6 +8,7 @@ import { registerTriggerable } from "../../jobs/triggerable";
 import {
   executeDelivery,
   loadPluginAndContext,
+  mergeSecretCredentials,
   parseUserConfig,
 } from "../internal/deliver-handler";
 import { parseStoredEventPayload } from "../internal/parse-event-payload";
@@ -80,6 +82,26 @@ export function registerDelivery(): void {
         const msg = err instanceof Error ? err.message : String(err);
         log.error("user_config parse failed", { deliveryId, pluginId: conn.pluginId, error: msg });
         await repo.markDeliveryFailed(deliveryId, "config_parse_failed", msg);
+        return;
+      }
+
+      // No-auth notification plugins (Telegram, ntfy, …) declare secret fields
+      // like `botToken` with `x-secret: true`. The create path lifts those into
+      // the encrypted credentials blob, so `userConfig` alone is missing them
+      // at delivery time. Decrypt the blob and merge it back into the channel
+      // config the plugin's `deliver()` reads from — credentials win on key
+      // collisions so the encrypted-at-rest value is the source of truth.
+      try {
+        const credentials = await decryptJson(conn.credentialsIv, conn.encryptedCredentials);
+        channelConfig = mergeSecretCredentials(channelConfig, credentials);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("credentials decrypt failed", {
+          deliveryId,
+          pluginId: conn.pluginId,
+          error: msg,
+        });
+        await repo.markDeliveryFailed(deliveryId, "credentials_decrypt_failed", msg);
         return;
       }
 

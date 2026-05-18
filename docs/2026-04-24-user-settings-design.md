@@ -380,10 +380,11 @@ Add to `packages/server/src/env.ts`: `z.coerce.boolean().default(false)`.
 ### Better Auth config
 
 - `user.changeEmail.sendChangeEmailConfirmation` → targets current (old) email (Better Auth 1.6 hook name; old revisions used `sendChangeEmailVerification`).
-- Post-switch notification to old address enabled.
+- Post-switch notification to old address: synthesised via a `databaseHooks.user.update` pair (`before` captures the row's current email keyed by `ctx.context.session.user.id`; `after` emails the captured address when the row's new email differs). BA 1.6 has no built-in post-switch notification, so this is the minimum custom code needed; the factory lives in `apps/server/src/auth/internal/email-change-hooks.ts` and is unit-tested with mocked `readUserEmail` / `sendEmail`. Memory and concurrency tradeoffs documented inline.
 - `changePassword` called with `revokeOtherSessions: true`.
 
-Config knobs only, no custom code. Verify installed version ≥ 1.2; bump in same PR if needed.
+Configuration is config-knob-driven; the only handwritten server code is the
+email-change-notification hook above. Verify installed Better Auth ≥ 1.6; bump in same PR if needed.
 
 ### Shared types
 

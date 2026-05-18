@@ -1,4 +1,4 @@
-import { getCatalogService } from "..";
+import { getCatalogService } from "../service";
 import { registerCatalogDiscoverSnapshotJob } from "./discover-snapshot";
 import { registerCatalogMetadataRefreshJob } from "./metadata-refresh";
 import { registerCatalogPruneJob } from "./prune";
