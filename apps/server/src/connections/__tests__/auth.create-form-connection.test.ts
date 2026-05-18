@@ -77,6 +77,40 @@ describe("createFormConnection — no-auth plugins (manifest.auth.kind === 'none
     );
   });
 
+  it("collapses userConfig to {} when every field is x-secret", async () => {
+    // Exercises the `allowEmptyCredentials` path end-to-end: when the entire
+    // schema is x-secret, the plaintext column ends up empty and the
+    // encrypted credentials blob carries every submitted field.
+    getModule.mockResolvedValueOnce({
+      manifest: {
+        auth: { kind: "none" },
+        userConfigSchema: {
+          type: "object",
+          properties: {
+            botToken: { type: "string", "x-secret": true },
+            apiKey: { type: "string", "x-secret": true },
+          },
+          required: ["botToken", "apiKey"],
+        },
+      },
+    });
+    writeConnection.mockResolvedValueOnce("conn-2");
+
+    await createFormConnection({
+      userId: "user-1",
+      pluginId: "all-secret",
+      userConfig: { botToken: "t", apiKey: "k" },
+    });
+
+    expect(writeConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credentials: { botToken: "t", apiKey: "k" },
+        userConfig: {},
+        allowEmptyCredentials: true,
+      }),
+    );
+  });
+
   it("still surfaces blank required fields before persisting", async () => {
     getModule.mockResolvedValueOnce({
       manifest: {
