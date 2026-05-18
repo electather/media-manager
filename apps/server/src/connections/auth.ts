@@ -169,7 +169,9 @@ async function loadPendingAuth(
     .get();
   if (!row) return { found: false, reason: "not_found" };
   if (row.expiresAt < Date.now()) {
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, nonce));
+    await db
+      .delete(pendingAuth)
+      .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)));
     return { found: false, reason: "expired" };
   }
   const state = await decryptJson(row.stateIv, row.state);
@@ -398,7 +400,9 @@ export async function completeRedirectAuth(args: {
   )) as AuthResult;
   if (result.status !== "completed") {
     if (result.status === "error") {
-      await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+      await db
+        .delete(pendingAuth)
+        .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)));
       throw unprocessable("connection.verify_failed", result.devMessage, {
         message: result.devMessage,
       });
@@ -485,7 +489,9 @@ export async function pollDeviceAuth(args: {
     return { status: "completed", connectionId: outcome.id };
   }
   if (result.status === "error") {
-    await db.delete(pendingAuth).where(eq(pendingAuth.nonce, args.nonce));
+    await db
+      .delete(pendingAuth)
+      .where(and(eq(pendingAuth.nonce, args.nonce), eq(pendingAuth.userId, args.userId)));
     return { status: "error", message: result.devMessage };
   }
   return { status: "error", message: `unexpected status: ${result.status}` };
