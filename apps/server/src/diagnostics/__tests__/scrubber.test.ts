@@ -42,6 +42,27 @@ describe("scrub", () => {
     expect(scrub(undefined)).toBe(undefined);
   });
 
+  it("scrubs free-text secrets in string leaves under non-sensitive keys", () => {
+    // Defense in depth: a string value sitting under a benign key name
+    // (e.g. `stack`, `message`, `cause`) still gets run through scrubText,
+    // so URL params / Bearer / JWT inside free-form strings cannot leak via
+    // structured payloads like `meta.error.stack` in job run logs.
+    const out = scrub({
+      error: {
+        message: "request to https://api.example.com/v1?api_key=plaintext failed",
+        stack: "Error: boom\n    at fetch (https://idp.example.com/cb?access_token=abc)",
+        cause: "Authorization: Bearer xyz",
+      },
+      note: "no secrets here",
+    }) as { error: Record<string, string>; note: string };
+    expect(out.error.message).toContain("api_key=[REDACTED]");
+    expect(out.error.message).not.toContain("plaintext");
+    expect(out.error.stack).toContain("access_token=[REDACTED]");
+    expect(out.error.stack).not.toContain("abc");
+    expect(out.error.cause).toBe("Authorization: Bearer [REDACTED]");
+    expect(out.note).toBe("no secrets here");
+  });
+
   it("bounds recursion at a safe depth", () => {
     // Builds a cycle so naive recursion would stack-overflow; we just check the
     // scrubber returns without throwing and stops descending past the limit.
@@ -94,6 +115,19 @@ describe("scrubText", () => {
   it("leaves non-sensitive text unchanged", () => {
     const msg = "Failed to load resource https://api.example.com/v1/items?page=2";
     expect(scrubText(msg)).toBe(msg);
+  });
+
+  it("redacts cookie URL params and private_key log-line pairs", () => {
+    // Both keys are in SENSITIVE_KEY_PATTERNS; the substring-based KV regex
+    // catches them in either URL-param or log-line shape without per-name entries.
+    const urlOut = scrubText("https://api.example.com/v1?cookie=session_abc&page=1");
+    expect(urlOut).toContain("cookie=[REDACTED]");
+    expect(urlOut).not.toContain("session_abc");
+    expect(urlOut).toContain("page=1");
+
+    const logOut = scrubText("config dump: private_key: -----BEGIN secret ends here");
+    expect(logOut).toContain("private_key: [REDACTED]");
+    expect(logOut).not.toContain("-----BEGIN");
   });
 
   it("returns empty string unchanged (null/undefined are filtered upstream)", () => {

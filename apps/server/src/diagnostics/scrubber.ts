@@ -30,11 +30,14 @@ function isSensitiveKey(key: string): boolean {
 }
 
 /** Recursively clones a value, replacing any value under a sensitive key with `[REDACTED]`.
- *  Walks into arrays and objects, stops at primitives, and leaves non-plain objects as-is. */
+ *  Walks into arrays and objects. String leaves are passed through `scrubText` so secrets
+ *  embedded inside free-text fields under non-sensitive keys (e.g. `error.stack`,
+ *  `error.message`) are caught too — defense in depth on top of the key-based pass. */
 // fallow-ignore-next-line complexity
 export function scrub(value: unknown, depth = 0): unknown {
   if (depth > 8) return "[DEPTH_LIMIT]";
   if (isNil(value)) return value;
+  if (typeof value === "string") return scrubText(value);
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
   if (typeof value !== "object") return value;
   const obj = value as Record<string, unknown>;
