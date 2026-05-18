@@ -8,6 +8,10 @@ import { userRoles, roles } from "../../db/schema/roles";
 import { zValidator } from "../../diagnostics/validator";
 import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
 
+// Mirrors the SYSTEM_ADMIN_ROLE_NAME constant in auth/service.ts. Both must
+// stay in sync — changing the seed role's name requires updating both.
+const SYSTEM_ADMIN_ROLE_NAME = "Admin" as const;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const userWithRoleColumns = {
@@ -33,7 +37,9 @@ async function requireUser(userId: string) {
   return existing;
 }
 
-async function requireRole(roleId: string) {
+async function requireRole(
+  roleId: string,
+): Promise<{ id: string; isSystem: number; name: string }> {
   const db = getDb();
   const roleExists = await db
     .select({ id: roles.id, isSystem: roles.isSystem, name: roles.name })
@@ -136,8 +142,8 @@ export const adminUsersApp = new Hono()
     await requireUniqueEmail(email);
     if (roleId) {
       const role = await requireRole(roleId);
-      if (role.isSystem && role.name === "Admin") {
-        throw forbidden("users.system_role", "system roles cannot be assigned via this endpoint");
+      if (role.isSystem === 1 && role.name === SYSTEM_ADMIN_ROLE_NAME) {
+        throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
       }
     }
 
@@ -185,8 +191,8 @@ export const adminUsersApp = new Hono()
     await requireUser(id);
     const role = await requireRole(roleId);
 
-    if (role.isSystem && role.name === "Admin") {
-      throw forbidden("users.system_role", "system roles cannot be assigned via this endpoint");
+    if (role.isSystem === 1 && role.name === SYSTEM_ADMIN_ROLE_NAME) {
+      throw forbidden("users.system_role", "Admin role cannot be assigned via this endpoint");
     }
 
     await db
