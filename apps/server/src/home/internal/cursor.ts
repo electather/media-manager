@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { encodeCursor } from "@ent-mcp/shared/home";
-import { HttpError } from "../diagnostics/http-errors";
+import { HttpError } from "../../diagnostics/http-errors";
 
 /**
  * Cursor codec shared by every row provider. The wire format is base64-url-

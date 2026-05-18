@@ -9,6 +9,11 @@ import * as schema from "../../db/schema/index";
 import { sendEmail } from "./email";
 import { isNil } from "es-toolkit/predicate";
 
+// Strip any trailing slashes from the configured base URL so we can derive
+// both audience forms (with and without trailing slash) from one source. The
+// MCP verifier in mcp/auth.ts must accept the same set.
+const normalisedBaseUrl = env.BETTER_AUTH_URL.replace(/\/+$/, "");
+
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
@@ -71,7 +76,8 @@ export const auth = betterAuth({
         // OLD address. Better Auth 1.6 has no built-in post-switch
         // notification, so we synthesise one here. The session context still
         // holds the previous email at this point because the session row
-        // updates lazily. sendEmail no-ops when the provider is off.
+        // updates lazily. sendEmail no-ops when the provider is off; throws
+        // on misconfiguration (flag=true but no adapter wired).
         //
         // The `ctx?.context?.session?.user?.email` path reads Better Auth's
         // internal hook context shape — not part of the public API. If the
@@ -108,11 +114,28 @@ export const auth = betterAuth({
       consentPage: "/oauth/consent",
       scopes: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       allowDynamicClientRegistration: true,
+      // Endpoint-only MCP clients (Claude/Cursor/generic) bootstrap from the
+      // bare `/mcp` URL and rely on unauthenticated RFC 7591 registration to
+      // obtain a client id before the user can authorize. Requiring auth here
+      // would break first-connect for every MCP client we ship docs for.
+      // Abuse is bounded by the rate limit below, which the better-auth
+      // oauth-provider applies per IP at the framework layer.
       allowUnauthenticatedClientRegistration: true,
+      // Cap dynamic client registration at 5 requests per hour per IP.
+      // The default is 5/minute, which is too generous for an unauthenticated
+      // write endpoint; honest MCP clients only register once per install.
+      // Accepted trade-off: users sharing a single egress IP (corporate NAT,
+      // home router during simultaneous onboarding) can hit the cap. For a
+      // single-tenant personal media manager the abuse-prevention value
+      // outweighs the rare onboarding-storm cost; revisit if/when a multi-
+      // tenant deployment surfaces.
+      rateLimit: {
+        register: { window: 60 * 60, max: 5 },
+      },
       // Accept both trailing-slash and non-trailing-slash forms of the base URL,
       // since MCP clients derive the resource indicator from discovery metadata
       // and may append a trailing slash.
-      validAudiences: [env.BETTER_AUTH_URL],
+      validAudiences: [normalisedBaseUrl, `${normalisedBaseUrl}/`],
       advertisedMetadata: {
         scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       },
