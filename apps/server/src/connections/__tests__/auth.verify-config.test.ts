@@ -84,24 +84,24 @@ describe("verifyConfig — x-plugin-resolved field stripping", () => {
   });
 });
 
-const formManifest = {
-  manifest: {
-    auth: { kind: "form" },
-    userConfigSchema: {
-      type: "object",
-      properties: { serverUrl: { type: "string" } },
-      required: ["serverUrl"],
-    },
-  },
-} as const;
-
 describe("verifyConfig — error paths", () => {
+  const formManifest = {
+    manifest: {
+      auth: { kind: "form" },
+      userConfigSchema: {
+        type: "object",
+        properties: { serverUrl: { type: "string" } },
+        required: ["serverUrl"],
+      },
+    },
+  } as const;
+
   beforeEach(() => {
     runAuth.mockReset();
     getModule.mockReset();
   });
 
-  it("returns ok: false with message+field when startAuth returns a non-invalid_base_url error", async () => {
+  it("returns ok: false with message and field on generic auth error", async () => {
     getModule.mockResolvedValueOnce(formManifest);
     runAuth.mockResolvedValueOnce({
       status: "error",
