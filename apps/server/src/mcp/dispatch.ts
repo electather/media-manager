@@ -39,10 +39,11 @@ type ValidationIssueList =
   | undefined
   | null;
 
-function mcpErrorFromUnknown(err: unknown): McpError {
+export function mcpErrorFromUnknown(err: unknown): McpError {
   if (err instanceof McpError) return err;
-  const message = err instanceof Error ? err.message : String(err);
-  return new McpError("http.internal_error", message, { cause: err });
+  // Use a generic message to avoid leaking internal details (SQL fragments,
+  // file paths, table names) to clients. Original message preserved in `cause`.
+  return new McpError("http.internal_error", "internal error", { cause: err });
 }
 
 async function handleCapturedError(
