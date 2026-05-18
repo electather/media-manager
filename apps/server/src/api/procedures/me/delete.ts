@@ -60,13 +60,15 @@ async function verifyPasswordOrThrow(password: string, headers: Headers): Promis
   }
 }
 
-// Better Auth's `verifyPassword` may resolve to `{ valid: boolean }`,
-// `{ error: ... }`, or throw on wrong credentials depending on version.
-// Treat anything other than an explicit success as a failure.
+// Better Auth's `verifyPassword` resolves to `{ status: true }` on success and
+// throws on wrong credentials (see better-auth/dist/api/routes/password.mjs).
+// Earlier/alternative shapes used `{ valid: true }` — accept both, but require
+// an explicit boolean `true` so truthy non-boolean values cannot bypass the gate.
 // fallow-ignore-next-line complexity
 function isVerifyPasswordOk(result: unknown): boolean {
   if (!result || typeof result !== "object") return false;
   if ("error" in result && (result as { error?: unknown }).error) return false;
-  if ("valid" in result) return Boolean((result as { valid?: unknown }).valid);
-  return false; // fail-closed: require explicit { valid: true }
+  if ((result as { status?: unknown }).status === true) return true;
+  if ((result as { valid?: unknown }).valid === true) return true;
+  return false; // fail-closed: require explicit { status: true } or { valid: true }
 }

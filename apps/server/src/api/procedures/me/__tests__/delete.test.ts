@@ -59,7 +59,7 @@ afterAll(() => cleanupInMemoryDbs());
 
 describe("deleteAccount", () => {
   it("removes the user and cascades every user-scoped row, while preserving SET-NULL history", async () => {
-    verifyPassword.mockResolvedValue({ valid: true });
+    verifyPassword.mockResolvedValue({ status: true });
 
     await seedFullUserGraph(db, USER);
     await seedJobHistory(db, USER);
@@ -114,7 +114,7 @@ describe("deleteAccount", () => {
   });
 
   it("rejects with 400 when the email confirmation does not match", async () => {
-    verifyPassword.mockResolvedValue({ valid: true });
+    verifyPassword.mockResolvedValue({ status: true });
 
     await expect(
       deleteAccount(db, {
@@ -156,10 +156,27 @@ describe("deleteAccount", () => {
         headers: new Headers(),
       }),
     ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
+
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
+  });
+
+  it("accepts { valid: true } legacy success shape", async () => {
+    verifyPassword.mockResolvedValue({ valid: true });
+
+    await deleteAccount(db, {
+      userId: USER,
+      confirmEmail: "victim@example.com",
+      currentPassword: "secret",
+      headers: new Headers(),
+    });
+
+    const gone = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(gone).toBeUndefined();
   });
 
   it("matches email case-insensitively", async () => {
-    verifyPassword.mockResolvedValue({ valid: true });
+    verifyPassword.mockResolvedValue({ status: true });
 
     await deleteAccount(db, {
       userId: USER,
