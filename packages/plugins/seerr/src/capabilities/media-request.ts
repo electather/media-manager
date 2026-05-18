@@ -4,10 +4,6 @@ import { mapMediaStatus, mapRequestStatus } from "../mappers";
 import { REQUEST_STATUS_STORE_KEY } from "../constants";
 import type { Ctx } from "../types";
 
-/**
- * Validates that `id` is a non-negative integer string safe for use in a URL
- * path segment. Throws a PluginError when validation fails.
- */
 function assertNonNegativeIntId(id: string, label: string): void {
   if (!/^\d+$/.test(id)) {
     throw pluginError(
