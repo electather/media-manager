@@ -33,6 +33,12 @@ export function scrub(value: unknown, depth = 0): unknown {
   if (isNil(value)) return value;
   if (Array.isArray(value)) return value.map((item) => scrub(item, depth + 1));
   if (typeof value !== "object") return value;
+  // Non-plain objects: convert to a loggable primitive rather than silently dropping fields.
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof URL) return value.toString();
+  if (value instanceof Error) return { name: value.name, message: value.message };
+  if (value instanceof Map) return scrub(Object.fromEntries(value), depth + 1);
+  if (value instanceof Set) return Array.from(value).map((item) => scrub(item, depth + 1));
   const obj = value as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(obj)) {
