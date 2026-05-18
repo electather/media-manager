@@ -198,6 +198,15 @@ async function runStartAuth<S extends "redirect" | "display_code">(
  * row proceeds to `writeConnection`. Concurrent completions for the same
  * nonce see zero rows returned and signal via `consumed: false`, allowing
  * callers to surface a typed error instead of creating duplicate rows.
+ *
+ * The DELETE filters on both `nonce` and `userId` to mirror `loadPendingAuth`'s
+ * predicate — a request authenticated as one user cannot consume another
+ * user's pending row even if the nonce somehow leaks.
+ *
+ * Order matters: the delete happens BEFORE `writeConnection`. If the write
+ * throws, the nonce is already gone and the user must restart the OAuth flow.
+ * That trade-off is deliberate — a failed write is recoverable, a duplicate
+ * connection row is not. Do not "fix" this by swapping the order.
  */
 async function consumeAndWritePendingAuth(
   db: ReturnType<typeof getDb>,
@@ -214,7 +223,7 @@ async function consumeAndWritePendingAuth(
 ): Promise<{ consumed: true; id: string } | { consumed: false }> {
   const deleted = await db
     .delete(pendingAuth)
-    .where(eq(pendingAuth.nonce, nonce))
+    .where(and(eq(pendingAuth.nonce, nonce), eq(pendingAuth.userId, userId)))
     .returning({ nonce: pendingAuth.nonce });
   if (deleted.length === 0) return { consumed: false };
   const id = await writeConnection({
