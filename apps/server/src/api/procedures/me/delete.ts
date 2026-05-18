@@ -47,28 +47,19 @@ export async function deleteAccount(db: Db, input: DeleteAccountInput): Promise<
   await db.delete(user).where(eq(user.id, input.userId));
 }
 
-// fallow-ignore-next-line complexity
+// Better Auth's `verifyPassword` is typed as `Promise<{ status: boolean }>` and
+// resolves to `{ status: true }` on success; wrong credentials throw an
+// `APIError` (see better-auth/dist/api/routes/password.mjs:185-193). Require
+// strict `=== true` so any runtime divergence from the type fails closed.
 async function verifyPasswordOrThrow(password: string, headers: Headers): Promise<void> {
+  let result: Awaited<ReturnType<typeof auth.api.verifyPassword>>;
   try {
-    const result = await auth.api.verifyPassword({ body: { password }, headers });
-    if (!isVerifyPasswordOk(result)) {
-      throw unauthorized("me.delete.invalid_password", "Incorrect password");
-    }
+    result = await auth.api.verifyPassword({ body: { password }, headers });
   } catch (err) {
     if (err instanceof Error && err.name === "HttpError") throw err;
     throw unauthorized("me.delete.invalid_password", "Incorrect password");
   }
-}
-
-// Better Auth's `verifyPassword` resolves to `{ status: true }` on success and
-// throws on wrong credentials (see better-auth/dist/api/routes/password.mjs).
-// Earlier/alternative shapes used `{ valid: true }` — accept both, but require
-// an explicit boolean `true` so truthy non-boolean values cannot bypass the gate.
-// fallow-ignore-next-line complexity
-function isVerifyPasswordOk(result: unknown): boolean {
-  if (!result || typeof result !== "object") return false;
-  if ("error" in result && (result as { error?: unknown }).error) return false;
-  if ((result as { status?: unknown }).status === true) return true;
-  if ((result as { valid?: unknown }).valid === true) return true;
-  return false; // fail-closed: require explicit { status: true } or { valid: true }
+  if (result.status !== true) {
+    throw unauthorized("me.delete.invalid_password", "Incorrect password");
+  }
 }

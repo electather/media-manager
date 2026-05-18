@@ -97,8 +97,8 @@ describe("deleteAccount", () => {
     expect(stillThere).toBeDefined();
   });
 
-  it("rejects with 401 when verifyPassword resolves to { valid: false }", async () => {
-    verifyPassword.mockResolvedValue({ valid: false });
+  it("rejects with 401 when verifyPassword resolves to { status: false }", async () => {
+    verifyPassword.mockResolvedValue({ status: false });
 
     await expect(
       deleteAccount(db, {
@@ -161,18 +161,20 @@ describe("deleteAccount", () => {
     expect(stillThere).toBeDefined();
   });
 
-  it("accepts { valid: true } legacy success shape", async () => {
+  it("rejects with 401 when verifyPassword resolves to { valid: true } (phantom shape, fail-closed)", async () => {
     verifyPassword.mockResolvedValue({ valid: true });
 
-    await deleteAccount(db, {
-      userId: USER,
-      confirmEmail: "victim@example.com",
-      currentPassword: "secret",
-      headers: new Headers(),
-    });
+    await expect(
+      deleteAccount(db, {
+        userId: USER,
+        confirmEmail: "victim@example.com",
+        currentPassword: "secret",
+        headers: new Headers(),
+      }),
+    ).rejects.toMatchObject({ status: 401, code: "me.delete.invalid_password" });
 
-    const gone = await db.select().from(user).where(eq(user.id, USER)).get();
-    expect(gone).toBeUndefined();
+    const stillThere = await db.select().from(user).where(eq(user.id, USER)).get();
+    expect(stillThere).toBeDefined();
   });
 
   it("matches email case-insensitively", async () => {
