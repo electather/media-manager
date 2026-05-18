@@ -429,6 +429,90 @@ describe("runtime honors x-allowed-host from userConfigSchema", () => {
     });
   });
 
+  // Regression for PR #412 review feedback: a plugin (Seerr) declares its
+  // upstream URL on `globalConfigSchema` because the admin sets a single
+  // instance for everyone. The runtime must walk `globalConfigSchema` too —
+  // not just userConfigSchema / sharedCredentialsSchema — otherwise every
+  // ctx.fetch rejects with "host not in allowlist".
+  it("resolves x-allowed-host from globalConfigSchema for admin-set plugin URLs", async () => {
+    pluginRows.set("seerr-like", {
+      id: "seerr-like",
+      // Stored as JSON; runtime parses with JSON.parse during loadInvocationSetup.
+      globalConfig: JSON.stringify({ baseUrl: "https://requests.example.com" }),
+      manifest: "{}",
+      personalKeyFallback: "off",
+    });
+    listReadyUserConnectionsMock.mockResolvedValue([
+      {
+        connectionId: "conn-1",
+        isDefault: true,
+        credentials: { sessionCookie: "connect.sid=abc" },
+        // userConfig has no URL — the URL lives on globalConfig.
+        userConfig: { username: "u", password: "p" },
+      },
+    ]);
+
+    let observedResponse: unknown;
+    capabilityRegistry.register({
+      pluginId: "seerr-like",
+      module: {
+        manifest: {
+          id: "seerr-like",
+          name: "Seerr-like",
+          version: "1.0.0",
+          description: "",
+          author: { name: "t" },
+          sdkVersion: "^1.0.0",
+          allowedHosts: [],
+          globalConfigSchema: {
+            type: "object",
+            properties: {
+              baseUrl: { type: "string", "x-allowed-host": true },
+            },
+            required: ["baseUrl"],
+          },
+          userConfigSchema: {
+            type: "object",
+            properties: {
+              username: { type: "string" },
+              password: { type: "string", "x-secret": true },
+            },
+          },
+          credentialsSchema: { type: "object" },
+          auth: { kind: "form" },
+          capabilities: { library: { version: "v1", scope: "user" } },
+          poolable: false,
+        },
+        capabilities: {
+          library: {
+            list: async (ctx) => {
+              const c = ctx as {
+                fetch: (url: string, init?: RequestInit) => Promise<Response>;
+              };
+              const res = await c.fetch("https://requests.example.com/api/v1/request");
+              observedResponse = await res.json();
+              return { items: [] };
+            },
+          },
+        },
+      },
+      enabled: true,
+    });
+
+    const result = await pluginRuntime.invoke<{ items: unknown[] }>({
+      pluginId: "seerr-like",
+      capability: "library",
+      version: "v1",
+      method: "list",
+      input: {},
+      scope: "user",
+      userId: "user-1",
+    });
+    expect(result).toEqual({ items: [] });
+    expect(observedResponse).toEqual({ ok: true });
+    expect(fetchSpy).toHaveBeenCalledWith("https://requests.example.com/api/v1/request", undefined);
+  });
+
   // Regression: an `x-allowed-host` field on a `sharedCredentialsSchema` whose
   // submitted value is malformed must return a friendly { ok: false, message }
   // instead of bubbling out of `runSharedCredentialProbe` as an uncaught throw.
