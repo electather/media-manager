@@ -166,7 +166,7 @@ export const adminUsersApp = new Hono()
       .update(user)
       .set({
         ...(body.name !== undefined && { name: body.name }),
-        ...(body.email !== undefined && { email: body.email }),
+        ...(body.email !== undefined && { email: body.email, emailVerified: false }),
       })
       .where(eq(user.id, id));
 
