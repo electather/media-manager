@@ -1,7 +1,7 @@
-import { getDb } from "../db/client";
-import { queryEnabledConnectionsForPlugin } from "../db/queries";
-import { decryptField } from "../crypto/helpers";
-import { sharedCredentialsService } from "../plugin-runtime";
+import { getDb } from "../../db/client";
+import { queryEnabledConnectionsForPlugin } from "../../db/queries";
+import { decryptField } from "../../crypto/helpers";
+import { sharedCredentialsService } from "../../plugin-runtime";
 
 /**
  * A connection materialized for dispatch. Either comes from a user-owned

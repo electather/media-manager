@@ -1,17 +1,17 @@
 import { invariant } from "es-toolkit/util";
-import { requireCapability } from "./capability-lookup";
-import { dispatchSingle } from "./strategies/single";
-import { dispatchAggregate } from "./strategies/aggregate";
-import { dispatchPrimary } from "./strategies/primary-with-enrichment";
-import { dispatchAggregatePerKind } from "./strategies/aggregate-per-kind";
-import type { DispatchRequest, AggregateResult } from "./types";
+import { requireCapability } from "../internal/capability-lookup";
+import { dispatchSingle } from "../internal/strategies/single";
+import { dispatchAggregate } from "../internal/strategies/aggregate";
+import { dispatchPrimary } from "../internal/strategies/primary-with-enrichment";
+import { dispatchAggregatePerKind } from "../internal/strategies/aggregate-per-kind";
+import type { DispatchRequest, AggregateResult } from "../types";
 
-export type { DispatchRequest, AggregateResult } from "./types";
-export { dispatchSingle } from "./strategies/single";
-export { dispatchAggregate } from "./strategies/aggregate";
-export { dispatchPrimary } from "./strategies/primary-with-enrichment";
-export { dispatchAggregatePerKind } from "./strategies/aggregate-per-kind";
-export { invalidateUserCache } from "./dispatch-cache";
+export type { DispatchRequest, AggregateResult } from "../types";
+export { dispatchSingle } from "../internal/strategies/single";
+export { dispatchAggregate } from "../internal/strategies/aggregate";
+export { dispatchPrimary } from "../internal/strategies/primary-with-enrichment";
+export { dispatchAggregatePerKind } from "../internal/strategies/aggregate-per-kind";
+export { invalidateUserCache } from "../internal/dispatch-cache";
 
 /**
  * Generic entry point — picks the dispatch function based on the capability's

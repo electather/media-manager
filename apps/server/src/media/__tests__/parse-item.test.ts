@@ -5,7 +5,7 @@ import {
   parseItemDate,
   parseHistoryBase,
   type RawPluginItem,
-} from "../parse-item";
+} from "../internal/parse-item";
 
 describe("splitCombinedId", () => {
   it("parses movie combined id", () => {

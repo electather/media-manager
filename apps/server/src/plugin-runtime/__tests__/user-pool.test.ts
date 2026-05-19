@@ -59,7 +59,7 @@ vi.mock("../../crypto/helpers", () => ({
   decryptJson: (iv: string | null, data: string | null) => decryptJsonMock(iv, data),
 }));
 
-const { listReadyUserConnections } = await import("../user-pool");
+const { listReadyUserConnections } = await import("../internal/user-pool");
 
 function seed(partial: Partial<Row>): Row {
   return {

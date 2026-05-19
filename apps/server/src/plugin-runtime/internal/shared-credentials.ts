@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import type { ValidatedManifest } from "@ent-mcp/shared/plugins";
-import { getDb } from "../db/client";
-import { pluginSharedCredentials } from "../db/schema/plugin-shared-credentials";
-import { plugins } from "../db/schema/plugins";
-import { decryptJson, encryptJson } from "../crypto/helpers";
+import { getDb } from "../../db/client";
+import { pluginSharedCredentials } from "../../db/schema/plugin-shared-credentials";
+import { plugins } from "../../db/schema/plugins";
+import { decryptJson, encryptJson } from "../../crypto/helpers";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
 function randomId(): string {

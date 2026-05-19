@@ -2,7 +2,7 @@ import { head } from "es-toolkit/array";
 import { getCapability } from "@ent-mcp/plugin-sdk";
 import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { resolveConnections, type ResolvedConnection } from "./resolve-connection";
-import { PluginCallError } from "./errors";
+import { PluginCallError } from "../errors";
 
 export function requireCapability(id: string, version: string): CapabilityDefinition {
   const cap = getCapability(id, version);

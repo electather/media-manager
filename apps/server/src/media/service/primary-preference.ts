@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { getDb } from "../db/client";
-import { primaryConnections, serviceConnections } from "../db/schema";
+import { getDb } from "../../db/client";
+import { primaryConnections, serviceConnections } from "../../db/schema";
 
 const NO_MEDIA_TYPE = "_";
 

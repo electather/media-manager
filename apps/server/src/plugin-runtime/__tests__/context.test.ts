@@ -7,7 +7,7 @@ vi.mock("../../env", () => ({
   },
 }));
 
-vi.mock("../host-bridge", () => ({
+vi.mock("../internal/host-bridge", () => ({
   buildStore: () => ({
     get: async () => null,
     set: async () => {},
@@ -15,7 +15,7 @@ vi.mock("../host-bridge", () => ({
   }),
 }));
 
-vi.mock("../fetch-policy", () => ({
+vi.mock("../internal/fetch-policy", () => ({
   buildFetch: () => async () => new Response(""),
   buildLogger: () => ({
     debug: () => {},
@@ -25,7 +25,7 @@ vi.mock("../fetch-policy", () => ({
   }),
 }));
 
-const { buildContext } = await import("../context");
+const { buildContext } = await import("../internal/context");
 
 describe("buildContext", () => {
   it("populates ctx.appBaseUrl from the provided argument", () => {

@@ -15,7 +15,7 @@ vi.mock("../../env", () => ({
 let db: Db;
 vi.mock("../../db/client", () => ({ getDb: () => db }));
 
-const { buildStore, sweepExpiredStore } = await import("../host-bridge");
+const { buildStore, sweepExpiredStore } = await import("../internal/host-bridge");
 
 const PLUGIN_ID = "tmdb";
 

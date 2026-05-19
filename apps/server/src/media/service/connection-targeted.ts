@@ -1,11 +1,11 @@
 import { and, desc, eq } from "drizzle-orm";
-import { getDb } from "../db/client";
-import { serviceConnections } from "../db/schema";
-import { decryptField } from "../crypto/helpers";
-import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
+import { getDb } from "../../db/client";
+import { serviceConnections } from "../../db/schema";
+import { decryptField } from "../../crypto/helpers";
+import { capabilityRegistry, pluginRuntime } from "../../plugin-runtime";
 import { getCapability } from "@ent-mcp/plugin-sdk";
-import { PluginCallError, normalizeError } from "./errors";
-import type { ResolvedConnection } from "./resolve-connection";
+import { PluginCallError, normalizeError } from "../errors";
+import type { ResolvedConnection } from "../internal/resolve-connection";
 
 export interface EligibleConnection {
   connectionId: string;

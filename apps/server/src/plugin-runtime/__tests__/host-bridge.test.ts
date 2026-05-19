@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test";
-import { isHostAllowed, TokenBucket } from "../fetch-policy";
+import { isHostAllowed, TokenBucket } from "../internal/fetch-policy";
 
 describe("isHostAllowed", () => {
   it("matches exact hostnames", () => {

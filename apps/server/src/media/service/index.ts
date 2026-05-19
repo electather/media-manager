@@ -3,7 +3,7 @@ import {
   dispatchPrimary,
   dispatchSingle,
   type AggregateResult,
-} from "./dispatcher";
+} from "./dispatch";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import type { SeasonInfo } from "@ent-mcp/shared/home";
 import {
@@ -14,15 +14,15 @@ import {
 } from "@ent-mcp/shared/media";
 import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
-import { capabilityRegistry } from "../plugin-runtime";
-import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "./errors";
-import { HttpError, badRequest } from "../diagnostics/http-errors";
-import type { RawCanonicalSource } from "../catalog";
-import { resolveConnections } from "./resolve-connection";
+import { capabilityRegistry } from "../../plugin-runtime";
+import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "../errors";
+import { HttpError, badRequest } from "../../diagnostics/http-errors";
+import type { RawCanonicalSource } from "../../catalog";
+import { resolveConnections } from "../internal/resolve-connection";
 import { invokeOne } from "./invoke";
-import { requireCapability } from "./capability-lookup";
+import { requireCapability } from "../internal/capability-lookup";
 import { dispatchToConnection, listEligibleConnections } from "./connection-targeted";
-import { decodeServiceId, encodeServiceId, TARGET_ID_RE } from "./service-id";
+import { decodeServiceId, encodeServiceId, TARGET_ID_RE } from "../internal/service-id";
 import { isNil } from "es-toolkit/predicate";
 import { orderBy, uniqBy } from "es-toolkit/array";
 
@@ -938,3 +938,37 @@ function readNestedTmdbId(value: unknown): string | null {
   const item = (value as { item?: unknown }).item;
   return readTmdbId({ item });
 }
+
+// Re-exports of public items from service/ and internal/ sub-modules.
+export type { DispatchRequest, AggregateResult } from "../types";
+export {
+  dispatch,
+  dispatchSingle,
+  dispatchAggregate,
+  dispatchPrimary,
+  dispatchAggregatePerKind,
+  invalidateUserCache,
+} from "./dispatch";
+export { compactFromRaw, type PluginMediaRaw } from "./compact";
+export {
+  listEligibleConnections,
+  dispatchToConnection,
+  type EligibleConnection,
+  type TargetedDispatchRequest,
+} from "./connection-targeted";
+export { invokeOne, invokeWithTimeout, harvestFromOutcomes, type InvokeRequest } from "./invoke";
+export {
+  requireCapability,
+  scopeForRequest,
+  pickSingleConnection,
+} from "../internal/capability-lookup";
+export { resolveConnections, type ResolvedConnection } from "../internal/resolve-connection";
+export {
+  identifyItem,
+  parseHistoryBase,
+  parseItemDate,
+  splitCombinedId,
+  type RawPluginItem,
+  type ItemIdentity,
+} from "../internal/parse-item";
+export { dispatchAggregatePerKind as dispatchAggregatePerKindStrategy } from "../internal/strategies/aggregate-per-kind";

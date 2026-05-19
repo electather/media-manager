@@ -110,7 +110,7 @@ const {
   setAdminAllowlist,
   updateAdminHeaders,
   invalidatePluginPolicy,
-} = await import("../admin-policy");
+} = await import("../internal/admin-policy");
 
 const PLUGIN_ID = "trakt";
 

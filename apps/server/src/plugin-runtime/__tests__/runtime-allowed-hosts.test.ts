@@ -55,7 +55,7 @@ vi.mock("../../db/client", () => ({ getDb: () => dbMock }));
 const listDecryptedActiveMock = vi.fn();
 const markExhaustedMock = vi.fn();
 
-vi.mock("../shared-credentials", () => ({
+vi.mock("../internal/shared-credentials", () => ({
   sharedCredentialsService: {
     listDecryptedActive: (...args: unknown[]) => listDecryptedActiveMock(...args),
     markExhausted: (...args: unknown[]) => markExhaustedMock(...args),
@@ -69,7 +69,7 @@ vi.mock("../shared-credentials", () => ({
 }));
 
 const listReadyUserConnectionsMock = vi.fn();
-vi.mock("../user-pool", () => ({
+vi.mock("../internal/user-pool", () => ({
   listReadyUserConnections: (...args: unknown[]) => listReadyUserConnectionsMock(...args),
   markUserConnectionExhausted: vi.fn(),
 }));
@@ -80,7 +80,7 @@ vi.mock("../../diagnostics/capture", () => ({
   capturePerf: vi.fn(async () => {}),
 }));
 
-vi.mock("../host-bridge", () => ({
+vi.mock("../internal/host-bridge", () => ({
   buildStore: () => ({
     get: async () => null,
     set: async () => {},
@@ -89,11 +89,11 @@ vi.mock("../host-bridge", () => ({
   sweepExpiredStore: async () => 0,
 }));
 
-// Intentionally do NOT mock ../fetch-policy here — we want the real buildFetch
+// Intentionally do NOT mock ../internal/fetch-policy here — we want the real buildFetch
 // so we can assert that the dynamic host derived from userConfig flows through.
 
-const { pluginRuntime } = await import("../runtime");
-const { capabilityRegistry } = await import("../registry");
+const { pluginRuntime } = await import("../service/runtime");
+const { capabilityRegistry } = await import("../internal/registry");
 
 // A user-scoped plugin (like a self-hosted media server) whose base URL is
 // supplied at connection time via userConfig. The schema marks `baseUrl` with

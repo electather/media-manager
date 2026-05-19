@@ -7,6 +7,7 @@
  *
  * Hard caps (exit 1):
  *   - <module>/service.ts            > 500 LOC
+ *   - <module>/service/index.ts      > 500 LOC (same budget for promoted service directories)
  *   - <module>/repo.ts               > 300 LOC
  *   - <module>/events.ts             > 200 LOC
  *   - <module>/jobs/<x>.ts           > 200 LOC (excluding jobs/index.ts)
@@ -34,18 +35,21 @@ const MODULES = [
 ];
 const BANNED_NAMES = new Set(["utils.ts", "helpers.ts", "misc.ts"]);
 
-// Pre-existing oversized files scheduled for Phase 3 split (plan TASK-045, TASK-047).
-// Each entry: path → plan-task reference. Adding a file here is a one-way ratchet;
-// new files cannot be allowlisted without a paired plan task that schedules the split.
+// Pre-existing oversized files scheduled for future splits (one-way ratchet).
+// New files cannot be allowlisted without a paired plan task that schedules the split.
 const ALLOWLIST: Record<string, string> = {
-  "apps/server/src/media/service.ts": "TASK-047: split into service/ directory",
   "apps/server/src/catalog/jobs/recommendation-build.ts": "TASK-045: catalog jobs reshape",
   "apps/server/src/catalog/jobs/user-mirror-sync.ts": "TASK-045: catalog jobs reshape",
+  "apps/server/src/catalog/service/index.ts":
+    "TASK-046: CatalogService class decomposition deferred",
+  "apps/server/src/media/service/index.ts": "TASK-047: MediaService class decomposition deferred",
 };
 
 type Cap = { warn: number; fail: number };
 const CAPS: Record<string, Cap> = {
   "service.ts": { warn: 400, fail: 500 },
+  // service/ directory index carries the same budget as the flat service.ts it replaced.
+  "service/index.ts": { warn: 400, fail: 500 },
   "repo.ts": { warn: 240, fail: 300 },
   "events.ts": { warn: 160, fail: 200 },
 };

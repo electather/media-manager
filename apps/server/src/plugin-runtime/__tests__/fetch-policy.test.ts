@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
-import { buildFetch } from "../fetch-policy";
-import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../allowed-hosts";
+import { buildFetch } from "../internal/fetch-policy";
+import { isBlockedHostname, resolveAllowedHostsFromSchema } from "../internal/allowed-hosts";
 import { registerSink, resetSinks } from "../../diagnostics/capture";
 import type { DiagnosticSink } from "../../diagnostics/types";
 import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";

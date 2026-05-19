@@ -1,15 +1,15 @@
 import { eq } from "drizzle-orm";
 import { consola } from "consola";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
-import { getDb } from "../db/client";
-import { env } from "../env";
-import { plugins } from "../db/schema/plugins";
-import { resolveAllowedHostsFromSchema, unionHostSets } from "./allowed-hosts";
-import { loadPluginPolicy, type PluginAdminPolicy } from "./admin-policy";
-import { buildContext } from "./context";
+import { getDb } from "../../db/client";
+import { env } from "../../env";
+import { plugins } from "../../db/schema/plugins";
+import { resolveAllowedHostsFromSchema, unionHostSets } from "../internal/allowed-hosts";
+import { loadPluginPolicy, type PluginAdminPolicy } from "../internal/admin-policy";
+import { buildContext } from "../internal/context";
 import { getCapability } from "@ent-mcp/plugin-sdk";
-import { getBuiltin, listBuiltins, validatePluginModule } from "./loader";
-import { capabilityRegistry } from "./registry";
+import { getBuiltin, listBuiltins, validatePluginModule } from "../internal/loader";
+import { capabilityRegistry } from "../internal/registry";
 import type { CapabilityScope } from "@ent-mcp/shared/plugins";
 import { isPluginError, PluginError } from "@ent-mcp/plugin-sdk";
 import type {
@@ -19,10 +19,10 @@ import type {
   PluginModule,
   PoolSignalingApi,
 } from "@ent-mcp/plugin-sdk";
-import { captureError, capturePerf } from "../diagnostics/capture";
+import { captureError, capturePerf } from "../../diagnostics/capture";
 import { pluginCode, type HostErrorCode } from "@ent-mcp/shared/diagnostics";
-import { sharedCredentialsService } from "./shared-credentials";
-import { listReadyUserConnections, markUserConnectionExhausted } from "./user-pool";
+import { sharedCredentialsService } from "../internal/shared-credentials";
+import { listReadyUserConnections, markUserConnectionExhausted } from "../internal/user-pool";
 
 /**
  * Injected at bootstrap time so `plugin-runtime` does not import the MCP

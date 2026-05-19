@@ -13,25 +13,25 @@ vi.mock("../../env", () => ({
 
 const dispatchPrimaryMock = vi.fn();
 
-vi.mock("../dispatcher", () => ({
+vi.mock("../service/dispatch", () => ({
   dispatchPrimary: (...args: unknown[]) => dispatchPrimaryMock(...args),
   dispatchAggregate: vi.fn(),
   dispatchSingle: vi.fn(),
 }));
 
-vi.mock("../resolve-connection", () => ({
+vi.mock("../internal/resolve-connection", () => ({
   resolveConnections: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock("../invoke", () => ({
+vi.mock("../service/invoke", () => ({
   invokeOne: vi.fn(),
 }));
 
-vi.mock("../capability-lookup", () => ({
+vi.mock("../internal/capability-lookup", () => ({
   requireCapability: () => ({ defaultTimeoutMs: 15_000 }),
 }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: {
     listProviders: vi.fn().mockReturnValue([]),
     get: vi.fn(),

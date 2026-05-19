@@ -1,8 +1,8 @@
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations } from "../dispatch-cache";
-import { invokeOne, harvestFromOutcomes } from "../invoke";
-import { PluginCallError } from "../errors";
-import type { DispatchRequest } from "../types";
+import { invokeOne, harvestFromOutcomes } from "../../service/invoke";
+import { PluginCallError } from "../../errors";
+import type { DispatchRequest } from "../../types";
 import { resolveDispatchPreamble } from "./shared";
 
 /**

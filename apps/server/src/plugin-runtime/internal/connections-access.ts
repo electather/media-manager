@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { getDb } from "../db/client";
-import { serviceConnections } from "../db/schema/credentials";
-import { encryptJson } from "../crypto/helpers";
+import { getDb } from "../../db/client";
+import { serviceConnections } from "../../db/schema/credentials";
+import { encryptJson } from "../../crypto/helpers";
 
 /**
  * Public shape of a `service_connections` row returned to other modules. Mirrors

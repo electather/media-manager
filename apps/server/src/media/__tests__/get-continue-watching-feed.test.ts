@@ -12,7 +12,7 @@ vi.mock("../../env", () => ({
 }));
 
 const dispatchAggregateMock = vi.fn();
-vi.mock("../dispatcher", () => ({
+vi.mock("../service/dispatch", () => ({
   dispatchAggregate: (...args: unknown[]) => dispatchAggregateMock(...args),
   dispatchPrimary: vi.fn(),
   dispatchSingle: vi.fn(),

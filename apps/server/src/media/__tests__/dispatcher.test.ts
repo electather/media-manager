@@ -6,7 +6,7 @@ vi.mock("../../env", () => ({
 }));
 
 const { MemoryCache } = await import("../../cache/memory");
-const { setCacheProviderForTest } = await import("../cache");
+const { setCacheProviderForTest } = await import("../service/cache");
 
 const invokeMock = vi.fn();
 const refreshAuthMock = vi.fn();
@@ -16,7 +16,7 @@ const harvestIdsMock = vi.fn();
 const listProvidersMock = vi.fn();
 const registryAllMock = vi.fn();
 
-vi.mock("../../plugin-runtime/runtime", () => ({
+vi.mock("../../plugin-runtime/service/runtime", () => ({
   pluginRuntime: {
     invoke: (...args: unknown[]) => invokeMock(...args),
     invokeWithCredentials: (...args: unknown[]) => invokeMock(...args),
@@ -24,21 +24,21 @@ vi.mock("../../plugin-runtime/runtime", () => ({
   },
 }));
 
-vi.mock("../resolve-connection", () => ({
+vi.mock("../internal/resolve-connection", () => ({
   resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
 }));
 
-vi.mock("../primary-preference", () => ({
+vi.mock("../service/primary-preference", () => ({
   getPrimaryConnection: (...args: unknown[]) => getPrimaryMock(...args),
   setPrimaryConnection: vi.fn(),
   clearPrimaryConnection: vi.fn(),
 }));
 
-vi.mock("../id-resolver", () => ({
+vi.mock("../service/id-resolver", () => ({
   harvestIds: (...args: unknown[]) => harvestIdsMock(...args),
 }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: {
     listProviders: (...args: unknown[]) => listProvidersMock(...args),
     all: () => registryAllMock(),
@@ -64,9 +64,9 @@ vi.mock("../../crypto/hash", () => ({
 
 // Import after mocks so the module binds to mocked exports.
 const { dispatchSingle, dispatchAggregate, dispatchPrimary, invalidateUserCache } =
-  await import("../dispatcher");
+  await import("../service/dispatch");
 const { PluginCallError } = await import("../errors");
-const { getCacheProvider } = await import("../cache");
+const { getCacheProvider } = await import("../service/cache");
 
 interface UserConn {
   kind: "user";

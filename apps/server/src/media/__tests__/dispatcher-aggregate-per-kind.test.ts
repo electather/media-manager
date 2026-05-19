@@ -5,7 +5,7 @@ vi.mock("../../env", () => ({
 }));
 
 const { MemoryCache } = await import("../../cache/memory");
-const { setCacheProviderForTest } = await import("../cache");
+const { setCacheProviderForTest } = await import("../service/cache");
 
 const invokeMock = vi.fn();
 const resolveConnectionsMock = vi.fn();
@@ -14,28 +14,28 @@ const listProvidersMock = vi.fn();
 const registryAllMock = vi.fn();
 const registryGetMock = vi.fn();
 
-vi.mock("../../plugin-runtime/runtime", () => ({
+vi.mock("../../plugin-runtime/service/runtime", () => ({
   pluginRuntime: {
     invokeWithCredentials: (...args: unknown[]) => invokeMock(...args),
     refreshAuth: vi.fn(),
   },
 }));
 
-vi.mock("../resolve-connection", () => ({
+vi.mock("../internal/resolve-connection", () => ({
   resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
 }));
 
-vi.mock("../primary-preference", () => ({
+vi.mock("../service/primary-preference", () => ({
   getPrimaryConnection: vi.fn().mockResolvedValue(null),
   setPrimaryConnection: vi.fn(),
   clearPrimaryConnection: vi.fn(),
 }));
 
-vi.mock("../id-resolver", () => ({
+vi.mock("../service/id-resolver", () => ({
   harvestIds: (...args: unknown[]) => harvestIdsMock(...args),
 }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: {
     listProviders: (...args: unknown[]) => listProvidersMock(...args),
     all: () => registryAllMock(),
@@ -48,7 +48,7 @@ const dbStub = {
 };
 vi.mock("../../db/client", () => ({ getDb: () => dbStub }));
 
-const { dispatchAggregatePerKind } = await import("../dispatcher");
+const { dispatchAggregatePerKind } = await import("../service/dispatch");
 const errorsModule = await import("../errors");
 const { PluginCallError } = errorsModule;
 type PluginCallErrorType = InstanceType<typeof errorsModule.PluginCallError>;

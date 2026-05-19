@@ -1,8 +1,8 @@
 import { consola } from "consola";
-import { pluginRuntime, capabilityRegistry } from "../plugin-runtime";
+import { pluginRuntime, capabilityRegistry } from "../../plugin-runtime";
 import { harvestIds } from "./id-resolver";
-import { type InvocationOutcome, normalizeError } from "./errors";
-import type { ResolvedConnection } from "./resolve-connection";
+import { type InvocationOutcome, normalizeError } from "../errors";
+import type { ResolvedConnection } from "../internal/resolve-connection";
 import {
   persistRefreshedCredentials,
   markConnectionStatus,

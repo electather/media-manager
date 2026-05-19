@@ -104,7 +104,7 @@ vi.mock("../../crypto/helpers", () => ({
   },
 }));
 
-const { sharedCredentialsService } = await import("../shared-credentials");
+const { sharedCredentialsService } = await import("../internal/shared-credentials");
 
 function installPlugin(pluginId: string, poolable: boolean) {
   state.plugins = [{ id: pluginId, manifest: JSON.stringify({ poolable }) }];
