@@ -58,14 +58,14 @@ const ALLOWLIST: Record<string, string> = {
     "TASK-046: warm job lists active users via direct schema reads; routing through preferences/catalog barrels deferred so the parallel Phase 3d catalog refactor can shape its own list-user-ids surface without merge churn",
   "apps/server/src/home/jobs/layout-warm.ts:userHistoryMirror":
     "TASK-046: warm job lists active users via direct schema reads; routing through preferences/catalog barrels deferred so the parallel Phase 3d catalog refactor can shape its own list-user-ids surface without merge churn",
-  "apps/server/src/media/connection-lifecycle.ts:serviceConnections":
+  "apps/server/src/media/service/connection-lifecycle.ts:serviceConnections":
     "TASK-047: media reads via plugin-runtime barrel",
-  "apps/server/src/media/connection-targeted.ts:serviceConnections":
+  "apps/server/src/media/service/connection-targeted.ts:serviceConnections":
     "TASK-047: media reads via plugin-runtime barrel",
-  "apps/server/src/media/id-resolver.ts:idMap": "TASK-047: media reads via catalog barrel",
-  "apps/server/src/media/primary-preference.ts:primaryConnections":
+  "apps/server/src/media/service/id-resolver.ts:idMap": "TASK-047: media reads via catalog barrel",
+  "apps/server/src/media/service/primary-preference.ts:primaryConnections":
     "TASK-047: media reads via preferences barrel",
-  "apps/server/src/media/primary-preference.ts:serviceConnections":
+  "apps/server/src/media/service/primary-preference.ts:serviceConnections":
     "TASK-047: media reads via plugin-runtime barrel",
 };
 
