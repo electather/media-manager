@@ -4,7 +4,7 @@ vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-const { argsHash, cacheKey, canonicalize, ttlMsFor } = await import("../cache");
+const { argsHash, cacheKey, canonicalize, ttlMsFor } = await import("../service/cache");
 const { MetadataV1, WatchHistoryV1 } = await import("@ent-mcp/plugin-sdk");
 
 describe("canonicalize", () => {

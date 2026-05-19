@@ -1,6 +1,6 @@
 import { consola } from "consola";
 import { registerScheduled } from "../../jobs/scheduled";
-import { sweepExpiredStore } from "../host-bridge";
+import { sweepExpiredStore } from "../internal/host-bridge";
 
 /**
  * Registers the scheduled cleanup that prunes expired rows from the plugin

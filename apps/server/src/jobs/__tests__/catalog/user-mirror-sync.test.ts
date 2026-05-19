@@ -15,7 +15,10 @@ class FakeMediaService {
     return getAllRatingsMock(...args);
   }
 }
-vi.mock("../../../media/service", () => ({ MediaService: FakeMediaService }));
+vi.mock("../../../media/service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../media/service")>();
+  return { ...actual, MediaService: FakeMediaService };
+});
 
 const { cleanupInMemoryDbs, createInMemoryDb } =
   await import("../../../__tests__/helpers/in-memory-db");

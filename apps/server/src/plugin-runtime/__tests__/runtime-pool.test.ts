@@ -50,7 +50,7 @@ const listDecryptedActiveMock = vi.fn();
 const markExhaustedMock = vi.fn();
 const countEnabledMock = vi.fn();
 
-vi.mock("../shared-credentials", () => ({
+vi.mock("../internal/shared-credentials", () => ({
   sharedCredentialsService: {
     listDecryptedActive: (...args: unknown[]) => listDecryptedActiveMock(...args),
     markExhausted: (...args: unknown[]) => markExhaustedMock(...args),
@@ -66,7 +66,7 @@ vi.mock("../shared-credentials", () => ({
 const listReadyUserConnectionsMock = vi.fn();
 const markUserConnectionExhaustedMock = vi.fn();
 
-vi.mock("../user-pool", () => ({
+vi.mock("../internal/user-pool", () => ({
   listReadyUserConnections: (...args: unknown[]) => listReadyUserConnectionsMock(...args),
   markUserConnectionExhausted: (...args: unknown[]) => markUserConnectionExhaustedMock(...args),
 }));
@@ -76,7 +76,7 @@ vi.mock("../../diagnostics/capture", () => ({
   capturePerf: async () => {},
 }));
 
-vi.mock("../host-bridge", () => ({
+vi.mock("../internal/host-bridge", () => ({
   buildStore: () => ({
     get: async () => null,
     set: async () => {},
@@ -85,7 +85,7 @@ vi.mock("../host-bridge", () => ({
   sweepExpiredStore: async () => 0,
 }));
 
-vi.mock("../fetch-policy", () => ({
+vi.mock("../internal/fetch-policy", () => ({
   buildFetch: () => async () => new Response(""),
   buildLogger: () => ({
     debug: () => {},
@@ -96,8 +96,8 @@ vi.mock("../fetch-policy", () => ({
 }));
 
 // Load after mocks so module bindings pick them up.
-const { pluginRuntime } = await import("../runtime");
-const { capabilityRegistry } = await import("../registry");
+const { pluginRuntime } = await import("../service/runtime");
+const { capabilityRegistry } = await import("../internal/registry");
 
 function buildPluginModule(
   onCall: (args: { ctx: unknown; input: unknown }) => Promise<unknown>,

@@ -1,11 +1,11 @@
 import type { CapabilityDefinition } from "@ent-mcp/plugin-sdk";
-import { capabilityRegistry } from "../../plugin-runtime";
+import { capabilityRegistry } from "../../../plugin-runtime";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache } from "../dispatch-cache";
-import type { InvocationOutcome } from "../errors";
+import type { InvocationOutcome } from "../../errors";
 import type { ResolvedConnection } from "../resolve-connection";
-import type { DispatchRequest, AggregateResult } from "../types";
-import { invokeOne } from "../invoke";
+import type { DispatchRequest, AggregateResult } from "../../types";
+import { invokeOne } from "../../service/invoke";
 
 export function resolveCapabilityScope(req: DispatchRequest) {
   const capability = requireCapability(req.capability, req.version);

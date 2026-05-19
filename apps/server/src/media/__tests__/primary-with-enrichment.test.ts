@@ -6,7 +6,7 @@ vi.mock("../../env", () => ({
 }));
 
 const { MemoryCache } = await import("../../cache/memory");
-const { setCacheProviderForTest } = await import("../cache");
+const { setCacheProviderForTest } = await import("../service/cache");
 
 const invokeMock = vi.fn();
 const resolveConnectionsMock = vi.fn();
@@ -16,7 +16,7 @@ const listProvidersMock = vi.fn();
 const registryAllMock = vi.fn();
 const pickSingleMock = vi.fn();
 
-vi.mock("../../plugin-runtime/runtime", () => ({
+vi.mock("../../plugin-runtime/service/runtime", () => ({
   pluginRuntime: {
     invoke: (...args: unknown[]) => invokeMock(...args),
     invokeWithCredentials: (...args: unknown[]) => invokeMock(...args),
@@ -24,29 +24,29 @@ vi.mock("../../plugin-runtime/runtime", () => ({
   },
 }));
 
-vi.mock("../resolve-connection", () => ({
+vi.mock("../internal/resolve-connection", () => ({
   resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
 }));
 
-vi.mock("../primary-preference", () => ({
+vi.mock("../service/primary-preference", () => ({
   getPrimaryConnection: (...args: unknown[]) => getPrimaryMock(...args),
   setPrimaryConnection: vi.fn(),
   clearPrimaryConnection: vi.fn(),
 }));
 
-vi.mock("../id-resolver", () => ({
+vi.mock("../service/id-resolver", () => ({
   harvestIds: (...args: unknown[]) => harvestIdsMock(...args),
 }));
 
-vi.mock("../capability-lookup", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../capability-lookup")>();
+vi.mock("../internal/capability-lookup", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../internal/capability-lookup")>();
   return {
     ...actual,
     pickSingleConnection: (...args: unknown[]) => pickSingleMock(...args),
   };
 });
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: {
     listProviders: (...args: unknown[]) => listProvidersMock(...args),
     all: () => registryAllMock(),
@@ -62,7 +62,7 @@ vi.mock("../../crypto/hash", () => ({
   sha256: async (s: string) => s.slice(0, 32).padEnd(32, "0"),
 }));
 
-const { dispatchPrimary } = await import("../strategies/primary-with-enrichment");
+const { dispatchPrimary } = await import("../internal/strategies/primary-with-enrichment");
 
 interface UserConn {
   kind: "user";

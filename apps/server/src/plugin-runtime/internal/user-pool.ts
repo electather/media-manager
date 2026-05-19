@@ -1,9 +1,9 @@
 import { consola } from "consola";
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { attempt } from "es-toolkit/util";
-import { getDb } from "../db/client";
-import { serviceConnections } from "../db/schema/credentials";
-import { decryptJson } from "../crypto/helpers";
+import { getDb } from "../../db/client";
+import { serviceConnections } from "../../db/schema/credentials";
+import { decryptJson } from "../../crypto/helpers";
 
 export interface UserConnectionPick {
   connectionId: string;

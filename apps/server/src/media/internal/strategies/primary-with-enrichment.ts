@@ -1,12 +1,12 @@
 import { compact } from "es-toolkit/array";
 import { cloneDeep } from "es-toolkit/object";
 import { isNil, isPlainObject } from "es-toolkit/predicate";
-import { getPrimaryConnection } from "../primary-preference";
+import { getPrimaryConnection } from "../../service/primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
 import { writeCache, applyInvalidations, NEGATIVE_TTL_MS } from "../dispatch-cache";
-import { harvestFromOutcomes } from "../invoke";
-import type { InvocationOutcome } from "../errors";
-import type { DispatchRequest, AggregateResult } from "../types";
+import { harvestFromOutcomes } from "../../service/invoke";
+import type { InvocationOutcome } from "../../errors";
+import type { DispatchRequest, AggregateResult } from "../../types";
 import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
 
 function isEmptyValue(v: unknown): boolean {

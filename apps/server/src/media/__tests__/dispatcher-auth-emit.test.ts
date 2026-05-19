@@ -11,7 +11,7 @@ vi.mock("../../env", () => ({
 }));
 
 const { MemoryCache } = await import("../../cache/memory");
-const { setCacheProviderForTest } = await import("../cache");
+const { setCacheProviderForTest } = await import("../service/cache");
 
 const invokeMock = vi.fn();
 const refreshAuthMock = vi.fn();
@@ -28,7 +28,7 @@ function getEmittedCall(index: number): TypedEmitCall {
   return { name: call[0] as string, payload: call[2] as Record<string, unknown> };
 }
 
-vi.mock("../../plugin-runtime/runtime", () => ({
+vi.mock("../../plugin-runtime/service/runtime", () => ({
   pluginRuntime: {
     invoke: (...args: unknown[]) => invokeMock(...args),
     invokeWithCredentials: (...args: unknown[]) => invokeMock(...args),
@@ -36,21 +36,21 @@ vi.mock("../../plugin-runtime/runtime", () => ({
   },
 }));
 
-vi.mock("../resolve-connection", () => ({
+vi.mock("../internal/resolve-connection", () => ({
   resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
 }));
 
-vi.mock("../primary-preference", () => ({
+vi.mock("../service/primary-preference", () => ({
   getPrimaryConnection: async () => null,
   setPrimaryConnection: vi.fn(),
   clearPrimaryConnection: vi.fn(),
 }));
 
-vi.mock("../id-resolver", () => ({
+vi.mock("../service/id-resolver", () => ({
   harvestIds: async () => undefined,
 }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: {
     listProviders: (...args: unknown[]) => listProvidersMock(...args),
     all: () => registryAllMock(),
@@ -75,7 +75,7 @@ vi.mock("../../jobs/events", () => ({
   emit: emitMock,
 }));
 
-const { dispatchSingle } = await import("../dispatcher");
+const { dispatchSingle } = await import("../service/dispatch");
 
 interface UserConn {
   kind: "user";

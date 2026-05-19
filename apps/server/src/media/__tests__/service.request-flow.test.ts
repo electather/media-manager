@@ -14,26 +14,26 @@ vi.mock("../../env", () => ({
 const dispatchToConnectionMock = vi.fn();
 const listEligibleConnectionsMock = vi.fn();
 
-vi.mock("../connection-targeted", () => ({
+vi.mock("../service/connection-targeted", () => ({
   dispatchToConnection: (...args: unknown[]) => dispatchToConnectionMock(...args),
   listEligibleConnections: (...args: unknown[]) => listEligibleConnectionsMock(...args),
 }));
 
 const dispatchSingleMock = vi.fn();
 
-vi.mock("../dispatcher", () => ({
+vi.mock("../service/dispatch", () => ({
   dispatchAggregate: vi.fn(),
   dispatchPrimary: vi.fn(),
   dispatchSingle: (...args: unknown[]) => dispatchSingleMock(...args),
 }));
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: { listProviders: vi.fn(() => []), get: vi.fn() },
 }));
 
-vi.mock("../resolve-connection", () => ({ resolveConnections: vi.fn(() => []) }));
-vi.mock("../invoke", () => ({ invokeOne: vi.fn() }));
-vi.mock("../capability-lookup", () => ({
+vi.mock("../internal/resolve-connection", () => ({ resolveConnections: vi.fn(() => []) }));
+vi.mock("../service/invoke", () => ({ invokeOne: vi.fn() }));
+vi.mock("../internal/capability-lookup", () => ({
   requireCapability: () => ({ defaultTimeoutMs: 15_000 }),
   scopeForRequest: () => "user",
 }));

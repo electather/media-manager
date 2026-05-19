@@ -1,10 +1,10 @@
 import { consola } from "consola";
 import { eq } from "drizzle-orm";
-import { getDb } from "../db/client";
-import { serviceConnections } from "../db/schema";
-import { encryptJson } from "../crypto/helpers";
-import { emit } from "../jobs/events";
-import { MEDIA_EVENTS, connectionAuthExpiredPayload } from "./events";
+import { getDb } from "../../db/client";
+import { serviceConnections } from "../../db/schema";
+import { encryptJson } from "../../crypto/helpers";
+import { emit } from "../../jobs/events";
+import { MEDIA_EVENTS, connectionAuthExpiredPayload } from "../events";
 
 export async function emitAuthExpired(args: {
   connectionId: string;

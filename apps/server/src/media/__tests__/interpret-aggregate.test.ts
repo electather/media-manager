@@ -15,7 +15,7 @@ vi.mock("../../env", () => ({
 
 import { interpretAggregate } from "../service";
 import { AllPluginsFailedError } from "../errors";
-import type { AggregateResult } from "../dispatcher";
+import type { AggregateResult } from "../service";
 
 /**
  * Direct unit tests for the three-branch decision matrix in

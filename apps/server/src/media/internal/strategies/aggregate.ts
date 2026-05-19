@@ -1,11 +1,11 @@
 import { flatten } from "es-toolkit/array";
-import { capabilityRegistry } from "../../plugin-runtime";
+import { capabilityRegistry } from "../../../plugin-runtime";
 import { resolveConnections } from "../resolve-connection";
 import { requireCapability, scopeForRequest } from "../capability-lookup";
 import { readCache, writeCache, applyInvalidations } from "../dispatch-cache";
-import { harvestFromOutcomes } from "../invoke";
+import { harvestFromOutcomes } from "../../service/invoke";
 import { invokeAll, collectErrors } from "./shared";
-import type { DispatchRequest, AggregateResult } from "../types";
+import type { DispatchRequest, AggregateResult } from "../../types";
 
 /**
  * `aggregate` strategy: call every (user, plugin) connection in parallel,

@@ -11,7 +11,10 @@ class FakeMediaService {
     return getRecommendationsFeedMock(...args);
   }
 }
-vi.mock("../../../media/service", () => ({ MediaService: FakeMediaService }));
+vi.mock("../../../media/service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../media/service")>();
+  return { ...actual, MediaService: FakeMediaService };
+});
 
 const rankCandidatesMock = vi.fn();
 const explainRankedMock = vi.fn();

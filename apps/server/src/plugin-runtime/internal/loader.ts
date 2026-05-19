@@ -4,7 +4,7 @@ import {
   type PluginModule,
   type ValidatedPlugin,
 } from "@ent-mcp/plugin-sdk";
-import { sha256 } from "../crypto/hash";
+import { sha256 } from "../../crypto/hash";
 
 /**
  * Built-in plugin modules bundled with the server. Third-party plugins would be loaded

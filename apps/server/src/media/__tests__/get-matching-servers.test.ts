@@ -16,27 +16,27 @@ const registryGetMock = vi.fn();
 const resolveConnectionsMock = vi.fn();
 const invokeOneMock = vi.fn();
 
-vi.mock("../../plugin-runtime/registry", () => ({
+vi.mock("../../plugin-runtime/internal/registry", () => ({
   capabilityRegistry: {
     listProviders: (...args: unknown[]) => listProvidersMock(...args),
     get: (...args: unknown[]) => registryGetMock(...args),
   },
 }));
 
-vi.mock("../resolve-connection", () => ({
+vi.mock("../internal/resolve-connection", () => ({
   resolveConnections: (...args: unknown[]) => resolveConnectionsMock(...args),
 }));
 
-vi.mock("../invoke", () => ({
+vi.mock("../service/invoke", () => ({
   invokeOne: (...args: unknown[]) => invokeOneMock(...args),
 }));
 
-vi.mock("../capability-lookup", () => ({
+vi.mock("../internal/capability-lookup", () => ({
   requireCapability: () => ({ defaultTimeoutMs: 15_000 }),
   scopeForRequest: () => "user",
 }));
 
-vi.mock("../dispatcher", () => ({
+vi.mock("../service/dispatch", () => ({
   dispatchAggregate: vi.fn(),
   dispatchPrimary: vi.fn(),
   dispatchSingle: vi.fn(),

@@ -1,10 +1,10 @@
 import { sortBy } from "es-toolkit/array";
 import { invariant } from "es-toolkit/util";
-import { sha256 } from "../crypto/hash";
-import { MemoryCache } from "../cache/memory";
-import { RedisCache } from "../cache/redis";
-import type { CacheProvider } from "../cache/types";
-import { env } from "../env";
+import { sha256 } from "../../crypto/hash";
+import { MemoryCache } from "../../cache/memory";
+import { RedisCache } from "../../cache/redis";
+import type { CacheProvider } from "../../cache/types";
+import { env } from "../../env";
 import type { CapabilityDefinition, ResolvedCapabilityScope } from "@ent-mcp/plugin-sdk";
 import { isNil } from "es-toolkit/predicate";
 /**

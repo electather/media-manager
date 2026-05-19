@@ -2,8 +2,8 @@ import { describe, it, expect } from "vite-plus/test";
 import type { ManifestCapability } from "@ent-mcp/shared/plugins";
 import { pluginManifestSchema } from "@ent-mcp/shared/plugins";
 import { capabilityKey, getCapability } from "@ent-mcp/plugin-sdk";
-import { classifyScopes } from "../manifest";
-import { CapabilityRegistry } from "../registry";
+import { classifyScopes } from "../internal/manifest";
+import { CapabilityRegistry } from "../internal/registry";
 import type { PluginModule } from "@ent-mcp/plugin-sdk";
 
 describe("capability catalog helpers", () => {
