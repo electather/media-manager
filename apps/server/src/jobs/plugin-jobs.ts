@@ -17,12 +17,19 @@ interface DeclaredPluginJob {
   schedule: string;
   handler: string;
   perConnection: boolean;
+  perRowTimeoutSec?: number;
 }
 
 function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
   const manifest = JSON.parse(row.manifest) as {
     name?: string;
-    jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
+    jobs?: Array<{
+      id: string;
+      schedule: string;
+      handler: string;
+      perConnection?: boolean;
+      perRowTimeoutSec?: number;
+    }>;
   };
   const pluginName = manifest.name ?? row.id;
   return (manifest.jobs ?? []).map((job) => ({
@@ -32,6 +39,7 @@ function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): Decl
     schedule: job.schedule,
     handler: job.handler,
     perConnection: job.perConnection === true,
+    perRowTimeoutSec: job.perRowTimeoutSec,
   }));
 }
 
@@ -87,6 +95,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     name: `${job.pluginName} — ${job.id} (per connection)`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
+    perRowTimeoutSec: job.perRowTimeoutSec,
     rowSource: async () => {
       const db = getDb();
       return db
