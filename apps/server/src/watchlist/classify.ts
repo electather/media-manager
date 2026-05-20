@@ -1,4 +1,5 @@
 import type { WatchlistItem, WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import type { MatchingServer } from "../media";
 
 /**
  * Server-side mirror of the client's classifier (see
@@ -35,4 +36,39 @@ export function classifyBucket(
 
 export function matchesFilter(bucket: WatchlistBucket, filter: WatchlistListFilter): boolean {
   return bucket === filter;
+}
+
+export interface PreviewMeta {
+  year?: number | null;
+  runtimeMinutes?: number | null;
+}
+
+/**
+ * Cheap-signal preview of a `WatchlistItem` shared by `enrich`'s filter
+ * pre-pass and the `/counts` aggregator. Both paths derive the same bucket
+ * from `(meta, status, matching servers)` — extracting the shape here keeps
+ * the two callers from drifting.
+ */
+// fallow-ignore-next-line complexity
+export function previewForClassify(
+  meta: PreviewMeta | undefined,
+  rawStatus: string | undefined,
+  servers: MatchingServer[],
+): Pick<WatchlistItem, "status" | "availability" | "facets" | "progress"> {
+  const status: WatchlistItem["status"] =
+    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
+  const facets: NonNullable<WatchlistItem["facets"]> = {};
+  if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
+  if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
+    facets.releaseDate = String(meta.year);
+  }
+  return {
+    status,
+    availability: {
+      hasAnyServerCopy: servers.length > 0,
+      requestEligible: servers.length === 0 && status !== "available",
+      servers: servers.map((s) => ({ id: s.id, label: s.label })),
+    },
+    ...(Object.keys(facets).length > 0 ? { facets } : {}),
+  };
 }

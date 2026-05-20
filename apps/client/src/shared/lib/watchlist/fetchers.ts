@@ -21,6 +21,7 @@ export interface FetchWatchlistArgs {
   filter?: WatchlistListFilter;
 }
 
+// fallow-ignore-next-line complexity
 export async function fetchWatchlist(args: FetchWatchlistArgs = {}): Promise<WatchlistResponse> {
   const query: Record<string, string> = {};
   if (args.cursor) query.cursor = args.cursor;

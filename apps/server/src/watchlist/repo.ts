@@ -71,6 +71,7 @@ export function encodeCursor(cursor: PageCursor): string {
   return Buffer.from(`${cursor.addedAt}:${cursor.id}`, "utf8").toString("base64url");
 }
 
+// fallow-ignore-next-line complexity
 export function decodeCursor(raw: string): PageCursor | null {
   try {
     const decoded = Buffer.from(raw, "base64url").toString("utf8");

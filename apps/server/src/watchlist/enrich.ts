@@ -9,7 +9,7 @@ import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
 import type { MatchingServer, MediaService } from "../media";
 import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket } from "./classify";
+import { classifyBucket, previewForClassify } from "./classify";
 import type { WatchlistRow } from "./repo";
 
 export interface WatchlistEnrichContext {
@@ -108,7 +108,7 @@ export async function enrich(
       const serversList: MatchingServer[] =
         serverProbe.status === "fulfilled" ? serverProbe.value : [];
       if (serverProbe.status === "rejected") partial = true;
-      const probe = previewItem(metadata[composite], statuses[composite], serversList);
+      const probe = previewForClassify(metadata[composite], statuses[composite], serversList);
       if (classifyBucket(probe) === opts.filter) {
         kept.push(row);
         keptServers.push(serverProbe);
@@ -139,35 +139,6 @@ export async function enrich(
     }
   }
   return { items, partial };
-}
-
-/**
- * Builds the cheap-signal subset of a `WatchlistItem` used by `classifyBucket`
- * so the filter pre-pass can decide before artwork hydration. Mirrors the
- * later `enrichOne` shape — keep them in sync if classify logic gains new
- * inputs.
- */
-function previewItem(
-  meta: CanonicalMetadata | undefined,
-  rawStatus: string | undefined,
-  servers: MatchingServer[],
-): Pick<WatchlistItem, "status" | "availability" | "facets" | "progress"> {
-  const status: WatchlistItem["status"] =
-    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
-  const facets: NonNullable<WatchlistItem["facets"]> = {};
-  if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
-  if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
-    facets.releaseDate = String(meta.year);
-  }
-  return {
-    status,
-    availability: {
-      hasAnyServerCopy: servers.length > 0,
-      requestEligible: servers.length === 0 && status !== "available",
-      servers: servers.map((s) => ({ id: s.id, label: s.label })),
-    },
-    ...(Object.keys(facets).length > 0 ? { facets } : {}),
-  };
 }
 
 async function enrichOne(

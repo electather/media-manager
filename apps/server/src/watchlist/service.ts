@@ -15,7 +15,7 @@ import type { CatalogService } from "../catalog";
 import type { MatchingServer, MediaService } from "../media";
 import { emit, type EventName } from "../jobs/events";
 import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket, type WatchlistBucket } from "./classify";
+import { classifyBucket, previewForClassify, type WatchlistBucket } from "./classify";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
 import { enrich } from "./enrich";
 import * as repo from "./repo";
@@ -137,6 +137,7 @@ function clampLimit(value: number | undefined): number {
  * dispatch, NO cold-fill — so a 1000-row watchlist costs one batch query
  * plus 1000 cache hits (after the first page warms the 30 s cache).
  */
+// fallow-ignore-next-line complexity
 export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> {
   const c = asWatchlistContext(ctx);
   const rows = await repo.listAllActive(c.userId);
@@ -175,7 +176,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
     const meta = (metadata as Record<string, { year?: number; runtimeMinutes?: number }>)[
       composite
     ];
-    const preview = previewForCounts(meta, statuses[composite], servers);
+    const preview = previewForClassify(meta, statuses[composite], servers);
     const bucket: WatchlistBucket = classifyBucket(preview);
     if (bucket === "ready") ready++;
     else if (bucket === "awaiting") awaiting++;
@@ -183,29 +184,6 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   }
 
   return { ready, awaiting, upcoming, total: rows.length };
-}
-
-function previewForCounts(
-  meta: { year?: number; runtimeMinutes?: number } | undefined,
-  rawStatus: string | undefined,
-  servers: MatchingServer[],
-): Pick<WatchlistItem, "status" | "availability" | "facets"> {
-  const status: WatchlistItem["status"] =
-    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
-  const facets: NonNullable<WatchlistItem["facets"]> = {};
-  if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
-  if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
-    facets.releaseDate = String(meta.year);
-  }
-  return {
-    status,
-    availability: {
-      hasAnyServerCopy: servers.length > 0,
-      requestEligible: servers.length === 0 && status !== "available",
-      servers: servers.map((s) => ({ id: s.id, label: s.label })),
-    },
-    ...(Object.keys(facets).length > 0 ? { facets } : {}),
-  };
 }
 
 export interface AddItemResult {
