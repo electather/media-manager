@@ -30,6 +30,7 @@ export function useToggleWatchlist({ source = "manual" }: ToggleOptions = {}) {
         mediaType: item.mediaType,
         title: item.title,
       };
+      // fallow-ignore-next-line code-duplication
       if (item.year != null) seed.year = item.year;
       if (item.poster) seed.poster = item.poster;
       if (item.backdrop) seed.backdrop = item.backdrop;

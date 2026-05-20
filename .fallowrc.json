@@ -553,6 +553,7 @@
         "from": "client-feat-home",
         "allow": [
           "client-feat-media-detail",
+          "client-feat-watchlist",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",
@@ -565,6 +566,7 @@
         "allow": [
           "client-feat-home",
           "client-feat-request-flow",
+          "client-feat-watchlist",
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

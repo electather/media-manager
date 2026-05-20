@@ -216,6 +216,7 @@ function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {
   };
   // `overview` deliberately omitted from the list shape — the detail modal
   // rehydrates it via `home.details`. See follow-up issue #420.
+  // fallow-ignore-next-line code-duplication
   if (meta.year != null) item.year = meta.year;
   if (meta.posterUrl) item.poster = meta.posterUrl;
   if (meta.backdropUrl) item.backdrop = meta.backdropUrl;
