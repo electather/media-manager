@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useMemo } from "react";
+import { Suspense, useCallback, useDeferredValue, useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
@@ -36,7 +36,14 @@ export function HomeFeed() {
 // fallow-ignore-next-line complexity
 function HomeFeedReady() {
   const { data: layout } = useHomeFeed();
-  const { peek } = useSearch({ strict: false }) as PeekSearch;
+  const { peek: rawPeek } = useSearch({ strict: false }) as PeekSearch;
+  // `?peek=` toggles synchronously with router navigation, so back/forward
+  // or rapid card clicks can flip the URL faster than the modal portal's
+  // close animation completes. Deferring `peek` at the source coalesces
+  // every peek-derived value (modal item, open state, inWatchlist flag,
+  // and the toggle handler) so the modal's visible item and its action
+  // bindings stay in sync during the A→B transition window.
+  const peek = useDeferredValue(rawPeek);
   const navigate = useNavigate();
   const watchlist = useWatchlistIdSet();
   const toggleWatchlist = useToggleWatchlist();
