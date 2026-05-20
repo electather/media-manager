@@ -1,16 +1,16 @@
-import { consola } from "consola";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
-import { encryptJson, decryptJson } from "../crypto/helpers";
+import { decryptJson } from "../crypto/helpers";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 // fallow-ignore-next-line boundary-violation
-import { MEDIA_EVENTS, connectionAuthExpiredPayload } from "../media";
+import { emitAuthExpired, markConnectionStatus, persistRefreshedCredentials } from "../media";
 import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
-import { emit } from "./events";
+import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
+import type { ConnectionStatus } from "@ent-mcp/shared/connections";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 
@@ -21,22 +21,29 @@ interface DeclaredPluginJob {
   schedule: string;
   handler: string;
   perConnection: boolean;
+  perRowTimeoutSec?: number;
 }
 
 function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
   const manifest = JSON.parse(row.manifest) as {
     name?: string;
-    jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
+    jobs?: ManifestJobEntry[];
   };
   const pluginName = manifest.name ?? row.id;
-  return (manifest.jobs ?? []).map((job) => ({
-    pluginId: row.id,
-    pluginName,
-    id: job.id,
-    schedule: job.schedule,
-    handler: job.handler,
-    perConnection: job.perConnection === true,
-  }));
+  return (manifest.jobs ?? []).map((job) => {
+    const perConnection = job.perConnection === true;
+    return {
+      pluginId: row.id,
+      pluginName,
+      id: job.id,
+      schedule: job.schedule,
+      handler: job.handler,
+      perConnection,
+      // Only propagate the override on perConnection jobs — the global path
+      // ignores it and carrying it would mask a manifest-validation bug.
+      perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
+    };
+  });
 }
 
 /** Returns every declared job across all enabled plugins. */
@@ -83,6 +90,7 @@ interface ConnectionRow {
   userConfig: string | null;
   encryptedCredentials: string | null;
   credentialsIv: string | null;
+  status: ConnectionStatus;
 }
 
 function registerPerConnectionJob(job: DeclaredPluginJob): void {
@@ -91,6 +99,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     name: `${job.pluginName} — ${job.id} (per connection)`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
+    perRowTimeoutSec: job.perRowTimeoutSec,
     rowSource: async () => {
       const db = getDb();
       return db
@@ -101,6 +110,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
           userConfig: serviceConnections.userConfig,
           encryptedCredentials: serviceConnections.encryptedCredentials,
           credentialsIv: serviceConnections.credentialsIv,
+          status: serviceConnections.status,
         })
         .from(serviceConnections)
         .where(eq(serviceConnections.pluginId, job.pluginId))
@@ -119,14 +129,12 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
 }
 
 // Exported for unit testing the connection-status routing in the catch path.
-// fallow-ignore-next-line complexity
 export async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;
   handler: PluginJobHandler;
 }): Promise<void> {
   const { job, row, handler } = args;
-  const db = getDb();
   try {
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
     const userConfig = row.userConfig ? (JSON.parse(row.userConfig) as unknown) : null;
@@ -138,42 +146,23 @@ export async function invokePerConnectionHandler(args: {
     );
     const result = await handler(ctx);
     if (result) {
-      const enc = await encryptJson(result);
-      await db
-        .update(serviceConnections)
-        .set({
-          encryptedCredentials: enc.data,
-          credentialsIv: enc.iv,
-          updatedAt: Date.now(),
-        })
-        .where(eq(serviceConnections.id, row.id));
+      await persistRefreshedCredentials(row.id, result);
     }
   } catch (err) {
-    // A `plugin.token_expired` thrown from a refresh handler means the upstream
-    // revoked the refresh token (e.g. Trakt 401 on /oauth/token). Writing the
-    // generic "error" status loses the re-auth signal — the connection card
-    // would show a transient-error badge instead of the "Reconnect" CTA the
-    // capability-call path produces via `markConnectionStatus("expired")`.
+    // See docs/media-service.md §Q3 — the job path follows the same
+    // token_expired → "expired" rule as the capability-call path (#423).
     const expired = isPluginError(err) && err.code === "plugin.token_expired";
     const message = err instanceof Error ? err.message : String(err);
-    await db
-      .update(serviceConnections)
-      .set({
-        status: expired ? "expired" : "error",
-        errorMessage: message,
-        updatedAt: Date.now(),
-      })
-      .where(eq(serviceConnections.id, row.id));
-    if (expired) {
-      try {
-        await emit(MEDIA_EVENTS.CONNECTION_AUTH_EXPIRED, connectionAuthExpiredPayload, {
-          connectionId: row.id,
-          pluginId: job.pluginId,
-          userId: row.userId,
-        });
-      } catch (emitErr) {
-        consola.error("[plugin-jobs] auth-expired emit failed:", emitErr);
-      }
+    await markConnectionStatus(row.id, expired ? "expired" : "error", message);
+    // Only emit on transition into "expired" — the row query returns every
+    // connection for the plugin every tick, so without this guard a revoked
+    // token would publish a duplicate auth-expired event on every run.
+    if (expired && row.status !== "expired") {
+      await emitAuthExpired({
+        connectionId: row.id,
+        pluginId: job.pluginId,
+        userId: row.userId,
+      });
     }
     throw err;
   }

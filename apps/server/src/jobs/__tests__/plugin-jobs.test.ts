@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
+// ─── invokePerConnectionHandler ──────────────────────────────────────────────
+
 interface SetValues {
   status?: string;
   errorMessage?: string | null;
   encryptedCredentials?: string;
   credentialsIv?: string;
+  lastVerifiedAt?: number;
   updatedAt?: number;
 }
 
@@ -40,7 +43,7 @@ vi.mock("../../crypto/helpers", () => ({
 }));
 
 vi.mock("../../plugin-runtime", () => ({
-  capabilityRegistry: {},
+  capabilityRegistry: { get: () => undefined },
   pluginRuntime: {
     buildJobContext: async () => ({ user: null, credentials: {}, userConfig: null }),
   },
@@ -50,7 +53,52 @@ vi.mock("../events", () => ({
   emit: emitMock,
 }));
 
-const { invokePerConnectionHandler } = await import("../plugin-jobs");
+// ─── registerAllPluginJobs ───────────────────────────────────────────────────
+
+// Captures of the options registerScheduledPerRow / registerScheduled receive.
+const perRowCalls: Array<Record<string, unknown>> = [];
+const globalCalls: Array<Record<string, unknown>> = [];
+
+vi.mock("../scheduled-per-row", () => ({
+  registerScheduledPerRow: vi.fn((opts: Record<string, unknown>) => {
+    perRowCalls.push(opts);
+  }),
+}));
+
+vi.mock("../scheduled", () => ({
+  registerScheduled: vi.fn((opts: Record<string, unknown>) => {
+    globalCalls.push(opts);
+  }),
+}));
+
+vi.mock("../../db/queries", () => ({
+  selectEnabledPlugins: async () => [
+    {
+      id: "seerr",
+      manifest: JSON.stringify({
+        name: "Seerr",
+        jobs: [
+          {
+            id: "requestStatusSync",
+            schedule: "*/5 * * * *",
+            handler: "syncStatuses",
+            perConnection: true,
+            perRowTimeoutSec: 120,
+          },
+        ],
+      }),
+    },
+    {
+      id: "global-plugin",
+      manifest: JSON.stringify({
+        name: "Global Plugin",
+        jobs: [{ id: "tick", schedule: "0 * * * *", handler: "tick" }],
+      }),
+    },
+  ],
+}));
+
+const { invokePerConnectionHandler, registerAllPluginJobs } = await import("../plugin-jobs");
 
 interface TestJob {
   pluginId: string;
@@ -79,9 +127,10 @@ interface TestRow {
   userConfig: string | null;
   encryptedCredentials: string | null;
   credentialsIv: string | null;
+  status: "connected" | "expired" | "error" | "disconnected";
 }
 
-function makeRow(id = "conn-1"): TestRow {
+function makeRow(id = "conn-1", status: TestRow["status"] = "connected"): TestRow {
   return {
     id,
     userId: "user-1",
@@ -89,6 +138,7 @@ function makeRow(id = "conn-1"): TestRow {
     userConfig: null,
     encryptedCredentials: "enc",
     credentialsIv: "iv",
+    status,
   };
 }
 
@@ -153,9 +203,28 @@ describe("invokePerConnectionHandler", () => {
     );
   });
 
-  it("persists refreshed credentials on a successful handler return", async () => {
+  it("does not re-emit auth-expired when the row is already expired", async () => {
+    // Per-row job iterates every connection for the plugin every tick. Without
+    // this transition guard, a revoked refresh token would spam notifications
+    // every scheduled run forever.
     const job = makeJob();
-    const row = makeRow("conn-9");
+    const row = makeRow("conn-stuck", "expired");
+    const handler = async () => {
+      throw new PluginError("plugin.token_expired", "still revoked");
+    };
+
+    await expect(invokePerConnectionHandler({ job, row, handler })).rejects.toThrow(
+      "still revoked",
+    );
+
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.status).toBe("expired");
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it("clears stale error state on a successful handler return", async () => {
+    const job = makeJob();
+    const row = makeRow("conn-9", "error");
     const handler = async () => ({ token: "fresh" });
 
     await invokePerConnectionHandler({ job, row, handler });
@@ -163,7 +232,38 @@ describe("invokePerConnectionHandler", () => {
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0]?.encryptedCredentials).toBe(JSON.stringify({ token: "fresh" }));
     expect(setCalls[0]?.credentialsIv).toBe("iv");
-    expect(setCalls[0]?.status).toBeUndefined();
+    expect(setCalls[0]?.status).toBe("connected");
+    expect(setCalls[0]?.errorMessage).toBeNull();
+    expect(setCalls[0]?.lastVerifiedAt).toBeDefined();
     expect(emitMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("plugin-jobs registration", () => {
+  it("forwards perRowTimeoutSec from a perConnection manifest job to registerScheduledPerRow", async () => {
+    // Regression: the per-row override was added to fix Seerr's 60s default
+    // triggering 24 captured timeouts in prod. The value must flow end-to-end
+    // from manifest → DeclaredPluginJob → registerScheduledPerRow opts.
+    perRowCalls.length = 0;
+    globalCalls.length = 0;
+
+    await registerAllPluginJobs();
+
+    const seerrCall = perRowCalls.find((c) => c.id === "plugin.seerr.requestStatusSync");
+    expect(seerrCall).toBeDefined();
+    expect(seerrCall?.perRowTimeoutSec).toBe(120);
+  });
+
+  it("does not propagate perRowTimeoutSec to global (non-perConnection) jobs", async () => {
+    // Even if a manifest sneaks the field onto a global job, the extractor
+    // drops it so registerScheduled never receives a meaningless override.
+    perRowCalls.length = 0;
+    globalCalls.length = 0;
+
+    await registerAllPluginJobs();
+
+    const globalCall = globalCalls.find((c) => c.id === "plugin.global-plugin.tick");
+    expect(globalCall).toBeDefined();
+    expect(globalCall?.perRowTimeoutSec).toBeUndefined();
   });
 });
