@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useDeferredValue, useId, useRef, useState } from "react";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
@@ -39,25 +39,32 @@ export function MediaDetailModal({
 }: Props) {
   const isMobile = useIsMobile();
   const titleId = useId();
+  // `?peek=` toggles synchronously with router navigation, so back/forward
+  // or rapid card clicks can flip `open` and `item` faster than the portal's
+  // close animation completes. Deferring both lets React coalesce the
+  // intermediate states so the portal isn't mounted → unmounted → remounted
+  // in a single tick.
+  const deferredOpen = useDeferredValue(open);
+  const deferredItem = useDeferredValue(item);
 
   function handleOpenChange(next: boolean) {
     if (!next) onClose();
   }
 
-  const body = item ? (
+  const body = deferredItem ? (
     <ModalBody
-      key={item.id}
-      item={item}
+      key={deferredItem.id}
+      item={deferredItem}
       titleId={titleId}
       inWatchlist={inWatchlist}
       onToggleWatchlist={onToggleWatchlist}
-      onViewFullPage={onViewFullPage ? () => onViewFullPage(item) : undefined}
+      onViewFullPage={onViewFullPage ? () => onViewFullPage(deferredItem) : undefined}
     />
   ) : null;
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={handleOpenChange} swipeDirection="down">
+      <Drawer open={deferredOpen} onOpenChange={handleOpenChange} swipeDirection="down">
         <DrawerContent
           aria-labelledby={titleId}
           aria-modal="true"
@@ -70,7 +77,7 @@ export function MediaDetailModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={deferredOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         aria-labelledby={titleId}
         aria-modal="true"
