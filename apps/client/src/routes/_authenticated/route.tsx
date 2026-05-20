@@ -13,6 +13,7 @@ export const Route = createFileRoute("/_authenticated")({
           search: { redirect: location.href },
         });
       }
+      return { session };
     } catch (err) {
       // Re-throw redirects; on any other error (network failure, etc.)
       // also redirect to login so protected pages are never exposed.

@@ -3,9 +3,11 @@ import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { AppShell } from "@/app/app-shell";
+import { Can } from "@/shared/components/can";
 import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
+import type { Permission } from "@ent-mcp/shared/auth";
 
 export interface SectionNavItem {
   to: string;
@@ -13,6 +15,7 @@ export interface SectionNavItem {
   intro: () => string;
   icon: LucideIcon;
   destructive?: boolean;
+  permission?: Permission;
 }
 
 export interface SectionNavGroup {
@@ -69,9 +72,15 @@ function SidebarGroup({ group }: { group: SectionNavGroup }) {
       <div className="px-2.5 pb-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
         {group.heading()}
       </div>
-      {group.items.map((item) => (
-        <SidebarLink key={item.to} item={item} />
-      ))}
+      {group.items.map((item) =>
+        item.permission ? (
+          <Can key={item.to} permission={item.permission}>
+            <SidebarLink item={item} />
+          </Can>
+        ) : (
+          <SidebarLink key={item.to} item={item} />
+        ),
+      )}
     </div>
   );
 }
@@ -125,9 +134,15 @@ function MobileGroup({ group }: { group: SectionNavGroup }) {
         {group.heading()}
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {group.items.map((item, i) => (
-          <MobileLink key={item.to} item={item} withBorderTop={i > 0} />
-        ))}
+        {group.items.map((item, i) =>
+          item.permission ? (
+            <Can key={item.to} permission={item.permission}>
+              <MobileLink item={item} withBorderTop={i > 0} />
+            </Can>
+          ) : (
+            <MobileLink key={item.to} item={item} withBorderTop={i > 0} />
+          ),
+        )}
       </div>
     </section>
   );

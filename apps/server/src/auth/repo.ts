@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { rolePermissions, roles, userRoles } from "../db/schema/roles";
 import type { Permission } from "./types";
+import { ALL_PERMISSIONS } from "@ent-mcp/shared/auth";
 
 export interface UserRoleRow {
   roleId: string;
@@ -19,6 +20,20 @@ export async function findUserRole(userId: string): Promise<UserRoleRow | null> 
     .where(eq(userRoles.userId, userId))
     .get();
   return row ?? null;
+}
+
+/** Returns the permissions granted to `userId` via their assigned role. */
+export async function loadUserPermissions(userId: string): Promise<Permission[]> {
+  const role = await findUserRole(userId);
+  if (!role) return [];
+  if (role.isSystem === 1) return ALL_PERMISSIONS;
+  const db = getDb();
+  const rows = await db
+    .select({ permission: rolePermissions.permission })
+    .from(rolePermissions)
+    .where(eq(rolePermissions.roleId, role.roleId))
+    .all();
+  return rows.map((r) => r.permission as Permission);
 }
 
 /** Returns `true` when `roleId` has `permission` in its permission set. */
