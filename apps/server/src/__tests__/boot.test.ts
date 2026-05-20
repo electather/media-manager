@@ -21,6 +21,7 @@ const INDEX_EXPECTED_ORDER = [
   "notifications",
   "plugin-runtime",
   "preferences",
+  "watchlist",
 ];
 
 /**
@@ -48,6 +49,7 @@ const NAMESPACE_TO_MODULE: Record<string, string> = {
   notifications: "notifications",
   pluginRuntime: "plugin-runtime",
   preferences: "preferences",
+  watchlist: "watchlist",
 };
 
 // Strip JS line + block comments before scanning so prose mentions of

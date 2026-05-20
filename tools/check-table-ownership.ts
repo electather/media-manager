@@ -39,6 +39,7 @@ const MODULES = [
   "notifications",
   "preferences",
   "plugin-runtime",
+  "watchlist",
 ];
 
 // Pre-existing cross-module schema imports. Each entry: "<rel-file>:<symbol>" → plan-task reference.

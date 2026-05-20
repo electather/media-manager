@@ -15,3 +15,4 @@ export * from "./jobs";
 export * from "./notifications";
 export * from "./catalog";
 export * from "./home";
+export * from "./watchlist";
