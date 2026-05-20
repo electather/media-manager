@@ -1,6 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "auth_cinema_on_tap": "سینما، روی خط.",
   "auth_sign_in_to_continue": "برای ادامه وارد شوید",
   "auth_email": "ایمیل",
   "auth_password": "رمز عبور",
@@ -13,6 +12,8 @@
   "auth_welcome": "خوش آمدید",
   "auth_welcome_back": "خوش آمدید",
   "auth_already_have_account": "حساب کاربری دارید؟",
+  "auth_no_account_question": "حساب کاربری ندارید؟",
+  "auth_sign_up": "ثبت‌نام",
   "auth_log_in": "ورود",
   "auth_name": "نام",
   "auth_reset_password": "بازنشانی رمز عبور",

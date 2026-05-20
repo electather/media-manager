@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { Input } from "@/shared/ui/input";
 import { Button } from "@/shared/ui/button";
 import { m } from "@/paraglide/messages";
@@ -38,7 +39,7 @@ export function PasswordField({
         onBlur={onBlur}
         autoComplete={autoComplete}
         disabled={disabled}
-        className={toggle ? "pr-16" : undefined}
+        className={toggle ? "pr-10" : undefined}
       />
       {toggle ? (
         <Button
@@ -48,10 +49,13 @@ export function PasswordField({
           tabIndex={-1}
           aria-label={visible ? m.auth_hide_password_aria() : m.auth_show_password_aria()}
           aria-pressed={visible}
-          className="absolute inset-y-0 inset-e-0 h-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          className="absolute inset-y-0 inset-e-0 h-full px-3 text-muted-foreground hover:text-foreground"
           onClick={() => setVisible((v) => !v)}
         >
-          {visible ? m.auth_hide_password() : m.auth_show_password()}
+          {visible ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+          <span className="sr-only">
+            {visible ? m.auth_hide_password() : m.auth_show_password()}
+          </span>
         </Button>
       ) : null}
     </div>

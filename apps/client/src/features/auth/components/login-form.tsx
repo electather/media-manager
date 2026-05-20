@@ -4,7 +4,7 @@ import { useState } from "react";
 import { m } from "@/paraglide/messages";
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
-import { Field, FieldLabel, FieldError } from "@/shared/ui/field";
+import { Field, FieldLabel, FieldError, FieldDescription } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Separator } from "@/shared/ui/separator";
 import { useLogin } from "../hooks/use-login";
@@ -31,7 +31,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-center font-serif text-2xl font-bold tracking-tight text-foreground">
+      <h1 className="text-center font-sans text-2xl font-bold tracking-tight text-foreground">
         {m.auth_sign_in_to_continue()}
       </h1>
 
@@ -114,14 +114,24 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           {m.auth_login_submit({ status: loginMutation.status })}
         </Button>
 
-        <div className="relative my-4 flex items-center justify-center">
-          <Separator className="absolute inset-x-0" />
-          <span className="relative bg-background/5 px-2 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
+        <div className="flex items-center gap-3">
+          <Separator className="h-px flex-1" />
+          <span className="text-xs font-light tracking-widest text-muted-foreground uppercase">
             {m.auth_or_continue_with()}
           </span>
+          <Separator className="h-px flex-1" />
         </div>
 
         <SocialButtons />
+        <FieldDescription className="text-center">
+          {m.auth_no_account_question()}{" "}
+          <Link
+            to="/auth/register"
+            className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+          >
+            {m.auth_sign_up()}
+          </Link>
+        </FieldDescription>
       </form>
     </div>
   );

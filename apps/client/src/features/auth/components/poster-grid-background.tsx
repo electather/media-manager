@@ -9,6 +9,7 @@ import {
   type PosterTitle,
 } from "../lib/poster-data";
 import styles from "./poster-grid-background.module.css";
+import { cn } from "@/shared/lib/utils";
 
 interface PosterProps {
   data: PosterTitle;
@@ -20,10 +21,19 @@ const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
   const pos = style.position;
 
   return (
-    <div className={styles.poster} style={{ ["--poster-surface" as string]: style.posterSurface }}>
-      <div className={styles.posterFloor} />
+    <div
+      className={cn(
+        `relative isolate aspect-2/3 w-[clamp(88px,11vw,200px)] shrink-0 overflow-hidden rounded-[6px] bg-(--poster-surface,var(--muted)) max-[600px]:w-[clamp(72px,22vw,120px)] max-[600px]:rounded-[5px]`,
+        styles.poster,
+      )}
+      style={{ ["--poster-surface" as string]: style.posterSurface }}
+    >
+      <div className={cn(`pointer-events-none absolute inset-0 z-1`, styles.posterFloor)} />
       <div
-        className={styles.posterTitle}
+        className={cn(
+          `absolute z-2 text-[clamp(12px,1.1vw,18px)] leading-none font-bold text-[oklch(1_0_0/0.95)]`,
+          styles.posterTitle,
+        )}
         style={{
           insetBlockStart: pos.insetBlockStart,
           insetBlockEnd: pos.insetBlockEnd,
@@ -38,13 +48,26 @@ const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
         }}
       >
         {style.displayTitle.split(" ").map((w, i) => (
-          <span key={i} className={styles.posterTitleWord}>
+          <span key={i} className="block">
             {w}
           </span>
         ))}
       </div>
-      <div className={styles.posterBrand}>L</div>
-      <div className={styles.posterTag}>{data.tag}</div>
+      <div
+        className={cn(
+          `absolute top-2 start-2 z-3 font-serif text-[18px] leading-none font-black text-primary italic max-[600px]:top-[6px] max-[600px]:start-[7px] max-[600px]:text-[14px]`,
+          styles.posterBrand,
+        )}
+      >
+        L
+      </div>
+      <div
+        className={cn(
+          "absolute top-2 inset-e-2 z-3 rounded-[2px] bg-[oklch(0_0_0/0.45)] px-1.5 py-1 font-mono text-[8.5px] tracking-[0.1em] text-[oklch(1_0_0/0.78)] backdrop-blur-[4px] max-[600px]:top-[7px] max-[600px]:end-[6px] max-[600px]:px-[4px] max-[600px]:py-[2px] max-[600px]:text-[7px]",
+        )}
+      >
+        {data.tag}
+      </div>
     </div>
   );
 });
@@ -74,13 +97,19 @@ const PosterRow = React.memo(function PosterRow({
     return out;
   }, [seed, count]);
 
-  const trackClass = `${styles.track} ${direction > 0 ? styles.trackRight : styles.trackLeft}`;
+  const trackDirClass = direction > 0 ? styles.trackRight : styles.trackLeft;
 
   return (
-    <div className={styles.row} style={{ ["--row-scale" as string]: scale }}>
-      <div className={trackClass} style={{ animationDuration: `${speed}s` }}>
+    <div
+      className="w-full origin-center overflow-visible scale-[var(--row-scale,1)]"
+      style={{ ["--row-scale" as string]: scale }}
+    >
+      <div
+        className={`flex w-max gap-[clamp(10px,1vw,18px)] will-change-transform ${styles.track} ${trackDirClass}`}
+        style={{ animationDuration: `${speed}s` }}
+      >
         {[0, 1].map((copy) => (
-          <div className={styles.trackCopy} key={copy}>
+          <div className="flex shrink-0 gap-[clamp(10px,1vw,18px)]" key={copy}>
             {items.map((item, i) => (
               <Poster key={`${copy}-${i}`} data={item} idx={item._i + copy * 100} />
             ))}
@@ -105,8 +134,12 @@ export const PosterGridBackground = React.memo(function PosterGridBackground() {
   );
 
   return (
-    <div className={styles.stage}>
-      <div className={styles.grid}>
+    <div
+      className={`fixed inset-0 overflow-hidden perspective-[1600px] perspective-origin-center ${styles.stage}`}
+    >
+      <div
+        className={`absolute -top-1/4 -start-1/4 flex h-[150%] w-[150%] flex-col justify-center gap-[clamp(14px,1.6vw,26px)] py-[4vw] transform-3d max-[720px]:-top-[40%] max-[720px]:-start-[40%] max-[720px]:h-[180%] max-[720px]:w-[180%] max-[720px]:gap-[clamp(8px,1.4vw,16px)] ${styles.grid}`}
+      >
         {rows.map((r) => (
           <PosterRow key={r.seed} {...r} />
         ))}
