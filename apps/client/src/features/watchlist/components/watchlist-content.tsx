@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
-import { MediaDetailModal } from "@/features/media-detail";
+import type { MediaType } from "@ent-mcp/shared/media";
+import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
+import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { bucketize, classifyStatus, deriveCounts } from "../lib/classify";
 import { deriveMoods } from "../lib/derive-moods";
@@ -113,7 +115,19 @@ export function WatchlistContent() {
     void navigate({ to: "/media/$mediaType/$mediaId", params: parts });
   }, [navigate, peek]);
 
-  const peekItem = peek ? (itemIndex.get(peek) ?? null) : null;
+  const peekParts = peek ? splitCompositeId(peek) : null;
+  const detailsQuery = useHomeDetails(
+    peekParts?.mediaId ?? null,
+    (peekParts?.mediaType as MediaType | undefined) ?? null,
+  );
+  const localPeekItem = peek ? (itemIndex.get(peek) ?? null) : null;
+  const peekItem = useMemo<MediaDetailItem | null>(() => {
+    const fetched = detailsQuery.data;
+    if (fetched) return { ...fetched.summary, ...fetched.details };
+    // Fall back to the watchlist-list copy while the rich payload is in flight
+    // so the modal renders title / poster / availability immediately.
+    return (localPeekItem as MediaDetailItem | null) ?? null;
+  }, [detailsQuery.data, localPeekItem]);
   const inWatchlist = useIsInWatchlist(peek ?? "");
   const add = useAddToWatchlist();
   const remove = useRemoveFromWatchlist();
