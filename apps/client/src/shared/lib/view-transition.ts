@@ -23,6 +23,18 @@ function isNarrowViewport(): boolean {
   return window.matchMedia(MOBILE_QUERY).matches;
 }
 
+// `transition.finished` legitimately rejects when the user navigates again
+// mid-transition, the tab is hidden, the DOM update times out, or the
+// transition lands in an invalid state. None of those are runtime errors —
+// they are normal user/browser flow that we should swallow so the global
+// `unhandledrejection` handler does not log them as diagnostics.
+export function isExpectedTransitionAbort(err: unknown): boolean {
+  if (!(err instanceof DOMException)) return false;
+  return (
+    err.name === "AbortError" || err.name === "TimeoutError" || err.name === "InvalidStateError"
+  );
+}
+
 /**
  * Trigger a directional section navigation. On a supporting browser at a
  * narrow viewport we mark <html> with `data-vt=nav-forward|nav-back` so
@@ -49,7 +61,9 @@ export async function startSectionNav(
     });
   });
   try {
-    await transition.finished;
+    await transition.finished.catch((err: unknown) => {
+      if (!isExpectedTransitionAbort(err)) throw err;
+    });
   } finally {
     delete document.documentElement.dataset.vt;
   }
