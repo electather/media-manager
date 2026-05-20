@@ -46,11 +46,6 @@
         "count": 1
       }
     },
-    "apps/client/src/features/home/components/card/card-image.tsx": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/client/src/features/home/components/card/card-meta.tsx": {
       "crap_high": {
         "count": 1
@@ -60,11 +55,6 @@
       }
     },
     "apps/client/src/features/home/components/card/index.tsx": {
-      "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/client/src/features/home/lib/card-state.ts": {
       "crap_critical": {
         "count": 1
       }
@@ -184,8 +174,66 @@
         "count": 4
       }
     },
+    "apps/client/src/features/watchlist/components/recently-added.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/watchlist/components/watchlist-card.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/watchlist/components/watchlist-error-fallback.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/watchlist/components/watchlist-toggle.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/watchlist/lib/derive-moods.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/components/media-card/media-card-availability-state.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/components/media-card/media-card-image.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/components/media-card/media-card-link.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/hooks/watchlist/use-add-to-watchlist.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/hooks/watchlist/use-toggle-watchlist.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
     "apps/client/src/shared/lib/media-id.ts": {
       "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/shared/lib/watchlist/types.ts": {
+      "crap_high": {
         "count": 1
       }
     },
@@ -196,6 +244,30 @@
     },
     "apps/server/src/home/internal/season-availability.ts": {
       "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/server/src/watchlist/enrich.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/server/src/watchlist/repo.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/server/src/watchlist/service.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
         "count": 1
       }
     }
@@ -211,15 +283,15 @@
     "apps/server/src/preferences/service.ts:circular dependency",
     "apps/server/src/preferences/jobs/incremental-rebuild.ts:circular dependency",
     "apps/server/src/diagnostics/capture.ts:high impact",
+    "apps/server/src/catalog/jobs/index.ts:circular dependency",
     "apps/server/src/catalog/jobs/recommendation-build.ts:circular dependency",
     "apps/client/src/app/nav-items.ts:high impact",
-    "apps/server/src/catalog/jobs/index.ts:circular dependency",
     "apps/client/src/features/home/components/card/card-meta.tsx:untested risk",
-    "apps/client/src/features/watchlist/lib/format.ts:high impact",
     "apps/client/src/shared/lib/time-format.ts:high impact",
     "apps/server/src/preferences/jobs/daily-rebuild.ts:circular dependency",
     "apps/client/src/features/admin-roles/lib/permission-tree.ts:high impact",
     "apps/server/src/preferences/jobs/index.ts:circular dependency",
+    "apps/client/src/shared/lib/watchlist/types.ts:untested risk",
     "apps/server/src/home/internal/match-reason.ts:untested risk",
     "apps/server/src/preferences/internal/manual-rebuild-helpers.ts:circular dependency",
     "apps/server/src/preferences/jobs/manual-rebuild.ts:circular dependency",
