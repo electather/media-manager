@@ -25,7 +25,7 @@ export const manifestJobEntrySchema = z.object({
   schedule: z.string().min(1),
   handler: z.string().min(1),
   perConnection: z.boolean().optional(),
-  perRowTimeoutSec: z.number().int().positive().optional(),
+  perRowTimeoutSec: z.number().int().positive().max(1800).optional(),
 });
 
 export const mcpToolAnnotationsSchema = z

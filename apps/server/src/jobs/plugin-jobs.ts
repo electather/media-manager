@@ -7,6 +7,7 @@ import { encryptJson, decryptJson } from "../crypto/helpers";
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
+import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 
@@ -23,13 +24,7 @@ interface DeclaredPluginJob {
 function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
   const manifest = JSON.parse(row.manifest) as {
     name?: string;
-    jobs?: Array<{
-      id: string;
-      schedule: string;
-      handler: string;
-      perConnection?: boolean;
-      perRowTimeoutSec?: number;
-    }>;
+    jobs?: ManifestJobEntry[];
   };
   const pluginName = manifest.name ?? row.id;
   return (manifest.jobs ?? []).map((job) => ({

@@ -213,6 +213,16 @@ describe("validatePluginModule", () => {
     expect(err.message).toContain("syncHandler");
   });
 
+  it("rejects a perRowTimeoutSec above the 1800s run-timeout ceiling", () => {
+    // Per-row timeout above the run-timeout default is unreachable and would
+    // pin a worker slot for the full duration. Cap matches DEFAULT_RUN_TIMEOUT_SEC.
+    const manifest = makeGlobalManifest({
+      jobs: [{ id: "sync", schedule: "0 * * * *", handler: "syncHandler", perRowTimeoutSec: 1801 }],
+    });
+    const module = makeGlobalModule({ manifest, jobs: { syncHandler: async () => undefined } });
+    expectPluginError(() => validatePluginModule(module), "plugin.input_invalid");
+  });
+
   it("rejects a non-`none` auth without testConnection with plugin.missing_auth_fn", () => {
     const module = makeUserModule();
     delete module.testConnection;
