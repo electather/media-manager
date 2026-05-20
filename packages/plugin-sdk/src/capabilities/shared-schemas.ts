@@ -11,7 +11,7 @@ export const mediaType = mediaTypeSchema;
 const idBundle = z
   .object({
     tmdb_id: z.string().optional(),
-    imdb_id: z.string().optional(),
+    imdb_id: z.string().nullable().optional(),
     tvdb_id: z.string().optional(),
     trakt_id: z.string().optional(),
     trakt_slug: z.string().optional(),
