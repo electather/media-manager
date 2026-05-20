@@ -35,6 +35,12 @@ export interface ManifestJobEntry {
   schedule: string;
   handler: string;
   perConnection?: boolean;
+  /**
+   * Override the default 60s per-row timeout for `perConnection` jobs. Use for
+   * upstreams that legitimately need more time per page (e.g. slow Seerr
+   * `/request` pagination). Ignored for non-per-connection jobs.
+   */
+  perRowTimeoutSec?: number;
 }
 
 export interface PluginManifest {
