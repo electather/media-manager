@@ -113,9 +113,15 @@ describe("Card", () => {
   it("calls onClick when the card click overlay is activated", () => {
     const onClick = vi.fn();
     render(<Card item={makeItem()} rowKind="recommendedForYou" onClick={onClick} />);
-    const overlay = screen.getByRole("button", { name: /open details for.*test movie/i });
+    const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
     overlay.click();
     expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it("exposes the canonical detail href so cmd-click opens a new tab", () => {
+    render(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
+    expect(overlay.getAttribute("href")).toBe("/media/movie/test-1");
   });
 });
 

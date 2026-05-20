@@ -19,3 +19,15 @@ export function splitCompositeId(id: string): { mediaType: MediaType; mediaId: s
   if ((mediaType !== "movie" && mediaType !== "tv") || !mediaId) return null;
   return { mediaType, mediaId };
 }
+
+/**
+ * Canonical detail-page URL for a composite id. Returns `null` when the id
+ * cannot be parsed so callers can omit `href` rather than render a broken
+ * link. Card surfaces use this so middle-click / cmd-click opens the detail
+ * page in a new tab.
+ */
+export function buildMediaHref(compositeId: string): string | null {
+  const parts = splitCompositeId(compositeId);
+  if (!parts) return null;
+  return `/media/${parts.mediaType}/${parts.mediaId}`;
+}

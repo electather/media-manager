@@ -15,6 +15,7 @@ import {
   MediaCardTitle,
   deriveMediaCardAvailability,
 } from "@/shared/components/media-card";
+import { buildMediaHref } from "@/shared/lib/media-id";
 import type { WatchlistItem } from "../lib/types";
 import { useToggleWatchlist } from "../hooks/use-toggle-watchlist";
 
@@ -81,7 +82,11 @@ export function WatchlistCard({
         <MediaCardTitle>{item.title}</MediaCardTitle>
         {item.year ? <MediaCardSubtitle>{item.year}</MediaCardSubtitle> : null}
       </MediaCardMeta>
-      <MediaCardLink aria-label={item.title} onPress={() => onPeek(item.id)} />
+      <MediaCardLink
+        href={buildMediaHref(item.id) ?? "#"}
+        aria-label={item.title}
+        onPress={() => onPeek(item.id)}
+      />
     </MediaCardRoot>
   );
 }

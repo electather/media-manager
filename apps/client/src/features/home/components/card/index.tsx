@@ -11,6 +11,7 @@ import {
   MediaCardRoot,
   deriveMediaCardAvailability,
 } from "@/shared/components/media-card";
+import { buildMediaHref } from "@/shared/lib/media-id";
 import { ROW_ASPECT } from "../../lib/home-feed-config";
 import type { HomeMediaItem, RowKind } from "../../lib/types";
 import { CardKindBadge } from "./card-kind-badge";
@@ -77,6 +78,7 @@ export const Card = memo(function Card({
       </MediaCardFrame>
       <CardMeta item={item} />
       <MediaCardLink
+        href={buildMediaHref(item.id) ?? "#"}
         aria-label={m.home_card_open_details({ title: item.title })}
         onPress={onClick ? () => onClick(item.id) : undefined}
       />
