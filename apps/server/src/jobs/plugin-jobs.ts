@@ -10,6 +10,7 @@ import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
 import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
+import type { JobRunContext } from "./types";
 
 // Default backoff for `plugin.rate_limited` errors that lack a retryAfterMs hint.
 const DEFAULT_JOB_RATE_LIMIT_RETRY_SEC = 5 * 60;
@@ -127,13 +128,13 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
       return rows.filter((row) => row.retryAfter === null || row.retryAfter <= nowSec);
     },
     // fallow-ignore-next-line complexity
-    handler: async (_ctx, row) => {
+    handler: async (ctx, row) => {
       const entry = capabilityRegistry.get(job.pluginId);
       if (!entry || !entry.enabled) return;
       const fn = entry.module.jobs?.[job.handler];
       if (typeof fn !== "function") return;
 
-      await invokePerConnectionHandler({ job, row, handler: fn });
+      await invokePerConnectionHandler({ job, row, handler: fn, logger: ctx.logger });
     },
   });
 }
@@ -143,8 +144,9 @@ async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;
   handler: PluginJobHandler;
+  logger: JobRunContext["logger"];
 }): Promise<void> {
-  const { job, row, handler } = args;
+  const { job, row, handler, logger } = args;
   const db = getDb();
   try {
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
@@ -163,6 +165,9 @@ async function invokePerConnectionHandler(args: {
         .set({
           encryptedCredentials: enc.data,
           credentialsIv: enc.iv,
+          // Clear any prior cooldown — the refresh succeeded, so leaving a
+          // stale epoch behind only confuses future readers and observability.
+          retryAfter: null,
           updatedAt: Date.now(),
         })
         .where(eq(serviceConnections.id, row.id));
@@ -187,6 +192,12 @@ async function invokePerConnectionHandler(args: {
           updatedAt: Date.now(),
         })
         .where(eq(serviceConnections.id, row.id));
+      logger.warn("Plugin connection rate-limited; parked until cooldown elapses", {
+        pluginId: job.pluginId,
+        jobId: job.id,
+        connectionId: row.id,
+        retryAfterSec,
+      });
       return;
     }
     await db
