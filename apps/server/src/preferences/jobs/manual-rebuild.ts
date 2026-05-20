@@ -1,6 +1,7 @@
 import { type ProfileMediaType, type RebuildResult } from "@ent-mcp/shared/preferences";
 
 import { getCatalogService, writeRecommendationsForUser } from "../../catalog";
+import { badRequest } from "../../diagnostics/http-errors";
 import { registerTriggerable } from "../../jobs/triggerable";
 import {
   readRecListSummary,
@@ -35,7 +36,7 @@ export function registerManualRebuild(): void {
     handler: async (ctx, input) => {
       if (!input?.userId) {
         ctx.logger.warn("Aborted: userId is required in input");
-        throw new Error("userId is required");
+        throw badRequest("preference.rebuild.userid_required", "userId is required");
       }
 
       const startTime = performance.now();
