@@ -155,6 +155,36 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 
+  it("mediaRequest.listRequests: does not warn when TV rows carry valid seasons arrays", async () => {
+    const warnings: unknown[][] = [];
+    const ctx = makeCtx(
+      [
+        jsonRes({
+          results: [
+            {
+              id: 11,
+              type: "tv",
+              status: 2,
+              createdAt: "2026-04-06T00:00:00.000Z",
+              media: { tmdbId: 1396, title: "Breaking Bad" },
+              seasons: [{ seasonNumber: 1 }],
+            },
+          ],
+        }),
+      ],
+      {
+        log: {
+          debug() {},
+          info() {},
+          warn: (...args: unknown[]) => warnings.push(args),
+          error() {},
+        },
+      },
+    );
+    await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(warnings.length).toBe(0);
+  });
+
   it("mediaRequest.listRequests: warns when a TV row is missing the seasons array (rename signal)", async () => {
     const warnings: unknown[][] = [];
     const ctx = makeCtx(

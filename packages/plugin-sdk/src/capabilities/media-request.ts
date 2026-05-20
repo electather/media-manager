@@ -63,10 +63,7 @@ export const MediaRequestV1 = defineCapability({
           title: z.string(),
           status: z.enum(["pending", "approved", "processing", "available", "failed"]),
           createdAt: z.string(),
-          // Upstream Overseerr/Jellyseerr omit these fields on movie rows
-          // (no seasons) and when instance metadata is unavailable (pending
-          // requests not yet routed to a server). Accept absent values and
-          // normalise to documented defaults so consumers see a uniform shape.
+          // Upstream omits these on movie rows and unrouted requests; default to uniform shape.
           seasons: z.array(z.number().int().nonnegative()).optional().default([]),
           targetLabel: z.string().nullable().optional().default(null),
           profileLabel: z.string().nullable().optional().default(null),
