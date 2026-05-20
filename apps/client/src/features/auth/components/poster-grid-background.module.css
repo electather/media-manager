@@ -1,8 +1,8 @@
-/* Holds rules Tailwind utilities cannot cleanly express: radial/linear
-   gradients, the chained 3D rotate transform with CSS-variable fallbacks,
-   keyframe animations, multi-layer box shadows, and text shadows. Layout,
-   sizing, positioning, and other primitives live as Tailwind classes on
-   the JSX. */
+/* Rules outside Tailwind's vocabulary: radial/linear gradients with
+   color-mix, the chained 3D rotate transform that needs CSS-variable
+   fallbacks, grid geometry that exceeds Tailwind's 100% size ceiling,
+   keyframe animations, multi-layer box shadows, and text shadows.
+   Everything Tailwind expresses cleanly lives on the JSX. */
 
 .stage {
   background: radial-gradient(
@@ -13,8 +13,21 @@
 }
 
 .grid {
+  inset-block-start: -25%;
+  inset-inline-start: -25%;
+  inline-size: 150%;
+  block-size: 150%;
   transform: rotateX(var(--tilt-x, 30deg)) rotateY(var(--tilt-y, -11deg))
     rotateZ(var(--tilt-z, -10deg)) translateZ(0);
+}
+
+@media (max-width: 768px) {
+  .grid {
+    inset-block-start: -40%;
+    inset-inline-start: -40%;
+    inline-size: 180%;
+    block-size: 180%;
+  }
 }
 
 .track {
