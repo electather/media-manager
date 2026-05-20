@@ -88,8 +88,18 @@ describe("manual rebuild job handler", () => {
     triggerableHandler = manualRebuildCall![0].handler;
   });
 
-  it("throws if userId is missing", async () => {
-    await expect(triggerableHandler(mockCtx, {})).rejects.toThrow("userId is required");
+  it.each([
+    { label: "empty object", input: {} },
+    { label: "null", input: null },
+    { label: "undefined", input: undefined },
+    { label: "empty userId string", input: { userId: "" } },
+  ])("throws HttpError(400) for falsy userId ($label)", async ({ input }) => {
+    await expect(triggerableHandler(mockCtx, input)).rejects.toMatchObject({
+      name: "HttpError",
+      status: 400,
+      code: "preference.rebuild.userid_required",
+      message: "userId is required",
+    });
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("userId is required in input"),
     );
