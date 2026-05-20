@@ -67,6 +67,9 @@ export function mapRequestPluginError(err: unknown): HttpError | null {
   if (err.code === "mcp.target_not_found") {
     return new HttpError(404, "request.unknown_service", "service not found");
   }
+  if (err.code === "media.no_connection") {
+    return new HttpError(404, "request.no_provider", "no mediaRequest provider configured");
+  }
   if (
     err.code === "plugin.input_invalid" ||
     err.code === "plugin.upstream_error" ||

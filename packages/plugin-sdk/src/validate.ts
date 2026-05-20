@@ -120,6 +120,14 @@ function validateJobs(manifest: ParsedManifest, module: PluginModule): void {
         `job ${job.id} references handler "${job.handler}" which is not exported`,
       );
     }
+    // perRowTimeoutSec is a per-row knob — meaningless on global jobs that run
+    // a single iteration. Reject loudly instead of silently ignoring.
+    if (job.perRowTimeoutSec !== undefined && job.perConnection !== true) {
+      throw new PluginError(
+        "plugin.input_invalid",
+        `job ${job.id} sets perRowTimeoutSec but is not perConnection; the field has no effect on global jobs`,
+      );
+    }
   }
 }
 
