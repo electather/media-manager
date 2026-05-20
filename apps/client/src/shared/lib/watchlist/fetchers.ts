@@ -1,6 +1,8 @@
 import type {
   AddWatchlistRequest,
   AddWatchlistResponse,
+  WatchlistCounts,
+  WatchlistListFilter,
   WatchlistResponse,
 } from "@ent-mcp/shared/watchlist";
 import { api } from "@/shared/lib/api";
@@ -13,10 +15,26 @@ async function throwOnError(res: Response): Promise<never> {
   throw new WatchlistApiError(res.status, body);
 }
 
-export async function fetchWatchlist(): Promise<WatchlistResponse> {
-  const res = await api.watchlist.$get();
+export interface FetchWatchlistArgs {
+  cursor?: string;
+  limit?: number;
+  filter?: WatchlistListFilter;
+}
+
+export async function fetchWatchlist(args: FetchWatchlistArgs = {}): Promise<WatchlistResponse> {
+  const query: Record<string, string> = {};
+  if (args.cursor) query.cursor = args.cursor;
+  if (args.limit != null) query.limit = String(args.limit);
+  if (args.filter) query.filter = args.filter;
+  const res = await api.watchlist.$get({ query });
   if (!res.ok) await throwOnError(res);
   return (await res.json()) as WatchlistResponse;
+}
+
+export async function fetchWatchlistCounts(): Promise<WatchlistCounts> {
+  const res = await api.watchlist.counts.$get();
+  if (!res.ok) await throwOnError(res);
+  return (await res.json()) as WatchlistCounts;
 }
 
 export async function addToWatchlist(input: AddWatchlistRequest): Promise<AddWatchlistResponse> {

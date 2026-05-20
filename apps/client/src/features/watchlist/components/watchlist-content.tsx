@@ -2,12 +2,14 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import type { MediaType } from "@ent-mcp/shared/media";
+import type { WatchlistListFilter } from "@ent-mcp/shared/watchlist";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";
-import { bucketize, classifyStatus, deriveCounts } from "../lib/classify";
+import { bucketize, classifyStatus } from "../lib/classify";
 import { deriveMoods } from "../lib/derive-moods";
 import { useWatchlistItems } from "../hooks/use-watchlist-items";
+import { useWatchlistCounts } from "../hooks/use-watchlist-counts";
 import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
 import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
 import { useIsInWatchlist } from "../hooks/use-is-in-watchlist";
@@ -60,21 +62,38 @@ function applySort(items: readonly WatchlistItem[], sort: WatchlistSort): Watchl
   return cmp ? items.slice().sort(cmp) : items.slice();
 }
 
+/**
+ * Maps the UI filter chips to the wire-side bucket the server understands.
+ * `all` skips the filter entirely; `in-progress` collapses into `ready` on
+ * the wire because the server doesn't distinguish in-progress items in the
+ * paginated list (it's a client-only refinement off `progress`).
+ */
+function toListFilter(filter: WatchlistFilter): WatchlistListFilter | undefined {
+  if (filter === "all") return undefined;
+  if (filter === "in-progress") return "ready";
+  return filter;
+}
+
 // fallow-ignore-next-line complexity
 export function WatchlistContent() {
-  const { data } = useWatchlistItems();
-  const items = data.items;
-  const partial = data.partial;
-  const itemIndex = useMemo(() => new Map(items.map((i) => [i.id, i] as const)), [items]);
-
   const navigate = useNavigate();
   const { peek } = useSearch({ strict: false }) as PeekSearch;
 
   const [filter, setFilter] = useState<WatchlistFilter>("all");
   const [sort, setSort] = useState<WatchlistSort>("recent");
 
+  const wireFilter = toListFilter(filter);
+  const { items, partial, hasNextPage, isFetchingNextPage, fetchNextPage } = useWatchlistItems(
+    wireFilter ? { filter: wireFilter } : {},
+  );
+  const { data: counts } = useWatchlistCounts();
+  const itemIndex = useMemo(() => new Map(items.map((i) => [i.id, i] as const)), [items]);
+
+  // Mood mosaic / tonight pick / sort views operate on *loaded* pages. v2
+  // intentionally does not auto-page through the full set — the header
+  // pip counts are authoritative via `/counts`, the user pages in as they
+  // scroll, and the filter chips short-circuit enrichment server-side.
   const buckets = useMemo(() => bucketize(items), [items]);
-  const counts = useMemo(() => deriveCounts(buckets), [buckets]);
 
   const sortedByAdded = useMemo(() => items.slice().sort((a, b) => b.addedAt - a.addedAt), [items]);
 
@@ -169,6 +188,7 @@ export function WatchlistContent() {
       <WatchlistHeader
         items={items}
         counts={counts}
+        inProgressCount={buckets.inProgress.length}
         filter={filter}
         sort={sort}
         onFilterChange={setFilter}
@@ -191,6 +211,18 @@ export function WatchlistContent() {
             <RecentlyAdded items={sortedByAdded} onPeek={handlePeek} />
           </>
         )}
+        {hasNextPage ? (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={() => void fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="rounded-md border border-border bg-muted px-5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
+            >
+              {isFetchingNextPage ? m.watchlist_loading_more() : m.watchlist_load_more()}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <MediaDetailModal

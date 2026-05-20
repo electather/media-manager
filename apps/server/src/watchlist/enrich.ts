@@ -3,11 +3,13 @@ import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { keyToId, type WatchlistItem } from "@ent-mcp/shared/watchlist";
+import { keyToId, type WatchlistItem, type WatchlistListFilter } from "@ent-mcp/shared/watchlist";
 import { ArtworkService } from "../artwork";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
-import type { MediaService } from "../media";
+import type { MatchingServer, MediaService } from "../media";
+import { getMatchingServersCached } from "./availability-cache";
+import { classifyBucket } from "./classify";
 import type { WatchlistRow } from "./repo";
 
 export interface WatchlistEnrichContext {
@@ -23,17 +25,32 @@ export interface EnrichResult {
   partial: boolean;
 }
 
+export interface EnrichOptions {
+  /**
+   * When set, the server pre-classifies each row using metadata + status +
+   * cached matching-server lookups and drops rows whose bucket does not
+   * match. The artwork hydration round-trip then runs on the smaller set —
+   * matches the v2 "skip enrichment for buckets the user is not viewing"
+   * goal in #420.
+   */
+  filter?: WatchlistListFilter;
+}
+
 /**
  * Build wire-shape `WatchlistItem`s for `rows`. Single status-batch call,
  * one catalog metadata-batch call, one artwork dispatch for items missing
- * canonical poster/backdrop/clearLogo, per-key matching-server probe (already
- * memoized inside MediaService), and a cold-fill via `getMetadata` when the
- * catalog has no row yet.
+ * canonical poster/backdrop/clearLogo, and a per-row matching-server probe
+ * (cross-request cached at 30 s TTL so /watchlist + /counts share the work).
+ *
+ * When `opts.filter` is set we pre-classify with the cheap signals and
+ * shrink the row set before artwork dispatch — the most expensive call on
+ * the cold path.
  */
 // fallow-ignore-next-line complexity
 export async function enrich(
   rows: WatchlistRow[],
   ctx: WatchlistEnrichContext,
+  opts: EnrichOptions = {},
 ): Promise<EnrichResult> {
   if (rows.length === 0) return { items: [], partial: false };
 
@@ -68,10 +85,45 @@ export async function enrich(
     }),
   );
 
-  const artwork = await hydrateArtwork(rows, metadata, ctx);
+  // Materialize matching-servers up-front (per-key, cached). When the caller
+  // asked for a `filter` we use the result to drop rows BEFORE artwork
+  // hydration; when there's no filter we still hoist the call here so the
+  // per-row enricher reads from the same cached value rather than racing the
+  // request-scoped memo a second time.
+  const servers = await Promise.allSettled(
+    rows.map((row) =>
+      getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType),
+    ),
+  );
+
+  let liveRows = rows;
+  let liveServers = servers;
+  if (opts.filter) {
+    const kept: WatchlistRow[] = [];
+    const keptServers: typeof servers = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
+      const serverProbe = servers[i]!;
+      const serversList: MatchingServer[] =
+        serverProbe.status === "fulfilled" ? serverProbe.value : [];
+      if (serverProbe.status === "rejected") partial = true;
+      const probe = previewItem(metadata[composite], statuses[composite], serversList);
+      if (classifyBucket(probe) === opts.filter) {
+        kept.push(row);
+        keptServers.push(serverProbe);
+      }
+    }
+    liveRows = kept;
+    liveServers = keptServers;
+  }
+
+  if (liveRows.length === 0) return { items: [], partial };
+
+  const artwork = await hydrateArtwork(liveRows, metadata, ctx);
 
   const settled = await Promise.allSettled(
-    rows.map((row) => enrichOne(row, statuses, metadata, artwork, ctx)),
+    liveRows.map((row, i) => enrichOne(row, statuses, metadata, artwork, liveServers[i]!, ctx)),
   );
 
   const items: WatchlistItem[] = [];
@@ -89,24 +141,48 @@ export async function enrich(
   return { items, partial };
 }
 
+/**
+ * Builds the cheap-signal subset of a `WatchlistItem` used by `classifyBucket`
+ * so the filter pre-pass can decide before artwork hydration. Mirrors the
+ * later `enrichOne` shape — keep them in sync if classify logic gains new
+ * inputs.
+ */
+function previewItem(
+  meta: CanonicalMetadata | undefined,
+  rawStatus: string | undefined,
+  servers: MatchingServer[],
+): Pick<WatchlistItem, "status" | "availability" | "facets" | "progress"> {
+  const status: WatchlistItem["status"] =
+    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
+  const facets: NonNullable<WatchlistItem["facets"]> = {};
+  if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
+  if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
+    facets.releaseDate = String(meta.year);
+  }
+  return {
+    status,
+    availability: {
+      hasAnyServerCopy: servers.length > 0,
+      requestEligible: servers.length === 0 && status !== "available",
+      servers: servers.map((s) => ({ id: s.id, label: s.label })),
+    },
+    ...(Object.keys(facets).length > 0 ? { facets } : {}),
+  };
+}
+
 async function enrichOne(
   row: WatchlistRow,
   statuses: Record<string, string>,
   metadata: Record<string, CanonicalMetadata>,
   artwork: Record<string, ArtworkBundle>,
-  ctx: WatchlistEnrichContext,
+  serverProbe: PromiseSettledResult<MatchingServer[]>,
+  _ctx: WatchlistEnrichContext,
 ): Promise<{ item: WatchlistItem; partial: boolean } | null> {
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
 
-  let serversPartial = false;
-  const servers = await ctx.mediaService
-    .getMatchingServers(row.tmdbId, row.mediaType)
-    .catch((err) => {
-      ctx.log.warn("[watchlist:enrich] getMatchingServers failed", err);
-      serversPartial = true;
-      return [] as Awaited<ReturnType<MediaService["getMatchingServers"]>>;
-    });
+  const serversPartial = serverProbe.status === "rejected";
+  const servers: MatchingServer[] = serverProbe.status === "fulfilled" ? serverProbe.value : [];
 
   // `mediaRequest@v1.getStatusBatch` only knows titles that flowed through
   // the request pipeline (Seerr). A title added directly to Jellyfin / Plex

@@ -2,14 +2,20 @@ import type { ConsolaInstance } from "consola";
 import { consola } from "consola";
 import {
   keyToId,
+  WATCHLIST_LIST_DEFAULT_LIMIT,
+  WATCHLIST_LIST_MAX_LIMIT,
+  type WatchlistCounts,
   type WatchlistItem,
   type WatchlistKey,
+  type WatchlistListFilter,
   type WatchlistResponse,
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
 import type { CatalogService } from "../catalog";
-import type { MediaService } from "../media";
+import type { MatchingServer, MediaService } from "../media";
 import { emit, type EventName } from "../jobs/events";
+import { getMatchingServersCached } from "./availability-cache";
+import { classifyBucket, type WatchlistBucket } from "./classify";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
 import { enrich } from "./enrich";
 import * as repo from "./repo";
@@ -46,23 +52,160 @@ function asWatchlistContext(ctx: MaybeRowContext): WatchlistContext {
   };
 }
 
+export interface GetItemsOptions {
+  /** Opaque keyset cursor from a previous response. Omit on the first page. */
+  cursor?: string;
+  /** Page size cap. Defaults to 60, hard-capped at 200 to match the wire schema. */
+  limit?: number;
+  /**
+   * Optional bucket pre-filter. When set, rows whose pre-classified bucket
+   * doesn't match are dropped before artwork hydration — the most expensive
+   * part of enrich.
+   */
+  filter?: WatchlistListFilter;
+}
+
 /**
- * Returns the user's active watchlist. Reads rows first and only triggers
- * a plugin seed when the active list is empty AND the user has never been
- * seeded — matches design §M.2 and avoids a redundant plugin fan-out for
- * users that already have data via MCP or another insert path.
+ * Keyset-paginated read of the user's active watchlist. First page (no
+ * cursor) triggers a plugin seed when the user has never been seeded. With
+ * `filter`, the server pre-classifies each row using the cheap signals and
+ * drops rows the bucket would otherwise hide — matches design §H goal of
+ * "skip enrichment for buckets the user is not viewing".
  */
-export async function getItems(ctx: MaybeRowContext): Promise<WatchlistResponse> {
+// fallow-ignore-next-line complexity
+export async function getItems(
+  ctx: MaybeRowContext,
+  opts: GetItemsOptions = {},
+): Promise<WatchlistResponse> {
   const c = asWatchlistContext(ctx);
+  const limit = clampLimit(opts.limit);
+  const cursor = opts.cursor ? repo.decodeCursor(opts.cursor) : undefined;
   let partial = false;
-  let rows = await repo.list(c.userId, { state: "active" });
-  if (rows.length === 0 && !(await repo.hasSeeded(c.userId))) {
-    const seedRes = await seedFromPlugins(c);
-    partial = partial || seedRes.partial;
-    rows = await repo.list(c.userId, { state: "active" });
+
+  // Seed only on the *first* page; cursor implies the user already has rows.
+  if (!cursor && !(await repo.hasSeeded(c.userId))) {
+    const peek = await repo.list(c.userId, { state: "active", limit: 1 });
+    if (peek.length === 0) {
+      const seedRes = await seedFromPlugins(c);
+      partial = partial || seedRes.partial;
+    }
   }
-  const enriched = await enrich(rows, c);
-  return { items: enriched.items, partial: partial || enriched.partial };
+
+  // When the bucket filter drops most rows we'd hand back a short page with
+  // a cursor that re-fires another round-trip. Overshoot a bounded factor
+  // (3x) once so the common case of a heavy filter still returns close to
+  // `limit` items in one call; a deeper miss falls back to the cursor and
+  // the client follows up with `fetchNextPage`.
+  const fetchSize = opts.filter ? Math.min(limit * 3, WATCHLIST_LIST_MAX_LIMIT) : limit;
+  const rows = await repo.listPage(c.userId, {
+    limit: fetchSize,
+    ...(cursor ? { cursor } : {}),
+  });
+
+  const enriched = await enrich(rows, c, opts.filter ? { filter: opts.filter } : {});
+
+  // Page cap: the filter pass may have shrunk the set BELOW `limit` (no
+  // truncation) or kept everything, in which case we slice to `limit` and
+  // emit a cursor pointing at the LAST scanned row so re-paging is exact
+  // even when filtering drops items.
+  const items = enriched.items.slice(0, limit);
+
+  // Cursor points to the *last scanned row* (not the last kept item) so the
+  // next page picks up immediately after, even when the filter drops items
+  // beyond `limit`. End-of-list is signalled by an under-full query result.
+  const lastScanned = rows.length === fetchSize ? rows[rows.length - 1]! : null;
+  const nextCursor = lastScanned
+    ? repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id })
+    : null;
+
+  return {
+    items,
+    cursor: nextCursor,
+    partial: partial || enriched.partial,
+  };
+}
+
+function clampLimit(value: number | undefined): number {
+  if (value == null) return WATCHLIST_LIST_DEFAULT_LIMIT;
+  if (value <= 0) return WATCHLIST_LIST_DEFAULT_LIMIT;
+  return Math.min(value, WATCHLIST_LIST_MAX_LIMIT);
+}
+
+/**
+ * Returns cheap aggregate counts for the header pips. Walks every active row
+ * once with metadata + status + cached matching-server probes — NO artwork
+ * dispatch, NO cold-fill — so a 1000-row watchlist costs one batch query
+ * plus 1000 cache hits (after the first page warms the 30 s cache).
+ */
+export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> {
+  const c = asWatchlistContext(ctx);
+  const rows = await repo.listAllActive(c.userId);
+  if (rows.length === 0) {
+    return { ready: 0, awaiting: 0, upcoming: 0, total: 0 };
+  }
+
+  const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
+  const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
+
+  const [statuses, metadata] = await Promise.all([
+    c.mediaService.getStatusBatch(compositeIds).catch((err) => {
+      c.log.warn("[watchlist:counts] getStatusBatch failed", err);
+      return {} as Record<string, string>;
+    }),
+    c.catalog.getMetadataBatch(metadataKeys).catch((err) => {
+      c.log.warn("[watchlist:counts] getMetadataBatch failed", err);
+      return {} as Record<string, { year?: number; runtimeMinutes?: number }>;
+    }),
+  ]);
+
+  const serverProbes = await Promise.allSettled(
+    rows.map((row) =>
+      getMatchingServersCached(c.userId, c.mediaService, row.tmdbId, row.mediaType),
+    ),
+  );
+
+  let ready = 0;
+  let awaiting = 0;
+  let upcoming = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
+    const probe = serverProbes[i]!;
+    const servers: MatchingServer[] = probe.status === "fulfilled" ? probe.value : [];
+    const meta = (metadata as Record<string, { year?: number; runtimeMinutes?: number }>)[
+      composite
+    ];
+    const preview = previewForCounts(meta, statuses[composite], servers);
+    const bucket: WatchlistBucket = classifyBucket(preview);
+    if (bucket === "ready") ready++;
+    else if (bucket === "awaiting") awaiting++;
+    else if (bucket === "upcoming") upcoming++;
+  }
+
+  return { ready, awaiting, upcoming, total: rows.length };
+}
+
+function previewForCounts(
+  meta: { year?: number; runtimeMinutes?: number } | undefined,
+  rawStatus: string | undefined,
+  servers: MatchingServer[],
+): Pick<WatchlistItem, "status" | "availability" | "facets"> {
+  const status: WatchlistItem["status"] =
+    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
+  const facets: NonNullable<WatchlistItem["facets"]> = {};
+  if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
+  if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
+    facets.releaseDate = String(meta.year);
+  }
+  return {
+    status,
+    availability: {
+      hasAnyServerCopy: servers.length > 0,
+      requestEligible: servers.length === 0 && status !== "available",
+      servers: servers.map((s) => ({ id: s.id, label: s.label })),
+    },
+    ...(Object.keys(facets).length > 0 ? { facets } : {}),
+  };
 }
 
 export interface AddItemResult {
@@ -219,13 +362,15 @@ export async function listAvailable(
     partial = partial || seedRes.partial;
     candidates = await repo.listAvailableCandidates(c.userId, limit * 4);
   }
-  if (candidates.length === 0) return { items: [], partial };
+  if (candidates.length === 0) return { items: [], cursor: null, partial };
 
   // Probe matching servers in parallel — they're per-request memoized inside
   // MediaService, but each fresh key still triggers a plugin call, so a
   // sequential loop turned this into O(N) wall-clock latency on cold caches.
   const probes = await Promise.allSettled(
-    candidates.map((row) => c.mediaService.getMatchingServers(row.tmdbId, row.mediaType)),
+    candidates.map((row) =>
+      getMatchingServersCached(c.userId, c.mediaService, row.tmdbId, row.mediaType),
+    ),
   );
   const picked: WatchlistRow[] = [];
   for (let i = 0; i < candidates.length; i++) {
@@ -237,10 +382,10 @@ export async function listAvailable(
     }
     if (probe.value.length > 0) picked.push(candidates[i]!);
   }
-  if (picked.length === 0) return { items: [], partial };
+  if (picked.length === 0) return { items: [], cursor: null, partial };
 
   const enriched = await enrich(picked, c);
-  return { items: enriched.items, partial: partial || enriched.partial };
+  return { items: enriched.items, cursor: null, partial: partial || enriched.partial };
 }
 
 export async function hasAny(userId: string): Promise<boolean> {

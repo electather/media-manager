@@ -1,4 +1,4 @@
-import type { WatchlistBuckets, WatchlistCounts, WatchlistItem, WatchlistStatus } from "./types";
+import type { WatchlistBuckets, WatchlistItem, WatchlistStatus } from "./types";
 
 const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistStatus | undefined> = {
   available: "available",
@@ -45,15 +45,6 @@ export function bucketize(items: readonly WatchlistItem[]): WatchlistBuckets {
     if (bucket) out[bucket].push(it);
   }
   return out;
-}
-
-export function deriveCounts(buckets: WatchlistBuckets): WatchlistCounts {
-  return {
-    ready: buckets.available.length + buckets.inProgress.length,
-    inProgress: buckets.inProgress.length,
-    awaiting: buckets.requested.length + buckets.unavailable.length,
-    upcoming: buckets.upcoming.length,
-  };
 }
 
 const TV_FALLBACK_RUNTIME = 48;
