@@ -46,7 +46,7 @@ const dbMock = {
 
 vi.mock("../../db/client", () => ({ getDb: () => dbMock }));
 
-vi.mock("../../db/schema/credentials", () => ({
+vi.mock("../../db/schema/plugin-runtime/credentials", () => ({
   serviceConnections: {},
 }));
 

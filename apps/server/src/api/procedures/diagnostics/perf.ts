@@ -7,7 +7,7 @@ import {
 } from "@ent-mcp/shared/diagnostics";
 import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
-import { errorRecords, perfRecords } from "../../../db/schema/diagnostics";
+import { errorRecords, perfRecords } from "../../../db/schema/infra/diagnostics";
 import { zValidator } from "../../../diagnostics/validator";
 import { notFound } from "../../../diagnostics/http-errors";
 import { AGGREGATE_ROW_BUDGET, aggregatePerfRows, percentile } from "./perf-aggregate";

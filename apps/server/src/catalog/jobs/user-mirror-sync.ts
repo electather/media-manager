@@ -1,7 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { capabilityRegistry } from "../../plugin-runtime";
 import { getDb } from "../../db/client";
-import { serviceConnections } from "../../db/schema/credentials";
+// TASK-045: catalog reads serviceConnections via plugin-runtime/preferences barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { MediaService, identifyItem, parseHistoryBase, parseItemDate } from "../../media";
 import type { CatalogService } from "../../catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";

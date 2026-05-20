@@ -1,8 +1,7 @@
-// @owner: plugin-runtime
 import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { PERSONAL_KEY_FALLBACK_POLICIES, PLUGIN_SOURCE_TYPES } from "@ent-mcp/shared/plugins";
-import { user } from "./auth";
+import { user } from "../auth/auth";
 
 /** Registry of installed plugins. One row per plugin id. */
 export const plugins = sqliteTable("plugins", {

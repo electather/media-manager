@@ -1,6 +1,6 @@
 import { lt } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { appConfig, errorRecords, perfRecords } from "../db/schema/diagnostics";
+import { appConfig, errorRecords, perfRecords } from "../db/schema/infra/diagnostics";
 
 const APP_CONFIG_ID = "global";
 

@@ -5,7 +5,7 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
-import { appConfig, errorRecords, perfRecords } from "../../db/schema/diagnostics";
+import { appConfig, errorRecords, perfRecords } from "../../db/schema/infra/diagnostics";
 
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },

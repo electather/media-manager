@@ -1,10 +1,9 @@
-// @owner: server-infra
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { ERROR_SEVERITIES, ERROR_SOURCES, PERF_KINDS } from "@ent-mcp/shared/diagnostics";
-import { user } from "./auth";
-import { plugins } from "./plugins";
-import { serviceConnections } from "./credentials";
+import { user } from "../auth/auth";
+import { plugins } from "../plugin-runtime/plugins";
+import { serviceConnections } from "../plugin-runtime/credentials";
 
 /** Persistent store of captured errors surfaced by the admin viewer at /admin/diagnostics.
  *  SQL table name kept as `error_records` deliberately — only the Drizzle module path

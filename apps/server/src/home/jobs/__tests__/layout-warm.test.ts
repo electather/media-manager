@@ -5,7 +5,7 @@ import {
   type Db,
 } from "../../../__tests__/helpers/in-memory-db";
 import { user } from "../../../db/schema/auth";
-import { feedback } from "../../../db/schema/feedback";
+import { feedback } from "../../../db/schema/preferences/feedback";
 import { userHistoryMirror } from "../../../db/schema/catalog";
 
 vi.mock("../../../env", () => ({

@@ -6,7 +6,7 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { user } from "../../db/schema/auth";
-import { plugins, pluginStore } from "../../db/schema/plugins";
+import { plugins, pluginStore } from "../../db/schema/plugin-runtime/plugins";
 
 vi.mock("../../env", () => ({
   env: { ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef" },

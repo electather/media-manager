@@ -45,7 +45,7 @@ no helpers.ts | utils.ts | misc.ts
 
 1. **Barrel-only entry.** Outside → `<module>/index.ts` only. Deep imports → forbidden. `server-mod-<x>-internal` fallow zone blocks.
 2. **No raw drizzle outside `repo.ts`.** `service`/`jobs` call `repo.fn()`. Only `repo.ts` imports `drizzle-orm` + schema.
-3. **Own tables only.** Each table has `// @owner: <module>`. Others → read/write via owner barrel. `tools/check-table-ownership.ts` enforces.
+3. **Own tables only.** Each module's tables live under `db/schema/<module>/`. Others → read/write via owner barrel. `server-schema-<module>` fallow zone blocks cross-module reads.
 4. **Sync via `service.ts`, async via `events.ts`+`jobs/`.** No cross-mod fire-and-forget. No cross-mod DB writes via shared schema.
 5. **`events.ts` = published async contract.** Payload change → changeset + semver bump `@ent-mcp/server`.
 6. **Tests in `__tests__/`.** Unit → mock `repo.ts`. Integration → mock other modules' barrels, not internals.
@@ -82,7 +82,7 @@ Skip frontend-only skills.
 - [`module-layout.md`](references/module-layout.md) — flat layout, reserved file roles, promotion rules, size caps
 - [`service-and-repo.md`](references/service-and-repo.md) — sync API, drizzle isolation, factory accessor
 - [`events-and-jobs.md`](references/events-and-jobs.md) — typed emit/on, event naming, boot order, fan-out, runtime cycles
-- [`db-ownership.md`](references/db-ownership.md) — `@owner:` grammar, ownership script, multi-table split rule
+- [`db-ownership.md`](references/db-ownership.md) — per-module schema namespaces, fallow zone enforcement, cross-module crossing protocol
 - [`fallow-zones.md`](references/fallow-zones.md) — first-match-wins, two-zone trick, allow-list, severity, health budgets
 - [`checklist.md`](references/checklist.md) — new-module + retrofit + PR-review checklists
 - [`examples/new-module.md`](references/examples/new-module.md) — scaffold fresh module end-to-end

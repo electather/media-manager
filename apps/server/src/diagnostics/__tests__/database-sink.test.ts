@@ -5,7 +5,7 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
-import { errorRecords, perfRecords } from "../../db/schema/diagnostics";
+import { errorRecords, perfRecords } from "../../db/schema/infra/diagnostics";
 import { user } from "../../db/schema/auth";
 import { SYSTEM_USER_ID } from "@ent-mcp/shared/jobs";
 

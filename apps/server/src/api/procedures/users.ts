@@ -10,7 +10,7 @@ import {
   oauthRefreshToken,
   oauthConsent,
 } from "../../db/schema/auth";
-import { userRoles, roles } from "../../db/schema/roles";
+import { userRoles, roles } from "../../db/schema/auth/roles";
 import { zValidator } from "../../diagnostics/validator";
 import { notFound, badRequest, forbidden } from "../../diagnostics/http-errors";
 

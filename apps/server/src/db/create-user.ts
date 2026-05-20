@@ -36,7 +36,7 @@ import { consola } from "consola";
 import { eq } from "drizzle-orm";
 import { getDb } from "./client";
 import { account, user } from "./schema/auth";
-import { roles, userRoles } from "./schema/roles";
+import { roles, userRoles } from "./schema/auth/roles";
 
 const VALID_ROLE_IDS = ["role_admin", "role_member", "role_viewer"] as const;
 type ValidRoleId = (typeof VALID_ROLE_IDS)[number];

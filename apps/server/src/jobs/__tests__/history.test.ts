@@ -5,7 +5,7 @@ import {
   createInMemoryDb,
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
-import { jobRuns } from "../../db/schema/jobs";
+import { jobRuns } from "../../db/schema/infra/jobs";
 import type { JobRunStatus } from "@ent-mcp/shared/jobs";
 
 let db: Db;

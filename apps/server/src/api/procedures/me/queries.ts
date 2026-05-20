@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "../../../db/client";
-import { roles, userRoles } from "../../../db/schema/roles";
+import { roles, userRoles } from "../../../db/schema/auth/roles";
 
 export async function fetchUserRole(
   db: Db,

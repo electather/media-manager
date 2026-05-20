@@ -8,7 +8,7 @@ import {
   userHistoryMirror,
   userRatingsMirror,
 } from "../../db/schema/catalog";
-import { idMap } from "../../db/schema/id-map";
+import { idMap } from "../../db/schema/catalog/id-map";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,

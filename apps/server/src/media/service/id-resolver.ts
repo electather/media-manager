@@ -1,7 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "../../db/client";
-import { idMap } from "../../db/schema";
+// TASK-047: media reads idMap via catalog barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { idMap } from "../../db/schema/catalog/id-map";
 import { isNil } from "es-toolkit/predicate";
 
 export type IdField = "imdb_id" | "tvdb_id" | "trakt_id" | "trakt_slug";

@@ -1,4 +1,3 @@
-// @owner: notifications
 import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import {
@@ -7,8 +6,8 @@ import {
   NOTIFICATION_DELIVERY_STATUSES,
   NOTIFICATION_SEVERITIES,
 } from "@ent-mcp/shared/notifications";
-import { user } from "./auth";
-import { serviceConnections } from "./credentials";
+import { user } from "../auth/auth";
+import { serviceConnections } from "../plugin-runtime/credentials";
 
 export const notificationSubscriptions = sqliteTable(
   "notification_subscriptions",

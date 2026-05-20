@@ -1,8 +1,7 @@
-// @owner: server-infra
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { JOB_RUN_STATUSES, JOB_TRIGGERED_BY, LOG_LEVELS } from "@ent-mcp/shared/jobs";
-import { user } from "./auth";
+import { user } from "../auth/auth";
 import { errorRecords } from "./diagnostics";
 
 /**
