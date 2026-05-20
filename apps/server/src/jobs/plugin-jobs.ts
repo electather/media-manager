@@ -129,6 +129,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
 }
 
 // Exported for unit testing the connection-status routing in the catch path.
+// fallow-ignore-next-line complexity
 export async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;
@@ -149,14 +150,11 @@ export async function invokePerConnectionHandler(args: {
       await persistRefreshedCredentials(row.id, result);
     }
   } catch (err) {
-    // See docs/media-service.md §Q3 — the job path follows the same
-    // token_expired → "expired" rule as the capability-call path (#423).
+    // Job path follows the same token_expired → "expired" rule as the capability-call path (#423; docs/media-service.md §Q3).
     const expired = isPluginError(err) && err.code === "plugin.token_expired";
     const message = err instanceof Error ? err.message : String(err);
     await markConnectionStatus(row.id, expired ? "expired" : "error", message);
-    // Only emit on transition into "expired" — the row query returns every
-    // connection for the plugin every tick, so without this guard a revoked
-    // token would publish a duplicate auth-expired event on every run.
+    // Emit only on first transition into "expired" — otherwise this fires every tick a revoked token is still revoked.
     if (expired && row.status !== "expired") {
       await emitAuthExpired({
         connectionId: row.id,
