@@ -206,11 +206,12 @@ function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {
     mediaType: meta.mediaType,
     title: meta.title,
   };
+  // `overview` deliberately omitted from the list shape — the detail modal
+  // rehydrates it via `home.details`. See follow-up issue #420.
   if (meta.year != null) item.year = meta.year;
   if (meta.posterUrl) item.poster = meta.posterUrl;
   if (meta.backdropUrl) item.backdrop = meta.backdropUrl;
   if (meta.clearLogoUrl) item.clearLogo = meta.clearLogoUrl;
-  if (meta.overview) item.overview = meta.overview;
   if (meta.genres && meta.genres.length > 0) item.genres = meta.genres.slice(0, 3);
   if (meta.runtimeMinutes != null || meta.year != null) {
     const facets: NonNullable<CompactMediaItem["facets"]> = {};
