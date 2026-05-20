@@ -79,6 +79,10 @@ export default definePlugin({
         schedule: "*/5 * * * *",
         handler: "syncRequestStatuses",
         perConnection: true,
+        // Seerr `/request` pagination can legitimately exceed the 60s default
+        // on slower instances; widen the per-row budget so a single page fetch
+        // doesn't time the whole row out.
+        perRowTimeoutSec: 120,
       },
     ],
   },

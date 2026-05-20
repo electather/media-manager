@@ -7,11 +7,16 @@ import { encryptJson, decryptJson } from "../crypto/helpers";
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
+import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 
 // Default backoff for `plugin.rate_limited` errors that lack a retryAfterMs hint.
 const DEFAULT_JOB_RATE_LIMIT_RETRY_SEC = 5 * 60;
+// Upper bound applied to whatever `retryAfterMs` a plugin reports, so a buggy
+// or malicious plugin throwing `retryAfterMs = Number.MAX_SAFE_INTEGER` cannot
+// park a connection permanently. Matches the per-plugin 1h ceilings.
+const MAX_JOB_RATE_LIMIT_RETRY_SEC = 60 * 60;
 
 interface DeclaredPluginJob {
   pluginId: string;
@@ -20,22 +25,29 @@ interface DeclaredPluginJob {
   schedule: string;
   handler: string;
   perConnection: boolean;
+  perRowTimeoutSec?: number;
 }
 
 function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
   const manifest = JSON.parse(row.manifest) as {
     name?: string;
-    jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
+    jobs?: ManifestJobEntry[];
   };
   const pluginName = manifest.name ?? row.id;
-  return (manifest.jobs ?? []).map((job) => ({
-    pluginId: row.id,
-    pluginName,
-    id: job.id,
-    schedule: job.schedule,
-    handler: job.handler,
-    perConnection: job.perConnection === true,
-  }));
+  return (manifest.jobs ?? []).map((job) => {
+    const perConnection = job.perConnection === true;
+    return {
+      pluginId: row.id,
+      pluginName,
+      id: job.id,
+      schedule: job.schedule,
+      handler: job.handler,
+      perConnection,
+      // Only propagate the override on perConnection jobs — the global path
+      // ignores it and carrying it would mask a manifest-validation bug.
+      perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
+    };
+  });
 }
 
 /** Returns every declared job across all enabled plugins. */
@@ -91,6 +103,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     name: `${job.pluginName} — ${job.id} (per connection)`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
+    perRowTimeoutSec: job.perRowTimeoutSec,
     rowSource: async () => {
       const db = getDb();
       const nowSec = Math.floor(Date.now() / 1000);
@@ -163,7 +176,7 @@ async function invokePerConnectionHandler(args: {
       const retryAfterMs = typeof err.retryAfterMs === "number" ? err.retryAfterMs : null;
       const retryAfterSec =
         retryAfterMs !== null && retryAfterMs >= 0
-          ? Math.ceil(retryAfterMs / 1000)
+          ? Math.min(Math.ceil(retryAfterMs / 1000), MAX_JOB_RATE_LIMIT_RETRY_SEC)
           : DEFAULT_JOB_RATE_LIMIT_RETRY_SEC;
       const nowSec = Math.floor(Date.now() / 1000);
       await db

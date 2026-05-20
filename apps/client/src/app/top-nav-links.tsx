@@ -15,12 +15,18 @@ export function TopNavLinks() {
     const measure = () => {
       const active = nav.querySelector<HTMLElement>('[data-status="active"]');
       if (!active) {
-        setPill((p) => ({ ...p, ready: false }));
+        setPill((p) => (p.ready ? { ...p, ready: false } : p));
         return;
       }
       const navRect = nav.getBoundingClientRect();
       const activeRect = active.getBoundingClientRect();
-      setPill({ left: activeRect.left - navRect.left, width: activeRect.width, ready: true });
+      const left = activeRect.left - navRect.left;
+      const width = activeRect.width;
+      // Sub-pixel tolerance keeps DOMRect jitter from breaking reference equality and re-triggering the loop.
+      setPill((p) => {
+        if (p.ready && Math.abs(p.left - left) < 0.5 && Math.abs(p.width - width) < 0.5) return p;
+        return { left, width, ready: true };
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);

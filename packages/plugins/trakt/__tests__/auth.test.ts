@@ -18,6 +18,16 @@ function jsonRes(body: unknown, init?: ResponseInit): Response {
   });
 }
 
+function assertPluginError(err: unknown): asserts err is {
+  name: "PluginError";
+  code: string;
+  message: string;
+  retryable?: boolean;
+  retryAfterMs?: number;
+} {
+  expect(isPluginError(err)).toBe(true);
+}
+
 describe("refreshAuth", () => {
   it("maps 429 with Retry-After (seconds) to plugin.rate_limited carrying retryAfterMs", async () => {
     const ctx = makeCtx([new Response("", { status: 429, headers: { "retry-after": "600" } })]);
@@ -25,10 +35,10 @@ describe("refreshAuth", () => {
       await refreshAuth(ctx, ctx.credentials);
       throw new Error("should have thrown");
     } catch (err) {
-      expect(isPluginError(err)).toBe(true);
-      expect((err as { code: string }).code).toBe("plugin.rate_limited");
-      expect((err as { retryable: boolean }).retryable).toBe(true);
-      expect((err as { retryAfterMs: number }).retryAfterMs).toBe(600_000);
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.rate_limited");
+      expect(err.retryable).toBe(true);
+      expect(err.retryAfterMs).toBe(600_000);
     }
   });
 
@@ -38,8 +48,9 @@ describe("refreshAuth", () => {
       await refreshAuth(ctx, ctx.credentials);
       throw new Error("should have thrown");
     } catch (err) {
-      expect((err as { code: string }).code).toBe("plugin.rate_limited");
-      expect((err as { retryAfterMs: number }).retryAfterMs).toBe(300_000);
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.rate_limited");
+      expect(err.retryAfterMs).toBe(300_000);
     }
   });
 
@@ -49,8 +60,22 @@ describe("refreshAuth", () => {
       await refreshAuth(ctx, ctx.credentials);
       throw new Error("should have thrown");
     } catch (err) {
-      expect((err as { code: string }).code).toBe("plugin.rate_limited");
-      expect((err as { retryAfterMs: number }).retryAfterMs).toBe(3_600_000);
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.rate_limited");
+      expect(err.retryAfterMs).toBe(3_600_000);
+    }
+  });
+
+  it("maps 429 with a past HTTP-date Retry-After to 0ms (delta clamped to zero)", async () => {
+    const pastDate = new Date(Date.now() - 60_000).toUTCString();
+    const ctx = makeCtx([new Response("", { status: 429, headers: { "retry-after": pastDate } })]);
+    try {
+      await refreshAuth(ctx, ctx.credentials);
+      throw new Error("should have thrown");
+    } catch (err) {
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.rate_limited");
+      expect(err.retryAfterMs).toBe(0);
     }
   });
 
@@ -60,7 +85,8 @@ describe("refreshAuth", () => {
       await refreshAuth(ctx, ctx.credentials);
       throw new Error("should have thrown");
     } catch (err) {
-      expect((err as { code: string }).code).toBe("plugin.token_expired");
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.token_expired");
     }
   });
 
@@ -70,7 +96,8 @@ describe("refreshAuth", () => {
       await refreshAuth(ctx, ctx.credentials);
       throw new Error("should have thrown");
     } catch (err) {
-      expect((err as { code: string }).code).toBe("plugin.upstream_error");
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.upstream_error");
     }
   });
 
@@ -112,8 +139,9 @@ describe("refreshTokensJob", () => {
       await refreshTokensJob(ctx);
       throw new Error("should have thrown");
     } catch (err) {
-      expect((err as { code: string }).code).toBe("plugin.rate_limited");
-      expect((err as { retryAfterMs: number }).retryAfterMs).toBe(120_000);
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.rate_limited");
+      expect(err.retryAfterMs).toBe(120_000);
     }
   });
 });

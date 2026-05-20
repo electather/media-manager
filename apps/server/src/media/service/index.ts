@@ -330,14 +330,20 @@ export class MediaService {
   }
 
   async getRequests(): Promise<MediaRequest[]> {
-    const result = await dispatchSingle<unknown[]>({
-      userId: this.userId,
-      capability: "mediaRequest",
-      version: "v1",
-      method: "listRequests",
-      input: {},
-    });
-    return z.array(mediaRequestSchema).parse(result ?? []);
+    try {
+      const result = await dispatchSingle<unknown[]>({
+        userId: this.userId,
+        capability: "mediaRequest",
+        version: "v1",
+        method: "listRequests",
+        input: {},
+      });
+      return z.array(mediaRequestSchema).parse(result ?? []);
+    } catch (err) {
+      // No provider configured — expected user state, not server fault.
+      if (err instanceof PluginCallError && err.code === "media.no_connection") return [];
+      throw err;
+    }
   }
 
   async cancelRequest(requestId: string): Promise<void> {
