@@ -200,6 +200,16 @@ export const mediaRequest = {
   async listRequests(ctx: unknown, _input: unknown) {
     const c = ctx as Ctx;
     const all = await fetchAllRequests(c);
+    // TV rows in Overseerr/Jellyseerr always carry a `seasons` array; absence
+    // is a strong signal that the upstream renamed the field (e.g. across a
+    // Jellyseerr release). Log once per call with the unfamiliar key set so a
+    // rename is visible in plugin logs before the SDK's defaulting hides it.
+    const renameSample = all.find((r) => r.type === "tv" && !Array.isArray(r.seasons));
+    if (renameSample) {
+      c.log.warn("seerr.listRequests: tv row missing `seasons` array — possible upstream rename", {
+        keys: Object.keys(renameSample),
+      });
+    }
     return all.map((r) => ({
       id: String(r.id),
       tmdbId: String(r.media.tmdbId),

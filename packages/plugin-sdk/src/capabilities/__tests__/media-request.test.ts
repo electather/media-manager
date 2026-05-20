@@ -120,7 +120,7 @@ describe("MediaRequestV1 capability", () => {
       expect(r.success).toBe(true);
     });
 
-    it("rejects row missing required seasons[]", () => {
+    it("defaults seasons to [] when omitted (movie rows / Jellyseerr renames)", () => {
       const r = MediaRequestV1.methods.listRequests.output.safeParse([
         {
           id: "3",
@@ -133,7 +133,25 @@ describe("MediaRequestV1 capability", () => {
           profileLabel: null,
         },
       ]);
-      expect(r.success).toBe(false);
+      expect(r.success).toBe(true);
+      expect(r.data?.[0]?.seasons).toEqual([]);
+    });
+
+    it("defaults targetLabel/profileLabel to null when omitted", () => {
+      const r = MediaRequestV1.methods.listRequests.output.safeParse([
+        {
+          id: "4",
+          tmdbId: "550",
+          type: "movie",
+          title: "Fight Club",
+          status: "pending",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ]);
+      expect(r.success).toBe(true);
+      expect(r.data?.[0]?.seasons).toEqual([]);
+      expect(r.data?.[0]?.targetLabel).toBeNull();
+      expect(r.data?.[0]?.profileLabel).toBeNull();
     });
   });
 });

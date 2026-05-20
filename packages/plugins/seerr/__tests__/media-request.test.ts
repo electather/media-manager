@@ -155,6 +155,40 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 
+  it("mediaRequest.listRequests: warns when a TV row is missing the seasons array (rename signal)", async () => {
+    const warnings: unknown[][] = [];
+    const ctx = makeCtx(
+      [
+        jsonRes({
+          results: [
+            {
+              id: 9,
+              type: "tv",
+              status: 2,
+              createdAt: "2026-04-05T00:00:00.000Z",
+              media: { tmdbId: 1396, title: "Breaking Bad" },
+              // intentionally no `seasons` — simulates upstream field rename
+              requestedSeasons: [{ seasonNumber: 1 }],
+            },
+          ],
+        }),
+      ],
+      {
+        log: {
+          debug() {},
+          info() {},
+          warn: (...args: unknown[]) => warnings.push(args),
+          error() {},
+        },
+      },
+    );
+    const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(warnings.length).toBe(1);
+    expect(String(warnings[0]?.[0])).toContain("possible upstream rename");
+    // SDK schema defaults the missing field, so output still validates.
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
   it("mediaRequest.listRequests: movie row with no seasons emits seasons:[] and null labels", async () => {
     const ctx = makeCtx([
       jsonRes({
