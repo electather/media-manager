@@ -15,12 +15,16 @@ export function TopNavLinks() {
     const measure = () => {
       const active = nav.querySelector<HTMLElement>('[data-status="active"]');
       if (!active) {
-        setPill((p) => ({ ...p, ready: false }));
+        setPill((p) => (p.ready ? { ...p, ready: false } : p));
         return;
       }
       const navRect = nav.getBoundingClientRect();
       const activeRect = active.getBoundingClientRect();
-      setPill({ left: activeRect.left - navRect.left, width: activeRect.width, ready: true });
+      const left = activeRect.left - navRect.left;
+      const width = activeRect.width;
+      setPill((p) =>
+        p.ready && p.left === left && p.width === width ? p : { left, width, ready: true },
+      );
     };
     measure();
     const ro = new ResizeObserver(measure);
