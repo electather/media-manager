@@ -22,12 +22,11 @@ export function TopNavLinks() {
       const activeRect = active.getBoundingClientRect();
       const left = activeRect.left - navRect.left;
       const width = activeRect.width;
-      setPill((p) =>
-        // Sub-pixel tolerance: getBoundingClientRect jitter would otherwise break reference equality and re-trigger the loop
-        p.ready && Math.abs(p.left - left) < 0.5 && Math.abs(p.width - width) < 0.5
-          ? p
-          : { left, width, ready: true },
-      );
+      // Sub-pixel tolerance keeps DOMRect jitter from breaking reference equality and re-triggering the loop.
+      setPill((p) => {
+        if (p.ready && Math.abs(p.left - left) < 0.5 && Math.abs(p.width - width) < 0.5) return p;
+        return { left, width, ready: true };
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);
