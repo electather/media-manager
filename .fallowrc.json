@@ -3,6 +3,7 @@
   "ignoreDependencies": [
     "react-doctor",
     "@ent-mcp/plugin-discord",
+    "@ent-mcp/plugin-fanart",
     "@ent-mcp/plugin-inbox",
     "@ent-mcp/plugin-jellyfin",
     "@ent-mcp/plugin-ntfy",
@@ -24,6 +25,7 @@
     "@ent-mcp/plugin-plex",
     "@ent-mcp/plugin-jellyfin",
     "@ent-mcp/plugin-discord",
+    "@ent-mcp/plugin-fanart",
     "@ent-mcp/plugin-inbox",
     "@ent-mcp/plugin-ntfy",
     "@ent-mcp/plugin-telegram"

@@ -27,6 +27,7 @@
   "dependencies": {
     "@better-auth/oauth-provider": "catalog:",
     "@ent-mcp/plugin-discord": "workspace:*",
+    "@ent-mcp/plugin-fanart": "workspace:*",
     "@ent-mcp/plugin-inbox": "workspace:*",
     "@ent-mcp/plugin-jellyfin": "workspace:*",
     "@ent-mcp/plugin-ntfy": "workspace:*",
