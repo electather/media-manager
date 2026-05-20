@@ -27,15 +27,20 @@ function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): Decl
     jobs?: ManifestJobEntry[];
   };
   const pluginName = manifest.name ?? row.id;
-  return (manifest.jobs ?? []).map((job) => ({
-    pluginId: row.id,
-    pluginName,
-    id: job.id,
-    schedule: job.schedule,
-    handler: job.handler,
-    perConnection: job.perConnection === true,
-    perRowTimeoutSec: job.perRowTimeoutSec,
-  }));
+  return (manifest.jobs ?? []).map((job) => {
+    const perConnection = job.perConnection === true;
+    return {
+      pluginId: row.id,
+      pluginName,
+      id: job.id,
+      schedule: job.schedule,
+      handler: job.handler,
+      perConnection,
+      // Only propagate the override on perConnection jobs — the global path
+      // ignores it and carrying it would mask a manifest-validation bug.
+      perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
+    };
+  });
 }
 
 /** Returns every declared job across all enabled plugins. */
