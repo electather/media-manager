@@ -10,7 +10,7 @@ import { preload } from "react-dom";
 import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
 import type { HeroSlideUI, HomeMediaItem } from "../../lib/types";
-import { ProgressOverlay } from "../progress-overlay";
+import { MediaCardProgress } from "@/shared/components/media-card";
 import { TopZoneAmbient } from "./top-zone-ambient";
 import { TopZoneHeroCard } from "./top-zone-hero-card";
 import { cn } from "@/shared/lib/utils";
@@ -60,7 +60,7 @@ function HeroFrame({
         />
         {children}
         {percent !== null && (
-          <ProgressOverlay
+          <MediaCardProgress
             percent={percent}
             ariaLabel={m.home_hero_progress_watched({ percent: String(percent) })}
             className="z-3"

@@ -83,5 +83,23 @@
   "watchlist_kind_tv": "TODO",
   "watchlist_episodes_count": "TODO",
 
-  "watchlist_section_count_aria": "TODO"
+  "watchlist_section_count_aria": "TODO",
+
+  "watchlist_partial_banner": "TODO",
+  "watchlist_empty": "TODO",
+  "watchlist_add_error": "TODO",
+  "watchlist_remove_error": "TODO",
+  "watchlist_toggle_add": "TODO",
+  "watchlist_toggle_remove": "TODO",
+  "watchlist_load_error_title": "TODO",
+  "watchlist_load_error_retry": "TODO",
+
+  "watchlist_source_manual": "TODO",
+  "watchlist_source_plugin": "TODO",
+  "watchlist_source_search": "TODO",
+  "watchlist_source_notification": "TODO",
+  "watchlist_source_recommended": "TODO",
+  "watchlist_source_trending": "TODO",
+  "watchlist_recent_time_just_now": "TODO",
+  "watchlist_recent_time_minutes_ago": "TODO"
 }

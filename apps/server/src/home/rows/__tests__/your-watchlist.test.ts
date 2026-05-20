@@ -1,98 +1,89 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../your-watchlist";
-import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import { makeRowCtx } from "../../__tests__/row-test-helpers";
 
-function meta(tmdbId: string, mediaType: "movie" | "tv" = "movie"): CanonicalMetadata {
-  return {
-    tmdbId,
-    mediaType,
-    title: `T${tmdbId}`,
-    year: 2024,
-    runtimeMinutes: 90,
-    posterUrl: null,
-    backdropUrl: null,
-    clearLogoUrl: null,
-    overview: null,
-    originalLanguage: null,
-    genres: null,
-    features: null,
-    lastRefreshedAt: 0,
-    lastAccessedAt: 0,
-    createdAt: 0,
-  };
-}
+vi.mock("../../../watchlist", () => ({
+  hasAny: vi.fn(),
+  listAvailable: vi.fn(),
+}));
+
+import { hasAny, listAvailable } from "../../../watchlist";
+
+const hasAnyMock = vi.mocked(hasAny);
+const listAvailableMock = vi.mocked(listAvailable);
 
 describe("rows/your-watchlist", () => {
-  it("filters to titles present on a connected library server", async () => {
+  it("delegates fetchPage to watchlistService.listAvailable and strips watchlist-only fields", async () => {
     const ctx = makeRowCtx();
-    (
-      ctx.mediaService as unknown as {
-        getWatchlistFeed: { mockResolvedValue: (v: unknown) => void };
-        getMatchingServers: { mockImplementation: (fn: unknown) => void };
-      }
-    ).getWatchlistFeed.mockResolvedValue({
+    listAvailableMock.mockResolvedValueOnce({
       items: [
-        libraryItem({ tmdbId: "1", type: "movie" }),
-        libraryItem({ tmdbId: "2", type: "show" }),
-        libraryItem({ tmdbId: "3", type: "movie" }),
+        {
+          id: "movie:1",
+          tmdbId: "1",
+          mediaType: "movie",
+          title: "Title 1",
+          addedAt: 100,
+          addedSource: "manual",
+        },
+        {
+          id: "tv:9",
+          tmdbId: "9",
+          mediaType: "tv",
+          title: "Title 9",
+          addedAt: 200,
+          addedSource: "plugin",
+        },
       ],
       partial: false,
     });
-    // Items 1 and 3 are on Jellyfin; item 2 is watchlist-only.
-    (
-      ctx.mediaService as unknown as {
-        getMatchingServers: { mockImplementation: (fn: unknown) => void };
-      }
-    ).getMatchingServers.mockImplementation(async (tmdbId: string) =>
-      tmdbId === "2" ? [] : [{ id: "jellyfin", label: "Jellyfin" }],
-    );
-    (
-      ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
-    ).getMetadataBatch.mockResolvedValue({
-      "movie:1": meta("1"),
-      "movie:3": meta("3"),
-    });
 
     const page = await provider.fetchPage(ctx, null);
-    expect(page.items.map((i) => i.tmdbId).sort()).toEqual(["1", "3"]);
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["1", "9"]);
+    // `addedAt` and `addedSource` belong to the watchlist wire only.
+    for (const item of page.items) {
+      expect(item).not.toHaveProperty("addedAt");
+      expect(item).not.toHaveProperty("addedSource");
+    }
     expect(page.cursor).toBeNull();
+    expect(page.partial).toBeFalsy();
   });
 
-  it("unwraps `{ item, addedAt }` watchlist entries when reading the tmdb id", async () => {
+  it("returns true from eligibility when the user has internal items even without a plugin", async () => {
     const ctx = makeRowCtx();
+    hasAnyMock.mockResolvedValueOnce(true);
     (
       ctx.mediaService as unknown as {
-        getWatchlistFeed: { mockResolvedValue: (v: unknown) => void };
+        hasCapabilityProvider: { mockResolvedValueOnce: (v: unknown) => void };
       }
-    ).getWatchlistFeed.mockResolvedValue({
-      items: [
-        // Trakt + most providers wrap entries; the tmdb id lives on `item.ids`.
-        { item: { ids: { tmdb_id: "42" }, type: "movie" }, addedAt: "2026-01-01" },
-      ],
-      partial: false,
-    });
-    (
-      ctx.mediaService as unknown as {
-        getMatchingServers: { mockResolvedValue: (v: unknown) => void };
-      }
-    ).getMatchingServers.mockResolvedValue([{ id: "jellyfin", label: "Jellyfin" }]);
-    (
-      ctx.catalog as unknown as { getMetadataBatch: { mockResolvedValue: (v: unknown) => void } }
-    ).getMetadataBatch.mockResolvedValue({ "movie:42": meta("42") });
+    ).hasCapabilityProvider.mockResolvedValueOnce(false);
 
-    const page = await provider.fetchPage(ctx, null);
-    expect(page.items.map((i) => i.tmdbId)).toEqual(["42"]);
+    await expect(provider.eligibility(ctx)).resolves.toBe(true);
   });
 
-  it("propagates partial=true from the watchlist aggregate", async () => {
+  it("falls through to the plugin capability check when the user has no internal items", async () => {
     const ctx = makeRowCtx();
+    hasAnyMock.mockResolvedValueOnce(false);
     (
       ctx.mediaService as unknown as {
-        getWatchlistFeed: { mockResolvedValue: (v: unknown) => void };
+        hasCapabilityProvider: { mockResolvedValueOnce: (v: unknown) => void };
       }
-    ).getWatchlistFeed.mockResolvedValue({ items: [], partial: true });
+    ).hasCapabilityProvider.mockResolvedValueOnce(true);
+    await expect(provider.eligibility(ctx)).resolves.toBe(true);
+  });
+
+  it("propagates partial=true from listAvailable", async () => {
+    const ctx = makeRowCtx();
+    listAvailableMock.mockResolvedValueOnce({ items: [], partial: true });
     const page = await provider.fetchPage(ctx, null);
     expect(page.partial).toBe(true);
+  });
+
+  it("returns empty page when called with a non-null cursor", async () => {
+    const ctx = makeRowCtx();
+    listAvailableMock.mockClear();
+    const page = await provider.fetchPage(ctx, "ignored");
+    expect(page.items).toEqual([]);
+    expect(page.cursor).toBeNull();
+    expect(listAvailableMock).not.toHaveBeenCalled();
   });
 });

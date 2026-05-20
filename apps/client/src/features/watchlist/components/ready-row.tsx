@@ -1,6 +1,6 @@
 import { type CSSProperties } from "react";
 import * as m from "@/paraglide/messages";
-import { Card } from "@/features/home/components/card";
+import { WatchlistCard } from "./watchlist-card";
 import {
   SectionHead,
   SectionHeadActions,
@@ -53,7 +53,7 @@ export function ReadyRow({ items, onPeek }: ReadyRowProps) {
         <ScrollRowTrack className="pb-1">
           {items.map((it) => (
             <ScrollRowItem key={it.id}>
-              <Card item={it} rowKind="yourWatchlist" forceAspect="2/3" onClick={onPeek} />
+              <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />
             </ScrollRowItem>
           ))}
         </ScrollRowTrack>

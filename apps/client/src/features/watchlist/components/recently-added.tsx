@@ -8,31 +8,39 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { recentTimeLabel } from "../lib/format";
-import { WATCHLIST_ITEM_INDEX, WATCHLIST_RECENT_LOG } from "../lib/mock-data";
-import type { WatchlistItem, RecentLogEntry } from "../lib/types";
+import { sourceLabel } from "../lib/types";
+import type { WatchlistItem } from "../lib/types";
 
 interface RecentlyAddedProps {
+  items: readonly WatchlistItem[];
   onPeek: (id: string) => void;
 }
 
-interface ResolvedEntry {
-  entry: RecentLogEntry;
-  item: WatchlistItem;
-}
+const MAX_ROWS = 5;
+const MS_PER_MIN = 60 * 1000;
+const MS_PER_HOUR = 60 * MS_PER_MIN;
+const MS_PER_DAY = 24 * MS_PER_HOUR;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
 
-function resolveLog(): ResolvedEntry[] {
-  const out: ResolvedEntry[] = [];
-  for (const entry of WATCHLIST_RECENT_LOG) {
-    const item = WATCHLIST_ITEM_INDEX.get(entry.itemId);
-    if (item) out.push({ entry, item });
+function relativeLabel(addedAt: number, now: number = Date.now()): string {
+  const delta = Math.max(0, now - addedAt);
+  if (delta < MS_PER_MIN) return m.watchlist_recent_time_just_now();
+  if (delta < MS_PER_HOUR) {
+    return m.watchlist_recent_time_minutes_ago({ n: String(Math.floor(delta / MS_PER_MIN)) });
   }
-  return out;
+  if (delta < MS_PER_DAY) {
+    return m.watchlist_recent_time_hours_ago({ n: String(Math.floor(delta / MS_PER_HOUR)) });
+  }
+  if (delta < 2 * MS_PER_DAY) return m.watchlist_recent_time_yesterday();
+  if (delta < MS_PER_WEEK) {
+    return m.watchlist_recent_time_days_ago({ n: String(Math.floor(delta / MS_PER_DAY)) });
+  }
+  return m.watchlist_recent_time_last_week();
 }
 
-export function RecentlyAdded({ onPeek }: RecentlyAddedProps) {
-  const log = useMemo(resolveLog, []);
-  if (log.length === 0) return null;
+export function RecentlyAdded({ items, onPeek }: RecentlyAddedProps) {
+  const top = useMemo(() => items.slice(0, MAX_ROWS), [items]);
+  if (top.length === 0) return null;
   return (
     <section className="mb-14">
       <SectionHead>
@@ -40,18 +48,13 @@ export function RecentlyAdded({ onPeek }: RecentlyAddedProps) {
           <SectionHeadEyebrow>{m.watchlist_recent_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle>
             {m.watchlist_recent_title()}
-            <SectionHeadCount value={log.length} />
+            <SectionHeadCount value={top.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>
       </SectionHead>
       <ul className="m-0 overflow-hidden rounded-2xl border border-border bg-card p-0">
-        {log.map((row, idx) => (
-          <RecentRow
-            key={`${row.entry.itemId}-${idx}`}
-            row={row}
-            isFirst={idx === 0}
-            onPeek={onPeek}
-          />
+        {top.map((item, idx) => (
+          <RecentRow key={item.id} item={item} isFirst={idx === 0} onPeek={onPeek} />
         ))}
       </ul>
     </section>
@@ -60,31 +63,29 @@ export function RecentlyAdded({ onPeek }: RecentlyAddedProps) {
 
 // fallow-ignore-next-line complexity
 function RecentRow({
-  row,
+  item,
   isFirst,
   onPeek,
 }: {
-  row: ResolvedEntry;
+  item: WatchlistItem;
   isFirst: boolean;
   onPeek: (id: string) => void;
 }) {
-  const { entry, item } = row;
   const Icon = item.mediaType === "movie" ? Film : Tv;
   const kindLabel = item.mediaType === "movie" ? m.watchlist_kind_movie() : m.watchlist_kind_tv();
   const src = item.backdrop ?? item.poster;
-  const sourceFn = m[entry.sourceKey];
   return (
     <li className="list-none">
       <button
         type="button"
-        onClick={() => onPeek(entry.itemId)}
+        onClick={() => onPeek(item.id)}
         className={`grid w-full items-center gap-4 px-5 py-3.5 text-start transition-colors hover:bg-accent ${
           isFirst ? "" : "border-t border-border"
         }`}
         style={{ gridTemplateColumns: "110px 80px 1fr auto auto" }}
       >
         <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
-          {recentTimeLabel(entry)}
+          {relativeLabel(item.addedAt)}
         </span>
         <span className="relative h-[45px] w-20 overflow-hidden rounded-md bg-muted max-sm:hidden">
           {src ? (
@@ -112,7 +113,7 @@ function RecentRow({
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 font-mono text-[11px] tracking-[0.03em] text-accent-foreground max-sm:hidden">
           <Sparkles aria-hidden="true" className="size-3" />
-          {sourceFn()}
+          {sourceLabel(item.addedSource)}
         </span>
         <span className="text-muted-foreground/70 max-sm:hidden">
           <ChevronRight aria-hidden="true" className="size-4" />

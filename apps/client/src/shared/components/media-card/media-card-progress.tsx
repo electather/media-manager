@@ -7,14 +7,14 @@ type Props = {
 };
 
 /**
- * Bottom-edge progress strip shared by the hero frame and 16:9/2:3 card art.
- * The track is dim and the fill blends with the underlying artwork via
- * `mix-blend-overlay` so it reads as part of the image instead of a flat
- * white bar.
+ * Bottom-edge progress strip overlaid on card art. The track is dim and the
+ * fill blends via `mix-blend-overlay` so it reads as part of the image
+ * instead of a flat bar.
  */
-export function ProgressOverlay({ percent, ariaLabel, className }: Props) {
+export function MediaCardProgress({ percent, ariaLabel, className }: Props) {
   return (
     <div
+      data-slot="media-card-progress"
       role="progressbar"
       aria-valuenow={percent}
       aria-valuemin={0}

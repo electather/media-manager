@@ -1,28 +1,45 @@
 import { useState } from "react";
 import { cn } from "@/shared/lib/utils";
 import { Skeleton } from "@/shared/ui/skeleton";
-import type { HomeMediaItem } from "../../lib/types";
 
-interface CardImageProps {
-  item: HomeMediaItem;
-  aspect: "16/9" | "2/3";
+type Aspect = "16/9" | "2/3";
+
+interface MediaCardImageProps {
+  src?: string | null;
+  alt: string;
+  aspect: Aspect;
+  /** Renders a bottom-up scrim on 16/9 art so overlays stay legible. Defaults on for 16/9. */
+  scrim?: boolean;
+  /** Fallback text rendered centered when `src` is empty. */
+  fallback?: string;
+  className?: string;
 }
 
 /**
- * Renders the poster or backdrop for a card with a skeleton placeholder while
- * loading and a bottom-up scrim on 16/9 art so overlays remain readable.
+ * Skeleton-bridged image with optional scrim. Presentational only — the
+ * caller picks which artwork URL (poster vs backdrop) to thread in.
  */
-export function CardImage({ item, aspect }: CardImageProps) {
+export function MediaCardImage({
+  src,
+  alt,
+  aspect,
+  scrim,
+  fallback,
+  className,
+}: MediaCardImageProps) {
   const [loaded, setLoaded] = useState(false);
-  const src = aspect === "16/9" ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
   const aspectClass = aspect === "16/9" ? "aspect-video" : "aspect-[2/3]";
+  const showScrim = scrim ?? aspect === "16/9";
   return (
-    <div className={cn("relative w-full overflow-hidden rounded-md bg-muted", aspectClass)}>
+    <div
+      data-slot="media-card-image"
+      className={cn("relative w-full overflow-hidden rounded-md bg-muted", aspectClass, className)}
+    >
       {!loaded ? <Skeleton className="absolute inset-0 rounded-md" /> : null}
       {src ? (
         <img
           src={src}
-          alt={item.title}
+          alt={alt}
           loading="lazy"
           decoding="async"
           onLoad={() => setLoaded(true)}
@@ -34,10 +51,10 @@ export function CardImage({ item, aspect }: CardImageProps) {
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs text-muted-foreground">{item.title}</span>
+          <span className="text-xs text-muted-foreground">{fallback ?? alt}</span>
         </div>
       )}
-      {aspect === "16/9" ? (
+      {showScrim ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent"

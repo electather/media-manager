@@ -1,6 +1,6 @@
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import { Card } from "@/features/home/components/card";
+import { WatchlistCard } from "./watchlist-card";
 import {
   SectionHead,
   SectionHeadActions,
@@ -36,12 +36,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="relative min-w-0">
-          <Card
-            item={{ ...pick, status: undefined }}
-            rowKind="continueWatching"
-            forceAspect="16/9"
-            onClick={onPeek}
-          />
+          <WatchlistCard item={{ ...pick, status: undefined }} forceAspect="16/9" onPeek={onPeek} />
           <div className="mt-3.5 flex items-center gap-2.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
             <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-primary" />
             <span>{m.watchlist_tonight_why()} ·</span>
@@ -49,7 +44,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
           </div>
         </div>
 
-        <aside className="self-stretch rounded-2xl border border-border bg-card p-4">
+        <aside className="rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 pl-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
             {m.watchlist_tonight_alternates_kicker()}
           </div>

@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import { Card } from "@/features/home/components/card";
+import { WatchlistCard } from "./watchlist-card";
 import {
   SectionHead,
   SectionHeadCount,
@@ -29,13 +29,7 @@ export function ComingUp({ items, onPeek }: ComingUpProps) {
       </SectionHead>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
         {items.map((it) => (
-          <Card
-            key={it.id}
-            item={it}
-            rowKind="upcomingForYou"
-            forceAspect="16/9"
-            onClick={onPeek}
-          />
+          <WatchlistCard key={it.id} item={it} forceAspect="16/9" onPeek={onPeek} />
         ))}
       </div>
     </section>

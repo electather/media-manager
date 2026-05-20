@@ -83,5 +83,23 @@
   "watchlist_kind_tv": "TV series",
   "watchlist_episodes_count": "{n} eps",
 
-  "watchlist_section_count_aria": "{count} items"
+  "watchlist_section_count_aria": "{count} items",
+
+  "watchlist_partial_banner": "Some watchlist items couldn't be loaded. Refresh to try again.",
+  "watchlist_empty": "Your watchlist is empty. Add a title from search or a recommendation to start.",
+  "watchlist_add_error": "Couldn't add to watchlist. {message}",
+  "watchlist_remove_error": "Couldn't remove from watchlist. {message}",
+  "watchlist_toggle_add": "Add to watchlist",
+  "watchlist_toggle_remove": "Remove from watchlist",
+  "watchlist_load_error_title": "Watchlist couldn't load",
+  "watchlist_load_error_retry": "Retry",
+
+  "watchlist_source_manual": "Added manually",
+  "watchlist_source_plugin": "Synced from plugin",
+  "watchlist_source_search": "From search",
+  "watchlist_source_notification": "From notification",
+  "watchlist_source_recommended": "Recommended",
+  "watchlist_source_trending": "Trending",
+  "watchlist_recent_time_just_now": "Just now",
+  "watchlist_recent_time_minutes_ago": "{n} min ago"
 }

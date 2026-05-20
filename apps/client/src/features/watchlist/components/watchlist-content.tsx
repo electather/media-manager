@@ -1,0 +1,206 @@
+import { useCallback, useMemo, useState } from "react";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import * as m from "@/paraglide/messages";
+import type { MediaType } from "@ent-mcp/shared/media";
+import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
+import { useHomeDetails } from "@/features/home/hooks/use-home-details";
+import { splitCompositeId } from "@/shared/lib/media-id";
+import { bucketize, classifyStatus, deriveCounts } from "../lib/classify";
+import { deriveMoods } from "../lib/derive-moods";
+import { useWatchlistItems } from "../hooks/use-watchlist-items";
+import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
+import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
+import { useIsInWatchlist } from "../hooks/use-is-in-watchlist";
+import type { WatchlistFilter, WatchlistItem, WatchlistSort, WatchlistStatus } from "../lib/types";
+import { Awaiting } from "./awaiting";
+import { ComingUp } from "./coming-up";
+import { WatchlistFilteredGrid } from "./watchlist-filtered-grid";
+import { WatchlistHeader } from "./watchlist-header";
+import { MoodMosaic } from "./mood-mosaic";
+import { ReadyRow } from "./ready-row";
+import { RecentlyAdded } from "./recently-added";
+import { TonightPick } from "./tonight-pick";
+
+type PeekSearch = { peek?: string };
+type Buckets = ReturnType<typeof bucketize>;
+
+const BUCKET_SELECTORS: Record<
+  WatchlistFilter,
+  (b: Buckets, items: readonly WatchlistItem[]) => readonly WatchlistItem[]
+> = {
+  all: (_b, items) => items,
+  ready: (b) => [...b.available, ...b.inProgress],
+  "in-progress": (b) => b.inProgress,
+  awaiting: (b) => [...b.requested, ...b.unavailable],
+  upcoming: (b) => b.upcoming,
+};
+
+const STATUS_PRIORITY: Record<WatchlistStatus, number> = {
+  "in-progress": 0,
+  available: 1,
+  requested: 2,
+  unavailable: 3,
+  upcoming: 4,
+  unknown: 5,
+};
+
+const SORT_COMPARATORS: Record<
+  WatchlistSort,
+  ((a: WatchlistItem, b: WatchlistItem) => number) | null
+> = {
+  recent: (a, b) => b.addedAt - a.addedAt,
+  status: (a, b) => STATUS_PRIORITY[classifyStatus(a)] - STATUS_PRIORITY[classifyStatus(b)],
+  alpha: (a, b) => a.title.localeCompare(b.title),
+  // fallow-ignore-next-line complexity
+  runtime: (a, b) => (a.facets?.runtimeMin ?? 999) - (b.facets?.runtimeMin ?? 999),
+};
+
+function applySort(items: readonly WatchlistItem[], sort: WatchlistSort): WatchlistItem[] {
+  const cmp = SORT_COMPARATORS[sort];
+  return cmp ? items.slice().sort(cmp) : items.slice();
+}
+
+// fallow-ignore-next-line complexity
+export function WatchlistContent() {
+  const { data } = useWatchlistItems();
+  const items = data.items;
+  const partial = data.partial;
+  const itemIndex = useMemo(() => new Map(items.map((i) => [i.id, i] as const)), [items]);
+
+  const navigate = useNavigate();
+  const { peek } = useSearch({ strict: false }) as PeekSearch;
+
+  const [filter, setFilter] = useState<WatchlistFilter>("all");
+  const [sort, setSort] = useState<WatchlistSort>("recent");
+
+  const buckets = useMemo(() => bucketize(items), [items]);
+  const counts = useMemo(() => deriveCounts(buckets), [buckets]);
+
+  const sortedByAdded = useMemo(() => items.slice().sort((a, b) => b.addedAt - a.addedAt), [items]);
+
+  const tonight = useMemo<WatchlistItem | null>(() => {
+    const candidates = [...buckets.available, ...buckets.inProgress];
+    return candidates[0] ?? null;
+  }, [buckets]);
+
+  const alternates = useMemo<WatchlistItem[]>(() => {
+    if (!tonight) return [];
+    return [...buckets.available, ...buckets.inProgress]
+      .filter((i) => i.id !== tonight.id)
+      .slice(0, 4);
+  }, [buckets, tonight]);
+
+  const moodGroups = useMemo(() => deriveMoods(items), [items]);
+
+  const filtered = useMemo(
+    () => applySort(BUCKET_SELECTORS[filter](buckets, items), sort),
+    [filter, items, buckets, sort],
+  );
+
+  const handlePeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
+
+  const handleClose = useCallback(() => {
+    void navigate({ to: ".", search: {}, replace: false, resetScroll: false });
+  }, [navigate]);
+
+  const handleViewFullPage = useCallback(() => {
+    if (!peek) return;
+    const parts = splitCompositeId(peek);
+    if (!parts) return;
+    void navigate({ to: "/media/$mediaType/$mediaId", params: parts });
+  }, [navigate, peek]);
+
+  const peekParts = peek ? splitCompositeId(peek) : null;
+  const detailsQuery = useHomeDetails(
+    peekParts?.mediaId ?? null,
+    (peekParts?.mediaType as MediaType | undefined) ?? null,
+  );
+  const localPeekItem = peek ? (itemIndex.get(peek) ?? null) : null;
+  const peekItem = useMemo<MediaDetailItem | null>(() => {
+    const fetched = detailsQuery.data;
+    if (fetched) return { ...fetched.summary, ...fetched.details };
+    // Fall back to the watchlist-list copy while the rich payload is in flight
+    // so the modal renders title / poster / availability immediately.
+    return (localPeekItem as MediaDetailItem | null) ?? null;
+  }, [detailsQuery.data, localPeekItem]);
+  const inWatchlist = useIsInWatchlist(peek ?? "");
+  const add = useAddToWatchlist();
+  const remove = useRemoveFromWatchlist();
+  const handleToggleWatchlist = useCallback(() => {
+    if (!peekItem) return;
+    if (inWatchlist) {
+      remove.mutate({ tmdbId: peekItem.tmdbId, mediaType: peekItem.mediaType });
+    } else {
+      add.mutate({
+        request: {
+          tmdbId: peekItem.tmdbId,
+          mediaType: peekItem.mediaType,
+          source: "manual",
+        },
+        seed: peekItem,
+      });
+    }
+  }, [add, remove, inWatchlist, peekItem]);
+
+  const readyForRow = useMemo(
+    () =>
+      [...buckets.available, ...buckets.inProgress].filter((i) => !tonight || i.id !== tonight.id),
+    [buckets, tonight],
+  );
+  const awaitingItems = useMemo(() => [...buckets.requested, ...buckets.unavailable], [buckets]);
+
+  const filterActive = filter !== "all";
+
+  return (
+    <main className="mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8">
+      {partial ? (
+        <p
+          role="status"
+          className="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-sm text-warning-foreground"
+        >
+          {m.watchlist_partial_banner()}
+        </p>
+      ) : null}
+      <WatchlistHeader
+        items={items}
+        counts={counts}
+        filter={filter}
+        sort={sort}
+        onFilterChange={setFilter}
+        onSortChange={setSort}
+      />
+      <div className="pb-32">
+        {items.length === 0 ? (
+          <p className="py-16 text-center text-sm text-muted-foreground">{m.watchlist_empty()}</p>
+        ) : filterActive ? (
+          <WatchlistFilteredGrid items={filtered} filter={filter} sort={sort} onPeek={handlePeek} />
+        ) : (
+          <>
+            {tonight ? (
+              <TonightPick pick={tonight} alternates={alternates} onPeek={handlePeek} />
+            ) : null}
+            <ReadyRow items={readyForRow} onPeek={handlePeek} />
+            <MoodMosaic groups={moodGroups} onPeek={handlePeek} />
+            <ComingUp items={buckets.upcoming} onPeek={handlePeek} />
+            <Awaiting items={awaitingItems} onPeek={handlePeek} />
+            <RecentlyAdded items={sortedByAdded} onPeek={handlePeek} />
+          </>
+        )}
+      </div>
+
+      <MediaDetailModal
+        item={peekItem}
+        open={Boolean(peek)}
+        onClose={handleClose}
+        inWatchlist={inWatchlist}
+        onToggleWatchlist={handleToggleWatchlist}
+        onViewFullPage={handleViewFullPage}
+      />
+    </main>
+  );
+}

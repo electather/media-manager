@@ -1,6 +1,11 @@
-import type { HomeMediaItem } from "@/features/home/lib/types";
+/**
+ * UI-only types for the watchlist page. Cross-feature surfaces should import
+ * data-layer pieces (`WatchlistItem`, `WatchlistApiError`, `sourceLabel`,
+ * `fetchWatchlist`, etc.) from `@/shared/lib/watchlist` instead.
+ */
+import type { WatchlistItem } from "@/shared/lib/watchlist";
 
-export type WatchlistItem = HomeMediaItem;
+export { WatchlistApiError, sourceLabel, type WatchlistItem } from "@/shared/lib/watchlist";
 
 export type WatchlistStatus =
   | "available"
@@ -30,30 +35,11 @@ export interface WatchlistMood {
     | "watchlist_mood_scifi_note"
     | "watchlist_mood_comedy_note"
     | "watchlist_mood_horror_note";
-  itemIds: string[];
 }
 
 export interface WatchlistMoodGroup {
   mood: WatchlistMood;
   items: WatchlistItem[];
-}
-
-export type RecentSourceKey =
-  | "watchlist_recent_source_recommended"
-  | "watchlist_recent_source_notification"
-  | "watchlist_recent_source_search"
-  | "watchlist_recent_source_trending"
-  | "watchlist_recent_source_friend";
-
-export interface RecentLogEntry {
-  itemId: string;
-  /** Resolved at render via paraglide; e.g. ICU `{ n: 2 }` for hours-ago. */
-  time:
-    | { kind: "hours-ago"; n: number }
-    | { kind: "days-ago"; n: number }
-    | { kind: "yesterday" }
-    | { kind: "last-week" };
-  sourceKey: RecentSourceKey;
 }
 
 export interface WatchlistBuckets {

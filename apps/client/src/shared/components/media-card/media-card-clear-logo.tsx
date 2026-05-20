@@ -22,16 +22,15 @@ const IMAGE_SIZES = {
 };
 
 /**
- * Wordmark logo overlaid on top of card art for 16/9 thumbnails. Mirrors the
- * prototype's clear-logo treatment so the card reads as a film/show plate.
- * Renders the canonical clear-logo image when available; falls back to a
- * monospace wordmark when the artwork capability has not yet resolved a
- * logo URL.
+ * Wordmark logo overlaid on top of card art. Renders the canonical clear-logo
+ * image when available; falls back to a monospace wordmark when the artwork
+ * capability has not yet resolved a logo URL.
  */
-export function CardClearLogo({ src, text, alt, size = "md" }: Props) {
+export function MediaCardClearLogo({ src, text, alt, size = "md" }: Props) {
   if (src) {
     return (
       <img
+        data-slot="media-card-clear-logo"
         src={src}
         alt={alt ?? ""}
         loading="lazy"
@@ -46,6 +45,7 @@ export function CardClearLogo({ src, text, alt, size = "md" }: Props) {
   if (!text) return null;
   return (
     <div
+      data-slot="media-card-clear-logo"
       className={cn(
         "pointer-events-none absolute inset-x-3 bottom-3 z-[2] font-mono font-bold tracking-[0.18em] text-foreground drop-shadow-[0_2px_18px_rgba(0,0,0,0.6)]",
         TEXT_SIZES[size],

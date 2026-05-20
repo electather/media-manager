@@ -17,6 +17,7 @@ import * as media from "./media";
 import * as notifications from "./notifications";
 import * as preferences from "./preferences";
 import * as pluginRuntime from "./plugin-runtime";
+import * as watchlist from "./watchlist";
 import { registerSink } from "./diagnostics/capture";
 import { DatabaseSink } from "./diagnostics/database-sink";
 import { errorHandler } from "./diagnostics/middleware";
@@ -43,6 +44,7 @@ async function bootstrap(): Promise<void> {
   notifications.registerJobs();
   pluginRuntime.registerJobs();
   preferences.registerJobs();
+  watchlist.registerJobs();
 
   // The error sink publishes via the notifications service, so register it
   // after notifications.registerJobs() so the delivery job is already in the
