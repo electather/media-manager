@@ -4,17 +4,17 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
-import { useWatchlistItems } from "../hooks/use-watchlist-items";
-import { WatchlistApiError } from "../lib/types";
+import { useWatchlistItems } from "@/shared/hooks/watchlist/use-watchlist-items";
+import { WatchlistApiError } from "@/shared/lib/watchlist/types";
 import { SAMPLE_WATCHLIST } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("../lib/fetchers", () => ({
+vi.mock("@/shared/lib/watchlist/fetchers", () => ({
   fetchWatchlist: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
 
-const { fetchWatchlist } = await import("../lib/fetchers");
+const { fetchWatchlist } = await import("@/shared/lib/watchlist/fetchers");
 const fetchMock = vi.mocked(fetchWatchlist);
 
 function wrap(client: QueryClient) {

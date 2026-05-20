@@ -36,12 +36,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="relative min-w-0">
-          <WatchlistCard
-            item={{ ...pick, status: undefined }}
-            rowKind="continueWatching"
-            forceAspect="16/9"
-            onPeek={onPeek}
-          />
+          <WatchlistCard item={{ ...pick, status: undefined }} forceAspect="16/9" onPeek={onPeek} />
           <div className="mt-3.5 flex items-center gap-2.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
             <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-primary" />
             <span>{m.watchlist_tonight_why()} ·</span>

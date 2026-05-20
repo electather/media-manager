@@ -245,6 +245,14 @@
         "patterns": ["apps/server/src/plugin-runtime/**"]
       },
       {
+        "name": "server-mod-watchlist",
+        "patterns": ["apps/server/src/watchlist/index.ts"]
+      },
+      {
+        "name": "server-mod-watchlist-internal",
+        "patterns": ["apps/server/src/watchlist/**"]
+      },
+      {
         "name": "server-plugin-bundles",
         "patterns": ["apps/server/src/plugins/**"]
       },
@@ -589,6 +597,7 @@
           "server-mod-notifications",
           "server-mod-preferences",
           "server-mod-plugin-runtime",
+          "server-mod-watchlist",
           "server-plugin-bundles",
           "server-infra",
           "shared-pkg",
@@ -606,6 +615,7 @@
           "server-mod-notifications",
           "server-mod-preferences",
           "server-mod-plugin-runtime",
+          "server-mod-watchlist",
           "server-infra",
           "server-mcp",
           "shared-pkg",
@@ -623,6 +633,7 @@
           "server-mod-notifications",
           "server-mod-preferences",
           "server-mod-plugin-runtime",
+          "server-mod-watchlist",
           "server-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -735,6 +746,7 @@
           "server-mod-notifications",
           "server-mod-preferences",
           "server-mod-plugin-runtime",
+          "server-mod-watchlist",
           "server-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -747,6 +759,41 @@
           "server-mod-artwork",
           "server-mod-auth",
           "server-mod-catalog",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-mod-watchlist",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-watchlist",
+        "allow": [
+          "server-mod-watchlist-internal",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
+          "server-mod-media",
+          "server-mod-notifications",
+          "server-mod-preferences",
+          "server-mod-plugin-runtime",
+          "server-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+      {
+        "from": "server-mod-watchlist-internal",
+        "allow": [
+          "server-mod-watchlist",
+          "server-mod-artwork",
+          "server-mod-auth",
+          "server-mod-catalog",
+          "server-mod-home",
           "server-mod-media",
           "server-mod-notifications",
           "server-mod-preferences",

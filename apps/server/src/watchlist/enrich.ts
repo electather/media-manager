@@ -77,7 +77,10 @@ export async function enrich(
   const items: WatchlistItem[] = [];
   for (const result of settled) {
     if (result.status === "fulfilled") {
-      if (result.value) items.push(result.value);
+      if (result.value) {
+        items.push(result.value.item);
+        if (result.value.partial) partial = true;
+      }
     } else {
       partial = true;
       ctx.log.warn("[watchlist:enrich] per-row enrichment threw", result.reason);
@@ -92,14 +95,16 @@ async function enrichOne(
   metadata: Record<string, CanonicalMetadata>,
   artwork: Record<string, ArtworkBundle>,
   ctx: WatchlistEnrichContext,
-): Promise<WatchlistItem | null> {
+): Promise<{ item: WatchlistItem; partial: boolean } | null> {
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
 
+  let serversPartial = false;
   const servers = await ctx.mediaService
     .getMatchingServers(row.tmdbId, row.mediaType)
     .catch((err) => {
       ctx.log.warn("[watchlist:enrich] getMatchingServers failed", err);
+      serversPartial = true;
       return [] as Awaited<ReturnType<MediaService["getMatchingServers"]>>;
     });
 
@@ -124,7 +129,7 @@ async function enrichOne(
     requestEligible: servers.length === 0 && status !== "available",
     servers: servers.map((s) => ({ id: s.id, label: s.label })),
   };
-  return item;
+  return { item, partial: serversPartial };
 }
 
 /**
@@ -193,10 +198,13 @@ async function loadColdMetadata(
     row.mediaType,
   )) as RawCanonicalSource | null;
   if (!raw) return null;
-  await ctx.catalog.writeMetadata([
-    toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw),
-  ]);
-  return ctx.catalog.getMetadata(row.tmdbId, row.mediaType);
+  const canonical = toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw);
+  // Fire-and-forget the write — the next read still hits the catalog cache;
+  // we don't need to await it before threading the value back to the caller.
+  void ctx.catalog
+    .writeMetadata([canonical])
+    .catch((err) => ctx.log.warn("[watchlist:enrich] catalog write threw", err));
+  return canonical;
 }
 
 function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {
@@ -212,13 +220,19 @@ function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {
   if (meta.posterUrl) item.poster = meta.posterUrl;
   if (meta.backdropUrl) item.backdrop = meta.backdropUrl;
   if (meta.clearLogoUrl) item.clearLogo = meta.clearLogoUrl;
-  if (meta.genres && meta.genres.length > 0) item.genres = meta.genres.slice(0, 3);
-  if (meta.runtimeMinutes != null || meta.year != null) {
-    const facets: NonNullable<CompactMediaItem["facets"]> = {};
-    if (meta.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
-    if (meta.year != null) facets.releaseDate = String(meta.year);
-    item.facets = facets;
+  // Ship the full genres array — client `deriveMoods` runs AND-rules across
+  // multiple names; trimming here would silently break clusters that combine
+  // more than the first three. The card UI clamps the visible chip count.
+  if (meta.genres && meta.genres.length > 0) item.genres = meta.genres;
+  const facets: NonNullable<CompactMediaItem["facets"]> = {};
+  if (meta.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
+  // `releaseDate` doubles as the "upcoming?" flag on the client. Only emit
+  // it when the release year is in the future so already-released items
+  // don't land in the upcoming bucket.
+  if (meta.year != null && meta.year > new Date().getUTCFullYear()) {
+    facets.releaseDate = String(meta.year);
   }
+  if (Object.keys(facets).length > 0) item.facets = facets;
   return item;
 }
 

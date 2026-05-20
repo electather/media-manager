@@ -53,7 +53,7 @@ export function ReadyRow({ items, onPeek }: ReadyRowProps) {
         <ScrollRowTrack className="pb-1">
           {items.map((it) => (
             <ScrollRowItem key={it.id}>
-              <WatchlistCard item={it} rowKind="yourWatchlist" forceAspect="2/3" onPeek={onPeek} />
+              <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />
             </ScrollRowItem>
           ))}
         </ScrollRowTrack>

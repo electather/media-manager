@@ -132,12 +132,19 @@ export interface SeedResult {
 }
 
 /**
- * Pulls the plugin watchlist feed and bulk-inserts new items. On any plugin
- * error, returns `partial: true` and leaves `user_watchlist_seed` unset so a
- * later GET retries. Plain success path marks the user as seeded.
+ * Pulls the plugin watchlist feed and bulk-inserts new items. Serializes
+ * concurrent first-GETs via `trySeedLock` so only the winning caller fans
+ * out to plugins; losers short-circuit with `added: 0`. On a plugin error
+ * the lock is rolled back so the next GET retries.
  */
 export async function seedFromPlugins(ctx: MaybeRowContext): Promise<SeedResult> {
   const c = asWatchlistContext(ctx);
+  const now = Date.now();
+  const wonLock = await repo.trySeedLock(c.userId, now);
+  if (!wonLock) {
+    // Another concurrent caller is doing the plugin fetch; nothing to do here.
+    return { added: 0, partial: false };
+  }
   let feed: { items: unknown[]; partial: boolean };
   try {
     const opts: { deadlineMs?: number } = {};
@@ -145,6 +152,8 @@ export async function seedFromPlugins(ctx: MaybeRowContext): Promise<SeedResult>
     feed = await c.mediaService.getWatchlistFeed(opts);
   } catch (err) {
     c.log.warn("[watchlist:seed] getWatchlistFeed threw", err);
+    // Roll the lock back so the next GET retries the plugin call.
+    await repo.clearSeedLock(c.userId).catch(() => {});
     return { added: 0, partial: true };
   }
   const keys = (feed.items as unknown[])
@@ -152,10 +161,10 @@ export async function seedFromPlugins(ctx: MaybeRowContext): Promise<SeedResult>
     .filter((k): k is WatchlistKey => k !== null);
   const known = await repo.allKnownKeys(c.userId);
   const fresh = keys.filter((k) => !known.has(keyToId(k)));
-  const now = Date.now();
   const added = await repo.bulkInsertIgnoreConflict(c.userId, fresh, "plugin", true, now);
-  if (!feed.partial) {
-    await repo.markSeeded(c.userId, now);
+  if (feed.partial) {
+    // Don't keep the lock when the feed was incomplete — next GET should retry.
+    await repo.clearSeedLock(c.userId).catch(() => {});
   }
   return { added, partial: feed.partial };
 }
@@ -181,7 +190,9 @@ export async function syncFromPlugins(ctx: MaybeRowContext): Promise<SeedResult>
   const known = await repo.allKnownKeys(c.userId);
   const fresh = keys.filter((k) => !known.has(keyToId(k)));
   const now = Date.now();
-  const added = await repo.bulkInsertIgnoreConflict(c.userId, fresh, "plugin", true, now);
+  // Sync-added rows are not initial-seed rows; flag false so future reporting
+  // can distinguish cron-acquired items from the eager seed.
+  const added = await repo.bulkInsertIgnoreConflict(c.userId, fresh, "plugin", false, now);
   return { added, partial: feed.partial };
 }
 
@@ -208,13 +219,21 @@ export async function listAvailable(
   }
   if (candidates.length === 0) return { items: [], partial };
 
+  // Probe matching servers in parallel — they're per-request memoized inside
+  // MediaService, but each fresh key still triggers a plugin call, so a
+  // sequential loop turned this into O(N) wall-clock latency on cold caches.
+  const probes = await Promise.allSettled(
+    candidates.map((row) => c.mediaService.getMatchingServers(row.tmdbId, row.mediaType)),
+  );
   const picked: WatchlistRow[] = [];
-  for (const row of candidates) {
+  for (let i = 0; i < candidates.length; i++) {
     if (picked.length >= limit) break;
-    const servers = await c.mediaService
-      .getMatchingServers(row.tmdbId, row.mediaType)
-      .catch(() => []);
-    if (servers.length > 0) picked.push(row);
+    const probe = probes[i]!;
+    if (probe.status !== "fulfilled") {
+      partial = true;
+      continue;
+    }
+    if (probe.value.length > 0) picked.push(candidates[i]!);
   }
   if (picked.length === 0) return { items: [], partial };
 
@@ -223,7 +242,7 @@ export async function listAvailable(
 }
 
 export async function hasAny(userId: string): Promise<boolean> {
-  return repo.hasAny(userId);
+  return repo.hasActiveRows(userId);
 }
 
 async function safeEmit<T>(
@@ -251,8 +270,20 @@ function toWatchlistKey(value: unknown): WatchlistKey | null {
   const itemRaw = (outer.item ?? outer) as Record<string, unknown>;
   const tmdbId = extractTmdbId(itemRaw);
   if (!tmdbId) return null;
-  const type = itemRaw.type === "movie" ? "movie" : "tv";
-  return { tmdbId, mediaType: type };
+  // Plugins may return `episode`, `special`, or omit `type` entirely. Reject
+  // anything that isn't a primary `movie` / `tv` / `show` so the row is
+  // dropped rather than silently coerced into `tv` (which would produce
+  // colliding ids in the canonical metadata table).
+  const rawType = itemRaw.type;
+  let mediaType: "movie" | "tv";
+  if (rawType === "movie") {
+    mediaType = "movie";
+  } else if (rawType === "tv" || rawType === "show") {
+    mediaType = "tv";
+  } else {
+    return null;
+  }
+  return { tmdbId, mediaType };
 }
 
 function extractTmdbId(value: unknown): string | null {

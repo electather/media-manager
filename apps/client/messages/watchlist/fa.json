@@ -96,5 +96,11 @@
 
   "watchlist_source_manual": "TODO",
   "watchlist_source_plugin": "TODO",
-  "watchlist_source_import": "TODO"
+  "watchlist_source_import": "TODO",
+  "watchlist_source_search": "TODO",
+  "watchlist_source_notification": "TODO",
+  "watchlist_source_recommended": "TODO",
+  "watchlist_source_trending": "TODO",
+  "watchlist_recent_time_just_now": "TODO",
+  "watchlist_recent_time_minutes_ago": "TODO"
 }

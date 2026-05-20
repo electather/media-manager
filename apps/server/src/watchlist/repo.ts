@@ -33,7 +33,7 @@ function toRow(raw: typeof watchlistItems.$inferSelect): WatchlistRow {
     source: raw.source as WatchlistSource,
     addedAt: raw.addedAt,
     removedAt: raw.removedAt,
-    seeded: raw.seeded === 1,
+    seeded: Boolean(raw.seeded),
   };
 }
 
@@ -110,7 +110,9 @@ export async function upsertActive(
         .where(eq(watchlistItems.id, existing.id))
         .returning()
         .get();
-      return { row: toRow(updated!), created: true, wasActive: false };
+      // Reactivation is not a brand-new insert; `created` flags only the
+      // first-ever insert so a future caller can distinguish the two.
+      return { row: toRow(updated!), created: false, wasActive: false };
     }
     const inserted = await tx
       .insert(watchlistItems)
@@ -219,6 +221,26 @@ export async function markSeeded(userId: string, now: number, db: Db = getDb()):
   await db.insert(userWatchlistSeed).values({ userId, seededAt: now }).onConflictDoNothing();
 }
 
+/**
+ * Inserts the seed marker exactly once for `userId`. Returns true when the
+ * caller wrote the row (and so should run the plugin fetch) and false when a
+ * concurrent caller already won the race. Backed by SQLite's UNIQUE PK so the
+ * decision is atomic.
+ */
+export async function trySeedLock(userId: string, now: number, db: Db = getDb()): Promise<boolean> {
+  const inserted = await db
+    .insert(userWatchlistSeed)
+    .values({ userId, seededAt: now })
+    .onConflictDoNothing()
+    .returning({ userId: userWatchlistSeed.userId });
+  return inserted.length > 0;
+}
+
+/** Test-only: undo a `trySeedLock` so a failed plugin call can retry next GET. */
+export async function clearSeedLock(userId: string, db: Db = getDb()): Promise<void> {
+  await db.delete(userWatchlistSeed).where(eq(userWatchlistSeed.userId, userId));
+}
+
 export async function hasSeeded(userId: string, db: Db = getDb()): Promise<boolean> {
   const row = await db
     .select({ userId: userWatchlistSeed.userId })
@@ -228,7 +250,7 @@ export async function hasSeeded(userId: string, db: Db = getDb()): Promise<boole
   return row != null;
 }
 
-export async function hasAny(userId: string, db: Db = getDb()): Promise<boolean> {
+export async function hasActiveRows(userId: string, db: Db = getDb()): Promise<boolean> {
   const row = await db
     .select({ id: watchlistItems.id })
     .from(watchlistItems)

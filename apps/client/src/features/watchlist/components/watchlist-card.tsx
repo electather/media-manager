@@ -17,16 +17,10 @@ import {
 } from "@/shared/components/media-card";
 import { buildMediaHref } from "@/shared/lib/media-id";
 import type { WatchlistItem } from "../lib/types";
-import { useToggleWatchlist } from "../hooks/use-toggle-watchlist";
+import { useToggleWatchlist } from "@/shared/hooks/watchlist/use-toggle-watchlist";
 
 interface WatchlistCardProps {
   item: WatchlistItem;
-  /**
-   * Display-category hint that mirrors the home-feed `RowKind`. The watchlist
-   * page does not need every kind — the prop only drives the kind badge label
-   * and is otherwise informational.
-   */
-  rowKind?: "yourWatchlist" | "continueWatching" | "upcomingForYou";
   forceAspect?: "16/9" | "2/3";
   onPeek: (id: string) => void;
 }
@@ -37,12 +31,7 @@ interface WatchlistCardProps {
  * always reads as "in watchlist" and a click removes the row via the
  * optimistic mutation.
  */
-export function WatchlistCard({
-  item,
-  rowKind = "yourWatchlist",
-  forceAspect = "2/3",
-  onPeek,
-}: WatchlistCardProps) {
+export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCardProps) {
   const toggle = useToggleWatchlist();
   const aspect = forceAspect;
   const showLogo = aspect === "16/9" && Boolean(item.clearLogo);
@@ -56,8 +45,6 @@ export function WatchlistCard({
     item.progress && item.progress.total > 0
       ? Math.round((item.progress.watched / item.progress.total) * 100)
       : null;
-
-  void rowKind;
 
   return (
     <MediaCardRoot aspect={aspect}>

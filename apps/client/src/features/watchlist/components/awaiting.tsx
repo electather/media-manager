@@ -47,7 +47,7 @@ export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
       >
         {items.map((it) => (
           <div key={it.id} className="opacity-90 transition-opacity hover:opacity-100">
-            <WatchlistCard item={it} rowKind="yourWatchlist" forceAspect="2/3" onPeek={onPeek} />
+            <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />
           </div>
         ))}
       </div>

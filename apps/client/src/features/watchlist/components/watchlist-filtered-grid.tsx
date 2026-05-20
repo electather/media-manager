@@ -53,13 +53,7 @@ export function WatchlistFilteredGrid({ items, filter, sort, onPeek }: Watchlist
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
       >
         {items.map((it) => (
-          <WatchlistCard
-            key={it.id}
-            item={it}
-            rowKind="yourWatchlist"
-            forceAspect="2/3"
-            onPeek={onPeek}
-          />
+          <WatchlistCard key={it.id} item={it} forceAspect="2/3" onPeek={onPeek} />
         ))}
       </div>
     </section>

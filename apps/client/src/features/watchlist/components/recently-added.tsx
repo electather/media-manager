@@ -17,13 +17,17 @@ interface RecentlyAddedProps {
 }
 
 const MAX_ROWS = 5;
-const MS_PER_HOUR = 60 * 60 * 1000;
+const MS_PER_MIN = 60 * 1000;
+const MS_PER_HOUR = 60 * MS_PER_MIN;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 const MS_PER_WEEK = 7 * MS_PER_DAY;
 
 function relativeLabel(addedAt: number, now: number = Date.now()): string {
-  const delta = now - addedAt;
-  if (delta < MS_PER_HOUR) return m.watchlist_recent_time_hours_ago({ n: "1" });
+  const delta = Math.max(0, now - addedAt);
+  if (delta < MS_PER_MIN) return m.watchlist_recent_time_just_now();
+  if (delta < MS_PER_HOUR) {
+    return m.watchlist_recent_time_minutes_ago({ n: String(Math.floor(delta / MS_PER_MIN)) });
+  }
   if (delta < MS_PER_DAY) {
     return m.watchlist_recent_time_hours_ago({ n: String(Math.floor(delta / MS_PER_HOUR)) });
   }

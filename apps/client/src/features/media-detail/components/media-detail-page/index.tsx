@@ -6,7 +6,7 @@ import {
   requestFlowKeys,
   requestsApi,
 } from "@/features/request-flow";
-import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
+import { useToggleWatchlist, useWatchlistIdSet } from "@/shared/hooks/watchlist";
 import { useActiveSection } from "../../hooks/use-active-section";
 import { useMediaItem } from "../../lib/find-item";
 import { DetailFactsSidebar } from "../detail-facts-sidebar";

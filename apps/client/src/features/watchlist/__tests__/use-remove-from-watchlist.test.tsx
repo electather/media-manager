@@ -4,11 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
-import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
-import { watchlistKeys } from "../lib/query-keys";
+import { useRemoveFromWatchlist } from "@/shared/hooks/watchlist/use-remove-from-watchlist";
+import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 import { SAMPLE_WATCHLIST } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("../lib/fetchers", () => ({
+vi.mock("@/shared/lib/watchlist/fetchers", () => ({
   fetchWatchlist: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-const { removeFromWatchlist } = await import("../lib/fetchers");
+const { removeFromWatchlist } = await import("@/shared/lib/watchlist/fetchers");
 const { toast } = await import("sonner");
 const removeMock = vi.mocked(removeFromWatchlist);
 const toastErrorMock = vi.mocked(toast.error);

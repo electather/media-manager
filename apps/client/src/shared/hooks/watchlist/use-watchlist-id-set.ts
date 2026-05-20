@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchWatchlist } from "../lib/fetchers";
-import { watchlistKeys } from "../lib/query-keys";
+import { fetchWatchlist } from "@/shared/lib/watchlist/fetchers";
+import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 const STALE_TIME_MS = 60_000;

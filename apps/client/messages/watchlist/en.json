@@ -96,5 +96,11 @@
 
   "watchlist_source_manual": "Added manually",
   "watchlist_source_plugin": "Synced from plugin",
-  "watchlist_source_import": "Imported"
+  "watchlist_source_import": "Imported",
+  "watchlist_source_search": "From search",
+  "watchlist_source_notification": "From notification",
+  "watchlist_source_recommended": "Recommended",
+  "watchlist_source_trending": "Trending",
+  "watchlist_recent_time_just_now": "Just now",
+  "watchlist_recent_time_minutes_ago": "{n} min ago"
 }
