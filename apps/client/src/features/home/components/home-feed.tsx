@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useMemo } from "react";
+import { Suspense, useCallback, useDeferredValue, useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
@@ -36,7 +36,9 @@ export function HomeFeed() {
 // fallow-ignore-next-line complexity
 function HomeFeedReady() {
   const { data: layout } = useHomeFeed();
-  const { peek } = useSearch({ strict: false }) as PeekSearch;
+  const { peek: rawPeek } = useSearch({ strict: false }) as PeekSearch;
+  // Defer so peek-derived values coalesce across the concurrent scheduler during rapid back/forward navigation.
+  const peek = useDeferredValue(rawPeek);
   const navigate = useNavigate();
   const watchlist = useWatchlistIdSet();
   const toggleWatchlist = useToggleWatchlist();
