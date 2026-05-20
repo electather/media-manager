@@ -23,8 +23,8 @@ export function TopNavLinks() {
       const left = activeRect.left - navRect.left;
       const width = activeRect.width;
       setPill((p) =>
-        // Math.round: sub-pixel jitter from getBoundingClientRect would break reference equality and re-trigger the loop
-        p.ready && Math.round(p.left) === Math.round(left) && Math.round(p.width) === Math.round(width)
+        // Sub-pixel tolerance: getBoundingClientRect jitter would otherwise break reference equality and re-trigger the loop
+        p.ready && Math.abs(p.left - left) < 0.5 && Math.abs(p.width - width) < 0.5
           ? p
           : { left, width, ready: true },
       );
