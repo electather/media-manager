@@ -1,10 +1,13 @@
 import { Calendar, ChevronDown, Plus, Server } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as m from "@/paraglide/messages";
-import type { CardAvailabilityState } from "../lib/card-state";
+import type {
+  MediaCardAvailabilityKind,
+  MediaCardAvailabilityState,
+} from "./media-card-availability-state";
 
 type Props = {
-  state: CardAvailabilityState;
+  state: MediaCardAvailabilityState;
   className?: string;
 };
 
@@ -18,7 +21,7 @@ const availabilityPillVariants = cva(
         requested: "border-primary/30 text-primary/85",
         upcoming: "border-border text-muted-foreground",
         info: "border-border text-muted-foreground",
-      } satisfies Record<CardAvailabilityState["kind"], string>,
+      } satisfies Record<MediaCardAvailabilityKind, string>,
     },
   },
 );
@@ -30,14 +33,14 @@ const LABEL_BY_KIND = {
   requested: m.home_card_requested,
   upcoming: m.home_card_upcoming,
   info: () => null,
-} satisfies Record<Exclude<CardAvailabilityState["kind"], "server">, () => string | null>;
+} satisfies Record<Exclude<MediaCardAvailabilityKind, "server">, () => string | null>;
 
-function serverLabel(state: CardAvailabilityState): string | null {
+function serverLabel(state: MediaCardAvailabilityState): string | null {
   if (state.serverPicker) return m.home_card_servers_count({ n: String(state.serverCount) });
   return state.serverLabel ?? m.home_card_available();
 }
 
-function labelFor(state: CardAvailabilityState): string | null {
+function labelFor(state: MediaCardAvailabilityState): string | null {
   if (state.kind === "server") return serverLabel(state);
   return LABEL_BY_KIND[state.kind]();
 }
@@ -49,12 +52,21 @@ function AvailabilityGlyph({ kind }: { kind: AvailabilityPillKind }) {
   return null;
 }
 
-export function AvailabilityPill({ state, className }: Props) {
+/**
+ * Availability pill rendered on top of card art. Caller derives the state via
+ * `deriveMediaCardAvailability`. The pill shows nothing for the `info` kind
+ * (no chip needed) so callers do not need to gate the render themselves.
+ */
+export function MediaCardAvailability({ state, className }: Props) {
   const label = labelFor(state);
   if (label === null) return null;
 
   return (
-    <span className={availabilityPillVariants({ kind: state.kind, className })}>
+    <span
+      data-slot="media-card-availability"
+      data-kind={state.kind}
+      className={availabilityPillVariants({ kind: state.kind, className })}
+    >
       <AvailabilityGlyph kind={state.kind} />
       {label}
       {state.serverPicker ? <ChevronDown aria-hidden="true" className="size-2.5" /> : null}

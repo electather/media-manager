@@ -49,7 +49,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
           </div>
         </div>
 
-        <aside className="self-stretch rounded-2xl border border-border bg-card p-4">
+        <aside className="rounded-2xl border border-border bg-card p-4">
           <div className="mb-3 pl-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
             {m.watchlist_tonight_alternates_kicker()}
           </div>

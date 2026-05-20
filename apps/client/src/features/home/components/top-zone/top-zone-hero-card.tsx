@@ -1,10 +1,9 @@
 import type { RowKind } from "@ent-mcp/shared/home";
 import { MediaMetaRow } from "@/shared/components/media-meta-row";
 import { cn } from "@/shared/lib/utils";
-import { deriveCardState } from "../../lib/card-state";
+import { MediaCardAvailability, deriveMediaCardAvailability } from "@/shared/components/media-card";
 import { MATCH_REASON_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem } from "../../lib/types";
-import { AvailabilityPill } from "../availability-pill";
 import { sourceLabel } from "./source-label";
 import { TopZoneHeroActions } from "./top-zone-hero-actions";
 
@@ -84,7 +83,7 @@ function HeroSourceLabel({ value }: { value: string }) {
 }
 
 export function TopZoneHeroCard({ hero, source, percent, onPlay, onMoreInfo, onDismiss }: Props) {
-  const availability = deriveCardState(hero);
+  const availability = deriveMediaCardAvailability(hero);
   const reason = matchReasonFor(hero);
   // For movies the clear logo is the stylized title artwork, so showing a
   // separate heading underneath duplicates the same words. Keep the heading
@@ -95,7 +94,7 @@ export function TopZoneHeroCard({ hero, source, percent, onPlay, onMoreInfo, onD
 
   return (
     <>
-      <AvailabilityPill
+      <MediaCardAvailability
         state={availability}
         className="pointer-events-none absolute inset-e-4 top-4 z-4 max-w-[calc(100%-2rem)] overflow-hidden text-ellipsis whitespace-nowrap sm:inset-e-6 sm:top-6"
       />
