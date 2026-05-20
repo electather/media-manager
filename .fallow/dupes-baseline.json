@@ -23,7 +23,7 @@
     "apps/client/src/features/home/lib/types.ts:12-30|apps/client/src/shared/lib/watchlist/types.ts:8-41",
     "apps/client/src/features/settings-connections/hooks/use-delete-connection.ts:6-11|apps/client/src/features/settings-security/hooks/use-sessions.ts:27-32",
     "apps/client/src/features/settings-notifications/hooks/use-delete-channel.ts:11-14|apps/client/src/features/settings-notifications/hooks/use-rename-channel.ts:15-20",
-    "apps/client/src/shared/hooks/watchlist/use-toggle-watchlist.ts:29-36|apps/server/src/watchlist/enrich.ts:213-222",
+    "apps/client/src/features/watchlist/hooks/use-toggle-watchlist.ts:29-36|apps/server/src/watchlist/enrich.ts:213-222",
     "apps/client/src/shared/lib/themes.ts:21-160|apps/client/src/shared/lib/themes.ts:531-670",
     "apps/client/src/shared/lib/themes.ts:31-150|apps/client/src/shared/lib/themes.ts:351-470|apps/client/src/shared/lib/themes.ts:541-660",
     "apps/client/src/shared/lib/themes.ts:311-440|apps/client/src/shared/lib/themes.ts:81-210",

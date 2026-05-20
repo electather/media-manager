@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
-import { useAddToWatchlist } from "@/shared/hooks/watchlist/use-add-to-watchlist";
+import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
 import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 

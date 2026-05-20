@@ -4,9 +4,9 @@ import * as m from "@/paraglide/messages";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { WatchlistUserSource, WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { Button } from "@/shared/ui/button";
-import { useIsInWatchlist } from "@/shared/hooks/watchlist/use-is-in-watchlist";
-import { useAddToWatchlist } from "@/shared/hooks/watchlist/use-add-to-watchlist";
-import { useRemoveFromWatchlist } from "@/shared/hooks/watchlist/use-remove-from-watchlist";
+import { useIsInWatchlist } from "../hooks/use-is-in-watchlist";
+import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
+import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
 
 interface WatchlistToggleProps {
   item: CompactMediaItem;

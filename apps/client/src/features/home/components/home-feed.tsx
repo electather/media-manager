@@ -4,7 +4,7 @@ import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
-import { useToggleWatchlist, useWatchlistIdSet } from "@/shared/hooks/watchlist";
+import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
 import { ROW_ASPECT } from "../lib/home-feed-config";

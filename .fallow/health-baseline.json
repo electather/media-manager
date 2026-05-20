@@ -197,6 +197,16 @@
         "count": 1
       }
     },
+    "apps/client/src/features/watchlist/hooks/use-add-to-watchlist.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/client/src/features/watchlist/hooks/use-toggle-watchlist.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
     "apps/client/src/features/watchlist/lib/derive-moods.ts": {
       "crap_moderate": {
         "count": 1
@@ -214,16 +224,6 @@
     },
     "apps/client/src/shared/components/media-card/media-card-link.tsx": {
       "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/client/src/shared/hooks/watchlist/use-add-to-watchlist.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
-    "apps/client/src/shared/hooks/watchlist/use-toggle-watchlist.ts": {
-      "crap_high": {
         "count": 1
       }
     },

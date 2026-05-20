@@ -17,7 +17,7 @@ import {
 } from "@/shared/components/media-card";
 import { buildMediaHref } from "@/shared/lib/media-id";
 import type { WatchlistItem } from "../lib/types";
-import { useToggleWatchlist } from "@/shared/hooks/watchlist/use-toggle-watchlist";
+import { useToggleWatchlist } from "../hooks/use-toggle-watchlist";
 
 interface WatchlistCardProps {
   item: WatchlistItem;
