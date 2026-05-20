@@ -63,6 +63,7 @@ export const HOST_ERROR_CODES = {
   // Media dispatcher.
   "media.no_connection": { severity: "info" },
   "media.primary_unavailable": { severity: "warning" },
+  "media.providers_failed": { severity: "warning" },
 
   // Artwork capability and RPC.
   "artwork.bad_input": { severity: "info" },

@@ -7,6 +7,7 @@ import { zValidator } from "../validator";
 import { z } from "zod";
 import type { ErrorRecord } from "@ent-mcp/shared/diagnostics";
 import type { DiagnosticSink } from "../types";
+import { AllPluginsFailedError } from "../../media/errors";
 
 class CollectingSink implements DiagnosticSink {
   records: ErrorRecord[] = [];
@@ -33,6 +34,12 @@ function buildApp() {
   });
   app.get("/boom-plain", () => {
     throw new Error("unexpected");
+  });
+  app.get("/all-providers-failed", () => {
+    throw new AllPluginsFailedError("watchlist@v1", [
+      { pluginId: "trakt", code: "plugin.rate_limited", devMessage: "429" },
+      { pluginId: "jellyfin", code: "plugin.upstream_error", devMessage: "ECONNRESET" },
+    ]);
   });
   app.post("/validate", zValidator("json", z.object({ name: z.string() })), (c) =>
     c.json({ ok: true, received: c.req.valid("json") }),
@@ -85,6 +92,29 @@ describe("errorHandler", () => {
     await flushCaptures();
     expect(collector.records).toHaveLength(1);
     expect(collector.records[0]!.code).toBe("http.internal_error");
+  });
+
+  it("maps AllPluginsFailedError to 503 with per-provider errors in details", async () => {
+    const app = buildApp();
+    const res = await app.request("/all-providers-failed");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as {
+      code: string;
+      devMessage: string;
+      details?: { errors: Array<{ pluginId: string; code: string; devMessage?: string }> };
+      requestId: string;
+    };
+    expect(body.code).toBe("media.providers_failed");
+    expect(body.devMessage).toContain("watchlist@v1");
+    expect(body.details?.errors).toEqual([
+      { pluginId: "trakt", code: "plugin.rate_limited", devMessage: "429" },
+      { pluginId: "jellyfin", code: "plugin.upstream_error", devMessage: "ECONNRESET" },
+    ]);
+    await flushCaptures();
+    // 5xx upstream failure is captured so admins still see provider outages.
+    expect(collector.records).toHaveLength(1);
+    expect(collector.records[0]!.code).toBe("media.providers_failed");
+    expect(collector.records[0]!.httpStatus).toBe(503);
   });
 
   it("maps unknown throws to 500 and captures them", async () => {
