@@ -20,6 +20,27 @@ function parseTokenBody(body: TokenBody): TraktCreds {
   };
 }
 
+// 1 hour upper bound for Retry-After hints; matches discord/ntfy/telegram.
+const MAX_RETRY_AFTER_MS = 3_600_000;
+// Default backoff when Trakt returns 429 with no Retry-After header.
+const DEFAULT_RATE_LIMIT_RETRY_MS = 5 * 60 * 1000;
+
+function parseRetryAfterMs(res: Response): number | undefined {
+  const raw = res.headers.get("retry-after");
+  if (!raw) return undefined;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(Math.round(seconds * 1000), MAX_RETRY_AFTER_MS);
+  }
+  const dateMs = Date.parse(raw);
+  if (!Number.isNaN(dateMs)) {
+    const delta = dateMs - Date.now();
+    if (delta <= 0) return 0;
+    return Math.min(delta, MAX_RETRY_AFTER_MS);
+  }
+  return undefined;
+}
+
 // Shared token refresh HTTP call used by refreshAuth and the refreshTokens job.
 async function doTokenRefresh(
   fetchFn: (url: string, init?: RequestInit) => Promise<Response>,
@@ -37,6 +58,16 @@ async function doTokenRefresh(
       redirect_uri: "urn:ietf:wg:oauth:2.0:oob",
     }),
   });
+  if (res.status === 429) {
+    // Trakt rate-limits `/oauth/token` independently of refresh-token validity;
+    // surfacing this as `plugin.token_expired` would push the user through
+    // reconnect for no reason, so flag it as a retryable rate limit and let
+    // the runner honour Retry-After.
+    throw pluginError("plugin.rate_limited", `Trakt refresh 429`, {
+      retryable: true,
+      retryAfterMs: parseRetryAfterMs(res) ?? DEFAULT_RATE_LIMIT_RETRY_MS,
+    });
+  }
   if (!res.ok) {
     // Distinguish bad/expired refresh tokens (4xx) from transient upstream
     // failures (5xx) so a flaky Trakt does not force users back through auth.

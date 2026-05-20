@@ -6,9 +6,12 @@ import { encryptJson, decryptJson } from "../crypto/helpers";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
-import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
+import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
+
+// Default backoff for `plugin.rate_limited` errors that lack a retryAfterMs hint.
+const DEFAULT_JOB_RATE_LIMIT_RETRY_SEC = 5 * 60;
 
 interface DeclaredPluginJob {
   pluginId: string;
@@ -79,6 +82,7 @@ interface ConnectionRow {
   userConfig: string | null;
   encryptedCredentials: string | null;
   credentialsIv: string | null;
+  retryAfter: number | null;
 }
 
 function registerPerConnectionJob(job: DeclaredPluginJob): void {
@@ -89,7 +93,8 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     capture: { source: "plugin", pluginId: job.pluginId },
     rowSource: async () => {
       const db = getDb();
-      return db
+      const nowSec = Math.floor(Date.now() / 1000);
+      const rows = await db
         .select({
           id: serviceConnections.id,
           userId: serviceConnections.userId,
@@ -97,10 +102,16 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
           userConfig: serviceConnections.userConfig,
           encryptedCredentials: serviceConnections.encryptedCredentials,
           credentialsIv: serviceConnections.credentialsIv,
+          retryAfter: serviceConnections.retryAfter,
         })
         .from(serviceConnections)
         .where(eq(serviceConnections.pluginId, job.pluginId))
         .all();
+      // Skip rows still inside an upstream-imposed cooldown window. `retryAfter`
+      // is epoch-seconds, set by `invokePerConnectionHandler` below whenever a
+      // job handler throws `plugin.rate_limited`. Without this, a per-connection
+      // refresh job storms the upstream every tick after the first 429.
+      return rows.filter((row) => row.retryAfter === null || row.retryAfter <= nowSec);
     },
     // fallow-ignore-next-line complexity
     handler: async (_ctx, row) => {
@@ -144,6 +155,27 @@ async function invokePerConnectionHandler(args: {
         .where(eq(serviceConnections.id, row.id));
     }
   } catch (err) {
+    if (isPluginError(err) && err.code === "plugin.rate_limited") {
+      // Upstream told us to back off (e.g. Trakt OAuth 429). The connection is
+      // healthy — only the next refresh attempt needs to wait. Park `retryAfter`
+      // so the rowSource filter skips this connection until the window passes,
+      // and leave `status` alone so the UI does not flag a non-existent error.
+      const retryAfterMs = typeof err.retryAfterMs === "number" ? err.retryAfterMs : null;
+      const retryAfterSec =
+        retryAfterMs !== null && retryAfterMs >= 0
+          ? Math.ceil(retryAfterMs / 1000)
+          : DEFAULT_JOB_RATE_LIMIT_RETRY_SEC;
+      const nowSec = Math.floor(Date.now() / 1000);
+      await db
+        .update(serviceConnections)
+        .set({
+          lastExhaustedAt: nowSec,
+          retryAfter: nowSec + retryAfterSec,
+          updatedAt: Date.now(),
+        })
+        .where(eq(serviceConnections.id, row.id));
+      return;
+    }
     await db
       .update(serviceConnections)
       .set({
