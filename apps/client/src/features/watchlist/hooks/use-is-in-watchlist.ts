@@ -21,6 +21,7 @@ const LIST_KEY = watchlistKeys.list();
  * the boolean is derived once in the render body off whatever pages came
  * back this tick.
  */
+// fallow-ignore-next-line complexity
 export function useIsInWatchlist(id: string): boolean {
   const qc = useQueryClient();
   const pages = useSyncExternalStore(
