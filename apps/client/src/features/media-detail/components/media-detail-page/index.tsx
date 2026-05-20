@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   REQUEST_HISTORY_STALE_MS,
@@ -6,6 +6,7 @@ import {
   requestFlowKeys,
   requestsApi,
 } from "@/features/request-flow";
+import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
 import { useActiveSection } from "../../hooks/use-active-section";
 import { useMediaItem } from "../../lib/find-item";
 import { DetailFactsSidebar } from "../detail-facts-sidebar";
@@ -57,21 +58,13 @@ export function MediaDetailPage({ compositeId }: Props) {
     });
   }, [mediaType, queryClient]);
 
-  const [watchlist, setWatchlist] = useState<ReadonlySet<string>>(() => new Set());
+  const watchlist = useWatchlistIdSet();
+  const toggleWatchlistId = useToggleWatchlist();
   const inWatchlist = item ? watchlist.has(item.id) : false;
-
-  const toggleWatchlistId = useCallback((id: string) => {
-    setWatchlist((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   const toggleWatchlist = useCallback(() => {
     if (!item) return;
-    toggleWatchlistId(item.id);
+    toggleWatchlistId(item);
   }, [item, toggleWatchlistId]);
 
   if (!item) {

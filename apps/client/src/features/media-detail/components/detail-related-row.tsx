@@ -6,7 +6,7 @@ import { buildRelatedRow } from "../lib/related-items";
 type Props = {
   item: HomeMediaItem;
   watchlist: ReadonlySet<string>;
-  onWatchlistToggle: (id: string) => void;
+  onWatchlistToggle: (item: HomeMediaItem) => void;
   onCardClick: (id: string) => void;
 };
 

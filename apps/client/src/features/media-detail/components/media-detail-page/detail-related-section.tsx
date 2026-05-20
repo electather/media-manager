@@ -9,7 +9,7 @@ import { DetailSection } from "../detail-section";
 type Props = {
   item: HomeMediaItem;
   watchlist: ReadonlySet<string>;
-  onWatchlistToggle: (id: string) => void;
+  onWatchlistToggle: (item: HomeMediaItem) => void;
 };
 
 export function DetailRelatedSection({ item, watchlist, onWatchlistToggle }: Props) {

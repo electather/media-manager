@@ -1,5 +1,5 @@
 import * as m from "@/paraglide/messages";
-import { Card } from "@/features/home/components/card";
+import { WatchlistCard } from "./watchlist-card";
 import {
   SectionHead,
   SectionHeadCount,
@@ -53,7 +53,13 @@ export function WatchlistFilteredGrid({ items, filter, sort, onPeek }: Watchlist
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
       >
         {items.map((it) => (
-          <Card key={it.id} item={it} rowKind="yourWatchlist" forceAspect="2/3" onClick={onPeek} />
+          <WatchlistCard
+            key={it.id}
+            item={it}
+            rowKind="yourWatchlist"
+            forceAspect="2/3"
+            onPeek={onPeek}
+          />
         ))}
       </div>
     </section>

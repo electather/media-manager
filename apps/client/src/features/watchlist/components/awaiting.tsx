@@ -1,6 +1,6 @@
 import { Server } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import { Card } from "@/features/home/components/card";
+import { WatchlistCard } from "./watchlist-card";
 import {
   SectionHead,
   SectionHeadActions,
@@ -47,7 +47,7 @@ export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
       >
         {items.map((it) => (
           <div key={it.id} className="opacity-90 transition-opacity hover:opacity-100">
-            <Card item={it} rowKind="yourWatchlist" forceAspect="2/3" onClick={onPeek} />
+            <WatchlistCard item={it} rowKind="yourWatchlist" forceAspect="2/3" onPeek={onPeek} />
           </div>
         ))}
       </div>

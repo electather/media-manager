@@ -1,9 +1,10 @@
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
+import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
 import { ROW_ASPECT } from "../lib/home-feed-config";
@@ -37,7 +38,8 @@ function HomeFeedReady() {
   const { data: layout } = useHomeFeed();
   const { peek } = useSearch({ strict: false }) as PeekSearch;
   const navigate = useNavigate();
-  const [watchlist, setWatchlist] = useState<Set<string>>(() => new Set());
+  const watchlist = useWatchlistIdSet();
+  const toggleWatchlist = useToggleWatchlist();
 
   const peekParts = peek ? splitCompositeId(peek) : null;
   const detailsQuery = useHomeDetails(
@@ -70,20 +72,11 @@ function HomeFeedReady() {
     void navigate({ to: ".", search: {}, replace: true, resetScroll: false });
   }, [navigate]);
 
-  const toggleWatchlistId = useCallback((id: string) => {
-    setWatchlist((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
   const inWatchlist = peek ? watchlist.has(peek) : false;
   const handleToggleWatchlistFromModal = useCallback(() => {
-    if (!peek) return;
-    toggleWatchlistId(peek);
-  }, [peek, toggleWatchlistId]);
+    if (!modalItem) return;
+    toggleWatchlist(modalItem);
+  }, [modalItem, toggleWatchlist]);
 
   const heroSlides: HeroSlideUI[] = layout.hero?.slides?.map(toHeroSlideUI) ?? [];
   const rows: RowData[] = layout.rows.map(toRowData);
@@ -97,7 +90,7 @@ function HomeFeedReady() {
             key={row.id}
             row={row}
             watchlist={watchlist}
-            onWatchlistToggle={toggleWatchlistId}
+            onWatchlistToggle={toggleWatchlist}
             onCardClick={handlePeek}
           />
         ))}

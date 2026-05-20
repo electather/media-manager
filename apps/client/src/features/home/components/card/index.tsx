@@ -16,8 +16,8 @@ interface CardProps {
   rowKind: RowKind;
   forceAspect?: "16/9" | "2/3";
   isInWatchlist?: boolean;
-  /** Called with the item id; receivers should keep this reference stable across renders. */
-  onWatchlistToggle?: (id: string) => void;
+  /** Called with the full item so the receiver can hydrate optimistic seeds. */
+  onWatchlistToggle?: (item: HomeMediaItem) => void;
   /** Called with the item id; receivers should keep this reference stable across renders. */
   onClick?: (id: string) => void;
 }
@@ -56,7 +56,7 @@ export const Card = memo(function Card({
         <CardQuickAction
           item={item}
           isInWatchlist={isInWatchlist}
-          onToggle={onWatchlistToggle ? () => onWatchlistToggle(item.id) : undefined}
+          onToggle={onWatchlistToggle ? () => onWatchlistToggle(item) : undefined}
         />
       </div>
       <CardMeta item={item} />

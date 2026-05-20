@@ -4,5 +4,7 @@ export { useAddToWatchlist } from "./hooks/use-add-to-watchlist";
 export { useRemoveFromWatchlist } from "./hooks/use-remove-from-watchlist";
 export { useIsInWatchlist } from "./hooks/use-is-in-watchlist";
 export { useWatchlistItems } from "./hooks/use-watchlist-items";
+export { useWatchlistIdSet } from "./hooks/use-watchlist-id-set";
+export { useToggleWatchlist } from "./hooks/use-toggle-watchlist";
 export { watchlistKeys } from "./lib/query-keys";
 export { WatchlistApiError } from "./lib/types";

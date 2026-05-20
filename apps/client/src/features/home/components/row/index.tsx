@@ -29,7 +29,7 @@ const PREFETCH_OFFSET = 4;
 interface RowProps {
   row: RowData;
   watchlist?: ReadonlySet<string>;
-  onWatchlistToggle?: (id: string) => void;
+  onWatchlistToggle?: (item: HomeMediaItem) => void;
   onCardClick?: (id: string) => void;
 }
 
