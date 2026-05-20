@@ -103,7 +103,13 @@ async function enrichOne(
       return [] as Awaited<ReturnType<MediaService["getMatchingServers"]>>;
     });
 
-  const status = (statuses[composite] ?? "unknown") as CompactMediaItem["status"];
+  // `mediaRequest@v1.getStatusBatch` only knows titles that flowed through
+  // the request pipeline (Seerr). A title added directly to Jellyfin / Plex
+  // surfaces here as `unknown` even though it is playable, so derive
+  // `status` off the library probe first and fall back to the request map.
+  const rawStatus = (statuses[composite] ?? "unknown") as CompactMediaItem["status"];
+  const status: CompactMediaItem["status"] = servers.length > 0 ? "available" : rawStatus;
+
   const base = meta ? compactFromMetadata(meta) : minimalCompact(row.tmdbId, row.mediaType);
   const withArt = mergeArtwork(base, meta, artwork[composite]);
 
@@ -112,14 +118,12 @@ async function enrichOne(
     addedAt: row.addedAt,
     addedSource: row.source,
   };
-  if (status) item.status = status;
-  if (servers.length > 0) {
-    item.availability = {
-      hasAnyServerCopy: true,
-      requestEligible: true,
-      servers: servers.map((s) => ({ id: s.id, label: s.label })),
-    };
-  }
+  item.status = status;
+  item.availability = {
+    hasAnyServerCopy: servers.length > 0,
+    requestEligible: servers.length === 0 && status !== "available",
+    servers: servers.map((s) => ({ id: s.id, label: s.label })),
+  };
   return item;
 }
 
