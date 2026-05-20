@@ -88,10 +88,13 @@ describe("manual rebuild job handler", () => {
     triggerableHandler = manualRebuildCall![0].handler;
   });
 
-  it("throws HttpError(400) if userId is missing", async () => {
-    // Regression for #431: handler must surface a 400 HttpError so the global
-    // middleware returns a client-side validation failure rather than a 500.
-    await expect(triggerableHandler(mockCtx, {})).rejects.toMatchObject({
+  it.each([
+    { label: "empty object", input: {} },
+    { label: "null", input: null },
+    { label: "undefined", input: undefined },
+    { label: "empty userId string", input: { userId: "" } },
+  ])("throws HttpError(400) for falsy userId ($label)", async ({ input }) => {
+    await expect(triggerableHandler(mockCtx, input)).rejects.toMatchObject({
       name: "HttpError",
       status: 400,
       code: "preference.rebuild.userid_required",

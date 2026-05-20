@@ -33,6 +33,13 @@ jobs:
         with:
           cache: true
 
+      - name: Generate Paraglide messages
+        # setup-vp's install cache skips the apps/client prepare hook on cache
+        # hits, leaving src/paraglide/* stale and breaking `vp check` whenever
+        # message keys change. Run paraglide-js explicitly so generated output
+        # tracks apps/client/messages.
+        run: bun run --cwd apps/client prepare
+
       - name: Check code quality (lint, format, types)
         run: vp check
 
