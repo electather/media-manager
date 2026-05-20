@@ -105,6 +105,14 @@ describe("seerr manifest", () => {
   it("exposes mediaRequest as a user-scoped capability", () => {
     expect(seerrPlugin.manifest.capabilities.mediaRequest?.scope).toBe("user");
   });
+  // Seerr `/request` pagination can legitimately exceed the 60s default;
+  // without an override the per-row scheduler aborts the job mid-page. The
+  // 120s budget is the smallest value that absorbs the slowest captured
+  // pages while still keeping the job well below the 30-minute run cap.
+  it("widens requestStatusSync's per-row timeout to 120s", () => {
+    const job = seerrPlugin.manifest.jobs?.find((j) => j.id === "requestStatusSync");
+    expect(job?.perRowTimeoutSec).toBe(120);
+  });
 });
 
 describe("plex manifest", () => {
