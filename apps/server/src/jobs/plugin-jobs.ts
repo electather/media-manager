@@ -1,3 +1,4 @@
+import { consola } from "consola";
 import { eq } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
@@ -6,7 +7,10 @@ import { encryptJson, decryptJson } from "../crypto/helpers";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
-import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
+// fallow-ignore-next-line boundary-violation
+import { MEDIA_EVENTS, connectionAuthExpiredPayload } from "../media";
+import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
+import { emit } from "./events";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 
@@ -114,8 +118,9 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
   });
 }
 
+// Exported for unit testing the connection-status routing in the catch path.
 // fallow-ignore-next-line complexity
-async function invokePerConnectionHandler(args: {
+export async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;
   handler: PluginJobHandler;
@@ -144,14 +149,32 @@ async function invokePerConnectionHandler(args: {
         .where(eq(serviceConnections.id, row.id));
     }
   } catch (err) {
+    // A `plugin.token_expired` thrown from a refresh handler means the upstream
+    // revoked the refresh token (e.g. Trakt 401 on /oauth/token). Writing the
+    // generic "error" status loses the re-auth signal — the connection card
+    // would show a transient-error badge instead of the "Reconnect" CTA the
+    // capability-call path produces via `markConnectionStatus("expired")`.
+    const expired = isPluginError(err) && err.code === "plugin.token_expired";
+    const message = err instanceof Error ? err.message : String(err);
     await db
       .update(serviceConnections)
       .set({
-        status: "error",
-        errorMessage: err instanceof Error ? err.message : String(err),
+        status: expired ? "expired" : "error",
+        errorMessage: message,
         updatedAt: Date.now(),
       })
       .where(eq(serviceConnections.id, row.id));
+    if (expired) {
+      try {
+        await emit(MEDIA_EVENTS.CONNECTION_AUTH_EXPIRED, connectionAuthExpiredPayload, {
+          connectionId: row.id,
+          pluginId: job.pluginId,
+          userId: row.userId,
+        });
+      } catch (emitErr) {
+        consola.error("[plugin-jobs] auth-expired emit failed:", emitErr);
+      }
+    }
     throw err;
   }
 }
