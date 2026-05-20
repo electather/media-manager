@@ -275,6 +275,22 @@ describe("MediaService.getRequests", () => {
     const svc = new MediaService("u1");
     await expect(svc.getRequests()).rejects.toThrow(/dispatch boom/);
   });
+
+  it("returns [] when no mediaRequest provider is connected", async () => {
+    dispatchSingleMock.mockRejectedValueOnce(
+      new PluginCallError("media.no_connection", "no connection", "seerr", null),
+    );
+    const svc = new MediaService("u1");
+    expect(await svc.getRequests()).toEqual([]);
+  });
+
+  it("propagates other PluginCallError codes", async () => {
+    dispatchSingleMock.mockRejectedValueOnce(
+      new PluginCallError("plugin.upstream_error", "boom", "seerr", "conn-1"),
+    );
+    const svc = new MediaService("u1");
+    await expect(svc.getRequests()).rejects.toThrow(/boom/);
+  });
 });
 
 describe("MediaService.cancelRequest", () => {
@@ -330,6 +346,17 @@ describe("MediaService.cancelRequest", () => {
     await expect(svc.cancelRequest("x")).rejects.toMatchObject({
       status: 502,
       code: "request.provider_failed",
+    });
+  });
+
+  it("maps media.no_connection to 404 request.no_provider", async () => {
+    dispatchSingleMock.mockRejectedValueOnce(
+      new PluginCallError("media.no_connection", "no connection", "seerr", null),
+    );
+    const svc = new MediaService("u1");
+    await expect(svc.cancelRequest("x")).rejects.toMatchObject({
+      status: 404,
+      code: "request.no_provider",
     });
   });
 });

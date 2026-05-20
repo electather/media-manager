@@ -123,6 +123,7 @@ interface PluginManifest {
     schedule: string; // cron expression
     handler: string; // exported handler name
     perConnection?: boolean; // if true, host iterates all connections
+    perRowTimeoutSec?: number; // perConnection only; overrides 60s default, capped at 1800s
   }>;
 }
 ```

@@ -86,6 +86,13 @@ describe("requests API", () => {
     expect(await res.json()).toEqual({ items: [row] });
   });
 
+  it("GET / returns 200 with empty items when no mediaRequest provider is connected", async () => {
+    getRequests.mockResolvedValueOnce([]);
+    const res = await buildApp().request("/requests");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ items: [] });
+  });
+
   it("GET / passes failed-status rows through unchanged (no server-side filter)", async () => {
     const row = {
       id: "r-fail",
@@ -256,6 +263,16 @@ describe("requests API", () => {
     expect(res.status).toBe(502);
     const body = (await res.json()) as { code?: string };
     expect(body.code).toBe("request.provider_failed");
+  });
+
+  it("DELETE /:requestId surfaces 404 request.no_provider when no provider is connected", async () => {
+    cancelRequest.mockRejectedValueOnce(
+      new HttpError(404, "request.no_provider", "no mediaRequest provider configured"),
+    );
+    const res = await buildApp().request("/requests/9", { method: "DELETE" });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { code?: string };
+    expect(body.code).toBe("request.no_provider");
   });
 
   it("DELETE /:requestId requires session", async () => {
