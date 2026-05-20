@@ -87,6 +87,16 @@ The directive requires:
 - A paired plan task ID in the comment (so the crossing has an owner and a destination).
 - The import points at the OWNER's namespace, not the root `db/schema` barrel — the import site stays grep-able and the boundary check stays meaningful.
 
+### Test helpers
+
+Files under `__tests__/` that seed fixtures (e.g. `<module>/__tests__/helpers.ts`) may import another module's schema directly without a TASK reference — fixture setup is not a production crossing and has no migration destination. The directive comment should name the table being seeded so the boundary skip is auditable:
+
+```ts
+// Test helper seeds auth tables directly to set up integration fixtures.
+// fallow-ignore-next-line boundary-violation
+import { user } from "../../db/schema/auth";
+```
+
 ## See also
 
 - [service-and-repo.md](service-and-repo.md) — repo.ts structure

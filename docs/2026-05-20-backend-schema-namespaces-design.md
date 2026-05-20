@@ -46,10 +46,10 @@ Eight new zones, listed BEFORE `server-infra` in the zone array so first-match-w
 { "name": "server-schema-plugin-runtime",  "patterns": ["apps/server/src/db/schema/plugin-runtime/**"] },
 { "name": "server-schema-preferences",     "patterns": ["apps/server/src/db/schema/preferences/**"] },
 { "name": "server-schema-watchlist",       "patterns": ["apps/server/src/db/schema/watchlist/**"] },
-{ "name": "server-schema-infra",           "patterns": ["apps/server/src/db/schema/infra/**", "apps/server/src/db/schema/*.ts"] }
+{ "name": "server-schema-infra",           "patterns": ["apps/server/src/db/schema/infra/**", "apps/server/src/db/schema/index.ts"] }
 ```
 
-`server-schema-infra` also captures the root `index.ts` so the global barrel stays accessible to consumers (drizzle client, migrations runner, tests).
+`server-schema-infra` also captures the root `index.ts` so the global barrel stays accessible to consumers (drizzle client, migrations runner, tests). The pattern is the precise file path, not `*.ts` — nothing else is expected at the schema root, and a future helper file landing there should pick a module subdirectory or extend `infra/` deliberately.
 
 ### Allow rules
 
@@ -59,7 +59,11 @@ Each module's `-internal` zone gets its own schema sub-zone in its allow list. S
 - `server-mod-catalog-internal` → `server-schema-catalog`, `server-schema-auth` (FK to user)
 - … etc.
 
+`server-infra` is the one zone that allows every `server-schema-*` — by design, and load-bearing. `db/client.ts` constructs the drizzle client with the entire schema, `db/queries.ts` aggregates cross-module reads, `db/seed.ts` and `db/migrate.ts` touch every table, and the jobs runner reads schemas from every module to log run history. Tightening this further would require splitting the drizzle client builder into per-module pieces — out of scope for Phase 4. The trade-off: a new utility file dropped into `apps/server/src/db/` (or any other server-infra path) implicitly inherits cross-module table access. Reviewers of additions to server-infra paths should treat fresh `db/schema/<module>` imports there as a smell unless the file is one of the four global-schema consumers above.
+
 Cross-module schema reads (the seven entries currently in `tools/check-table-ownership.ts`'s `ALLOWLIST`) DO NOT receive new cross-schema allows. Those crossings already route through the owner module's *barrel* in their `-internal` allow list (e.g. `server-mod-media-internal` already allows `server-mod-plugin-runtime`); the table import will need to be replaced with a barrel call as part of the deferred TASK-045/046/047 work. Until then each import is marked with a per-line `// fallow-ignore-next-line boundary-violation` directive carrying the TASK reference. The directive is a one-way ratchet — paired plan task required, mirroring the existing `ALLOWLIST` rule — but it is now *visible at the import site* instead of buried in a separate script.
+
+Test helpers under `__tests__/` that seed fixtures are exempt from the TASK-reference requirement — fixture setup is not a production crossing and has no migration destination. The directive comment must still name the table being seeded so the skip is auditable. `apps/server/src/catalog/__tests__/helpers.ts` is the canonical example.
 
 ## Drizzle config
 
