@@ -23,7 +23,9 @@ export function TopNavLinks() {
       const left = activeRect.left - navRect.left;
       const width = activeRect.width;
       setPill((p) =>
-        p.ready && p.left === left && p.width === width ? p : { left, width, ready: true },
+        p.ready && Math.round(p.left) === Math.round(left) && Math.round(p.width) === Math.round(width)
+          ? p
+          : { left, width, ready: true },
       );
     };
     measure();
