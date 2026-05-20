@@ -17,12 +17,9 @@ const headerClassName = cn(
 
 const navFrameClassName = cn(
   "relative z-10 w-full max-w-350 rounded-none",
-  "ring-1 ring-inset ring-transparent",
+  "border border-transparent",
   topNavMotionClassName,
-  "data-[scrolled=true]:rounded-lg data-[scrolled=true]:bg-card/45 data-[scrolled=true]:p-1",
-  "data-[scrolled=true]:shadow-[0_1px_0_0_rgb(255_255_255/0.03),0_8px_24px_-12px_rgb(0_0_0/0.5)]",
-  "data-[scrolled=true]:ring-border/70",
-  "data-[scrolled=true]:backdrop-blur-[18px] data-[scrolled=true]:backdrop-saturate-[1.4]",
+  "data-[scrolled=true]:rounded-lg data-[scrolled=true]:frosted-glass data-[scrolled=true]:p-1",
 );
 
 const navSurfaceClassName = cn(

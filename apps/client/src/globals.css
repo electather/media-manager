@@ -365,3 +365,11 @@ html[lang="fa"] {
     }
   }
 }
+
+@utility frosted-glass {
+  background-color: color-mix(in oklch, var(--card) 55%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border) 60%, transparent);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--nav-frosted-shadow);
+}
