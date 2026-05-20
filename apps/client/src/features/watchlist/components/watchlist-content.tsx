@@ -69,10 +69,7 @@ export function WatchlistContent() {
 
   const navigate = useNavigate();
   const { peek: rawPeek } = useSearch({ strict: false }) as PeekSearch;
-  // Defer `peek` at the source so the modal item, open state, inWatchlist
-  // flag, and toggle handler all coalesce together when `?peek=` flips
-  // rapidly (browser back/forward or fast card clicks). Without this the
-  // deferred display item can desync from the latest action handlers.
+  // Defer so peek-derived values coalesce across the concurrent scheduler during rapid back/forward navigation.
   const peek = useDeferredValue(rawPeek);
 
   const [filter, setFilter] = useState<WatchlistFilter>("all");

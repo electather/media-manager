@@ -37,12 +37,7 @@ export function HomeFeed() {
 function HomeFeedReady() {
   const { data: layout } = useHomeFeed();
   const { peek: rawPeek } = useSearch({ strict: false }) as PeekSearch;
-  // `?peek=` toggles synchronously with router navigation, so back/forward
-  // or rapid card clicks can flip the URL faster than the modal portal's
-  // close animation completes. Deferring `peek` at the source coalesces
-  // every peek-derived value (modal item, open state, inWatchlist flag,
-  // and the toggle handler) so the modal's visible item and its action
-  // bindings stay in sync during the A→B transition window.
+  // Defer so peek-derived values coalesce across the concurrent scheduler during rapid back/forward navigation.
   const peek = useDeferredValue(rawPeek);
   const navigate = useNavigate();
   const watchlist = useWatchlistIdSet();
