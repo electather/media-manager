@@ -50,7 +50,7 @@ export class AllPluginsFailedError extends HttpError {
     }>,
   ) {
     super(503, "media.providers_failed", `every provider for ${capability} errored`, undefined, {
-      errors: errors as ReadonlyArray<unknown>,
+      errors,
     });
     this.name = "AllPluginsFailedError";
   }

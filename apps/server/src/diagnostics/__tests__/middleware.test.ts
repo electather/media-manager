@@ -112,9 +112,13 @@ describe("errorHandler", () => {
     ]);
     await flushCaptures();
     // 5xx upstream failure is captured so admins still see provider outages.
+    // errorHandler stamps severity="error" for every 5xx HttpError per
+    // §Cap.E, regardless of the registry default — pin it so any future
+    // re-routing of severity is caught by the test.
     expect(collector.records).toHaveLength(1);
     expect(collector.records[0]!.code).toBe("media.providers_failed");
     expect(collector.records[0]!.httpStatus).toBe(503);
+    expect(collector.records[0]!.severity).toBe("error");
   });
 
   it("maps unknown throws to 500 and captures them", async () => {
