@@ -7,6 +7,7 @@ import { encryptJson, decryptJson } from "../crypto/helpers";
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
+import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 
@@ -17,22 +18,29 @@ interface DeclaredPluginJob {
   schedule: string;
   handler: string;
   perConnection: boolean;
+  perRowTimeoutSec?: number;
 }
 
 function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
   const manifest = JSON.parse(row.manifest) as {
     name?: string;
-    jobs?: Array<{ id: string; schedule: string; handler: string; perConnection?: boolean }>;
+    jobs?: ManifestJobEntry[];
   };
   const pluginName = manifest.name ?? row.id;
-  return (manifest.jobs ?? []).map((job) => ({
-    pluginId: row.id,
-    pluginName,
-    id: job.id,
-    schedule: job.schedule,
-    handler: job.handler,
-    perConnection: job.perConnection === true,
-  }));
+  return (manifest.jobs ?? []).map((job) => {
+    const perConnection = job.perConnection === true;
+    return {
+      pluginId: row.id,
+      pluginName,
+      id: job.id,
+      schedule: job.schedule,
+      handler: job.handler,
+      perConnection,
+      // Only propagate the override on perConnection jobs — the global path
+      // ignores it and carrying it would mask a manifest-validation bug.
+      perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
+    };
+  });
 }
 
 /** Returns every declared job across all enabled plugins. */
@@ -87,6 +95,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     name: `${job.pluginName} — ${job.id} (per connection)`,
     schedule: job.schedule,
     capture: { source: "plugin", pluginId: job.pluginId },
+    perRowTimeoutSec: job.perRowTimeoutSec,
     rowSource: async () => {
       const db = getDb();
       return db
