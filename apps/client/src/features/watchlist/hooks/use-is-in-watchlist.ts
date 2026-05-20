@@ -5,6 +5,8 @@ import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 
 type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
 
+const LIST_KEY = watchlistKeys.list();
+
 /**
  * Reactive membership check against the LOADED pages of the default
  * (unfiltered) watchlist. With v2 keyset pagination this is best-effort:
@@ -13,23 +15,25 @@ type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
  * because the server's `addItem` is idempotent — a stray "add" on an item
  * the user already saved is a no-op rather than a duplicate.
  *
- * Uses `useSyncExternalStore` against the React Query cache so a write from
- * `useAddToWatchlist` / `useRemoveFromWatchlist` immediately re-renders
- * every subscriber.
+ * Subscribes to the React Query cache and returns the raw `pages` reference
+ * as the snapshot. React's `Object.is` bail-out then skips the per-row scan
+ * on cache events for keys we don't care about (notifications, home, etc.);
+ * the boolean is derived once in the render body off whatever pages came
+ * back this tick.
  */
 export function useIsInWatchlist(id: string): boolean {
   const qc = useQueryClient();
-  return useSyncExternalStore(
+  const pages = useSyncExternalStore(
     (notify) => {
       const unsub = qc.getQueryCache().subscribe(notify);
       return () => unsub();
     },
-    () => {
-      if (!id) return false;
-      const data = qc.getQueryData<WatchlistPages>(watchlistKeys.list());
-      if (!data) return false;
-      return data.pages.some((p) => p.items.some((i) => i.id === id));
-    },
-    () => false,
+    () => qc.getQueryData<WatchlistPages>(LIST_KEY),
+    () => undefined,
   );
+  if (!id || !pages) return false;
+  for (const page of pages.pages) {
+    for (const item of page.items) if (item.id === id) return true;
+  }
+  return false;
 }

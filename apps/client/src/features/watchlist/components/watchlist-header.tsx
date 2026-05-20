@@ -30,30 +30,21 @@ const SORTS: { id: WatchlistSort; labelFn: () => string }[] = [
 ];
 
 interface WatchlistHeaderProps {
-  /** Currently loaded items (one or more pages). Used for runtime + in-progress derivation. */
+  /** Currently loaded items (one or more pages). Used for runtime estimate only. */
   items: readonly WatchlistItem[];
   /** Authoritative server-side counts; survives pagination because it sweeps the active set. */
   counts: WatchlistCounts;
-  /** Best-effort `in-progress` count derived from loaded items only. */
-  inProgressCount: number;
   filter: WatchlistFilter;
   sort: WatchlistSort;
   onFilterChange: (next: WatchlistFilter) => void;
   onSortChange: (next: WatchlistSort) => void;
 }
 
-interface FilterCountInputs {
-  counts: WatchlistCounts;
-  /** Best-effort `in-progress` count derived from currently loaded items. */
-  inProgressLoaded: number;
-}
-
-function filterCount(id: WatchlistFilter, inputs: FilterCountInputs): number {
-  const { counts, inProgressLoaded } = inputs;
+function filterCount(id: WatchlistFilter, counts: WatchlistCounts): number {
   const map: Record<WatchlistFilter, number> = {
     all: counts.total,
     ready: counts.ready,
-    "in-progress": inProgressLoaded,
+    "in-progress": counts.inProgress,
     awaiting: counts.awaiting,
     upcoming: counts.upcoming,
   };
@@ -63,7 +54,6 @@ function filterCount(id: WatchlistFilter, inputs: FilterCountInputs): number {
 export function WatchlistHeader({
   items,
   counts,
-  inProgressCount,
   filter,
   sort,
   onFilterChange,
@@ -120,7 +110,7 @@ export function WatchlistHeader({
           aria-label={m.watchlist_filter_label()}
         >
           {FILTERS.map((f) => {
-            const count = filterCount(f.id, { counts, inProgressLoaded: inProgressCount });
+            const count = filterCount(f.id, counts);
             return (
               <RadioGroupItem
                 key={f.id}

@@ -6,6 +6,7 @@ import type { WatchlistListFilter } from "@ent-mcp/shared/watchlist";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";
+import { Button } from "@/shared/ui/button";
 import { bucketize, classifyStatus } from "../lib/classify";
 import { deriveMoods } from "../lib/derive-moods";
 import { useWatchlistItems } from "../hooks/use-watchlist-items";
@@ -188,7 +189,6 @@ export function WatchlistContent() {
       <WatchlistHeader
         items={items}
         counts={counts}
-        inProgressCount={buckets.inProgress.length}
         filter={filter}
         sort={sort}
         onFilterChange={setFilter}
@@ -213,14 +213,14 @@ export function WatchlistContent() {
         )}
         {hasNextPage ? (
           <div className="mt-8 flex justify-center">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => void fetchNextPage()}
               disabled={isFetchingNextPage}
-              className="rounded-md border border-border bg-muted px-5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
             >
               {isFetchingNextPage ? m.watchlist_loading_more() : m.watchlist_load_more()}
-            </button>
+            </Button>
           </div>
         ) : null}
       </div>

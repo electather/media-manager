@@ -31,6 +31,7 @@ describe("useWatchlistCounts", () => {
   it("suspends until the counts endpoint resolves and exposes the totals", async () => {
     fetchCountsMock.mockResolvedValueOnce({
       ready: 7,
+      inProgress: 0,
       awaiting: 3,
       upcoming: 2,
       total: 14,
@@ -38,6 +39,12 @@ describe("useWatchlistCounts", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useWatchlistCounts(), { wrapper: wrap(client) });
     await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(result.current.data).toEqual({ ready: 7, awaiting: 3, upcoming: 2, total: 14 });
+    expect(result.current.data).toEqual({
+      ready: 7,
+      inProgress: 0,
+      awaiting: 3,
+      upcoming: 2,
+      total: 14,
+    });
   });
 });

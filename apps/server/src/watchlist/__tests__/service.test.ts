@@ -315,9 +315,53 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
     const counts = await getCounts(ctx);
-    expect(counts).toEqual({ ready: 0, awaiting: 0, upcoming: 0, total: 0 });
+    expect(counts).toEqual({ ready: 0, inProgress: 0, awaiting: 0, upcoming: 0, total: 0 });
     expect(probeSpy).not.toHaveBeenCalled();
     expect(statusSpy).not.toHaveBeenCalled();
+  });
+
+  it("getItems with filter skips past empty windows server-side and surfaces only non-empty pages", async () => {
+    const ctx = makeCtx();
+    // Direct repo insert with explicit timestamps so addedAt ordering is
+    // deterministic — addItem's wall-clock Date.now() collapses to the same
+    // millisecond on a fast test run, and the ordering tiebreaker (id DESC)
+    // is the random cuid. We need 950 to be the OLDEST so it lands past the
+    // first empty window.
+    await repo.bulkInsertIgnoreConflict(
+      ctx.userId,
+      [{ tmdbId: "950", mediaType: "movie" }],
+      "manual",
+      false,
+      100,
+    );
+    await repo.bulkInsertIgnoreConflict(
+      ctx.userId,
+      [
+        { tmdbId: "951", mediaType: "movie" },
+        { tmdbId: "952", mediaType: "movie" },
+        { tmdbId: "953", mediaType: "movie" },
+        { tmdbId: "954", mediaType: "movie" },
+      ],
+      "manual",
+      false,
+      200,
+    );
+    __resetAvailabilityCache();
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:950": {
+        tmdbId: "950",
+        mediaType: "movie",
+        title: "Far Future",
+        year: new Date().getUTCFullYear() + 5,
+        genres: [],
+      },
+    });
+
+    // With limit=1 + 3x overshoot = fetchSize=3 per hop. First window (top 3 by
+    // addedAt DESC: 951–954 minus one) is empty for `filter=upcoming`; the
+    // handler advances the cursor and the second hop picks up 950.
+    const res = await getItems(ctx, { limit: 1, filter: "upcoming" });
+    expect(res.items.map((i) => i.tmdbId)).toEqual(["950"]);
   });
 
   it("availability cache is shared between a list + counts pair (one probe per row)", async () => {

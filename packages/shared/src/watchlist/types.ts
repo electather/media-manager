@@ -39,10 +39,14 @@ export interface WatchlistListQuery {
 /**
  * Cheap aggregate counts for the header pips. Powered by the `/counts`
  * endpoint so the client doesn't have to hold the full active set in memory
- * just to render `ready / awaiting / upcoming`.
+ * just to render the header chips. `inProgress` is a strict subset of
+ * `ready` — rows whose underlying media has an active watch position. The
+ * list-side `filter=ready` collapses `inProgress` into `ready`, but the
+ * dedicated count keeps the chip authoritative across paginated loads.
  */
 export interface WatchlistCounts {
   ready: number;
+  inProgress: number;
   awaiting: number;
   upcoming: number;
   total: number;

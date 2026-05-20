@@ -123,7 +123,7 @@ export async function enrich(
   const artwork = await hydrateArtwork(liveRows, metadata, ctx);
 
   const settled = await Promise.allSettled(
-    liveRows.map((row, i) => enrichOne(row, statuses, metadata, artwork, liveServers[i]!, ctx)),
+    liveRows.map((row, i) => enrichOne(row, statuses, metadata, artwork, liveServers[i]!)),
   );
 
   const items: WatchlistItem[] = [];
@@ -147,7 +147,6 @@ async function enrichOne(
   metadata: Record<string, CanonicalMetadata>,
   artwork: Record<string, ArtworkBundle>,
   serverProbe: PromiseSettledResult<MatchingServer[]>,
-  _ctx: WatchlistEnrichContext,
 ): Promise<{ item: WatchlistItem; partial: boolean } | null> {
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];

@@ -93,35 +93,51 @@ export async function getItems(
 
   // When the bucket filter drops most rows we'd hand back a short page with
   // a cursor that re-fires another round-trip. Overshoot a bounded factor
-  // (3x) once so the common case of a heavy filter still returns close to
-  // `limit` items in one call; a deeper miss falls back to the cursor and
-  // the client follows up with `fetchNextPage`.
+  // (3x) so the common case of a heavy filter still returns close to `limit`
+  // items in one call.
+  //
+  // Even with the overshoot a window of `fetchSize` rows can land entirely
+  // outside the requested bucket — returning `{ items: [], cursor: <real> }`
+  // would force the client into an empty "Load more" tap loop. We retry up
+  // to MAX_EMPTY_HOPS times in-handler, advancing the cursor to the last
+  // scanned row each time, so the client only sees an empty response when
+  // the entire tail is filtered out.
   const fetchSize = opts.filter ? Math.min(limit * 3, WATCHLIST_LIST_MAX_LIMIT) : limit;
-  const rows = await repo.listPage(c.userId, {
-    limit: fetchSize,
-    ...(cursor ? { cursor } : {}),
-  });
+  const MAX_EMPTY_HOPS = opts.filter ? 2 : 0;
 
-  const enriched = await enrich(rows, c, opts.filter ? { filter: opts.filter } : {});
+  let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
+  let collectedItems: WatchlistItem[] = [];
+  let enrichPartial = false;
+  let nextCursor: string | null = null;
 
-  // Page cap: the filter pass may have shrunk the set BELOW `limit` (no
-  // truncation) or kept everything, in which case we slice to `limit` and
-  // emit a cursor pointing at the LAST scanned row so re-paging is exact
-  // even when filtering drops items.
-  const items = enriched.items.slice(0, limit);
+  for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
+    const rows = await repo.listPage(c.userId, {
+      limit: fetchSize,
+      ...(scanCursor ? { cursor: scanCursor } : {}),
+    });
+    if (rows.length === 0) {
+      nextCursor = null;
+      break;
+    }
+    const enriched = await enrich(rows, c, opts.filter ? { filter: opts.filter } : {});
+    if (enriched.partial) enrichPartial = true;
+    collectedItems = enriched.items.slice(0, limit);
 
-  // Cursor points to the *last scanned row* (not the last kept item) so the
-  // next page picks up immediately after, even when the filter drops items
-  // beyond `limit`. End-of-list is signalled by an under-full query result.
-  const lastScanned = rows.length === fetchSize ? rows[rows.length - 1]! : null;
-  const nextCursor = lastScanned
-    ? repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id })
-    : null;
+    const lastScanned = rows[rows.length - 1]!;
+    const exhausted = rows.length < fetchSize;
+    nextCursor = exhausted
+      ? null
+      : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+
+    // Either we have something to return, or there's nothing more to scan.
+    if (collectedItems.length > 0 || exhausted) break;
+    scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
+  }
 
   return {
-    items,
+    items: collectedItems,
     cursor: nextCursor,
-    partial: partial || enriched.partial,
+    partial: partial || enrichPartial,
   };
 }
 
@@ -142,7 +158,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   const c = asWatchlistContext(ctx);
   const rows = await repo.listAllActive(c.userId);
   if (rows.length === 0) {
-    return { ready: 0, awaiting: 0, upcoming: 0, total: 0 };
+    return { ready: 0, inProgress: 0, awaiting: 0, upcoming: 0, total: 0 };
   }
 
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
@@ -183,7 +199,12 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
     else if (bucket === "upcoming") upcoming++;
   }
 
-  return { ready, awaiting, upcoming, total: rows.length };
+  // `inProgress` is a strict subset of `ready` reserved for rows whose
+  // underlying media has an active watch position. `mediaService.getProgress`
+  // is a host-side stub in v1 (no plugin capability covers per-row progress),
+  // so we report 0 here. When the progress aggregator lands, the count
+  // pulls from the same probe without changing the wire contract.
+  return { ready, inProgress: 0, awaiting, upcoming, total: rows.length };
 }
 
 export interface AddItemResult {
