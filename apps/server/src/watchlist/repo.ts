@@ -215,15 +215,8 @@ export async function allKnownKeys(userId: string, db: Db = getDb()): Promise<Se
   return out;
 }
 
-export async function markSeeded(
-  userId: string,
-  now: number,
-  db: Db = getDb(),
-): Promise<void> {
-  await db
-    .insert(userWatchlistSeed)
-    .values({ userId, seededAt: now })
-    .onConflictDoNothing();
+export async function markSeeded(userId: string, now: number, db: Db = getDb()): Promise<void> {
+  await db.insert(userWatchlistSeed).values({ userId, seededAt: now }).onConflictDoNothing();
 }
 
 export async function hasSeeded(userId: string, db: Db = getDb()): Promise<boolean> {
@@ -272,4 +265,3 @@ export async function __resetForTests(db: Db = getDb()): Promise<void> {
   await db.delete(watchlistItems);
   await db.delete(userWatchlistSeed);
 }
-

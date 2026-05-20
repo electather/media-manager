@@ -15,6 +15,7 @@ import { notificationsApp, adminNotificationsApp } from "./procedures/notificati
 import { artworkApp } from "./procedures/artwork";
 import { homeApp } from "./procedures/home";
 import { searchApp } from "./procedures/search";
+import { watchlistApp } from "./procedures/watchlist";
 import {
   requestContextMiddleware,
   errorHandler,
@@ -48,6 +49,7 @@ export const appRouter = new Hono()
   .route("/artwork", artworkApp)
   .route("/home", homeApp)
   .route("/search", searchApp)
+  .route("/watchlist", watchlistApp)
   .onError(errorHandler);
 
 export type AppType = typeof appRouter;

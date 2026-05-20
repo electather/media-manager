@@ -57,7 +57,7 @@ function MoodHeader({ mood, count }: { mood: WatchlistMood; count: number }) {
 function MoodHero({ item, onPeek }: { item: WatchlistItem; onPeek: (id: string) => void }) {
   const KindIcon = item.mediaType === "movie" ? Film : Tv;
   const src = item.backdrop ?? item.poster;
-  const heroLabel = item.clearLogoText ?? item.title.toUpperCase();
+  const heroLabel = item.title.toUpperCase();
   return (
     <button
       type="button"

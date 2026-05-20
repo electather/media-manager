@@ -10,11 +10,7 @@ import {
 import type { CatalogService } from "../catalog";
 import type { MediaService } from "../media";
 import { emit, type EventName } from "../jobs/events";
-import {
-  WATCHLIST_EVENTS,
-  watchlistItemAddedSchema,
-  watchlistItemRemovedSchema,
-} from "./events";
+import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
 import { enrich } from "./enrich";
 import * as repo from "./repo";
 import type { WatchlistRow } from "./repo";
@@ -92,12 +88,17 @@ export async function addItem(
   };
   const item = enriched ?? fallback;
   if (!result.wasActive) {
-    await safeEmit(WATCHLIST_EVENTS.ITEM_ADDED, watchlistItemAddedSchema, {
-      userId: c.userId,
-      key: keyToId(key),
-      source,
-      createdAt: result.row.addedAt,
-    }, c.log);
+    await safeEmit(
+      WATCHLIST_EVENTS.ITEM_ADDED,
+      watchlistItemAddedSchema,
+      {
+        userId: c.userId,
+        key: keyToId(key),
+        source,
+        createdAt: result.row.addedAt,
+      },
+      c.log,
+    );
   }
   return { item, wasActive: result.wasActive };
 }
@@ -111,11 +112,16 @@ export async function removeItem(
   const now = Date.now();
   const result = await repo.softRemove(c.userId, key, now);
   if (result.removed) {
-    await safeEmit(WATCHLIST_EVENTS.ITEM_REMOVED, watchlistItemRemovedSchema, {
-      userId: c.userId,
-      key: keyToId(key),
-      removedAt: now,
-    }, c.log);
+    await safeEmit(
+      WATCHLIST_EVENTS.ITEM_REMOVED,
+      watchlistItemRemovedSchema,
+      {
+        userId: c.userId,
+        key: keyToId(key),
+        removedAt: now,
+      },
+      c.log,
+    );
   }
   return { removed: result.removed };
 }

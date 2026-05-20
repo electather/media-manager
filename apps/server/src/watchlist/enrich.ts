@@ -38,13 +38,11 @@ export async function enrich(
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
 
-  const statuses = await ctx.mediaService
-    .getStatusBatch(compositeIds)
-    .catch((err) => {
-      ctx.log.warn("[watchlist:enrich] getStatusBatch failed", err);
-      partial = true;
-      return {} as Record<string, string>;
-    });
+  const statuses = await ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
+    ctx.log.warn("[watchlist:enrich] getStatusBatch failed", err);
+    partial = true;
+    return {} as Record<string, string>;
+  });
 
   const metadata = await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
     ctx.log.warn("[watchlist:enrich] getMetadataBatch failed", err);
@@ -93,9 +91,7 @@ async function enrichOne(
     });
 
   const status = (statuses[composite] ?? "unknown") as CompactMediaItem["status"];
-  const base = meta
-    ? compactFromMetadata(meta)
-    : minimalCompact(row.tmdbId, row.mediaType);
+  const base = meta ? compactFromMetadata(meta) : minimalCompact(row.tmdbId, row.mediaType);
 
   const item: WatchlistItem = {
     ...base,

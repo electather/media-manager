@@ -1,1 +1,8 @@
 export { WatchlistPage } from "./components/watchlist-page";
+export { WatchlistToggle } from "./components/watchlist-toggle";
+export { useAddToWatchlist } from "./hooks/use-add-to-watchlist";
+export { useRemoveFromWatchlist } from "./hooks/use-remove-from-watchlist";
+export { useIsInWatchlist } from "./hooks/use-is-in-watchlist";
+export { useWatchlistItems } from "./hooks/use-watchlist-items";
+export { watchlistKeys } from "./lib/query-keys";
+export { WatchlistApiError } from "./lib/types";
