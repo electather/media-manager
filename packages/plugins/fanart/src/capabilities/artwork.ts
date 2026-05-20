@@ -57,7 +57,23 @@ export const artwork = {
       });
     }
 
-    handleHttpStatus(res, "fanart");
+    handleHttpStatus(res, "fanart", {
+      // Fanart returns 401 for revoked keys and 403 for "project key required";
+      // map both to plugin.bad_credentials so the admin sees an actionable
+      // error in /connections instead of an opaque "no artwork" result.
+      on401: "plugin.bad_credentials",
+      on403: "plugin.bad_credentials",
+    });
+    // `handleHttpStatus` only throws for the well-known codes it handles
+    // (401/403/404/429/5xx). A non-2xx response that slips through — e.g. a
+    // 400 from a malformed id — would otherwise be JSON-parsed and shaped
+    // into an empty bundle, masking the upstream failure as "no artwork"
+    // and poisoning the negative cache. Treat anything non-OK as an
+    // upstream error so the dispatcher logs the rejection and falls back
+    // to TMDB instead.
+    if (!res.ok) {
+      throw pluginError("plugin.upstream_error", `fanart returned ${res.status}`);
+    }
 
     let json: FanartResponse;
     try {

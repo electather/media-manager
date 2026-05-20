@@ -45,9 +45,13 @@ function rewriteCdn(url: string, override: string | undefined): string {
 }
 
 function toVariant(entry: FanartImage, cdnOverride: string | undefined): ArtworkVariant {
-  // Fanart writes the language tag as `lang` (two-letter ISO code, or "00"
-  // for textless variants). The artwork@v1 contract keeps the same "00"
-  // convention so consumers don't have to special-case across providers.
+  // Fanart writes the language tag as `lang` (two-letter ISO 639-1 code, or
+  // "00" for textless variants). The artwork@v1 contract keeps the same
+  // "00" convention so consumers don't have to special-case across
+  // providers. The 2-char minimum also normalises single-character
+  // garbage values (e.g. "e" from a truncated payload) to textless rather
+  // than letting them through and failing the wire-schema's `min(2)` check
+  // downstream.
   const language = entry.lang && entry.lang.length >= 2 ? entry.lang : "00";
   // Fanart serialises `likes` as a string; coerce so the sort comparator
   // and downstream consumers always see a number. Missing/invalid → 0.

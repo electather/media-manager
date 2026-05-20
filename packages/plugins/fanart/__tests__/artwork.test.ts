@@ -95,6 +95,50 @@ describe("fanart artwork capability contract", () => {
     expect(markExhausted).toHaveBeenCalledWith({ retryAfterSec: 60 });
   });
 
+  it("maps 401 to plugin.bad_credentials so a revoked key surfaces in /connections", async () => {
+    const ctx = makeCtx([new Response("unauthorized", { status: 401 })]);
+    await expect(
+      invokeArtwork(ctx, { ids: { tmdb: "550" }, type: "movie", languages: ["en", "00"] }),
+    ).rejects.toMatchObject({ code: "plugin.bad_credentials" });
+  });
+
+  it("maps 403 to plugin.bad_credentials", async () => {
+    const ctx = makeCtx([new Response("forbidden", { status: 403 })]);
+    await expect(
+      invokeArtwork(ctx, { ids: { tmdb: "550" }, type: "movie", languages: ["en", "00"] }),
+    ).rejects.toMatchObject({ code: "plugin.bad_credentials" });
+  });
+
+  it("propagates 5xx as a non-retryable upstream error (handleHttpStatus path)", async () => {
+    const ctx = makeCtx([new Response("server error", { status: 500 })]);
+    const promise = invokeArtwork(ctx, {
+      ids: { tmdb: "550" },
+      type: "movie",
+      languages: ["en", "00"],
+    });
+    await expect(promise).rejects.toMatchObject({ code: "plugin.upstream_error" });
+    // Confirm `retryable` is not set on the thrown error — the dispatcher
+    // uses the absence of an explicit `retryable: true` as the non-retryable
+    // signal, so a regression to `retryable: true` would silently turn
+    // transient outages into infinite retries.
+    await expect(promise).rejects.not.toMatchObject({ retryable: true });
+  });
+
+  it("rejects unexpected non-2xx (e.g. 400) instead of shaping an empty bundle", async () => {
+    // Regression test: a 400 with a JSON body used to slip past `handleHttpStatus`
+    // and get JSON-parsed into an empty bundle, masking the upstream failure
+    // as "no artwork" and poisoning the negative cache.
+    const ctx = makeCtx([
+      new Response(JSON.stringify({ error: "bad id" }), {
+        status: 400,
+        headers: { "content-type": "application/json" },
+      }),
+    ]);
+    await expect(
+      invokeArtwork(ctx, { ids: { tmdb: "550" }, type: "movie", languages: ["en", "00"] }),
+    ).rejects.toMatchObject({ code: "plugin.upstream_error" });
+  });
+
   it("throws plugin.input_invalid without a usable id (defensive guard)", async () => {
     const ctx = makeCtx([]);
     // Movie request with only tvdb — neither tmdb nor imdb is set, so the
