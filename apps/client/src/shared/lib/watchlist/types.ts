@@ -29,8 +29,6 @@ export function sourceLabel(source: WatchlistSource): string {
       return m.watchlist_source_manual();
     case "plugin":
       return m.watchlist_source_plugin();
-    case "import":
-      return m.watchlist_source_import();
     case "search":
       return m.watchlist_source_search();
     case "notification":

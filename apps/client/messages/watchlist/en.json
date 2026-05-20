@@ -96,7 +96,6 @@
 
   "watchlist_source_manual": "Added manually",
   "watchlist_source_plugin": "Synced from plugin",
-  "watchlist_source_import": "Imported",
   "watchlist_source_search": "From search",
   "watchlist_source_notification": "From notification",
   "watchlist_source_recommended": "Recommended",

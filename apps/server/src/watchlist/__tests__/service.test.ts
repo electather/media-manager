@@ -104,6 +104,21 @@ describe("watchlist/service", () => {
     expect(ctx.mediaService.getWatchlistFeed).toHaveBeenCalledTimes(1);
   });
 
+  it("getItems skips the seed when rows exist even if hasSeeded() is false (§M.2)", async () => {
+    // Pre-existing rows (e.g. inserted via MCP) without a seed marker must
+    // NOT trigger a plugin fan-out — design §M.2 reads rows first.
+    const ctx = makeCtx();
+    await addItem({ tmdbId: "777", mediaType: "movie" }, "manual", ctx);
+    expect(await repo.hasSeeded(ctx.userId)).toBe(false);
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const feedSpy = ctx.mediaService.getWatchlistFeed as ReturnType<typeof vi.fn>;
+    feedSpy.mockClear();
+    const res = await getItems(ctx);
+    expect(res.items.map((i) => i.tmdbId)).toContain("777");
+    expect(feedSpy).not.toHaveBeenCalled();
+  });
+
   it("seedFromPlugins returns partial=true on plugin throw and does not mark seeded", async () => {
     const ctx = makeCtx();
     (ctx.mediaService.getWatchlistFeed as ReturnType<typeof vi.fn>).mockRejectedValue(

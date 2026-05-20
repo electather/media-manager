@@ -236,7 +236,11 @@ export async function trySeedLock(userId: string, now: number, db: Db = getDb())
   return inserted.length > 0;
 }
 
-/** Test-only: undo a `trySeedLock` so a failed plugin call can retry next GET. */
+/**
+ * Rolls back a `trySeedLock` claim. Called from `seedFromPlugins` when the
+ * plugin feed throws or returns a partial result so the next GET retries.
+ * Also used by test teardown.
+ */
 export async function clearSeedLock(userId: string, db: Db = getDb()): Promise<void> {
   await db.delete(userWatchlistSeed).where(eq(userWatchlistSeed.userId, userId));
 }

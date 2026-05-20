@@ -47,18 +47,20 @@ function asWatchlistContext(ctx: MaybeRowContext): WatchlistContext {
 }
 
 /**
- * Returns the user's active watchlist. First-call seeding triggers eagerly
- * when the user has not been seeded; the seed is best-effort and threads
- * `partial: true` when the plugin throws.
+ * Returns the user's active watchlist. Reads rows first and only triggers
+ * a plugin seed when the active list is empty AND the user has never been
+ * seeded — matches design §M.2 and avoids a redundant plugin fan-out for
+ * users that already have data via MCP or another insert path.
  */
 export async function getItems(ctx: MaybeRowContext): Promise<WatchlistResponse> {
   const c = asWatchlistContext(ctx);
   let partial = false;
-  if (!(await repo.hasSeeded(c.userId))) {
+  let rows = await repo.list(c.userId, { state: "active" });
+  if (rows.length === 0 && !(await repo.hasSeeded(c.userId))) {
     const seedRes = await seedFromPlugins(c);
     partial = partial || seedRes.partial;
+    rows = await repo.list(c.userId, { state: "active" });
   }
-  const rows = await repo.list(c.userId, { state: "active" });
   const enriched = await enrich(rows, c);
   return { items: enriched.items, partial: partial || enriched.partial };
 }
