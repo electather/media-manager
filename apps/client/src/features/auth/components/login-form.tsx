@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Field, FieldLabel, FieldError } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
+import { Separator } from "@/shared/ui/separator";
 import { useLogin } from "../hooks/use-login";
 import { validateEmail, validateLoginPassword } from "../lib/validators";
 import { PasswordField } from "./password-field";
@@ -114,28 +115,13 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         </Button>
 
         <div className="relative my-4 flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border" />
-          </div>
+          <Separator className="absolute inset-x-0" />
           <span className="relative bg-background/5 px-2 text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
             {m.auth_or_continue_with()}
           </span>
         </div>
 
         <SocialButtons />
-
-        <div className="mt-4 text-center text-sm text-muted-foreground">
-          {m.auth_new_to_lumen()}{" "}
-          <Button
-            variant="link"
-            size="sm"
-            className="h-auto px-0 align-baseline font-medium"
-            render={<Link to="/auth/register" />}
-          >
-            {m.auth_start_free_trial()}
-          </Button>
-          .
-        </div>
       </form>
     </div>
   );
