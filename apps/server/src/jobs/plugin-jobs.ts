@@ -209,9 +209,7 @@ export async function invokePerConnectionHandler(args: {
       });
       return;
     }
-    // Job path follows the same token_expired → "expired" rule as the
-    // capability-call path (#423; docs/media-service.md §Q3). Any other thrown
-    // error transitions to "error" with the message persisted.
+    // Job path mirrors the capability-call path: token_expired → "expired", anything else → "error" (#423; docs/media-service.md §Q3).
     const expired = isPluginError(err) && err.code === "plugin.token_expired";
     const message = err instanceof Error ? err.message : String(err);
     await markConnectionStatus(row.id, expired ? "expired" : "error", message);
