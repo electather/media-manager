@@ -81,7 +81,8 @@ function SectionSidebar({
 }
 
 function SidebarGroup({ group }: { group: SectionNavGroup }) {
-  if (useGroupIsHidden(group)) return null;
+  const hidden = useGroupIsHidden(group);
+  if (hidden) return null;
   return (
     <div className="flex flex-col gap-1">
       <div className="px-2.5 pb-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
@@ -143,7 +144,8 @@ export function SectionMobileNavList({
 }
 
 function MobileGroup({ group }: { group: SectionNavGroup }) {
-  if (useGroupIsHidden(group)) return null;
+  const hidden = useGroupIsHidden(group);
+  if (hidden) return null;
   return (
     <section className="flex flex-col gap-2">
       <div className="px-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
