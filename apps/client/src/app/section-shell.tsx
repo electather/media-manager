@@ -4,10 +4,24 @@ import { type ReactNode } from "react";
 
 import { AppShell } from "@/app/app-shell";
 import { Can } from "@/shared/components/can";
+import { useHasAnyPermission } from "@/shared/hooks/use-has-any-permission";
 import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
 import type { Permission } from "@ent-mcp/shared/auth";
+
+// When every item in a group is permission-gated and the user holds none of
+// those permissions, the whole group (heading included) collapses out of the
+// nav. Single-permission `<Can>` already hides individual items, but an
+// otherwise-empty group with a lingering heading would look broken.
+function useGroupIsHidden(group: SectionNavGroup): boolean {
+  const itemPermissions = group.items
+    .map((item) => item.permission)
+    .filter((p): p is Permission => p !== undefined);
+  const everyItemRequiresPermission = itemPermissions.length === group.items.length;
+  const hasAny = useHasAnyPermission(itemPermissions);
+  return everyItemRequiresPermission && itemPermissions.length > 0 && !hasAny;
+}
 
 export interface SectionNavItem {
   to: string;
@@ -67,6 +81,7 @@ function SectionSidebar({
 }
 
 function SidebarGroup({ group }: { group: SectionNavGroup }) {
+  if (useGroupIsHidden(group)) return null;
   return (
     <div className="flex flex-col gap-1">
       <div className="px-2.5 pb-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
@@ -128,6 +143,7 @@ export function SectionMobileNavList({
 }
 
 function MobileGroup({ group }: { group: SectionNavGroup }) {
+  if (useGroupIsHidden(group)) return null;
   return (
     <section className="flex flex-col gap-2">
       <div className="px-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
