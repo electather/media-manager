@@ -64,9 +64,9 @@ export const MediaRequestV1 = defineCapability({
           status: z.enum(["pending", "approved", "processing", "available", "failed"]),
           createdAt: z.string(),
           // Upstream omits these on movie rows and unrouted requests; default to uniform shape.
-          seasons: z.array(z.number().int().nonnegative()).optional().default([]),
-          targetLabel: z.string().nullable().optional().default(null),
-          profileLabel: z.string().nullable().optional().default(null),
+          seasons: z.array(z.number().int().nonnegative()).default([]),
+          targetLabel: z.string().nullable().default(null),
+          profileLabel: z.string().nullable().default(null),
         }),
       ),
     ),
