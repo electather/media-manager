@@ -43,8 +43,12 @@ export const artwork = {
 
     // 404 = item absent from fanart's catalog. Common for niche titles and
     // not an error — return an empty bundle so the dispatcher merges TMDB's
-    // result and caches the (now-known-empty) fanart contribution.
-    if (res.status === 404) return emptyBundle();
+    // result and caches the (now-known-empty) fanart contribution. Cancel
+    // the body so undici can release the socket immediately under load.
+    if (res.status === 404) {
+      await res.body?.cancel().catch(() => undefined);
+      return emptyBundle();
+    }
 
     // 429/503 signal rate-limit or upstream outage. Mark the pool exhausted
     // with the upstream-suggested retry-after so the host rotates the key
