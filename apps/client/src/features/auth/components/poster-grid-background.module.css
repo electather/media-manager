@@ -21,12 +21,15 @@
     rotateZ(var(--tilt-z, -10deg)) translateZ(0);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .grid {
-    inset-block-start: -40%;
-    inset-inline-start: -40%;
-    inline-size: 180%;
-    block-size: 180%;
+    --tilt-x: 14deg;
+    --tilt-y: -4deg;
+    --tilt-z: -3deg;
+    inset-block-start: -30%;
+    inset-inline-start: -15%;
+    inline-size: 165%;
+    block-size: 140%;
   }
 }
 
