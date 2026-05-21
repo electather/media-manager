@@ -34,6 +34,7 @@ describe("rows/your-watchlist", () => {
           addedSource: "plugin",
         },
       ],
+      cursor: null,
       partial: false,
     });
 
@@ -73,7 +74,7 @@ describe("rows/your-watchlist", () => {
 
   it("propagates partial=true from listAvailable", async () => {
     const ctx = makeRowCtx();
-    listAvailableMock.mockResolvedValueOnce({ items: [], partial: true });
+    listAvailableMock.mockResolvedValueOnce({ items: [], cursor: null, partial: true });
     const page = await provider.fetchPage(ctx, null);
     expect(page.partial).toBe(true);
   });

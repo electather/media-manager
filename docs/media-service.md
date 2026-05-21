@@ -318,10 +318,10 @@ const MediaItemSchema = z.object({
   // ... fields
   ids: z
     .object({
-      imdb_id: z.string().optional(),
-      tvdb_id: z.string().optional(),
-      trakt_id: z.string().optional(),
-      trakt_slug: z.string().optional(),
+      imdb_id: z.string().nullable().optional(),
+      tvdb_id: z.string().nullable().optional(),
+      trakt_id: z.string().nullable().optional(),
+      trakt_slug: z.string().nullable().optional(),
     })
     .optional(),
 });
