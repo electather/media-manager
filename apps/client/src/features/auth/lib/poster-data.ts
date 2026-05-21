@@ -122,8 +122,9 @@ export const ROW_CONFIG = [
 ] as const;
 
 export const ROW_POSTER_COUNT = 14;
-// Speed multiplier baked from the original mock (baseSpeed / 0.2 => slow drift).
-export const ROW_SPEED_DIVISOR = 0.2;
+// Multiplier on `baseSpeed` to land on a slow drift (e.g. baseSpeed 120 × 5
+// = 600 s per cycle). Tuned against the original mock; bigger = slower.
+export const ROW_SPEED_SCALE = 5;
 
 // FNV-1a 32-bit hash for deterministic per-seed pseudo-random values.
 export function hash(s: string): number {

@@ -5,7 +5,7 @@ import {
   POSTER_TITLES,
   ROW_CONFIG,
   ROW_POSTER_COUNT,
-  ROW_SPEED_DIVISOR,
+  ROW_SPEED_SCALE,
   type PosterTitle,
 } from "../lib/poster-data";
 import styles from "./poster-grid-background.module.css";
@@ -118,7 +118,7 @@ export const PosterGridBackground = React.memo(function PosterGridBackground() {
     () =>
       ROW_CONFIG.map((cfg, i) => ({
         seed: `row-${i}-v3`,
-        speed: cfg.baseSpeed / ROW_SPEED_DIVISOR,
+        speed: cfg.baseSpeed * ROW_SPEED_SCALE,
         direction: cfg.direction,
         scale: cfg.scale,
         count: ROW_POSTER_COUNT,

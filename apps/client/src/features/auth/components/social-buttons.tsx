@@ -38,7 +38,7 @@ interface SocialButtonsProps {
   redirectTo?: string;
 }
 
-export function SocialButtons({ redirectTo }: SocialButtonsProps = {}) {
+export function SocialButtons({ redirectTo }: SocialButtonsProps) {
   const socialMutation = useSocialSignIn(redirectTo);
   const providers: SocialProvider[] = ["google", "apple"];
 
