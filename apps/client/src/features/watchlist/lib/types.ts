@@ -6,6 +6,7 @@
 import type { WatchlistItem } from "@/shared/lib/watchlist";
 
 export { WatchlistApiError, sourceLabel, type WatchlistItem } from "@/shared/lib/watchlist";
+export type { WatchlistCounts } from "@ent-mcp/shared/watchlist";
 
 export type WatchlistStatus =
   | "available"
@@ -48,11 +49,4 @@ export interface WatchlistBuckets {
   requested: WatchlistItem[];
   unavailable: WatchlistItem[];
   upcoming: WatchlistItem[];
-}
-
-export interface WatchlistCounts {
-  ready: number;
-  inProgress: number;
-  awaiting: number;
-  upcoming: number;
 }
