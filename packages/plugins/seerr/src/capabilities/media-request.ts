@@ -200,7 +200,7 @@ export const mediaRequest = {
   async listRequests(ctx: unknown, _input: unknown) {
     const c = ctx as Ctx;
     const all = await fetchAllRequests(c);
-    // Absent `seasons` on a TV row signals an upstream field rename. Warn once per call so a renamed field doesn't flood logs, but include the affected-row count so the scope of the regression is visible from the log line alone.
+    // TV row missing `seasons` → possible upstream field rename. Warn once per call; log count + keys so scope is visible without flooding.
     const badTvRows = all.filter((r) => r.type === "tv" && !Array.isArray(r.seasons));
     if (badTvRows.length > 0) {
       c.log.warn("seerr.listRequests: tv row missing `seasons` array — possible upstream rename", {

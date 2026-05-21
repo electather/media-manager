@@ -32,9 +32,9 @@ Server = single source of truth. Client overlay derived from `GET /api/requests`
 listRequests.output = z.array(z.object({
   id, tmdbId, type, title, status,                                       // existing
   createdAt,                                                             // existing
-  seasons:      z.array(z.number().int().nonnegative()).optional().default([]),  // NEW · [] for movies / unrouted requests
-  targetLabel:  z.string().nullable().optional().default(null),          // NEW · e.g. "Radarr Main"
-  profileLabel: z.string().nullable().optional().default(null),          // NEW · e.g. "1080p"
+  seasons:      z.array(z.number().int().nonnegative()).default([]),    // NEW · [] for movies / unrouted requests
+  targetLabel:  z.string().nullable().default(null),                     // NEW · e.g. "Radarr Main"
+  profileLabel: z.string().nullable().default(null),                     // NEW · e.g. "1080p"
 }))
 ```
 
