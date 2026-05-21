@@ -8,13 +8,16 @@ export const DAY = 24 * HOUR;
 
 export const mediaType = mediaTypeSchema;
 
+// Every Trakt-shaped provider can return null for any ID a given item lacks
+// (e.g. movies missing IMDb, shows missing TVDB). Accept null on the wire so
+// the same "ID not present" shape passes validation across providers.
 const idBundle = z
   .object({
-    tmdb_id: z.string().optional(),
+    tmdb_id: z.string().nullable().optional(),
     imdb_id: z.string().nullable().optional(),
-    tvdb_id: z.string().optional(),
-    trakt_id: z.string().optional(),
-    trakt_slug: z.string().optional(),
+    tvdb_id: z.string().nullable().optional(),
+    trakt_id: z.string().nullable().optional(),
+    trakt_slug: z.string().nullable().optional(),
   })
   .default({});
 

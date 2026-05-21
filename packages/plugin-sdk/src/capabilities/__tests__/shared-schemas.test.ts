@@ -2,11 +2,7 @@ import { describe, it, expect } from "vite-plus/test";
 import { WatchlistV1 } from "../watchlist";
 import { WatchHistoryV1 } from "../watch-history";
 
-// Trakt returns `null` for items without an IMDb entry (obscure / regional
-// titles). The shared idBundle must accept null so those entries don't fail
-// validation and degrade the surrounding response. See issue #424. Two
-// capabilities are exercised to prove the fix lives on the shared schema,
-// not just one method.
+// Trakt returns null for any ID an item lacks; the shared idBundle must accept null so those entries don't fail validation — see #424.
 describe("shared mediaItem.ids", () => {
   const itemWithNullImdb = {
     id: "movie:1",
