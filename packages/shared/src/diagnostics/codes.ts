@@ -63,6 +63,8 @@ export const HOST_ERROR_CODES = {
   // Media dispatcher.
   "media.no_connection": { severity: "info" },
   "media.primary_unavailable": { severity: "warning" },
+  // 5xx HTTP path is stamped "error" by errorHandler regardless (§Cap.E);
+  // this entry exists for non-HTTP capture sites.
   "media.providers_failed": { severity: "error" },
 
   // Artwork capability and RPC.
