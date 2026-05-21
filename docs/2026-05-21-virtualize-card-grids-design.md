@@ -52,32 +52,33 @@ type Props<T> = {
   estimateSize: (i: number) => number    // px
   renderItem: (item: T, i: number) => ReactNode
   overscan?: number                       // d=4
-  header?: ReactNode                      // non-virt, rendered above
+  header?: ReactNode                      // non-virt, rendered above virt area
+  footer?: ReactNode                      // non-virt, rendered below virt area (e.g. "Load more")
   className?: string
-  // keep N items mounted forever (e.g. peek target). i=index.
-  pinIndices?: ReadonlySet<number>
 }
 
 fn VirtualWindowList<T>(p) {
   parentRef = useRef<HTMLDivElement>(null)
-  parentOffsetRef = useRef(0)              // distance from doc top to virt area
+  [scrollMargin, setScrollMargin] = useState(0)   // doc-top distance, resize-tracked
 
   useIsomorphicLayoutEffect(() => {
-    parentOffsetRef.current = parentRef.current?.offsetTop ?? 0
+    el = parentRef.current; if (!el) return
+    sync = () => setScrollMargin(el.offsetTop)
+    sync()
+    ro = new ResizeObserver(sync)                  // re-read on sticky-header / hero resize
+    ro.observe(document.body)
+    return () => ro.disconnect()
   }, [])
 
   v = useWindowVirtualizer({
     count: p.items.length,
     estimateSize: p.estimateSize,
     overscan: p.overscan ?? 4,
-    scrollMargin: parentOffsetRef.current,
+    scrollMargin,
   })
 
   vis = v.getVirtualItems()
   total = v.getTotalSize()
-  pinned = p.pinIndices ?? EMPTY_SET
-  visIdx = new Set(vis.map(vi => vi.index))
-  extraPins = [...pinned].filter(i => !visIdx.has(i))
 
   return (
     <div ref={parentRef} className={p.className}>
@@ -89,22 +90,19 @@ fn VirtualWindowList<T>(p) {
             data-index={vi.index}
             ref={v.measureElement}
             style={{ position:'absolute', insetInline:0, top:0,
-                     transform:`translateY(${vi.start - v.options.scrollMargin}px)` }}
+                     transform:`translateY(${vi.start - scrollMargin}px)` }}
           >
             {p.renderItem(p.items[vi.index], vi.index)}
           </div>
         )}
-        {/* pinned-but-off-screen kept mounted hidden so caller refs stay alive */}
-        {extraPins.map(i =>
-          <div key={`pin-${i}`} aria-hidden style={{ position:'absolute', visibility:'hidden', pointerEvents:'none' }}>
-            {p.renderItem(p.items[i], i)}
-          </div>
-        )}
       </div>
+      {p.footer}
     </div>
   )
 }
 ```
+
+key strategy: list keys by stable item id via `getKey(items[i], i)`. Grid below keys by virtualizer-computed `vr.key` (a row index salted by cols, see §VirtualGrid) — different rationale (rows are content-derived slices, not stable entities).
 
 ### `<VirtualGrid>`
 
@@ -123,9 +121,9 @@ type Props<T> = {
 
 fn VirtualGrid<T>(p) {
   parentRef = useRef<HTMLDivElement>(null)
-  parentOffsetRef = useRef(0)
+  [scrollMargin, setScrollMargin] = useState(0)
 
-  { cols, cellWidthPx } = useGridColumns(parentRef, {
+  { cols } = useGridColumns(parentRef, {
     minColumnWidthPx: p.minColumnWidthPx,
     gapPx: p.gapPx ?? 16,
   })
@@ -133,15 +131,20 @@ fn VirtualGrid<T>(p) {
   rowCount = Math.ceil(p.items.length / Math.max(cols, 1))
 
   useIsomorphicLayoutEffect(() => {
-    parentOffsetRef.current = parentRef.current?.offsetTop ?? 0
+    el = parentRef.current; if (!el) return
+    sync = () => setScrollMargin(el.offsetTop)
+    sync()
+    ro = new ResizeObserver(sync); ro.observe(document.body)
+    return () => ro.disconnect()
   }, [])
 
   v = useWindowVirtualizer({
     count: rowCount,
     estimateSize: (r) => p.estimateRowHeight(r, cols),
     overscan: p.overscanRows ?? 2,
-    scrollMargin: parentOffsetRef.current,
-    // remeasure on cols change. forces fresh measureElement cycle.
+    scrollMargin,
+    // salting key by `cols` forces virtualizer to drop cached row measurements
+    // when column count changes, so measureElement runs again at the new width.
     getItemKey: (r) => `${cols}:${r}`,
   })
 
@@ -160,7 +163,7 @@ fn VirtualGrid<T>(p) {
                  ref={v.measureElement}
                  style={{
                    position:'absolute', insetInline:0, top:0,
-                   transform:`translateY(${vr.start - v.options.scrollMargin}px)`,
+                   transform:`translateY(${vr.start - scrollMargin}px)`,
                    display:'grid',
                    gridTemplateColumns:`repeat(${cols}, minmax(0, 1fr))`,
                    gap: p.gapPx ?? 16,
@@ -183,10 +186,10 @@ fn VirtualGrid<T>(p) {
 
 ```ts
 type Args = { minColumnWidthPx: number, gapPx: number }
-type Out  = { cols: number, cellWidthPx: number }
+type Out  = { cols: number }
 
 fn useGridColumns(ref, { minColumnWidthPx, gapPx }): Out {
-  [{cols, cellWidthPx}, set] = useState({ cols: 1, cellWidthPx: minColumnWidthPx })
+  [cols, setCols] = useState(1)
 
   useIsomorphicLayoutEffect(() => {
     el = ref.current; if (!el) return
@@ -194,8 +197,7 @@ fn useGridColumns(ref, { minColumnWidthPx, gapPx }): Out {
       w = el.clientWidth
       // mirror `repeat(auto-fill, minmax(min, 1fr))`
       n = Math.max(1, Math.floor((w + gapPx) / (minColumnWidthPx + gapPx)))
-      cw = (w - gapPx * (n - 1)) / n
-      set(prev => prev.cols === n && Math.abs(prev.cellWidthPx - cw) < 0.5 ? prev : { cols: n, cellWidthPx: cw })
+      setCols(prev => prev === n ? prev : n)
     }
     compute()
     ro = new ResizeObserver(compute)
@@ -203,7 +205,7 @@ fn useGridColumns(ref, { minColumnWidthPx, gapPx }): Out {
     return () => ro.disconnect()
   }, [minColumnWidthPx, gapPx])
 
-  return { cols, cellWidthPx }
+  return { cols }
 }
 ```
 
@@ -220,7 +222,6 @@ type VirtTrackProps<T> = ComponentProps<'ul'> & {
   renderItem: (it: T, i: number) => ReactNode
   overscan?: number                         // d=4
   onRangeChange?: (r: { startIndex: number, endIndex: number }) => void
-  pinIndices?: ReadonlySet<number>
 }
 
 fn ScrollRowTrack(p) {
@@ -275,13 +276,14 @@ note: track wrap `<ul>` becomes `position: relative` block (override `flex` from
 |---|---|---|---|---|
 | `features/home/components/home-feed.tsx` rows loop | `VirtualWindowList` | `estimateSize: i => row.defaultAspect==='16/9' ? 320 : 420` (header + card-h + margins) | n/a (each Row paginates internally) | hero `TopZone` stays non-virt as `header` prop |
 | `features/home/components/row/index.tsx` track | `<ScrollRowTrack virtualize>` | `estimateItemWidth: isBackdrop ? 320 : 200` | range-based: `onRangeChange` → if `endIndex ≥ items.length - PREFETCH_OFFSET` & `hasNextPage` & !`isFetchingNextPage` → `fetchNextPage()` | drop `use-prefetch-observer.ts` |
-| `features/watchlist/components/watchlist-content.tsx` sections | `VirtualWindowList` | per-section estimate table (see below) | n/a | filtered mode swaps render-prop to single-section list of `VirtualGrid` |
+| `features/watchlist/components/watchlist-content.tsx` sections | `VirtualWindowList` | per-section estimate table (see below) | passes `hasNextPage`-driven "Load more" `<Button>` as `footer` prop (stays non-virt) | filtered mode swaps render-prop to single-section list of `VirtualGrid`; footer prop applies in both modes |
 | `features/watchlist/components/ready-row.tsx` | `<ScrollRowTrack virtualize>` | `estimateItemWidth: 200` | n/a | |
 | `features/watchlist/components/watchlist-filtered-grid.tsx` | `VirtualGrid` | `minColumnWidthPx: 180`, `estimateRowHeight: () => 320` | n/a | |
 | `features/watchlist/components/awaiting.tsx` | `VirtualGrid` | `minColumnWidthPx: 180`, `estimateRowHeight: () => 320` | n/a | outer dashed border `<section>` stays — VirtualGrid mounts inside |
 | `features/watchlist/components/coming-up.tsx` | `VirtualGrid` | `minColumnWidthPx: 220`, `estimateRowHeight: () => 200` (16/9) | n/a | |
 | `recently-added.tsx` | none | n/a | n/a | capped @ MAX_ROWS=5, skip |
 | `mood-mosaic.tsx` | none | n/a | n/a | bounded set, skip |
+| `mood-cluster.tsx` | none | n/a | n/a | child of mood-mosaic, skip |
 | `tonight-pick.tsx` | none | n/a | n/a | single hero, skip |
 
 ### Section estimate table — watchlist
@@ -382,8 +384,8 @@ WatchlistContent (filterActive=true)
 
 - skeletons: `VirtualWindowList` rendered with synthetic skeleton items when `isLoading && items.length===0` (caller responsibility)
 - `Row` skeleton path unchanged — track receives skeleton array sized `SKELETON_COUNT`, no virt while skeleton
-- `RowError` / `RowErrorInlineCard` unchanged; inline error appended as extra non-virt `<li>` in track via existing slot (re-renders inside virtualize branch via `pinIndices` analog — see below)
-- inline error trailing item: simplest — when `showInlineError`, append a "virtual" extra index `items.length` returning `<RowErrorInlineCard>` and treat estimateItemWidth same. Cleaner than DOM-pinning.
+- `RowError` / `RowErrorInlineCard` unchanged.
+- inline error trailing item: when `showInlineError`, caller appends a sentinel entry to the `items` array passed to `ScrollRowTrack`; `renderItem` switches on sentinel → returns `<RowErrorInlineCard>` instead of `<Card>`. Same `estimateItemWidth`. Cleaner than DOM-pinning and keeps `ScrollRowTrack` API surface minimal.
 
 ## DOM cap — assertion
 
@@ -416,11 +418,11 @@ test('row caps mounted cards @ overscan*2 + visible', async () => {
 | risk | mitigation |
 |---|---|
 | jsdom layout = 0 → virtualizer renders 0 items in tests | set `window.innerWidth/Height` + `Element.getBoundingClientRect` mock in test setup, or use `initialMeasurementsCache` from tanstack to seed |
-| sticky header offset wrong on resize | `scrollMargin` re-read on resize via existing `useIsomorphicLayoutEffect` w/ ResizeObserver on parent |
+| sticky header offset wrong on resize | `scrollMargin` re-derived from `parentRef.current.offsetTop` inside a `ResizeObserver(document.body)`; primitives keep it as state so virtualizer re-renders on change |
 | nested scroll: window vert + element horiz → over-scroll trap | already handled by `overscroll-x-contain` in track CSS; preserve |
 | flex-track styles break when switching to absolute children | gate via `data-virt="true"` selector + CSS override |
 | INP regression from `measureElement` re-renders | overscan tuned (4 vert, 4 horiz, 2 rows); measure only `vis` set |
-| keyboard nav: tab to card outside virtual range | acceptable — landed via `pinIndices` if future need (peek mod stays open via separate portal already) |
+| keyboard nav: tab to card outside virtual range | acceptable for now — peek modal lives in separate portal, unaffected. If a future need arises, add a focus-anchored pin mechanism. |
 
 ## Rollout
 
