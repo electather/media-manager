@@ -79,6 +79,22 @@ describe("refreshAuth", () => {
     }
   });
 
+  it("maps 429 with a future HTTP-date Retry-After to the delta capped at 1h", async () => {
+    const futureDate = new Date(Date.now() + 1_200_000).toUTCString();
+    const ctx = makeCtx([
+      new Response("", { status: 429, headers: { "retry-after": futureDate } }),
+    ]);
+    try {
+      await refreshAuth(ctx, ctx.credentials);
+      throw new Error("should have thrown");
+    } catch (err) {
+      assertPluginError(err);
+      expect(err.code).toBe("plugin.rate_limited");
+      expect(err.retryAfterMs).toBeGreaterThan(0);
+      expect(err.retryAfterMs).toBeLessThanOrEqual(3_600_000);
+    }
+  });
+
   it("still maps non-429 4xx responses to plugin.token_expired", async () => {
     const ctx = makeCtx([new Response("", { status: 401 })]);
     try {

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
@@ -108,7 +108,13 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     rowSource: async () => {
       const db = getDb();
       const nowSec = Math.floor(Date.now() / 1000);
-      const rows = await db
+      // Skip rows still inside an upstream-imposed cooldown window. `retryAfter`
+      // is epoch-seconds, set by `invokePerConnectionHandler` below whenever a
+      // job handler throws `plugin.rate_limited`. Without this, a per-connection
+      // refresh job storms the upstream every tick after the first 429. The
+      // cooldown predicate is pushed into SQL so parked rows do not load their
+      // encrypted credentials.
+      return await db
         .select({
           id: serviceConnections.id,
           userId: serviceConnections.userId,
@@ -119,13 +125,13 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
           retryAfter: serviceConnections.retryAfter,
         })
         .from(serviceConnections)
-        .where(eq(serviceConnections.pluginId, job.pluginId))
+        .where(
+          and(
+            eq(serviceConnections.pluginId, job.pluginId),
+            or(isNull(serviceConnections.retryAfter), lte(serviceConnections.retryAfter, nowSec)),
+          ),
+        )
         .all();
-      // Skip rows still inside an upstream-imposed cooldown window. `retryAfter`
-      // is epoch-seconds, set by `invokePerConnectionHandler` below whenever a
-      // job handler throws `plugin.rate_limited`. Without this, a per-connection
-      // refresh job storms the upstream every tick after the first 429.
-      return rows.filter((row) => row.retryAfter === null || row.retryAfter <= nowSec);
     },
     // fallow-ignore-next-line complexity
     handler: async (ctx, row) => {
@@ -170,6 +176,13 @@ async function invokePerConnectionHandler(args: {
           retryAfter: null,
           updatedAt: Date.now(),
         })
+        .where(eq(serviceConnections.id, row.id));
+    } else if (row.retryAfter !== null) {
+      // Handler succeeded without rotating credentials. Still clear any prior
+      // cooldown so a recovered connection does not carry a stale epoch.
+      await db
+        .update(serviceConnections)
+        .set({ retryAfter: null, updatedAt: Date.now() })
         .where(eq(serviceConnections.id, row.id));
     }
   } catch (err) {
