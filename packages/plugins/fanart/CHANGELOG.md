@@ -1,0 +1,1 @@
+# @ent-mcp/plugin-fanart
