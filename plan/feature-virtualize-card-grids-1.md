@@ -62,13 +62,13 @@ Spec: `docs/2026-05-21-virtualize-card-grids-design.md`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-010 | Edit `apps/client/src/shared/components/scroll-row.tsx`: add discriminated union to `ScrollRowTrack` props — non-virt branch (existing children behavior) vs `virtualize: true` branch carrying `items`, `getKey`, `estimateItemWidth`, `renderItem`, `overscan?` (d=4), `onRangeChange?`. | | |
-| TASK-011 | In virtualize branch: `useVirtualizer({ horizontal: true, count: items.length, getScrollElement: () => trackRef.current, estimateSize: () => estimateItemWidth, overscan })`. Track ref must also call `setViewport(el)` from `useScrollRow()` ctx so chevron buttons + edge-fade still work. | | |
-| TASK-012 | Render: `<ul>` becomes `position: relative` (override flex via `data-virt="true"` attr + CSS rule appended to `scroll-row.tsx`'s class string). Total-size spacer `<li aria-hidden style={{ inlineSize: v.getTotalSize() }}>` keeps scroll length. Each visible item: `position: absolute; inset-block-start: 0; inset-inline-start: vi.start; width: var(--card-w)`. `ref={v.measureElement}`. | | |
-| TASK-013 | Fire `onRangeChange({ startIndex, endIndex })` from `useEffect([virtualItems])` when range changes. | | |
-| TASK-014 | Add CSS override: `[data-slot="scroll-row-track"][data-virt="true"] { display: block; position: relative; }` — keep existing snap/overflow classes. | | |
-| TASK-015 | Add unit test `apps/client/src/shared/components/__tests__/scroll-row.test.tsx` (new file): non-virt branch renders children verbatim (regression guard); virt branch caps DOM nodes + fires `onRangeChange`. | | |
-| TASK-016 | Run `vp check` + `vp test`. | | |
+| TASK-010 | Edit `apps/client/src/shared/components/scroll-row.tsx`: add discriminated union to `ScrollRowTrack` props — non-virt branch (existing children behavior) vs `virtualize: true` branch carrying `items`, `getKey`, `estimateItemWidth`, `renderItem`, `overscan?` (d=4), `onRangeChange?`. | ✅ | 2026-05-21 |
+| TASK-011 | In virtualize branch: `useVirtualizer({ horizontal: true, count: items.length, getScrollElement: () => trackRef.current, estimateSize: () => estimateItemWidth, overscan })`. Track ref must also call `setViewport(el)` from `useScrollRow()` ctx so chevron buttons + edge-fade still work. | ✅ | 2026-05-21 |
+| TASK-012 | Render: `<ul>` becomes `position: relative` (override flex via `data-virt="true"` attr + CSS rule appended to `scroll-row.tsx`'s class string). Total-size spacer `<li aria-hidden style={{ inlineSize: v.getTotalSize() }}>` keeps scroll length. Each visible item: `position: absolute; inset-block-start: 0; inset-inline-start: vi.start; width: var(--card-w)`. `ref={v.measureElement}`. | ✅ | 2026-05-21 |
+| TASK-013 | Fire `onRangeChange({ startIndex, endIndex })` from `useEffect([virtualItems])` when range changes. | ✅ | 2026-05-21 |
+| TASK-014 | Add CSS override: `[data-slot="scroll-row-track"][data-virt="true"] { display: block; position: relative; }` — keep existing snap/overflow classes. | ✅ | 2026-05-21 |
+| TASK-015 | Add unit test `apps/client/src/shared/components/__tests__/scroll-row.test.tsx` (new file): non-virt branch renders children verbatim (regression guard); virt branch caps DOM nodes + fires `onRangeChange`. | ✅ | 2026-05-21 |
+| TASK-016 | Run `vp check` + `vp test`. | ✅ | 2026-05-21 |
 
 ### Implementation Phase 3 — Home migration
 

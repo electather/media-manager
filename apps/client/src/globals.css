@@ -340,6 +340,15 @@ html[lang="fa"] {
     display: none;
   }
 
+  /* Virtualized track: swap flex layout for an absolutely-positioned coordinate
+     system so the inner `<li>` items can be placed by translateX, while
+     preserving the scroll snap, overflow, and scrollbar suppression rules
+     from `.row-track`. */
+  [data-slot="scroll-row-track"][data-virt="true"] {
+    display: block;
+    position: relative;
+  }
+
   /* Single horizontal scan-line that drifts down the big-code glyph on the
      ErrorPage. Drives the `motion-safe:animate-[error-page-scan...]` utility
      used in `<ErrorPageHeadline>`. Keyframes live here because Tailwind
