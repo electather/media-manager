@@ -6,10 +6,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { useWatchlistItems } from "../hooks/use-watchlist-items";
 import { WatchlistApiError } from "@/shared/lib/watchlist/types";
-import { SAMPLE_WATCHLIST } from "../__fixtures__/watchlist-items.fixture";
+import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 
 vi.mock("@/shared/lib/watchlist/fetchers", () => ({
   fetchWatchlist: vi.fn(),
+  fetchWatchlistCounts: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
@@ -30,12 +31,39 @@ afterEach(() => {
 });
 
 describe("useWatchlistItems", () => {
-  it("suspends until the fetch resolves and returns the items", async () => {
-    fetchMock.mockResolvedValueOnce({ items: SAMPLE_WATCHLIST, partial: false });
+  it("suspends until the first page resolves and exposes the flattened items", async () => {
+    fetchMock.mockResolvedValueOnce({
+      items: SAMPLE_WATCHLIST,
+      cursor: null,
+      partial: false,
+    });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useWatchlistItems(), { wrapper: wrap(client) });
-    await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(result.current.data.items).toHaveLength(SAMPLE_WATCHLIST.length);
+    await waitFor(() => expect(result.current.items.length).toBeGreaterThan(0));
+    expect(result.current.items).toHaveLength(SAMPLE_WATCHLIST.length);
+    expect(result.current.hasNextPage).toBe(false);
+  });
+
+  it("exposes a follow-up page when the server returns a non-null cursor", async () => {
+    fetchMock.mockResolvedValueOnce({
+      items: [makeItem({ id: "movie:1", tmdbId: "1" })],
+      cursor: "next-cursor",
+      partial: false,
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useWatchlistItems(), { wrapper: wrap(client) });
+    await waitFor(() => expect(result.current.items.length).toBe(1));
+    expect(result.current.hasNextPage).toBe(true);
+  });
+
+  it("threads the filter through to the fetcher and into the query key", async () => {
+    fetchMock.mockResolvedValueOnce({ items: [], cursor: null, partial: false });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => useWatchlistItems({ filter: "ready" }), {
+      wrapper: wrap(client),
+    });
+    await waitFor(() => expect(result.current.items).toBeDefined());
+    expect(fetchMock).toHaveBeenCalledWith({ filter: "ready" });
   });
 
   it("propagates fetcher errors to an ErrorBoundary", async () => {
@@ -43,7 +71,7 @@ describe("useWatchlistItems", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     function Consumer() {
       const data = useWatchlistItems();
-      return <div>{data.data.items.length}</div>;
+      return <div>{data.items.length}</div>;
     }
     render(
       <QueryClientProvider client={client}>

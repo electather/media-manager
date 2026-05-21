@@ -684,15 +684,16 @@ home/orchestrator.ts:
     if provider.requiresInitialCursor && cursor === null:
       throw HttpError(400, "home.bad_input", "cursor_required")
     // Per §Error handling: per-row plugin failures collapse to `partial: true`
-    // with an empty item list rather than crashing the request. HttpError and
-    // any other unexpected throw still propagate to `errorHandler`.
+    // with an empty item list rather than crashing the request. The soft-fail
+    // check runs first because `AllPluginsFailedError` is now an `HttpError`
+    // subclass (503 / `media.providers_failed`); any other HttpError or
+    // unexpected throw still propagates to `errorHandler`.
     try:
       page = await provider.fetchPage(ctx, cursor)
     catch err:
-      if err instanceof HttpError: throw err
       if isRowSoftFailure(err):                         // AllPluginsFailedError, PluginCallError, AbortError
         page = { items: [], cursor: null, partial: true }
-      else: throw err
+      else: throw err                                   // HttpError + anything else
     enriched = await enrichItems(page.items, ctx, { rowId })   // status, availability, facets, matchReason
     return { items: enriched, cursor: page.cursor, partial: page.partial || undefined }
 

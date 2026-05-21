@@ -30,6 +30,9 @@ export async function persistRefreshedCredentials(
       credentialsIv: iv,
       status: "connected",
       errorMessage: null,
+      // Refresh succeeded — clear any rate-limit cooldown left by a prior 429
+      // so the row stops carrying a stale `retryAfter` epoch.
+      retryAfter: null,
       lastVerifiedAt: Date.now(),
       updatedAt: Date.now(),
     })

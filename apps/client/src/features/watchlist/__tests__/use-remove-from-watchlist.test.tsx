@@ -2,7 +2,7 @@
 import { type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, type InfiniteData } from "@tanstack/react-query";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
 import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
@@ -10,6 +10,7 @@ import { SAMPLE_WATCHLIST } from "../__fixtures__/watchlist-items.fixture";
 
 vi.mock("@/shared/lib/watchlist/fetchers", () => ({
   fetchWatchlist: vi.fn(),
+  fetchWatchlistCounts: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
@@ -23,6 +24,8 @@ const { toast } = await import("sonner");
 const removeMock = vi.mocked(removeFromWatchlist);
 const toastErrorMock = vi.mocked(toast.error);
 
+type Pages = InfiniteData<WatchlistResponse, string | undefined>;
+
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -31,7 +34,8 @@ function wrap(client: QueryClient) {
 
 function makeClient(seed: WatchlistResponse): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(watchlistKeys.list(), seed);
+  const pages: Pages = { pages: [seed], pageParams: [undefined] };
+  client.setQueryData<Pages>(watchlistKeys.list(), pages);
   return client;
 }
 
@@ -40,8 +44,8 @@ afterEach(() => {
 });
 
 describe("useRemoveFromWatchlist", () => {
-  it("filters the row out optimistically", async () => {
-    const client = makeClient({ items: [...SAMPLE_WATCHLIST], partial: false });
+  it("filters the row out optimistically across loaded pages", async () => {
+    const client = makeClient({ items: [...SAMPLE_WATCHLIST], cursor: null, partial: false });
     removeMock.mockImplementation(
       () =>
         new Promise<void>(() => {
@@ -53,13 +57,18 @@ describe("useRemoveFromWatchlist", () => {
       result.current.mutate({ tmdbId: "11", mediaType: "movie" });
     });
     await waitFor(() => {
-      const data = client.getQueryData<WatchlistResponse>(watchlistKeys.list());
-      expect(data?.items.map((i) => i.tmdbId)).not.toContain("11");
+      const data = client.getQueryData<Pages>(watchlistKeys.list());
+      const allIds = data?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
+      expect(allIds).not.toContain("11");
     });
   });
 
   it("rolls back on error and surfaces a toast", async () => {
-    const original: WatchlistResponse = { items: [...SAMPLE_WATCHLIST], partial: false };
+    const original: WatchlistResponse = {
+      items: [...SAMPLE_WATCHLIST],
+      cursor: null,
+      partial: false,
+    };
     const client = makeClient(original);
     removeMock.mockRejectedValueOnce(new Error("boom"));
     const { result } = renderHook(() => useRemoveFromWatchlist(), { wrapper: wrap(client) });
@@ -67,7 +76,8 @@ describe("useRemoveFromWatchlist", () => {
       result.current.mutate({ tmdbId: "11", mediaType: "movie" });
     });
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
-    const final = client.getQueryData<WatchlistResponse>(watchlistKeys.list());
-    expect(final?.items.map((i) => i.tmdbId)).toContain("11");
+    const final = client.getQueryData<Pages>(watchlistKeys.list());
+    const allIds = final?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
+    expect(allIds).toContain("11");
   });
 });
