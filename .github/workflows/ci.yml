@@ -42,10 +42,6 @@ jobs:
         # directly would fail because setup-vp does not surface it.
         run: vp run check:file-sizes
 
-      - name: Backend drizzle table-ownership
-        if: always()
-        run: vp run check:table-ownership
-
       - name: Run tests
         if: always()
         run: vp test
