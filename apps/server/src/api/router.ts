@@ -27,6 +27,8 @@ import {
  *  frame; `onError` is where every thrown error lands (HttpError and
  *  unexpected throws alike) — Hono catches handler throws internally and
  *  dispatches them to this single boundary. */
+export type { Auth } from "../auth";
+
 export const appRouter = new Hono()
   .use("*", requestContextMiddleware())
   .use("*", httpPerfMiddleware())

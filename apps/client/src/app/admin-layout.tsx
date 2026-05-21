@@ -57,7 +57,7 @@ const ADMIN_GROUPS: ReadonlyArray<SectionNavGroup> = [
         label: () => m.settings_nav_admin_diagnostics(),
         intro: () => m.settings_nav_admin_diagnostics_intro(),
         icon: TerminalSquareIcon,
-        permission: PERMISSIONS.ADMIN_SERVER,
+        permission: PERMISSIONS.ADMIN_PLUGINS,
       },
     ],
   },
