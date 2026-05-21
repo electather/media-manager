@@ -99,4 +99,17 @@ describe("loadUserPermissions", () => {
     const perms = await loadUserPermissions(USER_NONE);
     expect(perms).toEqual([]);
   });
+
+  // Regression: an unrecognised permission string in the DB (e.g. left over
+  // from an old release) must not leak into the session.
+  it("filters out unknown permission strings stored in the DB", async () => {
+    await db
+      .insert(rolePermissions)
+      .values([{ roleId: "role_viewer", permission: "legacy:deprecated-flag" }]);
+    const perms = await loadUserPermissions(USER_VIEWER);
+    expect(perms).not.toContain("legacy:deprecated-flag");
+    expect(perms.sort()).toEqual(
+      [PERMISSIONS.MEDIA_DISCOVER, PERMISSIONS.MEDIA_DETAILS, PERMISSIONS.MEDIA_ACTIVITY].sort(),
+    );
+  });
 });

@@ -37,7 +37,9 @@ export async function loadUserPermissions(userId: string): Promise<Permission[]>
     .from(rolePermissions)
     .where(eq(rolePermissions.roleId, role.roleId))
     .all();
-  return rows.map((r) => r.permission as Permission);
+  return rows
+    .map((r) => r.permission)
+    .filter((p): p is Permission => (ALL_PERMISSIONS as readonly string[]).includes(p));
 }
 
 /** Returns `true` when `roleId` has `permission` in its permission set. */

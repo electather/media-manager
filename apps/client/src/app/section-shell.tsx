@@ -133,7 +133,7 @@ function MobileGroup({ group }: { group: SectionNavGroup }) {
       <div className="px-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
         {group.heading()}
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card [&>*+*>a]:border-t [&>*+*>a]:border-border">
+      <div className="overflow-hidden rounded-xl border border-border bg-card [&>*+*]:border-t [&>*+*]:border-border">
         {group.items.map((item) =>
           item.permission ? (
             <Can key={item.to} permission={item.permission}>
@@ -156,7 +156,7 @@ function MobileLink({ item }: { item: SectionNavItem }) {
   // phase to start the view transition before navigation kicks off.
   const onCapture = sectionTransitionClickHandler("nav-forward", () => navigate({ to: item.to }));
   return (
-    <div onClickCapture={onCapture} style={{ display: "contents" }}>
+    <div onClickCapture={onCapture}>
       <Link
         to={item.to}
         className={cn(
