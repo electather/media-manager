@@ -55,7 +55,7 @@ const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
       </div>
       <div
         className={cn(
-          "absolute top-2 inset-s-2 z-3 font-serif text-lg leading-none font-black text-primary italic max-sm:top-1.5 max-sm:inset-s-2 max-sm:text-sm",
+          "absolute top-2 inset-s-2 z-3 font-serif text-lg leading-none font-black text-primary italic max-sm:top-1.5 max-sm:text-sm",
           styles.posterBrand,
         )}
       >

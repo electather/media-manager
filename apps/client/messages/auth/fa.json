@@ -33,7 +33,6 @@
   "auth_confirm_password_required": "لطفاً رمز عبور خود را تأیید کنید.",
   "auth_passwords_do_not_match": "رمزهای عبور مطابقت ندارند.",
   "auth_name_required": "نام الزامی است.",
-  "auth_name_invalid": "یک نام معتبر وارد کنید.",
   "auth_login_submit": [
     {
       "selectors": ["status"],

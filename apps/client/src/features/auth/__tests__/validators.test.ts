@@ -11,7 +11,6 @@ vi.mock("@/paraglide/messages", () => ({
     auth_confirm_password_required: () => "Please confirm your password.",
     auth_passwords_do_not_match: () => "Passwords do not match.",
     auth_name_required: () => "Name is required.",
-    auth_name_invalid: () => "Enter a valid name.",
   },
 }));
 

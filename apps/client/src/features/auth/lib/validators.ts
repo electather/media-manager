@@ -45,10 +45,5 @@ export function validateConfirmPassword(value: string, password: string): string
 
 export function validateName(value: string): string | undefined {
   if (!value.trim()) return m.auth_name_required();
-  return validateSchemaField(
-    value,
-    createUserSchema.shape.name,
-    m.auth_name_required(),
-    m.auth_name_invalid(),
-  );
+  return undefined;
 }
