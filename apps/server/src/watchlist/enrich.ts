@@ -21,6 +21,13 @@ export interface WatchlistEnrichContext {
 
 export interface EnrichResult {
   items: WatchlistItem[];
+  /**
+   * Source `WatchlistRow` for each emitted item, in the same order. The
+   * paginator uses this to encode the next cursor from the row that produced
+   * the last *returned* item, not the last DB-scanned row (which would skip
+   * matched-but-truncated items when a filter narrows the window).
+   */
+  sources: WatchlistRow[];
   /** True when at least one per-key lookup failed (status, availability, or cold-fill). */
   partial: boolean;
 }
@@ -52,7 +59,7 @@ export async function enrich(
   ctx: WatchlistEnrichContext,
   opts: EnrichOptions = {},
 ): Promise<EnrichResult> {
-  if (rows.length === 0) return { items: [], partial: false };
+  if (rows.length === 0) return { items: [], sources: [], partial: false };
 
   let partial = false;
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
@@ -118,7 +125,7 @@ export async function enrich(
     liveServers = keptServers;
   }
 
-  if (liveRows.length === 0) return { items: [], partial };
+  if (liveRows.length === 0) return { items: [], sources: [], partial };
 
   const artwork = await hydrateArtwork(liveRows, metadata, ctx);
 
@@ -127,10 +134,13 @@ export async function enrich(
   );
 
   const items: WatchlistItem[] = [];
-  for (const result of settled) {
+  const sources: WatchlistRow[] = [];
+  for (let i = 0; i < settled.length; i++) {
+    const result = settled[i]!;
     if (result.status === "fulfilled") {
       if (result.value) {
         items.push(result.value.item);
+        sources.push(liveRows[i]!);
         if (result.value.partial) partial = true;
       }
     } else {
@@ -138,7 +148,7 @@ export async function enrich(
       ctx.log.warn("[watchlist:enrich] per-row enrichment threw", result.reason);
     }
   }
-  return { items, partial };
+  return { items, sources, partial };
 }
 
 async function enrichOne(

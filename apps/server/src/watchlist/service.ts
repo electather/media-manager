@@ -122,15 +122,35 @@ export async function getItems(
     const enriched = await enrich(rows, c, opts.filter ? { filter: opts.filter } : {});
     if (enriched.partial) enrichPartial = true;
     collectedItems = enriched.items.slice(0, limit);
+    const collectedSources = enriched.sources.slice(0, limit);
 
     const lastScanned = rows[rows.length - 1]!;
     const exhausted = rows.length < fetchSize;
+
+    if (collectedItems.length > 0) {
+      // Anchor the cursor on the last *returned* row so any matched-but-
+      // truncated items from this window are picked up on the next page.
+      // When the filter dropped every row, fall back to the last scanned row
+      // so the next hop advances past the dead window instead of looping.
+      if (collectedSources.length === collectedItems.length) {
+        const lastReturned = collectedSources[collectedSources.length - 1]!;
+        nextCursor =
+          exhausted && enriched.items.length <= limit
+            ? null
+            : repo.encodeCursor({ addedAt: lastReturned.addedAt, id: lastReturned.id });
+      } else {
+        nextCursor = exhausted
+          ? null
+          : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+      }
+      break;
+    }
+
     nextCursor = exhausted
       ? null
       : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
 
-    // Either we have something to return, or there's nothing more to scan.
-    if (collectedItems.length > 0 || exhausted) break;
+    if (exhausted) break;
     scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
   }
 
@@ -199,11 +219,11 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
     else if (bucket === "upcoming") upcoming++;
   }
 
-  // `inProgress` is a strict subset of `ready` reserved for rows whose
-  // underlying media has an active watch position. `mediaService.getProgress`
-  // is a host-side stub in v1 (no plugin capability covers per-row progress),
-  // so we report 0 here. When the progress aggregator lands, the count
-  // pulls from the same probe without changing the wire contract.
+  // TODO(watchlist/inProgress): wire real in-progress count when the host
+  // progress-aggregator lands. `inProgress` is a strict subset of `ready`
+  // reserved for rows whose underlying media has an active watch position.
+  // No plugin capability covers per-row progress in v1, so we stub it at 0
+  // here; the wire contract stays stable when the real probe ships.
   return { ready, inProgress: 0, awaiting, upcoming, total: rows.length };
 }
 

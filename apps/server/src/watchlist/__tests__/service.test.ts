@@ -364,6 +364,50 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(res.items.map((i) => i.tmdbId)).toEqual(["950"]);
   });
 
+  it("getItems with filter anchors cursor at the last returned row so overshoot items aren't lost", async () => {
+    const ctx = makeCtx();
+    // Three rows that all pass `filter=upcoming`. With limit=1 the 3x overshoot
+    // fetches all three in one window; the slice returns one item but the
+    // remaining two must be visible on the next page.
+    const futureYear = new Date().getUTCFullYear() + 5;
+    await repo.bulkInsertIgnoreConflict(
+      ctx.userId,
+      [{ tmdbId: "961", mediaType: "movie" }],
+      "manual",
+      false,
+      300,
+    );
+    await repo.bulkInsertIgnoreConflict(
+      ctx.userId,
+      [{ tmdbId: "962", mediaType: "movie" }],
+      "manual",
+      false,
+      200,
+    );
+    await repo.bulkInsertIgnoreConflict(
+      ctx.userId,
+      [{ tmdbId: "963", mediaType: "movie" }],
+      "manual",
+      false,
+      100,
+    );
+    __resetAvailabilityCache();
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:961": { tmdbId: "961", mediaType: "movie", title: "A", year: futureYear, genres: [] },
+      "movie:962": { tmdbId: "962", mediaType: "movie", title: "B", year: futureYear, genres: [] },
+      "movie:963": { tmdbId: "963", mediaType: "movie", title: "C", year: futureYear, genres: [] },
+    });
+
+    const page1 = await getItems(ctx, { limit: 1, filter: "upcoming" });
+    expect(page1.items.map((i) => i.tmdbId)).toEqual(["961"]);
+    expect(page1.cursor).not.toBeNull();
+    const page2 = await getItems(ctx, { limit: 1, filter: "upcoming", cursor: page1.cursor! });
+    // Bug under fix: the old code anchored the cursor at the last DB-scanned
+    // row (963) and skipped 962 and 963 entirely. The fix anchors at the last
+    // *returned* row (961), so the next page picks up 962.
+    expect(page2.items.map((i) => i.tmdbId)).toEqual(["962"]);
+  });
+
   it("availability cache is shared between a list + counts pair (one probe per row)", async () => {
     const ctx = makeCtx();
     await addItem({ tmdbId: "950", mediaType: "movie" }, "manual", ctx);

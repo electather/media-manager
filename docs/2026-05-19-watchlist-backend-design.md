@@ -505,7 +505,7 @@ GET    /api/watchlist
   auth:  session (required)
   rate:  default user-read tier
   query: cursor?  string                 — opaque keyset cursor
-         limit?   number  (1..60)        — page size, default 30
+         limit?   number  (1..200)       — page size, default 60
          filter?  WatchlistListFilter    — server-side pre-classification ("all" default)
   → service.getItems(userId, { cursor, limit, filter }, ctx)
   → 200 WatchlistResponse                — items + cursor + partial
