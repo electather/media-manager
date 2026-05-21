@@ -1,13 +1,16 @@
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
-import { encryptJson, decryptJson } from "../crypto/helpers";
+import { decryptJson } from "../crypto/helpers";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
+// fallow-ignore-next-line boundary-violation
+import { emitAuthExpired, markConnectionStatus, persistRefreshedCredentials } from "../media";
 import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
 import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
+import type { ConnectionStatus } from "@ent-mcp/shared/connections";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
 import type { JobRunContext } from "./types";
@@ -95,6 +98,7 @@ interface ConnectionRow {
   userConfig: string | null;
   encryptedCredentials: string | null;
   credentialsIv: string | null;
+  status: ConnectionStatus;
   retryAfter: number | null;
 }
 
@@ -108,12 +112,12 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     rowSource: async () => {
       const db = getDb();
       const nowSec = Math.floor(Date.now() / 1000);
-      // Skip rows still inside an upstream-imposed cooldown window. `retryAfter`
-      // is epoch-seconds, set by `invokePerConnectionHandler` below whenever a
-      // job handler throws `plugin.rate_limited`. Without this, a per-connection
-      // refresh job storms the upstream every tick after the first 429. The
-      // cooldown predicate is pushed into SQL so parked rows do not load their
-      // encrypted credentials.
+      // Skip rows still inside an upstream-imposed cooldown window (`retryAfter`
+      // is epoch-seconds, set on `plugin.rate_limited`) and rows already in the
+      // terminal `expired` state (no automated recovery — user must reconnect).
+      // Both predicates are pushed into SQL so parked rows do not load their
+      // encrypted credentials and stuck-expired rows do not burn an upstream
+      // round-trip every tick.
       return await db
         .select({
           id: serviceConnections.id,
@@ -122,12 +126,14 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
           userConfig: serviceConnections.userConfig,
           encryptedCredentials: serviceConnections.encryptedCredentials,
           credentialsIv: serviceConnections.credentialsIv,
+          status: serviceConnections.status,
           retryAfter: serviceConnections.retryAfter,
         })
         .from(serviceConnections)
         .where(
           and(
             eq(serviceConnections.pluginId, job.pluginId),
+            ne(serviceConnections.status, "expired"),
             or(isNull(serviceConnections.retryAfter), lte(serviceConnections.retryAfter, nowSec)),
           ),
         )
@@ -145,8 +151,9 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
   });
 }
 
+// Exported for unit testing the connection-status routing in the catch path.
 // fallow-ignore-next-line complexity
-async function invokePerConnectionHandler(args: {
+export async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;
   handler: PluginJobHandler;
@@ -165,18 +172,8 @@ async function invokePerConnectionHandler(args: {
     );
     const result = await handler(ctx);
     if (result) {
-      const enc = await encryptJson(result);
-      await db
-        .update(serviceConnections)
-        .set({
-          encryptedCredentials: enc.data,
-          credentialsIv: enc.iv,
-          // Clear any prior cooldown — the refresh succeeded, so leaving a
-          // stale epoch behind only confuses future readers and observability.
-          retryAfter: null,
-          updatedAt: Date.now(),
-        })
-        .where(eq(serviceConnections.id, row.id));
+      // persistRefreshedCredentials clears the rate-limit cooldown too.
+      await persistRefreshedCredentials(row.id, result);
     } else if (row.retryAfter !== null) {
       // Handler succeeded without rotating credentials. Still clear any prior
       // cooldown so a recovered connection does not carry a stale epoch.
@@ -213,14 +210,18 @@ async function invokePerConnectionHandler(args: {
       });
       return;
     }
-    await db
-      .update(serviceConnections)
-      .set({
-        status: "error",
-        errorMessage: err instanceof Error ? err.message : String(err),
-        updatedAt: Date.now(),
-      })
-      .where(eq(serviceConnections.id, row.id));
+    // Job path mirrors the capability-call path: token_expired → "expired", anything else → "error" (#423; docs/media-service.md §Q3).
+    const expired = isPluginError(err) && err.code === "plugin.token_expired";
+    const message = err instanceof Error ? err.message : String(err);
+    await markConnectionStatus(row.id, expired ? "expired" : "error", message);
+    // Emit only on first transition into "expired" — otherwise this fires every tick a revoked token is still revoked.
+    if (expired && row.status !== "expired") {
+      await emitAuthExpired({
+        connectionId: row.id,
+        pluginId: job.pluginId,
+        userId: row.userId,
+      });
+    }
     throw err;
   }
 }

@@ -283,6 +283,8 @@ Host behavior:
 | `bad_input`         | No                                   | No                           | Yes                                 |
 | `internal`          | No                                   | → `error` w/ message         | Yes                                 |
 
+The background per-connection job path (`invokePerConnectionHandler` in `apps/server/src/jobs/plugin-jobs.ts`) follows the same status-routing rule: `plugin.token_expired` → `expired` + `auth-expired` event (emitted only on first transition into `expired`, since the job iterates every connection each tick), anything else → `error`.
+
 ### Timeouts
 
 Per-call default 15s, overridable per capability. Treated as `transient_network` for retry/status.
