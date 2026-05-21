@@ -94,9 +94,9 @@ function mapKind(
 }
 
 /**
- * Empty bundle returned for 404 (item absent from fanart's catalog) and
- * by the dispatcher when no provider can serve a request. Always returns a
- * fresh object so callers can mutate it without aliasing a shared default.
+ * Empty bundle returned when a 404 response indicates the title is absent
+ * from fanart's catalog. Always returns a fresh object so callers can mutate
+ * it without aliasing a shared default.
  */
 export function emptyBundle(): ArtworkBundle {
   return { poster: [], backdrop: [], clearLogo: [], thumb: [] };

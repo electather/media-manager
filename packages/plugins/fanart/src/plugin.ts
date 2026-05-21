@@ -70,6 +70,9 @@ export default definePlugin({
       const res = await c.fetch(`${BASE}/movies/${VERIFY_FIXTURE_TMDB_ID}`, {
         headers: { "api-key": key },
       });
+      // We only inspect the status code — release the socket immediately so a
+      // low-frequency health probe doesn't hold a connection open until GC.
+      await res.body?.cancel().catch(() => undefined);
       if (res.status === 401 || res.status === 403) {
         return { ok: false, message: `fanart auth rejected (${res.status})` };
       }

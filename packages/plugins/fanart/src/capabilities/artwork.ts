@@ -56,6 +56,7 @@ export const artwork = {
     if (res.status === 429 || res.status === 503) {
       const retryAfterSec = parseRetryAfterSec(res.headers.get("Retry-After"));
       c.pool.markExhausted({ retryAfterSec });
+      await res.body?.cancel().catch(() => undefined);
       throw pluginError("plugin.rate_limited", `fanart returned ${res.status}`, {
         retryable: true,
         retryAfterMs: retryAfterSec * 1000,
