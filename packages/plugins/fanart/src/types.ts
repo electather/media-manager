@@ -1,7 +1,7 @@
 import type { PluginContext } from "@ent-mcp/plugin-sdk";
 
 export interface FanartSharedCreds {
-  apiKey?: string;
+  apiKey: string;
 }
 
 export interface FanartUserCreds {}

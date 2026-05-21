@@ -80,11 +80,12 @@ id:                       "fanart"
 name:                     "Fanart.tv"
 version:                  "0.1.0"
 description:              "High-resolution posters, backdrops, clear logos, and thumbs from fanart.tv."
-logoUrl:                  "https://fanart.tv/favicon.ico"
-author:                   { name: "ent-mcp", url: "https://github.com/electather/media-manager" }
+author:                   { name: "Media Manager", url: "https://github.com/electather/media-manager" }
 homepage:                 "https://fanart.tv"
-sdkVersion:               "^0.1.0"
-allowedHosts:             ["webservice.fanart.tv", "assets.fanart.tv"]
+sdkVersion:               "^1.0.0"
+# Asset CDN (assets.fanart.tv) is consumed browser-side via <img>, not via ctx.fetch,
+# so it stays out of `allowedHosts`.
+allowedHosts:             ["webservice.fanart.tv"]
 auth:                     { kind: "none" }
 poolable:                 true
 
@@ -654,7 +655,7 @@ Plugin monorepo refactor (`2026-04-25-plugin-monorepo-design.md`) must merge fir
 
 3. **Add `artwork@v1` to TMDB plugin.** New capability impl in `packages/plugins/tmdb/src/`. Manifest gains `artwork` capability + `artworkSizes` config. Contract tests in plugin's `__tests__/`. Changeset: `@ent-mcp/plugin-tmdb` minor.
 
-4. **Create `@ent-mcp/plugin-fanart` package.** Per monorepo per-plugin-extraction template: `package.json`, `vite.config.ts`, `src/`, `__tests__/`. Add to `apps/server/package.json` deps. Register in `apps/server/src/plugins/registry.ts` boot list. Changesets: `@ent-mcp/plugin-fanart` minor (initial release) + `@ent-mcp/server` patch (consumer update).
+4. **Create `@ent-mcp/plugin-fanart` package.** Per monorepo per-plugin-extraction template: `package.json`, `vite.config.ts`, `src/`, `__tests__/`. Add to `apps/server/package.json` deps. Register in `apps/server/src/plugins/registry.ts` boot list. Changesets: `@ent-mcp/plugin-fanart` minor (initial release) + `@ent-mcp/server` minor (admin gains a new configurable connection).
 
 5. **Add `MediaService.getArtwork` + `MediaService.resolveIds` + `ArtworkService` + `artwork.get` RPC route.** New `MediaService` typed methods (cache-and-dispatch wrapper for `artwork@v1`; batched wrapper around existing `idResolver`) at `apps/server/src/media-service/`. New `apps/server/src/artwork/index.ts` for `ArtworkService`. New `apps/server/src/api/routes/artwork.ts` for RPC. Wire into RPC router. Integration tests: per-item dedup, tmdb→tvdb preflight batching, partial errors, cache hits. Changeset: `@ent-mcp/server` minor.
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vite-plus/test";
 import { validatePluginModule } from "@ent-mcp/plugin-sdk";
 import fanartPlugin from "../src/plugin";
+import { jsonRes, makeCtx } from "./helpers";
 
 describe("fanart plugin", () => {
   it("passes loader validation", () => {
@@ -20,5 +21,40 @@ describe("fanart plugin", () => {
       tv: ["tvdb"],
     });
     expect((cap as { providerPriority: number }).providerPriority).toBe(10);
+  });
+});
+
+describe("fanart plugin verifyShared", () => {
+  it("returns ok for a 200 response", async () => {
+    const ctx = makeCtx([jsonRes({})]);
+    const res = await fanartPlugin.verifyShared!(ctx);
+    expect(res.ok).toBe(true);
+  });
+
+  it("treats a 404 as 'fanart reachable'", async () => {
+    const ctx = makeCtx([new Response("not found", { status: 404 })]);
+    const res = await fanartPlugin.verifyShared!(ctx);
+    expect(res.ok).toBe(true);
+  });
+
+  it("reports a bad key on 401", async () => {
+    const ctx = makeCtx([new Response("nope", { status: 401 })]);
+    const res = await fanartPlugin.verifyShared!(ctx);
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain("401");
+  });
+
+  it("reports a bad key on 403", async () => {
+    const ctx = makeCtx([new Response("nope", { status: 403 })]);
+    const res = await fanartPlugin.verifyShared!(ctx);
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain("403");
+  });
+
+  it("returns ok=false with the thrown message on a network error", async () => {
+    const ctx = makeCtx([new Error("connection refused")]);
+    const res = await fanartPlugin.verifyShared!(ctx);
+    expect(res.ok).toBe(false);
+    expect(res.message).toBe("connection refused");
   });
 });

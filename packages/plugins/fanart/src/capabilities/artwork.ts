@@ -37,7 +37,8 @@ export const artwork = {
     }
 
     const apiKey = resolveKey(c);
-    const path = type === "movie" ? `/movies/${id}` : `/tv/${id}`;
+    const path =
+      type === "movie" ? `/movies/${encodeURIComponent(id)}` : `/tv/${encodeURIComponent(id)}`;
     const res = await c.fetch(`${BASE}${path}`, { headers: { "api-key": apiKey } });
 
     // 404 = item absent from fanart's catalog. Common for niche titles and

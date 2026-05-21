@@ -12,11 +12,11 @@ export default definePlugin({
     version: "0.1.0",
     description:
       "High-resolution posters, backdrops, clear logos, and thumbs from fanart.tv. Admin configures one or more API keys; the host rotates across them on rate-limit.",
-    author: { name: "Media Manager", url: "https://github.com/" },
+    author: { name: "Media Manager", url: "https://github.com/electather/media-manager" },
     homepage: "https://fanart.tv",
     logoUrl: "https://fanart.tv/favicon.ico",
     sdkVersion: "^1.0.0",
-    allowedHosts: ["webservice.fanart.tv", "assets.fanart.tv"],
+    allowedHosts: ["webservice.fanart.tv"],
     auth: { kind: "none" },
     globalConfigSchema: {
       type: "object",
