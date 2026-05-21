@@ -128,6 +128,7 @@ interface TestRow {
   encryptedCredentials: string | null;
   credentialsIv: string | null;
   status: "connected" | "expired" | "error" | "disconnected";
+  retryAfter: number | null;
 }
 
 function makeRow(id = "conn-1", status: TestRow["status"] = "connected"): TestRow {
@@ -139,8 +140,16 @@ function makeRow(id = "conn-1", status: TestRow["status"] = "connected"): TestRo
     encryptedCredentials: "enc",
     credentialsIv: "iv",
     status,
+    retryAfter: null,
   };
 }
+
+const noopLogger = {
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+} as unknown as import("consola").ConsolaInstance;
 
 beforeEach(() => {
   setCalls.length = 0;
@@ -155,9 +164,9 @@ describe("invokePerConnectionHandler", () => {
       throw new PluginError("plugin.token_expired", "refresh revoked");
     };
 
-    await expect(invokePerConnectionHandler({ job, row, handler })).rejects.toThrow(
-      "refresh revoked",
-    );
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("refresh revoked");
 
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0]?.status).toBe("expired");
@@ -180,9 +189,9 @@ describe("invokePerConnectionHandler", () => {
       throw new Error("network blew up");
     };
 
-    await expect(invokePerConnectionHandler({ job, row, handler })).rejects.toThrow(
-      "network blew up",
-    );
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("network blew up");
 
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0]?.status).toBe("error");
@@ -198,9 +207,9 @@ describe("invokePerConnectionHandler", () => {
     };
     emitMock.mockRejectedValueOnce(new Error("emit boom"));
 
-    await expect(invokePerConnectionHandler({ job, row, handler })).rejects.toThrow(
-      "refresh revoked",
-    );
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("refresh revoked");
   });
 
   it("does not re-emit auth-expired when the row is already expired", async () => {
@@ -213,9 +222,9 @@ describe("invokePerConnectionHandler", () => {
       throw new PluginError("plugin.token_expired", "still revoked");
     };
 
-    await expect(invokePerConnectionHandler({ job, row, handler })).rejects.toThrow(
-      "still revoked",
-    );
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("still revoked");
 
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0]?.status).toBe("expired");
@@ -227,7 +236,7 @@ describe("invokePerConnectionHandler", () => {
     const row = makeRow("conn-9", "error");
     const handler = async () => ({ token: "fresh" });
 
-    await invokePerConnectionHandler({ job, row, handler });
+    await invokePerConnectionHandler({ job, row, handler, logger: noopLogger });
 
     expect(setCalls).toHaveLength(1);
     expect(setCalls[0]?.encryptedCredentials).toBe(JSON.stringify({ token: "fresh" }));

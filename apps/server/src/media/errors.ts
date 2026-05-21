@@ -33,11 +33,14 @@ export class PluginCallError extends Error {
 
 /**
  * Thrown by aggregate `MediaService` methods when every contributing plugin
- * returned an error. Callers (today: the home feed orchestrator) catch this
- * to mark a row's `FetchOutcome` as `all_failed`, distinct from a genuine
- * empty fetch where every plugin succeeded but had nothing to contribute.
+ * returned an error. The home feed orchestrator catches this and downgrades
+ * the affected row to `partial: true` with an empty page so the surface
+ * stays visible. For any other caller it escapes to `errorHandler` as a
+ * 503 `media.providers_failed` with the per-provider `errors[]` exposed in
+ * `details`, so the client can render per-provider hints instead of a
+ * generic 500.
  */
-export class AllPluginsFailedError extends Error {
+export class AllPluginsFailedError extends HttpError {
   constructor(
     public readonly capability: string,
     public readonly errors: ReadonlyArray<{
@@ -46,7 +49,9 @@ export class AllPluginsFailedError extends Error {
       devMessage?: string;
     }>,
   ) {
-    super(`every provider for ${capability} errored`);
+    super(503, "media.providers_failed", `every provider for ${capability} errored`, undefined, {
+      errors,
+    });
     this.name = "AllPluginsFailedError";
   }
 }

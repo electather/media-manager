@@ -1,25 +1,35 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { fetchWatchlist } from "@/shared/lib/watchlist/fetchers";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useMemo, useSyncExternalStore } from "react";
+import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 
+type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
+
 const EMPTY_SET: ReadonlySet<string> = new Set();
-const STALE_TIME_MS = 60_000;
 
 /**
- * Non-suspending watchlist read for cross-feature consumers (home feed,
- * search results, etc). Returns the set of composite ids currently on the
- * user's watchlist. Falls back to an empty set while the fetch is in flight
- * so the surface stays responsive instead of blocking the host route.
+ * Composite-id snapshot for cross-feature consumers (home feed, search
+ * results, etc). Reads from the LOADED pages of the default watchlist
+ * cache only — does not trigger its own fetch. Surfaces that read this set
+ * before the watchlist has been visited get an empty set and rely on
+ * server-side idempotency to absorb add-when-already-saved cases.
  */
 export function useWatchlistIdSet(): ReadonlySet<string> {
-  const { data } = useQuery({
-    queryKey: watchlistKeys.list(),
-    queryFn: fetchWatchlist,
-    staleTime: STALE_TIME_MS,
-  });
+  const qc = useQueryClient();
+  const pages = useSyncExternalStore(
+    (notify) => {
+      const unsub = qc.getQueryCache().subscribe(notify);
+      return () => unsub();
+    },
+    () => qc.getQueryData<WatchlistPages>(watchlistKeys.list()),
+    () => undefined,
+  );
   return useMemo(() => {
-    if (!data) return EMPTY_SET;
-    return new Set(data.items.map((i) => i.id));
-  }, [data]);
+    if (!pages) return EMPTY_SET;
+    const out = new Set<string>();
+    for (const page of pages.pages) {
+      for (const item of page.items) out.add(item.id);
+    }
+    return out;
+  }, [pages]);
 }
