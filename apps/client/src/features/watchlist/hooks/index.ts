@@ -1,4 +1,5 @@
 export { useWatchlistItems } from "./use-watchlist-items";
+export { useWatchlistCounts } from "./use-watchlist-counts";
 export { useIsInWatchlist } from "./use-is-in-watchlist";
 export { useWatchlistIdSet } from "./use-watchlist-id-set";
 export { useToggleWatchlist } from "./use-toggle-watchlist";

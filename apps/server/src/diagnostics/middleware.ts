@@ -129,7 +129,13 @@ export const errorHandler: ErrorHandler = (err, c) => {
     }
     const status = err.status as 400 | 401 | 403 | 404 | 409 | 422 | 500 | 502 | 503;
     return c.json(
-      { code: err.code, devMessage: err.message, params: err.params, requestId },
+      {
+        code: err.code,
+        devMessage: err.message,
+        params: err.params,
+        details: err.details,
+        requestId,
+      },
       status,
     );
   }

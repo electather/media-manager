@@ -6,12 +6,14 @@
  */
 export {
   getItems,
+  getCounts,
   addItem,
   removeItem,
   seedFromPlugins,
   syncFromPlugins,
   listAvailable,
   hasAny,
+  type GetItemsOptions,
   type WatchlistContext,
   type AddItemResult,
   type SeedResult,

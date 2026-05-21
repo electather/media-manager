@@ -169,6 +169,7 @@ interface UserFacingError {
   devMessage: string; // EN; logs/viewer only
   cause?: unknown; // viewer only
   requestId?: string;
+  details?: Record<string, unknown>; // code-specific structured payload (e.g. `errors[]` for `media.providers_failed`, `candidates` for `mcp.ambiguous_target`)
 }
 ```
 
@@ -463,7 +464,7 @@ PUT    /admin/diagnostics/config                  set both retentions (clamped)
 POST   /api/diagnostics/errors                    FE error report (no admin perm; rate-limit)
 ```
 
-HTTP error envelope (unchanged): `{ code, devMessage, requestId }`.
+HTTP error envelope: `{ code, devMessage, params?, details?, requestId }`. `details` carries code-specific structured payloads (e.g. `media.providers_failed` exposes per-provider `errors[]`); flat translation values live in `params`.
 
 ## §Mig Migration (rename + new)
 
