@@ -1,6 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
-import { primaryConnections, serviceConnections } from "../../db/schema";
+// TASK-047: media reads primaryConnections via preferences barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { primaryConnections } from "../../db/schema/preferences/user-preferences";
+// TASK-047: media reads serviceConnections via plugin-runtime barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 
 const NO_MEDIA_TYPE = "_";
 

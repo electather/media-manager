@@ -3,6 +3,7 @@
   "ignoreDependencies": [
     "react-doctor",
     "@ent-mcp/plugin-discord",
+    "@ent-mcp/plugin-fanart",
     "@ent-mcp/plugin-inbox",
     "@ent-mcp/plugin-jellyfin",
     "@ent-mcp/plugin-ntfy",
@@ -24,6 +25,7 @@
     "@ent-mcp/plugin-plex",
     "@ent-mcp/plugin-jellyfin",
     "@ent-mcp/plugin-discord",
+    "@ent-mcp/plugin-fanart",
     "@ent-mcp/plugin-inbox",
     "@ent-mcp/plugin-ntfy",
     "@ent-mcp/plugin-telegram"
@@ -255,6 +257,38 @@
       {
         "name": "server-plugin-bundles",
         "patterns": ["apps/server/src/plugins/**"]
+      },
+      {
+        "name": "server-schema-auth",
+        "patterns": ["apps/server/src/db/schema/auth/**"]
+      },
+      {
+        "name": "server-schema-catalog",
+        "patterns": ["apps/server/src/db/schema/catalog/**"]
+      },
+      {
+        "name": "server-schema-home",
+        "patterns": ["apps/server/src/db/schema/home/**"]
+      },
+      {
+        "name": "server-schema-notifications",
+        "patterns": ["apps/server/src/db/schema/notifications/**"]
+      },
+      {
+        "name": "server-schema-plugin-runtime",
+        "patterns": ["apps/server/src/db/schema/plugin-runtime/**"]
+      },
+      {
+        "name": "server-schema-preferences",
+        "patterns": ["apps/server/src/db/schema/preferences/**"]
+      },
+      {
+        "name": "server-schema-watchlist",
+        "patterns": ["apps/server/src/db/schema/watchlist/**"]
+      },
+      {
+        "name": "server-schema-infra",
+        "patterns": ["apps/server/src/db/schema/infra/**", "apps/server/src/db/schema/index.ts"]
       },
       {
         "name": "server-infra",
@@ -602,6 +636,7 @@
           "server-mod-watchlist",
           "server-plugin-bundles",
           "server-infra",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -620,6 +655,14 @@
           "server-mod-watchlist",
           "server-infra",
           "server-mcp",
+          "server-schema-auth",
+          "server-schema-catalog",
+          "server-schema-home",
+          "server-schema-notifications",
+          "server-schema-plugin-runtime",
+          "server-schema-preferences",
+          "server-schema-watchlist",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -637,6 +680,14 @@
           "server-mod-plugin-runtime",
           "server-mod-watchlist",
           "server-infra",
+          "server-schema-auth",
+          "server-schema-catalog",
+          "server-schema-home",
+          "server-schema-notifications",
+          "server-schema-plugin-runtime",
+          "server-schema-preferences",
+          "server-schema-watchlist",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -669,6 +720,7 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -701,6 +753,8 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-auth",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -733,6 +787,8 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-catalog",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -767,6 +823,8 @@
           "server-mod-plugin-runtime",
           "server-mod-watchlist",
           "server-infra",
+          "server-schema-home",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -801,6 +859,8 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-watchlist",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -833,6 +893,7 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -865,6 +926,8 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-notifications",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -897,6 +960,8 @@
           "server-mod-notifications",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-preferences",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
@@ -930,6 +995,8 @@
           "server-mod-notifications",
           "server-mod-preferences",
           "server-infra",
+          "server-schema-plugin-runtime",
+          "server-schema-infra",
           "shared-pkg",
           "plugin-sdk",
           "plugins"
@@ -947,7 +1014,60 @@
       },
       {
         "from": "server-infra",
-        "allow": ["shared-pkg", "plugin-sdk"]
+        "allow": [
+          "server-schema-auth",
+          "server-schema-catalog",
+          "server-schema-home",
+          "server-schema-notifications",
+          "server-schema-plugin-runtime",
+          "server-schema-preferences",
+          "server-schema-watchlist",
+          "server-schema-infra",
+          "shared-pkg",
+          "plugin-sdk"
+        ]
+      },
+
+      {
+        "from": "server-schema-auth",
+        "allow": ["shared-pkg"]
+      },
+      {
+        "from": "server-schema-catalog",
+        "allow": ["server-schema-auth", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-home",
+        "allow": ["server-schema-auth", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-notifications",
+        "allow": ["server-schema-auth", "server-schema-plugin-runtime", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-plugin-runtime",
+        "allow": ["server-schema-auth", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-preferences",
+        "allow": ["server-schema-auth", "server-schema-plugin-runtime", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-watchlist",
+        "allow": ["server-schema-auth", "shared-pkg"]
+      },
+      {
+        "from": "server-schema-infra",
+        "allow": [
+          "server-schema-auth",
+          "server-schema-catalog",
+          "server-schema-home",
+          "server-schema-notifications",
+          "server-schema-plugin-runtime",
+          "server-schema-preferences",
+          "server-schema-watchlist",
+          "shared-pkg"
+        ]
       },
 
       { "from": "plugins", "allow": ["plugin-sdk", "shared-pkg"] },

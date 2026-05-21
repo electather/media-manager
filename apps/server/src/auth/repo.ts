@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db/client";
-import { rolePermissions, roles, userRoles } from "../db/schema/roles";
+import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
 import type { Permission } from "./types";
 import { ALL_PERMISSIONS } from "@ent-mcp/shared/auth";
 

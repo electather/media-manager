@@ -155,6 +155,112 @@ describe("seerr capability contract", () => {
     expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
   });
 
+  it("mediaRequest.listRequests: does not warn when TV rows carry valid seasons arrays", async () => {
+    const warnings: unknown[][] = [];
+    const ctx = makeCtx(
+      [
+        jsonRes({
+          results: [
+            {
+              id: 11,
+              type: "tv",
+              status: 2,
+              createdAt: "2026-04-06T00:00:00.000Z",
+              media: { tmdbId: 1396, title: "Breaking Bad" },
+              seasons: [{ seasonNumber: 1 }],
+            },
+          ],
+        }),
+      ],
+      {
+        log: {
+          debug() {},
+          info() {},
+          warn: (...args: unknown[]) => warnings.push(args),
+          error() {},
+        },
+      },
+    );
+    await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(warnings.length).toBe(0);
+  });
+
+  it("mediaRequest.listRequests: warns when a TV row is missing the seasons array (rename signal)", async () => {
+    const warnings: unknown[][] = [];
+    const ctx = makeCtx(
+      [
+        jsonRes({
+          results: [
+            {
+              id: 9,
+              type: "tv",
+              status: 2,
+              createdAt: "2026-04-05T00:00:00.000Z",
+              media: { tmdbId: 1396, title: "Breaking Bad" },
+              // intentionally no `seasons` — simulates upstream field rename
+              requestedSeasons: [{ seasonNumber: 1 }],
+            },
+          ],
+        }),
+      ],
+      {
+        log: {
+          debug() {},
+          info() {},
+          warn: (...args: unknown[]) => warnings.push(args),
+          error() {},
+        },
+      },
+    );
+    const out = await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(warnings.length).toBe(1);
+    expect(String(warnings[0]?.[0])).toContain("possible upstream rename");
+    // SDK schema defaults the missing field, so output still validates.
+    expect(MediaRequestV1.methods.listRequests.output.safeParse(out).success).toBe(true);
+  });
+
+  it("mediaRequest.listRequests: warn count reflects every bad TV row, not just the first", async () => {
+    const warnings: unknown[][] = [];
+    const ctx = makeCtx(
+      [
+        jsonRes({
+          results: [
+            {
+              id: 21,
+              type: "tv",
+              status: 2,
+              createdAt: "2026-04-05T00:00:00.000Z",
+              media: { tmdbId: 1396, title: "A" },
+              requestedSeasons: [{ seasonNumber: 1 }],
+            },
+            {
+              id: 22,
+              type: "tv",
+              status: 2,
+              createdAt: "2026-04-06T00:00:00.000Z",
+              media: { tmdbId: 1397, title: "B" },
+              requestedSeasons: [{ seasonNumber: 2 }],
+            },
+          ],
+        }),
+      ],
+      {
+        log: {
+          debug() {},
+          info() {},
+          warn: (...args: unknown[]) => warnings.push(args),
+          error() {},
+        },
+      },
+    );
+    await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
+    expect(warnings.length).toBe(1);
+    const payload = warnings[0]?.[1] as { count?: number; keys?: string[] };
+    expect(payload?.count).toBe(2);
+    expect(Array.isArray(payload?.keys)).toBe(true);
+    expect(payload?.keys).toContain("requestedSeasons");
+  });
+
   it("mediaRequest.listRequests: movie row with no seasons emits seasons:[] and null labels", async () => {
     const ctx = makeCtx([
       jsonRes({

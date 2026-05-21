@@ -51,7 +51,7 @@ Issues: no `index.ts`, no `repo.ts`, no `events.ts`, `service.ts` over hard cap,
 
 ```
 // media/repo.ts
-// @owner: media (assumes media owns its tables)
+// imports from db/schema/media/** — covered by server-schema-media zone
 import { db, dispatchCache } from drizzle + db/schema/media
 
 class MediaRepo:
@@ -172,7 +172,6 @@ Run. MUST pass.
 ```bash
 vp check && vp test
 fallow dead-code --format json --quiet 2>/dev/null | jq '.boundary_violations'  # []
-node tools/check-table-ownership.ts
 node tools/check-file-sizes.ts
 ```
 

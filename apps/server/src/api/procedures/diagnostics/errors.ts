@@ -8,7 +8,7 @@ import {
 } from "@ent-mcp/shared/diagnostics";
 import { requireSession, requirePermission, PERMISSIONS } from "../../../auth";
 import { getDb } from "../../../db/client";
-import { errorRecords } from "../../../db/schema/diagnostics";
+import { errorRecords } from "../../../db/schema/infra/diagnostics";
 import { captureError } from "../../../diagnostics/capture";
 import { zValidator } from "../../../diagnostics/validator";
 import { notFound, unauthorized } from "../../../diagnostics/http-errors";

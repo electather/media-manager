@@ -1,15 +1,26 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
-import { encryptJson, decryptJson } from "../crypto/helpers";
+import { decryptJson } from "../crypto/helpers";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
-import type { PluginJobHandler } from "@ent-mcp/plugin-sdk";
+// fallow-ignore-next-line boundary-violation
+import { emitAuthExpired, markConnectionStatus, persistRefreshedCredentials } from "../media";
+import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
 import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
+import type { ConnectionStatus } from "@ent-mcp/shared/connections";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
+import type { JobRunContext } from "./types";
+
+// Default backoff for `plugin.rate_limited` errors that lack a retryAfterMs hint.
+const DEFAULT_JOB_RATE_LIMIT_RETRY_SEC = 5 * 60;
+// Upper bound applied to whatever `retryAfterMs` a plugin reports, so a buggy
+// or malicious plugin throwing `retryAfterMs = Number.MAX_SAFE_INTEGER` cannot
+// park a connection permanently. Matches the per-plugin 1h ceilings.
+const MAX_JOB_RATE_LIMIT_RETRY_SEC = 60 * 60;
 
 interface DeclaredPluginJob {
   pluginId: string;
@@ -87,6 +98,8 @@ interface ConnectionRow {
   userConfig: string | null;
   encryptedCredentials: string | null;
   credentialsIv: string | null;
+  status: ConnectionStatus;
+  retryAfter: number | null;
 }
 
 function registerPerConnectionJob(job: DeclaredPluginJob): void {
@@ -98,7 +111,14 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     perRowTimeoutSec: job.perRowTimeoutSec,
     rowSource: async () => {
       const db = getDb();
-      return db
+      const nowSec = Math.floor(Date.now() / 1000);
+      // Skip rows still inside an upstream-imposed cooldown window (`retryAfter`
+      // is epoch-seconds, set on `plugin.rate_limited`) and rows already in the
+      // terminal `expired` state (no automated recovery — user must reconnect).
+      // Both predicates are pushed into SQL so parked rows do not load their
+      // encrypted credentials and stuck-expired rows do not burn an upstream
+      // round-trip every tick.
+      return await db
         .select({
           id: serviceConnections.id,
           userId: serviceConnections.userId,
@@ -106,30 +126,40 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
           userConfig: serviceConnections.userConfig,
           encryptedCredentials: serviceConnections.encryptedCredentials,
           credentialsIv: serviceConnections.credentialsIv,
+          status: serviceConnections.status,
+          retryAfter: serviceConnections.retryAfter,
         })
         .from(serviceConnections)
-        .where(eq(serviceConnections.pluginId, job.pluginId))
+        .where(
+          and(
+            eq(serviceConnections.pluginId, job.pluginId),
+            ne(serviceConnections.status, "expired"),
+            or(isNull(serviceConnections.retryAfter), lte(serviceConnections.retryAfter, nowSec)),
+          ),
+        )
         .all();
     },
     // fallow-ignore-next-line complexity
-    handler: async (_ctx, row) => {
+    handler: async (ctx, row) => {
       const entry = capabilityRegistry.get(job.pluginId);
       if (!entry || !entry.enabled) return;
       const fn = entry.module.jobs?.[job.handler];
       if (typeof fn !== "function") return;
 
-      await invokePerConnectionHandler({ job, row, handler: fn });
+      await invokePerConnectionHandler({ job, row, handler: fn, logger: ctx.logger });
     },
   });
 }
 
+// Exported for unit testing the connection-status routing in the catch path.
 // fallow-ignore-next-line complexity
-async function invokePerConnectionHandler(args: {
+export async function invokePerConnectionHandler(args: {
   job: DeclaredPluginJob;
   row: ConnectionRow;
   handler: PluginJobHandler;
+  logger: JobRunContext["logger"];
 }): Promise<void> {
-  const { job, row, handler } = args;
+  const { job, row, handler, logger } = args;
   const db = getDb();
   try {
     const credentials = await decryptJson(row.credentialsIv, row.encryptedCredentials);
@@ -142,25 +172,56 @@ async function invokePerConnectionHandler(args: {
     );
     const result = await handler(ctx);
     if (result) {
-      const enc = await encryptJson(result);
+      // persistRefreshedCredentials clears the rate-limit cooldown too.
+      await persistRefreshedCredentials(row.id, result);
+    } else if (row.retryAfter !== null) {
+      // Handler succeeded without rotating credentials. Still clear any prior
+      // cooldown so a recovered connection does not carry a stale epoch.
       await db
         .update(serviceConnections)
-        .set({
-          encryptedCredentials: enc.data,
-          credentialsIv: enc.iv,
-          updatedAt: Date.now(),
-        })
+        .set({ retryAfter: null, updatedAt: Date.now() })
         .where(eq(serviceConnections.id, row.id));
     }
   } catch (err) {
-    await db
-      .update(serviceConnections)
-      .set({
-        status: "error",
-        errorMessage: err instanceof Error ? err.message : String(err),
-        updatedAt: Date.now(),
-      })
-      .where(eq(serviceConnections.id, row.id));
+    if (isPluginError(err) && err.code === "plugin.rate_limited") {
+      // Upstream told us to back off (e.g. Trakt OAuth 429). The connection is
+      // healthy — only the next refresh attempt needs to wait. Park `retryAfter`
+      // so the rowSource filter skips this connection until the window passes,
+      // and leave `status` alone so the UI does not flag a non-existent error.
+      const retryAfterMs = typeof err.retryAfterMs === "number" ? err.retryAfterMs : null;
+      const retryAfterSec =
+        retryAfterMs !== null && retryAfterMs >= 0
+          ? Math.min(Math.ceil(retryAfterMs / 1000), MAX_JOB_RATE_LIMIT_RETRY_SEC)
+          : DEFAULT_JOB_RATE_LIMIT_RETRY_SEC;
+      const nowSec = Math.floor(Date.now() / 1000);
+      await db
+        .update(serviceConnections)
+        .set({
+          lastExhaustedAt: nowSec,
+          retryAfter: nowSec + retryAfterSec,
+          updatedAt: Date.now(),
+        })
+        .where(eq(serviceConnections.id, row.id));
+      logger.warn("Plugin connection rate-limited; parked until cooldown elapses", {
+        pluginId: job.pluginId,
+        jobId: job.id,
+        connectionId: row.id,
+        retryAfterSec,
+      });
+      return;
+    }
+    // Job path mirrors the capability-call path: token_expired → "expired", anything else → "error" (#423; docs/media-service.md §Q3).
+    const expired = isPluginError(err) && err.code === "plugin.token_expired";
+    const message = err instanceof Error ? err.message : String(err);
+    await markConnectionStatus(row.id, expired ? "expired" : "error", message);
+    // Emit only on first transition into "expired" — otherwise this fires every tick a revoked token is still revoked.
+    if (expired && row.status !== "expired") {
+      await emitAuthExpired({
+        connectionId: row.id,
+        pluginId: job.pluginId,
+        userId: row.userId,
+      });
+    }
     throw err;
   }
 }

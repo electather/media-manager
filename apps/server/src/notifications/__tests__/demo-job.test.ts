@@ -19,9 +19,9 @@ import {
   type Db,
 } from "../../__tests__/helpers/in-memory-db";
 import { notificationSubscriptions } from "../../db/schema/notifications";
-import { serviceConnections } from "../../db/schema/credentials";
+import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { user } from "../../db/schema/auth";
-import { plugins } from "../../db/schema/plugins";
+import { plugins } from "../../db/schema/plugin-runtime/plugins";
 
 let db: Db;
 

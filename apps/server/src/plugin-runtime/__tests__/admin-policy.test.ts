@@ -79,7 +79,7 @@ vi.mock("../../db/client", () => ({ getDb: () => dbMock }));
 
 // Treat our fake `plugins` as the drizzle table; admin-policy builds
 // `eq(plugins.id, ...)` which reduces to `{ id }` in our mock's predicate.
-vi.mock("../../db/schema/plugins", () => ({
+vi.mock("../../db/schema/plugin-runtime/plugins", () => ({
   plugins: {
     id: "id",
     adminAllowlist: "adminAllowlist",

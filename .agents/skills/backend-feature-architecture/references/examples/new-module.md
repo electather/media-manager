@@ -6,7 +6,7 @@ End-to-end scaffold. Cite SKILL.md rules.
 
 ```
 domain?       yes → module. infra/adapter? → skip skill
-owns tables?  yes → repo.ts + schema @owner
+owns tables?  yes → repo.ts + schema files under db/schema/<module>/
 emits events? maybe → events.ts
 ```
 
@@ -30,9 +30,11 @@ apps/server/src/watchlist/
 ## 2. Schema + owner (R3)
 
 ```
-// db/schema/watchlist.ts
-// @owner: watchlist
+// db/schema/watchlist/watchlist.ts
 table watchlist_item { ... }
+
+// db/schema/watchlist/index.ts
+export * from "./watchlist";
 ```
 
 ## 3. repo.ts (R2)
@@ -154,7 +156,6 @@ Added watchlist module.
 ```bash
 vp check && vp test
 fallow dead-code --format json --quiet 2>/dev/null | jq '.boundary_violations'  # []
-node tools/check-table-ownership.ts
 node tools/check-file-sizes.ts
 ```
 

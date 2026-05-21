@@ -53,7 +53,7 @@ import {
   type Db,
 } from "../../../__tests__/helpers/in-memory-db";
 import { user } from "../../../db/schema/auth";
-import { roles, userRoles } from "../../../db/schema/roles";
+import { roles, userRoles } from "../../../db/schema/auth/roles";
 import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
 import { adminUsersApp } from "../users";
 
