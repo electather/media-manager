@@ -133,14 +133,14 @@ function MobileGroup({ group }: { group: SectionNavGroup }) {
       <div className="px-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
         {group.heading()}
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {group.items.map((item, i) =>
+      <div className="overflow-hidden rounded-xl border border-border bg-card [&>*+*>a]:border-t [&>*+*>a]:border-border">
+        {group.items.map((item) =>
           item.permission ? (
             <Can key={item.to} permission={item.permission}>
-              <MobileLink item={item} withBorderTop={i > 0} />
+              <MobileLink item={item} />
             </Can>
           ) : (
-            <MobileLink key={item.to} item={item} withBorderTop={i > 0} />
+            <MobileLink key={item.to} item={item} />
           ),
         )}
       </div>
@@ -148,7 +148,7 @@ function MobileGroup({ group }: { group: SectionNavGroup }) {
   );
 }
 
-function MobileLink({ item, withBorderTop }: { item: SectionNavItem; withBorderTop: boolean }) {
+function MobileLink({ item }: { item: SectionNavItem }) {
   const Icon = item.icon;
   const navigate = useNavigate();
   // Tanstack `Link` swallows `onClickCapture` and runs its own click handler
@@ -161,7 +161,6 @@ function MobileLink({ item, withBorderTop }: { item: SectionNavItem; withBorderT
         to={item.to}
         className={cn(
           "flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/60",
-          withBorderTop && "border-t border-border",
           item.destructive && "text-destructive",
         )}
       >

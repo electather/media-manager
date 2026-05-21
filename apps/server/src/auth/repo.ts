@@ -4,6 +4,10 @@ import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
 import type { Permission } from "./types";
 import { ALL_PERMISSIONS } from "@ent-mcp/shared/auth";
 
+// Member and Viewer are also seeded with isSystem=1, so the role name is
+// required to single out the unconditional-all-permissions Admin role.
+const SYSTEM_ADMIN_ROLE_NAME = "Admin" as const;
+
 export interface UserRoleRow {
   roleId: string;
   isSystem: number;
@@ -26,7 +30,7 @@ export async function findUserRole(userId: string): Promise<UserRoleRow | null> 
 export async function loadUserPermissions(userId: string): Promise<Permission[]> {
   const role = await findUserRole(userId);
   if (!role) return [];
-  if (role.isSystem === 1) return ALL_PERMISSIONS;
+  if (role.isSystem === 1 && role.name === SYSTEM_ADMIN_ROLE_NAME) return ALL_PERMISSIONS;
   const db = getDb();
   const rows = await db
     .select({ permission: rolePermissions.permission })
