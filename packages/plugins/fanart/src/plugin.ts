@@ -1,5 +1,4 @@
 import { definePlugin, toErrorMessage } from "@ent-mcp/plugin-sdk";
-import type { PluginContext } from "@ent-mcp/plugin-sdk";
 import { BASE } from "./constants";
 import { resolveKey } from "./client";
 import { artwork } from "./capabilities/artwork";
@@ -63,11 +62,12 @@ export default definePlugin({
 
   async verifyShared(ctx) {
     try {
-      const key = resolveKey(ctx as Ctx);
+      const c = ctx as Ctx;
+      const key = resolveKey(c);
       // Use a known-good fixture title (Fight Club, tmdb 550) so the request
       // exercises the same code path real lookups will hit. A 200 or 404 both
       // count as "fanart reachable"; 401/403 mean the key is bad.
-      const res = await (ctx as PluginContext).fetch(`${BASE}/movies/550`, {
+      const res = await c.fetch(`${BASE}/movies/550`, {
         headers: { "api-key": key },
       });
       if (res.status === 401 || res.status === 403) {

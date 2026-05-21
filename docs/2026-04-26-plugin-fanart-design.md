@@ -655,7 +655,7 @@ Plugin monorepo refactor (`2026-04-25-plugin-monorepo-design.md`) must merge fir
 
 3. **Add `artwork@v1` to TMDB plugin.** New capability impl in `packages/plugins/tmdb/src/`. Manifest gains `artwork` capability + `artworkSizes` config. Contract tests in plugin's `__tests__/`. Changeset: `@ent-mcp/plugin-tmdb` minor.
 
-4. **Create `@ent-mcp/plugin-fanart` package.** Per monorepo per-plugin-extraction template: `package.json`, `vite.config.ts`, `src/`, `__tests__/`. Add to `apps/server/package.json` deps. Register in `apps/server/src/plugins/registry.ts` boot list. Changesets: `@ent-mcp/plugin-fanart` minor (initial release) + `@ent-mcp/server` minor (admin gains a new configurable connection).
+4. **Create `@ent-mcp/plugin-fanart` package.** Per monorepo per-plugin-extraction template: `package.json`, `src/`, `__tests__/` (no `vite.config.ts` — current plugin packages compile through the workspace tsconfig). Add to `apps/server/package.json` deps. Register in `apps/server/src/plugins/registry.ts` boot list. Changesets: `@ent-mcp/plugin-fanart` minor (initial release) + `@ent-mcp/server` minor (admin gains a new configurable connection).
 
 5. **Add `MediaService.getArtwork` + `MediaService.resolveIds` + `ArtworkService` + `artwork.get` RPC route.** New `MediaService` typed methods (cache-and-dispatch wrapper for `artwork@v1`; batched wrapper around existing `idResolver`) at `apps/server/src/media-service/`. New `apps/server/src/artwork/index.ts` for `ArtworkService`. New `apps/server/src/api/routes/artwork.ts` for RPC. Wire into RPC router. Integration tests: per-item dedup, tmdb→tvdb preflight batching, partial errors, cache hits. Changeset: `@ent-mcp/server` minor.
 
