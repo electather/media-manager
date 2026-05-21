@@ -4,11 +4,11 @@ import { getDb, type Db } from "../../db/client";
 import {
   canonicalMetadata,
   discoverSnapshots,
+  idMap,
   recommendationLists,
   userHistoryMirror,
   userRatingsMirror,
 } from "../../db/schema/catalog";
-import { idMap } from "../../db/schema/catalog/id-map";
 import type {
   CanonicalMetadata,
   CanonicalMetadataWithIds,
