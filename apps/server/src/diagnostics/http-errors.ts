@@ -1,22 +1,31 @@
 /** Thrown by handlers and services to return a structured user-facing error.
  *  4xx bodies below 500 are treated as expected user-input failures and do NOT
- *  enter the error store; 5xx (and any unrecognized throw) is captured. */
+ *  enter the error store; 5xx (and any unrecognized throw) is captured.
+ *
+ *  `params` carries flat translation values (`{ field: "name" }`); `details`
+ *  carries code-specific structured payloads (`{ errors: [...] }` for
+ *  `media.providers_failed`, `{ candidates: [...] }` for
+ *  `mcp.ambiguous_target`) — matches `UserFacingError.details` from
+ *  `@ent-mcp/shared/diagnostics`. */
 export class HttpError extends Error {
   readonly status: number;
   readonly code: string;
   readonly params?: Record<string, string | number>;
+  readonly details?: Record<string, unknown>;
 
   constructor(
     status: number,
     code: string,
     message: string,
     params?: Record<string, string | number>,
+    details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "HttpError";
     this.status = status;
     this.code = code;
     this.params = params;
+    this.details = details;
   }
 }
 

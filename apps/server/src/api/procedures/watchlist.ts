@@ -2,8 +2,10 @@ import { Hono } from "hono";
 import { consola } from "consola";
 import {
   addWatchlistRequestSchema,
+  watchlistListQuerySchema,
   watchlistParamSchema,
   type AddWatchlistResponse,
+  type WatchlistCounts,
   type WatchlistResponse,
 } from "@ent-mcp/shared/watchlist";
 import { requireSession, sessionUserId } from "../../auth";
@@ -11,7 +13,7 @@ import { getCatalogService } from "../../catalog";
 import { MediaService } from "../../media";
 import { TokenBucketLimiter } from "../../mcp/rate-limit";
 import { zValidator } from "../../diagnostics/validator";
-import { addItem, getItems, removeItem, type WatchlistContext } from "../../watchlist";
+import { addItem, getCounts, getItems, removeItem, type WatchlistContext } from "../../watchlist";
 
 /** ~30 add/remove ops per minute per user (burst=30, refill=0.5/s). */
 export const watchlistWriteLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 0.5 });
@@ -39,7 +41,22 @@ function buildContext(userId: string): WatchlistContext {
 
 export const watchlistApp = new Hono()
   .use("*", requireSession)
-  .get("/", async (c) => {
+  .get("/", zValidator("query", watchlistListQuerySchema), async (c) => {
+    const userId = sessionUserId(c);
+    const limited = watchlistReadLimiter.check(userId, 1);
+    if (limited !== null) {
+      const retryAfter = (limited.details as { retry_after: number } | undefined)?.retry_after ?? 1;
+      return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
+    }
+    const { cursor, limit, filter } = c.req.valid("query");
+    const ctx = buildContext(userId);
+    const opts: Parameters<typeof getItems>[1] = { limit };
+    if (cursor) opts.cursor = cursor;
+    if (filter) opts.filter = filter;
+    const response: WatchlistResponse = await getItems(ctx, opts);
+    return c.json(response);
+  })
+  .get("/counts", async (c) => {
     const userId = sessionUserId(c);
     const limited = watchlistReadLimiter.check(userId, 1);
     if (limited !== null) {
@@ -47,8 +64,8 @@ export const watchlistApp = new Hono()
       return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
     }
     const ctx = buildContext(userId);
-    const response: WatchlistResponse = await getItems(ctx);
-    return c.json(response);
+    const counts: WatchlistCounts = await getCounts(ctx);
+    return c.json(counts);
   })
   .post("/", zValidator("json", addWatchlistRequestSchema), async (c) => {
     const userId = sessionUserId(c);

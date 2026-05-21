@@ -93,6 +93,8 @@
   "watchlist_toggle_remove": "Remove from watchlist",
   "watchlist_load_error_title": "Watchlist couldn't load",
   "watchlist_load_error_retry": "Retry",
+  "watchlist_load_more": "Load more",
+  "watchlist_loading_more": "Loading…",
 
   "watchlist_source_manual": "Added manually",
   "watchlist_source_plugin": "Synced from plugin",
