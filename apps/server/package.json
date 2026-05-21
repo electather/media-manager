@@ -14,7 +14,8 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    "./api/router": "./src/api/router.ts"
+    "./api/router": "./src/api/router.ts",
+    "./auth": "./src/auth/index.ts"
   },
   "scripts": {
     "dev": "bun run --hot src/index.ts",

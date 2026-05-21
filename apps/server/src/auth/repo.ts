@@ -2,6 +2,11 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { rolePermissions, roles, userRoles } from "../db/schema/auth/roles";
 import type { Permission } from "./types";
+import { ALL_PERMISSIONS } from "@ent-mcp/shared/auth";
+
+// Member and Viewer are also seeded with isSystem=1, so the role name is
+// required to single out the unconditional-all-permissions Admin role.
+const SYSTEM_ADMIN_ROLE_NAME = "Admin" as const;
 
 export interface UserRoleRow {
   roleId: string;
@@ -19,6 +24,22 @@ export async function findUserRole(userId: string): Promise<UserRoleRow | null> 
     .where(eq(userRoles.userId, userId))
     .get();
   return row ?? null;
+}
+
+/** Returns the permissions granted to `userId` via their assigned role. */
+export async function loadUserPermissions(userId: string): Promise<Permission[]> {
+  const role = await findUserRole(userId);
+  if (!role) return [];
+  if (role.isSystem === 1 && role.name === SYSTEM_ADMIN_ROLE_NAME) return ALL_PERMISSIONS;
+  const db = getDb();
+  const rows = await db
+    .select({ permission: rolePermissions.permission })
+    .from(rolePermissions)
+    .where(eq(rolePermissions.roleId, role.roleId))
+    .all();
+  return rows
+    .map((r) => r.permission)
+    .filter((p): p is Permission => (ALL_PERMISSIONS as readonly string[]).includes(p));
 }
 
 /** Returns `true` when `roleId` has `permission` in its permission set. */

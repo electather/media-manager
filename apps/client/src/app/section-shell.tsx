@@ -3,9 +3,25 @@ import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { AppShell } from "@/app/app-shell";
+import { Can } from "@/shared/components/can";
+import { useHasAnyPermission } from "@/shared/hooks/use-has-any-permission";
 import { useIsDesktop } from "@/shared/hooks/use-is-desktop";
 import { cn } from "@/shared/lib/utils";
 import { sectionTransitionClickHandler } from "@/shared/lib/view-transition";
+import type { Permission } from "@ent-mcp/shared/auth";
+
+// When every item in a group is permission-gated and the user holds none of
+// those permissions, the whole group (heading included) collapses out of the
+// nav. Single-permission `<Can>` already hides individual items, but an
+// otherwise-empty group with a lingering heading would look broken.
+function useGroupIsHidden(group: SectionNavGroup): boolean {
+  const itemPermissions = group.items
+    .map((item) => item.permission)
+    .filter((p): p is Permission => p !== undefined);
+  const everyItemRequiresPermission = itemPermissions.length === group.items.length;
+  const hasAny = useHasAnyPermission(itemPermissions);
+  return everyItemRequiresPermission && itemPermissions.length > 0 && !hasAny;
+}
 
 export interface SectionNavItem {
   to: string;
@@ -13,6 +29,7 @@ export interface SectionNavItem {
   intro: () => string;
   icon: LucideIcon;
   destructive?: boolean;
+  permission?: Permission;
 }
 
 export interface SectionNavGroup {
@@ -64,14 +81,22 @@ function SectionSidebar({
 }
 
 function SidebarGroup({ group }: { group: SectionNavGroup }) {
+  const hidden = useGroupIsHidden(group);
+  if (hidden) return null;
   return (
     <div className="flex flex-col gap-1">
       <div className="px-2.5 pb-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
         {group.heading()}
       </div>
-      {group.items.map((item) => (
-        <SidebarLink key={item.to} item={item} />
-      ))}
+      {group.items.map((item) =>
+        item.permission ? (
+          <Can key={item.to} permission={item.permission}>
+            <SidebarLink item={item} />
+          </Can>
+        ) : (
+          <SidebarLink key={item.to} item={item} />
+        ),
+      )}
     </div>
   );
 }
@@ -119,21 +144,29 @@ export function SectionMobileNavList({
 }
 
 function MobileGroup({ group }: { group: SectionNavGroup }) {
+  const hidden = useGroupIsHidden(group);
+  if (hidden) return null;
   return (
     <section className="flex flex-col gap-2">
       <div className="px-1 font-mono text-[11px] uppercase tracking-wider text-muted-foreground/80">
         {group.heading()}
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {group.items.map((item, i) => (
-          <MobileLink key={item.to} item={item} withBorderTop={i > 0} />
-        ))}
+      <div className="overflow-hidden rounded-xl border border-border bg-card [&>*+*]:border-t [&>*+*]:border-border">
+        {group.items.map((item) =>
+          item.permission ? (
+            <Can key={item.to} permission={item.permission}>
+              <MobileLink item={item} />
+            </Can>
+          ) : (
+            <MobileLink key={item.to} item={item} />
+          ),
+        )}
       </div>
     </section>
   );
 }
 
-function MobileLink({ item, withBorderTop }: { item: SectionNavItem; withBorderTop: boolean }) {
+function MobileLink({ item }: { item: SectionNavItem }) {
   const Icon = item.icon;
   const navigate = useNavigate();
   // Tanstack `Link` swallows `onClickCapture` and runs its own click handler
@@ -141,12 +174,11 @@ function MobileLink({ item, withBorderTop }: { item: SectionNavItem; withBorderT
   // phase to start the view transition before navigation kicks off.
   const onCapture = sectionTransitionClickHandler("nav-forward", () => navigate({ to: item.to }));
   return (
-    <div onClickCapture={onCapture} style={{ display: "contents" }}>
+    <div onClickCapture={onCapture}>
       <Link
         to={item.to}
         className={cn(
           "flex items-start gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/60",
-          withBorderTop && "border-t border-border",
           item.destructive && "text-destructive",
         )}
       >

@@ -20,3 +20,12 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as Permission[];
+
+export const ADMIN_PERMISSIONS = [
+  PERMISSIONS.ADMIN_USERS,
+  PERMISSIONS.ADMIN_ROLES,
+  PERMISSIONS.ADMIN_SERVER,
+  PERMISSIONS.ADMIN_REQUESTS,
+  PERMISSIONS.ADMIN_PLUGINS,
+  PERMISSIONS.ADMIN_JOBS,
+] as const satisfies Permission[];
