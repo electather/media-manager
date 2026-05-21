@@ -27,7 +27,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     },
   });
 
-  const canSubmit = !form.state.isSubmitting && loginMutation.status !== "pending";
+  const canSubmit = !form.state.isSubmitting && !loginMutation.isPending;
 
   return (
     <div className="flex flex-col gap-4">

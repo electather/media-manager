@@ -1,11 +1,26 @@
+import type { ZodTypeAny } from "zod";
 import { createUserSchema } from "@ent-mcp/shared/users";
 import { m } from "@/paraglide/messages";
 
-export function validateEmail(value: string): string | undefined {
-  if (!value) return m.auth_email_required();
-  const result = createUserSchema.shape.email.safeParse(value);
-  if (!result.success) return m.auth_email_invalid();
+function validateSchemaField(
+  value: string,
+  schema: ZodTypeAny,
+  requiredMessage: string,
+  invalidMessage: string,
+): string | undefined {
+  if (!value) return requiredMessage;
+  const result = schema.safeParse(value);
+  if (!result.success) return invalidMessage;
   return undefined;
+}
+
+export function validateEmail(value: string): string | undefined {
+  return validateSchemaField(
+    value,
+    createUserSchema.shape.email,
+    m.auth_email_required(),
+    m.auth_email_invalid(),
+  );
 }
 
 export function validateLoginPassword(value: string): string | undefined {
@@ -14,10 +29,12 @@ export function validateLoginPassword(value: string): string | undefined {
 }
 
 export function validateNewPassword(value: string): string | undefined {
-  if (!value) return m.auth_password_required();
-  const result = createUserSchema.shape.password.safeParse(value);
-  if (!result.success) return m.auth_password_too_short();
-  return undefined;
+  return validateSchemaField(
+    value,
+    createUserSchema.shape.password,
+    m.auth_password_required(),
+    m.auth_password_too_short(),
+  );
 }
 
 export function validateConfirmPassword(value: string, password: string): string | undefined {
@@ -28,7 +45,10 @@ export function validateConfirmPassword(value: string, password: string): string
 
 export function validateName(value: string): string | undefined {
   if (!value.trim()) return m.auth_name_required();
-  const result = createUserSchema.shape.name.safeParse(value);
-  if (!result.success) return m.auth_name_invalid();
-  return undefined;
+  return validateSchemaField(
+    value,
+    createUserSchema.shape.name,
+    m.auth_name_required(),
+    m.auth_name_invalid(),
+  );
 }

@@ -28,7 +28,7 @@ export function RegisterForm() {
     },
   });
 
-  const canSubmit = !form.state.isSubmitting && registerMutation.status !== "pending";
+  const canSubmit = !form.state.isSubmitting && !registerMutation.isPending;
 
   return (
     <div className="flex flex-col gap-4">

@@ -71,7 +71,7 @@ function VoteButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
+        "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         active
           ? activeClass
           : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
@@ -92,7 +92,7 @@ function NoteButton({ hasNote, onClick }: { hasNote: boolean; onClick: () => voi
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
+        "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         hasNote
           ? "border-primary/55 bg-primary/10 text-primary"
           : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
