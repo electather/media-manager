@@ -80,6 +80,7 @@ id:                       "fanart"
 name:                     "Fanart.tv"
 version:                  "0.1.0"
 description:              "High-resolution posters, backdrops, clear logos, and thumbs from fanart.tv."
+logoUrl:                  "https://fanart.tv/favicon.ico"
 author:                   { name: "Media Manager", url: "https://github.com/electather/media-manager" }
 homepage:                 "https://fanart.tv"
 sdkVersion:               "^1.0.0"

@@ -57,4 +57,11 @@ describe("fanart plugin verifyShared", () => {
     expect(res.ok).toBe(false);
     expect(res.message).toBe("connection refused");
   });
+
+  it("reports a non-ok response with the upstream status on 503", async () => {
+    const ctx = makeCtx([new Response("unavailable", { status: 503 })]);
+    const res = await fanartPlugin.verifyShared!(ctx);
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain("503");
+  });
 });

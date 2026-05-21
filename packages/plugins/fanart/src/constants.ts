@@ -13,3 +13,9 @@ export const DEFAULT_ASSET_CDN_PREFIX = "https://assets.fanart.tv";
  * `ArtworkService` so a direct plugin invocation produces the same ranking.
  */
 export const DEFAULT_LANGUAGES = ["en", "00"] as const;
+
+/**
+ * TMDB id used as the reachability probe in `verifyShared`. Fight Club —
+ * a reliably indexed title — keeps the probe stable across catalogue churn.
+ */
+export const VERIFY_FIXTURE_TMDB_ID = "550";
