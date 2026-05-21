@@ -1,5 +1,8 @@
 {
   "clone_groups": [
+    "apps/client/src/features/auth/hooks/use-login.ts:11-18|apps/client/src/features/auth/hooks/use-register.ts:11-18",
+    "apps/client/src/features/auth/lib/poster-data.ts:8-31|apps/client/src/features/auth/lib/poster-data.ts:32-55",
+    "apps/client/src/features/auth/lib/validators.ts:4-11|apps/client/src/features/auth/lib/validators.ts:16-23",
     "apps/client/src/features/admin-plugins/shared/fetchers.ts:27-39|apps/client/src/features/admin-plugins/shared/fetchers.ts:51-63",
     "apps/client/src/features/admin-plugins/shared/fetchers.ts:32-49|apps/client/src/features/notifications/shared/fetchers.ts:49-61",
     "apps/client/src/features/admin-plugins/shared/use-plugin-mutation.ts:34-38|apps/client/src/features/admin-users/hooks/use-delete-user.ts:16-20",

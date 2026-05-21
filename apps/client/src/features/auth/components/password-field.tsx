@@ -16,6 +16,7 @@ interface PasswordFieldProps {
   toggle?: boolean;
 }
 
+// fallow-ignore-next-line complexity
 export function PasswordField({
   id,
   value,

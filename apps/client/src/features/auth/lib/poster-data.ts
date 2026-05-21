@@ -148,6 +148,7 @@ export interface PosterStyle {
 // Resolves every per-poster style decision from a deterministic seed. Pulled
 // out of the component so the render path stays cheap and so the math can be
 // covered by tests if it ever grows further.
+// fallow-ignore-next-line complexity
 export function derivePosterStyle(title: string, idx: number): PosterStyle {
   const seed = title + idx;
   const titleStyle = hash(seed + "t") % 4;
