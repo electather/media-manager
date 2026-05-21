@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import type { MediaType } from "@ent-mcp/shared/media";
@@ -68,7 +68,9 @@ export function WatchlistContent() {
   const itemIndex = useMemo(() => new Map(items.map((i) => [i.id, i] as const)), [items]);
 
   const navigate = useNavigate();
-  const { peek } = useSearch({ strict: false }) as PeekSearch;
+  const { peek: rawPeek } = useSearch({ strict: false }) as PeekSearch;
+  // Defer so peek-derived values coalesce across the concurrent scheduler during rapid back/forward navigation.
+  const peek = useDeferredValue(rawPeek);
 
   const [filter, setFilter] = useState<WatchlistFilter>("all");
   const [sort, setSort] = useState<WatchlistSort>("recent");
