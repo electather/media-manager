@@ -6,36 +6,34 @@ Each drizzle table has exactly one owning module. Others read/write through owne
 
 Barrel without DB ownership = decorative. Modules still share state via DB, defeating boundary. Owned tables → refactors surgical — owner reshapes storage without rippling to consumers.
 
-## `@owner:` directive
+## Per-module schema namespaces
 
-Every drizzle schema file under `apps/server/src/db/schema/**/*.ts` declares owner:
+Every drizzle table lives under `apps/server/src/db/schema/<module>/` — the directory IS the owner.
 
 ```
-// db/schema/catalog.ts
-// @owner: catalog
-
-table canonical_media { id: pk, title: notNull, ... }
-table catalog_features { ... }
+apps/server/src/db/schema/
+├── auth/{auth,users,roles}.ts          # auth module
+├── catalog/{catalog,id-map}.ts         # catalog
+├── home/home.ts
+├── infra/{jobs,diagnostics}.ts         # server-infra (shared across modules)
+├── notifications/notifications.ts
+├── plugin-runtime/{plugins,credentials,plugin-shared-credentials}.ts
+├── preferences/{preferences,user-preferences,feedback}.ts
+└── watchlist/watchlist.ts
 ```
 
-Rules:
-- One `@owner:` at file top → owns every table in file
-- Multi-owner files → split before annotating. One owner per file
-- Mixed-owner (rare): `// @owner(tableName): <module>` per export. Script prefers per-table over file-level
-- Junction tables: assign to module with stronger ownership of lifecycle. Document in comment
+Each subdirectory has an `index.ts` barrel. The root `index.ts` re-exports every subdirectory barrel — drizzle's schema entry point is unchanged.
 
 ## Enforcement
 
-`tools/check-table-ownership.ts`:
+Each subdirectory is a fallow zone:
 
-```
-1. walk db/schema/**/*.ts → read @owner: → build {exportName → owningModule}
-2. walk server/src/<module>/**/*.ts (excl. api/, mcp/, tests)
-3. per named import resolving to db/schema/*: assert import.owner === importingModule
-4. exception: import is in <module>/repo.ts or <module>/repo/**
-5. resolve TS path aliases via tsconfig paths
-6. exit 1 on violations → wired into vp staged + CI
-```
+- `server-schema-auth` covers `db/schema/auth/**`
+- `server-schema-catalog` covers `db/schema/catalog/**`
+- ... one zone per module
+- `server-schema-infra` covers `db/schema/infra/**` and `db/schema/index.ts` (the root barrel)
+
+Per-module fallow allow rules let `server-mod-<module>-internal` reach `server-schema-<module>` and `server-schema-infra` — nothing else. A module trying to import from another module's schema namespace fails `fallow dead-code` with a boundary violation.
 
 ## Reading another module's data
 
@@ -45,7 +43,7 @@ import { getCatalogService } from "../../catalog"       // barrel — correct
 item = await getCatalogService().getCanonical(id)
 
 // NEVER:
-import { canonicalMedia } from "../../db/schema/catalog"  // blocked by check-table-ownership
+import { canonicalMedia } from "../../db/schema/catalog"  // blocked by server-schema-catalog zone
 ```
 
 If owner barrel lacks needed method → add to owner's `service.ts`, re-export via barrel, call it.
@@ -60,7 +58,7 @@ Consumer needs write in own transaction → design smell: data likely belongs to
 
 ```
 1. decide owner (usually obvious from what table represents)
-2. create/extend db/schema/<owner>.ts, annotate // @owner: <owner> if new file
+2. create file at db/schema/<owner>/<file>.ts and re-export it from db/schema/<owner>/index.ts
 3. vp run db:generate
 4. add repo.ts queries
 5. expose service methods if other modules need to interact
@@ -70,16 +68,37 @@ Consumer needs write in own transaction → design smell: data likely belongs to
 
 ```
 1. migration moves/renames table
-2. update schema file @owner: if ownership shifts
-3. run check-table-ownership.ts → orphaned cross-mod imports surface
+2. move schema file to new owner's subdirectory; update the old owner's index.ts to stop re-exporting it
+3. run `vp dlx fallow dead-code` → orphaned cross-mod imports surface as boundary violations
 4. move queries to new owner's repo.ts
 ```
 
-## Phase 4 (future): namespace split
+## Cross-module crossings (last resort)
 
-Follow-up spec moves to per-module schema namespaces: `db/schema/<module>/*.ts`. Fallow rules tighten so each `repo.ts` imports only from own namespace. Until then: `@owner:` + pre-commit script = boundary.
+A cross-module schema import is a one-way ratchet. If you genuinely must read another module's table without going through its barrel:
+
+```ts
+// TASK-<n>: <consumer> reads <table> via <owner> barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { otherTable } from "../../db/schema/<other-module>/<file>";
+```
+
+The directive requires:
+- A paired plan task ID in the comment (so the crossing has an owner and a destination).
+- The import points at the OWNER's namespace, not the root `db/schema` barrel — the import site stays grep-able and the boundary check stays meaningful.
+
+### Test helpers
+
+Files under `__tests__/` that seed fixtures (e.g. `<module>/__tests__/helpers.ts`) may import another module's schema directly without a TASK reference — fixture setup is not a production crossing and has no migration destination. The directive comment should name the table being seeded so the boundary skip is auditable:
+
+```ts
+// Test helper seeds auth tables directly to set up integration fixtures.
+// fallow-ignore-next-line boundary-violation
+import { user } from "../../db/schema/auth";
+```
 
 ## See also
 
 - [service-and-repo.md](service-and-repo.md) — repo.ts structure
 - [fallow-zones.md](fallow-zones.md) — boundary enforcement for code (parallel to ownership for data)
+- [`docs/2026-05-20-backend-schema-namespaces-design.md`](../../../../docs/2026-05-20-backend-schema-namespaces-design.md) — design rationale

@@ -1,6 +1,8 @@
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
-import { serviceConnections } from "../../db/schema";
+// TASK-047: media reads serviceConnections via plugin-runtime barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { decryptField } from "../../crypto/helpers";
 import { capabilityRegistry, pluginRuntime } from "../../plugin-runtime";
 import { getCapability } from "@ent-mcp/plugin-sdk";

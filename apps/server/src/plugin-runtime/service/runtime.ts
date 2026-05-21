@@ -3,7 +3,7 @@ import { consola } from "consola";
 import type { PersonalKeyFallbackPolicy } from "@ent-mcp/shared/plugins";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
-import { plugins } from "../../db/schema/plugins";
+import { plugins } from "../../db/schema/plugin-runtime/plugins";
 import { resolveAllowedHostsFromSchema, unionHostSets } from "../internal/allowed-hosts";
 import { loadPluginPolicy, type PluginAdminPolicy } from "../internal/admin-policy";
 import { buildContext } from "../internal/context";

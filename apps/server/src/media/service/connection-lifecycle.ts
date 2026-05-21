@@ -1,7 +1,9 @@
 import { consola } from "consola";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
-import { serviceConnections } from "../../db/schema";
+// TASK-047: media reads serviceConnections via plugin-runtime barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { serviceConnections } from "../../db/schema/plugin-runtime/credentials";
 import { encryptJson } from "../../crypto/helpers";
 import { emit } from "../../jobs/events";
 import { MEDIA_EVENTS, connectionAuthExpiredPayload } from "../events";

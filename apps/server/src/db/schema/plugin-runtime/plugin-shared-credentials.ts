@@ -1,4 +1,3 @@
-// @owner: plugin-runtime
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { plugins } from "./plugins";

@@ -1,7 +1,7 @@
 import type { ErrorRecord, PerfRecord } from "@ent-mcp/shared/diagnostics";
 import { SYSTEM_USER_ID } from "@ent-mcp/shared/jobs";
 import { getDb } from "../db/client";
-import { errorRecords, perfRecords } from "../db/schema/diagnostics";
+import { errorRecords, perfRecords } from "../db/schema/infra/diagnostics";
 import type { DiagnosticSink } from "./types";
 
 // __system__ has no user-table row, so FK constraints reject it.

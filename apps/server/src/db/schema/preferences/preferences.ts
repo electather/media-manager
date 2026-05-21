@@ -1,8 +1,7 @@
-// @owner: preferences
 import { sqliteTable, text, integer, blob, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { CONFIDENCE_LEVELS, PROFILE_MEDIA_TYPES } from "@ent-mcp/shared/preferences";
-import { user } from "./auth";
+import { user } from "../auth/auth";
 
 export const preferenceProfiles = sqliteTable(
   "preference_profiles",

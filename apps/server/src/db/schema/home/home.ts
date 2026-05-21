@@ -1,6 +1,5 @@
-// @owner: home
 import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
-import { user } from "./auth";
+import { user } from "../auth/auth";
 
 /**
  * Per-user pre-rendered `HomeLayoutResponse` blob. Read-once on every

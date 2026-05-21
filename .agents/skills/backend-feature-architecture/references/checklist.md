@@ -15,12 +15,12 @@
 - [ ] `__tests__/` — unit tests mocking `repo.ts`
 - [ ] Add 2 zones to `.fallowrc.json` (narrow first) + 2 rules → [fallow-zones.md](fallow-zones.md)
 - [ ] Update other modules' + adapter rules to include `server-mod-<new>` where needed
-- [ ] Annotate new drizzle schema files `// @owner: <module>` → [db-ownership.md](db-ownership.md)
+- [ ] Place new drizzle schema files under `apps/server/src/db/schema/<module>/` and re-export from that subdir's `index.ts` → [db-ownership.md](db-ownership.md)
 - [ ] Wire `<module>.registerJobs()` into `{index,worker}.ts` alphabetically
 - [ ] Companion skills invoked: `clean-code`, `fallow`, `es-toolkit`, `backprop`; `frontend-feature-architecture` if paired
 - [ ] Changeset added (CLAUDE.md versioning)
 - [ ] `vp check` + `vp test` clean; `fallow dead-code` → `boundary_violations: []`
-- [ ] `tools/check-table-ownership.ts` + `tools/check-file-sizes.ts` green
+- [ ] `tools/check-file-sizes.ts` green
 
 ## Retrofit
 
@@ -44,7 +44,7 @@ Cite hard-rule numbers from [SKILL.md](../SKILL.md).
 
 - [ ] R1 — no deep imports of `repo.ts`, `internal/`, `jobs/<x>.ts` from outside. Barrel only
 - [ ] R2 — `drizzle-orm` imports only in `repo.ts` / `repo/**`
-- [ ] R3 — `@owner:` matches importing module's `repo.ts`
+- [ ] R3 — schema files live under `db/schema/<module>/` matching importing module's `repo.ts`
 - [ ] R4 — cross-mod side effects via typed `emit(...)`, not direct calls
 - [ ] R5 — `events.ts` changes carry changeset
 - [ ] R6 — tests next to code, mock `repo.ts`

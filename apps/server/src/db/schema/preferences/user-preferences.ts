@@ -1,8 +1,7 @@
-// @owner: preferences
 import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { user } from "./auth";
-import { serviceConnections } from "./credentials";
+import { user } from "../auth/auth";
+import { serviceConnections } from "../plugin-runtime/credentials";
 
 /**
  * Per-user primary-connection selection, used by capabilities with the

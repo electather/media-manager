@@ -30,7 +30,7 @@ Rules:
 ```
 // catalog/repo.ts
 import { db } from "../db"
-import { canonicalMedia } from "../db/schema/catalog"  // @owner: catalog
+import { canonicalMedia } from "../db/schema/catalog/catalog"  // server-schema-catalog zone
 import { eq, ilike } from "drizzle-orm"
 
 class CatalogRepo:

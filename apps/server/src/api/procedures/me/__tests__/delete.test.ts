@@ -33,13 +33,13 @@ import {
   session,
   user,
 } from "../../../../db/schema/auth";
-import { serviceConnections } from "../../../../db/schema/credentials";
-import { feedback } from "../../../../db/schema/feedback";
-import { jobRuns } from "../../../../db/schema/jobs";
-import { plugins } from "../../../../db/schema/plugins";
+import { serviceConnections } from "../../../../db/schema/plugin-runtime/credentials";
+import { feedback } from "../../../../db/schema/preferences/feedback";
+import { jobRuns } from "../../../../db/schema/infra/jobs";
+import { plugins } from "../../../../db/schema/plugin-runtime/plugins";
 import { preferenceProfiles } from "../../../../db/schema/preferences";
-import { roles, userRoles } from "../../../../db/schema/roles";
-import { primaryConnections } from "../../../../db/schema/user-preferences";
+import { roles, userRoles } from "../../../../db/schema/auth/roles";
+import { primaryConnections } from "../../../../db/schema/preferences/user-preferences";
 
 const USER = "victim";
 const SURVIVOR = "survivor";

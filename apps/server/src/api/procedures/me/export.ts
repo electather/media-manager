@@ -1,11 +1,11 @@
 import JSZip from "jszip";
 import { eq } from "drizzle-orm";
 import { session, user } from "../../../db/schema/auth";
-import { feedback } from "../../../db/schema/feedback";
-import { jobRuns } from "../../../db/schema/jobs";
+import { feedback } from "../../../db/schema/preferences/feedback";
+import { jobRuns } from "../../../db/schema/infra/jobs";
 import { preferenceProfiles } from "../../../db/schema/preferences";
-import { primaryConnections } from "../../../db/schema/user-preferences";
-import { serviceConnections } from "../../../db/schema/credentials";
+import { primaryConnections } from "../../../db/schema/preferences/user-preferences";
+import { serviceConnections } from "../../../db/schema/plugin-runtime/credentials";
 import type { Db } from "../../../db/client";
 import { fetchUserRole } from "./queries";
 import { notFound } from "../../../diagnostics/http-errors";

@@ -1,7 +1,11 @@
 import { sql } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "../../db/client";
-import { feedback } from "../../db/schema/feedback";
+// TASK-046: home warm job reads feedback via preferences barrel (deferred).
+// fallow-ignore-next-line boundary-violation
+import { feedback } from "../../db/schema/preferences/feedback";
+// TASK-046: home warm job reads userHistoryMirror via catalog barrel (deferred).
+// fallow-ignore-next-line boundary-violation
 import { userHistoryMirror } from "../../db/schema/catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import { buildContext, composeLayout } from "../service";
@@ -23,8 +27,8 @@ interface ActiveUserRow {
  * union keeps users who watch but never rate eligible for warm fills.
  *
  * Reads `feedback` (owned by preferences) and `userHistoryMirror` (owned by
- * catalog) directly — both imports are listed in
- * `tools/check-table-ownership.ts` under TASK-046 with the same reason: the
+ * catalog) directly — both imports carry `fallow-ignore-next-line
+ * boundary-violation` directives under TASK-046 with the same reason: the
  * warm job is the sole cross-module query path here, and routing through
  * service barrels would require adding cross-module list-user-id surfaces
  * on `preferences` and `catalog` purely for this job. The barrel additions

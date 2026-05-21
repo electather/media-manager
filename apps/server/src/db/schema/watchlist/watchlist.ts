@@ -1,8 +1,7 @@
-// @owner: watchlist
 import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { MEDIA_TYPES } from "@ent-mcp/shared/media";
 import { WATCHLIST_SOURCES, WATCHLIST_STATES } from "@ent-mcp/shared/watchlist";
-import { user } from "./auth";
+import { user } from "../auth/auth";
 
 /**
  * One row per `(user_id, tmdb_id, media_type)`. `state` acts as a tombstone:
