@@ -110,10 +110,10 @@ Spec: `docs/2026-05-21-virtualize-card-grids-design.md`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-037 | Create `.changeset/virtualize-card-grids.md` — frontmatter `"@ent-mcp/client": minor`, body: "Virtualized home feed and watchlist card grids so scrolling stays smooth on long lists." | | |
-| TASK-038 | Run `vp check && vp test` at repo root one final time. Fix any newly surfaced lint/format issues. | | |
-| TASK-039 | Manual smoke: `vp dev`, scroll home (≥3 rows full of cards), scroll watchlist (filtered mode + default mode), verify no jank, no console errors, resize browser to confirm grid col recomputes. | | |
-| TASK-040 | Update PR description w/ spec link + plan link + screenshots/gifs of smooth scroll if available. | | |
+| TASK-037 | Create `.changeset/virtualize-card-grids.md` — frontmatter `"@ent-mcp/client": minor`, body: "Virtualized home feed and watchlist card grids so scrolling stays smooth on long lists." | ✅ | 2026-05-21 |
+| TASK-038 | Run `vp check && vp test` at repo root one final time. Fix any newly surfaced lint/format issues. | ✅ | 2026-05-21 |
+| TASK-039 | Manual smoke: `vp dev`, scroll home (≥3 rows full of cards), scroll watchlist (filtered mode + default mode), verify no jank, no console errors, resize browser to confirm grid col recomputes. | ⏭️ | 2026-05-21 (deferred — headless agent; reviewer must run locally before merge) |
+| TASK-040 | Update PR description w/ spec link + plan link + screenshots/gifs of smooth scroll if available. | ✅ | 2026-05-21 |
 
 ## 3. Alternatives
 
