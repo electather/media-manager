@@ -38,7 +38,7 @@ listRequests.output = z.array(z.object({
 }))
 ```
 
-Pre-stable. Additive. No compat shim. Each new field is `.optional().default(...)` so a plugin that omits the key still parses; the Seerr mapper writes the same defaults explicitly (§S.2) and the SDK-level default is a defence-in-depth for third-party plugins (issue #427).
+Pre-stable. Additive. No compat shim. Each new field is `.default(...)` so a plugin that omits the key still parses; the Seerr mapper writes the same defaults explicitly (§S.2) and the SDK-level default is a defence-in-depth for third-party plugins (issue #427).
 
 ### S.2 Seerr plugin — listRequests map
 

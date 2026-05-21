@@ -255,8 +255,10 @@ describe("seerr capability contract", () => {
     );
     await seerrPlugin.capabilities.mediaRequest!.listRequests!(ctx, {});
     expect(warnings.length).toBe(1);
-    const payload = warnings[0]?.[1] as { count?: number };
+    const payload = warnings[0]?.[1] as { count?: number; keys?: string[] };
     expect(payload?.count).toBe(2);
+    expect(Array.isArray(payload?.keys)).toBe(true);
+    expect(payload?.keys).toContain("requestedSeasons");
   });
 
   it("mediaRequest.listRequests: movie row with no seasons emits seasons:[] and null labels", async () => {
