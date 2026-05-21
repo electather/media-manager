@@ -200,6 +200,14 @@ export const mediaRequest = {
   async listRequests(ctx: unknown, _input: unknown) {
     const c = ctx as Ctx;
     const all = await fetchAllRequests(c);
+    // TV row missing `seasons` → possible upstream field rename. Warn once per call; log count + union of all observed keys so a partial migration with mixed shapes still surfaces every candidate.
+    const badTvRows = all.filter((r) => r.type === "tv" && !Array.isArray(r.seasons));
+    if (badTvRows.length > 0) {
+      c.log.warn("seerr.listRequests: tv row missing `seasons` array — possible upstream rename", {
+        count: badTvRows.length,
+        keys: [...new Set(badTvRows.flatMap((r) => Object.keys(r)))],
+      });
+    }
     return all.map((r) => ({
       id: String(r.id),
       tmdbId: String(r.media.tmdbId),
