@@ -7,6 +7,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
+import { VirtualGrid } from "@/shared/components/virtualized";
 import type { WatchlistFilter, WatchlistItem, WatchlistSort } from "../lib/types";
 
 interface WatchlistFilteredGridProps {
@@ -48,14 +49,13 @@ export function WatchlistFilteredGrid({ items, filter, sort, onPeek }: Watchlist
           </SectionHeadTitle>
         </SectionHeadHeading>
       </SectionHead>
-      <div
-        className="grid gap-x-4 gap-y-5"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}
-      >
-        {items.map((it) => (
-          <WatchlistCard key={it.id} item={it} forceAspect="2/3" onPeek={onPeek} />
-        ))}
-      </div>
+      <VirtualGrid
+        items={items}
+        getKey={(it) => it.id}
+        minColumnWidthPx={180}
+        estimateRowHeight={() => 320}
+        renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
+      />
     </section>
   );
 }

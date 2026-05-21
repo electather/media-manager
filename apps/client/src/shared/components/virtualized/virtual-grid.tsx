@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { useGridColumns } from "./use-grid-columns";
 
@@ -12,6 +12,7 @@ interface VirtualGridProps<T> {
   overscanRows?: number;
   className?: string;
   cellClassName?: string;
+  style?: CSSProperties;
 }
 
 /**
@@ -30,6 +31,7 @@ export function VirtualGrid<T>({
   overscanRows = 2,
   className,
   cellClassName,
+  style,
 }: VirtualGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
@@ -58,7 +60,7 @@ export function VirtualGrid<T>({
   const virtualRows = virtualizer.getVirtualItems();
 
   return (
-    <div ref={parentRef} className={className} style={{ display: "block" }}>
+    <div ref={parentRef} className={className} style={{ display: "block", ...style }}>
       <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
         {virtualRows.map((vr) => {
           const start = vr.index * cols;
