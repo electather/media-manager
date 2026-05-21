@@ -1,6 +1,6 @@
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router";
 import { authClient } from "@/shared/lib/auth";
-import { AuthLayout } from "@/app/auth-layout";
+import { AuthLayout } from "@/features/auth";
 
 export const Route = createFileRoute("/auth")({
   beforeLoad: async () => {

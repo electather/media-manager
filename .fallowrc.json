@@ -167,6 +167,10 @@
         "patterns": ["apps/client/src/features/watchlist/**"]
       },
       {
+        "name": "client-feat-auth",
+        "patterns": ["apps/client/src/features/auth/**"]
+      },
+      {
         "name": "client-feat-diagnostics",
         "patterns": ["apps/client/src/features/diagnostics/**"]
       },
@@ -328,6 +332,7 @@
           "client-feat-jobs",
           "client-feat-home",
           "client-feat-watchlist",
+          "client-feat-auth",
           "client-feat-notifications",
           "client-feat-command-menu",
           "client-features-legacy",
@@ -356,6 +361,7 @@
           "client-feat-jobs",
           "client-feat-home",
           "client-feat-watchlist",
+          "client-feat-auth",
           "client-feat-media-detail",
           "client-feat-request-flow",
           "client-feat-notifications",
@@ -396,6 +402,16 @@
         "allow": [
           "client-feat-home",
           "client-feat-media-detail",
+          "client-shared-ui",
+          "client-shared-components",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-feat-auth",
+        "allow": [
           "client-shared-ui",
           "client-shared-components",
           "client-shared-hooks",

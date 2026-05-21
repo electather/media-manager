@@ -57,7 +57,7 @@ export function MediaCardImage({
       {showScrim ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent"
+          className="pointer-events-none absolute inset-0 bg-linear-to-t from-background/65 via-transparent to-transparent"
         />
       ) : null}
     </div>

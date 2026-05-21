@@ -1,0 +1,63 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "auth_cinema_on_tap": "سینما، یک لمس فاصله.",
+  "auth_start_free_trial": "شروع دوره آزمایشی رایگان",
+  "auth_sign_in_to_continue": "برای ادامه وارد شوید",
+  "auth_email": "ایمیل",
+  "auth_password": "رمز عبور",
+  "auth_confirm_password": "تایید رمز عبور",
+  "auth_stay_signed_in": "مرا به خاطر بسپار",
+  "auth_forgot_password_question": "رمز عبور را فراموش کرده‌اید؟",
+  "auth_or_continue_with": "یا ادامه با",
+  "auth_google": "گوگل",
+  "auth_apple": "اپل",
+  "auth_create_account": "ایجاد حساب کاربری",
+  "auth_welcome_back": "خوش برگشتید",
+  "auth_already_have_account": "حساب کاربری دارید؟",
+  "auth_no_account_question": "حساب کاربری ندارید؟",
+  "auth_sign_up": "ثبت‌نام",
+  "auth_log_in": "ورود",
+  "auth_name": "نام",
+  "auth_reset_password": "بازنشانی رمز عبور",
+  "auth_check_inbox": "صندوق ورودی خود را برای لینک بازنشانی رمز عبور بررسی کنید.",
+  "auth_back_to_login": "بازگشت به صفحه ورود",
+  "auth_remember_password": "رمز عبور خود را به یاد دارید؟",
+  "auth_show_password": "نمایش",
+  "auth_hide_password": "پنهان",
+  "auth_show_password_aria": "نمایش رمز عبور",
+  "auth_hide_password_aria": "پنهان کردن رمز عبور",
+  "auth_email_required": "ایمیل الزامی است.",
+  "auth_email_invalid": "یک ایمیل معتبر وارد کنید.",
+  "auth_password_required": "رمز عبور الزامی است.",
+  "auth_password_too_short": "رمز عبور باید حداقل ۸ کاراکتر باشد.",
+  "auth_confirm_password_required": "لطفاً رمز عبور خود را تأیید کنید.",
+  "auth_passwords_do_not_match": "رمزهای عبور مطابقت ندارند.",
+  "auth_name_required": "نام الزامی است.",
+  "auth_login_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال ورود…",
+        "status=*": "ورود"
+      }
+    }
+  ],
+  "auth_register_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال ایجاد حساب…",
+        "status=*": "ایجاد حساب"
+      }
+    }
+  ],
+  "auth_reset_submit": [
+    {
+      "selectors": ["status"],
+      "match": {
+        "status=pending": "در حال ارسال…",
+        "status=*": "ارسال لینک بازنشانی"
+      }
+    }
+  ]
+}

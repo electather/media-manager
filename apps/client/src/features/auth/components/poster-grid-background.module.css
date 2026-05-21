@@ -1,0 +1,96 @@
+/* Rules outside Tailwind's vocabulary: radial/linear gradients with
+   color-mix, the chained 3D rotate transform that needs CSS-variable
+   fallbacks, grid geometry that exceeds Tailwind's 100% size ceiling,
+   keyframe animations, multi-layer box shadows, and text shadows.
+   Everything Tailwind expresses cleanly lives on the JSX. */
+
+.stage {
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    color-mix(in oklch, var(--card) 45%, var(--background)) 0%,
+    var(--background) 70%
+  );
+}
+
+.grid {
+  inset-block-start: -25%;
+  inset-inline-start: -25%;
+  inline-size: 150%;
+  block-size: 150%;
+  transform: rotateX(var(--tilt-x, 30deg)) rotateY(var(--tilt-y, -11deg))
+    rotateZ(var(--tilt-z, -10deg)) translateZ(0);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    --tilt-x: 14deg;
+    --tilt-y: -4deg;
+    --tilt-z: -3deg;
+    inset-block-start: -30%;
+    inset-inline-start: -15%;
+    inline-size: 165%;
+    block-size: 140%;
+  }
+}
+
+.track {
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+
+.trackLeft {
+  animation-name: rowScrollLeft;
+}
+
+.trackRight {
+  animation-name: rowScrollRight;
+}
+
+@keyframes rowScrollLeft {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes rowScrollRight {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.poster {
+  box-shadow:
+    0 1px 0 oklch(1 0 0 / 0.08) inset,
+    0 0 0 1px oklch(0 0 0 / 0.4),
+    0 14px 28px oklch(0 0 0 / 0.55);
+}
+
+.posterFloor {
+  background: linear-gradient(
+    180deg,
+    oklch(0 0 0 / 0.15) 0%,
+    transparent 30%,
+    transparent 45%,
+    oklch(0 0 0 / 0.75) 100%
+  );
+}
+
+.posterTitle {
+  text-shadow: 0 2px 10px oklch(0 0 0 / 0.7);
+}
+
+.posterBrand {
+  text-shadow: 0 2px 6px oklch(0 0 0 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    animation: none !important;
+  }
+}
