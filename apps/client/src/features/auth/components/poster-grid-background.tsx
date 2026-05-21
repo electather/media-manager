@@ -31,7 +31,7 @@ const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
       <div className={cn("pointer-events-none absolute inset-0 z-1", styles.posterFloor)} />
       <div
         className={cn(
-          "absolute z-2 text-sm leading-none font-bold text-white/95",
+          "absolute z-2 text-sm leading-none font-bold text-foreground/95",
           styles.posterTitle,
         )}
         style={{
@@ -61,7 +61,7 @@ const Poster = React.memo(function Poster({ data, idx }: PosterProps) {
       >
         L
       </div>
-      <div className="absolute top-2.5 inset-e-2 z-3 rounded-xs bg-black/45 px-1.5 py-1 font-mono text-xs tracking-widest text-white/80 backdrop-blur-xs max-sm:top-2 max-sm:inset-e-1.5 max-sm:px-1 max-sm:py-0.5">
+      <div className="absolute top-2.5 inset-e-2 z-3 rounded-xs bg-background/45 px-1.5 py-1 font-mono text-xs tracking-widest text-foreground/80 backdrop-blur-xs max-sm:top-2 max-sm:inset-e-1.5 max-sm:px-1 max-sm:py-0.5">
         {data.tag}
       </div>
     </div>

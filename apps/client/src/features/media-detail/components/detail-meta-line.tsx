@@ -13,7 +13,7 @@ export function DetailMetaLine({ item }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2.5 text-sm text-foreground/75">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-black/45 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.04em] backdrop-blur-md">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-background/45 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.04em] backdrop-blur-md">
         <Icon aria-hidden="true" className="size-3" />
         {isMovie ? m.home_card_kind_movie() : m.home_card_kind_tv()}
       </span>

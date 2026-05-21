@@ -54,7 +54,7 @@ function DrawerContent({
           )}
           {...props}
         >
-          <div className="absolute top-3 left-1/2 z-10 hidden h-1.5 w-25 -translate-x-1/2 rounded-full bg-white/40 group-data-[swipe-direction=down]/drawer-content:block" />
+          <div className="absolute top-3 left-1/2 z-10 hidden h-1.5 w-25 -translate-x-1/2 rounded-full bg-foreground/40 group-data-[swipe-direction=down]/drawer-content:block" />
           <Drawer.Content className="flex-1 min-h-0 overflow-hidden">{children}</Drawer.Content>
         </Drawer.Popup>
       </Drawer.Viewport>

@@ -59,7 +59,7 @@ function HeroTags({ tags }: { tags: string[] | undefined }) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="rounded border border-foreground/15 bg-black/35 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-foreground/75 backdrop-blur-md"
+          className="rounded border border-foreground/15 bg-background/35 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.04em] text-foreground/75 backdrop-blur-md"
         >
           {tag}
         </span>
