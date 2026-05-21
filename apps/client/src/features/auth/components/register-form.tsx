@@ -72,6 +72,7 @@ export function RegisterForm() {
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
+                autoComplete="name"
                 disabled={registerMutation.status === "pending"}
               />
               <FieldError errors={field.state.meta.errors.map((message) => ({ message }))} />
@@ -130,12 +131,12 @@ export function RegisterForm() {
         <form.Field
           name="confirm"
           validators={{
-            // Cross-field: confirm must match password. `onChangeListenTo` makes
-            // this validator re-fire when the password field changes after the
-            // user has touched confirm.
-            onChange: ({ value, fieldApi }) =>
+            // Cross-field: confirm must match password. Validate on blur so the
+            // error doesn't fire on the very first keystroke, and re-run when
+            // the password field blurs so a fix to either field clears the error.
+            onBlur: ({ value, fieldApi }) =>
               validateConfirmPassword(value, fieldApi.form.getFieldValue("password")),
-            onChangeListenTo: ["password"],
+            onBlurListenTo: ["password"],
             onSubmit: ({ value, fieldApi }) =>
               validateConfirmPassword(value, fieldApi.form.getFieldValue("password")),
           }}

@@ -3,9 +3,14 @@ import { authClient } from "@/shared/lib/auth";
 
 export type SocialProvider = "apple" | "google";
 
-export function useSocialSignIn() {
+export function useSocialSignIn(callbackURL: string | undefined) {
   return useMutation({
-    mutationFn: (provider: SocialProvider) =>
-      authClient.signIn.social({ provider, callbackURL: "/dashboard" }),
+    mutationFn: async (provider: SocialProvider) => {
+      const { error } = await authClient.signIn.social({
+        provider,
+        callbackURL: callbackURL ?? "/",
+      });
+      if (error) throw new Error(error.message ?? "Sign-in failed.");
+    },
   });
 }

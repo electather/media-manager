@@ -34,28 +34,39 @@ const PROVIDER_LABELS: Record<SocialProvider, () => string> = {
   apple: () => m.auth_apple(),
 };
 
-export function SocialButtons() {
-  const socialMutation = useSocialSignIn();
+interface SocialButtonsProps {
+  redirectTo?: string;
+}
+
+export function SocialButtons({ redirectTo }: SocialButtonsProps = {}) {
+  const socialMutation = useSocialSignIn(redirectTo);
   const providers: SocialProvider[] = ["google", "apple"];
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {providers.map((provider) => {
-        const Icon = PROVIDER_ICONS[provider];
-        return (
-          <Button
-            key={provider}
-            type="button"
-            variant="outline"
-            className="h-10 w-full font-semibold"
-            disabled={socialMutation.isPending}
-            onClick={() => socialMutation.mutate(provider)}
-          >
-            <Icon />
-            {PROVIDER_LABELS[provider]()}
-          </Button>
-        );
-      })}
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-2 gap-2">
+        {providers.map((provider) => {
+          const Icon = PROVIDER_ICONS[provider];
+          return (
+            <Button
+              key={provider}
+              type="button"
+              variant="outline"
+              className="h-10 w-full font-semibold"
+              disabled={socialMutation.isPending}
+              onClick={() => socialMutation.mutate(provider)}
+            >
+              <Icon />
+              {PROVIDER_LABELS[provider]()}
+            </Button>
+          );
+        })}
+      </div>
+      {socialMutation.error && (
+        <span className="text-center text-sm font-medium text-destructive">
+          {socialMutation.error.message}
+        </span>
+      )}
     </div>
   );
 }

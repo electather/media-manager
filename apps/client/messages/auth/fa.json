@@ -1,5 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "auth_cinema_on_tap": "سینما، یک لمس فاصله.",
+  "auth_start_free_trial": "شروع دوره آزمایشی رایگان",
   "auth_sign_in_to_continue": "برای ادامه وارد شوید",
   "auth_email": "ایمیل",
   "auth_password": "رمز عبور",
@@ -8,6 +10,7 @@
   "auth_forgot_password_question": "رمز عبور را فراموش کرده‌اید؟",
   "auth_or_continue_with": "یا ادامه با",
   "auth_google": "گوگل",
+  "auth_apple": "اپل",
   "auth_create_account": "ایجاد حساب کاربری",
   "auth_welcome": "خوش آمدید",
   "auth_welcome_back": "خوش آمدید",

@@ -15,6 +15,8 @@ export function useRegister() {
       const { error } = await authClient.signUp.email({ name, email, password });
       if (error) throw new Error(error.message ?? "Registration failed.");
     },
-    onSuccess: () => navigate({ to: "/" }),
+    onSuccess: () => {
+      void navigate({ to: "/" });
+    },
   });
 }

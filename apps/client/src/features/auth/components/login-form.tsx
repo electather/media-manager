@@ -122,7 +122,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           <Separator className="h-px flex-1" />
         </div>
 
-        <SocialButtons />
+        <SocialButtons redirectTo={redirectTo} />
         <FieldDescription className="text-center">
           {m.auth_no_account_question()}{" "}
           <Link

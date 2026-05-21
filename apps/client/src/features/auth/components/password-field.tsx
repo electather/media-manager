@@ -47,7 +47,6 @@ export function PasswordField({
           type="button"
           variant="ghost"
           size="sm"
-          tabIndex={-1}
           aria-label={visible ? m.auth_hide_password_aria() : m.auth_show_password_aria()}
           aria-pressed={visible}
           className="absolute inset-y-0 inset-e-0 h-full px-3 text-muted-foreground hover:text-foreground"
