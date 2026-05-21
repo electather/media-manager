@@ -93,6 +93,8 @@
   "watchlist_toggle_remove": "TODO",
   "watchlist_load_error_title": "TODO",
   "watchlist_load_error_retry": "TODO",
+  "watchlist_load_more": "TODO",
+  "watchlist_loading_more": "TODO",
 
   "watchlist_source_manual": "TODO",
   "watchlist_source_plugin": "TODO",

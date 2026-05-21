@@ -964,6 +964,11 @@ export {
 } from "./connection-targeted";
 export { invokeOne, invokeWithTimeout, harvestFromOutcomes, type InvokeRequest } from "./invoke";
 export {
+  emitAuthExpired,
+  markConnectionStatus,
+  persistRefreshedCredentials,
+} from "./connection-lifecycle";
+export {
   requireCapability,
   scopeForRequest,
   pickSingleConnection,

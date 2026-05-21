@@ -2,6 +2,7 @@ import { registerBuiltin } from "../plugin-runtime";
 import traktPlugin from "@ent-mcp/plugin-trakt";
 import tmdbPlugin from "@ent-mcp/plugin-tmdb";
 import tvdbPlugin from "@ent-mcp/plugin-tvdb";
+import fanartPlugin from "@ent-mcp/plugin-fanart";
 import seerrPlugin from "@ent-mcp/plugin-seerr";
 import jellyfinPlugin from "@ent-mcp/plugin-jellyfin";
 import plexPlugin from "@ent-mcp/plugin-plex";
@@ -14,6 +15,7 @@ const BUILTIN_PLUGINS = [
   traktPlugin,
   tmdbPlugin,
   tvdbPlugin,
+  fanartPlugin,
   seerrPlugin,
   jellyfinPlugin,
   plexPlugin,

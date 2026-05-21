@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import { keyToId, type WatchlistKey, type WatchlistSource } from "@ent-mcp/shared/watchlist";
 import { getDb, type Db } from "../db/client";
 import { userWatchlistSeed, watchlistItems } from "../db/schema/watchlist";
@@ -54,6 +54,76 @@ export async function list(
     .orderBy(desc(watchlistItems.addedAt));
   if (opts.limit != null) query = query.limit(opts.limit) as typeof query;
   const rows = await query;
+  return rows.map(toRow);
+}
+
+export interface PageCursor {
+  addedAt: number;
+  id: string;
+}
+
+/**
+ * Encode/decode are deliberately url-safe + opaque so clients pass the cursor
+ * through verbatim. Base64 of `${addedAt}:${id}` — id is a cuid, so no `:` in
+ * either component.
+ */
+export function encodeCursor(cursor: PageCursor): string {
+  return Buffer.from(`${cursor.addedAt}:${cursor.id}`, "utf8").toString("base64url");
+}
+
+// fallow-ignore-next-line complexity
+export function decodeCursor(raw: string): PageCursor | null {
+  try {
+    const decoded = Buffer.from(raw, "base64url").toString("utf8");
+    const idx = decoded.indexOf(":");
+    if (idx <= 0) return null;
+    const addedAt = Number(decoded.slice(0, idx));
+    const id = decoded.slice(idx + 1);
+    if (!Number.isFinite(addedAt) || id.length === 0) return null;
+    return { addedAt, id };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keyset-paginated read of active rows in `(added_at DESC, id DESC)` order.
+ * Caller asks for `limit` rows past `cursor`. Returns up to `limit` rows;
+ * callers slice / re-page based on whether the result was full.
+ */
+export async function listPage(
+  userId: string,
+  opts: { cursor?: PageCursor; limit: number },
+  db: Db = getDb(),
+): Promise<WatchlistRow[]> {
+  const conditions = [eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")];
+  if (opts.cursor) {
+    // Strict keyset: rows are sorted (added_at DESC, id DESC), so the next
+    // page starts at rows that are *strictly less* than the cursor in that
+    // composite key.
+    conditions.push(
+      or(
+        lt(watchlistItems.addedAt, opts.cursor.addedAt),
+        and(eq(watchlistItems.addedAt, opts.cursor.addedAt), lt(watchlistItems.id, opts.cursor.id)),
+      )!,
+    );
+  }
+  const rows = await db
+    .select()
+    .from(watchlistItems)
+    .where(and(...conditions))
+    .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id))
+    .limit(opts.limit);
+  return rows.map(toRow);
+}
+
+/** All active rows for the user, newest first. Used by `/counts`. */
+export async function listAllActive(userId: string, db: Db = getDb()): Promise<WatchlistRow[]> {
+  const rows = await db
+    .select()
+    .from(watchlistItems)
+    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
+    .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id));
   return rows.map(toRow);
 }
 

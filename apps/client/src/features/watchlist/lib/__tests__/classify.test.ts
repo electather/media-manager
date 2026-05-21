@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  bucketize,
-  classifyStatus,
-  deriveCounts,
-  splitRuntime,
-  totalRuntimeMinutes,
-} from "../classify";
+import { bucketize, classifyStatus, splitRuntime, totalRuntimeMinutes } from "../classify";
 import type { WatchlistItem } from "../types";
 
 function makeItem(overrides: Partial<WatchlistItem> = {}): WatchlistItem {
@@ -66,24 +60,6 @@ describe("bucketize", () => {
     expect(buckets.requested.map((i) => i.id)).toEqual(["movie:3"]);
     expect(buckets.unavailable.map((i) => i.id)).toEqual(["movie:4"]);
     expect(buckets.upcoming.map((i) => i.id)).toEqual(["movie:5"]);
-  });
-});
-
-describe("deriveCounts", () => {
-  it("aggregates ready as available + in-progress and awaiting as requested + unavailable", () => {
-    const items: WatchlistItem[] = [
-      makeItem({ id: "movie:1", status: "available" }),
-      makeItem({ id: "movie:2", status: "available" }),
-      makeItem({ id: "movie:3", progress: { watched: 1, total: 10 } }),
-      makeItem({ id: "movie:4", status: "requested" }),
-      makeItem({ id: "movie:5", status: "unavailable" }),
-      makeItem({ id: "movie:6", facets: { releaseDate: "2027-01-01" } }),
-    ];
-    const counts = deriveCounts(bucketize(items));
-    expect(counts.ready).toBe(3);
-    expect(counts.inProgress).toBe(1);
-    expect(counts.awaiting).toBe(2);
-    expect(counts.upcoming).toBe(1);
   });
 });
 
