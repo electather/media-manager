@@ -12,9 +12,9 @@ import {
   notificationSubscriptions,
 } from "../../../db/schema/notifications";
 import { user } from "../../../db/schema/auth";
-import { roles, rolePermissions, userRoles } from "../../../db/schema/roles";
-import { plugins } from "../../../db/schema/plugins";
-import { serviceConnections } from "../../../db/schema/credentials";
+import { roles, rolePermissions, userRoles } from "../../../db/schema/auth/roles";
+import { plugins } from "../../../db/schema/plugin-runtime/plugins";
+import { serviceConnections } from "../../../db/schema/plugin-runtime/credentials";
 
 // ─── Mocks set up before importing the app ──────────────────────────────────
 
@@ -48,7 +48,7 @@ vi.mock("../../../auth", async () => {
   // auth/middleware.ts when one of them changes.
   const { unauthorized } = await import("../../../diagnostics/http-errors");
   const { eq, and } = await import("drizzle-orm");
-  const { userRoles, roles, rolePermissions } = await import("../../../db/schema/roles");
+  const { userRoles, roles, rolePermissions } = await import("../../../db/schema/auth/roles");
   const { PERMISSIONS } = await import("@ent-mcp/shared/auth");
   type RoleInfo = { roleId: string; isSystemAdmin: boolean };
   async function loadUserRole(userId: string): Promise<RoleInfo | null> {

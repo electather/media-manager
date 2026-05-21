@@ -30,7 +30,9 @@ const SORTS: { id: WatchlistSort; labelFn: () => string }[] = [
 ];
 
 interface WatchlistHeaderProps {
+  /** Currently loaded items (one or more pages). Used for runtime estimate only. */
   items: readonly WatchlistItem[];
+  /** Authoritative server-side counts; survives pagination because it sweeps the active set. */
   counts: WatchlistCounts;
   filter: WatchlistFilter;
   sort: WatchlistSort;
@@ -38,9 +40,9 @@ interface WatchlistHeaderProps {
   onSortChange: (next: WatchlistSort) => void;
 }
 
-function filterCount(id: WatchlistFilter, total: number, counts: WatchlistCounts): number {
+function filterCount(id: WatchlistFilter, counts: WatchlistCounts): number {
   const map: Record<WatchlistFilter, number> = {
-    all: total,
+    all: counts.total,
     ready: counts.ready,
     "in-progress": counts.inProgress,
     awaiting: counts.awaiting,
@@ -71,7 +73,7 @@ export function WatchlistHeader({
           <SectionHeadEyebrow size="page">{m.watchlist_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle as="h1" size="page">
             {m.watchlist_title()}
-            <SectionHeadCount size="page" value={items.length} />
+            <SectionHeadCount size="page" value={counts.total} />
           </SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
@@ -108,7 +110,7 @@ export function WatchlistHeader({
           aria-label={m.watchlist_filter_label()}
         >
           {FILTERS.map((f) => {
-            const count = filterCount(f.id, items.length, counts);
+            const count = filterCount(f.id, counts);
             return (
               <RadioGroupItem
                 key={f.id}

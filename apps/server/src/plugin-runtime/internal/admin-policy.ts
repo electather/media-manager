@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { PLUGIN_ADMIN_HEADERS_MAX, PLUGIN_RESERVED_HEADER_NAMES } from "@ent-mcp/shared/plugins";
 import { getDb } from "../../db/client";
-import { plugins } from "../../db/schema/plugins";
+import { plugins } from "../../db/schema/plugin-runtime/plugins";
 import { decryptJson, encryptJson } from "../../crypto/helpers";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 

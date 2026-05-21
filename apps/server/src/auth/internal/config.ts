@@ -1,7 +1,8 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { jwt } from "better-auth/plugins";
+import { customSession, jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
+import { loadUserPermissions } from "../repo";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
 import { env } from "../../env";
@@ -89,6 +90,10 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    customSession(async ({ user, session }) => {
+      const permissions = await loadUserPermissions(user.id);
+      return { session, user, permissions };
+    }),
     jwt(),
     oauthProvider({
       loginPage: "/auth/login",

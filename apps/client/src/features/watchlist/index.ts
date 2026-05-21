@@ -4,6 +4,7 @@ export {
   useIsInWatchlist,
   useRemoveFromWatchlist,
   useToggleWatchlist,
+  useWatchlistCounts,
   useWatchlistIdSet,
   useWatchlistItems,
 } from "./hooks";

@@ -1,4 +1,59 @@
-import { describe, it, expect, vi } from "vite-plus/test";
+import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
+import { PluginError } from "@ent-mcp/plugin-sdk";
+
+// ─── invokePerConnectionHandler ──────────────────────────────────────────────
+
+interface SetValues {
+  status?: string;
+  errorMessage?: string | null;
+  encryptedCredentials?: string;
+  credentialsIv?: string;
+  lastVerifiedAt?: number;
+  updatedAt?: number;
+}
+
+const setCalls: SetValues[] = [];
+
+const emitMock = vi.fn<(name: string, schema: unknown, payload: unknown) => Promise<void>>(
+  async () => undefined,
+);
+
+vi.mock("../../env", () => ({
+  env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
+}));
+
+vi.mock("../../db/client", () => ({
+  getDb: () => ({
+    update: () => ({
+      set: (values: SetValues) => {
+        setCalls.push(values);
+        return { where: async () => undefined };
+      },
+    }),
+  }),
+}));
+
+vi.mock("../../db/schema", () => ({
+  serviceConnections: { id: "id" },
+}));
+
+vi.mock("../../crypto/helpers", () => ({
+  decryptJson: async () => ({ token: "stale" }),
+  encryptJson: async (value: unknown) => ({ iv: "iv", data: JSON.stringify(value) }),
+}));
+
+vi.mock("../../plugin-runtime", () => ({
+  capabilityRegistry: { get: () => undefined },
+  pluginRuntime: {
+    buildJobContext: async () => ({ user: null, credentials: {}, userConfig: null }),
+  },
+}));
+
+vi.mock("../events", () => ({
+  emit: emitMock,
+}));
+
+// ─── registerAllPluginJobs ───────────────────────────────────────────────────
 
 // Captures of the options registerScheduledPerRow / registerScheduled receive.
 const perRowCalls: Array<Record<string, unknown>> = [];
@@ -43,21 +98,160 @@ vi.mock("../../db/queries", () => ({
   ],
 }));
 
-vi.mock("../../db/client", () => ({
-  getDb: () => ({}),
-}));
+const { invokePerConnectionHandler, registerAllPluginJobs } = await import("../plugin-jobs");
 
-vi.mock("../../plugin-runtime", () => ({
-  capabilityRegistry: { get: () => undefined },
-  pluginRuntime: { buildJobContext: async () => ({}) },
-}));
+interface TestJob {
+  pluginId: string;
+  pluginName: string;
+  id: string;
+  schedule: string;
+  handler: string;
+  perConnection: boolean;
+}
 
-vi.mock("../../crypto/helpers", () => ({
-  encryptJson: async () => ({ data: "", iv: "" }),
-  decryptJson: async () => null,
-}));
+function makeJob(pluginId = "trakt"): TestJob {
+  return {
+    pluginId,
+    pluginName: pluginId,
+    id: "refresh-tokens",
+    schedule: "0 * * * *",
+    handler: "refreshTokens",
+    perConnection: true,
+  };
+}
 
-const { registerAllPluginJobs } = await import("../plugin-jobs");
+interface TestRow {
+  id: string;
+  userId: string;
+  pluginId: string;
+  userConfig: string | null;
+  encryptedCredentials: string | null;
+  credentialsIv: string | null;
+  status: "connected" | "expired" | "error" | "disconnected";
+  retryAfter: number | null;
+}
+
+function makeRow(id = "conn-1", status: TestRow["status"] = "connected"): TestRow {
+  return {
+    id,
+    userId: "user-1",
+    pluginId: "trakt",
+    userConfig: null,
+    encryptedCredentials: "enc",
+    credentialsIv: "iv",
+    status,
+    retryAfter: null,
+  };
+}
+
+const noopLogger = {
+  debug() {},
+  info() {},
+  warn() {},
+  error() {},
+} as unknown as import("consola").ConsolaInstance;
+
+beforeEach(() => {
+  setCalls.length = 0;
+  emitMock.mockClear();
+});
+
+describe("invokePerConnectionHandler", () => {
+  it("marks status 'expired' and emits auth-expired when handler throws plugin.token_expired", async () => {
+    const job = makeJob();
+    const row = makeRow("conn-42");
+    const handler = async () => {
+      throw new PluginError("plugin.token_expired", "refresh revoked");
+    };
+
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("refresh revoked");
+
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.status).toBe("expired");
+    expect(setCalls[0]?.errorMessage).toBe("refresh revoked");
+
+    expect(emitMock).toHaveBeenCalledTimes(1);
+    const [name, , payload] = emitMock.mock.calls[0]!;
+    expect(name).toBe("media.connection.auth-expired");
+    expect(payload).toEqual({
+      connectionId: "conn-42",
+      pluginId: "trakt",
+      userId: "user-1",
+    });
+  });
+
+  it("marks status 'error' and does not emit when handler throws a generic error", async () => {
+    const job = makeJob();
+    const row = makeRow();
+    const handler = async () => {
+      throw new Error("network blew up");
+    };
+
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("network blew up");
+
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.status).toBe("error");
+    expect(setCalls[0]?.errorMessage).toBe("network blew up");
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it("does not propagate an emit failure to the caller", async () => {
+    const job = makeJob();
+    const row = makeRow();
+    const handler = async () => {
+      throw new PluginError("plugin.token_expired", "refresh revoked");
+    };
+    emitMock.mockRejectedValueOnce(new Error("emit boom"));
+
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("refresh revoked");
+    // The status write must run even when the emit fails, so the connection
+    // card still shows "expired" + the re-auth CTA.
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.status).toBe("expired");
+    expect(setCalls[0]?.errorMessage).toBe("refresh revoked");
+  });
+
+  it("does not re-emit auth-expired when the row is already expired", async () => {
+    // Per-row job iterates every connection for the plugin every tick. Without
+    // this transition guard, a revoked refresh token would spam notifications
+    // every scheduled run forever.
+    const job = makeJob();
+    const row = makeRow("conn-stuck", "expired");
+    const handler = async () => {
+      throw new PluginError("plugin.token_expired", "still revoked");
+    };
+
+    await expect(
+      invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
+    ).rejects.toThrow("still revoked");
+
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.status).toBe("expired");
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
+  it("clears stale error state on a successful handler return", async () => {
+    const job = makeJob();
+    const row = makeRow("conn-9", "error");
+    const handler = async () => ({ token: "fresh" });
+
+    await invokePerConnectionHandler({ job, row, handler, logger: noopLogger });
+
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.encryptedCredentials).toBe(JSON.stringify({ token: "fresh" }));
+    expect(setCalls[0]?.credentialsIv).toBe("iv");
+    expect(setCalls[0]?.status).toBe("connected");
+    expect(setCalls[0]?.errorMessage).toBeNull();
+    expect(setCalls[0]?.lastVerifiedAt).toBeDefined();
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+});
 
 describe("plugin-jobs registration", () => {
   it("forwards perRowTimeoutSec from a perConnection manifest job to registerScheduledPerRow", async () => {

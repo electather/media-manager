@@ -207,12 +207,13 @@ export async function composeRow(
   // Per spec §Error handling: per-row plugin failures (`AllPluginsFailedError`,
   // single-strategy `PluginCallError`, AbortError on deadline) collapse to
   // `partial: true` with an empty item list rather than crashing the request.
-  // HttpError and any other unexpected throw still propagate to `errorHandler`.
+  // Other HttpError (or any unexpected throw) still propagates to
+  // `errorHandler`. The soft-failure check runs first because
+  // `AllPluginsFailedError` is itself an `HttpError` subclass.
   let page: RowPage;
   try {
     page = await provider.fetchPage(ctx, cursor);
   } catch (err) {
-    if (err instanceof HttpError) throw err;
     if (isRowSoftFailure(err)) {
       ctx.logger.warn(`[home:row] ${rowId} fetchPage soft-failed`, err);
       page = { items: [], cursor: null, partial: true };

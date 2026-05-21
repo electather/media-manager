@@ -16,13 +16,16 @@ import { HttpError } from "../../diagnostics/http-errors";
  */
 // fallow-ignore-next-line complexity
 export function classifyError(err: unknown): HostErrorCode {
+  // AllPluginsFailedError must be checked before HttpError — it now extends
+  // HttpError (status 503 / `media.providers_failed`) so the per-provider
+  // error code is only reachable via this branch.
+  if (err instanceof AllPluginsFailedError) {
+    return err.errors[0]?.code ?? "plugin.upstream_error";
+  }
   if (err instanceof HttpError) {
     return err.code as HostErrorCode;
   }
   if (err instanceof PluginCallError) return err.code;
-  if (err instanceof AllPluginsFailedError) {
-    return err.errors[0]?.code ?? "plugin.upstream_error";
-  }
   if (isPluginError(err)) return err.code as HostErrorCode;
   if (err instanceof Error && err.name === "AbortError") return "plugin.timeout";
   return "home.internal";

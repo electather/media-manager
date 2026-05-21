@@ -19,8 +19,8 @@ import {
 } from "../../../../__tests__/helpers/in-memory-db";
 import { buildUserExport, EXPORT_SCHEMA_VERSION } from "../export";
 import { user } from "../../../../db/schema/auth";
-import { feedback } from "../../../../db/schema/feedback";
-import { roles, userRoles } from "../../../../db/schema/roles";
+import { feedback } from "../../../../db/schema/preferences/feedback";
+import { roles, userRoles } from "../../../../db/schema/auth/roles";
 
 const USER = "u-export";
 

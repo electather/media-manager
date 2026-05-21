@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { consola } from "consola";
 import { getDb } from "./client";
 import { user } from "./schema/auth";
-import { roles, rolePermissions, userRoles } from "./schema/roles";
+import { roles, rolePermissions, userRoles } from "./schema/auth/roles";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { ALL_PERMISSIONS, PERMISSIONS, auth } from "../auth";

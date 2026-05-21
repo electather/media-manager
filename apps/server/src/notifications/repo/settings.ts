@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../../db/client";
-import { appConfig } from "../../db/schema/diagnostics";
+import { appConfig } from "../../db/schema/infra/diagnostics";
 import type { NotificationSettings } from "../types";
 
 const APP_CONFIG_ID = "global";
