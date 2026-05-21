@@ -45,7 +45,6 @@ Home row `your-watchlist.ts` already pulls plugin watchlist@v1 → library-avail
 - User-curated mood clusters / mood persistence.
 - Watchlist sharing.
 - Sort persistence (URL state only).
-- Cursor pagination on GET (full list each call; client virtualizes).
 - WebSocket / SSE invalidation (RQ invalidate only).
 - MCP surface change.
 - Numeric-ID-stable mood derivation (requires catalog/plugin work; deferred).
@@ -198,16 +197,31 @@ db.transaction(tx => {
 ```ts
 type Key = { tmdbId: string; mediaType: typeof MEDIA_TYPES[number] }
 
-getItems(userId, ctx) → { items: WatchlistItem[], partial: boolean }
-  rows = repo.list(userId, { state: "active" })
+getItems(userId, { cursor, limit, filter }, ctx) → { items: WatchlistItem[], cursor: string|null, partial: boolean }
+  // Keyset pagination over (addedAt DESC, id DESC). `cursor` encodes the last
+  // returned (addedAt, id) pair; `null` returns the first page. `filter` runs
+  // a cheap pre-classification (status + availability via a per-request cache)
+  // BEFORE the heavy enrich fan-out, so filtered pages don't burn enrich on
+  // rows that the client would discard.
   seedPartial = false
-  if rows.empty && !repo.hasSeeded(userId):
+  if cursor == null && !repo.hasSeeded(userId):
     if repo.trySeedLock(userId, now()):
       seedPartial = (await seedFromPlugins(userId, ctx)).partial
-    // else (lost race): another req is mid-seed; re-read.
-    rows = repo.list(userId, { state: "active" })
-  enriched = await enrich(rows, ctx)
-  return { items: enriched.items, partial: seedPartial || enriched.partial }
+  // Overshoot the SQL window to give the filter room to drop non-matching
+  // rows; retry up to 2 empty hops before exiting with cursor=null.
+  fetchSize = filter && filter !== "all" ? limit * 3 : limit
+  rows = repo.listPage(userId, { cursor, limit: fetchSize, state: "active" })
+  if filter && filter !== "all":
+    rows = await classify.preFilter(rows, filter, userId, ctx)
+  enriched = await enrich(rows.slice(0, limit), ctx)
+  nextCursor = rows.length > limit ? encodeCursor(rows[limit - 1]) : null
+  return { items: enriched.items, cursor: nextCursor, partial: seedPartial || enriched.partial }
+
+getCounts(userId, ctx) → WatchlistCounts
+  // O(active rows) — pre-classifies the full active set via the per-request
+  // availability cache so the header chips stay authoritative across pages.
+  rows = repo.listAllActive(userId)
+  return classify.aggregate(rows, userId, ctx)
 
 addItem(userId, key, source, ctx) → { item: WatchlistItem, created: boolean, wasActive: boolean }
   // source ∈ USER_SOURCES (enforced at route zod; service trusts caller).
@@ -416,8 +430,15 @@ type WatchlistItem = CompactMediaItem & {
 
 type WatchlistResponse = {
   items:   WatchlistItem[]
+  cursor:  string | null          // keyset cursor; null = end of list
   partial: boolean                // seed/enrich partial flag
 }
+
+// Server-side filter pre-classification; matches client filter chip taxonomy
+// so the server can drop non-matching rows BEFORE enrich, without falling back
+// to a full-list fetch.
+export const WATCHLIST_LIST_FILTERS = ["all", "ready", "awaiting", "upcoming"] as const
+export type WatchlistListFilter = typeof WATCHLIST_LIST_FILTERS[number]
 
 type AddWatchlistRequest = {
   tmdbId:    string               // /^\d+$/ enforced via zod
@@ -429,6 +450,17 @@ type AddWatchlistResponse = {
   item:      WatchlistItem
   created:   boolean              // true = brand-new row; false = reactivated or already-active
   wasActive: boolean              // true = no state change (already in watchlist)
+}
+
+// Cheap aggregate counts for the header pips. Powered by `/counts` so the
+// client doesn't have to hold the full active set in memory just to render
+// the header chips. `inProgress` is a strict subset of `ready`.
+type WatchlistCounts = {
+  ready:      number
+  inProgress: number
+  awaiting:   number
+  upcoming:   number
+  total:      number
 }
 ```
 
@@ -472,8 +504,17 @@ Service signature accepts `source: WatchlistUserSource` non-optional — zod fil
 GET    /api/watchlist
   auth:  session (required)
   rate:  default user-read tier
-  → service.getItems(userId, ctx)
-  → 200 WatchlistResponse
+  query: cursor?  string                 — opaque keyset cursor
+         limit?   number  (1..60)        — page size, default 30
+         filter?  WatchlistListFilter    — server-side pre-classification ("all" default)
+  → service.getItems(userId, { cursor, limit, filter }, ctx)
+  → 200 WatchlistResponse                — items + cursor + partial
+
+GET    /api/watchlist/counts
+  auth:  session (required)
+  rate:  default user-read tier
+  → service.getCounts(userId, ctx)
+  → 200 WatchlistCounts                  — header-pip aggregates over the full active set
 
 POST   /api/watchlist
   auth:  session
@@ -572,8 +613,12 @@ features/watchlist/
 ### C.1 lib/fetchers.ts
 
 ```ts
-list() → WatchlistResponse
-  res = await api.watchlist.$get()
+list({ cursor, limit, filter }) → WatchlistResponse
+  res = await api.watchlist.$get({ query: { cursor, limit, filter } })
+  throwOnError(res, WatchlistApiError); return res.json()
+
+counts() → WatchlistCounts
+  res = await api.watchlist.counts.$get()
   throwOnError(res, WatchlistApiError); return res.json()
 
 add(input: AddWatchlistRequest) → AddWatchlistResponse
@@ -590,7 +635,10 @@ remove(tmdbId, mediaType) → void
 ```ts
 watchlistKeys = {
   all:  ["watchlist"] as const,
-  list: () => [...watchlistKeys.all, "list"] as const,
+  // Pagination + filter live in the list key so each filter chip gets its
+  // own cache slot and "Load more" appends to the matching infinite query.
+  list:   (filter: WatchlistListFilter = "all") => [...watchlistKeys.all, "list", filter] as const,
+  counts: () => [...watchlistKeys.all, "counts"] as const,
 }
 ```
 
@@ -606,11 +654,26 @@ sourceLabel(s: WatchlistSource) → string            // paraglide m.watchlist_s
 ### C.4 hooks/use-watchlist-items.ts
 
 ```ts
-useWatchlistItems() {
+useWatchlistItems(filter: WatchlistListFilter = "all") {
+  // Keyset infinite query — Suspense reads the first page on mount; the row
+  // list renders `pages.flatMap(p => p.items)` and "Load more" calls
+  // fetchNextPage when `cursor !== null`.
+  return useSuspenseInfiniteQuery({
+    queryKey:        watchlistKeys.list(filter),
+    queryFn:         ({ pageParam }) => fetchers.list({ cursor: pageParam, limit: 30, filter }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.cursor ?? undefined,
+    staleTime:       60_000,                          // cross-tab/device stale window
+  })
+}
+
+// Header chips read the dedicated `/counts` endpoint so they stay
+// authoritative across paginated loads.
+useWatchlistCounts() {
   return useSuspenseQuery({
-    queryKey:  watchlistKeys.list(),
-    queryFn:   fetchers.list,
-    staleTime: 60_000,                              // cross-tab/device stale window
+    queryKey:  watchlistKeys.counts(),
+    queryFn:   fetchers.counts,
+    staleTime: 60_000,
   })
 }
 ```
@@ -621,8 +684,11 @@ useWatchlistItems() {
 
 ```ts
 useIsInWatchlist(id: string) {                      // id = composite "movie:550"
-  data = qc.getQueryData<WatchlistResponse>(watchlistKeys.list())
-  return data?.items.some(i => i.id === id) ?? false
+  // `list("all")` is the unfiltered cache slot; membership is computed
+  // against every loaded page so the answer is stable while the user pages
+  // through the list.
+  pages = qc.getQueryData<{ pages: WatchlistResponse[] }>(watchlistKeys.list("all"))
+  return pages?.pages.some(p => p.items.some(i => i.id === id)) ?? false
 }
 ```
 
@@ -838,7 +904,6 @@ Per-user state starts empty → seeds on demand (first watchlist page open or fi
 - User-curated mood clusters (named groups, drag-drop).
 - Append-only `watchlist_events` history (preserve add/remove timeline).
 - Watchlist sharing (link-share).
-- Cursor pagination on GET.
 - Cross-device "added on X device" annotation.
 - WebSocket invalidation for cross-device live sync.
 - Strict-mode POST endpoint that returns 409 instead of idempotent 200 (admin tooling). Reintroduce `DuplicateItemError`.

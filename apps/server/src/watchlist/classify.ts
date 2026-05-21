@@ -66,7 +66,7 @@ export function previewForClassify(
     status,
     availability: {
       hasAnyServerCopy: servers.length > 0,
-      requestEligible: servers.length === 0 && status !== "available",
+      requestEligible: servers.length === 0,
       servers: servers.map((s) => ({ id: s.id, label: s.label })),
     },
     ...(Object.keys(facets).length > 0 ? { facets } : {}),

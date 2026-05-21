@@ -1,6 +1,6 @@
 import type { CompactMediaItem } from "../home/types";
 import type { MediaType } from "../media/enums";
-import type { WatchlistListFilter, WatchlistSource, WatchlistUserSource } from "./enums";
+import type { WatchlistSource, WatchlistUserSource } from "./enums";
 
 export interface WatchlistKey {
   tmdbId: string;
@@ -28,12 +28,6 @@ export interface WatchlistResponse {
   cursor: string | null;
   /** True when one or more enrichment lookups failed; client may show a banner. */
   partial: boolean;
-}
-
-export interface WatchlistListQuery {
-  cursor?: string;
-  limit?: number;
-  filter?: WatchlistListFilter;
 }
 
 /**

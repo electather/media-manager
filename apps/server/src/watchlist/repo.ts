@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import { keyToId, type WatchlistKey, type WatchlistSource } from "@ent-mcp/shared/watchlist";
 import { getDb, type Db } from "../db/client";
 import { userWatchlistSeed, watchlistItems } from "../db/schema/watchlist";
@@ -115,16 +115,6 @@ export async function listPage(
     .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id))
     .limit(opts.limit);
   return rows.map(toRow);
-}
-
-/** Count of active rows for the user. Used by the `/counts` endpoint. */
-export async function countActive(userId: string, db: Db = getDb()): Promise<number> {
-  const row = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(watchlistItems)
-    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
-    .get();
-  return row?.n ?? 0;
 }
 
 /** All active rows for the user, newest first. Used by `/counts`. */
