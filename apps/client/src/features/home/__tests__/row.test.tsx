@@ -5,10 +5,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import type { CompactMediaItem, RowContentResponse } from "@ent-mcp/shared/home";
 
+import { setupVirtualizerEnv } from "../../../shared/components/virtualized/__tests__/virtualizer-test-env";
 import { Row } from "../components/row/index";
 import type { RowData } from "../lib/types";
 
-afterEach(() => cleanup());
+let env: ReturnType<typeof setupVirtualizerEnv> | undefined;
+
+afterEach(() => {
+  cleanup();
+  env?.cleanup();
+  env = undefined;
+});
 beforeEach(() => vi.restoreAllMocks());
 
 function withClient(client: QueryClient) {
@@ -46,6 +53,7 @@ function mockRowFetch(items: CompactMediaItem[], opts: Partial<RowContentRespons
 
 describe("Row", () => {
   it("renders items returned from /api/home/row", async () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     mockRowFetch([item("x"), item("y"), item("z")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Row row={makeRow()} />, { wrapper: withClient(client) });
@@ -55,6 +63,7 @@ describe("Row", () => {
   });
 
   it("renders skeleton placeholder cards while the row is loading", () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => {}));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
@@ -63,6 +72,7 @@ describe("Row", () => {
   });
 
   it("renders a visible heading for the row", async () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     mockRowFetch([]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Row row={makeRow()} />, { wrapper: withClient(client) });
@@ -71,6 +81,7 @@ describe("Row", () => {
   });
 
   it("renders an eyebrow when the row kind has one", async () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     mockRowFetch([]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -87,6 +98,7 @@ describe("Row", () => {
   });
 
   it("keeps the card scroller inside the page's max-width container so the first card aligns with the title", () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     mockRowFetch([]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(<Row row={makeRow()} />, { wrapper: withClient(client) });
@@ -94,5 +106,33 @@ describe("Row", () => {
     expect(bleed).toBeTruthy();
     expect(bleed?.className).not.toContain("w-screen");
     expect(bleed?.className).not.toContain("translate-x");
+  });
+
+  it("caps mounted cards via virtualization", async () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
+    const items = Array.from({ length: 100 }, (_, i) => item(String(i)));
+    mockRowFetch(items);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(screen.getByText("Movie 0")).toBeTruthy());
+    const cells = document.querySelectorAll('[data-slot="scroll-row-item"]');
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.length).toBeLessThanOrEqual(16);
+  });
+
+  it("fires fetchNextPage when the visible range crosses the prefetch threshold", async () => {
+    env = setupVirtualizerEnv({ width: 800, height: 600, elementWidth: 200, elementHeight: 300 });
+    const calls: number[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      calls.push(Date.now());
+      const isFirst = calls.length === 1;
+      const body = isFirst
+        ? { items: Array.from({ length: 6 }, (_, i) => item(String(i))), cursor: "page2" }
+        : { items: Array.from({ length: 4 }, (_, i) => item(`p2-${i}`)), cursor: null };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<Row row={makeRow()} />, { wrapper: withClient(client) });
+    await waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2));
   });
 });

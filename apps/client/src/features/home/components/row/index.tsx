@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties } from "react";
+import { useCallback, useMemo, useRef, type CSSProperties } from "react";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
@@ -9,7 +9,6 @@ import {
 } from "@/shared/components/section-head";
 import {
   ScrollRow,
-  ScrollRowItem,
   ScrollRowNextButton,
   ScrollRowPrevButton,
   ScrollRowSkeleton,
@@ -21,7 +20,6 @@ import { useHomeRow } from "../../hooks/use-home-row";
 import { ROW_COPY } from "../../lib/home-feed-config";
 import type { HomeMediaItem, MessageKey, RowData } from "../../lib/types";
 import { RowError, RowErrorInlineCard } from "./row-error";
-import { usePrefetchObserver } from "./use-prefetch-observer";
 
 const SKELETON_COUNT = 5;
 const PREFETCH_OFFSET = 4;
@@ -41,9 +39,17 @@ interface CardWidthVars extends CSSProperties {
 const BACKDROP_VARS: CardWidthVars = { "--card-w": "320px", "--card-h": "180px" };
 const POSTER_VARS: CardWidthVars = { "--card-w": "200px", "--card-h": "300px" };
 
+const ERROR_SENTINEL = { __kind: "error-sentinel" as const };
+type ErrorSentinel = typeof ERROR_SENTINEL;
+type TrackEntry = HomeMediaItem | ErrorSentinel;
+
+function isErrorSentinel(entry: TrackEntry): entry is ErrorSentinel {
+  return (entry as ErrorSentinel).__kind === "error-sentinel";
+}
+
 /**
  * Server-driven home-feed row. Composes the shared `ScrollRow` slots
- * around items fetched via `useHomeRow`. Prefetch wiring + error /
+ * around items fetched via `useHomeRow`. Range-based prefetch + error /
  * skeleton states are owned here; layout primitives live in
  * `shared/components/scroll-row`.
  */
@@ -77,12 +83,24 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
     refetch,
     isRefetching,
   } = useHomeRow(row.id, row.initialCursor);
-  const { attachTrack, attachPrefetch } = usePrefetchObserver({ hasNextPage, fetchNextPage });
 
   const showInitialError = error !== null && items.length === 0;
   const showInlineError = error !== null && items.length > 0;
   const showSkeletons = !showInitialError && isLoading && items.length === 0;
-  const prefetchIndex = items.length === 0 ? -1 : Math.max(0, items.length - PREFETCH_OFFSET);
+
+  const renderItems = useMemo<TrackEntry[]>(
+    () => (showInlineError ? [...items, ERROR_SENTINEL] : [...items]),
+    [items, showInlineError],
+  );
+
+  const handleRange = useCallback(
+    ({ endIndex }: { startIndex: number; endIndex: number }) => {
+      if (items.length === 0) return;
+      if (!hasNextPage || isFetchingNextPage) return;
+      if (endIndex >= items.length - PREFETCH_OFFSET) fetchNextPage();
+    },
+    [items.length, hasNextPage, isFetchingNextPage, fetchNextPage],
+  );
 
   if (showInitialError) {
     return (
@@ -98,7 +116,7 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
   }
 
   return (
-    <ScrollRow viewportRef={attachTrack} revalidationKey={items.length} className="mb-8">
+    <ScrollRow revalidationKey={renderItems.length} className="mb-8">
       <SectionHead>
         <SectionHeadHeading>
           {eyebrow ? <SectionHeadEyebrow>{eyebrow}</SectionHeadEyebrow> : null}
@@ -110,34 +128,42 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
         </SectionHeadActions>
       </SectionHead>
       <ScrollRowViewport data-testid="row-scroller-bleed" style={cardVars}>
-        <ScrollRowTrack aria-label={heading} className="scroll-px-8 pb-3">
-          {showSkeletons
-            ? Array.from({ length: SKELETON_COUNT }, (_, i) => (
-                <ScrollRowSkeleton key={`skeleton-${i}`} aspect={aspect} />
-              ))
-            : items.map((item, index) => (
-                <ScrollRowItem
-                  key={item.id}
-                  data-id={item.id}
-                  ref={index === prefetchIndex ? attachPrefetch : undefined}
-                >
-                  <Card
-                    item={item as HomeMediaItem}
-                    rowKind={row.kind}
-                    isInWatchlist={watchlist?.has(item.id) ?? false}
-                    onWatchlistToggle={onWatchlistToggle}
-                    onClick={onCardClick}
+        {showSkeletons ? (
+          <ScrollRowTrack aria-label={heading} className="scroll-px-8 pb-3">
+            {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+              <ScrollRowSkeleton key={`skeleton-${i}`} aspect={aspect} />
+            ))}
+          </ScrollRowTrack>
+        ) : (
+          <ScrollRowTrack
+            virtualize
+            aria-label={heading}
+            className="scroll-px-8 pb-3"
+            items={renderItems}
+            getKey={(entry, i) => (isErrorSentinel(entry) ? `error-sentinel-${i}` : entry.id)}
+            estimateItemWidth={isBackdrop ? 320 : 200}
+            onRangeChange={handleRange}
+            renderItem={(entry) =>
+              isErrorSentinel(entry) ? (
+                error ? (
+                  <RowErrorInlineCard
+                    error={error}
+                    onRetry={() => fetchNextPage()}
+                    isRetrying={isFetchingNextPage}
                   />
-                </ScrollRowItem>
-              ))}
-          {showInlineError ? (
-            <RowErrorInlineCard
-              error={error}
-              onRetry={() => fetchNextPage()}
-              isRetrying={isFetchingNextPage}
-            />
-          ) : null}
-        </ScrollRowTrack>
+                ) : null
+              ) : (
+                <Card
+                  item={entry}
+                  rowKind={row.kind}
+                  isInWatchlist={watchlist?.has(entry.id) ?? false}
+                  onWatchlistToggle={onWatchlistToggle}
+                  onClick={onCardClick}
+                />
+              )
+            }
+          />
+        )}
       </ScrollRowViewport>
     </ScrollRow>
   );

@@ -5,9 +5,10 @@ import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
 import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
+import { VirtualWindowList } from "@/shared/components/virtualized";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
-import { ROW_ASPECT } from "../lib/home-feed-config";
+import { ROW_ASPECT, estimateHomeRowHeight } from "../lib/home-feed-config";
 import type { HeroSlideUI, RowData } from "../lib/types";
 import { HomeFeedSkeleton } from "./home-feed-skeleton";
 import { Row } from "./row/index";
@@ -85,18 +86,21 @@ function HomeFeedReady() {
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
-      {heroSlides.length > 0 ? <TopZone slides={heroSlides} onPeek={handlePeek} /> : null}
-      <div className="relative z-10 flex flex-col gap-2">
-        {rows.map((row) => (
+      <VirtualWindowList
+        items={rows}
+        getKey={(row) => row.id}
+        estimateSize={(i) => estimateHomeRowHeight(rows[i]!)}
+        header={heroSlides.length > 0 ? <TopZone slides={heroSlides} onPeek={handlePeek} /> : null}
+        renderItem={(row) => (
           <Row
-            key={row.id}
             row={row}
             watchlist={watchlist}
             onWatchlistToggle={toggleWatchlist}
             onCardClick={handlePeek}
           />
-        ))}
-      </div>
+        )}
+        className="relative z-10"
+      />
       <MediaDetailModal
         item={modalItem}
         open={Boolean(peek)}
