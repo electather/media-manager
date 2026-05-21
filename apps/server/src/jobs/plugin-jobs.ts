@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
@@ -112,12 +112,12 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
     rowSource: async () => {
       const db = getDb();
       const nowSec = Math.floor(Date.now() / 1000);
-      // Skip rows still inside an upstream-imposed cooldown window. `retryAfter`
-      // is epoch-seconds, set by `invokePerConnectionHandler` below whenever a
-      // job handler throws `plugin.rate_limited`. Without this, a per-connection
-      // refresh job storms the upstream every tick after the first 429. The
-      // cooldown predicate is pushed into SQL so parked rows do not load their
-      // encrypted credentials.
+      // Skip rows still inside an upstream-imposed cooldown window (`retryAfter`
+      // is epoch-seconds, set on `plugin.rate_limited`) and rows already in the
+      // terminal `expired` state (no automated recovery — user must reconnect).
+      // Both predicates are pushed into SQL so parked rows do not load their
+      // encrypted credentials and stuck-expired rows do not burn an upstream
+      // round-trip every tick.
       return await db
         .select({
           id: serviceConnections.id,
@@ -133,6 +133,7 @@ function registerPerConnectionJob(job: DeclaredPluginJob): void {
         .where(
           and(
             eq(serviceConnections.pluginId, job.pluginId),
+            ne(serviceConnections.status, "expired"),
             or(isNull(serviceConnections.retryAfter), lte(serviceConnections.retryAfter, nowSec)),
           ),
         )

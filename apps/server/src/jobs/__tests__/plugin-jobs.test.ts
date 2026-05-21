@@ -210,6 +210,11 @@ describe("invokePerConnectionHandler", () => {
     await expect(
       invokePerConnectionHandler({ job, row, handler, logger: noopLogger }),
     ).rejects.toThrow("refresh revoked");
+    // The status write must run even when the emit fails, so the connection
+    // card still shows "expired" + the re-auth CTA.
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0]?.status).toBe("expired");
+    expect(setCalls[0]?.errorMessage).toBe("refresh revoked");
   });
 
   it("does not re-emit auth-expired when the row is already expired", async () => {
