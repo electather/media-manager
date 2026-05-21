@@ -5,6 +5,9 @@
   "description": "deepsec scanning workspace",
   "workspaces": [],
   "type": "module",
+  "scripts": {
+    "sync-issues": "npx tsx sync-issues.ts"
+  },
   "dependencies": {
     "deepsec": "^2.0.8"
   },
