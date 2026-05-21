@@ -200,11 +200,11 @@ export const mediaRequest = {
   async listRequests(ctx: unknown, _input: unknown) {
     const c = ctx as Ctx;
     const all = await fetchAllRequests(c);
-    // Absent `seasons` on a TV row signals an upstream field rename; log keys once per call.
-    const renameSample = all.find((r) => r.type === "tv" && !Array.isArray(r.seasons));
-    if (renameSample) {
+    // Absent `seasons` on a TV row signals an upstream field rename; .find() stops at the first match so the warn fires at most once per call regardless of how many rows are affected.
+    const firstBadTvRow = all.find((r) => r.type === "tv" && !Array.isArray(r.seasons));
+    if (firstBadTvRow) {
       c.log.warn("seerr.listRequests: tv row missing `seasons` array — possible upstream rename", {
-        keys: Object.keys(renameSample),
+        keys: Object.keys(firstBadTvRow),
       });
     }
     return all.map((r) => ({

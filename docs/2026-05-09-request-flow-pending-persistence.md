@@ -30,15 +30,15 @@ Server = single source of truth. Client overlay derived from `GET /api/requests`
 
 ```ts
 listRequests.output = z.array(z.object({
-  id, tmdbId, type, title, status,                    // existing
-  createdAt,                                          // existing
-  seasons:      z.array(z.number().int().nonnegative()),  // NEW · [] for movies
-  targetLabel:  z.string().nullable(),                    // NEW · e.g. "Radarr Main"
-  profileLabel: z.string().nullable(),                    // NEW · e.g. "1080p"
+  id, tmdbId, type, title, status,                                       // existing
+  createdAt,                                                             // existing
+  seasons:      z.array(z.number().int().nonnegative()).optional().default([]),  // NEW · [] for movies / unrouted requests
+  targetLabel:  z.string().nullable().optional().default(null),          // NEW · e.g. "Radarr Main"
+  profileLabel: z.string().nullable().optional().default(null),          // NEW · e.g. "1080p"
 }))
 ```
 
-Pre-stable. Additive. No compat shim. `seasons` required (not optional) → cleaner consumers.
+Pre-stable. Additive. No compat shim. Each new field is `.optional().default(...)` so a plugin that omits the key still parses; the Seerr mapper writes the same defaults explicitly (§S.2) and the SDK-level default is a defence-in-depth for third-party plugins (issue #427).
 
 ### S.2 Seerr plugin — listRequests map
 
