@@ -226,6 +226,7 @@ function VirtualizedScrollRowTrack<T>({
       data-slot="scroll-row-track"
       data-virt="true"
       className={cn(BASE_TRACK_CLASSES, className)}
+      style={{ minBlockSize: "calc(var(--card-h) + 3rem)" }}
       {...rest}
     >
       <li aria-hidden="true" style={{ inlineSize: totalSize, blockSize: 1, flexShrink: 0 }} />
