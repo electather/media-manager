@@ -59,35 +59,49 @@ function reportManifestInvalid(pluginId: string, stage: string, err: unknown): v
   });
 }
 
-function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
+type ParsedJobsManifest = z.infer<typeof manifestForJobsSchema>;
+type ParsedJobEntry = NonNullable<ParsedJobsManifest["jobs"]>[number];
+
+function parseManifestForJobs(row: { id: string; manifest: string }): ParsedJobsManifest | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(row.manifest);
   } catch (err) {
     reportManifestInvalid(row.id, "json-parse", err);
-    return [];
+    return null;
   }
   const result = manifestForJobsSchema.safeParse(parsed);
   if (!result.success) {
     reportManifestInvalid(row.id, "schema-validate", result.error);
-    return [];
+    return null;
   }
-  const manifest = result.data;
+  return result.data;
+}
+
+function toDeclaredJob(
+  pluginId: string,
+  pluginName: string,
+  job: ParsedJobEntry,
+): DeclaredPluginJob {
+  const perConnection = job.perConnection === true;
+  return {
+    pluginId,
+    pluginName,
+    id: job.id,
+    schedule: job.schedule,
+    handler: job.handler,
+    perConnection,
+    // Only propagate the override on perConnection jobs — the global path
+    // ignores it and carrying it would mask a manifest-validation bug.
+    perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
+  };
+}
+
+function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
+  const manifest = parseManifestForJobs(row);
+  if (!manifest) return [];
   const pluginName = manifest.name ?? row.id;
-  return (manifest.jobs ?? []).map((job) => {
-    const perConnection = job.perConnection === true;
-    return {
-      pluginId: row.id,
-      pluginName,
-      id: job.id,
-      schedule: job.schedule,
-      handler: job.handler,
-      perConnection,
-      // Only propagate the override on perConnection jobs — the global path
-      // ignores it and carrying it would mask a manifest-validation bug.
-      perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
-    };
-  });
+  return (manifest.jobs ?? []).map((job) => toDeclaredJob(row.id, pluginName, job));
 }
 
 /** Returns every declared job across all enabled plugins. */
