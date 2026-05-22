@@ -152,6 +152,8 @@ interface ScrollRowTrackVirtualizedProps<T> extends ScrollRowTrackBaseProps {
   renderItem: (item: T, index: number) => ReactNode;
   overscan?: number;
   onRangeChange?: (range: { startIndex: number; endIndex: number }) => void;
+  /** Inline gap between items in px. Matches Tailwind `gap-4` on the non-virtualized track. */
+  gapPx?: number;
 }
 
 type ScrollRowTrackProps<T> = ScrollRowTrackChildrenProps | ScrollRowTrackVirtualizedProps<T>;
@@ -182,6 +184,7 @@ function VirtualizedScrollRowTrack<T>({
   renderItem,
   overscan = 4,
   onRangeChange,
+  gapPx = 16,
   className,
   // The `virtualize` discriminator is intentionally stripped before spread.
   virtualize: _virtualize,
@@ -201,7 +204,7 @@ function VirtualizedScrollRowTrack<T>({
     horizontal: true,
     count: items.length,
     getScrollElement: () => trackRef.current,
-    estimateSize: () => estimateItemWidth,
+    estimateSize: () => estimateItemWidth + gapPx,
     overscan,
   });
 
@@ -226,7 +229,7 @@ function VirtualizedScrollRowTrack<T>({
       data-slot="scroll-row-track"
       data-virt="true"
       className={cn(BASE_TRACK_CLASSES, className)}
-      style={{ minBlockSize: "calc(var(--card-h) + 3rem)" }}
+      style={{ minBlockSize: "calc(var(--card-h) + 4rem)", overflowY: "hidden" }}
       {...rest}
     >
       <li aria-hidden="true" style={{ inlineSize: totalSize, blockSize: 1, flexShrink: 0 }} />
@@ -238,7 +241,6 @@ function VirtualizedScrollRowTrack<T>({
             key={getKey(item, vi.index)}
             data-slot="scroll-row-item"
             data-index={vi.index}
-            ref={virtualizer.measureElement}
             className="shrink-0 snap-start"
             style={{
               position: "absolute",

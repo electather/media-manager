@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type CSSProperties } from "react";
+import { memo, useCallback, useMemo, useRef, type CSSProperties } from "react";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
@@ -26,7 +26,6 @@ const PREFETCH_OFFSET = 4;
 
 interface RowProps {
   row: RowData;
-  watchlist?: ReadonlySet<string>;
   onWatchlistToggle?: (item: HomeMediaItem) => void;
   onCardClick?: (id: string) => void;
 }
@@ -54,7 +53,7 @@ function isErrorSentinel(entry: TrackEntry): entry is ErrorSentinel {
  * `shared/components/scroll-row`.
  */
 // fallow-ignore-next-line complexity
-export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps) {
+function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   const scopeRef = useRef<HTMLDivElement | null>(null);
   const isBackdrop = row.defaultAspect === "16/9";
   const cardVars = isBackdrop ? BACKDROP_VARS : POSTER_VARS;
@@ -156,7 +155,6 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
                 <Card
                   item={entry}
                   rowKind={row.kind}
-                  isInWatchlist={watchlist?.has(entry.id) ?? false}
                   onWatchlistToggle={onWatchlistToggle}
                   onClick={onCardClick}
                 />
@@ -168,3 +166,11 @@ export function Row({ row, watchlist, onWatchlistToggle, onCardClick }: RowProps
     </ScrollRow>
   );
 }
+
+/**
+ * Memoised so that re-renders of `HomeFeedReady` (driven by hero / search /
+ * watchlist hooks) don't cascade into every visible row. Membership lookup
+ * lives inside `<Card>` via `useIsInWatchlist`, so Row no longer needs the
+ * full watchlist set on its prop surface.
+ */
+export const Row = memo(RowImpl);

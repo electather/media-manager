@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { WatchlistItem, WatchlistUserSource } from "@ent-mcp/shared/watchlist";
 import { useAddToWatchlist } from "./use-add-to-watchlist";
@@ -10,18 +10,32 @@ interface ToggleOptions {
 }
 
 /**
- * Returns a stable `toggle(item)` callback that flips an item's watchlist
- * state. Cross-feature surfaces (home cards, search rows) call this without
- * needing to know whether the item is currently saved.
+ * Returns a referentially stable `toggle(item)` callback that flips an
+ * item's watchlist state. Cross-feature surfaces (home cards, search rows)
+ * call this without needing to know whether the item is currently saved.
+ *
+ * Stability matters: this callback is forwarded to memoised `<Card>`s in
+ * the home feed. The mutation result objects from `useMutation` are NOT
+ * referentially stable across renders, so we capture the latest `ids` set
+ * and mutation objects via refs and depend only on `source` for the
+ * `useCallback` cache.
  */
 export function useToggleWatchlist({ source = "manual" }: ToggleOptions = {}) {
   const ids = useWatchlistIdSet();
   const add = useAddToWatchlist();
   const remove = useRemoveFromWatchlist();
+  const idsRef = useRef(ids);
+  const addRef = useRef(add);
+  const removeRef = useRef(remove);
+  useLayoutEffect(() => {
+    idsRef.current = ids;
+    addRef.current = add;
+    removeRef.current = remove;
+  });
   return useCallback(
     (item: CompactMediaItem) => {
-      if (ids.has(item.id)) {
-        remove.mutate({ tmdbId: item.tmdbId, mediaType: item.mediaType });
+      if (idsRef.current.has(item.id)) {
+        removeRef.current.mutate({ tmdbId: item.tmdbId, mediaType: item.mediaType });
         return;
       }
       const seed: Partial<WatchlistItem> = {
@@ -35,11 +49,11 @@ export function useToggleWatchlist({ source = "manual" }: ToggleOptions = {}) {
       if (item.poster) seed.poster = item.poster;
       if (item.backdrop) seed.backdrop = item.backdrop;
       if (item.genres && item.genres.length > 0) seed.genres = item.genres;
-      add.mutate({
+      addRef.current.mutate({
         request: { tmdbId: item.tmdbId, mediaType: item.mediaType, source },
         seed,
       });
     },
-    [ids, add, remove, source],
+    [source],
   );
 }

@@ -12,6 +12,7 @@ import {
   deriveMediaCardAvailability,
 } from "@/shared/components/media-card";
 import { buildMediaHref } from "@/shared/lib/media-id";
+import { useIsInWatchlist } from "@/features/watchlist";
 import { ROW_ASPECT } from "../../lib/home-feed-config";
 import type { HomeMediaItem, RowKind } from "../../lib/types";
 import { CardKindBadge } from "./card-kind-badge";
@@ -22,7 +23,6 @@ interface CardProps {
   item: HomeMediaItem;
   rowKind: RowKind;
   forceAspect?: "16/9" | "2/3";
-  isInWatchlist?: boolean;
   /** Called with the full item so the receiver can hydrate optimistic seeds. */
   onWatchlistToggle?: (item: HomeMediaItem) => void;
   /** Called with the item id; receivers should keep this reference stable across renders. */
@@ -42,10 +42,10 @@ export const Card = memo(function Card({
   item,
   rowKind,
   forceAspect,
-  isInWatchlist = false,
   onWatchlistToggle,
   onClick,
 }: CardProps) {
+  const isInWatchlist = useIsInWatchlist(item.id);
   const aspect = forceAspect ?? ROW_ASPECT[rowKind];
   const showLogo = aspect === "16/9" && Boolean(item.clearLogo || item.clearLogoText);
   const imageSrc =
