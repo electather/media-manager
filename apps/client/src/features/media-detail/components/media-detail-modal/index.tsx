@@ -109,7 +109,13 @@ function ModalBody({
   const [secondaryReady, setSecondaryReady] = useState(false);
   useEffect(() => {
     const handle = requestAnimationFrame(() => setSecondaryReady(true));
-    return () => cancelAnimationFrame(handle);
+    // rAF throttles to ~1 fps in background tabs; setTimeout fallback still
+    // defers off the current frame but isn't subject to visibility throttle.
+    const fallback = setTimeout(() => setSecondaryReady(true), 50);
+    return () => {
+      cancelAnimationFrame(handle);
+      clearTimeout(fallback);
+    };
   }, []);
 
   function jumpToNote() {

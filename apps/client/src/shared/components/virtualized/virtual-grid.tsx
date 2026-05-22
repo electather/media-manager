@@ -65,7 +65,7 @@ export function VirtualGrid<T>({
                 position: "absolute",
                 insetInlineStart: 0,
                 insetInlineEnd: 0,
-                top: 0,
+                insetBlockStart: 0,
                 transform: `translateY(${vr.start - scrollMargin}px)`,
                 display: "grid",
                 gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,

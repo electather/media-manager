@@ -63,7 +63,7 @@ export function VirtualWindowList<T>({
                 position: "absolute",
                 insetInlineStart: 0,
                 insetInlineEnd: 0,
-                top: 0,
+                insetBlockStart: 0,
                 transform: `translateY(${vi.start - scrollMargin}px)`,
               }}
             >
