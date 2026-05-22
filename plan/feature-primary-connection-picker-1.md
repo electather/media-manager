@@ -85,8 +85,8 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-014 | Create `apps/server/src/api/procedures/__tests__/connections-primary.test.ts` covering: unauthenticated → 401, missing permission → 403, foreign `connectionId` → 404 `connection.not_found`, unsupported capability → 422 `connection.capability_unsupported`, happy `POST` → row upserted + `invalidateUserCache` called, double-`POST` with different `connectionId` → second wins (#458 regression in API form), happy `DELETE` → row removed + `invalidateUserCache` called, `DELETE` on missing row → 200, `GET` returns rows scoped to caller with sentinel `"_"` → `null` mapping. | | |
-| TASK-015 | Extend `apps/server/src/media/__tests__/primary-with-enrichment.test.ts` with one case: two providers `[A, B]` + `setPrimaryConnection` pinning the B-backed connection results in candidates ordered `[B, A]`. | | |
+| TASK-014 | Create `apps/server/src/api/procedures/__tests__/connections-primary.test.ts` covering: unauthenticated → 401, missing permission → 403, foreign `connectionId` → 404 `connection.not_found`, unsupported capability → 422 `connection.capability_unsupported`, happy `POST` → row upserted + `invalidateUserCache` called, double-`POST` with different `connectionId` → second wins (#458 regression in API form), happy `DELETE` → row removed + `invalidateUserCache` called, `DELETE` on missing row → 200, `GET` returns rows scoped to caller with sentinel `"_"` → `null` mapping. | ✅ | 2026-05-22 |
+| TASK-015 | Extend `apps/server/src/media/__tests__/primary-with-enrichment.test.ts` with one case: two providers `[A, B]` + `setPrimaryConnection` pinning the B-backed connection results in candidates ordered `[B, A]`. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 6 — Client: shared helpers
 
