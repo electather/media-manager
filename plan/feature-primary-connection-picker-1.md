@@ -54,8 +54,8 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-004 | Move `requireConnection` from `apps/server/src/connections/service.ts:105` to `apps/server/src/connections/helpers.ts` as a named export. Signature unchanged: `(db: Db, connectionId: string, userId: string)`. Keep callers in `service.ts` working by importing from the local `./helpers`. | | |
-| TASK-005 | Add a unit test in `apps/server/src/connections/__tests__/helpers.require-connection.test.ts` covering (a) returns row when owner matches, (b) throws `notFound("connection.not_found")` when row is missing, (c) throws `notFound("connection.not_found")` when row belongs to a different user. | | |
+| TASK-004 | Move `requireConnection` from `apps/server/src/connections/service.ts:105` to `apps/server/src/connections/helpers.ts` as a named export. Signature unchanged: `(db: Db, connectionId: string, userId: string)`. Keep callers in `service.ts` working by importing from the local `./helpers`. | ✅ | 2026-05-22 |
+| TASK-005 | Add a unit test in `apps/server/src/connections/__tests__/helpers.require-connection.test.ts` covering (a) returns row when owner matches, (b) throws `notFound("connection.not_found")` when row is missing, (c) throws `notFound("connection.not_found")` when row belongs to a different user. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 3 — Server: primary-service wrapper
 
