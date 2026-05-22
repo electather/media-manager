@@ -247,6 +247,92 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Prototype pollution defense — issue #451.
+// Plugin responses may carry an own `__proto__` key when the plugin forwards
+// a `JSON.parse` result from an external API. Both safeClone (used to copy
+// primary + enrichment data) and fillGaps (used to merge them) must filter
+// `__proto__`, `constructor`, and `prototype` so attacker-controlled keys
+// never reach the worker's `Object.prototype`.
+// ---------------------------------------------------------------------------
+
+describe("prototype pollution defense (issue #451)", () => {
+  function maliciousPayload(key: "__proto__" | "constructor" | "prototype") {
+    // JSON.parse is the only way to create a real own `__proto__` property; an
+    // object literal `{ __proto__: ... }` sets the prototype instead.
+    return JSON.parse(`{"title":"Hijack","${key}":{"polluted":true}}`);
+  }
+
+  it("does not pollute Object.prototype when enrichment carries an own __proto__ key", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("__proto__"));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype when the primary itself carries an own __proto__ key", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce(maliciousPayload("__proto__"))
+      .mockResolvedValueOnce({ title: "Other", ids: {} });
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype via a `constructor` key in enrichment", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("constructor"));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype via a nested __proto__ key in enrichment", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: { tmdb: "1" } })
+      .mockResolvedValueOnce(JSON.parse(`{"ids":{"__proto__":{"nested":true}}}`));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).nested).toBeUndefined();
+  });
+
+  it("strips dangerous keys from the merged result instead of carrying them through", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("__proto__"));
+
+    const result = await dispatchPrimary<Record<string, unknown>>(req());
+
+    // Dangerous keys are filtered, not preserved as own properties.
+    expect(Object.hasOwn(result.data, "__proto__")).toBe(false);
+    expect((result.data as { polluted?: unknown }).polluted).toBeUndefined();
+  });
+
+  it("still merges legitimate fields when enrichment also contains a dangerous key", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", overview: null, ids: {} })
+      .mockResolvedValueOnce(JSON.parse(`{"overview":"Filled","__proto__":{"polluted":true}}`));
+
+    const result = await dispatchPrimary<{ overview: string }>(req());
+
+    expect(result.data.overview).toBe("Filled");
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // dispatchPrimary — ordering, error handling, caching, and no-provider guard.
 // ---------------------------------------------------------------------------
 
