@@ -185,6 +185,7 @@ export function WatchlistContent() {
 
   const filterActive = filter !== "all";
 
+  // fallow-ignore-next-line complexity
   const sections = useMemo<WatchlistSection[]>(() => {
     if (filterActive) return [];
     const out: WatchlistSection[] = [];

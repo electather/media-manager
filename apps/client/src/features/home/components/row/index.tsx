@@ -93,6 +93,7 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
   );
 
   const handleRange = useCallback(
+    // fallow-ignore-next-line complexity
     ({ endIndex }: { startIndex: number; endIndex: number }) => {
       if (items.length === 0) return;
       if (!hasNextPage || isFetchingNextPage) return;

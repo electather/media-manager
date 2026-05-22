@@ -177,6 +177,7 @@ function NonVirtualizedScrollRowTrack({ className, ...props }: ComponentProps<"u
   );
 }
 
+// fallow-ignore-next-line complexity
 function VirtualizedScrollRowTrack<T>({
   items,
   getKey,

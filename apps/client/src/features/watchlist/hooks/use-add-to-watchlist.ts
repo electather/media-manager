@@ -10,6 +10,7 @@ import {
 import { addToWatchlist } from "@/shared/lib/watchlist/fetchers";
 import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 import { buildOptimistic } from "@/shared/lib/watchlist/build-optimistic";
+import { invalidateWatchlistAll } from "@/shared/lib/watchlist/invalidate";
 
 interface AddVariables {
   request: AddWatchlistRequest;
@@ -72,9 +73,6 @@ export function useAddToWatchlist() {
       }
       toast.error(m.watchlist_add_error({ message: err.message }));
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: watchlistKeys.lists() });
-      void qc.invalidateQueries({ queryKey: watchlistKeys.counts() });
-    },
+    onSettled: () => invalidateWatchlistAll(qc),
   });
 }
