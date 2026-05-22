@@ -1,6 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
+// vi.mock factory bodies are hoisted above top-level const declarations, so
+// referencing a regular `const` mock from inside the factory races the TDZ.
+// vi.hoisted runs alongside the mock hoist, keeping the reference valid.
+const captureErrorMock = vi.hoisted(() =>
+  vi.fn<(err: unknown, meta: import("../../diagnostics/capture").CaptureMeta) => Promise<string>>(
+    async () => "diag-id",
+  ),
+);
+
+vi.mock("../../diagnostics/capture", () => ({
+  captureError: captureErrorMock,
+}));
+
 // ─── invokePerConnectionHandler ──────────────────────────────────────────────
 
 interface SetValues {
@@ -71,31 +84,40 @@ vi.mock("../scheduled", () => ({
   }),
 }));
 
+interface PluginRow {
+  id: string;
+  manifest: string;
+}
+
+const defaultPluginRows: PluginRow[] = [
+  {
+    id: "seerr",
+    manifest: JSON.stringify({
+      name: "Seerr",
+      jobs: [
+        {
+          id: "requestStatusSync",
+          schedule: "*/5 * * * *",
+          handler: "syncStatuses",
+          perConnection: true,
+          perRowTimeoutSec: 120,
+        },
+      ],
+    }),
+  },
+  {
+    id: "global-plugin",
+    manifest: JSON.stringify({
+      name: "Global Plugin",
+      jobs: [{ id: "tick", schedule: "0 * * * *", handler: "tick" }],
+    }),
+  },
+];
+
+let pluginRows: PluginRow[] = defaultPluginRows;
+
 vi.mock("../../db/queries", () => ({
-  selectEnabledPlugins: async () => [
-    {
-      id: "seerr",
-      manifest: JSON.stringify({
-        name: "Seerr",
-        jobs: [
-          {
-            id: "requestStatusSync",
-            schedule: "*/5 * * * *",
-            handler: "syncStatuses",
-            perConnection: true,
-            perRowTimeoutSec: 120,
-          },
-        ],
-      }),
-    },
-    {
-      id: "global-plugin",
-      manifest: JSON.stringify({
-        name: "Global Plugin",
-        jobs: [{ id: "tick", schedule: "0 * * * *", handler: "tick" }],
-      }),
-    },
-  ],
+  selectEnabledPlugins: async () => pluginRows,
 }));
 
 const { invokePerConnectionHandler, registerAllPluginJobs } = await import("../plugin-jobs");
@@ -154,6 +176,8 @@ const noopLogger = {
 beforeEach(() => {
   setCalls.length = 0;
   emitMock.mockClear();
+  captureErrorMock.mockClear();
+  pluginRows = defaultPluginRows;
 });
 
 describe("invokePerConnectionHandler", () => {
@@ -279,5 +303,66 @@ describe("plugin-jobs registration", () => {
     const globalCall = globalCalls.find((c) => c.id === "plugin.global-plugin.tick");
     expect(globalCall).toBeDefined();
     expect(globalCall?.perRowTimeoutSec).toBeUndefined();
+  });
+
+  it("skips a row whose manifest is not valid JSON and still registers the rest (#447)", async () => {
+    // Regression for #447 (#453, #460): a single corrupted manifest threw inside
+    // listAllPluginJobs and aborted registration of every other plugin's jobs
+    // at startup.
+    perRowCalls.length = 0;
+    globalCalls.length = 0;
+    pluginRows = [{ id: "broken", manifest: "{not-json" }, defaultPluginRows[1]!];
+
+    const count = await registerAllPluginJobs();
+
+    expect(count).toBe(1);
+    expect(globalCalls.find((c) => c.id === "plugin.global-plugin.tick")).toBeDefined();
+    expect(captureErrorMock).toHaveBeenCalledTimes(1);
+    expect(captureErrorMock.mock.calls[0]![1]).toMatchObject({
+      code: "cron.manifest_invalid",
+      pluginId: "broken",
+      source: "cron",
+      context: { stage: "json-parse" },
+    });
+  });
+
+  it("skips a row whose manifest fails schema validation and registers neighbors (#447)", async () => {
+    // perRowTimeoutSec must be a positive int ≤ 1800 per manifestJobEntrySchema.
+    // A bad value used to flow through unchecked because the parser only cast
+    // the JSON instead of running it through the shared schema.
+    perRowCalls.length = 0;
+    globalCalls.length = 0;
+    pluginRows = [
+      {
+        id: "bad-timeout",
+        manifest: JSON.stringify({
+          name: "Bad Timeout",
+          jobs: [
+            {
+              id: "refresh",
+              schedule: "*/5 * * * *",
+              handler: "refresh",
+              perConnection: true,
+              perRowTimeoutSec: -42,
+            },
+          ],
+        }),
+      },
+      defaultPluginRows[0]!,
+      defaultPluginRows[1]!,
+    ];
+
+    const count = await registerAllPluginJobs();
+
+    expect(count).toBe(2);
+    expect(perRowCalls.find((c) => c.id === "plugin.seerr.requestStatusSync")).toBeDefined();
+    expect(globalCalls.find((c) => c.id === "plugin.global-plugin.tick")).toBeDefined();
+    expect(perRowCalls.find((c) => c.id === "plugin.bad-timeout.refresh")).toBeUndefined();
+    expect(captureErrorMock).toHaveBeenCalledTimes(1);
+    expect(captureErrorMock.mock.calls[0]![1]).toMatchObject({
+      code: "cron.manifest_invalid",
+      pluginId: "bad-timeout",
+      context: { stage: "schema-validate" },
+    });
   });
 });

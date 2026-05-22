@@ -54,6 +54,7 @@ Self-host diag svc. 2 record kinds: `error_records` ∧ `perf_records`. Shared: 
 | Plugin  | output Zod fail                      | `warning`, host → empty results                                       |
 | Plugin  | OOM \| timeout                       | `error` w/ cause                                                      |
 | Cron    | job handler throw                    | wrapper: log job + exception                                          |
+| Cron    | plugin manifest parse \| schema-validate ⊥ at startup | log + skip row, capture `cron.manifest_invalid`; siblings still register |
 
 ### §Cap.P Perf
 
@@ -88,6 +89,8 @@ HOST_ERROR_CODES = {
   "artwork.bad_input": { severity: "info" },
   "artwork.unsupported_id_combo": { severity: "info" },
   "artwork.internal": { severity: "error" },
+  "cron.job_failed": { severity: "error" },
+  "cron.manifest_invalid": { severity: "error" },
   // ...
 } as const satisfies Record<string, ErrorCodeSpec>;
 ```

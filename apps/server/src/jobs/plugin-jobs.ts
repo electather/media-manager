@@ -1,15 +1,18 @@
+import { consola } from "consola";
 import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
 import { decryptJson } from "../crypto/helpers";
+import { captureError } from "../diagnostics/capture";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 // fallow-ignore-next-line boundary-violation
 import { emitAuthExpired, markConnectionStatus, persistRefreshedCredentials } from "../media";
 import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
-import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
+import { manifestJobEntrySchema } from "@ent-mcp/shared/plugins";
 import type { ConnectionStatus } from "@ent-mcp/shared/connections";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
@@ -32,26 +35,74 @@ interface DeclaredPluginJob {
   perRowTimeoutSec?: number;
 }
 
-function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
-  const manifest = JSON.parse(row.manifest) as {
-    name?: string;
-    jobs?: ManifestJobEntry[];
-  };
-  const pluginName = manifest.name ?? row.id;
-  return (manifest.jobs ?? []).map((job) => {
-    const perConnection = job.perConnection === true;
-    return {
-      pluginId: row.id,
-      pluginName,
-      id: job.id,
-      schedule: job.schedule,
-      handler: job.handler,
-      perConnection,
-      // Only propagate the override on perConnection jobs — the global path
-      // ignores it and carrying it would mask a manifest-validation bug.
-      perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
-    };
+// All-or-nothing: one bad job entry skips the whole plugin. Keep z.array(...) strict —
+// no .catch() and no per-entry .optional() (the outer .optional() on jobs only allows the
+// field to be absent; once present every entry must validate).
+const manifestForJobsSchema = z.object({
+  name: z.string().min(1).optional(),
+  jobs: z.array(manifestJobEntrySchema).optional(),
+});
+
+function reportManifestInvalid(
+  pluginId: string,
+  stage: "json-parse" | "schema-validate",
+  err: unknown,
+): void {
+  consola.error(`[plugin-jobs] manifest ${stage} failed for "${pluginId}"`, err);
+  // Fire-and-forget: the diagnostic sink writes to the database, but startup
+  // job registration must not block on it. An unhandled rejection here would
+  // be a sink bug worth surfacing, not a startup failure.
+  void captureError(err, {
+    source: "cron",
+    code: "cron.manifest_invalid",
+    pluginId,
+    context: { stage },
   });
+}
+
+type ParsedJobsManifest = z.infer<typeof manifestForJobsSchema>;
+type ParsedJobEntry = z.infer<typeof manifestJobEntrySchema>;
+
+function parseManifestForJobs(row: { id: string; manifest: string }): ParsedJobsManifest | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.manifest);
+  } catch (err) {
+    reportManifestInvalid(row.id, "json-parse", err);
+    return null;
+  }
+  const result = manifestForJobsSchema.safeParse(parsed);
+  if (!result.success) {
+    reportManifestInvalid(row.id, "schema-validate", result.error);
+    return null;
+  }
+  return result.data;
+}
+
+function toDeclaredJob(
+  pluginId: string,
+  pluginName: string,
+  job: ParsedJobEntry,
+): DeclaredPluginJob {
+  const perConnection = job.perConnection === true;
+  return {
+    pluginId,
+    pluginName,
+    id: job.id,
+    schedule: job.schedule,
+    handler: job.handler,
+    perConnection,
+    // Only propagate the override on perConnection jobs — the global path
+    // ignores it and carrying it would mask a manifest-validation bug.
+    perRowTimeoutSec: perConnection ? job.perRowTimeoutSec : undefined,
+  };
+}
+
+function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
+  const manifest = parseManifestForJobs(row);
+  if (!manifest) return [];
+  const pluginName = manifest.name ?? row.id;
+  return (manifest.jobs ?? []).map((job) => toDeclaredJob(row.id, pluginName, job));
 }
 
 /** Returns every declared job across all enabled plugins. */

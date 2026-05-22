@@ -81,6 +81,9 @@ export const HOST_ERROR_CODES = {
 
   // Cron.
   "cron.job_failed": { severity: "error" },
+  // Manifest persisted in plugins.manifest failed JSON.parse or schema validation
+  // at startup registration; the row is skipped so other plugins still register.
+  "cron.manifest_invalid": { severity: "error" },
 
   // HTTP envelope. 4xx-mapped codes land here for reference but the HTTP
   // middleware's `isExpectedUserError` already skips their capture; the info
