@@ -126,7 +126,7 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-027 | Create `apps/client/src/features/settings-connections/__tests__/primary-providers-card.test.tsx` covering: (a) renders nothing when only 1 eligible connection per capability, (b) renders both rows when ≥2 eligible exist for `metadata@v1`, (c) selecting a connection fires `POST /primary` with correct body, (d) selecting "Auto" fires `DELETE /primary`, (e) optimistic update rolls back on 5xx, (f) disabled connections do not appear in dropdown options, (g) previously-pinned connection that became ineligible renders "Auto (was X)" option label and clears cleanly when user picks a real connection. | | |
+| TASK-027 | Create `apps/client/src/features/settings-connections/__tests__/primary-providers-card.test.tsx` covering: (a) renders nothing when only 1 eligible connection per capability, (b) renders both rows when ≥2 eligible exist for `metadata@v1`, (c) selecting a connection fires `POST /primary` with correct body, (d) selecting "Auto" fires `DELETE /primary`, (e) optimistic update rolls back on 5xx, (f) disabled connections do not appear in dropdown options, (g) previously-pinned connection that became ineligible renders "Auto (was X)" option label and clears cleanly when user picks a real connection. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 10 — Verify + changeset
 

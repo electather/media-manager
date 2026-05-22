@@ -133,11 +133,25 @@ function PrimaryProviderRow({
     );
   };
 
+  // Render the user-facing label for the currently selected value — the raw
+  // `connection.id` is meaningless to the user, so render the connection's
+  // displayName / plugin name instead. Falls back to "Auto" when the value
+  // is the sentinel.
+  const renderTriggerLabel = (value: string | null): string => {
+    if (value === null || value === AUTO_VALUE) {
+      return stalePinned
+        ? m.settings_connections_primary_auto_was_option({ name: connectionLabel(stalePinned) })
+        : m.settings_connections_primary_auto_option();
+    }
+    const conn = eligible.find((c) => c.id === value);
+    return conn ? connectionLabel(conn) : m.settings_connections_primary_auto_option();
+  };
+
   return (
     <SettingsCardRow label={row.labelMessage()} borderTop={borderTop}>
       <Select value={selectValue} onValueChange={onValueChange}>
         <SelectTrigger size="sm" aria-label={row.labelMessage()} className="w-full sm:w-72">
-          <SelectValue />
+          <SelectValue>{(value: string) => renderTriggerLabel(value)}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={AUTO_VALUE}>
