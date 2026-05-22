@@ -13,6 +13,11 @@ import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } fro
 // Naive recursive copy/merge would set the target's prototype to attacker
 // input, polluting every object in the worker. See docs/media-service.md
 // "Response Merge Safety" and issue #451.
+//
+// `__proto__` is the live attack vector. `constructor` is included to block
+// constructor-chain attacks (`obj.constructor.prototype.x = ...`). `prototype`
+// is harmless on a plain object but kept here as a cheap belt-and-braces
+// guard in case a future merge path ever runs against a function.
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 function isEmptyValue(v: unknown): boolean {
@@ -38,6 +43,9 @@ function safeClone(src: Record<string, unknown>): Record<string, unknown> {
 // fallow-ignore-next-line complexity
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
+    // `extra` is always a `safeClone` result today, so this guard is redundant
+    // at the current call site. Kept as defense-in-depth: if a future caller
+    // passes raw plugin data through `fillGaps`, the merge stays safe.
     if (DANGEROUS_KEYS.has(key)) continue;
     const current = base[key];
     if (isEmptyValue(current)) {
@@ -78,7 +86,11 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
       fillGaps(base, sanitized);
     }
   }
-  return base as T;
+  // Spread into a plain-prototype object so downstream callers can use
+  // `Object.prototype` methods (`hasOwnProperty`, etc.) on the top-level
+  // result. The safety properties of `base` are baked in by `safeClone` and
+  // do not depend on the prototype of the returned wrapper.
+  return { ...base } as T;
 }
 
 /**
