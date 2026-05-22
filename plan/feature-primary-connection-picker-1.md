@@ -94,10 +94,10 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-016 | Add `primary: () => [...settingsConnectionsKeys.all, "primary"] as const` to `apps/client/src/features/settings-connections/lib/query-keys.ts`. | | |
-| TASK-017 | Add three fetchers in `apps/client/src/features/settings-connections/lib/fetchers.ts`: `fetchPrimaryConnections()` (calls `api.connections.primary.$get()`), `fetchSetPrimaryConnection(input)` (calls `$post({ json: input })`), `fetchClearPrimaryConnection(input)` (calls `$delete({ json: input })`). All wrap with `readJson` + `SettingsConnectionsApiError`. | | |
-| TASK-018 | Create `apps/client/src/features/settings-connections/lib/primary-rows.ts` exporting `PRIMARY_PROVIDER_ROWS` array of two entries `{ capabilityKey: "metadata@v1", mediaType: "movie" \| "tv", labelMessage }`. Labels come from new paraglide messages. | | |
-| TASK-019 | Add paraglide messages: `settings_connections_primary_section_title`, `settings_connections_primary_section_description`, `settings_connections_primary_movies_label`, `settings_connections_primary_tv_label`, `settings_connections_primary_auto_option`, `settings_connections_primary_auto_was_option` (param `name`). | | |
+| TASK-016 | Add `primary: () => [...settingsConnectionsKeys.all, "primary"] as const` to `apps/client/src/features/settings-connections/lib/query-keys.ts`. | ✅ | 2026-05-22 |
+| TASK-017 | Add three fetchers in `apps/client/src/features/settings-connections/lib/fetchers.ts`: `fetchPrimaryConnections()` (calls `api.connections.primary.$get()`), `fetchSetPrimaryConnection(input)` (calls `$post({ json: input })`), `fetchClearPrimaryConnection(input)` (calls `$delete({ json: input })`). All wrap with `readJson` + `SettingsConnectionsApiError`. | ✅ | 2026-05-22 |
+| TASK-018 | Create `apps/client/src/features/settings-connections/lib/primary-rows.ts` exporting `PRIMARY_PROVIDER_ROWS` array of two entries `{ capabilityKey: "metadata@v1", mediaType: "movie" \| "tv", labelMessage }`. Labels come from new paraglide messages. | ✅ | 2026-05-22 |
+| TASK-019 | Add paraglide messages: `settings_connections_primary_section_title`, `settings_connections_primary_section_description`, `settings_connections_primary_movies_label`, `settings_connections_primary_tv_label`, `settings_connections_primary_auto_option`, `settings_connections_primary_auto_was_option` (param `name`). | ✅ | 2026-05-22 |
 
 ### Implementation Phase 7 — Client: hooks
 
@@ -105,9 +105,9 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-020 | Create `apps/client/src/features/settings-connections/hooks/use-primary-connections.ts` exporting `usePrimaryConnections()` using `useSuspenseQuery({ queryKey: settingsConnectionsKeys.primary(), queryFn: fetchPrimaryConnections })`. | | |
-| TASK-021 | Create `apps/client/src/features/settings-connections/hooks/use-set-primary-connection.ts` using `useOptimisticArrayMutation<PrimaryConnectionRow, {capabilityKey; mediaType; connectionId}>` with `queryKey: settingsConnectionsKeys.primary()`. `update` callback replaces the row matching `(capabilityKey, mediaType)` or appends when none exists. | | |
-| TASK-022 | Create `apps/client/src/features/settings-connections/hooks/use-clear-primary-connection.ts` using `useOptimisticArrayMutation<PrimaryConnectionRow, {capabilityKey; mediaType}>`. `update` callback filters out the row matching `(capabilityKey, mediaType)`. | | |
+| TASK-020 | Create `apps/client/src/features/settings-connections/hooks/use-primary-connections.ts` exporting `usePrimaryConnections()` using `useSuspenseQuery({ queryKey: settingsConnectionsKeys.primary(), queryFn: fetchPrimaryConnections })`. | ✅ | 2026-05-22 |
+| TASK-021 | Create `apps/client/src/features/settings-connections/hooks/use-set-primary-connection.ts` using `useOptimisticArrayMutation<PrimaryConnectionRow, {capabilityKey; mediaType; connectionId}>` with `queryKey: settingsConnectionsKeys.primary()`. `update` callback replaces the row matching `(capabilityKey, mediaType)` or appends when none exists. | ✅ | 2026-05-22 |
+| TASK-022 | Create `apps/client/src/features/settings-connections/hooks/use-clear-primary-connection.ts` using `useOptimisticArrayMutation<PrimaryConnectionRow, {capabilityKey; mediaType}>`. `update` callback filters out the row matching `(capabilityKey, mediaType)`. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 8 — Client: components
 
@@ -115,10 +115,10 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-023 | Create `apps/client/src/features/settings-connections/components/primary-providers-card.tsx` exporting `PrimaryProvidersCard`. Component reads `useConnections()` + `usePrimaryConnections()`; computes per-row `eligible` list (filter `enabled && status === "connected" && plugin.userScopedCapabilities` advertises `capabilityKey`); returns `null` if no row has ≥2 eligible. Otherwise wraps rows in a `SettingsCard`. | | |
-| TASK-024 | Inside `PrimaryProvidersCard`, render a `PrimaryProviderRow` child for each row whose own eligible list has ≥2 entries. Child uses shadcn `<Select>` with first item value `__auto__` (label from `settings_connections_primary_auto_option`), then one item per eligible connection (label = `displayName \|\| plugin.name`). When current pinned connection is no longer eligible, prepend an "Auto (was X)" item to communicate the state — handled inside the row component. | | |
-| TASK-025 | On select change: value `__auto__` → call `useClearPrimaryConnection().mutate({ capabilityKey, mediaType })`; any other value → call `useSetPrimaryConnection().mutate({ capabilityKey, mediaType, connectionId: value })`. Show `toast.error(...)` on mutation error (rollback handled by `useOptimisticArrayMutation`). | | |
-| TASK-026 | Mount `<PrimaryProvidersCard>` inside `apps/client/src/features/settings-connections/components/settings-connections-page.tsx`, above the existing connection cards list, wrapped in `<Suspense>` + `<SettingsErrorBoundary>` matching the pattern used by sibling cards on that page. | | |
+| TASK-023 | Create `apps/client/src/features/settings-connections/components/primary-providers-card.tsx` exporting `PrimaryProvidersCard`. Component reads `useConnections()` + `usePrimaryConnections()`; computes per-row `eligible` list (filter `enabled && status === "connected" && plugin.userScopedCapabilities` advertises `capabilityKey`); returns `null` if no row has ≥2 eligible. Otherwise wraps rows in a `SettingsCard`. | ✅ | 2026-05-22 |
+| TASK-024 | Inside `PrimaryProvidersCard`, render a `PrimaryProviderRow` child for each row whose own eligible list has ≥2 entries. Child uses shadcn `<Select>` with first item value `__auto__` (label from `settings_connections_primary_auto_option`), then one item per eligible connection (label = `displayName \|\| plugin.name`). When current pinned connection is no longer eligible, prepend an "Auto (was X)" item to communicate the state — handled inside the row component. | ✅ | 2026-05-22 |
+| TASK-025 | On select change: value `__auto__` → call `useClearPrimaryConnection().mutate({ capabilityKey, mediaType })`; any other value → call `useSetPrimaryConnection().mutate({ capabilityKey, mediaType, connectionId: value })`. Show `toast.error(...)` on mutation error (rollback handled by `useOptimisticArrayMutation`). | ✅ | 2026-05-22 |
+| TASK-026 | Mount `<PrimaryProvidersCard>` inside `apps/client/src/features/settings-connections/components/settings-connections-page.tsx`, above the existing connection cards list, wrapped in `<Suspense>` + `<SettingsErrorBoundary>` matching the pattern used by sibling cards on that page. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 9 — Client tests
 

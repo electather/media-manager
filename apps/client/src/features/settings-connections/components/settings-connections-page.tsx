@@ -55,6 +55,7 @@ import { useDeleteConnection } from "../hooks/use-delete-connection";
 import { useSetDefaultConnection } from "../hooks/use-set-default-connection";
 import { useTestConnection } from "../hooks/use-test-connection";
 import { useToggleEnabled } from "../hooks/use-toggle-enabled";
+import { PrimaryProvidersCard } from "./primary-providers-card";
 
 const STATUS_LABEL: Record<ConnectionStatus, () => string> = {
   connected: () => m.settings_connections_status_connected(),
@@ -235,6 +236,11 @@ function ConnectionsPage() {
         title={m.settings_connections_title()}
         description={m.settings_connections_description()}
       />
+      <SettingsErrorBoundary>
+        <Suspense fallback={<Skeleton className="h-32 w-full rounded-2xl" />}>
+          <PrimaryProvidersCard />
+        </Suspense>
+      </SettingsErrorBoundary>
       <ConnectionsListCard
         conns={conns}
         plugins={plugins}
