@@ -1,15 +1,18 @@
+import { consola } from "consola";
 import { and, eq, isNull, lte, ne, or } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
 import { decryptJson } from "../crypto/helpers";
+import { captureError } from "../diagnostics/capture";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry, pluginRuntime } from "../plugin-runtime";
 // fallow-ignore-next-line boundary-violation
 import { emitAuthExpired, markConnectionStatus, persistRefreshedCredentials } from "../media";
 import { isPluginError, type PluginJobHandler } from "@ent-mcp/plugin-sdk";
-import type { ManifestJobEntry } from "@ent-mcp/shared/plugins";
+import { manifestJobEntrySchema } from "@ent-mcp/shared/plugins";
 import type { ConnectionStatus } from "@ent-mcp/shared/connections";
 import { registerScheduled } from "./scheduled";
 import { registerScheduledPerRow } from "./scheduled-per-row";
@@ -32,11 +35,44 @@ interface DeclaredPluginJob {
   perRowTimeoutSec?: number;
 }
 
+// Narrow projection of the persisted manifest: only the fields plugin-jobs
+// needs at registration time. Re-running the full pluginManifestSchema here
+// would risk rejecting a previously-valid row if any unrelated invariant
+// (capabilities, auth) drifts between install-time and startup. The jobs
+// array is validated through the shared manifestJobEntrySchema so a single
+// bad entry (e.g. invalid perRowTimeoutSec from #447) fails fast.
+const manifestForJobsSchema = z.object({
+  name: z.string().min(1).optional(),
+  jobs: z.array(manifestJobEntrySchema).optional(),
+});
+
+function reportManifestInvalid(pluginId: string, stage: string, err: unknown): void {
+  consola.error(`[plugin-jobs] manifest ${stage} failed for "${pluginId}"`, err);
+  // Fire-and-forget: the diagnostic sink writes to the database, but startup
+  // job registration must not block on it. An unhandled rejection here would
+  // be a sink bug worth surfacing, not a startup failure.
+  void captureError(err, {
+    source: "cron",
+    code: "cron.manifest_invalid",
+    pluginId,
+    context: { stage },
+  });
+}
+
 function extractDeclaredJobsFromRow(row: { id: string; manifest: string }): DeclaredPluginJob[] {
-  const manifest = JSON.parse(row.manifest) as {
-    name?: string;
-    jobs?: ManifestJobEntry[];
-  };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.manifest);
+  } catch (err) {
+    reportManifestInvalid(row.id, "json-parse", err);
+    return [];
+  }
+  const result = manifestForJobsSchema.safeParse(parsed);
+  if (!result.success) {
+    reportManifestInvalid(row.id, "schema-validate", result.error);
+    return [];
+  }
+  const manifest = result.data;
   const pluginName = manifest.name ?? row.id;
   return (manifest.jobs ?? []).map((job) => {
     const perConnection = job.perConnection === true;
