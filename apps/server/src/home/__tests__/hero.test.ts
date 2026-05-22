@@ -319,6 +319,38 @@ describe("pickHero mixer", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it("dedupes same tmdbId across trendingNow + newReleases — trending wins, hero fills to 6", async () => {
+    const ctx = fullCtx({
+      cwIds: [],
+      recIds: ["r1", "r2", "r3", "r4"],
+      trendingIds: ["dup", "t2"],
+      newIds: ["dup"],
+    });
+    const hero = await pickHero(ctx);
+    expect(hero).not.toBeNull();
+    const slides = hero!.slides;
+    expect(slides).toHaveLength(6);
+    const dupSlides = slides.filter((s) => s.item.tmdbId === "dup");
+    expect(dupSlides).toHaveLength(1);
+    expect(dupSlides[0]!.source).toBe("trendingNow");
+    expect(slides.some((s) => s.source === "newReleases" && s.item.tmdbId === "dup")).toBe(false);
+  });
+
+  it("dedupes same tmdbId across all four sources — highest priority (CW) wins", async () => {
+    const ctx = fullCtx({
+      cwIds: ["dup"],
+      recIds: ["dup", "r2", "r3"],
+      trendingIds: ["dup", "t2"],
+      newIds: ["dup"],
+    });
+    const hero = await pickHero(ctx);
+    expect(hero).not.toBeNull();
+    const slides = hero!.slides;
+    const dupSlides = slides.filter((s) => s.item.tmdbId === "dup");
+    expect(dupSlides).toHaveLength(1);
+    expect(dupSlides[0]!.source).toBe("continueWatching");
+  });
+
   it("every slide.resumeUrl === null v1 (R2 — playback@v1.getResumeUrl absent)", async () => {
     const ctx = fullCtx({
       cwIds: ["c1"],

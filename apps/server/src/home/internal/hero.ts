@@ -44,7 +44,7 @@ function stampSlide(
 }
 
 /**
- * Hero mixer — Amendment 3 (rev 4) of `docs/2026-05-05-home-page-backend-design.md`.
+ * Hero mixer — Amendment 3 (rev 5) of `docs/2026-05-05-home-page-backend-design.md`.
  *
  * Replaces the old first-source-wins cascade with a fixed-quota mix across all
  * four sources: 1 continueWatching + 2 recommendedForYou + 2 trendingNow + 1
@@ -52,16 +52,18 @@ function stampSlide(
  * order `[CW, rec, trend, new]` taking the next unused candidate per pass
  * until either the target is reached or every pool is exhausted (degenerate
  * fill ships < 6). Final ordering: lead = first non-empty priority source;
- * remainder = round-robin interleave by priority. Within hero, slides are
- * unique by `${source}:${tmdbId}` by construction; no dedup against the rows
- * below.
+ * remainder = round-robin interleave by priority. Pools are deduped across
+ * sources by `${mediaType}:${tmdbId}` before quota draw, with the
+ * higher-priority source winning so the same title cannot appear twice in
+ * the hero. No dedup against the rows below.
  */
 export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   const pools = await Promise.all(PRIORITY.map((src) => loadPool(src, ctx)));
-  const poolsByKind: PoolMap = {};
+  const rawPoolsByKind: PoolMap = {};
   PRIORITY.forEach((src, i) => {
-    poolsByKind[src] = pools[i] ?? [];
+    rawPoolsByKind[src] = pools[i] ?? [];
   });
+  const poolsByKind = dedupePools(rawPoolsByKind, PRIORITY);
 
   const drafts = drawByQuota(poolsByKind, QUOTA, PRIORITY);
   const filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY);
@@ -151,6 +153,26 @@ async function loadDiscoverPool(
   const keys: MetadataKey[] = snap.slice(0, POOL_SIZE);
   const items = await loadCanonicalItems(ctx, keys);
   return items.map((item) => stampSlide(item, source, reason));
+}
+
+/**
+ * Drop cross-source duplicates by `${mediaType}:${tmdbId}`, walking `priority`
+ * so the higher-priority source keeps the slide. Within each retained pool,
+ * draw order is preserved so quota/backfill/interleave behavior is unchanged.
+ */
+export function dedupePools(poolsByKind: PoolMap, priority: RowKind[]): PoolMap {
+  const seen = new Set<string>();
+  const out: PoolMap = {};
+  for (const src of priority) {
+    const pool = poolsByKind[src] ?? [];
+    out[src] = pool.filter((slide) => {
+      const key = `${slide.item.mediaType}:${slide.item.tmdbId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  return out;
 }
 
 // fallow-ignore-next-line complexity

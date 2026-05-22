@@ -1,13 +1,14 @@
 # Home Page Backend
 
-**Status:** Draft (rev 4)
-**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07)
+**Status:** Draft (rev 5)
+**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07, rev 5: 2026-05-22)
 **Author:** Omid Astaraki
 **Deps:** `2026-04-20-job-service-design.md`, `2026-04-20-preference-engine-design.md`, `2026-04-27-catalog-service-design.md`, `2026-05-04-home-page-implementation-design.md`
 **Amends §V:** TBD on backprop
 
 ## Revision history
 
+- **rev 5 (2026-05-22)** — Cross-source dedup added to the hero mixer (issue #474). The rev 4 mixer keyed slide uniqueness by `${source}:${tmdbId}`, so the same title present in two source pools (e.g. trending + new releases) shipped as two hero slides. New `dedupePools` step runs between pool build and `drawByQuota`, drops cross-source duplicates keyed by `${mediaType}:${tmdbId}`, and lets the higher-priority source (`[CW, rec, trend, new]`) keep the slide. Quota / backfill / order logic unchanged; backfill simply sees shorter pools when duplicates collapse. No wire-shape change; no `schema_version` bump.
 - **rev 4 (2026-05-07)** — Hero stops being a single-source cascade. Driven by §Amendment 3. `LayoutHero` reshapes to `{ slides: HeroSlide[] }`; each slide carries its own `source` + `reason` so the UI can label slides individually. Composer draws a fixed quota across the four sources (1 CW + 2 rec + 2 trend + 1 new = 6 slides) and cascades backfill by priority when a source is short. Slide order: cascade lead, then round-robin interleave of the rest. `home_layout_cache.schema_version` bumps 1 → 2. Pre-stable break — no compat shim.
 - **rev 3 (2026-05-06)** — Doc-code sync. §Hero composition shows the `enrichItems` step shared with row enrichment. §Orchestrator `composeRow` adds eligibility gate (404 `home.row_unavailable` on direct ineligible access) and the soft-failure `try/catch` that converts `AllPluginsFailedError`/`PluginCallError`/`AbortError` to `partial:true`. Error codes in §Orchestrator `composeRow`/`composeDetails` align with the unified envelope (`home.row_unavailable`, `home.bad_input`, `http.not_found`, `home.internal`). §Architecture composeRow/composeDetails diagrams swap `enrich.attach*` for `enrichItems`.
 - **rev 2 (2026-05-06)** — TV detail gains canonical season+episode list (in `getDetails`) + per-server episode presence via new RPC `home.getSeasonAvailability`. Driven by §Amendment 2. Adds `metadata@v1.getShowSeasons` + `libraryAvailability@v1.listShowEpisodes` on plugin SDK. UI: live read-only seasons accordion w/ Suspense + ErrorBoundary partial-failure microcopy. Implementation phases for amendment in `plan/feature-home-tv-seasons-1.md`.
@@ -480,7 +481,7 @@ rows/new-releases.ts:
 
 ## Hero composition
 
-Mixed-source composer (rev 4). Replaces the previous first-non-empty cascade. Draws a fixed quota across all four sources, backfills short slots by priority, then orders cascade-lead-then-interleave so the lead is always the highest-priority non-empty source while the body alternates for variety.
+Mixed-source composer (rev 5). Replaces the previous first-non-empty cascade. Draws a fixed quota across all four sources, backfills short slots by priority, then orders cascade-lead-then-interleave so the lead is always the highest-priority non-empty source while the body alternates for variety. Pools are deduped across sources by `${mediaType}:${tmdbId}` before the quota draw (rev 5), with the higher-priority source winning, so the same title can never appear in two hero slides.
 
 ```
 home/hero.ts:
@@ -496,7 +497,8 @@ home/hero.ts:
 
   pickHero(ctx) → LayoutHero | null
     pools = await Promise.all(PRIORITY.map(src => loadPool(src, ctx)))   // HeroSlide[] each
-    poolsByKind = zip(PRIORITY, pools)
+    rawPoolsByKind = zip(PRIORITY, pools)
+    poolsByKind    = dedupePools(rawPoolsByKind, PRIORITY)                // drop cross-source dupes (rev 5)
     drafts = drawByQuota(poolsByKind, QUOTA)             // top-N from each pool (no enrichItems yet)
     filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY)
     if filled.length === 0: return null
@@ -513,6 +515,17 @@ home/hero.ts:
       case "recommendedForYou": return loadRecommendedPool(ctx)
       case "trendingNow":       return loadTrendingPool(ctx)
       case "newReleases":       return loadNewReleasesPool(ctx)
+
+  dedupePools(poolsByKind, priority) → PoolMap          // rev 5
+    seen = new Set<string>()
+    out  = {}
+    for src of priority:                                 // CW → rec → trend → new
+      out[src] = poolsByKind[src].filter(s => {
+        key = `${s.item.mediaType}:${s.item.tmdbId}`
+        if (seen.has(key)) return false
+        seen.add(key); return true
+      })
+    return out                                           // within each pool, draw order is preserved
 
   drawByQuota(poolsByKind, quota) → HeroSlide[]
     out = []
@@ -596,6 +609,14 @@ home/hero.ts:
 - Draw quota → [CW#1] (1)
 - Backfill 5 short: only CW pool has supply → CW#2..CW#4 added (3 more), then exhausted
 - Final length: 4 slides, all CW. Acceptable degenerate case; UI still rotates 4 slides.
+
+**Worked example — cross-source duplicate** (CW=0, recs=4 `[r1,r2,r3,r4]`, trending=2 `[dup,t2]`, new=1 `[dup]`):
+
+- Dedup: `dup` first seen in trending → kept on trending; dropped from new (lower priority). Pools collapse to recs=4, trending=2, new=0.
+- Draw quota → [r1, r2, dup, t2] (4 — new pool empty after dedup)
+- Backfill 2 short: cascade hits recs → +r3, +r4
+- Final order: lead = r1 (CW empty so first non-empty by priority); remainder interleaves rotated priority `[trend, new, CW, rec]` over `{rec=[r2,r3,r4], trend=[dup,t2]}` → `[r1, dup, r2, t2, r3, r4]`
+- `dup` appears exactly once, sourced from `trendingNow`. No `newReleases` slide for `dup`.
 
 ## Layout cache
 
@@ -900,6 +921,8 @@ apps/server/src/home/__tests__/
     - lead = highest-priority non-empty source (CW first, else rec, else trend, else new)
     - body order = round-robin interleave by priority over remainder
     - backfill never duplicates a `${source}:${tmdbId}` key
+    - cross-source dupes collapse: same tmdbId in trendingNow + newReleases pools → only trending slide kept (rev 5)
+    - priority winner: same tmdbId in all four pools → only continueWatching slide kept (rev 5)
     - resumeUrl is null on every slide v1 (incl. CW slides — see R2)
   match-reason.test.ts
     - finishing_soon when progress >= 0.85
@@ -1230,7 +1253,7 @@ Five stacked PRs. See `plan/feature-home-tv-seasons-1.md` for full breakdown.
 - **A7.** Specials filter is purely client-side derivation. Server returns canonical season 0 unconditionally when TMDB lists it; client suppresses if no server has episodes.
 - **A8.** Loading UX: `<Suspense>` boundary at `modal-seasons` only — modal body renders eagerly w/ details. Initial fetch via `useSuspenseQuery`. Plugin failures bubble to local `<ErrorBoundary>` showing "couldn't reach <server>" microcopy alongside any successful server data.
 
-## Amendment 3 — Hero mixed-source slides (rev 4, 2026-05-07)
+## Amendment 3 — Hero mixed-source slides (rev 4, 2026-05-07; rev 5, 2026-05-22)
 
 Promotes the hero from a single-source cascade to a mixed-source slide list. Symptom: with the cascade, a user with any continue-watching activity gets a hero whose every slide draws from CW — visually a 1:1 echo of the "Pick up where you left off" row directly below it. Goal: hero stays distinct from any single row by default while still leading with the most-actionable item (resume something you started).
 
@@ -1249,7 +1272,7 @@ Promotes the hero from a single-source cascade to a mixed-source slide list. Sym
   - `newReleases` × 1
 - **Backfill** — when a source is short, cascade by priority `[CW, rec, trend, new]` and pull the next unused candidate from each non-empty pool until the target is reached. Stops when every pool is exhausted (degenerate fill ships < 6 slides; never throws).
 - **Order** — `lead = first non-empty source by priority`; remainder = round-robin interleave by priority over what is left. Lead is therefore always CW when CW has any candidate, else rec, else trend, else new — matching the cascade-priority feel without limiting the body to one source.
-- **Dedup** — none against other rows (per design call). Within hero, `${source}:${tmdbId}` keys are unique by construction — same item drawn from two pools (e.g. CW + recs) is allowed; backfill skips already-used keys, preventing duplicates inside the slides list.
+- **Dedup** — none against other rows (per design call). Within hero, pools are deduped across sources by `${mediaType}:${tmdbId}` before `drawByQuota` (rev 5), with the higher-priority source `[CW, rec, trend, new]` keeping the slide. The same title cannot appear in two hero slides regardless of which pools it sits in. Backfill additionally skips already-used `${source}:${tmdbId}` keys when topping up short pools.
 
 ### Wire shape
 
@@ -1288,11 +1311,12 @@ interface LayoutHero {
 Composer pseudocode lives in §Hero composition (rewritten this revision). High-level flow:
 
 1. Per source, `loadPool(source, ctx)` returns up to 6 stamped slides (`{ item, source, reason, resumeUrl }`).
-2. `drawByQuota` walks priority order taking the per-source quota.
-3. `backfill` cascades through priority pools to top up to 6, skipping `${source}:${tmdbId}` keys already drawn.
-4. `orderCascadeLeadInterleave` selects the lead from the first non-empty priority pool, then round-robins remainder.
-5. `enrichItems` runs once across all final slide items (status, availability, facets) — same surface as rows.
-6. `resumeUrl` is currently always `null`; structure preserved so future SDK addition (`playback@v1.getResumeUrl`) can populate CW slides only.
+2. `dedupePools` walks priority order and drops slides whose `${mediaType}:${tmdbId}` is already retained by a higher-priority source (rev 5). Backfill therefore can never re-introduce a cross-source duplicate.
+3. `drawByQuota` walks priority order taking the per-source quota.
+4. `backfill` cascades through priority pools to top up to 6, skipping `${source}:${tmdbId}` keys already drawn.
+5. `orderCascadeLeadInterleave` selects the lead from the first non-empty priority pool, then round-robins remainder.
+6. `enrichItems` runs once across all final slide items (status, availability, facets) — same surface as rows.
+7. `resumeUrl` is currently always `null`; structure preserved so future SDK addition (`playback@v1.getResumeUrl`) can populate CW slides only.
 
 ### Client integration
 
