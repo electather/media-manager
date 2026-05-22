@@ -57,25 +57,25 @@ export async function setPrimaryConnection(args: {
   const db = getDb();
   const now = Date.now();
   const mediaType = normalizeMediaType(args.mediaType);
-  const existing = await db
-    .select({ connectionId: primaryConnections.connectionId })
-    .from(primaryConnections)
-    .where(primaryConnectionWhere(args.userId, args.capabilityKey, mediaType))
-    .get();
-  if (existing) {
-    await db
-      .update(primaryConnections)
-      .set({ connectionId: args.connectionId, updatedAt: now })
-      .where(primaryConnectionWhere(args.userId, args.capabilityKey, mediaType));
-  } else {
-    await db.insert(primaryConnections).values({
+  // Atomic upsert keyed on the (userId, capabilityKey, mediaType) primary key so
+  // concurrent callers (e.g., a double-clicked picker) cannot race a check-then-write.
+  await db
+    .insert(primaryConnections)
+    .values({
       userId: args.userId,
       capabilityKey: args.capabilityKey,
       mediaType,
       connectionId: args.connectionId,
       updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [
+        primaryConnections.userId,
+        primaryConnections.capabilityKey,
+        primaryConnections.mediaType,
+      ],
+      set: { connectionId: args.connectionId, updatedAt: now },
     });
-  }
 }
 
 export async function clearPrimaryConnection(args: {
