@@ -10,6 +10,7 @@ import {
 } from "@/shared/components/section-head";
 import { sourceLabel } from "../lib/types";
 import type { WatchlistItem } from "../lib/types";
+import { cn } from "@/shared/lib/utils";
 
 interface RecentlyAddedProps {
   items: readonly WatchlistItem[];
@@ -72,22 +73,23 @@ function RecentRow({
   onPeek: (id: string) => void;
 }) {
   const Icon = item.mediaType === "movie" ? Film : Tv;
-  const kindLabel = item.mediaType === "movie" ? m.watchlist_kind_movie() : m.watchlist_kind_tv();
+  const kindLabel = m.watchlist_kind({ kind: item.mediaType });
   const src = item.backdrop ?? item.poster;
   return (
     <li className="list-none">
       <button
         type="button"
         onClick={() => onPeek(item.id)}
-        className={`grid w-full items-center gap-4 px-5 py-3.5 text-start transition-colors hover:bg-accent ${
-          isFirst ? "" : "border-t border-border"
-        }`}
+        className={cn(
+          `grid w-full items-center gap-4 px-5 py-3.5 text-start transition-colors hover:bg-accent`,
+          !isFirst && "border-t border-border",
+        )}
         style={{ gridTemplateColumns: "110px 80px 1fr auto auto" }}
       >
-        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-muted-foreground">
+        <span className="font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
           {relativeLabel(item.addedAt)}
         </span>
-        <span className="relative h-[45px] w-20 overflow-hidden rounded-md bg-muted max-sm:hidden">
+        <span className="relative h-11 w-20 overflow-hidden rounded-md bg-muted max-sm:hidden">
           {src ? (
             <img
               src={src}

@@ -73,7 +73,12 @@ export const Card = memo(function Card({
           pressed={isInWatchlist}
           onPress={onWatchlistToggle ? () => onWatchlistToggle(item) : undefined}
         >
-          <ToggleIcon aria-hidden="true" className="size-4" />
+          <span
+            key={isInWatchlist ? "in" : "out"}
+            className="inline-flex motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-50 motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+          >
+            <ToggleIcon aria-hidden="true" className="size-4" />
+          </span>
         </MediaCardQuickAction>
       </MediaCardFrame>
       <CardMeta item={item} />
