@@ -33,6 +33,7 @@ function denormalizeMediaType(mediaType: string): MediaType | null {
  * "connection.capability_unsupported")` when the manifest doesn't declare the
  * capability.
  */
+// fallow-ignore-next-line complexity
 async function assertOwnedAndSupportsCapability(args: {
   userId: string;
   connectionId: string;

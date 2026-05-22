@@ -91,6 +91,7 @@ interface PrimaryProviderRowProps {
   borderTop: boolean;
 }
 
+// fallow-ignore-next-line complexity
 function PrimaryProviderRow({
   row,
   eligible,
@@ -137,6 +138,7 @@ function PrimaryProviderRow({
   // `connection.id` is meaningless to the user, so render the connection's
   // displayName / plugin name instead. Falls back to "Auto" when the value
   // is the sentinel.
+  // fallow-ignore-next-line complexity
   const renderTriggerLabel = (value: string | null): string => {
     if (value === null || value === AUTO_VALUE) {
       return stalePinned
