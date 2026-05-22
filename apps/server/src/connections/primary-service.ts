@@ -2,17 +2,14 @@ import { eq } from "drizzle-orm";
 import type { PrimaryConnectionRow } from "@ent-mcp/shared/connections";
 import type { MediaType } from "@ent-mcp/shared/media";
 import { getDb } from "../db/client";
-// fallow-allow: connections owns primary-connection writes; the underlying
-// table + service still live under media until the preferences module lands.
-// fallow-ignore-next-line boundary-violation
 import { primaryConnections } from "../db/schema/preferences/user-preferences";
-// fallow-allow: invalidate the dispatcher cache so a picker change takes
-// effect on the next request rather than waiting out the TTL.
+// fallow-allow: phase-2 infra-to-module decoupling — same as `connections/service.ts`,
+// which already imports `invalidateUserCache` from `../media`.
 // fallow-ignore-next-line boundary-violation
 import { clearPrimaryConnection, invalidateUserCache, setPrimaryConnection } from "../media";
-// fallow-allow: capability advertisement lives in the in-memory plugin
-// registry; the wrapper here gates writes to plugins that actually expose
-// the requested capability at user scope.
+// fallow-allow: phase-2 infra-to-module decoupling — capability advertisement
+// lives in the plugin runtime; gating writes against it stops users pinning a
+// connection whose plugin doesn't actually serve the capability.
 // fallow-ignore-next-line boundary-violation
 import { capabilityRegistry } from "../plugin-runtime";
 import { unprocessable } from "../diagnostics/http-errors";

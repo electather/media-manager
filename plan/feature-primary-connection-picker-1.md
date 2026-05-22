@@ -134,9 +134,9 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-028 | Run `vp install`, then `vp check` and `vp test` until clean. | | |
-| TASK-029 | Add `.changeset/<slug>.md` with `"@ent-mcp/server": minor` + `"@ent-mcp/client": minor` frontmatter. Body: "Added a picker for choosing which provider drives metadata details per media type." | | |
-| TASK-030 | Open PR; link to issue #476 and the spec under `docs/superpowers/specs/2026-05-22-primary-connection-picker-design.md`. | | |
+| TASK-028 | Run `vp install`, then `vp check` and `vp test` until clean. | ✅ | 2026-05-22 |
+| TASK-029 | Add `.changeset/<slug>.md` with `"@ent-mcp/server": minor` + `"@ent-mcp/client": minor` frontmatter. Body: "Added a picker for choosing which provider drives metadata details per media type." | ✅ | 2026-05-22 |
+| TASK-030 | Open PR; link to issue #476 and the spec under `docs/superpowers/specs/2026-05-22-primary-connection-picker-design.md`. | ✅ | 2026-05-22 |
 
 ## 3. Alternatives
 
