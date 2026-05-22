@@ -13,6 +13,7 @@ import {
 import { requireSession, requirePermission, sessionUserId, PERMISSIONS } from "../../auth";
 import { connectionsService } from "../../connections/service";
 import { zValidator } from "../../diagnostics/validator";
+import { connectionsPrimaryApp } from "./connections-primary";
 
 export const connectionsApp = new Hono()
   .use("*", requireSession)
@@ -122,4 +123,5 @@ export const connectionsApp = new Hono()
       nonce: c.req.valid("json").nonce,
     });
     return c.json(result);
-  });
+  })
+  .route("/primary", connectionsPrimaryApp);

@@ -63,11 +63,11 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-006 | Create `apps/server/src/connections/primary-service.ts` exporting `primaryConnectionsService` with three methods: `listForUser(userId)`, `set({userId, capabilityKey, mediaType, connectionId})`, `clear({userId, capabilityKey, mediaType})`. | | |
-| TASK-007 | `listForUser` selects `(capabilityKey, mediaType, connectionId)` from `primaryConnections` where `userId` matches, maps sentinel `"_"` → `null`, returns `PrimaryConnectionRow[]`. | | |
-| TASK-008 | `set` performs: (1) `requireConnection(db, connectionId, userId)`, (2) capability advertisement check using `capabilityRegistry.get(pluginId)?.capabilities` — throw `unprocessable("connection.capability_unsupported", ...)` if the manifest doesn't list `capabilityKey` at user scope, (3) call `setPrimaryConnection(...)`, (4) call `invalidateUserCache(userId)`. | | |
-| TASK-009 | `clear` performs: (1) call `clearPrimaryConnection(...)`, (2) call `invalidateUserCache(userId)`. No ownership check needed (deleting a row by `(userId, capabilityKey, mediaType)` is scoped to the caller). | | |
-| TASK-010 | Co-locate a small internal helper `assertOwnedAndSupportsCapability(args)` inside the same file to keep `set` readable. Function returns the resolved `pluginId` for the connection so the capability check has the data it needs. | | |
+| TASK-006 | Create `apps/server/src/connections/primary-service.ts` exporting `primaryConnectionsService` with three methods: `listForUser(userId)`, `set({userId, capabilityKey, mediaType, connectionId})`, `clear({userId, capabilityKey, mediaType})`. | ✅ | 2026-05-22 |
+| TASK-007 | `listForUser` selects `(capabilityKey, mediaType, connectionId)` from `primaryConnections` where `userId` matches, maps sentinel `"_"` → `null`, returns `PrimaryConnectionRow[]`. | ✅ | 2026-05-22 |
+| TASK-008 | `set` performs: (1) `requireConnection(db, connectionId, userId)`, (2) capability advertisement check using `capabilityRegistry.get(pluginId)?.capabilities` — throw `unprocessable("connection.capability_unsupported", ...)` if the manifest doesn't list `capabilityKey` at user scope, (3) call `setPrimaryConnection(...)`, (4) call `invalidateUserCache(userId)`. | ✅ | 2026-05-22 |
+| TASK-009 | `clear` performs: (1) call `clearPrimaryConnection(...)`, (2) call `invalidateUserCache(userId)`. No ownership check needed (deleting a row by `(userId, capabilityKey, mediaType)` is scoped to the caller). | ✅ | 2026-05-22 |
+| TASK-010 | Co-locate a small internal helper `assertOwnedAndSupportsCapability(args)` inside the same file to keep `set` readable. Function returns the resolved `pluginId` for the connection so the capability check has the data it needs. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 4 — Server: HTTP procedures
 
@@ -75,9 +75,9 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-011 | Create `apps/server/src/api/procedures/connections-primary.ts` exporting `connectionsPrimaryApp = new Hono()` with `.get("/")`, `.post("/", zValidator("json", primaryConnectionSetSchema), ...)`, `.delete("/", zValidator("json", primaryConnectionClearSchema), ...)`. Use `sessionUserId(c)` to read caller. | | |
-| TASK-012 | Wire the sub-app: in `apps/server/src/api/procedures/connections.ts`, add `.route("/primary", connectionsPrimaryApp)` to `connectionsApp` (after the existing chained handlers). The parent's `requireSession` + `requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS)` middleware applies automatically. | | |
-| TASK-013 | Confirm Hono RPC types regenerate cleanly so `api.connections.primary.$get/$post/$delete` resolve on the client. Run `vp check` to verify. | | |
+| TASK-011 | Create `apps/server/src/api/procedures/connections-primary.ts` exporting `connectionsPrimaryApp = new Hono()` with `.get("/")`, `.post("/", zValidator("json", primaryConnectionSetSchema), ...)`, `.delete("/", zValidator("json", primaryConnectionClearSchema), ...)`. Use `sessionUserId(c)` to read caller. | ✅ | 2026-05-22 |
+| TASK-012 | Wire the sub-app: in `apps/server/src/api/procedures/connections.ts`, add `.route("/primary", connectionsPrimaryApp)` to `connectionsApp` (after the existing chained handlers). The parent's `requireSession` + `requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS)` middleware applies automatically. | ✅ | 2026-05-22 |
+| TASK-013 | Confirm Hono RPC types regenerate cleanly so `api.connections.primary.$get/$post/$delete` resolve on the client. Run `vp check` to verify. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 5 — Server tests
 

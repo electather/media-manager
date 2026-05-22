@@ -983,3 +983,8 @@ export {
   type ItemIdentity,
 } from "../internal/parse-item";
 export { dispatchAggregatePerKind as dispatchAggregatePerKindStrategy } from "../internal/strategies/aggregate-per-kind";
+export {
+  setPrimaryConnection,
+  clearPrimaryConnection,
+  getPrimaryConnection,
+} from "./primary-preference";
