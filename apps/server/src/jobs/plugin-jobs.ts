@@ -54,7 +54,11 @@ const manifestForJobsSchema = z.object({
   jobs: z.array(manifestJobEntrySchema).optional(),
 });
 
-function reportManifestInvalid(pluginId: string, stage: string, err: unknown): void {
+function reportManifestInvalid(
+  pluginId: string,
+  stage: "json-parse" | "schema-validate",
+  err: unknown,
+): void {
   consola.error(`[plugin-jobs] manifest ${stage} failed for "${pluginId}"`, err);
   // Fire-and-forget: the diagnostic sink writes to the database, but startup
   // job registration must not block on it. An unhandled rejection here would

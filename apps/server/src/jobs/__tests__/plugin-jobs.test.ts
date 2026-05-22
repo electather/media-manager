@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
-const captureErrorMock = vi.fn<(err: unknown, meta: Record<string, unknown>) => Promise<string>>(
-  async () => "diag-id",
+// vi.mock factory bodies are hoisted above top-level const declarations, so
+// referencing a regular `const` mock from inside the factory races the TDZ.
+// vi.hoisted runs alongside the mock hoist, keeping the reference valid.
+const captureErrorMock = vi.hoisted(() =>
+  vi.fn<(err: unknown, meta: Record<string, unknown>) => Promise<string>>(async () => "diag-id"),
 );
 
 vi.mock("../../diagnostics/capture", () => ({
