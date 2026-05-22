@@ -35,7 +35,9 @@ interface DeclaredPluginJob {
   perRowTimeoutSec?: number;
 }
 
-// All-or-nothing: a bad entry skips the whole plugin — do not add .catch() or .optional() here.
+// All-or-nothing: one bad job entry skips the whole plugin. Keep z.array(...) strict —
+// no .catch() and no per-entry .optional() (the outer .optional() on jobs only allows the
+// field to be absent; once present every entry must validate).
 const manifestForJobsSchema = z.object({
   name: z.string().min(1).optional(),
   jobs: z.array(manifestJobEntrySchema).optional(),
@@ -59,7 +61,7 @@ function reportManifestInvalid(
 }
 
 type ParsedJobsManifest = z.infer<typeof manifestForJobsSchema>;
-type ParsedJobEntry = NonNullable<ParsedJobsManifest["jobs"]>[number];
+type ParsedJobEntry = z.infer<typeof manifestJobEntrySchema>;
 
 function parseManifestForJobs(row: { id: string; manifest: string }): ParsedJobsManifest | null {
   let parsed: unknown;

@@ -306,7 +306,7 @@ describe("plugin-jobs registration", () => {
   });
 
   it("skips a row whose manifest is not valid JSON and still registers the rest (#447)", async () => {
-    // Regression for #453 / #460: a single corrupted manifest threw inside
+    // Regression for #447 (#453, #460): a single corrupted manifest threw inside
     // listAllPluginJobs and aborted registration of every other plugin's jobs
     // at startup.
     perRowCalls.length = 0;
