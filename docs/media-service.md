@@ -184,7 +184,7 @@ Plugin responses cross trust boundary — payload may originate from external HT
 Strategies that recursively merge plugin responses (`primary_with_enrichment`, future strategies w/ similar shape) MUST defend in 3 layers:
 
 1. **Key filter on merge loop.** Skip `__proto__`, `constructor`, `prototype` at top of recursive merge fn (`fillGaps` in `primary-with-enrichment.ts`). Blocks descent into `Object.prototype` via property accessor.
-2. **Null-proto base.** Merge target = `Object.assign(Object.create(null), cloneDeep(first.data))`. Even if filter skipped, `base['__proto__']` returns `undefined`, ⊥ `Object.prototype`. Defense-in-depth.
+2. **Null-proto base via `safeClone`.** `safeClone` creates the merge target with `Object.create(null)` and recursively filters `DANGEROUS_KEYS` at every depth. Even if the key-filter in `fillGaps` were bypassed, `base['__proto__']` returns `undefined` rather than `Object.prototype`. Defense-in-depth.
 3. **Zod `.strip()` on every plugin capability response.** Default Zod behaviour; `.passthrough()` BANNED on capability response schemas. plugin-sdk enforces — schema parse runs at plugin-sdk boundary before response reaches dispatch layer. Audit covers every capability handler in `packages/plugins/*` + plugin-sdk response-validation wrapper.
 
 Regression test in `apps/server/src/media/__tests__/primary-with-enrichment.test.ts`: feed `JSON.parse('{"__proto__":{"polluted":true}}')` as enrichment payload, assert `({} as any).polluted === undefined` after merge. Cover `constructor` + `prototype` keys same way. Legit nested merge (e.g. `ids: { tmdb: ..., imdb: ... }`) still works.

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
 vi.mock("../../env", () => ({
@@ -262,6 +262,17 @@ describe("prototype pollution defense (issue #451)", () => {
     return JSON.parse(`{"title":"Hijack","${key}":{"polluted":true}}`);
   }
 
+  // Clean up any pollution markers between tests so a regression in test N
+  // fails on test N rather than cascading into N+1..N+M with the same
+  // `polluted`/`nested` symptom.
+  afterEach(() => {
+    const proto = Object.prototype as Record<string, unknown>;
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete proto.polluted;
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete proto.nested;
+  });
+
   it("does not pollute Object.prototype when enrichment carries an own __proto__ key", async () => {
     listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
     invokeMock
@@ -289,6 +300,17 @@ describe("prototype pollution defense (issue #451)", () => {
     invokeMock
       .mockResolvedValueOnce({ title: "Matrix", ids: {} })
       .mockResolvedValueOnce(maliciousPayload("constructor"));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype via a `prototype` key in enrichment", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("prototype"));
 
     await dispatchPrimary(req());
 
