@@ -42,7 +42,7 @@ export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
         items={items}
         getKey={(it) => it.id}
         minColumnWidthPx={180}
-        estimateRowHeight={() => 320}
+        estimateRowHeight={() => 336}
         className="rounded-2xl border border-dashed border-input bg-card/40 p-5"
         style={{
           backgroundImage:

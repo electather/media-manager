@@ -32,7 +32,7 @@ export function ComingUp({ items, onPeek }: ComingUpProps) {
         items={items}
         getKey={(it) => it.id}
         minColumnWidthPx={220}
-        estimateRowHeight={() => 200}
+        estimateRowHeight={() => 216}
         renderItem={(it) => <WatchlistCard item={it} forceAspect="16/9" onPeek={onPeek} />}
       />
     </section>

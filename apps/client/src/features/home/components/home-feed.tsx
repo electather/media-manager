@@ -91,7 +91,7 @@ function HomeFeedReady() {
       <VirtualWindowList
         items={rows}
         getKey={(row) => row.id}
-        estimateSize={(i) => estimateHomeRowHeight(rows[i]!)}
+        estimateSize={(i) => estimateHomeRowHeight(rows[i] ?? rows[0]!)}
         header={
           heroSlides.length > 0 ? (
             <div className="mb-10">

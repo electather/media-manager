@@ -53,7 +53,7 @@ export function WatchlistFilteredGrid({ items, filter, sort, onPeek }: Watchlist
         items={items}
         getKey={(it) => it.id}
         minColumnWidthPx={180}
-        estimateRowHeight={() => 320}
+        estimateRowHeight={() => 336}
         renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
       />
     </section>

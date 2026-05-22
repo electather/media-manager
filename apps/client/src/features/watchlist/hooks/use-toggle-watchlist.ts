@@ -27,6 +27,8 @@ export function useToggleWatchlist({ source = "manual" }: ToggleOptions = {}) {
   const idsRef = useRef(ids);
   const addRef = useRef(add);
   const removeRef = useRef(remove);
+  // Latest-ref sync: runs every render (no dep array on purpose) so `toggle`
+  // can read current state without being invalidated on every mutation cycle.
   useLayoutEffect(() => {
     idsRef.current = ids;
     addRef.current = add;

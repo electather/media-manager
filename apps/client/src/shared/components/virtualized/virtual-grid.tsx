@@ -70,6 +70,7 @@ export function VirtualGrid<T>({
                 display: "grid",
                 gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                 gap: gapPx,
+                paddingBottom: gapPx,
               }}
             >
               {slice.map((it, j) => (
