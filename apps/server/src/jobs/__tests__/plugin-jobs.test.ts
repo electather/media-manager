@@ -5,7 +5,9 @@ import { PluginError } from "@ent-mcp/plugin-sdk";
 // referencing a regular `const` mock from inside the factory races the TDZ.
 // vi.hoisted runs alongside the mock hoist, keeping the reference valid.
 const captureErrorMock = vi.hoisted(() =>
-  vi.fn<(err: unknown, meta: Record<string, unknown>) => Promise<string>>(async () => "diag-id"),
+  vi.fn<(err: unknown, meta: import("../../diagnostics/capture").CaptureMeta) => Promise<string>>(
+    async () => "diag-id",
+  ),
 );
 
 vi.mock("../../diagnostics/capture", () => ({
