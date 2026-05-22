@@ -42,7 +42,7 @@ export function PluginIcon({ plugin, size = 40, className }: PluginIconProps) {
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-[9px] border border-black/30 font-mono font-semibold text-white/95 tracking-[-0.02em] shadow-[inset_0_1px_0_oklch(1_0_0_/_0.18),0_1px_2px_oklch(0_0_0_/_0.4)]",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-[9px] border border-background/30 font-mono font-semibold text-foreground/95 tracking-[-0.02em] shadow-[inset_0_1px_0_oklch(1_0_0/0.18),0_1px_2px_oklch(0_0_0/0.4)]",
         className,
       )}
       style={{

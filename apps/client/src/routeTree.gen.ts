@@ -19,8 +19,10 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-pas
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/_settings/route'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/_admin/route'
+import { Route as AuthForgotPasswordIndexRouteImport } from './routes/auth/forgot-password.index'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/_app/index'
 import { Route as AuthInviteTokenRouteImport } from './routes/auth/invite.$token'
+import { Route as AuthForgotPasswordSentRouteImport } from './routes/auth/forgot-password.sent'
 import { Route as AuthenticatedSettingsSetupRouteImport } from './routes/_authenticated/_settings/setup'
 import { Route as AuthenticatedSettingsOauthCallbackRouteImport } from './routes/_authenticated/_settings/oauth-callback'
 import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authenticated/_app/watchlist'
@@ -92,6 +94,11 @@ const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
   id: '/_admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthForgotPasswordIndexRoute = AuthForgotPasswordIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthForgotPasswordRoute,
+} as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -101,6 +108,11 @@ const AuthInviteTokenRoute = AuthInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthForgotPasswordSentRoute = AuthForgotPasswordSentRouteImport.update({
+  id: '/sent',
+  path: '/sent',
+  getParentRoute: () => AuthForgotPasswordRoute,
 } as any)
 const AuthenticatedSettingsSetupRoute =
   AuthenticatedSettingsSetupRouteImport.update({
@@ -244,7 +256,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedAppIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
@@ -253,7 +265,9 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
+  '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
+  '/auth/forgot-password/': typeof AuthForgotPasswordIndexRoute
   '/admin/diagnostics': typeof AuthenticatedAdminAdminDiagnosticsRoute
   '/admin/jobs': typeof AuthenticatedAdminAdminJobsRoute
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
@@ -277,7 +291,6 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedAppIndexRoute
   '/auth': typeof AuthRouteRouteWithChildren
   '/oauth': typeof OauthRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
@@ -286,7 +299,9 @@ export interface FileRoutesByTo {
   '/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
+  '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordIndexRoute
   '/admin/diagnostics': typeof AuthenticatedAdminAdminDiagnosticsRoute
   '/admin/jobs': typeof AuthenticatedAdminAdminJobsRoute
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
@@ -314,7 +329,7 @@ export interface FileRoutesById {
   '/_authenticated/_admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/_settings': typeof AuthenticatedSettingsRouteRouteWithChildren
-  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRouteWithChildren
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/oauth/consent': typeof OauthConsentRoute
@@ -323,8 +338,10 @@ export interface FileRoutesById {
   '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRoute
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
+  '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/invite/$token': typeof AuthInviteTokenRoute
   '/_authenticated/_app/': typeof AuthenticatedAppIndexRoute
+  '/auth/forgot-password/': typeof AuthForgotPasswordIndexRoute
   '/_authenticated/_admin/admin/diagnostics': typeof AuthenticatedAdminAdminDiagnosticsRoute
   '/_authenticated/_admin/admin/jobs': typeof AuthenticatedAdminAdminJobsRoute
   '/_authenticated/_admin/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
@@ -359,7 +376,9 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/oauth-callback'
     | '/setup'
+    | '/auth/forgot-password/sent'
     | '/auth/invite/$token'
+    | '/auth/forgot-password/'
     | '/admin/diagnostics'
     | '/admin/jobs'
     | '/admin/roles'
@@ -383,7 +402,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/oauth'
-    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
     | '/oauth/consent'
@@ -392,7 +410,9 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/oauth-callback'
     | '/setup'
+    | '/auth/forgot-password/sent'
     | '/auth/invite/$token'
+    | '/auth/forgot-password'
     | '/admin/diagnostics'
     | '/admin/jobs'
     | '/admin/roles'
@@ -428,8 +448,10 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/watchlist'
     | '/_authenticated/_settings/oauth-callback'
     | '/_authenticated/_settings/setup'
+    | '/auth/forgot-password/sent'
     | '/auth/invite/$token'
     | '/_authenticated/_app/'
+    | '/auth/forgot-password/'
     | '/_authenticated/_admin/admin/diagnostics'
     | '/_authenticated/_admin/admin/jobs'
     | '/_authenticated/_admin/admin/roles'
@@ -528,6 +550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/auth/forgot-password/': {
+      id: '/auth/forgot-password/'
+      path: '/'
+      fullPath: '/auth/forgot-password/'
+      preLoaderRoute: typeof AuthForgotPasswordIndexRouteImport
+      parentRoute: typeof AuthForgotPasswordRoute
+    }
     '/_authenticated/_app/': {
       id: '/_authenticated/_app/'
       path: '/'
@@ -541,6 +570,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/invite/$token'
       preLoaderRoute: typeof AuthInviteTokenRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/auth/forgot-password/sent': {
+      id: '/auth/forgot-password/sent'
+      path: '/sent'
+      fullPath: '/auth/forgot-password/sent'
+      preLoaderRoute: typeof AuthForgotPasswordSentRouteImport
+      parentRoute: typeof AuthForgotPasswordRoute
     }
     '/_authenticated/_settings/setup': {
       id: '/_authenticated/_settings/setup'
@@ -818,15 +854,28 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface AuthForgotPasswordRouteChildren {
+  AuthForgotPasswordSentRoute: typeof AuthForgotPasswordSentRoute
+  AuthForgotPasswordIndexRoute: typeof AuthForgotPasswordIndexRoute
+}
+
+const AuthForgotPasswordRouteChildren: AuthForgotPasswordRouteChildren = {
+  AuthForgotPasswordSentRoute: AuthForgotPasswordSentRoute,
+  AuthForgotPasswordIndexRoute: AuthForgotPasswordIndexRoute,
+}
+
+const AuthForgotPasswordRouteWithChildren =
+  AuthForgotPasswordRoute._addFileChildren(AuthForgotPasswordRouteChildren)
+
 interface AuthRouteRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRouteWithChildren
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
   AuthInviteTokenRoute: typeof AuthInviteTokenRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
-  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
+  AuthForgotPasswordRoute: AuthForgotPasswordRouteWithChildren,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
   AuthInviteTokenRoute: AuthInviteTokenRoute,

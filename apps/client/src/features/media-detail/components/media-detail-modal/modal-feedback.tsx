@@ -1,6 +1,7 @@
 import { MessageSquare, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 import * as m from "@/paraglide/messages";
+import { cn } from "@/shared/lib/utils";
 
 type Props = {
   hasNote: boolean;
@@ -69,11 +70,12 @@ function VoteButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all ${
+      className={cn(
+        "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         active
           ? activeClass
-          : "border-border bg-white/[0.06] text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-      }`}
+          : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+      )}
     >
       {icon}
       {label}
@@ -89,11 +91,12 @@ function NoteButton({ hasNote, onClick }: { hasNote: boolean; onClick: () => voi
       aria-label={
         hasNote ? m.home_detail_feedback_note_edit_label() : m.home_detail_feedback_note_add_label()
       }
-      className={`flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all ${
+      className={cn(
+        "flex h-[34px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium backdrop-blur-sm transition-all",
         hasNote
           ? "border-primary/55 bg-primary/10 text-primary"
-          : "border-border bg-white/[0.06] text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-      }`}
+          : "border-border bg-foreground/6 text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+      )}
     >
       <MessageSquare className="size-3.5" aria-hidden="true" />
       {hasNote ? m.home_detail_feedback_note_added() : m.home_detail_feedback_note()}

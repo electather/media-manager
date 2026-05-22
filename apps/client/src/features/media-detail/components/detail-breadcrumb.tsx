@@ -20,7 +20,7 @@ export function DetailBreadcrumb({ item }: Props) {
     >
       <Link
         to="/"
-        className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 bg-black/35 px-2 py-1 transition-colors hover:bg-black/55"
+        className="inline-flex items-center gap-1.5 rounded-md border border-foreground/10 bg-background/35 px-2 py-1 transition-colors hover:bg-background/55"
       >
         <ChevronLeft aria-hidden="true" className="size-3.5" />
         <span>{m.home_nav_home()}</span>

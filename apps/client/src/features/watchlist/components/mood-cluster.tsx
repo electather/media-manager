@@ -75,16 +75,16 @@ function MoodHero({ item, onPeek }: { item: WatchlistItem; onPeek: (id: string) 
       ) : null}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/5 to-black/70"
+        className="pointer-events-none absolute inset-0 bg-linear-to-b from-background/5 to-background/70"
       />
-      <div className="absolute end-3.5 bottom-3 start-3.5">
+      <div className="absolute inset-e-3.5 bottom-3 inset-s-3.5">
         <div
-          className="font-mono text-[13px] font-bold uppercase tracking-[0.16em] leading-none text-white"
+          className="font-mono text-[13px] font-bold uppercase tracking-[0.16em] leading-none text-foreground"
           style={{ textShadow: "0 2px 18px oklch(0 0 0 / 0.6)" }}
         >
           {heroLabel}
         </div>
-        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-white/80">
+        <div className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-foreground/80">
           <KindIcon aria-hidden="true" className="size-3" />
           <span>{shortRuntimeLabel(item)}</span>
         </div>
