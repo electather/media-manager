@@ -313,16 +313,12 @@ describe("plugin-jobs registration", () => {
     expect(count).toBe(1);
     expect(globalCalls.find((c) => c.id === "plugin.global-plugin.tick")).toBeDefined();
     expect(captureErrorMock).toHaveBeenCalledTimes(1);
-    const meta = captureErrorMock.mock.calls[0]![1] as {
-      code: string;
-      pluginId: string;
-      source: string;
-      context: { stage: string };
-    };
-    expect(meta.code).toBe("cron.manifest_invalid");
-    expect(meta.pluginId).toBe("broken");
-    expect(meta.source).toBe("cron");
-    expect(meta.context.stage).toBe("json-parse");
+    expect(captureErrorMock.mock.calls[0]![1]).toMatchObject({
+      code: "cron.manifest_invalid",
+      pluginId: "broken",
+      source: "cron",
+      context: { stage: "json-parse" },
+    });
   });
 
   it("skips a row whose manifest fails schema validation and registers neighbors (#447)", async () => {
@@ -358,13 +354,10 @@ describe("plugin-jobs registration", () => {
     expect(globalCalls.find((c) => c.id === "plugin.global-plugin.tick")).toBeDefined();
     expect(perRowCalls.find((c) => c.id === "plugin.bad-timeout.refresh")).toBeUndefined();
     expect(captureErrorMock).toHaveBeenCalledTimes(1);
-    const meta = captureErrorMock.mock.calls[0]![1] as {
-      code: string;
-      pluginId: string;
-      context: { stage: string };
-    };
-    expect(meta.code).toBe("cron.manifest_invalid");
-    expect(meta.pluginId).toBe("bad-timeout");
-    expect(meta.context.stage).toBe("schema-validate");
+    expect(captureErrorMock.mock.calls[0]![1]).toMatchObject({
+      code: "cron.manifest_invalid",
+      pluginId: "bad-timeout",
+      context: { stage: "schema-validate" },
+    });
   });
 });

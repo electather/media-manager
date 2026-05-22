@@ -41,6 +41,14 @@ interface DeclaredPluginJob {
 // (capabilities, auth) drifts between install-time and startup. The jobs
 // array is validated through the shared manifestJobEntrySchema so a single
 // bad entry (e.g. invalid perRowTimeoutSec from #447) fails fast.
+//
+// All-or-nothing on the jobs array is intentional: if any entry fails
+// validation, the whole plugin is skipped instead of falling through to
+// partial registration. A partly-corrupted manifest is suspicious and the
+// admin should see a single capture pointing at the bad plugin rather than
+// silently losing one job among several. Do not switch the inner schema to
+// `.optional()` or `.catch(...)` — `toDeclaredJob` assumes the entry is
+// fully validated.
 const manifestForJobsSchema = z.object({
   name: z.string().min(1).optional(),
   jobs: z.array(manifestJobEntrySchema).optional(),
