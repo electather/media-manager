@@ -134,5 +134,6 @@ describe("Row", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<Row row={makeRow()} />, { wrapper: withClient(client) });
     await waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2));
+    expect(calls.length).toBeLessThanOrEqual(3);
   });
 });

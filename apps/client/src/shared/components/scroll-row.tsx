@@ -210,17 +210,13 @@ function VirtualizedScrollRowTrack<T>({
 
   const virtualItems = virtualizer.getVirtualItems();
   const totalSize = virtualizer.getTotalSize();
-  const lastRangeRef = useRef<{ startIndex: number; endIndex: number } | null>(null);
+  const startIndex = virtualItems[0]?.index ?? -1;
+  const endIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
 
   useEffect(() => {
-    if (virtualItems.length === 0) return;
-    const startIndex = virtualItems[0]!.index;
-    const endIndex = virtualItems[virtualItems.length - 1]!.index;
-    const prev = lastRangeRef.current;
-    if (prev && prev.startIndex === startIndex && prev.endIndex === endIndex) return;
-    lastRangeRef.current = { startIndex, endIndex };
+    if (startIndex < 0) return;
     onRangeChange?.({ startIndex, endIndex });
-  }, [virtualItems, onRangeChange]);
+  }, [startIndex, endIndex, onRangeChange]);
 
   return (
     <ul
@@ -239,6 +235,7 @@ function VirtualizedScrollRowTrack<T>({
         return (
           <li
             key={getKey(item, vi.index)}
+            ref={virtualizer.measureElement}
             data-slot="scroll-row-item"
             data-index={vi.index}
             className="shrink-0 snap-start"

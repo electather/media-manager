@@ -25,7 +25,7 @@ describe("VirtualWindowList", () => {
     );
     const mounted = screen.queryAllByTestId("vw-item");
     expect(mounted.length).toBeGreaterThan(0);
-    expect(mounted.length).toBeLessThan(20);
+    expect(mounted.length).toBeLessThanOrEqual(15);
   });
 
   it("renders header and footer slots verbatim", () => {

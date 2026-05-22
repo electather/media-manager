@@ -28,7 +28,7 @@ export function useGridColumns(
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [ref, minColumnWidthPx, gapPx]);
+  }, [minColumnWidthPx, gapPx]);
 
   return { cols };
 }

@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useScrollMargin } from "./use-scroll-margin";
 
 interface VirtualWindowListProps<T> {
   items: readonly T[];
@@ -30,23 +31,17 @@ export function VirtualWindowList<T>({
   className,
 }: VirtualWindowListProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const [scrollMargin, setScrollMargin] = useState(0);
-
-  useLayoutEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-    const sync = () => setScrollMargin(el.offsetTop);
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(document.body);
-    return () => ro.disconnect();
-  }, []);
+  const scrollMargin = useScrollMargin(parentRef);
 
   const virtualizer = useWindowVirtualizer({
     count: items.length,
     estimateSize,
     overscan,
     scrollMargin,
+    getItemKey: (i) => {
+      const item = items[i];
+      return item === undefined ? String(i) : getKey(item, i);
+    },
   });
 
   const virtualItems = virtualizer.getVirtualItems();

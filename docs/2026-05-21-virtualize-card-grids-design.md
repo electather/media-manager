@@ -2,7 +2,7 @@
 
 Date: 2026-05-21
 Owner: @electather
-Status: Draft
+Status: Implemented
 Mode: caveman/ultra
 
 ## Goal
@@ -151,8 +151,7 @@ fn VirtualGrid<T>(p) {
   vis = v.getVirtualItems()
 
   return (
-    <div ref={parentRef} className={p.className}
-         style={{ display:'block' }}>
+    <div ref={parentRef} className={p.className}>
       <div style={{ height: v.getTotalSize(), position:'relative' }}>
         {vis.map(vr => {
           start = vr.index * cols
@@ -240,10 +239,15 @@ fn ScrollRowTrack(p) {
   })
 
   vis = v.getVirtualItems()
+  // Use primitive startIndex/endIndex as deps — `vis` is a new array reference each
+  // render in TanStack Virtual v3, so depping on it spams the effect even when the
+  // range hasn't moved. Primitives let React's dep-diff do the dedup.
+  startIndex = vis[0]?.index ?? -1
+  endIndex   = vis[vis.length-1]?.index ?? -1
   useEffect(() => {
-    if (vis.length === 0) return
-    p.onRangeChange?.({ startIndex: vis[0].index, endIndex: vis[vis.length-1].index })
-  }, [vis, p.onRangeChange])
+    if (startIndex < 0) return
+    p.onRangeChange?.({ startIndex, endIndex })
+  }, [startIndex, endIndex, p.onRangeChange])
 
   return (
     <ul ref={setRef} role="list" data-slot="scroll-row-track"
@@ -367,7 +371,7 @@ WatchlistContent (filterActive=true)
 - estimates per-kind (tables above)
 - `measureElement` ref on every absolutely-positioned wrapper → auto-correct after first paint
 - on resize → ResizeObserver in VirtualGrid recomputes cols; virtualizer remeasures via `getItemKey` change
-- `scrollMargin` set to parent `offsetTop` so window-virt accounts for sticky header / hero zone
+- `scrollMargin` set to the parent's document-absolute top (`getBoundingClientRect().top + window.scrollY`) so window-virt accounts for sticky header / hero zone AND stays correct when nested inside a positioned ancestor (e.g. a `VirtualWindowList` virtual item, which is `position: absolute`). Shared `useScrollMargin(ref)` hook owns the ResizeObserver wiring.
 
 ## Prefetch
 
@@ -386,6 +390,18 @@ WatchlistContent (filterActive=true)
 - `Row` skeleton path unchanged — track receives skeleton array sized `SKELETON_COUNT`, no virt while skeleton
 - `RowError` / `RowErrorInlineCard` unchanged.
 - inline error trailing item: when `showInlineError`, caller appends a sentinel entry to the `items` array passed to `ScrollRowTrack`; `renderItem` switches on sentinel → returns `<RowErrorInlineCard>` instead of `<Card>`. Same `estimateItemWidth`. Cleaner than DOM-pinning and keeps `ScrollRowTrack` API surface minimal.
+
+  Sentinel type contract (caller-owned, kept local to consumer):
+
+  ```ts
+  const ERROR_SENTINEL = { __sentinel: 'error' } as const
+  type ErrorSentinel = typeof ERROR_SENTINEL
+  type TrackEntry = HomeCardItem | ErrorSentinel
+  const isErrorSentinel = (it: TrackEntry): it is ErrorSentinel =>
+    typeof it === 'object' && it !== null && '__sentinel' in it
+  ```
+
+  `ScrollRowTrack` stays generic `items: readonly T[]`; consumer widens `T` to the union and narrows in `renderItem`. No widening of the primitive's API.
 
 ## DOM cap — assertion
 

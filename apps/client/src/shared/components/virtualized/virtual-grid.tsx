@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { useGridColumns } from "./use-grid-columns";
+import { useScrollMargin } from "./use-scroll-margin";
 
 interface VirtualGridProps<T> {
   items: readonly T[];
@@ -34,18 +35,8 @@ export function VirtualGrid<T>({
   style,
 }: VirtualGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const [scrollMargin, setScrollMargin] = useState(0);
+  const scrollMargin = useScrollMargin(parentRef);
   const { cols } = useGridColumns(parentRef, { minColumnWidthPx, gapPx });
-
-  useLayoutEffect(() => {
-    const el = parentRef.current;
-    if (!el) return;
-    const sync = () => setScrollMargin(el.offsetTop);
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(document.body);
-    return () => ro.disconnect();
-  }, []);
 
   const rowCount = Math.ceil(items.length / Math.max(cols, 1));
 

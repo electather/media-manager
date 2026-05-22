@@ -50,7 +50,11 @@ export function useAddToWatchlist() {
         // search rows) flip immediately — without this branch the user has
         // to visit /watchlist once before the toggle shows any UI feedback.
         if (!data || data.pages.length === 0) {
-          const firstPage: WatchlistResponse = { items: [optimistic], cursor: null, partial: false };
+          const firstPage: WatchlistResponse = {
+            items: [optimistic],
+            cursor: null,
+            partial: false,
+          };
           return { pages: [firstPage], pageParams: [undefined] };
         }
         const [first, ...rest] = data.pages;
