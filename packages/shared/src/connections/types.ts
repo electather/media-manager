@@ -1,5 +1,6 @@
 import type { ConnectionStatus } from "./enums";
 import type { AuthKind } from "../plugins/enums";
+import type { MediaType } from "../media/enums";
 
 /**
  * Embedded plugin shape on every `ConnectionListItem` and the entries returned
@@ -54,4 +55,15 @@ export interface ConnectionListItem {
    */
   displayFields: ConnectionDisplayField[];
   plugin: PluginSummary;
+}
+
+/**
+ * Row returned by `GET /api/connections/primary`. The DB stores `mediaType`
+ * as a `"_"` sentinel for "no media-type partition"; the wire shape uses
+ * `null` so the client doesn't have to know about the sentinel.
+ */
+export interface PrimaryConnectionRow {
+  capabilityKey: string;
+  mediaType: MediaType | null;
+  connectionId: string;
 }

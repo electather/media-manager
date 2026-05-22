@@ -44,9 +44,9 @@ Implement HTTP API + settings UI for the existing `primary_connections` service 
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-001 | Add `primaryConnectionSetSchema` and `primaryConnectionClearSchema` to `packages/shared/src/connections/schemas.ts`. Use `z.enum(MEDIA_TYPES).nullable()` for `mediaType`, `z.string().regex(/^[a-z][a-zA-Z0-9]*@v\d+$/)` for `capabilityKey`, `z.string().uuid()` for `connectionId`. Import `MEDIA_TYPES` from `../media/enums`. | | |
-| TASK-002 | Export `PrimaryConnectionRow` interface in `packages/shared/src/connections/types.ts`: `{ capabilityKey: string; mediaType: "movie" \| "tv" \| null; connectionId: string }`. | | |
-| TASK-003 | Re-export new schemas + type via `packages/shared/src/connections/index.ts`. | | |
+| TASK-001 | Add `primaryConnectionSetSchema` and `primaryConnectionClearSchema` to `packages/shared/src/connections/schemas.ts`. Use `z.enum(MEDIA_TYPES).nullable()` for `mediaType`, `z.string().regex(/^[a-z][a-zA-Z0-9]*@v\d+$/)` for `capabilityKey`, `z.string().uuid()` for `connectionId`. Import `MEDIA_TYPES` from `../media/enums`. | ✅ | 2026-05-22 |
+| TASK-002 | Export `PrimaryConnectionRow` interface in `packages/shared/src/connections/types.ts`: `{ capabilityKey: string; mediaType: "movie" \| "tv" \| null; connectionId: string }`. | ✅ | 2026-05-22 |
+| TASK-003 | Re-export new schemas + type via `packages/shared/src/connections/index.ts`. | ✅ | 2026-05-22 |
 
 ### Implementation Phase 2 — Server: extract `requireConnection`
 
