@@ -34,7 +34,10 @@ media type.
   generic by shape, but the only consumer today is `metadata@v1`. New
   capabilities slot in by adding rows to the existing schema; no design
   re-work needed.
-- Discovering eligible capabilities by probing manifests on the client.
+- Auto-discovering which `(capability, mediaType)` rows to render — the
+  client keeps a static `PRIMARY_PROVIDER_ROWS` list. (Per-connection
+  eligibility *is* derived from `PluginSummary.userScopedCapabilities`;
+  that's row population, not row discovery.)
 - Admin-side "system default" primary (no analogue exists today).
 - Changing the strategy fallback when no row exists (`providers[0]` stays).
 
@@ -119,9 +122,13 @@ File: `apps/server/src/connections/primary-service.ts` (new)
 
 Wraps the existing `primary-preference.ts` service functions with:
 
-1. **Ownership check** — `connectionId` must belong to `userId`. Reuse
-   `requireConnection` from `connections/service.ts` (export it if not
-   already; today it's private).
+1. **Ownership check** — `connectionId` must belong to `userId`. The
+   existing helper `requireConnection` in `connections/service.ts` (line
+   105) is private; promote it to an exported helper (or extract into a
+   shared `connections/internal/require-connection.ts`) so the new
+   primary service can reuse it without duplicating the lookup +
+   404 mapping. This is a deliberate cross-module surface change for the
+   `connections/` module, not an incidental detail.
 2. **Capability validation** — the connection's plugin manifest must
    advertise the requested `capabilityKey` as a user-scoped capability.
    Source of truth: `capabilityRegistry.get(pluginId)?.capabilities` — same
@@ -305,8 +312,13 @@ Each `<PrimaryProviderRow>` renders a `<Select>` (shadcn) with:
 - One option per eligible connection (`displayName || plugin.name`).
 
 Optimistic updates: on submit, set the local cache entry to the new value
-immediately; rollback on error. Reuse the established pattern from
-`use-set-default-connection.ts`.
+immediately; rollback on error. Reuse `useOptimisticArrayMutation` from
+`@/shared/hooks/use-optimistic-array-mutation`, the same hook
+`use-toggle-enabled.ts` uses. The cache being mutated is
+`settingsConnectionsKeys.primary()` (an array of
+`PrimaryConnectionRow`); the `update` callback replaces or appends the
+row for the matching `(capabilityKey, mediaType)` pair, and the clear
+mutation removes it.
 
 ### 5.4 Query keys
 
@@ -346,13 +358,17 @@ export async function fetchClearPrimaryConnection(input: {
 - Card hidden when no row has ≥2 eligible connections.
 - Per-row: hidden when the row's own eligible list has <2.
 - Disabled / non-`connected` connections never appear in the dropdown.
-- If a previously-pinned connection becomes ineligible (disabled/expired),
-  `GET /primary` still returns the row, but the dropdown shows "Auto
-  (was X)" and selecting anything else clears + sets cleanly. We never
-  auto-clear on the server when a connection is disabled — `enabled=0` is
-  reversible, and `getPrimaryConnection` already filters
-  `enabled !== 1`, so the strategy falls back to provider order until the
-  user re-enables.
+- If a previously-pinned connection becomes ineligible **by being
+  disabled / expired**, `GET /primary` still returns the row (the DB row
+  exists), but the dropdown shows "Auto (was *DisplayName*)" and
+  selecting anything else clears + sets cleanly. The server never
+  auto-clears on disable — `enabled=0` is reversible, and
+  `getPrimaryConnection` already filters `enabled !== 1`, so the
+  strategy falls back to provider order until the user re-enables.
+- If the pinned connection is **deleted**, the foreign-key cascade
+  (`onDelete: "cascade"` on `service_connections.id`, see schema) drops
+  the `primary_connections` row, so `GET /primary` simply does not
+  return it — the picker shows "Auto" again with no warning surface.
 
 ## 6. Error handling
 
@@ -383,7 +399,7 @@ export async function fetchClearPrimaryConnection(input: {
 ### Strategy regression
 
 `apps/server/src/media/__tests__/primary-with-enrichment.test.ts`
-(existing):
+(existing — already in tree):
 
 - Add case: with two providers `[A, B]` and `setPrimaryConnection` pinning
   the B-backed connection, `invokeAll` candidates are `[B, A]` (B first),
