@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import type { MediaType } from "@ent-mcp/shared/media";
@@ -6,9 +6,11 @@ import type { WatchlistListFilter } from "@ent-mcp/shared/watchlist";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";
+import { VirtualWindowList } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";
 import { bucketize, classifyStatus } from "../lib/classify";
 import { deriveMoods } from "../lib/derive-moods";
+import { SECTION_HEIGHT_PX, type WatchlistSectionKind } from "../lib/section-heights";
 import { useWatchlistItems } from "../hooks/use-watchlist-items";
 import { useWatchlistCounts } from "../hooks/use-watchlist-counts";
 import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
@@ -23,6 +25,11 @@ import { MoodMosaic } from "./mood-mosaic";
 import { ReadyRow } from "./ready-row";
 import { RecentlyAdded } from "./recently-added";
 import { TonightPick } from "./tonight-pick";
+
+interface WatchlistSection {
+  kind: WatchlistSectionKind;
+  node: ReactNode;
+}
 
 type PeekSearch = { peek?: string };
 type Buckets = ReturnType<typeof bucketize>;
@@ -178,6 +185,66 @@ export function WatchlistContent() {
 
   const filterActive = filter !== "all";
 
+  // fallow-ignore-next-line complexity
+  const sections = useMemo<WatchlistSection[]>(() => {
+    if (filterActive) return [];
+    const out: WatchlistSection[] = [];
+    if (tonight) {
+      out.push({
+        kind: "tonight-pick",
+        node: <TonightPick pick={tonight} alternates={alternates} onPeek={handlePeek} />,
+      });
+    }
+    if (readyForRow.length > 0) {
+      out.push({ kind: "ready-row", node: <ReadyRow items={readyForRow} onPeek={handlePeek} /> });
+    }
+    if (moodGroups.length > 0) {
+      out.push({
+        kind: "mood-mosaic",
+        node: <MoodMosaic groups={moodGroups} onPeek={handlePeek} />,
+      });
+    }
+    if (buckets.upcoming.length > 0) {
+      out.push({
+        kind: "coming-up",
+        node: <ComingUp items={buckets.upcoming} onPeek={handlePeek} />,
+      });
+    }
+    if (awaitingItems.length > 0) {
+      out.push({ kind: "awaiting", node: <Awaiting items={awaitingItems} onPeek={handlePeek} /> });
+    }
+    if (sortedByAdded.length > 0) {
+      out.push({
+        kind: "recently-added",
+        node: <RecentlyAdded items={sortedByAdded} onPeek={handlePeek} />,
+      });
+    }
+    return out;
+  }, [
+    filterActive,
+    tonight,
+    alternates,
+    readyForRow,
+    moodGroups,
+    buckets.upcoming,
+    awaitingItems,
+    sortedByAdded,
+    handlePeek,
+  ]);
+
+  const loadMoreButton = hasNextPage ? (
+    <div className="mt-8 flex justify-center">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => void fetchNextPage()}
+        disabled={isFetchingNextPage}
+      >
+        {isFetchingNextPage ? m.watchlist_loading_more() : m.watchlist_load_more()}
+      </Button>
+    </div>
+  ) : null;
+
   return (
     <main className="mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8">
       {partial ? (
@@ -200,31 +267,24 @@ export function WatchlistContent() {
         {items.length === 0 ? (
           <p className="py-16 text-center text-sm text-muted-foreground">{m.watchlist_empty()}</p>
         ) : filterActive ? (
-          <WatchlistFilteredGrid items={filtered} filter={filter} sort={sort} onPeek={handlePeek} />
-        ) : (
           <>
-            {tonight ? (
-              <TonightPick pick={tonight} alternates={alternates} onPeek={handlePeek} />
-            ) : null}
-            <ReadyRow items={readyForRow} onPeek={handlePeek} />
-            <MoodMosaic groups={moodGroups} onPeek={handlePeek} />
-            <ComingUp items={buckets.upcoming} onPeek={handlePeek} />
-            <Awaiting items={awaitingItems} onPeek={handlePeek} />
-            <RecentlyAdded items={sortedByAdded} onPeek={handlePeek} />
+            <WatchlistFilteredGrid
+              items={filtered}
+              filter={filter}
+              sort={sort}
+              onPeek={handlePeek}
+            />
+            {loadMoreButton}
           </>
+        ) : (
+          <VirtualWindowList
+            items={sections}
+            getKey={(s) => s.kind}
+            estimateSize={(i) => SECTION_HEIGHT_PX[sections[i]!.kind]}
+            renderItem={(s) => s.node}
+            footer={loadMoreButton}
+          />
         )}
-        {hasNextPage ? (
-          <div className="mt-8 flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void fetchNextPage()}
-              disabled={isFetchingNextPage}
-            >
-              {isFetchingNextPage ? m.watchlist_loading_more() : m.watchlist_load_more()}
-            </Button>
-          </div>
-        ) : null}
       </div>
 
       <MediaDetailModal

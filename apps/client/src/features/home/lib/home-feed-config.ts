@@ -1,6 +1,17 @@
 import * as m from "@/paraglide/messages";
 import type { RowKind } from "@ent-mcp/shared/home";
-import type { MatchReasonKey } from "./types";
+import type { MatchReasonKey, RowData } from "./types";
+
+/**
+ * Initial vertical-virtualization estimate per home row. The values combine
+ * the section head (~80px), the card area (180 for 16/9 backdrops, 300 for
+ * 2/3 posters), the per-card meta strip (~48px), and the `mb-8` margin
+ * (~40px). `measureElement` corrects the estimate after first paint.
+ */
+export function estimateHomeRowHeight(row: RowData): number {
+  const card = row.defaultAspect === "16/9" ? 180 : 300;
+  return 80 + card + 48 + 40;
+}
 
 /** Drives card image ratio for each row. Not present in the wire format. */
 export const ROW_ASPECT: Record<RowKind, "16/9" | "2/3"> = {

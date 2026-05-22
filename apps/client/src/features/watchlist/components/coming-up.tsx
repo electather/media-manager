@@ -7,6 +7,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
+import { VirtualGrid } from "@/shared/components/virtualized";
 import type { WatchlistItem } from "../lib/types";
 
 interface ComingUpProps {
@@ -27,11 +28,13 @@ export function ComingUp({ items, onPeek }: ComingUpProps) {
           </SectionHeadTitle>
         </SectionHeadHeading>
       </SectionHead>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-        {items.map((it) => (
-          <WatchlistCard key={it.id} item={it} forceAspect="16/9" onPeek={onPeek} />
-        ))}
-      </div>
+      <VirtualGrid
+        items={items}
+        getKey={(it) => it.id}
+        minColumnWidthPx={220}
+        estimateRowHeight={() => 216}
+        renderItem={(it) => <WatchlistCard item={it} forceAspect="16/9" onPeek={onPeek} />}
+      />
     </section>
   );
 }

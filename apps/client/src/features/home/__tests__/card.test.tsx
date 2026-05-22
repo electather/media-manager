@@ -1,11 +1,22 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
 import { Card } from "../components/card/index";
 import type { HomeMediaItem, RowKind } from "../lib/types";
 
 afterEach(() => cleanup());
+
+function wrap(ui: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
+}
+
+function renderCard(ui: ReactNode) {
+  return render(wrap(ui));
+}
 
 function makeItem(overrides: Partial<HomeMediaItem> = {}): HomeMediaItem {
   return {
@@ -24,23 +35,23 @@ function makeItem(overrides: Partial<HomeMediaItem> = {}): HomeMediaItem {
 
 describe("Card", () => {
   it("renders with aspect-video class when rowKind maps to 16/9", () => {
-    const { container } = render(<Card item={makeItem()} rowKind="continueWatching" />);
+    const { container } = renderCard(<Card item={makeItem()} rowKind="continueWatching" />);
     expect(container.querySelector(".aspect-video")).toBeTruthy();
   });
 
   it("renders with aspect-[2/3] class when rowKind maps to 2/3", () => {
-    const { container } = render(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    const { container } = renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
     expect(container.querySelector('[class*="aspect-\\[2\\/3\\]"]')).toBeTruthy();
   });
 
   it("renders a progress bar when item.progress is set", () => {
     const item = makeItem({ progress: { watched: 30, total: 100 } });
-    render(<Card item={item} rowKind="continueWatching" />);
+    renderCard(<Card item={item} rowKind="continueWatching" />);
     expect(screen.getByRole("progressbar")).toBeTruthy();
   });
 
   it("does not render a progress bar when item.progress is absent", () => {
-    render(<Card item={makeItem({ progress: undefined })} rowKind="recommendedForYou" />);
+    renderCard(<Card item={makeItem({ progress: undefined })} rowKind="recommendedForYou" />);
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
@@ -52,7 +63,7 @@ describe("Card", () => {
         servers: [{ id: "plex", label: "Plex" }],
       },
     });
-    render(<Card item={item} rowKind="recommendedForYou" />);
+    renderCard(<Card item={item} rowKind="recommendedForYou" />);
     expect(screen.getByText("Plex")).toBeTruthy();
   });
 
@@ -67,7 +78,7 @@ describe("Card", () => {
         ],
       },
     });
-    render(<Card item={item} rowKind="recommendedForYou" />);
+    renderCard(<Card item={item} rowKind="recommendedForYou" />);
     expect(screen.getByText(/2\s*servers/i)).toBeTruthy();
   });
 
@@ -76,7 +87,7 @@ describe("Card", () => {
       status: "requested",
       availability: { hasAnyServerCopy: false, requestEligible: false, servers: [] },
     });
-    render(<Card item={item} rowKind="recommendedForYou" />);
+    renderCard(<Card item={item} rowKind="recommendedForYou" />);
     expect(screen.getByText(/requested/i)).toBeTruthy();
   });
 
@@ -84,42 +95,42 @@ describe("Card", () => {
     const item = makeItem({
       availability: { hasAnyServerCopy: false, requestEligible: true, servers: [] },
     });
-    render(<Card item={item} rowKind="recommendedForYou" />);
+    renderCard(<Card item={item} rowKind="recommendedForYou" />);
     expect(screen.getByText(/^request$/i)).toBeTruthy();
   });
 
   it("renders the match reason chip when matchReason is set", () => {
     const item = makeItem({ matchReason: { key: "highly_rated", params: {} } });
-    render(<Card item={item} rowKind="recommendedForYou" />);
+    renderCard(<Card item={item} rowKind="recommendedForYou" />);
     expect(screen.getByText(/highly rated/i)).toBeTruthy();
   });
 
   it("does not render a match reason chip when matchReason is absent", () => {
-    render(<Card item={makeItem({ matchReason: undefined })} rowKind="recommendedForYou" />);
+    renderCard(<Card item={makeItem({ matchReason: undefined })} rowKind="recommendedForYou" />);
     expect(screen.queryByText(/highly rated/i)).toBeNull();
   });
 
   it("renders the watchlist quick-action with an aria-label containing the item title", () => {
-    render(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
     const btn = screen.getByRole("button", { name: /watchlist.*test movie/i });
     expect(btn).toBeTruthy();
   });
 
   it("renders an img with alt text equal to the item title", () => {
-    render(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
     expect(screen.getByAltText("Test Movie")).toBeTruthy();
   });
 
   it("calls onClick when the card click overlay is activated", () => {
     const onClick = vi.fn();
-    render(<Card item={makeItem()} rowKind="recommendedForYou" onClick={onClick} />);
+    renderCard(<Card item={makeItem()} rowKind="recommendedForYou" onClick={onClick} />);
     const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
     overlay.click();
     expect(onClick).toHaveBeenCalledOnce();
   });
 
   it("exposes the canonical detail href so cmd-click opens a new tab", () => {
-    render(<Card item={makeItem()} rowKind="recommendedForYou" />);
+    renderCard(<Card item={makeItem()} rowKind="recommendedForYou" />);
     const overlay = screen.getByRole("link", { name: /open details for.*test movie/i });
     expect(overlay.getAttribute("href")).toBe("/media/movie/test-1");
   });
@@ -133,7 +144,7 @@ describe("Card (16/9 row kinds)", () => {
         backdrop: "https://example.com/backdrop.jpg",
         poster: "https://example.com/poster.jpg",
       });
-      render(<Card item={item} rowKind={kind} />);
+      renderCard(<Card item={item} rowKind={kind} />);
       const img = screen.getByAltText("Test Movie") as HTMLImageElement;
       expect(img.src).toContain("backdrop.jpg");
     });
@@ -154,7 +165,7 @@ describe("Card (2/3 row kinds)", () => {
         backdrop: "https://example.com/backdrop.jpg",
         poster: "https://example.com/poster.jpg",
       });
-      render(<Card item={item} rowKind={kind} />);
+      renderCard(<Card item={item} rowKind={kind} />);
       const img = screen.getByAltText("Test Movie") as HTMLImageElement;
       expect(img.src).toContain("poster.jpg");
     });

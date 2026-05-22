@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useIsMobile } from "@/shared/hooks/use-is-mobile";
 import { Drawer, DrawerContent } from "@/shared/ui/drawer";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
@@ -101,6 +101,23 @@ function ModalBody({
   const noteSectionRef = useRef<HTMLDivElement>(null);
   const noteTaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Defer below-fold sections until after the modal's first paint so the
+  // open animation isn't blocked by mounting Credits / Seasons / etc. The
+  // React Profiler showed ~17ms of work on modal open; this splits that
+  // commit so the above-fold (backdrop, topbar, header, feedback, actions)
+  // lands in the first frame and the rest reconciles on the next.
+  const [secondaryReady, setSecondaryReady] = useState(false);
+  useEffect(() => {
+    const handle = requestAnimationFrame(() => setSecondaryReady(true));
+    // rAF throttles to ~1 fps in background tabs; setTimeout fallback still
+    // defers off the current frame but isn't subject to visibility throttle.
+    const fallback = setTimeout(() => setSecondaryReady(true), 50);
+    return () => {
+      cancelAnimationFrame(handle);
+      clearTimeout(fallback);
+    };
+  }, []);
+
   function jumpToNote() {
     noteSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     setNoteEditing(true);
@@ -134,21 +151,25 @@ function ModalBody({
             inWatchlist={inWatchlist}
             onToggleWatchlist={onToggleWatchlist}
           />
-          <ModalTVAirInfo item={item} />
-          <ModalScores item={item} />
-          <ModalTags item={item} />
-          <ModalOverview item={item} />
-          <ModalCredits item={item} />
-          <ModalSeasons item={item} />
-          <ModalMatchReason reason={item.matchReason} />
-          <ModalNote
-            sectionRef={noteSectionRef}
-            taRef={noteTaRef}
-            note={note}
-            editing={noteEditing}
-            setEditing={setNoteEditing}
-            onSave={setNote}
-          />
+          {secondaryReady ? (
+            <>
+              <ModalTVAirInfo item={item} />
+              <ModalScores item={item} />
+              <ModalTags item={item} />
+              <ModalOverview item={item} />
+              <ModalCredits item={item} />
+              <ModalSeasons item={item} />
+              <ModalMatchReason reason={item.matchReason} />
+              <ModalNote
+                sectionRef={noteSectionRef}
+                taRef={noteTaRef}
+                note={note}
+                editing={noteEditing}
+                setEditing={setNoteEditing}
+                onSave={setNote}
+              />
+            </>
+          ) : null}
         </div>
       </article>
     </div>

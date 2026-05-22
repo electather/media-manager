@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
 
 type Props = {
   /** Icon node — caller wires the toggle visuals (Plus / Check / etc). */
@@ -31,19 +32,21 @@ export function MediaCardQuickAction({
     onPress?.();
   }
   return (
-    <button
+    <Button
       type="button"
       data-slot="media-card-quick-action"
       data-pressed={pressed ? "" : undefined}
+      variant="outline"
+      size="icon-sm"
       onClick={handleClick}
       aria-label={ariaLabel}
       aria-pressed={pressed}
       className={cn(
-        "absolute end-2 bottom-2 z-30 inline-flex size-8 items-center justify-center rounded-full border border-border bg-background/70 text-foreground opacity-0 backdrop-blur-md transition-all duration-200 hover:bg-background/90 group-focus-within:opacity-100 group-hover:opacity-100",
+        "absolute rounded-full inset-e-2 bottom-2 z-30 inline-flex text-foreground opacity-0 backdrop-blur-md transition-all duration-200 hover:bg-background/90 group-focus-within:opacity-100 group-hover:opacity-100",
         className,
       )}
     >
       {children}
-    </button>
+    </Button>
   );
 }

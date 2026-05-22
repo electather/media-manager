@@ -10,6 +10,7 @@ import {
 import { addToWatchlist } from "@/shared/lib/watchlist/fetchers";
 import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 import { buildOptimistic } from "@/shared/lib/watchlist/build-optimistic";
+import { invalidateWatchlistAll } from "@/shared/lib/watchlist/invalidate";
 
 interface AddVariables {
   request: AddWatchlistRequest;
@@ -46,7 +47,17 @@ export function useAddToWatchlist() {
       }
       const optimistic = buildOptimistic(request, seed);
       qc.setQueryData<WatchlistPages>(DEFAULT_KEY, (data) => {
-        if (!data || data.pages.length === 0) return data;
+        // Seed an empty cache so cross-feature membership reads (home cards,
+        // search rows) flip immediately — without this branch the user has
+        // to visit /watchlist once before the toggle shows any UI feedback.
+        if (!data || data.pages.length === 0) {
+          const firstPage: WatchlistResponse = {
+            items: [optimistic],
+            cursor: null,
+            partial: false,
+          };
+          return { pages: [firstPage], pageParams: [undefined] };
+        }
         const [first, ...rest] = data.pages;
         const updatedFirst: WatchlistResponse = {
           ...first!,
@@ -62,9 +73,6 @@ export function useAddToWatchlist() {
       }
       toast.error(m.watchlist_add_error({ message: err.message }));
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: watchlistKeys.lists() });
-      void qc.invalidateQueries({ queryKey: watchlistKeys.counts() });
-    },
+    onSettled: () => invalidateWatchlistAll(qc),
   });
 }
