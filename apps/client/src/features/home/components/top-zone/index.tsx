@@ -1,11 +1,4 @@
-import {
-  startTransition,
-  useCallback,
-  useDeferredValue,
-  useState,
-  ViewTransition,
-  type ReactNode,
-} from "react";
+import { startTransition, useCallback, useDeferredValue, useState, type ReactNode } from "react";
 import { preload } from "react-dom";
 import { clamp } from "es-toolkit";
 import * as m from "@/paraglide/messages";
@@ -168,9 +161,11 @@ function TopZoneCarousel({ slides, onPeek }: Props) {
     <section data-testid="top-zone" aria-label={active.title} className="relative isolate mb-2">
       <TopZoneAmbient src={ambientSrc} />
       <HeroFrame ambientSrc={ambientSrc} percent={percent}>
-        <ViewTransition name="top-zone-hero">
+        <div
+          key={`${active.source}:${active.id}`}
+          className="absolute inset-0 animate-in fade-in-0 duration-300 ease-out"
+        >
           <TopZoneHeroCard
-            key={`${active.source}:${active.id}`}
             hero={active}
             source={active.source}
             percent={percent}
@@ -181,7 +176,7 @@ function TopZoneCarousel({ slides, onPeek }: Props) {
             onMoreInfo={() => onPeek(active.id)}
             onDismiss={dismissHandler(candidates, cycleAlternate)}
           />
-        </ViewTransition>
+        </div>
       </HeroFrame>
       <HeroAlternates candidates={candidates} activeIndex={activeIndex} onSelect={selectIndex} />
     </section>

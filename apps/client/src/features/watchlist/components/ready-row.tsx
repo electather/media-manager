@@ -11,7 +11,6 @@ import {
 } from "@/shared/components/section-head";
 import {
   ScrollRow,
-  ScrollRowItem,
   ScrollRowNextButton,
   ScrollRowPrevButton,
   ScrollRowTrack,
@@ -50,13 +49,14 @@ export function ReadyRow({ items, onPeek }: ReadyRowProps) {
         </SectionHeadActions>
       </SectionHead>
       <ScrollRowViewport style={POSTER_VARS}>
-        <ScrollRowTrack className="pb-1">
-          {items.map((it) => (
-            <ScrollRowItem key={it.id}>
-              <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />
-            </ScrollRowItem>
-          ))}
-        </ScrollRowTrack>
+        <ScrollRowTrack
+          virtualize
+          className="pb-1"
+          items={items}
+          getKey={(it) => it.id}
+          estimateItemWidth={200}
+          renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
+        />
       </ScrollRowViewport>
     </ScrollRow>
   );

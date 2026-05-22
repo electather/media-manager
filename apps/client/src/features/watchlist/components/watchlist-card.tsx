@@ -39,7 +39,7 @@ export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCa
     aspect === "16/9" ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
   const isMovie = item.mediaType === "movie";
   const KindIcon = isMovie ? Film : Tv;
-  const kindLabel = isMovie ? m.watchlist_kind_movie() : m.watchlist_kind_tv();
+  const kindLabel = m.watchlist_kind({ kind: item.mediaType });
   const removeLabel = `${m.watchlist_toggle_remove()} ${item.title}`;
   const progressPercent =
     item.progress && item.progress.total > 0
@@ -62,7 +62,7 @@ export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCa
           <MediaCardProgress percent={progressPercent} ariaLabel={`${progressPercent}%`} />
         ) : null}
         <MediaCardQuickAction aria-label={removeLabel} pressed onPress={() => toggle(item)}>
-          <Check aria-hidden="true" className="size-4" />
+          <Check aria-hidden="true" />
         </MediaCardQuickAction>
       </MediaCardFrame>
       <MediaCardMeta>

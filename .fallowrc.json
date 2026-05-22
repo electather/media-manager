@@ -37,6 +37,7 @@
     "**/*.spec.ts",
     "**/*.spec.tsx",
     "**/*.gen.ts",
+    "**/__tests__/**",
     "**/dist/**",
     "**/node_modules/**",
     "**/.claude/**",
@@ -179,6 +180,10 @@
         "patterns": ["apps/client/src/lib/**"]
       },
       { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
+      {
+        "name": "client-shared-virtualized",
+        "patterns": ["apps/client/src/shared/components/virtualized/**"]
+      },
       { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
       { "name": "client-shared-hooks", "patterns": ["apps/client/src/shared/hooks/**"] },
       { "name": "client-shared-lib", "patterns": ["apps/client/src/shared/lib/**"] },
@@ -404,6 +409,7 @@
           "client-feat-media-detail",
           "client-shared-ui",
           "client-shared-components",
+          "client-shared-virtualized",
           "client-shared-hooks",
           "client-shared-lib",
           "shared-pkg"
@@ -595,6 +601,16 @@
       },
       {
         "from": "client-shared-components",
+        "allow": [
+          "client-shared-ui",
+          "client-shared-virtualized",
+          "client-shared-hooks",
+          "client-shared-lib",
+          "shared-pkg"
+        ]
+      },
+      {
+        "from": "client-shared-virtualized",
         "allow": ["client-shared-ui", "client-shared-hooks", "client-shared-lib", "shared-pkg"]
       },
       { "from": "client-shared-hooks", "allow": ["client-shared-lib", "shared-pkg"] },
@@ -606,6 +622,7 @@
           "client-feat-watchlist",
           "client-shared-ui",
           "client-shared-components",
+          "client-shared-virtualized",
           "client-shared-hooks",
           "client-shared-lib",
           "shared-pkg"

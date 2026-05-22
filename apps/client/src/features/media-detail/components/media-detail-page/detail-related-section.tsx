@@ -8,11 +8,10 @@ import { DetailSection } from "../detail-section";
 
 type Props = {
   item: HomeMediaItem;
-  watchlist: ReadonlySet<string>;
   onWatchlistToggle: (item: HomeMediaItem) => void;
 };
 
-export function DetailRelatedSection({ item, watchlist, onWatchlistToggle }: Props) {
+export function DetailRelatedSection({ item, onWatchlistToggle }: Props) {
   const navigate = useNavigate();
   const handleRelatedClick = useCallback(
     (id: string) => {
@@ -30,7 +29,6 @@ export function DetailRelatedSection({ item, watchlist, onWatchlistToggle }: Pro
     <DetailSection id="related" title={m.media_detail_section_related()}>
       <DetailRelatedRow
         item={item}
-        watchlist={watchlist}
         onWatchlistToggle={onWatchlistToggle}
         onCardClick={handleRelatedClick}
       />

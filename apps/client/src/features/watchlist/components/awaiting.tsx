@@ -9,6 +9,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
+import { VirtualGrid } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";
 import type { WatchlistItem } from "../lib/types";
 
@@ -37,20 +38,22 @@ export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
           </Button>
         </SectionHeadActions>
       </SectionHead>
-      <div
-        className="grid gap-x-4 gap-y-5 rounded-2xl border border-dashed border-input bg-card/40 p-5"
+      <VirtualGrid
+        items={items}
+        getKey={(it) => it.id}
+        minColumnWidthPx={180}
+        estimateRowHeight={() => 336}
+        className="rounded-2xl border border-dashed border-input bg-card/40 p-5"
         style={{
           backgroundImage:
             "repeating-linear-gradient(45deg, color-mix(in oklab, var(--card) 88%, transparent) 0px, color-mix(in oklab, var(--card) 88%, transparent) 12px, color-mix(in oklab, var(--background) 92%, transparent) 12px, color-mix(in oklab, var(--background) 92%, transparent) 13px)",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
         }}
-      >
-        {items.map((it) => (
-          <div key={it.id} className="opacity-90 transition-opacity hover:opacity-100">
+        renderItem={(it) => (
+          <div className="opacity-90 transition-opacity hover:opacity-100">
             <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />
           </div>
-        ))}
-      </div>
+        )}
+      />
     </section>
   );
 }

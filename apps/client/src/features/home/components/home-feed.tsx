@@ -4,10 +4,11 @@ import type { HeroSlide, HomeLayoutResponse } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { splitCompositeId } from "@/shared/lib/media-id";
-import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
+import { useIsInWatchlist, useToggleWatchlist } from "@/features/watchlist";
+import { VirtualWindowList } from "@/shared/components/virtualized";
 import { useHomeFeed } from "../hooks/use-home-feed";
 import { useHomeDetails } from "../hooks/use-home-details";
-import { ROW_ASPECT } from "../lib/home-feed-config";
+import { ROW_ASPECT, estimateHomeRowHeight } from "../lib/home-feed-config";
 import type { HeroSlideUI, RowData } from "../lib/types";
 import { HomeFeedSkeleton } from "./home-feed-skeleton";
 import { Row } from "./row/index";
@@ -40,7 +41,6 @@ function HomeFeedReady() {
   // Defer so peek-derived values coalesce across the concurrent scheduler during rapid back/forward navigation.
   const peek = useDeferredValue(rawPeek);
   const navigate = useNavigate();
-  const watchlist = useWatchlistIdSet();
   const toggleWatchlist = useToggleWatchlist();
 
   const peekParts = peek ? splitCompositeId(peek) : null;
@@ -74,29 +74,36 @@ function HomeFeedReady() {
     void navigate({ to: ".", search: {}, replace: true, resetScroll: false });
   }, [navigate]);
 
-  const inWatchlist = peek ? watchlist.has(peek) : false;
+  const inWatchlist = useIsInWatchlist(peek ?? "");
   const handleToggleWatchlistFromModal = useCallback(() => {
     if (!modalItem) return;
     toggleWatchlist(modalItem);
   }, [modalItem, toggleWatchlist]);
 
-  const heroSlides: HeroSlideUI[] = layout.hero?.slides?.map(toHeroSlideUI) ?? [];
-  const rows: RowData[] = layout.rows.map(toRowData);
+  const heroSlides = useMemo<HeroSlideUI[]>(
+    () => layout.hero?.slides?.map(toHeroSlideUI) ?? [],
+    [layout.hero],
+  );
+  const rows = useMemo<RowData[]>(() => layout.rows.map(toRowData), [layout.rows]);
 
   return (
     <div className="mx-auto flex w-full max-w-400 flex-col gap-10 px-4 pb-32 sm:px-6 lg:px-8">
-      {heroSlides.length > 0 ? <TopZone slides={heroSlides} onPeek={handlePeek} /> : null}
-      <div className="relative z-10 flex flex-col gap-2">
-        {rows.map((row) => (
-          <Row
-            key={row.id}
-            row={row}
-            watchlist={watchlist}
-            onWatchlistToggle={toggleWatchlist}
-            onCardClick={handlePeek}
-          />
-        ))}
-      </div>
+      <VirtualWindowList
+        items={rows}
+        getKey={(row) => row.id}
+        estimateSize={(i) => estimateHomeRowHeight(rows[i] ?? rows[0]!)}
+        header={
+          heroSlides.length > 0 ? (
+            <div className="mb-10">
+              <TopZone slides={heroSlides} onPeek={handlePeek} />
+            </div>
+          ) : null
+        }
+        renderItem={(row) => (
+          <Row row={row} onWatchlistToggle={toggleWatchlist} onCardClick={handlePeek} />
+        )}
+        className="relative z-10"
+      />
       <MediaDetailModal
         item={modalItem}
         open={Boolean(peek)}

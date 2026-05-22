@@ -6,7 +6,7 @@ import {
   requestFlowKeys,
   requestsApi,
 } from "@/features/request-flow";
-import { useToggleWatchlist, useWatchlistIdSet } from "@/features/watchlist";
+import { useIsInWatchlist, useToggleWatchlist } from "@/features/watchlist";
 import { useActiveSection } from "../../hooks/use-active-section";
 import { useMediaItem } from "../../lib/find-item";
 import { DetailFactsSidebar } from "../detail-facts-sidebar";
@@ -58,9 +58,8 @@ export function MediaDetailPage({ compositeId }: Props) {
     });
   }, [mediaType, queryClient]);
 
-  const watchlist = useWatchlistIdSet();
   const toggleWatchlistId = useToggleWatchlist();
-  const inWatchlist = item ? watchlist.has(item.id) : false;
+  const inWatchlist = useIsInWatchlist(item?.id ?? "");
 
   const toggleWatchlist = useCallback(() => {
     if (!item) return;
@@ -89,11 +88,7 @@ export function MediaDetailPage({ compositeId }: Props) {
             <DetailCastSection item={item} hasCast={hasCast} />
             <DetailSeasonsSection item={item} hasSeason={hasSeason} />
             <DetailYourTakeSection />
-            <DetailRelatedSection
-              item={item}
-              watchlist={watchlist}
-              onWatchlistToggle={toggleWatchlistId}
-            />
+            <DetailRelatedSection item={item} onWatchlistToggle={toggleWatchlistId} />
           </div>
           <div className="hidden lg:block">
             <DetailFactsSidebar item={item} />

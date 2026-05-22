@@ -2,14 +2,17 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   type CSSProperties,
   type ComponentProps,
+  type ReactNode,
   type Ref,
   type RefObject,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRowEdges } from "@/shared/hooks/use-row-edges";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -132,19 +135,123 @@ function ScrollRowViewport({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-function ScrollRowTrack({ className, ...props }: ComponentProps<"ul">) {
+const BASE_TRACK_CLASSES =
+  "row-track m-0 flex list-none snap-x snap-proximity gap-4 overflow-x-auto overscroll-x-contain p-0 ps-0.5";
+
+type ScrollRowTrackBaseProps = Omit<ComponentProps<"ul">, "children">;
+
+interface ScrollRowTrackChildrenProps extends ComponentProps<"ul"> {
+  virtualize?: false;
+}
+
+interface ScrollRowTrackVirtualizedProps<T> extends ScrollRowTrackBaseProps {
+  virtualize: true;
+  items: readonly T[];
+  getKey: (item: T, index: number) => string;
+  estimateItemWidth: number;
+  renderItem: (item: T, index: number) => ReactNode;
+  overscan?: number;
+  onRangeChange?: (range: { startIndex: number; endIndex: number }) => void;
+  /** Inline gap between items in px. Matches Tailwind `gap-4` on the non-virtualized track. */
+  gapPx?: number;
+}
+
+type ScrollRowTrackProps<T> = ScrollRowTrackChildrenProps | ScrollRowTrackVirtualizedProps<T>;
+
+function ScrollRowTrack<T>(props: ScrollRowTrackProps<T>) {
+  if (props.virtualize) return <VirtualizedScrollRowTrack {...props} />;
+  const { className, ...rest } = props;
+  return <NonVirtualizedScrollRowTrack className={className} {...rest} />;
+}
+
+function NonVirtualizedScrollRowTrack({ className, ...props }: ComponentProps<"ul">) {
   const { setViewport } = useScrollRow();
   return (
     <ul
       ref={setViewport}
       role="list"
       data-slot="scroll-row-track"
-      className={cn(
-        "row-track m-0 flex list-none snap-x snap-proximity gap-4 overflow-x-auto overscroll-x-contain p-0 ps-0.5",
-        className,
-      )}
+      className={cn(BASE_TRACK_CLASSES, className)}
       {...props}
     />
+  );
+}
+
+// fallow-ignore-next-line complexity
+function VirtualizedScrollRowTrack<T>({
+  items,
+  getKey,
+  estimateItemWidth,
+  renderItem,
+  overscan = 4,
+  onRangeChange,
+  gapPx = 16,
+  className,
+  // The `virtualize` discriminator is intentionally stripped before spread.
+  virtualize: _virtualize,
+  ...rest
+}: ScrollRowTrackVirtualizedProps<T>) {
+  const { setViewport } = useScrollRow();
+  const trackRef = useRef<HTMLUListElement | null>(null);
+  const setRef = useCallback(
+    (el: HTMLUListElement | null) => {
+      trackRef.current = el;
+      setViewport(el);
+    },
+    [setViewport],
+  );
+
+  const virtualizer = useVirtualizer({
+    horizontal: true,
+    count: items.length,
+    getScrollElement: () => trackRef.current,
+    estimateSize: () => estimateItemWidth + gapPx,
+    overscan,
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
+  const startIndex = virtualItems[0]?.index ?? -1;
+  const endIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
+
+  useEffect(() => {
+    if (startIndex < 0) return;
+    onRangeChange?.({ startIndex, endIndex });
+  }, [startIndex, endIndex, onRangeChange]);
+
+  return (
+    <ul
+      ref={setRef}
+      role="list"
+      data-slot="scroll-row-track"
+      data-virt="true"
+      className={cn(BASE_TRACK_CLASSES, className)}
+      style={{ minBlockSize: "calc(var(--card-h) + 4rem)", overflowY: "hidden" }}
+      {...rest}
+    >
+      <li aria-hidden="true" style={{ inlineSize: totalSize, blockSize: 1, flexShrink: 0 }} />
+      {virtualItems.map((vi) => {
+        const item = items[vi.index];
+        if (item === undefined) return null;
+        return (
+          <li
+            key={getKey(item, vi.index)}
+            ref={virtualizer.measureElement}
+            data-slot="scroll-row-item"
+            data-index={vi.index}
+            className="shrink-0 snap-start"
+            style={{
+              position: "absolute",
+              insetBlockStart: 0,
+              insetInlineStart: vi.start,
+              width: "var(--card-w)",
+            }}
+          >
+            {renderItem(item, vi.index)}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

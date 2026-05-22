@@ -53,7 +53,7 @@ interface RowErrorInlineCardProps {
  */
 export function RowErrorInlineCard({ error, onRetry, isRetrying }: RowErrorInlineCardProps) {
   return (
-    <li
+    <div
       role="alert"
       aria-live="polite"
       data-testid="row-error-inline"
@@ -71,6 +71,6 @@ export function RowErrorInlineCard({ error, onRetry, isRetrying }: RowErrorInlin
         <RotateCcwIcon className="size-3" aria-hidden="true" />
         {m.home_row_error_retry()}
       </Button>
-    </li>
+    </div>
   );
 }
