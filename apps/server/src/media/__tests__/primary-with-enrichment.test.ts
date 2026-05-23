@@ -222,6 +222,17 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
     expect(result.data.title).toBe("Matrix");
   });
 
+  it("treats a null primary as a failed provider and merges from the next candidate", async () => {
+    // `dispatchPrimary` filters `data === null` out of `successes` before
+    // calling `mergeEnrichedResults`, so a null primary degrades to "primary
+    // had no data" and the next non-null candidate becomes the base.
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock.mockResolvedValueOnce(null).mockResolvedValueOnce({ title: "Filled", ids: {} });
+
+    const result = await dispatchPrimary<{ title: string }>(req());
+    expect(result.data.title).toBe("Filled");
+  });
+
   it("returns primary data unchanged when enrichment returns an array (non-object)", async () => {
     // When the primary result is an array, mergeEnrichedResults short-circuits
     // and returns it directly — no field-level merge is attempted.
@@ -295,14 +306,20 @@ describe("prototype pollution defense (issue #451)", () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
-  it("does not pollute Object.prototype via a `constructor` key in enrichment", async () => {
+  it("strips a `constructor` own-property from enrichment rather than copying it through", async () => {
+    // Assigning an own `constructor` key on a plain object does not pollute
+    // `Object.prototype` by itself, so the `polluted === undefined` shape used
+    // by the other tests would pass vacuously here. Assert directly that the
+    // key was filtered — this test fails if `constructor` is removed from
+    // `DANGEROUS_KEYS`.
     listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
     invokeMock
       .mockResolvedValueOnce({ title: "Matrix", ids: {} })
       .mockResolvedValueOnce(maliciousPayload("constructor"));
 
-    await dispatchPrimary(req());
+    const result = await dispatchPrimary<Record<string, unknown>>(req());
 
+    expect(Object.hasOwn(result.data, "constructor")).toBe(false);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 

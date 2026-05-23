@@ -32,7 +32,13 @@ function safeCloneValue(value: unknown): unknown {
 }
 
 function safeClone(src: Record<string, unknown>): Record<string, unknown> {
-  const out = Object.create(null) as Record<string, unknown>;
+  // Plain `{}` is intentional. The real defense is the `DANGEROUS_KEYS` filter
+  // below — it prevents the only assignment that could touch `Object.prototype`
+  // (`out["__proto__"] = ...`). A null-prototype base would force every nested
+  // object to be null-proto too, breaking callers that rely on
+  // `Object.prototype` methods (`hasOwnProperty`, `toString`, ...) on
+  // sub-objects like `result.data.ids`.
+  const out: Record<string, unknown> = {};
   for (const key of Object.keys(src)) {
     if (DANGEROUS_KEYS.has(key)) continue;
     out[key] = safeCloneValue(src[key]);
@@ -86,11 +92,7 @@ function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
       fillGaps(base, sanitized);
     }
   }
-  // Spread into a plain-prototype object so downstream callers can use
-  // `Object.prototype` methods (`hasOwnProperty`, etc.) on the top-level
-  // result. The safety properties of `base` are baked in by `safeClone` and
-  // do not depend on the prototype of the returned wrapper.
-  return { ...base } as T;
+  return base as T;
 }
 
 /**
