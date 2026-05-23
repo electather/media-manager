@@ -247,6 +247,8 @@
   "settings_connections_primary_auto_was_option": "Auto (was {name})",
   "settings_connections_primary_toast_updated": "Primary provider updated",
   "settings_connections_primary_toast_error": "Could not update primary provider",
+  "settings_connections_primary_toast_not_found": "Connection not found",
+  "settings_connections_primary_toast_unsupported": "That provider doesn't support metadata",
 
   "settings_notifications_title": "Notifications",
   "settings_notifications_description": "What we tell you about, and how.",

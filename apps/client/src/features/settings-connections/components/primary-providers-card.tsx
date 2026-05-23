@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ConnectionListItem, PrimaryConnectionRow } from "@ent-mcp/shared/connections";
 import type { MediaType } from "@ent-mcp/shared/media";
@@ -12,6 +13,8 @@ import { usePrimaryConnections } from "../hooks/use-primary-connections";
 import { useSetPrimaryConnection } from "../hooks/use-set-primary-connection";
 import { useClearPrimaryConnection } from "../hooks/use-clear-primary-connection";
 import { PRIMARY_PROVIDER_ROWS } from "../lib/primary-rows";
+import { settingsConnectionsKeys } from "../lib/query-keys";
+import { SettingsConnectionsApiError } from "../lib/types";
 
 const AUTO_VALUE = "__auto__";
 
@@ -101,6 +104,7 @@ function PrimaryProviderRow({
 }: PrimaryProviderRowProps) {
   const setPrimary = useSetPrimaryConnection();
   const clearPrimary = useClearPrimaryConnection();
+  const queryClient = useQueryClient();
 
   // If the user pinned a connection that is now disabled / disconnected /
   // deleted, the dropdown shows "Auto (was X)" so the state is legible. The
@@ -110,9 +114,31 @@ function PrimaryProviderRow({
     ? (eligible.find((c) => c.id === pinned.connectionId) ?? null)
     : null;
   const stalePinned =
-    pinned && !pinnedEligible ? lookupAnyConnection(connections, pinned.connectionId) : null;
+    pinned && !pinnedEligible
+      ? (connections.find((c) => c.id === pinned.connectionId) ?? null)
+      : null;
 
   const selectValue = pinnedEligible ? pinnedEligible.id : AUTO_VALUE;
+
+  // Per spec §6: differentiate `connection.not_found` and
+  // `connection.capability_unsupported` from generic 5xx, and refetch the
+  // server state for the typed errors so the stale row gets evicted.
+  const handleMutationError = (err: unknown) => {
+    if (err instanceof SettingsConnectionsApiError) {
+      if (err.code === "connection.not_found") {
+        toast.error(m.settings_connections_primary_toast_not_found());
+        void queryClient.invalidateQueries({ queryKey: settingsConnectionsKeys.primary() });
+        void queryClient.invalidateQueries({ queryKey: settingsConnectionsKeys.connections() });
+        return;
+      }
+      if (err.code === "connection.capability_unsupported") {
+        toast.error(m.settings_connections_primary_toast_unsupported());
+        void queryClient.invalidateQueries({ queryKey: settingsConnectionsKeys.primary() });
+        return;
+      }
+    }
+    toast.error(m.settings_connections_primary_toast_error());
+  };
 
   const onValueChange = (next: string | null) => {
     if (next === null || next === AUTO_VALUE) {
@@ -120,7 +146,7 @@ function PrimaryProviderRow({
         { capabilityKey: row.capabilityKey, mediaType: row.mediaType },
         {
           onSuccess: () => toast.success(m.settings_connections_primary_toast_updated()),
-          onError: () => toast.error(m.settings_connections_primary_toast_error()),
+          onError: handleMutationError,
         },
       );
       return;
@@ -129,7 +155,7 @@ function PrimaryProviderRow({
       { capabilityKey: row.capabilityKey, mediaType: row.mediaType, connectionId: next },
       {
         onSuccess: () => toast.success(m.settings_connections_primary_toast_updated()),
-        onError: () => toast.error(m.settings_connections_primary_toast_error()),
+        onError: handleMutationError,
       },
     );
   };
@@ -176,11 +202,4 @@ function PrimaryProviderRow({
 
 function connectionLabel(connection: ConnectionListItem): string {
   return connection.displayName ?? connection.plugin.name;
-}
-
-function lookupAnyConnection(
-  connections: ReadonlyArray<ConnectionListItem>,
-  connectionId: string,
-): ConnectionListItem | null {
-  return connections.find((c) => c.id === connectionId) ?? null;
 }

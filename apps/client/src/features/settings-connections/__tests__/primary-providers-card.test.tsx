@@ -20,6 +20,7 @@ vi.mock("sonner", () => ({ toast: toastMock }));
 
 import { PrimaryProvidersCard } from "../components/primary-providers-card";
 import { settingsConnectionsKeys } from "../lib/query-keys";
+import { SettingsConnectionsApiError } from "../lib/types";
 
 function makeClient() {
   return new QueryClient({
@@ -189,6 +190,65 @@ describe("<PrimaryProvidersCard /> — interactions", () => {
     // restores the previous snapshot on error.
     const final = qc.getQueryData<PrimaryConnectionRow[]>(settingsConnectionsKeys.primary());
     expect(final).toEqual([]);
+  });
+
+  it("surfaces a differentiated toast and refetches primaries + connections on connection.not_found", async () => {
+    fetchersMock.fetchConnections.mockResolvedValue([
+      makeConnection({ id: "c1", pluginId: "tmdb", displayName: "TMDB main" }),
+      makeConnection({ id: "c2", pluginId: "tvdb", displayName: "TVDB" }),
+    ]);
+    fetchersMock.fetchPrimaryConnections.mockResolvedValue([]);
+    fetchersMock.fetchSetPrimaryConnection.mockRejectedValue(
+      new SettingsConnectionsApiError(404, { code: "connection.not_found", message: "x" }),
+    );
+
+    const qc = makeClient();
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const user = userEvent.setup();
+    render(<PrimaryProvidersCard />, { wrapper: withClient(qc) });
+
+    const triggers = await screen.findAllByRole("combobox");
+    await user.click(triggers[0]!);
+    const tvdbOption = await screen.findByRole("option", { name: "TVDB" });
+    await user.click(tvdbOption);
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith("Connection not found"));
+    // Spec §6: refetch both primaries + connections so a deleted row clears.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: settingsConnectionsKeys.primary() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: settingsConnectionsKeys.connections() });
+  });
+
+  it("surfaces a differentiated toast and refetches primaries on connection.capability_unsupported", async () => {
+    fetchersMock.fetchConnections.mockResolvedValue([
+      makeConnection({ id: "c1", pluginId: "tmdb", displayName: "TMDB main" }),
+      makeConnection({ id: "c2", pluginId: "tvdb", displayName: "TVDB" }),
+    ]);
+    fetchersMock.fetchPrimaryConnections.mockResolvedValue([]);
+    fetchersMock.fetchSetPrimaryConnection.mockRejectedValue(
+      new SettingsConnectionsApiError(422, {
+        code: "connection.capability_unsupported",
+        message: "x",
+      }),
+    );
+
+    const qc = makeClient();
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    const user = userEvent.setup();
+    render(<PrimaryProvidersCard />, { wrapper: withClient(qc) });
+
+    const triggers = await screen.findAllByRole("combobox");
+    await user.click(triggers[0]!);
+    const tvdbOption = await screen.findByRole("option", { name: "TVDB" });
+    await user.click(tvdbOption);
+
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith("That provider doesn't support metadata"),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: settingsConnectionsKeys.primary() });
+    // Connections list is unchanged on capability-unsupported — no refetch.
+    expect(invalidate).not.toHaveBeenCalledWith({
+      queryKey: settingsConnectionsKeys.connections(),
+    });
   });
 
   it("renders the 'Auto (was X)' option when the pinned connection became ineligible", async () => {
