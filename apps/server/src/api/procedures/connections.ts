@@ -18,6 +18,10 @@ import { connectionsPrimaryApp } from "./connections-primary";
 export const connectionsApp = new Hono()
   .use("*", requireSession)
   .use("*", requirePermission(PERMISSIONS.ACCOUNT_CONNECTIONS))
+  // Mount the primary sub-app before any `/:id` routes so `/primary` is
+  // matched as a static path. Otherwise Hono routes `DELETE /primary` to the
+  // dynamic `.delete("/:id")` handler below with `id = "primary"`.
+  .route("/primary", connectionsPrimaryApp)
   .get("/", async (c) => {
     const list = await connectionsService.listForUser(sessionUserId(c));
     return c.json({ connections: list });
@@ -123,5 +127,4 @@ export const connectionsApp = new Hono()
       nonce: c.req.valid("json").nonce,
     });
     return c.json(result);
-  })
-  .route("/primary", connectionsPrimaryApp);
+  });
