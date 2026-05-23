@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
-**Status:** design (rev 2)
-**Date:** 2026-05-23 (rev 1: 2026-05-23, rev 2: 2026-05-23)
+**Status:** design (rev 3)
+**Date:** 2026-05-23 (rev 1: 2026-05-23, rev 2: 2026-05-23, rev 3: 2026-05-23)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
@@ -10,6 +10,16 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 3 (2026-05-23)** — Address post-rev-2 design feedback.
+  - **Header always shows chip strip + sort dropdown** across the route family. `All` chip → curated layout (`/watchlist` index). Other chips → flat vertical grid sub-routes.
+  - **Routes split into sub-routes per bucket** sharing a parent layout (`watchlist.tsx` = `<Outlet/>` + header + peek modal). New children: `watchlist.index.tsx` (curated/All), `watchlist.ready.tsx`, `watchlist.in-progress.tsx`, `watchlist.awaiting.tsx`, `watchlist.upcoming.tsx`. `watchlist.all.tsx` deleted (§C.1).
+  - **`WATCHLIST_BUCKETS` widened to 4 values** — adds `"in-progress"` (§W). Pre-stable break; no compat shim.
+  - **Server progress signal end-to-end.** `enrich` pulls `getContinueWatchingFeed` once per call, joins by composite id, populates `WatchlistItem.progress`. `classifyBucket` returns `"in-progress"` when row has an active position. `getCounts` emits real `inProgress` (§S, §C.6).
+  - **`/counts` cost grows** — was meta+status+servers only, now adds one continue-watching aggregate per call (cached at 30s). Tracked as RISK-008 + follow-up issue.
+  - **Sort persistence resolved O2 → URL only** (§C.5).
+  - Sort dropdown hidden on `/watchlist` (curated/All); rendered on flat sub-routes only (§C.5).
+  - V.WL6 header `mode` exhaustiveness invariant **retired** — chip+sort strip now layout-owned, header takes no mode prop. Replaced by V.WL8 (route-family layout).
+  - O1 resolved: chip on curated route navigates to flat sub-route — no per-chip behavior split.
 - **rev 2 (2026-05-23)** — Address rev 1 review.
   - In-progress chip + `WatchlistCounts.inProgress` semantics pinned (§C.6).
   - `MoodSummaryCluster` wire shape + client `MOOD_REGISTRY` ownership pinned (§W, §C.4).
@@ -51,8 +61,8 @@ Watchlist page ⊥ render full list. Symptoms:
 - Mood persistence / user-curated clusters.
 - Per-user mood weight learning.
 - WebSocket / SSE invalidation.
-- New filter chips beyond ready / awaiting / upcoming.
-- Server-derived `inProgress` count (host progress-aggregator pending; placeholder = 0 retained from prior doc).
+- New filter chips beyond ready / in-progress / awaiting / upcoming.
+- Host progress-aggregator changes — relies on existing `continueWatching@v1` aggregate (see §S.5).
 
 ## Architecture
 
@@ -90,9 +100,9 @@ REST-split. One URI per resource. Replaces prior `/api/watchlist?filter=` shape.
 ```
 GET /api/watchlist/items
   Query: cursor?, limit?, sort?, bucket?, mood?
-    sort ∈ {recent, alpha, runtime, status}  default = "recent"
-    bucket ∈ {ready, awaiting, upcoming}     omit = ∀ buckets ∪ "unknown"
-    mood ∈ MOOD_IDS                          intersect w/ bucket if both
+    sort ∈ {recent, alpha, runtime, status}            default = "recent"
+    bucket ∈ {ready, in-progress, awaiting, upcoming}  omit = ∀ buckets ∪ "unknown"
+    mood ∈ MOOD_IDS                                    intersect w/ bucket if both
   → { items: WatchlistItem[], cursor: string|null, partial: boolean }
 
 GET /api/watchlist/sections/tonight
@@ -271,6 +281,34 @@ listMoodItems(ctx, moodId, { cursor, limit=60 }):
 
 Mood derivation pure → testable. No artwork during `getMoodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `getMoodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request).
 
+### S.5 Progress signal (in-progress bucket)
+
+```
+enrich(rows, ctx):
+  // existing: statuses, metadata, server probes
+  cwFeed = ctx.mediaService.getContinueWatchingFeed({ deadlineMs })   // request-memo'd
+  progressMap = Map<compositeId, { watched: number, total: number }>
+  ∀ entry ∈ cwFeed.items:
+    compositeId = `${entry.item.type}:${extractTmdbId(entry)}`
+    if entry.progressMs > 0 && entry.item.durationSec > 0:
+      progressMap.set(compositeId, { watched: entry.progressMs/1000, total: entry.item.durationSec })
+  ∀ row ∈ rows:
+    item.progress = progressMap.get(item.id)   // undef when no active position
+```
+
+`classify.previewForClassify` receives progress map alongside meta/status/servers. New bucket precedence:
+
+```
+classifyBucket(item):
+  if item.progress && item.progress.watched < item.progress.total: return "in-progress"
+  if item.availability.hasAnyServerCopy:                           return "ready"
+  if STATUS_MAP[item.status]:                                      return STATUS_MAP[item.status]
+  if facets.releaseDate || isInfoOnly:                             return "upcoming"
+  return "unknown"
+```
+
+`getCounts` walks rows once with `(meta, status, servers, progress)` → 4-bucket tally. `partial=true` when CW probe rejects; `inProgress` falls back to `0` rather than blocking the response.
+
 ### S.4 Caching + invalidation
 
 | Cache key | TTL | Invalidate on |
@@ -296,14 +334,16 @@ invalidate(userId):
 ### C.1 Routes (TanStack)
 
 ```
-/_authenticated/_app/watchlist.tsx              loader: counts only
-                                                Tonight = first <Suspense> child (above visual fold)
-/_authenticated/_app/watchlist.all.tsx          loader: counts only
-                                                search: { bucket?, sort?, mood? }
-                                                Items grid = <Suspense> child
-/_authenticated/_app/watchlist.moods.$moodId.tsx loader: counts only
-                                                Items grid = <Suspense> child
+/_authenticated/_app/watchlist.tsx               LAYOUT — loader: counts. Renders header + <Outlet/> + peek modal.
+/_authenticated/_app/watchlist.index.tsx         /watchlist             curated sections (All)
+/_authenticated/_app/watchlist.ready.tsx         /watchlist/ready       flat grid, bucket=ready
+/_authenticated/_app/watchlist.in-progress.tsx   /watchlist/in-progress flat grid, bucket=in-progress
+/_authenticated/_app/watchlist.awaiting.tsx      /watchlist/awaiting    flat grid, bucket=awaiting
+/_authenticated/_app/watchlist.upcoming.tsx      /watchlist/upcoming    flat grid, bucket=upcoming
+/_authenticated/_app/watchlist.moods.$moodId.tsx /watchlist/moods/:id   paginated mood listing
 ```
+
+Layout-route owns counts loader + header. Child routes own their own `<Suspense>` content. URL search params per leaf: flat routes accept `{ sort?, peek? }`; mood route accepts `{ peek? }`; curated index accepts `{ peek? }`. **Deleted:** `watchlist.all.tsx`. **Pre-stable break:** old `/watchlist/all` URL stops resolving (no redirect, per CON-001 prior doc).
 
 Rationale: loader failures bubble to route `errorComponent`. Keeping loader to `/counts` only means a section-fetch failure renders that section's local ErrorBoundary fallback instead of the whole route. `/counts` is the lightest call (no artwork, no enrich) → cheapest blocker.
 
@@ -395,17 +435,20 @@ Single-file sections live flat in `components/sections/` per feedback memory #17
 
 ### C.5 Header behavior
 
-`WatchlistHeader` factored to take `mode: "curated" | "flat"`. `mode` enum exhaustive (TS-enforced switch, V.WL6):
-- `curated` (`/watchlist`): pip totals + title + total runtime. ⊥ bucket chips, ⊥ sort dropdown.
-- `flat` (`/watchlist/all`): pip totals + bucket chips + sort dropdown. Chips push to `?bucket=<x>` via `navigate`. Sort same.
+`WatchlistHeader` owned by the layout route. Always renders:
+- Pip totals + title + total runtime (left).
+- Bucket chip strip (center-left): `All | Ready | In progress | Awaiting | Upcoming` — `<Link to="/watchlist[/<bucket>]">`. Active chip = current pathname match.
+- Sort dropdown (right): rendered **only when the active route is a flat bucket sub-route**. Hidden on `/watchlist` (curated) and `/watchlist/moods/:id`. Writes `?sort=` search param on its own route.
 
-Top of curated route adds "View all" link → `/watchlist/all`. Mood "See all" → `/watchlist/moods/:id`.
+Mood "See all" → `/watchlist/moods/:id`. No more curated `View all items` button — the chip strip subsumes it.
+
+**Persistence:** filter + sort state live in URL only (path segment for bucket, search param for sort). No localStorage. Resolves §O.O2.
 
 ### C.6 In-progress chip + count
 
-`WatchlistCounts.inProgress` field **stays in wire** (placeholder 0 until host progress aggregator lands — prior doc constraint). The *header chip* for "in-progress" is **removed** from `WatchlistHeader` (rendered nothing useful at 0). `in-progress` is **not** a value in `WATCHLIST_BUCKETS` (server enum) — it remains a **client-only refinement layered on `bucket=ready`** via `classifyStatus(item)` reading `item.progress`. Today's chip behavior `filter="in-progress"` → wire filter `ready` becomes navigation `/watchlist/all?bucket=ready` w/o in-progress sub-chip; client overlay on individual cards still indicates resume state.
+`WatchlistCounts.inProgress` field populated server-side from a per-row progress probe. `"in-progress"` is a real value in `WATCHLIST_BUCKETS`. Client header chip renders with `counts.inProgress` and links to `/watchlist/in-progress`.
 
-Future work: when server aggregator lands, add `inProgress` as a true bucket — separate amendment.
+Source of truth: `MediaService.getContinueWatchingFeed()` (existing `continueWatching@v1` aggregate). Joined to active watchlist rows by composite id at enrich time. See §S.5 for the data flow + cache placement.
 
 ## §W — Wire types
 
@@ -414,7 +457,7 @@ Future work: when server aggregator lands, add `inProgress` as a true bucket —
 ```
 enums.ts:
   WATCHLIST_SORTS   = ["recent", "alpha", "runtime", "status"]              as const
-  WATCHLIST_BUCKETS = ["ready", "awaiting", "upcoming"]                     as const
+  WATCHLIST_BUCKETS = ["ready", "in-progress", "awaiting", "upcoming"]      as const
   MOOD_IDS          = ["cozy", "epic", "cerebral", "dark",
                        "laugh", "throwback", "quick", "binge"]              as const
   MIN_CLUSTER_SIZE  = 3 as const
@@ -452,8 +495,9 @@ Rename `WatchlistListFilter` → `WatchlistBucket` (semantic clarity). Pre-stabl
 - **V.WL3.** Mood derivation is a pure function of `(row, metadata)`. ⊥ I/O, ⊥ random, ⊥ time. Test = property-based determinism.
 - **V.WL4.** Tonight scoring deterministic given same `(candidates, scoring weights)`. ⊥ ties broken by id only. Cache invalidation always after watchlist mutation event handled.
 - **V.WL5.** Mutation invalidator clears `watchlistKeys.root` exactly once per mutation success. Per-section keys nested under root. New section = new sub-key under root, ⊥ separate root.
-- **V.WL6.** `WatchlistHeader` `mode` prop is exhaustive. New mode = compile-time enum extension. ⊥ string drift.
+- **V.WL6.** ~~`WatchlistHeader` `mode` prop is exhaustive.~~ **Retired in rev 3.** Replaced by V.WL8.
 - **V.WL7.** "See all" links on mood clusters resolve to `/watchlist/moods/:moodId` w/ moodId ∈ `MOOD_IDS`. ⊥ peek-modal fallback. Bad moodId = 400 → ErrorBoundary fallback.
+- **V.WL8.** Watchlist layout route owns the header; child routes ⊥ render their own header. Bucket chip active state derived from `useMatch`/`useLocation` pathname — ⊥ duplicated client state. Adding a new bucket = single edit to `WATCHLIST_BUCKETS` enum + one new child route file; header chip strip auto-includes (TS exhaustive `Record<WatchlistBucket, ...>` over labels).
 
 ## §M — Migration plan
 
@@ -523,11 +567,12 @@ Cover intent per CLAUDE.md rule 9: each test pins the WHY (e.g., "all-items must
 - **R3.** Tonight scoring weights cosmetic but visible. Iteration risk. Mitigation: weights centralized in `score.ts`, snapshot test on a stable fixture so changes are intentional.
 - **R4.** Mood heuristics English-locale-bound (matches genre name strings via `derive`). Prior doc R1 still applies — same caveat carries over.
 - **R5.** Below-fold fetch count: 5 parallel queries on first paint. Bandwidth ≤ 1 enriched page each. Acceptable; HTTP/2 multiplex. Mitigation: enrich pipeline already memoizes within-request; no extra dedupe needed.
+- **R6 (rev 3).** `/counts` cost grew — was meta+status+servers only; now also fans out `continueWatching@v1.getContinueWatching` aggregate per call to populate `inProgress`. Plugin aggregate cost is O(connections), not O(active rows), so wall-clock impact bounded by slowest enabled plugin. Cached in MediaService request memo + per-user 30 s availability cache reuses status. Mitigation: keep CW feed result behind a per-request memo; if profile shows headroom problems, promote to a per-user TTL cache. Follow-up issue tracked.
 
 ## §O — Open questions
 
-- **O1.** Should bucket chips on `/watchlist/all` also influence `/watchlist` curated layout? Default: no — curated is curated. Chips only on flat route.
-- **O2.** Sort persistence: URL state only or also user pref? Default: URL state only (matches existing convention, prior doc non-goal).
+- **O1.** ~~Bucket chips per-route?~~ **Resolved rev 3.** Chips render in the shared layout header across the whole `/watchlist/*` family. Chip selection navigates between sub-routes.
+- **O2.** ~~Sort persistence?~~ **Resolved rev 3.** URL only. No localStorage.
 - **O3.** Tonight "diversity" measured by genre overlap or mood overlap? Default: genre (simpler). Promote to mood if user feedback warrants.
 
 ## §N — Notes / unresolved
