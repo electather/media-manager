@@ -34,13 +34,17 @@ import {
 export const watchlistWriteLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 0.5 });
 
 /**
- * Per-user read limiter for `GET /watchlist`. First call seeds via the
- * plugin watchlist feed; without a throttle a misbehaving client could
- * trigger repeated plugin storms on every poll interval. ~10 reads / 60 s
- * (burst=10, refill=10/min) plus the client's 60 s `staleTime` keeps the
- * happy-path load model intact.
+ * Per-user read limiter for the watchlist route family. First call seeds
+ * via the plugin watchlist feed; without a throttle a misbehaving client
+ * could trigger repeated plugin storms on every poll interval. The curated
+ * landing page itself fires ~9 reads in one paint (counts + tonight +
+ * recently + moods summary + N mood preview clusters + sections), so the
+ * burst must comfortably exceed a single page-load fan-out. Refill stays
+ * generous enough for poll-driven background work but slow enough to choke
+ * a tight retry loop. ~30 burst / 1 token per 6 s sustained, plus the
+ * client's 60 s `staleTime` on read hooks.
  */
-export const watchlistReadLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSec: 10 / 60 });
+export const watchlistReadLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 10 / 60 });
 
 const REQUEST_DEADLINE_MS = 5000;
 

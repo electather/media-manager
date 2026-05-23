@@ -3,6 +3,7 @@ import { useSearch } from "@tanstack/react-router";
 import type { WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { watchlistKeys } from "../lib/query-keys";
 import { AllItems } from "./sections/all-items";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
@@ -23,10 +24,11 @@ interface WatchlistFlatPageProps {
 export function WatchlistFlatPage({ bucket }: WatchlistFlatPageProps) {
   const search = useSearch({ strict: false }) as FlatSearch;
   const sort = search.sort ?? "recent";
+  const queryKey = watchlistKeys.items({ sort, bucket });
   return (
     <ErrorBoundary
       fallback={({ error, reset }) => (
-        <WatchlistErrorFallback error={error} resetErrorBoundary={reset} />
+        <WatchlistErrorFallback error={error} resetErrorBoundary={reset} queryKey={queryKey} />
       )}
     >
       <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>

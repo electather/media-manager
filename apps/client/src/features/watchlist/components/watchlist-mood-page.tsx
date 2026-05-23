@@ -8,6 +8,7 @@ import { Button } from "@/shared/ui/button";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "./watchlist-card";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
+import { watchlistKeys } from "../lib/query-keys";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
 const MOOD_PAGE_LIMIT = 60;
@@ -23,7 +24,11 @@ export function WatchlistMoodPage() {
   return (
     <ErrorBoundary
       fallback={({ error, reset }) => (
-        <WatchlistErrorFallback error={error} resetErrorBoundary={reset} />
+        <WatchlistErrorFallback
+          error={error}
+          resetErrorBoundary={reset}
+          queryKey={watchlistKeys.moodItems(moodId)}
+        />
       )}
     >
       <Suspense fallback={<Skeleton className="h-150 w-full rounded-2xl" />}>

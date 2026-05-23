@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { watchlistKeys } from "../lib/query-keys";
 import { Awaiting } from "./sections/awaiting";
 import { ComingUp } from "./sections/coming-up";
 import { MoodMosaic } from "./sections/mood-mosaic";
@@ -17,22 +18,22 @@ import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 export function WatchlistCuratedPage() {
   return (
     <>
-      <SectionFrame heightPx={420}>
+      <SectionFrame heightPx={420} queryKey={watchlistKeys.tonight()}>
         <TonightPick />
       </SectionFrame>
-      <SectionFrame heightPx={360}>
+      <SectionFrame heightPx={360} queryKey={watchlistKeys.items({ bucket: "ready" })}>
         <ReadyRow />
       </SectionFrame>
-      <SectionFrame heightPx={560}>
+      <SectionFrame heightPx={560} queryKey={watchlistKeys.moods()}>
         <MoodMosaic />
       </SectionFrame>
-      <SectionFrame heightPx={300}>
+      <SectionFrame heightPx={300} queryKey={watchlistKeys.items({ bucket: "upcoming" })}>
         <ComingUp />
       </SectionFrame>
-      <SectionFrame heightPx={400}>
+      <SectionFrame heightPx={400} queryKey={watchlistKeys.items({ bucket: "awaiting" })}>
         <Awaiting />
       </SectionFrame>
-      <SectionFrame heightPx={360}>
+      <SectionFrame heightPx={360} queryKey={watchlistKeys.recently()}>
         <RecentlyAdded />
       </SectionFrame>
     </>
@@ -42,13 +43,15 @@ export function WatchlistCuratedPage() {
 interface SectionFrameProps {
   children: React.ReactNode;
   heightPx: number;
+  /** Query key the section's retry button should reset. */
+  queryKey: readonly unknown[];
 }
 
-function SectionFrame({ children, heightPx }: SectionFrameProps) {
+function SectionFrame({ children, heightPx, queryKey }: SectionFrameProps) {
   return (
     <ErrorBoundary
       fallback={({ error, reset }) => (
-        <WatchlistErrorFallback error={error} resetErrorBoundary={reset} />
+        <WatchlistErrorFallback error={error} resetErrorBoundary={reset} queryKey={queryKey} />
       )}
     >
       <Suspense
