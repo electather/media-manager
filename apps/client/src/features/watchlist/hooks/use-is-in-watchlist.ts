@@ -16,19 +16,23 @@ type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
  */
 export function useIsInWatchlist(id: string): boolean {
   const qc = useQueryClient();
-  // The cache is the external store; any cache mutation re-runs the snapshot.
+  // Snapshot derives from `dataUpdatedAt` across every matching sub-cache so
+  // mutation events (setQueryData, refetch, invalidate-refresh) advance the
+  // value even when query-cache size is unchanged.
   const snapshotVersion = useSyncExternalStore(
     (notify) => {
       const unsub = qc.getQueryCache().subscribe(notify);
       return () => unsub();
     },
-    () => qc.getQueryCache().getAll().length,
+    () => {
+      let v = 0;
+      const queries = qc.getQueryCache().findAll({ queryKey: watchlistKeys.root });
+      for (const q of queries) v += q.state.dataUpdatedAt;
+      return v;
+    },
     () => 0,
   );
   if (!id) return false;
-  // Re-evaluated on every cache event. `snapshotVersion` participates in the
-  // dep graph so React invalidates the boolean even though we read from the
-  // cache imperatively below.
   void snapshotVersion;
   const queries = qc.getQueryCache().findAll({ queryKey: watchlistKeys.root });
   for (const q of queries) {
