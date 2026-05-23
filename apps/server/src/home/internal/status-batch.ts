@@ -28,6 +28,9 @@ export class StatusBatchMemo {
     opts: { deadlineMs?: number } = {},
   ): Promise<Record<string, Status>> {
     if (ids.length === 0) return {};
+    // `opts.deadlineMs` is intentionally not applied to in-flight dedup hits:
+    // the first caller's deadline governs the shared promise, matching the
+    // deadline-agnostic memo identity used in `MediaService.getMatchingServers`.
     const toFetch = ids.filter((id) => !this.cache.has(id) && !this.inflight.has(id));
     if (toFetch.length > 0) this.scheduleFetch(toFetch, opts);
     await this.awaitPending(ids);

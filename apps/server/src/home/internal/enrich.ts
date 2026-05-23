@@ -27,8 +27,7 @@ export async function enrichItems(
 ): Promise<CompactMediaItem[]> {
   if (items.length === 0) return [];
   const compositeIds = items.map((i) => `${i.mediaType}:${i.tmdbId}`);
-  const statusOpts = ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {};
-  const statuses = await ctx.statusBatch.get(compositeIds, statusOpts);
+  const statuses = await ctx.statusBatch.get(compositeIds, { deadlineMs: ctx.deadlineMs });
   const metadataKeys = items.map((i) => ({ tmdbId: i.tmdbId, type: i.mediaType }));
   const metadata = await ctx.catalog.getMetadataBatch(metadataKeys);
   const artwork = await hydrateArtwork(items, metadata, ctx);
@@ -74,8 +73,7 @@ async function hydrateArtwork(
   if (requests.length === 0) return {};
   try {
     const service = new ArtworkService(ctx.userId, ctx.catalog);
-    const artworkOpts = ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {};
-    const res = await service.getArtwork(requests, undefined, artworkOpts);
+    const res = await service.getArtwork(requests, undefined, { deadlineMs: ctx.deadlineMs });
     return res.results;
   } catch (err) {
     ctx.logger.warn("[home:enrich] artwork hydration failed", err);
@@ -121,9 +119,8 @@ async function deriveAvailability(
   // surface here as `status: "unknown"` while still being playable. Drive
   // `hasAnyServerCopy` off the matching-servers probe so directly-added
   // titles render the right CTA.
-  const serversOpts = ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {};
   const servers = await ctx.mediaService
-    .getMatchingServers(item.tmdbId, item.mediaType, serversOpts)
+    .getMatchingServers(item.tmdbId, item.mediaType, { deadlineMs: ctx.deadlineMs })
     .catch(() => []);
   const hasAnyServerCopy = servers.length > 0;
   const requestEligible =

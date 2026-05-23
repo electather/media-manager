@@ -56,13 +56,12 @@ describe("host.home.layout_warm deadline propagation (rev 6 regression)", () => 
     expect(opts.deadlineMs).toBe(start + WARM_COMPOSE_BUDGET_MS);
   });
 
-  it("writes a partial layout when one provider sleeps past the per-row cap (90s)", async () => {
-    // Reproduces diag runId d43fccf3-461e-4fc3-8918-5c5d4f13ad1a. The fake
-    // composeLayout below mimics the realistic case: most providers respond
-    // quickly, but composeLayoutLive's Promise.all observes one slow pool that
-    // would otherwise stall the row past 60s. With the rev 6 deadline plumbing,
-    // the slow leg aborts via clipped timeout and the composer returns a
-    // partial blob with that source's slides missing.
+  it("forwards ~45s budget to composeLayout and writes back the returned partial blob", async () => {
+    // `composeLayout` is stubbed — this test does not exercise the live
+    // leaf-level abort path (that's covered by `invoke.deadline-clip.test.ts`
+    // and `enrich.deadline.test.ts`). The assertion here is that the warm
+    // handler hands the composer a budget in the expected window and writes
+    // back whatever blob the composer returns (partial or full).
     const partialBlob = {
       hero: { slides: [] }, // hero collapsed to empty when slow pool dropped
       rows: [

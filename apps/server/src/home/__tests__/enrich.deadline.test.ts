@@ -106,7 +106,7 @@ describe("enrichItems deadline propagation", () => {
     expect(availability.hasAnyServerCopy).toBe(false);
   });
 
-  it("omits deadlineMs from leaf calls when ctx.deadlineMs is undefined", async () => {
+  it("passes deadlineMs: undefined to leaf calls when ctx.deadlineMs is undefined", async () => {
     const statusGet = vi.fn().mockResolvedValue({});
     const getMatchingServers = vi.fn().mockResolvedValue([]);
     const ctx = makeRowCtx({
@@ -127,7 +127,9 @@ describe("enrichItems deadline propagation", () => {
     await enrichItems([{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "T" }], ctx, {
       rowId: "hero",
     });
-    expect(statusGet).toHaveBeenCalledWith(["movie:1"], {});
-    expect(getMatchingServers).toHaveBeenCalledWith("1", "movie", {});
+    // Leaves default `opts = {}`; `{ deadlineMs: undefined }` is semantically
+    // identical for the receiver. Assert the key carries through faithfully.
+    expect(statusGet).toHaveBeenCalledWith(["movie:1"], { deadlineMs: undefined });
+    expect(getMatchingServers).toHaveBeenCalledWith("1", "movie", { deadlineMs: undefined });
   });
 });

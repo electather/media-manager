@@ -257,7 +257,7 @@ export async function composeDetails(
   tmdbId: string,
   mediaType: MediaType,
 ): Promise<MediaDetailsResponse> {
-  const deadlineOpts = ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {};
+  const deadlineOpts = { deadlineMs: ctx.deadlineMs };
   let summary = await ctx.catalog.getMetadata(tmdbId, mediaType);
   if (!summary) {
     const raw = (await ctx.mediaService.getMetadata(
