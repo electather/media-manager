@@ -31,8 +31,7 @@ vi.mock("../repo", () => ({
   write: (...args: unknown[]) => writeLayoutCacheSpy(...args),
 }));
 
-const { runWarmComposeForUser, __WARM_COMPOSE_BUDGET_MS_FOR_TESTS } =
-  await import("../jobs/layout-warm");
+const { runWarmComposeForUser, WARM_COMPOSE_BUDGET_MS } = await import("../jobs/layout-warm");
 
 describe("host.home.layout_warm deadline propagation (rev 6 regression)", () => {
   beforeEach(() => {
@@ -54,7 +53,7 @@ describe("host.home.layout_warm deadline propagation (rev 6 regression)", () => 
 
     expect(buildContextSpy).toHaveBeenCalledTimes(1);
     const opts = buildContextSpy.mock.calls[0]![2] as { deadlineMs?: number };
-    expect(opts.deadlineMs).toBe(start + __WARM_COMPOSE_BUDGET_MS_FOR_TESTS);
+    expect(opts.deadlineMs).toBe(start + WARM_COMPOSE_BUDGET_MS);
   });
 
   it("writes a partial layout when one provider sleeps past the per-row cap (90s)", async () => {

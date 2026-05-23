@@ -325,7 +325,7 @@ home/types.ts:
 
 - Plugin invoke (`invokeWithTimeout` — additionally clips its own `timeoutMs` to `min(capability.defaultTimeoutMs, remaining)`).
 - `StatusBatchMemo.get(ids, { deadlineMs })` → forwards to `mediaRequest@v1.getStatusBatch` dispatch.
-- `ArtworkService.getArtwork(requests, { deadlineMs })` → forwards into the artwork `dispatchAggregatePerKind` request (the strategy already plumbs `req.deadlineMs` to `invokeOne`; only `ArtworkService.getArtwork`'s own signature gap remains).
+- `ArtworkService.getArtwork(requests, languages?, { deadlineMs? })` → forwards into the artwork `dispatchAggregatePerKind` request (the strategy already plumbs `req.deadlineMs` to `invokeOne`; only `ArtworkService.getArtwork`'s own signature gap remains).
 - `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs })` (new options arg; currently missing).
 - `MediaService.getShowSeasons(tmdbId, { deadlineMs })` (called from `composeDetails`; currently missing).
 - `MediaService.getMetadata(tmdbId, mediaType, { deadlineMs })` cold-fill path in `composeDetails`.
@@ -915,7 +915,7 @@ Per-row failure = `partial: true`, items array possibly empty, ⊥ throw.
 Per-call hard failure = HttpError 500/504/502 routed through existing `errorHandler`.
 Layout cache write failure = log + ignore (cold path next request).
 
-**Deadline exceeded mid-compose (rev 6).** `invokeWithTimeout` clips per-plugin `timeoutMs` to `min(capability.defaultTimeoutMs, deadlineMs − now)`. When remaining ≤ ~50 ms, the call short-circuits to a synthetic `plugin.timeout` outcome (shape: `{ pluginId, connectionId, shared, error: { code: "plugin.timeout", devMessage } }` — already accepted by `dispatchSingle` and `aggregate-per-kind.collectSuccessful`) instead of arming a near-zero timer. In-flight legs reject `AbortError`.
+**Deadline exceeded mid-compose (rev 6).** `invokeWithTimeout` clips per-plugin `timeoutMs` to `min(capability.defaultTimeoutMs, deadlineMs − now)`. When remaining < ~50 ms, the call short-circuits by throwing an `AbortError` (`name === "AbortError"`, message `deadline_exceeded (remaining <ms>ms)`) instead of arming a near-zero timer; the dispatcher's existing `AbortError` absorption path (`invokeOne` → `normalizeError` → `plugin.timeout`) normalises it to the standard `{ pluginId, connectionId, shared, error: { code: "plugin.timeout", devMessage } }` outcome shape accepted by `dispatchSingle` and `aggregate-per-kind.collectSuccessful`. In-flight legs reject the same `AbortError`.
 
 Soft-failure absorption by granularity:
 - **Per-row preview** — `previewRow` catch keeps the row stub (`include: true`, `partial: true` on its content fetch).

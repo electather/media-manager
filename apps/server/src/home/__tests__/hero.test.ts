@@ -361,4 +361,37 @@ describe("pickHero mixer", () => {
     const hero = await pickHero(ctx);
     expect(hero!.slides.every((s) => s.resumeUrl === null)).toBe(true);
   });
+
+  // Regression for plan TEST-004 (per-pool hero soft-failure). A single slow
+  // / failing source must collapse to `[]` without nulling the entire hero —
+  // mixer + backfill still draw from the remaining pools. Guards against a
+  // refactor back to a blanket `.catch(() => null)` on `resolveHero`.
+  it("collapses one rejected pool to [] and still ships hero from the rest", async () => {
+    const ctx = fullCtx({
+      cwIds: ["c1"],
+      recIds: ["r1", "r2", "r3"],
+      trendingIds: ["t1", "t2"],
+      newIds: ["n1"],
+    });
+    // Make the trending discover read reject — only that pool should collapse.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    vi.mocked(ctx.catalog.getDiscoverFeed).mockImplementation(async (kind: string) => {
+      if (kind === "trending") throw new Error("trending pool boom");
+      if (kind === "newReleases") return [{ tmdbId: "n1", type: "movie" as const }];
+      return null;
+    });
+
+    const hero = await pickHero(ctx);
+
+    expect(hero).not.toBeNull();
+    const sources = hero!.slides.map((s) => s.source);
+    expect(sources).not.toContain("trendingNow");
+    expect(sources).toContain("continueWatching");
+    expect(sources).toContain("recommendedForYou");
+    expect(sources).toContain("newReleases");
+    expect(ctx.logger.warn).toHaveBeenCalledWith(
+      "[home:hero] pool trendingNow threw",
+      expect.any(Error),
+    );
+  });
 });

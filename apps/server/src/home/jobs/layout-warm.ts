@@ -17,12 +17,9 @@ const PER_ROW_TIMEOUT_SEC = 60;
 // Compose budget under the 60s per-row cap. 15s of slack is reserved for the
 // synchronous SQLite `writeLayoutCache` upsert. Tune both numbers together if
 // SQLite tail latency erodes the margin (see spec rev 6 R14).
-const WARM_COMPOSE_BUDGET_MS = 45_000;
+export const WARM_COMPOSE_BUDGET_MS = 45_000;
 
 export const HOME_LAYOUT_WARM_JOB_ID = "host.home.layout_warm";
-// Exported for the rev 6 regression test in `__tests__/layout-warm.deadline.test.ts`.
-// Not intended for general use — production callers go through the registered job.
-export const __WARM_COMPOSE_BUDGET_MS_FOR_TESTS = WARM_COMPOSE_BUDGET_MS;
 
 interface ActiveUserRow {
   userId: string;

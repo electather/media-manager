@@ -88,7 +88,7 @@ export async function invokeWithTimeout<T>(
   conn: ResolvedConnection,
 ): Promise<T> {
   const remaining = isNil(req.deadlineMs) ? Number.POSITIVE_INFINITY : req.deadlineMs - Date.now();
-  const effectiveMs = Math.max(0, Math.min(req.timeoutMs, remaining));
+  const effectiveMs = Math.min(req.timeoutMs, remaining);
   if (effectiveMs < DEADLINE_SHORT_CIRCUIT_MS) {
     const err = new Error(`deadline_exceeded (remaining ${remaining}ms)`);
     err.name = "AbortError";
