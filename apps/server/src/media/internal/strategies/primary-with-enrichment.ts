@@ -82,6 +82,10 @@ async function resolveOrderedCandidates(
 // fallow-ignore-next-line complexity
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
   const [first, ...rest] = successes;
+  // `dispatchPrimary` filters `data === null` out of `successes` before
+  // calling here, so the null branch is an unreachable defensive guard —
+  // not a supported code path. Kept so a future caller bypassing the filter
+  // degrades gracefully instead of crashing on a null `base`.
   if (first!.data === null || typeof first!.data !== "object" || Array.isArray(first!.data)) {
     return first!.data as T;
   }
