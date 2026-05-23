@@ -20,7 +20,12 @@ export function Awaiting() {
   const navigate = useNavigate();
   const onPeek = useCallback(
     (id: string) => {
-      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+      void navigate({
+        to: ".",
+        search: (prev) => ({ ...prev, peek: id }),
+        replace: false,
+        resetScroll: false,
+      });
     },
     [navigate],
   );

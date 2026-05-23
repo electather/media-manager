@@ -33,12 +33,11 @@ export interface WatchlistResponse {
 /**
  * Cheap aggregate counts for the header pips. Powered by the `/counts`
  * endpoint so the client doesn't have to hold the full active set in memory
- * just to render the header chips. `inProgress` is reserved for rows whose
- * underlying media has an active watch position; it remains a wire-shape
- * placeholder (`0`) until the host progress aggregator lands. See
- * `docs/2026-05-23-watchlist-sections-design.md` (RISK-007). `unavailable`
- * is the rev 6 catch-all bucket for rows with no server copy and no active
- * request status; `total` is the sum of all five visible buckets.
+ * just to render the header chips. `inProgress` is the tally of rows whose
+ * underlying media has an active watch position, sourced from the host
+ * progress aggregator. `unavailable` is the rev 6 catch-all bucket for rows
+ * with no server copy and no active request status; `total` is the sum of
+ * all five visible buckets.
  */
 export interface WatchlistCounts {
   ready: number;
