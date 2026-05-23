@@ -118,7 +118,11 @@ export class MediaService {
     return result.data ?? [];
   }
 
-  async getDetails(idOrCombined: string, type?: "movie" | "tv") {
+  async getDetails(
+    idOrCombined: string,
+    type?: "movie" | "tv",
+    opts: { deadlineMs?: number } = {},
+  ) {
     const [parsedType, parsedId] = parseCombinedId(idOrCombined, type);
     const result = await dispatchPrimary<unknown>({
       userId: this.userId,
@@ -127,6 +131,7 @@ export class MediaService {
       method: "getDetails",
       input: { id: parsedId, type: parsedType },
       mediaType: parsedType,
+      deadlineMs: opts.deadlineMs,
     });
     return result.data ?? null;
   }
@@ -137,7 +142,11 @@ export class MediaService {
    * primary plugin is available or the dispatch yields no data — callers
    * fall back to other paths in that case rather than throwing.
    */
-  async getMetadata(tmdbId: string, type: "movie" | "tv"): Promise<RawCanonicalSource | null> {
+  async getMetadata(
+    tmdbId: string,
+    type: "movie" | "tv",
+    opts: { deadlineMs?: number } = {},
+  ): Promise<RawCanonicalSource | null> {
     const result = await dispatchPrimary<RawCanonicalSource>({
       userId: this.userId,
       capability: "metadata",
@@ -145,6 +154,7 @@ export class MediaService {
       method: "getDetails",
       input: { id: tmdbId, type },
       mediaType: type,
+      deadlineMs: opts.deadlineMs,
     });
     return result.data ?? null;
   }
@@ -156,7 +166,10 @@ export class MediaService {
    * field rather than failing the detail call so movies and shows w/o season
    * payloads still render the rest of the response.
    */
-  async getShowSeasons(tmdbId: string): Promise<SeasonInfo[] | null> {
+  async getShowSeasons(
+    tmdbId: string,
+    opts: { deadlineMs?: number } = {},
+  ): Promise<SeasonInfo[] | null> {
     try {
       const result = await dispatchPrimary<{ seasons?: SeasonInfo[] }>({
         userId: this.userId,
@@ -165,6 +178,7 @@ export class MediaService {
         method: "getShowSeasons",
         input: { id: tmdbId },
         mediaType: "tv",
+        deadlineMs: opts.deadlineMs,
       });
       const seasons = result.data?.seasons;
       return Array.isArray(seasons) ? seasons : null;
@@ -470,7 +484,10 @@ export class MediaService {
    * `status: "unknown"` per item.
    */
   // fallow-ignore-next-line complexity
-  async getStatusBatch(ids: ReadonlyArray<string>): Promise<Record<string, string>> {
+  async getStatusBatch(
+    ids: ReadonlyArray<string>,
+    opts: { deadlineMs?: number } = {},
+  ): Promise<Record<string, string>> {
     if (ids.length === 0) return {};
     try {
       const result = await dispatchSingle<{ statuses: Record<string, string> }>({
@@ -479,6 +496,7 @@ export class MediaService {
         version: "v1",
         method: "getStatusBatch",
         input: { ids: [...ids] },
+        deadlineMs: opts.deadlineMs,
       });
       return result?.statuses ?? {};
     } catch (err) {
@@ -716,17 +734,23 @@ export class MediaService {
    * and a missing chip is preferable to surfacing a transient 5xx in the UI.
    */
   // fallow-ignore-next-line complexity
-  async getMatchingServers(tmdbId: string, type: "movie" | "tv"): Promise<MatchingServer[]> {
+  async getMatchingServers(
+    tmdbId: string,
+    type: "movie" | "tv",
+    opts: { deadlineMs?: number } = {},
+  ): Promise<MatchingServer[]> {
+    // Cache key is intentionally deadline-agnostic — first caller's deadline
+    // wins for the in-flight probe; later callers get the same promise. Per
+    // spec rev 6 invariant: deadline never enters the memo identity.
     const key = `${tmdbId}|${type}`;
     const memo = this.matchingServersCache.get(key);
     if (memo) return memo;
-    // Drop the cache entry on rejection — `requireCapability` may throw if
-    // `libraryAvailability@v1` isn't registered, and a sticky rejected promise
-    // would re-throw on every subsequent call for the lifetime of the request.
-    const promise = this.computeMatchingServers(tmdbId, type).catch((err: unknown) => {
-      this.matchingServersCache.delete(key);
-      throw err;
-    });
+    const promise = this.computeMatchingServers(tmdbId, type, opts.deadlineMs).catch(
+      (err: unknown) => {
+        this.matchingServersCache.delete(key);
+        throw err;
+      },
+    );
     this.matchingServersCache.set(key, promise);
     return promise;
   }
@@ -735,13 +759,16 @@ export class MediaService {
   private async computeMatchingServers(
     tmdbId: string,
     type: "movie" | "tv",
+    deadlineMs: number | undefined,
   ): Promise<MatchingServer[]> {
     const providers = capabilityRegistry.listProviders("libraryAvailability", "v1", "user");
     if (providers.length === 0) return [];
     const capability = requireCapability("libraryAvailability", "v1");
     const queryType = type === "tv" ? "show" : "movie";
     const matches = await Promise.all(
-      providers.map(async (pluginId) => this.probeServer(pluginId, tmdbId, queryType, capability)),
+      providers.map(async (pluginId) =>
+        this.probeServer(pluginId, tmdbId, queryType, capability, deadlineMs),
+      ),
     );
     const found = matches.filter((m): m is MatchingServer => m !== null);
     return orderBy(
@@ -765,12 +792,13 @@ export class MediaService {
     tmdbId: string,
     queryType: "movie" | "show",
     capability: ReturnType<typeof requireCapability>,
+    deadlineMs: number | undefined,
   ): Promise<MatchingServer | null> {
-    const index = await this.getLibraryIndex(pluginId, queryType, capability);
+    const index = await this.getLibraryIndex(pluginId, queryType, capability, deadlineMs);
     if (index) {
       return index.tmdbIds.has(tmdbId) ? { id: pluginId, label: index.label } : null;
     }
-    return this.probeServerLegacy(pluginId, tmdbId, queryType, capability);
+    return this.probeServerLegacy(pluginId, tmdbId, queryType, capability, deadlineMs);
   }
 
   private async probeServerLegacy(
@@ -778,6 +806,7 @@ export class MediaService {
     tmdbId: string,
     queryType: "movie" | "show",
     capability: ReturnType<typeof requireCapability>,
+    deadlineMs: number | undefined,
   ): Promise<MatchingServer | null> {
     const conns = await resolveConnections(this.userId, pluginId);
     if (conns.length === 0) return null;
@@ -793,6 +822,7 @@ export class MediaService {
           method: "checkAvailability",
           input: { id: tmdbId, idType: "tmdb", type: queryType },
           timeoutMs: capability.defaultTimeoutMs,
+          deadlineMs,
         },
         conn,
       );
@@ -809,22 +839,27 @@ export class MediaService {
    * callers fall back to per-id `checkAvailability`. The promise is cached
    * even on rejection-style nulls so a second item lookup in the same request
    * does not re-probe a plugin that just failed.
+   *
+   * Cache identity is intentionally deadline-agnostic (mirrors
+   * `getMatchingServers`): the first caller's `deadlineMs` governs the shared
+   * probe; a later caller with a tighter deadline silently inherits the
+   * looser one. Safe today because every `MediaService` instance is scoped to
+   * one HTTP request or one warm-job row. If that invariant ever changes —
+   * a `MediaService` shared across requests with differing deadlines — the
+   * tighter deadline will be ignored. Add `deadlineMs` to `key` only if that
+   * happens.
    */
   // fallow-ignore-next-line complexity
   private async getLibraryIndex(
     pluginId: string,
     queryType: "movie" | "show",
     capability: ReturnType<typeof requireCapability>,
+    deadlineMs: number | undefined,
   ): Promise<LibraryIndex | null> {
     const key = `${pluginId}|${queryType}`;
     const memo = this.libraryIndexCache.get(key);
     if (memo) return memo;
-    // Drop the cache entry on rejection so a transient
-    // `resolveConnections` race does not stick a null index for the lifetime
-    // of the request. The promise itself still resolves to `null` (callers
-    // fall through to the per-id legacy probe) — eviction only affects what
-    // the *next* lookup sees.
-    const promise = this.computeLibraryIndex(pluginId, queryType, capability).catch(
+    const promise = this.computeLibraryIndex(pluginId, queryType, capability, deadlineMs).catch(
       (err: unknown) => {
         this.libraryIndexCache.delete(key);
         throw err;
@@ -839,6 +874,7 @@ export class MediaService {
     pluginId: string,
     queryType: "movie" | "show",
     capability: ReturnType<typeof requireCapability>,
+    deadlineMs: number | undefined,
   ): Promise<LibraryIndex | null> {
     const conns = await resolveConnections(this.userId, pluginId);
     if (conns.length === 0) return null;
@@ -854,6 +890,7 @@ export class MediaService {
           method: "listAvailable",
           input: { type: queryType },
           timeoutMs: capability.defaultTimeoutMs,
+          deadlineMs,
         },
         conn,
       );

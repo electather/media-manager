@@ -375,4 +375,52 @@ describe("composeDetails", () => {
     });
     await expect(orchestrator.composeDetails(ctx, "1", "movie")).rejects.toBeInstanceOf(HttpError);
   });
+
+  // Regression for plan TEST-006. The cold-fill `mediaService.getMetadata`
+  // call and the parallel `getDetails` / `getShowSeasons` block must all
+  // forward `ctx.deadlineMs` through `deadlineOpts`, otherwise a slow
+  // metadata plugin can blow the compose budget. Guards against a refactor
+  // that drops the options arg from any of these three calls.
+  it("forwards ctx.deadlineMs through cold-fill getMetadata + getDetails + getShowSeasons", async () => {
+    const deadlineMs = Date.now() + 30_000;
+    const getMetadataCatalog = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({
+      tmdbId: "1",
+      mediaType: "tv",
+      title: "Cold",
+      year: 2024,
+      runtimeMinutes: null,
+      posterUrl: null,
+      backdropUrl: null,
+      clearLogoUrl: null,
+      overview: null,
+      originalLanguage: null,
+      genres: null,
+      features: null,
+      lastRefreshedAt: 0,
+      lastAccessedAt: 0,
+      createdAt: 0,
+    });
+    const getMetadataPlugin = vi.fn().mockResolvedValue({ title: "Cold", year: 2024 });
+    const getDetails = vi.fn().mockResolvedValue({ cast: [] });
+    const getShowSeasons = vi.fn().mockResolvedValue(null);
+    const ctx = makeRowCtx({
+      deadlineMs,
+      catalog: {
+        getMetadata: getMetadataCatalog,
+        writeMetadata: vi.fn().mockResolvedValue(undefined),
+      } as never,
+      mediaService: {
+        getMetadata: getMetadataPlugin,
+        getDetails,
+        getShowSeasons,
+      } as never,
+      statusBatch: { get: vi.fn().mockResolvedValue({ "tv:1": "unknown" }) } as never,
+    });
+
+    await orchestrator.composeDetails(ctx, "1", "tv");
+
+    expect(getMetadataPlugin).toHaveBeenCalledWith("1", "tv", { deadlineMs });
+    expect(getDetails).toHaveBeenCalledWith("1", "tv", { deadlineMs });
+    expect(getShowSeasons).toHaveBeenCalledWith("1", { deadlineMs });
+  });
 });

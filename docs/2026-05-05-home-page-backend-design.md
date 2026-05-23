@@ -1,13 +1,14 @@
 # Home Page Backend
 
-**Status:** Draft (rev 5)
-**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07, rev 5: 2026-05-22)
+**Status:** Draft (rev 6)
+**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07, rev 5: 2026-05-22, rev 6: 2026-05-23)
 **Author:** Omid Astaraki
 **Deps:** `2026-04-20-job-service-design.md`, `2026-04-20-preference-engine-design.md`, `2026-04-27-catalog-service-design.md`, `2026-05-04-home-page-implementation-design.md`
 **Amends §V:** TBD on backprop
 
 ## Revision history
 
+- **rev 6 (2026-05-23)** — Warm-job per-row timeout (diag `runId d43fccf3-461e-4fc3-8918-5c5d4f13ad1a`, `host.home.layout_warm`). Root cause: `ctx.deadlineMs` set at compose entry but dropped by `enrichItems` leaves (`StatusBatchMemo.get`, `ArtworkService.getArtwork`, `MediaService.getMatchingServers`) and ignored as a clip on per-plugin `defaultTimeoutMs`. Worst plugin call ≈ 32 s (15 s `invokeWithTimeout` + 2 s rate-limit backoff + 15 s retry; transient branch = 31 s). Sequential compose phases compound past the 60 s per-row cap. Fix: thread `deadlineMs` through every leaf called from `composeLayout` AND `composeDetails` (incl. `composeDetails` cold-fill `getMetadata` and `getShowSeasons`); clip `invokeWithTimeout` to `min(capability.defaultTimeoutMs, remaining)`; reshape `buildContext` to accept `{ deadlineMs? }` opts; warm job sets `deadlineMs = now + 45_000` (15 s SQLite slack under 60 s row cap). Bust mode = fail-fast row via existing soft-failure path; partial layout written back. No wire-shape change; no `schema_version` bump.
 - **rev 5 (2026-05-22)** — Cross-source dedup added to the hero mixer (issue #474). The rev 4 mixer keyed slide uniqueness by `${source}:${tmdbId}`, so the same title present in two source pools (e.g. trending + new releases) shipped as two hero slides. New `dedupePools` step runs between pool build and `drawByQuota`, drops cross-source duplicates keyed by `${mediaType}:${tmdbId}`, and lets the higher-priority source (`[CW, rec, trend, new]`) keep the slide. Quota / backfill / order logic unchanged; backfill simply sees shorter pools when duplicates collapse. No wire-shape change; no `schema_version` bump.
 - **rev 4 (2026-05-07)** — Hero stops being a single-source cascade. Driven by §Amendment 3. `LayoutHero` reshapes to `{ slides: HeroSlide[] }`; each slide carries its own `source` + `reason` so the UI can label slides individually. Composer draws a fixed quota across the four sources (1 CW + 2 rec + 2 trend + 1 new = 6 slides) and cascades backfill by priority when a source is short. Slide order: cascade lead, then round-robin interleave of the rest. `home_layout_cache.schema_version` bumps 1 → 2. Pre-stable break — no compat shim.
 - **rev 3 (2026-05-06)** — Doc-code sync. §Hero composition shows the `enrichItems` step shared with row enrichment. §Orchestrator `composeRow` adds eligibility gate (404 `home.row_unavailable` on direct ineligible access) and the soft-failure `try/catch` that converts `AllPluginsFailedError`/`PluginCallError`/`AbortError` to `partial:true`. Error codes in §Orchestrator `composeRow`/`composeDetails` align with the unified envelope (`home.row_unavailable`, `home.bad_input`, `http.not_found`, `home.internal`). §Architecture composeRow/composeDetails diagrams swap `enrich.attach*` for `enrichItems`.
@@ -319,6 +320,18 @@ home/types.ts:
     logger         Logger
   }
 ```
+
+**Invariant (rev 6).** Every leaf called from `composeLayout` OR `composeDetails` MUST accept and honor `deadlineMs`. Explicit leaf set:
+
+- Plugin invoke (`invokeWithTimeout` — additionally clips its own `timeoutMs` to `min(capability.defaultTimeoutMs, remaining)`).
+- `StatusBatchMemo.get(ids, { deadlineMs })` → forwards to `mediaRequest@v1.getStatusBatch` dispatch.
+- `ArtworkService.getArtwork(requests, languages?, { deadlineMs? })` → forwards into the artwork `dispatchAggregatePerKind` request (the strategy already plumbs `req.deadlineMs` to `invokeOne`; only `ArtworkService.getArtwork`'s own signature gap remains).
+- `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs })` (new options arg; currently missing).
+- `MediaService.getShowSeasons(tmdbId, { deadlineMs })` (called from `composeDetails`; currently missing).
+- `MediaService.getMetadata(tmdbId, mediaType, { deadlineMs })` cold-fill path in `composeDetails`.
+- Every `RowProvider.fetchPage(ctx, cursor)` (already in place via `ctx.deadlineMs`).
+
+`buildContext` signature reshapes to `buildContext(userId, logger?, opts?: { deadlineMs? })`. HTTP request path defaults to `now + 8_000`; warm job sets `now + 45_000`. Leaves added under `home/internal/` or wired from `enrich.ts` without honoring `deadlineMs` fail review.
 
 ```
 home/rows/index.ts:
@@ -868,14 +881,15 @@ TopContributor = {
 ## New job
 
 ```
-host.home.layout_warm     (scheduled_per_row, every 60 min; runTimeoutSec = 30 * 60)
+host.home.layout_warm     (scheduled_per_row, every 60 min; runTimeoutSec = 30 * 60; perRowTimeoutSec = 60)
   rows = users w/ activity in last 14d
   per user:
-    blob = composeLayout(buildCtx(userId))   // bypasses cache check via internal flag
-    layoutCache.write(userId, blob)
+    ctx  = buildContext(userId, { deadlineMs: now + 45_000 })   // 15s SQLite slack under 60s row cap
+    blob = composeLayout(ctx, { forceFresh: true, skipWriteback: true })
+    layoutCache.write(userId, blob)                              // sync, awaited
 ```
 
-Reuses existing `scheduled_per_row` job kind. Per-user mutex. Idempotent. Failure isolated per row.
+Reuses existing `scheduled_per_row` job kind. Per-user mutex. Idempotent. Failure isolated per row. Per rev 6, compose runs under a 45 s deadline that flows through every plugin call and enrichment leaf; the 60 s per-row cap is now a backstop, not the primary budget.
 
 ## getDetails composition
 
@@ -900,6 +914,15 @@ home/errors.ts:
 Per-row failure = `partial: true`, items array possibly empty, ⊥ throw.
 Per-call hard failure = HttpError 500/504/502 routed through existing `errorHandler`.
 Layout cache write failure = log + ignore (cold path next request).
+
+**Deadline exceeded mid-compose (rev 6).** `invokeWithTimeout` clips per-plugin `timeoutMs` to `min(capability.defaultTimeoutMs, deadlineMs − now)`. When remaining < ~50 ms, the call short-circuits by throwing an `AbortError` (`name === "AbortError"`, message `deadline_exceeded (remaining <ms>ms)`) instead of arming a near-zero timer; the dispatcher's existing `AbortError` absorption path (`invokeOne` → `normalizeError` → `plugin.timeout`) normalises it to the standard `{ pluginId, connectionId, shared, error: { code: "plugin.timeout", devMessage } }` outcome shape accepted by `dispatchSingle` and `aggregate-per-kind.collectSuccessful`. In-flight legs reject the same `AbortError`.
+
+Soft-failure absorption by granularity:
+- **Per-row preview** — `previewRow` catch keeps the row stub (`include: true`, `partial: true` on its content fetch).
+- **Per hero pool** — `loadPool` for one source rejects → caught locally inside `pickHero`, that pool collapses to `[]`, mixer + backfill still draw from remaining pools. Replace the current `resolveHero` blanket `.catch(() => null)` with per-pool catches so a single slow source cannot null the entire hero (consistent with rev 4 degenerate-fill intent: hero ships < 6 slides instead of disappearing).
+- **enrichItems leaves** — `statusBatch` / `artwork` / `getMatchingServers` aborts caught in-place, item ships with default `status: "unknown"` / empty `servers` / unhydrated artwork (catalog fallback already covers `posterUrl`/`backdropUrl`).
+
+Writeback proceeds with the partial blob — no diagnostics `error` row, `partial: true` on affected rows + degenerate hero shape suffice.
 
 ## Tests
 
@@ -938,6 +961,17 @@ apps/server/src/home/__tests__/
     - read returns null on cold cache
     - write upserts
     - isFresh boundary at 60 min
+  layout-warm.deadline.test.ts                          (rev 6)
+    - warm-job handler sets ctx.deadlineMs ≈ now + 45_000 (±10ms via fake clock)
+    - fake continueWatching@v1.getContinueWatching sleeps 90s, all other
+      providers respond < 1s → layoutCache.write called with partial blob
+      (hero present from non-CW pools, CW row dropped or partial:true);
+      no per-row timeout thrown; no cron.job_failed capture
+  enrich.deadline.test.ts                                (rev 6)
+    - enrichItems forwards deadlineMs to StatusBatchMemo.get,
+      ArtworkService.getArtwork, MediaService.getMatchingServers
+    - per-item availability abort caught locally; item ships with empty
+      servers + status:"unknown"
 
 apps/server/src/home/rows/__tests__/
   continue-watching-active.test.ts
@@ -979,6 +1013,13 @@ apps/server/src/api/procedures/__tests__/home.test.ts
 packages/shared/src/home/__tests__/
   schemas.test.ts
     - getLayout/getRowContent/getDetails input zod round-trips
+
+apps/server/src/media/__tests__/
+  invoke.deadline-clip.test.ts                           (rev 6)
+    - timeoutMs clipped to remaining when remaining < defaultTimeoutMs
+    - timeoutMs unchanged when remaining > defaultTimeoutMs
+    - remaining ≤ 50ms → synthetic plugin.timeout outcome, no timer armed
+    - retry path: backoff still gated by deadlineAllowsRetry (existing)
 ```
 
 Test infra: existing `vp test`. Each row test uses `MediaService` test double + in-memory CatalogService fixture (existing pattern in `apps/server/src/__tests__/`).
@@ -1080,6 +1121,8 @@ CHANGED
 - **R12.** (rev 4) Degenerate fill — when only one source has supply (e.g. brand-new install w/ only TMDB trending populated), backfill exhausts that single pool and the hero ships fewer than 6 slides, all same source. Acceptable: still distinct from any single row (pool size = 6 vs row first page ≤ 12), and rare in practice once recs job has run once. Tests cover the all-same-source branch.
 - **R13.** (rev 4) Schema bump 1 → 2 invalidates every existing `home_layout_cache` row on first deploy. First request per active user falls through to live composition + write-back. Cost = N active users × one cold compose (≤ 5 s budget); spread by `host.home.layout_warm` jitter on next hourly tick.
 - **A9.** (rev 4) Mixer bypasses the previous `pickContinueWatchingHero` / `pickRecommendedHero` / `pickTrendingHero` / `pickNewReleaseHero` exports. They are removed in PR 7; nothing else imports them (only `pickHero` is exported via `home/hero.ts`). Verify before delete via grep.
+- **R14.** (rev 6) Warm-job per-row 60 s cap split into 45 s compose + 15 s writeback. Assumes SQLite `home_layout_cache` upsert p99 < 15 s (single PK, ~2 KB blob; sub-ms in practice). Concurrent retention job, large cache table, or WAL checkpoint pressure could erode the margin — both numbers re-tune together if violated. Diagnostics surface `cron.job_failed` with message `per-row timeout` on breach; that capture is the canary for retuning.
+- **A10.** (rev 6) `invokeWithTimeout` clip applies to ALL deadline-bearing callers, not just warm. Request path (`ctx.deadlineMs = now + 8_000`) gets the same semantics for free — a single slow plugin can no longer consume the whole 8 s. Tested via `media/__tests__/invoke.deadline-clip.test.ts`.
 
 ## Implementation phases (PR breakdown)
 
@@ -1094,6 +1137,7 @@ CHANGED
 | 5   | `home-orchestrator`            | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint                                        | PR 4                                       |
 | 6   | `home-client-integration`      | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5                                       |
 | 7   | `home-hero-mix`                | rev 4 — reshape `LayoutHero` → `{ slides: HeroSlide[] }`; mixed-source composer (loadPool/drawByQuota/backfill/order); bump `home_layout_cache.schema_version` 1→2; client iterates slides[] w/ per-slide source label              | (independent of seasons amendment)         |
+| 8   | `home-deadline-propagation`    | rev 6 — signature reshapes: `buildContext(userId, logger?, opts?: { deadlineMs? })`, `StatusBatchMemo.get(ids, { deadlineMs? })`, `ArtworkService.getArtwork(requests, { deadlineMs? })` (forwards into its `dispatchAggregatePerKind` request), `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs? })`, `MediaService.getShowSeasons(tmdbId, { deadlineMs? })`, `MediaService.getMetadata(tmdbId, mediaType, { deadlineMs? })`. `invokeWithTimeout` clip to `min(defaultTimeoutMs, remaining)` + synthetic `plugin.timeout` outcome at ≤50 ms. Warm-job handler sets `now + 45_000`. Replace `resolveHero` blanket `.catch(() => null)` with per-pool catches. Regression test in `apps/server/src/home/__tests__/layout-warm.deadline.test.ts`: warm job, fake `continueWatching@v1.getContinueWatching` provider sleeps 90 s, other providers respond < 1 s → `layoutCache.write` invoked with partial blob (hero present, CW row dropped or `partial:true`), no per-row timeout error thrown, no `cron.job_failed` capture. Also add `media/__tests__/invoke.deadline-clip.test.ts` (deadline-clip arithmetic + synthetic short-circuit). | PR 7                                       |
 
 Each PR ships a changeset (per project rule: 1-2 sentences, end-user voice).
 
