@@ -10,6 +10,22 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 5 (2026-05-23)** — Curated-page card reuse pass + mood pagination fix.
+  - `TonightPick` simplified: section head + wide `WatchlistCard forceAspect="16/9"` hero + alternates aside. "Why" caption and shuffle button removed. Aside rendered with the new shared `MediaRow` family (numeric position prefix + thumb + title + meta). Hero identity carried by the card's clear-logo overlay.
+  - `WatchlistCard` 16:9 mode now always renders `MediaCardClearLogo` with `text={item.title}` fallback when no `clearLogo` URL. Title slot below the frame suppressed in 16:9 to avoid duplicate identity (year-only subtitle dropped along with it). 2:3 mode unchanged.
+  - `MoodCluster` hero swapped to `WatchlistCard forceAspect="16/9"` (wide). Secondaries now compose the new shared `MediaRow` family (`@/shared/components/media-row/`: `Root | Thumb | Body | Title | Meta`) so the row primitive is reusable beyond the watchlist.
+  - `MoodMosaic` caps the grid at `MAX_CLUSTERS = 3` (`clusters.slice(0, 3)`) so the curated page always renders a balanced three-card row. Mood summary endpoint still returns the full set; the cap is purely UI density.
+  - **Server `listMoodItems` accumulator + scan-budget fix (S.3)**. Two-step regression:
+    1. The hop loop previously broke out as soon as ONE matching item surfaced in a window, which truncated sparse moods to a single result. The loop now accumulates `(items, sources)` across windows.
+    2. The first fix kept the original `MAX_EMPTY_HOPS = 2` cap as the total scan budget, so users with 40+ rows and moods that fire only once per ~12 rows still saw 1–2 items per preview. The cap is now `MAX_MOOD_HOPS = 20` for the safety ceiling, and the `MAX_EMPTY_HOPS` counter only fires when consecutive windows yield **zero** matches. Underfilled hops (matched some, but not enough to fill the page) reset the empty streak so the request keeps scanning while it's making progress.
+    Cursor still encodes the last *returned* source (or null when the scan exhausts cleanly). Two regression tests in `apps/server/src/watchlist/__tests__/service.test.ts`.
+  - Unused paraglide keys removed: `watchlist_tonight_why`, `watchlist_tonight_default_reason`, `watchlist_tonight_shuffle` (en + fa). `watchlist_tonight_alternates_kicker` retained for the aside header.
+- **rev 4 (2026-05-23)** — Mood detail header gets first-class identity + breadcrumb.
+  - `WatchlistHeader` is now route-aware. On `/watchlist/moods/:moodId` it replaces the chip strip with a `Breadcrumb` (`Watchlist › <mood>`) using the shared `@/shared/ui/breadcrumb` family, promotes the mood label to the page H1 alongside the cluster count via `SectionHeadCount`, and renders the mood note as a normal-case subtitle (`<p>` muted, not eyebrow). Chip strip + sort dropdown hidden on this route — neither axis composes with a mood-scoped grid (§C.5).
+  - `MoodCount` reads `useMoods()` inside a nested `Suspense fallback={null}` so the rest of the header paints synchronously on cold loads.
+  - `WatchlistMoodPage` drops its in-body `SectionHead`; identity now lives in the header (§C.4, §C.5).
+  - V.WL8 amended: layout-owned header has two render modes — default (chip strip + conditional sort) and mood detail (breadcrumb + mood label H1 + count + subtitle).
+  - Cross-axis composition (mood × bucket) intentionally **not** added; parked as a follow-up if mood drill-down should compose with buckets.
 - **rev 3 (2026-05-23)** — Address post-rev-2 design feedback.
   - **Header always shows chip strip + sort dropdown** across the route family. `All` chip → curated layout (`/watchlist` index). Other chips → flat vertical grid sub-routes.
   - **Routes split into sub-routes per bucket** sharing a parent layout (`watchlist.tsx` = `<Outlet/>` + header + peek modal). New children: `watchlist.index.tsx` (curated/All), `watchlist.ready.tsx`, `watchlist.in-progress.tsx`, `watchlist.awaiting.tsx`, `watchlist.upcoming.tsx`. `watchlist.all.tsx` deleted (§C.1).
@@ -435,10 +451,19 @@ Single-file sections live flat in `components/sections/` per feedback memory #17
 
 ### C.5 Header behavior
 
-`WatchlistHeader` owned by the layout route. Always renders:
+`WatchlistHeader` owned by the layout route. Two render modes:
+
+**Default** (`/watchlist`, `/watchlist/<bucket>`):
 - Pip totals + title + total runtime (left).
 - Bucket chip strip (center-left): `All | Ready | In progress | Awaiting | Upcoming` — `<Link to="/watchlist[/<bucket>]">`. Active chip = current pathname match.
-- Sort dropdown (right): rendered **only when the active route is a flat bucket sub-route**. Hidden on `/watchlist` (curated) and `/watchlist/moods/:id`. Writes `?sort=` search param on its own route.
+- Sort dropdown (right): rendered **only when the active route is a flat bucket sub-route**. Hidden on `/watchlist` (curated). Writes `?sort=` search param on its own route.
+
+**Mood detail** (`/watchlist/moods/:moodId`):
+- Breadcrumb (top): `Watchlist › <mood label>` using shared `@/shared/ui/breadcrumb`. Root segment links to `/watchlist`; trailing segment = current mood (`BreadcrumbPage`).
+- Title row: mood label → `<h1>` via `SectionHeadTitle size="page"`. Cluster count → `SectionHeadCount` inline at baseline (e.g., `Dark 07`). Count reads `useMoods()` inside a nested `Suspense fallback={null}` so the title paints immediately on cold loads.
+- Subtitle: mood note as `<p>` muted body text (e.g., `Big runtime, bigger stakes.`). **Not** an eyebrow — uppercase-mono treatment doesn't fit prose copy.
+- **Chip strip + sort hidden.** Bucket axis ⊥ compose with mood axis; chips here would either navigate away from the mood (broken UX) or imply cross-axis filtering the server doesn't support yet (rev 4 §Open items).
+- Unknown `moodId` → falls back to default header (the page's ErrorBoundary still owns the 400 fallback).
 
 Mood "See all" → `/watchlist/moods/:id`. No more curated `View all items` button — the chip strip subsumes it.
 
@@ -497,7 +522,7 @@ Rename `WatchlistListFilter` → `WatchlistBucket` (semantic clarity). Pre-stabl
 - **V.WL5.** Mutation invalidator clears `watchlistKeys.root` exactly once per mutation success. Per-section keys nested under root. New section = new sub-key under root, ⊥ separate root.
 - **V.WL6.** ~~`WatchlistHeader` `mode` prop is exhaustive.~~ **Retired in rev 3.** Replaced by V.WL8.
 - **V.WL7.** "See all" links on mood clusters resolve to `/watchlist/moods/:moodId` w/ moodId ∈ `MOOD_IDS`. ⊥ peek-modal fallback. Bad moodId = 400 → ErrorBoundary fallback.
-- **V.WL8.** Watchlist layout route owns the header; child routes ⊥ render their own header. Bucket chip active state derived from `useMatch`/`useLocation` pathname — ⊥ duplicated client state. Adding a new bucket = single edit to `WATCHLIST_BUCKETS` enum + one new child route file; header chip strip auto-includes (TS exhaustive `Record<WatchlistBucket, ...>` over labels).
+- **V.WL8.** Watchlist layout route owns the header; child routes ⊥ render their own header. Header has two render modes derived from `useLocation` pathname: **default** (chip strip + conditional sort) and **mood detail** (`← All moods` link + mood label H1 + mood note eyebrow, chips + sort hidden). Bucket chip active state derived from pathname — ⊥ duplicated client state. Adding a new bucket = single edit to `WATCHLIST_BUCKETS` enum + one new child route file; header chip strip auto-includes (TS exhaustive `Record<WatchlistBucket, ...>` over labels). Adding a new mood = single entry in `MOOD_IDS` + `MOOD_REGISTRY`; mood header auto-renders.
 
 ## §M — Migration plan
 

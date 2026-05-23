@@ -31,10 +31,7 @@
   "watchlist_tonight_eyebrow": "One step further than 'Recommended'",
   "watchlist_tonight_title": "Tonight",
   "watchlist_tonight_caption": "Picked from your watchlist · 9:42 PM",
-  "watchlist_tonight_why": "Why",
-  "watchlist_tonight_default_reason": "Mood: contemplative · Runtime fits your evening.",
   "watchlist_tonight_alternates_kicker": "Or maybe…",
-  "watchlist_tonight_shuffle": "Shuffle suggestion",
 
   "watchlist_ready_eyebrow": "No request needed · stream tonight",
   "watchlist_ready_title": "Ready to watch",
@@ -82,6 +79,11 @@
   "watchlist_all_page_eyebrow": "Filter and sort the full set",
   "watchlist_mood_page_title": "{mood}",
   "watchlist_mood_page_eyebrow": "{count} items in this mood",
+  "watchlist_mood_back": "All moods",
+  "watchlist_breadcrumb_label": "Breadcrumb",
+  "watchlist_breadcrumb_root": "Watchlist",
+  "watchlist_breadcrumb_moods": "Moods",
+  "watchlist_mood_count": "{count} titles",
 
   "watchlist_coming_up_eyebrow": "Drops, premieres, return dates",
   "watchlist_coming_up_title": "Coming up",

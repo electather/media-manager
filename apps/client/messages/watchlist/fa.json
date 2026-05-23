@@ -31,10 +31,7 @@
   "watchlist_tonight_eyebrow": "TODO",
   "watchlist_tonight_title": "TODO",
   "watchlist_tonight_caption": "TODO",
-  "watchlist_tonight_why": "TODO",
-  "watchlist_tonight_default_reason": "TODO",
   "watchlist_tonight_alternates_kicker": "TODO",
-  "watchlist_tonight_shuffle": "TODO",
 
   "watchlist_ready_eyebrow": "TODO",
   "watchlist_ready_title": "TODO",
@@ -59,6 +56,11 @@
   "watchlist_mood_comedy_note": "TODO",
   "watchlist_mood_horror": "TODO",
   "watchlist_mood_horror_note": "TODO",
+  "watchlist_mood_back": "TODO",
+  "watchlist_breadcrumb_label": "TODO",
+  "watchlist_breadcrumb_root": "TODO",
+  "watchlist_breadcrumb_moods": "TODO",
+  "watchlist_mood_count": "TODO",
 
   "watchlist_coming_up_eyebrow": "TODO",
   "watchlist_coming_up_title": "TODO",

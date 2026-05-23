@@ -426,6 +426,13 @@ export interface ListItemsOptions {
 
 const MAX_EMPTY_HOPS = 2;
 const OVERSHOOT_FACTOR = 3;
+/**
+ * Total hop ceiling for mood pagination. Empty/sparse windows that don't
+ * advance the accumulator burn one hop each; this caps how many we'll spend
+ * before giving up so a pathologically large + pathologically sparse mood
+ * doesn't pin a request. Scans up to `MAX_MOOD_HOPS * fetchSize` rows.
+ */
+const MAX_MOOD_HOPS = 20;
 
 function encodeOffsetCursor(offset: number): string {
   return Buffer.from(`offset:${offset}`, "utf8").toString("base64url");
@@ -652,6 +659,9 @@ export interface ListMoodItemsOptions {
  * Paginated rows for a specific mood. Reuses the keyset cursor pattern with
  * overshoot — the mood predicate is applied after the keyset slice so the
  * server can serve a stable page even when the predicate drops most rows.
+ * Hops accumulate matched items across windows; underfilled hops do not
+ * count against the empty-streak budget so a request keeps scanning while
+ * it is making progress.
  */
 // fallow-ignore-next-line complexity
 export async function listMoodItems(
@@ -665,11 +675,13 @@ export async function listMoodItems(
   const fetchSize = Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT);
 
   let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
-  let collectedItems: WatchlistItem[] = [];
+  const collectedItems: WatchlistItem[] = [];
+  const collectedSources: WatchlistRow[] = [];
   let enrichPartial = false;
   let nextCursor: string | null = null;
+  let emptyStreak = 0;
 
-  for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
+  for (let hop = 0; hop < MAX_MOOD_HOPS; hop++) {
     const rows = await repo.listPage(c.userId, {
       limit: fetchSize,
       ...(scanCursor ? { cursor: scanCursor } : {}),
@@ -682,22 +694,32 @@ export async function listMoodItems(
     if (moodPartial) enrichPartial = true;
     const enriched = await enrich(filtered, c);
     if (enriched.partial) enrichPartial = true;
-    collectedItems = enriched.items.slice(0, limit);
-    const collectedSources = enriched.sources.slice(0, limit);
+    const need = limit - collectedItems.length;
+    if (enriched.items.length === 0) {
+      emptyStreak++;
+    } else {
+      emptyStreak = 0;
+      collectedItems.push(...enriched.items.slice(0, need));
+      collectedSources.push(...enriched.sources.slice(0, need));
+    }
     const lastScanned = rows[rows.length - 1]!;
     const exhausted = rows.length < fetchSize;
-    if (collectedItems.length > 0) {
+    if (collectedItems.length >= limit) {
       const last = collectedSources[collectedSources.length - 1] ?? lastScanned;
       nextCursor =
-        exhausted && enriched.items.length <= limit
+        exhausted && enriched.items.length <= need
           ? null
           : repo.encodeCursor({ addedAt: last.addedAt, id: last.id });
       break;
     }
-    nextCursor = exhausted
-      ? null
-      : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
-    if (exhausted) break;
+    if (exhausted) {
+      nextCursor = null;
+      break;
+    }
+    if (emptyStreak > MAX_EMPTY_HOPS) {
+      nextCursor = repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+      break;
+    }
     scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
   }
 

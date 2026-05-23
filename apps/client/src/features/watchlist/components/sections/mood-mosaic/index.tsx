@@ -12,9 +12,11 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { useMoods } from "../../../hooks/use-moods";
 import { MoodCluster } from "./mood-cluster";
 
+const MAX_CLUSTERS = 3;
+
 export function MoodMosaic() {
   const { data } = useMoods();
-  const clusters = data.clusters;
+  const clusters = data.clusters.slice(0, MAX_CLUSTERS);
   if (clusters.length === 0) return null;
   return (
     <section className="mb-14">

@@ -6,16 +6,8 @@ import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Button } from "@/shared/ui/button";
 import { VirtualGrid } from "@/shared/components/virtualized";
-import {
-  SectionHead,
-  SectionHeadEyebrow,
-  SectionHeadHeading,
-  SectionHeadTitle,
-} from "@/shared/components/section-head";
 import { WatchlistCard } from "./watchlist-card";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
-import { useMoods } from "../hooks/use-moods";
-import { MOOD_REGISTRY } from "../lib/mood-registry";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
 const MOOD_PAGE_LIMIT = 60;
@@ -34,7 +26,7 @@ export function WatchlistMoodPage() {
         <WatchlistErrorFallback error={error} resetErrorBoundary={reset} />
       )}
     >
-      <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
+      <Suspense fallback={<Skeleton className="h-150 w-full rounded-2xl" />}>
         <MoodGrid moodId={moodId} />
       </Suspense>
     </ErrorBoundary>
@@ -42,7 +34,6 @@ export function WatchlistMoodPage() {
 }
 
 function MoodGrid({ moodId }: { moodId: MoodId }) {
-  const { data: summary } = useMoods();
   const { items, hasNextPage, isFetchingNextPage, fetchNextPage } = useMoodCluster(
     moodId,
     MOOD_PAGE_LIMIT,
@@ -59,19 +50,8 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
     },
     [navigate],
   );
-  const cluster = summary.clusters.find((c) => c.moodId === moodId);
-  const count = cluster?.count ?? items.length;
-  const copy = MOOD_REGISTRY[moodId];
   return (
     <>
-      <SectionHead>
-        <SectionHeadHeading>
-          <SectionHeadEyebrow>
-            {m.watchlist_mood_page_eyebrow({ count: String(count) })}
-          </SectionHeadEyebrow>
-          <SectionHeadTitle>{m.watchlist_mood_page_title({ mood: copy.label() })}</SectionHeadTitle>
-        </SectionHeadHeading>
-      </SectionHead>
       <VirtualGrid
         items={items}
         getKey={(it) => it.id}

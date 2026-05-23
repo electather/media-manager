@@ -3,7 +3,13 @@ import { useNavigate } from "@tanstack/react-router";
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { WatchlistCard } from "../watchlist-card";
+import {
+  MediaRowBody,
+  MediaRowMeta,
+  MediaRowRoot,
+  MediaRowThumb,
+  MediaRowTitle,
+} from "@/shared/components/media-row";
 import {
   SectionHead,
   SectionHeadActions,
@@ -11,8 +17,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { Button } from "@/shared/ui/button";
-import { Skeleton } from "@/shared/ui/skeleton";
+import { WatchlistCard } from "../watchlist-card";
 import { shortRuntimeLabel } from "../../lib/format";
 import { useTonight } from "../../hooks/use-tonight";
 
@@ -43,39 +48,21 @@ export function TonightPick() {
       </SectionHead>
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
-        <div className="relative min-w-0">
-          <WatchlistCard item={{ ...hero, status: undefined }} forceAspect="16/9" onPeek={onPeek} />
-          <div className="mt-3.5 flex items-center gap-2.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
-            <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-primary" />
-            <span>{m.watchlist_tonight_why()} ·</span>
-            <span className="text-foreground/85">{m.watchlist_tonight_default_reason()}</span>
-          </div>
-        </div>
-
-        <aside className="rounded-2xl border border-border bg-card p-4">
-          <div className="mb-3 pl-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            {m.watchlist_tonight_alternates_kicker()}
-          </div>
-          <ul className="m-0 flex flex-col gap-1 p-0">
-            {alternates.map((it, idx) => (
-              <AlternateRow key={it.id} item={it} index={idx} onPeek={onPeek} />
-            ))}
-          </ul>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-3 w-full justify-center text-xs"
-            disabled={alternates.length === 0}
-            onClick={() => {
-              if (alternates.length === 0) return;
-              const idx = Math.floor(Math.random() * alternates.length);
-              const choice = alternates[idx];
-              if (choice) onPeek(choice.id);
-            }}
-          >
-            {m.watchlist_tonight_shuffle()}
-          </Button>
-        </aside>
+        <WatchlistCard item={{ ...hero, status: undefined }} forceAspect="16/9" onPeek={onPeek} />
+        {alternates.length > 0 ? (
+          <aside className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-3 pl-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+              {m.watchlist_tonight_alternates_kicker()}
+            </div>
+            <ul className="m-0 flex flex-col gap-1 p-0">
+              {alternates.map((it, idx) => (
+                <li key={it.id} className="list-none">
+                  <AlternateRow item={it} index={idx} onPeek={onPeek} />
+                </li>
+              ))}
+            </ul>
+          </aside>
+        ) : null}
       </div>
     </section>
   );
@@ -87,47 +74,28 @@ interface AlternateRowProps {
   onPeek: (id: string) => void;
 }
 
-// fallow-ignore-next-line complexity
 function AlternateRow({ item, index, onPeek }: AlternateRowProps) {
   const KindIcon = item.mediaType === "movie" ? Film : Tv;
   const src = item.backdrop ?? item.poster;
   return (
-    <li className="list-none">
-      <button
-        type="button"
-        onClick={() => onPeek(item.id)}
-        className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-start transition-colors hover:bg-accent"
-      >
-        <span className="w-5.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/70">
-          {String(index + 2).padStart(2, "0")}
-        </span>
-        <span className="relative h-9 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-          {src ? (
-            <img
-              src={src}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 size-full object-cover"
-            />
-          ) : (
-            <Skeleton className="absolute inset-0" />
-          )}
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="line-clamp-1 text-sm font-medium text-foreground">{item.title}</span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <KindIcon aria-hidden="true" className="size-3" />
-            <span>{shortRuntimeLabel(item)}</span>
-            {item.year ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>{item.year}</span>
-              </>
-            ) : null}
-          </span>
-        </span>
-      </button>
-    </li>
+    <MediaRowRoot onClick={() => onPeek(item.id)} className="px-2 py-2.5">
+      <span className="w-5.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground/70">
+        {String(index + 2).padStart(2, "0")}
+      </span>
+      <MediaRowThumb src={src} alt="" aspect="16/9" widthClassName="w-16" />
+      <MediaRowBody>
+        <MediaRowTitle>{item.title}</MediaRowTitle>
+        <MediaRowMeta>
+          <KindIcon aria-hidden="true" className="size-3" />
+          <span>{shortRuntimeLabel(item)}</span>
+          {item.year ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{item.year}</span>
+            </>
+          ) : null}
+        </MediaRowMeta>
+      </MediaRowBody>
+    </MediaRowRoot>
   );
 }

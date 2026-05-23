@@ -34,9 +34,8 @@ interface WatchlistCardProps {
 export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCardProps) {
   const toggle = useToggleWatchlist();
   const aspect = forceAspect;
-  const showLogo = aspect === "16/9" && Boolean(item.clearLogo);
-  const imageSrc =
-    aspect === "16/9" ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
+  const isWide = aspect === "16/9";
+  const imageSrc = isWide ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
   const isMovie = item.mediaType === "movie";
   const KindIcon = isMovie ? Film : Tv;
   const kindLabel = m.watchlist_kind({ kind: item.mediaType });
@@ -50,7 +49,9 @@ export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCa
     <MediaCardRoot aspect={aspect}>
       <MediaCardFrame>
         <MediaCardImage src={imageSrc} alt={item.title} aspect={aspect} />
-        {showLogo ? <MediaCardClearLogo src={item.clearLogo} alt={item.title} /> : null}
+        {isWide ? (
+          <MediaCardClearLogo src={item.clearLogo} text={item.title} alt={item.title} />
+        ) : null}
         <MediaCardAvailability
           state={deriveMediaCardAvailability(item)}
           className="pointer-events-none absolute inset-s-2 top-2"
@@ -65,10 +66,12 @@ export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCa
           <Check aria-hidden="true" />
         </MediaCardQuickAction>
       </MediaCardFrame>
-      <MediaCardMeta>
-        <MediaCardTitle>{item.title}</MediaCardTitle>
-        {item.year ? <MediaCardSubtitle>{item.year}</MediaCardSubtitle> : null}
-      </MediaCardMeta>
+      {isWide ? null : (
+        <MediaCardMeta>
+          <MediaCardTitle>{item.title}</MediaCardTitle>
+          {item.year ? <MediaCardSubtitle>{item.year}</MediaCardSubtitle> : null}
+        </MediaCardMeta>
+      )}
       <MediaCardLink
         href={buildMediaHref(item.id) ?? "#"}
         aria-label={item.title}

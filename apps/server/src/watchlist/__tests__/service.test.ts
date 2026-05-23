@@ -30,6 +30,7 @@ const {
   addItem,
   removeItem,
   listAvailable,
+  listMoodItems,
   seedFromPlugins,
   syncFromPlugins,
 } = await import("../service");
@@ -334,5 +335,77 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     const afterCounts = probeSpy.mock.calls.length;
     // The counts pass should hit the cache for the same key — no new probe.
     expect(afterCounts).toBe(afterList);
+  });
+
+  // Regression: when a single keyset overshoot window yields fewer than
+  // `limit` mood matches, `listMoodItems` MUST keep scanning the next
+  // window(s) until the page is filled (up to MAX_EMPTY_HOPS). The first
+  // version broke at the first non-empty hop, so sparse moods truncated to
+  // a single item even when more matches existed deeper in the user's set.
+  it("listMoodItems accumulates matches across hops when the mood is sparse", async () => {
+    const ctx = makeCtx();
+    // fetchSize = limit (3) * OVERSHOOT_FACTOR (3) = 9. Seed 12 rows so the
+    // scan covers two windows: hop1 = m12..m4 (9 rows), hop2 = m3..m1 (3 rows).
+    for (let i = 1; i <= 12; i++) {
+      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+    // 1 dark match in hop1 (m4) + 2 dark matches in hop2 (m3, m2).
+    const dark = new Set(["m4", "m3", "m2"]);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          if (dark.has(tmdbId)) {
+            out[`movie:${tmdbId}`] = {
+              tmdbId,
+              mediaType: "movie",
+              title: tmdbId,
+              genres: ["Horror"],
+            };
+          }
+        }
+        return out;
+      },
+    );
+
+    const res = await listMoodItems(ctx, "dark", { limit: 3 });
+    expect(res.items.map((i) => i.tmdbId)).toEqual(["m4", "m3", "m2"]);
+  });
+
+  // Regression: when matches are scattered DEEP across many overshoot
+  // windows (e.g. user has 40+ rows and the mood only fires every 15-20
+  // rows), the loop MUST keep scanning while it's still making progress.
+  // An earlier fix capped total hops at 3 — large sparse watchlists then
+  // returned 1 or 2 items even though the summary endpoint claimed `count`
+  // ≥ MIN_CLUSTER_SIZE. Underfilled hops no longer burn the budget.
+  it("listMoodItems scans past the empty-hop budget when each hop still adds matches", async () => {
+    const ctx = makeCtx();
+    // 36 rows, fetchSize = 9. Plant 1 dark match every 12 rows so the page
+    // fills only after 3 + windows of scanning.
+    for (let i = 1; i <= 36; i++) {
+      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+    // addItem inserts in id-asc order; repo.listPage returns by addedAt DESC.
+    // m36 sits in hop 1, m24 in hop 2, m12 in hop 3 — each hop adds 1 item.
+    const dark = new Set(["m36", "m24", "m12"]);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          if (dark.has(tmdbId)) {
+            out[`movie:${tmdbId}`] = {
+              tmdbId,
+              mediaType: "movie",
+              title: tmdbId,
+              genres: ["Horror"],
+            };
+          }
+        }
+        return out;
+      },
+    );
+
+    const res = await listMoodItems(ctx, "dark", { limit: 3 });
+    expect(res.items.map((i) => i.tmdbId)).toEqual(["m36", "m24", "m12"]);
   });
 });
