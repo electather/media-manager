@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MEDIA_TYPES } from "../media/enums";
-import { WATCHLIST_LIST_FILTERS, WATCHLIST_USER_SOURCES } from "./enums";
+import { MOOD_IDS, WATCHLIST_BUCKETS, WATCHLIST_SORTS, WATCHLIST_USER_SOURCES } from "./enums";
 
 const tmdbIdSchema = z.string().regex(/^\d+$/u, "tmdbId must be a numeric string");
 
@@ -25,6 +25,11 @@ export type AddWatchlistRequestParsed = z.infer<typeof addWatchlistRequestSchema
 export const WATCHLIST_LIST_DEFAULT_LIMIT = 60;
 export const WATCHLIST_LIST_MAX_LIMIT = 200;
 
+/**
+ * Legacy `/api/watchlist?filter=` query. Removed in Phase 4 of the
+ * sections plan once the client is fully migrated to `/items`.
+ * @deprecated use `itemsQuerySchema`.
+ */
 export const watchlistListQuerySchema = z
   .object({
     cursor: z.string().min(1).optional(),
@@ -34,8 +39,61 @@ export const watchlistListQuerySchema = z
       .positive()
       .max(WATCHLIST_LIST_MAX_LIMIT)
       .default(WATCHLIST_LIST_DEFAULT_LIMIT),
-    filter: z.enum(WATCHLIST_LIST_FILTERS).optional(),
+    filter: z.enum(WATCHLIST_BUCKETS).optional(),
   })
   .strict();
 export type WatchlistListQueryInput = z.input<typeof watchlistListQuerySchema>;
 export type WatchlistListQueryParsed = z.infer<typeof watchlistListQuerySchema>;
+
+const RECENTLY_DEFAULT_LIMIT = 5;
+const RECENTLY_MAX_LIMIT = 20;
+
+/** `GET /api/watchlist/items` query. */
+export const itemsQuerySchema = z
+  .object({
+    cursor: z.string().min(1).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(WATCHLIST_LIST_MAX_LIMIT)
+      .default(WATCHLIST_LIST_DEFAULT_LIMIT),
+    sort: z.enum(WATCHLIST_SORTS).default("recent"),
+    bucket: z.enum(WATCHLIST_BUCKETS).optional(),
+    mood: z.enum(MOOD_IDS).optional(),
+  })
+  .strict();
+export type ItemsQueryInput = z.input<typeof itemsQuerySchema>;
+export type ItemsQueryParsed = z.infer<typeof itemsQuerySchema>;
+
+/** `GET /api/watchlist/sections/recently` query. */
+export const recentlyQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(RECENTLY_MAX_LIMIT).default(RECENTLY_DEFAULT_LIMIT),
+  })
+  .strict();
+export type RecentlyQueryInput = z.input<typeof recentlyQuerySchema>;
+export type RecentlyQueryParsed = z.infer<typeof recentlyQuerySchema>;
+
+/** `GET /api/watchlist/moods/:moodId` path param. */
+export const moodParamSchema = z
+  .object({
+    moodId: z.enum(MOOD_IDS),
+  })
+  .strict();
+export type MoodParamParsed = z.infer<typeof moodParamSchema>;
+
+/** `GET /api/watchlist/moods/:moodId/items` query. */
+export const moodItemsQuerySchema = z
+  .object({
+    cursor: z.string().min(1).optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(WATCHLIST_LIST_MAX_LIMIT)
+      .default(WATCHLIST_LIST_DEFAULT_LIMIT),
+  })
+  .strict();
+export type MoodItemsQueryInput = z.input<typeof moodItemsQuerySchema>;
+export type MoodItemsQueryParsed = z.infer<typeof moodItemsQuerySchema>;

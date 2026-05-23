@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
-import type { WatchlistItem, WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket, WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { fetchWatchlist } from "@/shared/lib/watchlist/fetchers";
 import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
 
 const STALE_TIME_MS = 60_000;
 
 export interface UseWatchlistItemsArgs {
-  filter?: WatchlistListFilter;
+  filter?: WatchlistBucket;
 }
 
 /**

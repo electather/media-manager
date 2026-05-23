@@ -1,6 +1,6 @@
 import type { CompactMediaItem } from "../home/types";
 import type { MediaType } from "../media/enums";
-import type { WatchlistSource, WatchlistUserSource } from "./enums";
+import type { MoodId, WatchlistSource, WatchlistUserSource } from "./enums";
 
 export interface WatchlistKey {
   tmdbId: string;
@@ -33,10 +33,10 @@ export interface WatchlistResponse {
 /**
  * Cheap aggregate counts for the header pips. Powered by the `/counts`
  * endpoint so the client doesn't have to hold the full active set in memory
- * just to render the header chips. `inProgress` is a strict subset of
- * `ready` — rows whose underlying media has an active watch position. The
- * list-side `filter=ready` collapses `inProgress` into `ready`, but the
- * dedicated count keeps the chip authoritative across paginated loads.
+ * just to render the header chips. `inProgress` is reserved for rows whose
+ * underlying media has an active watch position; it remains a wire-shape
+ * placeholder (`0`) until the host progress aggregator lands. See
+ * `docs/2026-05-23-watchlist-sections-design.md` (RISK-007).
  */
 export interface WatchlistCounts {
   ready: number;
@@ -56,4 +56,22 @@ export interface AddWatchlistResponse {
   item: WatchlistItem;
   /** True when the row was already active before this request. */
   wasActive: boolean;
+}
+
+/** Single mood cluster summary entry returned by `/api/watchlist/moods`. */
+export interface MoodSummaryCluster {
+  moodId: MoodId;
+  count: number;
+}
+
+/** Aggregate mood summary across the active set. */
+export interface WatchlistMoodSummary {
+  clusters: MoodSummaryCluster[];
+}
+
+/** `/api/watchlist/sections/tonight` and `/sections/recently` payload shape. */
+export interface WatchlistSectionResponse {
+  items: WatchlistItem[];
+  /** True when enrichment was incomplete and the client may show a banner. */
+  partial: boolean;
 }

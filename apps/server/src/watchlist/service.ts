@@ -4,20 +4,28 @@ import {
   keyToId,
   WATCHLIST_LIST_DEFAULT_LIMIT,
   WATCHLIST_LIST_MAX_LIMIT,
+  type MoodId,
+  type WatchlistBucket,
   type WatchlistCounts,
   type WatchlistItem,
   type WatchlistKey,
-  type WatchlistListFilter,
+  type WatchlistMoodSummary,
   type WatchlistResponse,
+  type WatchlistSectionResponse,
+  type WatchlistSort,
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import type { CatalogService } from "../catalog";
 import type { MatchingServer, MediaService } from "../media";
 import { emit, type EventName } from "../jobs/events";
 import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket, previewForClassify, type WatchlistBucket } from "./classify";
+import { classifyBucket, previewForClassify, type ClassifiedBucket } from "./classify";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
 import { enrich } from "./enrich";
+import { derive as deriveMoods } from "./moods/derive";
+import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
+import { getSection as getTonightSectionImpl } from "./tonight/section";
 import * as repo from "./repo";
 import type { WatchlistRow } from "./repo";
 
@@ -62,7 +70,7 @@ export interface GetItemsOptions {
    * doesn't match are dropped before artwork hydration — the most expensive
    * part of enrich.
    */
-  filter?: WatchlistListFilter;
+  filter?: WatchlistBucket;
 }
 
 /**
@@ -213,7 +221,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
       composite
     ];
     const preview = previewForClassify(meta, statuses[composite], servers);
-    const bucket: WatchlistBucket = classifyBucket(preview);
+    const bucket: ClassifiedBucket = classifyBucket(preview);
     if (bucket === "ready") ready++;
     else if (bucket === "awaiting") awaiting++;
     else if (bucket === "upcoming") upcoming++;
@@ -460,4 +468,296 @@ function extractTmdbId(value: unknown): string | null {
   if (ids && typeof ids.tmdb_id === "string") return ids.tmdb_id;
   if (typeof v.tmdbId === "string") return v.tmdbId;
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Section endpoints — see docs/2026-05-23-watchlist-sections-design.md
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ListItemsOptions {
+  cursor?: string;
+  limit?: number;
+  sort?: WatchlistSort;
+  bucket?: WatchlistBucket;
+  mood?: MoodId;
+}
+
+const MAX_EMPTY_HOPS = 2;
+const OVERSHOOT_FACTOR = 3;
+
+function encodeOffsetCursor(offset: number): string {
+  return Buffer.from(`offset:${offset}`, "utf8").toString("base64url");
+}
+
+function decodeOffsetCursor(raw: string): number | null {
+  try {
+    const decoded = Buffer.from(raw, "base64url").toString("utf8");
+    if (!decoded.startsWith("offset:")) return null;
+    const n = Number(decoded.slice("offset:".length));
+    return Number.isInteger(n) && n >= 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+const STATUS_PRIORITY: Record<NonNullable<WatchlistItem["status"]>, number> = {
+  available: 0,
+  processing: 1,
+  requested: 2,
+  unavailable: 3,
+  unknown: 4,
+};
+
+function compareForSort(
+  a: WatchlistRow,
+  b: WatchlistRow,
+  metaMap: Record<string, CanonicalMetadata>,
+  statusMap: Record<string, string>,
+  sort: Exclude<WatchlistSort, "recent">,
+): number {
+  const aId = keyToId({ tmdbId: a.tmdbId, mediaType: a.mediaType });
+  const bId = keyToId({ tmdbId: b.tmdbId, mediaType: b.mediaType });
+  const aMeta = metaMap[aId];
+  const bMeta = metaMap[bId];
+  if (sort === "alpha") {
+    const at = (aMeta?.title ?? "").toLocaleLowerCase().normalize("NFD");
+    const bt = (bMeta?.title ?? "").toLocaleLowerCase().normalize("NFD");
+    return at.localeCompare(bt);
+  }
+  if (sort === "runtime") {
+    return (
+      (aMeta?.runtimeMinutes ?? Number.POSITIVE_INFINITY) -
+      (bMeta?.runtimeMinutes ?? Number.POSITIVE_INFINITY)
+    );
+  }
+  const aStatus = (statusMap[aId] ?? "unknown") as NonNullable<WatchlistItem["status"]>;
+  const bStatus = (statusMap[bId] ?? "unknown") as NonNullable<WatchlistItem["status"]>;
+  return (STATUS_PRIORITY[aStatus] ?? 9) - (STATUS_PRIORITY[bStatus] ?? 9);
+}
+
+/**
+ * Paginated list of watchlist items with sort + bucket + mood filters. When
+ * `bucket` is omitted, `unknown`-classified rows are included so the page
+ * surfaces every active row (V.WL2). `sort=recent` uses the existing keyset
+ * cursor; `sort=alpha|runtime|status` use an offset cursor over the
+ * snapshot ordering (V.WL1, best-effort under concurrent mutation).
+ */
+// fallow-ignore-next-line complexity
+export async function listItems(
+  ctx: MaybeRowContext,
+  opts: ListItemsOptions = {},
+): Promise<WatchlistResponse> {
+  const c = asWatchlistContext(ctx);
+  const limit = clampLimit(opts.limit);
+  const sort: WatchlistSort = opts.sort ?? "recent";
+
+  if (sort !== "recent") {
+    return listItemsOffset(c, sort, limit, opts);
+  }
+
+  // Recent / keyset path — mirrors getItems but applies bucket + mood
+  // intersection, and surfaces "unknown" when bucket is omitted.
+  const cursor = opts.cursor ? repo.decodeCursor(opts.cursor) : undefined;
+  const fetchSize =
+    opts.bucket || opts.mood ? Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT) : limit;
+
+  let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
+  let collectedItems: WatchlistItem[] = [];
+  let enrichPartial = false;
+  let nextCursor: string | null = null;
+
+  for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
+    const rows = await repo.listPage(c.userId, {
+      limit: fetchSize,
+      ...(scanCursor ? { cursor: scanCursor } : {}),
+    });
+    if (rows.length === 0) {
+      nextCursor = null;
+      break;
+    }
+    const filtered = opts.mood ? await filterByMood(rows, c, opts.mood) : { rows, partial: false };
+    if (filtered.partial) enrichPartial = true;
+    const enriched = await enrich(filtered.rows, c, opts.bucket ? { filter: opts.bucket } : {});
+    if (enriched.partial) enrichPartial = true;
+    collectedItems = enriched.items.slice(0, limit);
+    const collectedSources = enriched.sources.slice(0, limit);
+    const lastScanned = rows[rows.length - 1]!;
+    const exhausted = rows.length < fetchSize;
+
+    if (collectedItems.length > 0) {
+      if (collectedSources.length === collectedItems.length) {
+        const lastReturned = collectedSources[collectedSources.length - 1]!;
+        nextCursor =
+          exhausted && enriched.items.length <= limit
+            ? null
+            : repo.encodeCursor({ addedAt: lastReturned.addedAt, id: lastReturned.id });
+      } else {
+        nextCursor = exhausted
+          ? null
+          : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+      }
+      break;
+    }
+
+    nextCursor = exhausted
+      ? null
+      : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+    if (exhausted) break;
+    scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
+  }
+
+  return { items: collectedItems, cursor: nextCursor, partial: enrichPartial };
+}
+
+async function filterByMood(
+  rows: WatchlistRow[],
+  ctx: WatchlistContext,
+  mood: MoodId,
+): Promise<{ rows: WatchlistRow[]; partial: boolean }> {
+  let partial = false;
+  const metadata = await ctx.catalog
+    .getMetadataBatch(rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType })))
+    .catch((err) => {
+      ctx.log.warn("[watchlist:listItems] mood meta batch failed", err);
+      partial = true;
+      return {} as Record<string, CanonicalMetadata>;
+    });
+  const kept = rows.filter((r) =>
+    deriveMoods(metadata[keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })]).includes(mood),
+  );
+  return { rows: kept, partial };
+}
+
+// fallow-ignore-next-line complexity
+async function listItemsOffset(
+  ctx: WatchlistContext,
+  sort: Exclude<WatchlistSort, "recent">,
+  limit: number,
+  opts: ListItemsOptions,
+): Promise<WatchlistResponse> {
+  const offset = opts.cursor ? (decodeOffsetCursor(opts.cursor) ?? 0) : 0;
+  const all = await repo.listAllActive(ctx.userId);
+  if (all.length === 0) return { items: [], cursor: null, partial: false };
+
+  let partial = false;
+  const compositeIds = all.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
+  const [statusMap, metaMap] = await Promise.all([
+    ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
+      ctx.log.warn("[watchlist:listItems] getStatusBatch failed", err);
+      partial = true;
+      return {} as Record<string, string>;
+    }),
+    ctx.catalog
+      .getMetadataBatch(all.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType })))
+      .catch((err) => {
+        ctx.log.warn("[watchlist:listItems] getMetadataBatch failed", err);
+        partial = true;
+        return {} as Record<string, CanonicalMetadata>;
+      }),
+  ]);
+
+  let candidates = all;
+  if (opts.mood) {
+    candidates = candidates.filter((r) =>
+      deriveMoods(metaMap[keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })]).includes(
+        opts.mood!,
+      ),
+    );
+  }
+  const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
+  const window = sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
+  const enriched = await enrich(window, ctx, opts.bucket ? { filter: opts.bucket } : {});
+  if (enriched.partial) partial = true;
+  const slice = enriched.items.slice(0, limit);
+  const cursor =
+    offset + slice.length < sorted.length ? encodeOffsetCursor(offset + slice.length) : null;
+  return { items: slice, cursor, partial };
+}
+
+/**
+ * Tonight section delegator. Implementation lives in `tonight/section.ts`
+ * so cache state can co-locate with `invalidate(userId)` for the mutation
+ * listener.
+ */
+export async function getTonightSection(ctx: MaybeRowContext): Promise<WatchlistSectionResponse> {
+  return getTonightSectionImpl(asWatchlistContext(ctx));
+}
+
+/** Last-added items, capped by `limit`. No cursor. */
+export async function getRecentlyAdded(
+  ctx: MaybeRowContext,
+  limit: number,
+): Promise<WatchlistSectionResponse> {
+  const c = asWatchlistContext(ctx);
+  const rows = await repo.listPage(c.userId, { limit });
+  if (rows.length === 0) return { items: [], partial: false };
+  const enriched = await enrich(rows, c);
+  return { items: enriched.items, partial: enriched.partial };
+}
+
+/** Mood-cluster summary delegator. */
+export async function getMoodSummary(ctx: MaybeRowContext): Promise<WatchlistMoodSummary> {
+  const c = asWatchlistContext(ctx);
+  return getMoodSummaryImpl({ userId: c.userId, catalog: c.catalog, log: c.log });
+}
+
+export interface ListMoodItemsOptions {
+  cursor?: string;
+  limit?: number;
+}
+
+/**
+ * Paginated rows for a specific mood. Reuses the keyset cursor pattern with
+ * overshoot — the mood predicate is applied after the keyset slice so the
+ * server can serve a stable page even when the predicate drops most rows.
+ */
+// fallow-ignore-next-line complexity
+export async function listMoodItems(
+  ctx: MaybeRowContext,
+  moodId: MoodId,
+  opts: ListMoodItemsOptions = {},
+): Promise<WatchlistResponse> {
+  const c = asWatchlistContext(ctx);
+  const limit = clampLimit(opts.limit);
+  const cursor = opts.cursor ? repo.decodeCursor(opts.cursor) : undefined;
+  const fetchSize = Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT);
+
+  let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
+  let collectedItems: WatchlistItem[] = [];
+  let enrichPartial = false;
+  let nextCursor: string | null = null;
+
+  for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
+    const rows = await repo.listPage(c.userId, {
+      limit: fetchSize,
+      ...(scanCursor ? { cursor: scanCursor } : {}),
+    });
+    if (rows.length === 0) {
+      nextCursor = null;
+      break;
+    }
+    const { rows: filtered, partial: moodPartial } = await filterByMood(rows, c, moodId);
+    if (moodPartial) enrichPartial = true;
+    const enriched = await enrich(filtered, c);
+    if (enriched.partial) enrichPartial = true;
+    collectedItems = enriched.items.slice(0, limit);
+    const collectedSources = enriched.sources.slice(0, limit);
+    const lastScanned = rows[rows.length - 1]!;
+    const exhausted = rows.length < fetchSize;
+    if (collectedItems.length > 0) {
+      const last = collectedSources[collectedSources.length - 1] ?? lastScanned;
+      nextCursor =
+        exhausted && enriched.items.length <= limit
+          ? null
+          : repo.encodeCursor({ addedAt: last.addedAt, id: last.id });
+      break;
+    }
+    nextCursor = exhausted
+      ? null
+      : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+    if (exhausted) break;
+    scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
+  }
+
+  return { items: collectedItems, cursor: nextCursor, partial: enrichPartial };
 }

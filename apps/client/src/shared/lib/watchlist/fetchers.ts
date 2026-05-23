@@ -1,8 +1,8 @@
 import type {
   AddWatchlistRequest,
   AddWatchlistResponse,
+  WatchlistBucket,
   WatchlistCounts,
-  WatchlistListFilter,
   WatchlistResponse,
 } from "@ent-mcp/shared/watchlist";
 import { api } from "@/shared/lib/api";
@@ -18,7 +18,7 @@ async function throwOnError(res: Response): Promise<never> {
 export interface FetchWatchlistArgs {
   cursor?: string;
   limit?: number;
-  filter?: WatchlistListFilter;
+  filter?: WatchlistBucket;
 }
 
 // fallow-ignore-next-line complexity

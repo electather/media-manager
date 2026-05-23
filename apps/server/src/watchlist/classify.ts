@@ -1,16 +1,16 @@
-import type { WatchlistItem, WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket, WatchlistItem } from "@ent-mcp/shared/watchlist";
 import type { MatchingServer } from "../media";
 
 /**
  * Server-side mirror of the client's classifier (see
  * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
- * `/counts` and `?filter=` decisions match what the client would draw from
- * the same row. The bucket set is intentionally simpler than the client's —
- * the wire-side filter folds `in-progress` into `ready`.
+ * `/counts` and `?bucket=` decisions match what the client would draw from
+ * the same row. The classifier set adds `unknown` for rows that fail every
+ * predicate — the wire bucket enum stays the user-facing trio.
  */
-export type WatchlistBucket = "ready" | "awaiting" | "upcoming" | "unknown";
+export type ClassifiedBucket = WatchlistBucket | "unknown";
 
-const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistBucket | undefined> = {
+const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, ClassifiedBucket | undefined> = {
   available: "ready",
   requested: "awaiting",
   unavailable: "awaiting",
@@ -26,7 +26,7 @@ function isInfoOnly(item: Pick<WatchlistItem, "availability">): boolean {
 // fallow-ignore-next-line complexity
 export function classifyBucket(
   item: Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">,
-): WatchlistBucket {
+): ClassifiedBucket {
   if (item.progress) return "ready";
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
@@ -34,8 +34,8 @@ export function classifyBucket(
   return "unknown";
 }
 
-export function matchesFilter(bucket: WatchlistBucket, filter: WatchlistListFilter): boolean {
-  return bucket === filter;
+export function matchesBucket(classified: ClassifiedBucket, target: WatchlistBucket): boolean {
+  return classified === target;
 }
 
 export interface PreviewMeta {

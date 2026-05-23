@@ -1,7 +1,7 @@
-import type { WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket } from "@ent-mcp/shared/watchlist";
 
 export interface WatchlistListKeyOpts {
-  filter?: WatchlistListFilter;
+  filter?: WatchlistBucket;
 }
 
 /**

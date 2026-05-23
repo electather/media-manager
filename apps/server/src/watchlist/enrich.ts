@@ -3,7 +3,7 @@ import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { keyToId, type WatchlistItem, type WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { ArtworkService } from "../artwork";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
@@ -40,7 +40,7 @@ export interface EnrichOptions {
    * matches the v2 "skip enrichment for buckets the user is not viewing"
    * goal in #420.
    */
-  filter?: WatchlistListFilter;
+  filter?: WatchlistBucket;
 }
 
 /**

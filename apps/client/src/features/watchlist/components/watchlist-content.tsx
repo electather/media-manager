@@ -2,7 +2,7 @@ import { useCallback, useDeferredValue, useMemo, useState, type ReactNode } from
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import type { MediaType } from "@ent-mcp/shared/media";
-import type { WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import type { WatchlistBucket } from "@ent-mcp/shared/watchlist";
 import { MediaDetailModal, type MediaDetailItem } from "@/features/media-detail";
 import { useHomeDetails } from "@/features/home/hooks/use-home-details";
 import { splitCompositeId } from "@/shared/lib/media-id";
@@ -76,7 +76,7 @@ function applySort(items: readonly WatchlistItem[], sort: WatchlistSort): Watchl
  * the wire because the server doesn't distinguish in-progress items in the
  * paginated list (it's a client-only refinement off `progress`).
  */
-function toListFilter(filter: WatchlistFilter): WatchlistListFilter | undefined {
+function toListFilter(filter: WatchlistFilter): WatchlistBucket | undefined {
   if (filter === "all") return undefined;
   if (filter === "in-progress") return "ready";
   return filter;
