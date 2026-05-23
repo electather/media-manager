@@ -1,4 +1,9 @@
-import type { ConnectionListItem, PluginSummary } from "@ent-mcp/shared/connections";
+import type {
+  ConnectionListItem,
+  PluginSummary,
+  PrimaryConnectionRow,
+} from "@ent-mcp/shared/connections";
+import type { MediaType } from "@ent-mcp/shared/media";
 import { api } from "@/shared/lib/api";
 import { readOkJson } from "@/shared/lib/api/throw-on-error";
 import { SettingsConnectionsApiError } from "./types";
@@ -40,4 +45,24 @@ export async function fetchSetDefaultConnection(id: string): Promise<void> {
 
 export async function fetchDeleteConnection(id: string): Promise<void> {
   await readJson(await api.connections[":id"].$delete({ param: { id } }));
+}
+
+export async function fetchPrimaryConnections(): Promise<PrimaryConnectionRow[]> {
+  const body = await readJson(await api.connections.primary.$get());
+  return body.primaries;
+}
+
+export async function fetchSetPrimaryConnection(input: {
+  capabilityKey: string;
+  mediaType: MediaType | null;
+  connectionId: string;
+}): Promise<void> {
+  await readJson(await api.connections.primary.$post({ json: input }));
+}
+
+export async function fetchClearPrimaryConnection(input: {
+  capabilityKey: string;
+  mediaType: MediaType | null;
+}): Promise<void> {
+  await readJson(await api.connections.primary.$delete({ json: input }));
 }

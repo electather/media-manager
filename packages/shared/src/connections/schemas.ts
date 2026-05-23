@@ -1,7 +1,31 @@
 import { z } from "zod";
 import { CONNECTION_STATUSES } from "./enums";
+import { MEDIA_TYPES } from "../media/enums";
 
 export const connectionStatusSchema = z.enum(CONNECTION_STATUSES);
+
+// Wire-level shape uses `null` for "no media-type partition" so the JSON
+// payload stays clean — `primary-preference.ts` maps it to the DB sentinel "_".
+const optionalMediaTypeSchema = z.enum(MEDIA_TYPES).nullable();
+
+// Matches every capability id we ship (`metadata@v1`, `artwork@v1`, …). A
+// hyphenated capability would fail here; documented in plan RISK-003.
+const capabilityKeySchema = z.string().regex(/^[a-z][a-zA-Z0-9]*@v\d+$/);
+
+/** Body for `POST /api/connections/primary`. */
+export const primaryConnectionSetSchema = z.object({
+  capabilityKey: capabilityKeySchema,
+  mediaType: optionalMediaTypeSchema,
+  connectionId: z.string().uuid(),
+});
+export type PrimaryConnectionSetBody = z.infer<typeof primaryConnectionSetSchema>;
+
+/** Body for `DELETE /api/connections/primary`. */
+export const primaryConnectionClearSchema = z.object({
+  capabilityKey: capabilityKeySchema,
+  mediaType: optionalMediaTypeSchema,
+});
+export type PrimaryConnectionClearBody = z.infer<typeof primaryConnectionClearSchema>;
 
 /** Body for `POST /api/connections`. */
 export const connectionCreateSchema = z.object({

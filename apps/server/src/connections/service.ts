@@ -1,5 +1,5 @@
 import { and, desc, eq, lt } from "drizzle-orm";
-import { getDb, type Db } from "../db/client";
+import { getDb } from "../db/client";
 import { serviceConnections, pendingAuth, plugins } from "../db/schema";
 import { selectEnabledPlugins } from "../db/queries";
 // fallow-allow: phase-2 infra-to-module decoupling
@@ -13,11 +13,14 @@ import type { AuthResult } from "@ent-mcp/plugin-sdk";
 // fallow-ignore-next-line boundary-violation
 import { invalidateUserCache } from "../media";
 import { badRequest, notFound, unprocessable } from "../diagnostics/http-errors";
+import type { Db } from "../db/client";
 import {
   computeDisplayFields,
   decryptJson,
   encryptJson,
+  fetchConnectionByOwner,
   promoteToDefault,
+  requireConnection,
   stripRequestFields,
   stripResponseFields,
 } from "./helpers";
@@ -90,22 +93,6 @@ function buildPluginSummary(
     credentialsSchema: (manifest.credentialsSchema as Record<string, unknown>) ?? null,
     adminSharedAvailable,
   };
-}
-
-async function fetchConnectionByOwner(db: Db, connectionId: string, userId: string) {
-  return (
-    (await db
-      .select()
-      .from(serviceConnections)
-      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
-      .get()) ?? null
-  );
-}
-
-async function requireConnection(db: Db, connectionId: string, userId: string) {
-  const row = await fetchConnectionByOwner(db, connectionId, userId);
-  if (!row) throw notFound("connection.not_found", "connection not found");
-  return row;
 }
 
 async function updateConnectionWhere(

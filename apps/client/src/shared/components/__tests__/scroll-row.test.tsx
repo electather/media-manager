@@ -57,4 +57,34 @@ describe("ScrollRowTrack", () => {
       endIndex: expect.any(Number),
     });
   });
+
+  it("virtualize branch positions items with gapPx between them", () => {
+    env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
+    const items = Array.from({ length: 10 }, (_, i) => ({ id: `it-${i}` }));
+    render(
+      <ScrollRow>
+        <ScrollRowViewport>
+          <ScrollRowTrack
+            virtualize
+            items={items}
+            getKey={(it) => it.id}
+            estimateItemWidth={200}
+            gapPx={16}
+            renderItem={(it) => <span data-testid="virt-cell">{it.id}</span>}
+          />
+        </ScrollRowViewport>
+      </ScrollRow>,
+    );
+    // Items are absolutely positioned by the virtualizer; each `vi.start` must
+    // advance by `estimateItemWidth + gapPx` so the rendered cards keep a 16px
+    // visual gap. A prior regression measured the DOM (cardWidth only) and
+    // packed items tight with no gap.
+    const positioned = Array.from(
+      document.querySelectorAll<HTMLLIElement>('[data-slot="scroll-row-item"]'),
+    );
+    expect(positioned.length).toBeGreaterThan(1);
+    const first = Number.parseFloat(positioned[0]!.style.insetInlineStart);
+    const second = Number.parseFloat(positioned[1]!.style.insetInlineStart);
+    expect(second - first).toBe(216);
+  });
 });

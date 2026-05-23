@@ -36,6 +36,9 @@ export {
   splitCombinedId,
   type RawPluginItem,
   type ItemIdentity,
+  setPrimaryConnection,
+  clearPrimaryConnection,
+  getPrimaryConnection,
 } from "./service";
 export {
   MEDIA_EVENTS,
