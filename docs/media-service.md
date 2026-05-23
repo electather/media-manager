@@ -177,6 +177,20 @@ Strategy = capability-level property, not per-method. Methods disagreeing on str
 - Zero eligible providers (no provider can serve given input) → throw capability-specific `unsupported` error (e.g. `artwork.unsupported_id_combo`).
 - Failed provider calls update connection `status`; ⊥ poison merged result.
 
+### Response Merge Safety
+
+Plugin responses cross trust boundary — payload may originate from external HTTP API via `JSON.parse`. `JSON.parse('{"__proto__":{...}}')` produces obj w/ own `__proto__` key, untouched by Zod `.strip()` ⊥ enforced. Merging via naive recursive copy → prototype pollution: writes attacker keys onto `Object.prototype`, worker-wide.
+
+Strategies that recursively merge plugin responses (`primary_with_enrichment`, future strategies w/ similar shape) MUST defend in 3 layers:
+
+1. **Key filter on merge loop.** Skip `__proto__`, `constructor`, `prototype` at top of recursive merge fn (`fillGaps` in `primary-with-enrichment.ts`). Blocks descent into `Object.prototype` via property accessor.
+2. **Owned deep copy via `safeClone`.** `safeClone` produces a fresh plain-object tree, recursively filtering `DANGEROUS_KEYS` at every depth. Merge target never shares allocation with raw plugin output. Plain prototype intentional — null-proto would break callers using `Object.prototype` methods on nested objects (`result.data.ids.hasOwnProperty(...)`).
+3. **Zod `.strip()` on every plugin capability response.** Default Zod behaviour; `.passthrough()` BANNED on capability response schemas. Plugin output is validated by `methodSpec.output.safeParse(result)` in `apps/server/src/plugin-runtime/service/runtime.ts` (search `methodSpec.output.safeParse`) before any result reaches the dispatch layer — so any own-property that survives Zod stripping (e.g. `__proto__`) is what layers 1+2 above are defending against. Audit covers every capability handler in `packages/plugins/*` + this runtime validation wrapper.
+
+Regression test in `apps/server/src/media/__tests__/primary-with-enrichment.test.ts`: feed `JSON.parse('{"__proto__":{"polluted":true}}')` as enrichment payload, assert `({} as any).polluted === undefined` after merge. Cover `constructor` + `prototype` keys same way. Legit nested merge (e.g. `ids: { tmdb: ..., imdb: ... }`) still works.
+
+Tracked: issue #451.
+
 ### Cache TTL Defaults
 
 Capability defines `defaultCacheTtlSec` (and optional `defaultNegativeCacheTtlSec`). Admin overrides per-capability via `/admin/plugins` (future UI):

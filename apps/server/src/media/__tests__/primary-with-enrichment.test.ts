@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vite-plus/test";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import { PluginError } from "@ent-mcp/plugin-sdk";
 
 vi.mock("../../env", () => ({
@@ -222,6 +222,17 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
     expect(result.data.title).toBe("Matrix");
   });
 
+  it("treats a null primary as a failed provider and merges from the next candidate", async () => {
+    // `dispatchPrimary` filters `data === null` out of `successes` before
+    // calling `mergeEnrichedResults`, so a null primary degrades to "primary
+    // had no data" and the next non-null candidate becomes the base.
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock.mockResolvedValueOnce(null).mockResolvedValueOnce({ title: "Filled", ids: {} });
+
+    const result = await dispatchPrimary<{ title: string }>(req());
+    expect(result.data.title).toBe("Filled");
+  });
+
   it("returns primary data unchanged when enrichment returns an array (non-object)", async () => {
     // When the primary result is an array, mergeEnrichedResults short-circuits
     // and returns it directly — no field-level merge is attempted.
@@ -243,6 +254,149 @@ describe("mergeEnrichedResults (via dispatchPrimary)", () => {
 
     const result = await dispatchPrimary<{ ids: Record<string, string> }>(req());
     expect(result.data.ids).toEqual({ tmdb: "603", trakt: "99", tvdb: "321" });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Prototype pollution defense — issue #451.
+// Plugin responses may carry an own `__proto__` key when the plugin forwards
+// a `JSON.parse` result from an external API. Both safeClone (used to copy
+// primary + enrichment data) and fillGaps (used to merge them) must filter
+// `__proto__`, `constructor`, and `prototype` so attacker-controlled keys
+// never reach the worker's `Object.prototype`.
+// ---------------------------------------------------------------------------
+
+describe("prototype pollution defense (issue #451)", () => {
+  function maliciousPayload(key: "__proto__" | "constructor" | "prototype") {
+    // JSON.parse is the only way to create a real own `__proto__` property; an
+    // object literal `{ __proto__: ... }` sets the prototype instead.
+    return JSON.parse(`{"title":"Hijack","${key}":{"polluted":true}}`);
+  }
+
+  // Snapshot the original own keys of Object.prototype before each test and
+  // strip anything added during the test. Scales as new pollution markers are
+  // introduced without each test having to update an explicit deny-list, so a
+  // regression in test N fails on test N rather than cascading into N+1..N+M.
+  let originalProtoKeys: string[];
+
+  beforeEach(() => {
+    originalProtoKeys = Object.getOwnPropertyNames(Object.prototype);
+  });
+
+  afterEach(() => {
+    const proto = Object.prototype as Record<string, unknown>;
+    for (const key of Object.getOwnPropertyNames(proto)) {
+      if (!originalProtoKeys.includes(key)) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete proto[key];
+      }
+    }
+  });
+
+  it("does not pollute Object.prototype when enrichment carries an own __proto__ key", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("__proto__"));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype when the primary itself carries an own __proto__ key", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce(maliciousPayload("__proto__"))
+      .mockResolvedValueOnce({ title: "Other", ids: {} });
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("strips a `constructor` own-property from enrichment rather than copying it through", async () => {
+    // Assigning an own `constructor` key on a plain object does not pollute
+    // `Object.prototype` by itself, so the `polluted === undefined` shape used
+    // by the other tests would pass vacuously here. Assert directly that the
+    // key was filtered — this test fails if `constructor` is removed from
+    // `DANGEROUS_KEYS`.
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("constructor"));
+
+    const result = await dispatchPrimary<Record<string, unknown>>(req());
+
+    expect(Object.hasOwn(result.data, "constructor")).toBe(false);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("strips a `prototype` own-property from enrichment rather than copying it through", async () => {
+    // An own `prototype` key on a plain object does not pollute `Object.prototype`
+    // by itself, so the bare `polluted === undefined` assertion would pass even
+    // if `prototype` were dropped from `DANGEROUS_KEYS`. Assert directly that
+    // the key was filtered — this test fails if `prototype` is removed from the
+    // Set.
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("prototype"));
+
+    const result = await dispatchPrimary<Record<string, unknown>>(req());
+
+    expect(Object.hasOwn(result.data, "prototype")).toBe(false);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype via a nested __proto__ key in enrichment", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: { tmdb: "1" } })
+      .mockResolvedValueOnce(JSON.parse(`{"ids":{"__proto__":{"nested":true}}}`));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).nested).toBeUndefined();
+  });
+
+  it("does not pollute Object.prototype via __proto__ inside an array item in enrichment", async () => {
+    // Array values are recursed by `safeCloneValue` (which calls `safeClone`
+    // on each plain-object item); without that recursion a hostile item like
+    // `[{"__proto__":{"polluted":true}}]` would slip through unfiltered.
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", items: [], ids: {} })
+      .mockResolvedValueOnce(JSON.parse(`{"items":[{"__proto__":{"polluted":true}}]}`));
+
+    await dispatchPrimary(req());
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("strips dangerous keys from the merged result instead of carrying them through", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", ids: {} })
+      .mockResolvedValueOnce(maliciousPayload("__proto__"));
+
+    const result = await dispatchPrimary<Record<string, unknown>>(req());
+
+    // Dangerous keys are filtered, not preserved as own properties.
+    expect(Object.hasOwn(result.data, "__proto__")).toBe(false);
+    expect((result.data as { polluted?: unknown }).polluted).toBeUndefined();
+  });
+
+  it("still merges legitimate fields when enrichment also contains a dangerous key", async () => {
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    invokeMock
+      .mockResolvedValueOnce({ title: "Matrix", overview: null, ids: {} })
+      .mockResolvedValueOnce(JSON.parse(`{"overview":"Filled","__proto__":{"polluted":true}}`));
+
+    const result = await dispatchPrimary<{ overview: string }>(req());
+
+    expect(result.data.overview).toBe("Filled");
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
 

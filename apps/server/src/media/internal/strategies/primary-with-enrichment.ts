@@ -1,5 +1,4 @@
 import { compact } from "es-toolkit/array";
-import { cloneDeep } from "es-toolkit/object";
 import { isNil, isPlainObject } from "es-toolkit/predicate";
 import { getPrimaryConnection } from "../../service/primary-preference";
 import { pickSingleConnection } from "../capability-lookup";
@@ -9,14 +8,51 @@ import type { InvocationOutcome } from "../../errors";
 import type { DispatchRequest, AggregateResult } from "../../types";
 import { invokeAll, collectErrors, resolveDispatchPreamble, type Candidate } from "./shared";
 
+// Plugin responses cross a trust boundary: payloads may come from external
+// HTTP APIs via JSON.parse, which preserves `__proto__` as an own property.
+// Naive recursive copy/merge would set the target's prototype to attacker
+// input, polluting every object in the worker. See docs/media-service.md
+// "Response Merge Safety" and issue #451.
+//
+// `__proto__` is the live attack vector. `constructor` is included to block
+// constructor-chain attacks (`obj.constructor.prototype.x = ...`). `prototype`
+// is harmless on a plain object but kept here as a cheap belt-and-braces
+// guard in case a future merge path ever runs against a function.
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 function isEmptyValue(v: unknown): boolean {
   if (isNil(v) || v === "") return true;
   return Array.isArray(v) && v.length === 0;
 }
 
+function safeCloneValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(safeCloneValue);
+  if (isPlainObject(value)) return safeClone(value as Record<string, unknown>);
+  return value;
+}
+
+function safeClone(src: Record<string, unknown>): Record<string, unknown> {
+  // Plain `{}` is intentional. The real defense is the `DANGEROUS_KEYS` filter
+  // below — it prevents the only assignment that could touch `Object.prototype`
+  // (`out["__proto__"] = ...`). A null-prototype base would force every nested
+  // object to be null-proto too, breaking callers that rely on
+  // `Object.prototype` methods (`hasOwnProperty`, `toString`, ...) on
+  // sub-objects like `result.data.ids`.
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(src)) {
+    if (DANGEROUS_KEYS.has(key)) continue;
+    out[key] = safeCloneValue(src[key]);
+  }
+  return out;
+}
+
 // fallow-ignore-next-line complexity
 function fillGaps(base: Record<string, unknown>, extra: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(extra)) {
+    // `extra` is always a `safeClone` result today, so this guard is redundant
+    // at the current call site. Kept as defense-in-depth: if a future caller
+    // passes raw plugin data through `fillGaps`, the merge stays safe.
+    if (DANGEROUS_KEYS.has(key)) continue;
     const current = base[key];
     if (isEmptyValue(current)) {
       base[key] = value;
@@ -46,13 +82,18 @@ async function resolveOrderedCandidates(
 // fallow-ignore-next-line complexity
 function mergeEnrichedResults<T>(successes: Array<InvocationOutcome<T>>): T {
   const [first, ...rest] = successes;
-  if (Array.isArray(first!.data) || typeof first!.data !== "object") {
+  // `dispatchPrimary` filters `data === null` out of `successes` before
+  // calling here, so the null branch is an unreachable defensive guard —
+  // not a supported code path. Kept so a future caller bypassing the filter
+  // degrades gracefully instead of crashing on a null `base`.
+  if (first!.data === null || typeof first!.data !== "object" || Array.isArray(first!.data)) {
     return first!.data as T;
   }
-  const base: Record<string, unknown> = cloneDeep(first!.data as Record<string, unknown>);
+  const base = safeClone(first!.data as Record<string, unknown>);
   for (const outcome of rest) {
     if (outcome.data && typeof outcome.data === "object" && !Array.isArray(outcome.data)) {
-      fillGaps(base, outcome.data as Record<string, unknown>);
+      const sanitized = safeClone(outcome.data as Record<string, unknown>);
+      fillGaps(base, sanitized);
     }
   }
   return base as T;
