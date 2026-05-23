@@ -1,14 +1,23 @@
 # Watchlist Backend Service
 
-**Status:** design (rev 3)
-**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19)
+**Status:** design (rev 4) — partial supersession
+**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23)
 **Author:** Omid Astaraki
 **Deps:** [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-04-27-catalog-service-design.md](./2026-04-27-catalog-service-design.md), [2026-04-20-job-service-design.md](./2026-04-20-job-service-design.md), `frontend-feature-architecture` skill ([.claude/skills/frontend-feature-architecture/SKILL.md](../.claude/skills/frontend-feature-architecture/SKILL.md)), `backend-feature-architecture` skill ([.claude/skills/backend-feature-architecture/SKILL.md](../.claude/skills/backend-feature-architecture/SKILL.md)), plugin `watchlist@v1`
+**Partial supersession:** API surface + client layout sections superseded by [2026-05-23-watchlist-sections-design.md](./2026-05-23-watchlist-sections-design.md). Storage (§D), seed, sync, events, mutations unchanged.
 
 Caveman ultra. Pseudocode = shape-only, ⊥ literal.
 
 ## Revision history
 
+- **rev 4 (2026-05-23)** — Partial supersession by `2026-05-23-watchlist-sections-design.md`.
+  - `/api/watchlist?filter=` shape replaced by REST-split: `/items`, `/sections/{tonight,recently}`, `/moods`, `/moods/:moodId/items`. `?filter=` dropped (pre-stable).
+  - Mood derivation moved server-side. Client `derive-moods.ts` deleted.
+  - Tonight pick scored server-side; client receives pre-curated set.
+  - Flat all-items view added (closes "watchlist page ⊥ list all items" gap).
+  - Client layout adds `sections/` sub-folder under `components/`, plus `/watchlist/all` + `/watchlist/moods/:moodId` routes.
+  - `inProgress` chip removal carried over from rev 3 caveat — same status.
+  - Storage (§D), seed, sync, write paths (POST/DELETE), event schemas: unchanged.
 - **rev 3 (2026-05-19)** — Address rev 2 review. Major descoping.
   - Job model → `registerScheduledPerRow` (cron + iteration). Drop invented `jobs.schedule({runAfter, dedupKey})`. Drop sweep job (cron handles recovery).
   - Drop `genreIds` end-to-end work (catalog schema, TMDB mapper, backfill). Mood derivation matches English genre names from existing `CompactMediaItem.genres: string[]`. Locale assumption documented.
