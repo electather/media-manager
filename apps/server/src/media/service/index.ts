@@ -839,6 +839,15 @@ export class MediaService {
    * callers fall back to per-id `checkAvailability`. The promise is cached
    * even on rejection-style nulls so a second item lookup in the same request
    * does not re-probe a plugin that just failed.
+   *
+   * Cache identity is intentionally deadline-agnostic (mirrors
+   * `getMatchingServers`): the first caller's `deadlineMs` governs the shared
+   * probe; a later caller with a tighter deadline silently inherits the
+   * looser one. Safe today because every `MediaService` instance is scoped to
+   * one HTTP request or one warm-job row. If that invariant ever changes —
+   * a `MediaService` shared across requests with differing deadlines — the
+   * tighter deadline will be ignored. Add `deadlineMs` to `key` only if that
+   * happens.
    */
   // fallow-ignore-next-line complexity
   private async getLibraryIndex(

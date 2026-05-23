@@ -76,6 +76,36 @@ describe("enrichItems deadline propagation", () => {
     expect(artworkCall[2]).toEqual({ deadlineMs });
   });
 
+  it("absorbs AbortError from ArtworkService.getArtwork; item ships with unhydrated artwork", async () => {
+    const abortErr = new Error("aborted");
+    abortErr.name = "AbortError";
+    artworkGetSpy.mockReset();
+    artworkGetSpy.mockRejectedValueOnce(abortErr);
+    const ctx = makeRowCtx({
+      deadlineMs: Date.now() + 30_000,
+      mediaService: { getMatchingServers: vi.fn().mockResolvedValue([]) } as never,
+      catalog: {
+        getMetadataBatch: vi.fn().mockResolvedValue({
+          // No artwork URLs in metadata, forcing hydrateArtwork to dispatch.
+          "movie:1": meta({ tmdbId: "1" }),
+        }),
+      } as never,
+    });
+    const out = await enrichItems(
+      [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "T" }],
+      ctx,
+      { rowId: "hero" },
+    );
+    expect(out).toHaveLength(1);
+    const wire = out[0]!;
+    // Item must ship even though artwork dispatch threw; URLs left unset
+    // because canonical metadata had none either.
+    expect(wire.poster).toBeUndefined();
+    expect(wire.backdrop).toBeUndefined();
+    expect(wire.clearLogo).toBeUndefined();
+    expect(artworkGetSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("absorbs AbortError from getMatchingServers; item ships with empty servers", async () => {
     const abortErr = new Error("aborted");
     abortErr.name = "AbortError";
