@@ -30,6 +30,7 @@ const {
   addItem,
   removeItem,
   listAvailable,
+  listItems,
   listMoodItems,
   seedFromPlugins,
   syncFromPlugins,
@@ -421,5 +422,79 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
 
     const res = await listMoodItems(ctx, "dark", { limit: 3 });
     expect(res.items.map((i) => i.tmdbId)).toEqual(["m36", "m24", "m12"]);
+  });
+
+  // V.WL1 — `sort=alpha` returns rows by canonical-metadata title ascending,
+  // not by `addedAt`. Anchors the offset-cursor sort path.
+  it("listItems sort=alpha sorts by metadata title", async () => {
+    const ctx = makeCtx();
+    await addItem({ tmdbId: "a1", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "a2", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "a3", mediaType: "movie" }, "manual", ctx);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:a1": { tmdbId: "a1", mediaType: "movie", title: "Charlie", genres: [] },
+      "movie:a2": { tmdbId: "a2", mediaType: "movie", title: "Alpha", genres: [] },
+      "movie:a3": { tmdbId: "a3", mediaType: "movie", title: "Bravo", genres: [] },
+    });
+
+    const page = await listItems(ctx, { sort: "alpha", limit: 10 });
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["a2", "a3", "a1"]);
+  });
+
+  // V.WL2 — when most rows in the offset window are dropped by the bucket
+  // filter, the next cursor MUST still advance past the scanned rows; an
+  // earlier cursor that advanced by `slice.length` produced a load-more
+  // loop or duplicated rows. Anchors the `scannedRows` fix.
+  it("listItems sort=alpha + sparse bucket advances cursor past scanned window", async () => {
+    const ctx = makeCtx();
+    // 9 rows; only `r5` is ready (server-mapped). Bucket filter keeps 1 row;
+    // the request asks for limit=10 so we should NOT be told there is more.
+    for (let i = 1; i <= 9; i++) {
+      await addItem({ tmdbId: `r${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+    __resetAvailabilityCache();
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tmdbId: string) => (tmdbId === "r5" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          out[`movie:${tmdbId}`] = { tmdbId, mediaType: "movie", title: tmdbId, genres: [] };
+        }
+        return out;
+      },
+    );
+
+    const page = await listItems(ctx, { sort: "alpha", bucket: "ready", limit: 10 });
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["r5"]);
+    // Critical: cursor must be null — every row in the active set has been
+    // classified, so there is nothing left to paginate.
+    expect(page.cursor).toBeNull();
+  });
+
+  // V.WL2 rev 6 — `bucket` omitted surfaces every active row regardless of
+  // classification (no hidden `unknown` tail leak).
+  it("listItems without bucket surfaces every active row across visible buckets", async () => {
+    const ctx = makeCtx();
+    await addItem({ tmdbId: "v1", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "v2", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "v3", mediaType: "movie" }, "manual", ctx);
+    __resetAvailabilityCache();
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tmdbId: string) => (tmdbId === "v1" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:v2": {
+        tmdbId: "v2",
+        mediaType: "movie",
+        title: "Far Future",
+        year: new Date().getUTCFullYear() + 3,
+        genres: [],
+      },
+    });
+
+    const page = await listItems(ctx, { limit: 10 });
+    expect(new Set(page.items.map((i) => i.tmdbId))).toEqual(new Set(["v1", "v2", "v3"]));
   });
 });
