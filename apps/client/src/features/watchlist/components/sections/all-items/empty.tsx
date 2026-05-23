@@ -68,7 +68,11 @@ export function WatchlistEmpty({ bucket, mood }: WatchlistEmptyProps) {
       />
     );
   }
-  const copy = bucket ? BUCKET_COPY[bucket] : BUCKET_COPY.ready;
+  // Routes mount `AllItems` with one of `bucket` / `mood`; if neither is set
+  // we fail loud rather than render bucket-specific copy that lies about the
+  // active filter.
+  if (!bucket) throw new Error("WatchlistEmpty requires either `bucket` or `mood`");
+  const copy = BUCKET_COPY[bucket];
   const Icon = copy.icon;
   return (
     <EmptyState
