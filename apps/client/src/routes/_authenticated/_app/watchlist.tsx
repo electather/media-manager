@@ -1,19 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 import { fetchCounts } from "@/features/watchlist/lib/fetchers";
 import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
-import { WatchlistPage } from "@/features/watchlist/components/watchlist-page";
+import { WatchlistLayout } from "@/features/watchlist/components/watchlist-layout";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 
-const searchSchema = z
-  .object({
-    peek: z.string().optional(),
-  })
-  .strict();
-
 export const Route = createFileRoute("/_authenticated/_app/watchlist")({
-  validateSearch: searchSchema,
   loader: ({ context: { queryClient } }) =>
     queryClient.ensureQueryData({
       queryKey: watchlistKeys.counts(),
@@ -21,7 +13,9 @@ export const Route = createFileRoute("/_authenticated/_app/watchlist")({
     }),
   component: () => (
     <ErrorBoundary>
-      <WatchlistPage />
+      <WatchlistLayout>
+        <Outlet />
+      </WatchlistLayout>
     </ErrorBoundary>
   ),
 });

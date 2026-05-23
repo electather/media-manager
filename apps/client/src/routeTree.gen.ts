@@ -29,6 +29,7 @@ import { Route as AuthenticatedAppWatchlistRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/_app/notifications'
 import { Route as AuthenticatedAppLibraryRouteImport } from './routes/_authenticated/_app/library'
 import { Route as AuthenticatedSettingsSettingsIndexRouteImport } from './routes/_authenticated/_settings/settings/index'
+import { Route as AuthenticatedAppWatchlistIndexRouteImport } from './routes/_authenticated/_app/watchlist.index'
 import { Route as AuthenticatedAdminAdminIndexRouteImport } from './routes/_authenticated/_admin/admin/index'
 import { Route as AuthenticatedSettingsSettingsSecurityRouteImport } from './routes/_authenticated/_settings/settings/security'
 import { Route as AuthenticatedSettingsSettingsProfileRouteImport } from './routes/_authenticated/_settings/settings/profile'
@@ -36,7 +37,10 @@ import { Route as AuthenticatedSettingsSettingsNotificationsRouteImport } from '
 import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './routes/_authenticated/_settings/settings/danger'
 import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
 import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
-import { Route as AuthenticatedAppWatchlistAllRouteImport } from './routes/_authenticated/_app/watchlist.all'
+import { Route as AuthenticatedAppWatchlistUpcomingRouteImport } from './routes/_authenticated/_app/watchlist.upcoming'
+import { Route as AuthenticatedAppWatchlistReadyRouteImport } from './routes/_authenticated/_app/watchlist.ready'
+import { Route as AuthenticatedAppWatchlistInProgressRouteImport } from './routes/_authenticated/_app/watchlist.in-progress'
+import { Route as AuthenticatedAppWatchlistAwaitingRouteImport } from './routes/_authenticated/_app/watchlist.awaiting'
 import { Route as AuthenticatedAdminAdminUsersRouteImport } from './routes/_authenticated/_admin/admin/users'
 import { Route as AuthenticatedAdminAdminServerRouteImport } from './routes/_authenticated/_admin/admin/server'
 import { Route as AuthenticatedAdminAdminRolesRouteImport } from './routes/_authenticated/_admin/admin/roles'
@@ -151,6 +155,12 @@ const AuthenticatedSettingsSettingsIndexRoute =
     path: '/settings/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedAppWatchlistIndexRoute =
+  AuthenticatedAppWatchlistIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
 const AuthenticatedAdminAdminIndexRoute =
   AuthenticatedAdminAdminIndexRouteImport.update({
     id: '/admin/',
@@ -193,10 +203,28 @@ const AuthenticatedSettingsSettingsAppsRoute =
     path: '/settings/apps',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedAppWatchlistAllRoute =
-  AuthenticatedAppWatchlistAllRouteImport.update({
-    id: '/all',
-    path: '/all',
+const AuthenticatedAppWatchlistUpcomingRoute =
+  AuthenticatedAppWatchlistUpcomingRouteImport.update({
+    id: '/upcoming',
+    path: '/upcoming',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
+const AuthenticatedAppWatchlistReadyRoute =
+  AuthenticatedAppWatchlistReadyRouteImport.update({
+    id: '/ready',
+    path: '/ready',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
+const AuthenticatedAppWatchlistInProgressRoute =
+  AuthenticatedAppWatchlistInProgressRouteImport.update({
+    id: '/in-progress',
+    path: '/in-progress',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
+const AuthenticatedAppWatchlistAwaitingRoute =
+  AuthenticatedAppWatchlistAwaitingRouteImport.update({
+    id: '/awaiting',
+    path: '/awaiting',
     getParentRoute: () => AuthenticatedAppWatchlistRoute,
   } as any)
 const AuthenticatedAdminAdminUsersRoute =
@@ -287,7 +315,10 @@ export interface FileRoutesByFullPath {
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
-  '/watchlist/all': typeof AuthenticatedAppWatchlistAllRoute
+  '/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
+  '/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
+  '/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
+  '/watchlist/upcoming': typeof AuthenticatedAppWatchlistUpcomingRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
@@ -295,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/admin/': typeof AuthenticatedAdminAdminIndexRoute
+  '/watchlist/': typeof AuthenticatedAppWatchlistIndexRoute
   '/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
   '/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
@@ -312,7 +344,6 @@ export interface FileRoutesByTo {
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
@@ -323,7 +354,10 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
-  '/watchlist/all': typeof AuthenticatedAppWatchlistAllRoute
+  '/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
+  '/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
+  '/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
+  '/watchlist/upcoming': typeof AuthenticatedAppWatchlistUpcomingRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
@@ -331,6 +365,7 @@ export interface FileRoutesByTo {
   '/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/admin': typeof AuthenticatedAdminAdminIndexRoute
+  '/watchlist': typeof AuthenticatedAppWatchlistIndexRoute
   '/settings': typeof AuthenticatedSettingsSettingsIndexRoute
   '/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
   '/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
@@ -365,7 +400,10 @@ export interface FileRoutesById {
   '/_authenticated/_admin/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/_authenticated/_admin/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/_authenticated/_admin/admin/users': typeof AuthenticatedAdminAdminUsersRoute
-  '/_authenticated/_app/watchlist/all': typeof AuthenticatedAppWatchlistAllRoute
+  '/_authenticated/_app/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
+  '/_authenticated/_app/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
+  '/_authenticated/_app/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
+  '/_authenticated/_app/watchlist/upcoming': typeof AuthenticatedAppWatchlistUpcomingRoute
   '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/_authenticated/_settings/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
@@ -373,6 +411,7 @@ export interface FileRoutesById {
   '/_authenticated/_settings/settings/profile': typeof AuthenticatedSettingsSettingsProfileRoute
   '/_authenticated/_settings/settings/security': typeof AuthenticatedSettingsSettingsSecurityRoute
   '/_authenticated/_admin/admin/': typeof AuthenticatedAdminAdminIndexRoute
+  '/_authenticated/_app/watchlist/': typeof AuthenticatedAppWatchlistIndexRoute
   '/_authenticated/_settings/settings/': typeof AuthenticatedSettingsSettingsIndexRoute
   '/_authenticated/_admin/admin/notifications/deliveries': typeof AuthenticatedAdminAdminNotificationsDeliveriesRoute
   '/_authenticated/_admin/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
@@ -404,7 +443,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
-    | '/watchlist/all'
+    | '/watchlist/awaiting'
+    | '/watchlist/in-progress'
+    | '/watchlist/ready'
+    | '/watchlist/upcoming'
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
@@ -412,6 +454,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/security'
     | '/admin/'
+    | '/watchlist/'
     | '/settings/'
     | '/admin/notifications/deliveries'
     | '/admin/notifications/settings'
@@ -429,7 +472,6 @@ export interface FileRouteTypes {
     | '/oauth/consent'
     | '/library'
     | '/notifications'
-    | '/watchlist'
     | '/oauth-callback'
     | '/setup'
     | '/auth/forgot-password/sent'
@@ -440,7 +482,10 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
-    | '/watchlist/all'
+    | '/watchlist/awaiting'
+    | '/watchlist/in-progress'
+    | '/watchlist/ready'
+    | '/watchlist/upcoming'
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
@@ -448,6 +493,7 @@ export interface FileRouteTypes {
     | '/settings/profile'
     | '/settings/security'
     | '/admin'
+    | '/watchlist'
     | '/settings'
     | '/admin/notifications/deliveries'
     | '/admin/notifications/settings'
@@ -481,7 +527,10 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/admin/roles'
     | '/_authenticated/_admin/admin/server'
     | '/_authenticated/_admin/admin/users'
-    | '/_authenticated/_app/watchlist/all'
+    | '/_authenticated/_app/watchlist/awaiting'
+    | '/_authenticated/_app/watchlist/in-progress'
+    | '/_authenticated/_app/watchlist/ready'
+    | '/_authenticated/_app/watchlist/upcoming'
     | '/_authenticated/_settings/settings/apps'
     | '/_authenticated/_settings/settings/connections'
     | '/_authenticated/_settings/settings/danger'
@@ -489,6 +538,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_settings/settings/profile'
     | '/_authenticated/_settings/settings/security'
     | '/_authenticated/_admin/admin/'
+    | '/_authenticated/_app/watchlist/'
     | '/_authenticated/_settings/settings/'
     | '/_authenticated/_admin/admin/notifications/deliveries'
     | '/_authenticated/_admin/admin/notifications/settings'
@@ -646,6 +696,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_app/watchlist/': {
+      id: '/_authenticated/_app/watchlist/'
+      path: '/'
+      fullPath: '/watchlist/'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
     '/_authenticated/_admin/admin/': {
       id: '/_authenticated/_admin/admin/'
       path: '/admin'
@@ -695,11 +752,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSettingsAppsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/_app/watchlist/all': {
-      id: '/_authenticated/_app/watchlist/all'
-      path: '/all'
-      fullPath: '/watchlist/all'
-      preLoaderRoute: typeof AuthenticatedAppWatchlistAllRouteImport
+    '/_authenticated/_app/watchlist/upcoming': {
+      id: '/_authenticated/_app/watchlist/upcoming'
+      path: '/upcoming'
+      fullPath: '/watchlist/upcoming'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistUpcomingRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
+    '/_authenticated/_app/watchlist/ready': {
+      id: '/_authenticated/_app/watchlist/ready'
+      path: '/ready'
+      fullPath: '/watchlist/ready'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistReadyRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
+    '/_authenticated/_app/watchlist/in-progress': {
+      id: '/_authenticated/_app/watchlist/in-progress'
+      path: '/in-progress'
+      fullPath: '/watchlist/in-progress'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistInProgressRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
+    '/_authenticated/_app/watchlist/awaiting': {
+      id: '/_authenticated/_app/watchlist/awaiting'
+      path: '/awaiting'
+      fullPath: '/watchlist/awaiting'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistAwaitingRouteImport
       parentRoute: typeof AuthenticatedAppWatchlistRoute
     }
     '/_authenticated/_admin/admin/users': {
@@ -820,13 +898,24 @@ const AuthenticatedAdminRouteRouteWithChildren =
   )
 
 interface AuthenticatedAppWatchlistRouteChildren {
-  AuthenticatedAppWatchlistAllRoute: typeof AuthenticatedAppWatchlistAllRoute
+  AuthenticatedAppWatchlistAwaitingRoute: typeof AuthenticatedAppWatchlistAwaitingRoute
+  AuthenticatedAppWatchlistInProgressRoute: typeof AuthenticatedAppWatchlistInProgressRoute
+  AuthenticatedAppWatchlistReadyRoute: typeof AuthenticatedAppWatchlistReadyRoute
+  AuthenticatedAppWatchlistUpcomingRoute: typeof AuthenticatedAppWatchlistUpcomingRoute
+  AuthenticatedAppWatchlistIndexRoute: typeof AuthenticatedAppWatchlistIndexRoute
   AuthenticatedAppWatchlistMoodsMoodIdRoute: typeof AuthenticatedAppWatchlistMoodsMoodIdRoute
 }
 
 const AuthenticatedAppWatchlistRouteChildren: AuthenticatedAppWatchlistRouteChildren =
   {
-    AuthenticatedAppWatchlistAllRoute: AuthenticatedAppWatchlistAllRoute,
+    AuthenticatedAppWatchlistAwaitingRoute:
+      AuthenticatedAppWatchlistAwaitingRoute,
+    AuthenticatedAppWatchlistInProgressRoute:
+      AuthenticatedAppWatchlistInProgressRoute,
+    AuthenticatedAppWatchlistReadyRoute: AuthenticatedAppWatchlistReadyRoute,
+    AuthenticatedAppWatchlistUpcomingRoute:
+      AuthenticatedAppWatchlistUpcomingRoute,
+    AuthenticatedAppWatchlistIndexRoute: AuthenticatedAppWatchlistIndexRoute,
     AuthenticatedAppWatchlistMoodsMoodIdRoute:
       AuthenticatedAppWatchlistMoodsMoodIdRoute,
   }

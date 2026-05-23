@@ -13,41 +13,31 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import { WatchlistCard } from "./watchlist-card";
-import { useCounts } from "../hooks/use-counts";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
 import { useMoods } from "../hooks/use-moods";
 import { MOOD_REGISTRY } from "../lib/mood-registry";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
-import { WatchlistHeader } from "./watchlist-header";
-import { WatchlistPeekModal } from "./watchlist-peek-modal";
 
 const MOOD_PAGE_LIMIT = 60;
 
 /**
- * `/watchlist/moods/:moodId` view. Reads `moodId` from the path, fetches
- * the cluster summary for the header count, and paginates through the
- * cluster items in a virtualized grid. Unknown `moodId` lands on the
- * 400 path → the surrounding ErrorBoundary renders the fallback.
+ * `/watchlist/moods/:moodId` content. Header + peek modal live in the
+ * layout route; this page renders the cluster grid + its Suspense
+ * boundary. Unknown `moodId` lands on the 400 path → the surrounding
+ * ErrorBoundary renders the fallback.
  */
 export function WatchlistMoodPage() {
   const { moodId } = useParams({ strict: false }) as { moodId: MoodId };
-  const { data: counts } = useCounts();
   return (
-    <main className="mx-auto w-full max-w-[100rem] px-4 sm:px-6 lg:px-8">
-      <WatchlistHeader mode="curated" counts={counts} />
-      <div className="pb-32">
-        <ErrorBoundary
-          fallback={({ error, reset }) => (
-            <WatchlistErrorFallback error={error} resetErrorBoundary={reset} />
-          )}
-        >
-          <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
-            <MoodGrid moodId={moodId} />
-          </Suspense>
-        </ErrorBoundary>
-      </div>
-      <WatchlistPeekModal />
-    </main>
+    <ErrorBoundary
+      fallback={({ error, reset }) => (
+        <WatchlistErrorFallback error={error} resetErrorBoundary={reset} />
+      )}
+    >
+      <Suspense fallback={<Skeleton className="h-[600px] w-full rounded-2xl" />}>
+        <MoodGrid moodId={moodId} />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

@@ -1,46 +1,34 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
-  SectionHeadActions,
-  SectionHeadCount,
   SectionHeadEyebrow,
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { Button } from "@/shared/ui/button";
-import { cn } from "@/shared/lib/utils";
 import type { WatchlistBucket, WatchlistCounts, WatchlistSort } from "@ent-mcp/shared/watchlist";
+import { WATCHLIST_BUCKETS } from "@ent-mcp/shared/watchlist";
+import { useSearch } from "@tanstack/react-router";
 import { BucketChips } from "./sections/all-items/bucket-chips";
 import { SortSelect } from "./sections/all-items/sort-select";
 
-export type WatchlistHeaderMode = "curated" | "flat";
-
-interface CommonProps {
+interface WatchlistHeaderProps {
   counts: WatchlistCounts;
 }
 
-interface CuratedProps extends CommonProps {
-  mode: "curated";
-}
-
-interface FlatProps extends CommonProps {
-  mode: "flat";
-  bucket?: WatchlistBucket;
-  sort: WatchlistSort;
-}
-
-type WatchlistHeaderProps = CuratedProps | FlatProps;
+const FLAT_BUCKET_PATHS: ReadonlySet<string> = new Set(
+  WATCHLIST_BUCKETS.map((b) => `/watchlist/${b}`),
+);
 
 /**
- * Page header. `curated` mode (default `/watchlist`) shows the title + pip
- * counts + "View all items" link. `flat` mode (`/watchlist/all`) hides the
- * link and surfaces bucket chips + sort dropdown that push `bucket` / `sort`
- * updates via `navigate({ to: ".", search: ... })`.
+ * Shared page header for the `/watchlist/*` route family. Renders the
+ * title, the chip strip (always visible), and the sort dropdown (only on
+ * flat bucket sub-routes — curated `/watchlist` and `/watchlist/moods/:id`
+ * hide it). State lives entirely in the URL (path + `?sort=`).
  */
-export function WatchlistHeader(props: WatchlistHeaderProps) {
-  const navigate = useNavigate();
-  const counts = props.counts;
+export function WatchlistHeader({ counts }: WatchlistHeaderProps) {
+  const location = useLocation();
+  const showSort = FLAT_BUCKET_PATHS.has(location.pathname);
   return (
     <header>
       <SectionHead size="page">
@@ -48,65 +36,41 @@ export function WatchlistHeader(props: WatchlistHeaderProps) {
           <SectionHeadEyebrow size="page">{m.watchlist_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle as="h1" size="page">
             {m.watchlist_title()}
-            <SectionHeadCount size="page" value={counts.total} />
           </SectionHeadTitle>
         </SectionHeadHeading>
-        <SectionHeadActions>
-          <div className="flex flex-col items-end gap-1.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
-            <p className="flex items-center justify-end gap-3">
-              <span className="inline-flex items-center gap-1.5 text-success">
-                <Pip className="bg-success" />
-                {m.watchlist_count_ready({ n: String(counts.ready) })}
-              </span>
-              <span className="text-muted-foreground/40" aria-hidden="true">
-                ·
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-primary">
-                <Pip className="bg-primary" />
-                {m.watchlist_count_awaiting({ n: String(counts.awaiting) })}
-              </span>
-              <span className="text-muted-foreground/40" aria-hidden="true">
-                ·
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Pip className="bg-muted-foreground" />
-                {m.watchlist_count_upcoming({ n: String(counts.upcoming) })}
-              </span>
-            </p>
-            {props.mode === "curated" ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="font-sans text-xs"
-                onClick={() => {
-                  void navigate({ to: "/watchlist/all" });
-                }}
-              >
-                {m.watchlist_view_all_items()}
-              </Button>
-            ) : null}
-          </div>
-        </SectionHeadActions>
       </SectionHead>
 
-      {props.mode === "flat" ? (
-        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
-          <BucketChips value={props.bucket} counts={counts} />
-          <label className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
-            <span>{m.watchlist_sort_label()}</span>
-            <SortSelect value={props.sort} />
-          </label>
-        </div>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
+        <BucketChips counts={counts} />
+        {showSort ? <FlatSortControl bucket={extractBucket(location.pathname)} /> : null}
+      </div>
     </header>
   );
 }
 
-function Pip({ className }: { className: string }) {
+function extractBucket(pathname: string): WatchlistBucket {
+  const segment = pathname.slice("/watchlist/".length);
+  return segment as WatchlistBucket;
+}
+
+interface FlatSortControlProps {
+  bucket: WatchlistBucket;
+}
+
+/**
+ * Reads the current sub-route's `?sort=` so the dropdown reflects the URL.
+ * `strict: false` lets the same component sit in the layout above all four
+ * flat bucket routes without a per-route prop wire-up.
+ */
+function FlatSortControl({ bucket }: FlatSortControlProps) {
+  const search = useSearch({ strict: false }) as { sort?: WatchlistSort };
   return (
-    <span
-      aria-hidden="true"
-      className={cn("inline-block size-1.5 shrink-0 rounded-full", className)}
-    />
+    <label
+      htmlFor={`watchlist-sort-${bucket}`}
+      className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground"
+    >
+      <span>{m.watchlist_sort_label()}</span>
+      <SortSelect value={search.sort ?? "recent"} />
+    </label>
   );
 }
