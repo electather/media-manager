@@ -620,8 +620,18 @@ async function listItemsOffset(
   const enriched = await enrich(window, ctx, opts.bucket ? { filter: opts.bucket } : {});
   if (enriched.partial) partial = true;
   const slice = enriched.items.slice(0, limit);
-  const cursor =
-    offset + slice.length < sorted.length ? encodeOffsetCursor(offset + slice.length) : null;
+  const sourcesSlice = enriched.sources.slice(0, limit);
+  // Advance cursor by the number of sorted rows actually scanned, not by the
+  // returned slice length — when a bucket filter drops most of the window we
+  // must skip past every scanned row or the next page repeats them (V.WL2).
+  let scannedRows = window.length;
+  if (slice.length === limit && sourcesSlice.length === limit) {
+    const lastSource = sourcesSlice[sourcesSlice.length - 1]!;
+    const lastIdx = window.findIndex((r) => r.id === lastSource.id);
+    if (lastIdx >= 0) scannedRows = lastIdx + 1;
+  }
+  const nextOffset = offset + scannedRows;
+  const cursor = nextOffset < sorted.length ? encodeOffsetCursor(nextOffset) : null;
   return { items: slice, cursor, partial };
 }
 
