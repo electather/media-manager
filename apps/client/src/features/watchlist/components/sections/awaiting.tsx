@@ -1,18 +1,15 @@
 import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Server } from "lucide-react";
 import * as m from "@/paraglide/messages";
 import { WatchlistCard } from "../watchlist-card";
 import {
   SectionHead,
-  SectionHeadActions,
   SectionHeadCount,
   SectionHeadEyebrow,
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import { VirtualGrid } from "@/shared/components/virtualized";
-import { Button } from "@/shared/ui/button";
 import { useAwaiting } from "../../hooks/use-awaiting";
 
 export function Awaiting() {
@@ -40,12 +37,6 @@ export function Awaiting() {
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>
-        <SectionHeadActions>
-          <Button variant="ghost" size="sm" className="text-xs">
-            <Server aria-hidden="true" className="size-3" />
-            {m.watchlist_awaiting_request_all()}
-          </Button>
-        </SectionHeadActions>
       </SectionHead>
       <VirtualGrid
         items={items}
