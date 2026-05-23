@@ -127,5 +127,28 @@
   "watchlist_source_recommended": "TODO",
   "watchlist_source_trending": "TODO",
   "watchlist_recent_time_just_now": "TODO",
-  "watchlist_recent_time_minutes_ago": "TODO"
+  "watchlist_recent_time_minutes_ago": "TODO",
+
+  "watchlist_view_all_items": "TODO",
+  "watchlist_all_page_title": "TODO",
+  "watchlist_all_page_eyebrow": "TODO",
+  "watchlist_mood_page_title": "TODO",
+  "watchlist_mood_page_eyebrow": "TODO",
+
+  "watchlist_mood_cozy": "TODO",
+  "watchlist_mood_cozy_note": "TODO",
+  "watchlist_mood_epic": "TODO",
+  "watchlist_mood_epic_note": "TODO",
+  "watchlist_mood_cerebral": "TODO",
+  "watchlist_mood_cerebral_note": "TODO",
+  "watchlist_mood_dark": "TODO",
+  "watchlist_mood_dark_note": "TODO",
+  "watchlist_mood_laugh": "TODO",
+  "watchlist_mood_laugh_note": "TODO",
+  "watchlist_mood_throwback": "TODO",
+  "watchlist_mood_throwback_note": "TODO",
+  "watchlist_mood_quick": "TODO",
+  "watchlist_mood_quick_note": "TODO",
+  "watchlist_mood_binge": "TODO",
+  "watchlist_mood_binge_note": "TODO"
 }
