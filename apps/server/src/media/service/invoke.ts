@@ -71,21 +71,38 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// When the caller-supplied `deadlineMs` budget would force a timer below this
+// floor, the call short-circuits to a synthetic AbortError instead of arming a
+// near-zero timer. Anything tighter just races the event loop and produces
+// noisy timeouts without giving the plugin a real chance to respond.
+const DEADLINE_SHORT_CIRCUIT_MS = 50;
+
 /**
  * Wraps `pluginRuntime.invoke` with a timeout. Timeouts surface as `timeout`,
- * treated like `transient_network` for retry purposes.
+ * treated like `transient_network` for retry purposes. When `req.deadlineMs`
+ * is set, the effective timer is clipped to the remaining budget so a single
+ * slow plugin call cannot consume the whole compose deadline.
  */
 export async function invokeWithTimeout<T>(
   req: InvokeRequest,
   conn: ResolvedConnection,
 ): Promise<T> {
+  const remaining = isNil(req.deadlineMs) ? Number.POSITIVE_INFINITY : req.deadlineMs - Date.now();
+  const effectiveMs = Math.max(0, Math.min(req.timeoutMs, remaining));
+  if (effectiveMs < DEADLINE_SHORT_CIRCUIT_MS) {
+    const err = new Error(`deadline_exceeded (remaining ${remaining}ms)`);
+    err.name = "AbortError";
+    throw err;
+  }
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      const err = new Error(`plugin call timed out after ${req.timeoutMs}ms`);
+      const err = new Error(
+        `plugin call timed out after ${effectiveMs}ms (cap ${req.timeoutMs}ms)`,
+      );
       err.name = "AbortError";
       reject(err);
-    }, req.timeoutMs);
+    }, effectiveMs);
   });
   try {
     return (await Promise.race([

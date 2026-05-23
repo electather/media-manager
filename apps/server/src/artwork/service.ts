@@ -33,6 +33,7 @@ export class ArtworkService {
   async getArtwork(
     items: ArtworkRequestItem[],
     languages: string[] = [...DEFAULT_LANGUAGES],
+    opts: { deadlineMs?: number } = {},
   ): Promise<ArtworkGetResponse> {
     const canonical = dedupeByCanonicalKey(items);
     const entries = [...canonical.values()];
@@ -45,6 +46,7 @@ export class ArtworkService {
           version: "v1",
           method: "getArtwork",
           input: { ids: entry.ids, type: entry.type, languages },
+          deadlineMs: opts.deadlineMs,
         }),
       ),
     );

@@ -23,11 +23,14 @@ export class StatusBatchMemo {
 
   constructor(private readonly mediaService: MediaService) {}
 
-  async get(ids: ReadonlyArray<string>): Promise<Record<string, Status>> {
+  async get(
+    ids: ReadonlyArray<string>,
+    opts: { deadlineMs?: number } = {},
+  ): Promise<Record<string, Status>> {
     if (ids.length === 0) return {};
     const toFetch = ids.filter((id) => !this.cache.has(id) && !this.inflight.has(id));
     if (toFetch.length > 0) {
-      const fetchPromise = this.mediaService.getStatusBatch(toFetch).then((res) => {
+      const fetchPromise = this.mediaService.getStatusBatch(toFetch, opts).then((res) => {
         for (const id of toFetch) {
           const status = res[id] as Status | undefined;
           this.cache.set(id, status ?? "unknown");
