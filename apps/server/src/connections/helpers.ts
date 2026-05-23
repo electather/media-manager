@@ -1,9 +1,9 @@
 import { and, eq, ne, notExists } from "drizzle-orm";
-import { getDb } from "../db/client";
+import { getDb, type Db } from "../db/client";
 import { serviceConnections } from "../db/schema";
 import { env } from "../env";
 import { encrypt, decrypt } from "../crypto/vault";
-import { internal } from "../diagnostics/http-errors";
+import { internal, notFound } from "../diagnostics/http-errors";
 // fallow-allow: phase-2 infra-to-module decoupling
 // fallow-ignore-next-line boundary-violation
 import { invalidateUserCache } from "../media";
@@ -13,6 +13,33 @@ function split(combined: string): { iv: string; data: string } {
   const [iv, ...rest] = combined.split(":");
   if (!iv || rest.length === 0) throw internal("http.internal_error", "invalid ciphertext");
   return { iv, data: rest.join(":") };
+}
+
+/**
+ * Loads the connection row owned by `userId` or returns `null`. Used by
+ * idempotent operations (delete, test) where a missing row should resolve
+ * silently rather than throw.
+ */
+export async function fetchConnectionByOwner(db: Db, connectionId: string, userId: string) {
+  return (
+    (await db
+      .select()
+      .from(serviceConnections)
+      .where(and(eq(serviceConnections.id, connectionId), eq(serviceConnections.userId, userId)))
+      .get()) ?? null
+  );
+}
+
+/**
+ * Loads the connection row owned by `userId` or throws `notFound(
+ * "connection.not_found", ...)`. The 404 is returned for both "row does not
+ * exist" and "row belongs to another user" so a hostile client can't probe
+ * for foreign connection ids.
+ */
+export async function requireConnection(db: Db, connectionId: string, userId: string) {
+  const row = await fetchConnectionByOwner(db, connectionId, userId);
+  if (!row) throw notFound("connection.not_found", "connection not found");
+  return row;
 }
 
 export async function encryptJson(value: unknown): Promise<{ iv: string; data: string }> {

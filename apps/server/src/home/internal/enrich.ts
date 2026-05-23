@@ -27,7 +27,7 @@ export async function enrichItems(
 ): Promise<CompactMediaItem[]> {
   if (items.length === 0) return [];
   const compositeIds = items.map((i) => `${i.mediaType}:${i.tmdbId}`);
-  const statuses = await ctx.statusBatch.get(compositeIds);
+  const statuses = await ctx.statusBatch.get(compositeIds, { deadlineMs: ctx.deadlineMs });
   const metadataKeys = items.map((i) => ({ tmdbId: i.tmdbId, type: i.mediaType }));
   const metadata = await ctx.catalog.getMetadataBatch(metadataKeys);
   const artwork = await hydrateArtwork(items, metadata, ctx);
@@ -57,7 +57,14 @@ export async function enrichItems(
  * already patches `canonical_metadata` via `patchArtwork`, so the next read
  * sees the resolved URLs without us re-issuing the dispatch. Failures are
  * swallowed — artwork is best-effort and must never break a row response.
+ *
+ * The hydrate-loop / pickArtworkUrl / mergeArtwork shape duplicates
+ * `apps/server/src/watchlist/enrich.ts`. Extraction requires a generic
+ * `hydrateArtworkFor<T>` helper on the artwork module plus matching wrapper
+ * changes in watchlist — tracked as #482 and deferred from this PR (deadline
+ * propagation only).
  */
+// fallow-ignore-next-line code-duplication
 async function hydrateArtwork(
   items: InternalCompactMediaItem[],
   metadata: Record<string, CanonicalMetadata>,
@@ -73,7 +80,7 @@ async function hydrateArtwork(
   if (requests.length === 0) return {};
   try {
     const service = new ArtworkService(ctx.userId, ctx.catalog);
-    const res = await service.getArtwork(requests);
+    const res = await service.getArtwork(requests, undefined, { deadlineMs: ctx.deadlineMs });
     return res.results;
   } catch (err) {
     ctx.logger.warn("[home:enrich] artwork hydration failed", err);
@@ -120,7 +127,7 @@ async function deriveAvailability(
   // `hasAnyServerCopy` off the matching-servers probe so directly-added
   // titles render the right CTA.
   const servers = await ctx.mediaService
-    .getMatchingServers(item.tmdbId, item.mediaType)
+    .getMatchingServers(item.tmdbId, item.mediaType, { deadlineMs: ctx.deadlineMs })
     .catch(() => []);
   const hasAnyServerCopy = servers.length > 0;
   const requestEligible =

@@ -23,34 +23,54 @@ export class StatusBatchMemo {
 
   constructor(private readonly mediaService: MediaService) {}
 
-  async get(ids: ReadonlyArray<string>): Promise<Record<string, Status>> {
+  async get(
+    ids: ReadonlyArray<string>,
+    opts: { deadlineMs?: number } = {},
+  ): Promise<Record<string, Status>> {
     if (ids.length === 0) return {};
+    // Deadline application is split by caller role:
+    //   - IDs that this call schedules (toFetch) use *this* caller's
+    //     `opts.deadlineMs` — passed through to `scheduleFetch`.
+    //   - IDs already in-flight from a prior caller reuse that caller's
+    //     deadline; the joining caller's `opts.deadlineMs` is ignored.
+    // Matches the deadline-agnostic memo identity invariant from rev 6 of
+    // `docs/2026-05-05-home-page-backend-design.md` ("deadline never enters
+    // memo identity"), mirroring `MediaService.getMatchingServers`.
     const toFetch = ids.filter((id) => !this.cache.has(id) && !this.inflight.has(id));
-    if (toFetch.length > 0) {
-      const fetchPromise = this.mediaService.getStatusBatch(toFetch).then((res) => {
-        for (const id of toFetch) {
-          const status = res[id] as Status | undefined;
-          this.cache.set(id, status ?? "unknown");
-        }
-        return res;
-      });
-      for (const id of toFetch) {
-        this.inflight.set(
-          id,
-          fetchPromise
-            .then(() => this.cache.get(id) ?? "unknown")
-            .finally(() => this.inflight.delete(id)),
-        );
-      }
-    }
-    // Wait on any in-flight fetches we are joining.
-    await Promise.all(
+    if (toFetch.length > 0) this.scheduleFetch(toFetch, opts);
+    await this.awaitPending(ids);
+    return this.collectResults(ids);
+  }
+
+  private awaitPending(ids: ReadonlyArray<string>): Promise<unknown> {
+    return Promise.all(
       ids
         .filter((id) => !this.cache.has(id))
         .map((id) => this.inflight.get(id) ?? Promise.resolve()),
     );
+  }
+
+  private collectResults(ids: ReadonlyArray<string>): Record<string, Status> {
     const out: Record<string, Status> = {};
     for (const id of ids) out[id] = this.cache.get(id) ?? "unknown";
     return out;
+  }
+
+  private scheduleFetch(toFetch: ReadonlyArray<string>, opts: { deadlineMs?: number }): void {
+    const fetchPromise = this.mediaService.getStatusBatch(toFetch, opts).then((res) => {
+      for (const id of toFetch) {
+        const status = res[id] as Status | undefined;
+        this.cache.set(id, status ?? "unknown");
+      }
+      return res;
+    });
+    for (const id of toFetch) {
+      this.inflight.set(
+        id,
+        fetchPromise
+          .then(() => this.cache.get(id) ?? "unknown")
+          .finally(() => this.inflight.delete(id)),
+      );
+    }
   }
 }

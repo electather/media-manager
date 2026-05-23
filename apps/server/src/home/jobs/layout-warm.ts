@@ -14,11 +14,29 @@ import { write as writeLayoutCache } from "../repo";
 const ACTIVE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const RUN_TIMEOUT_SEC = 30 * 60;
 const PER_ROW_TIMEOUT_SEC = 60;
+// Compose budget under the 60s per-row cap. 15s of slack is reserved for the
+// synchronous SQLite `writeLayoutCache` upsert. Tune both numbers together if
+// SQLite tail latency erodes the margin (see spec rev 6 R14).
+export const WARM_COMPOSE_BUDGET_MS = 45_000;
 
 export const HOME_LAYOUT_WARM_JOB_ID = "host.home.layout_warm";
 
 interface ActiveUserRow {
   userId: string;
+}
+
+/**
+ * Per-row handler exported so the regression test can drive it without spinning
+ * up the scheduler. Reproduces the spec rev 6 invariant: every warm-job compose
+ * runs under a 45s deadline budget, partial layouts are written back, and a
+ * single slow plugin must not surface as a per-row timeout.
+ */
+export async function runWarmComposeForUser(userId: string): Promise<void> {
+  const ctx = buildContext(userId, consola, {
+    deadlineMs: Date.now() + WARM_COMPOSE_BUDGET_MS,
+  });
+  const blob = await composeLayout(ctx, { forceFresh: true, skipWriteback: true });
+  await writeLayoutCache(userId, blob);
 }
 
 /**
@@ -72,9 +90,7 @@ export function registerHomeLayoutWarm(): void {
     continueOnRowError: true,
     rowSource: () => listActiveUsers(),
     handler: async (_ctx, row) => {
-      const ctx = buildContext(row.userId, consola);
-      const blob = await composeLayout(ctx, { forceFresh: true, skipWriteback: true });
-      await writeLayoutCache(row.userId, blob);
+      await runWarmComposeForUser(row.userId);
     },
   });
 }

@@ -506,4 +506,26 @@ describe("dispatchPrimary", () => {
     const result = await dispatchPrimary(req());
     expect(result.attempted).toBe(2);
   });
+
+  it("moves a user-pinned primary to the front of the candidate order", async () => {
+    // Picker contract: when the user has pinned B (via setPrimaryConnection)
+    // and the registry order is [A, B], the dispatcher must call B first and
+    // base the merge on B's result. Regression guard for #476 — without it the
+    // picker UI's writes would have no observable effect.
+    listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
+    getPrimaryMock.mockResolvedValue({ pluginId: "trakt", connectionId: "trakt-conn" });
+    invokeMock
+      .mockResolvedValueOnce({ title: "From Trakt", overview: "Pinned primary", ids: {} })
+      .mockResolvedValueOnce({ title: "From TMDB", overview: "Filler", ids: {} });
+
+    const result = await dispatchPrimary<{ title: string; overview: string }>(req());
+
+    // First invocation hit the pinned plugin (trakt) — proves ordering.
+    const firstCallArgs = invokeMock.mock.calls[0]?.[0] as { pluginId?: string };
+    expect(firstCallArgs.pluginId).toBe("trakt");
+    // Merged base comes from the pinned primary's result; non-empty fields
+    // from the registry-first plugin must NOT override.
+    expect(result.data.title).toBe("From Trakt");
+    expect(result.data.overview).toBe("Pinned primary");
+  });
 });

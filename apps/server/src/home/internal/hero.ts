@@ -58,7 +58,18 @@ function stampSlide(
  * the hero. No dedup against the rows below.
  */
 export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
-  const pools = await Promise.all(PRIORITY.map((src) => loadPool(src, ctx)));
+  // Per-pool catches: a single slow / failing source must not null the whole
+  // hero. Each loadPool rejection collapses to `[]`, mixer + backfill then
+  // draw from the remaining pools (consistent with rev 4 degenerate-fill
+  // intent — hero ships < 6 slides rather than disappearing).
+  const pools = await Promise.all(
+    PRIORITY.map((src) =>
+      loadPool(src, ctx).catch((err: unknown) => {
+        ctx.logger.warn(`[home:hero] pool ${src} threw`, err);
+        return [] as HeroSlideInternal[];
+      }),
+    ),
+  );
   const rawPoolsByKind: PoolMap = {};
   PRIORITY.forEach((src, i) => {
     rawPoolsByKind[src] = pools[i] ?? [];
@@ -70,11 +81,17 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   if (filled.length === 0) return null;
 
   const ordered = orderCascadeLeadInterleave(filled, PRIORITY);
-  const enriched = await enrichItems(
-    ordered.map((s) => s.item),
-    ctx,
-    { rowId: "hero" },
-  );
+  let enriched: Awaited<ReturnType<typeof enrichItems>>;
+  try {
+    enriched = await enrichItems(
+      ordered.map((s) => s.item),
+      ctx,
+      { rowId: "hero" },
+    );
+  } catch (err) {
+    ctx.logger.warn("[home:hero] enrichItems threw, dropping hero", err);
+    return null;
+  }
   const slides: HeroSlide[] = ordered.map((s, i) => ({
     item: enriched[i]!,
     source: s.source,

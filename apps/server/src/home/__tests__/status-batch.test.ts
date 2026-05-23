@@ -29,7 +29,7 @@ describe("StatusBatchMemo", () => {
     await memo.get(["1", "2", "3"]);
     expect(spy.mock.calls).toHaveLength(2);
     // Second call only fetched the missing id.
-    expect(spy.mock.calls[1]).toEqual([["3"]]);
+    expect(spy.mock.calls[1]).toEqual([["3"], {}]);
   });
 
   it("defaults missing ids to 'unknown'", async () => {
@@ -55,7 +55,7 @@ describe("StatusBatchMemo", () => {
     // Both calls fire before either resolves; the second must not re-request
     // `movie:2` on the wire.
     expect(spy.mock.calls).toHaveLength(2);
-    expect(spy.mock.calls[1]).toEqual([["movie:3"]]);
+    expect(spy.mock.calls[1]).toEqual([["movie:3"], {}]);
     for (const r of resolvers) r({});
     const [resA, resB] = await Promise.all([a, b]);
     expect(resA).toEqual({ "movie:1": "available", "movie:2": "available" });

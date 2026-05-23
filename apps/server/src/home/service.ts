@@ -40,8 +40,15 @@ export interface ComposeOptions {
  * cascade, and the orchestrator passes themselves. Each call constructs
  * fresh `MediaService` / `StatusBatchMemo` instances so plugin caches and
  * status memos stay request-scoped.
+ *
+ * `opts.deadlineMs` lets long-running callers (e.g. `host.home.layout_warm`)
+ * widen the compose budget beyond the HTTP request default.
  */
-export function buildContext(userId: string, logger: ConsolaInstance = consola): RowContext {
+export function buildContext(
+  userId: string,
+  logger: ConsolaInstance = consola,
+  opts: { deadlineMs?: number } = {},
+): RowContext {
   const mediaService = new MediaService(userId);
   const catalog = getCatalogService();
   const statusBatch = new StatusBatchMemo(mediaService);
@@ -51,7 +58,7 @@ export function buildContext(userId: string, logger: ConsolaInstance = consola):
     catalog,
     statusBatch,
     logger,
-    deadlineMs: Date.now() + DEFAULT_DEADLINE_MS,
+    deadlineMs: opts.deadlineMs ?? Date.now() + DEFAULT_DEADLINE_MS,
   };
 }
 
@@ -250,11 +257,13 @@ export async function composeDetails(
   tmdbId: string,
   mediaType: MediaType,
 ): Promise<MediaDetailsResponse> {
+  const deadlineOpts = { deadlineMs: ctx.deadlineMs };
   let summary = await ctx.catalog.getMetadata(tmdbId, mediaType);
   if (!summary) {
     const raw = (await ctx.mediaService.getMetadata(
       tmdbId,
       mediaType,
+      deadlineOpts,
     )) as RawCanonicalSource | null;
     if (!raw) throw new HttpError(404, "http.not_found", `media not found: ${mediaType}:${tmdbId}`);
     await ctx.catalog.writeMetadata([toCanonicalRow({ tmdbId, type: mediaType }, raw)]);
@@ -263,7 +272,7 @@ export async function composeDetails(
   }
   const summaryInternal = fromCanonicalMetadata(summary);
   const [detailsSettled, [summaryItem], seasonsResult] = await Promise.all([
-    ctx.mediaService.getDetails(tmdbId, mediaType).then(
+    ctx.mediaService.getDetails(tmdbId, mediaType, deadlineOpts).then(
       (data) => ({ ok: true as const, data }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
@@ -271,7 +280,9 @@ export async function composeDetails(
     // Best-effort: season payload only fetched for shows. `getShowSeasons`
     // already swallows plugin errors and returns null, so a failure here
     // never propagates and the field is simply omitted from the response.
-    mediaType === "tv" ? ctx.mediaService.getShowSeasons(tmdbId) : Promise.resolve(null),
+    mediaType === "tv"
+      ? ctx.mediaService.getShowSeasons(tmdbId, deadlineOpts)
+      : Promise.resolve(null),
   ]);
   if (!summaryItem) throw new HttpError(500, "home.internal", "summary enrichment failed");
   if (!detailsSettled.ok) {
