@@ -332,14 +332,20 @@ describe("prototype pollution defense (issue #451)", () => {
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
-  it("does not pollute Object.prototype via a `prototype` key in enrichment", async () => {
+  it("strips a `prototype` own-property from enrichment rather than copying it through", async () => {
+    // An own `prototype` key on a plain object does not pollute `Object.prototype`
+    // by itself, so the bare `polluted === undefined` assertion would pass even
+    // if `prototype` were dropped from `DANGEROUS_KEYS`. Assert directly that
+    // the key was filtered — this test fails if `prototype` is removed from the
+    // Set.
     listProvidersMock.mockReturnValue(["tmdb", "trakt"]);
     invokeMock
       .mockResolvedValueOnce({ title: "Matrix", ids: {} })
       .mockResolvedValueOnce(maliciousPayload("prototype"));
 
-    await dispatchPrimary(req());
+    const result = await dispatchPrimary<Record<string, unknown>>(req());
 
+    expect(Object.hasOwn(result.data, "prototype")).toBe(false);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
