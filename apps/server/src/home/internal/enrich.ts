@@ -57,7 +57,14 @@ export async function enrichItems(
  * already patches `canonical_metadata` via `patchArtwork`, so the next read
  * sees the resolved URLs without us re-issuing the dispatch. Failures are
  * swallowed — artwork is best-effort and must never break a row response.
+ *
+ * The hydrate-loop / pickArtworkUrl / mergeArtwork shape duplicates
+ * `apps/server/src/watchlist/enrich.ts`. Extraction requires a generic
+ * `hydrateArtworkFor<T>` helper on the artwork module plus matching wrapper
+ * changes in watchlist — tracked as #482 and deferred from this PR (deadline
+ * propagation only).
  */
+// fallow-ignore-next-line code-duplication
 async function hydrateArtwork(
   items: InternalCompactMediaItem[],
   metadata: Record<string, CanonicalMetadata>,

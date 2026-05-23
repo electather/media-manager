@@ -77,6 +77,47 @@ function sleep(ms: number): Promise<void> {
 // noisy timeouts without giving the plugin a real chance to respond.
 const DEADLINE_SHORT_CIRCUIT_MS = 50;
 
+function abortError(message: string): Error {
+  const err = new Error(message);
+  err.name = "AbortError";
+  return err;
+}
+
+function createTimeoutHandle(
+  effectiveMs: number,
+  capMs: number,
+): { promise: Promise<never>; clear: () => void } {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const promise = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(abortError(`plugin call timed out after ${effectiveMs}ms (cap ${capMs}ms)`)),
+      effectiveMs,
+    );
+  });
+  return {
+    promise,
+    clear: () => {
+      if (timer) clearTimeout(timer);
+    },
+  };
+}
+
+function buildInvokeArgs<T>(
+  req: InvokeRequest,
+  conn: ResolvedConnection,
+): Parameters<typeof pluginRuntime.invokeWithCredentials<T>>[0] {
+  return {
+    pluginId: req.pluginId,
+    capability: req.capability,
+    version: req.version,
+    method: req.method,
+    input: req.input,
+    userId: req.userId,
+    credentials: conn.credentials,
+    userConfig: conn.kind === "user" ? conn.userConfig : null,
+  };
+}
+
 /**
  * Wraps `pluginRuntime.invoke` with a timeout. Timeouts surface as `timeout`,
  * treated like `transient_network` for retry purposes. When `req.deadlineMs`
@@ -90,36 +131,16 @@ export async function invokeWithTimeout<T>(
   const remaining = isNil(req.deadlineMs) ? Number.POSITIVE_INFINITY : req.deadlineMs - Date.now();
   const effectiveMs = Math.min(req.timeoutMs, remaining);
   if (effectiveMs < DEADLINE_SHORT_CIRCUIT_MS) {
-    const err = new Error(`deadline_exceeded (remaining ${remaining}ms)`);
-    err.name = "AbortError";
-    throw err;
+    throw abortError(`deadline_exceeded (remaining ${remaining}ms)`);
   }
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      const err = new Error(
-        `plugin call timed out after ${effectiveMs}ms (cap ${req.timeoutMs}ms)`,
-      );
-      err.name = "AbortError";
-      reject(err);
-    }, effectiveMs);
-  });
+  const timeout = createTimeoutHandle(effectiveMs, req.timeoutMs);
   try {
     return (await Promise.race([
-      pluginRuntime.invokeWithCredentials<T>({
-        pluginId: req.pluginId,
-        capability: req.capability,
-        version: req.version,
-        method: req.method,
-        input: req.input,
-        userId: req.userId,
-        credentials: conn.credentials,
-        userConfig: conn.kind === "user" ? conn.userConfig : null,
-      }),
-      timeoutPromise,
+      pluginRuntime.invokeWithCredentials<T>(buildInvokeArgs<T>(req, conn)),
+      timeout.promise,
     ])) as T;
   } finally {
-    if (timer) clearTimeout(timer);
+    timeout.clear();
   }
 }
 
