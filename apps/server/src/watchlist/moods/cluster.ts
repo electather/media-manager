@@ -63,7 +63,7 @@ export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMood
   return summary;
 }
 
-export function invalidate(userId: string): void {
+export function invalidateMoodSummary(userId: string): void {
   cache.delete(userId);
 }
 

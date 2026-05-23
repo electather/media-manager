@@ -1,8 +1,9 @@
 /**
  * Per-user TTL cache shared by `tonight/section` (5 min) and `moods/cluster`
- * (30 s). Wraps a single `Map<key, { value, expiresAt }>` with bounded LRU
- * eviction so a long-running process can't leak entries. Used at module
- * scope; tests can call `__resetForTests()` to clear.
+ * (30 s). Wraps a single `Map<key, { value, expiresAt }>` with bounded FIFO
+ * eviction (Map iteration is insertion order; `get` does not re-rank) so a
+ * long-running process can't leak entries. Used at module scope; tests can
+ * call `__resetForTests()` to clear.
  */
 const MAX_ENTRIES = 5000;
 

@@ -81,7 +81,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
   return section;
 }
 
-export function invalidate(userId: string): void {
+export function invalidateTonightSection(userId: string): void {
   cache.delete(userId);
 }
 

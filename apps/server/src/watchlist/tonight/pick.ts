@@ -1,7 +1,10 @@
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { score } from "./score";
+import { score, WEIGHTS } from "./score";
 
 const MAX_ALTERNATES = 4;
+// Half the ineligible penalty — any candidate below this is dominated by the
+// ineligibility weight rather than diversity, runtime, or recency factors.
+const INELIGIBLE_CUTOFF = WEIGHTS.ineligible / 2;
 
 export interface TonightResult {
   items: WatchlistItem[];
@@ -24,7 +27,7 @@ export function pick(candidates: WatchlistItem[], now: number = Date.now()): Ton
   for (const item of rest) {
     if (alternates.length >= MAX_ALTERNATES) break;
     const reScore = score(item, prior, now);
-    if (reScore <= -1000 / 2) continue;
+    if (reScore <= INELIGIBLE_CUTOFF) continue;
     alternates.push(item);
     prior.push(item);
   }

@@ -64,24 +64,10 @@ const CHIP_BASE_CLASS = cn(
 );
 
 function BucketChipLink({ chipKey, label, count }: BucketChipLinkProps) {
-  if (chipKey === "all") {
-    return (
-      <Link
-        to="/watchlist"
-        role="tab"
-        activeOptions={{ exact: true, includeSearch: false }}
-        activeProps={{ "aria-selected": "true" as const }}
-        inactiveProps={{ "aria-selected": "false" as const }}
-        className={CHIP_BASE_CLASS}
-      >
-        {label}
-        <ChipCount count={count} />
-      </Link>
-    );
-  }
+  const to = chipKey === "all" ? "/watchlist" : (`/watchlist/${chipKey}` as const);
   return (
     <Link
-      to={`/watchlist/${chipKey}`}
+      to={to}
       role="tab"
       activeOptions={{ exact: true, includeSearch: false }}
       activeProps={{ "aria-selected": "true" as const }}

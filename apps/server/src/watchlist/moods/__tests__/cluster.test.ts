@@ -7,7 +7,7 @@ vi.mock("../../repo", () => ({
 }));
 
 const repo = await import("../../repo");
-const { getSummary, invalidate, __resetMoodCache } = await import("../cluster");
+const { getSummary, invalidateMoodSummary, __resetMoodCache } = await import("../cluster");
 
 const listAllActiveMock = vi.mocked(repo.listAllActive);
 
@@ -102,7 +102,7 @@ describe("moods/cluster", () => {
     expect(listAllActiveMock).toHaveBeenCalledTimes(1);
   });
 
-  it("re-derives after invalidate(userId)", async () => {
+  it("re-derives after invalidateMoodSummary(userId)", async () => {
     listAllActiveMock.mockResolvedValue([row("1"), row("2"), row("3")]);
     const catalog = makeCatalog({
       "movie:1": meta({ tmdbId: "1", genres: ["Horror"] }),
@@ -111,7 +111,7 @@ describe("moods/cluster", () => {
     });
     const ctx = { userId: "u1", catalog, log: consola.withTag("test") };
     await getSummary(ctx);
-    invalidate("u1");
+    invalidateMoodSummary("u1");
     await getSummary(ctx);
     expect(listAllActiveMock).toHaveBeenCalledTimes(2);
   });

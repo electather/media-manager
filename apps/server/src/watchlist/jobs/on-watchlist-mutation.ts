@@ -1,6 +1,6 @@
 import { on } from "../../jobs/events";
-import { invalidate as invalidateMoods } from "../moods/cluster";
-import { invalidate as invalidateTonight } from "../tonight/section";
+import { invalidateMoodSummary } from "../moods/cluster";
+import { invalidateTonightSection } from "../tonight/section";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "../events";
 
 let registered = false;
@@ -14,12 +14,12 @@ export function register(): void {
   if (registered) return;
   registered = true;
   on(WATCHLIST_EVENTS.ITEM_ADDED, watchlistItemAddedSchema, async ({ userId }) => {
-    invalidateTonight(userId);
-    invalidateMoods(userId);
+    invalidateTonightSection(userId);
+    invalidateMoodSummary(userId);
   });
   on(WATCHLIST_EVENTS.ITEM_REMOVED, watchlistItemRemovedSchema, async ({ userId }) => {
-    invalidateTonight(userId);
-    invalidateMoods(userId);
+    invalidateTonightSection(userId);
+    invalidateMoodSummary(userId);
   });
 }
 
