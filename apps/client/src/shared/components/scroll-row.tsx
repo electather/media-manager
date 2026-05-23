@@ -236,7 +236,6 @@ function VirtualizedScrollRowTrack<T>({
         return (
           <li
             key={getKey(item, vi.index)}
-            ref={virtualizer.measureElement}
             data-slot="scroll-row-item"
             data-index={vi.index}
             className="shrink-0 snap-start"
