@@ -25,6 +25,7 @@ import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema 
 import { enrich } from "./enrich";
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
+import { loadProgressMap } from "./progress";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 import * as repo from "./repo";
 import type { WatchlistRow } from "./repo";
@@ -130,7 +131,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
 
-  const [statuses, metadata] = await Promise.all([
+  const [statuses, metadata, progress] = await Promise.all([
     c.mediaService.getStatusBatch(compositeIds).catch((err) => {
       c.log.warn("[watchlist:counts] getStatusBatch failed", err);
       return {} as Record<string, string>;
@@ -139,6 +140,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
       c.log.warn("[watchlist:counts] getMetadataBatch failed", err);
       return {} as Record<string, { year?: number; runtimeMinutes?: number }>;
     }),
+    loadProgressMap(c),
   ]);
 
   const serverProbes = await Promise.allSettled(
@@ -148,6 +150,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   );
 
   let ready = 0;
+  let inProgress = 0;
   let awaiting = 0;
   let upcoming = 0;
   for (let i = 0; i < rows.length; i++) {
@@ -158,19 +161,20 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
     const meta = (metadata as Record<string, { year?: number; runtimeMinutes?: number }>)[
       composite
     ];
-    const preview = previewForClassify(meta, statuses[composite], servers);
+    const preview = previewForClassify(
+      meta,
+      statuses[composite],
+      servers,
+      progress.map.get(composite),
+    );
     const bucket: ClassifiedBucket = classifyBucket(preview);
     if (bucket === "ready") ready++;
+    else if (bucket === "in-progress") inProgress++;
     else if (bucket === "awaiting") awaiting++;
     else if (bucket === "upcoming") upcoming++;
   }
 
-  // TODO(watchlist/inProgress): wire real in-progress count when the host
-  // progress-aggregator lands. `inProgress` is a strict subset of `ready`
-  // reserved for rows whose underlying media has an active watch position.
-  // No plugin capability covers per-row progress in v1, so we stub it at 0
-  // here; the wire contract stays stable when the real probe ships.
-  return { ready, inProgress: 0, awaiting, upcoming, total: rows.length };
+  return { ready, inProgress, awaiting, upcoming, total: rows.length };
 }
 
 export interface AddItemResult {

@@ -7,6 +7,7 @@ import {
 import { getMatchingServersCached } from "../availability-cache";
 import { classifyBucket, previewForClassify } from "../classify";
 import { enrich, type WatchlistEnrichContext } from "../enrich";
+import { loadProgressMap } from "../progress";
 import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
@@ -32,7 +33,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
   }
 
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
-  const [statuses, metadata] = await Promise.all([
+  const [statuses, metadata, progress] = await Promise.all([
     ctx.mediaService
       .getStatusBatch(rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })))
       .catch((err) => {
@@ -43,6 +44,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
       ctx.log.warn("[watchlist:tonight] getMetadataBatch failed", err);
       return {} as Record<string, CanonicalMetadata>;
     }),
+    loadProgressMap(ctx),
   ]);
 
   const candidates: repo.WatchlistRow[] = [];
@@ -54,8 +56,14 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
       row.tmdbId,
       row.mediaType,
     ).catch(() => []);
-    const preview = previewForClassify(metadata[composite], statuses[composite], servers);
-    if (classifyBucket(preview) === "ready") candidates.push(row);
+    const preview = previewForClassify(
+      metadata[composite],
+      statuses[composite],
+      servers,
+      progress.map.get(composite),
+    );
+    const bucket = classifyBucket(preview);
+    if (bucket === "ready" || bucket === "in-progress") candidates.push(row);
   }
   if (candidates.length === 0) {
     const empty: WatchlistSectionResponse = { items: [], partial: false };

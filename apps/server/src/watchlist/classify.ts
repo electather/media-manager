@@ -1,12 +1,13 @@
 import type { WatchlistBucket, WatchlistItem } from "@ent-mcp/shared/watchlist";
 import type { MatchingServer } from "../media";
+import type { ProgressEntry } from "./progress";
 
 /**
  * Server-side mirror of the client's classifier (see
  * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
  * `/counts` and `?bucket=` decisions match what the client would draw from
  * the same row. The classifier set adds `unknown` for rows that fail every
- * predicate — the wire bucket enum stays the user-facing trio.
+ * predicate — the wire bucket enum stays the four user-facing values.
  */
 export type ClassifiedBucket = WatchlistBucket | "unknown";
 
@@ -23,11 +24,17 @@ function isInfoOnly(item: Pick<WatchlistItem, "availability">): boolean {
   return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
 }
 
+function isActiveProgress(progress: ProgressEntry | undefined): boolean {
+  if (!progress) return false;
+  if (progress.total <= 0) return false;
+  return progress.watched > 0 && progress.watched < progress.total;
+}
+
 // fallow-ignore-next-line complexity
 export function classifyBucket(
   item: Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">,
 ): ClassifiedBucket {
-  if (item.progress) return "ready";
+  if (isActiveProgress(item.progress)) return "in-progress";
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
   if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
@@ -46,14 +53,15 @@ export interface PreviewMeta {
 /**
  * Cheap-signal preview of a `WatchlistItem` shared by `enrich`'s filter
  * pre-pass and the `/counts` aggregator. Both paths derive the same bucket
- * from `(meta, status, matching servers)` — extracting the shape here keeps
- * the two callers from drifting.
+ * from `(meta, status, matching servers, progress)` — extracting the shape
+ * here keeps the two callers from drifting.
  */
 // fallow-ignore-next-line complexity
 export function previewForClassify(
   meta: PreviewMeta | undefined,
   rawStatus: string | undefined,
   servers: MatchingServer[],
+  progress?: ProgressEntry,
 ): Pick<WatchlistItem, "status" | "availability" | "facets" | "progress"> {
   const status: WatchlistItem["status"] =
     servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
@@ -70,5 +78,6 @@ export function previewForClassify(
       servers: servers.map((s) => ({ id: s.id, label: s.label })),
     },
     ...(Object.keys(facets).length > 0 ? { facets } : {}),
+    ...(progress ? { progress } : {}),
   };
 }

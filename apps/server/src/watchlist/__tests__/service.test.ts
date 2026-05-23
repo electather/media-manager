@@ -46,6 +46,7 @@ function makeMediaService(
     getStatusBatch: ReturnType<typeof vi.fn>;
     getMatchingServers: ReturnType<typeof vi.fn>;
     getMetadata: ReturnType<typeof vi.fn>;
+    getContinueWatchingFeed: ReturnType<typeof vi.fn>;
   }> = {},
 ) {
   return {
@@ -53,6 +54,7 @@ function makeMediaService(
     getStatusBatch: vi.fn().mockResolvedValue({}),
     getMatchingServers: vi.fn().mockResolvedValue([]),
     getMetadata: vi.fn().mockResolvedValue(null),
+    getContinueWatchingFeed: vi.fn().mockResolvedValue({ items: [], partial: false }),
     ...overrides,
   };
 }
@@ -274,8 +276,37 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     const counts = await getCounts(ctx);
     expect(counts.total).toBe(3);
     expect(counts.ready).toBe(1);
+    expect(counts.inProgress).toBe(0);
     expect(counts.upcoming).toBe(1);
     expect(counts.awaiting).toBe(0);
+  });
+
+  it("getCounts emits a real inProgress tally when continueWatching reports an active position", async () => {
+    const ctx = makeCtx();
+    // Wire the CW + library mocks BEFORE the first plugin-touching call so the
+    // request-scoped progress memo + availability cache see the configured
+    // shape on their first read. `addItem` enriches the new row eagerly and
+    // would otherwise warm both caches with the default empty mocks.
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "jellyfin", label: "Jellyfin" },
+    ]);
+    (ctx.mediaService.getContinueWatchingFeed as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: [
+        {
+          progressMs: 600_000,
+          item: { type: "movie", durationSec: 6000, ids: { tmdb: "920" } },
+        },
+      ],
+      partial: false,
+    });
+    await addItem({ tmdbId: "920", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "921", mediaType: "movie" }, "manual", ctx);
+
+    const counts = await getCounts(ctx);
+    expect(counts.total).toBe(2);
+    expect(counts.inProgress).toBe(1);
+    // 920 is in-progress (not double counted as ready); 921 stays ready.
+    expect(counts.ready).toBe(1);
   });
 
   it("getCounts on an empty watchlist short-circuits without plugin work", async () => {
