@@ -5,14 +5,14 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useWatchlistCounts } from "../hooks/use-watchlist-counts";
 
-vi.mock("@/shared/lib/watchlist/fetchers", () => ({
+vi.mock("@/features/watchlist/lib/fetchers", () => ({
   fetchWatchlist: vi.fn(),
   fetchWatchlistCounts: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
 
-const { fetchWatchlistCounts } = await import("@/shared/lib/watchlist/fetchers");
+const { fetchWatchlistCounts } = await import("@/features/watchlist/lib/fetchers");
 const fetchCountsMock = vi.mocked(fetchWatchlistCounts);
 
 function wrap(client: QueryClient) {

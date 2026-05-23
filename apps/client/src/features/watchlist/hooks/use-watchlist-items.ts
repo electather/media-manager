@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
 import type { WatchlistBucket, WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { fetchWatchlist } from "@/shared/lib/watchlist/fetchers";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
+import { fetchWatchlist } from "../lib/fetchers";
+import { watchlistKeys } from "../lib/query-keys";
 
 const STALE_TIME_MS = 60_000;
 

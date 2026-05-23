@@ -7,10 +7,10 @@ import {
   type WatchlistItem,
   type WatchlistResponse,
 } from "@ent-mcp/shared/watchlist";
-import { addToWatchlist } from "@/shared/lib/watchlist/fetchers";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
-import { buildOptimistic } from "@/shared/lib/watchlist/build-optimistic";
-import { invalidateWatchlistAll } from "@/shared/lib/watchlist/invalidate";
+import { addToWatchlist } from "../lib/fetchers";
+import { watchlistKeys } from "../lib/query-keys";
+import { buildOptimistic } from "../lib/build-optimistic";
+import { invalidateWatchlistAll } from "../lib/invalidate";
 
 interface AddVariables {
   request: AddWatchlistRequest;

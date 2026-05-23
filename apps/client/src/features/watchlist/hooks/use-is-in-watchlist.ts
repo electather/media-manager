@@ -1,7 +1,7 @@
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
+import { watchlistKeys } from "../lib/query-keys";
 
 type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
 

@@ -5,10 +5,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, type InfiniteData } from "@tanstack/react-query";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
+import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
 import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("@/shared/lib/watchlist/fetchers", () => ({
+vi.mock("@/features/watchlist/lib/fetchers", () => ({
   fetchWatchlist: vi.fn(),
   fetchWatchlistCounts: vi.fn(),
   addToWatchlist: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-const { addToWatchlist } = await import("@/shared/lib/watchlist/fetchers");
+const { addToWatchlist } = await import("@/features/watchlist/lib/fetchers");
 const { toast } = await import("sonner");
 const addMock = vi.mocked(addToWatchlist);
 const toastErrorMock = vi.mocked(toast.error);

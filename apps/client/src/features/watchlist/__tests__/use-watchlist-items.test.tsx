@@ -5,17 +5,17 @@ import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
 import { useWatchlistItems } from "../hooks/use-watchlist-items";
-import { WatchlistApiError } from "@/shared/lib/watchlist/types";
+import { WatchlistApiError } from "@/features/watchlist/lib/types";
 import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("@/shared/lib/watchlist/fetchers", () => ({
+vi.mock("@/features/watchlist/lib/fetchers", () => ({
   fetchWatchlist: vi.fn(),
   fetchWatchlistCounts: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
 
-const { fetchWatchlist } = await import("@/shared/lib/watchlist/fetchers");
+const { fetchWatchlist } = await import("@/features/watchlist/lib/fetchers");
 const fetchMock = vi.mocked(fetchWatchlist);
 
 function wrap(client: QueryClient) {

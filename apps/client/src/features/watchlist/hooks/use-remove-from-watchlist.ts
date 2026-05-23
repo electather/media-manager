@@ -2,9 +2,9 @@ import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
 import { keyToId, type WatchlistKey, type WatchlistResponse } from "@ent-mcp/shared/watchlist";
-import { removeFromWatchlist } from "@/shared/lib/watchlist/fetchers";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
-import { invalidateWatchlistAll } from "@/shared/lib/watchlist/invalidate";
+import { removeFromWatchlist } from "../lib/fetchers";
+import { watchlistKeys } from "../lib/query-keys";
+import { invalidateWatchlistAll } from "../lib/invalidate";
 
 type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
 
