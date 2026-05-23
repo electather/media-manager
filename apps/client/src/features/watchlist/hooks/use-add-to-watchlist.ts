@@ -24,7 +24,14 @@ interface MutationContext {
   skippedOptimistic: boolean;
 }
 
-const DEFAULT_KEY = watchlistKeys.list();
+/**
+ * Optimistic insert lands on the default flat-items cache (sort=recent,
+ * no bucket, no mood). That's the cache the `/watchlist/all` view consumes
+ * and the most likely first observer of the new row. Curated-page sections
+ * (Tonight, Ready, Recently, etc.) recompute server-side on the post-settle
+ * `invalidateWatchlistAll` sweep.
+ */
+const DEFAULT_KEY = watchlistKeys.items();
 
 export function useAddToWatchlist() {
   const qc = useQueryClient();

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
@@ -8,64 +8,39 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import { splitRuntime, totalRuntimeMinutes } from "../lib/classify";
-import type { WatchlistCounts, WatchlistFilter, WatchlistItem, WatchlistSort } from "../lib/types";
+import type { WatchlistBucket, WatchlistCounts, WatchlistSort } from "@ent-mcp/shared/watchlist";
+import { BucketChips } from "./sections/all-items/bucket-chips";
+import { SortSelect } from "./sections/all-items/sort-select";
 
-const FILTERS: { id: WatchlistFilter; labelFn: () => string }[] = [
-  { id: "all", labelFn: () => m.watchlist_filter_all() },
-  { id: "ready", labelFn: () => m.watchlist_filter_ready() },
-  { id: "in-progress", labelFn: () => m.watchlist_filter_in_progress() },
-  { id: "awaiting", labelFn: () => m.watchlist_filter_awaiting() },
-  { id: "upcoming", labelFn: () => m.watchlist_filter_upcoming() },
-];
+export type WatchlistHeaderMode = "curated" | "flat";
 
-const SORTS: { id: WatchlistSort; labelFn: () => string }[] = [
-  { id: "recent", labelFn: () => m.watchlist_sort_recent() },
-  { id: "alpha", labelFn: () => m.watchlist_sort_alpha() },
-  { id: "runtime", labelFn: () => m.watchlist_sort_runtime() },
-  { id: "status", labelFn: () => m.watchlist_sort_status() },
-];
-
-interface WatchlistHeaderProps {
-  /** Currently loaded items (one or more pages). Used for runtime estimate only. */
-  items: readonly WatchlistItem[];
-  /** Authoritative server-side counts; survives pagination because it sweeps the active set. */
+interface CommonProps {
   counts: WatchlistCounts;
-  filter: WatchlistFilter;
+}
+
+interface CuratedProps extends CommonProps {
+  mode: "curated";
+}
+
+interface FlatProps extends CommonProps {
+  mode: "flat";
+  bucket?: WatchlistBucket;
   sort: WatchlistSort;
-  onFilterChange: (next: WatchlistFilter) => void;
-  onSortChange: (next: WatchlistSort) => void;
 }
 
-function filterCount(id: WatchlistFilter, counts: WatchlistCounts): number {
-  const map: Record<WatchlistFilter, number> = {
-    all: counts.total,
-    ready: counts.ready,
-    "in-progress": counts.inProgress,
-    awaiting: counts.awaiting,
-    upcoming: counts.upcoming,
-  };
-  return map[id];
-}
+type WatchlistHeaderProps = CuratedProps | FlatProps;
 
-export function WatchlistHeader({
-  items,
-  counts,
-  filter,
-  sort,
-  onFilterChange,
-  onSortChange,
-}: WatchlistHeaderProps) {
-  const totalMin = useMemo(() => totalRuntimeMinutes(items), [items]);
-  const { days, hours } = splitRuntime(totalMin);
-  const totalRuntime =
-    days > 0
-      ? m.watchlist_runtime_days_hours({ days: String(days), hours: String(hours) })
-      : m.watchlist_runtime_hours({ hours: String(hours) });
-
+/**
+ * Page header. `curated` mode (default `/watchlist`) shows the title + pip
+ * counts + "View all items" link. `flat` mode (`/watchlist/all`) hides the
+ * link and surfaces bucket chips + sort dropdown that push `bucket` / `sort`
+ * updates via `navigate({ to: ".", search: ... })`.
+ */
+export function WatchlistHeader(props: WatchlistHeaderProps) {
+  const navigate = useNavigate();
+  const counts = props.counts;
   return (
     <header>
       <SectionHead size="page">
@@ -77,8 +52,7 @@ export function WatchlistHeader({
           </SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
-          <div className="flex flex-col gap-1.5 text-end font-mono text-xs tracking-[0.04em] text-muted-foreground">
-            <p>{m.watchlist_total_runtime({ value: totalRuntime })}</p>
+          <div className="flex flex-col items-end gap-1.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
             <p className="flex items-center justify-end gap-3">
               <span className="inline-flex items-center gap-1.5 text-success">
                 <Pip className="bg-success" />
@@ -99,50 +73,31 @@ export function WatchlistHeader({
                 {m.watchlist_count_upcoming({ n: String(counts.upcoming) })}
               </span>
             </p>
+            {props.mode === "curated" ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="font-sans text-xs"
+                onClick={() => {
+                  void navigate({ to: "/watchlist/all" });
+                }}
+              >
+                {m.watchlist_view_all_items()}
+              </Button>
+            ) : null}
           </div>
         </SectionHeadActions>
       </SectionHead>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
-        <RadioGroup
-          value={filter}
-          onValueChange={(value) => onFilterChange(value as WatchlistFilter)}
-          aria-label={m.watchlist_filter_label()}
-        >
-          {FILTERS.map((f) => {
-            const count = filterCount(f.id, counts);
-            return (
-              <RadioGroupItem
-                key={f.id}
-                value={f.id}
-                className="group px-3.5 py-1.5 text-sm data-checked:border-foreground data-checked:bg-foreground data-checked:text-background"
-              >
-                <span>{f.labelFn()}</span>
-                <span className="font-mono text-[11px] tabular-nums opacity-60 group-data-checked:opacity-55">
-                  {String(count).padStart(2, "0")}
-                </span>
-              </RadioGroupItem>
-            );
-          })}
-        </RadioGroup>
-        <label className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
-          <span>{m.watchlist_sort_label()}</span>
-          <Select value={sort} onValueChange={(value) => onSortChange(value as WatchlistSort)}>
-            <SelectTrigger size="sm" aria-label={m.watchlist_sort_label()} className="font-sans">
-              <SelectValue>
-                {(value: WatchlistSort) => SORTS.find((s) => s.id === value)?.labelFn()}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {SORTS.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.labelFn()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
+      {props.mode === "flat" ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
+          <BucketChips value={props.bucket} counts={counts} />
+          <label className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
+            <span>{m.watchlist_sort_label()}</span>
+            <SortSelect value={props.sort} />
+          </label>
+        </div>
+      ) : null}
     </header>
   );
 }

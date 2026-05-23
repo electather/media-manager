@@ -9,8 +9,12 @@ import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
 import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 
 vi.mock("@/features/watchlist/lib/fetchers", () => ({
-  fetchWatchlist: vi.fn(),
-  fetchWatchlistCounts: vi.fn(),
+  fetchItems: vi.fn(),
+  fetchCounts: vi.fn(),
+  fetchTonight: vi.fn(),
+  fetchRecently: vi.fn(),
+  fetchMoods: vi.fn(),
+  fetchMoodItems: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
@@ -30,7 +34,7 @@ function makeClient(seed: WatchlistResponse | undefined): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   if (seed) {
     const pages: Pages = { pages: [seed], pageParams: [undefined] };
-    client.setQueryData<Pages>(watchlistKeys.list(), pages);
+    client.setQueryData<Pages>(watchlistKeys.items(), pages);
   }
   return client;
 }
@@ -42,7 +46,7 @@ function wrap(client: QueryClient) {
 }
 
 function flattenIds(client: QueryClient): string[] {
-  const data = client.getQueryData<Pages>(watchlistKeys.list());
+  const data = client.getQueryData<Pages>(watchlistKeys.items());
   return data?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
 }
 

@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight, Film, Sparkles, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import {
   SectionHead,
   SectionHeadCount,
@@ -8,16 +10,10 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { sourceLabel } from "../lib/types";
-import type { WatchlistItem } from "../lib/types";
+import { sourceLabel } from "../../lib/types";
 import { cn } from "@/shared/lib/utils";
+import { useRecentlyAdded } from "../../hooks/use-recently-added";
 
-interface RecentlyAddedProps {
-  items: readonly WatchlistItem[];
-  onPeek: (id: string) => void;
-}
-
-const MAX_ROWS = 5;
 const MS_PER_MIN = 60 * 1000;
 const MS_PER_HOUR = 60 * MS_PER_MIN;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
@@ -39,8 +35,16 @@ function relativeLabel(addedAt: number, now: number = Date.now()): string {
   return m.watchlist_recent_time_last_week();
 }
 
-export function RecentlyAdded({ items, onPeek }: RecentlyAddedProps) {
-  const top = useMemo(() => items.slice(0, MAX_ROWS), [items]);
+export function RecentlyAdded() {
+  const { data } = useRecentlyAdded();
+  const navigate = useNavigate();
+  const onPeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
+  const top = data.items;
   if (top.length === 0) return null;
   return (
     <section className="mb-14">

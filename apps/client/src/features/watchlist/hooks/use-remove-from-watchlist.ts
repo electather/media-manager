@@ -12,7 +12,7 @@ interface MutationContext {
   snapshot: WatchlistPages | undefined;
 }
 
-const DEFAULT_KEY = watchlistKeys.list();
+const DEFAULT_KEY = watchlistKeys.items();
 
 export function useRemoveFromWatchlist() {
   const qc = useQueryClient();

@@ -1,6 +1,7 @@
-import { type CSSProperties } from "react";
+import { useCallback, type CSSProperties } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
-import { WatchlistCard } from "./watchlist-card";
+import { WatchlistCard } from "../watchlist-card";
 import {
   SectionHead,
   SectionHeadActions,
@@ -16,12 +17,7 @@ import {
   ScrollRowTrack,
   ScrollRowViewport,
 } from "@/shared/components/scroll-row";
-import type { WatchlistItem } from "../lib/types";
-
-interface ReadyRowProps {
-  items: readonly WatchlistItem[];
-  onPeek: (id: string) => void;
-}
+import { useReadyRow } from "../../hooks/use-ready-row";
 
 interface CardWidthVars extends CSSProperties {
   "--card-w": string;
@@ -30,7 +26,15 @@ interface CardWidthVars extends CSSProperties {
 
 const POSTER_VARS: CardWidthVars = { "--card-w": "200px", "--card-h": "300px" };
 
-export function ReadyRow({ items, onPeek }: ReadyRowProps) {
+export function ReadyRow() {
+  const { items } = useReadyRow();
+  const navigate = useNavigate();
+  const onPeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
   if (items.length === 0) return null;
 
   return (

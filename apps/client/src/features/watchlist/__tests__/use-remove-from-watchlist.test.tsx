@@ -9,8 +9,12 @@ import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
 import { SAMPLE_WATCHLIST } from "../__fixtures__/watchlist-items.fixture";
 
 vi.mock("@/features/watchlist/lib/fetchers", () => ({
-  fetchWatchlist: vi.fn(),
-  fetchWatchlistCounts: vi.fn(),
+  fetchItems: vi.fn(),
+  fetchCounts: vi.fn(),
+  fetchTonight: vi.fn(),
+  fetchRecently: vi.fn(),
+  fetchMoods: vi.fn(),
+  fetchMoodItems: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
@@ -35,7 +39,7 @@ function wrap(client: QueryClient) {
 function makeClient(seed: WatchlistResponse): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const pages: Pages = { pages: [seed], pageParams: [undefined] };
-  client.setQueryData<Pages>(watchlistKeys.list(), pages);
+  client.setQueryData<Pages>(watchlistKeys.items(), pages);
   return client;
 }
 
@@ -57,7 +61,7 @@ describe("useRemoveFromWatchlist", () => {
       result.current.mutate({ tmdbId: "11", mediaType: "movie" });
     });
     await waitFor(() => {
-      const data = client.getQueryData<Pages>(watchlistKeys.list());
+      const data = client.getQueryData<Pages>(watchlistKeys.items());
       const allIds = data?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
       expect(allIds).not.toContain("11");
     });
@@ -76,7 +80,7 @@ describe("useRemoveFromWatchlist", () => {
       result.current.mutate({ tmdbId: "11", mediaType: "movie" });
     });
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
-    const final = client.getQueryData<Pages>(watchlistKeys.list());
+    const final = client.getQueryData<Pages>(watchlistKeys.items());
     const allIds = final?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
     expect(allIds).toContain("11");
   });

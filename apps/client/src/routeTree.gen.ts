@@ -36,12 +36,14 @@ import { Route as AuthenticatedSettingsSettingsNotificationsRouteImport } from '
 import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './routes/_authenticated/_settings/settings/danger'
 import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
 import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
+import { Route as AuthenticatedAppWatchlistAllRouteImport } from './routes/_authenticated/_app/watchlist.all'
 import { Route as AuthenticatedAdminAdminUsersRouteImport } from './routes/_authenticated/_admin/admin/users'
 import { Route as AuthenticatedAdminAdminServerRouteImport } from './routes/_authenticated/_admin/admin/server'
 import { Route as AuthenticatedAdminAdminRolesRouteImport } from './routes/_authenticated/_admin/admin/roles'
 import { Route as AuthenticatedAdminAdminJobsRouteImport } from './routes/_authenticated/_admin/admin/jobs'
 import { Route as AuthenticatedAdminAdminDiagnosticsRouteImport } from './routes/_authenticated/_admin/admin/diagnostics'
 import { Route as AuthenticatedAdminAdminPluginsIndexRouteImport } from './routes/_authenticated/_admin/admin/plugins/index'
+import { Route as AuthenticatedAppWatchlistMoodsMoodIdRouteImport } from './routes/_authenticated/_app/watchlist.moods.$moodId'
 import { Route as AuthenticatedAppMediaMediaTypeMediaIdRouteImport } from './routes/_authenticated/_app/media.$mediaType.$mediaId'
 import { Route as AuthenticatedAdminAdminPluginsPluginIdRouteImport } from './routes/_authenticated/_admin/admin/plugins/$pluginId'
 import { Route as AuthenticatedAdminAdminNotificationsSettingsRouteImport } from './routes/_authenticated/_admin/admin/notifications/settings'
@@ -191,6 +193,12 @@ const AuthenticatedSettingsSettingsAppsRoute =
     path: '/settings/apps',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedAppWatchlistAllRoute =
+  AuthenticatedAppWatchlistAllRouteImport.update({
+    id: '/all',
+    path: '/all',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
 const AuthenticatedAdminAdminUsersRoute =
   AuthenticatedAdminAdminUsersRouteImport.update({
     id: '/admin/users',
@@ -227,6 +235,12 @@ const AuthenticatedAdminAdminPluginsIndexRoute =
     path: '/admin/plugins/',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAppWatchlistMoodsMoodIdRoute =
+  AuthenticatedAppWatchlistMoodsMoodIdRouteImport.update({
+    id: '/moods/$moodId',
+    path: '/moods/$moodId',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
 const AuthenticatedAppMediaMediaTypeMediaIdRoute =
   AuthenticatedAppMediaMediaTypeMediaIdRouteImport.update({
     id: '/media/$mediaType/$mediaId',
@@ -262,7 +276,7 @@ export interface FileRoutesByFullPath {
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/watchlist': typeof AuthenticatedAppWatchlistRoute
+  '/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
@@ -273,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
+  '/watchlist/all': typeof AuthenticatedAppWatchlistAllRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
@@ -285,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
   '/admin/plugins/$pluginId': typeof AuthenticatedAdminAdminPluginsPluginIdRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
+  '/watchlist/moods/$moodId': typeof AuthenticatedAppWatchlistMoodsMoodIdRoute
   '/admin/plugins/': typeof AuthenticatedAdminAdminPluginsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -296,7 +312,7 @@ export interface FileRoutesByTo {
   '/oauth/consent': typeof OauthConsentRoute
   '/library': typeof AuthenticatedAppLibraryRoute
   '/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/watchlist': typeof AuthenticatedAppWatchlistRoute
+  '/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
@@ -307,6 +323,7 @@ export interface FileRoutesByTo {
   '/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/admin/users': typeof AuthenticatedAdminAdminUsersRoute
+  '/watchlist/all': typeof AuthenticatedAppWatchlistAllRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
@@ -319,6 +336,7 @@ export interface FileRoutesByTo {
   '/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
   '/admin/plugins/$pluginId': typeof AuthenticatedAdminAdminPluginsPluginIdRoute
   '/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
+  '/watchlist/moods/$moodId': typeof AuthenticatedAppWatchlistMoodsMoodIdRoute
   '/admin/plugins': typeof AuthenticatedAdminAdminPluginsIndexRoute
 }
 export interface FileRoutesById {
@@ -335,7 +353,7 @@ export interface FileRoutesById {
   '/oauth/consent': typeof OauthConsentRoute
   '/_authenticated/_app/library': typeof AuthenticatedAppLibraryRoute
   '/_authenticated/_app/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRoute
+  '/_authenticated/_app/watchlist': typeof AuthenticatedAppWatchlistRouteWithChildren
   '/_authenticated/_settings/oauth-callback': typeof AuthenticatedSettingsOauthCallbackRoute
   '/_authenticated/_settings/setup': typeof AuthenticatedSettingsSetupRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
@@ -347,6 +365,7 @@ export interface FileRoutesById {
   '/_authenticated/_admin/admin/roles': typeof AuthenticatedAdminAdminRolesRoute
   '/_authenticated/_admin/admin/server': typeof AuthenticatedAdminAdminServerRoute
   '/_authenticated/_admin/admin/users': typeof AuthenticatedAdminAdminUsersRoute
+  '/_authenticated/_app/watchlist/all': typeof AuthenticatedAppWatchlistAllRoute
   '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
   '/_authenticated/_settings/settings/danger': typeof AuthenticatedSettingsSettingsDangerRoute
@@ -359,6 +378,7 @@ export interface FileRoutesById {
   '/_authenticated/_admin/admin/notifications/settings': typeof AuthenticatedAdminAdminNotificationsSettingsRoute
   '/_authenticated/_admin/admin/plugins/$pluginId': typeof AuthenticatedAdminAdminPluginsPluginIdRoute
   '/_authenticated/_app/media/$mediaType/$mediaId': typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
+  '/_authenticated/_app/watchlist/moods/$moodId': typeof AuthenticatedAppWatchlistMoodsMoodIdRoute
   '/_authenticated/_admin/admin/plugins/': typeof AuthenticatedAdminAdminPluginsIndexRoute
 }
 export interface FileRouteTypes {
@@ -384,6 +404,7 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
+    | '/watchlist/all'
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
@@ -396,6 +417,7 @@ export interface FileRouteTypes {
     | '/admin/notifications/settings'
     | '/admin/plugins/$pluginId'
     | '/media/$mediaType/$mediaId'
+    | '/watchlist/moods/$moodId'
     | '/admin/plugins/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -418,6 +440,7 @@ export interface FileRouteTypes {
     | '/admin/roles'
     | '/admin/server'
     | '/admin/users'
+    | '/watchlist/all'
     | '/settings/apps'
     | '/settings/connections'
     | '/settings/danger'
@@ -430,6 +453,7 @@ export interface FileRouteTypes {
     | '/admin/notifications/settings'
     | '/admin/plugins/$pluginId'
     | '/media/$mediaType/$mediaId'
+    | '/watchlist/moods/$moodId'
     | '/admin/plugins'
   id:
     | '__root__'
@@ -457,6 +481,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/admin/roles'
     | '/_authenticated/_admin/admin/server'
     | '/_authenticated/_admin/admin/users'
+    | '/_authenticated/_app/watchlist/all'
     | '/_authenticated/_settings/settings/apps'
     | '/_authenticated/_settings/settings/connections'
     | '/_authenticated/_settings/settings/danger'
@@ -469,6 +494,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_admin/admin/notifications/settings'
     | '/_authenticated/_admin/admin/plugins/$pluginId'
     | '/_authenticated/_app/media/$mediaType/$mediaId'
+    | '/_authenticated/_app/watchlist/moods/$moodId'
     | '/_authenticated/_admin/admin/plugins/'
   fileRoutesById: FileRoutesById
 }
@@ -669,6 +695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSettingsAppsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/_app/watchlist/all': {
+      id: '/_authenticated/_app/watchlist/all'
+      path: '/all'
+      fullPath: '/watchlist/all'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistAllRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
     '/_authenticated/_admin/admin/users': {
       id: '/_authenticated/_admin/admin/users'
       path: '/admin/users'
@@ -710,6 +743,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/plugins/'
       preLoaderRoute: typeof AuthenticatedAdminAdminPluginsIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/_app/watchlist/moods/$moodId': {
+      id: '/_authenticated/_app/watchlist/moods/$moodId'
+      path: '/moods/$moodId'
+      fullPath: '/watchlist/moods/$moodId'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistMoodsMoodIdRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
     }
     '/_authenticated/_app/media/$mediaType/$mediaId': {
       id: '/_authenticated/_app/media/$mediaType/$mediaId'
@@ -779,10 +819,27 @@ const AuthenticatedAdminRouteRouteWithChildren =
     AuthenticatedAdminRouteRouteChildren,
   )
 
+interface AuthenticatedAppWatchlistRouteChildren {
+  AuthenticatedAppWatchlistAllRoute: typeof AuthenticatedAppWatchlistAllRoute
+  AuthenticatedAppWatchlistMoodsMoodIdRoute: typeof AuthenticatedAppWatchlistMoodsMoodIdRoute
+}
+
+const AuthenticatedAppWatchlistRouteChildren: AuthenticatedAppWatchlistRouteChildren =
+  {
+    AuthenticatedAppWatchlistAllRoute: AuthenticatedAppWatchlistAllRoute,
+    AuthenticatedAppWatchlistMoodsMoodIdRoute:
+      AuthenticatedAppWatchlistMoodsMoodIdRoute,
+  }
+
+const AuthenticatedAppWatchlistRouteWithChildren =
+  AuthenticatedAppWatchlistRoute._addFileChildren(
+    AuthenticatedAppWatchlistRouteChildren,
+  )
+
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppLibraryRoute: typeof AuthenticatedAppLibraryRoute
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
-  AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRoute
+  AuthenticatedAppWatchlistRoute: typeof AuthenticatedAppWatchlistRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
   AuthenticatedAppMediaMediaTypeMediaIdRoute: typeof AuthenticatedAppMediaMediaTypeMediaIdRoute
 }
@@ -790,7 +847,7 @@ interface AuthenticatedAppRouteRouteChildren {
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppLibraryRoute: AuthenticatedAppLibraryRoute,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
-  AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRoute,
+  AuthenticatedAppWatchlistRoute: AuthenticatedAppWatchlistRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
   AuthenticatedAppMediaMediaTypeMediaIdRoute:
     AuthenticatedAppMediaMediaTypeMediaIdRoute,

@@ -1,6 +1,8 @@
+import { useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Server } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import { WatchlistCard } from "./watchlist-card";
+import { WatchlistCard } from "../watchlist-card";
 import {
   SectionHead,
   SectionHeadActions,
@@ -11,15 +13,17 @@ import {
 } from "@/shared/components/section-head";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";
-import type { WatchlistItem } from "../lib/types";
+import { useAwaiting } from "../../hooks/use-awaiting";
 
-interface AwaitingProps {
-  items: readonly WatchlistItem[];
-  onPeek: (id: string) => void;
-  onRequestAll?: () => void;
-}
-
-export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
+export function Awaiting() {
+  const { items } = useAwaiting();
+  const navigate = useNavigate();
+  const onPeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
   if (items.length === 0) return null;
   return (
     <section className="mb-14">
@@ -32,7 +36,7 @@ export function Awaiting({ items, onPeek, onRequestAll }: AwaitingProps) {
           </SectionHeadTitle>
         </SectionHeadHeading>
         <SectionHeadActions>
-          <Button variant="ghost" size="sm" className="text-xs" onClick={onRequestAll}>
+          <Button variant="ghost" size="sm" className="text-xs">
             <Server aria-hidden="true" className="size-3" />
             {m.watchlist_awaiting_request_all()}
           </Button>

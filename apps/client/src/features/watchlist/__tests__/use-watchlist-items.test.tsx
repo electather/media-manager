@@ -9,14 +9,18 @@ import { WatchlistApiError } from "@/features/watchlist/lib/types";
 import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 
 vi.mock("@/features/watchlist/lib/fetchers", () => ({
-  fetchWatchlist: vi.fn(),
-  fetchWatchlistCounts: vi.fn(),
+  fetchItems: vi.fn(),
+  fetchCounts: vi.fn(),
+  fetchTonight: vi.fn(),
+  fetchRecently: vi.fn(),
+  fetchMoods: vi.fn(),
+  fetchMoodItems: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
 
-const { fetchWatchlist } = await import("@/features/watchlist/lib/fetchers");
-const fetchMock = vi.mocked(fetchWatchlist);
+const { fetchItems } = await import("@/features/watchlist/lib/fetchers");
+const fetchMock = vi.mocked(fetchItems);
 
 function wrap(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
@@ -56,14 +60,14 @@ describe("useWatchlistItems", () => {
     expect(result.current.hasNextPage).toBe(true);
   });
 
-  it("threads the filter through to the fetcher and into the query key", async () => {
+  it("threads the filter through to the fetcher as a bucket", async () => {
     fetchMock.mockResolvedValueOnce({ items: [], cursor: null, partial: false });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { result } = renderHook(() => useWatchlistItems({ filter: "ready" }), {
       wrapper: wrap(client),
     });
     await waitFor(() => expect(result.current.items).toBeDefined());
-    expect(fetchMock).toHaveBeenCalledWith({ filter: "ready" });
+    expect(fetchMock).toHaveBeenCalledWith({ sort: "recent", bucket: "ready" });
   });
 
   it("propagates fetcher errors to an ErrorBoundary", async () => {

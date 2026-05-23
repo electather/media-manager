@@ -1,24 +1,50 @@
+import { useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
+import type { MoodId, WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { Button } from "@/shared/ui/button";
-import { shortRuntimeLabel } from "../lib/format";
-import type { WatchlistItem, WatchlistMood } from "../lib/types";
+import { shortRuntimeLabel } from "../../../lib/format";
+import { MOOD_REGISTRY } from "../../../lib/mood-registry";
+import { useMoodCluster } from "../../../hooks/use-mood-cluster";
 
 interface MoodClusterProps {
-  mood: WatchlistMood;
-  items: readonly WatchlistItem[];
-  onPeek: (id: string) => void;
-  onSeeAll: () => void;
+  moodId: MoodId;
+  count: number;
 }
 
-export function MoodCluster({ mood, items, onPeek, onSeeAll }: MoodClusterProps) {
+const PREVIEW_LIMIT = 3;
+
+export function MoodCluster({ moodId, count }: MoodClusterProps) {
+  const { items } = useMoodCluster(moodId, PREVIEW_LIMIT);
+  const navigate = useNavigate();
+  const onPeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
+  const onSeeAll = useCallback(() => {
+    void navigate({ to: "/watchlist/moods/$moodId", params: { moodId } });
+  }, [navigate, moodId]);
   if (items.length === 0) return null;
-  const [hero, ...secondary] = items.slice(0, 3);
+  const [hero, ...secondary] = items.slice(0, PREVIEW_LIMIT);
   if (!hero) return null;
+  const copy = MOOD_REGISTRY[moodId];
 
   return (
     <article className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-4">
-      <MoodHeader mood={mood} count={items.length} />
+      <header className="mb-3.5 flex items-baseline justify-between">
+        <div>
+          <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
+            {m.watchlist_mood_cluster_eyebrow()} · {String(count).padStart(2, "0")}
+          </div>
+          <h3 className="m-0 text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
+            {copy.label()}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">{copy.note()}</p>
+        </div>
+      </header>
       <div className="flex flex-col gap-2.5">
         <MoodHero item={hero} onPeek={onPeek} />
         {secondary.map((it) => (
@@ -31,25 +57,9 @@ export function MoodCluster({ mood, items, onPeek, onSeeAll }: MoodClusterProps)
         className="mt-3 w-full justify-center text-xs"
         onClick={onSeeAll}
       >
-        {m.watchlist_mood_see_all({ n: String(items.length) })}
+        {m.watchlist_mood_see_all({ n: String(count) })}
       </Button>
     </article>
-  );
-}
-
-function MoodHeader({ mood, count }: { mood: WatchlistMood; count: number }) {
-  return (
-    <header className="mb-3.5 flex items-baseline justify-between">
-      <div>
-        <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">
-          {m.watchlist_mood_cluster_eyebrow()} · {String(count).padStart(2, "0")}
-        </div>
-        <h3 className="m-0 text-[22px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
-          {m[mood.labelKey]()}
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">{m[mood.noteKey]()}</p>
-      </div>
-    </header>
   );
 }
 

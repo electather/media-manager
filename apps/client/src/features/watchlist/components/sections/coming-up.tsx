@@ -1,5 +1,7 @@
+import { useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
-import { WatchlistCard } from "./watchlist-card";
+import { WatchlistCard } from "../watchlist-card";
 import {
   SectionHead,
   SectionHeadCount,
@@ -8,14 +10,17 @@ import {
   SectionHeadTitle,
 } from "@/shared/components/section-head";
 import { VirtualGrid } from "@/shared/components/virtualized";
-import type { WatchlistItem } from "../lib/types";
+import { useComingUp } from "../../hooks/use-coming-up";
 
-interface ComingUpProps {
-  items: readonly WatchlistItem[];
-  onPeek: (id: string) => void;
-}
-
-export function ComingUp({ items, onPeek }: ComingUpProps) {
+export function ComingUp() {
+  const { items } = useComingUp();
+  const navigate = useNavigate();
+  const onPeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
   if (items.length === 0) return null;
   return (
     <section className="mb-14">

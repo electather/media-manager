@@ -1,6 +1,9 @@
+import { useCallback } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import { WatchlistCard } from "./watchlist-card";
+import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import { WatchlistCard } from "../watchlist-card";
 import {
   SectionHead,
   SectionHeadActions,
@@ -10,16 +13,21 @@ import {
 } from "@/shared/components/section-head";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { shortRuntimeLabel } from "../lib/format";
-import type { WatchlistItem } from "../lib/types";
+import { shortRuntimeLabel } from "../../lib/format";
+import { useTonight } from "../../hooks/use-tonight";
 
-interface TonightPickProps {
-  pick: WatchlistItem;
-  alternates: readonly WatchlistItem[];
-  onPeek: (id: string) => void;
-}
+export function TonightPick() {
+  const { data } = useTonight();
+  const navigate = useNavigate();
+  const onPeek = useCallback(
+    (id: string) => {
+      void navigate({ to: ".", search: { peek: id }, replace: false, resetScroll: false });
+    },
+    [navigate],
+  );
+  const [hero, ...alternates] = data.items;
+  if (!hero) return null;
 
-export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
   return (
     <section className="mb-14">
       <SectionHead>
@@ -36,7 +44,7 @@ export function TonightPick({ pick, alternates, onPeek }: TonightPickProps) {
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
         <div className="relative min-w-0">
-          <WatchlistCard item={{ ...pick, status: undefined }} forceAspect="16/9" onPeek={onPeek} />
+          <WatchlistCard item={{ ...hero, status: undefined }} forceAspect="16/9" onPeek={onPeek} />
           <div className="mt-3.5 flex items-center gap-2.5 font-mono text-xs tracking-[0.04em] text-muted-foreground">
             <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-primary" />
             <span>{m.watchlist_tonight_why()} ·</span>
