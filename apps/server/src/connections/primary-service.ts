@@ -40,9 +40,10 @@ async function assertOwnedAndSupportsCapability(args: {
   capabilityKey: string;
 }): Promise<string> {
   const row = await requireConnection(getDb(), args.connectionId, args.userId);
-  const [capId, capVersion] = args.capabilityKey.split("@");
-  const entry = capId ? capabilityRegistry.get(row.pluginId) : undefined;
-  const cap = entry && capId ? entry.module.manifest.capabilities[capId] : undefined;
+  // Schema regex `/^[a-z][a-zA-Z0-9]*@v\d+$/` guarantees both halves are present.
+  const [capId, capVersion] = args.capabilityKey.split("@") as [string, string];
+  const entry = capabilityRegistry.get(row.pluginId);
+  const cap = entry?.module.manifest.capabilities?.[capId];
   if (!cap || cap.version !== capVersion || cap.scope !== "user") {
     throw unprocessable(
       "connection.capability_unsupported",

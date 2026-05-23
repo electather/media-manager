@@ -235,6 +235,7 @@ function VirtualizedScrollRowTrack<T>({
         if (item === undefined) return null;
         return (
           <li
+            // No `ref={virtualizer.measureElement}` — keeps the virtualizer in fixed-size mode so `estimateItemWidth` drives positioning and the gap between cards is preserved.
             key={getKey(item, vi.index)}
             data-slot="scroll-row-item"
             data-index={vi.index}
