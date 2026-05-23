@@ -129,10 +129,14 @@ export async function invokeWithTimeout<T>(
   conn: ResolvedConnection,
 ): Promise<T> {
   const remaining = isNil(req.deadlineMs) ? Number.POSITIVE_INFINITY : req.deadlineMs - Date.now();
-  const effectiveMs = Math.min(req.timeoutMs, remaining);
-  if (effectiveMs < DEADLINE_SHORT_CIRCUIT_MS) {
+  // The short-circuit protects against an exhausted deadline budget, not a
+  // small `timeoutMs`. Guard on `remaining` so a caller with no deadline and
+  // a deliberately short `timeoutMs` (e.g. probes) still arms its own timer
+  // instead of throwing `deadline_exceeded (remaining Infinityms)`.
+  if (remaining < DEADLINE_SHORT_CIRCUIT_MS) {
     throw abortError(`deadline_exceeded (remaining ${remaining}ms)`);
   }
+  const effectiveMs = Math.min(req.timeoutMs, remaining);
   const timeout = createTimeoutHandle(effectiveMs, req.timeoutMs);
   try {
     return (await Promise.race([

@@ -4,13 +4,13 @@ version: 1.0
 date_created: 2026-05-23
 last_updated: 2026-05-23
 owner: Omid Astaraki
-status: 'Planned'
+status: 'Completed'
 tags: [feature, server, home, media, jobs, bug]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: Completed](https://img.shields.io/badge/status-Completed-brightgreen)
 
 Implement PR 8 (`home-deadline-propagation`) per rev 6 of `docs/2026-05-05-home-page-backend-design.md`. Diagnostics surfaced a per-row timeout on `host.home.layout_warm` (`runId d43fccf3-461e-4fc3-8918-5c5d4f13ad1a`) because `ctx.deadlineMs` is set at compose entry but dropped by every leaf under `enrichItems` and ignored as a clip on per-plugin `defaultTimeoutMs`. Worst-case plugin call ≈ 32 s; sequential compose phases compound past the 60 s per-row cap. This plan threads `deadlineMs` through every leaf, clips per-plugin `timeoutMs` to remaining budget, reshapes hero soft-failure to per-pool, and gives the warm job a 45 s compose budget with 15 s SQLite writeback slack.
 

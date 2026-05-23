@@ -822,7 +822,7 @@ export class MediaService {
           method: "checkAvailability",
           input: { id: tmdbId, idType: "tmdb", type: queryType },
           timeoutMs: capability.defaultTimeoutMs,
-          ...(deadlineMs !== undefined ? { deadlineMs } : {}),
+          deadlineMs,
         },
         conn,
       );
@@ -881,7 +881,7 @@ export class MediaService {
           method: "listAvailable",
           input: { type: queryType },
           timeoutMs: capability.defaultTimeoutMs,
-          ...(deadlineMs !== undefined ? { deadlineMs } : {}),
+          deadlineMs,
         },
         conn,
       );

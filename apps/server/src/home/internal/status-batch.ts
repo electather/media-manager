@@ -28,9 +28,14 @@ export class StatusBatchMemo {
     opts: { deadlineMs?: number } = {},
   ): Promise<Record<string, Status>> {
     if (ids.length === 0) return {};
-    // `opts.deadlineMs` is intentionally not applied to in-flight dedup hits:
-    // the first caller's deadline governs the shared promise, matching the
-    // deadline-agnostic memo identity used in `MediaService.getMatchingServers`.
+    // Deadline application is split by caller role:
+    //   - IDs that this call schedules (toFetch) use *this* caller's
+    //     `opts.deadlineMs` — passed through to `scheduleFetch`.
+    //   - IDs already in-flight from a prior caller reuse that caller's
+    //     deadline; the joining caller's `opts.deadlineMs` is ignored.
+    // Matches the deadline-agnostic memo identity invariant from rev 6 of
+    // `docs/2026-05-05-home-page-backend-design.md` ("deadline never enters
+    // memo identity"), mirroring `MediaService.getMatchingServers`.
     const toFetch = ids.filter((id) => !this.cache.has(id) && !this.inflight.has(id));
     if (toFetch.length > 0) this.scheduleFetch(toFetch, opts);
     await this.awaitPending(ids);

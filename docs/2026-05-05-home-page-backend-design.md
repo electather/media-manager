@@ -1122,7 +1122,7 @@ CHANGED
 - **R13.** (rev 4) Schema bump 1 → 2 invalidates every existing `home_layout_cache` row on first deploy. First request per active user falls through to live composition + write-back. Cost = N active users × one cold compose (≤ 5 s budget); spread by `host.home.layout_warm` jitter on next hourly tick.
 - **A9.** (rev 4) Mixer bypasses the previous `pickContinueWatchingHero` / `pickRecommendedHero` / `pickTrendingHero` / `pickNewReleaseHero` exports. They are removed in PR 7; nothing else imports them (only `pickHero` is exported via `home/hero.ts`). Verify before delete via grep.
 - **R14.** (rev 6) Warm-job per-row 60 s cap split into 45 s compose + 15 s writeback. Assumes SQLite `home_layout_cache` upsert p99 < 15 s (single PK, ~2 KB blob; sub-ms in practice). Concurrent retention job, large cache table, or WAL checkpoint pressure could erode the margin — both numbers re-tune together if violated. Diagnostics surface `cron.job_failed` with message `per-row timeout` on breach; that capture is the canary for retuning.
-- **A10.** (rev 6) `invokeWithTimeout` clip applies to ALL deadline-bearing callers, not just warm. Request path (`ctx.deadlineMs = now + 8_000`) gets the same semantics for free — a single slow plugin can no longer consume the whole 8 s. Tested via `media/__tests__/invoke.test.ts`.
+- **A10.** (rev 6) `invokeWithTimeout` clip applies to ALL deadline-bearing callers, not just warm. Request path (`ctx.deadlineMs = now + 8_000`) gets the same semantics for free — a single slow plugin can no longer consume the whole 8 s. Tested via `media/__tests__/invoke.deadline-clip.test.ts`.
 
 ## Implementation phases (PR breakdown)
 

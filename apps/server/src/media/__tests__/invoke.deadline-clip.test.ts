@@ -107,4 +107,19 @@ describe("invokeWithTimeout deadline clip", () => {
     expect((err as Error).name).toBe("AbortError");
     expect(invokeWithCredentialsMock).not.toHaveBeenCalled();
   });
+
+  it("does not short-circuit on small timeoutMs when no deadline is set", async () => {
+    // Regression: prior implementation guarded on `effectiveMs`, so a caller
+    // with `timeoutMs < DEADLINE_SHORT_CIRCUIT_MS` and no deadline would
+    // throw `deadline_exceeded (remaining Infinityms)` instead of arming a
+    // real timer. The short-circuit must protect deadline exhaustion only.
+    invokeWithCredentialsMock.mockImplementation(() => new Promise(() => {}));
+    const promise = invokeWithTimeout(baseReq({ timeoutMs: 10 }), conn).catch((e: Error) => e);
+    await vi.advanceTimersByTimeAsync(20);
+    const err = (await promise) as Error;
+    expect(err.name).toBe("AbortError");
+    expect(err.message).toMatch(/timed out after 10ms/);
+    expect(err.message).not.toMatch(/deadline_exceeded/);
+    expect(invokeWithCredentialsMock).toHaveBeenCalledTimes(1);
+  });
 });
