@@ -17,6 +17,7 @@
   "watchlist_filter_ready": "TODO",
   "watchlist_filter_in_progress": "TODO",
   "watchlist_filter_awaiting": "TODO",
+  "watchlist_filter_unavailable": "TODO",
   "watchlist_filter_upcoming": "TODO",
 
   "watchlist_sort_label": "TODO",
@@ -97,7 +98,19 @@
   "watchlist_section_count_aria": "TODO",
 
   "watchlist_partial_banner": "TODO",
-  "watchlist_empty": "TODO",
+  "watchlist_empty_ready_title": "TODO",
+  "watchlist_empty_ready_description": "TODO",
+  "watchlist_empty_in_progress_title": "TODO",
+  "watchlist_empty_in_progress_description": "TODO",
+  "watchlist_empty_awaiting_title": "TODO",
+  "watchlist_empty_awaiting_description": "TODO",
+  "watchlist_empty_unavailable_title": "TODO",
+  "watchlist_empty_unavailable_description": "TODO",
+  "watchlist_empty_upcoming_title": "TODO",
+  "watchlist_empty_upcoming_description": "TODO",
+  "watchlist_empty_mood_title": "TODO",
+  "watchlist_empty_mood_description": "TODO",
+
   "watchlist_add_error": "TODO",
   "watchlist_remove_error": "TODO",
   "watchlist_toggle_add": "TODO",

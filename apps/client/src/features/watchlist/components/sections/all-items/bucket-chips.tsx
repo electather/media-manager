@@ -10,6 +10,7 @@ const BUCKET_LABELS: Record<WatchlistBucket, () => string> = {
   ready: m.watchlist_filter_ready,
   "in-progress": m.watchlist_filter_in_progress,
   awaiting: m.watchlist_filter_awaiting,
+  unavailable: m.watchlist_filter_unavailable,
   upcoming: m.watchlist_filter_upcoming,
 };
 
@@ -17,6 +18,7 @@ const BUCKET_COUNT: Record<WatchlistBucket, keyof WatchlistCounts> = {
   ready: "ready",
   "in-progress": "inProgress",
   awaiting: "awaiting",
+  unavailable: "unavailable",
   upcoming: "upcoming",
 };
 
@@ -67,7 +69,7 @@ function BucketChipLink({ chipKey, label, count }: BucketChipLinkProps) {
       <Link
         to="/watchlist"
         role="tab"
-        activeOptions={{ exact: true }}
+        activeOptions={{ exact: true, includeSearch: false }}
         activeProps={{ "aria-selected": "true" as const }}
         inactiveProps={{ "aria-selected": "false" as const }}
         className={CHIP_BASE_CLASS}
@@ -81,7 +83,7 @@ function BucketChipLink({ chipKey, label, count }: BucketChipLinkProps) {
     <Link
       to={`/watchlist/${chipKey}`}
       role="tab"
-      activeOptions={{ exact: true }}
+      activeOptions={{ exact: true, includeSearch: false }}
       activeProps={{ "aria-selected": "true" as const }}
       inactiveProps={{ "aria-selected": "false" as const }}
       className={CHIP_BASE_CLASS}

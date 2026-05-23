@@ -6,6 +6,7 @@ import { VirtualGrid } from "@/shared/components/virtualized";
 import { Button } from "@/shared/ui/button";
 import { WatchlistCard } from "../../watchlist-card";
 import { useAllItems } from "../../../hooks/use-all-items";
+import { WatchlistEmpty } from "./empty";
 
 interface AllItemsProps {
   sort: WatchlistSort;
@@ -32,7 +33,7 @@ export function AllItems({ sort, bucket, mood }: AllItemsProps) {
   );
 
   if (items.length === 0) {
-    return <p className="py-16 text-center text-sm text-muted-foreground">{m.watchlist_empty()}</p>;
+    return <WatchlistEmpty bucket={bucket} mood={mood} />;
   }
 
   return (

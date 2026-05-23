@@ -125,7 +125,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   const c = asWatchlistContext(ctx);
   const rows = await repo.listAllActive(c.userId);
   if (rows.length === 0) {
-    return { ready: 0, inProgress: 0, awaiting: 0, upcoming: 0, total: 0 };
+    return { ready: 0, inProgress: 0, awaiting: 0, unavailable: 0, upcoming: 0, total: 0 };
   }
 
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
@@ -152,6 +152,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   let ready = 0;
   let inProgress = 0;
   let awaiting = 0;
+  let unavailable = 0;
   let upcoming = 0;
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
@@ -172,9 +173,10 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
     else if (bucket === "in-progress") inProgress++;
     else if (bucket === "awaiting") awaiting++;
     else if (bucket === "upcoming") upcoming++;
+    else if (bucket === "unavailable") unavailable++;
   }
 
-  return { ready, inProgress, awaiting, upcoming, total: rows.length };
+  return { ready, inProgress, awaiting, unavailable, upcoming, total: rows.length };
 }
 
 export interface AddItemResult {

@@ -85,6 +85,7 @@ describe("watchlist API", () => {
       ready: 1,
       inProgress: 0,
       awaiting: 0,
+      unavailable: 0,
       upcoming: 0,
       total: 1,
     });
@@ -94,6 +95,7 @@ describe("watchlist API", () => {
       ready: 1,
       inProgress: 0,
       awaiting: 0,
+      unavailable: 0,
       upcoming: 0,
       total: 1,
     });
@@ -114,9 +116,30 @@ describe("watchlist API", () => {
     );
   });
 
+  it("accepts the rev-6 unavailable bucket on /items", async () => {
+    resetMocks();
+    vi.mocked(watchlist.listItems).mockResolvedValueOnce({
+      items: [],
+      cursor: null,
+      partial: false,
+    });
+    const res = await buildApp().request("/watchlist/items?bucket=unavailable");
+    expect(res.status).toBe(200);
+    expect(watchlist.listItems).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ bucket: "unavailable" }),
+    );
+  });
+
   it("rejects an invalid sort with 400", async () => {
     resetMocks();
     const res = await buildApp().request("/watchlist/items?sort=banana");
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an invalid bucket with 400 (zod enum guard)", async () => {
+    resetMocks();
+    const res = await buildApp().request("/watchlist/items?bucket=banana");
     expect(res.status).toBe(400);
   });
 

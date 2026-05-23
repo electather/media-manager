@@ -59,7 +59,14 @@ vi.mock("../hooks/use-moods", () => ({
 
 const { WatchlistHeader } = await import("../components/watchlist-header");
 
-const COUNTS = { ready: 3, inProgress: 1, awaiting: 1, upcoming: 2, total: 7 } as const;
+const COUNTS = {
+  ready: 3,
+  inProgress: 1,
+  awaiting: 1,
+  unavailable: 0,
+  upcoming: 2,
+  total: 7,
+} as const;
 
 describe("WatchlistHeader (V.WL8)", () => {
   it("always renders the chip strip including the in-progress chip", () => {

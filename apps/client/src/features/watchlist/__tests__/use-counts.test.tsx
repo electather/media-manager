@@ -37,6 +37,7 @@ describe("useCounts", () => {
       ready: 7,
       inProgress: 0,
       awaiting: 3,
+      unavailable: 2,
       upcoming: 2,
       total: 14,
     });
@@ -47,6 +48,7 @@ describe("useCounts", () => {
       ready: 7,
       inProgress: 0,
       awaiting: 3,
+      unavailable: 2,
       upcoming: 2,
       total: 14,
     });

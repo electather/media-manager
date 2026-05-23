@@ -6,10 +6,10 @@ import type { ProgressEntry } from "./progress";
  * Server-side mirror of the client's classifier (see
  * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
  * `/counts` and `?bucket=` decisions match what the client would draw from
- * the same row. The classifier set adds `unknown` for rows that fail every
- * predicate — the wire bucket enum stays the four user-facing values.
+ * the same row. Rev 6: every row classifies into one of the five visible
+ * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
  */
-export type ClassifiedBucket = WatchlistBucket | "unknown";
+export type ClassifiedBucket = WatchlistBucket;
 
 const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, ClassifiedBucket | undefined> = {
   available: "ready",
@@ -38,7 +38,7 @@ export function classifyBucket(
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
   if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
-  return "unknown";
+  return "unavailable";
 }
 
 export function matchesBucket(classified: ClassifiedBucket, target: WatchlistBucket): boolean {

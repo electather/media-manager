@@ -17,6 +17,7 @@
   "watchlist_filter_ready": "Ready",
   "watchlist_filter_in_progress": "In progress",
   "watchlist_filter_awaiting": "Awaiting",
+  "watchlist_filter_unavailable": "Unavailable",
   "watchlist_filter_upcoming": "Upcoming",
 
   "watchlist_sort_label": "Sort",
@@ -120,7 +121,19 @@
   "watchlist_section_count_aria": "{count} items",
 
   "watchlist_partial_banner": "Some watchlist items couldn't be loaded. Refresh to try again.",
-  "watchlist_empty": "Your watchlist is empty. Add a title from search or a recommendation to start.",
+  "watchlist_empty_ready_title": "Nothing ready",
+  "watchlist_empty_ready_description": "Items appear here once they land on a connected media server.",
+  "watchlist_empty_in_progress_title": "No active sessions",
+  "watchlist_empty_in_progress_description": "Resume something you've started watching to fill this section.",
+  "watchlist_empty_awaiting_title": "No items awaiting",
+  "watchlist_empty_awaiting_description": "Items show here once you request them via a connected request app, like Overseerr.",
+  "watchlist_empty_unavailable_title": "Nothing to acquire",
+  "watchlist_empty_unavailable_description": "Items wishlisted that aren't on a media server and haven't been requested yet.",
+  "watchlist_empty_upcoming_title": "Nothing upcoming",
+  "watchlist_empty_upcoming_description": "Future releases on your watchlist show up here.",
+  "watchlist_empty_mood_title": "{moodLabel} is empty",
+  "watchlist_empty_mood_description": "No items match this mood yet.",
+
   "watchlist_add_error": "Couldn't add to watchlist. {message}",
   "watchlist_remove_error": "Couldn't remove from watchlist. {message}",
   "watchlist_toggle_add": "Add to watchlist",

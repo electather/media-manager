@@ -257,9 +257,10 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     await addItem({ tmdbId: "901", mediaType: "movie" }, "manual", ctx);
     await addItem({ tmdbId: "902", mediaType: "movie" }, "manual", ctx);
 
-    // 900 is on a library server (ready), 901 is upcoming, 902 stays unknown.
-    // Reset the cache so the warmed `[]` value from `addItem` doesn't shadow
-    // the per-tmdb mock below.
+    // 900 is on a library server (ready), 901 is upcoming, 902 falls through
+    // to the rev-6 `unavailable` catch-all bucket (no server, no future-year
+    // metadata, no request-status). Reset the cache so the warmed `[]` value
+    // from `addItem` doesn't shadow the per-tmdb mock below.
     __resetAvailabilityCache();
     (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
       async (tmdbId: string) => (tmdbId === "900" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
@@ -275,11 +276,17 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     });
 
     const counts = await getCounts(ctx);
+    // V.WL2 rev 6 — every active row classifies into one of five visible
+    // buckets; total is the sum of those five (no hidden tail).
     expect(counts.total).toBe(3);
     expect(counts.ready).toBe(1);
     expect(counts.inProgress).toBe(0);
     expect(counts.upcoming).toBe(1);
     expect(counts.awaiting).toBe(0);
+    expect(counts.unavailable).toBe(1);
+    expect(
+      counts.ready + counts.inProgress + counts.awaiting + counts.unavailable + counts.upcoming,
+    ).toBe(counts.total);
   });
 
   it("getCounts emits a real inProgress tally when continueWatching reports an active position", async () => {
@@ -317,7 +324,14 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
     const counts = await getCounts(ctx);
-    expect(counts).toEqual({ ready: 0, inProgress: 0, awaiting: 0, upcoming: 0, total: 0 });
+    expect(counts).toEqual({
+      ready: 0,
+      inProgress: 0,
+      awaiting: 0,
+      unavailable: 0,
+      upcoming: 0,
+      total: 0,
+    });
     expect(probeSpy).not.toHaveBeenCalled();
     expect(statusSpy).not.toHaveBeenCalled();
   });

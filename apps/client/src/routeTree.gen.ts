@@ -38,6 +38,7 @@ import { Route as AuthenticatedSettingsSettingsDangerRouteImport } from './route
 import { Route as AuthenticatedSettingsSettingsConnectionsRouteImport } from './routes/_authenticated/_settings/settings/connections'
 import { Route as AuthenticatedSettingsSettingsAppsRouteImport } from './routes/_authenticated/_settings/settings/apps'
 import { Route as AuthenticatedAppWatchlistUpcomingRouteImport } from './routes/_authenticated/_app/watchlist.upcoming'
+import { Route as AuthenticatedAppWatchlistUnavailableRouteImport } from './routes/_authenticated/_app/watchlist.unavailable'
 import { Route as AuthenticatedAppWatchlistReadyRouteImport } from './routes/_authenticated/_app/watchlist.ready'
 import { Route as AuthenticatedAppWatchlistInProgressRouteImport } from './routes/_authenticated/_app/watchlist.in-progress'
 import { Route as AuthenticatedAppWatchlistAwaitingRouteImport } from './routes/_authenticated/_app/watchlist.awaiting'
@@ -209,6 +210,12 @@ const AuthenticatedAppWatchlistUpcomingRoute =
     path: '/upcoming',
     getParentRoute: () => AuthenticatedAppWatchlistRoute,
   } as any)
+const AuthenticatedAppWatchlistUnavailableRoute =
+  AuthenticatedAppWatchlistUnavailableRouteImport.update({
+    id: '/unavailable',
+    path: '/unavailable',
+    getParentRoute: () => AuthenticatedAppWatchlistRoute,
+  } as any)
 const AuthenticatedAppWatchlistReadyRoute =
   AuthenticatedAppWatchlistReadyRouteImport.update({
     id: '/ready',
@@ -318,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
   '/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
   '/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
+  '/watchlist/unavailable': typeof AuthenticatedAppWatchlistUnavailableRoute
   '/watchlist/upcoming': typeof AuthenticatedAppWatchlistUpcomingRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
@@ -357,6 +365,7 @@ export interface FileRoutesByTo {
   '/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
   '/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
   '/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
+  '/watchlist/unavailable': typeof AuthenticatedAppWatchlistUnavailableRoute
   '/watchlist/upcoming': typeof AuthenticatedAppWatchlistUpcomingRoute
   '/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
@@ -403,6 +412,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/watchlist/awaiting': typeof AuthenticatedAppWatchlistAwaitingRoute
   '/_authenticated/_app/watchlist/in-progress': typeof AuthenticatedAppWatchlistInProgressRoute
   '/_authenticated/_app/watchlist/ready': typeof AuthenticatedAppWatchlistReadyRoute
+  '/_authenticated/_app/watchlist/unavailable': typeof AuthenticatedAppWatchlistUnavailableRoute
   '/_authenticated/_app/watchlist/upcoming': typeof AuthenticatedAppWatchlistUpcomingRoute
   '/_authenticated/_settings/settings/apps': typeof AuthenticatedSettingsSettingsAppsRoute
   '/_authenticated/_settings/settings/connections': typeof AuthenticatedSettingsSettingsConnectionsRoute
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/watchlist/awaiting'
     | '/watchlist/in-progress'
     | '/watchlist/ready'
+    | '/watchlist/unavailable'
     | '/watchlist/upcoming'
     | '/settings/apps'
     | '/settings/connections'
@@ -485,6 +496,7 @@ export interface FileRouteTypes {
     | '/watchlist/awaiting'
     | '/watchlist/in-progress'
     | '/watchlist/ready'
+    | '/watchlist/unavailable'
     | '/watchlist/upcoming'
     | '/settings/apps'
     | '/settings/connections'
@@ -530,6 +542,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/watchlist/awaiting'
     | '/_authenticated/_app/watchlist/in-progress'
     | '/_authenticated/_app/watchlist/ready'
+    | '/_authenticated/_app/watchlist/unavailable'
     | '/_authenticated/_app/watchlist/upcoming'
     | '/_authenticated/_settings/settings/apps'
     | '/_authenticated/_settings/settings/connections'
@@ -759,6 +772,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppWatchlistUpcomingRouteImport
       parentRoute: typeof AuthenticatedAppWatchlistRoute
     }
+    '/_authenticated/_app/watchlist/unavailable': {
+      id: '/_authenticated/_app/watchlist/unavailable'
+      path: '/unavailable'
+      fullPath: '/watchlist/unavailable'
+      preLoaderRoute: typeof AuthenticatedAppWatchlistUnavailableRouteImport
+      parentRoute: typeof AuthenticatedAppWatchlistRoute
+    }
     '/_authenticated/_app/watchlist/ready': {
       id: '/_authenticated/_app/watchlist/ready'
       path: '/ready'
@@ -901,6 +921,7 @@ interface AuthenticatedAppWatchlistRouteChildren {
   AuthenticatedAppWatchlistAwaitingRoute: typeof AuthenticatedAppWatchlistAwaitingRoute
   AuthenticatedAppWatchlistInProgressRoute: typeof AuthenticatedAppWatchlistInProgressRoute
   AuthenticatedAppWatchlistReadyRoute: typeof AuthenticatedAppWatchlistReadyRoute
+  AuthenticatedAppWatchlistUnavailableRoute: typeof AuthenticatedAppWatchlistUnavailableRoute
   AuthenticatedAppWatchlistUpcomingRoute: typeof AuthenticatedAppWatchlistUpcomingRoute
   AuthenticatedAppWatchlistIndexRoute: typeof AuthenticatedAppWatchlistIndexRoute
   AuthenticatedAppWatchlistMoodsMoodIdRoute: typeof AuthenticatedAppWatchlistMoodsMoodIdRoute
@@ -913,6 +934,8 @@ const AuthenticatedAppWatchlistRouteChildren: AuthenticatedAppWatchlistRouteChil
     AuthenticatedAppWatchlistInProgressRoute:
       AuthenticatedAppWatchlistInProgressRoute,
     AuthenticatedAppWatchlistReadyRoute: AuthenticatedAppWatchlistReadyRoute,
+    AuthenticatedAppWatchlistUnavailableRoute:
+      AuthenticatedAppWatchlistUnavailableRoute,
     AuthenticatedAppWatchlistUpcomingRoute:
       AuthenticatedAppWatchlistUpcomingRoute,
     AuthenticatedAppWatchlistIndexRoute: AuthenticatedAppWatchlistIndexRoute,

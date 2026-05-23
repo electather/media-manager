@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
-**Status:** design (rev 3)
-**Date:** 2026-05-23 (rev 1: 2026-05-23, rev 2: 2026-05-23, rev 3: 2026-05-23)
+**Status:** design (rev 6)
+**Date:** 2026-05-23 (rev 1–6: 2026-05-23)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
@@ -10,6 +10,13 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 6 (2026-05-23)** — Sub-page UX + new `unavailable` bucket.
+  - **Chip active = pathname-only.** `BucketChips` `<Link/>` → `activeOptions={{ exact: true, includeSearch: false }}`. `?sort=` flip ⊥ kill active. V.WL9.
+  - **Per-route Suspense fallback resembles content.** New `WatchlistGridSkeleton` (CSS grid, `aspect-[2/3]` placeholders, `minColumnWidthPx=180`, ~12 cards) wraps `WatchlistFlatPage` + `WatchlistMoodPage`. Curated keeps `WatchlistSkeleton`. V.WL10.
+  - **Shared `EmptyState` primitive** at `@/shared/components/empty-state/` (icon + title + desc + optional CTA). Promoted from `settings-apps/components/apps-empty.tsx` pattern. `AllItems` renders `<WatchlistEmpty bucket?={...} mood?={...}/>` per-bucket copy (paraglide). ⊥ raw `<p>`. V.WL11.
+  - **`WATCHLIST_BUCKETS` widens to 5** → `["ready", "in-progress", "awaiting", "unavailable", "upcoming"]`. New `unavailable` = catch-all visible bucket (released + ⊥ server + ⊥ request status). Classifier `unknown` fallthrough → `"unavailable"`; `ClassifiedBucket = WatchlistBucket` (⊥ "unknown" tail). New route `watchlist.unavailable.tsx`. `WatchlistCounts.unavailable: number` added. V.WL2 **retired** — ⊥ hidden rows; `/items` w/o bucket = ∪ 5 visible. Pre-stable break.
+  - Awaiting semantics unchanged — still gated on `STATUS_MAP[requested|processing|unavailable]` from request-provider plugin (seerr). Empty until user requests via connected app. Bucket-specific empty copy explains this.
+  - **Name-collision note.** Request-provider status `"unavailable"` (the `WatchlistItem.status` enum value) is **distinct** from the new bucket `"unavailable"`. `STATUS_MAP["unavailable"]` still routes to the `awaiting` bucket (plugin says "I have it but it's not on a server" ⇒ user is awaiting fulfillment). The bucket name `"unavailable"` describes the user-visible *absence* of a path to acquire (no server, no active request). ⊥ rename of either side — both terms are user-facing in different contexts (status badge vs filter chip).
 - **rev 5 (2026-05-23)** — Curated-page card reuse pass + mood pagination fix.
   - `TonightPick` simplified: section head + wide `WatchlistCard forceAspect="16/9"` hero + alternates aside. "Why" caption and shuffle button removed. Aside rendered with the new shared `MediaRow` family (numeric position prefix + thumb + title + meta). Hero identity carried by the card's clear-logo overlay.
   - `WatchlistCard` 16:9 mode now always renders `MediaCardClearLogo` with `text={item.title}` fallback when no `clearLogo` URL. Title slot below the frame suppressed in 16:9 to avoid duplicate identity (year-only subtitle dropped along with it). 2:3 mode unchanged.
@@ -118,9 +125,9 @@ REST-split. One URI per resource. Replaces prior `/api/watchlist?filter=` shape.
 ```
 GET /api/watchlist/items
   Query: cursor?, limit?, sort?, bucket?, mood?
-    sort ∈ {recent, alpha, runtime, status}            default = "recent"
-    bucket ∈ {ready, in-progress, awaiting, upcoming}  omit = ∀ buckets ∪ "unknown"
-    mood ∈ MOOD_IDS                                    intersect w/ bucket if both
+    sort ∈ {recent, alpha, runtime, status}                          default = "recent"
+    bucket ∈ {ready, in-progress, awaiting, unavailable, upcoming}   omit = ∀ buckets (∪ all visible; ⊥ hidden)
+    mood ∈ MOOD_IDS                                                  intersect w/ bucket if both
   → { items: WatchlistItem[], cursor: string|null, partial: boolean }
 
 GET /api/watchlist/sections/tonight
@@ -145,15 +152,16 @@ GET /api/watchlist/moods/:moodId/items
   → { items: WatchlistItem[], cursor: string|null, partial: boolean }
     Paginated. moodId ∈ MOOD_IDS or 400.
 
-GET /api/watchlist/counts                  // unchanged
-  → { ready, inProgress, awaiting, upcoming, total }
+GET /api/watchlist/counts
+  → { ready, inProgress, awaiting, unavailable, upcoming, total }
+    `unavailable` added rev 6. `total` = ∑ 5 buckets (⊥ hidden).
 
 POST   /api/watchlist                      // unchanged
 DELETE /api/watchlist/:tmdbId/:mediaType   // unchanged
 ```
 
 **Validation (zod, per route):**
-- `/items` `sort` enum, `bucket` enum optional, `mood` enum optional, `limit ∈ [1, 200]`, `cursor` opaque string.
+- `/items` `sort` enum, `bucket` enum (5-wide rev 6) optional, `mood` enum optional, `limit ∈ [1, 200]`, `cursor` opaque string.
 - `/sections/tonight` ⊥ accept query params other than common envelope. Reject body.
 - `/sections/recently` `limit ∈ [1, 20]`.
 - `/moods/:moodId/items` reject unknown moodId (400).
@@ -227,7 +235,7 @@ paginateWithOvershoot(fetchFn, classifyFn, { cursor, limit }) →
 
 **Mood filter:** intersects `derive(row, meta)` containing `moodId`. Requires metadata batch up front (cheap; reused).
 
-**"unknown" bucket surfacing:** `bucket` omitted → ⊥ pre-classify drop → "unknown" rows included. Fixes invisibility.
+**Catch-all bucket surfacing:** `bucket` omitted → ⊥ pre-classify drop → every active row included. Rev 6: `"unknown"` retired; rows that previously fell through now classify as `"unavailable"` and are reachable via the new chip. ⊥ hidden tier.
 
 ### S.2 Tonight pseudocode
 
@@ -239,7 +247,7 @@ score(item, prior?) →
     - 10   if runtimeMin < 60
     + 15   if addedAt within 7d
     - diversity(item, prior) * 5                 // anti-repeat across alternates
-    - 1000 if bucket ∈ {awaiting, upcoming, unknown}
+    - 1000 if bucket ∈ {awaiting, upcoming, unavailable}      // rev 6
 
 pick(candidates):
     sorted = sortDesc(candidates, score)
@@ -317,15 +325,15 @@ enrich(rows, ctx):
 `classify.previewForClassify` receives progress map alongside meta/status/servers. New bucket precedence:
 
 ```
-classifyBucket(item):
-  if item.progress && item.progress.watched < item.progress.total: return "in-progress"
-  if item.availability.hasAnyServerCopy:                           return "ready"
-  if STATUS_MAP[item.status]:                                      return STATUS_MAP[item.status]
-  if facets.releaseDate || isInfoOnly:                             return "upcoming"
-  return "unknown"
+classifyBucket(item):                                              // rev 6: ⊥ "unknown" tail
+  if item.progress && watched < total          → "in-progress"
+  if availability.hasAnyServerCopy             → "ready"
+  if STATUS_MAP[item.status]                   → STATUS_MAP[item.status]   // → awaiting
+  if facets.releaseDate || isInfoOnly          → "upcoming"
+  return "unavailable"                                              // catch-all visible
 ```
 
-`getCounts` walks rows once with `(meta, status, servers, progress)` → 4-bucket tally. `partial=true` when CW probe rejects; `inProgress` falls back to `0` rather than blocking the response.
+`ClassifiedBucket = WatchlistBucket` (rev 6 — `"unknown"` tail dropped). `getCounts` walks rows once → 5-bucket tally `{ready, inProgress, awaiting, unavailable, upcoming, total}`. `partial=true` when CW probe rejects; `inProgress` falls back to `0` rather than blocking. `unavailable` ⊥ depend on CW probe → always populated.
 
 ### S.4 Caching + invalidation
 
@@ -357,6 +365,7 @@ invalidate(userId):
 /_authenticated/_app/watchlist.ready.tsx         /watchlist/ready       flat grid, bucket=ready
 /_authenticated/_app/watchlist.in-progress.tsx   /watchlist/in-progress flat grid, bucket=in-progress
 /_authenticated/_app/watchlist.awaiting.tsx      /watchlist/awaiting    flat grid, bucket=awaiting
+/_authenticated/_app/watchlist.unavailable.tsx   /watchlist/unavailable flat grid, bucket=unavailable   ← rev 6
 /_authenticated/_app/watchlist.upcoming.tsx      /watchlist/upcoming    flat grid, bucket=upcoming
 /_authenticated/_app/watchlist.moods.$moodId.tsx /watchlist/moods/:id   paginated mood listing
 ```
@@ -415,13 +424,18 @@ features/watchlist/
         index.tsx                       ← NEW; flat virtualized grid
         sort-select.tsx
         bucket-chips.tsx
+        empty.tsx                       ← rev 6; bucket/mood-aware EmptyState wrapper
+        grid-skeleton.tsx               ← rev 6; card-grid Suspense fallback
     watchlist-page.tsx                  ← curated route page
     watchlist-all-page.tsx              ← NEW; flat route page
     watchlist-mood-page.tsx             ← NEW; per-mood route page
     watchlist-header.tsx                ← shared; mode prop
     watchlist-card.tsx                  ← unchanged
-    watchlist-skeleton.tsx              ← unchanged
+    watchlist-skeleton.tsx              ← curated-only (rev 6)
     watchlist-error-fallback.tsx        ← unchanged
+shared/components/
+  empty-state/                          ← rev 6; shared primitive
+    index.tsx                            EmptyState({ icon, title, description, action? })
   hooks/
     use-counts.ts
     use-tonight.ts
@@ -457,7 +471,7 @@ Single-file sections live flat in `components/sections/` per feedback memory #17
 
 **Default** (`/watchlist`, `/watchlist/<bucket>`):
 - Pip totals + title + total runtime (left).
-- Bucket chip strip (center-left): `All | Ready | In progress | Awaiting | Upcoming` — `<Link to="/watchlist[/<bucket>]">`. Active chip = current pathname match.
+- Bucket chip strip (center-left): `All | Ready | In progress | Awaiting | Unavailable | Upcoming` — `<Link to="/watchlist[/<bucket>]" activeOptions={{ exact: true, includeSearch: false }}>`. Active chip = **pathname-only** match (rev 6 — `?sort=` flip ⊥ kill active state, V.WL9).
 - Sort dropdown (right): rendered **only when the active route is a flat bucket sub-route**. Hidden on `/watchlist` (curated). Writes `?sort=` search param on its own route.
 
 **Mood detail** (`/watchlist/moods/:moodId`):
@@ -477,16 +491,69 @@ Mood "See all" → `/watchlist/moods/:id`. No more curated `View all items` butt
 
 Source of truth: `MediaService.getContinueWatchingFeed()` (existing `continueWatching@v1` aggregate). Joined to active watchlist rows by composite id at enrich time. See §S.5 for the data flow + cache placement.
 
+### C.7 Suspense fallbacks + empty states (rev 6)
+
+**Skeleton shape — content-resembling.** Each sub-route's local `<Suspense>` fallback mirrors the outline of the rendered content (V.WL10):
+
+```
+Curated (/watchlist)         → <WatchlistSkeleton/>          (eyebrow+title+hero+aside+row)
+Flat (/watchlist/<bucket>)   → <WatchlistGridSkeleton/>       (12 × aspect-[2/3] card placeholders, CSS grid, minColumnWidthPx=180)
+Mood (/watchlist/moods/:id)  → <WatchlistGridSkeleton/>
+```
+
+`WatchlistGridSkeleton` (`components/sections/all-items/grid-skeleton.tsx`):
+```pseudo
+function GridSkeleton({ rows=4, cols=3 }):
+  return <div class="grid" style={gridTemplateColumns: `repeat(auto-fill, minmax(180px,1fr))`}>
+    { repeat(rows*cols, <Skeleton class="aspect-[2/3] rounded-xl"/>) }
+  </div>
+```
+
+Header already painted by layout-route loader (`/counts`) → skeletons omit eyebrow/title.
+
+**Empty state — bucket-aware.** `AllItems` → `items.length === 0` ⇒ `<WatchlistEmpty>` (V.WL11). Wrapper consumes shared `<EmptyState>` primitive:
+
+```pseudo
+shared/components/empty-state/index.tsx:
+  EmptyState({ icon, title, description, action? }) →
+    <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+      <div class="size-11 rounded-lg bg-muted text-muted-foreground">{icon}</div>
+      <div>
+        <p class="text-sm font-medium text-foreground">{title}</p>
+        <p class="mt-1 max-w-sm text-xs text-muted-foreground">{description}</p>
+      </div>
+      {action}
+    </div>
+
+features/watchlist/components/sections/all-items/empty.tsx:
+  WatchlistEmpty({ bucket?, mood? }) →
+    const copy = pickCopy(bucket, mood)   // paraglide keys per axis
+    return <EmptyState icon={iconFor(bucket)} title={copy.title()} description={copy.description()}/>
+```
+
+Per-bucket copy + icon (paraglide keys + lucide):
+
+| Bucket | Icon | Title | Description (gist) |
+|---|---|---|---|
+| `ready` | `PlayCircleIcon` | "Nothing ready" | "Items appear here once they land on a connected media server." |
+| `in-progress` | `PauseCircleIcon` | "No active sessions" | "Resume something you've started watching to fill this section." |
+| `awaiting` | `ClockIcon` | "No items awaiting" | "Items show here once you request them via a connected request app (e.g. Overseerr)." |
+| `unavailable` | `PackageOpenIcon` | "Nothing to acquire" | "Items wishlisted that aren't on a media server and haven't been requested yet." |
+| `upcoming` | `CalendarIcon` | "Nothing upcoming" | "Future releases on your watchlist show up here." |
+| mood detail | mood-glyph | `${moodLabel} empty` | "No items match this mood yet." |
+
+Paraglide key shape: `watchlist_empty_<bucket>_title` + `watchlist_empty_<bucket>_description` (en + fa). Mood reuses `watchlist_empty_mood_*`. Curated index `/watchlist` ⊥ render `<WatchlistEmpty>` — curated page is a composition of section components, each owning its own empty branch (Tonight/Ready/Recently already handle this).
+
 ## §W — Wire types
 
 `packages/shared/src/watchlist/`:
 
 ```
 enums.ts:
-  WATCHLIST_SORTS   = ["recent", "alpha", "runtime", "status"]              as const
-  WATCHLIST_BUCKETS = ["ready", "in-progress", "awaiting", "upcoming"]      as const
+  WATCHLIST_SORTS   = ["recent", "alpha", "runtime", "status"]                              as const
+  WATCHLIST_BUCKETS = ["ready", "in-progress", "awaiting", "unavailable", "upcoming"]       as const   // rev 6: +unavailable
   MOOD_IDS          = ["cozy", "epic", "cerebral", "dark",
-                       "laugh", "throwback", "quick", "binge"]              as const
+                       "laugh", "throwback", "quick", "binge"]                              as const
   MIN_CLUSTER_SIZE  = 3 as const
 
 types.ts:
@@ -497,6 +564,8 @@ types.ts:
   WatchlistMoodSummary= { clusters: MoodSummaryCluster[] }
   TonightSection      = { items: WatchlistItem[]; partial: boolean }
   RecentlySection     = TonightSection
+  WatchlistCounts     = { ready: number; inProgress: number; awaiting: number;
+                          unavailable: number; upcoming: number; total: number }   // rev 6: +unavailable
   // WatchlistResponse + WatchlistItem unchanged
 
 schemas.ts:
@@ -518,13 +587,16 @@ Rename `WatchlistListFilter` → `WatchlistBucket` (semantic clarity). Pre-stabl
 ## §V — Invariants (additions)
 
 - **V.WL1.** `/api/watchlist/items` returns rows in sort order matching `sort` param. Cursor opaque (encoding remains server-private; clients ⊥ assume offset structure even though `sort=alpha|runtime|status` use offset-snapshot internally). `sort=recent` cursor strictly stable across page mutations (keyset). `sort=alpha|runtime|status` best-effort stability; concurrent add/remove between pages may skip / dupe at the page boundary by 1 row. Server ⊥ silently switch sort. Drift = test fail (`service.test.ts`).
-- **V.WL2.** `/api/watchlist/items` w/o `bucket` includes "unknown"-classified rows. Header `counts.total` ⇔ count of rows returned across full pagination ∀ default sort. Drift = visibility regression.
+- **V.WL2.** ~~`/api/watchlist/items` w/o `bucket` includes "unknown"-classified rows.~~ **Retired in rev 6.** Replaced by classifier total-coverage: every active row classifies into one of 5 visible buckets (`ClassifiedBucket = WatchlistBucket`). `counts.total = ready + inProgress + awaiting + unavailable + upcoming`. `/items` w/o bucket = ∪ all 5 (⊥ hidden tier). Drift = classifier emits any value outside `WATCHLIST_BUCKETS` ⇒ test fail.
 - **V.WL3.** Mood derivation is a pure function of `(row, metadata)`. ⊥ I/O, ⊥ random, ⊥ time. Test = property-based determinism.
 - **V.WL4.** Tonight scoring deterministic given same `(candidates, scoring weights)`. ⊥ ties broken by id only. Cache invalidation always after watchlist mutation event handled.
 - **V.WL5.** Mutation invalidator clears `watchlistKeys.root` exactly once per mutation success. Per-section keys nested under root. New section = new sub-key under root, ⊥ separate root.
 - **V.WL6.** ~~`WatchlistHeader` `mode` prop is exhaustive.~~ **Retired in rev 3.** Replaced by V.WL8.
 - **V.WL7.** "See all" links on mood clusters resolve to `/watchlist/moods/:moodId` w/ moodId ∈ `MOOD_IDS`. ⊥ peek-modal fallback. Bad moodId = 400 → ErrorBoundary fallback.
-- **V.WL8.** Watchlist layout route owns the header; child routes ⊥ render their own header. Header has two render modes derived from `useLocation` pathname: **default** (chip strip + conditional sort) and **mood detail** (`← All moods` link + mood label H1 + mood note eyebrow, chips + sort hidden). Bucket chip active state derived from pathname — ⊥ duplicated client state. Adding a new bucket = single edit to `WATCHLIST_BUCKETS` enum + one new child route file; header chip strip auto-includes (TS exhaustive `Record<WatchlistBucket, ...>` over labels). Adding a new mood = single entry in `MOOD_IDS` + `MOOD_REGISTRY`; mood header auto-renders.
+- **V.WL8.** Watchlist layout route owns the header; child routes ⊥ render their own header. Header has two render modes derived from `useLocation` pathname: **default** (chip strip + conditional sort) and **mood detail** (breadcrumb `Watchlist › <mood>` + mood label H1 + count + muted subtitle prose — ⊥ eyebrow; chips + sort hidden). Bucket chip active state derived from pathname — ⊥ duplicated client state. Adding a new bucket = single edit to `WATCHLIST_BUCKETS` enum + one new child route file; header chip strip auto-includes (TS exhaustive `Record<WatchlistBucket, ...>` over labels). Adding a new mood = single entry in `MOOD_IDS` + `MOOD_REGISTRY`; mood header auto-renders.
+- **V.WL9 (rev 6).** Chip active state = `pathname` match only. `<Link activeOptions={{ exact: true, includeSearch: false }}/>`. `?sort=`, `?peek=`, future search params ⊥ contribute. Drift = chip drops active on sort flip ⇒ test fail (`bucket-chips.test.tsx` asserts active class persists across sort change).
+- **V.WL10 (rev 6).** Per-route Suspense fallback resembles content outline. Curated `<Suspense>` → `WatchlistSkeleton` (hero+aside+row). Flat (`watchlist.{ready,in-progress,awaiting,unavailable,upcoming}.tsx`) + mood (`watchlist.moods.$moodId.tsx`) `<Suspense fallback>` ≡ `<WatchlistGridSkeleton/>` (card grid, `aspect-[2/3]`, `minColumnWidthPx=180`). ⊥ generic `<Skeleton class="h-…"/>` placeholders. Drift = any flat/mood route module whose Suspense fallback is not `WatchlistGridSkeleton` ⇒ test fail (asserted by `suspense-fallback-identity.test.ts` importing each route module).
+- **V.WL11 (rev 6).** Empty bucket / mood sub-route renders shared `<EmptyState>` primitive with bucket-scoped copy. ⊥ raw `<p>` empty messages. Per-bucket title + description live as paraglide keys (`watchlist_empty_<bucket>_{title,description}` + `watchlist_empty_mood_{title,description}`). Drift = inline `<p>{m.watchlist_empty()}</p>` regression ⇒ test fail (`all-items.test.tsx` asserts `EmptyState` rendered with bucket-specific title).
 
 ## §M — Migration plan
 
@@ -559,9 +631,30 @@ Phased; each phase shippable on its own. Pre-stable.
 - Delete legacy `getItems(opts.filter)` path. Drop `WATCHLIST_LIST_DEFAULT_LIMIT` / `WATCHLIST_LIST_MAX_LIMIT` consts if unreferenced (else move to `/items` constants).
 - Rename `WatchlistListFilter` → `WatchlistBucket` across remaining refs.
 
+**Phase 4b — rev 6 sub-page UX + `unavailable` bucket.**
+- Shared:
+  - `WATCHLIST_BUCKETS` += `"unavailable"` (5-wide).
+  - `WatchlistCounts.unavailable: number` added.
+  - `itemsQuerySchema.bucket` zod enum auto-widens via const tuple.
+- Server:
+  - `classify.ts` — drop `"unknown"` from `ClassifiedBucket`; `unknown` fallthrough → `"unavailable"`.
+  - `service.ts::getCounts` — tally `unavailable++` on default arm; remove `unknown` arm.
+  - Update `service.test.ts` + new classify cases.
+- Client:
+  - New route `watchlist.unavailable.tsx` (mirrors `watchlist.ready.tsx`). Regenerate `routeTree.gen.ts`.
+  - `bucket-chips.tsx` — `activeOptions={{ exact: true, includeSearch: false }}`; add chip for `"unavailable"` w/ `BUCKET_LABELS` + `BUCKET_COUNT` entries.
+  - `watchlist-header.tsx` — if pip totals enumerate buckets, add `unavailable` pip wired to `counts.unavailable` (else ⊥ change beyond chip strip).
+  - `grid-skeleton.tsx` (new). Replace `<Skeleton h-[600px]/>` in `WatchlistFlatPage` + `WatchlistMoodPage` w/ `<WatchlistGridSkeleton/>`.
+  - `shared/components/empty-state/index.tsx` (new primitive).
+  - `sections/all-items/empty.tsx` (new wrapper). `AllItems` → empty branch renders `<WatchlistEmpty bucket?={...} mood?={...}/>`.
+  - Paraglide: add `watchlist_empty_<bucket>_{title,description}` (×5) + `watchlist_empty_mood_{title,description}` + `watchlist_bucket_unavailable` chip label (en + fa). Drop unused `watchlist_empty` + (if `all` flow retired) any stale curated empty key.
+- Tests: see §T rev 6 rows.
+- Pre-stable break: clients on old `"unknown"` classifier value break. ⊥ shim.
+
 **Phase 5 — Changeset.**
 Single user-facing changeset under `@ent-mcp/client`:
 - `@ent-mcp/client`: minor — Watchlist page now lists every item in a sortable flat view and shows a paginated per-mood listing when "See all" is selected.
+- `@ent-mcp/client`: minor (rev 6) — Added an "Unavailable" filter for wishlisted items that aren't on a connected media server. Sub-pages now show a content-shaped loading state and a clearer empty state explaining why a section is empty.
 
 `@ent-mcp/server` not in released-set externally per CLAUDE.md (private internal); changes covered by empty-frontmatter changeset:
 ```
@@ -573,7 +666,7 @@ Single user-facing changeset under `@ent-mcp/client`:
 
 | File | Coverage |
 |---|---|
-| `watchlist/__tests__/service.test.ts` extension | `listItems` sort variants, `bucket` omit surfaces unknown, mood intersect, cursor stability |
+| `watchlist/__tests__/service.test.ts` extension | `listItems` sort variants, `bucket` omit surfaces all 5 visible buckets (rev 6), mood intersect, cursor stability |
 | `watchlist/tonight/__tests__/score.test.ts` NEW | scoring weight ordering, runtime sweet-spot, in-progress wins, diversity penalty, deterministic ties |
 | `watchlist/tonight/__tests__/pick.test.ts` NEW | hero + ≤4 alternates, empty candidates returns empty, awaiting/upcoming penalized out |
 | `watchlist/moods/__tests__/derive.test.ts` NEW | each MOOD_RULE triggers expected tags, multi-tag overlap, empty meta returns ∅ |
@@ -581,11 +674,18 @@ Single user-facing changeset under `@ent-mcp/client`:
 | `api/__tests__/watchlist-routes.test.ts` extension | all 5 new endpoints: validation, 200 happy path, 400 unknown mood, 400 invalid sort |
 | `client features/watchlist/__tests__/use-all-items.test.ts` NEW | suspense load, sort param round-trip, infinite scroll cursor handoff |
 | `client features/watchlist/__tests__/use-moods.test.ts` NEW | summary + cluster items hook composition |
-| `client features/watchlist/__tests__/header.test.ts` NEW | mode prop branches; exhaustive switch (compile-time guard for V.WL6); bucket chip click navigates |
+| `client features/watchlist/__tests__/header.test.ts` NEW | mode prop branches; exhaustive switch (compile-time guard for V.WL8); bucket chip click navigates |
 | `client features/watchlist/__tests__/use-add-to-watchlist.test.ts` EXTEND | assert `invalidateQueries({queryKey: watchlistKeys.root})` called exactly once on settle (V.WL5) |
 | `client features/watchlist/__tests__/watchlist-mood-page.test.tsx` NEW | 400 on unknown moodId → ErrorBoundary fallback render (V.WL7) |
+| `client features/watchlist/__tests__/bucket-chips.test.tsx` EXTEND (rev 6) | chip active state persists across `?sort=` flip; chip active = pathname only (V.WL9) |
+| `client features/watchlist/__tests__/all-items.test.tsx` EXTEND (rev 6) | empty items → `<EmptyState>` rendered w/ bucket-specific title; ⊥ raw `<p>` (V.WL11). One row per visible bucket. |
+| `client features/watchlist/__tests__/grid-skeleton.test.tsx` NEW (rev 6) | `WatchlistGridSkeleton` renders N card-shaped placeholders in CSS grid; aspect-[2/3] (V.WL10) |
+| `client features/watchlist/__tests__/suspense-fallback-identity.test.ts` NEW (rev 6) | Each flat + mood route module's `<Suspense>` fallback ≡ `WatchlistGridSkeleton` (V.WL10 anti-drift) |
+| `client shared/components/__tests__/empty-state.test.tsx` NEW (rev 6) | EmptyState primitive: icon/title/description/action props; centered layout |
+| `server watchlist/__tests__/classify.test.ts` EXTEND (rev 6) | every classify output ∈ `WATCHLIST_BUCKETS`; ⊥ "unknown" emitted; unavailable catch-all |
+| `server watchlist/__tests__/service.test.ts` EXTEND (rev 6) | `getCounts` returns `unavailable: number`; `total = ready + inProgress + awaiting + unavailable + upcoming` |
 
-Cover intent per CLAUDE.md rule 9: each test pins the WHY (e.g., "all-items must surface unknown bucket — V.WL2").
+Cover intent per CLAUDE.md rule 9: each test pins the WHY (e.g., "all-items must surface every visible bucket — V.WL2 rev 6 total-coverage").
 
 ## §R — Risks
 

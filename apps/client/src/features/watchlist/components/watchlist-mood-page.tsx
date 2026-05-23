@@ -3,12 +3,12 @@ import { useNavigate, useParams } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import type { MoodId } from "@ent-mcp/shared/watchlist";
 import { ErrorBoundary } from "@/shared/components/error-boundary";
-import { Skeleton } from "@/shared/ui/skeleton";
 import { Button } from "@/shared/ui/button";
 import { VirtualGrid } from "@/shared/components/virtualized";
 import { WatchlistCard } from "./watchlist-card";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
 import { watchlistKeys } from "../lib/query-keys";
+import { WatchlistGridSkeleton } from "./sections/all-items/grid-skeleton";
 import { WatchlistErrorFallback } from "./watchlist-error-fallback";
 
 const MOOD_PAGE_LIMIT = 60;
@@ -31,7 +31,7 @@ export function WatchlistMoodPage() {
         />
       )}
     >
-      <Suspense fallback={<Skeleton className="h-150 w-full rounded-2xl" />}>
+      <Suspense fallback={<WatchlistGridSkeleton />}>
         <MoodGrid moodId={moodId} />
       </Suspense>
     </ErrorBoundary>
