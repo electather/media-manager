@@ -6,7 +6,6 @@ import {
   moodItemsQuerySchema,
   moodParamSchema,
   recentlyQuerySchema,
-  watchlistListQuerySchema,
   watchlistParamSchema,
   type AddWatchlistResponse,
   type WatchlistCounts,
@@ -22,7 +21,6 @@ import { zValidator } from "../../diagnostics/validator";
 import {
   addItem,
   getCounts,
-  getItems,
   getMoodSummary,
   getRecentlyAdded,
   getTonightSection,
@@ -65,20 +63,6 @@ function rateLimitOrNull(c: Parameters<typeof sessionUserId>[0], userId: string)
 
 export const watchlistApp = new Hono()
   .use("*", requireSession)
-  // Legacy `?filter=` path. Deprecated; removed in Phase 4 of the
-  // sections plan once the client is fully migrated to `/items`.
-  .get("/", zValidator("query", watchlistListQuerySchema), async (c) => {
-    const userId = sessionUserId(c);
-    const limited = rateLimitOrNull(c, userId);
-    if (limited) return limited;
-    const { cursor, limit, filter } = c.req.valid("query");
-    const ctx = buildContext(userId);
-    const opts: Parameters<typeof getItems>[1] = { limit };
-    if (cursor) opts.cursor = cursor;
-    if (filter) opts.filter = filter;
-    const response: WatchlistResponse = await getItems(ctx, opts);
-    return c.json(response);
-  })
   .get("/items", zValidator("query", itemsQuerySchema), async (c) => {
     const userId = sessionUserId(c);
     const limited = rateLimitOrNull(c, userId);

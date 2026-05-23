@@ -25,26 +25,6 @@ export type AddWatchlistRequestParsed = z.infer<typeof addWatchlistRequestSchema
 export const WATCHLIST_LIST_DEFAULT_LIMIT = 60;
 export const WATCHLIST_LIST_MAX_LIMIT = 200;
 
-/**
- * Legacy `/api/watchlist?filter=` query. Removed in Phase 4 of the
- * sections plan once the client is fully migrated to `/items`.
- * @deprecated use `itemsQuerySchema`.
- */
-export const watchlistListQuerySchema = z
-  .object({
-    cursor: z.string().min(1).optional(),
-    limit: z.coerce
-      .number()
-      .int()
-      .positive()
-      .max(WATCHLIST_LIST_MAX_LIMIT)
-      .default(WATCHLIST_LIST_DEFAULT_LIMIT),
-    filter: z.enum(WATCHLIST_BUCKETS).optional(),
-  })
-  .strict();
-export type WatchlistListQueryInput = z.input<typeof watchlistListQuerySchema>;
-export type WatchlistListQueryParsed = z.infer<typeof watchlistListQuerySchema>;
-
 const RECENTLY_DEFAULT_LIMIT = 5;
 const RECENTLY_MAX_LIMIT = 20;
 

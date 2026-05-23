@@ -248,36 +248,6 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(new Set(all.map((i) => i.tmdbId)).size).toBe(7);
   });
 
-  it("getItems with filter=upcoming drops rows whose bucket does not match", async () => {
-    const ctx = makeCtx();
-    await addItem({ tmdbId: "800", mediaType: "movie" }, "manual", ctx);
-    await addItem({ tmdbId: "801", mediaType: "movie" }, "manual", ctx);
-    // Mark "801" as upcoming via canonical metadata (year > current).
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:801": {
-        tmdbId: "801",
-        mediaType: "movie",
-        title: "Future Flick",
-        year: new Date().getUTCFullYear() + 5,
-        genres: [],
-      },
-    });
-    const res = await getItems(ctx, { filter: "upcoming" });
-    expect(res.items.map((i) => i.tmdbId)).toEqual(["801"]);
-  });
-
-  it("getItems with filter=ready does not run plugin probes when the watchlist is empty", async () => {
-    const ctx = makeCtx();
-    await repo.markSeeded(ctx.userId, Date.now()); // skip first-GET seed path
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const probeSpy = ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>;
-    probeSpy.mockClear();
-    const res = await getItems(ctx, { filter: "ready" });
-    expect(res.items).toEqual([]);
-    expect(res.cursor).toBeNull();
-    expect(probeSpy).not.toHaveBeenCalled();
-  });
-
   it("getCounts returns aggregate buckets and total without artwork dispatch", async () => {
     const ctx = makeCtx();
     await addItem({ tmdbId: "900", mediaType: "movie" }, "manual", ctx);
@@ -318,94 +288,6 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(counts).toEqual({ ready: 0, inProgress: 0, awaiting: 0, upcoming: 0, total: 0 });
     expect(probeSpy).not.toHaveBeenCalled();
     expect(statusSpy).not.toHaveBeenCalled();
-  });
-
-  it("getItems with filter skips past empty windows server-side and surfaces only non-empty pages", async () => {
-    const ctx = makeCtx();
-    // Direct repo insert with explicit timestamps so addedAt ordering is
-    // deterministic — addItem's wall-clock Date.now() collapses to the same
-    // millisecond on a fast test run, and the ordering tiebreaker (id DESC)
-    // is the random cuid. We need 950 to be the OLDEST so it lands past the
-    // first empty window.
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "950", mediaType: "movie" }],
-      "manual",
-      false,
-      100,
-    );
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [
-        { tmdbId: "951", mediaType: "movie" },
-        { tmdbId: "952", mediaType: "movie" },
-        { tmdbId: "953", mediaType: "movie" },
-        { tmdbId: "954", mediaType: "movie" },
-      ],
-      "manual",
-      false,
-      200,
-    );
-    __resetAvailabilityCache();
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:950": {
-        tmdbId: "950",
-        mediaType: "movie",
-        title: "Far Future",
-        year: new Date().getUTCFullYear() + 5,
-        genres: [],
-      },
-    });
-
-    // With limit=1 + 3x overshoot = fetchSize=3 per hop. First window (top 3 by
-    // addedAt DESC: 951–954 minus one) is empty for `filter=upcoming`; the
-    // handler advances the cursor and the second hop picks up 950.
-    const res = await getItems(ctx, { limit: 1, filter: "upcoming" });
-    expect(res.items.map((i) => i.tmdbId)).toEqual(["950"]);
-  });
-
-  it("getItems with filter anchors cursor at the last returned row so overshoot items aren't lost", async () => {
-    const ctx = makeCtx();
-    // Three rows that all pass `filter=upcoming`. With limit=1 the 3x overshoot
-    // fetches all three in one window; the slice returns one item but the
-    // remaining two must be visible on the next page.
-    const futureYear = new Date().getUTCFullYear() + 5;
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "961", mediaType: "movie" }],
-      "manual",
-      false,
-      300,
-    );
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "962", mediaType: "movie" }],
-      "manual",
-      false,
-      200,
-    );
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "963", mediaType: "movie" }],
-      "manual",
-      false,
-      100,
-    );
-    __resetAvailabilityCache();
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:961": { tmdbId: "961", mediaType: "movie", title: "A", year: futureYear, genres: [] },
-      "movie:962": { tmdbId: "962", mediaType: "movie", title: "B", year: futureYear, genres: [] },
-      "movie:963": { tmdbId: "963", mediaType: "movie", title: "C", year: futureYear, genres: [] },
-    });
-
-    const page1 = await getItems(ctx, { limit: 1, filter: "upcoming" });
-    expect(page1.items.map((i) => i.tmdbId)).toEqual(["961"]);
-    expect(page1.cursor).not.toBeNull();
-    const page2 = await getItems(ctx, { limit: 1, filter: "upcoming", cursor: page1.cursor! });
-    // Bug under fix: the old code anchored the cursor at the last DB-scanned
-    // row (963) and skipped 962 and 963 entirely. The fix anchors at the last
-    // *returned* row (961), so the next page picks up 962.
-    expect(page2.items.map((i) => i.tmdbId)).toEqual(["962"]);
   });
 
   it("availability cache is shared between a list + counts pair (one probe per row)", async () => {

@@ -42,8 +42,9 @@ export function sourceLabel(source: WatchlistSource): string {
 
 export type { WatchlistCounts } from "@ent-mcp/shared/watchlist";
 
-// UI-only types — Phase 4 drops these alongside classify.ts / derive-moods.ts
-// / watchlist-content.tsx once per-section pages own their own state.
+// Per-card status overlay consumed by `classify.ts`. The bucket axis lives
+// on the server now (`WatchlistBucket`); this local enum keeps `in-progress`
+// distinct from `available` for card chrome only.
 export type WatchlistStatus =
   | "available"
   | "in-progress"
@@ -51,33 +52,6 @@ export type WatchlistStatus =
   | "unavailable"
   | "upcoming"
   | "unknown";
-
-export type WatchlistFilter = "all" | "ready" | "in-progress" | "awaiting" | "upcoming";
-
-export type WatchlistSort = "recent" | "alpha" | "runtime" | "status";
-
-export interface WatchlistMood {
-  id: string;
-  labelKey:
-    | "watchlist_mood_slow_burn"
-    | "watchlist_mood_quiet_thrill"
-    | "watchlist_mood_period"
-    | "watchlist_mood_scifi"
-    | "watchlist_mood_comedy"
-    | "watchlist_mood_horror";
-  noteKey:
-    | "watchlist_mood_slow_burn_note"
-    | "watchlist_mood_quiet_thrill_note"
-    | "watchlist_mood_period_note"
-    | "watchlist_mood_scifi_note"
-    | "watchlist_mood_comedy_note"
-    | "watchlist_mood_horror_note";
-}
-
-export interface WatchlistMoodGroup {
-  mood: WatchlistMood;
-  items: WatchlistItem[];
-}
 
 export interface WatchlistBuckets {
   available: WatchlistItem[];

@@ -65,22 +65,12 @@ export interface GetItemsOptions {
   cursor?: string;
   /** Page size cap. Defaults to 60, hard-capped at 200 to match the wire schema. */
   limit?: number;
-  /**
-   * Optional bucket pre-filter. When set, rows whose pre-classified bucket
-   * doesn't match are dropped before artwork hydration — the most expensive
-   * part of enrich.
-   */
-  filter?: WatchlistBucket;
 }
 
 /**
  * Keyset-paginated read of the user's active watchlist. First page (no
- * cursor) triggers a plugin seed when the user has never been seeded. With
- * `filter`, the server pre-classifies each row using the cheap signals and
- * drops rows the bucket would otherwise hide — matches design §H goal of
- * "skip enrichment for buckets the user is not viewing".
+ * cursor) triggers a plugin seed when the user has never been seeded.
  */
-// fallow-ignore-next-line complexity
 export async function getItems(
   ctx: MaybeRowContext,
   opts: GetItemsOptions = {},
@@ -99,73 +89,21 @@ export async function getItems(
     }
   }
 
-  // When the bucket filter drops most rows we'd hand back a short page with
-  // a cursor that re-fires another round-trip. Overshoot a bounded factor
-  // (3x) so the common case of a heavy filter still returns close to `limit`
-  // items in one call.
-  //
-  // Even with the overshoot a window of `fetchSize` rows can land entirely
-  // outside the requested bucket — returning `{ items: [], cursor: <real> }`
-  // would force the client into an empty "Load more" tap loop. We retry up
-  // to MAX_EMPTY_HOPS times in-handler, advancing the cursor to the last
-  // scanned row each time, so the client only sees an empty response when
-  // the entire tail is filtered out.
-  const fetchSize = opts.filter ? Math.min(limit * 3, WATCHLIST_LIST_MAX_LIMIT) : limit;
-  const MAX_EMPTY_HOPS = opts.filter ? 2 : 0;
-
-  let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
-  let collectedItems: WatchlistItem[] = [];
-  let enrichPartial = false;
-  let nextCursor: string | null = null;
-
-  for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
-    const rows = await repo.listPage(c.userId, {
-      limit: fetchSize,
-      ...(scanCursor ? { cursor: scanCursor } : {}),
-    });
-    if (rows.length === 0) {
-      nextCursor = null;
-      break;
-    }
-    const enriched = await enrich(rows, c, opts.filter ? { filter: opts.filter } : {});
-    if (enriched.partial) enrichPartial = true;
-    collectedItems = enriched.items.slice(0, limit);
-    const collectedSources = enriched.sources.slice(0, limit);
-
-    const lastScanned = rows[rows.length - 1]!;
-    const exhausted = rows.length < fetchSize;
-
-    if (collectedItems.length > 0) {
-      // Anchor the cursor on the last *returned* row so any matched-but-
-      // truncated items from this window are picked up on the next page.
-      // When the filter dropped every row, fall back to the last scanned row
-      // so the next hop advances past the dead window instead of looping.
-      if (collectedSources.length === collectedItems.length) {
-        const lastReturned = collectedSources[collectedSources.length - 1]!;
-        nextCursor =
-          exhausted && enriched.items.length <= limit
-            ? null
-            : repo.encodeCursor({ addedAt: lastReturned.addedAt, id: lastReturned.id });
-      } else {
-        nextCursor = exhausted
-          ? null
-          : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
-      }
-      break;
-    }
-
-    nextCursor = exhausted
-      ? null
-      : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
-
-    if (exhausted) break;
-    scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
+  const rows = await repo.listPage(c.userId, {
+    limit,
+    ...(cursor ? { cursor } : {}),
+  });
+  if (rows.length === 0) {
+    return { items: [], cursor: null, partial };
   }
-
+  const enriched = await enrich(rows, c);
+  const last = rows[rows.length - 1]!;
+  const nextCursor =
+    rows.length < limit ? null : repo.encodeCursor({ addedAt: last.addedAt, id: last.id });
   return {
-    items: collectedItems,
+    items: enriched.items,
     cursor: nextCursor,
-    partial: partial || enrichPartial,
+    partial: partial || enriched.partial,
   };
 }
 
