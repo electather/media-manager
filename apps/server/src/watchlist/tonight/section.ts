@@ -47,19 +47,21 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
     loadProgressMap(ctx),
   ]);
 
+  const serverLookups = await Promise.all(
+    rows.map((row) =>
+      getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType).catch(
+        () => [] as Awaited<ReturnType<typeof getMatchingServersCached>>,
+      ),
+    ),
+  );
   const candidates: repo.WatchlistRow[] = [];
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
-    const servers = await getMatchingServersCached(
-      ctx.userId,
-      ctx.mediaService,
-      row.tmdbId,
-      row.mediaType,
-    ).catch(() => []);
     const preview = previewForClassify(
       metadata[composite],
       statuses[composite],
-      servers,
+      serverLookups[i]!,
       progress.map.get(composite),
     );
     const bucket = classifyBucket(preview);
