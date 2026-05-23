@@ -100,6 +100,28 @@ describe("useAddToWatchlist", () => {
     expect(flattenIds(client)).toEqual([]);
   });
 
+  it("invalidates the entire watchlist key tree once on settle (V.WL5)", async () => {
+    const client = makeClient({ items: [], cursor: null, partial: false });
+    addMock.mockResolvedValueOnce({
+      item: makeItem({ id: "movie:200", tmdbId: "200", title: "Settled" }),
+      wasActive: false,
+    });
+    const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useAddToWatchlist(), { wrapper: wrap(client) });
+    act(() => {
+      result.current.mutate({
+        request: { tmdbId: "200", mediaType: "movie", source: "manual" },
+        seed: { title: "Settled" },
+      });
+    });
+    await waitFor(() => expect(addMock).toHaveBeenCalled());
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
+    const rootCalls = invalidateSpy.mock.calls.filter(
+      ([arg]) => JSON.stringify((arg as { queryKey: unknown }).queryKey) === '["watchlist"]',
+    );
+    expect(rootCalls).toHaveLength(1);
+  });
+
   it("rolls back the optimistic write on error", async () => {
     const original: WatchlistResponse = {
       items: [...SAMPLE_WATCHLIST],
