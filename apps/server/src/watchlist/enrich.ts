@@ -43,6 +43,13 @@ export interface EnrichOptions {
    * goal in #420.
    */
   filter?: WatchlistBucket;
+  /**
+   * Catalog metadata already fetched by the caller (e.g. `filterByMood`
+   * resolved it to evaluate the mood predicate). When supplied, enrich
+   * skips its own `getMetadataBatch` round-trip and seeds the cold-fill
+   * loop from this map so callers don't pay for two fetches per hop.
+   */
+  prefetchedMetadata?: Record<string, CanonicalMetadata>;
 }
 
 /**
@@ -73,11 +80,13 @@ export async function enrich(
     return {} as Record<string, string>;
   });
 
-  const metadata = await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-    ctx.log.warn("[watchlist:enrich] getMetadataBatch failed", err);
-    partial = true;
-    return {} as Record<string, CanonicalMetadata>;
-  });
+  const metadata: Record<string, CanonicalMetadata> = opts.prefetchedMetadata
+    ? { ...opts.prefetchedMetadata }
+    : await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
+        ctx.log.warn("[watchlist:enrich] getMetadataBatch failed", err);
+        partial = true;
+        return {} as Record<string, CanonicalMetadata>;
+      });
 
   const progress = await loadProgressMap(ctx);
   if (progress.partial) partial = true;

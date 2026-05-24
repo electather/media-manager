@@ -20,9 +20,9 @@ import type { CatalogService } from "../catalog";
 import type { MatchingServer, MediaService } from "../media";
 import { emit, type EventName } from "../jobs/events";
 import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket, previewForClassify, type ClassifiedBucket } from "./classify";
+import { classifyBucket, previewForClassify } from "./classify";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
-import { enrich } from "./enrich";
+import { enrich, type EnrichOptions } from "./enrich";
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { loadProgressMap } from "./progress";
@@ -171,7 +171,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
       servers,
       progress.map.get(composite),
     );
-    const bucket: ClassifiedBucket = classifyBucket(preview);
+    const bucket = classifyBucket(preview);
     if (bucket === "ready") ready++;
     else if (bucket === "in-progress") inProgress++;
     else if (bucket === "awaiting") awaiting++;
@@ -440,6 +440,17 @@ const OVERSHOOT_FACTOR = 3;
  */
 const MAX_MOOD_HOPS = 20;
 
+/**
+ * Observability ceiling for `listItemsOffset` full-load scan (RISK-005).
+ * Non-recent sorts pull every active row into memory before slicing, so a
+ * user with thousands of items pays the full status + metadata batch on
+ * every page fetch. We log a warn above this threshold so the trade-off
+ * becomes visible before it turns into a latency incident; the limit is
+ * advisory only — rows are still served — and graduates to a hard cap +
+ * keyset-friendly sort backing in a follow-up.
+ */
+const OFFSET_FULL_LOAD_WARN_ROWS = 1000;
+
 function encodeOffsetCursor(offset: number): string {
   return Buffer.from(`offset:${offset}`, "utf8").toString("base64url");
 }
@@ -538,9 +549,18 @@ export async function listItems(
       nextCursor = null;
       break;
     }
-    const filtered = opts.mood ? await filterByMood(rows, c, opts.mood) : { rows, partial: false };
+    const filtered = opts.mood
+      ? await filterByMood(rows, c, opts.mood)
+      : {
+          rows,
+          partial: false,
+          metadata: undefined as Record<string, CanonicalMetadata> | undefined,
+        };
     if (filtered.partial) enrichPartial = true;
-    const enriched = await enrich(filtered.rows, c, opts.bucket ? { filter: opts.bucket } : {});
+    const enrichOpts: EnrichOptions = {};
+    if (opts.bucket) enrichOpts.filter = opts.bucket;
+    if (filtered.metadata) enrichOpts.prefetchedMetadata = filtered.metadata;
+    const enriched = await enrich(filtered.rows, c, enrichOpts);
     if (enriched.partial) enrichPartial = true;
     collectedItems = enriched.items.slice(0, limit);
     const collectedSources = enriched.sources.slice(0, limit);
@@ -576,7 +596,11 @@ async function filterByMood(
   rows: WatchlistRow[],
   ctx: WatchlistContext,
   mood: MoodId,
-): Promise<{ rows: WatchlistRow[]; partial: boolean }> {
+): Promise<{
+  rows: WatchlistRow[];
+  partial: boolean;
+  metadata: Record<string, CanonicalMetadata>;
+}> {
   let partial = false;
   // fallow-ignore-next-line code-duplication
   const metadata = await ctx.catalog
@@ -589,7 +613,7 @@ async function filterByMood(
   const kept = rows.filter((r) =>
     deriveMoods(metadata[keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })]).includes(mood),
   );
-  return { rows: kept, partial };
+  return { rows: kept, partial, metadata };
 }
 
 // fallow-ignore-next-line complexity
@@ -602,6 +626,11 @@ async function listItemsOffset(
   const offset = opts.cursor ? (decodeOffsetCursor(opts.cursor) ?? 0) : 0;
   const all = await repo.listAllActive(ctx.userId);
   if (all.length === 0) return { items: [], cursor: null, partial: false };
+  if (all.length > OFFSET_FULL_LOAD_WARN_ROWS) {
+    ctx.log.warn(
+      `[watchlist:listItems] full-load scan over ${all.length} rows exceeds advisory ${OFFSET_FULL_LOAD_WARN_ROWS}-row ceiling (RISK-005)`,
+    );
+  }
 
   let partial = false;
   const compositeIds = all.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
@@ -717,9 +746,13 @@ export async function listMoodItems(
       nextCursor = null;
       break;
     }
-    const { rows: filtered, partial: moodPartial } = await filterByMood(rows, c, moodId);
+    const {
+      rows: filtered,
+      partial: moodPartial,
+      metadata: moodMeta,
+    } = await filterByMood(rows, c, moodId);
     if (moodPartial) enrichPartial = true;
-    const enriched = await enrich(filtered, c);
+    const enriched = await enrich(filtered, c, { prefetchedMetadata: moodMeta });
     if (enriched.partial) enrichPartial = true;
     const need = limit - collectedItems.length;
     if (enriched.items.length === 0) {
