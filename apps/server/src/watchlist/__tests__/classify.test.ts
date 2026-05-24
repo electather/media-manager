@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
-import { WATCHLIST_BUCKETS, type WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { classifyBucket, type ClassifiedBucket } from "../classify";
+import {
+  WATCHLIST_BUCKETS,
+  type WatchlistBucket,
+  type WatchlistItem,
+} from "@ent-mcp/shared/watchlist";
+import { classifyBucket } from "../classify";
 
-const VALID = new Set<ClassifiedBucket>(WATCHLIST_BUCKETS);
+const VALID = new Set<WatchlistBucket>(WATCHLIST_BUCKETS);
 
 type ClassifyInput = Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">;
 

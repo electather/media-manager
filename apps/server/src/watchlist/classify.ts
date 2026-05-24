@@ -9,12 +9,10 @@ import type { ProgressEntry } from "./progress";
  * the same row. Rev 6: every row classifies into one of the five visible
  * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
  */
-export type ClassifiedBucket = WatchlistBucket;
-
 // Request-provider status `"unavailable"` ("not servable yet") maps to the
 // `awaiting` bucket. Distinct from the *bucket* `"unavailable"` (no server,
 // no request) — see design name-collision note.
-const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, ClassifiedBucket | undefined> = {
+const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistBucket | undefined> = {
   available: "ready",
   requested: "awaiting",
   unavailable: "awaiting",
@@ -36,7 +34,7 @@ export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
 // fallow-ignore-next-line complexity
 export function classifyBucket(
   item: Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">,
-): ClassifiedBucket {
+): WatchlistBucket {
   if (isActiveProgress(item.progress)) return "in-progress";
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
@@ -44,7 +42,7 @@ export function classifyBucket(
   return "unavailable";
 }
 
-export function matchesBucket(classified: ClassifiedBucket, target: WatchlistBucket): boolean {
+export function matchesBucket(classified: WatchlistBucket, target: WatchlistBucket): boolean {
   return classified === target;
 }
 
