@@ -22,3 +22,8 @@ test-server.ts
 !.fallow/health-baseline.json
 !.fallow/dupes-baseline.json
 *.bin
+
+# Ralph runtime artifacts.
+scripts/ralph/archive/
+scripts/ralph/.last-branch
+scripts/ralph/progress.txt
