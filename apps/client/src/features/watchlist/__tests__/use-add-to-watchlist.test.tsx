@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, type InfiniteData } from "@tanstack/react-query";
+import { isEqual } from "es-toolkit";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
 import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
@@ -116,8 +117,8 @@ describe("useAddToWatchlist", () => {
     });
     await waitFor(() => expect(addMock).toHaveBeenCalled());
     await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
-    const rootCalls = invalidateSpy.mock.calls.filter(
-      ([arg]) => JSON.stringify((arg as { queryKey: unknown }).queryKey) === '["watchlist"]',
+    const rootCalls = invalidateSpy.mock.calls.filter(([arg]) =>
+      isEqual((arg as { queryKey?: readonly unknown[] }).queryKey, watchlistKeys.root),
     );
     expect(rootCalls).toHaveLength(1);
   });

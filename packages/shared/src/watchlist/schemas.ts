@@ -29,6 +29,7 @@ const RECENTLY_DEFAULT_LIMIT = 5;
 const RECENTLY_MAX_LIMIT = 20;
 
 /** `GET /api/watchlist/items` query. */
+// fallow-ignore-next-line code-duplication
 export const itemsQuerySchema = z
   .object({
     cursor: z.string().min(1).optional(),
@@ -63,7 +64,12 @@ export const moodParamSchema = z
   .strict();
 export type MoodParamParsed = z.infer<typeof moodParamSchema>;
 
-/** `GET /api/watchlist/moods/:moodId/items` query. */
+/**
+ * `GET /api/watchlist/moods/:moodId/items` query. No `sort` field —
+ * mood items use server-side mood derivation order only; `.strict()` 400s
+ * any `?sort=` consumer. See design `docs/2026-05-23-watchlist-sections-design.md` §S.
+ */
+// fallow-ignore-next-line code-duplication
 export const moodItemsQuerySchema = z
   .object({
     cursor: z.string().min(1).optional(),

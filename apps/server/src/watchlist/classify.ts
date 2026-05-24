@@ -11,6 +11,9 @@ import type { ProgressEntry } from "./progress";
  */
 export type ClassifiedBucket = WatchlistBucket;
 
+// Request-provider status `"unavailable"` ("not servable yet") maps to the
+// `awaiting` bucket. Distinct from the *bucket* `"unavailable"` (no server,
+// no request) — see design name-collision note.
 const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, ClassifiedBucket | undefined> = {
   available: "ready",
   requested: "awaiting",
@@ -24,7 +27,7 @@ function isInfoOnly(item: Pick<WatchlistItem, "availability">): boolean {
   return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
 }
 
-function isActiveProgress(progress: ProgressEntry | undefined): boolean {
+export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
   if (!progress) return false;
   if (progress.total <= 0) return false;
   return progress.watched > 0 && progress.watched < progress.total;

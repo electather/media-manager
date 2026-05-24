@@ -1,4 +1,5 @@
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import { isActiveProgress } from "../classify";
 
 /**
  * Tonight-pick scoring weights. Centralized so changes are intentional and
@@ -20,6 +21,7 @@ const SWEET_SPOT_MAX = 130;
 const SHORT_RUNTIME_MAX = 60;
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+// fallow-ignore-next-line complexity
 function genreOverlap(a: WatchlistItem, b: WatchlistItem): number {
   if (!a.genres || !b.genres) return 0;
   const set = new Set(a.genres.map((g) => g.toLowerCase()));
@@ -43,7 +45,7 @@ export function score(
   now: number = Date.now(),
 ): number {
   let s = 0;
-  const inProgress = Boolean(item.progress);
+  const inProgress = isActiveProgress(item.progress);
   const available = item.status === "available" && Boolean(item.availability?.hasAnyServerCopy);
   const ineligible =
     item.status === "requested" ||
