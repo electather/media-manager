@@ -81,5 +81,5 @@ function BucketChipLink({ chipKey, label, count }: BucketChipLinkProps) {
 }
 
 function ChipCount({ count }: { count: number }) {
-  return <span className="font-mono text-[11px] tabular-nums opacity-70">{count}</span>;
+  return <span className="font-mono text-xs tabular-nums opacity-70">{count}</span>;
 }
