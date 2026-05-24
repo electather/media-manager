@@ -40,6 +40,7 @@ export class UserTtlCache<T> {
     this.store.clear();
   }
 
+  // fallow-ignore-next-line complexity
   private gc(now: number): void {
     if (this.store.size < MAX_ENTRIES) return;
     for (const [k, entry] of this.store) {

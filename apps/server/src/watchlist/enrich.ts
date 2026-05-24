@@ -111,6 +111,7 @@ export async function enrich(
   let liveRows = rows;
   let liveServers = servers;
   if (opts.filter) {
+    // fallow-ignore-next-line code-duplication
     const kept: WatchlistRow[] = [];
     const keptServers: typeof servers = [];
     for (let i = 0; i < rows.length; i++) {

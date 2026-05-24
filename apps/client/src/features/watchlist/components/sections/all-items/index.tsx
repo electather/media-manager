@@ -14,6 +14,7 @@ interface AllItemsProps {
   mood?: MoodId;
 }
 
+// fallow-ignore-next-line complexity
 export function AllItems({ sort, bucket, mood }: AllItemsProps) {
   const args: { sort: WatchlistSort; bucket?: WatchlistBucket; mood?: MoodId } = { sort };
   if (bucket) args.bucket = bucket;

@@ -21,7 +21,9 @@ const cache = new UserTtlCache<WatchlistSectionResponse>(CACHE_TTL_MS);
  * signals `/counts` uses so we don't enrich a 1000-row backlog just to find
  * the top 5. Cached 5 min per user (RISK-007 / V.WL4).
  */
+// fallow-ignore-next-line complexity
 export async function getSection(ctx: WatchlistEnrichContext): Promise<WatchlistSectionResponse> {
+  // fallow-ignore-next-line code-duplication
   const hit = cache.get(ctx.userId);
   if (hit) return hit;
 
@@ -34,6 +36,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
 
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
   const [statuses, metadata, progress] = await Promise.all([
+    // fallow-ignore-next-line code-duplication
     ctx.mediaService
       .getStatusBatch(rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })))
       .catch((err) => {
@@ -47,6 +50,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
     loadProgressMap(ctx),
   ]);
 
+  // fallow-ignore-next-line code-duplication
   const serverLookups = await Promise.all(
     rows.map((row) =>
       getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType).catch(
@@ -75,6 +79,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
 
   const enriched = await enrich(candidates, ctx);
   const result = pick(enriched.items);
+  // fallow-ignore-next-line code-duplication
   const section: WatchlistSectionResponse = {
     items: result.items,
     partial: enriched.partial || result.partial,

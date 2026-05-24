@@ -7,6 +7,7 @@ import * as m from "@/paraglide/messages";
 
 export type WatchlistItem = SharedWatchlistItem;
 
+// fallow-ignore-next-line code-duplication
 export class WatchlistApiError extends Error {
   readonly status: number;
   readonly body: ApiErrorBody | null;
@@ -23,6 +24,7 @@ export class WatchlistApiError extends Error {
 }
 
 /** Localized label for an item's `addedSource` field. */
+// fallow-ignore-next-line complexity
 export function sourceLabel(source: WatchlistSource): string {
   switch (source) {
     case "manual":

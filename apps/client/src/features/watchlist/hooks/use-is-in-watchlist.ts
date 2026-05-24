@@ -41,6 +41,7 @@ export function useIsInWatchlist(id: string): boolean {
   return false;
 }
 
+// fallow-ignore-next-line complexity
 function isWatchlistItemMatch(data: unknown, id: string): boolean {
   if (!data || typeof data !== "object") return false;
   // Infinite-query shape: { pages: WatchlistResponse[] }

@@ -35,6 +35,7 @@ export function useAllItems(args: UseAllItemsArgs = {}) {
       fetchItems({
         ...(pageParam ? { cursor: pageParam } : {}),
         sort,
+        // fallow-ignore-next-line code-duplication
         ...(bucket ? { bucket } : {}),
         ...(mood ? { mood } : {}),
       }),

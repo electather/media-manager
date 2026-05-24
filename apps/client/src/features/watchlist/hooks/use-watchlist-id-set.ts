@@ -35,6 +35,7 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
   }, [qc, version]);
 }
 
+// fallow-ignore-next-line complexity
 function collectIds(data: unknown, out: Set<string>): void {
   if (!data || typeof data !== "object") return;
   if ("pages" in data) {

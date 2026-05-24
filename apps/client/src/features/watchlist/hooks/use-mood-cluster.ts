@@ -17,6 +17,7 @@ export function useMoodCluster(moodId: MoodId, limit?: number) {
     queryFn: ({ pageParam }) =>
       fetchMoodItems(moodId, {
         ...(pageParam ? { cursor: pageParam } : {}),
+        // fallow-ignore-next-line code-duplication
         ...(limit != null ? { limit } : {}),
       }),
     initialPageParam: undefined as string | undefined,

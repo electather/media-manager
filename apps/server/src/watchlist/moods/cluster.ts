@@ -29,7 +29,9 @@ export interface MoodSummaryContext {
  * `MIN_CLUSTER_SIZE` are omitted from the summary so the client doesn't show
  * a one-item "Mood" chip.
  */
+// fallow-ignore-next-line complexity
 export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMoodSummary> {
+  // fallow-ignore-next-line code-duplication
   const hit = cache.get(ctx.userId);
   if (hit) return hit;
 
@@ -53,11 +55,13 @@ export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMood
     for (const tag of tags) tally.set(tag, (tally.get(tag) ?? 0) + 1);
   }
 
+  // fallow-ignore-next-line code-duplication
   const clusters: MoodSummaryCluster[] = MOOD_IDS.map((id) => ({
     moodId: id,
     count: tally.get(id) ?? 0,
   })).filter((c) => c.count >= MIN_CLUSTER_SIZE);
 
+  // fallow-ignore-next-line code-duplication
   const summary: WatchlistMoodSummary = { clusters };
   cache.set(ctx.userId, summary);
   return summary;

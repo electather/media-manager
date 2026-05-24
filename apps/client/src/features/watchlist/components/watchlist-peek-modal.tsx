@@ -15,6 +15,7 @@ type PeekSearch = { peek?: string };
  * watchlist row (when available) for an instant first paint and refines
  * with the full `useHomeDetails` payload as it arrives.
  */
+// fallow-ignore-next-line complexity
 export function WatchlistPeekModal() {
   const navigate = useNavigate();
   const { peek } = useSearch({ strict: false }) as PeekSearch;

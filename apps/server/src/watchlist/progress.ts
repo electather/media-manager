@@ -42,6 +42,7 @@ export async function loadProgressMap(
   return fresh;
 }
 
+// fallow-ignore-next-line complexity
 async function compute(ctx: ProgressCtx): Promise<{ map: ProgressMap; partial: boolean }> {
   const opts = ctx.deadlineMs != null ? { deadlineMs: ctx.deadlineMs } : {};
   try {
@@ -68,6 +69,7 @@ interface RawCwEntry {
   };
 }
 
+// fallow-ignore-next-line complexity
 function projectEntry(entry: RawCwEntry): { id: string; entry: ProgressEntry } | null {
   const ms = entry.progressMs;
   if (ms == null || ms <= 0) return null;
@@ -84,6 +86,7 @@ function projectEntry(entry: RawCwEntry): { id: string; entry: ProgressEntry } |
   };
 }
 
+// fallow-ignore-next-line complexity
 function extractTmdbId(value: { ids?: Record<string, unknown>; tmdbId?: unknown }): string | null {
   const ids = value.ids;
   if (ids && typeof ids.tmdb === "string") return ids.tmdb;

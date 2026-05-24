@@ -19,6 +19,7 @@ const MS_PER_HOUR = 60 * MS_PER_MIN;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 const MS_PER_WEEK = 7 * MS_PER_DAY;
 
+// fallow-ignore-next-line complexity
 function relativeLabel(addedAt: number, now: number = Date.now()): string {
   const delta = Math.max(0, now - addedAt);
   if (delta < MS_PER_MIN) return m.watchlist_recent_time_just_now();

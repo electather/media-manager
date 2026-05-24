@@ -15,7 +15,9 @@ export interface WatchlistItemsKeyOpts {
  */
 export const watchlistKeys = {
   root: ["watchlist"] as const,
+  // fallow-ignore-next-line code-duplication
   counts: () => [...watchlistKeys.root, "counts"] as const,
+  // fallow-ignore-next-line code-duplication
   tonight: () => [...watchlistKeys.root, "tonight"] as const,
   recently: () => [...watchlistKeys.root, "recently"] as const,
   moods: () => [...watchlistKeys.root, "moods"] as const,

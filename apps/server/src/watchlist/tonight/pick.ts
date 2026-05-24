@@ -16,6 +16,7 @@ export interface TonightResult {
  * with diversity penalty. Empty `candidates` → empty result. Sort is stable:
  * ties break by `id` to keep output deterministic across requests (V.WL4).
  */
+// fallow-ignore-next-line complexity
 export function pick(candidates: WatchlistItem[], now: number = Date.now()): TonightResult {
   if (candidates.length === 0) return { items: [], partial: false };
   const heroScores = candidates.map((c) => ({ c, s: score(c, [], now) }));

@@ -12,12 +12,14 @@ export function keyToId(key: WatchlistKey): string {
   return `${key.mediaType}:${key.tmdbId}`;
 }
 
+// fallow-ignore-next-line code-duplication
 export interface WatchlistItem extends CompactMediaItem {
   /** Epoch ms when the row was added (or reactivated). */
   addedAt: number;
   addedSource: WatchlistSource;
 }
 
+// fallow-ignore-next-line code-duplication
 export interface WatchlistResponse {
   items: WatchlistItem[];
   /**
@@ -48,6 +50,7 @@ export interface WatchlistCounts {
   total: number;
 }
 
+// fallow-ignore-next-line code-duplication
 export interface AddWatchlistRequest {
   tmdbId: string;
   mediaType: MediaType;

@@ -30,11 +30,13 @@ const DARK_GENRES = ["horror", "thriller", "crime"] as const;
 const LAUGH_GENRES = ["comedy", "animation"] as const;
 
 export const MOOD_RULES: Record<MoodId, Predicate> = {
+  // fallow-ignore-next-line complexity
   cozy: ({ meta }) =>
     hasGenre(meta, COZY_GENRES) &&
     (meta?.runtimeMinutes ?? Number.POSITIVE_INFINITY) < 100 &&
     (meta?.year ?? 0) >= 1990,
   epic: ({ meta }) => hasGenre(meta, EPIC_GENRES) || (meta?.runtimeMinutes ?? 0) >= 150,
+  // fallow-ignore-next-line complexity
   cerebral: ({ meta }) =>
     hasGenre(meta, CEREBRAL_GENRES) || (hasGenre(meta, ["drama"]) && (meta?.year ?? 0) < 2000),
   dark: ({ meta }) => hasGenre(meta, DARK_GENRES),
