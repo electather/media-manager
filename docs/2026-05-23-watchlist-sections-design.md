@@ -275,7 +275,7 @@ MOOD_RULES (registry.ts) ←
   laugh      : genres ∩ {comedy|animation-comedy}
   throwback  : year < 1990
   quick      : mediaType=movie ∧ runtimeMin ≤ 95
-  binge      : mediaType=tv    ∧ episodeCount ≥ 6
+  binge      : mediaType=tv    (episodeCount ≥ 6 deferred — CanonicalMetadata does not expose episodeCount; collapses to "any TV" until metadata widens)
 
 derive(row, meta) → MoodId[]:
   out = []

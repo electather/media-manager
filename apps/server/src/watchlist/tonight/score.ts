@@ -49,6 +49,8 @@ export function score(
   const available = item.status === "available" && Boolean(item.availability?.hasAnyServerCopy);
   const ineligible =
     item.status === "requested" ||
+    // Request-provider status (→ awaiting bucket), not the new unavailable bucket
+    // (those rows are dropped upstream in getTonightSection's preFilter("ready")).
     item.status === "unavailable" ||
     item.status === "processing" ||
     Boolean(item.facets?.releaseDate);

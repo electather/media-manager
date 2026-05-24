@@ -32,7 +32,7 @@ const RECENTLY_MAX_LIMIT = 20;
 // fallow-ignore-next-line code-duplication
 export const itemsQuerySchema = z
   .object({
-    cursor: z.string().min(1).optional(),
+    cursor: z.string().min(1).max(512).optional(),
     limit: z.coerce
       .number()
       .int()
@@ -72,7 +72,7 @@ export type MoodParamParsed = z.infer<typeof moodParamSchema>;
 // fallow-ignore-next-line code-duplication
 export const moodItemsQuerySchema = z
   .object({
-    cursor: z.string().min(1).optional(),
+    cursor: z.string().min(1).max(512).optional(),
     limit: z.coerce
       .number()
       .int()
