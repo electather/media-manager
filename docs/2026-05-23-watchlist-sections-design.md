@@ -407,6 +407,7 @@ watchlistKeys = {
 ```
 
 Mutation invalidator: `qc.invalidateQueries({ queryKey: watchlistKeys.root })` — clears every section in one shot. Single source.
+Tests assert section endpoints keep the `"section"` segment so DevTools hierarchy mirrors `/sections/*` API paths.
 
 ### C.4 Component layout
 

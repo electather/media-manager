@@ -18,8 +18,8 @@ export const watchlistKeys = {
   // fallow-ignore-next-line code-duplication
   counts: () => [...watchlistKeys.root, "counts"] as const,
   // fallow-ignore-next-line code-duplication
-  tonight: () => [...watchlistKeys.root, "tonight"] as const,
-  recently: () => [...watchlistKeys.root, "recently"] as const,
+  tonight: () => [...watchlistKeys.root, "section", "tonight"] as const,
+  recently: () => [...watchlistKeys.root, "section", "recently"] as const,
   moods: () => [...watchlistKeys.root, "moods"] as const,
   moodItems: (moodId: MoodId) => [...watchlistKeys.root, "moods", moodId, "items"] as const,
   items: (opts: WatchlistItemsKeyOpts = {}) =>
