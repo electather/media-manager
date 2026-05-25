@@ -4,11 +4,12 @@ import {
   type WatchlistItem,
   type WatchlistSectionResponse,
 } from "@ent-mcp/shared/watchlist";
+import type { ActiveRow } from "@ent-mcp/shared/media";
+import { listAllActiveRows } from "../../media";
 import { getMatchingServersCached } from "../availability-cache";
 import { classifyBucket, previewForClassify } from "../classify";
 import { enrich, type WatchlistEnrichContext } from "../enrich";
 import { loadProgressMap } from "../progress";
-import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
 
@@ -27,7 +28,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
   const hit = cache.get(ctx.userId);
   if (hit) return hit;
 
-  const rows = await repo.listAllActive(ctx.userId);
+  const rows = await listAllActiveRows(ctx.userId);
   if (rows.length === 0) {
     const empty: WatchlistSectionResponse = { items: [], partial: false };
     cache.set(ctx.userId, empty);
@@ -58,7 +59,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
       ),
     ),
   );
-  const candidates: repo.WatchlistRow[] = [];
+  const candidates: ActiveRow[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });

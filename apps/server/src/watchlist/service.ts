@@ -16,8 +16,26 @@ import {
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { ActiveRow } from "@ent-mcp/shared/media";
 import type { CatalogService } from "../catalog";
-import type { MatchingServer, MediaService } from "../media";
+import {
+  type MatchingServer,
+  type MediaService,
+  type PageCursor,
+  listAllActiveRows,
+  listActiveRowsKeyset,
+  listAvailableCandidates,
+  hasActiveRows,
+  allKnownKeys,
+  upsertActiveRow,
+  softRemoveRow,
+  bulkInsertActiveRows,
+  trySeedLock,
+  clearSeedLock,
+  hasUserSeeded,
+  encodeCursor,
+  decodeCursor,
+} from "../media";
 import { emit, type EventName } from "../jobs/events";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify } from "./classify";
@@ -27,8 +45,6 @@ import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { loadProgressMap } from "./progress";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
-import * as repo from "./repo";
-import type { WatchlistRow } from "./repo";
 
 /**
  * Per-request context. Structurally compatible with the home row context so
@@ -80,19 +96,19 @@ export async function getItems(
   // fallow-ignore-next-line code-duplication
   const c = asWatchlistContext(ctx);
   const limit = clampLimit(opts.limit);
-  const cursor = opts.cursor ? repo.decodeCursor(opts.cursor) : undefined;
+  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
   let partial = false;
 
   // Seed only on the *first* page; cursor implies the user already has rows.
-  if (!cursor && !(await repo.hasSeeded(c.userId))) {
-    const peek = await repo.list(c.userId, { state: "active", limit: 1 });
+  if (!cursor && !(await hasUserSeeded(c.userId))) {
+    const peek = await listActiveRowsKeyset(c.userId, { limit: 1 });
     if (peek.length === 0) {
       const seedRes = await seedFromPlugins(c);
       partial = partial || seedRes.partial;
     }
   }
 
-  const rows = await repo.listPage(c.userId, {
+  const rows = await listActiveRowsKeyset(c.userId, {
     limit,
     ...(cursor ? { cursor } : {}),
   });
@@ -102,7 +118,7 @@ export async function getItems(
   const enriched = await enrich(rows, c);
   const last = rows[rows.length - 1]!;
   const nextCursor =
-    rows.length < limit ? null : repo.encodeCursor({ addedAt: last.addedAt, id: last.id });
+    rows.length < limit ? null : encodeCursor({ addedAt: last.addedAt, id: last.id });
   return {
     items: enriched.items,
     cursor: nextCursor,
@@ -125,7 +141,7 @@ function clampLimit(value: number | undefined): number {
 // fallow-ignore-next-line complexity
 export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> {
   const c = asWatchlistContext(ctx);
-  const rows = await repo.listAllActive(c.userId);
+  const rows = await listAllActiveRows(c.userId);
   if (rows.length === 0) {
     return { ready: 0, inProgress: 0, awaiting: 0, unavailable: 0, upcoming: 0, total: 0 };
   }
@@ -195,7 +211,7 @@ export async function addItem(
 ): Promise<AddItemResult> {
   const c = asWatchlistContext(ctx);
   const now = Date.now();
-  const result = await repo.upsertActive(c.userId, key, source, now);
+  const result = await upsertActiveRow(c.userId, key, source, now);
   const [enriched] = (await enrich([result.row], c)).items;
   const fallback: WatchlistItem = {
     id: keyToId(key),
@@ -229,7 +245,7 @@ export async function removeItem(
 ): Promise<{ removed: boolean }> {
   const c = asWatchlistContext(ctx);
   const now = Date.now();
-  const result = await repo.softRemove(c.userId, key, now);
+  const result = await softRemoveRow(c.userId, key, now);
   if (result.removed) {
     await safeEmit(
       WATCHLIST_EVENTS.ITEM_REMOVED,
@@ -259,7 +275,7 @@ export interface SeedResult {
 export async function seedFromPlugins(ctx: MaybeRowContext): Promise<SeedResult> {
   const c = asWatchlistContext(ctx);
   const now = Date.now();
-  const wonLock = await repo.trySeedLock(c.userId, now);
+  const wonLock = await trySeedLock(c.userId, now);
   if (!wonLock) {
     // Another concurrent caller is doing the plugin fetch; nothing to do here.
     return { added: 0, partial: false };
@@ -272,18 +288,18 @@ export async function seedFromPlugins(ctx: MaybeRowContext): Promise<SeedResult>
   } catch (err) {
     c.log.warn("[watchlist:seed] getWatchlistFeed threw", err);
     // Roll the lock back so the next GET retries the plugin call.
-    await repo.clearSeedLock(c.userId).catch(() => {});
+    await clearSeedLock(c.userId).catch(() => {});
     return { added: 0, partial: true };
   }
   const keys = (feed.items as unknown[])
     .map(toWatchlistKey)
     .filter((k): k is WatchlistKey => k !== null);
-  const known = await repo.allKnownKeys(c.userId);
+  const known = await allKnownKeys(c.userId);
   const fresh = keys.filter((k) => !known.has(keyToId(k)));
-  const added = await repo.bulkInsertIgnoreConflict(c.userId, fresh, "plugin", true, now);
+  const added = await bulkInsertActiveRows(c.userId, fresh, "plugin", true, now);
   if (feed.partial) {
     // Don't keep the lock when the feed was incomplete — next GET should retry.
-    await repo.clearSeedLock(c.userId).catch(() => {});
+    await clearSeedLock(c.userId).catch(() => {});
   }
   return { added, partial: feed.partial };
 }
@@ -306,12 +322,12 @@ export async function syncFromPlugins(ctx: MaybeRowContext): Promise<SeedResult>
   const keys = (feed.items as unknown[])
     .map(toWatchlistKey)
     .filter((k): k is WatchlistKey => k !== null);
-  const known = await repo.allKnownKeys(c.userId);
+  const known = await allKnownKeys(c.userId);
   const fresh = keys.filter((k) => !known.has(keyToId(k)));
   const now = Date.now();
   // Sync-added rows are not initial-seed rows; flag false so future reporting
   // can distinguish cron-acquired items from the eager seed.
-  const added = await repo.bulkInsertIgnoreConflict(c.userId, fresh, "plugin", false, now);
+  const added = await bulkInsertActiveRows(c.userId, fresh, "plugin", false, now);
   return { added, partial: feed.partial };
 }
 
@@ -330,11 +346,11 @@ export async function listAvailable(
 ): Promise<WatchlistResponse> {
   const c = asWatchlistContext(ctx);
   let partial = false;
-  let candidates = await repo.listAvailableCandidates(c.userId, limit * 4);
-  if (candidates.length === 0 && !(await repo.hasSeeded(c.userId))) {
+  let candidates = await listAvailableCandidates(c.userId, limit * 4);
+  if (candidates.length === 0 && !(await hasUserSeeded(c.userId))) {
     const seedRes = await seedFromPlugins(c);
     partial = partial || seedRes.partial;
-    candidates = await repo.listAvailableCandidates(c.userId, limit * 4);
+    candidates = await listAvailableCandidates(c.userId, limit * 4);
   }
   if (candidates.length === 0) return { items: [], cursor: null, partial };
 
@@ -346,7 +362,7 @@ export async function listAvailable(
       getMatchingServersCached(c.userId, c.mediaService, row.tmdbId, row.mediaType),
     ),
   );
-  const picked: WatchlistRow[] = [];
+  const picked: ActiveRow[] = [];
   for (let i = 0; i < candidates.length; i++) {
     if (picked.length >= limit) break;
     const probe = probes[i]!;
@@ -363,7 +379,7 @@ export async function listAvailable(
 }
 
 export async function hasAny(userId: string): Promise<boolean> {
-  return repo.hasActiveRows(userId);
+  return hasActiveRows(userId);
 }
 
 async function safeEmit<T>(
@@ -495,8 +511,8 @@ function statusRank(id: string, statusMap: Record<string, string>): number {
 }
 
 function compareForSort(
-  a: WatchlistRow,
-  b: WatchlistRow,
+  a: ActiveRow,
+  b: ActiveRow,
   metaMap: Record<string, CanonicalMetadata>,
   statusMap: Record<string, string>,
   sort: Exclude<WatchlistSort, "recent">,
@@ -530,18 +546,18 @@ export async function listItems(
 
   // Recent / keyset path — mirrors getItems but applies bucket + mood
   // intersection, and surfaces "unknown" when bucket is omitted.
-  const cursor = opts.cursor ? repo.decodeCursor(opts.cursor) : undefined;
+  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
   const fetchSize =
     opts.bucket || opts.mood ? Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT) : limit;
 
-  let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
+  let scanCursor: PageCursor | undefined = cursor ?? undefined;
   let collectedItems: WatchlistItem[] = [];
   let enrichPartial = false;
   let nextCursor: string | null = null;
 
   // fallow-ignore-next-line code-duplication
   for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
-    const rows = await repo.listPage(c.userId, {
+    const rows = await listActiveRowsKeyset(c.userId, {
       limit: fetchSize,
       ...(scanCursor ? { cursor: scanCursor } : {}),
     });
@@ -573,18 +589,18 @@ export async function listItems(
         nextCursor =
           exhausted && enriched.items.length <= limit
             ? null
-            : repo.encodeCursor({ addedAt: lastReturned.addedAt, id: lastReturned.id });
+            : encodeCursor({ addedAt: lastReturned.addedAt, id: lastReturned.id });
       } else {
         nextCursor = exhausted
           ? null
-          : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+          : encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
       }
       break;
     }
 
     nextCursor = exhausted
       ? null
-      : repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+      : encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
     if (exhausted) break;
     scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
   }
@@ -593,11 +609,11 @@ export async function listItems(
 }
 
 async function filterByMood(
-  rows: WatchlistRow[],
+  rows: ActiveRow[],
   ctx: WatchlistContext,
   mood: MoodId,
 ): Promise<{
-  rows: WatchlistRow[];
+  rows: ActiveRow[];
   partial: boolean;
   metadata: Record<string, CanonicalMetadata>;
 }> {
@@ -624,7 +640,7 @@ async function listItemsOffset(
   opts: ListItemsOptions,
 ): Promise<WatchlistResponse> {
   const offset = opts.cursor ? (decodeOffsetCursor(opts.cursor) ?? 0) : 0;
-  const all = await repo.listAllActive(ctx.userId);
+  const all = await listAllActiveRows(ctx.userId);
   if (all.length === 0) return { items: [], cursor: null, partial: false };
   if (all.length > OFFSET_FULL_LOAD_WARN_ROWS) {
     ctx.log.warn(
@@ -692,7 +708,7 @@ export async function getRecentlyAdded(
   limit: number,
 ): Promise<WatchlistSectionResponse> {
   const c = asWatchlistContext(ctx);
-  const rows = await repo.listPage(c.userId, { limit });
+  const rows = await listActiveRowsKeyset(c.userId, { limit });
   if (rows.length === 0) return { items: [], partial: false };
   const enriched = await enrich(rows, c);
   return { items: enriched.items, partial: enriched.partial };
@@ -726,19 +742,19 @@ export async function listMoodItems(
   // fallow-ignore-next-line code-duplication
   const c = asWatchlistContext(ctx);
   const limit = clampLimit(opts.limit);
-  const cursor = opts.cursor ? repo.decodeCursor(opts.cursor) : undefined;
+  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
   const fetchSize = Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT);
 
-  let scanCursor: repo.PageCursor | undefined = cursor ?? undefined;
+  let scanCursor: PageCursor | undefined = cursor ?? undefined;
   const collectedItems: WatchlistItem[] = [];
-  const collectedSources: WatchlistRow[] = [];
+  const collectedSources: ActiveRow[] = [];
   let enrichPartial = false;
   let nextCursor: string | null = null;
   let emptyStreak = 0;
 
   // fallow-ignore-next-line code-duplication
   for (let hop = 0; hop < MAX_MOOD_HOPS; hop++) {
-    const rows = await repo.listPage(c.userId, {
+    const rows = await listActiveRowsKeyset(c.userId, {
       limit: fetchSize,
       ...(scanCursor ? { cursor: scanCursor } : {}),
     });
@@ -769,7 +785,7 @@ export async function listMoodItems(
       nextCursor =
         exhausted && enriched.items.length <= need
           ? null
-          : repo.encodeCursor({ addedAt: last.addedAt, id: last.id });
+          : encodeCursor({ addedAt: last.addedAt, id: last.id });
       break;
     }
     if (exhausted) {
@@ -779,7 +795,7 @@ export async function listMoodItems(
     if (emptyStreak > MAX_EMPTY_HOPS) {
       nextCursor =
         collectedItems.length > 0
-          ? repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id })
+          ? encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id })
           : null;
       break;
     }

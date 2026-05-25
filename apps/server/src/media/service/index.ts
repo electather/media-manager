@@ -1025,3 +1025,4 @@ export {
   clearPrimaryConnection,
   getPrimaryConnection,
 } from "./primary-preference";
+export * from "./active-rows";

@@ -53,3 +53,27 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
+export type { ActiveRow, RowSort, RowFilter } from "@ent-mcp/shared/media";
+export {
+  listActiveRows,
+  listActiveRowsKeyset,
+  getActiveRow,
+  listAllActiveRows,
+  listAvailableCandidates,
+  hasActiveRows,
+  allKnownKeys,
+  upsertActiveRow,
+  softRemoveRow,
+  bulkInsertActiveRows,
+  trySeedLock,
+  clearSeedLock,
+  markUserSeeded,
+  hasUserSeeded,
+  listSeededUserIds,
+  encodeCursor,
+  decodeCursor,
+  type PageCursor,
+  type UpsertActiveResult,
+  type SoftRemoveResult,
+  __resetActiveRowsForTests,
+} from "./service";

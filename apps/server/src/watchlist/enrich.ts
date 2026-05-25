@@ -7,11 +7,11 @@ import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shar
 import { ArtworkService } from "../artwork";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
+import type { ActiveRow } from "@ent-mcp/shared/media";
 import type { MatchingServer, MediaService } from "../media";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify } from "./classify";
 import { loadProgressMap, type ProgressMap } from "./progress";
-import type { WatchlistRow } from "./repo";
 
 export interface WatchlistEnrichContext {
   userId: string;
@@ -24,12 +24,12 @@ export interface WatchlistEnrichContext {
 export interface EnrichResult {
   items: WatchlistItem[];
   /**
-   * Source `WatchlistRow` for each emitted item, in the same order. The
+   * Source `ActiveRow` for each emitted item, in the same order. The
    * paginator uses this to encode the next cursor from the row that produced
    * the last *returned* item, not the last DB-scanned row (which would skip
    * matched-but-truncated items when a filter narrows the window).
    */
-  sources: WatchlistRow[];
+  sources: ActiveRow[];
   /** True when at least one per-key lookup failed (status, availability, or cold-fill). */
   partial: boolean;
 }
@@ -64,7 +64,7 @@ export interface EnrichOptions {
  */
 // fallow-ignore-next-line complexity
 export async function enrich(
-  rows: WatchlistRow[],
+  rows: ActiveRow[],
   ctx: WatchlistEnrichContext,
   opts: EnrichOptions = {},
 ): Promise<EnrichResult> {
@@ -121,7 +121,7 @@ export async function enrich(
   let liveServers = servers;
   if (opts.filter) {
     // fallow-ignore-next-line code-duplication
-    const kept: WatchlistRow[] = [];
+    const kept: ActiveRow[] = [];
     const keptServers: typeof servers = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]!;
@@ -156,7 +156,7 @@ export async function enrich(
   );
 
   const items: WatchlistItem[] = [];
-  const sources: WatchlistRow[] = [];
+  const sources: ActiveRow[] = [];
   for (let i = 0; i < settled.length; i++) {
     const result = settled[i]!;
     if (result.status === "fulfilled") {
@@ -174,7 +174,7 @@ export async function enrich(
 }
 
 async function enrichOne(
-  row: WatchlistRow,
+  row: ActiveRow,
   statuses: Record<string, string>,
   metadata: Record<string, CanonicalMetadata>,
   artwork: Record<string, ArtworkBundle>,
@@ -221,7 +221,7 @@ async function enrichOne(
  * and must never break a watchlist response.
  */
 async function hydrateArtwork(
-  rows: WatchlistRow[],
+  rows: ActiveRow[],
   metadata: Record<string, CanonicalMetadata>,
   ctx: WatchlistEnrichContext,
 ): Promise<Record<string, ArtworkBundle>> {
@@ -271,7 +271,7 @@ function mergeArtwork(
 }
 
 async function loadColdMetadata(
-  row: WatchlistRow,
+  row: ActiveRow,
   ctx: WatchlistEnrichContext,
 ): Promise<CanonicalMetadata | null> {
   const raw = (await ctx.mediaService.getMetadata(

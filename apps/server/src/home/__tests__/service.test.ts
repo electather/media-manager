@@ -7,7 +7,7 @@ vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-vi.mock("../repo");
+vi.mock("../internal/layout-cache");
 vi.mock("../internal/hero", () => ({ pickHero: vi.fn() }));
 vi.mock("../internal/enrich", () => ({
   enrichItems: vi.fn(async (items: unknown[]) => items),
@@ -44,7 +44,7 @@ vi.mock("../rows", async () => {
   };
 });
 
-const layoutCache = await import("../repo");
+const layoutCache = await import("../internal/layout-cache");
 const hero = await import("../internal/hero");
 const orchestrator = await import("../service");
 

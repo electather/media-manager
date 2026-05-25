@@ -89,8 +89,14 @@
   },
   "boundaries": {
     "zones": [
-      { "name": "client-routes", "patterns": ["apps/client/src/routes/**"] },
-      { "name": "client-app", "patterns": ["apps/client/src/app/**"] },
+      {
+        "name": "client-routes",
+        "patterns": ["apps/client/src/routes/**"]
+      },
+      {
+        "name": "client-app",
+        "patterns": ["apps/client/src/app/**"]
+      },
       {
         "name": "client-feat-connections",
         "patterns": ["apps/client/src/features/connections/**"]
@@ -179,18 +185,38 @@
         "name": "client-features-legacy",
         "patterns": ["apps/client/src/lib/**"]
       },
-      { "name": "client-shared-ui", "patterns": ["apps/client/src/shared/ui/**"] },
+      {
+        "name": "client-shared-ui",
+        "patterns": ["apps/client/src/shared/ui/**"]
+      },
       {
         "name": "client-shared-virtualized",
         "patterns": ["apps/client/src/shared/components/virtualized/**"]
       },
-      { "name": "client-shared-components", "patterns": ["apps/client/src/shared/components/**"] },
-      { "name": "client-shared-hooks", "patterns": ["apps/client/src/shared/hooks/**"] },
-      { "name": "client-shared-lib", "patterns": ["apps/client/src/shared/lib/**"] },
-      { "name": "client-root", "patterns": ["apps/client/src/*.*"] },
-
-      { "name": "server-api", "patterns": ["apps/server/src/api/**"] },
-      { "name": "server-mcp", "patterns": ["apps/server/src/mcp/**"] },
+      {
+        "name": "client-shared-components",
+        "patterns": ["apps/client/src/shared/components/**"]
+      },
+      {
+        "name": "client-shared-hooks",
+        "patterns": ["apps/client/src/shared/hooks/**"]
+      },
+      {
+        "name": "client-shared-lib",
+        "patterns": ["apps/client/src/shared/lib/**"]
+      },
+      {
+        "name": "client-root",
+        "patterns": ["apps/client/src/*.*"]
+      },
+      {
+        "name": "server-api",
+        "patterns": ["apps/server/src/api/**"]
+      },
+      {
+        "name": "server-mcp",
+        "patterns": ["apps/server/src/mcp/**"]
+      },
       {
         "name": "server-mod-artwork",
         "patterns": ["apps/server/src/artwork/index.ts"]
@@ -280,6 +306,10 @@
         "patterns": ["apps/server/src/db/schema/home/**"]
       },
       {
+        "name": "server-schema-media",
+        "patterns": ["apps/server/src/db/schema/media/**"]
+      },
+      {
         "name": "server-schema-notifications",
         "patterns": ["apps/server/src/db/schema/notifications/**"]
       },
@@ -290,10 +320,6 @@
       {
         "name": "server-schema-preferences",
         "patterns": ["apps/server/src/db/schema/preferences/**"]
-      },
-      {
-        "name": "server-schema-watchlist",
-        "patterns": ["apps/server/src/db/schema/watchlist/**"]
       },
       {
         "name": "server-schema-infra",
@@ -311,11 +337,22 @@
           "apps/server/src/env.ts"
         ]
       },
-      { "name": "server-root", "patterns": ["apps/server/src/*.*"] },
-
-      { "name": "plugins", "patterns": ["packages/plugins/**"] },
-      { "name": "plugin-sdk", "patterns": ["packages/plugin-sdk/**"] },
-      { "name": "shared-pkg", "patterns": ["packages/shared/**"] }
+      {
+        "name": "server-root",
+        "patterns": ["apps/server/src/*.*"]
+      },
+      {
+        "name": "plugins",
+        "patterns": ["packages/plugins/**"]
+      },
+      {
+        "name": "plugin-sdk",
+        "patterns": ["packages/plugin-sdk/**"]
+      },
+      {
+        "name": "shared-pkg",
+        "patterns": ["packages/shared/**"]
+      }
     ],
     "rules": [
       {
@@ -613,8 +650,14 @@
         "from": "client-shared-virtualized",
         "allow": ["client-shared-ui", "client-shared-hooks", "client-shared-lib", "shared-pkg"]
       },
-      { "from": "client-shared-hooks", "allow": ["client-shared-lib", "shared-pkg"] },
-      { "from": "client-shared-ui", "allow": ["client-shared-lib", "shared-pkg"] },
+      {
+        "from": "client-shared-hooks",
+        "allow": ["client-shared-lib", "shared-pkg"]
+      },
+      {
+        "from": "client-shared-ui",
+        "allow": ["client-shared-lib", "shared-pkg"]
+      },
       {
         "from": "client-feat-home",
         "allow": [
@@ -651,8 +694,10 @@
           "shared-pkg"
         ]
       },
-      { "from": "client-shared-lib", "allow": ["shared-pkg", "server-api"] },
-
+      {
+        "from": "client-shared-lib",
+        "allow": ["shared-pkg", "server-api"]
+      },
       {
         "from": "server-root",
         "allow": [
@@ -694,7 +739,7 @@
           "server-schema-notifications",
           "server-schema-plugin-runtime",
           "server-schema-preferences",
-          "server-schema-watchlist",
+          "server-schema-media",
           "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -719,7 +764,7 @@
           "server-schema-notifications",
           "server-schema-plugin-runtime",
           "server-schema-preferences",
-          "server-schema-watchlist",
+          "server-schema-media",
           "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -892,7 +937,6 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
-          "server-schema-watchlist",
           "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -926,6 +970,7 @@
           "server-mod-preferences",
           "server-mod-plugin-runtime",
           "server-infra",
+          "server-schema-media",
           "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
@@ -1054,13 +1099,12 @@
           "server-schema-notifications",
           "server-schema-plugin-runtime",
           "server-schema-preferences",
-          "server-schema-watchlist",
+          "server-schema-media",
           "server-schema-infra",
           "shared-pkg",
           "plugin-sdk"
         ]
       },
-
       {
         "from": "server-schema-auth",
         "allow": ["shared-pkg"]
@@ -1098,14 +1142,22 @@
           "server-schema-notifications",
           "server-schema-plugin-runtime",
           "server-schema-preferences",
-          "server-schema-watchlist",
+          "server-schema-media",
           "shared-pkg"
         ]
       },
-
-      { "from": "plugins", "allow": ["plugin-sdk", "shared-pkg"] },
-      { "from": "plugin-sdk", "allow": ["shared-pkg"] },
-      { "from": "shared-pkg", "allow": [] }
+      {
+        "from": "plugins",
+        "allow": ["plugin-sdk", "shared-pkg"]
+      },
+      {
+        "from": "plugin-sdk",
+        "allow": ["shared-pkg"]
+      },
+      {
+        "from": "shared-pkg",
+        "allow": []
+      }
     ]
   }
 }
