@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
-**Status:** design (rev 6)
-**Date:** 2026-05-23 (rev 1–6: 2026-05-23)
+**Status:** design (rev 7)
+**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
@@ -10,6 +10,7 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 7 (2026-05-25)** — Mutation listener registration tests reset module-level idempotency state before each run.
 - **rev 6 (2026-05-23)** — Sub-page UX + new `unavailable` bucket.
   - **Chip active = pathname-only.** `BucketChips` `<Link/>` → `activeOptions={{ exact: true, includeSearch: false }}`. `?sort=` flip ⊥ kill active. V.WL9.
   - **Per-route Suspense fallback resembles content.** New `WatchlistGridSkeleton` (CSS grid, `aspect-[2/3]` placeholders, `minColumnWidthPx=180`, ~12 cards) wraps `WatchlistFlatPage` + `WatchlistMoodPage`. Curated keeps `WatchlistSkeleton`. V.WL10.
@@ -343,7 +344,7 @@ classifyBucket(item):                                              // rev 6: ⊥
 | `mood-summary:<userId>` | 30 s | watchlist.itemAdded, watchlist.itemRemoved |
 | availability-cache (existing) | 30 s | — |
 
-**Listener registration:** new file `watchlist/jobs/on-watchlist-mutation.ts` mirrors notifications-pattern (`notifications/jobs/on-*.ts`). Exports a `register()` function called from `watchlist/index.ts::registerJobs()`. `registerJobs()` invoked once at server bootstrap (`apps/server/src/index.ts`) — single registration site → ⊥ test-import duplicate subscriptions. Pattern:
+**Listener registration:** new file `watchlist/jobs/on-watchlist-mutation.ts` mirrors notifications-pattern (`notifications/jobs/on-*.ts`). Exports a `register()` function called from `watchlist/index.ts::registerJobs()`. `register()` is idempotent via module-level registration state; `on-watchlist-mutation.test.ts` resets that state in `beforeEach()` so each test verifies fresh subscriptions. `registerJobs()` invoked once at server bootstrap (`apps/server/src/index.ts`) — single registration site → ⊥ production duplicate subscriptions. Pattern:
 
 ```
 register():
@@ -689,7 +690,7 @@ Cover intent per CLAUDE.md rule 9: each test pins the WHY (e.g., "all-items must
 
 ## §R — Risks
 
-- **R1.** Cache invalidation race. Watchlist mutation emits event; tonight/mood-summary cache listens via `on()`. If listener registration occurs after first mutation, stale data returned. Mitigation: register listeners at module init (server bootstrap), assert presence in `service.test.ts`.
+- **R1.** Cache invalidation race. Watchlist mutation emits event; tonight/mood-summary cache listens via `on()`. If listener registration occurs after first mutation, stale data returned. Mitigation: register listeners at module init (server bootstrap), assert fresh listener registration in `on-watchlist-mutation.test.ts`.
 - **R2.** Alpha / runtime / status sort cost. Each request sweeps full active set (≤ ~1000 typical) + joins catalog metadata batch. No new index, no migration. Server cost ≈ same as `/counts` already pays. Mitigation: rely on existing `catalogService.getMetadataBatch` cache; benchmark at 2× typical active-set size before ship.
 - **R3.** Tonight scoring weights cosmetic but visible. Iteration risk. Mitigation: weights centralized in `score.ts`, snapshot test on a stable fixture so changes are intentional.
 - **R4.** Mood heuristics English-locale-bound (matches genre name strings via `derive`). Prior doc R1 still applies — same caveat carries over.
