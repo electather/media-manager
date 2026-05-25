@@ -424,6 +424,18 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(res.items.map((i) => i.tmdbId)).toEqual(["m36", "m24", "m12"]);
   });
 
+  it("listMoodItems returns cursor=null when the empty-streak budget exits with no matches", async () => {
+    const ctx = makeCtx();
+    for (let i = 1; i <= 9; i++) {
+      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+
+    const res = await listMoodItems(ctx, "dark", { limit: 1 });
+
+    expect(res.items).toEqual([]);
+    expect(res.cursor).toBeNull();
+  });
+
   // V.WL1 — `sort=alpha` returns rows by canonical-metadata title ascending,
   // not by `addedAt`. Anchors the offset-cursor sort path.
   it("listItems sort=alpha sorts by metadata title", async () => {
