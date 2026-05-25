@@ -44,10 +44,10 @@ export {
   type LoadProgressMap,
   type MediaEnrichContext,
   type MediaEnrichRow,
-  type MediaProgressContext,
   type MediaProgressSnapshot,
   type WatchlistEnrichContext,
 } from "../enrich";
+export type { MediaProgressContext } from "../types";
 
 interface ListTargetsOutput {
   targets: Array<{

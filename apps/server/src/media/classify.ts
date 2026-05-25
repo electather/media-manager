@@ -1,14 +1,7 @@
 import { MEDIA_ROW_STATUS_MAP, type MediaRowBucket } from "@ent-mcp/shared/media";
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import type { MatchingServer } from "./types";
-
-/** Per-row resume position used by `classifyBucket` to mark `in-progress` rows. */
-export interface ProgressEntry {
-  watched: number;
-  total: number;
-}
-
-export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
+import type { ProgressEntry, ProgressMap } from "./progress";
 
 /**
  * Server-side mirror of the client's classifier (see
@@ -79,3 +72,5 @@ export function previewForClassify(
     ...(progress ? { progress } : {}),
   };
 }
+
+export type { ProgressEntry, ProgressMap };

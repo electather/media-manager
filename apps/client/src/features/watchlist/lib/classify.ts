@@ -1,3 +1,6 @@
+// fallow-ignore-file unused-file
+// Utility kept per 2026-05-23-watchlist-sections-design §C.4 — components
+// consuming totalRuntimeMinutes / splitRuntime land in Phase 2-3 of that design.
 import type { WatchlistBuckets, WatchlistItem, WatchlistStatus } from "./types";
 
 const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistStatus | undefined> = {

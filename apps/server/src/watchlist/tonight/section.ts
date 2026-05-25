@@ -8,16 +8,19 @@ import {
   classifyBucket,
   enrich,
   getMatchingServersCached,
+  loadProgressMap,
   previewForClassify,
+  type MatchingServer,
   type WatchlistEnrichContext,
 } from "../../media";
-import { loadProgressMap } from "../progress";
 import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
 
 const CACHE_TTL_MS = 5 * 60_000;
 const cache = new UserTtlCache<WatchlistSectionResponse>(CACHE_TTL_MS);
+
+type SectionContext = Omit<WatchlistEnrichContext, "loadProgressMap">;
 
 /**
  * Tonight section: hero + ≤4 alternates from the user's ready / in-progress
@@ -26,7 +29,8 @@ const cache = new UserTtlCache<WatchlistSectionResponse>(CACHE_TTL_MS);
  * the top 5. Cached 5 min per user (RISK-007 / V.WL4).
  */
 // fallow-ignore-next-line complexity
-export async function getSection(ctx: WatchlistEnrichContext): Promise<WatchlistSectionResponse> {
+export async function getSection(ctx: SectionContext): Promise<WatchlistSectionResponse> {
+  const enrichCtx: WatchlistEnrichContext = { ...ctx, loadProgressMap };
   // fallow-ignore-next-line code-duplication
   const hit = cache.get(ctx.userId);
   if (hit) return hit;
@@ -55,21 +59,19 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
   ]);
 
   // fallow-ignore-next-line code-duplication
-  const serverLookups = await Promise.all(
-    rows.map((row) =>
-      getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType).catch(
-        () => [] as Awaited<ReturnType<typeof getMatchingServersCached>>,
-      ),
-    ),
+  const serverProbes = await Promise.allSettled(
+    rows.map((r) => getMatchingServersCached(ctx.userId, ctx.mediaService, r.tmdbId, r.mediaType)),
   );
   const candidates: repo.WatchlistRow[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
+    const probe = serverProbes[i]!;
+    const servers: MatchingServer[] = probe.status === "fulfilled" ? probe.value : [];
     const preview = previewForClassify(
       metadata[composite],
       statuses[composite],
-      serverLookups[i]!,
+      servers,
       progress.map.get(composite),
     );
     const bucket = classifyBucket(preview);
@@ -81,7 +83,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
     return empty;
   }
 
-  const enriched = await enrich(candidates, ctx);
+  const enriched = await enrich(candidates, enrichCtx);
   const result = pick(enriched.items);
   // fallow-ignore-next-line code-duplication
   const section: WatchlistSectionResponse = {

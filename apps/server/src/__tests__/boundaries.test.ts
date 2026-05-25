@@ -42,6 +42,7 @@ const APPROVED_RE_EXPORT_SOURCES = [
   /^\.\/errors$/,
   /^\.\/types$/,
   /^\.\/jobs$/,
+  /^\.\/progress$/,
 ];
 
 function readBarrel(module: string): string {

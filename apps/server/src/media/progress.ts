@@ -1,15 +1,19 @@
 import type { MediaType } from "@ent-mcp/shared/media";
 import { keyToId } from "@ent-mcp/shared/watchlist";
-import type {
-  MediaProgressContext,
-  MediaProgressService,
-  ProgressEntry,
-  ProgressMap,
-} from "../media";
+import type { MediaProgressContext, MediaProgressService } from "./types";
+
+/** Per-row resume position used by `classifyBucket` to mark `in-progress` rows. */
+export interface ProgressEntry {
+  watched: number;
+  total: number;
+}
+
+export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
 
 /** Matches the home `continue-watching-active` row's "still active" threshold. */
 const FINISHING_THRESHOLD = 0.85;
 
+// Keyed by the per-request MediaService instance so the plugin fan-out happens at most once per request.
 const cache = new WeakMap<MediaProgressService, Promise<{ map: ProgressMap; partial: boolean }>>();
 
 type ProgressCtx = MediaProgressContext;
@@ -46,7 +50,7 @@ async function compute(ctx: ProgressCtx): Promise<{ map: ProgressMap; partial: b
     }
     return { map, partial: res.partial };
   } catch (err) {
-    ctx.log.warn("[watchlist:progress] getContinueWatchingFeed failed", err);
+    ctx.log.warn("[media:progress] getContinueWatchingFeed failed", err);
     return { map: new Map(), partial: true };
   }
 }

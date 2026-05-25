@@ -1,3 +1,4 @@
+import type { ConsolaInstance } from "consola";
 import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import type { RawCanonicalSource } from "../catalog";
 
@@ -73,4 +74,11 @@ export interface MediaProgressService {
     limit?: number;
     deadlineMs?: number;
   }): Promise<{ items: unknown[]; partial: boolean }>;
+}
+
+/** Shared context shape for progress-loading helpers (`loadProgressMap`). */
+export interface MediaProgressContext {
+  mediaService: MediaProgressService;
+  log: ConsolaInstance;
+  deadlineMs?: number;
 }

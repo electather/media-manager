@@ -45,15 +45,12 @@ export {
   matchesBucket,
   previewForClassify,
   type PreviewMeta,
-  type ProgressEntry,
-  type ProgressMap,
   enrich,
   type EnrichOptions,
   type EnrichResult,
   type LoadProgressMap,
   type MediaEnrichContext,
   type MediaEnrichRow,
-  type MediaProgressContext,
   type MediaProgressSnapshot,
   type WatchlistEnrichContext,
 } from "./service";
@@ -61,6 +58,7 @@ export type {
   MatchingServer,
   MediaAvailabilityService,
   MediaEnrichService,
+  MediaProgressContext,
   MediaProgressService,
 } from "./types";
 export {
@@ -76,3 +74,4 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
+export { loadProgressMap, type ProgressEntry, type ProgressMap } from "./progress";

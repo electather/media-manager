@@ -1,4 +1,3 @@
-import type { ConsolaInstance } from "consola";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
@@ -7,7 +6,12 @@ import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shar
 import { ArtworkService } from "../artwork";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
-import type { MatchingServer, MediaEnrichService, MediaProgressService } from "./types";
+import type {
+  MatchingServer,
+  MediaEnrichService,
+  MediaProgressContext,
+  MediaProgressService,
+} from "./types";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
 
@@ -16,12 +20,6 @@ export interface MediaEnrichRow {
   mediaType: MediaType;
   addedAt: number;
   source: WatchlistItem["addedSource"];
-}
-
-export interface MediaProgressContext {
-  mediaService: MediaProgressService;
-  log: ConsolaInstance;
-  deadlineMs?: number;
 }
 
 export interface MediaProgressSnapshot {

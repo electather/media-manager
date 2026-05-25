@@ -30,7 +30,7 @@ import { emit, type EventName } from "../jobs/events";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
-import { loadProgressMap } from "./progress";
+import { loadProgressMap } from "../media";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 import * as repo from "./repo";
 import type { WatchlistRow } from "./repo";

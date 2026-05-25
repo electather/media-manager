@@ -259,8 +259,13 @@ pick(candidates):
 
 getTonightSection(ctx):
     rows = repo.list(userId, { state: "active" })
-    rows = classify.preFilter(rows, "ready", userId, ctx)     // ready + in-progress only
-    enriched = await enrich(rows, ctx)
+    [statuses, metadata, progress] = await Promise.all([getStatusBatch, getMetadataBatch, loadProgressMap])
+    serverProbes = await Promise.allSettled(rows.map(r => getMatchingServersCached(r)))
+    candidates = rows.filter((r, i) =>
+        bucket(previewForClassify(metadata[r], statuses[r], serverProbes[i].value ?? [], progress[r]))
+        ∈ {ready, in-progress}
+    )                                                           // inline; classify.preFilter ⊥ exists
+    enriched = await enrich(candidates, ctx)
     return pick(enriched.items)
 ```
 
