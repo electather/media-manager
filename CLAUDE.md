@@ -212,7 +212,7 @@ If you genuinely think a convention is harmful, surface it. Don't fork silently.
 "Tests pass" is wrong if any were skipped.
 Default to surfacing uncertainty, not hiding it.
 
-## Rule 13 — docs/* = source of truth
+## Rule 13 — docs/\* = source of truth
 
 Read relevant design doc before any change. Update it after.
 Design describes intended final state across phases — code listed as "kept" stays even if currently unused.
