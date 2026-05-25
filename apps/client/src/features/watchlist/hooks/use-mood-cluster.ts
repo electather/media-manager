@@ -13,7 +13,7 @@ const STALE_TIME_MS = 60_000;
  */
 export function useMoodCluster(moodId: MoodId, limit?: number) {
   const query = useSuspenseInfiniteQuery({
-    queryKey: [...watchlistKeys.moodItems(moodId), limit ?? null] as const,
+    queryKey: [...watchlistKeys.moodItems(moodId), limit] as const,
     queryFn: ({ pageParam }) =>
       fetchMoodItems(moodId, {
         ...(pageParam ? { cursor: pageParam } : {}),
