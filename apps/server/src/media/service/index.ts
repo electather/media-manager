@@ -23,8 +23,31 @@ import { invokeOne } from "./invoke";
 import { requireCapability } from "../internal/capability-lookup";
 import { dispatchToConnection, listEligibleConnections } from "./connection-targeted";
 import { decodeServiceId, encodeServiceId, TARGET_ID_RE } from "../internal/service-id";
+import type { MatchingServer } from "../types";
 import { isNil } from "es-toolkit/predicate";
 import { orderBy, uniqBy } from "es-toolkit/array";
+
+export { getMatchingServersCached, __resetAvailabilityCache } from "../availability-cache";
+export {
+  classifyBucket,
+  isActiveProgress,
+  matchesBucket,
+  previewForClassify,
+  type PreviewMeta,
+  type ProgressEntry,
+  type ProgressMap,
+} from "../classify";
+export {
+  enrich,
+  type EnrichOptions,
+  type EnrichResult,
+  type LoadProgressMap,
+  type MediaEnrichContext,
+  type MediaEnrichRow,
+  type MediaProgressSnapshot,
+  type WatchlistEnrichContext,
+} from "../enrich";
+export type { MediaProgressContext } from "../types";
 
 interface ListTargetsOutput {
   targets: Array<{
@@ -908,12 +931,6 @@ export class MediaService {
 /** Per-request library presence index for one `(plugin, type)` pair. */
 interface LibraryIndex {
   tmdbIds: Set<string>;
-  label: string;
-}
-
-/** Plugin chip displayed under `CompactMediaItem.availability.servers`. */
-export interface MatchingServer {
-  id: string;
   label: string;
 }
 

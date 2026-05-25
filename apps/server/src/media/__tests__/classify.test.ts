@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  WATCHLIST_BUCKETS,
-  type WatchlistBucket,
-  type WatchlistItem,
-} from "@ent-mcp/shared/watchlist";
+import { MEDIA_ROW_BUCKETS, type MediaRowBucket } from "@ent-mcp/shared/media";
+import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { classifyBucket } from "../classify";
 
-const VALID = new Set<WatchlistBucket>(WATCHLIST_BUCKETS);
+const VALID = new Set<MediaRowBucket>(MEDIA_ROW_BUCKETS);
 
 type ClassifyInput = Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">;
 
@@ -18,7 +15,7 @@ function row(overrides: Partial<ClassifyInput> = {}): ClassifyInput {
   };
 }
 
-describe("classifyBucket — rev 6 total-coverage (V.WL2)", () => {
+describe("classifyBucket - rev 6 total-coverage (V.WL2)", () => {
   it("classifies an active progress row as in-progress", () => {
     expect(classifyBucket(row({ progress: { watched: 100, total: 1000 } }))).toBe("in-progress");
   });

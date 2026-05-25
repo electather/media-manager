@@ -1,35 +1,56 @@
-import type { ConsolaInstance } from "consola";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { ArtworkService } from "../artwork";
-import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import type { MatchingServer, MediaService } from "../media";
+import type {
+  GetArtworkFn,
+  MatchingServer,
+  MediaEnrichService,
+  MediaProgressContext,
+  MediaProgressService,
+  ToCanonicalRowFn,
+} from "./types";
 import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket, previewForClassify } from "./classify";
-import { loadProgressMap, type ProgressMap } from "./progress";
+import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
 
-export interface WatchlistEnrichContext {
-  userId: string;
-  mediaService: MediaService;
-  catalog: CatalogService;
-  log: ConsolaInstance;
-  deadlineMs?: number;
+export interface MediaEnrichRow {
+  tmdbId: string;
+  mediaType: MediaType;
+  addedAt: number;
+  source: WatchlistItem["addedSource"];
 }
 
-export interface EnrichResult {
+export interface MediaProgressSnapshot {
+  map: ProgressMap;
+  partial: boolean;
+}
+
+export type LoadProgressMap = (ctx: MediaProgressContext) => Promise<MediaProgressSnapshot>;
+
+export interface MediaEnrichContext extends Omit<MediaProgressContext, "mediaService"> {
+  userId: string;
+  mediaService: MediaEnrichService & MediaProgressService;
+  catalog: CatalogService;
+  loadProgressMap: LoadProgressMap;
+  /** Fetches artwork bundles. Injected by callers to avoid artwork ↔ media circular dep. */
+  getArtwork?: GetArtworkFn;
+  /** Converts raw plugin metadata to canonical shape. Injected to avoid catalog ↔ media circular dep. */
+  toCanonicalRow?: ToCanonicalRowFn;
+}
+
+export type WatchlistEnrichContext = MediaEnrichContext;
+
+export interface EnrichResult<Row extends MediaEnrichRow = MediaEnrichRow> {
   items: WatchlistItem[];
   /**
-   * Source `ActiveRow` for each emitted item, in the same order. The
+   * Source row for each emitted item, in the same order. The
    * paginator uses this to encode the next cursor from the row that produced
    * the last *returned* item, not the last DB-scanned row (which would skip
    * matched-but-truncated items when a filter narrows the window).
    */
-  sources: ActiveRow[];
+  sources: Row[];
   /** True when at least one per-key lookup failed (status, availability, or cold-fill). */
   partial: boolean;
 }
@@ -63,11 +84,11 @@ export interface EnrichOptions {
  * the cold path.
  */
 // fallow-ignore-next-line complexity
-export async function enrich(
-  rows: ActiveRow[],
-  ctx: WatchlistEnrichContext,
+export async function enrich<Row extends MediaEnrichRow>(
+  rows: Row[],
+  ctx: MediaEnrichContext,
   opts: EnrichOptions = {},
-): Promise<EnrichResult> {
+): Promise<EnrichResult<Row>> {
   if (rows.length === 0) return { items: [], sources: [], partial: false };
 
   let partial = false;
@@ -75,7 +96,7 @@ export async function enrich(
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
 
   const statuses = await ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
-    ctx.log.warn("[watchlist:enrich] getStatusBatch failed", err);
+    ctx.log.warn("[media:enrich] getStatusBatch failed", err);
     partial = true;
     return {} as Record<string, string>;
   });
@@ -83,12 +104,12 @@ export async function enrich(
   const metadata: Record<string, CanonicalMetadata> = opts.prefetchedMetadata
     ? { ...opts.prefetchedMetadata }
     : await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-        ctx.log.warn("[watchlist:enrich] getMetadataBatch failed", err);
+        ctx.log.warn("[media:enrich] getMetadataBatch failed", err);
         partial = true;
         return {} as Record<string, CanonicalMetadata>;
       });
 
-  const progress = await loadProgressMap(ctx);
+  const progress = await ctx.loadProgressMap(ctx);
   if (progress.partial) partial = true;
 
   // Cold-fill canonical metadata for any rows the catalog has not seen yet so
@@ -99,7 +120,7 @@ export async function enrich(
       const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
       if (metadata[composite]) return;
       const cold = await loadColdMetadata(row, ctx).catch((err) => {
-        ctx.log.warn("[watchlist:enrich] cold-fill metadata failed", err);
+        ctx.log.warn("[media:enrich] cold-fill metadata failed", err);
         return null;
       });
       if (cold) metadata[composite] = cold;
@@ -121,7 +142,7 @@ export async function enrich(
   let liveServers = servers;
   if (opts.filter) {
     // fallow-ignore-next-line code-duplication
-    const kept: ActiveRow[] = [];
+    const kept: Row[] = [];
     const keptServers: typeof servers = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]!;
@@ -156,7 +177,7 @@ export async function enrich(
   );
 
   const items: WatchlistItem[] = [];
-  const sources: ActiveRow[] = [];
+  const sources: Row[] = [];
   for (let i = 0; i < settled.length; i++) {
     const result = settled[i]!;
     if (result.status === "fulfilled") {
@@ -167,14 +188,14 @@ export async function enrich(
       }
     } else {
       partial = true;
-      ctx.log.warn("[watchlist:enrich] per-row enrichment threw", result.reason);
+      ctx.log.warn("[media:enrich] per-row enrichment threw", result.reason);
     }
   }
   return { items, sources, partial };
 }
 
 async function enrichOne(
-  row: ActiveRow,
+  row: MediaEnrichRow,
   statuses: Record<string, string>,
   metadata: Record<string, CanonicalMetadata>,
   artwork: Record<string, ArtworkBundle>,
@@ -221,9 +242,9 @@ async function enrichOne(
  * and must never break a watchlist response.
  */
 async function hydrateArtwork(
-  rows: ActiveRow[],
+  rows: MediaEnrichRow[],
   metadata: Record<string, CanonicalMetadata>,
-  ctx: WatchlistEnrichContext,
+  ctx: MediaEnrichContext,
 ): Promise<Record<string, ArtworkBundle>> {
   const requests: ArtworkRequestItem[] = [];
   for (const row of rows) {
@@ -236,13 +257,12 @@ async function hydrateArtwork(
       type: row.mediaType,
     });
   }
-  if (requests.length === 0) return {};
+  if (requests.length === 0 || !ctx.getArtwork) return {};
   try {
-    const service = new ArtworkService(ctx.userId, ctx.catalog);
-    const res = await service.getArtwork(requests);
+    const res = await ctx.getArtwork(requests);
     return res.results;
   } catch (err) {
-    ctx.log.warn("[watchlist:enrich] artwork hydration failed", err);
+    ctx.log.warn("[media:enrich] artwork hydration failed", err);
     return {};
   }
 }
@@ -271,20 +291,18 @@ function mergeArtwork(
 }
 
 async function loadColdMetadata(
-  row: ActiveRow,
-  ctx: WatchlistEnrichContext,
+  row: MediaEnrichRow,
+  ctx: MediaEnrichContext,
 ): Promise<CanonicalMetadata | null> {
-  const raw = (await ctx.mediaService.getMetadata(
-    row.tmdbId,
-    row.mediaType,
-  )) as RawCanonicalSource | null;
+  if (!ctx.toCanonicalRow) return null;
+  const raw = await ctx.mediaService.getMetadata(row.tmdbId, row.mediaType);
   if (!raw) return null;
-  const canonical = toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw);
+  const canonical = ctx.toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw);
   // Fire-and-forget the write — the next read still hits the catalog cache;
   // we don't need to await it before threading the value back to the caller.
   void ctx.catalog
     .writeMetadata([canonical])
-    .catch((err) => ctx.log.warn("[watchlist:enrich] catalog write threw", err));
+    .catch((err) => ctx.log.warn("[media:enrich] catalog write threw", err));
   return canonical;
 }
 

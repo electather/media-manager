@@ -91,6 +91,15 @@ jobs:
                  changes, CI/tooling edits, dependency bumps, and doc-only
                  PRs; say so explicitly and don't demand a link.
 
+            7. **Fallow baseline (BLOCKING)**
+               `.fallow/dead-code-baseline.json` must never grow. If a PR adds
+               entries to `unused_files`, `unused_exports`, `unused_types`, or
+               any other array in that file, block and ask the author to fix the
+               root cause instead. The only valid exception is an inline
+               `// fallow-ignore-file <rule>` or `// fallow-ignore-next-line <rule>`
+               comment in the source file with a one-line reason. Suppressing via
+               the baseline file is not acceptable.
+
             Post inline comments for specific line-level issues.
             Use a top-level PR comment for overall observations or a summary.
             Mark blocking issues clearly; flag minor suggestions as non-blocking.

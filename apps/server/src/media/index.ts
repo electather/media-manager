@@ -1,6 +1,5 @@
 export {
   MediaService,
-  type MatchingServer,
   type HomeAggregate,
   interpretAggregate,
   type DispatchRequest,
@@ -39,7 +38,31 @@ export {
   setPrimaryConnection,
   clearPrimaryConnection,
   getPrimaryConnection,
+  getMatchingServersCached,
+  __resetAvailabilityCache,
+  classifyBucket,
+  isActiveProgress,
+  matchesBucket,
+  previewForClassify,
+  type PreviewMeta,
+  enrich,
+  type EnrichOptions,
+  type EnrichResult,
+  type LoadProgressMap,
+  type MediaEnrichContext,
+  type MediaEnrichRow,
+  type MediaProgressSnapshot,
+  type WatchlistEnrichContext,
 } from "./service";
+export type {
+  MatchingServer,
+  MediaAvailabilityService,
+  MediaEnrichService,
+  MediaProgressContext,
+  MediaProgressService,
+  GetArtworkFn,
+  ToCanonicalRowFn,
+} from "./types";
 export {
   MEDIA_EVENTS,
   connectionAuthExpiredPayload,
@@ -53,6 +76,7 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
+export { loadProgressMap, type ProgressEntry, type ProgressMap } from "./progress";
 export type { ActiveRow, RowSort, RowFilter } from "@ent-mcp/shared/media";
 export {
   listActiveRows,

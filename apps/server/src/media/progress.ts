@@ -1,7 +1,6 @@
-import type { ConsolaInstance } from "consola";
 import type { MediaType } from "@ent-mcp/shared/media";
 import { keyToId } from "@ent-mcp/shared/watchlist";
-import type { MediaService } from "../media";
+import type { MediaProgressContext, MediaProgressService } from "./types";
 
 /** Per-row resume position used by `classifyBucket` to mark `in-progress` rows. */
 export interface ProgressEntry {
@@ -14,13 +13,10 @@ export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
 /** Matches the home `continue-watching-active` row's "still active" threshold. */
 const FINISHING_THRESHOLD = 0.85;
 
-const cache = new WeakMap<MediaService, Promise<{ map: ProgressMap; partial: boolean }>>();
+// Keyed by the per-request MediaService instance so the plugin fan-out happens at most once per request.
+const cache = new WeakMap<MediaProgressService, Promise<{ map: ProgressMap; partial: boolean }>>();
 
-interface ProgressCtx {
-  mediaService: MediaService;
-  log: ConsolaInstance;
-  deadlineMs?: number;
-}
+type ProgressCtx = MediaProgressContext;
 
 /**
  * Per-request memoized fetch of the continue-watching aggregate, projected
@@ -49,12 +45,12 @@ async function compute(ctx: ProgressCtx): Promise<{ map: ProgressMap; partial: b
     const res = await ctx.mediaService.getContinueWatchingFeed(opts);
     const map = new Map<string, ProgressEntry>();
     for (const entry of res.items) {
-      const projected = projectEntry(entry);
+      const projected = projectEntry(entry as RawCwEntry);
       if (projected) map.set(projected.id, projected.entry);
     }
     return { map, partial: res.partial };
   } catch (err) {
-    ctx.log.warn("[watchlist:progress] getContinueWatchingFeed failed", err);
+    ctx.log.warn("[media:progress] getContinueWatchingFeed failed", err);
     return { map: new Map(), partial: true };
   }
 }

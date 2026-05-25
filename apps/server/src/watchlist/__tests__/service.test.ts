@@ -36,7 +36,7 @@ const {
   syncFromPlugins,
 } = await import("../service");
 const mediaRepo = await import("../../media/repo");
-const { __resetAvailabilityCache } = await import("../availability-cache");
+const { __resetAvailabilityCache } = await import("../../media");
 
 let testDb: Db;
 

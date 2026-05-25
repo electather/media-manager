@@ -174,11 +174,6 @@
         "count": 4
       }
     },
-    "apps/client/src/features/watchlist/components/recently-added.tsx": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/client/src/features/watchlist/components/watchlist-card.tsx": {
       "crap_critical": {
         "count": 1
@@ -197,18 +192,8 @@
         "count": 1
       }
     },
-    "apps/client/src/features/watchlist/hooks/use-add-to-watchlist.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/client/src/features/watchlist/hooks/use-toggle-watchlist.ts": {
       "crap_high": {
-        "count": 1
-      }
-    },
-    "apps/client/src/features/watchlist/lib/derive-moods.ts": {
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -232,11 +217,6 @@
         "count": 1
       }
     },
-    "apps/client/src/shared/lib/watchlist/types.ts": {
-      "crap_high": {
-        "count": 1
-      }
-    },
     "apps/server/src/home/internal/enrich.ts": {
       "crap_high": {
         "count": 2
@@ -247,13 +227,33 @@
         "count": 1
       }
     },
-    "apps/server/src/watchlist/enrich.ts": {
+    "apps/server/src/media/enrich.ts": {
       "crap_critical": {
         "count": 2
       },
       "crap_high": {
+        "count": 2
+      }
+    },
+    "apps/server/src/media/errors.ts": {
+      "crap_high": {
         "count": 1
+      }
+    },
+    "apps/server/src/media/service/index.ts": {
+      "crap_high": {
+        "count": 2
       },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/server/src/plugin-runtime/internal/host-bridge.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/server/src/plugin-runtime/internal/user-pool.ts": {
       "crap_moderate": {
         "count": 1
       }
@@ -268,14 +268,22 @@
         "count": 1
       },
       "crap_moderate": {
-        "count": 2
+        "count": 1
+      }
+    },
+    "packages/shared/src/plugins/purpose.ts": {
+      "crap_moderate": {
+        "count": 1
       }
     }
   },
   "runtime_coverage_findings": [],
   "target_keys": [
+    "apps/server/src/watchlist/tonight/score.ts:untested risk",
     "apps/client/src/features/diagnostics/shared/query-keys.ts:high impact",
+    "apps/server/src/media/service/compact.ts:untested risk",
     "apps/client/src/shared/components/schema-form.tsx:complexity",
+    "apps/server/src/watchlist/moods/registry.ts:untested risk",
     "apps/client/src/features/admin/components/shared-credentials/dialog.tsx:complexity",
     "apps/server/src/catalog/jobs/prune.ts:circular dependency",
     "apps/client/src/features/notifications/shared/query-keys.ts:high impact",
@@ -283,17 +291,21 @@
     "apps/server/src/preferences/service.ts:circular dependency",
     "apps/server/src/preferences/jobs/incremental-rebuild.ts:circular dependency",
     "apps/server/src/diagnostics/capture.ts:high impact",
+    "apps/client/src/features/settings-connections/lib/query-keys.ts:high impact",
+    "apps/server/src/preferences/internal/incremental.ts:untested risk",
     "apps/server/src/catalog/jobs/index.ts:circular dependency",
     "apps/server/src/catalog/jobs/recommendation-build.ts:circular dependency",
     "apps/client/src/app/nav-items.ts:high impact",
+    "apps/server/src/media/classify.ts:untested risk",
     "apps/client/src/features/home/components/card/card-meta.tsx:untested risk",
+    "apps/server/src/watchlist/service.ts:complexity",
     "apps/client/src/shared/lib/time-format.ts:high impact",
     "apps/server/src/preferences/jobs/daily-rebuild.ts:circular dependency",
     "apps/client/src/features/admin-roles/lib/permission-tree.ts:high impact",
     "apps/server/src/preferences/jobs/index.ts:circular dependency",
-    "apps/client/src/shared/lib/watchlist/types.ts:untested risk",
     "apps/server/src/home/internal/match-reason.ts:untested risk",
     "apps/server/src/preferences/internal/manual-rebuild-helpers.ts:circular dependency",
+    "apps/server/src/media/internal/parse-item.ts:untested risk",
     "apps/server/src/preferences/jobs/manual-rebuild.ts:circular dependency",
     "apps/server/src/preferences/internal/catalog-provider.ts:circular dependency",
     "apps/client/src/shared/components/json-viewer.tsx:complexity"
