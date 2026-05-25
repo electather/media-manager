@@ -116,6 +116,7 @@ describe("tonight/section — getSection", () => {
     expect(enrich).toHaveBeenCalledOnce();
     const candidates = vi.mocked(enrich).mock.calls[0]![0] as { tmdbId: string }[];
     expect(candidates.map((r) => r.tmdbId)).toContain("ok-1");
+    expect(candidates.map((r) => r.tmdbId)).not.toContain("fail-2");
   });
 
   it("pre-filters: only ready and in-progress rows reach enrich", async () => {
@@ -157,7 +158,7 @@ describe("tonight/section — getSection", () => {
     expect(candidateTmdbIds).not.toContain("unavail-3");
   });
 
-  it("returns cached result on second call without re-fetching rows", async () => {
+  it("returns cached result on second call without re-invoking getStatusBatch", async () => {
     await repo.bulkInsertIgnoreConflict(
       "u1",
       [{ tmdbId: "10", mediaType: "movie" }],
@@ -171,7 +172,7 @@ describe("tonight/section — getSection", () => {
     await getSection(ctx);
     await getSection(ctx);
 
-    // listAllActive is called via repo which hits the DB; getStatusBatch is on the service mock
+    // getStatusBatch is the cheapest observable proxy for whether section re-fetched on the second call.
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(ctx.mediaService.getStatusBatch).toHaveBeenCalledOnce();
   });
