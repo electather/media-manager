@@ -58,8 +58,8 @@ export async function enrichItems(
  * sees the resolved URLs without us re-issuing the dispatch. Failures are
  * swallowed — artwork is best-effort and must never break a row response.
  *
- * The hydrate-loop / pickArtworkUrl / mergeArtwork shape duplicates
- * `apps/server/src/watchlist/enrich.ts`. Extraction requires a generic
+ * The hydrate-loop / pickArtworkUrl / mergeArtwork shape overlaps with
+ * `apps/server/src/media/enrich.ts`. Extraction requires a generic
  * `hydrateArtworkFor<T>` helper on the artwork module plus matching wrapper
  * changes in watchlist — tracked as #482 and deferred from this PR (deadline
  * propagation only).

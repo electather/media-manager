@@ -1,26 +1,20 @@
-import type { ConsolaInstance } from "consola";
 import type { MediaType } from "@ent-mcp/shared/media";
 import { keyToId } from "@ent-mcp/shared/watchlist";
-import type { MediaService } from "../media";
+import type {
+  MediaProgressContext,
+  MediaProgressService,
+  ProgressEntry,
+  ProgressMap,
+} from "../media";
 
-/** Per-row resume position used by `classifyBucket` to mark `in-progress` rows. */
-export interface ProgressEntry {
-  watched: number;
-  total: number;
-}
-
-export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
+export type { ProgressEntry, ProgressMap } from "../media";
 
 /** Matches the home `continue-watching-active` row's "still active" threshold. */
 const FINISHING_THRESHOLD = 0.85;
 
-const cache = new WeakMap<MediaService, Promise<{ map: ProgressMap; partial: boolean }>>();
+const cache = new WeakMap<MediaProgressService, Promise<{ map: ProgressMap; partial: boolean }>>();
 
-interface ProgressCtx {
-  mediaService: MediaService;
-  log: ConsolaInstance;
-  deadlineMs?: number;
-}
+type ProgressCtx = MediaProgressContext;
 
 /**
  * Per-request memoized fetch of the continue-watching aggregate, projected
@@ -49,7 +43,7 @@ async function compute(ctx: ProgressCtx): Promise<{ map: ProgressMap; partial: b
     const res = await ctx.mediaService.getContinueWatchingFeed(opts);
     const map = new Map<string, ProgressEntry>();
     for (const entry of res.items) {
-      const projected = projectEntry(entry);
+      const projected = projectEntry(entry as RawCwEntry);
       if (projected) map.set(projected.id, projected.entry);
     }
     return { map, partial: res.partial };

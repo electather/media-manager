@@ -1,4 +1,5 @@
 import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
+import type { RawCanonicalSource } from "../catalog";
 
 export interface DispatchRequest {
   userId: string;
@@ -36,4 +37,40 @@ export interface AggregateResult<T> {
    * to contribute" (attempted > errors.length, data empty).
    */
   attempted: number;
+}
+
+/** Plugin chip displayed under `CompactMediaItem.availability.servers`. */
+export interface MatchingServer {
+  id: string;
+  label: string;
+}
+
+/** Minimal media surface needed by shared availability-cache helpers. */
+export interface MediaAvailabilityService {
+  getMatchingServers(
+    tmdbId: string,
+    type: "movie" | "tv",
+    opts?: { deadlineMs?: number },
+  ): Promise<MatchingServer[]>;
+}
+
+/** Minimal media surface needed by shared enrichment helpers. */
+export interface MediaEnrichService extends MediaAvailabilityService {
+  getStatusBatch(
+    ids: ReadonlyArray<string>,
+    opts?: { deadlineMs?: number },
+  ): Promise<Record<string, string>>;
+  getMetadata(
+    tmdbId: string,
+    type: "movie" | "tv",
+    opts?: { deadlineMs?: number },
+  ): Promise<RawCanonicalSource | null>;
+}
+
+/** Minimal media surface needed by shared progress helpers. */
+export interface MediaProgressService {
+  getContinueWatchingFeed(opts?: {
+    limit?: number;
+    deadlineMs?: number;
+  }): Promise<{ items: unknown[]; partial: boolean }>;
 }

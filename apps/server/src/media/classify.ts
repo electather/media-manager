@@ -1,6 +1,14 @@
-import type { WatchlistBucket, WatchlistItem } from "@ent-mcp/shared/watchlist";
-import type { MatchingServer } from "../media";
-import type { ProgressEntry } from "./progress";
+import { MEDIA_ROW_STATUS_MAP, type MediaRowBucket } from "@ent-mcp/shared/media";
+import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { MatchingServer } from "./types";
+
+/** Per-row resume position used by `classifyBucket` to mark `in-progress` rows. */
+export interface ProgressEntry {
+  watched: number;
+  total: number;
+}
+
+export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
 
 /**
  * Server-side mirror of the client's classifier (see
@@ -9,17 +17,6 @@ import type { ProgressEntry } from "./progress";
  * the same row. Rev 6: every row classifies into one of the five visible
  * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
  */
-// Request-provider status `"unavailable"` ("not servable yet") maps to the
-// `awaiting` bucket. Distinct from the *bucket* `"unavailable"` (no server,
-// no request) — see design name-collision note.
-const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistBucket | undefined> = {
-  available: "ready",
-  requested: "awaiting",
-  unavailable: "awaiting",
-  processing: "awaiting",
-  unknown: undefined,
-};
-
 function isInfoOnly(item: Pick<WatchlistItem, "availability">): boolean {
   const a = item.availability;
   return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
@@ -34,15 +31,15 @@ export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
 // fallow-ignore-next-line complexity
 export function classifyBucket(
   item: Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">,
-): WatchlistBucket {
+): MediaRowBucket {
   if (isActiveProgress(item.progress)) return "in-progress";
-  const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
+  const fromStatus = item.status ? MEDIA_ROW_STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
   if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
   return "unavailable";
 }
 
-export function matchesBucket(classified: WatchlistBucket, target: WatchlistBucket): boolean {
+export function matchesBucket(classified: MediaRowBucket, target: MediaRowBucket): boolean {
   return classified === target;
 }
 

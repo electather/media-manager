@@ -1,6 +1,5 @@
 export {
   MediaService,
-  type MatchingServer,
   type HomeAggregate,
   interpretAggregate,
   type DispatchRequest,
@@ -39,7 +38,31 @@ export {
   setPrimaryConnection,
   clearPrimaryConnection,
   getPrimaryConnection,
+  getMatchingServersCached,
+  __resetAvailabilityCache,
+  classifyBucket,
+  isActiveProgress,
+  matchesBucket,
+  previewForClassify,
+  type PreviewMeta,
+  type ProgressEntry,
+  type ProgressMap,
+  enrich,
+  type EnrichOptions,
+  type EnrichResult,
+  type LoadProgressMap,
+  type MediaEnrichContext,
+  type MediaEnrichRow,
+  type MediaProgressContext,
+  type MediaProgressSnapshot,
+  type WatchlistEnrichContext,
 } from "./service";
+export type {
+  MatchingServer,
+  MediaAvailabilityService,
+  MediaEnrichService,
+  MediaProgressService,
+} from "./types";
 export {
   MEDIA_EVENTS,
   connectionAuthExpiredPayload,

@@ -4,9 +4,13 @@ import {
   type WatchlistItem,
   type WatchlistSectionResponse,
 } from "@ent-mcp/shared/watchlist";
-import { getMatchingServersCached } from "../availability-cache";
-import { classifyBucket, previewForClassify } from "../classify";
-import { enrich, type WatchlistEnrichContext } from "../enrich";
+import {
+  classifyBucket,
+  enrich,
+  getMatchingServersCached,
+  previewForClassify,
+  type WatchlistEnrichContext,
+} from "../../media";
 import { loadProgressMap } from "../progress";
 import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";

@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { score, WEIGHTS } from "../score";
+
+vi.mock("../../../env", () => ({
+  env: {
+    APP_EXTERNAL_URL: "http://localhost:3000",
+    BETTER_AUTH_SECRET: "test-secret",
+    BETTER_AUTH_URL: "http://localhost:3000",
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+  },
+}));
 
 const NOW = 1_700_000_000_000;
 const RECENT_MS = NOW - 24 * 60 * 60 * 1000;

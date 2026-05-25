@@ -1,3 +1,5 @@
+import { MEDIA_ROW_BUCKETS, type MediaRowBucket } from "../media/enums";
+
 export const WATCHLIST_STATES = ["active", "removed"] as const;
 export type WatchlistState = (typeof WATCHLIST_STATES)[number];
 
@@ -22,21 +24,15 @@ export const WATCHLIST_USER_SOURCES = [
 export type WatchlistUserSource = (typeof WATCHLIST_USER_SOURCES)[number];
 
 /**
- * Coarse buckets the list endpoint can pre-classify against so the server
- * skips artwork hydration for rows the requested filter would drop.
+ * Coarse buckets the list endpoint can pre-classify against. Media owns the
+ * tuple because home and watchlist rows share the same enrichment signals.
  * `in-progress` is a real bucket; rows whose underlying media has an active
  * watch position (from `continueWatching@v1`) win over `ready`. `unavailable`
  * is the catch-all visible bucket for rows that have no server copy and no
  * active request status — the classifier emits no hidden tail.
  */
-export const WATCHLIST_BUCKETS = [
-  "ready",
-  "in-progress",
-  "awaiting",
-  "unavailable",
-  "upcoming",
-] as const;
-export type WatchlistBucket = (typeof WATCHLIST_BUCKETS)[number];
+export const WATCHLIST_BUCKETS = MEDIA_ROW_BUCKETS;
+export type WatchlistBucket = MediaRowBucket;
 
 /** Sort variants supported by `/api/watchlist/items`. `recent` is the default and uses keyset cursors. */
 export const WATCHLIST_SORTS = ["recent", "alpha", "runtime", "status"] as const;
