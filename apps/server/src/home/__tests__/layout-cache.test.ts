@@ -12,7 +12,7 @@ vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-const { CURRENT_SCHEMA_VERSION, isFresh, read, write } = await import("../repo");
+const { CURRENT_SCHEMA_VERSION, isFresh, read, write } = await import("../internal/layout-cache");
 
 let db: Db;
 

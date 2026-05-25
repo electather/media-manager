@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
-import { getDb, type Db } from "../db/client";
-import { homeLayoutCache } from "../db/schema/home";
+import { getDb, type Db } from "../../db/client";
+import { homeLayoutCache } from "../../db/schema/home";
 
 /**
  * Bump every time `HomeLayoutResponse`, `HomeRowStub`, or `LayoutHero` change

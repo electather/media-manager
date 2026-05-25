@@ -9,7 +9,7 @@ import { feedback } from "../../db/schema/preferences/feedback";
 import { userHistoryMirror } from "../../db/schema/catalog";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
 import { buildContext, composeLayout } from "../service";
-import { write as writeLayoutCache } from "../repo";
+import { write as writeLayoutCache } from "../internal/layout-cache";
 
 const ACTIVE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const RUN_TIMEOUT_SEC = 30 * 60;

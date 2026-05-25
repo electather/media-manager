@@ -8,12 +8,13 @@ import {
   classifyBucket,
   enrich,
   getMatchingServersCached,
+  listAllActiveRows,
   loadProgressMap,
   previewForClassify,
+  type ActiveRow,
   type MatchingServer,
   type WatchlistEnrichContext,
 } from "../../media";
-import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
 
@@ -35,7 +36,7 @@ export async function getSection(ctx: SectionContext): Promise<WatchlistSectionR
   const hit = cache.get(ctx.userId);
   if (hit) return hit;
 
-  const rows = await repo.listAllActive(ctx.userId);
+  const rows = await listAllActiveRows(ctx.userId);
   if (rows.length === 0) {
     const empty: WatchlistSectionResponse = { items: [], partial: false };
     cache.set(ctx.userId, empty);
@@ -62,7 +63,7 @@ export async function getSection(ctx: SectionContext): Promise<WatchlistSectionR
   const serverProbes = await Promise.allSettled(
     rows.map((r) => getMatchingServersCached(ctx.userId, ctx.mediaService, r.tmdbId, r.mediaType)),
   );
-  const candidates: repo.WatchlistRow[] = [];
+  const candidates: ActiveRow[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });

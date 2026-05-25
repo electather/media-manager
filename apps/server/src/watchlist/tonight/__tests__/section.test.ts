@@ -37,7 +37,7 @@ const { getMatchingServersCached } = await import("../../../media/availability-c
 const { loadProgressMap } = await import("../../../media");
 const { enrich } = await import("../../../media/enrich");
 const { getSection, __resetTonightCache } = await import("../section");
-const repo = await import("../../repo");
+const mediaRepo = await import("../../../media/repo");
 
 let testDb: Db;
 
@@ -74,7 +74,7 @@ afterAll(() => cleanupInMemoryDbs());
 
 beforeEach(async () => {
   vi.clearAllMocks();
-  await repo.__resetForTests(testDb);
+  await mediaRepo.__resetActiveRowsForTests(testDb);
   __resetTonightCache();
   vi.mocked(getMatchingServersCached).mockResolvedValue([]);
   vi.mocked(loadProgressMap).mockResolvedValue({ map: new Map(), partial: false });
@@ -91,7 +91,7 @@ describe("tonight/section — getSection", () => {
     // If the implementation used Promise.all, a single rejection would abort the
     // entire batch and no row would reach enrich. Promise.allSettled lets the
     // non-failing rows proceed — this test fails if Promise.all is substituted.
-    await repo.bulkInsertIgnoreConflict(
+    await mediaRepo.bulkInsertActiveRows(
       "u1",
       [
         { tmdbId: "ok-1", mediaType: "movie" },
@@ -121,7 +121,7 @@ describe("tonight/section — getSection", () => {
 
   it("pre-filters: only ready and in-progress rows reach enrich", async () => {
     const now = Date.now();
-    await repo.bulkInsertIgnoreConflict(
+    await mediaRepo.bulkInsertActiveRows(
       "u1",
       [
         { tmdbId: "ready-1", mediaType: "movie" },
@@ -159,7 +159,7 @@ describe("tonight/section — getSection", () => {
   });
 
   it("returns cached result on second call without re-invoking getStatusBatch", async () => {
-    await repo.bulkInsertIgnoreConflict(
+    await mediaRepo.bulkInsertActiveRows(
       "u1",
       [{ tmdbId: "10", mediaType: "movie" }],
       "manual",

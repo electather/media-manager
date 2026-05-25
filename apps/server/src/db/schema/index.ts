@@ -9,4 +9,4 @@ export * from "./infra";
 export * from "./notifications";
 export * from "./plugin-runtime";
 export * from "./preferences";
-export * from "./watchlist";
+export * from "./media";
