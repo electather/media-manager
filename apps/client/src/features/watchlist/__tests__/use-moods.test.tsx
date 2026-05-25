@@ -5,6 +5,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useMoods } from "../hooks/use-moods";
 import { useMoodCluster } from "../hooks/use-mood-cluster";
+import { watchlistKeys } from "../lib/query-keys";
 
 vi.mock("@/features/watchlist/lib/fetchers", () => ({
   fetchItems: vi.fn(),
@@ -48,5 +49,17 @@ describe("useMoods + useMoodCluster", () => {
     renderHook(() => useMoodCluster("cozy", 5), { wrapper: wrap(client) });
     await waitFor(() => expect(fetchMoodItemsMock).toHaveBeenCalled());
     expect(fetchMoodItemsMock).toHaveBeenCalledWith("cozy", { limit: 5 });
+  });
+
+  it("useMoodCluster does not leak null into the query key when limit is omitted", async () => {
+    fetchMoodItemsMock.mockResolvedValueOnce({ items: [], cursor: null, partial: false });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderHook(() => useMoodCluster("cozy"), { wrapper: wrap(client) });
+
+    await waitFor(() => expect(fetchMoodItemsMock).toHaveBeenCalled());
+
+    const query = client.getQueryCache().findAll({ queryKey: watchlistKeys.moodItems("cozy") })[0];
+    expect(query).toBeDefined();
+    expect(query!.queryKey).toEqual([...watchlistKeys.moodItems("cozy"), undefined]);
   });
 });
