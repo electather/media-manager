@@ -73,6 +73,7 @@ beforeAll(async () => {
 afterAll(() => cleanupInMemoryDbs());
 
 beforeEach(async () => {
+  vi.clearAllMocks();
   await repo.__resetForTests(testDb);
   __resetTonightCache();
   vi.mocked(getMatchingServersCached).mockResolvedValue([]);
@@ -86,14 +87,15 @@ describe("tonight/section — getSection", () => {
     expect(result).toEqual({ items: [], partial: false });
   });
 
-  it("fans out server probes via Promise.allSettled (concurrency pin)", async () => {
-    const ROW_COUNT = 3;
+  it("resilient fan-out: rejected probe does not block other rows from pre-filtering", async () => {
+    // If the implementation used Promise.all, a single rejection would abort the
+    // entire batch and no row would reach enrich. Promise.allSettled lets the
+    // non-failing rows proceed — this test fails if Promise.all is substituted.
     await repo.bulkInsertIgnoreConflict(
       "u1",
       [
-        { tmdbId: "1", mediaType: "movie" },
-        { tmdbId: "2", mediaType: "movie" },
-        { tmdbId: "3", mediaType: "tv" },
+        { tmdbId: "ok-1", mediaType: "movie" },
+        { tmdbId: "fail-2", mediaType: "movie" },
       ],
       "manual",
       false,
@@ -101,18 +103,19 @@ describe("tonight/section — getSection", () => {
       testDb,
     );
 
-    const allSettledSpy = vi.spyOn(Promise, "allSettled");
+    vi.mocked(getMatchingServersCached).mockImplementation((_userId, _svc, tmdbId) =>
+      tmdbId === "fail-2"
+        ? Promise.reject(new Error("probe timeout"))
+        : Promise.resolve([{ id: "jf", label: "Jellyfin" }] as unknown as Awaited<
+            ReturnType<typeof getMatchingServersCached>
+          >),
+    );
 
     await getSection(makeCtx());
 
-    // Exactly one allSettled call should have received an array of ROW_COUNT promises —
-    // the server-probe fan-out. This pins that no per-row sequential await replaced it.
-    const probeCall = allSettledSpy.mock.calls.find(
-      ([iterable]) => Array.isArray(iterable) && (iterable as unknown[]).length === ROW_COUNT,
-    );
-    expect(probeCall).toBeDefined();
-
-    allSettledSpy.mockRestore();
+    expect(enrich).toHaveBeenCalledOnce();
+    const candidates = vi.mocked(enrich).mock.calls[0]![0] as { tmdbId: string }[];
+    expect(candidates.map((r) => r.tmdbId)).toContain("ok-1");
   });
 
   it("pre-filters: only ready and in-progress rows reach enrich", async () => {
