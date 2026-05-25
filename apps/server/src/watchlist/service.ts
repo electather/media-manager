@@ -17,6 +17,7 @@ import {
 } from "@ent-mcp/shared/watchlist";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import { ArtworkService } from "../artwork";
+import { MemoryCache } from "../cache/memory";
 import { toCanonicalRow, type CatalogService } from "../catalog";
 import {
   classifyBucket,
@@ -133,6 +134,13 @@ function clampLimit(value: number | undefined): number {
   return Math.min(value, WATCHLIST_LIST_MAX_LIMIT);
 }
 
+const COUNTS_CACHE_TTL_MS = 30_000;
+const countsCache = new MemoryCache(5000);
+
+function countsCacheKey(userId: string): string {
+  return `watchlist:counts:${userId}`;
+}
+
 /**
  * Returns cheap aggregate counts for the header pips. Walks every active row
  * once with metadata + status + cached matching-server probes — NO artwork
@@ -142,9 +150,22 @@ function clampLimit(value: number | undefined): number {
 // fallow-ignore-next-line complexity
 export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> {
   const c = asWatchlistContext(ctx);
+  const cacheKey = countsCacheKey(c.userId);
+  const hit = await countsCache.get<WatchlistCounts>(cacheKey);
+  if (hit !== null) return hit;
+
   const rows = await repo.listAllActive(c.userId);
   if (rows.length === 0) {
-    return { ready: 0, inProgress: 0, awaiting: 0, unavailable: 0, upcoming: 0, total: 0 };
+    const empty: WatchlistCounts = {
+      ready: 0,
+      inProgress: 0,
+      awaiting: 0,
+      unavailable: 0,
+      upcoming: 0,
+      total: 0,
+    };
+    await countsCache.set(cacheKey, empty, COUNTS_CACHE_TTL_MS);
+    return empty;
   }
 
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
@@ -196,7 +217,25 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
     else if (bucket === "unavailable") unavailable++;
   }
 
-  return { ready, inProgress, awaiting, unavailable, upcoming, total: rows.length };
+  const counts: WatchlistCounts = {
+    ready,
+    inProgress,
+    awaiting,
+    unavailable,
+    upcoming,
+    total: rows.length,
+  };
+  await countsCache.set(cacheKey, counts, COUNTS_CACHE_TTL_MS);
+  return counts;
+}
+
+export async function invalidateCounts(userId: string): Promise<void> {
+  await countsCache.delete(countsCacheKey(userId));
+}
+
+/** Test-only. */
+export async function __resetCountsCache(): Promise<void> {
+  await countsCache.clear("watchlist:counts:");
 }
 
 export interface AddItemResult {

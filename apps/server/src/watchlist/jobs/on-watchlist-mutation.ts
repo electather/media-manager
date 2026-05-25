@@ -1,5 +1,6 @@
 import { on } from "../../jobs/events";
 import { invalidateMoodSummary } from "../moods/cluster";
+import { invalidateCounts } from "../service";
 import { invalidateTonightSection } from "../tonight/section";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "../events";
 
@@ -14,12 +15,18 @@ export function register(): void {
   if (registered) return;
   registered = true;
   on(WATCHLIST_EVENTS.ITEM_ADDED, watchlistItemAddedSchema, async ({ userId }) => {
-    invalidateTonightSection(userId);
-    invalidateMoodSummary(userId);
+    await Promise.all([
+      invalidateTonightSection(userId),
+      invalidateMoodSummary(userId),
+      invalidateCounts(userId),
+    ]);
   });
   on(WATCHLIST_EVENTS.ITEM_REMOVED, watchlistItemRemovedSchema, async ({ userId }) => {
-    invalidateTonightSection(userId);
-    invalidateMoodSummary(userId);
+    await Promise.all([
+      invalidateTonightSection(userId),
+      invalidateMoodSummary(userId),
+      invalidateCounts(userId),
+    ]);
   });
 }
 

@@ -52,8 +52,8 @@ function makeCatalog(metaMap: Record<string, CanonicalMetadata>) {
   } as unknown as Parameters<typeof getSummary>[0]["catalog"];
 }
 
-beforeEach(() => {
-  __resetMoodCache();
+beforeEach(async () => {
+  await __resetMoodCache();
   listAllActiveMock.mockReset();
 });
 
@@ -111,7 +111,7 @@ describe("moods/cluster", () => {
     });
     const ctx = { userId: "u1", catalog, log: consola.withTag("test") };
     await getSummary(ctx);
-    invalidateMoodSummary("u1");
+    await invalidateMoodSummary("u1");
     await getSummary(ctx);
     expect(listAllActiveMock).toHaveBeenCalledTimes(2);
   });

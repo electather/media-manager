@@ -13,14 +13,18 @@ import {
   type MatchingServer,
   type WatchlistEnrichContext,
 } from "../../media";
+import { MemoryCache } from "../../cache/memory";
 import * as repo from "../repo";
-import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
 
 const CACHE_TTL_MS = 5 * 60_000;
-const cache = new UserTtlCache<WatchlistSectionResponse>(CACHE_TTL_MS);
+const cache = new MemoryCache(5000);
 
 type SectionContext = Omit<WatchlistEnrichContext, "loadProgressMap">;
+
+function sectionCacheKey(userId: string): string {
+  return `watchlist:tonight:${userId}`;
+}
 
 /**
  * Tonight section: hero + ≤4 alternates from the user's ready / in-progress
@@ -32,13 +36,14 @@ type SectionContext = Omit<WatchlistEnrichContext, "loadProgressMap">;
 export async function getSection(ctx: SectionContext): Promise<WatchlistSectionResponse> {
   const enrichCtx: WatchlistEnrichContext = { ...ctx, loadProgressMap };
   // fallow-ignore-next-line code-duplication
-  const hit = cache.get(ctx.userId);
-  if (hit) return hit;
+  const key = sectionCacheKey(ctx.userId);
+  const hit = await cache.get<WatchlistSectionResponse>(key);
+  if (hit !== null) return hit;
 
   const rows = await repo.listAllActive(ctx.userId);
   if (rows.length === 0) {
     const empty: WatchlistSectionResponse = { items: [], partial: false };
-    cache.set(ctx.userId, empty);
+    await cache.set(key, empty, CACHE_TTL_MS);
     return empty;
   }
 
@@ -79,7 +84,7 @@ export async function getSection(ctx: SectionContext): Promise<WatchlistSectionR
   }
   if (candidates.length === 0) {
     const empty: WatchlistSectionResponse = { items: [], partial: false };
-    cache.set(ctx.userId, empty);
+    await cache.set(key, empty, CACHE_TTL_MS);
     return empty;
   }
 
@@ -90,17 +95,17 @@ export async function getSection(ctx: SectionContext): Promise<WatchlistSectionR
     items: result.items,
     partial: enriched.partial || result.partial,
   };
-  cache.set(ctx.userId, section);
+  await cache.set(key, section, CACHE_TTL_MS);
   return section;
 }
 
-export function invalidateTonightSection(userId: string): void {
-  cache.delete(userId);
+export async function invalidateTonightSection(userId: string): Promise<void> {
+  await cache.delete(sectionCacheKey(userId));
 }
 
 /** Test-only. */
-export function __resetTonightCache(): void {
-  cache.clear();
+export async function __resetTonightCache(): Promise<void> {
+  await cache.clear("watchlist:tonight:");
 }
 
 export type { WatchlistItem };
