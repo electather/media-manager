@@ -5,6 +5,7 @@
  * re-exported.
  */
 export {
+  // fallow-ignore-next-line code-duplication
   getItems,
   getCounts,
   addItem,
@@ -13,7 +14,14 @@ export {
   syncFromPlugins,
   listAvailable,
   hasAny,
+  listItems,
+  getTonightSection,
+  getRecentlyAdded,
+  getMoodSummary,
+  listMoodItems,
   type GetItemsOptions,
+  type ListItemsOptions,
+  type ListMoodItemsOptions,
   type WatchlistContext,
   type AddItemResult,
   type SeedResult,

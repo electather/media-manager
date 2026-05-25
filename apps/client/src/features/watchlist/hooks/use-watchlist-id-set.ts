@@ -1,35 +1,50 @@
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useMemo, useSyncExternalStore } from "react";
-import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
+import type { WatchlistItem, WatchlistResponse } from "@ent-mcp/shared/watchlist";
+import { watchlistKeys } from "../lib/query-keys";
 
 type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
 /**
- * Composite-id snapshot for cross-feature consumers (home feed, search
- * results, etc). Reads from the LOADED pages of the default watchlist
- * cache only — does not trigger its own fetch. Surfaces that read this set
- * before the watchlist has been visited get an empty set and rely on
- * server-side idempotency to absorb add-when-already-saved cases.
+ * Composite-id snapshot for cross-feature consumers. Walks every loaded
+ * watchlist sub-cache and unions the ids the user has seen. Best-effort:
+ * surfaces that read this set before any section loads get an empty set
+ * and rely on server-side idempotency to absorb add-when-already-saved.
  */
 export function useWatchlistIdSet(): ReadonlySet<string> {
   const qc = useQueryClient();
-  const pages = useSyncExternalStore(
+  const version = useSyncExternalStore(
     (notify) => {
       const unsub = qc.getQueryCache().subscribe(notify);
       return () => unsub();
     },
-    () => qc.getQueryData<WatchlistPages>(watchlistKeys.list()),
-    () => undefined,
+    () => qc.getQueryCache().getAll().length,
+    () => 0,
   );
   return useMemo(() => {
-    if (!pages) return EMPTY_SET;
+    void version;
+    const queries = qc.getQueryCache().findAll({ queryKey: watchlistKeys.root });
+    if (queries.length === 0) return EMPTY_SET;
     const out = new Set<string>();
-    for (const page of pages.pages) {
-      for (const item of page.items) out.add(item.id);
+    for (const q of queries) {
+      collectIds(q.state.data, out);
     }
     return out;
-  }, [pages]);
+  }, [qc, version]);
+}
+
+// fallow-ignore-next-line complexity
+function collectIds(data: unknown, out: Set<string>): void {
+  if (!data || typeof data !== "object") return;
+  if ("pages" in data) {
+    const pages = (data as WatchlistPages).pages;
+    for (const page of pages) for (const it of page.items as WatchlistItem[]) out.add(it.id);
+    return;
+  }
+  if ("items" in data) {
+    const items = (data as { items: WatchlistItem[] }).items;
+    for (const it of items) out.add(it.id);
+  }
 }

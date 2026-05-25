@@ -3,14 +3,19 @@ import { type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, type InfiniteData } from "@tanstack/react-query";
+import { isEqual } from "es-toolkit";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { useAddToWatchlist } from "../hooks/use-add-to-watchlist";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
+import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
 import { SAMPLE_WATCHLIST, makeItem } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("@/shared/lib/watchlist/fetchers", () => ({
-  fetchWatchlist: vi.fn(),
-  fetchWatchlistCounts: vi.fn(),
+vi.mock("@/features/watchlist/lib/fetchers", () => ({
+  fetchItems: vi.fn(),
+  fetchCounts: vi.fn(),
+  fetchTonight: vi.fn(),
+  fetchRecently: vi.fn(),
+  fetchMoods: vi.fn(),
+  fetchMoodItems: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
@@ -19,7 +24,7 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-const { addToWatchlist } = await import("@/shared/lib/watchlist/fetchers");
+const { addToWatchlist } = await import("@/features/watchlist/lib/fetchers");
 const { toast } = await import("sonner");
 const addMock = vi.mocked(addToWatchlist);
 const toastErrorMock = vi.mocked(toast.error);
@@ -30,7 +35,7 @@ function makeClient(seed: WatchlistResponse | undefined): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   if (seed) {
     const pages: Pages = { pages: [seed], pageParams: [undefined] };
-    client.setQueryData<Pages>(watchlistKeys.list(), pages);
+    client.setQueryData<Pages>(watchlistKeys.items(), pages);
   }
   return client;
 }
@@ -42,7 +47,7 @@ function wrap(client: QueryClient) {
 }
 
 function flattenIds(client: QueryClient): string[] {
-  const data = client.getQueryData<Pages>(watchlistKeys.list());
+  const data = client.getQueryData<Pages>(watchlistKeys.items());
   return data?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
 }
 
@@ -94,6 +99,28 @@ describe("useAddToWatchlist", () => {
     });
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
     expect(flattenIds(client)).toEqual([]);
+  });
+
+  it("invalidates the entire watchlist key tree once on settle (V.WL5)", async () => {
+    const client = makeClient({ items: [], cursor: null, partial: false });
+    addMock.mockResolvedValueOnce({
+      item: makeItem({ id: "movie:200", tmdbId: "200", title: "Settled" }),
+      wasActive: false,
+    });
+    const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useAddToWatchlist(), { wrapper: wrap(client) });
+    act(() => {
+      result.current.mutate({
+        request: { tmdbId: "200", mediaType: "movie", source: "manual" },
+        seed: { title: "Settled" },
+      });
+    });
+    await waitFor(() => expect(addMock).toHaveBeenCalled());
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
+    const rootCalls = invalidateSpy.mock.calls.filter(([arg]) =>
+      isEqual((arg as { queryKey?: readonly unknown[] }).queryKey, watchlistKeys.root),
+    );
+    expect(rootCalls).toHaveLength(1);
   });
 
   it("rolls back the optimistic write on error", async () => {

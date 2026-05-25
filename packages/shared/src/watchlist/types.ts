@@ -1,6 +1,6 @@
 import type { CompactMediaItem } from "../home/types";
 import type { MediaType } from "../media/enums";
-import type { WatchlistSource, WatchlistUserSource } from "./enums";
+import type { MoodId, WatchlistSource, WatchlistUserSource } from "./enums";
 
 export interface WatchlistKey {
   tmdbId: string;
@@ -12,12 +12,14 @@ export function keyToId(key: WatchlistKey): string {
   return `${key.mediaType}:${key.tmdbId}`;
 }
 
+// fallow-ignore-next-line code-duplication
 export interface WatchlistItem extends CompactMediaItem {
   /** Epoch ms when the row was added (or reactivated). */
   addedAt: number;
   addedSource: WatchlistSource;
 }
 
+// fallow-ignore-next-line code-duplication
 export interface WatchlistResponse {
   items: WatchlistItem[];
   /**
@@ -33,19 +35,22 @@ export interface WatchlistResponse {
 /**
  * Cheap aggregate counts for the header pips. Powered by the `/counts`
  * endpoint so the client doesn't have to hold the full active set in memory
- * just to render the header chips. `inProgress` is a strict subset of
- * `ready` — rows whose underlying media has an active watch position. The
- * list-side `filter=ready` collapses `inProgress` into `ready`, but the
- * dedicated count keeps the chip authoritative across paginated loads.
+ * just to render the header chips. `inProgress` is the tally of rows whose
+ * underlying media has an active watch position, sourced from the host
+ * progress aggregator. `unavailable` is the rev 6 catch-all bucket for rows
+ * with no server copy and no active request status; `total` is the sum of
+ * all five visible buckets.
  */
 export interface WatchlistCounts {
   ready: number;
   inProgress: number;
   awaiting: number;
+  unavailable: number;
   upcoming: number;
   total: number;
 }
 
+// fallow-ignore-next-line code-duplication
 export interface AddWatchlistRequest {
   tmdbId: string;
   mediaType: MediaType;
@@ -56,4 +61,22 @@ export interface AddWatchlistResponse {
   item: WatchlistItem;
   /** True when the row was already active before this request. */
   wasActive: boolean;
+}
+
+/** Single mood cluster summary entry returned by `/api/watchlist/moods`. */
+export interface MoodSummaryCluster {
+  moodId: MoodId;
+  count: number;
+}
+
+/** Aggregate mood summary across the active set. */
+export interface WatchlistMoodSummary {
+  clusters: MoodSummaryCluster[];
+}
+
+/** `/api/watchlist/sections/tonight` and `/sections/recently` payload shape. */
+export interface WatchlistSectionResponse {
+  items: WatchlistItem[];
+  /** True when enrichment was incomplete and the client may show a banner. */
+  partial: boolean;
 }

@@ -5,12 +5,16 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, type InfiniteData } from "@tanstack/react-query";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { useRemoveFromWatchlist } from "../hooks/use-remove-from-watchlist";
-import { watchlistKeys } from "@/shared/lib/watchlist/query-keys";
+import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
 import { SAMPLE_WATCHLIST } from "../__fixtures__/watchlist-items.fixture";
 
-vi.mock("@/shared/lib/watchlist/fetchers", () => ({
-  fetchWatchlist: vi.fn(),
-  fetchWatchlistCounts: vi.fn(),
+vi.mock("@/features/watchlist/lib/fetchers", () => ({
+  fetchItems: vi.fn(),
+  fetchCounts: vi.fn(),
+  fetchTonight: vi.fn(),
+  fetchRecently: vi.fn(),
+  fetchMoods: vi.fn(),
+  fetchMoodItems: vi.fn(),
   addToWatchlist: vi.fn(),
   removeFromWatchlist: vi.fn(),
 }));
@@ -19,7 +23,7 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-const { removeFromWatchlist } = await import("@/shared/lib/watchlist/fetchers");
+const { removeFromWatchlist } = await import("@/features/watchlist/lib/fetchers");
 const { toast } = await import("sonner");
 const removeMock = vi.mocked(removeFromWatchlist);
 const toastErrorMock = vi.mocked(toast.error);
@@ -35,7 +39,7 @@ function wrap(client: QueryClient) {
 function makeClient(seed: WatchlistResponse): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const pages: Pages = { pages: [seed], pageParams: [undefined] };
-  client.setQueryData<Pages>(watchlistKeys.list(), pages);
+  client.setQueryData<Pages>(watchlistKeys.items(), pages);
   return client;
 }
 
@@ -57,7 +61,7 @@ describe("useRemoveFromWatchlist", () => {
       result.current.mutate({ tmdbId: "11", mediaType: "movie" });
     });
     await waitFor(() => {
-      const data = client.getQueryData<Pages>(watchlistKeys.list());
+      const data = client.getQueryData<Pages>(watchlistKeys.items());
       const allIds = data?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
       expect(allIds).not.toContain("11");
     });
@@ -76,7 +80,7 @@ describe("useRemoveFromWatchlist", () => {
       result.current.mutate({ tmdbId: "11", mediaType: "movie" });
     });
     await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
-    const final = client.getQueryData<Pages>(watchlistKeys.list());
+    const final = client.getQueryData<Pages>(watchlistKeys.items());
     const allIds = final?.pages.flatMap((p) => p.items.map((i) => i.tmdbId)) ?? [];
     expect(allIds).toContain("11");
   });

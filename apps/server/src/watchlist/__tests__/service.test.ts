@@ -30,6 +30,8 @@ const {
   addItem,
   removeItem,
   listAvailable,
+  listItems,
+  listMoodItems,
   seedFromPlugins,
   syncFromPlugins,
 } = await import("../service");
@@ -46,6 +48,7 @@ function makeMediaService(
     getStatusBatch: ReturnType<typeof vi.fn>;
     getMatchingServers: ReturnType<typeof vi.fn>;
     getMetadata: ReturnType<typeof vi.fn>;
+    getContinueWatchingFeed: ReturnType<typeof vi.fn>;
   }> = {},
 ) {
   return {
@@ -53,6 +56,7 @@ function makeMediaService(
     getStatusBatch: vi.fn().mockResolvedValue({}),
     getMatchingServers: vi.fn().mockResolvedValue([]),
     getMetadata: vi.fn().mockResolvedValue(null),
+    getContinueWatchingFeed: vi.fn().mockResolvedValue({ items: [], partial: false }),
     ...overrides,
   };
 }
@@ -248,45 +252,16 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(new Set(all.map((i) => i.tmdbId)).size).toBe(7);
   });
 
-  it("getItems with filter=upcoming drops rows whose bucket does not match", async () => {
-    const ctx = makeCtx();
-    await addItem({ tmdbId: "800", mediaType: "movie" }, "manual", ctx);
-    await addItem({ tmdbId: "801", mediaType: "movie" }, "manual", ctx);
-    // Mark "801" as upcoming via canonical metadata (year > current).
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:801": {
-        tmdbId: "801",
-        mediaType: "movie",
-        title: "Future Flick",
-        year: new Date().getUTCFullYear() + 5,
-        genres: [],
-      },
-    });
-    const res = await getItems(ctx, { filter: "upcoming" });
-    expect(res.items.map((i) => i.tmdbId)).toEqual(["801"]);
-  });
-
-  it("getItems with filter=ready does not run plugin probes when the watchlist is empty", async () => {
-    const ctx = makeCtx();
-    await repo.markSeeded(ctx.userId, Date.now()); // skip first-GET seed path
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    const probeSpy = ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>;
-    probeSpy.mockClear();
-    const res = await getItems(ctx, { filter: "ready" });
-    expect(res.items).toEqual([]);
-    expect(res.cursor).toBeNull();
-    expect(probeSpy).not.toHaveBeenCalled();
-  });
-
   it("getCounts returns aggregate buckets and total without artwork dispatch", async () => {
     const ctx = makeCtx();
     await addItem({ tmdbId: "900", mediaType: "movie" }, "manual", ctx);
     await addItem({ tmdbId: "901", mediaType: "movie" }, "manual", ctx);
     await addItem({ tmdbId: "902", mediaType: "movie" }, "manual", ctx);
 
-    // 900 is on a library server (ready), 901 is upcoming, 902 stays unknown.
-    // Reset the cache so the warmed `[]` value from `addItem` doesn't shadow
-    // the per-tmdb mock below.
+    // 900 is on a library server (ready), 901 is upcoming, 902 falls through
+    // to the rev-6 `unavailable` catch-all bucket (no server, no future-year
+    // metadata, no request-status). Reset the cache so the warmed `[]` value
+    // from `addItem` doesn't shadow the per-tmdb mock below.
     __resetAvailabilityCache();
     (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
       async (tmdbId: string) => (tmdbId === "900" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
@@ -302,10 +277,45 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     });
 
     const counts = await getCounts(ctx);
+    // V.WL2 rev 6 — every active row classifies into one of five visible
+    // buckets; total is the sum of those five (no hidden tail).
     expect(counts.total).toBe(3);
     expect(counts.ready).toBe(1);
+    expect(counts.inProgress).toBe(0);
     expect(counts.upcoming).toBe(1);
     expect(counts.awaiting).toBe(0);
+    expect(counts.unavailable).toBe(1);
+    expect(
+      counts.ready + counts.inProgress + counts.awaiting + counts.unavailable + counts.upcoming,
+    ).toBe(counts.total);
+  });
+
+  it("getCounts emits a real inProgress tally when continueWatching reports an active position", async () => {
+    const ctx = makeCtx();
+    // Wire the CW + library mocks BEFORE the first plugin-touching call so the
+    // request-scoped progress memo + availability cache see the configured
+    // shape on their first read. `addItem` enriches the new row eagerly and
+    // would otherwise warm both caches with the default empty mocks.
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: "jellyfin", label: "Jellyfin" },
+    ]);
+    (ctx.mediaService.getContinueWatchingFeed as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: [
+        {
+          progressMs: 600_000,
+          item: { type: "movie", durationSec: 6000, ids: { tmdb: "920" } },
+        },
+      ],
+      partial: false,
+    });
+    await addItem({ tmdbId: "920", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "921", mediaType: "movie" }, "manual", ctx);
+
+    const counts = await getCounts(ctx);
+    expect(counts.total).toBe(2);
+    expect(counts.inProgress).toBe(1);
+    // 920 is in-progress (not double counted as ready); 921 stays ready.
+    expect(counts.ready).toBe(1);
   });
 
   it("getCounts on an empty watchlist short-circuits without plugin work", async () => {
@@ -315,97 +325,16 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
     const counts = await getCounts(ctx);
-    expect(counts).toEqual({ ready: 0, inProgress: 0, awaiting: 0, upcoming: 0, total: 0 });
+    expect(counts).toEqual({
+      ready: 0,
+      inProgress: 0,
+      awaiting: 0,
+      unavailable: 0,
+      upcoming: 0,
+      total: 0,
+    });
     expect(probeSpy).not.toHaveBeenCalled();
     expect(statusSpy).not.toHaveBeenCalled();
-  });
-
-  it("getItems with filter skips past empty windows server-side and surfaces only non-empty pages", async () => {
-    const ctx = makeCtx();
-    // Direct repo insert with explicit timestamps so addedAt ordering is
-    // deterministic — addItem's wall-clock Date.now() collapses to the same
-    // millisecond on a fast test run, and the ordering tiebreaker (id DESC)
-    // is the random cuid. We need 950 to be the OLDEST so it lands past the
-    // first empty window.
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "950", mediaType: "movie" }],
-      "manual",
-      false,
-      100,
-    );
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [
-        { tmdbId: "951", mediaType: "movie" },
-        { tmdbId: "952", mediaType: "movie" },
-        { tmdbId: "953", mediaType: "movie" },
-        { tmdbId: "954", mediaType: "movie" },
-      ],
-      "manual",
-      false,
-      200,
-    );
-    __resetAvailabilityCache();
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:950": {
-        tmdbId: "950",
-        mediaType: "movie",
-        title: "Far Future",
-        year: new Date().getUTCFullYear() + 5,
-        genres: [],
-      },
-    });
-
-    // With limit=1 + 3x overshoot = fetchSize=3 per hop. First window (top 3 by
-    // addedAt DESC: 951–954 minus one) is empty for `filter=upcoming`; the
-    // handler advances the cursor and the second hop picks up 950.
-    const res = await getItems(ctx, { limit: 1, filter: "upcoming" });
-    expect(res.items.map((i) => i.tmdbId)).toEqual(["950"]);
-  });
-
-  it("getItems with filter anchors cursor at the last returned row so overshoot items aren't lost", async () => {
-    const ctx = makeCtx();
-    // Three rows that all pass `filter=upcoming`. With limit=1 the 3x overshoot
-    // fetches all three in one window; the slice returns one item but the
-    // remaining two must be visible on the next page.
-    const futureYear = new Date().getUTCFullYear() + 5;
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "961", mediaType: "movie" }],
-      "manual",
-      false,
-      300,
-    );
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "962", mediaType: "movie" }],
-      "manual",
-      false,
-      200,
-    );
-    await repo.bulkInsertIgnoreConflict(
-      ctx.userId,
-      [{ tmdbId: "963", mediaType: "movie" }],
-      "manual",
-      false,
-      100,
-    );
-    __resetAvailabilityCache();
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
-      "movie:961": { tmdbId: "961", mediaType: "movie", title: "A", year: futureYear, genres: [] },
-      "movie:962": { tmdbId: "962", mediaType: "movie", title: "B", year: futureYear, genres: [] },
-      "movie:963": { tmdbId: "963", mediaType: "movie", title: "C", year: futureYear, genres: [] },
-    });
-
-    const page1 = await getItems(ctx, { limit: 1, filter: "upcoming" });
-    expect(page1.items.map((i) => i.tmdbId)).toEqual(["961"]);
-    expect(page1.cursor).not.toBeNull();
-    const page2 = await getItems(ctx, { limit: 1, filter: "upcoming", cursor: page1.cursor! });
-    // Bug under fix: the old code anchored the cursor at the last DB-scanned
-    // row (963) and skipped 962 and 963 entirely. The fix anchors at the last
-    // *returned* row (961), so the next page picks up 962.
-    expect(page2.items.map((i) => i.tmdbId)).toEqual(["962"]);
   });
 
   it("availability cache is shared between a list + counts pair (one probe per row)", async () => {
@@ -421,5 +350,151 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     const afterCounts = probeSpy.mock.calls.length;
     // The counts pass should hit the cache for the same key — no new probe.
     expect(afterCounts).toBe(afterList);
+  });
+
+  // Regression: when a single keyset overshoot window yields fewer than
+  // `limit` mood matches, `listMoodItems` MUST keep scanning the next
+  // window(s) until the page is filled (up to MAX_EMPTY_HOPS). The first
+  // version broke at the first non-empty hop, so sparse moods truncated to
+  // a single item even when more matches existed deeper in the user's set.
+  it("listMoodItems accumulates matches across hops when the mood is sparse", async () => {
+    const ctx = makeCtx();
+    // fetchSize = limit (3) * OVERSHOOT_FACTOR (3) = 9. Seed 12 rows so the
+    // scan covers two windows: hop1 = m12..m4 (9 rows), hop2 = m3..m1 (3 rows).
+    for (let i = 1; i <= 12; i++) {
+      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+    // 1 dark match in hop1 (m4) + 2 dark matches in hop2 (m3, m2).
+    const dark = new Set(["m4", "m3", "m2"]);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          if (dark.has(tmdbId)) {
+            out[`movie:${tmdbId}`] = {
+              tmdbId,
+              mediaType: "movie",
+              title: tmdbId,
+              genres: ["Horror"],
+            };
+          }
+        }
+        return out;
+      },
+    );
+
+    const res = await listMoodItems(ctx, "dark", { limit: 3 });
+    expect(res.items.map((i) => i.tmdbId)).toEqual(["m4", "m3", "m2"]);
+  });
+
+  // Regression: when matches are scattered DEEP across many overshoot
+  // windows (e.g. user has 40+ rows and the mood only fires every 15-20
+  // rows), the loop MUST keep scanning while it's still making progress.
+  // An earlier fix capped total hops at 3 — large sparse watchlists then
+  // returned 1 or 2 items even though the summary endpoint claimed `count`
+  // ≥ MIN_CLUSTER_SIZE. Underfilled hops no longer burn the budget.
+  it("listMoodItems scans past the empty-hop budget when each hop still adds matches", async () => {
+    const ctx = makeCtx();
+    // 36 rows, fetchSize = 9. Plant 1 dark match every 12 rows so the page
+    // fills only after 3 + windows of scanning.
+    for (let i = 1; i <= 36; i++) {
+      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+    // addItem inserts in id-asc order; repo.listPage returns by addedAt DESC.
+    // m36 sits in hop 1, m24 in hop 2, m12 in hop 3 — each hop adds 1 item.
+    const dark = new Set(["m36", "m24", "m12"]);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          if (dark.has(tmdbId)) {
+            out[`movie:${tmdbId}`] = {
+              tmdbId,
+              mediaType: "movie",
+              title: tmdbId,
+              genres: ["Horror"],
+            };
+          }
+        }
+        return out;
+      },
+    );
+
+    const res = await listMoodItems(ctx, "dark", { limit: 3 });
+    expect(res.items.map((i) => i.tmdbId)).toEqual(["m36", "m24", "m12"]);
+  });
+
+  // V.WL1 — `sort=alpha` returns rows by canonical-metadata title ascending,
+  // not by `addedAt`. Anchors the offset-cursor sort path.
+  it("listItems sort=alpha sorts by metadata title", async () => {
+    const ctx = makeCtx();
+    await addItem({ tmdbId: "a1", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "a2", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "a3", mediaType: "movie" }, "manual", ctx);
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:a1": { tmdbId: "a1", mediaType: "movie", title: "Charlie", genres: [] },
+      "movie:a2": { tmdbId: "a2", mediaType: "movie", title: "Alpha", genres: [] },
+      "movie:a3": { tmdbId: "a3", mediaType: "movie", title: "Bravo", genres: [] },
+    });
+
+    const page = await listItems(ctx, { sort: "alpha", limit: 10 });
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["a2", "a3", "a1"]);
+  });
+
+  // V.WL2 — when most rows in the offset window are dropped by the bucket
+  // filter, the next cursor MUST still advance past the scanned rows; an
+  // earlier cursor that advanced by `slice.length` produced a load-more
+  // loop or duplicated rows. Anchors the `scannedRows` fix.
+  it("listItems sort=alpha + sparse bucket advances cursor past scanned window", async () => {
+    const ctx = makeCtx();
+    // 9 rows; only `r5` is ready (server-mapped). Bucket filter keeps 1 row;
+    // the request asks for limit=10 so we should NOT be told there is more.
+    for (let i = 1; i <= 9; i++) {
+      await addItem({ tmdbId: `r${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+    __resetAvailabilityCache();
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tmdbId: string) => (tmdbId === "r5" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          out[`movie:${tmdbId}`] = { tmdbId, mediaType: "movie", title: tmdbId, genres: [] };
+        }
+        return out;
+      },
+    );
+
+    const page = await listItems(ctx, { sort: "alpha", bucket: "ready", limit: 10 });
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["r5"]);
+    // Critical: cursor must be null — every row in the active set has been
+    // classified, so there is nothing left to paginate.
+    expect(page.cursor).toBeNull();
+  });
+
+  // V.WL2 rev 6 — `bucket` omitted surfaces every active row regardless of
+  // classification (no hidden `unknown` tail leak).
+  it("listItems without bucket surfaces every active row across visible buckets", async () => {
+    const ctx = makeCtx();
+    await addItem({ tmdbId: "v1", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "v2", mediaType: "movie" }, "manual", ctx);
+    await addItem({ tmdbId: "v3", mediaType: "movie" }, "manual", ctx);
+    __resetAvailabilityCache();
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tmdbId: string) => (tmdbId === "v1" ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      "movie:v2": {
+        tmdbId: "v2",
+        mediaType: "movie",
+        title: "Far Future",
+        year: new Date().getUTCFullYear() + 3,
+        genres: [],
+      },
+    });
+
+    const page = await listItems(ctx, { limit: 10 });
+    expect(new Set(page.items.map((i) => i.tmdbId))).toEqual(new Set(["v1", "v2", "v3"]));
   });
 });

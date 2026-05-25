@@ -1,71 +1,59 @@
-import { useMemo } from "react";
+import { Suspense } from "react";
+import { Link, useLocation, useSearch } from "@tanstack/react-router";
 import * as m from "@/paraglide/messages";
 import {
   SectionHead,
-  SectionHeadActions,
   SectionHeadCount,
   SectionHeadEyebrow,
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { RadioGroup, RadioGroupItem } from "@/shared/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
-import { cn } from "@/shared/lib/utils";
-import { splitRuntime, totalRuntimeMinutes } from "../lib/classify";
-import type { WatchlistCounts, WatchlistFilter, WatchlistItem, WatchlistSort } from "../lib/types";
-
-const FILTERS: { id: WatchlistFilter; labelFn: () => string }[] = [
-  { id: "all", labelFn: () => m.watchlist_filter_all() },
-  { id: "ready", labelFn: () => m.watchlist_filter_ready() },
-  { id: "in-progress", labelFn: () => m.watchlist_filter_in_progress() },
-  { id: "awaiting", labelFn: () => m.watchlist_filter_awaiting() },
-  { id: "upcoming", labelFn: () => m.watchlist_filter_upcoming() },
-];
-
-const SORTS: { id: WatchlistSort; labelFn: () => string }[] = [
-  { id: "recent", labelFn: () => m.watchlist_sort_recent() },
-  { id: "alpha", labelFn: () => m.watchlist_sort_alpha() },
-  { id: "runtime", labelFn: () => m.watchlist_sort_runtime() },
-  { id: "status", labelFn: () => m.watchlist_sort_status() },
-];
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/shared/ui/breadcrumb";
+import type {
+  MoodId,
+  WatchlistBucket,
+  WatchlistCounts,
+  WatchlistSort,
+} from "@ent-mcp/shared/watchlist";
+import { MOOD_IDS, WATCHLIST_BUCKETS } from "@ent-mcp/shared/watchlist";
+import { MOOD_REGISTRY } from "../lib/mood-registry";
+import { useMoods } from "../hooks/use-moods";
+import { BucketChips } from "./sections/all-items/bucket-chips";
+import { SortSelect } from "./sections/all-items/sort-select";
 
 interface WatchlistHeaderProps {
-  /** Currently loaded items (one or more pages). Used for runtime estimate only. */
-  items: readonly WatchlistItem[];
-  /** Authoritative server-side counts; survives pagination because it sweeps the active set. */
   counts: WatchlistCounts;
-  filter: WatchlistFilter;
-  sort: WatchlistSort;
-  onFilterChange: (next: WatchlistFilter) => void;
-  onSortChange: (next: WatchlistSort) => void;
 }
 
-function filterCount(id: WatchlistFilter, counts: WatchlistCounts): number {
-  const map: Record<WatchlistFilter, number> = {
-    all: counts.total,
-    ready: counts.ready,
-    "in-progress": counts.inProgress,
-    awaiting: counts.awaiting,
-    upcoming: counts.upcoming,
-  };
-  return map[id];
-}
+const FLAT_BUCKET_PATHS: ReadonlySet<string> = new Set(
+  WATCHLIST_BUCKETS.map((b) => `/watchlist/${b}`),
+);
 
-export function WatchlistHeader({
-  items,
-  counts,
-  filter,
-  sort,
-  onFilterChange,
-  onSortChange,
-}: WatchlistHeaderProps) {
-  const totalMin = useMemo(() => totalRuntimeMinutes(items), [items]);
-  const { days, hours } = splitRuntime(totalMin);
-  const totalRuntime =
-    days > 0
-      ? m.watchlist_runtime_days_hours({ days: String(days), hours: String(hours) })
-      : m.watchlist_runtime_hours({ hours: String(hours) });
+const MOOD_ID_SET: ReadonlySet<string> = new Set(MOOD_IDS);
 
+/**
+ * Shared page header for the `/watchlist/*` route family. Two render modes:
+ *
+ * - Mood detail (`/watchlist/moods/:moodId`): breadcrumb +
+ *   `SectionHead` (mood label + cluster count + mood note). Chip strip +
+ *   sort hidden — neither composes with a mood-scoped grid.
+ * - Everything else: title, chip strip, and (on flat sub-routes) sort
+ *   dropdown.
+ *
+ * State lives entirely in the URL (path + `?sort=`).
+ */
+export function WatchlistHeader({ counts }: WatchlistHeaderProps) {
+  const location = useLocation();
+  const moodId = matchMoodPath(location.pathname);
+  if (moodId) return <MoodHeader moodId={moodId} />;
+  const showSort = FLAT_BUCKET_PATHS.has(location.pathname);
   return (
     <header>
       <SectionHead size="page">
@@ -73,85 +61,83 @@ export function WatchlistHeader({
           <SectionHeadEyebrow size="page">{m.watchlist_eyebrow()}</SectionHeadEyebrow>
           <SectionHeadTitle as="h1" size="page">
             {m.watchlist_title()}
-            <SectionHeadCount size="page" value={counts.total} />
           </SectionHeadTitle>
         </SectionHeadHeading>
-        <SectionHeadActions>
-          <div className="flex flex-col gap-1.5 text-end font-mono text-xs tracking-[0.04em] text-muted-foreground">
-            <p>{m.watchlist_total_runtime({ value: totalRuntime })}</p>
-            <p className="flex items-center justify-end gap-3">
-              <span className="inline-flex items-center gap-1.5 text-success">
-                <Pip className="bg-success" />
-                {m.watchlist_count_ready({ n: String(counts.ready) })}
-              </span>
-              <span className="text-muted-foreground/40" aria-hidden="true">
-                ·
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-primary">
-                <Pip className="bg-primary" />
-                {m.watchlist_count_awaiting({ n: String(counts.awaiting) })}
-              </span>
-              <span className="text-muted-foreground/40" aria-hidden="true">
-                ·
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Pip className="bg-muted-foreground" />
-                {m.watchlist_count_upcoming({ n: String(counts.upcoming) })}
-              </span>
-            </p>
-          </div>
-        </SectionHeadActions>
       </SectionHead>
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4 pb-6">
-        <RadioGroup
-          value={filter}
-          onValueChange={(value) => onFilterChange(value as WatchlistFilter)}
-          aria-label={m.watchlist_filter_label()}
-        >
-          {FILTERS.map((f) => {
-            const count = filterCount(f.id, counts);
-            return (
-              <RadioGroupItem
-                key={f.id}
-                value={f.id}
-                className="group px-3.5 py-1.5 text-sm data-checked:border-foreground data-checked:bg-foreground data-checked:text-background"
-              >
-                <span>{f.labelFn()}</span>
-                <span className="font-mono text-[11px] tabular-nums opacity-60 group-data-checked:opacity-55">
-                  {String(count).padStart(2, "0")}
-                </span>
-              </RadioGroupItem>
-            );
-          })}
-        </RadioGroup>
-        <label className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
-          <span>{m.watchlist_sort_label()}</span>
-          <Select value={sort} onValueChange={(value) => onSortChange(value as WatchlistSort)}>
-            <SelectTrigger size="sm" aria-label={m.watchlist_sort_label()} className="font-sans">
-              <SelectValue>
-                {(value: WatchlistSort) => SORTS.find((s) => s.id === value)?.labelFn()}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {SORTS.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.labelFn()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
+        <BucketChips counts={counts} />
+        {showSort ? <FlatSortControl bucket={extractBucket(location.pathname)} /> : null}
       </div>
     </header>
   );
 }
 
-function Pip({ className }: { className: string }) {
+function matchMoodPath(pathname: string): MoodId | null {
+  const prefix = "/watchlist/moods/";
+  if (!pathname.startsWith(prefix)) return null;
+  const id = pathname.slice(prefix.length);
+  return MOOD_ID_SET.has(id) ? (id as MoodId) : null;
+}
+
+function MoodHeader({ moodId }: { moodId: MoodId }) {
+  const copy = MOOD_REGISTRY[moodId];
   return (
-    <span
-      aria-hidden="true"
-      className={cn("inline-block size-1.5 shrink-0 rounded-full", className)}
-    />
+    <header className="flex flex-col gap-2 pt-3 pb-6">
+      <Breadcrumb aria-label={m.watchlist_breadcrumb_label()}>
+        <BreadcrumbList className="font-mono text-xs uppercase tracking-[0.04em]">
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link to="/watchlist" />}>
+              {m.watchlist_breadcrumb_root()}
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{copy.label()}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <SectionHeadTitle as="h1" size="page">
+        {copy.label()}
+        <Suspense fallback={null}>
+          <MoodCount moodId={moodId} />
+        </Suspense>
+      </SectionHeadTitle>
+      <p className="max-w-prose text-base leading-snug text-muted-foreground">{copy.note()}</p>
+    </header>
+  );
+}
+
+function MoodCount({ moodId }: { moodId: MoodId }) {
+  const { data } = useMoods();
+  const cluster = data.clusters.find((c) => c.moodId === moodId);
+  if (!cluster) return null;
+  return <SectionHeadCount size="page" value={cluster.count} />;
+}
+
+function extractBucket(pathname: string): WatchlistBucket {
+  const segment = pathname.slice("/watchlist/".length);
+  return segment as WatchlistBucket;
+}
+
+interface FlatSortControlProps {
+  bucket: WatchlistBucket;
+}
+
+/**
+ * Reads the current sub-route's `?sort=` so the dropdown reflects the URL.
+ * `strict: false` lets the same component sit in the layout above all four
+ * flat bucket routes without a per-route prop wire-up.
+ */
+function FlatSortControl({ bucket }: FlatSortControlProps) {
+  const search = useSearch({ strict: false }) as { sort?: WatchlistSort };
+  return (
+    <label
+      htmlFor={`watchlist-sort-${bucket}`}
+      className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground"
+    >
+      <span>{m.watchlist_sort_label()}</span>
+      <SortSelect value={search.sort ?? "recent"} />
+    </label>
   );
 }

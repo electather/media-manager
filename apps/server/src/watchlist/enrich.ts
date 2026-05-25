@@ -3,13 +3,14 @@ import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { keyToId, type WatchlistItem, type WatchlistListFilter } from "@ent-mcp/shared/watchlist";
+import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { ArtworkService } from "../artwork";
 import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
 import type { MatchingServer, MediaService } from "../media";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify } from "./classify";
+import { loadProgressMap, type ProgressMap } from "./progress";
 import type { WatchlistRow } from "./repo";
 
 export interface WatchlistEnrichContext {
@@ -17,6 +18,7 @@ export interface WatchlistEnrichContext {
   mediaService: MediaService;
   catalog: CatalogService;
   log: ConsolaInstance;
+  deadlineMs?: number;
 }
 
 export interface EnrichResult {
@@ -40,7 +42,14 @@ export interface EnrichOptions {
    * matches the v2 "skip enrichment for buckets the user is not viewing"
    * goal in #420.
    */
-  filter?: WatchlistListFilter;
+  filter?: WatchlistBucket;
+  /**
+   * Catalog metadata already fetched by the caller (e.g. `filterByMood`
+   * resolved it to evaluate the mood predicate). When supplied, enrich
+   * skips its own `getMetadataBatch` round-trip and seeds the cold-fill
+   * loop from this map so callers don't pay for two fetches per hop.
+   */
+  prefetchedMetadata?: Record<string, CanonicalMetadata>;
 }
 
 /**
@@ -71,11 +80,16 @@ export async function enrich(
     return {} as Record<string, string>;
   });
 
-  const metadata = await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-    ctx.log.warn("[watchlist:enrich] getMetadataBatch failed", err);
-    partial = true;
-    return {} as Record<string, CanonicalMetadata>;
-  });
+  const metadata: Record<string, CanonicalMetadata> = opts.prefetchedMetadata
+    ? { ...opts.prefetchedMetadata }
+    : await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
+        ctx.log.warn("[watchlist:enrich] getMetadataBatch failed", err);
+        partial = true;
+        return {} as Record<string, CanonicalMetadata>;
+      });
+
+  const progress = await loadProgressMap(ctx);
+  if (progress.partial) partial = true;
 
   // Cold-fill canonical metadata for any rows the catalog has not seen yet so
   // the artwork dispatch below has the freshest data to compare against and
@@ -106,6 +120,7 @@ export async function enrich(
   let liveRows = rows;
   let liveServers = servers;
   if (opts.filter) {
+    // fallow-ignore-next-line code-duplication
     const kept: WatchlistRow[] = [];
     const keptServers: typeof servers = [];
     for (let i = 0; i < rows.length; i++) {
@@ -115,7 +130,12 @@ export async function enrich(
       const serversList: MatchingServer[] =
         serverProbe.status === "fulfilled" ? serverProbe.value : [];
       if (serverProbe.status === "rejected") partial = true;
-      const probe = previewForClassify(metadata[composite], statuses[composite], serversList);
+      const probe = previewForClassify(
+        metadata[composite],
+        statuses[composite],
+        serversList,
+        progress.map.get(composite),
+      );
       if (classifyBucket(probe) === opts.filter) {
         kept.push(row);
         keptServers.push(serverProbe);
@@ -130,7 +150,9 @@ export async function enrich(
   const artwork = await hydrateArtwork(liveRows, metadata, ctx);
 
   const settled = await Promise.allSettled(
-    liveRows.map((row, i) => enrichOne(row, statuses, metadata, artwork, liveServers[i]!)),
+    liveRows.map((row, i) =>
+      enrichOne(row, statuses, metadata, artwork, liveServers[i]!, progress.map),
+    ),
   );
 
   const items: WatchlistItem[] = [];
@@ -157,6 +179,7 @@ async function enrichOne(
   metadata: Record<string, CanonicalMetadata>,
   artwork: Record<string, ArtworkBundle>,
   serverProbe: PromiseSettledResult<MatchingServer[]>,
+  progress: ProgressMap,
 ): Promise<{ item: WatchlistItem; partial: boolean } | null> {
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
@@ -185,6 +208,8 @@ async function enrichOne(
     requestEligible: servers.length === 0 && status !== "available",
     servers: servers.map((s) => ({ id: s.id, label: s.label })),
   };
+  const resume = progress.get(composite);
+  if (resume) item.progress = { watched: resume.watched, total: resume.total };
   return { item, partial: serversPartial };
 }
 
