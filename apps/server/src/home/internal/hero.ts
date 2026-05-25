@@ -2,7 +2,7 @@ import { groupBy, orderBy } from "es-toolkit/array";
 import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import type { MetadataKey } from "@ent-mcp/shared/catalog";
 import { fromContinueWatchingEntry } from "./adapters";
-import { enrichItems } from "./enrich";
+import { enrichHomeItems } from "./media-enrichment";
 import { loadCanonicalItems } from "../rows/_shared";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
@@ -81,15 +81,15 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   if (filled.length === 0) return null;
 
   const ordered = orderCascadeLeadInterleave(filled, PRIORITY);
-  let enriched: Awaited<ReturnType<typeof enrichItems>>;
+  let enriched: Awaited<ReturnType<typeof enrichHomeItems>>;
   try {
-    enriched = await enrichItems(
+    enriched = await enrichHomeItems(
       ordered.map((s) => s.item),
       ctx,
       { rowId: "hero" },
     );
   } catch (err) {
-    ctx.logger.warn("[home:hero] enrichItems threw, dropping hero", err);
+    ctx.logger.warn("[home:hero] enrichHomeItems threw, dropping hero", err);
     return null;
   }
   const slides: HeroSlide[] = ordered.map((s, i) => ({

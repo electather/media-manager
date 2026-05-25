@@ -46,13 +46,18 @@ export {
   previewForClassify,
   type PreviewMeta,
   enrich,
+  enrichCompactItems,
   type EnrichOptions,
   type EnrichResult,
+  type CompactMediaEnrichContext,
+  type CompactMediaEnrichOptions,
+  type CompactMediaEnrichResult,
   type LoadProgressMap,
   type MediaEnrichContext,
   type MediaEnrichRow,
   type MediaProgressSnapshot,
   type WatchlistEnrichContext,
+  StatusBatchMemo,
 } from "./service";
 export type {
   MatchingServer,

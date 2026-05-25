@@ -1,6 +1,6 @@
 /**
  * Public barrel for `home/`. Boundaries test asserts re-exports come only
- * from `./service`, `./events`, `./errors`, and `./jobs`. `./repo`,
+ * from `./service`, `./events`, `./errors`, and `./jobs`. `./layout-cache`,
  * `./internal/**`, and individual files under `./jobs/` and `./rows/` are
  * deliberately not re-exported — external callers route through the
  * orchestrator surface below.

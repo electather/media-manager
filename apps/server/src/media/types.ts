@@ -89,6 +89,7 @@ export interface MediaProgressContext {
 /** Artwork fetcher callback — injected into `MediaEnrichContext` to break the artwork ↔ media circular dep. */
 export type GetArtworkFn = (
   requests: ArtworkRequestItem[],
+  opts?: { deadlineMs?: number },
 ) => Promise<{ results: Record<string, ArtworkBundle> }>;
 
 /** Canonical-row builder callback — injected into `MediaEnrichContext` to break the catalog ↔ media circular dep. */

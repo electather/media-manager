@@ -27,7 +27,7 @@ vi.mock("../service", () => ({
   composeLayout: (...args: unknown[]) => composeLayoutSpy(...args),
 }));
 
-vi.mock("../repo", () => ({
+vi.mock("../layout-cache", () => ({
   write: (...args: unknown[]) => writeLayoutCacheSpy(...args),
 }));
 

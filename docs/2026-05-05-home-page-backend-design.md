@@ -9,6 +9,7 @@
 ## Revision history
 
 - **rev 6 (2026-05-23)** — Warm-job per-row timeout (diag `runId d43fccf3-461e-4fc3-8918-5c5d4f13ad1a`, `host.home.layout_warm`). Root cause: `ctx.deadlineMs` set at compose entry but dropped by `enrichItems` leaves (`StatusBatchMemo.get`, `ArtworkService.getArtwork`, `MediaService.getMatchingServers`) and ignored as a clip on per-plugin `defaultTimeoutMs`. Worst plugin call ≈ 32 s (15 s `invokeWithTimeout` + 2 s rate-limit backoff + 15 s retry; transient branch = 31 s). Sequential compose phases compound past the 60 s per-row cap. Fix: thread `deadlineMs` through every leaf called from `composeLayout` AND `composeDetails` (incl. `composeDetails` cold-fill `getMetadata` and `getShowSeasons`); clip `invokeWithTimeout` to `min(capability.defaultTimeoutMs, remaining)`; reshape `buildContext` to accept `{ deadlineMs? }` opts; warm job sets `deadlineMs = now + 45_000` (15 s SQLite slack under 60 s row cap). Bust mode = fail-fast row via existing soft-failure path; partial layout written back. No wire-shape change; no `schema_version` bump.
+- **rev 7 (2026-05-25)** — Home orchestration now sits on the shared media enrichment layer. `home/service.ts` owns only context construction + page-level cache orchestration; row-preview, row-page, and detail composition live under `home/internal/`. `home/repo.ts` was renamed to `home/layout-cache.ts`, and compact item enrichment/status batching moved to `media.enrichCompactItems` + `media.StatusBatchMemo`; home supplies only the match-reason callback and artwork wiring.
 - **rev 5 (2026-05-22)** — Cross-source dedup added to the hero mixer (issue #474). The rev 4 mixer keyed slide uniqueness by `${source}:${tmdbId}`, so the same title present in two source pools (e.g. trending + new releases) shipped as two hero slides. New `dedupePools` step runs between pool build and `drawByQuota`, drops cross-source duplicates keyed by `${mediaType}:${tmdbId}`, and lets the higher-priority source (`[CW, rec, trend, new]`) keep the slide. Quota / backfill / order logic unchanged; backfill simply sees shorter pools when duplicates collapse. No wire-shape change; no `schema_version` bump.
 - **rev 4 (2026-05-07)** — Hero stops being a single-source cascade. Driven by §Amendment 3. `LayoutHero` reshapes to `{ slides: HeroSlide[] }`; each slide carries its own `source` + `reason` so the UI can label slides individually. Composer draws a fixed quota across the four sources (1 CW + 2 rec + 2 trend + 1 new = 6 slides) and cascades backfill by priority when a source is short. Slide order: cascade lead, then round-robin interleave of the rest. `home_layout_cache.schema_version` bumps 1 → 2. Pre-stable break — no compat shim.
 - **rev 3 (2026-05-06)** — Doc-code sync. §Hero composition shows the `enrichItems` step shared with row enrichment. §Orchestrator `composeRow` adds eligibility gate (404 `home.row_unavailable` on direct ineligible access) and the soft-failure `try/catch` that converts `AllPluginsFailedError`/`PluginCallError`/`AbortError` to `partial:true`. Error codes in §Orchestrator `composeRow`/`composeDetails` align with the unified envelope (`home.row_unavailable`, `home.bad_input`, `http.not_found`, `home.internal`). §Architecture composeRow/composeDetails diagrams swap `enrich.attach*` for `enrichItems`.
@@ -62,14 +63,14 @@ Replace `useHomeFeed()` mock w/ real backend. 3 RPCs: `home.getLayout`, `home.ge
                               ├─ provider.eligibility(ctx)         — direct-access gate, 404 home.row_unavailable on false
                               ├─ provider.fetchPage(ctx, cursor)   — row-local pipeline
                               │     soft failure → partial:true + items:[]
-                              ├─ enrichItems(page.items, ctx)      — status, availability, facets, matchReason
+                              ├─ media.enrichCompactItems(page.items, ctx) — status, availability, facets, matchReason
                               └─ return RowContentResponse
 
 [client] ─ home.getDetails(tmdbId,type) ──► home/orchestrator.composeDetails(ctx)
                               ├─ summary  = catalog.getMetadata    — sub-ms (cold-fill on miss via mediaService.getMetadata)
                               ├─ details  = mediaService.getDetails — dispatch-cached
                               ├─ if type=tv: seasons = mediaService.getShowSeasons(tmdbId)  — dispatch-cached (rev 2)
-                              ├─ enrichItems([summary], ctx, "details")  — status, availability, facets
+                              ├─ media.enrichCompactItems([summary], ctx, "details") — status, availability, facets
                               └─ return { summary, details, error?: { code } }
 
 [client] ─ home.getSeasonAvailability(tmdbId) ──► home/orchestrator.composeSeasonAvailability(ctx)  — rev 2
@@ -316,7 +317,7 @@ home/types.ts:
     pe             PreferenceEngine
     dataloader     DataLoader
     deadlineMs?    number
-    statusBatch    StatusBatchMemo       // request-scoped
+    statusBatch    media.StatusBatchMemo // request-scoped
     logger         Logger
   }
 ```
@@ -324,7 +325,7 @@ home/types.ts:
 **Invariant (rev 6).** Every leaf called from `composeLayout` OR `composeDetails` MUST accept and honor `deadlineMs`. Explicit leaf set:
 
 - Plugin invoke (`invokeWithTimeout` — additionally clips its own `timeoutMs` to `min(capability.defaultTimeoutMs, remaining)`).
-- `StatusBatchMemo.get(ids, { deadlineMs })` → forwards to `mediaRequest@v1.getStatusBatch` dispatch.
+- `media.StatusBatchMemo.get(ids, { deadlineMs })` → forwards to `mediaRequest@v1.getStatusBatch` dispatch.
 - `ArtworkService.getArtwork(requests, languages?, { deadlineMs? })` → forwards into the artwork `dispatchAggregatePerKind` request (the strategy already plumbs `req.deadlineMs` to `invokeOne`; only `ArtworkService.getArtwork`'s own signature gap remains).
 - `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs })` (new options arg; currently missing).
 - `MediaService.getShowSeasons(tmdbId, { deadlineMs })` (called from `composeDetails`; currently missing).
@@ -512,11 +513,11 @@ home/hero.ts:
     pools = await Promise.all(PRIORITY.map(src => loadPool(src, ctx)))   // HeroSlide[] each
     rawPoolsByKind = zip(PRIORITY, pools)
     poolsByKind    = dedupePools(rawPoolsByKind, PRIORITY)                // drop cross-source dupes (rev 5)
-    drafts = drawByQuota(poolsByKind, QUOTA)             // top-N from each pool (no enrichItems yet)
+    drafts = drawByQuota(poolsByKind, QUOTA)             // top-N from each pool (no media.enrichCompactItems yet)
     filled = backfill(drafts, poolsByKind, HERO_TARGET, PRIORITY)
     if filled.length === 0: return null
     ordered = orderCascadeLeadInterleave(filled, PRIORITY)
-    enriched = await enrichItems(ordered.map(s => s.item), ctx, { rowId: "hero" })
+    enriched = await media.enrichCompactItems(ordered.map(s => s.item), ctx, { rowId: "hero" })
     slides = ordered.map((s, i) => ({ ...s, item: enriched[i], resumeUrl: resolveResumeUrl(s) }))
     return { slides }
 
@@ -728,7 +729,7 @@ home/orchestrator.ts:
       if isRowSoftFailure(err):                         // AllPluginsFailedError, PluginCallError, AbortError
         page = { items: [], cursor: null, partial: true }
       else: throw err                                   // HttpError + anything else
-    enriched = await enrichItems(page.items, ctx, { rowId })   // status, availability, facets, matchReason
+    enriched = await media.enrichCompactItems(page.items, ctx, { rowId })   // status, availability, facets, matchReason
     return { items: enriched, cursor: page.cursor, partial: page.partial || undefined }
 
   composeDetails(ctx, tmdbId, type):
@@ -744,7 +745,7 @@ home/orchestrator.ts:
     // items so detail responses carry status + availability + facets.
     [detailsSettled, [summaryItem]] = await Promise.all([
       mediaService.getDetails(tmdbId, type).then(ok, fail),       // {ok:true,data} | {ok:false,err}
-      enrichItems([summaryInternal], ctx, { rowId: "details" }),
+      media.enrichCompactItems([summaryInternal], ctx, { rowId: "details" }),
     ])
     if !summaryItem: throw HttpError(500, "home.internal")
     if !detailsSettled.ok:
@@ -805,7 +806,7 @@ home/match-reason.ts:
 ## Status batch + enrichment
 
 ```
-home/status-batch.ts:
+media/status-batch.ts:
   class StatusBatchMemo {
     private cache = new Map<string, "available"|"requested"|"processing"|"unavailable"|"unknown">()
     private pending = new Set<string>()
@@ -920,7 +921,7 @@ Layout cache write failure = log + ignore (cold path next request).
 Soft-failure absorption by granularity:
 - **Per-row preview** — `previewRow` catch keeps the row stub (`include: true`, `partial: true` on its content fetch).
 - **Per hero pool** — `loadPool` for one source rejects → caught locally inside `pickHero`, that pool collapses to `[]`, mixer + backfill still draw from remaining pools. Replace the current `resolveHero` blanket `.catch(() => null)` with per-pool catches so a single slow source cannot null the entire hero (consistent with rev 4 degenerate-fill intent: hero ships < 6 slides instead of disappearing).
-- **enrichItems leaves** — `statusBatch` / `artwork` / `getMatchingServers` aborts caught in-place, item ships with default `status: "unknown"` / empty `servers` / unhydrated artwork (catalog fallback already covers `posterUrl`/`backdropUrl`).
+- **media.enrichCompactItems leaves** — `statusBatch` / `artwork` / `getMatchingServers` aborts caught in-place, item ships with default `status: "unknown"` / empty `servers` / unhydrated artwork (catalog fallback already covers `posterUrl`/`backdropUrl`).
 
 Writeback proceeds with the partial blob — no diagnostics `error` row, `partial: true` on affected rows + degenerate hero shape suffice.
 
@@ -968,7 +969,7 @@ apps/server/src/home/__tests__/
       (hero present from non-CW pools, CW row dropped or partial:true);
       no per-row timeout thrown; no cron.job_failed capture
   enrich.deadline.test.ts                                (rev 6)
-    - enrichItems forwards deadlineMs to StatusBatchMemo.get,
+    - media.enrichCompactItems forwards deadlineMs to media.StatusBatchMemo.get,
       ArtworkService.getArtwork, MediaService.getMatchingServers
     - per-item availability abort caught locally; item ships with empty
       servers + status:"unknown"
@@ -1035,7 +1036,7 @@ NEW
   apps/server/src/home/hero.ts
   apps/server/src/home/match-reason.ts
   apps/server/src/home/cursor.ts
-  apps/server/src/home/status-batch.ts
+  apps/server/src/media/status-batch.ts
   apps/server/src/home/layout-cache.ts
   apps/server/src/home/enrich.ts
   apps/server/src/home/errors.ts
@@ -1133,11 +1134,11 @@ CHANGED
 | 1   | `home-shared-wire`             | reshape `@ent-mcp/shared/home` types + enums + schemas; `MatchReason` as `string \| MatchReasonObj` transitional union; `HomeRowStub.title→titleKey/subtitle→subtitleKey` rename                                                    | —                                          |
 | 2   | `home-catalog-contributors`    | catalog rec list `topContributors` field; `recommendation-build` job amend; Drizzle migration; `RecItem` interface +field                                                                                                           | PR 1 (TopContributor type lives in shared) |
 | 3   | `home-mediaservice-extensions` | add `MediaService.getContinueWatchingFeed`, `MediaService.getMatchingServers` w/ tests                                                                                                                                              | — (independent of PRs 1-2)                 |
-| 4   | `home-row-providers`           | RowProvider iface, cursor codec, status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet                                                                                                                         | PRs 1, 2, 3                                |
+| 4   | `home-row-providers`           | RowProvider iface, cursor codec, media-owned status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet                                                                                                             | PRs 1, 2, 3                                |
 | 5   | `home-orchestrator`            | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint                                        | PR 4                                       |
 | 6   | `home-client-integration`      | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5                                       |
 | 7   | `home-hero-mix`                | rev 4 — reshape `LayoutHero` → `{ slides: HeroSlide[] }`; mixed-source composer (loadPool/drawByQuota/backfill/order); bump `home_layout_cache.schema_version` 1→2; client iterates slides[] w/ per-slide source label              | (independent of seasons amendment)         |
-| 8   | `home-deadline-propagation`    | rev 6 — signature reshapes: `buildContext(userId, logger?, opts?: { deadlineMs? })`, `StatusBatchMemo.get(ids, { deadlineMs? })`, `ArtworkService.getArtwork(requests, { deadlineMs? })` (forwards into its `dispatchAggregatePerKind` request), `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs? })`, `MediaService.getShowSeasons(tmdbId, { deadlineMs? })`, `MediaService.getMetadata(tmdbId, mediaType, { deadlineMs? })`. `invokeWithTimeout` clip to `min(defaultTimeoutMs, remaining)` + synthetic `plugin.timeout` outcome at ≤50 ms. Warm-job handler sets `now + 45_000`. Replace `resolveHero` blanket `.catch(() => null)` with per-pool catches. Regression test in `apps/server/src/home/__tests__/layout-warm.deadline.test.ts`: warm job, fake `continueWatching@v1.getContinueWatching` provider sleeps 90 s, other providers respond < 1 s → `layoutCache.write` invoked with partial blob (hero present, CW row dropped or `partial:true`), no per-row timeout error thrown, no `cron.job_failed` capture. Also add `media/__tests__/invoke.deadline-clip.test.ts` (deadline-clip arithmetic + synthetic short-circuit). | PR 7                                       |
+| 8   | `home-deadline-propagation`    | rev 6 — signature reshapes: `buildContext(userId, logger?, opts?: { deadlineMs? })`, `media.StatusBatchMemo.get(ids, { deadlineMs? })`, `ArtworkService.getArtwork(requests, { deadlineMs? })` (forwards into its `dispatchAggregatePerKind` request), `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs? })`, `MediaService.getShowSeasons(tmdbId, { deadlineMs? })`, `MediaService.getMetadata(tmdbId, mediaType, { deadlineMs? })`. `invokeWithTimeout` clip to `min(defaultTimeoutMs, remaining)` + synthetic `plugin.timeout` outcome at ≤50 ms. Warm-job handler sets `now + 45_000`. Replace `resolveHero` blanket `.catch(() => null)` with per-pool catches. Regression test in `apps/server/src/home/__tests__/layout-warm.deadline.test.ts`: warm job, fake `continueWatching@v1.getContinueWatching` provider sleeps 90 s, other providers respond < 1 s → `layoutCache.write` invoked with partial blob (hero present, CW row dropped or `partial:true`), no per-row timeout error thrown, no `cron.job_failed` capture. Also add `media/__tests__/invoke.deadline-clip.test.ts` (deadline-clip arithmetic + synthetic short-circuit). | PR 7                                       |
 
 Each PR ships a changeset (per project rule: 1-2 sentences, end-user voice).
 
@@ -1359,7 +1360,7 @@ Composer pseudocode lives in §Hero composition (rewritten this revision). High-
 3. `drawByQuota` walks priority order taking the per-source quota.
 4. `backfill` cascades through priority pools to top up to 6, skipping `${source}:${tmdbId}` keys already drawn.
 5. `orderCascadeLeadInterleave` selects the lead from the first non-empty priority pool, then round-robins remainder.
-6. `enrichItems` runs once across all final slide items (status, availability, facets) — same surface as rows.
+6. `media.enrichCompactItems` runs once across all final slide items (status, availability, facets) — same surface as rows.
 7. `resumeUrl` is currently always `null`; structure preserved so future SDK addition (`playback@v1.getResumeUrl`) can populate CW slides only.
 
 ### Client integration
