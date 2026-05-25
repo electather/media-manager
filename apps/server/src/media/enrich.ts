@@ -77,8 +77,10 @@ export interface EnrichOptions {
 
 export interface CompactMediaEnrichContext extends Pick<
   MediaEnrichContext,
-  "userId" | "mediaService" | "catalog" | "deadlineMs" | "log" | "getArtwork"
+  "userId" | "catalog" | "deadlineMs" | "log" | "getArtwork"
 > {
+  /** Enrichment only needs status + availability surface — not progress. */
+  mediaService: MediaEnrichService;
   /** Optional request-scoped batch loader for status lookups. */
   statusBatch?: StatusBatchMemo;
 }
@@ -428,7 +430,8 @@ function deriveCompactFacets(
     const features = meta?.features as { episodeCount?: number } | null | undefined;
     if (features?.episodeCount != null) out.episodeCount = features.episodeCount;
   }
-  if (meta?.year != null) out.releaseDate = String(meta.year);
+  if (meta?.year != null && meta.year > new Date().getUTCFullYear())
+    out.releaseDate = String(meta.year);
   const merged: Facets = { ...item.facets, ...out };
   return Object.keys(merged).length > 0 ? merged : undefined;
 }

@@ -46,7 +46,6 @@ function ctx(overrides: Partial<CompactMediaEnrichContext> = {}): CompactMediaEn
     mediaService: {
       getStatusBatch: vi.fn().mockResolvedValue({}),
       getMatchingServers: vi.fn().mockResolvedValue([]),
-      getContinueWatchingFeed: vi.fn().mockResolvedValue({ items: [], partial: false }),
       getMetadata: vi.fn().mockResolvedValue(null),
     },
     catalog: {
@@ -120,7 +119,6 @@ describe("enrichCompactItems", () => {
       mediaService: {
         getStatusBatch: vi.fn().mockResolvedValue({}),
         getMatchingServers,
-        getContinueWatchingFeed: vi.fn().mockResolvedValue({ items: [], partial: false }),
         getMetadata: vi.fn().mockResolvedValue(null),
       },
       catalog: {
@@ -164,5 +162,39 @@ describe("enrichCompactItems", () => {
     expect(out.items[0]?.matchReason).toEqual({ key: "highly_rated", params: {} });
     expect(out.items[0]).not.toHaveProperty("__topContributors");
     expect(out.items[0]).not.toHaveProperty("__addedAtMs");
+  });
+
+  it("sets partial and returns items when getStatusBatch rejects", async () => {
+    const testCtx = ctx({
+      mediaService: {
+        getStatusBatch: vi.fn().mockRejectedValue(new Error("batch fail")),
+        getMatchingServers: vi.fn().mockResolvedValue([]),
+        getMetadata: vi.fn().mockResolvedValue(null),
+      },
+    });
+
+    const out = await enrichCompactItems(
+      [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "T" }],
+      testCtx,
+    );
+
+    expect(out.partial).toBe(true);
+    expect(out.items).toHaveLength(1);
+  });
+
+  it("sets partial and returns items when getMetadataBatch rejects", async () => {
+    const testCtx = ctx({
+      catalog: {
+        getMetadataBatch: vi.fn().mockRejectedValue(new Error("catalog fail")),
+      } as never,
+    });
+
+    const out = await enrichCompactItems(
+      [{ id: "movie:1", tmdbId: "1", mediaType: "movie", title: "T" }],
+      testCtx,
+    );
+
+    expect(out.partial).toBe(true);
+    expect(out.items).toHaveLength(1);
   });
 });

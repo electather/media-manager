@@ -92,6 +92,10 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
     ctx.logger.warn("[home:hero] enrichHomeItems threw, dropping hero", err);
     return null;
   }
+  if (enriched.length !== ordered.length) {
+    ctx.logger.warn("[home:hero] enrichment dropped items, dropping hero");
+    return null;
+  }
   const slides: HeroSlide[] = ordered.map((s, i) => ({
     item: enriched[i]!,
     source: s.source,
