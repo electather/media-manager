@@ -10,3 +10,12 @@ export const AVAILABILITY_STATUSES = [
 
 export type MediaType = (typeof MEDIA_TYPES)[number];
 export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
+
+export const MEDIA_ROW_BUCKETS = [
+  "ready",
+  "in-progress",
+  "awaiting",
+  "unavailable",
+  "upcoming",
+] as const;
+export type MediaRowBucket = (typeof MEDIA_ROW_BUCKETS)[number];

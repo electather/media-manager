@@ -1025,3 +1025,41 @@ export {
   clearPrimaryConnection,
   getPrimaryConnection,
 } from "./primary-preference";
+// Row-read repo lives alongside the dispatch service; surfaced through the
+// service barrel so callers (home, watchlist) consume them via the module
+// public API rather than reaching into `media/repo.ts` directly.
+export {
+  ROW_SORTS,
+  encodeCursor,
+  decodeCursor,
+  listActiveRows,
+  listActiveRowsKeyset,
+  listActiveRowsOffset,
+  getActiveRow,
+  hasActiveRows,
+  type ActiveRow,
+  type PageCursor,
+  type RowFilter,
+  type RowSort,
+} from "../repo";
+// Row bucket classifier lives at the module root; barrel-only public API rule
+// means consumers go through media/service. Mirrors the row-repo pattern.
+export {
+  classifyBucket,
+  matchesBucket,
+  isActiveProgress,
+  previewForClassify,
+  type PreviewMeta,
+} from "../classify";
+// Cross-request 30 s TTL cache for `getMatchingServers`; lives at module root
+// but surfaced through the service barrel so callers (home, watchlist) stay
+// on the barrel-only public API.
+export { getMatchingServersCached, __resetAvailabilityCache } from "../availability-cache";
+// Row listing enrichment (status batch + catalog metadata + artwork dispatch
+// + matching-server probe). Canonical shared implementation; watchlist + home
+// list paths consume via this barrel.
+export { enrich, type MediaEnrichContext, type EnrichResult, type EnrichOptions } from "../enrich";
+// Per-request continue-watching progress map. Surfaced through the service
+// barrel so callers (home Continue Watching rail, watchlist in-progress
+// bucket) stay on the barrel-only public API.
+export { loadProgressMap, type ProgressEntry, type ProgressMap } from "../progress";
