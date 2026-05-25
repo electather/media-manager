@@ -212,6 +212,17 @@ If you genuinely think a convention is harmful, surface it. Don't fork silently.
 "Tests pass" is wrong if any were skipped.
 Default to surfacing uncertainty, not hiding it.
 
+## Rule 13 — docs/* = source of truth
+
+Read relevant design doc before any change. Update it after.
+Design describes intended final state across phases — code listed as "kept" stays even if currently unused.
+Check linked issue before deleting anything flagged by tooling.
+
+## Rule 14 — Never increase fallow baseline
+
+Flag → fix root cause. No new entries in `.fallow/dead-code-baseline.json`.
+Exception: add `// fallow-ignore-file <rule>` or `// fallow-ignore-next-line <rule>` inline with one-line reason.
+
 ## Token Savior MCP
 
 `token-savior` MCP server registered. Prefer structural code-nav tools over `Read` + `Grep` when exploring symbols, sources, deps in this repo. Use memory engine (`memory_*`) for session-spanning context — override file-based auto-memory at `~/.claude/projects/.../memory/` for this project.
