@@ -115,8 +115,7 @@ export async function getItems(
 
   // Seed only on the *first* page; cursor implies the user already has rows.
   if (!cursor && !(await hasUserSeeded(c.userId))) {
-    const peek = await listActiveRowsKeyset(c.userId, { limit: 1 });
-    if (peek.length === 0) {
+    if (!(await hasActiveRows(c.userId))) {
       const seedRes = await seedFromPlugins(c);
       partial = partial || seedRes.partial;
     }

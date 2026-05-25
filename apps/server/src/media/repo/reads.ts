@@ -112,7 +112,7 @@ export async function listAvailableCandidates(
     .select()
     .from(watchlistItems)
     .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
-    .orderBy(desc(watchlistItems.addedAt))
+    .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id))
     .limit(limit);
   return rows.map(toRow);
 }
