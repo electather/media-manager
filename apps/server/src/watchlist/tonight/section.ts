@@ -51,6 +51,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
     loadProgressMap(ctx),
   ]);
 
+  // fallow-ignore-next-line code-duplication
   const serverProbes = await Promise.allSettled(
     rows.map((r) => getMatchingServersCached(ctx.userId, ctx.mediaService, r.tmdbId, r.mediaType)),
   );
