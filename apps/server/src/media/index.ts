@@ -53,3 +53,4 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
+export { loadProgressMap, type ProgressEntry, type ProgressMap } from "./progress";

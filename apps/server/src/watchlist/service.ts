@@ -25,7 +25,7 @@ import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema 
 import { enrich, type EnrichOptions } from "./enrich";
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
-import { loadProgressMap } from "./progress";
+import { loadProgressMap } from "../media";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 import * as repo from "./repo";
 import type { WatchlistRow } from "./repo";

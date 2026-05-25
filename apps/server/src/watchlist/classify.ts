@@ -1,6 +1,6 @@
 import type { WatchlistBucket, WatchlistItem } from "@ent-mcp/shared/watchlist";
 import type { MatchingServer } from "../media";
-import type { ProgressEntry } from "./progress";
+import type { ProgressEntry } from "../media";
 
 /**
  * Server-side mirror of the client's classifier (see
