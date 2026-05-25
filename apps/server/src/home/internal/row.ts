@@ -9,6 +9,7 @@ import type { RowContext, RowPage } from "./types";
  * Loads one row page, applying direct-access guards before media-owned
  * enrichment projects the row items into the public wire shape.
  */
+// fallow-ignore-next-line high-crap-score -- guard chain plus soft-failure catch; all branches are load-bearing
 export async function composeRowPage(
   ctx: RowContext,
   rowId: string,

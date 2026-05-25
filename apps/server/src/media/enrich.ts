@@ -234,11 +234,13 @@ export async function enrichCompactItems<Row extends CompactMediaItem>(
   const compositeIds = items.map((item) => keyToId(item));
   const metadataKeys = items.map((item) => ({ tmdbId: item.tmdbId, type: item.mediaType }));
 
+  // fallow-ignore-next-line code-duplication -- parallel fallback pattern; differs from enrich() in call site and log label
   const statuses = await loadCompactStatuses(compositeIds, ctx).catch((err) => {
     ctx.log.warn("[media:compact-enrich] getStatusBatch failed", err);
     partial = true;
     return {} as Record<string, string>;
   });
+  // fallow-ignore-next-line code-duplication -- parallel fallback pattern; differs from enrich() in call site and log label
   const metadata = await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
     ctx.log.warn("[media:compact-enrich] getMetadataBatch failed", err);
     partial = true;
@@ -420,6 +422,7 @@ async function deriveCompactAvailability(
   return { hasAnyServerCopy, requestEligible, servers };
 }
 
+// fallow-ignore-next-line high-crap-score -- null-check cascade over sparse metadata; each guard is load-bearing
 function deriveCompactFacets(
   meta: CanonicalMetadata | undefined,
   item: CompactMediaItem,
