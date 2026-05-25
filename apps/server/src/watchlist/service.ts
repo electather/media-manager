@@ -16,13 +16,21 @@ import {
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { CatalogService } from "../catalog";
-import type { MatchingServer, MediaService } from "../media";
+import { ArtworkService } from "../artwork";
+import { toCanonicalRow, type CatalogService } from "../catalog";
+import {
+  classifyBucket,
+  enrich,
+  getMatchingServersCached,
+  previewForClassify,
+  type EnrichOptions,
+  type GetArtworkFn,
+  type MatchingServer,
+  type MediaService,
+  type ToCanonicalRowFn,
+} from "../media";
 import { emit, type EventName } from "../jobs/events";
-import { getMatchingServersCached } from "./availability-cache";
-import { classifyBucket, previewForClassify } from "./classify";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
-import { enrich, type EnrichOptions } from "./enrich";
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { loadProgressMap } from "../media";
@@ -42,6 +50,12 @@ export interface WatchlistContext {
   log: ConsolaInstance;
 }
 
+interface ResolvedWatchlistContext extends WatchlistContext {
+  loadProgressMap: typeof loadProgressMap;
+  getArtwork: GetArtworkFn;
+  toCanonicalRow: ToCanonicalRowFn;
+}
+
 interface MaybeRowContext {
   userId: string;
   mediaService: MediaService;
@@ -51,13 +65,16 @@ interface MaybeRowContext {
   logger?: ConsolaInstance;
 }
 
-function asWatchlistContext(ctx: MaybeRowContext): WatchlistContext {
+function asWatchlistContext(ctx: MaybeRowContext): ResolvedWatchlistContext {
   return {
     userId: ctx.userId,
     mediaService: ctx.mediaService,
     catalog: ctx.catalog,
     deadlineMs: ctx.deadlineMs,
     log: ctx.log ?? ctx.logger ?? consola,
+    loadProgressMap,
+    getArtwork: (requests) => new ArtworkService(ctx.userId, ctx.catalog).getArtwork(requests),
+    toCanonicalRow,
   };
 }
 
@@ -594,7 +611,7 @@ export async function listItems(
 
 async function filterByMood(
   rows: WatchlistRow[],
-  ctx: WatchlistContext,
+  ctx: ResolvedWatchlistContext,
   mood: MoodId,
 ): Promise<{
   rows: WatchlistRow[];
@@ -618,7 +635,7 @@ async function filterByMood(
 
 // fallow-ignore-next-line complexity
 async function listItemsOffset(
-  ctx: WatchlistContext,
+  ctx: ResolvedWatchlistContext,
   sort: Exclude<WatchlistSort, "recent">,
   limit: number,
   opts: ListItemsOptions,

@@ -1,5 +1,5 @@
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { isActiveProgress } from "../classify";
+import { isActiveProgress } from "../../media";
 
 /**
  * Tonight-pick scoring weights. Centralized so changes are intentional and

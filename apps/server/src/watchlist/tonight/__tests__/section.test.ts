@@ -16,7 +16,7 @@ vi.mock("../../../db/client", async () => {
   return { ...actual, getDb: () => testDb };
 });
 
-vi.mock("../../availability-cache", () => ({
+vi.mock("../../../media/availability-cache", () => ({
   getMatchingServersCached: vi.fn().mockResolvedValue([]),
   __resetAvailabilityCache: vi.fn(),
 }));
@@ -29,13 +29,13 @@ vi.mock("../../../media", async () => {
   };
 });
 
-vi.mock("../../enrich", () => ({
+vi.mock("../../../media/enrich", () => ({
   enrich: vi.fn().mockResolvedValue({ items: [], partial: false, sources: [] }),
 }));
 
-const { getMatchingServersCached } = await import("../../availability-cache");
+const { getMatchingServersCached } = await import("../../../media/availability-cache");
 const { loadProgressMap } = await import("../../../media");
-const { enrich } = await import("../../enrich");
+const { enrich } = await import("../../../media/enrich");
 const { getSection, __resetTonightCache } = await import("../section");
 const repo = await import("../../repo");
 

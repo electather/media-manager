@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { MEDIA_TYPES } from "../media/enums";
-import { MOOD_IDS, WATCHLIST_BUCKETS, WATCHLIST_SORTS, WATCHLIST_USER_SOURCES } from "./enums";
+import { MEDIA_ROW_BUCKETS, MEDIA_TYPES } from "../media/enums";
+import { MOOD_IDS, WATCHLIST_SORTS, WATCHLIST_USER_SOURCES } from "./enums";
 
 const tmdbIdSchema = z.string().regex(/^\d+$/u, "tmdbId must be a numeric string");
 
@@ -40,7 +40,7 @@ export const itemsQuerySchema = z
       .max(WATCHLIST_LIST_MAX_LIMIT)
       .default(WATCHLIST_LIST_DEFAULT_LIMIT),
     sort: z.enum(WATCHLIST_SORTS).default("recent"),
-    bucket: z.enum(WATCHLIST_BUCKETS).optional(),
+    bucket: z.enum(MEDIA_ROW_BUCKETS).optional(),
     mood: z.enum(MOOD_IDS).optional(),
   })
   .strict();

@@ -4,17 +4,23 @@ import {
   type WatchlistItem,
   type WatchlistSectionResponse,
 } from "@ent-mcp/shared/watchlist";
-import type { MatchingServer } from "../../media";
-import { getMatchingServersCached } from "../availability-cache";
-import { classifyBucket, previewForClassify } from "../classify";
-import { enrich, type WatchlistEnrichContext } from "../enrich";
-import { loadProgressMap } from "../../media";
+import {
+  classifyBucket,
+  enrich,
+  getMatchingServersCached,
+  loadProgressMap,
+  previewForClassify,
+  type MatchingServer,
+  type WatchlistEnrichContext,
+} from "../../media";
 import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
 
 const CACHE_TTL_MS = 5 * 60_000;
 const cache = new UserTtlCache<WatchlistSectionResponse>(CACHE_TTL_MS);
+
+type SectionContext = Omit<WatchlistEnrichContext, "loadProgressMap">;
 
 /**
  * Tonight section: hero + ≤4 alternates from the user's ready / in-progress
@@ -23,7 +29,8 @@ const cache = new UserTtlCache<WatchlistSectionResponse>(CACHE_TTL_MS);
  * the top 5. Cached 5 min per user (RISK-007 / V.WL4).
  */
 // fallow-ignore-next-line complexity
-export async function getSection(ctx: WatchlistEnrichContext): Promise<WatchlistSectionResponse> {
+export async function getSection(ctx: SectionContext): Promise<WatchlistSectionResponse> {
+  const enrichCtx: WatchlistEnrichContext = { ...ctx, loadProgressMap };
   // fallow-ignore-next-line code-duplication
   const hit = cache.get(ctx.userId);
   if (hit) return hit;
@@ -76,7 +83,7 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
     return empty;
   }
 
-  const enriched = await enrich(candidates, ctx);
+  const enriched = await enrich(candidates, enrichCtx);
   const result = pick(enriched.items);
   // fallow-ignore-next-line code-duplication
   const section: WatchlistSectionResponse = {
