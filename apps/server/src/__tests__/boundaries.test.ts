@@ -92,12 +92,12 @@ function forbiddenDeepImportPatterns(module: string): RegExp[] {
   // The handler-file pattern excludes `../<module>/jobs` (no trailing slash)
   // because that resolves to `jobs/index.ts` which is allowed via the barrel.
   return [
-    new RegExp(`["']\\.\\.\/\${module}\/repo(["'/])`),
-    new RegExp(`["']\\.\\.\/\${module}\/internal\/`),
-    new RegExp(`["']\\.\\.\/\${module}\/jobs\/[a-zA-Z]`),
-    new RegExp(`["']@\/\${module}\/repo(["'/])`),
-    new RegExp(`["']@\/\${module}\/internal\/`),
-    new RegExp(`["']@\/\${module}\/jobs\/[a-zA-Z]`),
+    new RegExp(`["']\\.\\./${module}/repo(["'/])`),
+    new RegExp(`["']\\.\\./${module}/internal/`),
+    new RegExp(`["']\\.\\./${module}/jobs/[a-zA-Z]`),
+    new RegExp(`["']@/${module}/repo(["'/])`),
+    new RegExp(`["']@/${module}/internal/`),
+    new RegExp(`["']@/${module}/jobs/[a-zA-Z]`),
   ];
 }
 
