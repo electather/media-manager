@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
-**Status:** design (rev 7)
-**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25)
+**Status:** design (rev 8)
+**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25; rev 8: 2026-05-25)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
@@ -10,6 +10,7 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 8 (2026-05-25)** — Mood item query keys append the concrete `limit` segment without normalizing omitted limits to `null`.
 - **rev 7 (2026-05-25)** — Mood item pagination returns `cursor: null` when the empty-streak budget exits before collecting any items. Mutation listener registration tests reset module-level idempotency state before each run.
 - **rev 6 (2026-05-23)** — Sub-page UX + new `unavailable` bucket.
   - **Chip active = pathname-only.** `BucketChips` `<Link/>` → `activeOptions={{ exact: true, includeSearch: false }}`. `?sort=` flip ⊥ kill active. V.WL9.
@@ -383,7 +384,7 @@ Rationale: loader failures bubble to route `errorComponent`. Keeping loader to `
 | `useTonight` | `/sections/tonight` | `useSuspenseQuery` |
 | `useReadyRow` | `/items?bucket=ready&sort=status&limit=20` | `useSuspenseInfiniteQuery` |
 | `useMoods` | `/moods` | `useSuspenseQuery` |
-| `useMoodCluster(id)` | `/moods/:id/items?limit=3` (preview cap; "See all" route uses default=60) | `useSuspenseInfiniteQuery` |
+| `useMoodCluster(id, limit)` | `/moods/:id/items?limit=3` (preview cap; mood page passes 60) | `useSuspenseInfiniteQuery` |
 | `useComingUp` | `/items?bucket=upcoming` | `useSuspenseInfiniteQuery` |
 | `useAwaiting` | `/items?bucket=awaiting` | `useSuspenseInfiniteQuery` |
 | `useRecentlyAdded` | `/sections/recently?limit=5` | `useSuspenseQuery` |
@@ -400,7 +401,7 @@ watchlistKeys = {
   tonight: () => [...root, "section", "tonight"] as const,
   recently: () => [...root, "section", "recently"] as const,
   moods: () => [...root, "moods"] as const,
-  moodItems: (id) => [...root, "moods", id, "items"] as const,
+  moodItems: (id) => [...root, "moods", id, "items"] as const, // hook appends `limit`
   items: (params) => [...root, "items", params] as const,
 }
 ```
