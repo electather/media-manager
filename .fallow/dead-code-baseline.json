@@ -1,5 +1,8 @@
 {
-  "unused_files": [],
+  "unused_files": [
+    "apps/client/src/features/watchlist/lib/classify.ts",
+    "apps/client/src/features/watchlist/lib/section-heights.ts"
+  ],
   "unused_exports": [],
   "unused_types": [],
   "private_type_leaks": [],
