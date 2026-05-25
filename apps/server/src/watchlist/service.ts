@@ -777,7 +777,10 @@ export async function listMoodItems(
       break;
     }
     if (emptyStreak > MAX_EMPTY_HOPS) {
-      nextCursor = repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
+      nextCursor =
+        collectedItems.length > 0
+          ? repo.encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id })
+          : null;
       break;
     }
     scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };

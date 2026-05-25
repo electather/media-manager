@@ -1,7 +1,7 @@
 # Watchlist Sections — REST-split + Flat All-Items
 
-**Status:** design (rev 6)
-**Date:** 2026-05-23 (rev 1–6: 2026-05-23)
+**Status:** design (rev 7)
+**Date:** 2026-05-23 (rev 1–6: 2026-05-23; rev 7: 2026-05-25)
 **Author:** Omid Astaraki
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
@@ -10,6 +10,7 @@ Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 7 (2026-05-25)** — Mood item pagination returns `cursor: null` when the empty-streak budget exits before collecting any items.
 - **rev 6 (2026-05-23)** — Sub-page UX + new `unavailable` bucket.
   - **Chip active = pathname-only.** `BucketChips` `<Link/>` → `activeOptions={{ exact: true, includeSearch: false }}`. `?sort=` flip ⊥ kill active. V.WL9.
   - **Per-route Suspense fallback resembles content.** New `WatchlistGridSkeleton` (CSS grid, `aspect-[2/3]` placeholders, `minColumnWidthPx=180`, ~12 cards) wraps `WatchlistFlatPage` + `WatchlistMoodPage`. Curated keeps `WatchlistSkeleton`. V.WL10.
@@ -305,7 +306,7 @@ listMoodItems(ctx, moodId, { cursor, limit=60 }):
   )
 ```
 
-Mood derivation pure → testable. No artwork during `getMoodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `getMoodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request).
+Mood derivation pure → testable. No artwork during `getMoodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `getMoodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request). If the empty-streak budget exits before collecting any matching rows, return `cursor: null` so the client does not show phantom load-more affordances.
 
 ### S.5 Progress signal (in-progress bucket)
 
