@@ -13,7 +13,7 @@ import { MediaService, AllPluginsFailedError, PluginCallError } from "../media";
 import { HttpError } from "../diagnostics/http-errors";
 import { classifyError } from "./internal/classify-error";
 import { pickHero } from "./internal/hero";
-import * as repo from "./repo";
+import * as repo from "./layout-cache";
 import { ROW_ORDER, ROW_PROVIDERS } from "./rows";
 import { StatusBatchMemo } from "./internal/status-batch";
 import { enrichItems } from "./internal/enrich";

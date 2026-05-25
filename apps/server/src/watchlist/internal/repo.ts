@@ -1,29 +1,16 @@
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { keyToId, type WatchlistKey, type WatchlistSource } from "@ent-mcp/shared/watchlist";
-import { getDb, type Db } from "../db/client";
-import { userWatchlistSeed, watchlistItems } from "../db/schema/watchlist";
+import { type ActiveRow } from "../../media";
+import { getDb, type Db } from "../../db/client";
+import { userWatchlistSeed, watchlistItems } from "../../db/schema/watchlist";
 
-export interface WatchlistRow {
-  id: string;
-  userId: string;
-  tmdbId: string;
-  mediaType: "movie" | "tv";
-  state: "active" | "removed";
-  source: WatchlistSource;
-  addedAt: number;
-  removedAt: number | null;
-  seeded: boolean;
-}
+/**
+ * Watchlist-owned write paths. Reads flow through `media/repo.ts` via the
+ * media barrel; mutation + seed-lock logic stays here because both are
+ * watchlist-specific (the home module only consumes the read surface).
+ */
 
-export interface UpsertActiveResult {
-  row: WatchlistRow;
-  /** True when a brand-new row was inserted or a removed row was reactivated. */
-  created: boolean;
-  /** True when the row was already in the `active` state before this call. */
-  wasActive: boolean;
-}
-
-function toRow(raw: typeof watchlistItems.$inferSelect): WatchlistRow {
+function toActiveRow(raw: typeof watchlistItems.$inferSelect): ActiveRow {
   return {
     id: raw.id,
     userId: raw.userId,
@@ -41,109 +28,12 @@ function newId(): string {
   return crypto.randomUUID();
 }
 
-export async function list(
-  userId: string,
-  opts: { state?: "active" | "removed"; limit?: number } = {},
-  db: Db = getDb(),
-): Promise<WatchlistRow[]> {
-  const state = opts.state ?? "active";
-  let query = db
-    .select()
-    .from(watchlistItems)
-    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, state)))
-    .orderBy(desc(watchlistItems.addedAt));
-  if (opts.limit != null) query = query.limit(opts.limit) as typeof query;
-  const rows = await query;
-  return rows.map(toRow);
-}
-
-export interface PageCursor {
-  addedAt: number;
-  id: string;
-}
-
-/**
- * Encode/decode are deliberately url-safe + opaque so clients pass the cursor
- * through verbatim. Base64 of `${addedAt}:${id}` — id is a cuid, so no `:` in
- * either component.
- */
-export function encodeCursor(cursor: PageCursor): string {
-  return Buffer.from(`${cursor.addedAt}:${cursor.id}`, "utf8").toString("base64url");
-}
-
-// fallow-ignore-next-line complexity
-export function decodeCursor(raw: string): PageCursor | null {
-  try {
-    const decoded = Buffer.from(raw, "base64url").toString("utf8");
-    const idx = decoded.indexOf(":");
-    if (idx <= 0) return null;
-    const addedAt = Number(decoded.slice(0, idx));
-    const id = decoded.slice(idx + 1);
-    if (!Number.isFinite(addedAt) || id.length === 0) return null;
-    return { addedAt, id };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Keyset-paginated read of active rows in `(added_at DESC, id DESC)` order.
- * Caller asks for `limit` rows past `cursor`. Returns up to `limit` rows;
- * callers slice / re-page based on whether the result was full.
- */
-export async function listPage(
-  userId: string,
-  opts: { cursor?: PageCursor; limit: number },
-  db: Db = getDb(),
-): Promise<WatchlistRow[]> {
-  const conditions = [eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")];
-  if (opts.cursor) {
-    // Strict keyset: rows are sorted (added_at DESC, id DESC), so the next
-    // page starts at rows that are *strictly less* than the cursor in that
-    // composite key.
-    conditions.push(
-      or(
-        lt(watchlistItems.addedAt, opts.cursor.addedAt),
-        and(eq(watchlistItems.addedAt, opts.cursor.addedAt), lt(watchlistItems.id, opts.cursor.id)),
-      )!,
-    );
-  }
-  const rows = await db
-    .select()
-    .from(watchlistItems)
-    .where(and(...conditions))
-    .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id))
-    .limit(opts.limit);
-  return rows.map(toRow);
-}
-
-/** All active rows for the user, newest first. Used by `/counts`. */
-export async function listAllActive(userId: string, db: Db = getDb()): Promise<WatchlistRow[]> {
-  const rows = await db
-    .select()
-    .from(watchlistItems)
-    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
-    .orderBy(desc(watchlistItems.addedAt), desc(watchlistItems.id));
-  return rows.map(toRow);
-}
-
-export async function findByKey(
-  userId: string,
-  key: WatchlistKey,
-  db: Db = getDb(),
-): Promise<WatchlistRow | null> {
-  const row = await db
-    .select()
-    .from(watchlistItems)
-    .where(
-      and(
-        eq(watchlistItems.userId, userId),
-        eq(watchlistItems.tmdbId, key.tmdbId),
-        eq(watchlistItems.mediaType, key.mediaType),
-      ),
-    )
-    .get();
-  return row ? toRow(row) : null;
+export interface UpsertActiveResult {
+  row: ActiveRow;
+  /** True when a brand-new row was inserted or a removed row was reactivated. */
+  created: boolean;
+  /** True when the row was already in the `active` state before this call. */
+  wasActive: boolean;
 }
 
 /**
@@ -171,7 +61,7 @@ export async function upsertActive(
       )
       .get();
     if (existing && existing.state === "active") {
-      return { row: toRow(existing), created: false, wasActive: true };
+      return { row: toActiveRow(existing), created: false, wasActive: true };
     }
     if (existing && existing.state === "removed") {
       const updated = await tx
@@ -182,7 +72,7 @@ export async function upsertActive(
         .get();
       // Reactivation is not a brand-new insert; `created` flags only the
       // first-ever insert so a future caller can distinguish the two.
-      return { row: toRow(updated!), created: false, wasActive: false };
+      return { row: toActiveRow(updated!), created: false, wasActive: false };
     }
     const inserted = await tx
       .insert(watchlistItems)
@@ -199,14 +89,14 @@ export async function upsertActive(
       })
       .returning()
       .get();
-    return { row: toRow(inserted!), created: true, wasActive: false };
+    return { row: toActiveRow(inserted!), created: true, wasActive: false };
   });
 }
 
 export interface SoftRemoveResult {
   /** True when an active row transitioned to `removed`. */
   removed: boolean;
-  row: WatchlistRow | null;
+  row: ActiveRow | null;
 }
 
 export async function softRemove(
@@ -228,7 +118,7 @@ export async function softRemove(
       )
       .get();
     if (!existing || existing.state === "removed") {
-      return { removed: false, row: existing ? toRow(existing) : null };
+      return { removed: false, row: existing ? toActiveRow(existing) : null };
     }
     const updated = await tx
       .update(watchlistItems)
@@ -236,7 +126,7 @@ export async function softRemove(
       .where(eq(watchlistItems.id, existing.id))
       .returning()
       .get();
-    return { removed: true, row: toRow(updated!) };
+    return { removed: true, row: toActiveRow(updated!) };
   });
 }
 
@@ -322,34 +212,6 @@ export async function hasSeeded(userId: string, db: Db = getDb()): Promise<boole
     .where(eq(userWatchlistSeed.userId, userId))
     .get();
   return row != null;
-}
-
-export async function hasActiveRows(userId: string, db: Db = getDb()): Promise<boolean> {
-  const row = await db
-    .select({ id: watchlistItems.id })
-    .from(watchlistItems)
-    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
-    .limit(1)
-    .get();
-  return row != null;
-}
-
-/**
- * Returns active rows for `userId`, newest first. `limit` caps the number of
- * candidate rows the service then probes via `getMatchingServers`.
- */
-export async function listAvailableCandidates(
-  userId: string,
-  limit: number,
-  db: Db = getDb(),
-): Promise<WatchlistRow[]> {
-  const rows = await db
-    .select()
-    .from(watchlistItems)
-    .where(and(eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")))
-    .orderBy(desc(watchlistItems.addedAt))
-    .limit(limit);
-  return rows.map(toRow);
 }
 
 export async function listSeededUserIds(db: Db = getDb()): Promise<{ userId: string }[]> {

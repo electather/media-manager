@@ -18,12 +18,12 @@ vi.mock("../../catalog", () => ({
 vi.mock("../service", () => ({
   syncFromPlugins: vi.fn().mockResolvedValue({ added: 0, partial: false }),
 }));
-vi.mock("../repo", () => ({
+vi.mock("../internal/repo", () => ({
   listSeededUserIds: vi.fn().mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]),
 }));
 
 const { registerScheduledPerRow } = await import("../../jobs/scheduled-per-row");
-const repo = await import("../repo");
+const repo = await import("../internal/repo");
 const service = await import("../service");
 const { registerSyncPluginWatchlist, WATCHLIST_SYNC_JOB_ID } =
   await import("../jobs/sync-plugin-watchlist");

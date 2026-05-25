@@ -2,7 +2,7 @@ import { consola } from "consola";
 import { getCatalogService } from "../../catalog";
 import { MediaService } from "../../media";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
-import * as repo from "../repo";
+import * as repo from "../internal/repo";
 import { syncFromPlugins } from "../service";
 
 export const WATCHLIST_SYNC_JOB_ID = "watchlist.sync_plugin";

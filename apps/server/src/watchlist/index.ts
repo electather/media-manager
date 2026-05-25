@@ -1,11 +1,10 @@
 /**
  * Public barrel for `watchlist/`. Boundaries test rule: re-exports come only
- * from `./service`, `./events`, `./errors`, and `./jobs`. Internal `repo.ts`,
- * `enrich.ts`, and individual files under `./jobs/` are intentionally not
- * re-exported.
+ * from `./service`, `./events`, `./errors`, and `./jobs`. Row listing,
+ * classify, enrich, and availability-cache live in `../media` (canonical
+ * implementation shared with home). Writes live under `./internal/repo`.
  */
 export {
-  // fallow-ignore-next-line code-duplication
   getItems,
   getCounts,
   addItem,
@@ -15,10 +14,10 @@ export {
   listAvailable,
   hasAny,
   listItems,
+  listMoodItems,
   getTonightSection,
   getRecentlyAdded,
   getMoodSummary,
-  listMoodItems,
   type GetItemsOptions,
   type ListItemsOptions,
   type ListMoodItemsOptions,

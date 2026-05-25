@@ -2,14 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { consola } from "consola";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 
-vi.mock("../../repo", () => ({
-  listAllActive: vi.fn(),
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
 }));
 
-const repo = await import("../../repo");
+vi.mock("../../../media", () => ({
+  listActiveRows: vi.fn(),
+}));
+
+const mediaRepo = await import("../../../media");
 const { getSummary, invalidateMoodSummary, __resetMoodCache } = await import("../cluster");
 
-const listAllActiveMock = vi.mocked(repo.listAllActive);
+const listAllActiveMock = vi.mocked(mediaRepo.listActiveRows);
 
 function row(tmdbId: string, mediaType: "movie" | "tv" = "movie") {
   return {

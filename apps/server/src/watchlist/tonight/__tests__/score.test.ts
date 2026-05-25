@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { score, WEIGHTS } from "../score";
+
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
+const { score, WEIGHTS } = await import("../score");
 
 const NOW = 1_700_000_000_000;
 const RECENT_MS = NOW - 24 * 60 * 60 * 1000;
