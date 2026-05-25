@@ -69,9 +69,9 @@ function BucketChipLink({ chipKey, label, count }: BucketChipLinkProps) {
     <Link
       to={to}
       role="tab"
+      aria-selected="false"
       activeOptions={{ exact: true, includeSearch: false }}
       activeProps={{ "aria-selected": "true" as const }}
-      inactiveProps={{ "aria-selected": "false" as const }}
       className={CHIP_BASE_CLASS}
     >
       {label}
