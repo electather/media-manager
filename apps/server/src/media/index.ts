@@ -60,6 +60,8 @@ export type {
   MediaEnrichService,
   MediaProgressContext,
   MediaProgressService,
+  GetArtworkFn,
+  ToCanonicalRowFn,
 } from "./types";
 export {
   MEDIA_EVENTS,

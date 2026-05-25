@@ -16,15 +16,18 @@ import {
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { CatalogService } from "../catalog";
+import { ArtworkService } from "../artwork";
+import { toCanonicalRow, type CatalogService } from "../catalog";
 import {
   classifyBucket,
   enrich,
   getMatchingServersCached,
   previewForClassify,
   type EnrichOptions,
+  type GetArtworkFn,
   type MatchingServer,
   type MediaService,
+  type ToCanonicalRowFn,
 } from "../media";
 import { emit, type EventName } from "../jobs/events";
 import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
@@ -49,6 +52,8 @@ export interface WatchlistContext {
 
 interface ResolvedWatchlistContext extends WatchlistContext {
   loadProgressMap: typeof loadProgressMap;
+  getArtwork: GetArtworkFn;
+  toCanonicalRow: ToCanonicalRowFn;
 }
 
 interface MaybeRowContext {
@@ -68,6 +73,8 @@ function asWatchlistContext(ctx: MaybeRowContext): ResolvedWatchlistContext {
     deadlineMs: ctx.deadlineMs,
     log: ctx.log ?? ctx.logger ?? consola,
     loadProgressMap,
+    getArtwork: (requests) => new ArtworkService(ctx.userId, ctx.catalog).getArtwork(requests),
+    toCanonicalRow,
   };
 }
 

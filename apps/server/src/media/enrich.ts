@@ -3,14 +3,14 @@ import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shared/watchlist";
-import { ArtworkService } from "../artwork";
-import { toCanonicalRow, type RawCanonicalSource } from "../catalog";
 import type { CatalogService } from "../catalog";
 import type {
+  GetArtworkFn,
   MatchingServer,
   MediaEnrichService,
   MediaProgressContext,
   MediaProgressService,
+  ToCanonicalRowFn,
 } from "./types";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
@@ -34,6 +34,10 @@ export interface MediaEnrichContext extends Omit<MediaProgressContext, "mediaSer
   mediaService: MediaEnrichService & MediaProgressService;
   catalog: CatalogService;
   loadProgressMap: LoadProgressMap;
+  /** Fetches artwork bundles. Injected by callers to avoid artwork ↔ media circular dep. */
+  getArtwork?: GetArtworkFn;
+  /** Converts raw plugin metadata to canonical shape. Injected to avoid catalog ↔ media circular dep. */
+  toCanonicalRow?: ToCanonicalRowFn;
 }
 
 export type WatchlistEnrichContext = MediaEnrichContext;
@@ -253,10 +257,9 @@ async function hydrateArtwork(
       type: row.mediaType,
     });
   }
-  if (requests.length === 0) return {};
+  if (requests.length === 0 || !ctx.getArtwork) return {};
   try {
-    const service = new ArtworkService(ctx.userId, ctx.catalog);
-    const res = await service.getArtwork(requests);
+    const res = await ctx.getArtwork(requests);
     return res.results;
   } catch (err) {
     ctx.log.warn("[media:enrich] artwork hydration failed", err);
@@ -291,12 +294,10 @@ async function loadColdMetadata(
   row: MediaEnrichRow,
   ctx: MediaEnrichContext,
 ): Promise<CanonicalMetadata | null> {
-  const raw = (await ctx.mediaService.getMetadata(
-    row.tmdbId,
-    row.mediaType,
-  )) as RawCanonicalSource | null;
+  if (!ctx.toCanonicalRow) return null;
+  const raw = await ctx.mediaService.getMetadata(row.tmdbId, row.mediaType);
   if (!raw) return null;
-  const canonical = toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw);
+  const canonical = ctx.toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw);
   // Fire-and-forget the write — the next read still hits the catalog cache;
   // we don't need to await it before threading the value back to the caller.
   void ctx.catalog

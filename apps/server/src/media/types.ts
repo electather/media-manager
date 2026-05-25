@@ -1,5 +1,8 @@
 import type { ConsolaInstance } from "consola";
 import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
+import type { ArtworkRequestItem, ArtworkBundle } from "@ent-mcp/shared/artwork";
+import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { MediaType } from "@ent-mcp/shared/media";
 import type { RawCanonicalSource } from "../catalog";
 
 export interface DispatchRequest {
@@ -82,3 +85,14 @@ export interface MediaProgressContext {
   log: ConsolaInstance;
   deadlineMs?: number;
 }
+
+/** Artwork fetcher callback — injected into `MediaEnrichContext` to break the artwork ↔ media circular dep. */
+export type GetArtworkFn = (
+  requests: ArtworkRequestItem[],
+) => Promise<{ results: Record<string, ArtworkBundle> }>;
+
+/** Canonical-row builder callback — injected into `MediaEnrichContext` to break the catalog ↔ media circular dep. */
+export type ToCanonicalRowFn = (
+  key: { tmdbId: string; type: MediaType },
+  raw: RawCanonicalSource,
+) => CanonicalMetadata;
