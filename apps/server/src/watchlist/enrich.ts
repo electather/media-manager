@@ -10,7 +10,7 @@ import type { CatalogService } from "../catalog";
 import type { MatchingServer, MediaService } from "../media";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify } from "./classify";
-import { loadProgressMap, type ProgressMap } from "./progress";
+import { loadProgressMap, type ProgressMap } from "../media";
 import type { WatchlistRow } from "./repo";
 
 export interface WatchlistEnrichContext {

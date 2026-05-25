@@ -4,10 +4,11 @@ import {
   type WatchlistItem,
   type WatchlistSectionResponse,
 } from "@ent-mcp/shared/watchlist";
+import type { MatchingServer } from "../../media";
 import { getMatchingServersCached } from "../availability-cache";
 import { classifyBucket, previewForClassify } from "../classify";
 import { enrich, type WatchlistEnrichContext } from "../enrich";
-import { loadProgressMap } from "../progress";
+import { loadProgressMap } from "../../media";
 import * as repo from "../repo";
 import { UserTtlCache } from "../user-cache";
 import { pick } from "./pick";
@@ -51,21 +52,19 @@ export async function getSection(ctx: WatchlistEnrichContext): Promise<Watchlist
   ]);
 
   // fallow-ignore-next-line code-duplication
-  const serverLookups = await Promise.all(
-    rows.map((row) =>
-      getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType).catch(
-        () => [] as Awaited<ReturnType<typeof getMatchingServersCached>>,
-      ),
-    ),
+  const serverProbes = await Promise.allSettled(
+    rows.map((r) => getMatchingServersCached(ctx.userId, ctx.mediaService, r.tmdbId, r.mediaType)),
   );
   const candidates: repo.WatchlistRow[] = [];
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
+    const probe = serverProbes[i]!;
+    const servers: MatchingServer[] = probe.status === "fulfilled" ? probe.value : [];
     const preview = previewForClassify(
       metadata[composite],
       statuses[composite],
-      serverLookups[i]!,
+      servers,
       progress.map.get(composite),
     );
     const bucket = classifyBucket(preview);
