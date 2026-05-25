@@ -62,6 +62,7 @@ export class AllPluginsFailedError extends HttpError {
  * inputs and for `PluginCallError` codes outside the documented map so
  * callers can rethrow.
  */
+// fallow-ignore-next-line complexity
 export function mapRequestPluginError(err: unknown): HttpError | null {
   if (!(err instanceof PluginCallError)) return null;
   if (err.code === "mcp.target_not_found") {

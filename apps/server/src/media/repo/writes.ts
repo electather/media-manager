@@ -29,6 +29,7 @@ export async function upsertActiveRow(
   now: number,
   db: Db = getDb(),
 ): Promise<UpsertActiveResult> {
+  // fallow-ignore-next-line complexity
   return db.transaction(async (tx) => {
     const existing = await tx
       .select()

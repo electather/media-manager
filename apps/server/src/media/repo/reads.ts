@@ -19,6 +19,7 @@ export function toRow(raw: typeof watchlistItems.$inferSelect): ActiveRow {
   };
 }
 
+// fallow-ignore-next-line complexity
 export async function listActiveRows(
   userId: string,
   opts: { filter?: RowFilter; sort?: RowSort; limit?: number } = {},

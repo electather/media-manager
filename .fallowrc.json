@@ -1130,7 +1130,7 @@
         "allow": ["server-schema-auth", "server-schema-plugin-runtime", "shared-pkg"]
       },
       {
-        "from": "server-schema-watchlist",
+        "from": "server-schema-media",
         "allow": ["server-schema-auth", "shared-pkg"]
       },
       {
