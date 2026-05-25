@@ -18,7 +18,6 @@ export {
 export {
   trySeedLock,
   clearSeedLock,
-  markUserSeeded,
   hasUserSeeded,
   listSeededUserIds,
   __resetActiveRowsForTests,

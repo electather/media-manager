@@ -11,7 +11,6 @@ export {
   bulkInsertActiveRows,
   trySeedLock,
   clearSeedLock,
-  markUserSeeded,
   hasUserSeeded,
   listSeededUserIds,
   encodeCursor,
@@ -19,5 +18,4 @@ export {
   type PageCursor,
   type UpsertActiveResult,
   type SoftRemoveResult,
-  __resetActiveRowsForTests,
 } from "../repo";

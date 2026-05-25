@@ -21,10 +21,6 @@ export async function clearSeedLock(userId: string, db: Db = getDb()): Promise<v
   await db.delete(userWatchlistSeed).where(eq(userWatchlistSeed.userId, userId));
 }
 
-export async function markUserSeeded(userId: string, now: number, db: Db = getDb()): Promise<void> {
-  await db.insert(userWatchlistSeed).values({ userId, seededAt: now }).onConflictDoNothing();
-}
-
 export async function hasUserSeeded(userId: string, db: Db = getDb()): Promise<boolean> {
   const row = await db
     .select({ userId: userWatchlistSeed.userId })

@@ -52,7 +52,7 @@ export async function listActiveRows(
  */
 export async function listActiveRowsKeyset(
   userId: string,
-  opts: { cursor?: PageCursor; limit: number; sort?: RowSort },
+  opts: { cursor?: PageCursor; limit: number },
   db: Db = getDb(),
 ): Promise<ActiveRow[]> {
   const conditions = [eq(watchlistItems.userId, userId), eq(watchlistItems.state, "active")];
