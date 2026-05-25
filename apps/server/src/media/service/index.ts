@@ -371,6 +371,7 @@ export class MediaService {
     return out;
   }
 
+  // fallow-ignore-next-line complexity
   async getRequests(): Promise<MediaRequest[]> {
     try {
       const result = await dispatchSingle<unknown[]>({
@@ -388,6 +389,7 @@ export class MediaService {
     }
   }
 
+  // fallow-ignore-next-line complexity
   async cancelRequest(requestId: string): Promise<void> {
     let result: { ok: boolean; message?: string } | null;
     try {
@@ -829,6 +831,7 @@ export class MediaService {
     return this.probeServerLegacy(pluginId, tmdbId, queryType, capability, deadlineMs);
   }
 
+  // fallow-ignore-next-line complexity
   private async probeServerLegacy(
     pluginId: string,
     tmdbId: string,
@@ -1047,3 +1050,24 @@ export {
   clearPrimaryConnection,
   getPrimaryConnection,
 } from "./primary-preference";
+export {
+  listActiveRows,
+  listActiveRowsKeyset,
+  getActiveRow,
+  listAllActiveRows,
+  listAvailableCandidates,
+  hasActiveRows,
+  allKnownKeys,
+  upsertActiveRow,
+  softRemoveRow,
+  bulkInsertActiveRows,
+  trySeedLock,
+  clearSeedLock,
+  hasUserSeeded,
+  listSeededUserIds,
+  encodeCursor,
+  decodeCursor,
+  type PageCursor,
+  type UpsertActiveResult,
+  type SoftRemoveResult,
+} from "../repo";

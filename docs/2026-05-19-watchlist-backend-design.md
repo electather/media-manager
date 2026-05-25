@@ -97,7 +97,7 @@ Tombstone via `state` col → sync ⊥ resurrect deleted. Seed marker `user_watc
 
 ## §D Database
 
-→ apps/server/src/db/schema/watchlist.ts (NEW)
+→ apps/server/src/db/schema/media/ (tables live here — ownership transferred to `media/` module, see `2026-05-20-backend-schema-namespaces-design.md`)
 → apps/server/drizzle/00XX_add_watchlist.sql (NEW migration)
 
 ### D.1 `watchlist_items`
@@ -145,7 +145,7 @@ Presence = "seedFromPlugins ran ≥1 time". Separate table avoids cross-module o
 
 ### D.3 Schema export
 
-Add to apps/server/src/db/schema/index.ts barrel. Owned exclusively by watchlist module.
+Add to apps/server/src/db/schema/index.ts barrel. Tables originally owned by watchlist module; ownership transferred to the `media/` module (PR #526 — `2026-05-25-media-repo-extraction`) and accessed via `media/` barrel.
 
 ## §M Module layout
 
@@ -166,7 +166,7 @@ watchlist/
   index.ts                             // barrel: service public fns + types
 ```
 
-Owned tables: `watchlist_items`, `user_watchlist_seed`. Outside callers must use `service.*`. Fallow zone-pair enforces.
+~~Owned tables: `watchlist_items`, `user_watchlist_seed`.~~ Storage ownership transferred to `media/` module (PR #526). Watchlist callers access rows via the `media/` public barrel (`listActiveRows`, `upsertActiveRow`, etc.). Outside callers must use `service.*`. Fallow zone-pair enforces.
 
 **Imports:** watchlist may import `media/` public surface (`mediaService`), `catalog/` public surface (`catalogService`), shared types. ⊥ `home/internal/*`.
 

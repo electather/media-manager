@@ -35,7 +35,7 @@ const {
   seedFromPlugins,
   syncFromPlugins,
 } = await import("../service");
-const repo = await import("../repo");
+const mediaRepo = await import("../../media/repo");
 const { __resetAvailabilityCache } = await import("../../media");
 
 let testDb: Db;
@@ -93,7 +93,7 @@ beforeAll(async () => {
 afterAll(() => cleanupInMemoryDbs());
 
 beforeEach(async () => {
-  await repo.__resetForTests(testDb);
+  await mediaRepo.__resetActiveRowsForTests(testDb);
   __resetAvailabilityCache();
   (emit as ReturnType<typeof vi.fn>).mockClear();
 });
@@ -122,7 +122,7 @@ describe("watchlist/service", () => {
     // NOT trigger a plugin fan-out — design §M.2 reads rows first.
     const ctx = makeCtx();
     await addItem({ tmdbId: "777", mediaType: "movie" }, "manual", ctx);
-    expect(await repo.hasSeeded(ctx.userId)).toBe(false);
+    expect(await mediaRepo.hasUserSeeded(ctx.userId)).toBe(false);
 
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const feedSpy = ctx.mediaService.getWatchlistFeed as ReturnType<typeof vi.fn>;
@@ -139,7 +139,7 @@ describe("watchlist/service", () => {
     );
     const res = await seedFromPlugins(ctx);
     expect(res).toEqual({ added: 0, partial: true });
-    expect(await repo.hasSeeded(ctx.userId)).toBe(false);
+    expect(await mediaRepo.hasUserSeeded(ctx.userId)).toBe(false);
   });
 
   it("addItem on a fresh key inserts and emits itemAdded", async () => {
@@ -197,7 +197,7 @@ describe("watchlist/service", () => {
     });
 
     await syncFromPlugins(ctx);
-    const row = await repo.findByKey(ctx.userId, { tmdbId: "400", mediaType: "movie" });
+    const row = await mediaRepo.getActiveRow(ctx.userId, { tmdbId: "400", mediaType: "movie" });
     expect(row?.state).toBe("removed");
   });
 
@@ -223,7 +223,7 @@ describe("watchlist/service", () => {
     (emit as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("no handler"));
     const result = await addItem({ tmdbId: "600", mediaType: "movie" }, "manual", ctx);
     expect(result.wasActive).toBe(false);
-    const row = await repo.findByKey(ctx.userId, { tmdbId: "600", mediaType: "movie" });
+    const row = await mediaRepo.getActiveRow(ctx.userId, { tmdbId: "600", mediaType: "movie" });
     expect(row?.state).toBe("active");
   });
 });

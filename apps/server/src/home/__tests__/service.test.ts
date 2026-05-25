@@ -7,7 +7,7 @@ vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
 
-vi.mock("../layout-cache");
+vi.mock("../internal/layout-cache");
 vi.mock("../internal/hero", () => ({ pickHero: vi.fn() }));
 vi.mock("../../media", async () => {
   const actual = await vi.importActual<typeof import("../../media")>("../../media");
@@ -48,7 +48,7 @@ vi.mock("../rows", async () => {
   };
 });
 
-const layoutCache = await import("../layout-cache");
+const layoutCache = await import("../internal/layout-cache");
 const hero = await import("../internal/hero");
 const orchestrator = await import("../service");
 
