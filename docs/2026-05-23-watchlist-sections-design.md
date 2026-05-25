@@ -685,7 +685,7 @@ Single user-facing changeset under `@ent-mcp/client`:
 | `client features/watchlist/__tests__/grid-skeleton.test.tsx` NEW (rev 6) | `WatchlistGridSkeleton` renders N card-shaped placeholders in CSS grid; aspect-[2/3] (V.WL10) |
 | `client features/watchlist/__tests__/suspense-fallback-identity.test.ts` NEW (rev 6) | Each flat + mood route module's `<Suspense>` fallback ≡ `WatchlistGridSkeleton` (V.WL10 anti-drift) |
 | `client shared/components/__tests__/empty-state.test.tsx` NEW (rev 6) | EmptyState primitive: icon/title/description/action props; centered layout |
-| `server watchlist/__tests__/classify.test.ts` EXTEND (rev 6) | every classify output ∈ `WATCHLIST_BUCKETS`; ⊥ "unknown" emitted; unavailable catch-all |
+| `server media/__tests__/classify.test.ts` EXTEND (rev 6) | every classify output ∈ `WATCHLIST_BUCKETS`; ⊥ "unknown" emitted; unavailable catch-all |
 | `server watchlist/__tests__/service.test.ts` EXTEND (rev 6) | `getCounts` returns `unavailable: number`; `total = ready + inProgress + awaiting + unavailable + upcoming` |
 
 Cover intent per CLAUDE.md rule 9: each test pins the WHY (e.g., "all-items must surface every visible bucket — V.WL2 rev 6 total-coverage").

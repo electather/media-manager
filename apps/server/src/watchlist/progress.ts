@@ -7,8 +7,6 @@ import type {
   ProgressMap,
 } from "../media";
 
-export type { ProgressEntry, ProgressMap } from "../media";
-
 /** Matches the home `continue-watching-active` row's "still active" threshold. */
 const FINISHING_THRESHOLD = 0.85;
 
