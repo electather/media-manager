@@ -74,6 +74,7 @@ export function isActiveContinueWatchingEntry(entry: ContinueWatchingProgressEnt
   return ms / 1000 / total < FINISHING_THRESHOLD;
 }
 
+// fallow-ignore-next-line complexity
 export function projectContinueWatchingProgress(
   entry: ContinueWatchingProgressEntry,
 ): ProgressEntry | null {
