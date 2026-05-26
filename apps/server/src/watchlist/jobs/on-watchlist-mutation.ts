@@ -2,7 +2,11 @@ import { on } from "../../jobs/events";
 import { invalidateMoodSummary } from "../moods/cluster";
 import { invalidateCounts } from "../service";
 import { invalidateTonightSection } from "../tonight/section";
-import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "../events";
+import {
+  WATCHLIST_EVENTS,
+  watchlistItemAddedSchema,
+  watchlistItemRemovedSchema,
+} from "../../media";
 
 let registered = false;
 

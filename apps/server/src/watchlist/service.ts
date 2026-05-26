@@ -21,6 +21,8 @@ import { ArtworkService } from "../artwork";
 import { MemoryCache } from "../cache/memory";
 import { toCanonicalRow, type CatalogService } from "../catalog";
 import {
+  addItem as mediaAddItem,
+  removeItem as mediaRemoveItem,
   classifyBucket,
   enrich,
   getMatchingServersCached,
@@ -29,8 +31,6 @@ import {
   listAvailableCandidates,
   hasActiveRows,
   allKnownKeys,
-  upsertActiveRow,
-  softRemoveRow,
   bulkInsertActiveRows,
   trySeedLock,
   clearSeedLock,
@@ -38,6 +38,7 @@ import {
   encodeCursor,
   decodeCursor,
   previewForClassify,
+  type AddItemResult,
   type EnrichOptions,
   type GetArtworkFn,
   type MatchingServer,
@@ -45,8 +46,8 @@ import {
   type PageCursor,
   type ToCanonicalRowFn,
 } from "../media";
-import { emit, type EventName } from "../jobs/events";
-import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema } from "./events";
+
+export type { AddItemResult };
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { loadProgressMap } from "../media";
@@ -252,67 +253,25 @@ export async function __resetCountsCache(): Promise<void> {
   await countsCache.clear("watchlist:counts:");
 }
 
-export interface AddItemResult {
-  item: WatchlistItem;
-  wasActive: boolean;
-}
-
-/** Idempotent: adds a brand-new row, reactivates a removed one, or no-ops on active. */
+/**
+ * Idempotent add. The `watchlist_items` write + event now live in media
+ * (design §M.2); this thin shell resolves the per-request context into the
+ * enrich-ready shape and delegates.
+ */
 export async function addItem(
   key: WatchlistKey,
   source: WatchlistSource,
   ctx: MaybeRowContext,
 ): Promise<AddItemResult> {
-  const c = asWatchlistContext(ctx);
-  const now = Date.now();
-  const result = await upsertActiveRow(c.userId, key, source, now);
-  const [enriched] = (await enrich([result.row], c)).items;
-  const fallback: WatchlistItem = {
-    id: keyToId(key),
-    tmdbId: key.tmdbId,
-    mediaType: key.mediaType,
-    title: `${key.mediaType === "tv" ? "Show" : "Movie"} ${key.tmdbId}`,
-    addedAt: result.row.addedAt,
-    addedSource: result.row.source,
-  };
-  const item = enriched ?? fallback;
-  if (!result.wasActive) {
-    await safeEmit(
-      WATCHLIST_EVENTS.ITEM_ADDED,
-      watchlistItemAddedSchema,
-      {
-        userId: c.userId,
-        key: keyToId(key),
-        source,
-        createdAt: result.row.addedAt,
-      },
-      c.log,
-    );
-  }
-  return { item, wasActive: result.wasActive };
+  return mediaAddItem(key, source, asWatchlistContext(ctx));
 }
 
-/** Idempotent: 204-style. Active → removed, already-removed / never-existed → no-op. */
+/** Idempotent remove. Delegates to the media-owned `watchlist_items` write. */
 export async function removeItem(
   key: WatchlistKey,
   ctx: MaybeRowContext,
 ): Promise<{ removed: boolean }> {
-  const c = asWatchlistContext(ctx);
-  const now = Date.now();
-  const result = await softRemoveRow(c.userId, key, now);
-  if (result.removed) {
-    await safeEmit(
-      WATCHLIST_EVENTS.ITEM_REMOVED,
-      watchlistItemRemovedSchema,
-      {
-        userId: c.userId,
-        key: keyToId(key),
-        removedAt: now,
-      },
-      c.log,
-    );
-  }
-  return { removed: result.removed };
+  return mediaRemoveItem(key, asWatchlistContext(ctx));
 }
 
 export interface SeedResult {
@@ -434,19 +393,6 @@ export async function listAvailable(
 
 export async function hasAny(userId: string): Promise<boolean> {
   return hasActiveRows(userId);
-}
-
-async function safeEmit<T>(
-  name: EventName,
-  schema: Parameters<typeof emit<T>>[1],
-  payload: T,
-  log: ConsolaInstance,
-): Promise<void> {
-  try {
-    await emit(name, schema, payload);
-  } catch (err) {
-    log.warn(`[watchlist:event] emit ${String(name)} failed`, err);
-  }
 }
 
 /**

@@ -97,6 +97,16 @@ export {
 } from "./pipeline/paginate";
 export { listRows } from "./service/list-rows";
 export {
+  addItem,
+  removeItem,
+  WATCHLIST_EVENTS,
+  watchlistItemAddedSchema,
+  watchlistItemRemovedSchema,
+  type AddItemResult,
+  type WatchlistItemAddedPayload,
+  type WatchlistItemRemovedPayload,
+} from "./service/writes";
+export {
   loadProgressMap,
   isActiveContinueWatchingEntry,
   extractTmdbId,

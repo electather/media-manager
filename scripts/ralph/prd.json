@@ -126,8 +126,8 @@
         "`vp test` passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Moved addItem/removeItem to media/service/writes.ts (design §M.2) as a faithful MOVE: bodies byte-identical except resolved ctx lifted into the watchlist wrapper. media's addItem takes an already-resolved MediaEnrichContext (removeItem: Pick<...,'userId'|'log'>) so media never imports watchlist; watchlist keeps THIN wrappers `mediaAddItem(key,source,asWatchlistContext(ctx))` (asWatchlistContext STAYS — used by ~10 read fns). Moved the private safeEmit helper too. EVENTS moved with the writes: media owns the watchlist_items write events, so WATCHLIST_EVENTS + watchlistItemAdded/RemovedSchema (+payload types) now live in writes.ts and are barrel-exported (NOT media/events.ts — boot.test.ts handler-coverage scans that file + fixed handler dirs, and watchlist's handler in watchlist/jobs would fail it; writes.ts is outside the scan). Deleted watchlist/events.ts; on-watchlist-mutation imports events from ../../media now; dropped the dead ./events block from the watchlist barrel (no external consumer). on-watchlist-mutation.test.ts mocks ../../media (importing the heavy media barrel would drag db/client->env into the isolated unit test). Existing watchlist service.test.ts addItem/removeItem tests UNCHANGED and green (wrappers route through media; emit mock is path-based on ../../jobs/events). vp check 0 errors/1 pre-existing warn; vp test watchlist+media+boot 338 pass; fallow vs origin/main = only Duplication+Complexity (warn), ZERO Circular/Boundaries/Unused (error) — media->watchlist boundary holds. Empty internal-only changeset."
     },
     {
       "id": "US-009",
