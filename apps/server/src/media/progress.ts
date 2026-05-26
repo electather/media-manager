@@ -83,7 +83,11 @@ export function projectContinueWatchingProgress(
   if (total == null || total <= 0) return null;
   // `isActiveContinueWatchingEntry` already verified `progressMs > 0`.
   const ms = entry.progressMs as number;
-  return { watched: Math.round(ms / 1000), total };
+  const watched = Math.round(ms / 1000);
+  // Re-check threshold against the rounded value so near-boundary entries match the prior
+  // rounded-ratio behaviour (e.g. 101500ms/120s rounds to 102s → 0.85 → excluded).
+  if (watched / total >= FINISHING_THRESHOLD) return null;
+  return { watched, total };
 }
 
 export function projectProgressMapEntry(

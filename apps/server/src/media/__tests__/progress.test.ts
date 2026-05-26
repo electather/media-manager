@@ -41,4 +41,17 @@ describe("continue watching progress helpers", () => {
     expect(projectContinueWatchingProgress(entry)).toBeNull();
     expect(projectProgressMapEntry(entry)).toBeNull();
   });
+
+  it("re-applies the threshold after rounding so projections match the prior rounded-ratio behaviour", () => {
+    // 101_500ms / 120s = 0.8458 (under the ms-ratio threshold) but rounds to 102s → 0.85 (at threshold).
+    // The watchlist projection must exclude this entry to preserve the pre-refactor classification.
+    const entry = {
+      progressMs: 101_500,
+      item: { type: "movie", durationSec: 120, ids: { tmdb: "33" } },
+    };
+
+    expect(isActiveContinueWatchingEntry(entry)).toBe(true);
+    expect(projectContinueWatchingProgress(entry)).toBeNull();
+    expect(projectProgressMapEntry(entry)).toBeNull();
+  });
 });
