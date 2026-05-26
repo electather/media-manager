@@ -47,8 +47,8 @@
         "`vp check` passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created apps/server/src/media/source.ts: MediaSource<P=void> interface = sourceId + fetchRawSet(ctx,params,cursor)->{rows:ActiveRow[];partial:boolean;nextRaw?:RawPageToken} + stages{classify?:boolean;filter?:FilterKind;sort:RowSort;cursorMode:'keyset'|'offset'}. Contract is tiny (V.MC1): no enrich/sort/slice/cursor logic, eligibility NOT on source. Added 5 supporting types to media/types.ts: FilterKind='bucket'|'mood'|undefined; RawPageToken=string (opaque keyset hop token, rides in next cursor's k; undefined for offset sources); SourceContext={userId,mediaService:MediaService,catalog:CatalogService,deadlineMs?,statusBatch:StatusBatchMemo,logger:ConsolaInstance} (RowContext∪WatchlistContext per design §B Pin, dropped the WatchlistContext `log` alias); PipelineConfig<P=void>={params:P;sort?:RowSort;filter?:FilterKind;cursor:Cursor|null;limit:number} (cursor already DECODED by consumer per V.CU1); Page={items:CompactMediaItem[];cursor:string|null;partial:boolean} (encoded cursor string, public items only per V.MI1). Exported MediaSource via barrel + the 5 types from ./types. SourceContext references concrete MediaService(./service)+StatusBatchMemo(./service)+CatalogService(../catalog) via import type — creates type-only cycles types.ts<->service & types.ts<->status-batch but fallow circular-deps reports ZERO (type-only edges not counted; verified `vp exec fallow audit`). Empty internal-only changeset (CompactMediaItem wire change already covered by US-001 minor changeset). vp check: 0 errors / 1 pre-existing warning. vp test media: 245 pass."
     },
     {
       "id": "US-004",
