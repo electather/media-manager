@@ -73,6 +73,19 @@ export interface EnrichOptions {
    * loop from this map so callers don't pay for two fetches per hop.
    */
   prefetchedMetadata?: Record<string, CanonicalMetadata>;
+  /**
+   * Status + metadata + progress already loaded by the shared `batchLoad`
+   * fan-out (design §C). Supplied by the `listRows` pipeline so enrich consumes
+   * the single fan-out instead of re-issuing its own status/metadata/progress
+   * round-trips; cold-fill, matching-server probes, and artwork still run. The
+   * batch's own `partial` is folded in by the pipeline, so the progress leg is
+   * treated as complete here.
+   */
+  prefetchedBatch?: {
+    statuses: Record<string, string>;
+    metadata: Record<string, CanonicalMetadata>;
+    progress: ProgressMap;
+  };
 }
 
 export interface CompactMediaEnrichContext extends Pick<
@@ -118,21 +131,33 @@ export async function enrich<Row extends MediaEnrichRow>(
   const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
 
-  const statuses = await ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
-    ctx.log.warn("[media:enrich] getStatusBatch failed", err);
-    partial = true;
-    return {} as Record<string, string>;
-  });
-
-  const metadata: Record<string, CanonicalMetadata> = opts.prefetchedMetadata
-    ? { ...opts.prefetchedMetadata }
-    : await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-        ctx.log.warn("[media:enrich] getMetadataBatch failed", err);
+  // The `listRows` pipeline pre-loads status + metadata + progress through the
+  // shared `batchLoad` fan-out (design §C) and threads it in as
+  // `prefetchedBatch`; consuming it keeps the read to a single fan-out rather
+  // than re-issuing the three round-trips. Direct callers omit it and enrich
+  // fetches them itself; `prefetchedMetadata` stays the narrower metadata-only
+  // seed used by the mood path.
+  const statuses = opts.prefetchedBatch
+    ? opts.prefetchedBatch.statuses
+    : await ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
+        ctx.log.warn("[media:enrich] getStatusBatch failed", err);
         partial = true;
-        return {} as Record<string, CanonicalMetadata>;
+        return {} as Record<string, string>;
       });
 
-  const progress = await ctx.loadProgressMap(ctx);
+  const metadata: Record<string, CanonicalMetadata> = opts.prefetchedBatch
+    ? { ...opts.prefetchedBatch.metadata }
+    : opts.prefetchedMetadata
+      ? { ...opts.prefetchedMetadata }
+      : await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
+          ctx.log.warn("[media:enrich] getMetadataBatch failed", err);
+          partial = true;
+          return {} as Record<string, CanonicalMetadata>;
+        });
+
+  const progress: MediaProgressSnapshot = opts.prefetchedBatch
+    ? { map: opts.prefetchedBatch.progress, partial: false }
+    : await ctx.loadProgressMap(ctx);
   if (progress.partial) partial = true;
 
   // Cold-fill canonical metadata for any rows the catalog has not seen yet so

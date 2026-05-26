@@ -95,6 +95,7 @@ export {
   type PaginateInput,
   type PaginateResult,
 } from "./pipeline/paginate";
+export { listRows } from "./service/list-rows";
 export {
   loadProgressMap,
   isActiveContinueWatchingEntry,

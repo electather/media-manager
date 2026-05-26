@@ -3,7 +3,7 @@ import type { HostErrorCode } from "@ent-mcp/shared/diagnostics";
 import type { ArtworkRequestItem, ArtworkBundle } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { MediaType, RowSort } from "@ent-mcp/shared/media";
+import type { MediaRowBucket, MediaType, RowSort } from "@ent-mcp/shared/media";
 import type { RawCanonicalSource, CatalogService } from "../catalog";
 import type { Cursor } from "./cursor";
 import type { MediaService, StatusBatchMemo } from "./service";
@@ -134,6 +134,21 @@ export interface SourceContext {
   /** Request-scoped memo for `mediaRequest@v1.getStatusBatch` ids. */
   statusBatch: StatusBatchMemo;
   logger: ConsolaInstance;
+  /**
+   * Artwork fetcher the consumer injects so the pipeline's enrich stage can
+   * hydrate posters/backdrops without media importing the artwork module
+   * (breaks the artwork ↔ media cycle). Optional: when omitted, enrich skips
+   * artwork hydration. Both consumers (watchlist `asWatchlistContext`, home
+   * `media-enrichment`) already build this callback today.
+   */
+  getArtwork?: GetArtworkFn;
+  /**
+   * Raw → canonical metadata mapper the consumer injects so enrich's cold-fill
+   * can normalize freshly fetched plugin metadata without media importing the
+   * catalog mapper (breaks the catalog ↔ media cycle). Optional: when omitted,
+   * cold-fill is skipped.
+   */
+  toCanonicalRow?: ToCanonicalRowFn;
 }
 
 /**
@@ -147,6 +162,15 @@ export interface PipelineConfig<P = void> {
   params: P;
   sort?: RowSort;
   filter?: FilterKind;
+  /**
+   * The target bucket for a `filter: "bucket"` run. `bucket` is a media-owned
+   * concept (`MediaRowBucket`), so the pipeline's filter stage reads it from
+   * the typed config rather than from the opaque per-source `params`; the
+   * consumer maps its own request param onto it. (Mood filtering stays
+   * source-side — media must not derive moods — so there is no mood field
+   * here.)
+   */
+  bucket?: MediaRowBucket;
   cursor: Cursor | null;
   limit: number;
 }
