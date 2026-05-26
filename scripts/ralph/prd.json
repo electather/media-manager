@@ -15,8 +15,8 @@
         "`vp check` passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Extended CompactMediaItem (home/types.ts) + compactMediaItemSchema (home/schemas.ts) with addedAt?: number|null and addedSource?: WatchlistSource|null (z.nullish). Did NOT touch recommendation MediaItem. Changeset lists @ent-mcp/shared + @ent-mcp/server minor (config privatePackages.version:true allows private @ent-mcp/shared despite global 'never list shared' note; PRD/design §J win). Side effect: widened add-to-watchlist seed type Partial<WatchlistItem> -> Partial<CompactMediaItem> in use-add-to-watchlist.ts + build-optimistic.ts so MediaDetailItem (nullable addedAt) stays assignable; WatchlistItem redeclares addedAt as non-null number so Partial<WatchlistItem> rejected null."
     },
     {
       "id": "US-002",
