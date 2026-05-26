@@ -726,11 +726,16 @@ async function listItemsOffset(
     );
   }
   const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
-  // The sorted list is already in memory, so a single enrich pass over the
-  // remaining tail is both simpler and cheaper than chunked retries: it makes
-  // one batched API round-trip instead of N, and `enrich`'s own `filter`
-  // option drops bucket-mismatched rows before artwork hydration.
-  const tail = sorted.slice(offset);
+  // For the bucket-filter case the sorted list is already in memory, so a
+  // single enrich pass over the remaining tail is both simpler and cheaper
+  // than chunked retries: one batched API round-trip instead of N, and
+  // `enrich`'s own `filter` option drops bucket-mismatched rows before
+  // artwork hydration. With no bucket every row survives enrich, so cap the
+  // window at `limit * OVERSHOOT_FACTOR` to avoid hydrating the entire tail
+  // just to discard all but `limit` items (#536 review).
+  const tail = opts.bucket
+    ? sorted.slice(offset)
+    : sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
   const enriched = await enrich(tail, ctx, opts.bucket ? { filter: opts.bucket } : {});
   if (enriched.partial) partial = true;
   const items = enriched.items.slice(0, limit);
