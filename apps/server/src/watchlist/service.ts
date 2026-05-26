@@ -736,7 +736,10 @@ async function listItemsOffset(
   const tail = opts.bucket
     ? sorted.slice(offset)
     : sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
-  const enriched = await enrich(tail, ctx, opts.bucket ? { filter: opts.bucket } : {});
+  const enriched = await enrich(tail, ctx, {
+    ...(opts.bucket ? { filter: opts.bucket } : {}),
+    prefetchedMetadata: metaMap,
+  });
   if (enriched.partial) partial = true;
   const items = enriched.items.slice(0, limit);
   const sources = enriched.sources.slice(0, limit);
@@ -746,9 +749,10 @@ async function listItemsOffset(
 }
 
 // Advance cursor past the last *returned* row, not past every scanned row.
-// When a bucket filter drops most of the tail we still need V.WL2's no-repeat
-// guarantee: if we filled the page we resume at lastReturned+1; if we didn't,
-// the tail was exhausted so the caller will null out the cursor anyway.
+// When a bucket filter drops most of the tail we still need V.WL1's
+// best-effort cursor-stability guarantee: if we filled the page we resume at
+// lastReturned+1; if we didn't, the tail was exhausted so the caller will
+// null out the cursor anyway.
 function scannedRowCount(tail: ActiveRow[], returnedSources: ActiveRow[], limit: number): number {
   if (returnedSources.length < limit) return tail.length;
   const lastId = returnedSources[returnedSources.length - 1]!.id;
