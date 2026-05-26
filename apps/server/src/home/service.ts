@@ -46,6 +46,7 @@ export function buildContext(
  * Returns the cached layout when fresh, otherwise composes live from the
  * row registry and writes the fresh blob back in the background.
  */
+// fallow-ignore-next-line complexity
 export async function composeLayout(
   ctx: RowContext,
   opts: ComposeOptions = {},
