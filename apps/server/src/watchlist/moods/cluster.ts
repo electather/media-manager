@@ -14,8 +14,9 @@ import * as repo from "../repo";
 import { derive } from "./derive";
 
 const CACHE_TTL_MS = 30_000;
+const CACHE_MAX_ENTRIES = 5000;
 
-const cache = new MemoryCache(5000);
+const cache = new MemoryCache(CACHE_MAX_ENTRIES);
 
 function summaryCacheKey(userId: string): string {
   return `watchlist:moods:${userId}`;

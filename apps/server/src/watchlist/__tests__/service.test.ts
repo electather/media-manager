@@ -34,6 +34,7 @@ const {
   listMoodItems,
   seedFromPlugins,
   syncFromPlugins,
+  invalidateCounts,
   __resetCountsCache,
 } = await import("../service");
 const repo = await import("../repo");
@@ -370,6 +371,22 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
 
     expect(u1Status).toHaveBeenCalledTimes(1);
     expect(u2Status).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidateCounts clears the cache so the next getCounts re-queries the DB", async () => {
+    const ctx = makeCtx({ userId: "u1" });
+    await addItem({ tmdbId: "inv-1", mediaType: "movie" }, "manual", ctx);
+    __resetAvailabilityCache();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
+    statusSpy.mockClear();
+
+    await getCounts(ctx);
+    expect(statusSpy).toHaveBeenCalledTimes(1);
+
+    await invalidateCounts("u1");
+    await getCounts(ctx);
+    expect(statusSpy).toHaveBeenCalledTimes(2);
   });
 
   it("availability cache is shared between a list + counts pair (one probe per row)", async () => {

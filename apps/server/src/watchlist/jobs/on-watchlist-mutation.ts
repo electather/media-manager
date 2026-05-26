@@ -7,8 +7,8 @@ import { WATCHLIST_EVENTS, watchlistItemAddedSchema, watchlistItemRemovedSchema 
 let registered = false;
 
 /**
- * Subscribe Tonight + Mood-summary cache invalidators to watchlist mutation
- * events. Idempotent (RISK-001 in the plan) so a test that calls
+ * Subscribe Tonight, mood-summary, and counts cache invalidators to watchlist
+ * mutation events. Idempotent (RISK-001 in the plan) so a test that calls
  * `registerJobs()` twice doesn't double-register handlers.
  */
 export function register(): void {

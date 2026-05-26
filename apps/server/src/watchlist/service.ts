@@ -135,7 +135,8 @@ function clampLimit(value: number | undefined): number {
 }
 
 const COUNTS_CACHE_TTL_MS = 30_000;
-const countsCache = new MemoryCache(5000);
+const COUNTS_CACHE_MAX_ENTRIES = 5000;
+const countsCache = new MemoryCache(COUNTS_CACHE_MAX_ENTRIES);
 
 function countsCacheKey(userId: string): string {
   return `watchlist:counts:${userId}`;

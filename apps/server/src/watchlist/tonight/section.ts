@@ -18,7 +18,8 @@ import * as repo from "../repo";
 import { pick } from "./pick";
 
 const CACHE_TTL_MS = 5 * 60_000;
-const cache = new MemoryCache(5000);
+const CACHE_MAX_ENTRIES = 5000;
+const cache = new MemoryCache(CACHE_MAX_ENTRIES);
 
 type SectionContext = Omit<WatchlistEnrichContext, "loadProgressMap">;
 
