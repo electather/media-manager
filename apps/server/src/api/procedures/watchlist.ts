@@ -117,11 +117,8 @@ export const watchlistApp = new Hono()
   })
   .post("/", zValidator("json", addWatchlistRequestSchema), async (c) => {
     const userId = sessionUserId(c);
-    const limited = watchlistWriteLimiter.check(userId, 1);
-    if (limited !== null) {
-      const retryAfter = (limited.details as { retry_after: number } | undefined)?.retry_after ?? 1;
-      return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
-    }
+    const limited = rateLimitOrNull(watchlistWriteLimiter, c, userId);
+    if (limited) return limited;
     const { tmdbId, mediaType, source } = c.req.valid("json");
     const ctx = buildContext(userId);
     const result = await addItem({ tmdbId, mediaType }, source, ctx);
@@ -130,11 +127,8 @@ export const watchlistApp = new Hono()
   })
   .delete("/:tmdbId/:mediaType", zValidator("param", watchlistParamSchema), async (c) => {
     const userId = sessionUserId(c);
-    const limited = watchlistWriteLimiter.check(userId, 1);
-    if (limited !== null) {
-      const retryAfter = (limited.details as { retry_after: number } | undefined)?.retry_after ?? 1;
-      return c.json(limited.toUserFacing(), 429, { "Retry-After": String(retryAfter) });
-    }
+    const limited = rateLimitOrNull(watchlistWriteLimiter, c, userId);
+    if (limited) return limited;
     const { tmdbId, mediaType } = c.req.valid("param");
     const ctx = buildContext(userId);
     await removeItem({ tmdbId, mediaType }, ctx);
