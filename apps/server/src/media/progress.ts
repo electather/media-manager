@@ -10,7 +10,7 @@ export interface ProgressEntry {
 
 export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
 
-/** Matches the home `continue-watching-active` row's "still active" threshold. */
+/** Shared cutoff for treating a continue-watching entry as still active. */
 const FINISHING_THRESHOLD = 0.85;
 
 // Keyed by the per-request MediaService instance so the plugin fan-out happens at most once per request.
@@ -45,7 +45,7 @@ async function compute(ctx: ProgressCtx): Promise<{ map: ProgressMap; partial: b
     const res = await ctx.mediaService.getContinueWatchingFeed(opts);
     const map = new Map<string, ProgressEntry>();
     for (const entry of res.items) {
-      const projected = projectEntry(entry as RawCwEntry);
+      const projected = projectProgressMapEntry(entry as ContinueWatchingProgressEntry);
       if (projected) map.set(projected.id, projected.entry);
     }
     return { map, partial: res.partial };
@@ -55,7 +55,7 @@ async function compute(ctx: ProgressCtx): Promise<{ map: ProgressMap; partial: b
   }
 }
 
-interface RawCwEntry {
+export interface ContinueWatchingProgressEntry {
   progressMs?: number;
   item: {
     type?: string;
@@ -66,19 +66,46 @@ interface RawCwEntry {
 }
 
 // fallow-ignore-next-line complexity
-function projectEntry(entry: RawCwEntry): { id: string; entry: ProgressEntry } | null {
+export function isActiveContinueWatchingEntry(entry: ContinueWatchingProgressEntry): boolean {
   const ms = entry.progressMs;
-  if (ms == null || ms <= 0) return null;
+  if (ms == null || ms <= 0) return false;
   const total = entry.item.durationSec;
-  if (total == null || total <= 0) return null;
-  const watchedSec = Math.round(ms / 1000);
-  if (watchedSec / total >= FINISHING_THRESHOLD) return null;
+  if (total == null || total <= 0) return true;
+  return ms / 1000 / total < FINISHING_THRESHOLD;
+}
+
+// Home rows can surface active entries without duration, but watchlist
+// classification needs a measurable total to project progress.
+function watchlistTotalOf(entry: ContinueWatchingProgressEntry): number | null {
+  const total = entry.item.durationSec;
+  return total != null && total > 0 ? total : null;
+}
+
+export function projectContinueWatchingProgress(
+  entry: ContinueWatchingProgressEntry,
+): ProgressEntry | null {
+  if (!isActiveContinueWatchingEntry(entry)) return null;
+  const total = watchlistTotalOf(entry);
+  if (total == null) return null;
+  // `isActiveContinueWatchingEntry` already verified `progressMs > 0`.
+  const watched = Math.round((entry.progressMs as number) / 1000);
+  // Re-check threshold against the rounded value so near-boundary entries match the prior
+  // rounded-ratio behaviour (e.g. 101500ms/120s rounds to 102s → 0.85 → excluded).
+  if (watched / total >= FINISHING_THRESHOLD) return null;
+  return { watched, total };
+}
+
+export function projectProgressMapEntry(
+  entry: ContinueWatchingProgressEntry,
+): { id: string; entry: ProgressEntry } | null {
+  const progress = projectContinueWatchingProgress(entry);
+  if (!progress) return null;
   const tmdbId = extractTmdbId(entry.item);
   if (!tmdbId) return null;
   const mediaType: MediaType = entry.item.type === "movie" ? "movie" : "tv";
   return {
     id: keyToId({ tmdbId, mediaType }),
-    entry: { watched: watchedSec, total },
+    entry: progress,
   };
 }
 

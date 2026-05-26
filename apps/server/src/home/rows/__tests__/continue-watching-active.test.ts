@@ -1,8 +1,19 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../continue-watching-active";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
 import { decodeCursor } from "../../internal/cursor";
 import { z } from "zod";
+
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
 
 const offsetSchema = z.object({ offset: z.number().int().min(0) });
 
