@@ -9,9 +9,13 @@ vi.mock("../../env", () => ({
 
 vi.mock("../internal/layout-cache");
 vi.mock("../internal/hero", () => ({ pickHero: vi.fn() }));
-vi.mock("../internal/enrich", () => ({
-  enrichItems: vi.fn(async (items: unknown[]) => items),
-}));
+vi.mock("../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../media")>("../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 vi.mock("../rows", async () => {
   const trendingItem = {
     id: "movie:1",
