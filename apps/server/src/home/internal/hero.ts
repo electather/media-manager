@@ -1,12 +1,12 @@
 import { groupBy, orderBy } from "es-toolkit/array";
 import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import type { MetadataKey } from "@ent-mcp/shared/catalog";
+import { isActiveContinueWatchingEntry } from "../../media";
 import { fromContinueWatchingEntry } from "./adapters";
 import { enrichHomeItems } from "./media-enrichment";
 import { loadCanonicalItems } from "../rows/_shared";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
-const FINISHING_THRESHOLD = 0.85;
 const HERO_TARGET = 6;
 // Per-source pool ceiling. Set to `HERO_TARGET` so the worst-case backfill —
 // every other source empty, one source carries the full hero — has enough
@@ -135,14 +135,7 @@ async function loadContinueWatchingPool(ctx: RowContext): Promise<HeroSlideInter
     return [];
   }
   const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
-  // fallow-ignore-next-line complexity
-  const eligible = res.items.filter((entry) => {
-    const ms = entry.progressMs;
-    if (ms === undefined || ms <= 0) return false;
-    const total = entry.item.durationSec;
-    if (total === undefined || total <= 0) return true;
-    return ms / 1000 / total < FINISHING_THRESHOLD;
-  });
+  const eligible = res.items.filter(isActiveContinueWatchingEntry);
   const sorted = orderBy(eligible, [(entry) => entry.lastPlayedAt ?? ""], ["desc"]);
   const items = sorted
     .slice(0, POOL_SIZE)

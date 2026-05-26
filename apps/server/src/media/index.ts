@@ -81,7 +81,15 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
-export { loadProgressMap, type ProgressEntry, type ProgressMap } from "./progress";
+export {
+  loadProgressMap,
+  isActiveContinueWatchingEntry,
+  projectContinueWatchingProgress,
+  projectProgressMapEntry,
+  type ContinueWatchingProgressEntry,
+  type ProgressEntry,
+  type ProgressMap,
+} from "./progress";
 export type { ActiveRow, RowSort, RowFilter } from "@ent-mcp/shared/media";
 export {
   listActiveRows,
