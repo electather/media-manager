@@ -195,7 +195,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 
 - **home** — `composeLayoutLive`: per `ROW_ORDER`, run `eligibility(ctx)` (consumer-side, §B), then `listRows(source, cfg)`, build stub (include iff `items>0 || partial`). hero / match-reason / layout-cache / detail / season composition unchanged. home's 12 rows reimplemented as `MediaSource` (`fetchRawSet` only — sort/slice/cursor deleted from each, → pipeline). `_shared.ts` helpers (`fetchSimilarPage`, `loadCanonicalItems`, `probeMediaEntry`) stay home-side (catalog feed plumbing).
 - **watchlist** — section envelope: each section = `listRows(source, params)` + wrap. items / mood-items / tonight / recently → `MediaSource`. counts / mood-summary → §G aggregates. writes → media barrel.
-- **tonight shaping** — `tonight` source returns the ranked list (score+pick stays watchlist product, run inside `fetchRawSet` over the active set, returns rows already ranked + `partial`). Pipeline enriches/returns flat `items`. Hero-vs-alternates (`items[0]` special, ≤4 alternates) = **envelope concern**: watchlist section wrapper splits `items` into hero + alternates. `RowPage.items` stays flat (V.TN1). No cursor (bounded page).
+- **tonight shaping** — `tonight` source returns the ranked list (score+pick stays watchlist product, run inside `fetchRawSet` over the active set, returns rows already ranked + `partial`). Pipeline enriches/returns flat `items`. Hero-vs-alternates (`items[0]` special, ≤4 alternates) = **envelope concern**: watchlist section wrapper splits `items` into hero + alternates. `Page.items` stays flat (V.TN1). No cursor (bounded page).
 
 ## §I — Wire contract delta
 
@@ -222,7 +222,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 - **V.CU1** — `decode` never throws; bad/foreign input or mode-mismatch → `null`. Consumer maps `null` (home feed → 400; watchlist → first-page), preserving today's per-consumer behavior.
 - **V.PG1** — pipeline preserves #500 (empty-streak → `cursor:null`) + #501 (single-pass sparse bucket+sort) + RISK-005 ceiling.
 - **V.RG1** — concrete sources owned + registered by the consumer module; media never imports a concrete source.
-- **V.TN1** — `RowPage.items` flat; tonight hero/alternate split is envelope-side, not pipeline-side.
+- **V.TN1** — `Page.items` flat; tonight hero/alternate split is envelope-side, not pipeline-side.
 - **V.SH1** — exactly one definition each of `extractTmdbId`, `FINISHING_THRESHOLD`/`isFinishing`, `batchLoad`, bucket classify loop, cursor codec. fallow `code-duplication` ignores on the old sites removed.
 
 ## §M — Phases
@@ -240,7 +240,7 @@ Each phase: own PR, `vp check` + `vp test` green, regression tests where noted. 
 
 - Pipeline stage units: `batchLoad` (warn+fallback on partial), `classify` (bucket rules incl. #502), `filter` (bucket/mood predicate), `sort`, `paginate` (keyset hop + offset slice). Rule 9: assert WHY (sparse-page invariant, empty-streak cursor:null).
 - `MediaSource` contract test: `partial` propagation, deadline honored, no sort/cursor logic in source (V.MC1).
-- Cursor codec: keyset decode-fail→400, offset decode-fail→null, mode-mismatch assertion (V.CU1).
+- Cursor codec: `decode→null` on bad/foreign input for **both** modes + mode-mismatch→null (codec never throws). Separately assert consumer mapping: home consumer null→400, watchlist consumer null→first-page (V.CU1).
 - Regression: #500 phantom cursor, #501 sparse page, #502 isInfoOnly→unavailable.
 - Parity (epic: no behavior change): home layout + each watchlist section produce same item ids/order as pre-refactor fixtures.
 - counts parity (5 buckets + total) post count-mode.
