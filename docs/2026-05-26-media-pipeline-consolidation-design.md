@@ -251,7 +251,7 @@ Each phase: own PR, `vp check` + `vp test` green, regression tests where noted. 
 - **RISK-102** — media module size. Mitigate: subdir promotion (`service/`, `repo/`, `pipeline/`); ⊥ fold product logic in (§A).
 - **RISK-103** — parity drift during reimplementation (subtle sort/classify behavior change). Mitigate: §T parity fixtures captured BEFORE Phase 4/5, asserted after.
 - **RISK-104** — cursor invalidation on deploy. Accept (pre-stable, no live users); note in changeset.
-- **RISK-105** — tonight ranking semantics lost when flattening to `RowPage.items`. Mitigate: V.TN1 envelope split; ranking stays in `fetchRawSet`, order preserved.
+- **RISK-105** — tonight ranking semantics lost when flattening to `Page.items`. Mitigate: V.TN1 envelope split; ranking stays in `fetchRawSet`, order preserved.
 
 ## §O — Out of scope
 
