@@ -81,6 +81,7 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
+export { encode, decode, type Cursor, type CursorMode } from "./cursor";
 export {
   loadProgressMap,
   isActiveContinueWatchingEntry,
