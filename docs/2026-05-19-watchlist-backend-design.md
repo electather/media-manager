@@ -1,15 +1,22 @@
 # Watchlist Backend Service
 
-**Status:** design (rev 4) — partial supersession
-**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23)
+**Status:** design (rev 5) — partial supersession
+**Date:** 2026-05-19 (rev 2: 2026-05-19, rev 3: 2026-05-19, rev 4: 2026-05-23, rev 5: 2026-05-26)
 **Author:** Omid Astaraki
 **Deps:** [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-04-27-catalog-service-design.md](./2026-04-27-catalog-service-design.md), [2026-04-20-job-service-design.md](./2026-04-20-job-service-design.md), `frontend-feature-architecture` skill ([.claude/skills/frontend-feature-architecture/SKILL.md](../.claude/skills/frontend-feature-architecture/SKILL.md)), `backend-feature-architecture` skill ([.claude/skills/backend-feature-architecture/SKILL.md](../.claude/skills/backend-feature-architecture/SKILL.md)), plugin `watchlist@v1`
-**Partial supersession:** API surface + client layout sections superseded by [2026-05-23-watchlist-sections-design.md](./2026-05-23-watchlist-sections-design.md). Storage (§D), seed, sync, events, mutations unchanged.
+**Partial supersession:** API surface + client layout sections superseded by [2026-05-23-watchlist-sections-design.md](./2026-05-23-watchlist-sections-design.md). Seed, sync, events semantics unchanged.
+
+**Superseded / aligned (2026-05-26):** Backend ownership realigned by [2026-05-26-media-pipeline-consolidation-design.md](./2026-05-26-media-pipeline-consolidation-design.md). `media/` is now the FAT domain module: it OWNS the `watchlist_items` table (reads + writes + seed in `media/repo/`) AND the shared row pipeline (`MediaSource` + `media.listRows`). Concretely — (1) **writes** (`addItem`, `removeItem`, `seedFromPlugins`, `syncFromPlugins`) move to `media/service/writes.ts`, exported via the `media` barrel; watchlist calls the barrel and DELETES its own copies; (2) **table ownership** already transferred to `media`; (3) **reads** route through `media.listRows(source, cfg)` instead of the bespoke `getItems`/`enrich`/pagination described in §M.2–M.3; (4) **watchlist = thin product shell** (`sources/` + thin envelope `service.ts` + `moods/` + `tonight/` + `jobs/`). The §M.2/§M.3 read+write descriptions below are retained for history; treat the consolidation doc as authoritative for who owns each function. Seed/sync/event SEMANTICS (this doc) are unchanged — only the owning module moved.
 
 Caveman ultra. Pseudocode = shape-only, ⊥ literal.
 
 ## Revision history
 
+- **rev 5 (2026-05-26)** — Align to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491, folds #496).
+  - Writes (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`) + `watchlist_items` table ownership → `media/` (`media/service/writes.ts` + `media/repo/`). Watchlist calls the `media` barrel; its own copies deleted.
+  - Reads route through the shared `media.listRows(source, cfg)` pipeline. Bespoke `getItems`/`enrich`/keyset-pagination (§M.2–M.3) superseded by the media pipeline (`MediaSource` + `listRows`).
+  - Watchlist = thin product shell: `sources/` + thin envelope `service.ts` (envelope + aggregates) + `moods/` + `tonight/` + `jobs/` (cache invalidation, sync-plugin-watchlist).
+  - Seed, sync, event SEMANTICS unchanged — only the owning module moved.
 - **rev 4 (2026-05-23)** — Partial supersession by `2026-05-23-watchlist-sections-design.md`.
   - `/api/watchlist?filter=` shape replaced by REST-split: `/items`, `/sections/{tonight,recently}`, `/moods`, `/moods/:moodId/items`. `?filter=` dropped (pre-stable).
   - Mood derivation moved server-side. Client `derive-moods.ts` deleted.
@@ -151,26 +158,34 @@ Add to apps/server/src/db/schema/index.ts barrel. Tables originally owned by wat
 
 → apps/server/src/watchlist/ (NEW, ref [backend-feature-architecture](./2026-05-17-backend-feature-architecture-design.md))
 
+Target layout (post-`2026-05-26-media-pipeline-consolidation-design.md`): watchlist is a thin product shell. `repo.ts`, `enrich.ts`, and the write functions move to `media/` (`media/repo/`, `media/pipeline/`, `media/service/writes.ts`); `service.ts` shrinks to an envelope + aggregates that read via `media.listRows` and write via the `media` barrel.
+
 ```
 watchlist/
   __tests__/
     service.test.ts
     sync-plugin-watchlist.test.ts
+  sources/                             // persistent-table MediaSources: items, mood-items, tonight, recently
+  moods/                               // derive, registry, cluster-summary (aggregate)
+  tonight/                             // score, pick (ranking heuristic, runs inside source fetchRawSet)
   jobs/
+    on-watchlist-mutation.ts          // cache invalidation
     sync-plugin-watchlist.ts          // registerScheduledPerRow
-  repo.ts
-  service.ts
-  enrich.ts                            // local thin enrich
+  service.ts                           // thin envelope: section wrap + aggregates (counts, mood-summary)
   errors.ts
   events.ts                            // const tuple + zod schemas
   index.ts                             // barrel: service public fns + types
 ```
 
-~~Owned tables: `watchlist_items`, `user_watchlist_seed`.~~ Storage ownership transferred to `media/` module (PR #526). Watchlist callers access rows via the `media/` public barrel (`listActiveRows`, `upsertActiveRow`, etc.). Outside callers must use `service.*`. Fallow zone-pair enforces.
+Historical layout (this doc's original v1, before media consolidation): watchlist additionally owned `repo.ts`, `enrich.ts`, and the write functions in `service.ts`. Those moved to `media/` — see the consolidation doc §A. The §M.1–M.3 descriptions below document that original shape for history; treat the consolidation doc as authoritative for current ownership.
 
-**Imports:** watchlist may import `media/` public surface (`mediaService`), `catalog/` public surface (`catalogService`), shared types. ⊥ `home/internal/*`.
+~~Owned tables: `watchlist_items`, `user_watchlist_seed`.~~ Storage ownership transferred to `media/` module (PR #526). Per `2026-05-26-media-pipeline-consolidation-design.md` (§A), `media/repo/` owns `watchlist_items` reads + writes + seed, and `media/service/writes.ts` owns the write functions (`addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins`). Watchlist is a **thin product shell** — it calls the `media/` barrel for reads (`media.listRows`) and writes, and supplies its own `sources/`, envelope `service.ts`, `moods/`, and `tonight/`. Outside callers must use `service.*`. Fallow zone-pair enforces.
+
+**Imports:** watchlist may import `media/` public surface (`media` barrel: `listRows`, write fns, `mediaService`), `catalog/` public surface (`catalogService`), shared types. ⊥ `home/internal/*`. `media` ⊥ import home/watchlist (no cycle).
 
 ### M.1 repo.ts
+
+> **Ownership (2026-05-26):** moved to `media/repo/` — `media` owns `watchlist_items` reads + writes + seed. The signatures below are the contract; they now live behind the `media` barrel. See consolidation doc §A.
 
 ```ts
 list(userId, opts?: {state?: WatchlistState}) → WatchlistRow[]        // default state="active"
@@ -202,6 +217,8 @@ db.transaction(tx => {
 `BEGIN IMMEDIATE` serializes concurrent writers; race losers re-read inside their own tx.
 
 ### M.2 service.ts
+
+> **Ownership (2026-05-26):** split per consolidation doc §A/§H. **Writes** (`addItem`, `removeItem`, `seedFromPlugins`, `syncFromPlugins`) move to `media/service/writes.ts` and are exported via the `media` barrel — watchlist DELETES its copies and calls the barrel. **Reads** (`getItems` keyset paging + filter pre-classification, `listAvailable`) are superseded by the shared `media.listRows(source, cfg)` pipeline (`MediaSource` supplies the raw set; pipeline owns batch→enrich→classify→filter→sort→paginate). Aggregates (`getCounts`) route through media count-mode (`countBuckets`). The bespoke pseudocode below documents the original semantics; it is no longer watchlist-owned logic.
 
 ```ts
 type Key = { tmdbId: string; mediaType: typeof MEDIA_TYPES[number] }
@@ -296,6 +313,8 @@ hasAny(userId) → boolean
 Caller doc: `addItem` enrich cost = single-key fan-out (catalog + status + avail + progress for 1 item). Acceptable. Client may rely on the returned `item` + skip refetch invalidation if hot.
 
 ### M.3 enrich.ts (local, ⊥ `home/internal` import)
+
+> **Ownership (2026-05-26):** enrich is no longer watchlist-local. It is a stage of the shared `media` pipeline (`media/enrich.ts` + `media/pipeline` `batchLoad`), producing the single `CompactMediaItem` shape for every source. `WatchlistItem` is deleted — callers use the extended `CompactMediaItem` (`+ addedAt`/`addedSource`). See consolidation doc §C/§D. The pseudocode below documents the enrich semantics now owned by media.
 
 ```ts
 enrich(rows: WatchlistRow[], ctx) → { items: WatchlistItem[], partial: boolean }
@@ -395,11 +414,14 @@ registerScheduledPerRow<{ userId: string }>({
   runTimeoutSec:    60 * 30,
   continueOnRowError: true,
   handler: async (ctx, { userId }) => {
-    const result = await service.syncFromPlugins(userId, ctx)
+    // syncFromPlugins now lives in media/service (consolidation doc §A) — called via media barrel.
+    const result = await media.syncFromPlugins(userId, ctx)
     ctx.log.info("watchlist sync", { userId, added: result.added, partial: result.partial })
   },
 })
 ```
+
+The job stays in the watchlist shell's `jobs/` (alongside `on-watchlist-mutation.ts` cache invalidation, per consolidation doc §A); only the `syncFromPlugins` function it invokes moved to `media`.
 
 **Recovery across deploys:** cron handles. Next tick re-enumerates seeded users. ⊥ sweep job needed.
 
@@ -430,6 +452,8 @@ export type WatchlistUserSource = typeof WATCHLIST_USER_SOURCES[number]
 ```
 
 ### W.2 Types
+
+> **Aligned (2026-05-26):** `WatchlistItem` is **deleted** by the consolidation doc (§D). Its two extra fields fold into the existing `CompactMediaItem` as nullable wire fields (`addedAt?: number | null`, `addedSource?: WatchlistSource | null`) — one unified item shape across home + watchlist. The intersection type below is retained for history.
 
 ```ts
 type WatchlistItem = CompactMediaItem & {
@@ -554,6 +578,8 @@ DELETE /api/watchlist/:tmdbId/:mediaType
 **Rate limit** = existing user-tier middleware. ⊥ new infra.
 
 ## §H Home row impact
+
+> **Aligned (2026-05-26):** under the media pipeline (consolidation doc §A/§C), the `your-watchlist` home row becomes a `MediaSource` reading via `media.listRows`; the availability pre-filter is a pipeline `filter` stage rather than a bespoke `watchlistService.listAvailable`. Eligibility (`hasAny`/`hasCapabilityProvider`) stays a consumer-side concern (§B of the consolidation doc). The description below documents the original rev-2/3 wiring.
 
 `apps/server/src/home/rows/your-watchlist.ts` = **rewires to `watchlistService.listAvailable`** (rev 2 stance, simplified in rev 3).
 

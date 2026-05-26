@@ -1,14 +1,21 @@
 # MediaService & TMDB Plugin
 
-Status: Draft | Date: 2026-04-19 | Author: Omid Astaraki
+Status: Draft | Date: 2026-05-26 (aligned to media-pipeline-consolidation) | Author: Omid Astaraki
 Depends: `2026-04-19-plugin-architecture-design.md`, `2026-04-19-frontend-connections-design.md`
 Revises: Adds `sharedCredentials` to plugin architecture (§10)
 
+> **Status / superseded.** The authoritative pipeline + module-ownership architecture now lives in [`2026-05-26-media-pipeline-consolidation-design.md`](./2026-05-26-media-pipeline-consolidation-design.md). That doc records `media/` as the **row-pipeline owner** — owning the `MediaSource` contract, the `listRows` read path, the single cursor codec, the `watchlist_items` table + writes, count-mode aggregates, and the unified `CompactMediaItem` wire shape. This doc is updated (2026-05-26) to reflect that target state. The `MediaService` plugin-dispatch surface below **remains** and is accurate — it now lives *alongside* the pipeline inside the same fat `media/` module. For pipeline mechanics (stages, paginate modes, cursor semantics, count-mode) defer to the consolidation doc; this doc retains the dispatch / capability / cache / error detail.
+
 ## Summary
 
-Design `MediaService` — sole facade for plugin-backed features — & TMDB builtin. Forces plugin architecture abstractions to concrete code; shakes out dispatch fan-out, cache key composition, error flow across sandbox, shared-credential slot-in.
+`media/` is a FAT domain module with two coordinated surfaces:
 
-Scope: `metadata@v1` only, TMDB only. Subsequent plugins (Trakt, Seerr, TVDB) follow same pattern, different auth/caps.
+1. **`MediaService`** — sole facade for plugin-backed features (capability dispatch, caching, error flow, `id_map`). Originally the whole scope of this doc; design below stands.
+2. **Row pipeline** — the single media read path: `MediaSource` raw-row contract → `listRows` (batch → enrich → classify → filter → sort → paginate) → unified `CompactMediaItem` `Page`. Plus the unified cursor codec, the `watchlist_items` table + writes, and count-mode aggregates. Specified in the consolidation doc; summarized in §"Row Pipeline Ownership" below.
+
+Consumers (`home`, `watchlist`) are thin product shells that import the `media` barrel only; `media` never imports them.
+
+Scope (this doc): `MediaService` dispatch + caching + errors + `id_map`, plus the row-pipeline ownership map. Capability scope `metadata@v1` only, TMDB only. Subsequent plugins (Trakt, Seerr, TVDB) follow same pattern, different auth/caps.
 
 ## Goals
 
@@ -17,6 +24,7 @@ Scope: `metadata@v1` only, TMDB only. Subsequent plugins (Trakt, Seerr, TVDB) fo
 ✓ Capability dispatch strategy system (concrete, not hand-wave)
 ✓ Caching, error handling, `id_map` population formalized
 ✓ SDK type bundle & error code vocabulary
+✓ `media/` owns the row pipeline: `MediaSource` contract + `listRows` + cursor codec + writes + count-mode (see §"Row Pipeline Ownership" + consolidation doc)
 
 ## Non-goals
 
@@ -24,6 +32,7 @@ Scope: `metadata@v1` only, TMDB only. Subsequent plugins (Trakt, Seerr, TVDB) fo
 ✗ Capabilities beyond `metadata@v1`
 ✗ MCP tool integration (later)
 ✗ RPC procedures (already specified in plugin architecture doc)
+✗ Pipeline stage mechanics, paginate-mode internals, consumer source registration — owned by the consolidation doc, not re-specified here
 
 ## Architecture
 
@@ -49,6 +58,23 @@ Scope: `metadata@v1` only, TMDB only. Subsequent plugins (Trakt, Seerr, TVDB) fo
 ```
 
 MediaService = only component knowing capability strategy & plugin dispatch. Callers never touch registry/runtime.
+
+The diagram above is the **plugin-dispatch** surface of `media/`. The same module also owns the **row pipeline** (below) — both surfaces live behind the one `media` barrel.
+
+## Row Pipeline Ownership
+
+`media/` is the row-pipeline owner. Authoritative spec: [`2026-05-26-media-pipeline-consolidation-design.md`](./2026-05-26-media-pipeline-consolidation-design.md) (§A–§L). Summary of what the module owns in the target state:
+
+- **`MediaSource<P>` contract** (`media/source.ts`, barrel-exported) — `{ sourceId; fetchRawSet(ctx, params, cursor) → { rows, partial, nextRaw }; stages: { classify?, filter?, sort, cursorMode: "keyset"|"offset" } }`. A source produces **RAW rows only** — NO enrich/classify/sort/slice/cursor inside it (V.MC1). Eligibility is consumer-side product-gating, not on the source. Generalizes the old `home` `RowProvider`. Concrete sources are owned + registered by the consumer (V.RG1); `media` never imports a concrete source.
+- **`listRows(source, cfg) → Page`** (`media/service/list-rows.ts` + `media/pipeline/`) — the single read path: `raw = fetchRawSet → batchLoad → enrich → classify(opt) → filter(opt) → sort → paginate`. `batchLoad` is the ONE status+meta+progress fan-out (warn + fallback). `enrich` → `CompactMediaItem[]`. Soft-failure surfaces as `partial: true`; consumer envelope decides include/drop.
+- **One cursor codec** (`media/cursor.ts`) — `Cursor = { mode: "keyset"; k: string } | { mode: "offset"; n: number }`; base64url JSON, zod-validated. `decode → Cursor | null`, **never throws** (bad/foreign/mode-mismatch → `null`; V.CU1). The 400-vs-empty decision is the consumer's (home feed → 400, watchlist → first-page). Replaces all 3 prior codecs.
+- **Writes** (`media/service/writes.ts`, barrel-exported) — `addItem` / `removeItem` / `seedFromPlugins` / `syncFromPlugins`. `media` owns the `watchlist_items` table (`media/repo/`); watchlist calls these via the barrel.
+- **Count-mode aggregates** (`media/service/count.ts`) — `countBuckets` (`batchLoad → classify → tally`; skips enrich/sort/paginate). Reuses the pipeline's `batchLoad + classify` without item materialization. Watchlist `moodSummary` calls `media.batchLoad` + media metadata but keeps its derive logic watchlist-side (§G of consolidation doc).
+- **Existing domain primitives** (already in `media/`, kept) — `classify.ts` (`classifyBucket` + the #502 fix: `isInfoOnly` → `"unavailable"`, not `"upcoming"`), `progress.ts` (the single `extractTmdbId`, the single `FINISHING_THRESHOLD = 0.85` + `isFinishing`), `enrich.ts`, `availability-cache.ts`, `status-batch.ts`. These remain alongside the plugin-dispatch `MediaService`.
+- **Unified wire shape** — the existing `CompactMediaItem` (`@ent-mcp/shared`, already carries `progress?`/`availability?`) extended with nullable `addedAt: number | null` (epoch ms) + `addedSource: WatchlistSource | null`. `WatchlistItem` is **deleted**; callers use `CompactMediaItem`. Do NOT reuse the recommendation-engine `MediaItem` in `packages/shared/src/media/types.ts` — different shape (§D of consolidation doc).
+- **Boundary** — consumers import the `media` barrel ONLY; `media` ⊥ import home/watchlist (no cycle; `circular-deps: error` holds).
+
+> **Size note.** `media/service/index.ts` is already 1073 LOC — over the 500 hard cap. New pipeline work lands as **NEW files** in `service/` (`list-rows.ts`, `writes.ts`, `count.ts`) plus the new `pipeline/` dir — NOT appended to `index.ts`. See the consolidation doc §A / §M.
 
 ## `MediaService` Surface
 
@@ -646,21 +672,37 @@ Authors: import file OR paste one-liner. Both work.
 
 ## Layout
 
+> The `media-service/` directory below = the original 2026-04-19 plan. In the target state the dispatch surface lives inside the fat `media/` module alongside the row pipeline, sharing one barrel. The `media/` tree (sources, pipeline, cursor, repo, writes, count) is authoritative in [`2026-05-26-media-pipeline-consolidation-design.md`](./2026-05-26-media-pipeline-consolidation-design.md) §A; the dispatch files below slot into the same module.
+
 ```
-server/
+apps/server/src/
+├── media/                         # FAT domain module — dispatch + pipeline + storage + writes
+│   ├── service/
+│   │   ├── index.ts               # MediaService class (plugin dispatch) — already 1073 LOC, do NOT append
+│   │   ├── list-rows.ts           # listRows(source, cfg) → Page  (NEW)
+│   │   ├── writes.ts              # addItem/removeItem/seed/sync  (NEW)
+│   │   └── count.ts               # countBuckets count-mode       (NEW)
+│   ├── pipeline/                  # batchLoad → enrich → classify → filter → sort → paginate
+│   ├── source.ts                  # MediaSource<P> contract (barrel-exported)
+│   ├── cursor.ts                  # ONE codec, modes keyset|offset
+│   ├── classify.ts                # classifyBucket (+ #502 fix)
+│   ├── enrich.ts                  # enrich(rows, batch) → CompactMediaItem[]
+│   ├── progress.ts                # the ONE extractTmdbId + FINISHING_THRESHOLD
+│   ├── availability-cache.ts
+│   ├── status-batch.ts
+│   ├── repo/                      # watchlist_items reads+writes+seed (owns table)
+│   ├── dispatch.ts                # strategy dispatch logic
+│   ├── cache.ts                   # cache key + TTL logic
+│   ├── id-resolver.ts             # id_map read/write
+│   ├── errors.ts                  # PluginCallError, error normalization
+│   ├── resolve-connection.ts      # connection resolution + shared creds
+│   └── index.ts                   # barrel (public surface): MediaService, MediaSource, listRows, batchLoad, countBuckets, cursor, writes
 ├── plugins/
 │   └── builtin/
 │       └── tmdb/
 │           ├── plugin.js          # bundled plugin entry point
 │           ├── plugin.test.ts     # contract tests
 │           └── README.md          # dev notes
-├── media-service/
-│   ├── index.ts                   # MediaService class
-│   ├── dispatch.ts                # strategy dispatch logic
-│   ├── cache.ts                   # cache key + TTL logic
-│   ├── id-resolver.ts             # id_map read/write
-│   ├── errors.ts                  # PluginCallError, error normalization
-│   └── resolve-connection.ts      # connection resolution + shared creds
 ├── plugin-runtime/                # from plugin architecture doc
 └── capabilities/
     ├── index.ts                   # capability registry
@@ -687,6 +729,16 @@ docs/
 - Connection resolution: user-only, shared-only, user-with-shared-fallback-disabled, both
 - `id_map` harvesting: opportunistic path, ownership enforcement, first-writer for `imdb_id`
 - Error code mapping: each `PluginErrorCode` → right retry/status-update behavior
+
+### Row Pipeline Tests
+
+Authoritative test plan: consolidation doc §T. Summary:
+
+- Pipeline stage units: `batchLoad` (warn+fallback on partial), `classify` (bucket rules incl. #502 `isInfoOnly` → `unavailable`), `filter` (bucket/mood predicate), `sort`, `paginate` (keyset hop + offset slice).
+- `MediaSource` contract: `partial` propagation, deadline honored, no sort/cursor logic in source (V.MC1).
+- Cursor codec: `decode → null` on bad/foreign input for **both** modes + mode-mismatch → null (never throws); consumer mapping asserted separately (home null → 400, watchlist null → first-page; V.CU1).
+- Regression: #500 phantom cursor, #501 sparse page, #502 `isInfoOnly` → `unavailable`.
+- Parity (no behavior change): home layout + each watchlist section produce same item ids/order as pre-refactor fixtures; counts parity (5 buckets + total) post count-mode.
 
 ### TMDB Plugin Contract Tests
 

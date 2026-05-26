@@ -6,10 +6,13 @@
 **Supersedes (partial):** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md) §I.api + client layout. Storage, seed, sync, events unchanged.
 **Deps:** [2026-05-19-watchlist-backend-design.md](./2026-05-19-watchlist-backend-design.md), [2026-05-05-home-page-backend-design.md](./2026-05-05-home-page-backend-design.md), [2026-05-17-backend-feature-architecture-design.md](./2026-05-17-backend-feature-architecture-design.md), `frontend-feature-architecture` skill, `backend-feature-architecture` skill.
 
+> **Superseded / aligned (rev 9, 2026-05-26).** The §S read-path mechanics here are superseded by [2026-05-26-media-pipeline-consolidation-design.md](./2026-05-26-media-pipeline-consolidation-design.md). `media/` now owns the shared row pipeline; watchlist is a thin product shell. What changed: (1) **read path → media pipeline** — items / mood-items / tonight / recently become `MediaSource`s in `watchlist/sources/` that produce RAW rows only; enrich/classify/filter/sort/paginate run in `media.listRows`. (2) **cursor → single shared codec** — the keyset-vs-offset-snapshot fork is replaced by the one `media/cursor.ts` codec (two modes, never throws); decode-fail → first-page stays consumer-side. (3) **`WatchlistItem` → `CompactMediaItem`** — the type is deleted; sections return the extended `CompactMediaItem` (gains nullable `addedAt`/`addedSource`). ⊥ new `MediaItem`. (4) **counts + mood-summary → count-mode aggregates** (not sources): `countBuckets` lives in `media`; `moodSummary` stays in `watchlist/moods/` but calls `media.batchLoad`. Wire shapes unchanged. (5) **#502 fix lives in `media/classify.ts`** (`isInfoOnly` → `"unavailable"`). (6) **#496 service split** — the 864-LOC `service.ts` monolith splits into `sources/` + thin `service.ts` + `internal/`. UNCHANGED: counts/mood-summary semantics, seed, sync, events, and the whole client section (§C). Mechanics below are aligned inline; see the consolidation doc for the canonical pipeline contract.
+
 Caveman ultra. Pseudo = shape only, ⊥ literal.
 
 ## Revision history
 
+- **rev 9 (2026-05-26)** — Aligned with [2026-05-26-media-pipeline-consolidation-design.md](./2026-05-26-media-pipeline-consolidation-design.md). §S read path (items / mood-items / tonight / recently) routes through `media.listRows` + `MediaSource`; the four become RAW-only sources in `watchlist/sources/` (§S, §S.1, §S.2, §S.3). Cursor fork (§S.1 / V.WL1) replaced by the single `media/cursor.ts` codec (two modes, never throws); decode-fail → first-page stays consumer-side. #502 bucket fix relocated to `media/classify.ts` (§S.5). `WatchlistItem` deleted → extended `CompactMediaItem` with nullable `addedAt`/`addedSource` (§W, §I.api). counts + mood-summary become count-mode aggregates (`countBuckets` in media, `moodSummary` over `media.batchLoad`) — not sources; wire shapes unchanged (§S.3, §S.5, §W). `service.ts` monolith split per #496 into `sources/` + thin `service.ts` + `internal/` (§S). Counts/mood-summary semantics, seed, sync, events, and §C client unchanged.
 - **rev 8 (2026-05-25)** — Mood item query keys append the concrete `limit` segment without normalizing omitted limits to `null`.
 - **rev 7 (2026-05-25)** — Mood item pagination returns `cursor: null` when the empty-streak budget exits before collecting any items. Mutation listener registration tests reset module-level idempotency state before each run.
 - **rev 6 (2026-05-23)** — Sub-page UX + new `unavailable` bucket.
@@ -118,7 +121,7 @@ Watchlist page ⊥ render full list. Symptoms:
   [click "See all" in MoodCluster] → navigate /watchlist/moods/:moodId
 ```
 
-Single internal table (`watchlist_items`) unchanged. Read paths multiplied; write paths (add / remove / seed / sync) unchanged.
+Single internal table (`watchlist_items`) — schema unchanged; rev 9 the table reads+writes+seed move under `media/repo/` (consolidation §A), watchlist reaches it via the media barrel. Read paths multiplied; write paths (add / remove / seed / sync) semantics unchanged.
 
 ## §I.api — endpoints
 
@@ -130,16 +133,16 @@ GET /api/watchlist/items
     sort ∈ {recent, alpha, runtime, status}                          default = "recent"
     bucket ∈ {ready, in-progress, awaiting, unavailable, upcoming}   omit = ∀ buckets (∪ all visible; ⊥ hidden)
     mood ∈ MOOD_IDS                                                  intersect w/ bucket if both
-  → { items: WatchlistItem[], cursor: string|null, partial: boolean }
+  → { items: CompactMediaItem[], cursor: string|null, partial: boolean }   // rev 9: WatchlistItem deleted → extended CompactMediaItem
 
 GET /api/watchlist/sections/tonight
   Query: ⊥
-  → { items: WatchlistItem[], partial: boolean }
-    items[0] = hero; items[1..4] = alternates by score. ⊥ cursor.
+  → { items: CompactMediaItem[], partial: boolean }
+    items[0] = hero; items[1..4] = alternates by score. ⊥ cursor.   // hero/alternate split = envelope-side (rev 9; consolidation §H)
 
 GET /api/watchlist/sections/recently
   Query: limit?  (default 5, max 20)
-  → { items: WatchlistItem[], partial: boolean }
+  → { items: CompactMediaItem[], partial: boolean }
     addedAt DESC. ⊥ cursor.
 
 GET /api/watchlist/moods
@@ -151,7 +154,7 @@ GET /api/watchlist/moods
 
 GET /api/watchlist/moods/:moodId/items
   Query: cursor?, limit?  (default 60, max 200)
-  → { items: WatchlistItem[], cursor: string|null, partial: boolean }
+  → { items: CompactMediaItem[], cursor: string|null, partial: boolean }
     Paginated. moodId ∈ MOOD_IDS or 400.
 
 GET /api/watchlist/counts
@@ -173,73 +176,93 @@ DELETE /api/watchlist/:tmdbId/:mediaType   // unchanged
 
 ## §S — Server module additions
 
+> **rev 9 — read path moved to media pipeline.** Per [2026-05-26-media-pipeline-consolidation-design.md](./2026-05-26-media-pipeline-consolidation-design.md) §A–§C, the section read path no longer lives in a `watchlist/service.ts` monolith of bespoke endpoint functions. The four reads (items / mood-items / tonight / recently) become `MediaSource`s in `watchlist/sources/` that implement `fetchRawSet` ONLY (raw persistent-table query). enrich / classify / filter / sort / paginate / cursor are the pipeline's job (`media.listRows`). The 864-LOC `service.ts` splits per #496 into `sources/` + a THIN `service.ts` (section envelope + aggregates) + `internal/`. Reads via `media.listRows`; writes via the media barrel (the table moved to `media/repo/`). Storage table (`watchlist_items`) reads+writes+seed now owned by `media/repo/`.
+
 ```
-apps/server/src/watchlist/
-  service.ts        + listItems(ctx, opts)
-                    + getRecentlyAdded(ctx, limit)
-                    + getTonightSection(ctx)
-                    + getMoodSummary(ctx)
-                    + listMoodItems(ctx, moodId, opts)
-                    [getCounts, addItem, removeItem, seedFromPlugins, syncFromPlugins, listAvailable] unchanged
+apps/server/src/watchlist/                  THIN product shell (rev 9; consolidation §A)
+  sources/          NEW — persistent-table MediaSources (fetchRawSet only; ⊥ enrich/classify/sort/slice/cursor)
+    items.ts          MediaSource<ItemsParams>   stages:{classify:true, filter:"bucket"|"mood", sort, cursorMode}
+                                                 keyset for sort=recent; offset for alpha|runtime|status (§S.1)
+    mood-items.ts     MediaSource<MoodParams>    stages:{filter:"mood", cursorMode:"keyset"}  (§S.3)
+    tonight.ts        MediaSource<void>          fetchRawSet runs score+pick over active set → rows already
+                                                 ranked + partial; ⊥ cursor (bounded). stages:{sort:"none"} (§S.2)
+    recently.ts       MediaSource<RecentlyParams> stages:{sort:"recent", cursorMode:"keyset"}; ⊥ cursor (§I.api)
 
-  repo.ts           + listPage variants per sort
-                    + listMoodCandidates(userId, moodId, { cursor, limit })
+  service.ts        THIN (rev 9) — section envelope + aggregates only:
+                    + listItems / listMoodItems / getTonightSection / getRecentlyAdded
+                        → each = listRows(<source>, cfg) + wrap in section envelope
+                        → tonight wrapper splits flat Page.items into hero + ≤4 alternates (§S.2; consolidation §H)
+                    + getCounts      → media.countBuckets (count-mode aggregate; §S.5)
+                    + getMoodSummary → moodSummary over media.batchLoad (§S.3)
+                    [addItem, removeItem, seedFromPlugins, syncFromPlugins, listAvailable] → media barrel (writes moved to media)
 
-  classify.ts       unchanged
+  internal/         NEW — section envelope helpers split out of the old monolith (#496)
 
-  moods/            NEW sub-folder
+  classify.ts       DELETED — classify (incl. #502 fix) lives in media/classify.ts (§S.5; consolidation §K)
+
+  moods/            sub-folder
     registry.ts       MOOD_IDS tuple (server-side; client owns label/note message keys)
-    derive.ts         derive(row, metadata) → MoodId[]   // pure
-    cluster.ts        getSummary(userId, ctx) → MoodSummaryCluster[]
+    derive.ts         derive(row, metadata) → MoodId[]   // pure (watchlist product)
+    cluster.ts        moodSummary(userId, ctx) → MoodSummaryCluster[]   // calls media.batchLoad + media metadata; ⊥ bespoke fan-out
                       [cached 30s/user, invalidated on mutation event]
 
-  tonight/          NEW sub-folder
+  tonight/          sub-folder (ranking heuristic = watchlist product; consolidation §H)
     score.ts          score(item, prior) → number
     pick.ts           pick(candidates) → { hero, alternates[≤4] }
                       [cached 5min/user, invalidated on mutation event]
+                      NOTE rev 9: ranking runs inside tonight source's fetchRawSet over the active set; the
+                      hero/alternate SHAPE split is now an envelope concern (service.ts), ⊥ in the source.
 
   jobs/
-    on-watchlist-mutation.ts  NEW listener — on("watchlist.itemAdded"|"watchlist.itemRemoved")
+    on-watchlist-mutation.ts  listener — on("watchlist.itemAdded"|"watchlist.itemRemoved")
                               → invalidate(tonight, mood-summary) caches.
                               Registered via registerJobs() (notifications-pattern).
+
+apps/server/src/media/                      OWNS the shared row pipeline (consolidation §A)
+  source.ts         MediaSource<P> contract.  service/list-rows.ts  listRows(source,cfg)→Page (the single read path).
+  cursor.ts         ONE codec, two modes (keyset|offset; §S.1).   classify.ts  classifyBucket (+ #502 fix; §S.5).
+  service/count.ts  countBuckets — count-mode aggregate (batchLoad→classify→tally; §S.5).   repo/  watchlist_items.
 ```
 
-### S.1 listItems pseudocode
+`Page = { items: CompactMediaItem[]; cursor: string|null; partial: boolean }` (consolidation §B). Consumers import the `media` barrel only; `media` ⊥ import watchlist.
+
+### S.1 items source + pipeline (rev 9)
+
+The old `listItems` handler with its `paginateKeyset` / `paginateOffsetSnapshot` fork and the local `paginateWithOvershoot` helper are **deleted**. The items read is now `watchlist/sources/items.ts` (a `MediaSource`) driven through `media.listRows`. The source supplies the RAW row set + a `stages` declaration; the pipeline owns enrich / classify / filter / sort / paginate / cursor (consolidation §B–§C).
 
 ```
-listItems(ctx, { cursor?, limit=60, sort="recent", bucket?, mood? }) →
-  if sort === "recent":
-    return paginateKeyset(ctx, { cursor, limit, bucket, mood })
-  else:
-    return paginateOffsetSnapshot(ctx, { cursor, limit, sort, bucket, mood })
+// watchlist/sources/items.ts — RAW only.
+itemsSource: MediaSource<ItemsParams> = {
+  sourceId: "watchlist.items",
+  fetchRawSet(ctx, { sort, bucket?, mood? }, cursor) →
+    rows = repo.listPage(userId, { cursor, state: "active", limit: limit*overshoot })   // media/repo
+    return { rows, partial: false, nextRaw: keysetMode ? rows.last : ⊥ }
+  stages: {
+    classify: true,
+    filter:   bucket ? "bucket" : mood ? "mood" : ⊥,
+    sort,                                  // recent | alpha | runtime | status
+    cursorMode: sort === "recent" ? "keyset" : "offset",
+  },
+}
 
-// Reusable helper, also used by listMoodItems.
-paginateWithOvershoot(fetchFn, classifyFn, { cursor, limit }) →
-  scanCursor = cursor
-  for hop in 0..MAX_EMPTY_HOPS:
-    rows = fetchFn({ cursor: scanCursor, limit: limit * overshoot })
-    if rows.empty: return { items: [], cursor: null }
-    matched = rows.filter(classifyFn)
-    if matched.length > 0:
-      slice = matched.slice(0, limit)
-      nextCursor = computeNextCursor(slice, rows, exhausted)
-      return { items: slice, cursor: nextCursor }
-    scanCursor = encodeCursor(rows.last)
-  return { items: [], cursor: encodeCursor(rows.last) }
+// the section envelope (thin service.ts):
+listItems(ctx, opts) → wrap( media.listRows(itemsSource, { params: opts, cursor: decode(opts.cursor), limit }) )
 ```
 
-**Sort handling:**
-- `recent` → keyset (addedAt DESC, id DESC). Existing index `(user_id, state, added_at)`. **Strict-stable** across page mutations.
-- `alpha` / `runtime` / `status` → small-N offset-snapshot sort. Fetch all active rows, join catalog metadata (already batched + cached), sort in handler, slice by `(offset, limit)`. Cursor = opaque offset token. Active set ≤ ~1000 typical; meta batch already used by `/counts`. **Best-effort stability** — concurrent add/remove between pages can skip / duplicate at the boundary; documented in V.WL1.
-- ⊥ new `title_norm` column. ⊥ migration backfill. Title normalization (lowercase, NFD) happens in-handler over catalog title.
+**Sort handling (which cursor mode the source declares):**
+- `recent` → `cursorMode:"keyset"` (addedAt DESC, id DESC). Existing index `(user_id, state, added_at)`. **Strict-stable** across page mutations. Pipeline keyset-paginate hops the raw query (overshoot helper, preserving #500 empty-streak `cursor:null` + #501 single-pass sparse bucket+sort + RISK-005 ceiling — now living in `media`, consolidation §C/§E/V.PG1).
+- `alpha` / `runtime` / `status` → `cursorMode:"offset"`. Source fetches all active rows; pipeline joins catalog metadata (already batched + cached via `media.batchLoad`), sorts, slices by `(offset, limit)`. Active set ≤ ~1000 typical; meta batch already used by `/counts`. **Best-effort stability** — concurrent add/remove between pages can skip / duplicate at the boundary; documented in V.WL1.
+- ⊥ new `title_norm` column. ⊥ migration backfill. Title normalization (lowercase, NFD) happens in-pipeline over catalog title.
 
-**Bucket pre-filter:** existing `previewForClassify` reused. Drops non-matching rows before enrich.
+**Cursor (rev 9):** the keyset-vs-offset-snapshot codec fork is **replaced by the single `media/cursor.ts` codec** (two modes: `{mode:"keyset";k} | {mode:"offset";n}`). `decode(s) → Cursor|null` **never throws**; bad/foreign input or mode-mismatch with `source.stages.cursorMode` → `null`. The decode-fail → **first-page** mapping STAYS watchlist-side (consumer-side; the codec stays neutral). See V.WL1 + consolidation §E / V.CU1.
 
-**Mood filter:** intersects `derive(row, meta)` containing `moodId`. Requires metadata batch up front (cheap; reused).
+**Bucket / mood filter:** runs as the pipeline's `filter` stage (after enrich+classify), driven by `source.stages.filter` + params — `"bucket"` matches the classified bucket, `"mood"` intersects `derive(row, meta)` containing `moodId`. ⊥ a bespoke pre-classify drop in the source; the metadata batch the predicate needs is the pipeline's `batchLoad` (cheap; reused).
 
-**Catch-all bucket surfacing:** `bucket` omitted → ⊥ pre-classify drop → every active row included. Rev 6: `"unknown"` retired; rows that previously fell through now classify as `"unavailable"` and are reachable via the new chip. ⊥ hidden tier.
+**Catch-all bucket surfacing:** `bucket` omitted → `source.stages.filter` is `⊥` → no filter stage → every active row included. Rev 6: `"unknown"` retired; rows that previously fell through now classify as `"unavailable"` and are reachable via the new chip. ⊥ hidden tier.
 
-### S.2 Tonight pseudocode
+### S.2 Tonight source + envelope (rev 9)
+
+`score` / `pick` ranking stays watchlist product, but now runs **inside the tonight source's `fetchRawSet`** over the active set, returning rows already ranked + `partial`. The pipeline enriches and returns a **flat** `Page.items` (V.TN1, consolidation §H). The hero-vs-alternates split (`items[0]` hero, ≤4 alternates) is an **envelope concern** — the thin `service.ts` section wrapper splits the flat `Page.items`. No cursor (bounded page).
 
 ```
 score(item, prior?) →
@@ -251,22 +274,23 @@ score(item, prior?) →
     - diversity(item, prior) * 5                 // anti-repeat across alternates
     - 1000 if bucket ∈ {awaiting, upcoming, unavailable}      // rev 6
 
-pick(candidates):
-    sorted = sortDesc(candidates, score)
+// watchlist/sources/tonight.ts — ranking is the RAW shaping for this source.
+tonightSource.fetchRawSet(ctx, _, _cursor):
+    rows = media.repo.list(userId, { state: "active" })
+    candidates = rows.filter(r => classifyBucket(...) ∈ {ready, in-progress})   // media.classify
+    ranked = sortDesc(candidates, score)                                        // already ranked, ⊥ sliced
+    return { rows: ranked, partial: <any probe soft-failed> }
+// stages: { sort: "none" (raw order preserved), cursorMode: keyset (unused; bounded) }
+
+// pipeline (media.listRows) enriches → flat Page.items, preserving raw order.
+
+// thin service.ts envelope splits the flat page (hero/alternate = product shape):
+getTonightSection(ctx):
+    page = media.listRows(tonightSource, { params: ⊥, cursor: ⊥, limit })
+    sorted = page.items                                          // already ranked by the source
     hero = sorted[0]
     alts = sorted.slice(1).filter(noRepeatGenres(hero)).slice(0, 4)
-    return { items: [hero, ...alts], partial: false }
-
-getTonightSection(ctx):
-    rows = repo.list(userId, { state: "active" })
-    [statuses, metadata, progress] = await Promise.all([getStatusBatch, getMetadataBatch, loadProgressMap])
-    serverProbes = await Promise.allSettled(rows.map(r => getMatchingServersCached(r)))
-    candidates = rows.filter((r, i) =>
-        bucket(previewForClassify(metadata[r], statuses[r], serverProbes[i].value ?? [], progress[r]))
-        ∈ {ready, in-progress}
-    )                                                           // inline; classify.preFilter ⊥ exists
-    enriched = await enrich(candidates, ctx)
-    return pick(enriched.items)
+    return { items: [hero, ...alts], partial: page.partial }
 ```
 
 Cache: `tonight:<userId>` 5 min TTL. Invalidate on watchlist mutation.
@@ -290,29 +314,32 @@ derive(row, meta) → MoodId[]:
     if rule.matches(meta): out.push(moodId)
   return out
 
-getMoodSummary(ctx):
+// mood-summary = count-mode aggregate (rev 9), NOT a source. watchlist/moods/cluster.ts.
+moodSummary(ctx):                                              // wire shape unchanged (WatchlistMoodSummary)
   cached = cache.get(`mood-summary:${userId}`)
   if cached && !mutationDirty: return cached
-  rows = repo.listAllActive(userId)
-  metaMap = ctx.catalogService.getMetadataBatch(rows.keys)
+  rows = media.repo.listAllActive(userId)
+  metaMap = media.batchLoad(rows).metadata                     // rev 9: media.batchLoad, ⊥ bespoke fan-out
   tally = Map<MoodId, number>
   ∀ row ∈ rows:
-    tags = derive(row, metaMap[row.compositeId])
+    tags = derive(row, metaMap[row.compositeId])               // derive stays watchlist product
     ∀ t ∈ tags: tally[t]++
   clusters = MOOD_IDS.map(id => ({ moodId: id, count: tally[id] ?? 0 })).filter(c => c.count >= MIN_CLUSTER_SIZE)
   cache.set(`mood-summary:${userId}`, clusters, ttl=30s)
   return { clusters }
 
-listMoodItems(ctx, moodId, { cursor, limit=60 }):
-  // Reuses paginateWithOvershoot (§S.1).
-  return paginateWithOvershoot(
-    fetchFn:    ({cursor, limit}) => repo.listPage(userId, { cursor, limit, state: "active" }),
-    classifyFn: row => derive(row, metaMap[row.compositeId]).includes(moodId),
-    { cursor, limit }
-  )
+// mood-items = a MediaSource (rev 9) through media.listRows. watchlist/sources/mood-items.ts.
+moodItemsSource: MediaSource<MoodParams> = {
+  sourceId: "watchlist.mood-items",
+  fetchRawSet(ctx, { moodId }, cursor) →
+    rows = media.repo.listPage(userId, { cursor, state: "active", limit: limit*overshoot })   // RAW only
+    return { rows, partial: false, nextRaw: rows.last }
+  stages: { filter: "mood", sort: "recent", cursorMode: "keyset" },   // mood predicate = pipeline filter stage
+}
+listMoodItems(ctx, moodId, opts) → media.listRows(moodItemsSource, { params: { moodId }, cursor: decode(opts.cursor), limit })
 ```
 
-Mood derivation pure → testable. No artwork during `getMoodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `getMoodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request). If the empty-streak budget exits before collecting any matching rows, return `cursor: null` so the client does not show phantom load-more affordances.
+Mood derivation pure → testable. No artwork during `moodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `moodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request). The pipeline's keyset-paginate preserves #500: if the empty-streak budget exits before collecting any matching rows, it returns `cursor: null` so the client does not show phantom load-more affordances (consolidation §C / V.PG1).
 
 ### S.5 Progress signal (in-progress bucket)
 
@@ -329,18 +356,21 @@ enrich(rows, ctx):
     item.progress = progressMap.get(item.id)   // undef when no active position
 ```
 
-`classify.previewForClassify` receives progress map alongside meta/status/servers. New bucket precedence:
+> **rev 9 — classify lives in `media/classify.ts`.** `enrich` + `classifyBucket` + `previewForClassify` + the progress map are media-owned now (consolidation §A/§K). The pipeline runs them as its `classify` stage. The #502 fix lives here: `isInfoOnly` items classify to `"unavailable"`, NOT `"upcoming"` (`upcoming` is reserved for unreleased; info-only = released + ⊥ server + ⊥ request path). Watchlist consumes via `media.listRows` / `media.countBuckets`.
+
+`media/classify.ts::previewForClassify` receives the progress map alongside meta/status/servers. Bucket precedence (rev 9 — #502 fixed):
 
 ```
 classifyBucket(item):                                              // rev 6: ⊥ "unknown" tail
   if item.progress && watched < total          → "in-progress"
   if availability.hasAnyServerCopy             → "ready"
   if STATUS_MAP[item.status]                   → STATUS_MAP[item.status]   // → awaiting
-  if facets.releaseDate || isInfoOnly          → "upcoming"
+  if facets.releaseDate                        → "upcoming"        // unreleased only
+  if isInfoOnly                                → "unavailable"     // rev 9 / #502: was "upcoming"
   return "unavailable"                                              // catch-all visible
 ```
 
-`ClassifiedBucket = WatchlistBucket` (rev 6 — `"unknown"` tail dropped). `getCounts` walks rows once → 5-bucket tally `{ready, inProgress, awaiting, unavailable, upcoming, total}`. `partial=true` when CW probe rejects; `inProgress` falls back to `0` rather than blocking. `unavailable` ⊥ depend on CW probe → always populated.
+`ClassifiedBucket = WatchlistBucket` (rev 6 — `"unknown"` tail dropped). `getCounts` is now a thin wrapper over `media.countBuckets` (count-mode aggregate: `batchLoad → classify → tally`; consolidation §G) → 5-bucket tally `{ready, inProgress, awaiting, unavailable, upcoming, total}`; wire shape unchanged. `partial=true` when CW probe rejects; `inProgress` falls back to `0` rather than blocking. `unavailable` ⊥ depend on CW probe → always populated.
 
 ### S.4 Caching + invalidation
 
@@ -570,11 +600,17 @@ types.ts:
   MoodId              = typeof MOOD_IDS[number]
   MoodSummaryCluster  = { moodId: MoodId; count: number }
   WatchlistMoodSummary= { clusters: MoodSummaryCluster[] }
-  TonightSection      = { items: WatchlistItem[]; partial: boolean }
+  TonightSection      = { items: CompactMediaItem[]; partial: boolean }            // rev 9: WatchlistItem deleted
   RecentlySection     = TonightSection
   WatchlistCounts     = { ready: number; inProgress: number; awaiting: number;
                           unavailable: number; upcoming: number; total: number }   // rev 6: +unavailable
-  // WatchlistResponse + WatchlistItem unchanged
+
+  // rev 9 — WatchlistItem is DELETED. Sections return the EXISTING (now extended) CompactMediaItem
+  // (@ent-mcp/shared), which gains two nullable fields. ⊥ a new MediaItem type (that name is taken by
+  // the recommendation-engine MediaItem in shared/media). See consolidation §D.
+  //   CompactMediaItem += addedAt?: number | null         // epoch ms; ⊥ on discovery rows
+  //   CompactMediaItem += addedSource?: WatchlistSource | null
+  // WatchlistResponse unchanged.
 
 schemas.ts:
   itemsQuerySchema = z.object({
@@ -594,7 +630,7 @@ Rename `WatchlistListFilter` → `WatchlistBucket` (semantic clarity). Pre-stabl
 
 ## §V — Invariants (additions)
 
-- **V.WL1.** `/api/watchlist/items` returns rows in sort order matching `sort` param. Cursor opaque (encoding remains server-private; clients ⊥ assume offset structure even though `sort=alpha|runtime|status` use offset-snapshot internally). `sort=recent` cursor strictly stable across page mutations (keyset). `sort=alpha|runtime|status` best-effort stability; concurrent add/remove between pages may skip / dupe at the page boundary by 1 row. Server ⊥ silently switch sort. Drift = test fail (`service.test.ts`).
+- **V.WL1 (rev 9).** `/api/watchlist/items` returns rows in sort order matching `sort` param. Cursor opaque (the single `media/cursor.ts` codec, two modes `keyset|offset`; encoding stays server-private, clients ⊥ assume structure). `sort=recent` → keyset cursor, strictly stable across page mutations. `sort=alpha|runtime|status` → offset cursor, best-effort stability; concurrent add/remove between pages may skip / dupe at the page boundary by 1 row. The codec **never throws**: `decode` of bad/foreign input or a mode-mismatch with the source's declared `cursorMode` → `null`; watchlist maps `null → first-page` (consumer-side, not codec-side; consolidation §E / V.CU1). Server ⊥ silently switch sort. Drift = test fail (`media/__tests__` codec + `watchlist/__tests__` source parity).
 - **V.WL2.** ~~`/api/watchlist/items` w/o `bucket` includes "unknown"-classified rows.~~ **Retired in rev 6.** Replaced by classifier total-coverage: every active row classifies into one of 5 visible buckets (`ClassifiedBucket = WatchlistBucket`). `counts.total = ready + inProgress + awaiting + unavailable + upcoming`. `/items` w/o bucket = ∪ all 5 (⊥ hidden tier). Drift = classifier emits any value outside `WATCHLIST_BUCKETS` ⇒ test fail.
 - **V.WL3.** Mood derivation is a pure function of `(row, metadata)`. ⊥ I/O, ⊥ random, ⊥ time. Test = property-based determinism.
 - **V.WL4.** Tonight scoring deterministic given same `(candidates, scoring weights)`. ⊥ ties broken by id only. Cache invalidation always after watchlist mutation event handled.
@@ -674,7 +710,7 @@ Single user-facing changeset under `@ent-mcp/client`:
 
 | File | Coverage |
 |---|---|
-| `watchlist/__tests__/service.test.ts` extension | `listItems` sort variants, `bucket` omit surfaces all 5 visible buckets (rev 6), mood intersect, cursor stability |
+| `watchlist/__tests__/sources.test.ts` (rev 9; source parity) | items / mood-items / tonight / recently `MediaSource`s produce same item ids/order as pre-refactor via `media.listRows`: sort variants, `bucket` omit surfaces all 5 visible buckets (rev 6), mood intersect. Cursor stability now asserted in `media/__tests__` codec + paginate (consolidation §T). |
 | `watchlist/tonight/__tests__/score.test.ts` NEW | scoring weight ordering, runtime sweet-spot, in-progress wins, diversity penalty, deterministic ties |
 | `watchlist/tonight/__tests__/pick.test.ts` NEW | hero + ≤4 alternates, empty candidates returns empty, awaiting/upcoming penalized out |
 | `watchlist/moods/__tests__/derive.test.ts` NEW | each MOOD_RULE triggers expected tags, multi-tag overlap, empty meta returns ∅ |
