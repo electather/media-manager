@@ -1,3 +1,4 @@
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { ArtworkService } from "../../artwork";
 import { enrichCompactItems } from "../../media";
 import { pickMatchReason } from "./match-reason";
@@ -12,7 +13,7 @@ export async function enrichHomeItems(
   items: InternalCompactMediaItem[],
   ctx: RowContext,
   opts: { rowId: string },
-) {
+): Promise<{ items: CompactMediaItem[]; partial: boolean }> {
   const result = await enrichCompactItems(
     items,
     {
@@ -29,5 +30,5 @@ export async function enrichHomeItems(
       matchReason: (item) => pickMatchReason(opts.rowId, item, ctx),
     },
   );
-  return result.items;
+  return { items: result.items, partial: result.partial };
 }

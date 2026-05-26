@@ -81,23 +81,24 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   if (filled.length === 0) return null;
 
   const ordered = orderCascadeLeadInterleave(filled, PRIORITY);
-  let enriched: Awaited<ReturnType<typeof enrichHomeItems>>;
+  let enrichedItems: Awaited<ReturnType<typeof enrichHomeItems>>["items"];
   try {
-    enriched = await enrichHomeItems(
+    const enriched = await enrichHomeItems(
       ordered.map((s) => s.item),
       ctx,
       { rowId: "hero" },
     );
+    enrichedItems = enriched.items;
   } catch (err) {
     ctx.logger.warn("[home:hero] enrichHomeItems threw, dropping hero", err);
     return null;
   }
-  if (enriched.length !== ordered.length) {
+  if (enrichedItems.length !== ordered.length) {
     ctx.logger.warn("[home:hero] enrichment dropped items, dropping hero");
     return null;
   }
   const slides: HeroSlide[] = ordered.map((s, i) => ({
-    item: enriched[i]!,
+    item: enrichedItems[i]!,
     source: s.source,
     reason: s.reason,
     resumeUrl: resolveResumeUrl(s),

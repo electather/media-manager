@@ -9,7 +9,7 @@ import type { RowContext, RowPage } from "./types";
  * Loads one row page, applying direct-access guards before media-owned
  * enrichment projects the row items into the public wire shape.
  */
-// fallow-ignore-next-line high-crap-score -- guard chain plus soft-failure catch; all branches are load-bearing
+// fallow-ignore-next-line complexity
 export async function composeRowPage(
   ctx: RowContext,
   rowId: string,
@@ -36,8 +36,8 @@ export async function composeRowPage(
     page = { items: [], cursor: null, partial: true };
   }
 
-  const items = await enrichHomeItems(page.items, ctx, { rowId });
-  const out: RowContentResponse = { items, cursor: page.cursor };
-  if (page.partial) out.partial = true;
+  const enriched = await enrichHomeItems(page.items, ctx, { rowId });
+  const out: RowContentResponse = { items: enriched.items, cursor: page.cursor };
+  if (page.partial || enriched.partial) out.partial = true;
   return out;
 }

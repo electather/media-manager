@@ -32,7 +32,7 @@ export async function composeDetailsResponse(
   }
 
   const summaryInternal = fromCanonicalMetadata(summary);
-  const [detailsSettled, [summaryItem], seasonsResult] = await Promise.all([
+  const [detailsSettled, enrichedSummary, seasonsResult] = await Promise.all([
     ctx.mediaService.getDetails(tmdbId, mediaType, deadlineOpts).then(
       (data) => ({ ok: true as const, data }),
       (err: unknown) => ({ ok: false as const, err }),
@@ -42,6 +42,7 @@ export async function composeDetailsResponse(
       ? ctx.mediaService.getShowSeasons(tmdbId, deadlineOpts)
       : Promise.resolve(null),
   ]);
+  const [summaryItem] = enrichedSummary.items;
   if (!summaryItem) throw new HttpError(500, "home.internal", "summary enrichment failed");
   if (!detailsSettled.ok) {
     return {

@@ -968,11 +968,13 @@ apps/server/src/home/__tests__/
       providers respond < 1s → layoutCache.write called with partial blob
       (hero present from non-CW pools, CW row dropped or partial:true);
       no per-row timeout thrown; no cron.job_failed capture
-  enrich.deadline.test.ts                                (rev 6)
+apps/server/src/media/__tests__/enrich-compact.test.ts (moved from home/__tests__/enrich.deadline.test.ts in rev 7)
     - media.enrichCompactItems forwards deadlineMs to media.StatusBatchMemo.get,
       ArtworkService.getArtwork, MediaService.getMatchingServers
     - per-item availability abort caught locally; item ships with empty
       servers + status:"unknown"
+    - sets partial and returns items when getStatusBatch rejects
+    - sets partial and returns items when getMetadataBatch rejects
 
 apps/server/src/home/rows/__tests__/
   continue-watching-active.test.ts

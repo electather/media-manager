@@ -59,7 +59,7 @@ function buildRowStub(rowId: string, preview: RowPreview): HomeRowStub {
   return stub;
 }
 
-// fallow-ignore-next-line high-crap-score -- multi-branch error recovery with distinct outcomes; branches cannot be collapsed
+// fallow-ignore-next-line complexity
 async function previewRow(ctx: RowContext, rowId: string): Promise<RowPreview> {
   const provider = ROW_PROVIDERS[rowId]!;
   let initialCursor: string | null;
