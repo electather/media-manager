@@ -685,7 +685,6 @@ async function filterByMood(
   return { rows: kept, partial, metadata };
 }
 
-// fallow-ignore-next-line complexity
 async function listItemsOffset(
   ctx: ResolvedWatchlistContext,
   sort: Exclude<WatchlistSort, "recent">,
@@ -727,23 +726,29 @@ async function listItemsOffset(
     );
   }
   const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
-  const window = sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
-  const enriched = await enrich(window, ctx, opts.bucket ? { filter: opts.bucket } : {});
+  // The sorted list is already in memory, so a single enrich pass over the
+  // remaining tail is both simpler and cheaper than chunked retries: it makes
+  // one batched API round-trip instead of N, and `enrich`'s own `filter`
+  // option drops bucket-mismatched rows before artwork hydration.
+  const tail = sorted.slice(offset);
+  const enriched = await enrich(tail, ctx, opts.bucket ? { filter: opts.bucket } : {});
   if (enriched.partial) partial = true;
-  const slice = enriched.items.slice(0, limit);
-  const sourcesSlice = enriched.sources.slice(0, limit);
-  // Advance cursor by the number of sorted rows actually scanned, not by the
-  // returned slice length — when a bucket filter drops most of the window we
-  // must skip past every scanned row or the next page repeats them (V.WL2).
-  let scannedRows = window.length;
-  if (slice.length === limit && sourcesSlice.length === limit) {
-    const lastSource = sourcesSlice[sourcesSlice.length - 1]!;
-    const lastIdx = window.findIndex((r) => r.id === lastSource.id);
-    if (lastIdx >= 0) scannedRows = lastIdx + 1;
-  }
-  const nextOffset = offset + scannedRows;
+  const items = enriched.items.slice(0, limit);
+  const sources = enriched.sources.slice(0, limit);
+  const nextOffset = offset + scannedRowCount(tail, sources, limit);
   const cursor = nextOffset < sorted.length ? encodeOffsetCursor(nextOffset) : null;
-  return { items: slice, cursor, partial };
+  return { items, cursor, partial };
+}
+
+// Advance cursor past the last *returned* row, not past every scanned row.
+// When a bucket filter drops most of the tail we still need V.WL2's no-repeat
+// guarantee: if we filled the page we resume at lastReturned+1; if we didn't,
+// the tail was exhausted so the caller will null out the cursor anyway.
+function scannedRowCount(tail: ActiveRow[], returnedSources: ActiveRow[], limit: number): number {
+  if (returnedSources.length < limit) return tail.length;
+  const lastId = returnedSources[returnedSources.length - 1]!.id;
+  const lastIdx = tail.findIndex((r) => r.id === lastId);
+  return lastIdx >= 0 ? lastIdx + 1 : tail.length;
 }
 
 /**
