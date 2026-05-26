@@ -37,4 +37,14 @@ describe("watchlist architecture", () => {
       }
     }
   });
+
+  it("keeps plugin watchlist payload parsing in module-private internals", () => {
+    const parserPath = join(watchlistRoot, "internal", "watchlist-key.ts");
+    const seedSource = readFileSync(join(watchlistRoot, "service", "seed.ts"), "utf8");
+
+    expect(existsSync(parserPath)).toBe(true);
+    expect(seedSource).toContain(`from "../internal/watchlist-key"`);
+    expect(seedSource).not.toContain("function toWatchlistKey");
+    expect(seedSource).not.toContain("function extractTmdbId");
+  });
 });
