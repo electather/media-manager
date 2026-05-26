@@ -686,6 +686,7 @@ async function filterByMood(
   return { rows: kept, partial, metadata };
 }
 
+// fallow-ignore-next-line complexity
 async function listItemsOffset(
   ctx: ResolvedWatchlistContext,
   sort: Exclude<WatchlistSort, "recent">,
