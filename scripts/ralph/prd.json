@@ -63,8 +63,8 @@
         "`vp test` passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created apps/server/src/media/pipeline/batch-load.ts (NEW pipeline/ subdir per design §A): batchLoad(rows, ctx) = the single status-batch + metadata-batch + progress-map fan-out (design §C/§F), collapsing the 4 watchlist Promise.all copies (getCounts ~:187, listItemsOffset ~:707, tonight/section ~:53, filterByMood meta ~:676) + enrich's internal call. Each sub-load is warn+fallback: rejection -> ctx.log.warn + empty result + partial=true; one failed leg never sinks the siblings. loadProgressMap(ctx) reused as-is (already warns+falls-back internally; its partial folded up). Returns {statuses:Record<string,string>; metadata:Record<string,CanonicalMetadata>; progress:ProgressMap(bare map, not {map,partial}); partial:boolean}. Short-circuits rows.length===0 (no fan-out, skips rows-independent CW fetch). Context = minimal structural BatchLoadContext{mediaService:MediaEnrichService&MediaProgressService; catalog:Pick<CatalogService,'getMetadataBatch'>; log:ConsolaInstance; deadlineMs?} using `log` (matches loadProgressMap + all 4 consumer sites; listRows/US-007 bridges SourceContext.logger->log). Did NOT delete the 4 consumer fan-outs (later phase). Added `// fallow-ignore-next-line code-duplication` on the Promise.all (mirrors the 4 sites; transient until US-024 V.SH1 removes all markers) -> batch-load drops out of the dupe report. Exported batchLoad/BatchLoadContext/BatchLoadResult via media/index.ts barrel. 5 unit tests (__tests__/batch-load.test.ts): clean->partial:false+no warn; status reject->warn+statuses{}+partial+metadata SURVIVES; metadata reject->mirror; CW-feed reject->progress empty+partial (via loadProgressMap); empty rows->no sub-load calls. vp check: 0 errors / 1 pre-existing warning. vp test media: 250 pass (+5). fallow: ZERO circular-deps/boundary/unused (only Duplication+Complexity sections, both warn); hard-gate exit=1 is PRE-EXISTING on this branch (same exit on clean HEAD). Empty internal-only changeset (server-internal plumbing, no wire change)."
     },
     {
       "id": "US-005",
