@@ -25,9 +25,10 @@ import {
   removeItem as mediaRemoveItem,
   seedFromPlugins as mediaSeedFromPlugins,
   syncFromPlugins as mediaSyncFromPlugins,
-  classifyBucket,
+  countBuckets,
   enrich,
   getMatchingServersCached,
+  loadProgressMap,
   listAllActiveRows,
   listActiveRowsKeyset,
   listAvailableCandidates,
@@ -35,11 +36,9 @@ import {
   hasUserSeeded,
   encodeCursor,
   decodeCursor,
-  previewForClassify,
   type AddItemResult,
   type EnrichOptions,
   type GetArtworkFn,
-  type MatchingServer,
   type MediaService,
   type PageCursor,
   type SeedResult,
@@ -49,7 +48,6 @@ import {
 export type { AddItemResult, SeedResult };
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
-import { loadProgressMap } from "../media";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 
 /**
@@ -155,12 +153,13 @@ function countsCacheKey(userId: string): string {
 }
 
 /**
- * Returns cheap aggregate counts for the header pips. Walks every active row
- * once with metadata + status + cached matching-server probes — NO artwork
- * dispatch, NO cold-fill — so a 1000-row watchlist costs one batch query
- * plus 1000 cache hits (after the first page warms the 30 s cache).
+ * Returns cheap aggregate counts for the header pips. Delegates the per-row
+ * bucket tally to media's `countBuckets` count-mode aggregate (design §G) —
+ * `batchLoad → classify → tally`, NO artwork dispatch and NO cold-fill — so a
+ * 1000-row watchlist costs one batch query plus 1000 cache hits (after the
+ * first page warms the 30 s cache). This shell only owns the counts cache and
+ * the `WatchlistCounts` wire mapping.
  */
-// fallow-ignore-next-line complexity
 export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> {
   const c = asWatchlistContext(ctx);
   const cacheKey = countsCacheKey(c.userId);
@@ -168,75 +167,14 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   if (hit !== null) return hit;
 
   const rows = await listAllActiveRows(c.userId);
-  if (rows.length === 0) {
-    const empty: WatchlistCounts = {
-      ready: 0,
-      inProgress: 0,
-      awaiting: 0,
-      unavailable: 0,
-      upcoming: 0,
-      total: 0,
-    };
-    await countsCache.set(cacheKey, empty, COUNTS_CACHE_TTL_MS);
-    return empty;
-  }
-
-  const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
-  const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
-
-  const [statuses, metadata, progress] = await Promise.all([
-    // fallow-ignore-next-line code-duplication
-    c.mediaService.getStatusBatch(compositeIds).catch((err) => {
-      c.log.warn("[watchlist:counts] getStatusBatch failed", err);
-      return {} as Record<string, string>;
-    }),
-    c.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-      c.log.warn("[watchlist:counts] getMetadataBatch failed", err);
-      return {} as Record<string, { year?: number; runtimeMinutes?: number }>;
-    }),
-    loadProgressMap(c),
-  ]);
-
-  const serverProbes = await Promise.allSettled(
-    rows.map((row) =>
-      getMatchingServersCached(c.userId, c.mediaService, row.tmdbId, row.mediaType),
-    ),
-  );
-
-  let ready = 0;
-  let inProgress = 0;
-  let awaiting = 0;
-  let unavailable = 0;
-  let upcoming = 0;
-  // fallow-ignore-next-line code-duplication
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
-    const probe = serverProbes[i]!;
-    const servers: MatchingServer[] = probe.status === "fulfilled" ? probe.value : [];
-    const meta = (metadata as Record<string, { year?: number; runtimeMinutes?: number }>)[
-      composite
-    ];
-    const preview = previewForClassify(
-      meta,
-      statuses[composite],
-      servers,
-      progress.map.get(composite),
-    );
-    const bucket = classifyBucket(preview);
-    if (bucket === "ready") ready++;
-    else if (bucket === "in-progress") inProgress++;
-    else if (bucket === "awaiting") awaiting++;
-    else if (bucket === "upcoming") upcoming++;
-    else if (bucket === "unavailable") unavailable++;
-  }
+  const tally = await countBuckets(rows, c);
 
   const counts: WatchlistCounts = {
-    ready,
-    inProgress,
-    awaiting,
-    unavailable,
-    upcoming,
+    ready: tally.ready,
+    inProgress: tally["in-progress"],
+    awaiting: tally.awaiting,
+    unavailable: tally.unavailable,
+    upcoming: tally.upcoming,
     total: rows.length,
   };
   await countsCache.set(cacheKey, counts, COUNTS_CACHE_TTL_MS);
