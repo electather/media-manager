@@ -10,12 +10,17 @@ import {
 } from "@ent-mcp/shared/watchlist";
 import type { CatalogService } from "../../catalog";
 import { listAllActiveRows } from "../../media";
-import { UserTtlCache } from "../user-cache";
+import { MemoryCache } from "../../cache/memory";
 import { derive } from "./derive";
 
 const CACHE_TTL_MS = 30_000;
+const CACHE_MAX_ENTRIES = 5000;
 
-const cache = new UserTtlCache<WatchlistMoodSummary>(CACHE_TTL_MS);
+const cache = new MemoryCache(CACHE_MAX_ENTRIES);
+
+function summaryCacheKey(userId: string): string {
+  return `watchlist:moods:${userId}`;
+}
 
 export interface MoodSummaryContext {
   userId: string;
@@ -32,13 +37,14 @@ export interface MoodSummaryContext {
 // fallow-ignore-next-line complexity
 export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMoodSummary> {
   // fallow-ignore-next-line code-duplication
-  const hit = cache.get(ctx.userId);
-  if (hit) return hit;
+  const key = summaryCacheKey(ctx.userId);
+  const hit = await cache.get<WatchlistMoodSummary>(key);
+  if (hit !== null) return hit;
 
   const rows = await listAllActiveRows(ctx.userId);
   if (rows.length === 0) {
     const empty: WatchlistMoodSummary = { clusters: [] };
-    cache.set(ctx.userId, empty);
+    await cache.set(key, empty, CACHE_TTL_MS);
     return empty;
   }
 
@@ -63,15 +69,15 @@ export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMood
 
   // fallow-ignore-next-line code-duplication
   const summary: WatchlistMoodSummary = { clusters };
-  cache.set(ctx.userId, summary);
+  await cache.set(key, summary, CACHE_TTL_MS);
   return summary;
 }
 
-export function invalidateMoodSummary(userId: string): void {
-  cache.delete(userId);
+export async function invalidateMoodSummary(userId: string): Promise<void> {
+  await cache.delete(summaryCacheKey(userId));
 }
 
 /** Test-only. */
-export function __resetMoodCache(): void {
-  cache.clear();
+export async function __resetMoodCache(): Promise<void> {
+  await cache.clear("watchlist:moods:");
 }

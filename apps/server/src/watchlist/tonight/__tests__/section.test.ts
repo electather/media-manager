@@ -75,7 +75,7 @@ afterAll(() => cleanupInMemoryDbs());
 beforeEach(async () => {
   vi.clearAllMocks();
   await mediaRepo.__resetActiveRowsForTests(testDb);
-  __resetTonightCache();
+  await __resetTonightCache();
   vi.mocked(getMatchingServersCached).mockResolvedValue([]);
   vi.mocked(loadProgressMap).mockResolvedValue({ map: new Map(), partial: false });
   vi.mocked(enrich).mockResolvedValue({ items: [], partial: false, sources: [] });

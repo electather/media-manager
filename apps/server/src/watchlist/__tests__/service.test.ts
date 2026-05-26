@@ -34,6 +34,8 @@ const {
   listMoodItems,
   seedFromPlugins,
   syncFromPlugins,
+  invalidateCounts,
+  __resetCountsCache,
 } = await import("../service");
 const mediaRepo = await import("../../media/repo");
 const { __resetAvailabilityCache } = await import("../../media");
@@ -80,20 +82,31 @@ function makeCtx(opts: { userId?: string } = {}) {
 
 beforeAll(async () => {
   testDb = await createInMemoryDb();
-  await testDb.insert(user).values({
-    id: "u1",
-    name: "u1",
-    email: "u1@test",
-    emailVerified: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  await testDb.insert(user).values([
+    {
+      id: "u1",
+      name: "u1",
+      email: "u1@test",
+      emailVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: "u2",
+      name: "u2",
+      email: "u2@test",
+      emailVerified: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ]);
 });
 
 afterAll(() => cleanupInMemoryDbs());
 
 beforeEach(async () => {
   await mediaRepo.__resetActiveRowsForTests(testDb);
+  await __resetCountsCache();
   __resetAvailabilityCache();
   (emit as ReturnType<typeof vi.fn>).mockClear();
 });
@@ -335,6 +348,45 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     });
     expect(probeSpy).not.toHaveBeenCalled();
     expect(statusSpy).not.toHaveBeenCalled();
+  });
+
+  it("getCounts caches bucket totals separately for each user", async () => {
+    const u1 = makeCtx({ userId: "u1" });
+    const u2 = makeCtx({ userId: "u2" });
+    await addItem({ tmdbId: "cache-u1", mediaType: "movie" }, "manual", u1);
+    await addItem({ tmdbId: "cache-u2", mediaType: "movie" }, "manual", u2);
+    __resetAvailabilityCache();
+
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const u1Status = u1.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const u2Status = u2.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
+    u1Status.mockClear();
+    u2Status.mockClear();
+
+    await getCounts(u1);
+    await getCounts(u2);
+    await getCounts(u1);
+    await getCounts(u2);
+
+    expect(u1Status).toHaveBeenCalledTimes(1);
+    expect(u2Status).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidateCounts clears the cache so the next getCounts re-queries the DB", async () => {
+    const ctx = makeCtx({ userId: "u1" });
+    await addItem({ tmdbId: "inv-1", mediaType: "movie" }, "manual", ctx);
+    __resetAvailabilityCache();
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const statusSpy = ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>;
+    statusSpy.mockClear();
+
+    await getCounts(ctx);
+    expect(statusSpy).toHaveBeenCalledTimes(1);
+
+    await invalidateCounts("u1");
+    await getCounts(ctx);
+    expect(statusSpy).toHaveBeenCalledTimes(2);
   });
 
   it("availability cache is shared between a list + counts pair (one probe per row)", async () => {
