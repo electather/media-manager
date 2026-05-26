@@ -29,7 +29,7 @@ apps/server/src/db/schema/
 ├── notifications/{notifications,index}.ts
 ├── plugin-runtime/{plugins,credentials,plugin-shared-credentials,index}.ts
 ├── preferences/{preferences,user-preferences,feedback,index}.ts
-└── watchlist/{watchlist,index}.ts
+└── media/{media,index}.ts
 ```
 
 Each subdirectory has an `index.ts` barrel re-exporting every table in that module. The root `index.ts` re-exports every subdirectory barrel — drizzle's schema entry point is unchanged.
@@ -45,7 +45,7 @@ Eight new zones, listed BEFORE `server-infra` in the zone array so first-match-w
 { "name": "server-schema-notifications",   "patterns": ["apps/server/src/db/schema/notifications/**"] },
 { "name": "server-schema-plugin-runtime",  "patterns": ["apps/server/src/db/schema/plugin-runtime/**"] },
 { "name": "server-schema-preferences",     "patterns": ["apps/server/src/db/schema/preferences/**"] },
-{ "name": "server-schema-watchlist",       "patterns": ["apps/server/src/db/schema/watchlist/**"] },
+{ "name": "server-schema-media",           "patterns": ["apps/server/src/db/schema/media/**"] },
 { "name": "server-schema-infra",           "patterns": ["apps/server/src/db/schema/infra/**", "apps/server/src/db/schema/index.ts"] }
 ```
 

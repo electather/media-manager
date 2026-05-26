@@ -4,9 +4,13 @@ import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 vi.mock("../../env", () => ({
   env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
 }));
-vi.mock("../internal/enrich", () => ({
-  enrichItems: vi.fn(async (items: unknown[]) => items),
-}));
+vi.mock("../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../media")>("../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 const { pickHero } = await import("../internal/hero");
 const { makeRowCtx } = await import("./row-test-helpers");

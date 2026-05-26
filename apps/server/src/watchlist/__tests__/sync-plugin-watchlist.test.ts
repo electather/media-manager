@@ -11,6 +11,7 @@ vi.mock("../../media", () => ({
   MediaService: vi.fn(function MediaService() {
     return {};
   }),
+  listSeededUserIds: vi.fn().mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]),
 }));
 vi.mock("../../catalog", () => ({
   getCatalogService: () => ({}),
@@ -18,12 +19,9 @@ vi.mock("../../catalog", () => ({
 vi.mock("../service", () => ({
   syncFromPlugins: vi.fn().mockResolvedValue({ added: 0, partial: false }),
 }));
-vi.mock("../repo", () => ({
-  listSeededUserIds: vi.fn().mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]),
-}));
 
 const { registerScheduledPerRow } = await import("../../jobs/scheduled-per-row");
-const repo = await import("../repo");
+const mediaModule = await import("../../media");
 const service = await import("../service");
 const { registerSyncPluginWatchlist, WATCHLIST_SYNC_JOB_ID } =
   await import("../jobs/sync-plugin-watchlist");
@@ -42,7 +40,7 @@ describe("watchlist sync-plugin job", () => {
     const opts = (registerScheduledPerRow as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     const rows = await opts.rowSource();
     expect(rows).toEqual([{ userId: "u1" }, { userId: "u2" }]);
-    expect(repo.listSeededUserIds).toHaveBeenCalledTimes(1);
+    expect(mediaModule.listSeededUserIds).toHaveBeenCalledTimes(1);
   });
 
   it("handler invokes service.syncFromPlugins with the row's user id", async () => {

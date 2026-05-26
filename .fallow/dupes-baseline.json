@@ -170,6 +170,26 @@
     "packages/shared/src/home/types.ts:210-237|packages/shared/src/plugins/types.ts:26-49",
     "packages/shared/src/media/types.ts:39-59|packages/shared/src/media/types.ts:66-85",
     "packages/shared/src/notifications/enums.ts:6-27|packages/shared/src/plugins/library.ts:19-39",
-    "packages/shared/src/plugins/types.ts:23-43|packages/shared/src/preferences/types.ts:6-21"
+    "packages/shared/src/plugins/types.ts:23-43|packages/shared/src/preferences/types.ts:6-21",
+    "apps/server/src/media/index.ts:19-65|apps/server/src/plugin-runtime/index.ts:2-48",
+    "apps/server/src/home/internal/types.ts:29-72|packages/shared/src/preferences/types.ts:11-32",
+    "apps/server/src/media/index.ts:37-69|packages/shared/src/notifications/index.ts:5-37",
+    "apps/server/src/media/service/index.ts:647-665|apps/server/src/media/service/index.ts:740-768",
+    "apps/server/src/media/index.ts:84-106|apps/server/src/media/service/index.ts:1047-1073",
+    "apps/server/src/media/index.ts:42-67|packages/shared/src/notifications/index.ts:10-35",
+    "apps/server/src/media/service/index.ts:108-125|apps/server/src/media/service/index.ts:458-474",
+    "apps/server/src/media/service/index.ts:837-854|apps/server/src/media/service/index.ts:905-922",
+    "apps/server/src/media/classify.ts:57-63|apps/server/src/media/enrich.ts:484-492",
+    "apps/server/src/home/internal/adapters.ts:49-52|apps/server/src/media/enrich.ts:478-484|apps/server/src/media/service/compact.ts:31-36",
+    "apps/server/src/home/internal/hero.ts:158-162|apps/server/src/home/rows/recommended-for-you.ts:56-60",
+    "packages/shared/src/home/types.ts:192-226|packages/shared/src/home/types.ts:42-71",
+    "apps/server/src/home/rows/_shared.ts:172-178|apps/server/src/watchlist/service.ts:417-427",
+    "apps/server/src/media/repo/reads.ts:107-115|apps/server/src/media/repo/reads.ts:96-101",
+    "apps/server/src/media/repo/reads.ts:112-116|apps/server/src/plugin-runtime/internal/connections-access.ts:71-75",
+    "apps/server/src/media/repo/reads.ts:120-124|apps/server/src/media/repo/seed.ts:24-28",
+    "apps/server/src/media/repo/reads.ts:120-125|apps/server/src/plugin-runtime/internal/connections-access.ts:69-74",
+    "apps/server/src/media/repo/reads.ts:81-91|apps/server/src/media/repo/writes.ts:34-44|apps/server/src/media/repo/writes.ts:89-99",
+    "apps/server/src/media/repo/writes.ts:26-47|apps/server/src/media/repo/writes.ts:82-102",
+    "apps/server/src/media/enrich.ts:169-175|apps/server/src/watchlist/service.ts:188-193|apps/server/src/watchlist/tonight/section.ts:66-71"
   ]
 }

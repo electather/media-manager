@@ -46,13 +46,18 @@ export {
   previewForClassify,
   type PreviewMeta,
   enrich,
+  enrichCompactItems,
   type EnrichOptions,
   type EnrichResult,
+  type CompactMediaEnrichContext,
+  type CompactMediaEnrichOptions,
+  type CompactMediaEnrichResult,
   type LoadProgressMap,
   type MediaEnrichContext,
   type MediaEnrichRow,
   type MediaProgressSnapshot,
   type WatchlistEnrichContext,
+  StatusBatchMemo,
 } from "./service";
 export type {
   MatchingServer,
@@ -77,3 +82,25 @@ export {
 } from "./errors";
 export { registerJobs } from "./jobs";
 export { loadProgressMap, type ProgressEntry, type ProgressMap } from "./progress";
+export type { ActiveRow, RowSort, RowFilter } from "@ent-mcp/shared/media";
+export {
+  listActiveRows,
+  listActiveRowsKeyset,
+  getActiveRow,
+  listAllActiveRows,
+  listAvailableCandidates,
+  hasActiveRows,
+  allKnownKeys,
+  upsertActiveRow,
+  softRemoveRow,
+  bulkInsertActiveRows,
+  trySeedLock,
+  clearSeedLock,
+  hasUserSeeded,
+  listSeededUserIds,
+  encodeCursor,
+  decodeCursor,
+  type PageCursor,
+  type UpsertActiveResult,
+  type SoftRemoveResult,
+} from "./service";

@@ -9,8 +9,8 @@ import {
   type WatchlistMoodSummary,
 } from "@ent-mcp/shared/watchlist";
 import type { CatalogService } from "../../catalog";
+import { listAllActiveRows } from "../../media";
 import { MemoryCache } from "../../cache/memory";
-import * as repo from "../repo";
 import { derive } from "./derive";
 
 const CACHE_TTL_MS = 30_000;
@@ -41,7 +41,7 @@ export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMood
   const hit = await cache.get<WatchlistMoodSummary>(key);
   if (hit !== null) return hit;
 
-  const rows = await repo.listAllActive(ctx.userId);
+  const rows = await listAllActiveRows(ctx.userId);
   if (rows.length === 0) {
     const empty: WatchlistMoodSummary = { clusters: [] };
     await cache.set(key, empty, CACHE_TTL_MS);
