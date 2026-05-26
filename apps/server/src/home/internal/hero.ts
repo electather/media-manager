@@ -2,7 +2,7 @@ import { groupBy, orderBy } from "es-toolkit/array";
 import type { HeroReason, HeroSlide, LayoutHero, RowKind } from "@ent-mcp/shared/home";
 import type { MetadataKey } from "@ent-mcp/shared/catalog";
 import { fromContinueWatchingEntry } from "./adapters";
-import { enrichItems } from "./enrich";
+import { enrichHomeItems } from "./media-enrichment";
 import { loadCanonicalItems } from "../rows/_shared";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
@@ -81,19 +81,24 @@ export async function pickHero(ctx: RowContext): Promise<LayoutHero | null> {
   if (filled.length === 0) return null;
 
   const ordered = orderCascadeLeadInterleave(filled, PRIORITY);
-  let enriched: Awaited<ReturnType<typeof enrichItems>>;
+  let enrichedItems: Awaited<ReturnType<typeof enrichHomeItems>>["items"];
   try {
-    enriched = await enrichItems(
+    const enriched = await enrichHomeItems(
       ordered.map((s) => s.item),
       ctx,
       { rowId: "hero" },
     );
+    enrichedItems = enriched.items;
   } catch (err) {
-    ctx.logger.warn("[home:hero] enrichItems threw, dropping hero", err);
+    ctx.logger.warn("[home:hero] enrichHomeItems threw, dropping hero", err);
+    return null;
+  }
+  if (enrichedItems.length !== ordered.length) {
+    ctx.logger.warn("[home:hero] enrichment dropped items, dropping hero");
     return null;
   }
   const slides: HeroSlide[] = ordered.map((s, i) => ({
-    item: enriched[i]!,
+    item: enrichedItems[i]!,
     source: s.source,
     reason: s.reason,
     resumeUrl: resolveResumeUrl(s),

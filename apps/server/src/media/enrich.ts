@@ -1,4 +1,4 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-mcp/shared/home";
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
@@ -14,6 +14,8 @@ import type {
 } from "./types";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
+import { capabilityRegistry } from "../plugin-runtime";
+import type { StatusBatchMemo } from "./status-batch";
 
 export interface MediaEnrichRow {
   tmdbId: string;
@@ -71,6 +73,27 @@ export interface EnrichOptions {
    * loop from this map so callers don't pay for two fetches per hop.
    */
   prefetchedMetadata?: Record<string, CanonicalMetadata>;
+}
+
+export interface CompactMediaEnrichContext extends Pick<
+  MediaEnrichContext,
+  "userId" | "catalog" | "deadlineMs" | "log" | "getArtwork"
+> {
+  /** Enrichment only needs status + availability surface — not progress. */
+  mediaService: MediaEnrichService;
+  /** Optional request-scoped batch loader for status lookups. */
+  statusBatch?: StatusBatchMemo;
+}
+
+export interface CompactMediaEnrichOptions<Row extends CompactMediaItem = CompactMediaItem> {
+  /** Adds caller-specific match-reason metadata without making media depend on that caller. */
+  matchReason?: (item: Row) => MatchReason | null;
+}
+
+export interface CompactMediaEnrichResult {
+  items: CompactMediaItem[];
+  /** True when a batch-level enrichment dependency failed. */
+  partial: boolean;
 }
 
 /**
@@ -194,6 +217,80 @@ export async function enrich<Row extends MediaEnrichRow>(
   return { items, sources, partial };
 }
 
+/**
+ * Enriches compact media cards with shared media signals: status,
+ * availability, facets, and artwork. Callers may add match reasons through a
+ * callback while keeping the fan-out and projection logic owned by media.
+ */
+// fallow-ignore-next-line complexity
+export async function enrichCompactItems<Row extends CompactMediaItem>(
+  items: Row[],
+  ctx: CompactMediaEnrichContext,
+  opts: CompactMediaEnrichOptions<Row> = {},
+): Promise<CompactMediaEnrichResult> {
+  if (items.length === 0) return { items: [], partial: false };
+
+  let partial = false;
+  const compositeIds = items.map((item) => keyToId(item));
+  const metadataKeys = items.map((item) => ({ tmdbId: item.tmdbId, type: item.mediaType }));
+
+  // fallow-ignore-next-line code-duplication
+  const statuses = await loadCompactStatuses(compositeIds, ctx).catch((err) => {
+    ctx.log.warn("[media:compact-enrich] getStatusBatch failed", err);
+    partial = true;
+    return {} as Record<string, string>;
+  });
+  // fallow-ignore-next-line code-duplication
+  const metadata = await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
+    ctx.log.warn("[media:compact-enrich] getMetadataBatch failed", err);
+    partial = true;
+    return {} as Record<string, CanonicalMetadata>;
+  });
+  const artwork = await hydrateArtwork(items, metadata, ctx);
+  const requestProviderCount = capabilityRegistry.listProviders(
+    "mediaRequest",
+    "v1",
+    "user",
+  ).length;
+
+  const settled = await Promise.allSettled(
+    items.map(async (item) => {
+      const composite = keyToId(item);
+      const status = (statuses[composite] ?? "unknown") as NonNullable<CompactMediaItem["status"]>;
+      const meta = metadata[composite] as CanonicalMetadata | undefined;
+      const availability = await deriveCompactAvailability(item, status, requestProviderCount, ctx);
+      const facets = deriveCompactFacets(meta, item);
+      const withArt = mergeArtwork(item, meta, artwork[composite]);
+      return projectCompactItem(withArt, {
+        status,
+        availability,
+        facets,
+        matchReason: opts.matchReason?.(item) ?? null,
+      });
+    }),
+  );
+
+  const out: CompactMediaItem[] = [];
+  for (const result of settled) {
+    if (result.status === "fulfilled") {
+      out.push(result.value);
+    } else {
+      partial = true;
+      ctx.log.warn("[media:compact-enrich] per-item enrichment threw", result.reason);
+    }
+  }
+  return { items: out, partial };
+}
+
+function loadCompactStatuses(
+  ids: string[],
+  ctx: CompactMediaEnrichContext,
+): Promise<Record<string, string>> {
+  const opts = { deadlineMs: ctx.deadlineMs };
+  if (ctx.statusBatch) return ctx.statusBatch.get(ids, opts);
+  return ctx.mediaService.getStatusBatch(ids, opts);
+}
+
 async function enrichOne(
   row: MediaEnrichRow,
   statuses: Record<string, string>,
@@ -242,9 +339,9 @@ async function enrichOne(
  * and must never break a watchlist response.
  */
 async function hydrateArtwork(
-  rows: MediaEnrichRow[],
+  rows: Array<Pick<MediaEnrichRow, "tmdbId" | "mediaType">>,
   metadata: Record<string, CanonicalMetadata>,
-  ctx: MediaEnrichContext,
+  ctx: Pick<MediaEnrichContext, "getArtwork" | "deadlineMs" | "log">,
 ): Promise<Record<string, ArtworkBundle>> {
   const requests: ArtworkRequestItem[] = [];
   for (const row of rows) {
@@ -259,7 +356,7 @@ async function hydrateArtwork(
   }
   if (requests.length === 0 || !ctx.getArtwork) return {};
   try {
-    const res = await ctx.getArtwork(requests);
+    const res = await ctx.getArtwork(requests, { deadlineMs: ctx.deadlineMs });
     return res.results;
   } catch (err) {
     ctx.log.warn("[media:enrich] artwork hydration failed", err);
@@ -295,7 +392,9 @@ async function loadColdMetadata(
   ctx: MediaEnrichContext,
 ): Promise<CanonicalMetadata | null> {
   if (!ctx.toCanonicalRow) return null;
-  const raw = await ctx.mediaService.getMetadata(row.tmdbId, row.mediaType);
+  const raw = await ctx.mediaService.getMetadata(row.tmdbId, row.mediaType, {
+    deadlineMs: ctx.deadlineMs,
+  });
   if (!raw) return null;
   const canonical = ctx.toCanonicalRow({ tmdbId: row.tmdbId, type: row.mediaType }, raw);
   // Fire-and-forget the write — the next read still hits the catalog cache;
@@ -304,6 +403,65 @@ async function loadColdMetadata(
     .writeMetadata([canonical])
     .catch((err) => ctx.log.warn("[media:enrich] catalog write threw", err));
   return canonical;
+}
+
+async function deriveCompactAvailability(
+  item: CompactMediaItem,
+  status: NonNullable<CompactMediaItem["status"]>,
+  requestProviderCount: number,
+  ctx: CompactMediaEnrichContext,
+): Promise<Availability> {
+  const servers = await ctx.mediaService
+    .getMatchingServers(item.tmdbId, item.mediaType, { deadlineMs: ctx.deadlineMs })
+    .catch((err) => {
+      ctx.log.warn("[media:compact-enrich] getMatchingServers failed", err);
+      return [] as MatchingServer[];
+    });
+  const hasAnyServerCopy = servers.length > 0;
+  const requestEligible = !hasAnyServerCopy && status !== "available" && requestProviderCount > 0;
+  return { hasAnyServerCopy, requestEligible, servers };
+}
+
+// fallow-ignore-next-line complexity
+function deriveCompactFacets(
+  meta: CanonicalMetadata | undefined,
+  item: CompactMediaItem,
+): Facets | undefined {
+  const out: Facets = {};
+  if (meta?.runtimeMinutes != null) out.runtimeMin = meta.runtimeMinutes;
+  if (item.mediaType === "tv") {
+    const features = meta?.features as { episodeCount?: number } | null | undefined;
+    if (features?.episodeCount != null) out.episodeCount = features.episodeCount;
+  }
+  if (meta?.year != null && meta.year > new Date().getUTCFullYear())
+    out.releaseDate = String(meta.year);
+  const merged: Facets = { ...item.facets, ...out };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+type PrivateCompactFields = {
+  __topContributors?: unknown;
+  __addedAtMs?: unknown;
+};
+
+function projectCompactItem(
+  item: CompactMediaItem,
+  add: {
+    status: NonNullable<CompactMediaItem["status"]>;
+    availability: Availability;
+    facets: Facets | undefined;
+    matchReason: MatchReason | null;
+  },
+): CompactMediaItem {
+  const {
+    __topContributors: _topContributors,
+    __addedAtMs: _addedAtMs,
+    ...rest
+  } = item as CompactMediaItem & PrivateCompactFields;
+  const wire: CompactMediaItem = { ...rest, status: add.status, availability: add.availability };
+  if (add.facets) wire.facets = add.facets;
+  if (add.matchReason) wire.matchReason = add.matchReason;
+  return wire;
 }
 
 function compactFromMetadata(meta: CanonicalMetadata): CompactMediaItem {

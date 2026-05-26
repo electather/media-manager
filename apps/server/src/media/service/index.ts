@@ -28,6 +28,7 @@ import { isNil } from "es-toolkit/predicate";
 import { orderBy, uniqBy } from "es-toolkit/array";
 
 export { getMatchingServersCached, __resetAvailabilityCache } from "../availability-cache";
+export { StatusBatchMemo } from "../status-batch";
 export {
   classifyBucket,
   isActiveProgress,
@@ -39,8 +40,12 @@ export {
 } from "../classify";
 export {
   enrich,
+  enrichCompactItems,
   type EnrichOptions,
   type EnrichResult,
+  type CompactMediaEnrichContext,
+  type CompactMediaEnrichOptions,
+  type CompactMediaEnrichResult,
   type LoadProgressMap,
   type MediaEnrichContext,
   type MediaEnrichRow,
