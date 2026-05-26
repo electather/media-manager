@@ -571,7 +571,7 @@ export async function getRecentlyAdded(
 /** Mood-cluster summary delegator. */
 export async function getMoodSummary(ctx: MaybeRowContext): Promise<WatchlistMoodSummary> {
   const c = asWatchlistContext(ctx);
-  return getMoodSummaryImpl({ userId: c.userId, catalog: c.catalog, log: c.log });
+  return getMoodSummaryImpl(c);
 }
 
 export interface ListMoodItemsOptions {
