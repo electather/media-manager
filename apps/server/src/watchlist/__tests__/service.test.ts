@@ -537,6 +537,42 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(page.cursor).toBeNull();
   });
 
+  // Regression for issue #501: sparse bucket+sort must return ≥ min(limit,
+  // total-bucket-rows) items per page. A single OVERSHOOT_FACTOR window can
+  // miss ready items that sit beyond the window's end in the sorted list.
+  it("listItems sort=alpha + sparse bucket fills page by scanning past the initial overshoot window", async () => {
+    const ctx = makeCtx();
+    // 20 rows; chunkSize = limit(5) * OVERSHOOT(3) = 15.
+    // Ready items at a03 (inside chunk 1), a15 (last in chunk 1), and a18
+    // (chunk 2). Without the retry loop only 2 items are returned; with it all
+    // 3 are returned since 3 = min(5, 3).
+    for (let i = 1; i <= 20; i++) {
+      await addItem(
+        { tmdbId: `a${String(i).padStart(2, "0")}`, mediaType: "movie" },
+        "manual",
+        ctx,
+      );
+    }
+    __resetAvailabilityCache();
+    const ready = new Set(["a03", "a15", "a18"]);
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tmdbId: string) => (ready.has(tmdbId) ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          out[`movie:${tmdbId}`] = { tmdbId, mediaType: "movie", title: tmdbId, genres: [] };
+        }
+        return out;
+      },
+    );
+
+    const page = await listItems(ctx, { sort: "alpha", bucket: "ready", limit: 5 });
+    expect(page.items.map((i) => i.tmdbId)).toEqual(["a03", "a15", "a18"]);
+    expect(page.cursor).toBeNull();
+  });
+
   // V.WL2 rev 6 — `bucket` omitted surfaces every active row regardless of
   // classification (no hidden `unknown` tail leak).
   it("listItems without bucket surfaces every active row across visible buckets", async () => {

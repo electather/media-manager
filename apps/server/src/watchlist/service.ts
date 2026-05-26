@@ -727,23 +727,40 @@ async function listItemsOffset(
     );
   }
   const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
-  const window = sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
-  const enriched = await enrich(window, ctx, opts.bucket ? { filter: opts.bucket } : {});
-  if (enriched.partial) partial = true;
-  const slice = enriched.items.slice(0, limit);
-  const sourcesSlice = enriched.sources.slice(0, limit);
-  // Advance cursor by the number of sorted rows actually scanned, not by the
-  // returned slice length — when a bucket filter drops most of the window we
-  // must skip past every scanned row or the next page repeats them (V.WL2).
-  let scannedRows = window.length;
-  if (slice.length === limit && sourcesSlice.length === limit) {
-    const lastSource = sourcesSlice[sourcesSlice.length - 1]!;
-    const lastIdx = window.findIndex((r) => r.id === lastSource.id);
-    if (lastIdx >= 0) scannedRows = lastIdx + 1;
+
+  // Retry loop: scan OVERSHOOT_FACTOR-sized chunks until we fill `limit` items
+  // or exhaust the sorted list. Without this, sparse bucket+sort combos (e.g.
+  // bucket=ready when most rows are awaiting) yield fewer than `limit` items
+  // from a single overshoot window with no fallback (issue #501).
+  const chunkSize = limit * OVERSHOOT_FACTOR;
+  const collectedItems: WatchlistItem[] = [];
+  const collectedSources: ActiveRow[] = [];
+  let scanPos = offset;
+
+  while (collectedItems.length < limit && scanPos < sorted.length) {
+    const chunk = sorted.slice(scanPos, scanPos + chunkSize);
+    const enriched = await enrich(chunk, ctx, opts.bucket ? { filter: opts.bucket } : {});
+    if (enriched.partial) partial = true;
+
+    const need = limit - collectedItems.length;
+    if (enriched.items.length > 0) {
+      collectedItems.push(...enriched.items.slice(0, need));
+      collectedSources.push(...enriched.sources.slice(0, need));
+    }
+
+    if (collectedItems.length >= limit) {
+      // Advance past the last returned item, not past the whole chunk, so the
+      // next page re-examines rows we scanned but didn't return (V.WL2).
+      const lastSource = collectedSources[collectedSources.length - 1]!;
+      const lastIdx = chunk.findIndex((r) => r.id === lastSource.id);
+      scanPos += lastIdx >= 0 ? lastIdx + 1 : chunk.length;
+    } else {
+      scanPos += chunk.length;
+    }
   }
-  const nextOffset = offset + scannedRows;
-  const cursor = nextOffset < sorted.length ? encodeOffsetCursor(nextOffset) : null;
-  return { items: slice, cursor, partial };
+
+  const cursor = scanPos < sorted.length ? encodeOffsetCursor(scanPos) : null;
+  return { items: collectedItems, cursor, partial };
 }
 
 /**
