@@ -13,12 +13,19 @@ vi.mock("../tonight/section", () => ({
   invalidateTonightSection: vi.fn(),
 }));
 
+vi.mock("../service", () => ({
+  invalidateCounts: vi.fn(),
+}));
+
 const { on } = await import("../../jobs/events");
+const { invalidateMoodSummary } = await import("../moods/cluster");
+const { invalidateTonightSection } = await import("../tonight/section");
+const { invalidateCounts } = await import("../service");
 const { __resetRegistration, register } = await import("../jobs/on-watchlist-mutation");
 
 beforeEach(() => {
   __resetRegistration();
-  vi.mocked(on).mockClear();
+  vi.clearAllMocks();
 });
 
 describe("watchlist mutation job registration", () => {
@@ -36,6 +43,22 @@ describe("watchlist mutation job registration", () => {
       expect.anything(),
       expect.any(Function),
     );
+  });
+
+  it("invalidates every watchlist summary cache for the mutated user", async () => {
+    register();
+
+    const handlers = vi.mocked(on).mock.calls.map((call) => call[2]);
+    for (const handler of handlers) {
+      await handler({ userId: "u1", key: "movie:1", source: "manual", createdAt: 1 });
+    }
+
+    expect(invalidateTonightSection).toHaveBeenCalledTimes(2);
+    expect(invalidateMoodSummary).toHaveBeenCalledTimes(2);
+    expect(invalidateCounts).toHaveBeenCalledTimes(2);
+    expect(invalidateTonightSection).toHaveBeenCalledWith("u1");
+    expect(invalidateMoodSummary).toHaveBeenCalledWith("u1");
+    expect(invalidateCounts).toHaveBeenCalledWith("u1");
   });
 
   it("re-registers listeners after idempotency guard is reset", () => {
