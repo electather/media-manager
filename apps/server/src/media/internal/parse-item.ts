@@ -1,8 +1,10 @@
 /** Shared parsing utilities for raw plugin item payloads. */
+import { extractTmdbId } from "@ent-mcp/shared/media";
 
 export interface RawPluginItem {
-  ids?: { tmdb_id?: string };
+  ids?: { tmdb?: string; tmdb_id?: string };
   id?: string;
+  tmdbId?: string;
   type?: "movie" | "tv";
 }
 
@@ -15,7 +17,7 @@ export interface ItemIdentity {
 // fallow-ignore-next-line complexity
 export function identifyItem(item: RawPluginItem | undefined): ItemIdentity | null {
   if (!item) return null;
-  const tmdbId = item.ids?.tmdb_id ?? splitCombinedId(item.id)?.id;
+  const tmdbId = extractTmdbId(item) ?? splitCombinedId(item.id)?.id;
   const type = item.type ?? splitCombinedId(item.id)?.type;
   if (!tmdbId || (type !== "movie" && type !== "tv")) return null;
   return { tmdbId, type };

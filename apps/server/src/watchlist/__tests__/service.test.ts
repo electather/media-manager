@@ -80,6 +80,22 @@ function makeCtx(opts: { userId?: string } = {}) {
   };
 }
 
+async function addMovieRowsWithIncreasingTime(
+  ctx: Parameters<typeof addItem>[2],
+  count: number,
+): Promise<void> {
+  const now = Date.now();
+  const dateNow = vi.spyOn(Date, "now");
+  try {
+    for (let i = 1; i <= count; i++) {
+      dateNow.mockReturnValue(now + i);
+      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
+    }
+  } finally {
+    dateNow.mockRestore();
+  }
+}
+
 beforeAll(async () => {
   testDb = await createInMemoryDb();
   await testDb.insert(user).values([
@@ -413,9 +429,7 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     const ctx = makeCtx();
     // fetchSize = limit (3) * OVERSHOOT_FACTOR (3) = 9. Seed 12 rows so the
     // scan covers two windows: hop1 = m12..m4 (9 rows), hop2 = m3..m1 (3 rows).
-    for (let i = 1; i <= 12; i++) {
-      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
-    }
+    await addMovieRowsWithIncreasingTime(ctx, 12);
     // 1 dark match in hop1 (m4) + 2 dark matches in hop2 (m3, m2).
     const dark = new Set(["m4", "m3", "m2"]);
     (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
@@ -449,9 +463,7 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     const ctx = makeCtx();
     // 36 rows, fetchSize = 9. Plant 1 dark match every 12 rows so the page
     // fills only after 3 + windows of scanning.
-    for (let i = 1; i <= 36; i++) {
-      await addItem({ tmdbId: `m${i}`, mediaType: "movie" }, "manual", ctx);
-    }
+    await addMovieRowsWithIncreasingTime(ctx, 36);
     // addItem inserts in id-asc order; repo.listPage returns by addedAt DESC.
     // m36 sits in hop 1, m24 in hop 2, m12 in hop 3 — each hop adds 1 item.
     const dark = new Set(["m36", "m24", "m12"]);

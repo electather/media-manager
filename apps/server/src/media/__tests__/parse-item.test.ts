@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vite-plus/test";
+import { extractTmdbId } from "@ent-mcp/shared/media";
+
 import {
   identifyItem,
   splitCombinedId,
@@ -38,6 +40,15 @@ describe("splitCombinedId", () => {
 
   it("splits only on first colon, rest is part of id", () => {
     expect(splitCombinedId("movie:123:extra")).toEqual({ type: "movie", id: "123" });
+  });
+});
+
+describe("extractTmdbId", () => {
+  it("is exported through the media barrel for plugin payload adapters", () => {
+    expect(extractTmdbId({ ids: { tmdb: "550" } })).toBe("550");
+    expect(extractTmdbId({ ids: { tmdb_id: "1399" } })).toBe("1399");
+    expect(extractTmdbId({ tmdbId: "42" })).toBe("42");
+    expect(extractTmdbId({ ids: {} })).toBeNull();
   });
 });
 

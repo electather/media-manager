@@ -1,6 +1,6 @@
-import type { MediaType } from "@ent-mcp/shared/media";
+import { extractTmdbId, type MediaType } from "@ent-mcp/shared/media";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { extractTmdbId, fromCanonicalMetadata } from "../internal/adapters";
+import { fromCanonicalMetadata } from "../internal/adapters";
 import type { InternalCompactMediaItem, RowContext } from "../internal/types";
 
 export interface MediaKey {

@@ -1,4 +1,4 @@
-import type { MediaType } from "@ent-mcp/shared/media";
+import { extractTmdbId, type MediaType } from "@ent-mcp/shared/media";
 import { keyToId } from "@ent-mcp/shared/watchlist";
 import type { MediaProgressContext, MediaProgressService } from "./types";
 
@@ -80,13 +80,4 @@ function projectEntry(entry: RawCwEntry): { id: string; entry: ProgressEntry } |
     id: keyToId({ tmdbId, mediaType }),
     entry: { watched: watchedSec, total },
   };
-}
-
-// fallow-ignore-next-line complexity
-function extractTmdbId(value: { ids?: Record<string, unknown>; tmdbId?: unknown }): string | null {
-  const ids = value.ids;
-  if (ids && typeof ids.tmdb === "string") return ids.tmdb;
-  if (ids && typeof ids.tmdb_id === "string") return ids.tmdb_id;
-  if (typeof value.tmdbId === "string") return value.tmdbId;
-  return null;
 }

@@ -1,3 +1,4 @@
+import { extractTmdbId } from "@ent-mcp/shared/media";
 import type { WatchlistKey } from "@ent-mcp/shared/watchlist";
 
 /**
@@ -22,14 +23,4 @@ export function toWatchlistKey(value: unknown): WatchlistKey | null {
     return null;
   }
   return { tmdbId, mediaType };
-}
-
-function extractTmdbId(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const ids = v.ids as Record<string, unknown> | undefined;
-  if (ids && typeof ids.tmdb === "string") return ids.tmdb;
-  if (ids && typeof ids.tmdb_id === "string") return ids.tmdb_id;
-  if (typeof v.tmdbId === "string") return v.tmdbId;
-  return null;
 }
