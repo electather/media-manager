@@ -90,6 +90,12 @@ export { registerJobs } from "./jobs";
 export { encode, decode, type Cursor, type CursorMode } from "./cursor";
 export { batchLoad, type BatchLoadContext, type BatchLoadResult } from "./pipeline/batch-load";
 export {
+  paginate,
+  OFFSET_FULL_LOAD_WARN_ROWS,
+  type PaginateInput,
+  type PaginateResult,
+} from "./pipeline/paginate";
+export {
   loadProgressMap,
   isActiveContinueWatchingEntry,
   extractTmdbId,
