@@ -77,16 +77,15 @@ export function isActiveContinueWatchingEntry(entry: ContinueWatchingProgressEnt
 export function projectContinueWatchingProgress(
   entry: ContinueWatchingProgressEntry,
 ): ProgressEntry | null {
-  const ms = entry.progressMs;
-  if (ms == null || ms <= 0) return null;
+  if (!isActiveContinueWatchingEntry(entry)) return null;
   const total = entry.item.durationSec;
   // Home rows can surface active entries without duration, but watchlist classification needs a total.
   if (total == null || total <= 0) return null;
-  if (!isActiveContinueWatchingEntry(entry)) return null;
+  // `isActiveContinueWatchingEntry` already verified `progressMs > 0`.
+  const ms = entry.progressMs as number;
   return { watched: Math.round(ms / 1000), total };
 }
 
-// fallow-ignore-next-line complexity
 export function projectProgressMapEntry(
   entry: ContinueWatchingProgressEntry,
 ): { id: string; entry: ProgressEntry } | null {

@@ -84,8 +84,6 @@ export { registerJobs } from "./jobs";
 export {
   loadProgressMap,
   isActiveContinueWatchingEntry,
-  projectContinueWatchingProgress,
-  projectProgressMapEntry,
   type ContinueWatchingProgressEntry,
   type ProgressEntry,
   type ProgressMap,
