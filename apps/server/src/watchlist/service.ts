@@ -208,6 +208,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   let awaiting = 0;
   let unavailable = 0;
   let upcoming = 0;
+  // fallow-ignore-next-line code-duplication
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
@@ -727,23 +728,36 @@ async function listItemsOffset(
     );
   }
   const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
-  const window = sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
-  const enriched = await enrich(window, ctx, opts.bucket ? { filter: opts.bucket } : {});
+  const tail = selectOffsetTail(sorted, offset, limit, opts.bucket);
+  const enriched = await enrich(tail, ctx, {
+    ...(opts.bucket ? { filter: opts.bucket } : {}),
+    prefetchedMetadata: metaMap,
+  });
   if (enriched.partial) partial = true;
-  const slice = enriched.items.slice(0, limit);
-  const sourcesSlice = enriched.sources.slice(0, limit);
-  // Advance cursor by the number of sorted rows actually scanned, not by the
-  // returned slice length — when a bucket filter drops most of the window we
-  // must skip past every scanned row or the next page repeats them (V.WL2).
-  let scannedRows = window.length;
-  if (slice.length === limit && sourcesSlice.length === limit) {
-    const lastSource = sourcesSlice[sourcesSlice.length - 1]!;
-    const lastIdx = window.findIndex((r) => r.id === lastSource.id);
-    if (lastIdx >= 0) scannedRows = lastIdx + 1;
-  }
-  const nextOffset = offset + scannedRows;
+  const items = enriched.items.slice(0, limit);
+  const sources = enriched.sources.slice(0, limit);
+  const nextOffset = offset + scannedRowCount(tail, sources, limit);
   const cursor = nextOffset < sorted.length ? encodeOffsetCursor(nextOffset) : null;
-  return { items: slice, cursor, partial };
+  return { items, cursor, partial };
+}
+
+// Bucket: full tail so enrich's `filter` can prune sparse buckets. No-bucket: bounded window — every row survives enrich.
+function selectOffsetTail(
+  sorted: ActiveRow[],
+  offset: number,
+  limit: number,
+  bucket: WatchlistBucket | undefined,
+): ActiveRow[] {
+  if (bucket) return sorted.slice(offset);
+  return sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
+}
+
+// V.WL1: advance past last *returned* row; underfill means tail exhausted → caller nulls the cursor.
+function scannedRowCount(tail: ActiveRow[], returnedSources: ActiveRow[], limit: number): number {
+  if (returnedSources.length < limit) return tail.length;
+  const lastId = returnedSources[returnedSources.length - 1]!.id;
+  const lastIdx = tail.findIndex((r) => r.id === lastId);
+  return lastIdx >= 0 ? lastIdx + 1 : tail.length;
 }
 
 /**

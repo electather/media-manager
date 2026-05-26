@@ -1,13 +1,15 @@
 # Home Page Backend
 
-**Status:** Draft (rev 6)
-**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07, rev 5: 2026-05-22, rev 6: 2026-05-23)
+**Status:** Draft (rev 8)
+**Date:** 2026-05-05 (rev 2: 2026-05-06, rev 3: 2026-05-06, rev 4: 2026-05-07, rev 5: 2026-05-22, rev 6: 2026-05-23, rev 8: 2026-05-26)
 **Author:** Omid Astaraki
 **Deps:** `2026-04-20-job-service-design.md`, `2026-04-20-preference-engine-design.md`, `2026-04-27-catalog-service-design.md`, `2026-05-04-home-page-implementation-design.md`
 **Amends §V:** TBD on backprop
+**Superseded / aligned (rev 8):** Read path + pagination now owned by `media`. See `2026-05-26-media-pipeline-consolidation-design.md`. The `RowProvider` contract → media's `MediaSource<P>` (`media/source.ts`); per-row sort/slice/cursor → `media.listRows` pipeline (`media/service/list-rows.ts` + `media/pipeline/`); the home offset-into-feed cursor codec → shared `media/cursor.ts` (one codec, 2 modes); `CompactMediaItem` gains nullable `addedAt`/`addedSource`. Hero cascade, match-reason, layout ordering + eligibility, layout-cache, and detail/season composition are **unchanged** — only the read/pagination plumbing moves. Where this doc still says `RowProvider`/`fetchPage`/`RowPage` or describes per-row sort+slice+cursor, defer to the consolidation doc for pipeline mechanics.
 
 ## Revision history
 
+- **rev 8 (2026-05-26)** — Aligned to `2026-05-26-media-pipeline-consolidation-design.md` (epic #491). `media` is now the FAT domain module owning the shared row pipeline. Home becomes a thin product shell: the `RowProvider` contract is replaced by media's `MediaSource<P>` (RAW rows only — ⊥ enrich/classify/sort/slice/cursor inside a source); the 12 rows reimplement as `MediaSource` in `home/sources/` (each implements `fetchRawSet` only, per-row sort/slice/cursor deleted); orchestration calls `media.listRows(source, cfg)` instead of a source's own `fetchPage`; `eligibility(ctx)` stays consumer-side, run before `listRows`. The home offset-into-feed cursor codec is replaced by the shared `media/cursor.ts` (`Cursor = {mode:"keyset";k} | {mode:"offset";n}`, `decode` NEVER throws — the decode-fail → HttpError 400 mapping stays home-side). `CompactMediaItem` extends with nullable `addedAt?: number|null` (epoch ms) + `addedSource?: WatchlistSource|null`; the `your-watchlist` row STOPS stripping them. Shared util single-defs in `media`: `extractTmdbId`, `FINISHING_THRESHOLD` (replaces the four `0.85` literals incl. `FINISHING_SOON_THRESHOLD`), `keyToId` (replaces `compositeId`). Hero / match-reason / layout-cache / detail / season composition unchanged. Pre-stable wire break — no compat shim. See consolidation doc §B–§F + §H.
 - **rev 6 (2026-05-23)** — Warm-job per-row timeout (diag `runId d43fccf3-461e-4fc3-8918-5c5d4f13ad1a`, `host.home.layout_warm`). Root cause: `ctx.deadlineMs` set at compose entry but dropped by `enrichItems` leaves (`StatusBatchMemo.get`, `ArtworkService.getArtwork`, `MediaService.getMatchingServers`) and ignored as a clip on per-plugin `defaultTimeoutMs`. Worst plugin call ≈ 32 s (15 s `invokeWithTimeout` + 2 s rate-limit backoff + 15 s retry; transient branch = 31 s). Sequential compose phases compound past the 60 s per-row cap. Fix: thread `deadlineMs` through every leaf called from `composeLayout` AND `composeDetails` (incl. `composeDetails` cold-fill `getMetadata` and `getShowSeasons`); clip `invokeWithTimeout` to `min(capability.defaultTimeoutMs, remaining)`; reshape `buildContext` to accept `{ deadlineMs? }` opts; warm job sets `deadlineMs = now + 45_000` (15 s SQLite slack under 60 s row cap). Bust mode = fail-fast row via existing soft-failure path; partial layout written back. No wire-shape change; no `schema_version` bump.
 - **rev 7 (2026-05-25)** — Home orchestration now sits on the shared media enrichment layer. `home/service.ts` owns only context construction + page-level cache orchestration; row-preview, row-page, and detail composition live under `home/internal/`. `home/repo.ts` was renamed to `home/layout-cache.ts`, and compact item enrichment/status batching moved to `media.enrichCompactItems` + `media.StatusBatchMemo`; home supplies only the match-reason callback and artwork wiring.
 - **rev 5 (2026-05-22)** — Cross-source dedup added to the hero mixer (issue #474). The rev 4 mixer keyed slide uniqueness by `${source}:${tmdbId}`, so the same title present in two source pools (e.g. trending + new releases) shipped as two hero slides. New `dedupePools` step runs between pool build and `drawByQuota`, drops cross-source duplicates keyed by `${mediaType}:${tmdbId}`, and lets the higher-priority source (`[CW, rec, trend, new]`) keep the slide. Quota / backfill / order logic unchanged; backfill simply sees shorter pools when duplicates collapse. No wire-shape change; no `schema_version` bump.
@@ -17,7 +19,7 @@
 
 ## Summary
 
-Replace `useHomeFeed()` mock w/ real backend. 3 RPCs: `home.getLayout`, `home.getRowContent(rowId, cursor)`, `home.getDetails(tmdbId, type)`. Each row = isolated `RowProvider` module → independent dev + per-row tests. Heavy lifting offloaded to existing services: `CatalogService` (sub-ms reads, nightly snapshots, rec lists), `MediaService` (live aggregates w/ `interpretAggregate` partial flag), `PreferenceEngine` (rank + topContributors). One new job `host.home.layout_warm` pre-computes per-user layout hourly → `home.getLayout` = 1 PK read on warm path. Wire reshape (CompactMediaItem.matchReason → typed; HomeRowStub +kind/slug; +availability/facets/seriesContext) — pre-stable project, ⊥ compat shims.
+Replace `useHomeFeed()` mock w/ real backend. 3 RPCs: `home.getLayout`, `home.getRowContent(rowId, cursor)`, `home.getDetails(tmdbId, type)`. Each row = isolated `MediaSource` module (rev 8 — was `RowProvider`) → independent dev + per-row tests. Read path (batch→enrich→classify→filter→sort→paginate) owned by `media.listRows`; the source supplies RAW rows only (see consolidation doc). Heavy lifting offloaded to existing services: `CatalogService` (sub-ms reads, nightly snapshots, rec lists), `MediaService` (live aggregates w/ `interpretAggregate` partial flag), `PreferenceEngine` (rank + topContributors). One new job `host.home.layout_warm` pre-computes per-user layout hourly → `home.getLayout` = 1 PK read on warm path. Wire reshape (CompactMediaItem.matchReason → typed; HomeRowStub +kind/slug; +availability/facets/seriesContext) — pre-stable project, ⊥ compat shims.
 
 ## Goals
 
@@ -52,19 +54,19 @@ Replace `useHomeFeed()` mock w/ real backend. 3 RPCs: `home.getLayout`, `home.ge
                               ├─ layout-cache.read(userId)        — sub-ms PK
                               │     hit fresh → return blob
                               │     miss/stale → fall through
-                              ├─ ROW_PROVIDERS.values().forEach
-                              │     → provider.eligibility(ctx)   — Promise.allSettled, parallel
+                              ├─ ROW_SOURCES.values().forEach
+                              │     → eligibility(ctx)            — Promise.allSettled, parallel (consumer-side gate)
                               ├─ hero.pickHero(ctx)               — cascade
                               ├─ status-batch.warm(ctx, heroId)
                               └─ assemble HomeLayoutResponse + write back to cache (fire-and-forget)
 
 [client] ─ home.getRowContent(rowId, cursor) ──► home/orchestrator.composeRow(ctx, rowId, cursor)
-                              ├─ provider = ROW_PROVIDERS[rowId]   — registry lookup
-                              ├─ provider.eligibility(ctx)         — direct-access gate, 404 home.row_unavailable on false
-                              ├─ provider.fetchPage(ctx, cursor)   — row-local pipeline
+                              ├─ source = ROW_SOURCES[rowId]       — registry lookup (MediaSource)
+                              ├─ eligibility(ctx)                  — direct-access gate, 404 home.row_unavailable on false
+                              ├─ media.listRows(source, cfg)       — shared pipeline (rev 8): fetchRawSet → batchLoad → enrich → classify? → filter? → sort → paginate
                               │     soft failure → partial:true + items:[]
-                              ├─ media.enrichCompactItems(page.items, ctx) — status, availability, facets, matchReason
-                              └─ return RowContentResponse
+                              │     enrich already supplies status, availability, facets, matchReason
+                              └─ return RowContentResponse         — wrap media Page in row envelope
 
 [client] ─ home.getDetails(tmdbId,type) ──► home/orchestrator.composeDetails(ctx)
                               ├─ summary  = catalog.getMetadata    — sub-ms (cold-fill on miss via mediaService.getMetadata)
@@ -84,7 +86,7 @@ Replace `useHomeFeed()` mock w/ real backend. 3 RPCs: `home.getLayout`, `home.ge
 [job] host.home.layout_warm (hourly, scheduled_per_row) ──► layout-cache.write(userId, blob)
 ```
 
-`RowProvider` registry = sole row authority. Orchestrator agnostic re row-specific source.
+`ROW_SOURCES` registry of `MediaSource` (rev 8 — was `RowProvider`) = sole row authority. Orchestrator agnostic re row-specific source; the shared `media.listRows` pipeline owns batch/enrich/classify/filter/sort/paginate.
 
 ## Wire contracts (`@ent-mcp/shared/home`)
 
@@ -174,8 +176,13 @@ export interface CompactMediaItem {
   seriesContext?: SeriesContext; // NEW
   episode?: { season: number; episode: number; airsAt: number; name?: string };
   matchReason?: MatchReason; // CHANGED string → MatchReason
+  addedAt?: number | null; // rev 8 — epoch ms; ⊥ on discovery rows, filled by persistent-table sources (watchlist)
+  addedSource?: WatchlistSource | null; // rev 8 — ⊥ on discovery rows
   tags?: string[]; // RESERVED v1 — undefined; populated by future capability
 }
+// rev 8 — `addedAt`/`addedSource` unify home + watchlist on one shape (consolidation doc §D).
+// `WatchlistItem` is deleted; callers use `CompactMediaItem`. The `your-watchlist` row STOPS
+// stripping these fields. Internal-only `__*` fields still strip before serialize (V.MI1).
 
 export interface HomeRowStub {
   rowId: string; // CHANGED — unique slug, e.g. "recommendedForYou-tv"
@@ -296,21 +303,35 @@ export const homeGetSeasonAvailabilityInputSchema = z
   .strict();
 ```
 
-## RowProvider abstraction
+## MediaSource abstraction (rev 8 — was RowProvider)
+
+The `RowProvider` contract is **replaced** by media's `MediaSource<P>` from `media/source.ts` (consolidation doc §B). A source produces RAW rows ONLY — ⊥ enrich/classify/sort/slice/cursor logic inside a source (invariant V.MC1). The per-row pagination that `fetchPage` used to do (sort + slice + cursor) is DELETED; the `media.listRows` pipeline owns it now. Each home row implements `fetchRawSet` only. Eligibility stays a **consumer-side** concern (product gating: has-capability / has-history), invoked by the home envelope before `listRows` — it is NOT on the source.
 
 ```
-home/types.ts:
-  RowProvider {
-    rowId      string
-    kind       RowKind
-    titleKey   string
-    subtitleKey? string
-    eligibility(ctx)            → Promise<boolean>
-    initialCursor(ctx)          → Promise<string|null>
-    fetchPage(ctx, cursor)      → Promise<{ items: CompactMediaItem[]; cursor: string|null; partial: boolean }>
+media/source.ts (imported via media barrel; rev 8):
+  MediaSource<P = void> {
+    sourceId   string                  // stable slug, unique across home's registry
+    // RAW set only — ⊥ enrich/classify/sort/slice/cursor here; pipeline owns those.
+    fetchRawSet(ctx, params: P, cursor: Cursor|null)
+                → Promise<{ rows: ActiveRow[]; partial: boolean; nextRaw?: RawPageToken }>
+    stages {
+      classify?  boolean               // run bucket classification
+      filter?    FilterKind            // "bucket" | "mood" | ⊥
+      sort       RowSort               // default sort; params may override if allowed
+      cursorMode "keyset" | "offset"
+    }
   }
 
-  RowContext {
+  // home rows: discovery feeds → mostly offset cursorMode; becauseYouWatched carries its
+  // seed inside the keyset `k` (consolidation doc §E). No classify/filter stages on home
+  // discovery sources except where a row needs bucketing.
+
+home/internal/types.ts (rev 8 — eligibility + display meta stay home-side):
+  // The display/gating metadata that used to live on RowProvider is kept by the home
+  // registry entry / envelope, NOT on the media-owned source contract:
+  //   kind, titleKey, subtitleKey?, eligibility(ctx) → Promise<boolean>, initialCursor(ctx).
+
+  SourceContext (media-owned; = RowContext today) {
     userId         string
     mediaService   MediaService          // per-user instance
     catalog        CatalogService        // singleton
@@ -330,13 +351,13 @@ home/types.ts:
 - `MediaService.getMatchingServers(tmdbId, mediaType, { deadlineMs })` (new options arg; currently missing).
 - `MediaService.getShowSeasons(tmdbId, { deadlineMs })` (called from `composeDetails`; currently missing).
 - `MediaService.getMetadata(tmdbId, mediaType, { deadlineMs })` cold-fill path in `composeDetails`.
-- Every `RowProvider.fetchPage(ctx, cursor)` (already in place via `ctx.deadlineMs`).
+- Every `MediaSource.fetchRawSet(ctx, params, cursor)` (rev 8 — was `RowProvider.fetchPage`; already in place via `ctx.deadlineMs`). The shared `media.listRows` enrich/batch leaves honor `deadlineMs` too.
 
-`buildContext` signature reshapes to `buildContext(userId, logger?, opts?: { deadlineMs? })`. HTTP request path defaults to `now + 8_000`; warm job sets `now + 45_000`. Leaves added under `home/internal/` or wired from `enrich.ts` without honoring `deadlineMs` fail review.
+`buildContext` signature reshapes to `buildContext(userId, logger?, opts?: { deadlineMs? })`. HTTP request path defaults to `now + 8_000`; warm job sets `now + 45_000`. Leaves added under `home/internal/` or wired through `media.listRows` enrich without honoring `deadlineMs` fail review.
 
 ```
-home/rows/index.ts:
-  export const ROW_PROVIDERS: Record<string, RowProvider> = {
+home/sources/index.ts (rev 8 — was home/rows/index.ts):
+  export const ROW_SOURCES: Record<string, MediaSource> = {
     "continueWatching-active":    require("./continue-watching-active").default,
     "continueWatching-next":      require("./continue-watching-next").default,
     "becauseYouWatched":          require("./because-you-watched").default,
@@ -358,43 +379,42 @@ home/rows/index.ts:
   ];
 ```
 
-Adding row = drop file in `rows/`, register in `index.ts`, write test in `__tests__/`. ⊥ touch orchestrator.
+Concrete sources are owned + registered by home (the consumer); `media` never imports a concrete source (V.RG1, no cycle). Adding row = drop a `MediaSource` file in `sources/`, register in `index.ts`, write test in `__tests__/`. ⊥ touch orchestrator. `_shared.ts` helpers (`fetchSimilarPage`, `loadCanonicalItems`, `probeMediaEntry`) STAY home-side (catalog feed plumbing).
 
-## Per-row pipelines
+## Per-row sources (rev 8 — was per-row pipelines)
+
+Each row is a `MediaSource` under `home/sources/`. **`fetchRawSet` returns the RAW set only** — ⊥ sort, ⊥ slice, ⊥ cursor encode/decode inside the source (V.MC1). The shared `media.listRows` pipeline (consolidation doc §C) does batchLoad → enrich → classify? → filter? → sort → paginate after the source hands back rows. The `stages` block declares the source's default sort + cursor mode; `media.cursor.decode` (one codec) threads the page position. The display/gating meta (`kind`, `titleKey`, `subtitleKey?`, `eligibility`, `initialCursor`) lives on the home registry entry, ⊥ on the media-owned source contract.
 
 ```
-rows/continue-watching-active.ts:
-  rowId         "continueWatching-active"
+sources/continue-watching-active.ts:
+  sourceId      "continueWatching-active"
   kind          "continueWatching"
   titleKey      "home_row_continueWatching_header"
   eligibility   ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user")
   initialCursor null
-  fetchPage(ctx, cursor):
-    page = decodeCursor(cursor) ?? { offset: 0 }
+  stages        { sort: "lastPlayedAt_desc", cursorMode: "offset" }   // sort/slice → pipeline
+  fetchRawSet(ctx, _params, _cursor):
     res = ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs })
-    entries = res.items.filter(e => e.progressMs > 0 && progress(e) < 0.85)
-    sorted  = orderBy(entries, [e=>e.lastPlayedAt], ["desc"])
-    slice   = sorted.slice(page.offset, page.offset + 12)
-    items   = slice.map(toCompactMediaItem)              // utils/adapt-cw-entry
-    next    = sorted.length > page.offset + 12 ? encode({ offset: page.offset + 12 }) : null
-    return { items, cursor: next, partial: res.partial }
+    rows = res.items.filter(e => e.progressMs > 0 && !isFinishing(progress(e)))   // media.isFinishing (FINISHING_THRESHOLD)
+    return { rows, partial: res.partial }
+    // pipeline sorts by lastPlayedAt desc, offset-slices to the page, encodes the cursor.
 
-rows/continue-watching-next.ts:
-  rowId         "continueWatching-next"
+sources/continue-watching-next.ts:
+  sourceId      "continueWatching-next"
   kind          "continueWatching"
   titleKey      "home_row_nextInYourShows_header"
   subtitleKey   "home_row_nextInYourShows_subtitle"
   eligibility   ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user")
   initialCursor null
-  fetchPage(ctx, cursor):
+  stages        { sort: "lastPlayedAt_desc", cursorMode: "offset" }   // bounded → single page
+  fetchRawSet(ctx, _params, _cursor):
     res = ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs })
-    entries = res.items.filter(e => e.nextUp || e.progressMs == null)
-    items   = entries.map(e => toCompactMediaItem(e.nextUp ?? e.item, { nextUpFromServer: !!e.nextUp }))
-    return { items: items.slice(0, 12), cursor: null, partial: res.partial }
-                                                          // bounded → single page
+    rows = res.items.filter(e => e.nextUp || e.progressMs == null)
+                    .map(e => withNextUp(e, { nextUpFromServer: !!e.nextUp }))
+    return { rows, partial: res.partial }
 
-rows/because-you-watched.ts:
-  rowId         "becauseYouWatched"
+sources/because-you-watched.ts:
+  sourceId      "becauseYouWatched"
   kind          "becauseYouWatched"
   titleKey      "home_row_becauseYouWatched_header"
   subtitleKey   "home_row_becauseYouWatched_subtitle"
@@ -403,51 +423,47 @@ rows/because-you-watched.ts:
     return history.length > 0 && hasCapabilityProvider("metadata","v1","user")
   initialCursor:
     seed = pickSeed(history)                              // last completed, prefer high-rated
-    return encode({ seedId: seed.tmdbId, seedType: seed.mediaType, offset: 0 })
-  fetchPage(ctx, cursor):
-    page = decodeCursor(cursor)                           // {seedId, seedType, offset}
-    res  = ctx.mediaService.getSimilarFeed({ id: page.seedId, type: page.seedType, deadlineMs })
-    slice = res.items.slice(page.offset, page.offset + 12)
-    items = slice.map(toCompactMediaItem).map(addSeedToParams(seedTitle))
-    next  = res.items.length > page.offset + 12 ? encode({...page, offset: page.offset + 12}) : null
-    return { items, cursor: next, partial: res.partial }
+    return media.cursor.encode({ mode: "keyset", k: `${seed.mediaType}:${seed.tmdbId}` })  // seed rides in k (§E)
+  stages        { sort: "feed_order", cursorMode: "keyset" }
+  fetchRawSet(ctx, _params, cursor):
+    seed = decodeSeed(cursor)                             // unpack {seedId, seedType} from cursor.k
+    res  = ctx.mediaService.getSimilarFeed({ id: seed.seedId, type: seed.seedType, deadlineMs })
+    return { rows: res.rows, partial: res.partial }
+    // pipeline keyset-hops the feed and re-emits the seed in the next cursor; enrich stamps
+    // the seedTitle match-reason param via the home match-reason callback.
     // NOTE: cursor=null on this row is invalid (seed required). Orchestrator validates via
-    // provider.requiresInitialCursor=true; rejects null cursor w/ HttpError 400 "cursor_required".
+    // requiresInitialCursor=true (home registry entry); rejects null cursor w/ HttpError 400 "cursor_required".
 
-rows/recommended-for-you-tv.ts:
-  rowId         "recommendedForYou-tv"
+sources/recommended-for-you-tv.ts:
+  sourceId      "recommendedForYou-tv"
   kind          "recommendedForYou"
   titleKey      "home_row_tvShowsToRequest_header"
   eligibility:
     rec = catalog.getRecommendations(userId, "default")
-    return rec != null && rec.items.some(i => i.media_type === "tv")
+    return rec != null && rec.items.some(i => i.mediaType === "tv")
   initialCursor null
-  fetchPage(ctx, cursor):
-    page = decodeCursor(cursor) ?? { offset: 0 }
+  stages        { filter: "bucket", sort: "rec_order", cursorMode: "offset" }
+  fetchRawSet(ctx, _params, _cursor):
     rec  = catalog.getRecommendations(userId, "default")
-    pool = rec.items.filter(i => i.media_type === "tv")
-    statuses = ctx.statusBatch.get(pool.map(p => `${p.mediaType}:${p.tmdbId}`))
-    pool2    = pool.filter(p => statuses[`${p.mediaType}:${p.tmdbId}`] !== "available")
-    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids.
-    keys     = pool2.slice(page.offset, page.offset + 12)
-    mdKeys   = keys.map(k => ({ tmdbId: k.tmdbId, type: k.mediaType }))   // CatalogService.getMetadataBatch shape
-    metadata = catalog.getMetadataBatch(mdKeys)
-    items    = keys.map(k => toCompactMediaItem(metadata[k.tmdbId], { topContributors: k.topContributors }))
-    next     = pool2.length > page.offset + 12 ? encode({ offset: page.offset + 12 }) : null
-    return { items, cursor: next, partial: false }       // catalog read ⊥ partial
+    rows = rec.items.filter(i => i.mediaType === "tv")    // RAW rec rows; topContributors ride along
+    return { rows, partial: false }                       // catalog read ⊥ partial
+    // pipeline batchLoad supplies status (StatusBatchMemo); a "drop available" filter pass
+    // removes status === "available", then offset-slices + encodes cursor.
+    // mediaRequest@v1.getStatusBatch keys on composite "type:tmdbId" ids (media.keyToId).
 
-rows/recommended-for-you-movies.ts:
-  // mirror of -tv w/ media_type === "movie"; titleKey = "home_row_moviesToRequest_header"
+sources/recommended-for-you-movies.ts:
+  // mirror of -tv w/ mediaType === "movie"; titleKey = "home_row_moviesToRequest_header"
 
-rows/your-watchlist.ts:
-  rowId         "yourWatchlist"
+sources/your-watchlist.ts:
+  sourceId      "yourWatchlist"
   kind          "yourWatchlist"
   titleKey      "home_row_yourWatchlist_header"
   eligibility   hasCapabilityProvider("watchlist","v1","user")
   initialCursor null
-  fetchPage(ctx):
+  stages        { sort: "addedAt_desc", cursorMode: "offset" }
+  fetchRawSet(ctx, _params, _cursor):
     res    = ctx.mediaService.getWatchlistFeed({ deadlineMs })
-    keys   = res.items.map(toWatchlistKey).filter(Boolean)        // {tmdbId,type,fallbackTitle?,fallbackYear?}
+    keys   = res.items.map(toWatchlistKey).filter(Boolean)        // {tmdbId,type,addedAt,addedSource,fallbackTitle?,fallbackYear?}
     // Filter to titles the user can already play. mediaRequest@v1.getStatusBatch
     // only flags items that flowed through the request pipeline (Seerr); a watchlist
     // title added directly to Jellyfin returns `unknown` and the row would silently
@@ -455,41 +471,35 @@ rows/your-watchlist.ts:
     // presence signal — and is per-request memoized.
     present = await Promise.all(keys.map(async k =>
       (await ctx.mediaService.getMatchingServers(k.tmdbId, k.type).catch(()=>[])).length > 0 ? k : null))
-    avail   = present.filter(Boolean).slice(0, 12)
-    metadata = ctx.catalog.getMetadataBatch(avail.map(k => ({ tmdbId: k.tmdbId, type: k.type })))
-    items    = avail.map(k => metadata[`${k.type}:${k.tmdbId}`]
-      ? fromCanonicalMetadata(metadata[`${k.type}:${k.tmdbId}`])                // catalog hit
-      : k.fallbackTitle ? { id:`${k.type}:${k.tmdbId}`, tmdbId:k.tmdbId, mediaType:k.type, title:k.fallbackTitle, year:k.fallbackYear } // catalog cold → stub
-      : null).filter(Boolean)
-    return { items, cursor: null, partial: res.partial }
+    return { rows: present.filter(Boolean), partial: res.partial }
+    // rev 8 — the row NO LONGER strips addedAt/addedSource; enrich carries them onto
+    // CompactMediaItem (consolidation doc §D). pipeline batchLoad fills metadata
+    // (catalog hit → canonical; cold → fallbackTitle stub), then offset-slices.
 
-rows/upcoming-for-you.ts:
-  rowId         "upcomingForYou"
+sources/upcoming-for-you.ts:
+  sourceId      "upcomingForYou"
   kind          "upcomingForYou"
   titleKey      "home_row_upcomingForYou_header"
   eligibility   hasCapabilityProvider("calendar","v1","user")
-  fetchPage(ctx):
+  stages        { sort: "airsAt_asc", cursorMode: "offset" }   // bounded → single page
+  fetchRawSet(ctx, _params, _cursor):
     res = ctx.mediaService.getUpcomingFeed({ deadlineMs })
-    items = res.items.slice(0, 12).map(toCompactMediaItem)
-    return { items, cursor: null, partial: res.partial }
+    return { rows: res.items, partial: res.partial }
 
-rows/trending-now.ts:
-  rowId         "trendingNow"
+sources/trending-now.ts:
+  sourceId      "trendingNow"
   kind          "trendingNow"
   titleKey      "home_row_trendingNow_header"
   eligibility:
     snap = catalog.getDiscoverFeed("trending", "popularity_desc", today())
     return snap != null && snap.length > 0
-  fetchPage(ctx, cursor):
-    page = decodeCursor(cursor) ?? { offset: 0 }
+  stages        { sort: "popularity_desc", cursorMode: "offset" }
+  fetchRawSet(ctx, _params, _cursor):
     snap = catalog.getDiscoverFeed("trending", "popularity_desc", today())
-    keys = snap.slice(page.offset, page.offset + 12)
-    metadata = catalog.getMetadataBatch(keys)
-    items    = keys.map(k => toCompactMediaItem(metadata[k.tmdb_id]))
-    next     = snap.length > page.offset + 12 ? encode({ offset: page.offset + 12 }) : null
-    return { items, cursor: next, partial: false }
+    return { rows: snap, partial: false }
+    // pipeline batchLoad pulls metadata, sorts (snap is pre-sorted), offset-slices + encodes cursor.
 
-rows/new-releases.ts:
+sources/new-releases.ts:
   // mirror of trending-now w/ feed_kind="newReleases", sort="release_date_asc"
 ```
 
@@ -577,7 +587,7 @@ home/hero.ts:
   loadContinueWatchingPool(ctx) → HeroSlide[]
     if !(await ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user")): return []
     res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs })
-    eligible = res.items.filter(e => e.progressMs > 0 && progress(e) < 0.85)
+    eligible = res.items.filter(e => e.progressMs > 0 && !media.isFinishing(progress(e)))   // rev 8 — FINISHING_THRESHOLD from media (was 0.85 literal)
     sorted   = orderBy(eligible, [e => e.lastPlayedAt], ["desc"])
     items    = sorted.slice(0, POOL_SIZE).map(fromContinueWatchingEntry).filter(Boolean)
     return items.map(item => ({ item, source: "continueWatching",
@@ -686,51 +696,52 @@ home/orchestrator.ts:
     if cached && layoutCache.isFresh(cached.generatedAt):
       return cached.blob
 
-    // Live compose.
+    // Live compose. Eligibility stays consumer-side (rev 8, §B), run before listRows.
     [eligibilities, hero] = await Promise.all([
       Promise.allSettled(ROW_ORDER.map(rowId =>
-        ROW_PROVIDERS[rowId].eligibility(ctx).then(e => ({ rowId, eligible: e })))),
+        ROW_SOURCES[rowId].eligibility(ctx).then(e => ({ rowId, eligible: e })))),
       pickHero(ctx),
     ])
     rows = []
     for (rowId of ROW_ORDER):
       r = eligibilities.find(e => e.rowId === rowId)
       if r?.value?.eligible !== true: continue            // settled-rejected drops too
-      provider = ROW_PROVIDERS[rowId]
+      entry = ROW_SOURCES[rowId]
       rows.push({
         rowId,
-        kind:        provider.kind,
-        titleKey:    provider.titleKey,
-        subtitleKey: provider.subtitleKey,
-        initialCursor: await provider.initialCursor(ctx),
+        kind:        entry.kind,
+        titleKey:    entry.titleKey,
+        subtitleKey: entry.subtitleKey,
+        initialCursor: await entry.initialCursor(ctx),
       })
     blob = { hero, rows, generatedAt: now() }
     void layoutCache.write(ctx.userId, blob).catch(log)   // detached
     return blob
 
   composeRow(ctx, rowId, cursor):
-    provider = ROW_PROVIDERS[rowId]
-    if !provider: throw HttpError(404, "home.row_unavailable")
+    entry  = ROW_SOURCES[rowId]                          // MediaSource + home registry meta
+    if !entry: throw HttpError(404, "home.row_unavailable")
     // Direct row access bypasses layout assembly, so re-run the eligibility
-    // gate. Without this, a client requesting a row whose capability/data is
-    // absent gets `200 + items: []`, masking misconfiguration.
-    eligible = await provider.eligibility(ctx).catch(() => false)
+    // gate (consumer-side, §B). Without this, a client requesting a row whose
+    // capability/data is absent gets `200 + items: []`, masking misconfiguration.
+    eligible = await entry.eligibility(ctx).catch(() => false)
     if !eligible: throw HttpError(404, "home.row_unavailable")
-    if provider.requiresInitialCursor && cursor === null:
+    // Cursor decode is consumer-side (rev 8). media.cursor.decode NEVER throws —
+    // it returns null on bad/foreign input; home maps null → 400 (its existing
+    // contract). A row that requires a seed cursor still rejects null up front.
+    if entry.requiresInitialCursor && cursor === null:
       throw HttpError(400, "home.bad_input", "cursor_required")
+    if cursor !== null && media.cursor.decode(cursor) === null:
+      throw HttpError(400, "home.bad_input")             // decode-fail → 400 stays home-side (V.CU1)
     // Per §Error handling: per-row plugin failures collapse to `partial: true`
-    // with an empty item list rather than crashing the request. The soft-fail
-    // check runs first because `AllPluginsFailedError` is now an `HttpError`
-    // subclass (503 / `media.providers_failed`); any other HttpError or
-    // unexpected throw still propagates to `errorHandler`.
-    try:
-      page = await provider.fetchPage(ctx, cursor)
-    catch err:
-      if isRowSoftFailure(err):                         // AllPluginsFailedError, PluginCallError, AbortError
-        page = { items: [], cursor: null, partial: true }
-      else: throw err                                   // HttpError + anything else
-    enriched = await media.enrichCompactItems(page.items, ctx, { rowId })   // status, availability, facets, matchReason
-    return { items: enriched, cursor: page.cursor, partial: page.partial || undefined }
+    // with an empty item list rather than crashing the request. media.listRows
+    // absorbs the source soft-failure (AllPluginsFailedError / PluginCallError /
+    // AbortError) into partial:true; any other HttpError or unexpected throw
+    // still propagates to `errorHandler`.
+    page = await media.listRows(entry.source, { params: undefined, cursor, sort: entry.source.stages.sort })
+    // page.items already enriched (status, availability, facets, matchReason via
+    // home's match-reason callback) inside the pipeline. ⊥ separate enrich call.
+    return { items: page.items, cursor: page.cursor, partial: page.partial || undefined }
 
   composeDetails(ctx, tmdbId, type):
     summary = await catalog.getMetadata(tmdbId, type)            // CanonicalMetadata | null
@@ -752,11 +763,14 @@ home/orchestrator.ts:
       return { summary: summaryItem, details: null, error: { code: classifyError(detailsSettled.err) } }
     return { summary: summaryItem, details: toMediaDetailsExtra(detailsSettled.data) }
 
+  // rev 8 — soft-failure absorption moves INTO the media.listRows pipeline (a source
+  // that catches AllPluginsFailedError/PluginCallError/AbortError returns partial:true
+  // rather than throw; consolidation doc §C). The classifier below documents the set the
+  // pipeline treats as soft; home no longer wraps fetchPage in its own try/catch.
   isRowSoftFailure(err):
-    // Per-row failures that should mark the row partial rather than crash the
-    // request. PluginCallError covers single-strategy dispatch failures (the
-    // fan-out aggregate AllPluginsFailedError covers multi-plugin) and
-    // AbortError covers request-deadline cancellation.
+    // PluginCallError covers single-strategy dispatch failures (the fan-out aggregate
+    // AllPluginsFailedError covers multi-plugin) and AbortError covers request-deadline
+    // cancellation.
     return err instanceof AllPluginsFailedError
         || err instanceof PluginCallError
         || (err instanceof Error && err.name === "AbortError")
@@ -769,7 +783,7 @@ home/match-reason.ts:
   pickMatchReason(rowId, item, ctx) → MatchReason | null
     switch (rowId):
       case "continueWatching-active":
-        if progressFraction(item) >= 0.85: return { key: "finishing_soon", params: {} }
+        if media.isFinishing(progressFraction(item)): return { key: "finishing_soon", params: {} }   // rev 8 — FINISHING_THRESHOLD from media (was 0.85 / FINISHING_SOON_THRESHOLD literal)
         return { key: "matches_recent_picks", params: { n: String(ctx.recentPickCount ?? 4) } }
       case "continueWatching-next":
         if item.seriesContext?.nextUpFromServer: return { key: "from_active_series", params: {} }
@@ -827,8 +841,10 @@ media/status-batch.ts:
   // Constructed per request via ctx-builder middleware.
 ```
 
+rev 8 — enrich + the status/meta/progress fan-out (`batchLoad`) are owned by `media/pipeline` and run inside `media.listRows`; `extractTmdbId` is media's single copy (`media/progress.ts`). Home supplies only the match-reason callback (below) + artwork wiring. The pseudo-code below documents the enrich shape the pipeline runs; it is no longer a home-owned `home/enrich.ts`. See consolidation doc §C + §F.
+
 ```
-home/enrich.ts:
+media/pipeline/enrich.ts (run inside media.listRows; rev 8 — was home/enrich.ts):
   enrich(items, ctx, opts):
     statuses    = await ctx.statusBatch.get(items.map(i => i.tmdbId))
     metadata    = await catalog.getMetadataBatch(items.map(i => ({ tmdbId: i.tmdbId, type: i.mediaType })))
@@ -953,11 +969,11 @@ apps/server/src/home/__tests__/
     - similar_to_seed includes seedTitle param
     - mapTopContributor: genre → from_genre_you_love
     - returns null for trending/newReleases rows
-  cursor.test.ts
-    - encode/decode round-trips structure
-    - rejects malformed base64
-    - rejects malformed JSON post-decode
-    - rejects fields outside zod schema
+  cursor consumer mapping (rev 8 — codec itself tested in media/__tests__/cursor.test.ts)
+    - composeRow maps media.cursor.decode → null to HttpError 400 (home contract, V.CU1)
+    - requiresInitialCursor row rejects null cursor w/ 400 cursor_required
+    // codec internals (encode/decode round-trip, malformed base64/JSON → null, mode-mismatch
+    // → null, NEVER throws) now live in media's single cursor codec test, not home.
   layout-cache.test.ts
     - read returns null on cold cache
     - write upserts
@@ -976,10 +992,10 @@ apps/server/src/media/__tests__/enrich-compact.test.ts (moved from home/__tests_
     - sets partial and returns items when getStatusBatch rejects
     - sets partial and returns items when getMetadataBatch rejects
 
-apps/server/src/home/rows/__tests__/
+apps/server/src/home/sources/__tests__/        (rev 8 — was home/rows/__tests__/; each row is now a MediaSource)
   continue-watching-active.test.ts
-    - filters entries w/ progressMs > 0 + progress < 0.85
-    - cursor pagination at offset 0/12/24
+    - fetchRawSet filters entries w/ progressMs > 0 + !isFinishing(progress) (media FINISHING_THRESHOLD)
+    - returns RAW rows only — no sort/slice/cursor in source (V.MC1); pipeline paginates at offset 0/12/24
     - partial flag propagated from aggregate
     - empty when no continueWatching capability
   continue-watching-next.test.ts
@@ -996,7 +1012,8 @@ apps/server/src/home/rows/__tests__/
   recommended-for-you-movies.test.ts
     - mirror tv tests w/ media_type=movie
   your-watchlist.test.ts
-    - filters status=available only
+    - filters to titles w/ a matching server (getMatchingServers presence signal)
+    - rev 8 — items retain addedAt/addedSource (no strip step); enrich carries them to CompactMediaItem
   upcoming-for-you.test.ts
     - bounded single page
     - partial on calendar plugin err
@@ -1027,7 +1044,7 @@ apps/server/src/media/__tests__/
 
 Test infra: existing `vp test`. Each row test uses `MediaService` test double + in-memory CatalogService fixture (existing pattern in `apps/server/src/__tests__/`).
 
-Per-row test required by convention; spec failure to write one = CI fail via fallow zone scan (boundary rule: `home/rows/<file>.ts` must have matching `home/rows/__tests__/<file>.test.ts`; enforce via lint rule or CI script).
+Per-row test required by convention; spec failure to write one = CI fail via fallow zone scan (boundary rule: `home/sources/<file>.ts` must have matching `home/sources/__tests__/<file>.test.ts`; enforce via lint rule or CI script).
 
 ## Files
 
@@ -1037,29 +1054,32 @@ NEW
   apps/server/src/home/orchestrator.ts
   apps/server/src/home/hero.ts
   apps/server/src/home/match-reason.ts
-  apps/server/src/home/cursor.ts
   apps/server/src/media/status-batch.ts
   apps/server/src/home/layout-cache.ts
-  apps/server/src/home/enrich.ts
   apps/server/src/home/errors.ts
-  apps/server/src/home/types.ts
-  apps/server/src/home/rows/index.ts
-  apps/server/src/home/rows/continue-watching-active.ts
-  apps/server/src/home/rows/continue-watching-next.ts
-  apps/server/src/home/rows/because-you-watched.ts
-  apps/server/src/home/rows/recommended-for-you-tv.ts
-  apps/server/src/home/rows/recommended-for-you-movies.ts
-  apps/server/src/home/rows/your-watchlist.ts
-  apps/server/src/home/rows/upcoming-for-you.ts
-  apps/server/src/home/rows/trending-now.ts
-  apps/server/src/home/rows/new-releases.ts
+  apps/server/src/home/internal/types.ts                 (rev 8 — home registry meta/eligibility; was home/types.ts. MediaSource lives in media/source.ts)
+  apps/server/src/home/sources/index.ts                  (rev 8 — was home/rows/index.ts)
+  apps/server/src/home/sources/continue-watching-active.ts
+  apps/server/src/home/sources/continue-watching-next.ts
+  apps/server/src/home/sources/because-you-watched.ts
+  apps/server/src/home/sources/recommended-for-you-tv.ts
+  apps/server/src/home/sources/recommended-for-you-movies.ts
+  apps/server/src/home/sources/your-watchlist.ts
+  apps/server/src/home/sources/upcoming-for-you.ts
+  apps/server/src/home/sources/trending-now.ts
+  apps/server/src/home/sources/new-releases.ts
   apps/server/src/home/jobs/layout-warm.ts
   apps/server/src/home/__tests__/orchestrator.test.ts
   apps/server/src/home/__tests__/hero.test.ts
   apps/server/src/home/__tests__/match-reason.test.ts
-  apps/server/src/home/__tests__/cursor.test.ts
   apps/server/src/home/__tests__/layout-cache.test.ts
-  apps/server/src/home/rows/__tests__/<row>.test.ts × 9
+  apps/server/src/home/sources/__tests__/<row>.test.ts × 9   (rev 8 — was home/rows/__tests__/)
+  # rev 8 — cursor codec + enrich/batchLoad now owned by media:
+  #   apps/server/src/media/cursor.ts            (one codec, 2 modes; replaces home/cursor.ts)
+  #   apps/server/src/media/source.ts            (MediaSource<P> contract; replaces home RowProvider)
+  #   apps/server/src/media/service/list-rows.ts (the single read path)
+  #   apps/server/src/media/pipeline/            (batchLoad, enrich, paginate; replaces home/enrich.ts)
+  #   apps/server/src/media/__tests__/cursor.test.ts (codec internals; was home/__tests__/cursor.test.ts)
   apps/server/src/db/schema/home.ts
   apps/server/src/api/procedures/home.ts
   apps/server/src/api/procedures/__tests__/home.test.ts
@@ -1136,7 +1156,7 @@ CHANGED
 | 1   | `home-shared-wire`             | reshape `@ent-mcp/shared/home` types + enums + schemas; `MatchReason` as `string \| MatchReasonObj` transitional union; `HomeRowStub.title→titleKey/subtitle→subtitleKey` rename                                                    | —                                          |
 | 2   | `home-catalog-contributors`    | catalog rec list `topContributors` field; `recommendation-build` job amend; Drizzle migration; `RecItem` interface +field                                                                                                           | PR 1 (TopContributor type lives in shared) |
 | 3   | `home-mediaservice-extensions` | add `MediaService.getContinueWatchingFeed`, `MediaService.getMatchingServers` w/ tests                                                                                                                                              | — (independent of PRs 1-2)                 |
-| 4   | `home-row-providers`           | RowProvider iface, cursor codec, media-owned status-batch memo, all 9 row pipelines + per-row tests; ⊥ wired to API yet                                                                                                             | PRs 1, 2, 3                                |
+| 4   | `home-row-sources`             | rev 8 — 9 rows as `MediaSource` (`fetchRawSet` only) in `home/sources/` + per-row tests; ⊥ wired to API yet. `MediaSource` iface, `media.cursor` codec, `media.listRows` pipeline, media-owned status-batch memo land in the media consolidation work (`2026-05-26-media-pipeline-consolidation-design.md`, Phase 1+5), depended on here | PRs 1, 2, 3 + media consolidation Phase 1 |
 | 5   | `home-orchestrator`            | hero cascade (resumeUrl=null), orchestrator, `home_layout_cache` table + migration (incl. `schema_version`), `host.home.layout_warm` job, register `/home` procedures, `getDetails` endpoint                                        | PR 4                                       |
 | 6   | `home-client-integration`      | replace `useHomeFeed` mock w/ TanStack Query; narrow `MatchReason` union to object-only in shared; update `home-feed.tsx`/`top-zone-hero-card.tsx`/`card.test.tsx`/modal types; delete mock files; drop `facets.monochrome`/seasons | PR 5                                       |
 | 7   | `home-hero-mix`                | rev 4 — reshape `LayoutHero` → `{ slides: HeroSlide[] }`; mixed-source composer (loadPool/drawByQuota/backfill/order); bump `home_layout_cache.schema_version` 1→2; client iterates slides[] w/ per-slide source label              | (independent of seasons amendment)         |
