@@ -51,6 +51,18 @@ describe("classifyBucket - rev 6 total-coverage (V.WL2)", () => {
     expect(classifyBucket(row())).toBe("unavailable");
   });
 
+  it("routes an info-only row to unavailable, not upcoming (#502)", () => {
+    // Released, no server copy, not request-eligible, no future releaseDate:
+    // this must read as unavailable. "upcoming" is reserved for unreleased
+    // titles, so an info-only row mis-classified as upcoming is the #502 bug.
+    const infoOnly = row({
+      status: "unknown",
+      availability: { hasAnyServerCopy: false, requestEligible: false, servers: [] },
+    });
+    expect(classifyBucket(infoOnly)).toBe("unavailable");
+    expect(classifyBucket(infoOnly)).not.toBe("upcoming");
+  });
+
   it("never emits a legacy 'unknown' bucket value", () => {
     const fixtures: ClassifyInput[] = [
       row(),

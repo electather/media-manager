@@ -3,24 +3,24 @@ import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import type { MatchingServer } from "./types";
 import type { ProgressEntry, ProgressMap } from "./progress";
 
-/**
- * Server-side mirror of the client's classifier (see
- * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
- * `/counts` and `?bucket=` decisions match what the client would draw from
- * the same row. Rev 6: every row classifies into one of the five visible
- * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
- */
-function isInfoOnly(item: Pick<WatchlistItem, "availability">): boolean {
-  const a = item.availability;
-  return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
-}
-
 export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
   if (!progress) return false;
   if (progress.total <= 0) return false;
   return progress.watched > 0 && progress.watched < progress.total;
 }
 
+/**
+ * Server-side mirror of the client's classifier (see
+ * `apps/client/src/features/watchlist/lib/classify.ts`). Kept in lockstep so
+ * `/counts` and `?bucket=` decisions match what the client would draw from
+ * the same row. Rev 6: every row classifies into one of the five visible
+ * buckets — the prior `"unknown"` tail is rolled into `"unavailable"`.
+ *
+ * #502: `"upcoming"` is reserved for unreleased titles only (a future
+ * `releaseDate`). Info-only rows — released, no server copy, and not on a
+ * request path — fall through to `"unavailable"` rather than being mistaken
+ * for upcoming.
+ */
 // fallow-ignore-next-line complexity
 export function classifyBucket(
   item: Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">,
@@ -28,7 +28,7 @@ export function classifyBucket(
   if (isActiveProgress(item.progress)) return "in-progress";
   const fromStatus = item.status ? MEDIA_ROW_STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
-  if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
+  if (item.facets?.releaseDate) return "upcoming";
   return "unavailable";
 }
 
