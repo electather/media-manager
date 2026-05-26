@@ -67,7 +67,13 @@ export type {
   MediaProgressService,
   GetArtworkFn,
   ToCanonicalRowFn,
+  FilterKind,
+  RawPageToken,
+  SourceContext,
+  PipelineConfig,
+  Page,
 } from "./types";
+export type { MediaSource } from "./source";
 export {
   MEDIA_EVENTS,
   connectionAuthExpiredPayload,
