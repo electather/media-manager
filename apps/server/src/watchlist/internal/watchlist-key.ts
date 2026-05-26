@@ -24,7 +24,6 @@ export function toWatchlistKey(value: unknown): WatchlistKey | null {
   return { tmdbId, mediaType };
 }
 
-// fallow-ignore-next-line code-duplication
 function extractTmdbId(value: unknown): string | null {
   if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
