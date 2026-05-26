@@ -92,6 +92,9 @@ export { batchLoad, type BatchLoadContext, type BatchLoadResult } from "./pipeli
 export {
   loadProgressMap,
   isActiveContinueWatchingEntry,
+  extractTmdbId,
+  FINISHING_THRESHOLD,
+  isFinishing,
   type ContinueWatchingProgressEntry,
   type ProgressEntry,
   type ProgressMap,
