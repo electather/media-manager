@@ -99,10 +99,14 @@ export { listRows } from "./service/list-rows";
 export {
   addItem,
   removeItem,
+  seedFromPlugins,
+  syncFromPlugins,
   WATCHLIST_EVENTS,
   watchlistItemAddedSchema,
   watchlistItemRemovedSchema,
   type AddItemResult,
+  type SeedResult,
+  type SeedSyncContext,
   type WatchlistItemAddedPayload,
   type WatchlistItemRemovedPayload,
 } from "./service/writes";

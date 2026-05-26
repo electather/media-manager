@@ -12,17 +12,11 @@ vi.mock("../../media", () => ({
     return {};
   }),
   listSeededUserIds: vi.fn().mockResolvedValue([{ userId: "u1" }, { userId: "u2" }]),
-}));
-vi.mock("../../catalog", () => ({
-  getCatalogService: () => ({}),
-}));
-vi.mock("../service", () => ({
   syncFromPlugins: vi.fn().mockResolvedValue({ added: 0, partial: false }),
 }));
 
 const { registerScheduledPerRow } = await import("../../jobs/scheduled-per-row");
 const mediaModule = await import("../../media");
-const service = await import("../service");
 const { registerSyncPluginWatchlist, WATCHLIST_SYNC_JOB_ID } =
   await import("../jobs/sync-plugin-watchlist");
 
@@ -43,10 +37,12 @@ describe("watchlist sync-plugin job", () => {
     expect(mediaModule.listSeededUserIds).toHaveBeenCalledTimes(1);
   });
 
-  it("handler invokes service.syncFromPlugins with the row's user id", async () => {
+  it("handler invokes media.syncFromPlugins with the row's user id", async () => {
     const opts = (registerScheduledPerRow as ReturnType<typeof vi.fn>).mock.calls[0]![0];
     await opts.handler({}, { userId: "u1" });
-    expect(service.syncFromPlugins).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1" }));
+    expect(mediaModule.syncFromPlugins).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "u1" }),
+    );
   });
 
   it("registration file declares continueOnRowError so one user does not stop others", () => {
