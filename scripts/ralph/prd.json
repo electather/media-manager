@@ -1,0 +1,378 @@
+{
+  "project": "media-manager",
+  "branchName": "ralph/media-pipeline-consolidation",
+  "description": "Media Pipeline Consolidation (epic #491) - make media own one read pipeline (listRows), one wire shape (extended CompactMediaItem), one cursor codec, and the watchlist_items writes; home and watchlist become thin product shells. Backend only. SOURCE OF TRUTH: docs/2026-05-26-media-pipeline-consolidation-design.md - read it before each story; the design wins on any conflict. Use Vite+ only: `vp check`, `vp test`, `vp install` (never pnpm/npm/yarn/vitest/oxlint directly). Parity is the success bar: no behavior change except the #502 bucket fix.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Extend CompactMediaItem in shared with addedAt and addedSource",
+      "description": "As a developer, I want one wire item shape so that home and watchlist stop maintaining two divergent types.",
+      "acceptanceCriteria": [
+        "Add `addedAt?: number | null` (epoch ms) and `addedSource?: WatchlistSource | null` to the EXISTING CompactMediaItem in @ent-mcp/shared (design §D)",
+        "Do NOT touch the recommendation-engine MediaItem at packages/shared/src/media/types.ts",
+        "Internal private fields (`__*`) remain excluded from the serialized wire shape (invariant V.MI1)",
+        "Add a minor changeset for @ent-mcp/shared and @ent-mcp/server (new public surface + CompactMediaItem fields)",
+        "`vp check` passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add unified cursor codec in media/cursor.ts",
+      "description": "As a developer, I want one cursor codec so that the three forked codecs collapse into a single opaque format.",
+      "acceptanceCriteria": [
+        "Create media/cursor.ts with `Cursor = { mode: \"keyset\"; k: string } | { mode: \"offset\"; n: number }` (design §E)",
+        "base64url-JSON, zod-validated; `encode(c) -> string`, `decode(s) -> Cursor | null`",
+        "`decode` NEVER throws: bad, foreign, or mode-mismatched input returns null (invariant V.CU1)",
+        "Export the codec and Cursor type via the media/index.ts barrel",
+        "Unit tests assert decode -> null on bad/foreign input for BOTH modes and on mode-mismatch",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add MediaSource contract and pipeline types in media",
+      "description": "As a developer, I want a minimal source contract so that consumers supply only a raw-row fetch plus stage flags.",
+      "acceptanceCriteria": [
+        "Create media/source.ts defining `MediaSource<P = void>` with `sourceId`, `fetchRawSet(ctx, params, cursor) -> { rows: ActiveRow[]; partial: boolean; nextRaw?: RawPageToken }`, and `stages: { classify?; filter?: FilterKind; sort: RowSort; cursorMode: \"keyset\" | \"offset\" }` (design §B)",
+        "The interface carries NO enrich/sort/slice/cursor logic; eligibility is NOT on the source (invariant V.MC1)",
+        "Add supporting types to media/types.ts: FilterKind (`\"bucket\" | \"mood\" | undefined`), RawPageToken, SourceContext (RowContext union WatchlistContext), PipelineConfig, Page (`{ items: CompactMediaItem[]; cursor: string | null; partial: boolean }`)",
+        "Export MediaSource and the new types via the media/index.ts barrel",
+        "`vp check` passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add single batchLoad fan-out in media/pipeline",
+      "description": "As a developer, I want one batch-load helper so that the four duplicated status+metadata+progress fan-outs collapse to one.",
+      "acceptanceCriteria": [
+        "Create media/pipeline/batch-load.ts with the single fan-out (status batch + metadata batch + progress map), warn-and-fallback on partial failure (design §C/§F)",
+        "Export batchLoad via the media/index.ts barrel",
+        "Unit test asserts warn+fallback behavior when a sub-load partially fails (asserts WHY per Rule 9)",
+        "Do NOT yet delete the duplicate fan-outs in consumers (later phase)",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Establish canonical shared domain utils in media",
+      "description": "As a developer, I want one definition of the shared utils so that later phases can delete the duplicates.",
+      "acceptanceCriteria": [
+        "Ensure `extractTmdbId` has its single canonical definition in media/progress.ts, exported via barrel (design §F)",
+        "Ensure `FINISHING_THRESHOLD = 0.85` and `isFinishing(progress)` have their single canonical definition in media, exported via barrel",
+        "Do NOT yet delete the consumer copies/literals (Phase 6 cleanup) — just establish the canonical exports",
+        "`vp check` passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add paginate with keyset and offset modes",
+      "description": "As a developer, I want one paginate stage so that no source re-implements pagination.",
+      "acceptanceCriteria": [
+        "Add paginate to media/pipeline supporting both modes: keyset (raw-query hop via nextRaw), offset (in-memory slice of the sorted set) (design §C/§E)",
+        "keyset mode preserves #500 (empty-streak -> cursor:null), #501 (single-pass sparse bucket+sort), and the RISK-005 OFFSET_FULL_LOAD_WARN_ROWS ceiling (invariant V.PG1)",
+        "Unit tests assert the empty-streak cursor:null invariant and the sparse-page invariant (asserts WHY per Rule 9)",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add listRows pipeline orchestration in media/service",
+      "description": "As a developer, I want the single read path so that consumers list media through one call.",
+      "acceptanceCriteria": [
+        "Create media/service/list-rows.ts (NEW file, NOT appended to the 1073-LOC service/index.ts) implementing `listRows(source, cfg)`: fetchRawSet -> batchLoad -> enrich -> optional classify -> optional filter -> sort -> paginate, returning Page (design §C)",
+        "Stages opt in via source.stages and cfg; soft failure propagates as partial:true (no throw)",
+        "Export listRows via the media/index.ts barrel",
+        "Unit/contract tests cover stage wiring and partial propagation; assert the source carries no sort/cursor logic (invariant V.MC1)",
+        "No consumer (home/watchlist) code changed in this story; media tested in isolation",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Move addItem and removeItem writes into media",
+      "description": "As a developer, I want watchlist_items writes owned by the table owner so that mutation logic lives with the data.",
+      "acceptanceCriteria": [
+        "Move addItem and removeItem to media/service/writes.ts, exported via the media barrel (design §M.2)",
+        "watchlist calls addItem/removeItem through the media barrel; the originals are deleted from watchlist",
+        "Mutation semantics are unchanged (move, not rewrite)",
+        "Existing addItem/removeItem tests are repointed and stay green",
+        "media does not import home/watchlist; circular-deps boundary holds",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Move seedFromPlugins and syncFromPlugins into media",
+      "description": "As a developer, I want the seed/sync writes owned by media so that all watchlist_items writes share one owner.",
+      "acceptanceCriteria": [
+        "Move seedFromPlugins and syncFromPlugins to media/service/writes.ts, exported via the media barrel",
+        "The sync-plugin-watchlist job calls media.syncFromPlugins (not the old service.syncFromPlugins)",
+        "Originals deleted from watchlist; seed/sync/event semantics unchanged",
+        "Existing seed/sync tests repointed and stay green",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Fix #502 - classify isInfoOnly as unavailable",
+      "description": "As a user, I want info-only titles shown as unavailable so that the buckets are correct.",
+      "acceptanceCriteria": [
+        "classify.ts classifyBucket routes isInfoOnly items (released + no server + not on a request path) to \"unavailable\", NOT \"upcoming\" (design §K)",
+        "\"upcoming\" remains reserved for unreleased titles only",
+        "Regression test asserts isInfoOnly -> \"unavailable\"",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add countBuckets count-mode and route getCounts through it",
+      "description": "As a developer, I want one count-mode helper so that the 3x classify-count loop collapses to one.",
+      "acceptanceCriteria": [
+        "Add countBuckets(rows) to media: batchLoad -> classify -> tally 5 buckets + total, skipping enrich/sort/paginate (design §G)",
+        "watchlist getCounts becomes a thin wrapper over media.countBuckets; its duplicated classify-count loop is deleted",
+        "Remove the fallow-ignore code-duplication marker on the deleted getCounts loop",
+        "WatchlistCounts wire shape (5 buckets + total) unchanged",
+        "Counts parity test asserts the same tallies as pre-refactor fixtures",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Route moodSummary through media.batchLoad",
+      "description": "As a developer, I want mood summary to reuse the shared fan-out so that watchlist drops its own duplicate.",
+      "acceptanceCriteria": [
+        "moodSummary stays in watchlist/moods but calls media.batchLoad (and media metadata) instead of its own Promise.all fan-out (design §G)",
+        "Mood-derivation logic stays watchlist-owned; WatchlistMoodSummary wire shape unchanged",
+        "Remove the duplicated fan-out and its fallow-ignore code-duplication marker at this site",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Capture watchlist section parity fixtures",
+      "description": "As a developer, I want pre-refactor output fixtures so that the source migration can be proven behavior-neutral.",
+      "acceptanceCriteria": [
+        "Capture fixtures of current output (item ids + order) for items, mood-items, tonight, and recently sections (RISK-103)",
+        "Fixtures committed and loadable by tests for use in US-014..US-017",
+        "No production code changed in this story",
+        "`vp check` passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Reimplement watchlist items section as a MediaSource",
+      "description": "As a developer, I want the items section expressed as a source so that it reads via the shared pipeline.",
+      "acceptanceCriteria": [
+        "Implement the items MediaSource in watchlist/sources/ providing only fetchRawSet + stages (no sort/slice/cursor in the source) (design §H/§M.4)",
+        "The section reads via media.listRows; cursor null decode maps to first-page (invariant V.CU1)",
+        "Items use the extended CompactMediaItem; no WatchlistItem construction",
+        "Parity test: items section produces the same ids/order as the US-013 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Reimplement watchlist mood-items section as a MediaSource",
+      "description": "As a developer, I want the mood-items section expressed as a source so that it reads via the shared pipeline.",
+      "acceptanceCriteria": [
+        "Implement the mood-items MediaSource in watchlist/sources/ (fetchRawSet + stages only), filter kind \"mood\" driven by params",
+        "Reads via media.listRows; cursor null decode maps to first-page",
+        "Parity test: mood-items section produces the same ids/order as the US-013 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Reimplement watchlist tonight section as a MediaSource",
+      "description": "As a developer, I want tonight expressed as a source with envelope-side hero split so that ranking stays in the source and shaping stays in the envelope.",
+      "acceptanceCriteria": [
+        "Implement the tonight MediaSource: score+pick ranking runs INSIDE fetchRawSet over the active set, returning rows already ranked + partial (design §H/RISK-105)",
+        "Page.items stays flat; hero-vs-alternates split (items[0] hero, <=4 alternates) happens in the section envelope, not the pipeline (invariant V.TN1)",
+        "No cursor (bounded page)",
+        "Parity test: tonight produces the same ranked ids/order (and hero/alternates split) as the US-013 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Reimplement watchlist recently section as a MediaSource",
+      "description": "As a developer, I want the recently section expressed as a source so that it reads via the shared pipeline.",
+      "acceptanceCriteria": [
+        "Implement the recently MediaSource in watchlist/sources/ (fetchRawSet + stages only)",
+        "Reads via media.listRows; cursor null decode maps to first-page",
+        "Parity test: recently section produces the same ids/order as the US-013 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Thin watchlist/service.ts to envelope and aggregates",
+      "description": "As a developer, I want service.ts reduced to a thin shell so that #496 (too-big monolith) is resolved.",
+      "acceptanceCriteria": [
+        "watchlist/service.ts holds only the section envelope (wrap listRows results) + aggregates (counts, mood-summary); remaining logic moves to sources/ and internal/ (design §M.4)",
+        "service.ts byte size drops by >= 40% versus pre-refactor (record before/after byte counts in notes)",
+        "All watchlist section/aggregate tests stay green",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Capture home layout parity fixtures",
+      "description": "As a developer, I want pre-refactor home output fixtures so that the row migration can be proven behavior-neutral.",
+      "acceptanceCriteria": [
+        "Capture fixtures of current home layout output (row order + item ids/order per row) (RISK-103)",
+        "Fixtures committed and loadable by tests for use in US-020..US-022",
+        "No production code changed in this story",
+        "`vp check` passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Reimplement home catalog/discovery rows as MediaSources",
+      "description": "As a developer, I want the discovery rows expressed as sources so that each stops re-implementing pagination.",
+      "acceptanceCriteria": [
+        "Convert the catalog/discovery rows (e.g. trending, popular, similar, becauseYouWatched) to MediaSource in home/sources/, providing only fetchRawSet (raw rows); delete per-row sort/slice/cursor (design §H/§M.5)",
+        "home/_shared.ts helpers (fetchSimilarPage, loadCanonicalItems, probeMediaEntry) stay home-side",
+        "Converted rows still appear with the same item ids/order as the US-019 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Reimplement home watchlist/continue/personal rows as MediaSources",
+      "description": "As a developer, I want the personal rows expressed as sources and your-watchlist to stop stripping fields.",
+      "acceptanceCriteria": [
+        "Convert the remaining home rows (e.g. your-watchlist, continue-watching-active) to MediaSource (fetchRawSet only)",
+        "your-watchlist row stops stripping addedAt/addedSource (delete the strip step) (design §D)",
+        "Converted rows still appear with the same item ids/order as the US-019 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Wire home composeLayoutLive to listRows and finish home migration",
+      "description": "As a developer, I want home composing via listRows so that the row pipeline boilerplate is gone.",
+      "acceptanceCriteria": [
+        "composeLayoutLive runs consumer-side eligibility(ctx) then media.listRows(source, cfg), building each row stub (include iff items.length > 0 || partial); hero/match-reason/layout-cache/detail/season composition unchanged (design §H)",
+        "Home feed cursor null decode maps to HttpError 400 (invariant V.CU1)",
+        "Replace home compositeId with shared keyToId",
+        "Home layout parity test: same row order + item ids/order as the US-019 fixture",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Delete RowProvider and the old cursor codecs",
+      "description": "As a developer, I want the superseded contracts removed so that only the new pipeline remains.",
+      "acceptanceCriteria": [
+        "Delete the old RowProvider type and the old ROW_PROVIDERS registry naming (design §M.6)",
+        "Delete the three old cursor codecs (home feed offset, watchlist keyset, watchlist offset-snapshot)",
+        "No code references the deleted symbols",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Delete WatchlistItem and remaining duplicate utils; verify single-def",
+      "description": "As a developer, I want exactly one definition of each shared concept so that the consolidation is complete.",
+      "acceptanceCriteria": [
+        "grep-gate then delete the WatchlistItem superset type; no non-test caller references it",
+        "Delete the remaining duplicate extractTmdbId copies, the four 0.85 finishing literals, compositeId, and the duplicate batchLoad fan-outs; callers import from the media barrel",
+        "Exactly one definition remains of extractTmdbId, FINISHING_THRESHOLD/isFinishing, batchLoad, the bucket classify loop, and the cursor codec (invariant V.SH1); no stale fallow-ignore code-duplication markers remain on retired sites",
+        "The .fallow/dead-code-baseline.json baseline does not grow (Rule 14)",
+        "`vp check` passes",
+        "`vp test` passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
