@@ -537,6 +537,35 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     expect(page.cursor).toBeNull();
   });
 
+  // Shared sparse-bucket scaffolding for the regression suite: seed N alpha
+  // rows and stub the ready set + uniform alpha-title metadata.
+  async function seedSparseAlphaBucket(
+    ctx: ReturnType<typeof makeCtx>,
+    rowCount: number,
+    ready: Set<string>,
+  ): Promise<void> {
+    for (let i = 1; i <= rowCount; i++) {
+      await addItem(
+        { tmdbId: `a${String(i).padStart(2, "0")}`, mediaType: "movie" },
+        "manual",
+        ctx,
+      );
+    }
+    __resetAvailabilityCache();
+    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
+      async (tmdbId: string) => (ready.has(tmdbId) ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
+        const out: Record<string, unknown> = {};
+        for (const { tmdbId } of keys) {
+          out[`movie:${tmdbId}`] = { tmdbId, mediaType: "movie", title: tmdbId, genres: [] };
+        }
+        return out;
+      },
+    );
+  }
+
   // Regression for issue #501: sparse bucket+sort must return ≥ min(limit,
   // total-bucket-rows) per page even when matching rows sit past the first
   // OVERSHOOT_FACTOR window. Single-pass over the in-memory tail handles
@@ -545,58 +574,18 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     const ctx = makeCtx();
     // 20 rows; ready items at a03, a15, a18 — a15 and a18 sit past the old
     // 15-row overshoot window. Single-pass returns all 3.
-    for (let i = 1; i <= 20; i++) {
-      await addItem(
-        { tmdbId: `a${String(i).padStart(2, "0")}`, mediaType: "movie" },
-        "manual",
-        ctx,
-      );
-    }
-    __resetAvailabilityCache();
-    const ready = new Set(["a03", "a15", "a18"]);
-    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
-      async (tmdbId: string) => (ready.has(tmdbId) ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
-    );
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
-      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
-        const out: Record<string, unknown> = {};
-        for (const { tmdbId } of keys) {
-          out[`movie:${tmdbId}`] = { tmdbId, mediaType: "movie", title: tmdbId, genres: [] };
-        }
-        return out;
-      },
-    );
+    await seedSparseAlphaBucket(ctx, 20, new Set(["a03", "a15", "a18"]));
 
     const page = await listItems(ctx, { sort: "alpha", bucket: "ready", limit: 5 });
     expect(page.items.map((i) => i.tmdbId)).toEqual(["a03", "a15", "a18"]);
     expect(page.cursor).toBeNull();
   });
 
-  // Multi-page coverage for the same scenario: V.WL2 best-effort stability
+  // Multi-page coverage for the same scenario: V.WL1 best-effort stability
   // through `scannedRowCount` must resume on row a15 with no repeats.
   it("listItems sort=alpha + sparse bucket pages through matches across cursor hops", async () => {
     const ctx = makeCtx();
-    for (let i = 1; i <= 20; i++) {
-      await addItem(
-        { tmdbId: `a${String(i).padStart(2, "0")}`, mediaType: "movie" },
-        "manual",
-        ctx,
-      );
-    }
-    __resetAvailabilityCache();
-    const ready = new Set(["a03", "a15", "a18"]);
-    (ctx.mediaService.getMatchingServers as ReturnType<typeof vi.fn>).mockImplementation(
-      async (tmdbId: string) => (ready.has(tmdbId) ? [{ id: "jellyfin", label: "Jellyfin" }] : []),
-    );
-    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockImplementation(
-      async (keys: { tmdbId: string; type: "movie" | "tv" }[]) => {
-        const out: Record<string, unknown> = {};
-        for (const { tmdbId } of keys) {
-          out[`movie:${tmdbId}`] = { tmdbId, mediaType: "movie", title: tmdbId, genres: [] };
-        }
-        return out;
-      },
-    );
+    await seedSparseAlphaBucket(ctx, 20, new Set(["a03", "a15", "a18"]));
 
     const page1 = await listItems(ctx, { sort: "alpha", bucket: "ready", limit: 2 });
     expect(page1.items.map((i) => i.tmdbId)).toEqual(["a03", "a15"]);
@@ -609,6 +598,21 @@ describe("watchlist/service v2 (pagination + counts + filter)", () => {
     });
     expect(page2.items.map((i) => i.tmdbId)).toEqual(["a18"]);
     expect(page2.cursor).toBeNull();
+  });
+
+  // No-bucket cursor stability: scannedRowCount must advance by the returned
+  // page size (not by the bounded OVERSHOOT window) so page 2 resumes at the
+  // next row with no repeats.
+  it("listItems sort=alpha without bucket advances cursor by returned rows", async () => {
+    const ctx = makeCtx();
+    await seedSparseAlphaBucket(ctx, 20, new Set());
+
+    const page1 = await listItems(ctx, { sort: "alpha", limit: 5 });
+    expect(page1.items.map((i) => i.tmdbId)).toEqual(["a01", "a02", "a03", "a04", "a05"]);
+    expect(page1.cursor).not.toBeNull();
+    const page2 = await listItems(ctx, { sort: "alpha", limit: 5, cursor: page1.cursor! });
+    expect(page2.items.map((i) => i.tmdbId)).toEqual(["a06", "a07", "a08", "a09", "a10"]);
+    expect(page2.cursor).not.toBeNull();
   });
 
   // V.WL2 rev 6 — `bucket` omitted surfaces every active row regardless of

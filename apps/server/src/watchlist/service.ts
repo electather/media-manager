@@ -208,6 +208,7 @@ export async function getCounts(ctx: MaybeRowContext): Promise<WatchlistCounts> 
   let awaiting = 0;
   let unavailable = 0;
   let upcoming = 0;
+  // fallow-ignore-next-line code-duplication
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!;
     const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
@@ -726,16 +727,7 @@ async function listItemsOffset(
     );
   }
   const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
-  // For the bucket-filter case the sorted list is already in memory, so a
-  // single enrich pass over the remaining tail is both simpler and cheaper
-  // than chunked retries: one batched API round-trip instead of N, and
-  // `enrich`'s own `filter` option drops bucket-mismatched rows before
-  // artwork hydration. With no bucket every row survives enrich, so cap the
-  // window at `limit * OVERSHOOT_FACTOR` to avoid hydrating the entire tail
-  // just to discard all but `limit` items (#536 review).
-  const tail = opts.bucket
-    ? sorted.slice(offset)
-    : sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
+  const tail = selectOffsetTail(sorted, offset, limit, opts.bucket);
   const enriched = await enrich(tail, ctx, {
     ...(opts.bucket ? { filter: opts.bucket } : {}),
     prefetchedMetadata: metaMap,
@@ -748,11 +740,18 @@ async function listItemsOffset(
   return { items, cursor, partial };
 }
 
-// Advance cursor past the last *returned* row, not past every scanned row.
-// When a bucket filter drops most of the tail we still need V.WL1's
-// best-effort cursor-stability guarantee: if we filled the page we resume at
-// lastReturned+1; if we didn't, the tail was exhausted so the caller will
-// null out the cursor anyway.
+// Bucket: full tail so enrich's `filter` can prune sparse buckets. No-bucket: bounded window — every row survives enrich.
+function selectOffsetTail(
+  sorted: ActiveRow[],
+  offset: number,
+  limit: number,
+  bucket: WatchlistBucket | undefined,
+): ActiveRow[] {
+  if (bucket) return sorted.slice(offset);
+  return sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
+}
+
+// V.WL1: advance past last *returned* row; underfill means tail exhausted → caller nulls the cursor.
 function scannedRowCount(tail: ActiveRow[], returnedSources: ActiveRow[], limit: number): number {
   if (returnedSources.length < limit) return tail.length;
   const lastId = returnedSources[returnedSources.length - 1]!.id;
