@@ -1,23 +1,10 @@
 import { and, desc, eq, lt, or } from "drizzle-orm";
-import { keyToId, type WatchlistKey, type WatchlistSource } from "@ent-mcp/shared/watchlist";
+import { keyToId, type WatchlistKey } from "@ent-mcp/shared/watchlist";
 import type { ActiveRow, RowFilter, RowSort } from "@ent-mcp/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
 import type { PageCursor } from "./cursor";
-
-export function toRow(raw: typeof watchlistItems.$inferSelect): ActiveRow {
-  return {
-    id: raw.id,
-    userId: raw.userId,
-    tmdbId: raw.tmdbId,
-    mediaType: raw.mediaType,
-    state: raw.state,
-    source: raw.source as WatchlistSource,
-    addedAt: raw.addedAt,
-    removedAt: raw.removedAt,
-    seeded: Boolean(raw.seeded),
-  };
-}
+import { toRow } from "./row";
 
 // fallow-ignore-next-line complexity
 export async function listActiveRows(

@@ -3,7 +3,7 @@ import type { WatchlistKey, WatchlistSource } from "@ent-mcp/shared/watchlist";
 import type { ActiveRow } from "@ent-mcp/shared/media";
 import { getDb, type Db } from "../../db/client";
 import { watchlistItems } from "../../db/schema/media";
-import { toRow } from "./reads";
+import { toRow } from "./row";
 
 function newId(): string {
   return crypto.randomUUID();
