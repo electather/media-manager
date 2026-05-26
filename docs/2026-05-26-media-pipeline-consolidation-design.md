@@ -22,12 +22,12 @@ Caveman ultra. Pseudo = shape only, ⊥ = not/none/false, ∪ = union, → = map
 Epic #491 already moved storage, enrich, classify, progress, availability-cache into `media/` (#492–#500, closed). `media/` IS the shared service. Residue remains:
 
 1. **Divergent read paths.** `home` composes via a `RowProvider` registry (thin, pluggable). `watchlist` composes via a 864-LOC monolith `service.ts` of bespoke endpoint functions (#496, "too big"). Two patterns, one job (list media).
-2. **Two output shapes.** `CompactMediaItem` (home) vs `WatchlistItem` (= `CompactMediaItem` + `addedAt`/`addedSource`/`progress`/`availability`). Home's `your-watchlist` row strips the extra fields. Superset masquerading as two types.
+2. **Two output shapes.** `CompactMediaItem` (home — already carries `progress`/`availability`) vs `WatchlistItem` (= `CompactMediaItem` + `addedAt`/`addedSource`). Home's `your-watchlist` row strips the extra fields. Superset masquerading as two types.
 3. **Three cursor codecs.** keyset (`addedAt:id`), offset-into-feed (home, JSON, zod, decode→400), offset-snapshot (watchlist alpha/runtime/status, decode→null). Same encode/decode mechanics, forked.
 4. **Domain logic leaked into consumers, duplicated:**
    - classify→preview→count loop **3×** — `watchlist/service.ts` `getCounts` (~:200), `tonight/section.ts` (~:69), `media/enrich.ts` filter pass (~:158). All carry `fallow-ignore code-duplication`.
    - `extractTmdbId` **3×** — `home/internal/adapters.ts:70`, `watchlist/service.ts:480`, `media/progress.ts:86`.
-   - `FINISHING_THRESHOLD = 0.85` literal **4×** — `media/progress.ts:14`, `home/internal/hero.ts:9`, `home/internal/match-reason.ts:5`, home CW-row `isActiveEntry`.
+   - `0.85` finishing threshold declared **4×** — `media/progress.ts:14` (`FINISHING_THRESHOLD`), `home/internal/hero.ts:9`, `home/internal/match-reason.ts:5` (`FINISHING_SOON_THRESHOLD`), `home/rows/continue-watching-active.ts:9`.
    - `Promise.all([getStatusBatch, getMetadataBatch, loadProgressMap])` warn-and-fallback fan-out **4×** — `getCounts`, `listItemsOffset` (~:705), `tonight/section` (~:53), `filterByMood` (~:675).
    - `home/internal/adapters.ts` `compositeId` duplicates shared `keyToId`.
 5. **`RowProvider` re-implements sort+slice+cursor inside every `fetchPage`** — home's own boilerplate; each new row re-writes pagination.
@@ -39,7 +39,7 @@ Root cause: media owns *primitives* but not the *pipeline*. Each consumer re-ass
 
 **Goals**
 - One media-domain pipeline owned by `media`. home + watchlist = thin product shells that supply a *source* + *config* and wrap results in their own envelope.
-- One `MediaItem` wire shape. One cursor codec (2 modes). Writes owned by table owner (`media`).
+- One wire shape (extend existing `CompactMediaItem`; §D). One cursor codec (2 modes). Writes owned by table owner (`media`).
 - Kill residue #4. Remove `RowProvider` per-row pagination boilerplate (#5). Fix #502.
 - Split `watchlist/service.ts` (#496).
 
@@ -57,13 +57,16 @@ media/                                  FAT domain + pipeline + storage + writes
   pipeline/        batchLoad → enrich → classify → filter → sort → paginate
   source.ts        MediaSource<P> interface (the contract; §B)
   classify.ts      classifyBucket, previewForClassify, isActiveProgress, matchesBucket  (+ #502 fix)
-  enrich.ts        enrich(rows,batch) → MediaItem[]   (single shape; §D)
+  enrich.ts        enrich(rows,batch) → CompactMediaItem[]   (single shape; §D)
   progress.ts      loadProgressMap; extractTmdbId (the ONE copy; §F); FINISHING_THRESHOLD (the ONE copy)
   availability-cache.ts  getMatchingServersCached
   status-batch.ts  StatusBatchMemo
   cursor.ts        ONE opaque codec, modes keyset|offset  (§E)
   repo/            watchlist_items reads+writes+seed (owns table)
-  types.ts         MediaItem (§D); MediaSource; PipelineConfig; Page
+  types.ts         CompactMediaItem extension (§D); MediaSource; PipelineConfig; Page; Cursor
+
+(media/service/index.ts already 1073 LOC — over the 500 hard cap. New work lands as NEW files in
+ service/ — service/list-rows.ts, service/writes.ts, service/count.ts — NOT appended to index.ts.)
 
 home/                                   THIN product shell
   sources/         12 discovery MediaSources (catalog/plugin feeds)
@@ -104,6 +107,14 @@ interface MediaSource<P = void> {
 - `SourceContext` = unify `RowContext` ∪ `WatchlistContext`. Research: `WatchlistContext` already documented "structurally compatible with home row context"; `asWatchlistContext` already bridges `log`/`logger`. Pin: `{ userId, mediaService, catalog, deadlineMs?, statusBatch, logger }`. Drop the `log` alias (pre-stable break).
 - Eligibility: keep `eligibility(ctx)` **as a consumer-side concern**, NOT on the source — it's product-gating (home: has-capability / has-history), invoked by the consumer envelope before calling `listRows`. Source contract stays minimal (V.MC1).
 
+**Type glossary** (✚ = new in Phase 1; ◆ = existing, reused):
+- `ActiveRow` ◆ — `@ent-mcp/shared/media`, the persisted/raw row.
+- `RowSort` ◆ / `FilterKind` ✚ — sort enum (exists as `RowSort`) / filter selector (`"bucket"|"mood"|⊥`, new).
+- `Cursor` ✚ — the discriminated union in §E. `RawPageToken` ✚ — opaque keyset hop token a table source threads back (e.g. last `addedAt:id`); ⊥ for offset sources.
+- `SourceContext` ✚ — `RowContext ∪ WatchlistContext` (§B), media-owned.
+- `PipelineConfig` ✚ — `{ params; sort?; filter?; cursor; limit }` passed to `listRows`.
+- `Page` ✚ — `{ items: CompactMediaItem[]; cursor: string | null; partial: boolean }` (was home `RowPage`).
+
 ## §C — listRows pipeline
 
 `media.listRows(source, cfg)` — the single read path. Stages opt-in via `source.stages` + `cfg`.
@@ -112,7 +123,7 @@ interface MediaSource<P = void> {
 listRows(source, cfg):
   raw   = await source.fetchRawSet(ctx, cfg.params, cfg.cursor)     // {rows, partial, nextRaw}
   batch = await batchLoad(rows)            // ONE place: status+meta+progress, warn+fallback (kills #4 fan-out 4×)
-  items = enrich(rows, batch)              // → MediaItem[]  (single shape)
+  items = enrich(rows, batch)              // → CompactMediaItem[]  (single shape)
   if source.stages.classify: items = items.map(withBucket)          // classify (#502 fix inside)
   if source.stages.filter:   items = filter(items, cfg.params)      // bucket|mood predicate
   items = sort(items, cfg.sort ?? source.stages.sort)
@@ -125,21 +136,21 @@ listRows(source, cfg):
 - `paginate`: keyset mode hops the raw query (overshoot helper, preserves #500 empty-streak `cursor:null` + #501 single-pass sparse bucket+sort + RISK-005 offset ceiling — §E). offset mode slices the in-memory sorted set.
 - Soft-failure: a source that catches `AllPluginsFailedError`/`PluginCallError` returns `partial:true` rather than throw; consumer envelope decides include/drop (home preview rule: include iff `items.length>0 || partial`). Hard throw bubbles as typed media error.
 
-## §D — Unified MediaItem
+## §D — Unified item shape (extend `CompactMediaItem`, ⊥ new name)
 
-Collapse `CompactMediaItem` + `WatchlistItem` → one `MediaItem` (shared pkg, `@ent-mcp/shared/media`).
+**Name caution:** `MediaItem` is already taken — `packages/shared/src/media/types.ts` defines a *recommendation-engine* `MediaItem` (different shape; consumed by `preferences/*` + `mcp` adapter). Do **not** reuse it. Unify into the **existing** home wire type `CompactMediaItem` (`@ent-mcp/shared`), which already carries `progress`/`availability`. Only `addedAt`/`addedSource` are genuinely new.
 
 ```
-MediaItem = CompactMediaItem fields
-          + addedAt?: string | null        // ⊥ on discovery rows
-          + addedSource?: string | null
-          + progress?: Progress | null
-          + availability?: Availability | null
+CompactMediaItem (extend existing; @ent-mcp/shared)
+  ... existing fields (incl. progress?, availability? — already present today)
+  + addedAt?: number | null            // epoch ms (matches today's WatchlistItem.addedAt: number); ⊥ on discovery rows
+  + addedSource?: WatchlistSource | null
 ```
 
-- Discovery sources leave watchlist fields `⊥`. Persistent-table sources fill them. home stops stripping (`your-watchlist` deletes its strip step); watchlist stops defining a superset type.
-- Internal-only private fields (`__topContributors`, `__addedAtMs`) stay stripped-before-serialize, carried on an internal extension (`InternalMediaItem`), ⊥ on wire (V.MI1).
-- Pre-stable wire break: home row items gain nullable watchlist fields. Acceptable (cost = few null fields). Client follows in future doc.
+- `addedAt` stays **epoch ms (`number`)** to match today's `WatchlistItem.addedAt` — no string reformat. The internal sort field `__addedAtMs` is unchanged; the public `addedAt` is its nullable wire mirror.
+- Discovery sources leave `addedAt`/`addedSource` `⊥`. Persistent-table sources fill them. home stops stripping (`your-watchlist` deletes its strip step).
+- **`WatchlistItem` is deleted** — callers use `CompactMediaItem`. Internal-only private fields (`__topContributors`, `__addedAtMs`) stay stripped-before-serialize on `InternalCompactMediaItem`, ⊥ on wire (V.MI1).
+- Pre-stable wire break: home row items gain two nullable fields. Acceptable. Client follows in future doc.
 
 ## §E — Cursor (one codec, two modes)
 
@@ -149,10 +160,11 @@ MediaItem = CompactMediaItem fields
 Cursor = { mode: "keyset"; k: string }      // e.g. "addedAt:id" or feed seed (becauseYouWatched style)
        | { mode: "offset"; n: number }
 encode(c) → string
-decode(s, mode) → Cursor | null | throw
+decode(s) → Cursor | null                    // NEVER throws; bad/foreign input → null
 ```
 
-- **keyset** decode-fail → throw `HttpError 400` (home feed contract). **offset** decode-fail → `null` (preserves #501). Mode declared by `source.stages.cursorMode`; decode asserts the tag matches (V.CU1).
+- **Codec never throws** — `decode` returns `null` on bad/foreign input. The **400-vs-empty decision is the consumer's**, preserving today's split: home feed wraps `null → HttpError 400` (its existing contract); watchlist treats `null → first-page` (its existing keyset + offset-snapshot behavior — both return null today, **no behavior change**). This avoids the trap of "keyset→400 / offset→null," which is wrong: home *offset* throws 400 while watchlist *keyset* returns null, so decode-fail behavior is per-consumer, not per-mode.
+- `decode` asserts the decoded `mode` matches `source.stages.cursorMode`; mismatch → `null` (V.CU1), consumer maps as above.
 - Source-specific seed (moodId, feed seedId/seedType, sort) rides inside `k` for keyset sources, exactly as `becauseYouWatched` carries its seed today. No separate per-source codec.
 - RISK-005 `OFFSET_FULL_LOAD_WARN_ROWS` advisory ceiling moves onto the offset-mode paginate path.
 
@@ -187,7 +199,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 
 ## §I — Wire contract delta
 
-- Item shape: `MediaItem` everywhere (home rows gain nullable watchlist fields). Pre-stable break.
+- Item shape: extended `CompactMediaItem` everywhere; `WatchlistItem` deleted (home rows gain nullable `addedAt`/`addedSource`). Pre-stable break.
 - Cursor: single opaque base64url JSON (mode-tagged). Existing cursors invalidated on deploy (pre-stable, no migration).
 - Endpoints: list reads (home rows, watchlist items/mood-items/tonight/recently) route through the source pipeline; surface URLs may stay per the sections doc OR collapse to a generic `:sourceId` resolver — **deferred to §M Phase 4 / future client doc**. counts / mood-summary / writes keep distinct endpoints.
 
@@ -197,7 +209,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 - `MediaSource` interface + `listRows` + `batchLoad` + `countBuckets` + cursor codec → `media/index.ts` barrel (public). `repo/`, `pipeline/` internals stay behind barrel.
 - home/watchlist import `media` barrel only. media ⊥ import home/watchlist (no `home→media→home` cycle; `circular-deps: error` holds). Concrete sources owned by the consumer that registers them (V.RG1).
 - Size: media grows (pipeline + source.ts). Use subdir promotion per backend budgets — `service/` (>500 LOC), `repo/` (>300), new `pipeline/` dir. Cohesive, ⊥ god-module.
-- `events.ts` contract: ⊥ change → no semver bump beyond the internal-only changeset. Writes moving into media service = internal reorg, but `WatchlistItem`→`MediaItem` is a public type change on `@ent-mcp/shared` + `@ent-mcp/server` → **minor** changeset.
+- `events.ts` contract: ⊥ change → no semver bump beyond the internal-only changeset. Writes moving into media service = internal reorg, but deleting `WatchlistItem` + extending `CompactMediaItem` is a public type change on `@ent-mcp/shared` + `@ent-mcp/server` → **minor** changeset.
 
 ## §K — #502 fix
 
@@ -206,8 +218,8 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 ## §L — Invariants
 
 - **V.MC1** — `MediaSource` carries no enrich/sort/slice/cursor logic. Only `fetchRawSet` + `stages` declaration. Eligibility is consumer-side. (Anti-boilerplate.)
-- **V.MI1** — `MediaItem` internal private fields (`__*`) never serialize. Wire = public fields only.
-- **V.CU1** — cursor decode asserts `mode` matches `source.stages.cursorMode`; mismatch = keyset→400 / offset→null per mode.
+- **V.MI1** — `CompactMediaItem` internal private fields (`__*`) never serialize. Wire = public fields only.
+- **V.CU1** — `decode` never throws; bad/foreign input or mode-mismatch → `null`. Consumer maps `null` (home feed → 400; watchlist → first-page), preserving today's per-consumer behavior.
 - **V.PG1** — pipeline preserves #500 (empty-streak → `cursor:null`) + #501 (single-pass sparse bucket+sort) + RISK-005 ceiling.
 - **V.RG1** — concrete sources owned + registered by the consumer module; media never imports a concrete source.
 - **V.TN1** — `RowPage.items` flat; tonight hero/alternate split is envelope-side, not pipeline-side.
@@ -217,7 +229,7 @@ Sources are media-domain; **envelopes are product, stay in consumers.**
 
 Each phase: own PR, `vp check` + `vp test` green, regression tests where noted. Compact between phases.
 
-1. **Pipeline core in media.** Add `media/source.ts` (`MediaSource`), `media/cursor.ts` (unified), `media/pipeline/` (`batchLoad`, `listRows`, paginate w/ both modes). Move `extractTmdbId`/`FINISHING_THRESHOLD` to single defs. `MediaItem` in shared. No consumer change yet; media unit-tested in isolation. Changeset: minor (`@ent-mcp/shared`, `@ent-mcp/server` — new public surface + `MediaItem`).
+1. **Pipeline core in media.** Add `media/source.ts` (`MediaSource`), `media/cursor.ts` (unified), `media/pipeline/` (`batchLoad`, `listRows`, paginate w/ both modes); `listRows`/writes/count land as **new files in `service/`**, ⊥ appended to the 1073-LOC `service/index.ts`. Move `extractTmdbId`/`FINISHING_THRESHOLD` to single defs. Extend `CompactMediaItem` in shared (the **existing** type — NOT the recommendation-engine `MediaItem`, §D). No consumer change yet; media unit-tested in isolation. Changeset: minor (`@ent-mcp/shared`, `@ent-mcp/server` — new public surface + `CompactMediaItem` fields).
 2. **Writes → media.** `addItem`/`removeItem`/`seedFromPlugins`/`syncFromPlugins` move to `media/service`, exported via barrel. watchlist calls media barrel. Delete from watchlist. Regression: existing watchlist mutation tests repoint, stay green.
 3. **#502 + count-mode.** classify fix; `countBuckets` in media; `getCounts` + `moodSummary` route through it. Kill the 3× classify loop + 4× fan-out dup; remove `fallow-ignore code-duplication`. Regression: #502 routing test; counts parity test.
 4. **watchlist sources (#496).** Reimplement items / mood-items / tonight / recently as `MediaSource` in `watchlist/sources/`. Split `service.ts` → `sources/` + thin `service.ts` (envelope + aggregates) + `internal/`. ≥40% byte drop on `service.ts`. tonight envelope hero/alternate split. Regression: section parity tests (items, mood-items, tonight, recently produce same items as pre-refactor).
