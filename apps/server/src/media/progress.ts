@@ -74,17 +74,21 @@ export function isActiveContinueWatchingEntry(entry: ContinueWatchingProgressEnt
   return ms / 1000 / total < FINISHING_THRESHOLD;
 }
 
-// fallow-ignore-next-line complexity
+// Home rows can surface active entries without duration, but watchlist
+// classification needs a measurable total to project progress.
+function watchlistTotalOf(entry: ContinueWatchingProgressEntry): number | null {
+  const total = entry.item.durationSec;
+  return total != null && total > 0 ? total : null;
+}
+
 export function projectContinueWatchingProgress(
   entry: ContinueWatchingProgressEntry,
 ): ProgressEntry | null {
   if (!isActiveContinueWatchingEntry(entry)) return null;
-  const total = entry.item.durationSec;
-  // Home rows can surface active entries without duration, but watchlist classification needs a total.
-  if (total == null || total <= 0) return null;
+  const total = watchlistTotalOf(entry);
+  if (total == null) return null;
   // `isActiveContinueWatchingEntry` already verified `progressMs > 0`.
-  const ms = entry.progressMs as number;
-  const watched = Math.round(ms / 1000);
+  const watched = Math.round((entry.progressMs as number) / 1000);
   // Re-check threshold against the rounded value so near-boundary entries match the prior
   // rounded-ratio behaviour (e.g. 101500ms/120s rounds to 102s → 0.85 → excluded).
   if (watched / total >= FINISHING_THRESHOLD) return null;
