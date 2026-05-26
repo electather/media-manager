@@ -336,7 +336,8 @@ classifyBucket(item):                                              // rev 6: ⊥
   if item.progress && watched < total          → "in-progress"
   if availability.hasAnyServerCopy             → "ready"
   if STATUS_MAP[item.status]                   → STATUS_MAP[item.status]   // → awaiting
-  if facets.releaseDate || isInfoOnly          → "upcoming"
+  if facets.releaseDate                        → "upcoming"
+  if isInfoOnly                                → "unavailable"
   return "unavailable"                                              // catch-all visible
 ```
 

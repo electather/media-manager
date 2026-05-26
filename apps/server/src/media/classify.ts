@@ -28,7 +28,8 @@ export function classifyBucket(
   if (isActiveProgress(item.progress)) return "in-progress";
   const fromStatus = item.status ? MEDIA_ROW_STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
-  if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
+  if (item.facets?.releaseDate) return "upcoming";
+  if (isInfoOnly(item)) return "unavailable";
   return "unavailable";
 }
 

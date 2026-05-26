@@ -47,6 +47,14 @@ describe("classifyBucket - rev 6 total-coverage (V.WL2)", () => {
     expect(classifyBucket(row({ facets: { releaseDate: "2099" } }))).toBe("upcoming");
   });
 
+  it("classifies an info-only row without a release date as unavailable", () => {
+    expect(
+      classifyBucket(
+        row({ availability: { hasAnyServerCopy: false, requestEligible: false, servers: [] } }),
+      ),
+    ).toBe("unavailable");
+  });
+
   it("falls through to unavailable for rows with no server, no status route, no release", () => {
     expect(classifyBucket(row())).toBe("unavailable");
   });
