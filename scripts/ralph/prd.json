@@ -32,8 +32,8 @@
         "`vp test` passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created apps/server/src/media/cursor.ts: Cursor discriminated union ({mode:keyset,k:string}|{mode:offset,n:number}), base64url-JSON via Buffer.toString('base64url'), zod z.discriminatedUnion('mode',...). encode(c)->string, decode(raw, expectedMode?)->Cursor|null. decode NEVER throws (try/catch around JSON.parse, safeParse, returns null). Added optional expectedMode param so mode-mismatch->null (V.CU1) while bare decode(s) still returns any valid cursor. Exported encode/decode/Cursor/CursorMode via media/index.ts barrel (distinct from existing encodeCursor/decodeCursor from ./service - no name clash). 12 unit tests in __tests__/cursor.test.ts cover round-trip both modes, null on garbage/non-JSON/foreign-shape/unknown-mode/missing-field/wrong-type for BOTH modes, and mode-mismatch both directions. Empty (internal-only) changeset - no wire/API change. vp check: 0 errors, 1 pre-existing warning. vp test: 12 pass."
     },
     {
       "id": "US-003",
