@@ -2,23 +2,11 @@ import type { MediaType } from "@ent-mcp/shared/media";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import { extractTmdbId, fromCanonicalMetadata } from "../internal/adapters";
 import type { InternalCompactMediaItem, RowContext } from "../internal/types";
+import { similarSource } from "../sources/similar";
 
 export interface MediaKey {
   tmdbId: string;
   type: MediaType;
-}
-
-/**
- * Probes a raw `metadata@v1.getSimilar` result entry for `{ tmdbId, type }`.
- * Shared by every row that paginates a similar-feed (becauseYouWatched,
- * similarTo) so the entry-shape rules live in one place.
- */
-export function toSimilarHit(value: unknown): MediaKey | null {
-  const tmdbId = extractTmdbId(value);
-  if (!tmdbId) return null;
-  const t = (value as { type?: string }).type;
-  const type: MediaType = t === "tv" || t === "show" ? "tv" : "movie";
-  return { tmdbId, type };
 }
 
 interface SimilarFeedEntry {
@@ -88,18 +76,19 @@ export async function fetchSimilarPage(
   const cacheKey = similarCacheKey(ctx.userId, seed.id, seed.type);
   let entry = readSimilarCache(cacheKey);
   if (!entry) {
-    const res = await ctx.mediaService.getSimilarFeed({
-      id: seed.id,
-      type: seed.type,
-      ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
-    });
+    // The similar `MediaSource` owns the raw candidate fetch (getSimilarFeed +
+    // entry-shape probe); the cache, slice, and seedTitle hookup stay here
+    // until US-022/US-023 fold them into the shared pipeline.
+    const { rows, partial } = await similarSource.fetchRawSet(
+      ctx,
+      { seedId: seed.id, seedType: seed.type },
+      null,
+    );
     const seedMeta = await ctx.catalog.getMetadata(seed.id, seed.type);
     entry = {
       expiresAt: Date.now() + SIMILAR_FEED_TTL_MS,
-      candidates: (res.items as unknown[])
-        .map(toSimilarHit)
-        .filter((c): c is MediaKey => c !== null),
-      partial: res.partial,
+      candidates: rows,
+      partial,
       seedTitle: seedMeta?.title,
     };
     writeSimilarCache(cacheKey, entry);

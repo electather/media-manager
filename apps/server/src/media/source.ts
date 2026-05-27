@@ -10,11 +10,18 @@ import type { FilterKind, PipelineSort, RawPageToken, SourceContext } from "./ty
  * closure inside `fetchRawSet`, never in the contract (invariant V.MC1, guards
  * RISK-101). Eligibility is a consumer-side concern and is NOT on the source.
  *
+ * `Row` is the raw row shape the source emits. Watchlist sources emit the
+ * persisted `ActiveRow` (the default), which the shared `enrich` projects;
+ * ephemeral catalog-feed sources (home discovery/similar) emit their own raw
+ * key shape and are enriched home-side, so they parameterize `Row` rather than
+ * faking an `ActiveRow`. The pipeline that consumes a source pins `Row` to a
+ * shape its enrich stage accepts.
+ *
  * Concrete sources are owned and registered by the consumer module that uses
  * them (home/watchlist); media never imports a concrete source (invariant
  * V.RG1).
  */
-export interface MediaSource<P = void> {
+export interface MediaSource<P = void, Row = ActiveRow> {
   /** Stable slug, unique across a consumer's source registry. */
   sourceId: string;
   /**
@@ -31,7 +38,7 @@ export interface MediaSource<P = void> {
     ctx: SourceContext,
     params: P,
     cursor: Cursor | null,
-  ): Promise<{ rows: ActiveRow[]; partial: boolean; nextRaw?: RawPageToken }>;
+  ): Promise<{ rows: Row[]; partial: boolean; nextRaw?: RawPageToken }>;
   /** Declares which pipeline stages run and how the source paginates. */
   stages: {
     /** Run bucket classification over the enriched items. */

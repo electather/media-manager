@@ -1,60 +1,46 @@
 import { z } from "zod";
 import { decodeCursor, encodeCursor } from "../internal/cursor";
-import type { DiscoverFeedKind, DiscoverSort } from "@ent-mcp/shared/catalog";
-import type { RowContext, RowPage, RowProvider } from "../internal/types";
-import { loadCanonicalItems } from "./_shared";
+import type { MediaSource } from "../../media";
+import type { RowProvider } from "../internal/types";
+import { loadCanonicalItems, type MediaKey } from "./_shared";
 
 const PAGE_SIZE = 12;
 const cursorSchema = z.object({ offset: z.number().int().min(0) });
 
-/** UTC midnight epoch ms — keys the day-bucketed `discover_snapshots` table. */
-function todayBucket(): number {
-  const d = new Date();
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-}
-
 /**
- * Reads from `discover_snapshots`. The catalog is the source of truth for
- * trending/new-releases, so this row never partials — failures land as
- * `eligibility=false` (no snapshot for the day) and the row drops cleanly.
+ * Reads from `discover_snapshots` via its `MediaSource` (the raw-set producer;
+ * design §H/§M.5). The catalog is the source of truth for trending/new-releases,
+ * so this row never partials — failures land as `eligibility=false` (no snapshot
+ * for the day) and the row drops cleanly. The offset slice + cursor still live
+ * here until US-022 folds them into the shared pipeline.
  */
 export function makeDiscoverSnapshotRow(config: {
   rowId: string;
   kind: "trendingNow" | "newReleases";
   titleKey: string;
-  feedKind: DiscoverFeedKind;
-  sort: DiscoverSort;
+  source: MediaSource<void, MediaKey>;
 }): RowProvider {
   return {
     rowId: config.rowId,
     kind: config.kind,
     titleKey: config.titleKey,
     async eligibility(ctx) {
-      const snap = await ctx.catalog.getDiscoverFeed(config.feedKind, config.sort, todayBucket());
-      return snap !== null && snap.length > 0;
+      const { rows } = await config.source.fetchRawSet(ctx, undefined, null);
+      return rows.length > 0;
     },
     async initialCursor() {
       return null;
     },
     async fetchPage(ctx, cursor) {
-      return fetchPage(ctx, cursor, config);
+      const page = cursor === null ? { offset: 0 } : decodeCursor(cursor, cursorSchema);
+      const { rows } = await config.source.fetchRawSet(ctx, undefined, null);
+      const slice = rows.slice(page.offset, page.offset + PAGE_SIZE);
+      const items = await loadCanonicalItems(ctx, slice);
+      const next =
+        rows.length > page.offset + PAGE_SIZE
+          ? encodeCursor({ offset: page.offset + PAGE_SIZE })
+          : null;
+      return { items, cursor: next, partial: false };
     },
   };
-}
-
-async function fetchPage(
-  ctx: RowContext,
-  cursor: string | null,
-  config: { feedKind: DiscoverFeedKind; sort: DiscoverSort },
-): Promise<RowPage> {
-  const page = cursor === null ? { offset: 0 } : decodeCursor(cursor, cursorSchema);
-  const snap = await ctx.catalog.getDiscoverFeed(config.feedKind, config.sort, todayBucket());
-  if (!snap) return { items: [], cursor: null, partial: false };
-  const slice = snap.slice(page.offset, page.offset + PAGE_SIZE);
-  const items = await loadCanonicalItems(ctx, slice);
-  const next =
-    snap.length > page.offset + PAGE_SIZE
-      ? encodeCursor({ offset: page.offset + PAGE_SIZE })
-      : null;
-  return { items, cursor: next, partial: false };
 }
