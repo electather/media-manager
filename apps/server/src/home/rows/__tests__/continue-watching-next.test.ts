@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../continue-watching-next";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
+
+// The row delegates to `continueWatchingNextSource`, whose sibling
+// `continueWatchingActiveSource` pulls the media barrel (the `media → db → env`
+// graph) for `isActiveContinueWatchingEntry`, so the env must be stubbed.
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
 
 describe("rows/continue-watching-next", () => {
   it("includes server-stitched nextUp items and tags nextUpFromServer=true", async () => {

@@ -1,14 +1,17 @@
-import { hasAny, listAvailable } from "../../watchlist";
+import { hasAny } from "../../watchlist";
 import type { RowProvider } from "../internal/types";
-
-const PAGE_SIZE = 12;
+import { yourWatchlistSource } from "../sources/your-watchlist";
 
 /**
- * Watchlist titles the user can already play (status === "available"). Now
- * delegates to the internal watchlist service so the home row and the
- * `/watchlist` page share one source of truth. Eligibility flips on either a
- * non-empty internal table or a connected `watchlist@v1` plugin so users
- * see the row even before the first sync runs.
+ * Watchlist titles the user can already play (status === "available"). Reads
+ * through `yourWatchlistSource` (which delegates to the internal watchlist
+ * service) so the home row and the `/watchlist` page share one source of
+ * truth. Eligibility flips on either a non-empty internal table or a connected
+ * `watchlist@v1` plugin so users see the row even before the first sync runs.
+ *
+ * The row no longer strips `addedAt`/`addedSource` — the unified
+ * `CompactMediaItem` carries them now, so home exposes the same shape as the
+ * `/watchlist` page (design §D).
  */
 const provider: RowProvider = {
   rowId: "yourWatchlist",
@@ -23,18 +26,8 @@ const provider: RowProvider = {
   },
   async fetchPage(ctx, cursor) {
     if (cursor) return { items: [], cursor: null, partial: false };
-    const { items, partial } = await listAvailable(PAGE_SIZE, {
-      userId: ctx.userId,
-      mediaService: ctx.mediaService,
-      catalog: ctx.catalog,
-      ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
-      log: ctx.logger,
-    });
-    // Strip watchlist-only fields the home row pipeline doesn't expose. The
-    // shared `CompactMediaItem` shape is a structural subset, so `items`
-    // satisfies `RowPage["items"]` once we drop the extras here.
-    const compact = items.map(({ addedAt: _addedAt, addedSource: _addedSource, ...rest }) => rest);
-    return { items: compact, cursor: null, partial };
+    const { rows, partial } = await yourWatchlistSource.fetchRawSet(ctx, undefined, null);
+    return { items: rows, cursor: null, partial };
   },
 };
 

@@ -13,7 +13,7 @@ const hasAnyMock = vi.mocked(hasAny);
 const listAvailableMock = vi.mocked(listAvailable);
 
 describe("rows/your-watchlist", () => {
-  it("delegates fetchPage to watchlistService.listAvailable and strips watchlist-only fields", async () => {
+  it("delegates fetchPage to watchlistService.listAvailable and preserves addedAt/addedSource (unified shape, §D)", async () => {
     const ctx = makeRowCtx();
     listAvailableMock.mockResolvedValueOnce({
       items: [
@@ -40,11 +40,11 @@ describe("rows/your-watchlist", () => {
 
     const page = await provider.fetchPage(ctx, null);
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1", "9"]);
-    // `addedAt` and `addedSource` belong to the watchlist wire only.
-    for (const item of page.items) {
-      expect(item).not.toHaveProperty("addedAt");
-      expect(item).not.toHaveProperty("addedSource");
-    }
+    // Design §D: the home row stops stripping these — the unified
+    // `CompactMediaItem` carries them, so home exposes the same shape as the
+    // `/watchlist` page rather than two divergent types.
+    expect(page.items[0]).toMatchObject({ addedAt: 100, addedSource: "manual" });
+    expect(page.items[1]).toMatchObject({ addedAt: 200, addedSource: "plugin" });
     expect(page.cursor).toBeNull();
     expect(page.partial).toBeFalsy();
   });

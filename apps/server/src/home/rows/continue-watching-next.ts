@@ -1,33 +1,27 @@
 import { fromContinueWatchingEntry } from "../internal/adapters";
-import type { RowProvider } from "../internal/types";
+import { makeBoundedRow } from "./_shared";
+import { continueWatchingNextSource } from "../sources/continue-watching";
 
 const PAGE_SIZE = 12;
 
 /**
  * "Up next" entries — server-stitched `nextUp` episodes plus shows the user
- * has on the shelf with no resume position yet. Bounded: the row ships in
- * one page and never paginates.
+ * has on the shelf with no resume position yet. The selection lives in
+ * `continueWatchingNextSource.fetchRawSet`; this row keeps only the projection
+ * and the bounded single-page slice (it never paginates).
  */
-const provider: RowProvider = {
+const provider = makeBoundedRow({
   rowId: "continueWatching-next",
   kind: "continueWatching",
   titleKey: "home_row_nextInYourShows_header",
   eyebrowKey: "home_row_nextInYourShows_eyebrow",
-  async eligibility(ctx) {
-    return ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user");
-  },
-  async initialCursor() {
-    return null;
-  },
-  async fetchPage(ctx) {
-    const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
-    const eligible = res.items.filter((entry) => entry.nextUp != null || entry.progressMs == null);
-    const items = eligible
+  capability: "continueWatching",
+  source: continueWatchingNextSource,
+  project: (_ctx, rows) =>
+    rows
       .map((entry) => fromContinueWatchingEntry(entry, { useNextUp: entry.nextUp != null }))
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .slice(0, PAGE_SIZE);
-    return { items, cursor: null, partial: res.partial };
-  },
-};
+      .slice(0, PAGE_SIZE),
+});
 
 export default provider;

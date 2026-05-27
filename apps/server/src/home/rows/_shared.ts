@@ -1,7 +1,9 @@
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+import type { RowKind } from "@ent-mcp/shared/home";
+import type { MediaSource } from "../../media";
 import { extractTmdbId, fromCanonicalMetadata } from "../internal/adapters";
-import type { InternalCompactMediaItem, RowContext } from "../internal/types";
+import type { InternalCompactMediaItem, RowContext, RowProvider } from "../internal/types";
 import { similarSource } from "../sources/similar";
 
 export interface MediaKey {
@@ -106,6 +108,45 @@ export async function fetchSimilarPage(
 // fallow-ignore-next-line unused-export
 export function __clearSimilarFeedCacheForTests(): void {
   similarFeedCache.clear();
+}
+
+/**
+ * Builds a bounded (cursor-less) capability-gated row from a `MediaSource`.
+ * The `continueWatching-next` and `upcomingForYou` rows ship one page and never
+ * paginate, so they share the same provider shape — `eligibility` flips on a
+ * capability provider, `initialCursor` is null, and `fetchPage` pulls the
+ * source's raw set then projects it (cursor always null, `partial` rides
+ * through). Only the capability, source, and per-row projection differ, so they
+ * pass them as config (mirrors `makeDiscoverSnapshotRow` / `makeRecommendedForYou`).
+ */
+export function makeBoundedRow<Row>(config: {
+  rowId: string;
+  kind: RowKind;
+  titleKey: string;
+  eyebrowKey?: string;
+  capability: string;
+  source: MediaSource<void, Row>;
+  project: (
+    ctx: RowContext,
+    rows: Row[],
+  ) => InternalCompactMediaItem[] | Promise<InternalCompactMediaItem[]>;
+}): RowProvider {
+  return {
+    rowId: config.rowId,
+    kind: config.kind,
+    titleKey: config.titleKey,
+    ...(config.eyebrowKey ? { eyebrowKey: config.eyebrowKey } : {}),
+    async eligibility(ctx) {
+      return ctx.mediaService.hasCapabilityProvider(config.capability, "v1", "user");
+    },
+    async initialCursor() {
+      return null;
+    },
+    async fetchPage(ctx) {
+      const { rows, partial } = await config.source.fetchRawSet(ctx, undefined, null);
+      return { items: await config.project(ctx, rows), cursor: null, partial };
+    },
+  };
 }
 
 interface LoadCanonicalOptions<T> {
