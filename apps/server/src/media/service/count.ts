@@ -1,9 +1,6 @@
 import type { ActiveRow, MediaRowBucket } from "@ent-mcp/shared/media";
-import { keyToId } from "@ent-mcp/shared/watchlist";
-import { getMatchingServersCached } from "../availability-cache";
-import { classifyBucket, previewForClassify } from "../classify";
-import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";
-import type { MatchingServer } from "../types";
+import type { BatchLoadContext } from "../pipeline/batch-load";
+import { classifyRows } from "./classify-rows";
 
 /**
  * A tally of how many rows fall into each of the five visible media buckets.
@@ -23,12 +20,12 @@ export interface CountBucketsContext extends BatchLoadContext {
 }
 
 /**
- * Count-mode aggregate (design §G): `batchLoad → classify → tally`, skipping the
- * enrich/sort/paginate stages of the read pipeline. Walks each active row once
- * with the shared status + metadata + progress fan-out plus cached matching-server
- * probes — no artwork dispatch, no cold-fill — and tallies the bucket each row
- * classifies into. This is the single definition of the bucket-classify count
- * loop that the watchlist `getCounts` copy used to hand-roll.
+ * Count-mode aggregate (design §G): classify every active row once via the
+ * shared `classifyRows` pass and tally the bucket each row lands in, skipping
+ * the enrich/sort/paginate stages of the read pipeline. Empty input does no
+ * plugin work (the `classifyRows` short-circuit). `partial` is discarded — the
+ * `WatchlistCounts` wire shape has no partial field, matching the pre-refactor
+ * `getCounts` which never surfaced it.
  */
 export async function countBuckets(
   rows: ReadonlyArray<ActiveRow>,
@@ -41,31 +38,9 @@ export async function countBuckets(
     unavailable: 0,
     upcoming: 0,
   };
-  if (rows.length === 0) return counts;
 
-  const { statuses, metadata, progress } = await batchLoad(rows, ctx);
-
-  // Matching-server probes are request-shared via the availability cache, so the
-  // paired `/watchlist` + `/watchlist/counts` round-trip pays one probe per row.
-  const serverProbes = await Promise.allSettled(
-    rows.map((row) =>
-      getMatchingServersCached(ctx.userId, ctx.mediaService, row.tmdbId, row.mediaType),
-    ),
-  );
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
-    const probe = serverProbes[i]!;
-    const servers: MatchingServer[] = probe.status === "fulfilled" ? probe.value : [];
-    const preview = previewForClassify(
-      metadata[composite],
-      statuses[composite],
-      servers,
-      progress.get(composite),
-    );
-    counts[classifyBucket(preview)]++;
-  }
+  const { classified } = await classifyRows(rows, ctx);
+  for (const { bucket } of classified) counts[bucket]++;
 
   return counts;
 }

@@ -184,8 +184,9 @@ apps/server/src/watchlist/                  THIN product shell (rev 9; consolida
     items.ts          MediaSource<ItemsParams>   stages:{classify:true, filter:"bucket"|"mood", sort, cursorMode}
                                                  keyset for sort=recent; offset for alpha|runtime|status (§S.1)
     mood-items.ts     MediaSource<MoodParams>    stages:{filter:"mood", cursorMode:"keyset"}  (§S.3)
-    tonight.ts        MediaSource<void>          fetchRawSet runs score+pick over active set → rows already
-                                                 ranked + partial; ⊥ cursor (bounded). stages:{sort:"none"} (§S.2)
+    tonight.ts        MediaSource<void>          fetchRawSet = classify pre-filter over active set → watchable
+                                                 (ready|in-progress) raw rows; ⊥ cursor (bounded). stages:{sort:"none"}.
+                                                 score+pick ranks+splits in the envelope (§S.2 — score needs enriched fields)
     recently.ts       MediaSource<RecentlyParams> stages:{sort:"recent", cursorMode:"keyset"}; ⊥ cursor (§I.api)
 
   service.ts        THIN (rev 9) — section envelope + aggregates only:
@@ -267,7 +268,7 @@ listItems(ctx, opts) → wrap( media.listRows(itemsSource(params), { params, cur
 
 ### S.2 Tonight source + envelope (rev 9)
 
-`score` / `pick` ranking stays watchlist product, but now runs **inside the tonight source's `fetchRawSet`** over the active set, returning rows already ranked + `partial`. The pipeline enriches and returns a **flat** `Page.items` (V.TN1, consolidation §H). The hero-vs-alternates split (`items[0]` hero, ≤4 alternates) is an **envelope concern** — the thin `service.ts` section wrapper splits the flat `Page.items`. No cursor (bounded page).
+`score` / `pick` ranking stays watchlist product. **Ranking runs in the section envelope, not in `fetchRawSet`** (corrected rev 9.1): `score` reads *enriched* fields — `status`, `availability`, `runtimeMin`, `genres`, `progress` — which only exist after the pipeline enriches, so the source cannot rank raw rows without enriching them twice. So the source's `fetchRawSet` does only the cheap **classify pre-filter** (keep `ready`/`in-progress` rows, the same `(status, metadata, servers, progress)` signals `/counts` uses, via the shared `media.classifyRows`), returning watchable raw rows. The pipeline enriches them into a **flat** `Page.items` (V.TN1, consolidation §H). The thin `service.ts` envelope then runs `pick` over the flat enriched page — `pick` is the unchanged watchlist-product heuristic that ranks by `score` and splits into a hero (`items[0]`) + ≤4 alternates with a diversity penalty + ineligibility cutoff. No cursor (bounded page). This preserves the pre-refactor data flow exactly (pre-filter → enrich → `pick`); RISK-105 holds because the ranking heuristic stays watchlist-owned and operates on the same enriched candidate set as before.
 
 ```
 score(item, prior?) →
@@ -279,23 +280,20 @@ score(item, prior?) →
     - diversity(item, prior) * 5                 // anti-repeat across alternates
     - 1000 if bucket ∈ {awaiting, upcoming, unavailable}      // rev 6
 
-// watchlist/sources/tonight.ts — ranking is the RAW shaping for this source.
+// watchlist/sources/tonight.ts — RAW shaping = the classify pre-filter only.
 tonightSource.fetchRawSet(ctx, _, _cursor):
     rows = media.repo.list(userId, { state: "active" })
-    candidates = rows.filter(r => classifyBucket(...) ∈ {ready, in-progress})   // media.classify
-    ranked = sortDesc(candidates, score)                                        // already ranked, ⊥ sliced
-    return { rows: ranked, partial: <any probe soft-failed> }
-// stages: { sort: "none" (raw order preserved), cursorMode: keyset (unused; bounded) }
+    candidates = classifyRows(rows).filter(c => c.bucket ∈ {ready, in-progress}).map(c => c.row)
+    return { rows: candidates, partial: ⊥ }       // pre-filter degrade swallowed; ⊥ ranked, ⊥ sliced
+// stages: { sort: "none" (order set by pick), cursorMode: keyset (unused; bounded) }
 
-// pipeline (media.listRows) enriches → flat Page.items, preserving raw order.
+// pipeline (media.listRows) enriches the candidates → flat Page.items.
 
-// thin service.ts envelope splits the flat page (hero/alternate = product shape):
+// thin service.ts envelope ranks + splits the flat page (score/pick = product shape):
 getTonightSection(ctx):
     page = media.listRows(tonightSource, { params: ⊥, cursor: ⊥, limit })
-    sorted = page.items                                          // already ranked by the source
-    hero = sorted[0]
-    alts = sorted.slice(1).filter(noRepeatGenres(hero)).slice(0, 4)
-    return { items: [hero, ...alts], partial: page.partial }
+    return pick(page.items)                       // ranks by score, hero = items[0] + ≤4 alternates
+                                                  // → { items: [hero, ...alts], partial: page.partial }
 ```
 
 Cache: `tonight:<userId>` 5 min TTL. Invalidate on watchlist mutation.

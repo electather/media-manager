@@ -1,28 +1,13 @@
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import {
-  keyToId,
-  type WatchlistItem,
-  type WatchlistSectionResponse,
-} from "@ent-mcp/shared/watchlist";
-import {
-  classifyBucket,
-  enrich,
-  getMatchingServersCached,
-  listAllActiveRows,
-  loadProgressMap,
-  previewForClassify,
-  type ActiveRow,
-  type MatchingServer,
-  type WatchlistEnrichContext,
-} from "../../media";
+import { type WatchlistItem, type WatchlistSectionResponse } from "@ent-mcp/shared/watchlist";
+import { listRows } from "../../media";
 import { MemoryCache } from "../../cache/memory";
+import { toSourceContext, type WatchlistSourceCtx } from "../sources/context";
+import { tonightCfg, tonightSource } from "../sources/tonight";
 import { pick } from "./pick";
 
 const CACHE_TTL_MS = 5 * 60_000;
 const CACHE_MAX_ENTRIES = 5000;
 const cache = new MemoryCache(CACHE_MAX_ENTRIES);
-
-type SectionContext = Omit<WatchlistEnrichContext, "loadProgressMap">;
 
 function sectionCacheKey(userId: string): string {
   return `watchlist:tonight:${userId}`;
@@ -30,72 +15,28 @@ function sectionCacheKey(userId: string): string {
 
 /**
  * Tonight section: hero + ≤4 alternates from the user's ready / in-progress
- * pool, ranked by `tonight/score.ts`. Pre-filters rows via the same cheap
- * signals `/counts` uses so we don't enrich a 1000-row backlog just to find
- * the top 5. Cached 5 min per user (RISK-007 / V.WL4).
+ * pool. The `tonight` `MediaSource` runs the cheap classify pre-filter and the
+ * media pipeline (`listRows`) enriches the candidates into a flat page; the
+ * watchlist-product ranking + hero/alternate split (`pick`) runs here, in the
+ * envelope, because `score` reads enriched fields the source's raw rows don't
+ * carry (V.TN1 — `Page.items` stays flat, the split is envelope-side). Cached
+ * 5 min per user (RISK-007 / V.WL4); invalidated on watchlist mutation.
  */
-// fallow-ignore-next-line complexity
-export async function getSection(ctx: SectionContext): Promise<WatchlistSectionResponse> {
-  const enrichCtx: WatchlistEnrichContext = { ...ctx, loadProgressMap };
+export async function getSection(c: WatchlistSourceCtx): Promise<WatchlistSectionResponse> {
   // fallow-ignore-next-line code-duplication
-  const key = sectionCacheKey(ctx.userId);
+  const key = sectionCacheKey(c.userId);
   const hit = await cache.get<WatchlistSectionResponse>(key);
   if (hit !== null) return hit;
 
-  const rows = await listAllActiveRows(ctx.userId);
-  if (rows.length === 0) {
-    const empty: WatchlistSectionResponse = { items: [], partial: false };
-    await cache.set(key, empty, CACHE_TTL_MS);
-    return empty;
-  }
-
-  const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
-  const [statuses, metadata, progress] = await Promise.all([
-    // fallow-ignore-next-line code-duplication
-    ctx.mediaService
-      .getStatusBatch(rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })))
-      .catch((err) => {
-        ctx.log.warn("[watchlist:tonight] getStatusBatch failed", err);
-        return {} as Record<string, string>;
-      }),
-    ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-      ctx.log.warn("[watchlist:tonight] getMetadataBatch failed", err);
-      return {} as Record<string, CanonicalMetadata>;
-    }),
-    loadProgressMap(ctx),
-  ]);
-
-  // fallow-ignore-next-line code-duplication
-  const serverProbes = await Promise.allSettled(
-    rows.map((r) => getMatchingServersCached(ctx.userId, ctx.mediaService, r.tmdbId, r.mediaType)),
-  );
-  const candidates: ActiveRow[] = [];
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]!;
-    const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
-    const probe = serverProbes[i]!;
-    const servers: MatchingServer[] = probe.status === "fulfilled" ? probe.value : [];
-    const preview = previewForClassify(
-      metadata[composite],
-      statuses[composite],
-      servers,
-      progress.map.get(composite),
-    );
-    const bucket = classifyBucket(preview);
-    if (bucket === "ready" || bucket === "in-progress") candidates.push(row);
-  }
-  if (candidates.length === 0) {
-    const empty: WatchlistSectionResponse = { items: [], partial: false };
-    await cache.set(key, empty, CACHE_TTL_MS);
-    return empty;
-  }
-
-  const enriched = await enrich(candidates, enrichCtx);
-  const result = pick(enriched.items);
+  const page = await listRows(tonightSource, tonightCfg(), toSourceContext(c));
+  // `pick` reduces the flat ranked page to items[0] hero + ≤4 alternates. The
+  // cast is sound (active rows always carry `addedAt`/`addedSource`); US-024
+  // deletes `WatchlistItem` and `Page.items` widens to `CompactMediaItem`.
+  const result = pick(page.items as WatchlistItem[]);
   // fallow-ignore-next-line code-duplication
   const section: WatchlistSectionResponse = {
     items: result.items,
-    partial: enriched.partial || result.partial,
+    partial: page.partial || result.partial,
   };
   await cache.set(key, section, CACHE_TTL_MS);
   return section;
