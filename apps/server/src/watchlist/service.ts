@@ -1,7 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import { consola } from "consola";
 import {
-  keyToId,
   WATCHLIST_LIST_DEFAULT_LIMIT,
   WATCHLIST_LIST_MAX_LIMIT,
   type MoodId,
@@ -15,7 +14,6 @@ import {
   type WatchlistSort,
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import type { ActiveRow } from "@ent-mcp/shared/media";
 import { ArtworkService } from "../artwork";
 import { MemoryCache } from "../cache/memory";
@@ -39,18 +37,20 @@ import {
   decodeCursor,
   decode,
   type AddItemResult,
+  type Cursor,
   type GetArtworkFn,
   type MediaService,
-  type PageCursor,
+  type MediaSource,
+  type PipelineConfig,
   type SeedResult,
   type ToCanonicalRowFn,
 } from "../media";
 
 export type { AddItemResult, SeedResult };
-import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 import { itemsSource, itemsCfg, toItemsParams } from "./sources/items";
+import { moodItemsSource, moodItemsCfg, type MoodParams } from "./sources/mood-items";
 import { toSourceContext } from "./sources/context";
 
 /**
@@ -290,15 +290,25 @@ export interface ListItemsOptions {
   mood?: MoodId;
 }
 
-const MAX_EMPTY_HOPS = 2;
-const OVERSHOOT_FACTOR = 3;
 /**
- * Total hop ceiling for mood pagination. Empty/sparse windows that don't
- * advance the accumulator burn one hop each; this caps how many we'll spend
- * before giving up so a pathologically large + pathologically sparse mood
- * doesn't pin a request. Scans up to `MAX_MOOD_HOPS * fetchSize` rows.
+ * Run a watchlist section read through a `MediaSource`: decode the incoming
+ * cursor against the source's declared mode (a bad/foreign/mode-mismatched
+ * cursor → `null` → first page, V.CU1), list via the shared media pipeline, and
+ * bridge the result onto the `WatchlistResponse` wire shape. The pipeline yields
+ * public `CompactMediaItem`s (no `WatchlistItem` construction); active rows
+ * always carry `addedAt`/`addedSource`, so the cast is sound until US-024
+ * deletes `WatchlistItem` and the response widens to `CompactMediaItem`.
  */
-const MAX_MOOD_HOPS = 20;
+async function readSection<P>(
+  c: ResolvedWatchlistContext,
+  source: MediaSource<P>,
+  toCfg: (cursor: Cursor | null) => PipelineConfig<P>,
+  rawCursor: string | undefined,
+): Promise<WatchlistResponse> {
+  const cursor = rawCursor ? decode(rawCursor, source.stages.cursorMode) : null;
+  const page = await listRows(source, toCfg(cursor), toSourceContext(c));
+  return { items: page.items as WatchlistItem[], cursor: page.cursor, partial: page.partial };
+}
 
 /**
  * Paginated list of watchlist items with sort + bucket + mood filters. Thin
@@ -307,8 +317,7 @@ const MAX_MOOD_HOPS = 20;
  * `media.listRows` owns enrich / classify / filter / sort / paginate / cursor.
  * `recent` + no filter rides the keyset window; every other read (a non-recent
  * metadata sort, or a bucket/mood filter) rides offset mode. When `bucket` is
- * omitted, every active row surfaces (V.WL2). A bad/foreign/mode-mismatched
- * cursor decodes to `null` → first page (V.CU1, watchlist's null mapping).
+ * omitted, every active row surfaces (V.WL2).
  */
 export async function listItems(
   ctx: MaybeRowContext,
@@ -316,41 +325,7 @@ export async function listItems(
 ): Promise<WatchlistResponse> {
   const c = asWatchlistContext(ctx);
   const params = toItemsParams({ ...opts, limit: clampLimit(opts.limit) });
-  const source = itemsSource(params);
-  // V.CU1: decode against the source's declared mode; null (bad/foreign/
-  // mode-mismatch) maps to the first page, watchlist's existing null behavior.
-  const cursor = opts.cursor ? decode(opts.cursor, source.stages.cursorMode) : null;
-  const page = await listRows(source, itemsCfg(params, cursor), toSourceContext(c));
-  // The pipeline yields the public `CompactMediaItem` shape (no `WatchlistItem`
-  // construction). Active rows always carry `addedAt`/`addedSource`, so they
-  // are `WatchlistItem`s at runtime; the cast bridges to the current
-  // `WatchlistResponse` type until US-024 deletes `WatchlistItem` and the
-  // response widens to `CompactMediaItem`.
-  return { items: page.items as WatchlistItem[], cursor: page.cursor, partial: page.partial };
-}
-
-async function filterByMood(
-  rows: ActiveRow[],
-  ctx: ResolvedWatchlistContext,
-  mood: MoodId,
-): Promise<{
-  rows: ActiveRow[];
-  partial: boolean;
-  metadata: Record<string, CanonicalMetadata>;
-}> {
-  let partial = false;
-  // fallow-ignore-next-line code-duplication
-  const metadata = await ctx.catalog
-    .getMetadataBatch(rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType })))
-    .catch((err) => {
-      ctx.log.warn("[watchlist:listItems] mood meta batch failed", err);
-      partial = true;
-      return {} as Record<string, CanonicalMetadata>;
-    });
-  const kept = rows.filter((r) =>
-    deriveMoods(metadata[keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })]).includes(mood),
-  );
-  return { rows: kept, partial, metadata };
+  return readSection(c, itemsSource(params), (cursor) => itemsCfg(params, cursor), opts.cursor);
 }
 
 /**
@@ -386,81 +361,19 @@ export interface ListMoodItemsOptions {
 }
 
 /**
- * Paginated rows for a specific mood. Reuses the keyset cursor pattern with
- * overshoot — the mood predicate is applied after the keyset slice so the
- * server can serve a stable page even when the predicate drops most rows.
- * Hops accumulate matched items across windows; underfilled hops do not
- * count against the empty-streak budget so a request keeps scanning while
- * it is making progress.
+ * Paginated rows for a specific mood. Thin envelope over the media read
+ * pipeline (design §S.3 / consolidation §H): the `mood-items` `MediaSource`
+ * scans keyset windows, applies the mood predicate, and accumulates a full page
+ * across windows (it owns the overshoot + empty-streak budget so a sparse mood
+ * still fills a page); `media.listRows` owns enrich / sort / paginate / cursor.
+ * A bad/foreign/mode-mismatched cursor decodes to `null` → first page (V.CU1).
  */
-// fallow-ignore-next-line complexity
 export async function listMoodItems(
   ctx: MaybeRowContext,
   moodId: MoodId,
   opts: ListMoodItemsOptions = {},
 ): Promise<WatchlistResponse> {
-  // fallow-ignore-next-line code-duplication
   const c = asWatchlistContext(ctx);
-  const limit = clampLimit(opts.limit);
-  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
-  const fetchSize = Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT);
-
-  let scanCursor: PageCursor | undefined = cursor ?? undefined;
-  const collectedItems: WatchlistItem[] = [];
-  const collectedSources: ActiveRow[] = [];
-  let enrichPartial = false;
-  let nextCursor: string | null = null;
-  let emptyStreak = 0;
-
-  // fallow-ignore-next-line code-duplication
-  for (let hop = 0; hop < MAX_MOOD_HOPS; hop++) {
-    const rows = await listActiveRowsKeyset(c.userId, {
-      limit: fetchSize,
-      ...(scanCursor ? { cursor: scanCursor } : {}),
-    });
-    if (rows.length === 0) {
-      nextCursor = null;
-      break;
-    }
-    const {
-      rows: filtered,
-      partial: moodPartial,
-      metadata: moodMeta,
-    } = await filterByMood(rows, c, moodId);
-    if (moodPartial) enrichPartial = true;
-    const enriched = await enrich(filtered, c, { prefetchedMetadata: moodMeta });
-    if (enriched.partial) enrichPartial = true;
-    const need = limit - collectedItems.length;
-    if (enriched.items.length === 0) {
-      emptyStreak++;
-    } else {
-      emptyStreak = 0;
-      collectedItems.push(...enriched.items.slice(0, need));
-      collectedSources.push(...enriched.sources.slice(0, need));
-    }
-    const lastScanned = rows[rows.length - 1]!;
-    const exhausted = rows.length < fetchSize;
-    if (collectedItems.length >= limit) {
-      const last = collectedSources[collectedSources.length - 1] ?? lastScanned;
-      nextCursor =
-        exhausted && enriched.items.length <= need
-          ? null
-          : encodeCursor({ addedAt: last.addedAt, id: last.id });
-      break;
-    }
-    if (exhausted) {
-      nextCursor = null;
-      break;
-    }
-    if (emptyStreak > MAX_EMPTY_HOPS) {
-      nextCursor =
-        collectedItems.length > 0
-          ? encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id })
-          : null;
-      break;
-    }
-    scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
-  }
-
-  return { items: collectedItems, cursor: nextCursor, partial: enrichPartial };
+  const params: MoodParams = { moodId, limit: clampLimit(opts.limit) };
+  return readSection(c, moodItemsSource, (cursor) => moodItemsCfg(params, cursor), opts.cursor);
 }

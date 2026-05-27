@@ -336,12 +336,16 @@ moodSummary(ctx):                                              // wire shape unc
 // mood-items = a MediaSource (rev 9) through media.listRows. watchlist/sources/mood-items.ts.
 moodItemsSource: MediaSource<MoodParams> = {
   sourceId: "watchlist.mood-items",
-  fetchRawSet(ctx, { moodId }, cursor) →
-    rows = media.repo.listPage(userId, { cursor, state: "active", limit: limit*overshoot })   // RAW only
-    return { rows, partial: false, nextRaw: rows.last }
-  stages: { filter: "mood", sort: "recent", cursorMode: "keyset" },   // mood predicate = pipeline filter stage
+  fetchRawSet(ctx, { moodId, limit }, cursor) →                   // RAW rows only (V.MC1)
+    // Mood is a watchlist-product predicate media must not derive (V.RG1), so it
+    // runs HERE, not as a pipeline stage: scan keyset windows of limit*overshoot,
+    // keep rows whose genres derive `moodId`, accumulate up to `limit` matches
+    // across windows (empty-streak budget so a sparse mood still fills a page).
+    return { rows: matched, partial, nextRaw }                    // nextRaw = last matched row's hop token;
+    //   OMITTED when exhausted or the empty-streak budget gives up empty → cursor:null (#500 / V.PG1)
+  stages: { filter: "mood", sort: "recent", cursorMode: "keyset" },   // filter:"mood" no-ops in the pipeline — the predicate already ran source-side
 }
-listMoodItems(ctx, moodId, opts) → media.listRows(moodItemsSource, { params: { moodId }, cursor: decode(opts.cursor), limit })
+listMoodItems(ctx, moodId, opts) → media.listRows(moodItemsSource, { params: { moodId, limit }, cursor: decode(opts.cursor), limit })
 ```
 
 Mood derivation pure → testable. No artwork during `moodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `moodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request). The pipeline's keyset-paginate preserves #500: if the empty-streak budget exits before collecting any matching rows, it returns `cursor: null` so the client does not show phantom load-more affordances (consolidation §C / V.PG1).

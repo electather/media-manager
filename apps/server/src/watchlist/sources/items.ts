@@ -18,6 +18,8 @@ import {
   type SourceContext,
 } from "../../media";
 import { derive as deriveMoods } from "../moods/derive";
+import { decodeKeyset, rawToken } from "./keyset";
+import { loadRowMetadata } from "./metadata";
 
 /**
  * Request params for the watchlist `items` source. `sort`/`bucket`/`mood` come
@@ -124,23 +126,6 @@ export function itemsCfg(params: ItemsParams, cursor: Cursor | null): PipelineCo
   };
 }
 
-/** Parse the keyset cursor's opaque `k` (`"addedAt:id"`) back to a page cursor. */
-// fallow-ignore-next-line complexity
-function decodeKeyset(cursor: Cursor | null): { addedAt: number; id: string } | undefined {
-  if (!cursor || cursor.mode !== "keyset") return undefined;
-  const sep = cursor.k.indexOf(":");
-  if (sep < 0) return undefined;
-  const addedAt = Number(cursor.k.slice(0, sep));
-  const id = cursor.k.slice(sep + 1);
-  if (!Number.isFinite(addedAt) || id.length === 0) return undefined;
-  return { addedAt, id };
-}
-
-/** The keyset hop token the pipeline mints the next cursor from. */
-function rawToken(row: ActiveRow): RawPageToken {
-  return `${row.addedAt}:${row.id}`;
-}
-
 /**
  * Keyset window for `recent` + no filter. Fetches exactly `limit` rows (no
  * over-fetch — there is no downstream filter to prune them), and threads back
@@ -200,15 +185,7 @@ async function loadMetaIfNeeded(
   params: ItemsParams,
 ): Promise<{ map: Record<string, CanonicalMetadata>; partial: boolean }> {
   if (!needsMeta(params)) return { map: {}, partial: false };
-  let partial = false;
-  const map = await ctx.catalog
-    .getMetadataBatch(rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType })))
-    .catch((err) => {
-      ctx.logger.warn("[watchlist:items] metadata batch failed", err);
-      partial = true;
-      return {} as Record<string, CanonicalMetadata>;
-    });
-  return { map, partial };
+  return loadRowMetadata(ctx, rows, "items");
 }
 
 function filterRowsByMood(
