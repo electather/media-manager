@@ -1065,9 +1065,6 @@ export {
   clearSeedLock,
   hasUserSeeded,
   listSeededUserIds,
-  encodeCursor,
-  decodeCursor,
-  type PageCursor,
   type UpsertActiveResult,
   type SoftRemoveResult,
 } from "../repo";

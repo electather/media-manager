@@ -1,6 +1,8 @@
 import type { ActiveRow } from "@ent-mcp/shared/media";
 import type { WatchlistResponse } from "@ent-mcp/shared/watchlist";
 import {
+  decode,
+  encode,
   enrich,
   getMatchingServersCached,
   hasActiveRows,
@@ -8,9 +10,8 @@ import {
   listActiveRowsKeyset,
   listAvailableCandidates,
   seedFromPlugins as mediaSeedFromPlugins,
-  encodeCursor,
-  decodeCursor,
 } from "../../media";
+import { decodeKeyset, rawToken } from "../sources/keyset";
 import { asWatchlistContext, clampLimit, type MaybeRowContext } from "./context";
 
 export interface GetItemsOptions {
@@ -33,7 +34,10 @@ export async function getItems(
   // fallow-ignore-next-line code-duplication
   const c = asWatchlistContext(ctx);
   const limit = clampLimit(opts.limit);
-  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
+  // Unified codec (media.cursor): a bad/foreign/non-keyset cursor decodes to
+  // null → undefined here, which the seed check + keyset read both treat as the
+  // first page (watchlist null → first-page, V.CU1).
+  const cursor = opts.cursor ? decodeKeyset(decode(opts.cursor, "keyset")) : undefined;
   let partial = false;
 
   // Seed only on the *first* page; cursor implies the user already has rows.
@@ -53,8 +57,7 @@ export async function getItems(
   }
   const enriched = await enrich(rows, c);
   const last = rows[rows.length - 1]!;
-  const nextCursor =
-    rows.length < limit ? null : encodeCursor({ addedAt: last.addedAt, id: last.id });
+  const nextCursor = rows.length < limit ? null : encode({ mode: "keyset", k: rawToken(last) });
   return {
     items: enriched.items,
     cursor: nextCursor,
