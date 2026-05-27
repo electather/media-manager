@@ -1,8 +1,4 @@
-import type { ConsolaInstance } from "consola";
-import { consola } from "consola";
 import {
-  WATCHLIST_LIST_DEFAULT_LIMIT,
-  WATCHLIST_LIST_MAX_LIMIT,
   type MoodId,
   type WatchlistBucket,
   type WatchlistCounts,
@@ -14,39 +10,28 @@ import {
   type WatchlistSort,
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
-import type { ActiveRow } from "@ent-mcp/shared/media";
-import { ArtworkService } from "../artwork";
 import { MemoryCache } from "../cache/memory";
-import { toCanonicalRow, type CatalogService } from "../catalog";
 import {
   addItem as mediaAddItem,
   removeItem as mediaRemoveItem,
   seedFromPlugins as mediaSeedFromPlugins,
   syncFromPlugins as mediaSyncFromPlugins,
   countBuckets,
-  enrich,
-  getMatchingServersCached,
   listRows,
-  loadProgressMap,
   listAllActiveRows,
-  listActiveRowsKeyset,
-  listAvailableCandidates,
-  hasActiveRows,
-  hasUserSeeded,
-  encodeCursor,
-  decodeCursor,
   decode,
   type AddItemResult,
   type Cursor,
-  type GetArtworkFn,
-  type MediaService,
   type MediaSource,
   type PipelineConfig,
   type SeedResult,
-  type ToCanonicalRowFn,
 } from "../media";
-
-export type { AddItemResult, SeedResult };
+import {
+  asWatchlistContext,
+  clampLimit,
+  type MaybeRowContext,
+  type ResolvedWatchlistContext,
+} from "./internal/context";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 import { itemsSource, itemsCfg, toItemsParams } from "./sources/items";
@@ -54,99 +39,12 @@ import { moodItemsSource, moodItemsCfg, type MoodParams } from "./sources/mood-i
 import { recentlySource, recentlyCfg } from "./sources/recently";
 import { toSourceContext } from "./sources/context";
 
-/**
- * Per-request context. Structurally compatible with the home row context so
- * `home/rows/your-watchlist.ts` can pass its existing `RowContext`.
- */
-export interface WatchlistContext {
-  userId: string;
-  mediaService: MediaService;
-  catalog: CatalogService;
-  deadlineMs?: number;
-  log: ConsolaInstance;
-}
-
-interface ResolvedWatchlistContext extends WatchlistContext {
-  loadProgressMap: typeof loadProgressMap;
-  getArtwork: GetArtworkFn;
-  toCanonicalRow: ToCanonicalRowFn;
-}
-
-interface MaybeRowContext {
-  userId: string;
-  mediaService: MediaService;
-  catalog: CatalogService;
-  deadlineMs?: number;
-  log?: ConsolaInstance;
-  logger?: ConsolaInstance;
-}
-
-function asWatchlistContext(ctx: MaybeRowContext): ResolvedWatchlistContext {
-  return {
-    userId: ctx.userId,
-    mediaService: ctx.mediaService,
-    catalog: ctx.catalog,
-    deadlineMs: ctx.deadlineMs,
-    log: ctx.log ?? ctx.logger ?? consola,
-    loadProgressMap,
-    getArtwork: (requests) => new ArtworkService(ctx.userId, ctx.catalog).getArtwork(requests),
-    toCanonicalRow,
-  };
-}
-
-export interface GetItemsOptions {
-  /** Opaque keyset cursor from a previous response. Omit on the first page. */
-  cursor?: string;
-  /** Page size cap. Defaults to 60, hard-capped at 200 to match the wire schema. */
-  limit?: number;
-}
-
-/**
- * Keyset-paginated read of the user's active watchlist. First page (no
- * cursor) triggers a plugin seed when the user has never been seeded.
- */
-// fallow-ignore-next-line complexity
-export async function getItems(
-  ctx: MaybeRowContext,
-  opts: GetItemsOptions = {},
-): Promise<WatchlistResponse> {
-  // fallow-ignore-next-line code-duplication
-  const c = asWatchlistContext(ctx);
-  const limit = clampLimit(opts.limit);
-  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
-  let partial = false;
-
-  // Seed only on the *first* page; cursor implies the user already has rows.
-  if (!cursor && !(await hasUserSeeded(c.userId))) {
-    if (!(await hasActiveRows(c.userId))) {
-      const seedRes = await seedFromPlugins(c);
-      partial = partial || seedRes.partial;
-    }
-  }
-
-  const rows = await listActiveRowsKeyset(c.userId, {
-    limit,
-    ...(cursor ? { cursor } : {}),
-  });
-  if (rows.length === 0) {
-    return { items: [], cursor: null, partial };
-  }
-  const enriched = await enrich(rows, c);
-  const last = rows[rows.length - 1]!;
-  const nextCursor =
-    rows.length < limit ? null : encodeCursor({ addedAt: last.addedAt, id: last.id });
-  return {
-    items: enriched.items,
-    cursor: nextCursor,
-    partial: partial || enriched.partial,
-  };
-}
-
-function clampLimit(value: number | undefined): number {
-  if (value == null) return WATCHLIST_LIST_DEFAULT_LIMIT;
-  if (value <= 0) return WATCHLIST_LIST_DEFAULT_LIMIT;
-  return Math.min(value, WATCHLIST_LIST_MAX_LIMIT);
-}
+// Per-request context resolution + the non-section list reads (basic keyset
+// list, available-on-server) live in `internal/`; the public surface is
+// re-exported here so the barrel and consumers keep their import path.
+export type { WatchlistContext } from "./internal/context";
+export type { AddItemResult, SeedResult };
+export { getItems, listAvailable, hasAny, type GetItemsOptions } from "./internal/reads";
 
 const COUNTS_CACHE_TTL_MS = 30_000;
 const COUNTS_CACHE_MAX_ENTRIES = 5000;
@@ -226,57 +124,6 @@ export async function seedFromPlugins(ctx: MaybeRowContext): Promise<SeedResult>
 /** Periodic plugin merge. Delegates to the media-owned `watchlist_items` write. */
 export async function syncFromPlugins(ctx: MaybeRowContext): Promise<SeedResult> {
   return mediaSyncFromPlugins(asWatchlistContext(ctx));
-}
-
-/**
- * Returns up to `limit` active items the user actually has on a connected
- * library server. Pre-filters by `getMatchingServers` before the enrich
- * fan-out so we don't pay the metadata batch for items the user can't play.
- *
- * Triggers a seed when the user has no active rows and has not been seeded
- * yet, then retries once.
- */
-// fallow-ignore-next-line complexity
-export async function listAvailable(
-  limit: number,
-  ctx: MaybeRowContext,
-): Promise<WatchlistResponse> {
-  const c = asWatchlistContext(ctx);
-  let partial = false;
-  let candidates = await listAvailableCandidates(c.userId, limit * 4);
-  if (candidates.length === 0 && !(await hasUserSeeded(c.userId))) {
-    const seedRes = await seedFromPlugins(c);
-    partial = partial || seedRes.partial;
-    candidates = await listAvailableCandidates(c.userId, limit * 4);
-  }
-  if (candidates.length === 0) return { items: [], cursor: null, partial };
-
-  // Probe matching servers in parallel — they're per-request memoized inside
-  // MediaService, but each fresh key still triggers a plugin call, so a
-  // sequential loop turned this into O(N) wall-clock latency on cold caches.
-  const probes = await Promise.allSettled(
-    candidates.map((row) =>
-      getMatchingServersCached(c.userId, c.mediaService, row.tmdbId, row.mediaType),
-    ),
-  );
-  const picked: ActiveRow[] = [];
-  for (let i = 0; i < candidates.length; i++) {
-    if (picked.length >= limit) break;
-    const probe = probes[i]!;
-    if (probe.status !== "fulfilled") {
-      partial = true;
-      continue;
-    }
-    if (probe.value.length > 0) picked.push(candidates[i]!);
-  }
-  if (picked.length === 0) return { items: [], cursor: null, partial };
-
-  const enriched = await enrich(picked, c);
-  return { items: enriched.items, cursor: null, partial: partial || enriched.partial };
-}
-
-export async function hasAny(userId: string): Promise<boolean> {
-  return hasActiveRows(userId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

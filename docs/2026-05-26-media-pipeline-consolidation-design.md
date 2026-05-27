@@ -77,6 +77,7 @@ watchlist/                              THIN product shell
   sources/         persistent-table MediaSources: items, mood-items, tonight, recently
   moods/           derive, registry, cluster-summary (aggregate, §G)
   tonight/         score, pick (ranking heuristic; §H tonight shaping)
+  internal/        per-request context resolution (asWatchlistContext, clampLimit); non-section reads (basic keyset list, available-on-server)
   service.ts       section envelope + aggregates (counts, mood-summary) → reads via listRows, writes via media barrel
   jobs/            on-watchlist-mutation (cache invalidation), sync-plugin-watchlist
 ```
