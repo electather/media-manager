@@ -16,6 +16,14 @@ vi.mock("../../../env", () => ({
   },
 }));
 
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
+
 describe("rows/continue-watching-next", () => {
   it("includes server-stitched nextUp items and tags nextUpFromServer=true", async () => {
     const ctx = makeRowCtx();
@@ -40,7 +48,7 @@ describe("rows/continue-watching-next", () => {
       partial: false,
     });
 
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.items).toHaveLength(1);
     expect(page.items[0]?.seriesContext?.nextUpFromServer).toBe(true);
     expect(page.cursor).toBeNull();
@@ -59,7 +67,7 @@ describe("rows/continue-watching-next", () => {
       ],
       partial: false,
     });
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1"]);
   });
 
@@ -70,7 +78,7 @@ describe("rows/continue-watching-next", () => {
         getContinueWatchingFeed: { mockResolvedValue: (v: unknown) => void };
       }
     ).getContinueWatchingFeed.mockResolvedValue({ items: [], partial: true });
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.partial).toBe(true);
   });
 });

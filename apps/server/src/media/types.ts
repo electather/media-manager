@@ -160,6 +160,14 @@ export interface SourceContext {
    * cold-fill is skipped.
    */
   toCanonicalRow?: ToCanonicalRowFn;
+  /**
+   * Consumer-side match-reason hint, completing the `RowContext ∪ WatchlistContext`
+   * unification (design §B): the home seed sources (`becauseYouWatched`/`similarTo`)
+   * resolve the seed title during `fetchRawSet` and stash it here so the home
+   * enrich override's `match-reason` callback can surface it on the same context
+   * object. Media itself never reads it (enrich's match-reason is consumer-injected).
+   */
+  seedTitle?: string;
 }
 
 /**

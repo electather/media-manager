@@ -27,17 +27,19 @@ vi.mock("../rows", async () => {
     rowId: "trendingNow",
     kind: "trendingNow" as const,
     titleKey: "home_row_trendingNow_header",
+    cursorMode: "offset" as const,
     eligibility: vi.fn().mockResolvedValue(true),
     initialCursor: vi.fn().mockResolvedValue(null),
-    fetchPage: vi.fn().mockResolvedValue({ items: [trendingItem], cursor: null, partial: false }),
+    load: vi.fn().mockResolvedValue({ items: [trendingItem], cursor: null, partial: false }),
   };
   const watchlist = {
     rowId: "yourWatchlist",
     kind: "yourWatchlist" as const,
     titleKey: "home_row_yourWatchlist_header",
+    cursorMode: "offset" as const,
     eligibility: vi.fn().mockResolvedValue(true),
     initialCursor: vi.fn().mockResolvedValue(null),
-    fetchPage: vi.fn().mockResolvedValue({ items: [], cursor: null, partial: false }),
+    load: vi.fn().mockResolvedValue({ items: [], cursor: null, partial: false }),
   };
   return {
     ROW_PROVIDERS: { trendingNow: trending, yourWatchlist: watchlist } as Record<
@@ -98,7 +100,7 @@ describe("composeLayout cache path", () => {
     vi.mocked(hero.pickHero).mockResolvedValueOnce(null);
     vi.mocked(layoutCache.write).mockResolvedValueOnce(undefined);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    vi.mocked(watchlist.fetchPage).mockResolvedValueOnce({
+    vi.mocked(watchlist.load).mockResolvedValueOnce({
       items: [],
       cursor: null,
       partial: true,
@@ -117,9 +119,7 @@ describe("composeLayout cache path", () => {
     vi.mocked(hero.pickHero).mockResolvedValueOnce(null);
     vi.mocked(layoutCache.write).mockResolvedValueOnce(undefined);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    vi.mocked(watchlist.fetchPage).mockRejectedValueOnce(
-      new AllPluginsFailedError("watchlist@v1", []),
-    );
+    vi.mocked(watchlist.load).mockRejectedValueOnce(new AllPluginsFailedError("watchlist@v1", []));
     const ctx = makeRowCtx();
     const out = await orchestrator.composeLayout(ctx);
     expect(out.rows.map((r) => r.rowId)).toEqual(["trendingNow", "yourWatchlist"]);
@@ -151,9 +151,7 @@ describe("composeRow", () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    vi.mocked(provider.fetchPage).mockRejectedValueOnce(
-      new AllPluginsFailedError("watchlist@v1", []),
-    );
+    vi.mocked(provider.load).mockRejectedValueOnce(new AllPluginsFailedError("watchlist@v1", []));
     const ctx = makeRowCtx();
     const out = await orchestrator.composeRow(ctx, "trendingNow", null);
     expect(out.items).toEqual([]);
@@ -168,7 +166,7 @@ describe("composeRow", () => {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    vi.mocked(provider.fetchPage).mockRejectedValueOnce(
+    vi.mocked(provider.load).mockRejectedValueOnce(
       new PluginCallError("plugin.upstream_error", "boom", "tmdb", null),
     );
     const ctx = makeRowCtx();
@@ -185,7 +183,7 @@ describe("composeRow", () => {
     vi.mocked(provider.eligibility).mockResolvedValueOnce(true);
     const abort = Object.assign(new Error("deadline exceeded"), { name: "AbortError" });
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    vi.mocked(provider.fetchPage).mockRejectedValueOnce(abort);
+    vi.mocked(provider.load).mockRejectedValueOnce(abort);
     const ctx = makeRowCtx();
     const out = await orchestrator.composeRow(ctx, "trendingNow", null);
     expect(out.items).toEqual([]);

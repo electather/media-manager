@@ -1,5 +1,5 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { MediaRowBucket } from "@ent-mcp/shared/media";
+import type { ActiveRow, MediaRowBucket } from "@ent-mcp/shared/media";
 import { classifyBucket } from "../classify";
 import { enrich, type MediaEnrichContext } from "../enrich";
 import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";
@@ -9,37 +9,51 @@ import type { MediaSource } from "../source";
 import type { Page, PipelineConfig, PipelineSort, RawPageToken, SourceContext } from "../types";
 
 /**
+ * Turns a source's raw row set into enriched, public `CompactMediaItem`s. The
+ * default (watchlist) strategy is `batchLoad` + the shared `enrich`; consumers
+ * whose rows are not persisted `ActiveRow`s and whose enrichment differs (home,
+ * which projects catalog feeds and adds a row-aware match-reason chip) inject
+ * their own. This is the one pipeline stage that legitimately varies by
+ * consumer; sort/filter/paginate stay shared (invariant V.MC1).
+ */
+export type EnrichRowsFn<Row> = (
+  rows: Row[],
+) => Promise<{ items: CompactMediaItem[]; partial: boolean }>;
+
+/**
  * The single media read path (design §C). A consumer hands a `MediaSource`
  * (which only knows how to produce a raw row set) plus an already-decoded
  * `PipelineConfig`, and `listRows` runs the shared stages:
  *
- *   fetchRawSet → batchLoad → enrich → [classify + filter] → sort → paginate
+ *   fetchRawSet → enrich → [classify + filter] → sort → paginate
  *
  * The source carries no enrich/sort/slice/cursor logic — all of that lives here
  * (invariant V.MC1). Stages opt in via `source.stages` (with `cfg` overrides).
  * Soft failures (a plugin feed degrading, a sub-load falling back) surface as
  * `partial: true` rather than throwing, so the consumer envelope decides
  * whether to ship the degraded page.
+ *
+ * `enrichRows` overrides the default `batchLoad` + `enrich` projection. When
+ * omitted, `Row` is the persisted `ActiveRow` (watchlist) and the default
+ * fan-out runs; home supplies it (its feed rows are not `ActiveRow`s and its
+ * enrichment owns the match-reason chip), in which case the default fan-out is
+ * skipped entirely.
  */
-export async function listRows<P>(
-  source: MediaSource<P>,
+export async function listRows<P, Row = ActiveRow>(
+  source: MediaSource<P, Row>,
   cfg: PipelineConfig<P>,
   ctx: SourceContext,
+  enrichRows?: EnrichRowsFn<Row>,
 ): Promise<Page> {
   // The source produces the raw row set plus its own pagination signals —
   // `partial` when a feed soft-failed, `nextRaw` for the keyset hop token.
   const raw = await source.fetchRawSet(ctx, cfg.params, cfg.cursor);
 
-  // One status + metadata + progress fan-out (design §C/§F); `enrich` consumes
-  // it via `prefetchedBatch`, so the read pays for the fan-out exactly once.
-  const batch = await batchLoad(raw.rows, toBatchContext(ctx));
-  const enriched = await enrich(raw.rows, toEnrichContext(ctx), {
-    prefetchedBatch: {
-      statuses: batch.statuses,
-      metadata: batch.metadata,
-      progress: batch.progress,
-    },
-  });
+  const enriched = enrichRows
+    ? await enrichRows(raw.rows)
+    : // The default path is only reached when `Row` defaulted to `ActiveRow`
+      // (the consumer supplied no override), so the cast is sound.
+      await defaultEnrich(raw.rows as unknown as ActiveRow[], ctx);
 
   // classify + filter, then sort, then paginate. paginate runs last over the
   // already filtered+sorted set; keyset mints the next cursor from the source's
@@ -51,8 +65,28 @@ export async function listRows<P>(
   return {
     items: page.items,
     cursor: page.cursor,
-    partial: raw.partial || batch.partial || enriched.partial,
+    partial: raw.partial || enriched.partial,
   };
+}
+
+/**
+ * Default enrichment for persisted `ActiveRow`s: one status + metadata +
+ * progress fan-out (design §C/§F) which `enrich` consumes via `prefetchedBatch`
+ * so the read pays for the fan-out exactly once.
+ */
+async function defaultEnrich(
+  rows: ActiveRow[],
+  ctx: SourceContext,
+): Promise<{ items: CompactMediaItem[]; partial: boolean }> {
+  const batch = await batchLoad(rows, toBatchContext(ctx));
+  const enriched = await enrich(rows, toEnrichContext(ctx), {
+    prefetchedBatch: {
+      statuses: batch.statuses,
+      metadata: batch.metadata,
+      progress: batch.progress,
+    },
+  });
+  return { items: enriched.items, partial: batch.partial || enriched.partial };
 }
 
 /**
@@ -63,9 +97,9 @@ export async function listRows<P>(
  * so a mood source filters inside its own `fetchRawSet`; the pipeline does not
  * re-derive it here (a `filter: "mood"` source falls straight through).
  */
-function applyBucketFilter<P>(
+function applyBucketFilter<P, Row>(
   items: CompactMediaItem[],
-  source: MediaSource<P>,
+  source: MediaSource<P, Row>,
   cfg: PipelineConfig<P>,
 ): CompactMediaItem[] {
   const target = bucketTarget(source, cfg);
@@ -74,8 +108,8 @@ function applyBucketFilter<P>(
 }
 
 /** The bucket to filter on, or `undefined` when this read does not bucket-filter. */
-function bucketTarget<P>(
-  source: MediaSource<P>,
+function bucketTarget<P, Row>(
+  source: MediaSource<P, Row>,
   cfg: PipelineConfig<P>,
 ): MediaRowBucket | undefined {
   const filterKind = cfg.filter ?? source.stages.filter;
@@ -97,9 +131,9 @@ function sortItems(items: CompactMediaItem[], sort: PipelineSort): CompactMediaI
   return items.slice().sort((a, b) => direction * ((a.addedAt ?? 0) - (b.addedAt ?? 0)));
 }
 
-function toPaginateInput<P>(
+function toPaginateInput<P, Row>(
   items: CompactMediaItem[],
-  source: MediaSource<P>,
+  source: MediaSource<P, Row>,
   cfg: PipelineConfig<P>,
   nextRaw: RawPageToken | undefined,
   ctx: SourceContext,

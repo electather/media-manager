@@ -1,18 +1,40 @@
-import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { z } from "zod";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import provider from "../because-you-watched";
 import { __clearSimilarFeedCacheForTests } from "../_shared";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import { decodeCursor, encodeCursor } from "../../internal/cursor";
-import { mediaTypeSchema } from "@ent-mcp/shared";
+import { decode, type Cursor } from "../../../media";
+
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 beforeEach(() => __clearSimilarFeedCacheForTests());
 
-const cursorSchema = z.object({
-  seedId: z.string().min(1),
-  seedType: mediaTypeSchema,
-  offset: z.number().int().min(0),
-});
+/** Reads the seed token out of a unified keyset cursor string. */
+function seedOf(cursorStr: string): { seedId: string; seedType: string; offset: number } {
+  const cursor = decode(cursorStr, "keyset");
+  if (!cursor || cursor.mode !== "keyset") throw new Error("expected keyset cursor");
+  return JSON.parse(cursor.k) as { seedId: string; seedType: string; offset: number };
+}
+
+function seedCursor(seedId: string, seedType: "movie" | "tv", offset = 0): Cursor {
+  return { mode: "keyset", k: JSON.stringify({ seedId, seedType, offset }) };
+}
 
 function historyEntry(
   overrides: Partial<{
@@ -64,7 +86,7 @@ describe("rows/because-you-watched", () => {
 
     const cursor = await provider.initialCursor(ctx);
     expect(cursor).not.toBeNull();
-    expect(decodeCursor(cursor!, cursorSchema).seedId).toBe("fresh");
+    expect(seedOf(cursor!).seedId).toBe("fresh");
   });
 
   it("breaks watchedAt ties by selecting the highest-rated history entry as seed", async () => {
@@ -84,7 +106,7 @@ describe("rows/because-you-watched", () => {
     ]);
 
     const cursor = await provider.initialCursor(ctx);
-    expect(decodeCursor(cursor!, cursorSchema).seedId).toBe("higher");
+    expect(seedOf(cursor!).seedId).toBe("higher");
   });
 
   it("paginates the similar feed and writes seedTitle on ctx", async () => {
@@ -145,11 +167,10 @@ describe("rows/because-you-watched", () => {
       ),
     );
 
-    const cursor = encodeCursor({ seedId: "100", seedType: "movie", offset: 0 });
-    const page = await provider.fetchPage(ctx, cursor);
+    const page = await provider.load(ctx, seedCursor("100", "movie"));
     expect(page.items).toHaveLength(12);
     expect(page.cursor).not.toBeNull();
-    expect(decodeCursor(page.cursor!, cursorSchema).offset).toBe(12);
+    expect(seedOf(page.cursor!).offset).toBe(12);
     expect(ctx.seedTitle).toBe("Heat");
   });
 });

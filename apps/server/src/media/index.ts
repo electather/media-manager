@@ -96,7 +96,7 @@ export {
   type PaginateInput,
   type PaginateResult,
 } from "./pipeline/paginate";
-export { listRows } from "./service/list-rows";
+export { listRows, type EnrichRowsFn } from "./service/list-rows";
 export { classifyRows, type ClassifyRowsContext } from "./service/classify-rows";
 export { countBuckets, type BucketCounts, type CountBucketsContext } from "./service/count";
 export {

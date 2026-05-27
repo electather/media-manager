@@ -1,14 +1,14 @@
 import { fromContinueWatchingEntry } from "../internal/adapters";
-import { makeBoundedRow } from "./_shared";
+import { makeBoundedRow } from "../internal/pipeline";
+import { ROW_PAGE_SIZE } from "./_shared";
 import { continueWatchingNextSource } from "../sources/continue-watching";
-
-const PAGE_SIZE = 12;
 
 /**
  * "Up next" entries — server-stitched `nextUp` episodes plus shows the user
  * has on the shelf with no resume position yet. The selection lives in
- * `continueWatchingNextSource.fetchRawSet`; this row keeps only the projection
- * and the bounded single-page slice (it never paginates).
+ * `continueWatchingNextSource.fetchRawSet`; this row projects the entries and
+ * bounds to a single page (so the shared pipeline mints `cursor: null` — it
+ * never paginates).
  */
 const provider = makeBoundedRow({
   rowId: "continueWatching-next",
@@ -21,7 +21,7 @@ const provider = makeBoundedRow({
     rows
       .map((entry) => fromContinueWatchingEntry(entry, { useNextUp: entry.nextUp != null }))
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .slice(0, PAGE_SIZE),
+      .slice(0, ROW_PAGE_SIZE),
 });
 
 export default provider;

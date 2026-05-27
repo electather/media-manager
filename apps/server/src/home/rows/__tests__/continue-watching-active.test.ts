@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../continue-watching-active";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import { decodeCursor } from "../../internal/cursor";
-import { z } from "zod";
+import { decode } from "../../../media";
 
 vi.mock("../../../env", () => ({
   env: {
@@ -15,7 +14,13 @@ vi.mock("../../../env", () => ({
   },
 }));
 
-const offsetSchema = z.object({ offset: z.number().int().min(0) });
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 describe("rows/continue-watching-active", () => {
   it("filters out entries with progress >= 0.85", async () => {
@@ -40,7 +45,7 @@ describe("rows/continue-watching-active", () => {
       partial: false,
     });
 
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1"]);
   });
 
@@ -66,7 +71,7 @@ describe("rows/continue-watching-active", () => {
       partial: false,
     });
 
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.tmdbId)).toEqual(["fresh", "old"]);
   });
 
@@ -83,10 +88,12 @@ describe("rows/continue-watching-active", () => {
       }
     ).getContinueWatchingFeed.mockResolvedValue({ items, partial: false });
 
-    const page = await provider.fetchPage(ctx, null);
+    // The source returns all eligible entries; `media.listRows` (offset mode)
+    // slices to the page and mints the next cursor.
+    const page = await provider.load(ctx, null);
     expect(page.items).toHaveLength(12);
     expect(page.cursor).not.toBeNull();
-    expect(decodeCursor(page.cursor!, offsetSchema)).toEqual({ offset: 12 });
+    expect(decode(page.cursor!, "offset")).toEqual({ mode: "offset", n: 12 });
   });
 
   it("propagates partial=true from the underlying aggregate", async () => {
@@ -105,7 +112,7 @@ describe("rows/continue-watching-active", () => {
       ],
       partial: true,
     });
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.partial).toBe(true);
   });
 

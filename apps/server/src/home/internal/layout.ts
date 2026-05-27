@@ -1,5 +1,5 @@
 import type { HomeLayoutResponse, HomeRowStub, LayoutHero } from "@ent-mcp/shared/home";
-import { AllPluginsFailedError, PluginCallError } from "../../media";
+import { AllPluginsFailedError, decode, PluginCallError } from "../../media";
 import { ROW_ORDER, ROW_PROVIDERS } from "../rows";
 import { pickHero } from "./hero";
 import { isRowSoftFailure } from "./row-soft-failure";
@@ -69,8 +69,11 @@ async function previewRow(ctx: RowContext, rowId: string): Promise<RowPreview> {
     ctx.logger.warn(`[home:preview] ${rowId} initialCursor threw, keeping stub`, err);
     return { rowId, initialCursor: null, include: true };
   }
+  // The cursor was just minted by the row, so it round-trips; `decode` never
+  // throws and maps any miss to `null` → first page.
+  const cursor = initialCursor === null ? null : decode(initialCursor, provider.cursorMode);
   try {
-    const page = await provider.fetchPage(ctx, initialCursor);
+    const page = await provider.load(ctx, cursor);
     return { rowId, initialCursor, include: page.items.length > 0 || page.partial };
   } catch (err) {
     if (isRowSoftFailure(err)) {
@@ -82,13 +85,10 @@ async function previewRow(ctx: RowContext, rowId: string): Promise<RowPreview> {
             : err instanceof Error
               ? err.name
               : "?";
-      ctx.logger.warn(
-        `[home:preview] ${rowId} fetchPage soft-failed, keeping stub (${detail})`,
-        err,
-      );
+      ctx.logger.warn(`[home:preview] ${rowId} load soft-failed, keeping stub (${detail})`, err);
       return { rowId, initialCursor, include: true };
     }
-    ctx.logger.warn(`[home:preview] ${rowId} fetchPage threw, dropping row`, err);
+    ctx.logger.warn(`[home:preview] ${rowId} load threw, dropping row`, err);
     return { rowId, initialCursor, include: false };
   }
 }

@@ -1,8 +1,27 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import type { MediaType } from "@ent-mcp/shared/media";
 import provider from "../upcoming-for-you";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 function meta(tmdbId: string, mediaType: MediaType = "tv"): CanonicalMetadata {
   return {
@@ -39,23 +58,21 @@ describe("rows/upcoming-for-you", () => {
     ).getUpcomingFeed.mockResolvedValue({ items, partial: false });
     (
       ctx.catalog as unknown as {
-        getMetadataBatch: {
-          mockResolvedValue: (v: unknown) => void;
-          mockImplementation: (fn: unknown) => void;
-        };
+        getMetadataBatch: { mockImplementation: (fn: unknown) => void };
       }
     ).getMetadataBatch.mockImplementation(async (keys: { tmdbId: string }[]) =>
       Object.fromEntries(keys.map((k) => [`tv:${k.tmdbId}`, meta(k.tmdbId)])),
     );
 
-    const page = await provider.fetchPage(ctx, null);
+    // Bounded: the row projects a single page, so the pipeline mints `cursor:null`.
+    const page = await provider.load(ctx, null);
     expect(page.items).toHaveLength(12);
     expect(page.cursor).toBeNull();
   });
 
   it("collapses repeated tmdbIds to a single card per show", async () => {
     // Calendar plugins emit one entry per upcoming episode, so a show with N
-    // queued episodes shows up N times in the feed. The row should render
+    // queued episodes shows up N times in the feed. The source should render
     // each show once — duplicate ids would produce duplicate React keys and
     // break reconciliation downstream.
     const ctx = makeRowCtx();
@@ -94,10 +111,10 @@ describe("rows/upcoming-for-you", () => {
       Object.fromEntries(keys.map((k) => [`tv:${k.tmdbId}`, meta(k.tmdbId)])),
     );
 
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.id)).toEqual(["tv:100", "tv:200"]);
     // Earliest queued episode wins — S1E1, not S1E2 or S1E3.
-    expect(page.items[0]!.episode).toEqual({
+    expect((page.items[0] as { episode?: unknown }).episode).toEqual({
       season: 1,
       episode: 1,
       airsAt: Date.parse("2026-06-01T20:00:00Z"),
@@ -112,7 +129,7 @@ describe("rows/upcoming-for-you", () => {
         getUpcomingFeed: { mockResolvedValue: (v: unknown) => void };
       }
     ).getUpcomingFeed.mockResolvedValue({ items: [], partial: true });
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.partial).toBe(true);
     expect(page.items).toEqual([]);
   });

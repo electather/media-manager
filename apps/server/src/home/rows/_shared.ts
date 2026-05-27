@@ -1,15 +1,17 @@
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { RowKind } from "@ent-mcp/shared/home";
-import type { MediaSource } from "../../media";
+import type { SourceContext } from "../../media";
 import { extractTmdbId, fromCanonicalMetadata } from "../internal/adapters";
-import type { InternalCompactMediaItem, RowContext, RowProvider } from "../internal/types";
+import type { InternalCompactMediaItem, RowContext } from "../internal/types";
 import { similarSource } from "../sources/similar";
 
 export interface MediaKey {
   tmdbId: string;
   type: MediaType;
 }
+
+/** Shared page size for every home row (the pipeline `limit`). */
+export const ROW_PAGE_SIZE = 12;
 
 interface SimilarFeedEntry {
   expiresAt: number;
@@ -58,35 +60,26 @@ function writeSimilarCache(key: string, entry: SimilarFeedEntry): void {
 }
 
 /**
- * Shared page fetch for similar-feed rows. Wraps the `getSimilarFeed` call,
- * candidate extraction, catalog enrichment, pagination, and seedTitle hookup
- * — every consumer differs only in cursor schema. Returns the typed page
- * plus a `hasMore` flag so the caller can encode its own next cursor.
+ * Resolves (and caches) the similar-feed candidate list + seed title for one
+ * seed. Wraps the similar `MediaSource` (the raw `getSimilar` candidate fetch)
+ * plus the seed's catalog title lookup; the seed `MediaSource`
+ * (`similarPagedSource`) windows the candidates and the row pipeline projects +
+ * enriches them.
  *
- * Mutates `ctx.seedTitle` so the orchestrator's match-reason resolver
- * (`similar_to_seed`) can surface the seed title without a second lookup.
- *
- * The resolved candidate list is cached per `(userId, seedType, seedId)` for
- * `SIMILAR_FEED_TTL_MS` so subsequent page requests against the same seed
- * skip the round-trip into the metadata plugin and the catalog.
+ * The result is cached per `(userId, seedType, seedId)` for `SIMILAR_FEED_TTL_MS`
+ * so subsequent page requests against the same seed skip the round-trip into
+ * the metadata plugin and the catalog.
  */
-// fallow-ignore-next-line complexity
-export async function fetchSimilarPage(
-  ctx: RowContext,
-  seed: { id: string; type: MediaType; offset: number; pageSize: number },
-): Promise<{ items: InternalCompactMediaItem[]; hasMore: boolean; partial: boolean }> {
-  const cacheKey = similarCacheKey(ctx.userId, seed.id, seed.type);
+export async function resolveSimilarCandidates(
+  ctx: SourceContext,
+  seedId: string,
+  seedType: MediaType,
+): Promise<{ candidates: MediaKey[]; partial: boolean; seedTitle: string | undefined }> {
+  const cacheKey = similarCacheKey(ctx.userId, seedId, seedType);
   let entry = readSimilarCache(cacheKey);
   if (!entry) {
-    // The similar `MediaSource` owns the raw candidate fetch (getSimilarFeed +
-    // entry-shape probe); the cache, slice, and seedTitle hookup stay here
-    // until US-022/US-023 fold them into the shared pipeline.
-    const { rows, partial } = await similarSource.fetchRawSet(
-      ctx,
-      { seedId: seed.id, seedType: seed.type },
-      null,
-    );
-    const seedMeta = await ctx.catalog.getMetadata(seed.id, seed.type);
+    const { rows, partial } = await similarSource.fetchRawSet(ctx, { seedId, seedType }, null);
+    const seedMeta = await ctx.catalog.getMetadata(seedId, seedType);
     entry = {
       expiresAt: Date.now() + SIMILAR_FEED_TTL_MS,
       candidates: rows,
@@ -95,58 +88,12 @@ export async function fetchSimilarPage(
     };
     writeSimilarCache(cacheKey, entry);
   }
-  if (entry.seedTitle) ctx.seedTitle = entry.seedTitle;
-  const slice = entry.candidates.slice(seed.offset, seed.offset + seed.pageSize);
-  const items = await loadCanonicalItems(ctx, slice);
-  return {
-    items,
-    hasMore: entry.candidates.length > seed.offset + seed.pageSize,
-    partial: entry.partial,
-  };
+  return { candidates: entry.candidates, partial: entry.partial, seedTitle: entry.seedTitle };
 }
 
 // fallow-ignore-next-line unused-export
 export function __clearSimilarFeedCacheForTests(): void {
   similarFeedCache.clear();
-}
-
-/**
- * Builds a bounded (cursor-less) capability-gated row from a `MediaSource`.
- * The `continueWatching-next` and `upcomingForYou` rows ship one page and never
- * paginate, so they share the same provider shape — `eligibility` flips on a
- * capability provider, `initialCursor` is null, and `fetchPage` pulls the
- * source's raw set then projects it (cursor always null, `partial` rides
- * through). Only the capability, source, and per-row projection differ, so they
- * pass them as config (mirrors `makeDiscoverSnapshotRow` / `makeRecommendedForYou`).
- */
-export function makeBoundedRow<Row>(config: {
-  rowId: string;
-  kind: RowKind;
-  titleKey: string;
-  eyebrowKey?: string;
-  capability: string;
-  source: MediaSource<void, Row>;
-  project: (
-    ctx: RowContext,
-    rows: Row[],
-  ) => InternalCompactMediaItem[] | Promise<InternalCompactMediaItem[]>;
-}): RowProvider {
-  return {
-    rowId: config.rowId,
-    kind: config.kind,
-    titleKey: config.titleKey,
-    ...(config.eyebrowKey ? { eyebrowKey: config.eyebrowKey } : {}),
-    async eligibility(ctx) {
-      return ctx.mediaService.hasCapabilityProvider(config.capability, "v1", "user");
-    },
-    async initialCursor() {
-      return null;
-    },
-    async fetchPage(ctx) {
-      const { rows, partial } = await config.source.fetchRawSet(ctx, undefined, null);
-      return { items: await config.project(ctx, rows), cursor: null, partial };
-    },
-  };
 }
 
 interface LoadCanonicalOptions<T> {

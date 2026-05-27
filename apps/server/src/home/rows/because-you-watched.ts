@@ -1,29 +1,24 @@
-import { z } from "zod";
 import { orderBy } from "es-toolkit/array";
-import { decodeCursor, encodeCursor } from "../internal/cursor";
-import type { RowProvider } from "../internal/types";
-import { fetchSimilarPage } from "./_shared";
-import { mediaTypeSchema } from "@ent-mcp/shared";
-
-const PAGE_SIZE = 12;
-
-const cursorSchema = z.object({
-  seedId: z.string().min(1),
-  seedType: mediaTypeSchema,
-  offset: z.number().int().min(0),
-});
+import { makePipelineRow } from "../internal/pipeline";
+import { encodeSeedCursor, similarPagedSource } from "../sources/similar-paged";
+import { loadCanonicalItems } from "./_shared";
 
 /**
  * "Because you watched X" — picks a recently completed seed from the user's
  * watch history and pages similar candidates from the metadata plugin. The
- * cursor pins the seed so subsequent pages cannot accidentally re-key.
+ * seed rides on the keyset cursor (`similarPagedSource`), so subsequent pages
+ * cannot accidentally re-key; `initialCursor` mints the first seed cursor and
+ * the shared pipeline owns the slice + next cursor.
  */
-const provider: RowProvider = {
+const provider = makePipelineRow({
   rowId: "becauseYouWatched",
   kind: "becauseYouWatched",
   titleKey: "home_row_becauseYouWatched_header",
   eyebrowKey: "home_row_becauseYouWatched_eyebrow",
+  cursorMode: similarPagedSource.stages.cursorMode,
   requiresInitialCursor: true,
+  source: similarPagedSource,
+  params: undefined,
   async eligibility(ctx) {
     const history = await ctx.catalog.getUserHistory(ctx.userId);
     if (history.length === 0) return false;
@@ -44,21 +39,9 @@ const provider: RowProvider = {
     );
     const seed = sorted[0];
     if (!seed) return null;
-    return encodeCursor({ seedId: seed.tmdbId, seedType: seed.mediaType, offset: 0 });
+    return encodeSeedCursor({ seedId: seed.tmdbId, seedType: seed.mediaType });
   },
-  async fetchPage(ctx, cursor) {
-    // `requiresInitialCursor: true` makes `composeRow` reject null cursors
-    // before this runs; the non-null assertion mirrors that invariant.
-    const page = decodeCursor(cursor!, cursorSchema);
-    const { items, hasMore, partial } = await fetchSimilarPage(ctx, {
-      id: page.seedId,
-      type: page.seedType,
-      offset: page.offset,
-      pageSize: PAGE_SIZE,
-    });
-    const next = hasMore ? encodeCursor({ ...page, offset: page.offset + PAGE_SIZE }) : null;
-    return { items, cursor: next, partial };
-  },
-};
+  project: (ctx, rows) => loadCanonicalItems(ctx, rows),
+});
 
 export default provider;

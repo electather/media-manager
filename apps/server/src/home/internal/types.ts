@@ -2,7 +2,7 @@ import type { ConsolaInstance } from "consola";
 import type { CompactMediaItem, RowKind } from "@ent-mcp/shared/home";
 import type { TopContributor } from "@ent-mcp/shared/catalog";
 import type { CatalogService } from "../../catalog";
-import type { MediaService, StatusBatchMemo } from "../../media";
+import type { Cursor, CursorMode, MediaService, Page, StatusBatchMemo } from "../../media";
 
 /**
  * Internal projection passed between rows + the orchestrator. We let rows
@@ -20,15 +20,6 @@ export interface InternalCompactMediaItem extends CompactMediaItem {
    * year string and can't drive a 7-day window. Stripped before serialize.
    */
   __addedAtMs?: number;
-}
-
-/** Result of a row's `fetchPage` call. */
-export interface RowPage {
-  items: InternalCompactMediaItem[];
-  /** Opaque cursor for the next page, or null when the row is exhausted. */
-  cursor: string | null;
-  /** True when at least one provider errored alongside the surviving data. */
-  partial: boolean;
 }
 
 /**
@@ -52,9 +43,15 @@ export interface RowContext {
 }
 
 /**
- * Row pipeline contract. Each row file exports a default `RowProvider` and
- * registers it in `rows/index.ts`. Adding a row is one drop-in file plus a
- * test under `rows/__tests__/`.
+ * Row pipeline contract (post media-pipeline consolidation, design §H). Each
+ * row file exports a default `RowProvider` and registers it in `rows/index.ts`.
+ * Adding a row is one drop-in file plus a test under `rows/__tests__/`.
+ *
+ * The row no longer owns sort/slice/cursor: those live in the shared media
+ * pipeline (`media.listRows`). A row supplies eligibility, the initial cursor,
+ * its pagination `cursorMode` (so the envelope can decode the cursor, V.CU1),
+ * and a `load` that runs the row through `listRows` with its source + raw-row
+ * projection + the row-aware match-reason enrichment captured inside.
  */
 export interface RowProvider {
   /** Stable wire slug, e.g. `"recommendedForYou-tv"`. Unique across the registry. */
@@ -65,6 +62,12 @@ export interface RowProvider {
   titleKey: string;
   eyebrowKey?: string;
   /**
+   * The source's pagination mode (`source.stages.cursorMode`). The envelope
+   * decodes an incoming cursor against it; a bad/foreign/mode-mismatched cursor
+   * decodes to `null`, which the home feed maps to `HttpError 400` (V.CU1).
+   */
+  cursorMode: CursorMode;
+  /**
    * Cheap check the orchestrator runs to decide whether to ship the row in
    * the layout. May call into the registry or catalog; should not run plugin
    * fetches.
@@ -73,19 +76,22 @@ export interface RowProvider {
   /**
    * Cursor the orchestrator stamps onto `HomeRowStub.initialCursor`. Most
    * rows return null (cursor-less first page); seeded rows like
-   * `becauseYouWatched` encode a non-null seed payload.
+   * `becauseYouWatched` encode a non-null seed payload (a keyset cursor whose
+   * `k` carries the seed).
    */
   initialCursor(ctx: RowContext): Promise<string | null>;
   /**
-   * Page fetch. `cursor === null` is the first page unless
-   * `requiresInitialCursor` is set. Bounded rows return `cursor: null` after
-   * the single page they ship.
+   * Load one page through the shared media pipeline (`listRows`), returning the
+   * enriched `Page`. The source, the raw-row → compact projection, and the
+   * row-aware match-reason live inside; `cursor` is already decoded (the
+   * envelope owns the `null → 400` mapping). Bounded rows project a single
+   * page so the pipeline mints `cursor: null`.
    */
-  fetchPage(ctx: RowContext, cursor: string | null): Promise<RowPage>;
+  load(ctx: RowContext, cursor: Cursor | null): Promise<Page>;
   /**
-   * When true, the orchestrator rejects `fetchPage(ctx, null)` calls with
-   * `HttpError 400 "cursor_required"`. Used by `becauseYouWatched`, where
-   * the seed lives on the cursor.
+   * When true, the orchestrator rejects cursor-less `composeRow` calls with
+   * `HttpError 400 "cursor_required"`. Used by `becauseYouWatched`/`similarTo`,
+   * where the seed lives on the cursor.
    */
   requiresInitialCursor?: boolean;
 }
