@@ -1,6 +1,7 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { AddWatchlistRequest, WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { AddWatchlistRequest } from "@ent-mcp/shared/watchlist";
 import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { WatchlistItem } from "./types";
 
 /**
  * Builds an optimistic `WatchlistItem` from the add request plus whatever

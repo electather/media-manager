@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { mapTopContributor, pickMatchReason } from "../internal/match-reason";
 import type { InternalCompactMediaItem, RowContext } from "../internal/types";
+
+// `match-reason` now imports `isFinishing` from the media barrel (US-024
+// consolidated the home `FINISHING_SOON_THRESHOLD` literal onto media's single
+// definition), which pulls `media → db → env`, so the env must be stubbed.
+vi.mock("../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
 
 function ctx(overrides: Partial<RowContext> = {}): RowContext {
   return {

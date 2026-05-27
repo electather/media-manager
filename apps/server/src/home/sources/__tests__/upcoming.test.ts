@@ -5,6 +5,20 @@ import fixture from "../../__tests__/fixtures/home-layout-parity.json";
 import { UPCOMING_FEED } from "../../__tests__/fixtures/home-layout-scenario";
 import { upcomingForYouSource } from "../upcoming";
 
+// `upcomingForYouSource` pulls `probeMediaEntry` from `rows/_shared`, which now
+// imports `extractTmdbId` from the media barrel (US-024 consolidation) and so
+// drags `media → db → env`; the env must be stubbed.
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 /** Build a `SourceContext` whose mediaService resolves the calendar feed. */
 function makeCtx(getUpcomingFeed: ReturnType<typeof vi.fn>): SourceContext {
   return {

@@ -1,4 +1,4 @@
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import type { MediaSource } from "../../media";
 import { listAvailable } from "../../watchlist";
 
@@ -14,7 +14,7 @@ const YOUR_WATCHLIST_PAGE_SIZE = 12;
  * carries the fields). A `watchlist@v1` plugin soft-failure rides through as
  * `partial: true`. The row stays bounded (no cursor), so it never paginates.
  */
-export const yourWatchlistSource: MediaSource<void, WatchlistItem> = {
+export const yourWatchlistSource: MediaSource<void, CompactMediaItem> = {
   sourceId: "yourWatchlist",
   async fetchRawSet(ctx) {
     const { items, partial } = await listAvailable(YOUR_WATCHLIST_PAGE_SIZE, {

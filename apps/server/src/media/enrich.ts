@@ -2,7 +2,7 @@ import type { Availability, CompactMediaItem, Facets, MatchReason } from "@ent-m
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { ArtworkBundle, ArtworkRequestItem } from "@ent-mcp/shared/artwork";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { keyToId, type WatchlistBucket, type WatchlistItem } from "@ent-mcp/shared/watchlist";
+import { keyToId, type WatchlistBucket, type WatchlistSource } from "@ent-mcp/shared/watchlist";
 import type { CatalogService } from "../catalog";
 import type {
   GetArtworkFn,
@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import { getMatchingServersCached } from "./availability-cache";
 import { classifyBucket, previewForClassify, type ProgressMap } from "./classify";
+import { batchLoad } from "./pipeline/batch-load";
 import { capabilityRegistry } from "../plugin-runtime";
 import type { StatusBatchMemo } from "./status-batch";
 
@@ -21,7 +22,7 @@ export interface MediaEnrichRow {
   tmdbId: string;
   mediaType: MediaType;
   addedAt: number;
-  source: WatchlistItem["addedSource"];
+  source: WatchlistSource;
 }
 
 export interface MediaProgressSnapshot {
@@ -45,7 +46,7 @@ export interface MediaEnrichContext extends Omit<MediaProgressContext, "mediaSer
 export type WatchlistEnrichContext = MediaEnrichContext;
 
 export interface EnrichResult<Row extends MediaEnrichRow = MediaEnrichRow> {
-  items: WatchlistItem[];
+  items: CompactMediaItem[];
   /**
    * Source row for each emitted item, in the same order. The
    * paginator uses this to encode the next cursor from the row that produced
@@ -110,7 +111,7 @@ export interface CompactMediaEnrichResult {
 }
 
 /**
- * Build wire-shape `WatchlistItem`s for `rows`. Single status-batch call,
+ * Build wire-shape `CompactMediaItem`s for `rows`. Single status-batch call,
  * one catalog metadata-batch call, one artwork dispatch for items missing
  * canonical poster/backdrop/clearLogo, and a per-row matching-server probe
  * (cross-request cached at 30 s TTL so /watchlist + /counts share the work).
@@ -128,37 +129,28 @@ export async function enrich<Row extends MediaEnrichRow>(
   if (rows.length === 0) return { items: [], sources: [], partial: false };
 
   let partial = false;
-  const compositeIds = rows.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
-  const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
 
-  // The `listRows` pipeline pre-loads status + metadata + progress through the
-  // shared `batchLoad` fan-out (design §C) and threads it in as
-  // `prefetchedBatch`; consuming it keeps the read to a single fan-out rather
-  // than re-issuing the three round-trips. Direct callers omit it and enrich
-  // fetches them itself; `prefetchedMetadata` stays the narrower metadata-only
-  // seed used by the mood path.
-  const statuses = opts.prefetchedBatch
-    ? opts.prefetchedBatch.statuses
-    : await ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
-        ctx.log.warn("[media:enrich] getStatusBatch failed", err);
-        partial = true;
-        return {} as Record<string, string>;
-      });
-
-  const metadata: Record<string, CanonicalMetadata> = opts.prefetchedBatch
-    ? { ...opts.prefetchedBatch.metadata }
-    : opts.prefetchedMetadata
-      ? { ...opts.prefetchedMetadata }
-      : await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-          ctx.log.warn("[media:enrich] getMetadataBatch failed", err);
-          partial = true;
-          return {} as Record<string, CanonicalMetadata>;
-        });
-
-  const progress: MediaProgressSnapshot = opts.prefetchedBatch
-    ? { map: opts.prefetchedBatch.progress, partial: false }
-    : await ctx.loadProgressMap(ctx);
-  if (progress.partial) partial = true;
+  // Status + metadata + progress come from the single shared `batchLoad`
+  // fan-out (design §C/§F — the one definition). The `listRows` pipeline
+  // pre-loads them and threads the result in as `prefetchedBatch`; direct
+  // callers (addItem / getItems / listAvailable) let enrich run `batchLoad`
+  // itself. Either way the read hits one fan-out, not three hand-rolled
+  // round-trips. `prefetchedMetadata` stays the narrower metadata-only seed
+  // used by the mood path.
+  let statuses: Record<string, string>;
+  let metadata: Record<string, CanonicalMetadata>;
+  let progressMap: ProgressMap;
+  if (opts.prefetchedBatch) {
+    statuses = opts.prefetchedBatch.statuses;
+    metadata = { ...opts.prefetchedBatch.metadata };
+    progressMap = opts.prefetchedBatch.progress;
+  } else {
+    const batch = await batchLoad(rows, ctx);
+    if (batch.partial) partial = true;
+    statuses = batch.statuses;
+    metadata = opts.prefetchedMetadata ? { ...opts.prefetchedMetadata } : { ...batch.metadata };
+    progressMap = batch.progress;
+  }
 
   // Cold-fill canonical metadata for any rows the catalog has not seen yet so
   // the artwork dispatch below has the freshest data to compare against and
@@ -203,7 +195,7 @@ export async function enrich<Row extends MediaEnrichRow>(
         metadata[composite],
         statuses[composite],
         serversList,
-        progress.map.get(composite),
+        progressMap.get(composite),
       );
       if (classifyBucket(probe) === opts.filter) {
         kept.push(row);
@@ -220,11 +212,11 @@ export async function enrich<Row extends MediaEnrichRow>(
 
   const settled = await Promise.allSettled(
     liveRows.map((row, i) =>
-      enrichOne(row, statuses, metadata, artwork, liveServers[i]!, progress.map),
+      enrichOne(row, statuses, metadata, artwork, liveServers[i]!, progressMap),
     ),
   );
 
-  const items: WatchlistItem[] = [];
+  const items: CompactMediaItem[] = [];
   const sources: Row[] = [];
   for (let i = 0; i < settled.length; i++) {
     const result = settled[i]!;
@@ -323,7 +315,7 @@ async function enrichOne(
   artwork: Record<string, ArtworkBundle>,
   serverProbe: PromiseSettledResult<MatchingServer[]>,
   progress: ProgressMap,
-): Promise<{ item: WatchlistItem; partial: boolean } | null> {
+): Promise<{ item: CompactMediaItem; partial: boolean } | null> {
   const composite = keyToId({ tmdbId: row.tmdbId, mediaType: row.mediaType });
   const meta = metadata[composite];
 
@@ -340,7 +332,7 @@ async function enrichOne(
   const base = meta ? compactFromMetadata(meta) : minimalCompact(row.tmdbId, row.mediaType);
   const withArt = mergeArtwork(base, meta, artwork[composite]);
 
-  const item: WatchlistItem = {
+  const item: CompactMediaItem = {
     ...withArt,
     addedAt: row.addedAt,
     addedSource: row.source,

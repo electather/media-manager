@@ -9,6 +9,20 @@ import {
 } from "../../__tests__/fixtures/home-layout-scenario";
 import { similarSource } from "../similar";
 
+// The similar source imports `extractTmdbId` from the media barrel (US-024
+// folded the home copy onto media's canonical one), which pulls
+// `media → db → env`, so the env must be stubbed.
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
 /** Build a minimal `SourceContext` whose mediaService resolves the similar feed. */
 function makeCtx(getSimilarFeed: ReturnType<typeof vi.fn>): SourceContext {
   return {

@@ -1,4 +1,4 @@
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { WatchlistItem } from "../lib/types";
 
 export function makeItem(overrides: Partial<WatchlistItem> = {}): WatchlistItem {
   return {

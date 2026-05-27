@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { MEDIA_ROW_BUCKETS, type MediaRowBucket } from "@ent-mcp/shared/media";
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { classifyBucket } from "../classify";
 
 const VALID = new Set<MediaRowBucket>(MEDIA_ROW_BUCKETS);
 
-type ClassifyInput = Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">;
+type ClassifyInput = Pick<CompactMediaItem, "status" | "availability" | "facets" | "progress">;
 
 function row(overrides: Partial<ClassifyInput> = {}): ClassifyInput {
   return {

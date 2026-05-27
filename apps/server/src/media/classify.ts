@@ -1,5 +1,5 @@
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { MEDIA_ROW_STATUS_MAP, type MediaRowBucket } from "@ent-mcp/shared/media";
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import type { MatchingServer } from "./types";
 import type { ProgressEntry, ProgressMap } from "./progress";
 
@@ -23,7 +23,7 @@ export function isActiveProgress(progress: ProgressEntry | undefined): boolean {
  */
 // fallow-ignore-next-line complexity
 export function classifyBucket(
-  item: Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">,
+  item: Pick<CompactMediaItem, "status" | "availability" | "facets" | "progress">,
 ): MediaRowBucket {
   if (isActiveProgress(item.progress)) return "in-progress";
   const fromStatus = item.status ? MEDIA_ROW_STATUS_MAP[item.status] : undefined;
@@ -42,7 +42,7 @@ export interface PreviewMeta {
 }
 
 /**
- * Cheap-signal preview of a `WatchlistItem` shared by `enrich`'s filter
+ * Cheap-signal preview of a `CompactMediaItem` shared by `enrich`'s filter
  * pre-pass and the `/counts` aggregator. Both paths derive the same bucket
  * from `(meta, status, matching servers, progress)` — extracting the shape
  * here keeps the two callers from drifting.
@@ -53,10 +53,10 @@ export function previewForClassify(
   rawStatus: string | undefined,
   servers: MatchingServer[],
   progress?: ProgressEntry,
-): Pick<WatchlistItem, "status" | "availability" | "facets" | "progress"> {
-  const status: WatchlistItem["status"] =
-    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as WatchlistItem["status"]);
-  const facets: NonNullable<WatchlistItem["facets"]> = {};
+): Pick<CompactMediaItem, "status" | "availability" | "facets" | "progress"> {
+  const status: CompactMediaItem["status"] =
+    servers.length > 0 ? "available" : ((rawStatus ?? "unknown") as CompactMediaItem["status"]);
+  const facets: NonNullable<CompactMediaItem["facets"]> = {};
   if (meta?.runtimeMinutes != null) facets.runtimeMin = meta.runtimeMinutes;
   if (meta?.year != null && meta.year > new Date().getUTCFullYear()) {
     facets.releaseDate = String(meta.year);

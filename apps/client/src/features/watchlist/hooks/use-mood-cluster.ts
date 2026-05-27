@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
-import type { MoodId, WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { MoodId } from "@ent-mcp/shared/watchlist";
 import { fetchMoodItems } from "../lib/fetchers";
 import { watchlistKeys } from "../lib/query-keys";
+import type { WatchlistItem } from "../lib/types";
 
 const STALE_TIME_MS = 60_000;
 

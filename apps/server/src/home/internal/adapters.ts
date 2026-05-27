@@ -1,6 +1,7 @@
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import type { CanonicalMetadata, TopContributor } from "@ent-mcp/shared/catalog";
 import { keyToId } from "@ent-mcp/shared/watchlist";
+import { extractTmdbId } from "../../media";
 import type { InternalCompactMediaItem } from "./types";
 
 /**
@@ -56,24 +57,6 @@ function buildFacets(meta: CanonicalMetadata): InternalCompactMediaItem["facets"
   if (meta.runtimeMinutes != null) out.runtimeMin = meta.runtimeMinutes;
   if (meta.year != null) out.releaseDate = String(meta.year);
   return Object.keys(out).length > 0 ? out : undefined;
-}
-
-/**
- * Pulls a tmdb id from a heterogenous plugin payload. Plugins surface the
- * cross-service ids differently — Plex stores them in a side table referenced
- * by guid, Jellyfin uses `ProviderIds.tmdb`, the recommendations capability
- * sometimes nests them under `ids.tmdb_id`. Single best-effort probe order
- * shared across every adapter keeps the row code consistent.
- */
-// fallow-ignore-next-line complexity
-export function extractTmdbId(value: unknown): string | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  const ids = v.ids as Record<string, unknown> | undefined;
-  if (ids && typeof ids.tmdb === "string") return ids.tmdb;
-  if (ids && typeof ids.tmdb_id === "string") return ids.tmdb_id;
-  if (typeof v.tmdbId === "string") return v.tmdbId;
-  return null;
 }
 
 /**

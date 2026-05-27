@@ -1,6 +1,5 @@
 import type { MediaType } from "@ent-mcp/shared/media";
-import type { MediaSource } from "../../media";
-import { extractTmdbId } from "../internal/adapters";
+import { extractTmdbId, type MediaSource } from "../../media";
 import type { MediaKey } from "../rows/_shared";
 
 /** Seed the consumer envelope resolves (from history, or a detail page). */

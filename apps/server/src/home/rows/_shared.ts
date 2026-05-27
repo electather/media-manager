@@ -1,7 +1,7 @@
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import type { SourceContext } from "../../media";
-import { extractTmdbId, fromCanonicalMetadata } from "../internal/adapters";
+import { extractTmdbId, type SourceContext } from "../../media";
+import { fromCanonicalMetadata } from "../internal/adapters";
 import type { InternalCompactMediaItem, RowContext } from "../internal/types";
 import { similarSource } from "../sources/similar";
 

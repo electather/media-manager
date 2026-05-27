@@ -2,7 +2,6 @@ import {
   type MoodId,
   type WatchlistBucket,
   type WatchlistCounts,
-  type WatchlistItem,
   type WatchlistKey,
   type WatchlistMoodSummary,
   type WatchlistResponse,
@@ -143,9 +142,8 @@ export interface ListItemsOptions {
  * cursor against the source's declared mode (a bad/foreign/mode-mismatched
  * cursor → `null` → first page, V.CU1), list via the shared media pipeline, and
  * bridge the result onto the `WatchlistResponse` wire shape. The pipeline yields
- * public `CompactMediaItem`s (no `WatchlistItem` construction); active rows
- * always carry `addedAt`/`addedSource`, so the cast is sound until US-024
- * deletes `WatchlistItem` and the response widens to `CompactMediaItem`.
+ * public `CompactMediaItem`s — the unified item shape the response now carries
+ * (active rows fill `addedAt`/`addedSource`; discovery rows leave them null).
  */
 async function readSection<P>(
   c: ResolvedWatchlistContext,
@@ -155,7 +153,7 @@ async function readSection<P>(
 ): Promise<WatchlistResponse> {
   const cursor = rawCursor ? decode(rawCursor, source.stages.cursorMode) : null;
   const page = await listRows(source, toCfg(cursor), toSourceContext(c));
-  return { items: page.items as WatchlistItem[], cursor: page.cursor, partial: page.partial };
+  return { items: page.items, cursor: page.cursor, partial: page.partial };
 }
 
 /**
@@ -189,10 +187,9 @@ export async function getTonightSection(ctx: MaybeRowContext): Promise<Watchlist
  * Last-added items, capped by `limit`. No cursor. Thin envelope over the media
  * read pipeline (design §S.4 / consolidation §H): the `recently` `MediaSource`
  * supplies the last `limit` raw rows (`addedAt` DESC) and `media.listRows` owns
- * enrich / sort. The pipeline yields public `CompactMediaItem`s (no
- * `WatchlistItem` construction); active rows always carry `addedAt`/`addedSource`,
- * so the cast is sound until US-024 deletes `WatchlistItem`. The page cursor is
- * discarded — the section is a bounded preview, not paginated.
+ * enrich / sort. The pipeline yields public `CompactMediaItem`s — the unified
+ * item shape the response now carries. The page cursor is discarded — the
+ * section is a bounded preview, not paginated.
  */
 export async function getRecentlyAdded(
   ctx: MaybeRowContext,
@@ -200,7 +197,7 @@ export async function getRecentlyAdded(
 ): Promise<WatchlistSectionResponse> {
   const c = asWatchlistContext(ctx);
   const page = await listRows(recentlySource, recentlyCfg({ limit }), toSourceContext(c));
-  return { items: page.items as WatchlistItem[], partial: page.partial };
+  return { items: page.items, partial: page.partial };
 }
 
 /** Mood-cluster summary delegator. */

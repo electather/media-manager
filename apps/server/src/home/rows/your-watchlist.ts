@@ -26,8 +26,9 @@ const provider = makePipelineRow({
     return ctx.mediaService.hasCapabilityProvider("watchlist", "v1", "user");
   },
   initialCursor: async () => null,
-  // `WatchlistItem` is structurally an `InternalCompactMediaItem` (it carries
-  // the unified `addedAt`/`addedSource`); no projection needed.
+  // The source already emits the unified `CompactMediaItem` (carrying
+  // `addedAt`/`addedSource`), assignable to `InternalCompactMediaItem`; no
+  // projection needed.
   project: (_ctx, rows) => rows,
 });
 

@@ -46,7 +46,7 @@ export interface BatchLoadResult {
  * the other two — the page still renders from whatever signals resolved.
  */
 export async function batchLoad(
-  rows: ReadonlyArray<ActiveRow>,
+  rows: ReadonlyArray<Pick<ActiveRow, "tmdbId" | "mediaType">>,
   ctx: BatchLoadContext,
 ): Promise<BatchLoadResult> {
   if (rows.length === 0) {
@@ -57,10 +57,6 @@ export async function batchLoad(
   const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
 
   let partial = false;
-  // Structurally clones the four watchlist fan-out sites this helper is meant
-  // to replace; they survive until US-024 deletes them, so the dup is expected
-  // and transient. Marker removed with the consumer copies in the cleanup phase.
-  // fallow-ignore-next-line code-duplication
   const [statuses, metadata, progress] = await Promise.all([
     ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
       ctx.log.warn("[media:batch-load] getStatusBatch failed", err);

@@ -1,4 +1,4 @@
-import { type WatchlistItem, type WatchlistSectionResponse } from "@ent-mcp/shared/watchlist";
+import type { WatchlistSectionResponse } from "@ent-mcp/shared/watchlist";
 import { listRows } from "../../media";
 import { MemoryCache } from "../../cache/memory";
 import { toSourceContext, type WatchlistSourceCtx } from "../sources/context";
@@ -29,10 +29,9 @@ export async function getSection(c: WatchlistSourceCtx): Promise<WatchlistSectio
   if (hit !== null) return hit;
 
   const page = await listRows(tonightSource, tonightCfg(), toSourceContext(c));
-  // `pick` reduces the flat ranked page to items[0] hero + ≤4 alternates. The
-  // cast is sound (active rows always carry `addedAt`/`addedSource`); US-024
-  // deletes `WatchlistItem` and `Page.items` widens to `CompactMediaItem`.
-  const result = pick(page.items as WatchlistItem[]);
+  // `pick` reduces the flat ranked page (`CompactMediaItem[]`) to items[0] hero
+  // + ≤4 alternates.
+  const result = pick(page.items);
   // fallow-ignore-next-line code-duplication
   const section: WatchlistSectionResponse = {
     items: result.items,
@@ -50,5 +49,3 @@ export async function invalidateTonightSection(userId: string): Promise<void> {
 export async function __resetTonightCache(): Promise<void> {
   await cache.clear("watchlist:tonight:");
 }
-
-export type { WatchlistItem };

@@ -1,9 +1,9 @@
 import type { ConsolaInstance } from "consola";
 import { z } from "zod";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import {
   keyToId,
   WATCHLIST_SOURCES,
-  type WatchlistItem,
   type WatchlistKey,
   type WatchlistSource,
 } from "@ent-mcp/shared/watchlist";
@@ -51,7 +51,7 @@ export const watchlistItemRemovedSchema = z
 export type WatchlistItemRemovedPayload = z.infer<typeof watchlistItemRemovedSchema>;
 
 export interface AddItemResult {
-  item: WatchlistItem;
+  item: CompactMediaItem;
   wasActive: boolean;
 }
 
@@ -64,7 +64,7 @@ export async function addItem(
   const now = Date.now();
   const result = await upsertActiveRow(ctx.userId, key, source, now);
   const [enriched] = (await enrich([result.row], ctx)).items;
-  const fallback: WatchlistItem = {
+  const fallback: CompactMediaItem = {
     id: keyToId(key),
     tmdbId: key.tmdbId,
     mediaType: key.mediaType,
