@@ -1,0 +1,24 @@
+{
+  "rows": [
+    { "rowId": "continueWatching-active", "ids": ["movie:cwa1", "movie:cwa2"] },
+    { "rowId": "continueWatching-next", "ids": ["tv:cwn1", "tv:cwn2"] },
+    { "rowId": "becauseYouWatched", "ids": ["movie:sim1", "movie:sim2"] },
+    { "rowId": "recommendedForYou-tv", "ids": ["tv:rt1", "tv:rt2"] },
+    { "rowId": "recommendedForYou-movies", "ids": ["movie:rm1", "movie:rm2"] },
+    { "rowId": "yourWatchlist", "ids": ["movie:wl1", "tv:wl2"] },
+    { "rowId": "upcomingForYou", "ids": ["tv:up1", "tv:up2"] },
+    { "rowId": "trendingNow", "ids": ["movie:tr1", "tv:tr2", "movie:tr3"] },
+    { "rowId": "newReleases", "ids": ["movie:nr1", "movie:nr2"] }
+  ],
+  "hero": {
+    "ids": ["movie:cwa1", "movie:rm1", "movie:tr1", "movie:nr1", "movie:rm2", "tv:tr2"],
+    "sources": [
+      "continueWatching",
+      "recommendedForYou",
+      "trendingNow",
+      "newReleases",
+      "recommendedForYou",
+      "trendingNow"
+    ]
+  }
+}
