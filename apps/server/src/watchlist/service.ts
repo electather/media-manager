@@ -51,6 +51,7 @@ import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
 import { itemsSource, itemsCfg, toItemsParams } from "./sources/items";
 import { moodItemsSource, moodItemsCfg, type MoodParams } from "./sources/mood-items";
+import { recentlySource, recentlyCfg } from "./sources/recently";
 import { toSourceContext } from "./sources/context";
 
 /**
@@ -337,16 +338,22 @@ export async function getTonightSection(ctx: MaybeRowContext): Promise<Watchlist
   return getTonightSectionImpl(asWatchlistContext(ctx));
 }
 
-/** Last-added items, capped by `limit`. No cursor. */
+/**
+ * Last-added items, capped by `limit`. No cursor. Thin envelope over the media
+ * read pipeline (design §S.4 / consolidation §H): the `recently` `MediaSource`
+ * supplies the last `limit` raw rows (`addedAt` DESC) and `media.listRows` owns
+ * enrich / sort. The pipeline yields public `CompactMediaItem`s (no
+ * `WatchlistItem` construction); active rows always carry `addedAt`/`addedSource`,
+ * so the cast is sound until US-024 deletes `WatchlistItem`. The page cursor is
+ * discarded — the section is a bounded preview, not paginated.
+ */
 export async function getRecentlyAdded(
   ctx: MaybeRowContext,
   limit: number,
 ): Promise<WatchlistSectionResponse> {
   const c = asWatchlistContext(ctx);
-  const rows = await listActiveRowsKeyset(c.userId, { limit });
-  if (rows.length === 0) return { items: [], partial: false };
-  const enriched = await enrich(rows, c);
-  return { items: enriched.items, partial: enriched.partial };
+  const page = await listRows(recentlySource, recentlyCfg({ limit }), toSourceContext(c));
+  return { items: page.items as WatchlistItem[], partial: page.partial };
 }
 
 /** Mood-cluster summary delegator. */
