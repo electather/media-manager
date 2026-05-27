@@ -1,6 +1,6 @@
-import type { ActiveRow, RowSort } from "@ent-mcp/shared/media";
+import type { ActiveRow } from "@ent-mcp/shared/media";
 import type { Cursor } from "./cursor";
-import type { FilterKind, RawPageToken, SourceContext } from "./types";
+import type { FilterKind, PipelineSort, RawPageToken, SourceContext } from "./types";
 
 /**
  * The generalized row contract (design §B), replacing the home `RowProvider`.
@@ -38,8 +38,12 @@ export interface MediaSource<P = void> {
     classify?: boolean;
     /** Apply a `bucket`/`mood` predicate (driven by params); `undefined` skips. */
     filter?: FilterKind;
-    /** Default sort; `cfg.sort` may override when a source allows it. */
-    sort: RowSort;
+    /**
+     * Default sort; `cfg.sort` may override when a source allows it. `"none"`
+     * is an identity sort for a source that already returned rows in final
+     * order (a metadata-presorted offset source or a pre-ranked feed).
+     */
+    sort: PipelineSort;
     /** `keyset` hops the raw query via `nextRaw`; `offset` slices the sorted set. */
     cursorMode: "keyset" | "offset";
   };

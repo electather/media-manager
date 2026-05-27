@@ -71,6 +71,7 @@ export type {
   RawPageToken,
   SourceContext,
   PipelineConfig,
+  PipelineSort,
   Page,
 } from "./types";
 export type { MediaSource } from "./source";

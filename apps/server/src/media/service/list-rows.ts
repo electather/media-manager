@@ -1,12 +1,12 @@
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { MediaRowBucket, RowSort } from "@ent-mcp/shared/media";
+import type { MediaRowBucket } from "@ent-mcp/shared/media";
 import { classifyBucket } from "../classify";
 import { enrich, type MediaEnrichContext } from "../enrich";
 import { batchLoad, type BatchLoadContext } from "../pipeline/batch-load";
 import { paginate, type PaginateInput } from "../pipeline/paginate";
 import { loadProgressMap } from "../progress";
 import type { MediaSource } from "../source";
-import type { Page, PipelineConfig, RawPageToken, SourceContext } from "../types";
+import type { Page, PipelineConfig, PipelineSort, RawPageToken, SourceContext } from "../types";
 
 /**
  * The single media read path (design §C). A consumer hands a `MediaSource`
@@ -84,12 +84,15 @@ function bucketTarget<P>(
 }
 
 /**
- * Order the enriched set by `addedAt`. Items without an `addedAt` (discovery
- * feeds) compare equal, so the stable sort preserves the order the source
- * returned them in — a feed's relevance ranking survives a `recentDesc`
- * default unchanged.
+ * Order the enriched set by `addedAt`. `"none"` is the identity sort — the
+ * source already returned rows in final order (a metadata-presorted offset
+ * source or a pre-ranked feed), so the pipeline must leave them untouched.
+ * Otherwise items without an `addedAt` (discovery feeds) compare equal, so the
+ * stable sort preserves the order the source returned them in — a feed's
+ * relevance ranking survives a `recentDesc` default unchanged.
  */
-function sortItems(items: CompactMediaItem[], sort: RowSort): CompactMediaItem[] {
+function sortItems(items: CompactMediaItem[], sort: PipelineSort): CompactMediaItem[] {
+  if (sort === "none") return items;
   const direction = sort === "recentAsc" ? 1 : -1;
   return items.slice().sort((a, b) => direction * ((a.addedAt ?? 0) - (b.addedAt ?? 0)));
 }

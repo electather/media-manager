@@ -28,6 +28,7 @@ import {
   countBuckets,
   enrich,
   getMatchingServersCached,
+  listRows,
   loadProgressMap,
   listAllActiveRows,
   listActiveRowsKeyset,
@@ -36,8 +37,8 @@ import {
   hasUserSeeded,
   encodeCursor,
   decodeCursor,
+  decode,
   type AddItemResult,
-  type EnrichOptions,
   type GetArtworkFn,
   type MediaService,
   type PageCursor,
@@ -49,6 +50,8 @@ export type { AddItemResult, SeedResult };
 import { derive as deriveMoods } from "./moods/derive";
 import { getSummary as getMoodSummaryImpl } from "./moods/cluster";
 import { getSection as getTonightSectionImpl } from "./tonight/section";
+import { itemsSource, itemsCfg, toItemsParams } from "./sources/items";
+import { toSourceContext } from "./sources/context";
 
 /**
  * Per-request context. Structurally compatible with the home row context so
@@ -298,155 +301,32 @@ const OVERSHOOT_FACTOR = 3;
 const MAX_MOOD_HOPS = 20;
 
 /**
- * Observability ceiling for `listItemsOffset` full-load scan (RISK-005).
- * Non-recent sorts pull every active row into memory before slicing, so a
- * user with thousands of items pays the full status + metadata batch on
- * every page fetch. We log a warn above this threshold so the trade-off
- * becomes visible before it turns into a latency incident; the limit is
- * advisory only — rows are still served — and graduates to a hard cap +
- * keyset-friendly sort backing in a follow-up.
+ * Paginated list of watchlist items with sort + bucket + mood filters. Thin
+ * envelope over the media read pipeline (design §S.1 / consolidation §H): the
+ * `items` `MediaSource` supplies the raw rows + a `stages` declaration and
+ * `media.listRows` owns enrich / classify / filter / sort / paginate / cursor.
+ * `recent` + no filter rides the keyset window; every other read (a non-recent
+ * metadata sort, or a bucket/mood filter) rides offset mode. When `bucket` is
+ * omitted, every active row surfaces (V.WL2). A bad/foreign/mode-mismatched
+ * cursor decodes to `null` → first page (V.CU1, watchlist's null mapping).
  */
-const OFFSET_FULL_LOAD_WARN_ROWS = 1000;
-
-function encodeOffsetCursor(offset: number): string {
-  return Buffer.from(`offset:${offset}`, "utf8").toString("base64url");
-}
-
-// fallow-ignore-next-line complexity
-function decodeOffsetCursor(raw: string): number | null {
-  try {
-    const decoded = Buffer.from(raw, "base64url").toString("utf8");
-    if (!decoded.startsWith("offset:")) return null;
-    const n = Number(decoded.slice("offset:".length));
-    return Number.isInteger(n) && n >= 0 ? n : null;
-  } catch {
-    return null;
-  }
-}
-
-const STATUS_PRIORITY: Record<NonNullable<WatchlistItem["status"]>, number> = {
-  available: 0,
-  processing: 1,
-  requested: 2,
-  unavailable: 3,
-  unknown: 4,
-};
-
-// fallow-ignore-next-line complexity
-function compareAlpha(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): number {
-  const at = (aMeta?.title ?? "").toLocaleLowerCase().normalize("NFD");
-  const bt = (bMeta?.title ?? "").toLocaleLowerCase().normalize("NFD");
-  return at.localeCompare(bt);
-}
-
-// fallow-ignore-next-line complexity
-function compareRuntime(aMeta?: CanonicalMetadata, bMeta?: CanonicalMetadata): number {
-  const ar = aMeta?.runtimeMinutes ?? Number.POSITIVE_INFINITY;
-  const br = bMeta?.runtimeMinutes ?? Number.POSITIVE_INFINITY;
-  return ar - br;
-}
-
-function statusRank(id: string, statusMap: Record<string, string>): number {
-  const status = (statusMap[id] ?? "unknown") as NonNullable<WatchlistItem["status"]>;
-  return STATUS_PRIORITY[status] ?? 9;
-}
-
-function compareForSort(
-  a: ActiveRow,
-  b: ActiveRow,
-  metaMap: Record<string, CanonicalMetadata>,
-  statusMap: Record<string, string>,
-  sort: Exclude<WatchlistSort, "recent">,
-): number {
-  const aId = keyToId({ tmdbId: a.tmdbId, mediaType: a.mediaType });
-  const bId = keyToId({ tmdbId: b.tmdbId, mediaType: b.mediaType });
-  if (sort === "alpha") return compareAlpha(metaMap[aId], metaMap[bId]);
-  if (sort === "runtime") return compareRuntime(metaMap[aId], metaMap[bId]);
-  return statusRank(aId, statusMap) - statusRank(bId, statusMap);
-}
-
-/**
- * Paginated list of watchlist items with sort + bucket + mood filters. When
- * `bucket` is omitted, `unknown`-classified rows are included so the page
- * surfaces every active row (V.WL2). `sort=recent` uses the existing keyset
- * cursor; `sort=alpha|runtime|status` use an offset cursor over the
- * snapshot ordering (V.WL1, best-effort under concurrent mutation).
- */
-// fallow-ignore-next-line complexity
 export async function listItems(
   ctx: MaybeRowContext,
   opts: ListItemsOptions = {},
 ): Promise<WatchlistResponse> {
   const c = asWatchlistContext(ctx);
-  const limit = clampLimit(opts.limit);
-  const sort: WatchlistSort = opts.sort ?? "recent";
-
-  if (sort !== "recent") {
-    return listItemsOffset(c, sort, limit, opts);
-  }
-
-  // Recent / keyset path — mirrors getItems but applies bucket + mood
-  // intersection, and surfaces "unknown" when bucket is omitted.
-  const cursor = opts.cursor ? decodeCursor(opts.cursor) : undefined;
-  const fetchSize =
-    opts.bucket || opts.mood ? Math.min(limit * OVERSHOOT_FACTOR, WATCHLIST_LIST_MAX_LIMIT) : limit;
-
-  let scanCursor: PageCursor | undefined = cursor ?? undefined;
-  let collectedItems: WatchlistItem[] = [];
-  let enrichPartial = false;
-  let nextCursor: string | null = null;
-
-  // fallow-ignore-next-line code-duplication
-  for (let hop = 0; hop <= MAX_EMPTY_HOPS; hop++) {
-    const rows = await listActiveRowsKeyset(c.userId, {
-      limit: fetchSize,
-      ...(scanCursor ? { cursor: scanCursor } : {}),
-    });
-    if (rows.length === 0) {
-      nextCursor = null;
-      break;
-    }
-    const filtered = opts.mood
-      ? await filterByMood(rows, c, opts.mood)
-      : {
-          rows,
-          partial: false,
-          metadata: undefined as Record<string, CanonicalMetadata> | undefined,
-        };
-    if (filtered.partial) enrichPartial = true;
-    const enrichOpts: EnrichOptions = {};
-    if (opts.bucket) enrichOpts.filter = opts.bucket;
-    if (filtered.metadata) enrichOpts.prefetchedMetadata = filtered.metadata;
-    const enriched = await enrich(filtered.rows, c, enrichOpts);
-    if (enriched.partial) enrichPartial = true;
-    collectedItems = enriched.items.slice(0, limit);
-    const collectedSources = enriched.sources.slice(0, limit);
-    const lastScanned = rows[rows.length - 1]!;
-    const exhausted = rows.length < fetchSize;
-
-    if (collectedItems.length > 0) {
-      if (collectedSources.length === collectedItems.length) {
-        const lastReturned = collectedSources[collectedSources.length - 1]!;
-        nextCursor =
-          exhausted && enriched.items.length <= limit
-            ? null
-            : encodeCursor({ addedAt: lastReturned.addedAt, id: lastReturned.id });
-      } else {
-        nextCursor = exhausted
-          ? null
-          : encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
-      }
-      break;
-    }
-
-    nextCursor = exhausted
-      ? null
-      : encodeCursor({ addedAt: lastScanned.addedAt, id: lastScanned.id });
-    if (exhausted) break;
-    scanCursor = { addedAt: lastScanned.addedAt, id: lastScanned.id };
-  }
-
-  return { items: collectedItems, cursor: nextCursor, partial: enrichPartial };
+  const params = toItemsParams({ ...opts, limit: clampLimit(opts.limit) });
+  const source = itemsSource(params);
+  // V.CU1: decode against the source's declared mode; null (bad/foreign/
+  // mode-mismatch) maps to the first page, watchlist's existing null behavior.
+  const cursor = opts.cursor ? decode(opts.cursor, source.stages.cursorMode) : null;
+  const page = await listRows(source, itemsCfg(params, cursor), toSourceContext(c));
+  // The pipeline yields the public `CompactMediaItem` shape (no `WatchlistItem`
+  // construction). Active rows always carry `addedAt`/`addedSource`, so they
+  // are `WatchlistItem`s at runtime; the cast bridges to the current
+  // `WatchlistResponse` type until US-024 deletes `WatchlistItem` and the
+  // response widens to `CompactMediaItem`.
+  return { items: page.items as WatchlistItem[], cursor: page.cursor, partial: page.partial };
 }
 
 async function filterByMood(
@@ -471,80 +351,6 @@ async function filterByMood(
     deriveMoods(metadata[keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })]).includes(mood),
   );
   return { rows: kept, partial, metadata };
-}
-
-// fallow-ignore-next-line complexity
-async function listItemsOffset(
-  ctx: ResolvedWatchlistContext,
-  sort: Exclude<WatchlistSort, "recent">,
-  limit: number,
-  opts: ListItemsOptions,
-): Promise<WatchlistResponse> {
-  const offset = opts.cursor ? (decodeOffsetCursor(opts.cursor) ?? 0) : 0;
-  const all = await listAllActiveRows(ctx.userId);
-  if (all.length === 0) return { items: [], cursor: null, partial: false };
-  if (all.length > OFFSET_FULL_LOAD_WARN_ROWS) {
-    ctx.log.warn(
-      `[watchlist:listItems] full-load scan over ${all.length} rows exceeds advisory ${OFFSET_FULL_LOAD_WARN_ROWS}-row ceiling (RISK-005)`,
-    );
-  }
-
-  let partial = false;
-  const compositeIds = all.map((r) => keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType }));
-  const [statusMap, metaMap] = await Promise.all([
-    ctx.mediaService.getStatusBatch(compositeIds).catch((err) => {
-      ctx.log.warn("[watchlist:listItems] getStatusBatch failed", err);
-      partial = true;
-      return {} as Record<string, string>;
-    }),
-    ctx.catalog
-      .getMetadataBatch(all.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType })))
-      .catch((err) => {
-        ctx.log.warn("[watchlist:listItems] getMetadataBatch failed", err);
-        partial = true;
-        return {} as Record<string, CanonicalMetadata>;
-      }),
-  ]);
-
-  let candidates = all;
-  if (opts.mood) {
-    candidates = candidates.filter((r) =>
-      deriveMoods(metaMap[keyToId({ tmdbId: r.tmdbId, mediaType: r.mediaType })]).includes(
-        opts.mood!,
-      ),
-    );
-  }
-  const sorted = candidates.slice().sort((a, b) => compareForSort(a, b, metaMap, statusMap, sort));
-  const tail = selectOffsetTail(sorted, offset, limit, opts.bucket);
-  const enriched = await enrich(tail, ctx, {
-    ...(opts.bucket ? { filter: opts.bucket } : {}),
-    prefetchedMetadata: metaMap,
-  });
-  if (enriched.partial) partial = true;
-  const items = enriched.items.slice(0, limit);
-  const sources = enriched.sources.slice(0, limit);
-  const nextOffset = offset + scannedRowCount(tail, sources, limit);
-  const cursor = nextOffset < sorted.length ? encodeOffsetCursor(nextOffset) : null;
-  return { items, cursor, partial };
-}
-
-// Bucket: full tail so enrich's `filter` can prune sparse buckets. No-bucket: bounded window — every row survives enrich.
-function selectOffsetTail(
-  sorted: ActiveRow[],
-  offset: number,
-  limit: number,
-  bucket: WatchlistBucket | undefined,
-): ActiveRow[] {
-  if (bucket) return sorted.slice(offset);
-  return sorted.slice(offset, offset + limit * OVERSHOOT_FACTOR);
-}
-
-// V.WL1: advance past last *returned* row; underfill means tail exhausted → caller nulls the cursor.
-function scannedRowCount(tail: ActiveRow[], returnedSources: ActiveRow[], limit: number): number {
-  if (returnedSources.length < limit) return tail.length;
-  const lastId = returnedSources[returnedSources.length - 1]!.id;
-  const lastIdx = tail.findIndex((r) => r.id === lastId);
-  return lastIdx >= 0 ? lastIdx + 1 : tail.length;
 }
 
 /**

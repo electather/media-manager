@@ -119,6 +119,17 @@ export type FilterKind = "bucket" | "mood" | undefined;
 export type RawPageToken = string;
 
 /**
+ * The sort the pipeline's sort stage applies. Extends the shared recency
+ * `RowSort` with `"none"` — an identity sort a source declares when it already
+ * returned rows in their final order, so the pipeline must NOT re-order them.
+ * Two sources need it: an offset source that pre-sorted by catalog metadata
+ * (watchlist `alpha`/`runtime`/`status`, which `RowSort` cannot express) and a
+ * pre-ranked feed (the tonight source). It stays media-internal — it is not a
+ * persisted/repo sort, so it does not widen the shared `RowSort` enum.
+ */
+export type PipelineSort = RowSort | "none";
+
+/**
  * Per-call context the consumer envelope hands to a `MediaSource` and the
  * pipeline. Unifies the home `RowContext` and watchlist `WatchlistContext`
  * (design §B): one media-owned shape carrying the per-user service handles a
@@ -160,7 +171,7 @@ export interface SourceContext {
  */
 export interface PipelineConfig<P = void> {
   params: P;
-  sort?: RowSort;
+  sort?: PipelineSort;
   filter?: FilterKind;
   /**
    * The target bucket for a `filter: "bucket"` run. `bucket` is a media-owned

@@ -231,27 +231,32 @@ apps/server/src/media/                      OWNS the shared row pipeline (consol
 The old `listItems` handler with its `paginateKeyset` / `paginateOffsetSnapshot` fork and the local `paginateWithOvershoot` helper are **deleted**. The items read is now `watchlist/sources/items.ts` (a `MediaSource`) driven through `media.listRows`. The source supplies the RAW row set + a `stages` declaration; the pipeline owns enrich / classify / filter / sort / paginate / cursor (consolidation §B–§C).
 
 ```
-// watchlist/sources/items.ts — RAW only.
-itemsSource: MediaSource<ItemsParams> = {
+// watchlist/sources/items.ts — RAW only. Per-request factory: cursor mode +
+// pipeline sort depend on sort/bucket/mood (US-014).
+itemsSource({ limit, sort, bucket?, mood? }): MediaSource<ItemsParams> = {
   sourceId: "watchlist.items",
-  fetchRawSet(ctx, { sort, bucket?, mood? }, cursor) →
-    rows = repo.listPage(userId, { cursor, state: "active", limit: limit*overshoot })   // media/repo
-    return { rows, partial: false, nextRaw: keysetMode ? rows.last : ⊥ }
+  // keyset read (recent + no filter): exactly `limit` rows, nextRaw = last row
+  //   when the window is full (no over-fetch — nothing prunes downstream).
+  // offset read (filter or non-recent sort): full active set; pre-sort by
+  //   catalog metadata for alpha/runtime/status (sort:"none"), else leave for
+  //   the pipeline's recentDesc.
+  fetchRawSet(ctx, { sort, bucket?, mood? }, cursor) → { rows, partial, nextRaw? }
   stages: {
     classify: true,
     filter:   bucket ? "bucket" : mood ? "mood" : ⊥,
-    sort,                                  // recent | alpha | runtime | status
-    cursorMode: sort === "recent" ? "keyset" : "offset",
+    sort:     keyset || sort === "recent" ? "recentDesc" : "none",
+    cursorMode: keyset ? "keyset" : "offset",   // keyset = recent && !bucket && !mood
   },
 }
 
 // the section envelope (thin service.ts):
-listItems(ctx, opts) → wrap( media.listRows(itemsSource, { params: opts, cursor: decode(opts.cursor), limit }) )
+listItems(ctx, opts) → wrap( media.listRows(itemsSource(params), { params, cursor: decode(opts.cursor, mode), limit }) )
 ```
 
 **Sort handling (which cursor mode the source declares):**
-- `recent` → `cursorMode:"keyset"` (addedAt DESC, id DESC). Existing index `(user_id, state, added_at)`. **Strict-stable** across page mutations. Pipeline keyset-paginate hops the raw query (overshoot helper, preserving #500 empty-streak `cursor:null` + #501 single-pass sparse bucket+sort + RISK-005 ceiling — now living in `media`, consolidation §C/§E/V.PG1).
-- `alpha` / `runtime` / `status` → `cursorMode:"offset"`. Source fetches all active rows; pipeline joins catalog metadata (already batched + cached via `media.batchLoad`), sorts, slices by `(offset, limit)`. Active set ≤ ~1000 typical; meta batch already used by `/counts`. **Best-effort stability** — concurrent add/remove between pages can skip / duplicate at the boundary; documented in V.WL1.
+- `recent` + **no filter** → `cursorMode:"keyset"` (addedAt DESC, id DESC). Existing index `(user_id, state, added_at)`. **Strict-stable** across page mutations; the source fetches exactly `limit` rows and threads `nextRaw` only on a full window, preserving #500 empty-streak `cursor:null` (consolidation §C/§E/V.PG1).
+- `recent` + **bucket/mood** → `cursorMode:"offset"`. The consolidated keyset paginate is a pure slice (it carries no overshoot helper — the #501 single-pass sparse-bucket+sort fix lives only on the offset path, `media/paginate.ts`), so a *filtered* recent read rides offset: the source loads the full active set, the pipeline classifies/filters over the whole set and re-sorts by `addedAt` (`recentDesc`), then slices `(offset, limit)`. Same item ids + order as the pre-refactor keyset multi-hop (opaque cursor mechanics differ; pre-stable). **Best-effort stability** under concurrent mutation (V.WL1).
+- `alpha` / `runtime` / `status` → `cursorMode:"offset"`. Source fetches all active rows, pre-sorts by catalog metadata (`RowSort` cannot express these — declares `sort:"none"` so the pipeline preserves the order), pipeline classifies/filters, slices by `(offset, limit)`. Active set ≤ ~1000 typical; meta batch already cached. **Best-effort stability** — concurrent add/remove between pages can skip / duplicate at the boundary; documented in V.WL1.
 - ⊥ new `title_norm` column. ⊥ migration backfill. Title normalization (lowercase, NFD) happens in-pipeline over catalog title.
 
 **Cursor (rev 9):** the keyset-vs-offset-snapshot codec fork is **replaced by the single `media/cursor.ts` codec** (two modes: `{mode:"keyset";k} | {mode:"offset";n}`). `decode(s) → Cursor|null` **never throws**; bad/foreign input or mode-mismatch with `source.stages.cursorMode` → `null`. The decode-fail → **first-page** mapping STAYS watchlist-side (consumer-side; the codec stays neutral). See V.WL1 + consolidation §E / V.CU1.

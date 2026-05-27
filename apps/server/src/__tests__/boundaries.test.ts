@@ -34,8 +34,12 @@ const ALL_MODULES = [
 ];
 
 // Barrel may only re-export from these sibling files (or directory barrels):
-// service, events, errors, types, jobs. `repo/**`, `internal/**`, and
-// individual handler files in `jobs/<x>.ts` are deliberately private.
+// service, events, errors, types, jobs, progress, source, cursor, plus the
+// public `pipeline/*` and `service/*` files the media pipeline consolidation
+// promotes (design §A/§J: `MediaSource`, the cursor codec, `listRows`,
+// `batchLoad`/`paginate`, `countBuckets`, and the writes are public via the
+// barrel). `repo/**`, `internal/**`, and individual handler files in
+// `jobs/<x>.ts` are deliberately private and stay off this list.
 const APPROVED_RE_EXPORT_SOURCES = [
   /^\.\/service$/,
   /^\.\/events$/,
@@ -43,6 +47,10 @@ const APPROVED_RE_EXPORT_SOURCES = [
   /^\.\/types$/,
   /^\.\/jobs$/,
   /^\.\/progress$/,
+  /^\.\/source$/,
+  /^\.\/cursor$/,
+  /^\.\/pipeline\/[a-zA-Z-]+$/,
+  /^\.\/service\/[a-zA-Z-]+$/,
 ];
 
 function readBarrel(module: string): string {
