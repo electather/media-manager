@@ -20,9 +20,13 @@ export type CursorMode = "keyset" | "offset";
 
 export type Cursor = { mode: "keyset"; k: string } | { mode: "offset"; n: number };
 
+// `n` must be a non-negative integer: `paginateOffset` uses it directly as an
+// `Array.slice` start index, so a hand-crafted `{n:-10}` (slice-from-tail) or
+// `{n:1.5}` (truncated to 1, mints a poisoned next cursor) would otherwise
+// bypass the documented bad-cursor path (home → 400, watchlist → first page).
 const cursorSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("keyset"), k: z.string() }),
-  z.object({ mode: z.literal("offset"), n: z.number() }),
+  z.object({ mode: z.literal("offset"), n: z.number().int().nonnegative() }),
 ]);
 
 export function encode(cursor: Cursor): string {

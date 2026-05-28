@@ -18,7 +18,11 @@ export function decodeKeyset(cursor: Cursor | null): { addedAt: number; id: stri
   if (sep < 0) return undefined;
   const addedAt = Number(cursor.k.slice(0, sep));
   const id = cursor.k.slice(sep + 1);
-  if (!Number.isFinite(addedAt) || id.length === 0) return undefined;
+  // `addedAt` is a Date.now() epoch on the wire, so a negative value cannot
+  // identify any real row. Reject it explicitly — `Number.isFinite(-1)` is
+  // `true`, which would otherwise let the cursor flow into the DB query and
+  // return a silently-empty page instead of taking the bad-cursor path.
+  if (!Number.isFinite(addedAt) || addedAt < 0 || id.length === 0) return undefined;
   return { addedAt, id };
 }
 

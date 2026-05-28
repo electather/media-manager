@@ -59,6 +59,23 @@ describe("media cursor codec", () => {
       );
       expect(decode(malformed)).toBeNull();
     });
+
+    // Offset `n` drives `Array.slice` directly in `paginateOffset`, so a
+    // negative, fractional, or non-finite `n` would otherwise mint a poisoned
+    // next-page cursor instead of taking the documented bad-cursor path.
+    it("returns null when an offset cursor carries a negative n", () => {
+      const malformed = Buffer.from(JSON.stringify({ mode: "offset", n: -10 }), "utf8").toString(
+        "base64url",
+      );
+      expect(decode(malformed)).toBeNull();
+    });
+
+    it("returns null when an offset cursor carries a non-integer n", () => {
+      const malformed = Buffer.from(JSON.stringify({ mode: "offset", n: 1.5 }), "utf8").toString(
+        "base64url",
+      );
+      expect(decode(malformed)).toBeNull();
+    });
   });
 
   // A source declares its cursorMode; a cursor minted for the other mode is
