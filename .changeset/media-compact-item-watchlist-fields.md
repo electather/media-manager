@@ -1,5 +1,4 @@
 ---
-"@ent-mcp/shared": minor
 "@ent-mcp/server": minor
 ---
 
