@@ -39,7 +39,17 @@ export function encode(cursor: Cursor): string {
  * `expectedMode` is supplied) decodes to a different mode than the source
  * declared. When `expectedMode` is omitted any valid cursor is returned.
  */
+/**
+ * Hard cap on the encoded cursor input. A well-formed cursor is ~50-100 bytes
+ * (mode + a short keyset hop or a small offset), so 512 is generous headroom.
+ * The cap stops a multi-megabyte client/attacker string from forcing a large
+ * heap allocation and JSON parse on every paginated request. The null return
+ * is the V.CU1 path the consumer envelope already handles.
+ */
+const MAX_RAW_CURSOR_LEN = 512;
+
 export function decode(raw: string, expectedMode?: CursorMode): Cursor | null {
+  if (raw.length > MAX_RAW_CURSOR_LEN) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));

@@ -76,6 +76,14 @@ describe("media cursor codec", () => {
       );
       expect(decode(malformed)).toBeNull();
     });
+
+    // A well-formed cursor is ~50-100 bytes; capping the raw input stops a
+    // hostile client forcing a multi-megabyte base64 allocation + JSON parse
+    // on every paginated request.
+    it("returns null for an oversized cursor string without decoding it", () => {
+      const oversized = "a".repeat(1024);
+      expect(decode(oversized)).toBeNull();
+    });
   });
 
   // A source declares its cursorMode; a cursor minted for the other mode is
