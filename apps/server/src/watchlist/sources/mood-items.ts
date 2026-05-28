@@ -40,13 +40,14 @@ const MAX_MOOD_HOPS = 20;
  * page across windows (with an empty-streak budget so a sparse mood still fills
  * a page). It supplies ONLY the matched raw rows + a `stages` declaration; the
  * media pipeline (`listRows`) owns enrich / sort / paginate / cursor (V.MC1).
- * `filter: "mood"` is declarative — the pipeline's filter stage no-ops on it
- * because the predicate already ran here.
+ * `filter: "preapplied"` is declarative — it tells the pipeline the predicate
+ * already ran here so the filter stage must NOT re-derive it (the watchlist
+ * mood predicate cannot leak into media per V.WL3).
  */
 export const moodItemsSource: MediaSource<MoodParams> = {
   sourceId: "watchlist.mood-items",
   fetchRawSet: fetchMoodRawSet,
-  stages: { filter: "mood", sort: "recentDesc", cursorMode: "keyset" },
+  stages: { filter: "preapplied", sort: "recentDesc", cursorMode: "keyset" },
 };
 
 /** Build the pipeline config for a `/moods/:moodId/items` read. */
@@ -54,7 +55,7 @@ export function moodItemsCfg(
   params: MoodParams,
   cursor: Cursor | null,
 ): PipelineConfig<MoodParams> {
-  return { params, cursor, limit: params.limit, filter: "mood" };
+  return { params, cursor, limit: params.limit, filter: "preapplied" };
 }
 
 /**

@@ -104,10 +104,14 @@ export type ToCanonicalRowFn = (
 /**
  * Which predicate the pipeline `filter` stage applies, driven by the source's
  * request params (design §B). `"bucket"` keeps only rows matching a requested
- * bucket; `"mood"` keeps only rows matching a requested mood cluster;
- * `undefined` skips filtering entirely.
+ * bucket; `"preapplied"` is a marker the source uses to declare it has already
+ * applied its filter source-side (mood is the only one today — the predicate
+ * cannot leak out of the watchlist module per V.WL3) so the pipeline stage
+ * must NOT re-derive it. `undefined` skips filtering entirely. Adding a real
+ * pipeline-side case must extend the explicit `"bucket"` branch in
+ * `applyBucketFilter`, never silently switch on `"preapplied"`.
  */
-export type FilterKind = "bucket" | "mood" | undefined;
+export type FilterKind = "bucket" | "preapplied" | undefined;
 
 /**
  * Opaque keyset hop token a persistent-table source threads back from
@@ -166,6 +170,11 @@ export interface SourceContext {
    * resolve the seed title during `fetchRawSet` and stash it here so the home
    * enrich override's `match-reason` callback can surface it on the same context
    * object. Media itself never reads it (enrich's match-reason is consumer-injected).
+   *
+   * NOTE — this is the ONE legitimate write-back slot on `SourceContext`
+   * (documented exception to source purity per design §H). Sources MUST NOT
+   * stash any other state on the context; thread additional hints back via the
+   * `fetchRawSet` return shape instead.
    */
   seedTitle?: string;
 }

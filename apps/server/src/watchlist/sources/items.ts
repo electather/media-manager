@@ -56,7 +56,7 @@ function isKeysetRead(params: ItemsParams): boolean {
 }
 
 function filterKind(params: ItemsParams): FilterKind {
-  return params.bucket ? "bucket" : params.mood ? "mood" : undefined;
+  return params.bucket ? "bucket" : params.mood ? "preapplied" : undefined;
 }
 
 /**
@@ -121,7 +121,7 @@ export function itemsCfg(params: ItemsParams, cursor: Cursor | null): PipelineCo
     ...(params.bucket
       ? { filter: "bucket" as const, bucket: params.bucket }
       : params.mood
-        ? { filter: "mood" as const }
+        ? { filter: "preapplied" as const }
         : {}),
   };
 }

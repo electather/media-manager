@@ -241,14 +241,16 @@ describe("media listRows pipeline", () => {
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1"]);
   });
 
-  it("does not re-filter a mood source (mood filtering is source-side)", async () => {
+  it("does not re-filter a preapplied source (mood filtering is source-side)", async () => {
     const rows = [row("1", 30), row("2", 20)];
     const { ctx } = makeCtx({ getMetadataBatch: async () => metaMapFor(rows, CURRENT_YEAR - 5) });
     const src = source({
       // The source already applied the mood predicate in fetchRawSet; the
       // pipeline must not re-derive moods (media cannot import deriveMoods).
+      // `preapplied` is the marker for "filter ran source-side" — adding a
+      // pipeline-side branch here would silently double-filter.
       fetchRawSet: async () => ({ rows, partial: false }),
-      stages: { filter: "mood", sort: "recentDesc", cursorMode: "offset" },
+      stages: { filter: "preapplied", sort: "recentDesc", cursorMode: "offset" },
     });
 
     const page = await listRows(src, cfg(), ctx);

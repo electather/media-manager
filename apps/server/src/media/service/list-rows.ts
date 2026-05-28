@@ -95,7 +95,7 @@ async function defaultEnrich(
  * the whole filtered tail in one pass, preserving the #501 single-pass
  * sparse-bucket fix. Mood is a watchlist-product concept media must not import,
  * so a mood source filters inside its own `fetchRawSet`; the pipeline does not
- * re-derive it here (a `filter: "mood"` source falls straight through).
+ * re-derive it here (a `filter: "preapplied"` source falls straight through).
  */
 function applyBucketFilter<P, Row>(
   items: CompactMediaItem[],

@@ -75,9 +75,11 @@ beforeEach(() => {
 // routing or the sparse-mood accumulation regresses, mood pages silently
 // truncate or paginate wrong — these tests pin that contract (Rule 9).
 describe("moodItemsSource.stages (design §S.3)", () => {
-  it("declares mood filter + keyset/recentDesc stages", () => {
+  it("declares preapplied filter + keyset/recentDesc stages", () => {
+    // `preapplied` signals the pipeline that the mood predicate already ran
+    // source-side; the pipeline filter stage MUST NOT re-derive mood (V.WL3).
     expect(moodItemsSource.stages).toEqual({
-      filter: "mood",
+      filter: "preapplied",
       sort: "recentDesc",
       cursorMode: "keyset",
     });

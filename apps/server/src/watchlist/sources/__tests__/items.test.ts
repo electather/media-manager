@@ -77,10 +77,10 @@ describe("itemsSource.stages routing (design §S.1)", () => {
     expect(s.stages.filter).toBe("bucket");
   });
 
-  it("recent + mood → offset, mood filter", () => {
+  it("recent + mood → offset, preapplied filter (mood ran source-side)", () => {
     const s = itemsSource(params({ mood: "dark" }));
     expect(s.stages.cursorMode).toBe("offset");
-    expect(s.stages.filter).toBe("mood");
+    expect(s.stages.filter).toBe("preapplied");
   });
 
   it("alpha → offset with sort 'none' (source pre-sorts; RowSort can't express alpha)", () => {
@@ -159,5 +159,32 @@ describe("itemsSource.fetchRawSet (V.MC1 — RAW rows only)", () => {
     expect(res.rows.map((r) => r.tmdbId)).toEqual(["a", "b", "c"]);
     // Offset sources never mint a keyset hop token.
     expect("nextRaw" in res).toBe(false);
+  });
+
+  // The status-sort path depends on a `mediaService.getStatusBatch` fan-out.
+  // When that call rejects we MUST surface `partial:true` so the envelope can
+  // signal a degraded sort to the client; today every row falls back to the
+  // `unknown` status rank, collapsing the column to identical rank — that
+  // arbitrary visual order is acceptable ONLY because `partial:true` rides
+  // along. A regression that silently dropped `partial` here would render an
+  // identical-looking page with no client-visible degradation banner.
+  it("status sort surfaces partial:true when getStatusBatch rejects", async () => {
+    const rows = [row("a", 3), row("b", 2)];
+    vi.mocked(media.listAllActiveRows).mockResolvedValueOnce(rows);
+    const ctx = makeCtx();
+    (ctx.mediaService.getStatusBatch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("status batch boom"),
+    );
+    (ctx.catalog.getMetadataBatch as ReturnType<typeof vi.fn>).mockResolvedValue({});
+
+    const res = await itemsSource(params({ sort: "status" })).fetchRawSet(
+      ctx,
+      params({ sort: "status" }),
+      null,
+    );
+
+    expect(res.partial).toBe(true);
+    // Rows are still returned so the page renders — just at the degraded sort.
+    expect(res.rows.map((r) => r.tmdbId).sort()).toEqual(["a", "b"]);
   });
 });
