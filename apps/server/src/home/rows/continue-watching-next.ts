@@ -18,6 +18,10 @@ const provider = makeBoundedRow({
   capability: "continueWatching",
   source: continueWatchingNextSource,
   project: (_ctx, rows) =>
+    // Slice the projected list to one page BEFORE enrich runs — the pipeline's
+    // `paginate` also trims to `ROW_PAGE_SIZE`, but only after `enrichHomeItems`
+    // has paid the per-item enrichment cost. Bounding here keeps the bounded
+    // row bounded for enrich too, not just for the final page slice.
     rows
       .map((entry) => fromContinueWatchingEntry(entry, { useNextUp: entry.nextUp != null }))
       .filter((item): item is NonNullable<typeof item> => item !== null)

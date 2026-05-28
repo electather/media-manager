@@ -6,6 +6,7 @@ import {
   type MediaSource,
   type Page,
   type PipelineConfig,
+  type SourceContext,
 } from "../../media";
 import { ROW_PAGE_SIZE } from "../rows/_shared";
 import { enrichHomeItems } from "./media-enrichment";
@@ -51,7 +52,12 @@ export function loadRowPage<P, Row>(
   },
 ): Promise<Page> {
   const cfg: PipelineConfig<P> = { params: spec.params, cursor: spec.cursor, limit: spec.pageSize };
-  return listRows(spec.source, cfg, ctx, async (rows) =>
+  // `satisfies SourceContext` machine-checks the prose claim above — TS now
+  // breaks the build if a future narrowing removes a required SourceContext
+  // field from RowContext, instead of silently falling through to a runtime
+  // surprise inside listRows.
+  const mediaCtx = ctx satisfies SourceContext;
+  return listRows(spec.source, cfg, mediaCtx, async (rows) =>
     enrichHomeItems(await spec.project(ctx, rows), ctx, { rowId: spec.rowId }),
   );
 }

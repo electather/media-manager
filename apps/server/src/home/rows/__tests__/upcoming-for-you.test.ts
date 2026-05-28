@@ -114,7 +114,7 @@ describe("rows/upcoming-for-you", () => {
     const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.id)).toEqual(["tv:100", "tv:200"]);
     // Earliest queued episode wins — S1E1, not S1E2 or S1E3.
-    expect((page.items[0] as { episode?: unknown }).episode).toEqual({
+    expect(page.items[0]?.episode).toEqual({
       season: 1,
       episode: 1,
       airsAt: Date.parse("2026-06-01T20:00:00Z"),

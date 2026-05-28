@@ -23,10 +23,13 @@ const TONIGHT_BUCKETS = new Set<MediaRowBucket>(["ready", "in-progress"]);
  * only run after the pipeline enriches) and the envelope reduces it to a hero +
  * ≤4 alternates. So the pipeline must not truncate the page before `pick` runs.
  * The candidate set is already bounded (the active watchlist filtered to
- * watchable buckets), so an effectively-unbounded page limit serves the whole
- * bounded set in one slice.
+ * watchable buckets), so a concrete ceiling well above any plausible watchlist
+ * size serves the whole bounded set in one slice. We use a finite ceiling
+ * rather than `Number.MAX_SAFE_INTEGER` so the only signal we get above it
+ * is `paginate`'s advisory `OFFSET_FULL_LOAD_WARN` — not a spurious warn on
+ * every tonight load for users brushing the 1000-row mark.
  */
-export const TONIGHT_PAGE_LIMIT = Number.MAX_SAFE_INTEGER;
+export const TONIGHT_PAGE_LIMIT = 10_000;
 
 /**
  * The watchlist `tonight` `MediaSource` (design §S.2 / consolidation §H). The
