@@ -148,6 +148,33 @@ export interface SeedSyncContext {
 }
 
 /**
+ * Pull the plugin watchlist feed with a swallowed deadline-bounded call and
+ * normalize the items into `WatchlistKey`s. Returns `null` when the feed call
+ * threw — callers decide how to react (seed rolls its lock back; sync simply
+ * reports `partial`). Shared by `seedFromPlugins` / `syncFromPlugins` so the
+ * feed-fetch + key-fanout shape lives in one place instead of being open-coded
+ * twice (fallow dupes baseline cleanup, design §M.2).
+ */
+async function fetchPluginWatchlistKeys(
+  ctx: SeedSyncContext,
+  tag: string,
+): Promise<{ keys: WatchlistKey[]; partial: boolean } | null> {
+  const opts: { deadlineMs?: number } = {};
+  if (ctx.deadlineMs != null) opts.deadlineMs = ctx.deadlineMs;
+  let feed: { items: unknown[]; partial: boolean };
+  try {
+    feed = await ctx.mediaService.getWatchlistFeed(opts);
+  } catch (err) {
+    ctx.log.warn(`[watchlist:${tag}] getWatchlistFeed threw`, err);
+    return null;
+  }
+  const keys = (feed.items as unknown[])
+    .map(toWatchlistKey)
+    .filter((k): k is WatchlistKey => k !== null);
+  return { keys, partial: feed.partial };
+}
+
+/**
  * Pulls the plugin watchlist feed and bulk-inserts new items. Serializes
  * concurrent first-GETs via `trySeedLock` so only the winning caller fans
  * out to plugins; losers short-circuit with `added: 0`. On a plugin error
@@ -160,28 +187,20 @@ export async function seedFromPlugins(ctx: SeedSyncContext): Promise<SeedResult>
     // Another concurrent caller is doing the plugin fetch; nothing to do here.
     return { added: 0, partial: false };
   }
-  let feed: { items: unknown[]; partial: boolean };
-  try {
-    const opts: { deadlineMs?: number } = {};
-    if (ctx.deadlineMs != null) opts.deadlineMs = ctx.deadlineMs;
-    feed = await ctx.mediaService.getWatchlistFeed(opts);
-  } catch (err) {
-    ctx.log.warn("[watchlist:seed] getWatchlistFeed threw", err);
+  const fetched = await fetchPluginWatchlistKeys(ctx, "seed");
+  if (fetched === null) {
     // Roll the lock back so the next GET retries the plugin call.
     await clearSeedLock(ctx.userId).catch(() => {});
     return { added: 0, partial: true };
   }
-  const keys = (feed.items as unknown[])
-    .map(toWatchlistKey)
-    .filter((k): k is WatchlistKey => k !== null);
   const known = await allKnownKeys(ctx.userId);
-  const fresh = keys.filter((k) => !known.has(keyToId(k)));
+  const fresh = fetched.keys.filter((k) => !known.has(keyToId(k)));
   const added = await bulkInsertActiveRows(ctx.userId, fresh, "plugin", true, now);
-  if (feed.partial) {
+  if (fetched.partial) {
     // Don't keep the lock when the feed was incomplete — next GET should retry.
     await clearSeedLock(ctx.userId).catch(() => {});
   }
-  return { added, partial: feed.partial };
+  return { added, partial: fetched.partial };
 }
 
 /**
@@ -189,25 +208,15 @@ export async function seedFromPlugins(ctx: SeedSyncContext): Promise<SeedResult>
  * `allKnownKeys` so removed (tombstoned) items never resurrect.
  */
 export async function syncFromPlugins(ctx: SeedSyncContext): Promise<SeedResult> {
-  let feed: { items: unknown[]; partial: boolean };
-  try {
-    const opts: { deadlineMs?: number } = {};
-    if (ctx.deadlineMs != null) opts.deadlineMs = ctx.deadlineMs;
-    feed = await ctx.mediaService.getWatchlistFeed(opts);
-  } catch (err) {
-    ctx.log.warn("[watchlist:sync] getWatchlistFeed threw", err);
-    return { added: 0, partial: true };
-  }
-  const keys = (feed.items as unknown[])
-    .map(toWatchlistKey)
-    .filter((k): k is WatchlistKey => k !== null);
+  const fetched = await fetchPluginWatchlistKeys(ctx, "sync");
+  if (fetched === null) return { added: 0, partial: true };
   const known = await allKnownKeys(ctx.userId);
-  const fresh = keys.filter((k) => !known.has(keyToId(k)));
+  const fresh = fetched.keys.filter((k) => !known.has(keyToId(k)));
   const now = Date.now();
   // Sync-added rows are not initial-seed rows; flag false so future reporting
   // can distinguish cron-acquired items from the eager seed.
   const added = await bulkInsertActiveRows(ctx.userId, fresh, "plugin", false, now);
-  return { added, partial: feed.partial };
+  return { added, partial: fetched.partial };
 }
 
 /**
