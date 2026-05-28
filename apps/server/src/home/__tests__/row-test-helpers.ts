@@ -21,6 +21,7 @@ export function makeRowCtx(overrides: Partial<RowContext> = {}): RowContext {
     getMetadataBatch: vi.fn().mockResolvedValue({}),
     getMetadata: vi.fn().mockResolvedValue(null),
     getDiscoverFeed: vi.fn().mockResolvedValue(null),
+    hasDiscoverFeed: vi.fn().mockResolvedValue(false),
     getUserHistory: vi.fn().mockResolvedValue([]),
     getUserRatings: vi.fn().mockResolvedValue([]),
   } as unknown as RowContext["catalog"];

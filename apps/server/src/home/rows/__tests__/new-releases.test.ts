@@ -46,6 +46,9 @@ describe("rows/new-releases", () => {
   it("queries discover_snapshots with feedKind='newReleases' + sort='popularity_desc'", async () => {
     const ctx = makeRowCtx();
     (
+      ctx.catalog as unknown as { hasDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
+    ).hasDiscoverFeed.mockResolvedValue(true);
+    (
       ctx.catalog as unknown as { getDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
     ).getDiscoverFeed.mockResolvedValue([{ tmdbId: "1", type: "movie" }]);
     (

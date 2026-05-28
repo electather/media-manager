@@ -59,6 +59,9 @@ describe("rows/trending-now", () => {
       type: "movie",
     }));
     (
+      ctx.catalog as unknown as { hasDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
+    ).hasDiscoverFeed.mockResolvedValue(true);
+    (
       ctx.catalog as unknown as { getDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
     ).getDiscoverFeed.mockResolvedValue(snap);
     (

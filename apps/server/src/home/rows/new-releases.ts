@@ -9,6 +9,8 @@ const provider = makeDiscoverSnapshotRow({
   rowId: "newReleases",
   kind: "newReleases",
   titleKey: "home_row_newReleases_header",
+  feedKind: "newReleases",
+  sort: "popularity_desc",
   source: newReleasesSource,
 });
 

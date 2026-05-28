@@ -3,7 +3,7 @@ import type { MediaSource } from "../../media";
 import type { MediaKey } from "../rows/_shared";
 
 /** UTC midnight epoch ms — keys the day-bucketed `discover_snapshots` table. */
-function todayBucket(): number {
+export function todayBucket(): number {
   const d = new Date();
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }

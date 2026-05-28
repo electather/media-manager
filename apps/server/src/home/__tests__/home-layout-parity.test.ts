@@ -79,6 +79,12 @@ function makeScenarioCtx(): RowContext {
       if (kind === "newReleases") return NEW_RELEASES_SNAPSHOT;
       return null;
     }),
+    // `hasDiscoverFeed` is the new cheap-eligibility probe (replaces the
+    // earlier double-`fetchRawSet` per layout render). Keep it in sync with
+    // `getDiscoverFeed` so a fixture snapshot's presence flips eligibility on.
+    hasDiscoverFeed: vi.fn(
+      async (kind: DiscoverFeedKind) => kind === "trending" || kind === "newReleases",
+    ),
     getRecommendations: vi.fn().mockResolvedValue(RECOMMENDATIONS),
     getMetadataBatch: vi.fn(async (keys: MetadataKey[]) => {
       const out: Record<string, unknown> = {};
