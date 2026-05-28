@@ -235,11 +235,6 @@
         "count": 2
       }
     },
-    "apps/server/src/media/service/writes.ts": {
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "apps/server/src/plugin-runtime/internal/host-bridge.ts": {
       "crap_moderate": {
         "count": 1
