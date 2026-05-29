@@ -68,6 +68,21 @@ describe("media pipeline paginate — keyset mode", () => {
     expect(ids(result)).toEqual(["movie:0", "movie:1", "movie:2"]);
     expect(result.cursor).toBeNull();
   });
+
+  it("floors limit <= 0 to one row so an empty page never pairs with a live cursor", () => {
+    // WHY: limit 0 would slice `[]` while `nextRaw` still mints a cursor — the
+    // client would fetch empty pages forever. The floor keeps the page
+    // non-empty so it always advances. Real callers clamp limit upstream
+    // (watchlist `clampLimit`, home `ROW_PAGE_SIZE`); this is defense-in-depth.
+    const result = paginate({
+      items: items(15),
+      cursorMode: "keyset",
+      cursor: null,
+      nextRaw: "1700:movie:9",
+      limit: 0,
+    });
+    expect(result.items.length).toBeGreaterThan(0);
+  });
 });
 
 describe("media pipeline paginate — offset mode", () => {
@@ -125,6 +140,14 @@ describe("media pipeline paginate — offset mode", () => {
     });
     expect(result.items).toEqual([]);
     expect(result.cursor).toBeNull();
+  });
+
+  it("floors limit <= 0 to one row so the offset cursor advances instead of looping", () => {
+    // WHY: limit 0 → zero-width slice → `nextOffset === start`, re-minting the
+    // same offset cursor forever. The floored slice advances the offset by >= 1.
+    const result = paginate({ items: items(25), cursorMode: "offset", cursor: null, limit: 0 });
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(decode(result.cursor!)).toEqual({ mode: "offset", n: 1 });
   });
 
   it("warns past the RISK-005 advisory row ceiling and stays silent at or below it", () => {

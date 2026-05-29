@@ -72,7 +72,10 @@ export function paginate(input: PaginateInput): PaginateResult {
 }
 
 function paginateKeyset(input: PaginateInput): PaginateResult {
-  const items = input.items.slice(0, input.limit);
+  // Guard limit <= 0: an empty slice paired with a live `nextRaw` would mint a
+  // cursor for an empty page and loop the client forever. Real callers clamp
+  // (watchlist `clampLimit`, home `ROW_PAGE_SIZE`); this is defense-in-depth.
+  const items = input.items.slice(0, Math.max(1, input.limit));
   // #500 (V.PG1): the source signals exhaustion — including the empty-streak
   // give-up where it scanned its hop budget without collecting a match — by
   // omitting `nextRaw`. Emit no cursor so the client shows no phantom
@@ -93,7 +96,9 @@ function warnIfOverCeiling(input: PaginateInput): void {
 function paginateOffset(input: PaginateInput): PaginateResult {
   warnIfOverCeiling(input);
   const start = input.cursor?.mode === "offset" ? input.cursor.n : 0;
-  const items = input.items.slice(start, start + input.limit);
+  // Guard limit <= 0 (see paginateKeyset): a zero-width slice would re-mint the
+  // same offset cursor and loop.
+  const items = input.items.slice(start, start + Math.max(1, input.limit));
   const nextOffset = start + items.length;
   // #501 (V.PG1): `filter` already ran over the full set upstream, so this
   // slice fills the page from the whole sorted tail — no bounded overshoot
