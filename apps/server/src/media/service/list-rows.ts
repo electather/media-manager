@@ -132,6 +132,11 @@ function bucketTarget<P, Row>(
   cfg: PipelineConfig<P>,
 ): MediaRowBucket | undefined {
   const filterKind = cfg.filter ?? source.stages.filter;
+  // Bucket filtering requires the classify stage (it reads each item's
+  // classified bucket). A source that declares `filter: "bucket"` without
+  // `classify: true` falls through UNFILTERED here — by design it must then
+  // pre-filter source-side, like the `"preapplied"` mood path. Intentional
+  // interlock, not a silent miss.
   if (filterKind !== "bucket" || !source.stages.classify) return undefined;
   return cfg.bucket;
 }

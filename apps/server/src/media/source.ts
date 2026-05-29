@@ -1,5 +1,5 @@
 import type { ActiveRow } from "@ent-mcp/shared/media";
-import type { Cursor } from "./cursor";
+import type { Cursor, CursorMode } from "./cursor";
 import type { FilterKind, PipelineSort, RawPageToken, SourceContext } from "./types";
 
 /**
@@ -41,7 +41,12 @@ export interface MediaSource<P = void, Row = ActiveRow> {
   ): Promise<{ rows: Row[]; partial: boolean; nextRaw?: RawPageToken }>;
   /** Declares which pipeline stages run and how the source paginates. */
   stages: {
-    /** Run bucket classification over the enriched items. */
+    /**
+     * Run bucket classification over the enriched items. Required for
+     * `filter: "bucket"` — the bucket filter reads each item's classified
+     * bucket, so without `classify: true` the filter is a silent no-op (the
+     * source must then pre-filter source-side).
+     */
     classify?: boolean;
     /** Apply a `bucket`/`mood` predicate (driven by params); `undefined` skips. */
     filter?: FilterKind;
@@ -52,6 +57,6 @@ export interface MediaSource<P = void, Row = ActiveRow> {
      */
     sort: PipelineSort;
     /** `keyset` hops the raw query via `nextRaw`; `offset` slices the sorted set. */
-    cursorMode: "keyset" | "offset";
+    cursorMode: CursorMode;
   };
 }
