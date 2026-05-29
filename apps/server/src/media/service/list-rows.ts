@@ -39,6 +39,24 @@ export type EnrichRowsFn<Row> = (
  * enrichment owns the match-reason chip), in which case the default fan-out is
  * skipped entirely.
  */
+// Default path: a persisted-row source (`Row` = `ActiveRow`). No `enrichRows` —
+// the pipeline runs its own `batchLoad` + `enrich` fan-out over the rows.
+export function listRows<P>(
+  source: MediaSource<P>,
+  cfg: PipelineConfig<P>,
+  ctx: SourceContext,
+): Promise<Page>;
+// Custom-row path: the source emits non-`ActiveRow` raw rows (home projects
+// catalog feeds), so the consumer MUST supply an `enrichRows` that maps them to
+// enriched items. Making it required here is what lets the implementation cast
+// `raw.rows → ActiveRow[]` soundly: the no-`enrichRows` overload above is the
+// only way to reach the default path, and it pins `Row` to `ActiveRow`.
+export function listRows<P, Row>(
+  source: MediaSource<P, Row>,
+  cfg: PipelineConfig<P>,
+  ctx: SourceContext,
+  enrichRows: EnrichRowsFn<Row>,
+): Promise<Page>;
 export async function listRows<P, Row = ActiveRow>(
   source: MediaSource<P, Row>,
   cfg: PipelineConfig<P>,
@@ -51,8 +69,9 @@ export async function listRows<P, Row = ActiveRow>(
 
   const enriched = enrichRows
     ? await enrichRows(raw.rows)
-    : // The default path is only reached when `Row` defaulted to `ActiveRow`
-      // (the consumer supplied no override), so the cast is sound.
+    : // Only reachable via the no-`enrichRows` overload, which pins `Row` to
+      // `ActiveRow` — so these rows ARE persisted `ActiveRow`s and the cast
+      // bridges the impl signature's generic `Row` back to that.
       await defaultEnrich(raw.rows as unknown as ActiveRow[], ctx);
 
   // classify + filter, then sort, then paginate. paginate runs last over the

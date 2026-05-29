@@ -257,4 +257,29 @@ describe("media listRows pipeline", () => {
 
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1", "2"]);
   });
+
+  it("uses the enrichRows override and skips the default batchLoad fan-out", async () => {
+    // All 12 home rows ride the enrichRows override (their raw rows are catalog
+    // feed entries, not persisted ActiveRows). The override must REPLACE the
+    // default batchLoad+enrich fan-out — not run alongside it — and its
+    // `partial` must propagate to the page. A regression that still ran the
+    // default path would double-fetch and could mis-type the feed rows.
+    const rows = [row("1", 30)];
+    const enrichOverride = vi.fn(async () => ({
+      items: [{ id: "movie:1", tmdbId: "1", mediaType: "movie" as const, title: "Overridden" }],
+      partial: true,
+    }));
+    const { ctx, getStatusBatch, getMetadataBatch } = makeCtx();
+    const src = source({ fetchRawSet: async () => ({ rows, partial: false }) });
+
+    const page = await listRows(src, cfg(), ctx, enrichOverride);
+
+    expect(enrichOverride).toHaveBeenCalledOnce();
+    // The default fan-out (batchLoad → status + metadata) must NOT run.
+    expect(getStatusBatch).not.toHaveBeenCalled();
+    expect(getMetadataBatch).not.toHaveBeenCalled();
+    expect(page.items.map((i) => i.title)).toEqual(["Overridden"]);
+    // partial rides through from the override even though fetchRawSet was clean.
+    expect(page.partial).toBe(true);
+  });
 });
