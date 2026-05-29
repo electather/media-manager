@@ -31,11 +31,15 @@ describe("classifyStatus", () => {
     expect(classifyStatus(item)).toBe("upcoming");
   });
 
-  it("falls through to upcoming for info-only items", () => {
+  // Info-only titles (no library copy, not request-eligible) cannot be acted
+  // on, so the server `/counts` routes them to `unavailable` (#502). The
+  // client classifier mirrors that to keep the local bucket view in sync with
+  // the server-rendered counts.
+  it("classifies info-only items as unavailable to match the server", () => {
     const item = makeItem({
       availability: { hasAnyServerCopy: false, requestEligible: false, servers: [] },
     });
-    expect(classifyStatus(item)).toBe("upcoming");
+    expect(classifyStatus(item)).toBe("unavailable");
   });
 
   it("returns unknown when no signal classifies the item", () => {

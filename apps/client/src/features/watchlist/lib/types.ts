@@ -1,11 +1,15 @@
-import type {
-  WatchlistItem as SharedWatchlistItem,
-  WatchlistSource,
-} from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { WatchlistSource } from "@ent-mcp/shared/watchlist";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import * as m from "@/paraglide/messages";
 
-export type WatchlistItem = SharedWatchlistItem;
+/**
+ * Watchlist card shape. The server unified its wire item on `CompactMediaItem`
+ * (the shared `WatchlistItem` superset was deleted in the media-pipeline
+ * consolidation), so the client follows: `addedAt`/`addedSource` are now
+ * optional/nullable on the wire. Components that need them guard for absence.
+ */
+export type WatchlistItem = CompactMediaItem;
 
 // fallow-ignore-next-line code-duplication
 export class WatchlistApiError extends Error {

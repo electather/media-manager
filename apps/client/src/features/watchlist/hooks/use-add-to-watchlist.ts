@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as m from "@/paraglide/messages";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import {
   keyToId,
   type AddWatchlistRequest,
-  type WatchlistItem,
   type WatchlistResponse,
 } from "@ent-mcp/shared/watchlist";
 import { addToWatchlist } from "../lib/fetchers";
@@ -14,7 +14,7 @@ import { invalidateWatchlistAll } from "../lib/invalidate";
 
 interface AddVariables {
   request: AddWatchlistRequest;
-  seed?: Partial<WatchlistItem>;
+  seed?: Partial<CompactMediaItem>;
 }
 
 type WatchlistPages = InfiniteData<WatchlistResponse, string | undefined>;

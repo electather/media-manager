@@ -184,8 +184,9 @@ apps/server/src/watchlist/                  THIN product shell (rev 9; consolida
     items.ts          MediaSource<ItemsParams>   stages:{classify:true, filter:"bucket"|"mood", sort, cursorMode}
                                                  keyset for sort=recent; offset for alpha|runtime|status (§S.1)
     mood-items.ts     MediaSource<MoodParams>    stages:{filter:"mood", cursorMode:"keyset"}  (§S.3)
-    tonight.ts        MediaSource<void>          fetchRawSet runs score+pick over active set → rows already
-                                                 ranked + partial; ⊥ cursor (bounded). stages:{sort:"none"} (§S.2)
+    tonight.ts        MediaSource<void>          fetchRawSet = classify pre-filter over active set → watchable
+                                                 (ready|in-progress) raw rows; ⊥ cursor (bounded). stages:{sort:"none"}.
+                                                 score+pick ranks+splits in the envelope (§S.2 — score needs enriched fields)
     recently.ts       MediaSource<RecentlyParams> stages:{sort:"recent", cursorMode:"keyset"}; ⊥ cursor (§I.api)
 
   service.ts        THIN (rev 9) — section envelope + aggregates only:
@@ -231,27 +232,32 @@ apps/server/src/media/                      OWNS the shared row pipeline (consol
 The old `listItems` handler with its `paginateKeyset` / `paginateOffsetSnapshot` fork and the local `paginateWithOvershoot` helper are **deleted**. The items read is now `watchlist/sources/items.ts` (a `MediaSource`) driven through `media.listRows`. The source supplies the RAW row set + a `stages` declaration; the pipeline owns enrich / classify / filter / sort / paginate / cursor (consolidation §B–§C).
 
 ```
-// watchlist/sources/items.ts — RAW only.
-itemsSource: MediaSource<ItemsParams> = {
+// watchlist/sources/items.ts — RAW only. Per-request factory: cursor mode +
+// pipeline sort depend on sort/bucket/mood (US-014).
+itemsSource({ limit, sort, bucket?, mood? }): MediaSource<ItemsParams> = {
   sourceId: "watchlist.items",
-  fetchRawSet(ctx, { sort, bucket?, mood? }, cursor) →
-    rows = repo.listPage(userId, { cursor, state: "active", limit: limit*overshoot })   // media/repo
-    return { rows, partial: false, nextRaw: keysetMode ? rows.last : ⊥ }
+  // keyset read (recent + no filter): exactly `limit` rows, nextRaw = last row
+  //   when the window is full (no over-fetch — nothing prunes downstream).
+  // offset read (filter or non-recent sort): full active set; pre-sort by
+  //   catalog metadata for alpha/runtime/status (sort:"none"), else leave for
+  //   the pipeline's recentDesc.
+  fetchRawSet(ctx, { sort, bucket?, mood? }, cursor) → { rows, partial, nextRaw? }
   stages: {
     classify: true,
     filter:   bucket ? "bucket" : mood ? "mood" : ⊥,
-    sort,                                  // recent | alpha | runtime | status
-    cursorMode: sort === "recent" ? "keyset" : "offset",
+    sort:     keyset || sort === "recent" ? "recentDesc" : "none",
+    cursorMode: keyset ? "keyset" : "offset",   // keyset = recent && !bucket && !mood
   },
 }
 
 // the section envelope (thin service.ts):
-listItems(ctx, opts) → wrap( media.listRows(itemsSource, { params: opts, cursor: decode(opts.cursor), limit }) )
+listItems(ctx, opts) → wrap( media.listRows(itemsSource(params), { params, cursor: decode(opts.cursor, mode), limit }) )
 ```
 
 **Sort handling (which cursor mode the source declares):**
-- `recent` → `cursorMode:"keyset"` (addedAt DESC, id DESC). Existing index `(user_id, state, added_at)`. **Strict-stable** across page mutations. Pipeline keyset-paginate hops the raw query (overshoot helper, preserving #500 empty-streak `cursor:null` + #501 single-pass sparse bucket+sort + RISK-005 ceiling — now living in `media`, consolidation §C/§E/V.PG1).
-- `alpha` / `runtime` / `status` → `cursorMode:"offset"`. Source fetches all active rows; pipeline joins catalog metadata (already batched + cached via `media.batchLoad`), sorts, slices by `(offset, limit)`. Active set ≤ ~1000 typical; meta batch already used by `/counts`. **Best-effort stability** — concurrent add/remove between pages can skip / duplicate at the boundary; documented in V.WL1.
+- `recent` + **no filter** → `cursorMode:"keyset"` (addedAt DESC, id DESC). Existing index `(user_id, state, added_at)`. **Strict-stable** across page mutations; the source fetches exactly `limit` rows and threads `nextRaw` only on a full window, preserving #500 empty-streak `cursor:null` (consolidation §C/§E/V.PG1).
+- `recent` + **bucket/mood** → `cursorMode:"offset"`. The consolidated keyset paginate is a pure slice (it carries no overshoot helper — the #501 single-pass sparse-bucket+sort fix lives only on the offset path, `media/paginate.ts`), so a *filtered* recent read rides offset: the source loads the full active set, the pipeline classifies/filters over the whole set and re-sorts by `addedAt` (`recentDesc`), then slices `(offset, limit)`. Same item ids + order as the pre-refactor keyset multi-hop (opaque cursor mechanics differ; pre-stable). **Best-effort stability** under concurrent mutation (V.WL1).
+- `alpha` / `runtime` / `status` → `cursorMode:"offset"`. Source fetches all active rows, pre-sorts by catalog metadata (`RowSort` cannot express these — declares `sort:"none"` so the pipeline preserves the order), pipeline classifies/filters, slices by `(offset, limit)`. Active set ≤ ~1000 typical; meta batch already cached. **Best-effort stability** — concurrent add/remove between pages can skip / duplicate at the boundary; documented in V.WL1.
 - ⊥ new `title_norm` column. ⊥ migration backfill. Title normalization (lowercase, NFD) happens in-pipeline over catalog title.
 
 **Cursor (rev 9):** the keyset-vs-offset-snapshot codec fork is **replaced by the single `media/cursor.ts` codec** (two modes: `{mode:"keyset";k} | {mode:"offset";n}`). `decode(s) → Cursor|null` **never throws**; bad/foreign input or mode-mismatch with `source.stages.cursorMode` → `null`. The decode-fail → **first-page** mapping STAYS watchlist-side (consumer-side; the codec stays neutral). See V.WL1 + consolidation §E / V.CU1.
@@ -262,7 +268,7 @@ listItems(ctx, opts) → wrap( media.listRows(itemsSource, { params: opts, curso
 
 ### S.2 Tonight source + envelope (rev 9)
 
-`score` / `pick` ranking stays watchlist product, but now runs **inside the tonight source's `fetchRawSet`** over the active set, returning rows already ranked + `partial`. The pipeline enriches and returns a **flat** `Page.items` (V.TN1, consolidation §H). The hero-vs-alternates split (`items[0]` hero, ≤4 alternates) is an **envelope concern** — the thin `service.ts` section wrapper splits the flat `Page.items`. No cursor (bounded page).
+`score` / `pick` ranking stays watchlist product. **Ranking runs in the section envelope, not in `fetchRawSet`** (corrected rev 9.1): `score` reads *enriched* fields — `status`, `availability`, `runtimeMin`, `genres`, `progress` — which only exist after the pipeline enriches, so the source cannot rank raw rows without enriching them twice. So the source's `fetchRawSet` does only the cheap **classify pre-filter** (keep `ready`/`in-progress` rows, the same `(status, metadata, servers, progress)` signals `/counts` uses, via the shared `media.classifyRows`), returning watchable raw rows. The pipeline enriches them into a **flat** `Page.items` (V.TN1, consolidation §H). The thin `service.ts` envelope then runs `pick` over the flat enriched page — `pick` is the unchanged watchlist-product heuristic that ranks by `score` and splits into a hero (`items[0]`) + ≤4 alternates with a diversity penalty + ineligibility cutoff. No cursor (bounded page). This preserves the pre-refactor data flow exactly (pre-filter → enrich → `pick`); RISK-105 holds because the ranking heuristic stays watchlist-owned and operates on the same enriched candidate set as before.
 
 ```
 score(item, prior?) →
@@ -274,23 +280,20 @@ score(item, prior?) →
     - diversity(item, prior) * 5                 // anti-repeat across alternates
     - 1000 if bucket ∈ {awaiting, upcoming, unavailable}      // rev 6
 
-// watchlist/sources/tonight.ts — ranking is the RAW shaping for this source.
+// watchlist/sources/tonight.ts — RAW shaping = the classify pre-filter only.
 tonightSource.fetchRawSet(ctx, _, _cursor):
     rows = media.repo.list(userId, { state: "active" })
-    candidates = rows.filter(r => classifyBucket(...) ∈ {ready, in-progress})   // media.classify
-    ranked = sortDesc(candidates, score)                                        // already ranked, ⊥ sliced
-    return { rows: ranked, partial: <any probe soft-failed> }
-// stages: { sort: "none" (raw order preserved), cursorMode: keyset (unused; bounded) }
+    candidates = classifyRows(rows).filter(c => c.bucket ∈ {ready, in-progress}).map(c => c.row)
+    return { rows: candidates, partial: ⊥ }       // pre-filter degrade swallowed; ⊥ ranked, ⊥ sliced
+// stages: { sort: "none" (order set by pick), cursorMode: keyset (unused; bounded) }
 
-// pipeline (media.listRows) enriches → flat Page.items, preserving raw order.
+// pipeline (media.listRows) enriches the candidates → flat Page.items.
 
-// thin service.ts envelope splits the flat page (hero/alternate = product shape):
+// thin service.ts envelope ranks + splits the flat page (score/pick = product shape):
 getTonightSection(ctx):
     page = media.listRows(tonightSource, { params: ⊥, cursor: ⊥, limit })
-    sorted = page.items                                          // already ranked by the source
-    hero = sorted[0]
-    alts = sorted.slice(1).filter(noRepeatGenres(hero)).slice(0, 4)
-    return { items: [hero, ...alts], partial: page.partial }
+    return pick(page.items)                       // ranks by score, hero = items[0] + ≤4 alternates
+                                                  // → { items: [hero, ...alts], partial: page.partial }
 ```
 
 Cache: `tonight:<userId>` 5 min TTL. Invalidate on watchlist mutation.
@@ -331,12 +334,16 @@ moodSummary(ctx):                                              // wire shape unc
 // mood-items = a MediaSource (rev 9) through media.listRows. watchlist/sources/mood-items.ts.
 moodItemsSource: MediaSource<MoodParams> = {
   sourceId: "watchlist.mood-items",
-  fetchRawSet(ctx, { moodId }, cursor) →
-    rows = media.repo.listPage(userId, { cursor, state: "active", limit: limit*overshoot })   // RAW only
-    return { rows, partial: false, nextRaw: rows.last }
-  stages: { filter: "mood", sort: "recent", cursorMode: "keyset" },   // mood predicate = pipeline filter stage
+  fetchRawSet(ctx, { moodId, limit }, cursor) →                   // RAW rows only (V.MC1)
+    // Mood is a watchlist-product predicate media must not derive (V.RG1), so it
+    // runs HERE, not as a pipeline stage: scan keyset windows of limit*overshoot,
+    // keep rows whose genres derive `moodId`, accumulate up to `limit` matches
+    // across windows (empty-streak budget so a sparse mood still fills a page).
+    return { rows: matched, partial, nextRaw }                    // nextRaw = last matched row's hop token;
+    //   OMITTED when exhausted or the empty-streak budget gives up empty → cursor:null (#500 / V.PG1)
+  stages: { filter: "mood", sort: "recent", cursorMode: "keyset" },   // filter:"mood" no-ops in the pipeline — the predicate already ran source-side
 }
-listMoodItems(ctx, moodId, opts) → media.listRows(moodItemsSource, { params: { moodId }, cursor: decode(opts.cursor), limit })
+listMoodItems(ctx, moodId, opts) → media.listRows(moodItemsSource, { params: { moodId, limit }, cursor: decode(opts.cursor), limit })
 ```
 
 Mood derivation pure → testable. No artwork during `moodSummary`. Counts authoritative. `MIN_CLUSTER_SIZE=3` enforced on `moodSummary` output only — `/moods/:moodId/items` always returns matching rows even if < 3 (consistent with explicit drill-down request). The pipeline's keyset-paginate preserves #500: if the empty-streak budget exits before collecting any matching rows, it returns `cursor: null` so the client does not show phantom load-more affordances (consolidation §C / V.PG1).

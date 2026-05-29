@@ -1503,11 +1503,11 @@
 
     "queue-microtask": ["queue-microtask@1.2.3", "", {}, "sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A=="],
 
-    "react": ["react@19.3.0-canary-d5736f09-20260507", "", {}, "sha512-EL3w0mHylqEtiySCjcj/nPOkK1j6KvKsaFkeavTqR6hbd6bQi7gyCcTSHXQ2XpTjv8hfKWFArSVF6he1sgQcEQ=="],
+    "react": ["react@19.3.0-canary-c0cd4d5d-20260527", "", {}, "sha512-RVSS5l+ZOLLpHezAAgyxf4Ew5sh/uxAUjyNlrsftk1+8nOuvDp6ZJ1MV84H8AYy1LD2ORDzZQww1zJm5XgFo1w=="],
 
     "react-doctor": ["react-doctor@0.1.4", "", { "dependencies": { "agent-install": "0.0.5", "commander": "^14.0.3", "knip": "^6.10.0", "ora": "^9.4.0", "oxlint": "^1.63.0", "picocolors": "^1.1.1", "prompts": "^2.4.2", "typescript": ">=5.0.4 <7" }, "peerDependencies": { "eslint-plugin-react-hooks": "^6 || ^7" }, "optionalPeers": ["eslint-plugin-react-hooks"], "bin": { "react-doctor": "bin/react-doctor.js" } }, "sha512-bO3B5pCqaYlO+a5GLgL2LcCkj0xJLKmnyj0cQbABeTmzOZbixOvkKzXN6K/+nzm8K26R8PljuJn+aZJCCuI5NQ=="],
 
-    "react-dom": ["react-dom@19.3.0-canary-d5736f09-20260507", "", { "dependencies": { "scheduler": "0.28.0-canary-d5736f09-20260507" }, "peerDependencies": { "react": "19.3.0-canary-d5736f09-20260507" } }, "sha512-PrjUaYOYc1dX65Td8StJSNJ3TFTeO2KBpAdXQJiOmW5kxDbKK+lvkJmSK/U+f7LcNnJxQKwHzKVf8WdJVjJohg=="],
+    "react-dom": ["react-dom@19.3.0-canary-c0cd4d5d-20260527", "", { "dependencies": { "scheduler": "0.28.0-canary-c0cd4d5d-20260527" }, "peerDependencies": { "react": "19.3.0-canary-c0cd4d5d-20260527" } }, "sha512-PagCJ6RM+Iejjq8VFrZuXzxx27gVOjVfSh/adbE7wNmIvPATq7fmYLz2Ce0BgPhCboJiBpuS4A7owyJ0EWft2w=="],
 
     "react-is": ["react-is@17.0.2", "", {}, "sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w=="],
 
@@ -1553,7 +1553,7 @@
 
     "safer-buffer": ["safer-buffer@2.1.2", "", {}, "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg=="],
 
-    "scheduler": ["scheduler@0.28.0-canary-d5736f09-20260507", "", {}, "sha512-HkpDsMMSty/+FrYjvNnBZRwfU5P+LhZs8xRaWKVwTnB0rffXMg+BOntOebDmvlwI8hhB6D8ONBGXeOlWTzwVdA=="],
+    "scheduler": ["scheduler@0.28.0-canary-c0cd4d5d-20260527", "", {}, "sha512-T2X6KmWixwAG7QMiUMh0myBObeNxGfG8nzvqzwAt4yLSURJFAJT1qUWaJdVgAX/Rk2ii2kWVa7QjJqxBzEFO4g=="],
 
     "semver": ["semver@7.7.4", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA=="],
 

@@ -1,8 +1,8 @@
 import type { MatchReason } from "@ent-mcp/shared/home";
 import type { TopContributor } from "@ent-mcp/shared/catalog";
+import { isFinishing } from "../../media";
 import type { InternalCompactMediaItem, RowContext } from "./types";
 
-const FINISHING_SOON_THRESHOLD = 0.85;
 const RECENTLY_ADDED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
@@ -21,7 +21,7 @@ export function pickMatchReason(
 ): MatchReason | null {
   switch (rowId) {
     case "continueWatching-active": {
-      if (progressFraction(item) >= FINISHING_SOON_THRESHOLD) {
+      if (item.progress != null && isFinishing(item.progress)) {
         return { key: "finishing_soon", params: {} };
       }
       return { key: "matches_recent_picks", params: { n: String(ctx.recentPickCount ?? 4) } };
@@ -72,12 +72,6 @@ export function mapTopContributor(contribs: readonly TopContributor[]): MatchRea
       // Defensive fallback for future `TopContributorCategory` additions.
       return { key: "highly_rated", params: {} };
   }
-}
-
-function progressFraction(item: InternalCompactMediaItem): number {
-  const p = item.progress;
-  if (!p || p.total <= 0) return 0;
-  return p.watched / p.total;
 }
 
 function recentlyAdded(item: InternalCompactMediaItem): boolean {

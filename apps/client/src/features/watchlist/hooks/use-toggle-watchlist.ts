@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { CompactMediaItem } from "@ent-mcp/shared/home";
-import type { WatchlistItem, WatchlistUserSource } from "@ent-mcp/shared/watchlist";
+import type { WatchlistUserSource } from "@ent-mcp/shared/watchlist";
+import type { WatchlistItem } from "../lib/types";
 import { useAddToWatchlist } from "./use-add-to-watchlist";
 import { useRemoveFromWatchlist } from "./use-remove-from-watchlist";
 import { useWatchlistIdSet } from "./use-watchlist-id-set";

@@ -1,21 +1,38 @@
-import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { z } from "zod";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import provider from "../similar-to";
 import { __clearSimilarFeedCacheForTests } from "../_shared";
 import { libraryItem, makeRowCtx } from "../../__tests__/row-test-helpers";
-import { decodeCursor, encodeCursor } from "../../internal/cursor";
-import { mediaTypeSchema } from "@ent-mcp/shared";
+import { decode, type Cursor } from "../../../media";
+
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 beforeEach(() => __clearSimilarFeedCacheForTests());
 
-const cursorSchema = z.object({
-  tmdbId: z.string().min(1),
-  mediaType: mediaTypeSchema,
-  offset: z.number().int().min(0),
-});
+function seedOf(cursorStr: string): { seedId: string; seedType: string; offset: number } {
+  const cursor = decode(cursorStr, "keyset");
+  if (!cursor || cursor.mode !== "keyset") throw new Error("expected keyset cursor");
+  return JSON.parse(cursor.k) as { seedId: string; seedType: string; offset: number };
+}
 
-function makeCursor(tmdbId: string, mediaType: "movie" | "tv", offset = 0): string {
-  return encodeCursor({ tmdbId, mediaType, offset });
+function seedCursor(seedId: string, seedType: "movie" | "tv", offset = 0): Cursor {
+  return { mode: "keyset", k: JSON.stringify({ seedId, seedType, offset }) };
 }
 
 describe("rows/similar-to", () => {
@@ -106,12 +123,11 @@ describe("rows/similar-to", () => {
       ),
     );
 
-    const cursor = makeCursor("550", "movie");
-    const page = await provider.fetchPage(ctx, cursor);
+    const page = await provider.load(ctx, seedCursor("550", "movie"));
 
     expect(page.items).toHaveLength(12);
     expect(page.cursor).not.toBeNull();
-    expect(decodeCursor(page.cursor!, cursorSchema).offset).toBe(12);
+    expect(seedOf(page.cursor!).offset).toBe(12);
     expect(ctx.seedTitle).toBe("Fight Club");
   });
 
@@ -131,8 +147,7 @@ describe("rows/similar-to", () => {
       }
     ).getMetadataBatch.mockResolvedValue({});
 
-    const cursor = makeCursor("100", "tv");
-    const page = await provider.fetchPage(ctx, cursor);
+    const page = await provider.load(ctx, seedCursor("100", "tv"));
 
     expect(page.cursor).toBeNull();
   });
@@ -150,7 +165,7 @@ describe("rows/similar-to", () => {
       }
     ).getMetadataBatch.mockResolvedValue({});
 
-    const page = await provider.fetchPage(ctx, makeCursor("1", "movie"));
+    const page = await provider.load(ctx, seedCursor("1", "movie"));
     expect(page.partial).toBe(true);
   });
 
@@ -168,7 +183,7 @@ describe("rows/similar-to", () => {
       }
     ).getMetadataBatch.mockResolvedValue({});
 
-    await provider.fetchPage(ctx, makeCursor("1396", "tv"));
+    await provider.load(ctx, seedCursor("1396", "tv"));
 
     const [callArg] = getSimilarFeed.mock.calls[0] as [{ id: string; type: string }];
     expect(callArg.id).toBe("1396");

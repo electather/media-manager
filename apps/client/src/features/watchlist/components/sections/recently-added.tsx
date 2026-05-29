@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronRight, Film, Sparkles, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import {
   SectionHead,
   SectionHeadCount,
@@ -10,7 +9,7 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { sourceLabel } from "../../lib/types";
+import { sourceLabel, type WatchlistItem } from "../../lib/types";
 import { cn } from "@/shared/lib/utils";
 import { useRecentlyAdded } from "../../hooks/use-recently-added";
 
@@ -97,7 +96,7 @@ function RecentRow({
         style={{ gridTemplateColumns: "110px 80px 1fr auto auto" }}
       >
         <span className="font-mono text-xs uppercase tracking-[0.04em] text-muted-foreground">
-          {relativeLabel(item.addedAt)}
+          {item.addedAt != null ? relativeLabel(item.addedAt) : null}
         </span>
         <span className="relative h-11 w-20 overflow-hidden rounded-md bg-muted max-sm:hidden">
           {src ? (
@@ -125,7 +124,7 @@ function RecentRow({
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 font-mono text-[11px] tracking-[0.03em] text-accent-foreground max-sm:hidden">
           <Sparkles aria-hidden="true" className="size-3" />
-          {sourceLabel(item.addedSource)}
+          {item.addedSource != null ? sourceLabel(item.addedSource) : null}
         </span>
         <span className="text-muted-foreground/70 max-sm:hidden">
           <ChevronRight aria-hidden="true" className="size-4" />

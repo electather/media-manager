@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { score, WEIGHTS } from "../score";
 
 vi.mock("../../../env", () => ({
@@ -16,7 +16,7 @@ const NOW = 1_700_000_000_000;
 const RECENT_MS = NOW - 24 * 60 * 60 * 1000;
 const OLD_MS = NOW - 60 * 24 * 60 * 60 * 1000;
 
-function make(overrides: Partial<WatchlistItem> = {}): WatchlistItem {
+function make(overrides: Partial<CompactMediaItem> = {}): CompactMediaItem {
   return {
     id: overrides.id ?? "movie:1",
     tmdbId: overrides.tmdbId ?? "1",

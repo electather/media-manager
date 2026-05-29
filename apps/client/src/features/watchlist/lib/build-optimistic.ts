@@ -1,5 +1,7 @@
-import type { AddWatchlistRequest, WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { AddWatchlistRequest } from "@ent-mcp/shared/watchlist";
 import { keyToId } from "@ent-mcp/shared/watchlist";
+import type { WatchlistItem } from "./types";
 
 /**
  * Builds an optimistic `WatchlistItem` from the add request plus whatever
@@ -10,7 +12,7 @@ import { keyToId } from "@ent-mcp/shared/watchlist";
  */
 export function buildOptimistic(
   request: AddWatchlistRequest,
-  seed: Partial<WatchlistItem> = {},
+  seed: Partial<CompactMediaItem> = {},
 ): WatchlistItem {
   const id = keyToId({ tmdbId: request.tmdbId, mediaType: request.mediaType });
   const base: WatchlistItem = {

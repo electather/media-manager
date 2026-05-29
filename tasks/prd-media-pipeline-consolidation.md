@@ -9,7 +9,7 @@
 
 The backend has two divergent read paths that do the same job — list media. `home` composes feeds through a thin, pluggable `RowProvider` registry; `watchlist` composes through an 864-LOC monolith `service.ts` of bespoke endpoint functions. Both re-assemble the same pipeline by hand (batch-load → enrich → classify → filter → sort → paginate), in two different output shapes (`CompactMediaItem` vs `WatchlistItem`), behind three forked cursor codecs, with the same domain logic duplicated 3–4× across consumers.
 
-The `media/` module already owns the storage and domain *primitives* (enrich, classify, progress, availability-cache) from the earlier closed work (#492–#500). What it does not own is the *pipeline*. This project makes `media` the single owner of one read pipeline (`listRows`), one wire shape (an extended `CompactMediaItem`), one cursor codec (two modes), and the `watchlist_items` writes. `home` and `watchlist` become thin product shells that supply a *source* plus *config* and wrap results in their own envelope.
+The `media/` module already owns the storage and domain _primitives_ (enrich, classify, progress, availability-cache) from the earlier closed work (#492–#500). What it does not own is the _pipeline_. This project makes `media` the single owner of one read pipeline (`listRows`), one wire shape (an extended `CompactMediaItem`), one cursor codec (two modes), and the `watchlist_items` writes. `home` and `watchlist` become thin product shells that supply a _source_ plus _config_ and wrap results in their own envelope.
 
 This is a backend-only refactor. With one exception (the #502 bucket fix), there is **no user-visible behavior change** — parity is the success bar.
 
@@ -29,9 +29,11 @@ This is a backend-only refactor. With one exception (the #502 bucket fix), there
 Each story is one phase from design §M and maps to **one PR** that must end with `vp check` and `vp test` green. Phases are ordered and dependent — implement in sequence. "Parity" criteria assert no behavior change; capture fixtures from the pre-refactor code where noted.
 
 ### US-001: Pipeline core in `media`
+
 **Description:** As a backend developer, I want `media` to own the read pipeline and contract so that consumers can list media through a single path instead of re-assembling it by hand.
 
 **Acceptance Criteria:**
+
 - [ ] `media/source.ts` defines the `MediaSource<P = void>` interface exactly per design §B: `sourceId`, `fetchRawSet(ctx, params, cursor) → { rows, partial, nextRaw? }`, and a `stages` declaration (`classify?`, `filter?`, `sort`, `cursorMode`). The source carries no enrich/sort/slice/cursor logic (invariant V.MC1).
 - [ ] `media/cursor.ts` defines one base64url-JSON, zod-validated codec with `Cursor = { mode: "keyset"; k } | { mode: "offset"; n }`; `decode` returns `Cursor | null` and **never throws** on bad/foreign input or mode-mismatch (invariant V.CU1).
 - [ ] `media/pipeline/` contains `batchLoad` (the single status+metadata+progress fan-out with warn-and-fallback) and the `listRows` stage sequence with a `paginate` that supports both `keyset` (raw-query hop) and `offset` (in-memory slice) modes.
@@ -47,9 +49,11 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 - [ ] `vp test` passes.
 
 ### US-002: Move writes into `media`
+
 **Description:** As a backend developer, I want the `watchlist_items` writes owned by the table owner so that mutation logic lives with the data it mutates.
 
 **Acceptance Criteria:**
+
 - [ ] `addItem`, `removeItem`, `seedFromPlugins`, and `syncFromPlugins` are implemented in `media/service` (`service/writes.ts`) and exported via the `media` barrel.
 - [ ] `watchlist` calls these through the `media` barrel; the original implementations are deleted from `watchlist`.
 - [ ] Seed / sync / event **semantics are unchanged** — this is a move, not a rewrite.
@@ -60,9 +64,11 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 - [ ] `vp test` passes.
 
 ### US-003: Fix #502 and add count-mode aggregates
+
 **Description:** As a user, I want info-only titles shown as unavailable rather than upcoming so that the watchlist buckets are correct; and as a developer, I want bucket tallies computed by one shared count-mode helper.
 
 **Acceptance Criteria:**
+
 - [ ] `classify.ts` `classifyBucket` routes `isInfoOnly` items (released + no server + not on a request path, info-only metadata) to `"unavailable"`, NOT `"upcoming"`. `upcoming` is reserved for unreleased titles (design §K).
 - [ ] `countBuckets(rows)` exists in `media` and tallies the 5 buckets + total by reusing `batchLoad` + `classify` in count-mode (no enrich/sort/paginate).
 - [ ] `watchlist` `getCounts` becomes a thin wrapper over `media.countBuckets`; the duplicated classify-count loop in `getCounts` is deleted.
@@ -75,9 +81,11 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 - [ ] `vp test` passes.
 
 ### US-004: Reimplement watchlist read path as sources (#496)
+
 **Description:** As a backend developer, I want the watchlist sections expressed as `MediaSource`s over the shared pipeline so that the monolith `service.ts` is split into focused, testable units.
 
 **Acceptance Criteria:**
+
 - [ ] `items`, `mood-items`, `tonight`, and `recently` are implemented as `MediaSource`s in `watchlist/sources/`, each providing only `fetchRawSet` + `stages` (no sort/slice/cursor in the source).
 - [ ] `watchlist/service.ts` is reduced to a thin section envelope (wrap `listRows` results) plus aggregates (counts, mood-summary), with the rest moved into `sources/` and `internal/`. `service.ts` byte size drops by **≥ 40%** versus pre-refactor.
 - [ ] The watchlist sections read via `media.listRows` and decode cursors via the single shared codec; `null` decode maps to **first-page** (watchlist's existing behavior, invariant V.CU1).
@@ -88,9 +96,11 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 - [ ] `vp test` passes.
 
 ### US-005: Reimplement home rows as sources
+
 **Description:** As a backend developer, I want the 12 home discovery rows expressed as `MediaSource`s so that each row stops re-implementing pagination.
 
 **Acceptance Criteria:**
+
 - [ ] The 12 home rows are reimplemented as `MediaSource`s in `home/sources/`, each providing only `fetchRawSet` (raw row set); the per-row sort/slice/cursor code is deleted and handled by the pipeline.
 - [ ] `home/_shared.ts` helpers (`fetchSimilarPage`, `loadCanonicalItems`, `probeMediaEntry`) stay home-side (catalog-feed plumbing).
 - [ ] `composeLayoutLive` is unchanged except that it runs consumer-side `eligibility(ctx)` then calls `media.listRows(source, cfg)` and builds the row stub (include iff `items.length > 0 || partial`).
@@ -103,9 +113,11 @@ Each story is one phase from design §M and maps to **one PR** that must end wit
 - [ ] `vp test` passes.
 
 ### US-006: Cleanup and dedup verification
+
 **Description:** As a backend developer, I want all dead consolidation residue removed so that the codebase has exactly one definition of each shared concept.
 
 **Acceptance Criteria:**
+
 - [ ] The old `RowProvider` type, the old `ROW_PROVIDERS` registry naming, and the three old cursor codecs are deleted.
 - [ ] The `WatchlistItem` superset type is deleted; no code references it.
 - [ ] Exactly one definition remains of each: `extractTmdbId`, `FINISHING_THRESHOLD`/`isFinishing`, `batchLoad`, the bucket classify loop, and the cursor codec (invariant V.SH1). The remaining duplicate copies in `home`/`watchlist` are deleted and callers import from the `media` barrel.

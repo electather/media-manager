@@ -1,11 +1,30 @@
-import { describe, expect, it } from "vite-plus/test";
-import { z } from "zod";
+import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../trending-now";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
-import { decodeCursor } from "../../internal/cursor";
+import { decode } from "../../../media";
 import type { CanonicalMetadata, MetadataKey } from "@ent-mcp/shared/catalog";
 
-const offsetSchema = z.object({ offset: z.number().int().min(0) });
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
+// Media owns enrichment (1:1 + order-preserving); a pass-through pins the test
+// to the row-fetch + pipeline slice behavior without standing up the
+// artwork/status fan-out.
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 function meta(tmdbId: string, mediaType: "movie" | "tv" = "movie"): CanonicalMetadata {
   return {
@@ -33,33 +52,36 @@ describe("rows/trending-now", () => {
     expect(await provider.eligibility(ctx)).toBe(false);
   });
 
-  it("paginates by offset against the day snapshot", async () => {
+  it("paginates by offset against the day snapshot through the shared pipeline", async () => {
     const ctx = makeRowCtx();
     const snap: MetadataKey[] = Array.from({ length: 30 }, (_, n) => ({
       tmdbId: String(n),
       type: "movie",
     }));
     (
+      ctx.catalog as unknown as { hasDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
+    ).hasDiscoverFeed.mockResolvedValue(true);
+    (
       ctx.catalog as unknown as { getDiscoverFeed: { mockResolvedValue: (v: unknown) => void } }
     ).getDiscoverFeed.mockResolvedValue(snap);
     (
       ctx.catalog as unknown as {
-        getMetadataBatch: {
-          mockResolvedValue: (v: unknown) => void;
-          mockImplementation: (fn: unknown) => void;
-        };
+        getMetadataBatch: { mockImplementation: (fn: unknown) => void };
       }
     ).getMetadataBatch.mockImplementation(async (keys: MetadataKey[]) =>
       Object.fromEntries(keys.map((k) => [`movie:${k.tmdbId}`, meta(k.tmdbId)])),
     );
 
-    const first = await provider.fetchPage(ctx, null);
+    // The source returns the full snapshot; `media.listRows` (offset mode) owns
+    // the slice + cursor — page 1 yields 12 items and a cursor at offset 12.
+    const first = await provider.load(ctx, null);
     expect(first.items).toHaveLength(12);
     expect(first.cursor).not.toBeNull();
-    expect(decodeCursor(first.cursor!, offsetSchema)).toEqual({ offset: 12 });
-    const second = await provider.fetchPage(ctx, first.cursor);
+    const firstCursor = decode(first.cursor!, "offset");
+    expect(firstCursor).toEqual({ mode: "offset", n: 12 });
+    const second = await provider.load(ctx, firstCursor);
     expect(second.items).toHaveLength(12);
-    const third = await provider.fetchPage(ctx, second.cursor);
+    const third = await provider.load(ctx, decode(second.cursor!, "offset"));
     expect(third.items).toHaveLength(6);
     expect(third.cursor).toBeNull();
   });

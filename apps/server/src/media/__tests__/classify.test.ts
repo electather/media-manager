@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { MEDIA_ROW_BUCKETS, type MediaRowBucket } from "@ent-mcp/shared/media";
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import { classifyBucket } from "../classify";
 
 const VALID = new Set<MediaRowBucket>(MEDIA_ROW_BUCKETS);
 
-type ClassifyInput = Pick<WatchlistItem, "status" | "availability" | "facets" | "progress">;
+type ClassifyInput = Pick<CompactMediaItem, "status" | "availability" | "facets" | "progress">;
 
 function row(overrides: Partial<ClassifyInput> = {}): ClassifyInput {
   return {
@@ -49,6 +49,18 @@ describe("classifyBucket - rev 6 total-coverage (V.WL2)", () => {
 
   it("falls through to unavailable for rows with no server, no status route, no release", () => {
     expect(classifyBucket(row())).toBe("unavailable");
+  });
+
+  it("routes an info-only row to unavailable, not upcoming (#502)", () => {
+    // Released, no server copy, not request-eligible, no future releaseDate:
+    // this must read as unavailable. "upcoming" is reserved for unreleased
+    // titles, so an info-only row mis-classified as upcoming is the #502 bug.
+    const infoOnly = row({
+      status: "unknown",
+      availability: { hasAnyServerCopy: false, requestEligible: false, servers: [] },
+    });
+    expect(classifyBucket(infoOnly)).toBe("unavailable");
+    expect(classifyBucket(infoOnly)).not.toBe("upcoming");
   });
 
   it("never emits a legacy 'unknown' bucket value", () => {

@@ -1,5 +1,6 @@
 import type { HostErrorCode } from "../diagnostics";
 import type { MediaType } from "../media/enums";
+import type { WatchlistSource } from "../watchlist/enums";
 import type { HeroReason, MatchReasonKey, RowKind } from "./enums";
 
 /**
@@ -111,6 +112,13 @@ export interface CompactMediaItem {
    * Always undefined in v1; the client renders nothing when absent.
    */
   tags?: string[];
+  /**
+   * Epoch ms when a persistent-table row was added (or reactivated). Filled by
+   * watchlist-backed sources; discovery rows leave it absent/null.
+   */
+  addedAt?: number | null;
+  /** How a persistent-table row entered the watchlist; absent/null on discovery rows. */
+  addedSource?: WatchlistSource | null;
 }
 
 /**

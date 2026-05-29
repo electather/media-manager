@@ -67,7 +67,14 @@ export type {
   MediaProgressService,
   GetArtworkFn,
   ToCanonicalRowFn,
+  FilterKind,
+  RawPageToken,
+  SourceContext,
+  PipelineConfig,
+  PipelineSort,
+  Page,
 } from "./types";
+export type { MediaSource } from "./source";
 export {
   MEDIA_EVENTS,
   connectionAuthExpiredPayload,
@@ -81,9 +88,37 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
+export { encode, decode, type Cursor, type CursorMode } from "./cursor";
+export { batchLoad, type BatchLoadContext, type BatchLoadResult } from "./pipeline/batch-load";
+export {
+  paginate,
+  OFFSET_FULL_LOAD_WARN_ROWS,
+  type PaginateInput,
+  type PaginateResult,
+} from "./pipeline/paginate";
+export { listRows, type EnrichRowsFn } from "./service/list-rows";
+export { classifyRows, type ClassifyRowsContext } from "./service/classify-rows";
+export { countBuckets, type BucketCounts, type CountBucketsContext } from "./service/count";
+export {
+  addItem,
+  removeItem,
+  seedFromPlugins,
+  syncFromPlugins,
+  WATCHLIST_EVENTS,
+  watchlistItemAddedSchema,
+  watchlistItemRemovedSchema,
+  type AddItemResult,
+  type SeedResult,
+  type SeedSyncContext,
+  type WatchlistItemAddedPayload,
+  type WatchlistItemRemovedPayload,
+} from "./service/writes";
 export {
   loadProgressMap,
   isActiveContinueWatchingEntry,
+  extractTmdbId,
+  FINISHING_THRESHOLD,
+  isFinishing,
   type ContinueWatchingProgressEntry,
   type ProgressEntry,
   type ProgressMap,
@@ -104,9 +139,6 @@ export {
   clearSeedLock,
   hasUserSeeded,
   listSeededUserIds,
-  encodeCursor,
-  decodeCursor,
-  type PageCursor,
   type UpsertActiveResult,
   type SoftRemoveResult,
 } from "./service";

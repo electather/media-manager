@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  extractTmdbId,
+  FINISHING_THRESHOLD,
   isActiveContinueWatchingEntry,
+  isFinishing,
   projectContinueWatchingProgress,
   projectProgressMapEntry,
 } from "../progress";
@@ -53,5 +56,46 @@ describe("continue watching progress helpers", () => {
     expect(isActiveContinueWatchingEntry(entry)).toBe(true);
     expect(projectContinueWatchingProgress(entry)).toBeNull();
     expect(projectProgressMapEntry(entry)).toBeNull();
+  });
+});
+
+describe("canonical shared domain utils", () => {
+  // These are the single definitions home/watchlist will import once the
+  // duplicate copies are deleted (US-024) — the tests pin the behaviour the
+  // four prior sites must agree on.
+  describe("isFinishing", () => {
+    it("is true once watched reaches the 85% threshold so the four sites mark finishing alike", () => {
+      expect(isFinishing({ watched: 85, total: 100 })).toBe(true);
+      expect(isFinishing({ watched: 90, total: 100 })).toBe(true);
+    });
+
+    it("is false below the threshold", () => {
+      expect(isFinishing({ watched: 84, total: 100 })).toBe(false);
+    });
+
+    it("is false for a non-positive total instead of dividing by zero", () => {
+      expect(isFinishing({ watched: 10, total: 0 })).toBe(false);
+    });
+
+    it("shares the same cutoff constant as the projection path", () => {
+      expect(FINISHING_THRESHOLD).toBe(0.85);
+      expect(isFinishing({ watched: Math.ceil(FINISHING_THRESHOLD * 100), total: 100 })).toBe(true);
+    });
+  });
+
+  describe("extractTmdbId", () => {
+    it("probes ids.tmdb, then ids.tmdb_id, then a top-level tmdbId in order", () => {
+      expect(extractTmdbId({ ids: { tmdb: "10" } })).toBe("10");
+      expect(extractTmdbId({ ids: { tmdb_id: "20" } })).toBe("20");
+      expect(extractTmdbId({ tmdbId: "30" })).toBe("30");
+      expect(extractTmdbId({ ids: { tmdb: "10" }, tmdbId: "30" })).toBe("10");
+    });
+
+    it("returns null for non-object or id-less payloads so divergent callers collapse onto one probe", () => {
+      expect(extractTmdbId(null)).toBeNull();
+      expect(extractTmdbId("nope")).toBeNull();
+      expect(extractTmdbId({ ids: { tmdb: 42 } })).toBeNull();
+      expect(extractTmdbId({})).toBeNull();
+    });
   });
 });

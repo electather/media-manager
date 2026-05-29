@@ -1,7 +1,26 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import provider from "../recommended-for-you-movies";
 import { makeRowCtx } from "../../__tests__/row-test-helpers";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
+
+vi.mock("../../../env", () => ({
+  env: {
+    CACHE_PROVIDER: "memory",
+    ENCRYPTION_KEY: "test-key",
+    SQLITE_PATH: "file::memory:",
+    BETTER_AUTH_SECRET: "x".repeat(32),
+    BETTER_AUTH_URL: "http://localhost",
+    APP_EXTERNAL_URL: "http://localhost",
+  },
+}));
+
+vi.mock("../../../media", async () => {
+  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+  return {
+    ...actual,
+    enrichCompactItems: vi.fn(async (items: unknown[]) => ({ items, partial: false })),
+  };
+});
 
 function meta(tmdbId: string): CanonicalMetadata {
   return {
@@ -47,7 +66,7 @@ describe("rows/recommended-for-you-movies", () => {
     ).getMetadataBatch.mockResolvedValue({ "movie:1": meta("1") });
 
     expect(await provider.eligibility(ctx)).toBe(true);
-    const page = await provider.fetchPage(ctx, null);
+    const page = await provider.load(ctx, null);
     expect(page.items.map((i) => i.tmdbId)).toEqual(["1"]);
   });
 

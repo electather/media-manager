@@ -1,33 +1,31 @@
 import { fromContinueWatchingEntry } from "../internal/adapters";
-import type { RowProvider } from "../internal/types";
-
-const PAGE_SIZE = 12;
+import { makeBoundedRow } from "../internal/pipeline";
+import { ROW_PAGE_SIZE } from "./_shared";
+import { continueWatchingNextSource } from "../sources/continue-watching";
 
 /**
  * "Up next" entries — server-stitched `nextUp` episodes plus shows the user
- * has on the shelf with no resume position yet. Bounded: the row ships in
- * one page and never paginates.
+ * has on the shelf with no resume position yet. The selection lives in
+ * `continueWatchingNextSource.fetchRawSet`; this row projects the entries and
+ * bounds to a single page (so the shared pipeline mints `cursor: null` — it
+ * never paginates).
  */
-const provider: RowProvider = {
+const provider = makeBoundedRow({
   rowId: "continueWatching-next",
   kind: "continueWatching",
   titleKey: "home_row_nextInYourShows_header",
   eyebrowKey: "home_row_nextInYourShows_eyebrow",
-  async eligibility(ctx) {
-    return ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user");
-  },
-  async initialCursor() {
-    return null;
-  },
-  async fetchPage(ctx) {
-    const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
-    const eligible = res.items.filter((entry) => entry.nextUp != null || entry.progressMs == null);
-    const items = eligible
+  capability: "continueWatching",
+  source: continueWatchingNextSource,
+  project: (_ctx, rows) =>
+    // Slice the projected list to one page BEFORE enrich runs — the pipeline's
+    // `paginate` also trims to `ROW_PAGE_SIZE`, but only after `enrichHomeItems`
+    // has paid the per-item enrichment cost. Bounding here keeps the bounded
+    // row bounded for enrich too, not just for the final page slice.
+    rows
       .map((entry) => fromContinueWatchingEntry(entry, { useNextUp: entry.nextUp != null }))
       .filter((item): item is NonNullable<typeof item> => item !== null)
-      .slice(0, PAGE_SIZE);
-    return { items, cursor: null, partial: res.partial };
-  },
-};
+      .slice(0, ROW_PAGE_SIZE),
+});
 
 export default provider;

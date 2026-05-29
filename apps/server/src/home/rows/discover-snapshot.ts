@@ -1,22 +1,18 @@
-import { z } from "zod";
-import { decodeCursor, encodeCursor } from "../internal/cursor";
 import type { DiscoverFeedKind, DiscoverSort } from "@ent-mcp/shared/catalog";
-import type { RowContext, RowPage, RowProvider } from "../internal/types";
-import { loadCanonicalItems } from "./_shared";
-
-const PAGE_SIZE = 12;
-const cursorSchema = z.object({ offset: z.number().int().min(0) });
-
-/** UTC midnight epoch ms — keys the day-bucketed `discover_snapshots` table. */
-function todayBucket(): number {
-  const d = new Date();
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-}
+import type { MediaSource } from "../../media";
+import { makePipelineRow } from "../internal/pipeline";
+import type { RowProvider } from "../internal/types";
+import { todayBucket } from "../sources/discover-snapshot";
+import { loadCanonicalItems, type MediaKey } from "./_shared";
 
 /**
- * Reads from `discover_snapshots`. The catalog is the source of truth for
- * trending/new-releases, so this row never partials — failures land as
- * `eligibility=false` (no snapshot for the day) and the row drops cleanly.
+ * Reads from `discover_snapshots` via its `MediaSource` (the raw-set producer;
+ * design §H/§M.5) and runs the row through the shared media pipeline
+ * (`makePipelineRow` → `media.listRows`), which owns the offset slice + cursor.
+ * The catalog is the source of truth for trending/new-releases, so this row
+ * never partials — failures land as `eligibility=false` (no snapshot for the
+ * day) and the row drops cleanly. The row projects the full snapshot; the
+ * pipeline slices.
  */
 export function makeDiscoverSnapshotRow(config: {
   rowId: string;
@@ -24,37 +20,21 @@ export function makeDiscoverSnapshotRow(config: {
   titleKey: string;
   feedKind: DiscoverFeedKind;
   sort: DiscoverSort;
+  source: MediaSource<void, MediaKey>;
 }): RowProvider {
-  return {
+  return makePipelineRow({
     rowId: config.rowId,
     kind: config.kind,
     titleKey: config.titleKey,
-    async eligibility(ctx) {
-      const snap = await ctx.catalog.getDiscoverFeed(config.feedKind, config.sort, todayBucket());
-      return snap !== null && snap.length > 0;
-    },
-    async initialCursor() {
-      return null;
-    },
-    async fetchPage(ctx, cursor) {
-      return fetchPage(ctx, cursor, config);
-    },
-  };
-}
-
-async function fetchPage(
-  ctx: RowContext,
-  cursor: string | null,
-  config: { feedKind: DiscoverFeedKind; sort: DiscoverSort },
-): Promise<RowPage> {
-  const page = cursor === null ? { offset: 0 } : decodeCursor(cursor, cursorSchema);
-  const snap = await ctx.catalog.getDiscoverFeed(config.feedKind, config.sort, todayBucket());
-  if (!snap) return { items: [], cursor: null, partial: false };
-  const slice = snap.slice(page.offset, page.offset + PAGE_SIZE);
-  const items = await loadCanonicalItems(ctx, slice);
-  const next =
-    snap.length > page.offset + PAGE_SIZE
-      ? encodeCursor({ offset: page.offset + PAGE_SIZE })
-      : null;
-  return { items, cursor: next, partial: false };
+    cursorMode: config.source.stages.cursorMode,
+    source: config.source,
+    params: undefined,
+    // Probe the day-bucketed row's existence directly instead of running the
+    // source's `fetchRawSet` here — `load` will call `fetchRawSet` again, and
+    // the snapshot's items array is a non-trivial deserialize on a hot path
+    // (every home-layout render that includes this row).
+    eligibility: (ctx) => ctx.catalog.hasDiscoverFeed(config.feedKind, config.sort, todayBucket()),
+    initialCursor: async () => null,
+    project: (ctx, rows) => loadCanonicalItems(ctx, rows),
+  });
 }

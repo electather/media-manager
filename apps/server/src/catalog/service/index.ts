@@ -221,6 +221,20 @@ export class CatalogService {
     return rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
   }
 
+  /**
+   * Shared WHERE clause for the `(kind, sort, day)` indexed lookup on
+   * `discover_snapshots`. Used by both `getDiscoverFeed` (full read) and
+   * `hasDiscoverFeed` (cheap existence probe) so the two stay in lockstep
+   * and the where-clause isn't duplicated across the methods.
+   */
+  private discoverSnapshotWhere(kind: DiscoverFeedKind, sort: DiscoverSort, day: number) {
+    return and(
+      eq(discoverSnapshots.feedKind, kind),
+      eq(discoverSnapshots.sort, sort),
+      eq(discoverSnapshots.day, day),
+    );
+  }
+
   // fallow-ignore-next-line unused-class-member
   async getDiscoverFeed(
     kind: DiscoverFeedKind,
@@ -230,15 +244,25 @@ export class CatalogService {
     const row = await this.db
       .select({ items: discoverSnapshots.items })
       .from(discoverSnapshots)
-      .where(
-        and(
-          eq(discoverSnapshots.feedKind, kind),
-          eq(discoverSnapshots.sort, sort),
-          eq(discoverSnapshots.day, day),
-        ),
-      )
+      .where(this.discoverSnapshotWhere(kind, sort, day))
       .get();
     return row?.items ?? null;
+  }
+
+  /**
+   * Cheap eligibility probe — `true` when a `discover_snapshots` row exists
+   * for `(kind, sort, day)` without deserializing the snapshot's items array.
+   * Lets the home discover-snapshot row's `eligibility` decide visibility
+   * without paying the same full-snapshot read `load` will pay through
+   * `fetchRawSet`.
+   */
+  async hasDiscoverFeed(kind: DiscoverFeedKind, sort: DiscoverSort, day: number): Promise<boolean> {
+    const row = await this.db
+      .select({ one: sql<number>`1` })
+      .from(discoverSnapshots)
+      .where(this.discoverSnapshotWhere(kind, sort, day))
+      .get();
+    return row != null;
   }
 
   async getRecommendations(

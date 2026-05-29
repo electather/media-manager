@@ -1,5 +1,4 @@
 import type { ConsolaInstance } from "consola";
-import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
 import {
   MIN_CLUSTER_SIZE,
   MOOD_IDS,
@@ -9,7 +8,7 @@ import {
   type WatchlistMoodSummary,
 } from "@ent-mcp/shared/watchlist";
 import type { CatalogService } from "../../catalog";
-import { listAllActiveRows } from "../../media";
+import { batchLoad, listAllActiveRows, type MediaService } from "../../media";
 import { MemoryCache } from "../../cache/memory";
 import { derive } from "./derive";
 
@@ -24,7 +23,9 @@ function summaryCacheKey(userId: string): string {
 
 export interface MoodSummaryContext {
   userId: string;
+  mediaService: MediaService;
   catalog: CatalogService;
+  deadlineMs?: number;
   log: ConsolaInstance;
 }
 
@@ -33,10 +34,14 @@ export interface MoodSummaryContext {
  * invalidated by the watchlist mutation listener. Clusters below
  * `MIN_CLUSTER_SIZE` are omitted from the summary so the client doesn't show
  * a one-item "Mood" chip.
+ *
+ * Metadata is loaded through media's shared `batchLoad` fan-out (design §G)
+ * rather than a watchlist-local `getMetadataBatch` call; only the metadata
+ * slice drives mood derivation, but routing through `batchLoad` keeps the
+ * status + metadata + progress fan-out defined in exactly one place.
  */
 // fallow-ignore-next-line complexity
 export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMoodSummary> {
-  // fallow-ignore-next-line code-duplication
   const key = summaryCacheKey(ctx.userId);
   const hit = await cache.get<WatchlistMoodSummary>(key);
   if (hit !== null) return hit;
@@ -48,11 +53,7 @@ export async function getSummary(ctx: MoodSummaryContext): Promise<WatchlistMood
     return empty;
   }
 
-  const metadataKeys = rows.map((r) => ({ tmdbId: r.tmdbId, type: r.mediaType }));
-  const metadata = await ctx.catalog.getMetadataBatch(metadataKeys).catch((err) => {
-    ctx.log.warn("[watchlist:moods] getMetadataBatch failed", err);
-    return {} as Record<string, CanonicalMetadata>;
-  });
+  const { metadata } = await batchLoad(rows, ctx);
 
   const tally = new Map<MoodId, number>();
   for (const row of rows) {

@@ -1,8 +1,6 @@
 import { consola } from "consola";
-import { getCatalogService } from "../../catalog";
-import { MediaService, listSeededUserIds } from "../../media";
+import { MediaService, listSeededUserIds, syncFromPlugins } from "../../media";
 import { registerScheduledPerRow } from "../../jobs/scheduled-per-row";
-import { syncFromPlugins } from "../service";
 
 export const WATCHLIST_SYNC_JOB_ID = "watchlist.sync_plugin";
 
@@ -31,11 +29,9 @@ export function registerSyncPluginWatchlist(): void {
     rowSource: () => listSeededUserIds(),
     handler: async (_ctx, row) => {
       const mediaService = new MediaService(row.userId);
-      const catalog = getCatalogService();
       await syncFromPlugins({
         userId: row.userId,
         mediaService,
-        catalog,
         log: consola,
       });
     },

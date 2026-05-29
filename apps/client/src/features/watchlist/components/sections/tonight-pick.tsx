@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
 import {
   MediaRowBody,
   MediaRowMeta,
@@ -19,6 +18,7 @@ import {
 } from "@/shared/components/section-head";
 import { WatchlistCard } from "../watchlist-card";
 import { shortRuntimeLabel } from "../../lib/format";
+import type { WatchlistItem } from "../../lib/types";
 import { useTonight } from "../../hooks/use-tonight";
 
 export function TonightPick() {

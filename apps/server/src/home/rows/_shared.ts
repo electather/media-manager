@@ -1,25 +1,17 @@
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { CanonicalMetadata } from "@ent-mcp/shared/catalog";
-import { extractTmdbId, fromCanonicalMetadata } from "../internal/adapters";
+import { extractTmdbId, type SourceContext } from "../../media";
+import { fromCanonicalMetadata } from "../internal/adapters";
 import type { InternalCompactMediaItem, RowContext } from "../internal/types";
+import { similarSource } from "../sources/similar";
 
 export interface MediaKey {
   tmdbId: string;
   type: MediaType;
 }
 
-/**
- * Probes a raw `metadata@v1.getSimilar` result entry for `{ tmdbId, type }`.
- * Shared by every row that paginates a similar-feed (becauseYouWatched,
- * similarTo) so the entry-shape rules live in one place.
- */
-export function toSimilarHit(value: unknown): MediaKey | null {
-  const tmdbId = extractTmdbId(value);
-  if (!tmdbId) return null;
-  const t = (value as { type?: string }).type;
-  const type: MediaType = t === "tv" || t === "show" ? "tv" : "movie";
-  return { tmdbId, type };
-}
+/** Shared page size for every home row (the pipeline `limit`). */
+export const ROW_PAGE_SIZE = 12;
 
 interface SimilarFeedEntry {
   expiresAt: number;
@@ -68,50 +60,35 @@ function writeSimilarCache(key: string, entry: SimilarFeedEntry): void {
 }
 
 /**
- * Shared page fetch for similar-feed rows. Wraps the `getSimilarFeed` call,
- * candidate extraction, catalog enrichment, pagination, and seedTitle hookup
- * — every consumer differs only in cursor schema. Returns the typed page
- * plus a `hasMore` flag so the caller can encode its own next cursor.
+ * Resolves (and caches) the similar-feed candidate list + seed title for one
+ * seed. Wraps the similar `MediaSource` (the raw `getSimilar` candidate fetch)
+ * plus the seed's catalog title lookup; the seed `MediaSource`
+ * (`similarPagedSource`) windows the candidates and the row pipeline projects +
+ * enriches them.
  *
- * Mutates `ctx.seedTitle` so the orchestrator's match-reason resolver
- * (`similar_to_seed`) can surface the seed title without a second lookup.
- *
- * The resolved candidate list is cached per `(userId, seedType, seedId)` for
- * `SIMILAR_FEED_TTL_MS` so subsequent page requests against the same seed
- * skip the round-trip into the metadata plugin and the catalog.
+ * The result is cached per `(userId, seedType, seedId)` for `SIMILAR_FEED_TTL_MS`
+ * so subsequent page requests against the same seed skip the round-trip into
+ * the metadata plugin and the catalog.
  */
-// fallow-ignore-next-line complexity
-export async function fetchSimilarPage(
-  ctx: RowContext,
-  seed: { id: string; type: MediaType; offset: number; pageSize: number },
-): Promise<{ items: InternalCompactMediaItem[]; hasMore: boolean; partial: boolean }> {
-  const cacheKey = similarCacheKey(ctx.userId, seed.id, seed.type);
+export async function resolveSimilarCandidates(
+  ctx: SourceContext,
+  seedId: string,
+  seedType: MediaType,
+): Promise<{ candidates: MediaKey[]; partial: boolean; seedTitle: string | undefined }> {
+  const cacheKey = similarCacheKey(ctx.userId, seedId, seedType);
   let entry = readSimilarCache(cacheKey);
   if (!entry) {
-    const res = await ctx.mediaService.getSimilarFeed({
-      id: seed.id,
-      type: seed.type,
-      ...(ctx.deadlineMs !== undefined ? { deadlineMs: ctx.deadlineMs } : {}),
-    });
-    const seedMeta = await ctx.catalog.getMetadata(seed.id, seed.type);
+    const { rows, partial } = await similarSource.fetchRawSet(ctx, { seedId, seedType }, null);
+    const seedMeta = await ctx.catalog.getMetadata(seedId, seedType);
     entry = {
       expiresAt: Date.now() + SIMILAR_FEED_TTL_MS,
-      candidates: (res.items as unknown[])
-        .map(toSimilarHit)
-        .filter((c): c is MediaKey => c !== null),
-      partial: res.partial,
+      candidates: rows,
+      partial,
       seedTitle: seedMeta?.title,
     };
     writeSimilarCache(cacheKey, entry);
   }
-  if (entry.seedTitle) ctx.seedTitle = entry.seedTitle;
-  const slice = entry.candidates.slice(seed.offset, seed.offset + seed.pageSize);
-  const items = await loadCanonicalItems(ctx, slice);
-  return {
-    items,
-    hasMore: entry.candidates.length > seed.offset + seed.pageSize,
-    partial: entry.partial,
-  };
+  return { candidates: entry.candidates, partial: entry.partial, seedTitle: entry.seedTitle };
 }
 
 // fallow-ignore-next-line unused-export

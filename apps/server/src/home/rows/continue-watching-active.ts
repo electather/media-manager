@@ -1,44 +1,27 @@
-import { z } from "zod";
-import { orderBy } from "es-toolkit/array";
-import { isActiveContinueWatchingEntry } from "../../media";
-import { decodeCursor, encodeCursor } from "../internal/cursor";
 import { fromContinueWatchingEntry } from "../internal/adapters";
-import type { RowProvider } from "../internal/types";
-
-const PAGE_SIZE = 12;
-
-const cursorSchema = z.object({ offset: z.number().int().min(0) });
+import { makePipelineRow } from "../internal/pipeline";
+import { continueWatchingActiveSource } from "../sources/continue-watching";
 
 /**
  * Active-resume entries: any item with non-zero progress under the
- * "finishing soon" threshold. Sorted by `lastPlayedAt` descending so the
- * most recently watched title stays on top.
+ * "finishing soon" threshold. The filter + `lastPlayedAt` ordering live in
+ * `continueWatchingActiveSource.fetchRawSet`; this row projects every selected
+ * entry to a `CompactMediaItem` and the shared pipeline owns the offset slice +
+ * cursor (`media.listRows`).
  */
-const provider: RowProvider = {
+const provider = makePipelineRow({
   rowId: "continueWatching-active",
   kind: "continueWatching",
   titleKey: "home_row_continueWatching_header",
-  async eligibility(ctx) {
-    return ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user");
-  },
-  async initialCursor() {
-    return null;
-  },
-  async fetchPage(ctx, cursor) {
-    const page = cursor === null ? { offset: 0 } : decodeCursor(cursor, cursorSchema);
-    const res = await ctx.mediaService.getContinueWatchingFeed({ deadlineMs: ctx.deadlineMs });
-    const eligible = res.items.filter(isActiveContinueWatchingEntry);
-    const sorted = orderBy(eligible, [(entry) => entry.lastPlayedAt ?? ""], ["desc"]);
-    const slice = sorted.slice(page.offset, page.offset + PAGE_SIZE);
-    const items = slice
+  cursorMode: continueWatchingActiveSource.stages.cursorMode,
+  source: continueWatchingActiveSource,
+  params: undefined,
+  eligibility: (ctx) => ctx.mediaService.hasCapabilityProvider("continueWatching", "v1", "user"),
+  initialCursor: async () => null,
+  project: (_ctx, rows) =>
+    rows
       .map((entry) => fromContinueWatchingEntry(entry))
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-    const next =
-      sorted.length > page.offset + PAGE_SIZE
-        ? encodeCursor({ offset: page.offset + PAGE_SIZE })
-        : null;
-    return { items, cursor: next, partial: res.partial };
-  },
-};
+      .filter((item): item is NonNullable<typeof item> => item !== null),
+});
 
 export default provider;

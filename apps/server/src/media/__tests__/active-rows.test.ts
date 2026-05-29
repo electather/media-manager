@@ -26,8 +26,6 @@ const {
   trySeedLock,
   clearSeedLock,
   hasUserSeeded,
-  encodeCursor,
-  decodeCursor,
   __resetActiveRowsForTests,
 } = await import("../repo");
 
@@ -53,28 +51,6 @@ afterAll(() => cleanupInMemoryDbs());
 
 beforeEach(async () => {
   await __resetActiveRowsForTests(testDb);
-});
-
-// ─── Cursor encoding ─────────────────────────────────────────────────────────
-
-describe("cursor encode / decode", () => {
-  it("round-trips a valid cursor", () => {
-    const cursor = { addedAt: 1_700_000_000_000, id: "abc123" };
-    expect(decodeCursor(encodeCursor(cursor))).toEqual(cursor);
-  });
-
-  it("returns null for an empty string", () => {
-    expect(decodeCursor("")).toBeNull();
-  });
-
-  it("returns null for a truncated cursor", () => {
-    expect(decodeCursor("aGVsbG8=")).toBeNull();
-  });
-
-  it("returns null for a non-numeric addedAt", () => {
-    const raw = Buffer.from("NaN:abc", "utf8").toString("base64url");
-    expect(decodeCursor(raw)).toBeNull();
-  });
 });
 
 // ─── Read operations ─────────────────────────────────────────────────────────

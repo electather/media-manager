@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Film, Tv } from "lucide-react";
 import * as m from "@/paraglide/messages";
-import type { MoodId, WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { MoodId } from "@ent-mcp/shared/watchlist";
 import { Button } from "@/shared/ui/button";
 import {
   MediaRowBody,
@@ -13,6 +13,7 @@ import {
 } from "@/shared/components/media-row";
 import { shortRuntimeLabel } from "../../../lib/format";
 import { MOOD_REGISTRY } from "../../../lib/mood-registry";
+import type { WatchlistItem } from "../../../lib/types";
 import { useMoodCluster } from "../../../hooks/use-mood-cluster";
 import { WatchlistCard } from "../../watchlist-card";
 

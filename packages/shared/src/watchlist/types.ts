@@ -1,6 +1,6 @@
 import type { CompactMediaItem } from "../home/types";
 import type { MediaType } from "../media/enums";
-import type { MoodId, WatchlistSource, WatchlistUserSource } from "./enums";
+import type { MoodId, WatchlistUserSource } from "./enums";
 
 export interface WatchlistKey {
   tmdbId: string;
@@ -12,16 +12,8 @@ export function keyToId(key: WatchlistKey): string {
   return `${key.mediaType}:${key.tmdbId}`;
 }
 
-// fallow-ignore-next-line code-duplication
-export interface WatchlistItem extends CompactMediaItem {
-  /** Epoch ms when the row was added (or reactivated). */
-  addedAt: number;
-  addedSource: WatchlistSource;
-}
-
-// fallow-ignore-next-line code-duplication
 export interface WatchlistResponse {
-  items: WatchlistItem[];
+  items: CompactMediaItem[];
   /**
    * Opaque keyset cursor for the next page, or `null` when the caller has
    * reached the end of the user's active watchlist. Format is intentionally
@@ -58,7 +50,7 @@ export interface AddWatchlistRequest {
 }
 
 export interface AddWatchlistResponse {
-  item: WatchlistItem;
+  item: CompactMediaItem;
   /** True when the row was already active before this request. */
   wasActive: boolean;
 }
@@ -76,7 +68,7 @@ export interface WatchlistMoodSummary {
 
 /** `/api/watchlist/sections/tonight` and `/sections/recently` payload shape. */
 export interface WatchlistSectionResponse {
-  items: WatchlistItem[];
+  items: CompactMediaItem[];
   /** True when enrichment was incomplete and the client may show a banner. */
   partial: boolean;
 }

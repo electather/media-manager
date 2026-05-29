@@ -1,4 +1,4 @@
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { isActiveProgress } from "../../media";
 
 /**
@@ -22,7 +22,7 @@ const SHORT_RUNTIME_MAX = 60;
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // fallow-ignore-next-line complexity
-function genreOverlap(a: WatchlistItem, b: WatchlistItem): number {
+function genreOverlap(a: CompactMediaItem, b: CompactMediaItem): number {
   if (!a.genres || !b.genres) return 0;
   const set = new Set(a.genres.map((g) => g.toLowerCase()));
   let n = 0;
@@ -40,8 +40,8 @@ function genreOverlap(a: WatchlistItem, b: WatchlistItem): number {
  */
 // fallow-ignore-next-line complexity
 export function score(
-  item: WatchlistItem,
-  prior: WatchlistItem[] = [],
+  item: CompactMediaItem,
+  prior: CompactMediaItem[] = [],
   now: number = Date.now(),
 ): number {
   let s = 0;
@@ -61,7 +61,7 @@ export function score(
     if (runtime >= SWEET_SPOT_MIN && runtime <= SWEET_SPOT_MAX) s += WEIGHTS.runtimeSweetSpot;
     if (runtime < SHORT_RUNTIME_MAX) s += WEIGHTS.shortRuntimePenalty;
   }
-  if (now - item.addedAt <= RECENT_WINDOW_MS) s += WEIGHTS.recentlyAdded;
+  if (item.addedAt != null && now - item.addedAt <= RECENT_WINDOW_MS) s += WEIGHTS.recentlyAdded;
   for (const p of prior) {
     s += genreOverlap(item, p) * WEIGHTS.diversityPenalty;
   }

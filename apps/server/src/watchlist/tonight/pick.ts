@@ -1,4 +1,4 @@
-import type { WatchlistItem } from "@ent-mcp/shared/watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/home";
 import { score, WEIGHTS } from "./score";
 
 const MAX_ALTERNATES = 4;
@@ -7,7 +7,7 @@ const MAX_ALTERNATES = 4;
 const INELIGIBLE_CUTOFF = WEIGHTS.ineligible / 2;
 
 export interface TonightResult {
-  items: WatchlistItem[];
+  items: CompactMediaItem[];
   partial: boolean;
 }
 
@@ -17,14 +17,14 @@ export interface TonightResult {
  * ties break by `id` to keep output deterministic across requests (V.WL4).
  */
 // fallow-ignore-next-line complexity
-export function pick(candidates: WatchlistItem[], now: number = Date.now()): TonightResult {
+export function pick(candidates: CompactMediaItem[], now: number = Date.now()): TonightResult {
   if (candidates.length === 0) return { items: [], partial: false };
   const heroScores = candidates.map((c) => ({ c, s: score(c, [], now) }));
   heroScores.sort((a, b) => b.s - a.s || a.c.id.localeCompare(b.c.id));
   const hero = heroScores[0]!.c;
   const rest = heroScores.slice(1).map((x) => x.c);
-  const alternates: WatchlistItem[] = [];
-  const prior: WatchlistItem[] = [hero];
+  const alternates: CompactMediaItem[] = [];
+  const prior: CompactMediaItem[] = [hero];
   for (const item of rest) {
     if (alternates.length >= MAX_ALTERNATES) break;
     const reScore = score(item, prior, now);

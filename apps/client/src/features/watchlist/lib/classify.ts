@@ -21,7 +21,13 @@ export function classifyStatus(item: WatchlistItem): WatchlistStatus {
   if (item.progress) return "in-progress";
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
-  if (item.facets?.releaseDate || isInfoOnly(item)) return "upcoming";
+  if (item.facets?.releaseDate) return "upcoming";
+  // Info-only titles (no library copy, not request-eligible) cannot be acted
+  // on, so the server `/counts` + `?bucket=` routes them to `unavailable`
+  // (#502). The client classifier mirrors that so the local bucket view
+  // matches the server-rendered counts; routing info-only → `upcoming` here
+  // would diverge from the server response for the same row.
+  if (isInfoOnly(item)) return "unavailable";
   return "unknown";
 }
 

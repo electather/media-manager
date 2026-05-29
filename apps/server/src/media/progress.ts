@@ -11,7 +11,18 @@ export interface ProgressEntry {
 export type ProgressMap = ReadonlyMap<string, ProgressEntry>;
 
 /** Shared cutoff for treating a continue-watching entry as still active. */
-const FINISHING_THRESHOLD = 0.85;
+export const FINISHING_THRESHOLD = 0.85;
+
+/**
+ * Canonical "finishing soon" test over a projected `{ watched, total }`
+ * progress. A title is finishing once watched ≥ 85% of its total. Returns
+ * `false` for a non-positive `total` so callers do not divide by zero. This is
+ * the one definition the home match-reason and the watchlist projection share.
+ */
+export function isFinishing(progress: ProgressEntry): boolean {
+  if (progress.total <= 0) return false;
+  return progress.watched / progress.total >= FINISHING_THRESHOLD;
+}
 
 // Keyed by the per-request MediaService instance so the plugin fan-out happens at most once per request.
 const cache = new WeakMap<MediaProgressService, Promise<{ map: ProgressMap; partial: boolean }>>();
@@ -109,11 +120,20 @@ export function projectProgressMapEntry(
   };
 }
 
+/**
+ * Canonical tmdb-id probe shared across home/watchlist/media. Plugins surface
+ * the cross-service ids differently — under `ids.tmdb`, `ids.tmdb_id`, or a
+ * top-level `tmdbId` — so this single best-effort order keeps every adapter
+ * consistent. Accepts `unknown` so the divergent consumer payloads collapse
+ * onto this one definition.
+ */
 // fallow-ignore-next-line complexity
-function extractTmdbId(value: { ids?: Record<string, unknown>; tmdbId?: unknown }): string | null {
-  const ids = value.ids;
+export function extractTmdbId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  const ids = v.ids as Record<string, unknown> | undefined;
   if (ids && typeof ids.tmdb === "string") return ids.tmdb;
   if (ids && typeof ids.tmdb_id === "string") return ids.tmdb_id;
-  if (typeof value.tmdbId === "string") return value.tmdbId;
+  if (typeof v.tmdbId === "string") return v.tmdbId;
   return null;
 }

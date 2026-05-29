@@ -21,8 +21,11 @@ vi.mock("../../../media/availability-cache", () => ({
   __resetAvailabilityCache: vi.fn(),
 }));
 
-vi.mock("../../../media", async () => {
-  const actual = await vi.importActual<typeof import("../../../media")>("../../../media");
+// The pre-filter classifies through `classifyRows` → `batchLoad`, which reads
+// `loadProgressMap` from `../progress` (not the barrel), so override it there.
+vi.mock("../../../media/progress", async () => {
+  const actual =
+    await vi.importActual<typeof import("../../../media/progress")>("../../../media/progress");
   return {
     ...actual,
     loadProgressMap: vi.fn().mockResolvedValue({ map: new Map(), partial: false }),
@@ -34,7 +37,7 @@ vi.mock("../../../media/enrich", () => ({
 }));
 
 const { getMatchingServersCached } = await import("../../../media/availability-cache");
-const { loadProgressMap } = await import("../../../media");
+const { loadProgressMap } = await import("../../../media/progress");
 const { enrich } = await import("../../../media/enrich");
 const { getSection, __resetTonightCache } = await import("../section");
 const mediaRepo = await import("../../../media/repo");
@@ -55,6 +58,13 @@ function makeCtx(userId = "u1") {
       getMetadataBatch: vi.fn().mockResolvedValue({}),
     } as unknown as Parameters<typeof getSection>[0]["catalog"],
     log,
+    // The envelope builds a media `SourceContext` (`toSourceContext`) for the
+    // pipeline's enrich stage. `enrich` is mocked here, so these are never
+    // invoked — they only satisfy the `WatchlistSourceCtx` contract.
+    getArtwork: vi.fn().mockResolvedValue({ results: {} }) as unknown as Parameters<
+      typeof getSection
+    >[0]["getArtwork"],
+    toCanonicalRow: vi.fn() as unknown as Parameters<typeof getSection>[0]["toCanonicalRow"],
   };
 }
 

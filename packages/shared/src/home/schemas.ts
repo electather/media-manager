@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AVAILABILITY_STATUSES, MEDIA_TYPES } from "../media/enums";
+import { WATCHLIST_SOURCES } from "../watchlist/enums";
 import { MATCH_REASON_KEYS } from "./enums";
 import { mediaTypeSchema } from "../media/schema-base";
 
@@ -90,6 +91,8 @@ export const compactMediaItemSchema = z
     seriesContext: seriesContextSchema.optional(),
     episode: upcomingEpisodeSchema.optional(),
     tags: z.array(z.string()).optional(),
+    addedAt: z.number().nullish(),
+    addedSource: z.enum(WATCHLIST_SOURCES).nullish(),
   })
   .strict();
 
