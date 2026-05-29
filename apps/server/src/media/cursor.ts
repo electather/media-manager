@@ -34,12 +34,6 @@ export function encode(cursor: Cursor): string {
 }
 
 /**
- * Decode an opaque cursor string. Returns `null` — never throws — when the
- * input is not valid base64url JSON, fails the schema, or (when
- * `expectedMode` is supplied) decodes to a different mode than the source
- * declared. When `expectedMode` is omitted any valid cursor is returned.
- */
-/**
  * Hard cap on the encoded cursor input. A well-formed cursor is ~50-100 bytes
  * (mode + a short keyset hop or a small offset), so 512 is generous headroom.
  * The cap stops a multi-megabyte client/attacker string from forcing a large
@@ -48,6 +42,12 @@ export function encode(cursor: Cursor): string {
  */
 const MAX_RAW_CURSOR_LEN = 512;
 
+/**
+ * Decode an opaque cursor string. Returns `null` — never throws — when the
+ * input is not valid base64url JSON, fails the schema, or (when
+ * `expectedMode` is supplied) decodes to a different mode than the source
+ * declared. When `expectedMode` is omitted any valid cursor is returned.
+ */
 export function decode(raw: string, expectedMode?: CursorMode): Cursor | null {
   if (raw.length > MAX_RAW_CURSOR_LEN) return null;
   let parsed: unknown;
