@@ -77,6 +77,18 @@ const watchlistWriteParamSchema = z
   })
   .strict();
 
+/**
+ * Permissive query validator for the generic resolver. The per-source param
+ * shape is dynamic — it is picked off the registration at request time and
+ * parsed against `reg.paramSchema` inside the handler — so the route cannot
+ * statically validate the query. This static schema exists only so the typed
+ * Hono RPC client can send `?<source params>&cursor` through
+ * `api.media.sources[":sourceId"].$get({ query })`; query values are always
+ * strings, so it accepts any string map and adds no behavioral validation
+ * (the handler's `reg.paramSchema.safeParse(c.req.query())` is authoritative).
+ */
+const sourceQuerySchema = z.record(z.string(), z.string());
+
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
 
@@ -157,7 +169,7 @@ function buildWatchlistContext(userId: string) {
  */
 export const mediaApp = new Hono()
   .use("*", requireSession)
-  .get("/sources/:sourceId", async (c) => {
+  .get("/sources/:sourceId", zValidator("query", sourceQuerySchema), async (c) => {
     const sourceId = c.req.param("sourceId");
     const reg = REGISTRY[sourceId];
     if (!reg) {
