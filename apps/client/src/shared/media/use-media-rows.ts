@@ -1,5 +1,6 @@
 import {
   type InfiniteData,
+  type QueryClient,
   infiniteQueryOptions,
   useInfiniteQuery,
   useSuspenseInfiniteQuery,
@@ -56,6 +57,20 @@ export function mediaRowsQueryOptions<P extends object>(
     select: selectMediaRows,
     ...(options.staleTime !== undefined ? { staleTime: options.staleTime } : {}),
   });
+}
+
+/**
+ * Loader-side counterpart of {@link useMediaRows} (design §B4, #513): warm the
+ * first page of a media list into the cache before the route renders. A route
+ * `loader` awaits this so the suspense section paints with data on first mount
+ * instead of a fallback. It threads the SAME `mediaRowsQueryOptions` the hook
+ * reads, so the cache key matches exactly and the component never refetches.
+ */
+export function prefetchMediaRows<P extends object>(
+  queryClient: QueryClient,
+  source: ClientMediaSource<P>,
+): Promise<unknown> {
+  return queryClient.ensureInfiniteQueryData(mediaRowsQueryOptions(source));
 }
 
 /**

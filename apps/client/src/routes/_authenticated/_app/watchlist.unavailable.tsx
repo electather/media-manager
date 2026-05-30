@@ -3,6 +3,9 @@ import { z } from "zod";
 import { WATCHLIST_SORTS } from "@ent-mcp/shared/watchlist";
 
 import { WatchlistFlatPage } from "@/features/watchlist/components/watchlist-flat-page";
+import { WatchlistRouteError } from "@/features/watchlist/components/watchlist-route-error";
+import { watchlistItemsSource } from "@/features/watchlist/lib/sources";
+import { prefetchMediaRows } from "@/shared/media/use-media-rows";
 
 const searchSchema = z
   .object({
@@ -13,5 +16,10 @@ const searchSchema = z
 
 export const Route = createFileRoute("/_authenticated/_app/watchlist/unavailable")({
   validateSearch: searchSchema,
+  // Only `sort` shapes the first page; `peek` (the modal) must not re-run the loader.
+  loaderDeps: ({ search }) => ({ sort: search.sort }),
+  loader: ({ context: { queryClient }, deps: { sort } }) =>
+    prefetchMediaRows(queryClient, watchlistItemsSource({ sort, bucket: "unavailable" })),
+  errorComponent: WatchlistRouteError,
   component: () => <WatchlistFlatPage bucket="unavailable" />,
 });

@@ -1,8 +1,14 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { z } from "zod";
-import { MOOD_IDS } from "@ent-mcp/shared/watchlist";
+import { MOOD_IDS, type MoodId } from "@ent-mcp/shared/watchlist";
 
-import { WatchlistMoodPage } from "@/features/watchlist/components/watchlist-mood-page";
+import {
+  MOOD_PAGE_LIMIT,
+  WatchlistMoodPage,
+} from "@/features/watchlist/components/watchlist-mood-page";
+import { WatchlistRouteError } from "@/features/watchlist/components/watchlist-route-error";
+import { watchlistMoodItemsSource } from "@/features/watchlist/lib/sources";
+import { prefetchMediaRows } from "@/shared/media/use-media-rows";
 
 const MOOD_ID_SET: ReadonlySet<string> = new Set(MOOD_IDS);
 
@@ -20,5 +26,10 @@ export const Route = createFileRoute("/_authenticated/_app/watchlist/moods/$mood
   beforeLoad: ({ params }) => {
     if (!MOOD_ID_SET.has(params.moodId)) throw notFound();
   },
+  // `beforeLoad` has admitted only valid mood ids, so the cast is safe; prefetch
+  // the cluster at the same limit the page reads so the cache key matches (#513).
+  loader: ({ context: { queryClient }, params: { moodId } }) =>
+    prefetchMediaRows(queryClient, watchlistMoodItemsSource(moodId as MoodId, MOOD_PAGE_LIMIT)),
+  errorComponent: WatchlistRouteError,
   component: () => <WatchlistMoodPage />,
 });
