@@ -1,6 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-
   "home_nav_home": "Home",
   "home_nav_library": "Library",
   "home_nav_watchlist": "Watchlist",
@@ -9,19 +8,34 @@
   "home_nav_brand_label": "Media Manager",
   "home_error_retry": "Try again",
   "home_error_ref_prefix": "Ref: {ref}",
-  "home_error_auth_title": "Your session expired",
-  "home_error_auth_body": "Sign in again to keep browsing your home feed.",
-  "home_error_offline_title": "You appear to be offline",
-  "home_error_offline_body": "Check your connection and try again — your data is safe.",
-  "home_error_network_title": "The server took too long to respond",
-  "home_error_network_body": "An upstream service was slow or rate-limited. Give it a moment and retry.",
-  "home_error_server_title": "Something went wrong on our end",
-  "home_error_server_body": "We hit an unexpected error loading your home feed. Try again or contact support if it keeps happening.",
-  "home_error_unknown_title": "Couldn't load the home feed",
-  "home_error_unknown_body": "Something interrupted the request. Try again — your data is safe.",
+  "home_error_title": [
+    {
+      "declarations": ["input variant"],
+      "selectors": ["variant"],
+      "match": {
+        "variant=auth": "Your session expired",
+        "variant=offline": "You appear to be offline",
+        "variant=network": "The server took too long to respond",
+        "variant=server": "Something went wrong on our end",
+        "variant=unknown": "Couldn't load the home feed"
+      }
+    }
+  ],
+  "home_error_body": [
+    {
+      "declarations": ["input variant"],
+      "selectors": ["variant"],
+      "match": {
+        "variant=auth": "Sign in again to keep browsing your home feed.",
+        "variant=offline": "Check your connection and try again — your data is safe.",
+        "variant=network": "An upstream service was slow or rate-limited. Give it a moment and retry.",
+        "variant=server": "We hit an unexpected error loading your home feed. Try again or contact support if it keeps happening.",
+        "variant=unknown": "Something interrupted the request. Try again — your data is safe."
+      }
+    }
+  ],
   "home_error_action_relogin": "Sign in again",
   "home_error_action_contact_support": "Contact support",
-
   "home_row_continueWatching_header": "Pick up where you left off",
   "home_row_continueWatching_eyebrow": "Mid-watch · jump back in",
   "home_row_continueWatching_counter": "// {n} in progress",
@@ -50,47 +64,58 @@
   "home_row_error_pagination_message": "Couldn't load more",
   "home_row_error_pagination_body": "Source didn't respond.",
   "home_row_error_retry": "Retry",
-
-  "home_match_reason_matches_recent_picks": "Matches {n} recent picks.",
-  "home_match_reason_from_genre_you_love": "From {genre} you love.",
-  "home_match_reason_similar_to_seed": "Similar to {seedTitle}.",
-  "home_match_reason_because_in_watchlist": "Saved on your watchlist.",
-  "home_match_reason_continuing_series": "Continue the story.",
-  "home_match_reason_upcoming_release": "A release you follow is coming up.",
-  "home_match_reason_recently_added": "Recently added to your library.",
-  "home_match_reason_highly_rated": "Highly rated by viewers like you.",
-  "home_match_reason_from_active_series": "From a show you are actively watching.",
-  "home_match_reason_finishing_soon": "Almost finished.",
-
+  "home_match_reason": [
+    {
+      "declarations": ["input reason", "input n", "input genre", "input seedTitle"],
+      "selectors": ["reason"],
+      "match": {
+        "reason=matches_recent_picks": "Matches {n} recent picks.",
+        "reason=from_genre_you_love": "From {genre} you love.",
+        "reason=similar_to_seed": "Similar to {seedTitle}.",
+        "reason=because_in_watchlist": "Saved on your watchlist.",
+        "reason=continuing_series": "Continue the story.",
+        "reason=upcoming_release": "A release you follow is coming up.",
+        "reason=recently_added": "Recently added to your library.",
+        "reason=highly_rated": "Highly rated by viewers like you.",
+        "reason=from_active_series": "From a show you are actively watching.",
+        "reason=finishing_soon": "Almost finished."
+      }
+    }
+  ],
   "home_hero_play": "Play",
   "home_hero_resume": "Resume",
   "home_hero_more_info": "More Info",
   "home_hero_dismiss": "Not tonight",
   "home_hero_alternates_label": "Hero alternates",
   "home_hero_progress_watched": "{percent}% watched",
-
   "home_card_request": "Request",
   "home_card_add_watchlist": "Add to watchlist",
   "home_card_remove_watchlist": "Remove from watchlist",
   "home_card_progress_watched": "{percent}% watched",
   "home_card_open_details": "Open details for {title}",
-
   "home_card_available": "Available",
   "home_card_requested": "Requested",
   "home_card_unavailable": "Unavailable",
   "home_card_upcoming": "Upcoming",
   "home_card_servers_count": "{n} servers",
-  "home_card_kind_movie": "Movie",
-  "home_card_kind_tv": "TV series",
+  "home_card_kind": [
+    {
+      "declarations": ["input kind"],
+      "selectors": ["kind"],
+      "match": {
+        "kind=movie": "Movie",
+        "kind=tv": "TV series",
+        "kind=*": "TV series"
+      }
+    }
+  ],
   "home_card_episode_label": "S{s}E{e}",
-
   "home_detail_request": "Request",
   "home_detail_watch": "Watch",
   "home_detail_watchlist_add": "Add to Watchlist",
   "home_detail_watchlist_remove": "Remove from Watchlist",
   "home_detail_trailer": "Trailer",
   "home_detail_close": "Close",
-
   "home_detail_season_available": "Available",
   "home_detail_season_requested": "Requested",
   "home_detail_season_unavailable": "Unavailable",
@@ -101,17 +126,14 @@
   "home_detail_season_subline_upcoming": "{n} episodes upcoming",
   "home_detail_season_subline_requested": "{n} requested",
   "home_detail_season_subline_upcoming_count": "{n} upcoming",
-
   "home_detail_series_label": "Series",
   "home_detail_series_ongoing": "Ongoing",
   "home_detail_series_finished": "Finished",
   "home_detail_next_air_date": "Next Air Date",
-
   "home_detail_episode_status_available": "Available",
   "home_detail_episode_status_requested": "Requested",
   "home_detail_episode_status_unavailable": "Missing",
   "home_detail_episode_status_upcoming": "Upcoming",
-
   "home_detail_director": "Director",
   "home_detail_cast": "Starring",
   "home_detail_genres_label": "Genres",
@@ -125,7 +147,6 @@
   "home_detail_season_episode_count": "{n} episodes",
   "home_detail_season_episode_label": "Episode {n}",
   "home_detail_season_episodes_pending": "Episode list will appear when details load.",
-
   "home_detail_feedback_label": "Your Rating",
   "home_detail_feedback_like": "Like",
   "home_detail_feedback_dislike": "Dislike",
@@ -134,7 +155,6 @@
   "home_detail_feedback_note_add_label": "Add a note",
   "home_detail_feedback_note_edit_label": "Edit your note",
   "home_detail_feedback_tagline": "✦ tunes your recommendations",
-
   "home_detail_note_label": "Your note",
   "home_detail_note_add_prompt": "Add a private note…",
   "home_detail_note_placeholder": "Add a private note — why you saved it, who recommended it, what to remember…",
@@ -143,16 +163,13 @@
   "home_detail_note_cancel": "Cancel",
   "home_detail_note_edit": "Edit",
   "home_detail_note_edit_label": "Edit your note",
-
   "home_detail_score_rating": "Rating",
   "home_detail_score_audience": "Audience",
   "home_detail_score_critics": "Critics",
   "home_detail_score_votes": "({n})",
   "home_detail_match_reason_kicker": "Why this",
   "home_detail_overview_label": "Overview",
-
   "home_row_partial_warning": "Some results may be incomplete",
-
   "media_detail_section_overview": "Overview",
   "media_detail_section_episodes": "Episodes",
   "media_detail_section_cast": "Cast & crew",
@@ -160,17 +177,14 @@
   "media_detail_section_your_take": "Your take",
   "media_detail_section_related": "More like this",
   "media_detail_section_nav_label": "Section navigation",
-
   "media_detail_breadcrumb_label": "Breadcrumb",
   "media_detail_breadcrumb_movies": "Movies",
   "media_detail_breadcrumb_tv": "TV",
-
   "media_detail_scores": "Scores",
   "media_detail_rating": "Rating",
   "media_detail_audience": "Audience",
   "media_detail_critics": "Critics",
   "media_detail_votes": "votes",
-
   "media_detail_released": "Released",
   "media_detail_runtime": "Runtime",
   "media_detail_rated": "Rated",
@@ -178,25 +192,21 @@
   "media_detail_format": "Format",
   "media_detail_available_on": "Available on",
   "media_detail_sources_count": "{n} sources",
-
   "media_detail_role_director": "Director",
   "media_detail_role_lead": "Lead",
   "media_detail_role_co_lead": "Co-lead",
   "media_detail_role_supporting": "Supporting",
   "media_detail_role_recurring": "Recurring",
   "media_detail_role_cast": "Cast",
-
   "media_detail_mark_watched": "Mark watched",
   "media_detail_watched": "Watched",
   "media_detail_more_options": "More options",
-
   "media_detail_not_found_title": "We couldn't find that title.",
   "media_detail_back_to_home": "Back to home",
   "media_detail_view_full_page": "View full page",
   "media_detail_partial_details_title": "Some details did not load",
   "media_detail_partial_details_body": "We could only load the summary for this title. Refresh in a moment if cast, seasons, ratings, or other details are missing.",
   "media_detail_partial_details_code": "Details error: {code}",
-
   "request_action_button": "Request",
   "request_action_no_plugin": "No plugin configured",
   "request_action_no_plugin_tooltip": "Configure a request plugin in Settings",

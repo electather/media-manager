@@ -6,14 +6,6 @@ import { cn } from "@/shared/lib/utils";
 
 type ChipKey = "all" | WatchlistBucket;
 
-const BUCKET_LABELS: Record<WatchlistBucket, () => string> = {
-  ready: m.watchlist_filter_ready,
-  "in-progress": m.watchlist_filter_in_progress,
-  awaiting: m.watchlist_filter_awaiting,
-  unavailable: m.watchlist_filter_unavailable,
-  upcoming: m.watchlist_filter_upcoming,
-};
-
 const BUCKET_COUNT: Record<WatchlistBucket, keyof WatchlistCounts> = {
   ready: "ready",
   "in-progress": "inProgress",
@@ -37,12 +29,16 @@ interface BucketChipsProps {
 export function BucketChips({ counts }: BucketChipsProps) {
   return (
     <div role="tablist" aria-label={m.watchlist_filter_label()} className="flex flex-wrap gap-2">
-      <BucketChipLink chipKey="all" label={m.watchlist_filter_all()} count={counts.total} />
+      <BucketChipLink
+        chipKey="all"
+        label={m.watchlist_filter({ bucket: "all" })}
+        count={counts.total}
+      />
       {WATCHLIST_BUCKETS.map((b) => (
         <BucketChipLink
           key={b}
           chipKey={b}
-          label={BUCKET_LABELS[b]()}
+          label={m.watchlist_filter({ bucket: b })}
           count={counts[BUCKET_COUNT[b]] ?? 0}
         />
       ))}

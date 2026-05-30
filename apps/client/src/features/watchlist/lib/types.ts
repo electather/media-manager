@@ -3,22 +3,8 @@ import type { WatchlistSource } from "@ent-mcp/shared/watchlist";
 import * as m from "@/paraglide/messages";
 
 /** Localized label for an item's `addedSource` field. */
-// fallow-ignore-next-line complexity
 export function sourceLabel(source: WatchlistSource): string {
-  switch (source) {
-    case "manual":
-      return m.watchlist_source_manual();
-    case "plugin":
-      return m.watchlist_source_plugin();
-    case "search":
-      return m.watchlist_source_search();
-    case "notification":
-      return m.watchlist_source_notification();
-    case "recommended":
-      return m.watchlist_source_recommended();
-    case "trending":
-      return m.watchlist_source_trending();
-  }
+  return m.watchlist_source({ source });
 }
 
 export type { WatchlistCounts } from "@ent-mcp/shared/watchlist";

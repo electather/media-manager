@@ -4,13 +4,6 @@ import type { WatchlistSort } from "@ent-mcp/shared/watchlist";
 import { WATCHLIST_SORTS } from "@ent-mcp/shared/watchlist";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 
-const SORT_LABELS: Record<WatchlistSort, () => string> = {
-  recent: m.watchlist_sort_recent,
-  alpha: m.watchlist_sort_alpha,
-  runtime: m.watchlist_sort_runtime,
-  status: m.watchlist_sort_status,
-};
-
 interface SortSelectProps {
   value: WatchlistSort;
 }
@@ -35,7 +28,7 @@ export function SortSelect({ value }: SortSelectProps) {
       <SelectContent>
         {WATCHLIST_SORTS.map((s) => (
           <SelectItem key={s} value={s}>
-            {SORT_LABELS[s]()}
+            {m.watchlist_sort({ sortKey: s })}
           </SelectItem>
         ))}
       </SelectContent>

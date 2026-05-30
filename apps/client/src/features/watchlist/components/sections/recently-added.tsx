@@ -22,18 +22,24 @@ const MS_PER_WEEK = 7 * MS_PER_DAY;
 // fallow-ignore-next-line complexity
 function relativeLabel(addedAt: number, now: number = Date.now()): string {
   const delta = Math.max(0, now - addedAt);
-  if (delta < MS_PER_MIN) return m.watchlist_recent_time_just_now();
+  if (delta < MS_PER_MIN) return m.watchlist_recent_time({ unit: "just_now", n: "" });
   if (delta < MS_PER_HOUR) {
-    return m.watchlist_recent_time_minutes_ago({ n: String(Math.floor(delta / MS_PER_MIN)) });
+    return m.watchlist_recent_time({
+      unit: "minutes_ago",
+      n: String(Math.floor(delta / MS_PER_MIN)),
+    });
   }
   if (delta < MS_PER_DAY) {
-    return m.watchlist_recent_time_hours_ago({ n: String(Math.floor(delta / MS_PER_HOUR)) });
+    return m.watchlist_recent_time({
+      unit: "hours_ago",
+      n: String(Math.floor(delta / MS_PER_HOUR)),
+    });
   }
-  if (delta < 2 * MS_PER_DAY) return m.watchlist_recent_time_yesterday();
+  if (delta < 2 * MS_PER_DAY) return m.watchlist_recent_time({ unit: "yesterday", n: "" });
   if (delta < MS_PER_WEEK) {
-    return m.watchlist_recent_time_days_ago({ n: String(Math.floor(delta / MS_PER_DAY)) });
+    return m.watchlist_recent_time({ unit: "days_ago", n: String(Math.floor(delta / MS_PER_DAY)) });
   }
-  return m.watchlist_recent_time_last_week();
+  return m.watchlist_recent_time({ unit: "last_week", n: "" });
 }
 
 export function RecentlyAdded() {
@@ -56,9 +62,11 @@ export function RecentlyAdded() {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.watchlist_recent_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>
+            {m.watchlist_section_eyebrow({ section: "recent" })}
+          </SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.watchlist_recent_title()}
+            {m.watchlist_section_title({ section: "recent" })}
             <SectionHeadCount value={top.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>

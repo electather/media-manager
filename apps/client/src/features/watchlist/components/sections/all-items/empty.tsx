@@ -19,33 +19,27 @@ interface BucketCopy {
   description: () => string;
 }
 
-const BUCKET_COPY: Record<WatchlistBucket, BucketCopy> = {
-  ready: {
-    icon: PlayCircleIcon,
-    title: m.watchlist_empty_ready_title,
-    description: m.watchlist_empty_ready_description,
-  },
-  "in-progress": {
-    icon: PauseCircleIcon,
-    title: m.watchlist_empty_in_progress_title,
-    description: m.watchlist_empty_in_progress_description,
-  },
-  awaiting: {
-    icon: ClockIcon,
-    title: m.watchlist_empty_awaiting_title,
-    description: m.watchlist_empty_awaiting_description,
-  },
-  unavailable: {
-    icon: PackageOpenIcon,
-    title: m.watchlist_empty_unavailable_title,
-    description: m.watchlist_empty_unavailable_description,
-  },
-  upcoming: {
-    icon: CalendarIcon,
-    title: m.watchlist_empty_upcoming_title,
-    description: m.watchlist_empty_upcoming_description,
-  },
+const BUCKET_ICON: Record<WatchlistBucket, LucideIcon> = {
+  ready: PlayCircleIcon,
+  "in-progress": PauseCircleIcon,
+  awaiting: ClockIcon,
+  unavailable: PackageOpenIcon,
+  upcoming: CalendarIcon,
 };
+
+// Title / description copy is resolved through the keyed `watchlist_empty_title`
+// / `watchlist_empty_description` ICU variants (selector `bucket`); only the
+// per-bucket glyph stays mapped here.
+const BUCKET_COPY: Record<WatchlistBucket, BucketCopy> = Object.fromEntries(
+  (Object.keys(BUCKET_ICON) as WatchlistBucket[]).map((bucket): [WatchlistBucket, BucketCopy] => [
+    bucket,
+    {
+      icon: BUCKET_ICON[bucket],
+      title: () => m.watchlist_empty_title({ bucket }),
+      description: () => m.watchlist_empty_description({ bucket }),
+    },
+  ]),
+) as Record<WatchlistBucket, BucketCopy>;
 
 interface WatchlistEmptyProps {
   bucket?: WatchlistBucket;

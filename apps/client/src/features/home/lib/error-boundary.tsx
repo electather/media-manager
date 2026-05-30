@@ -77,8 +77,8 @@ function FallbackInner({
 
   if (isResetting) return <HomeFeedSkeleton />;
 
-  const titleFn = m[view.titleKey] as () => string;
-  const bodyFn = m[view.bodyKey] as () => string;
+  const title = m.home_error_title({ variant: view.variant });
+  const body = m.home_error_body({ variant: view.variant });
   const meta = VARIANT_META[view.variant];
   const eyebrowFn = m[meta.eyebrowKey] as () => string;
   const detail = view.devMessage;
@@ -88,9 +88,9 @@ function FallbackInner({
     <ErrorPage tone={meta.tone}>
       <ErrorPageFrame data-home-error-variant={view.variant}>
         <ErrorPageHeadline code={meta.code} eyebrow={eyebrowFn()}>
-          {titleFn()}
+          {title}
         </ErrorPageHeadline>
-        <ErrorPageDescription>{bodyFn()}</ErrorPageDescription>
+        <ErrorPageDescription>{body}</ErrorPageDescription>
         {detail ? (
           <p className="max-w-md font-mono text-xs leading-relaxed text-muted-foreground/80">
             {detail}
@@ -115,7 +115,7 @@ function FallbackInner({
                 : []),
               {
                 label: m.errors_details_status(),
-                value: `${meta.code} · ${titleFn()}`,
+                value: `${meta.code} · ${title}`,
               },
               ...(detail
                 ? [

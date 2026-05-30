@@ -1,6 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-
   "home_nav_home": "TODO",
   "home_nav_library": "TODO",
   "home_nav_watchlist": "TODO",
@@ -9,19 +8,34 @@
   "home_nav_brand_label": "TODO",
   "home_error_retry": "TODO",
   "home_error_ref_prefix": "TODO",
-  "home_error_auth_title": "TODO",
-  "home_error_auth_body": "TODO",
-  "home_error_offline_title": "TODO",
-  "home_error_offline_body": "TODO",
-  "home_error_network_title": "TODO",
-  "home_error_network_body": "TODO",
-  "home_error_server_title": "TODO",
-  "home_error_server_body": "TODO",
-  "home_error_unknown_title": "TODO",
-  "home_error_unknown_body": "TODO",
+  "home_error_title": [
+    {
+      "declarations": ["input variant"],
+      "selectors": ["variant"],
+      "match": {
+        "variant=auth": "TODO",
+        "variant=offline": "TODO",
+        "variant=network": "TODO",
+        "variant=server": "TODO",
+        "variant=unknown": "TODO"
+      }
+    }
+  ],
+  "home_error_body": [
+    {
+      "declarations": ["input variant"],
+      "selectors": ["variant"],
+      "match": {
+        "variant=auth": "TODO",
+        "variant=offline": "TODO",
+        "variant=network": "TODO",
+        "variant=server": "TODO",
+        "variant=unknown": "TODO"
+      }
+    }
+  ],
   "home_error_action_relogin": "TODO",
   "home_error_action_contact_support": "TODO",
-
   "home_row_continueWatching_header": "TODO",
   "home_row_continueWatching_eyebrow": "TODO",
   "home_row_continueWatching_counter": "TODO",
@@ -50,47 +64,58 @@
   "home_row_error_pagination_message": "TODO",
   "home_row_error_pagination_body": "TODO",
   "home_row_error_retry": "TODO",
-
-  "home_match_reason_matches_recent_picks": "TODO",
-  "home_match_reason_from_genre_you_love": "TODO",
-  "home_match_reason_similar_to_seed": "TODO",
-  "home_match_reason_because_in_watchlist": "TODO",
-  "home_match_reason_continuing_series": "TODO",
-  "home_match_reason_upcoming_release": "TODO",
-  "home_match_reason_recently_added": "TODO",
-  "home_match_reason_highly_rated": "TODO",
-  "home_match_reason_from_active_series": "TODO",
-  "home_match_reason_finishing_soon": "TODO",
-
+  "home_match_reason": [
+    {
+      "declarations": ["input reason", "input n", "input genre", "input seedTitle"],
+      "selectors": ["reason"],
+      "match": {
+        "reason=matches_recent_picks": "TODO",
+        "reason=from_genre_you_love": "TODO",
+        "reason=similar_to_seed": "TODO",
+        "reason=because_in_watchlist": "TODO",
+        "reason=continuing_series": "TODO",
+        "reason=upcoming_release": "TODO",
+        "reason=recently_added": "TODO",
+        "reason=highly_rated": "TODO",
+        "reason=from_active_series": "TODO",
+        "reason=finishing_soon": "TODO"
+      }
+    }
+  ],
   "home_hero_play": "TODO",
   "home_hero_resume": "TODO",
   "home_hero_more_info": "TODO",
   "home_hero_dismiss": "TODO",
   "home_hero_alternates_label": "TODO",
   "home_hero_progress_watched": "TODO",
-
   "home_card_request": "TODO",
   "home_card_add_watchlist": "TODO",
   "home_card_remove_watchlist": "TODO",
   "home_card_progress_watched": "TODO",
   "home_card_open_details": "TODO",
-
   "home_card_available": "TODO",
   "home_card_requested": "TODO",
   "home_card_unavailable": "TODO",
   "home_card_upcoming": "TODO",
   "home_card_servers_count": "TODO",
-  "home_card_kind_movie": "TODO",
-  "home_card_kind_tv": "TODO",
+  "home_card_kind": [
+    {
+      "declarations": ["input kind"],
+      "selectors": ["kind"],
+      "match": {
+        "kind=movie": "TODO",
+        "kind=tv": "TODO",
+        "kind=*": "TODO"
+      }
+    }
+  ],
   "home_card_episode_label": "TODO",
-
   "home_detail_request": "TODO",
   "home_detail_watch": "TODO",
   "home_detail_watchlist_add": "TODO",
   "home_detail_watchlist_remove": "TODO",
   "home_detail_trailer": "TODO",
   "home_detail_close": "TODO",
-
   "home_detail_season_available": "TODO",
   "home_detail_season_requested": "TODO",
   "home_detail_season_unavailable": "TODO",
@@ -101,17 +126,14 @@
   "home_detail_season_subline_upcoming": "TODO",
   "home_detail_season_subline_requested": "TODO",
   "home_detail_season_subline_upcoming_count": "TODO",
-
   "home_detail_series_label": "TODO",
   "home_detail_series_ongoing": "TODO",
   "home_detail_series_finished": "TODO",
   "home_detail_next_air_date": "TODO",
-
   "home_detail_episode_status_available": "TODO",
   "home_detail_episode_status_requested": "TODO",
   "home_detail_episode_status_unavailable": "TODO",
   "home_detail_episode_status_upcoming": "TODO",
-
   "home_detail_director": "TODO",
   "home_detail_cast": "TODO",
   "home_detail_genres_label": "TODO",
@@ -125,7 +147,6 @@
   "home_detail_season_episode_count": "TODO",
   "home_detail_season_episode_label": "TODO",
   "home_detail_season_episodes_pending": "TODO",
-
   "home_detail_feedback_label": "TODO",
   "home_detail_feedback_like": "TODO",
   "home_detail_feedback_dislike": "TODO",
@@ -134,7 +155,6 @@
   "home_detail_feedback_note_add_label": "TODO",
   "home_detail_feedback_note_edit_label": "TODO",
   "home_detail_feedback_tagline": "TODO",
-
   "home_detail_note_label": "TODO",
   "home_detail_note_add_prompt": "TODO",
   "home_detail_note_placeholder": "TODO",
@@ -143,16 +163,13 @@
   "home_detail_note_cancel": "TODO",
   "home_detail_note_edit": "TODO",
   "home_detail_note_edit_label": "TODO",
-
   "home_detail_score_rating": "TODO",
   "home_detail_score_audience": "TODO",
   "home_detail_score_critics": "TODO",
   "home_detail_score_votes": "TODO",
   "home_detail_match_reason_kicker": "TODO",
   "home_detail_overview_label": "TODO",
-
   "home_row_partial_warning": "TODO",
-
   "media_detail_section_overview": "TODO",
   "media_detail_section_episodes": "TODO",
   "media_detail_section_cast": "TODO",
@@ -160,17 +177,14 @@
   "media_detail_section_your_take": "TODO",
   "media_detail_section_related": "TODO",
   "media_detail_section_nav_label": "TODO",
-
   "media_detail_breadcrumb_label": "TODO",
   "media_detail_breadcrumb_movies": "TODO",
   "media_detail_breadcrumb_tv": "TODO",
-
   "media_detail_scores": "TODO",
   "media_detail_rating": "TODO",
   "media_detail_audience": "TODO",
   "media_detail_critics": "TODO",
   "media_detail_votes": "TODO",
-
   "media_detail_released": "TODO",
   "media_detail_runtime": "TODO",
   "media_detail_rated": "TODO",
@@ -178,25 +192,21 @@
   "media_detail_format": "TODO",
   "media_detail_available_on": "TODO",
   "media_detail_sources_count": "TODO",
-
   "media_detail_role_director": "TODO",
   "media_detail_role_lead": "TODO",
   "media_detail_role_co_lead": "TODO",
   "media_detail_role_supporting": "TODO",
   "media_detail_role_recurring": "TODO",
   "media_detail_role_cast": "TODO",
-
   "media_detail_mark_watched": "TODO",
   "media_detail_watched": "TODO",
   "media_detail_more_options": "TODO",
-
   "media_detail_not_found_title": "TODO",
   "media_detail_back_to_home": "TODO",
   "media_detail_view_full_page": "TODO",
   "media_detail_partial_details_title": "TODO",
   "media_detail_partial_details_body": "TODO",
   "media_detail_partial_details_code": "TODO {code}",
-
   "request_action_button": "TODO",
   "request_action_no_plugin": "TODO",
   "request_action_no_plugin_tooltip": "TODO",

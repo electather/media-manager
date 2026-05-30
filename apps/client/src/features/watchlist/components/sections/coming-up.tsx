@@ -31,9 +31,11 @@ export function ComingUp() {
     <section className="mb-14">
       <SectionHead>
         <SectionHeadHeading>
-          <SectionHeadEyebrow>{m.watchlist_coming_up_eyebrow()}</SectionHeadEyebrow>
+          <SectionHeadEyebrow>
+            {m.watchlist_section_eyebrow({ section: "coming_up" })}
+          </SectionHeadEyebrow>
           <SectionHeadTitle>
-            {m.watchlist_coming_up_title()}
+            {m.watchlist_section_title({ section: "coming_up" })}
             <SectionHeadCount value={items.length} />
           </SectionHeadTitle>
         </SectionHeadHeading>

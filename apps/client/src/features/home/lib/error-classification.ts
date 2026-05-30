@@ -1,5 +1,4 @@
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
-import type { MessageKey } from "./types";
 import { HomeApiError } from "./types";
 
 /**
@@ -11,8 +10,6 @@ export type HomeErrorVariant = "auth" | "offline" | "network" | "server" | "unkn
 
 export interface HomeErrorView {
   variant: HomeErrorVariant;
-  titleKey: MessageKey;
-  bodyKey: MessageKey;
   /** Stable error code (server-shipped or synthesized) used for telemetry. */
   code: string;
   /** Server status when known, else `null`. */
@@ -51,26 +48,12 @@ function readDevMessage(body: ApiErrorBody | null): string | null {
   return body ? (nonEmptyString(body.message) ?? nonEmptyString(body.devMessage)) : null;
 }
 
-const TITLE_BY_VARIANT: Record<HomeErrorVariant, MessageKey> = {
-  auth: "home_error_auth_title",
-  offline: "home_error_offline_title",
-  network: "home_error_network_title",
-  server: "home_error_server_title",
-  unknown: "home_error_unknown_title",
-};
-
-const BODY_BY_VARIANT: Record<HomeErrorVariant, MessageKey> = {
-  auth: "home_error_auth_body",
-  offline: "home_error_offline_body",
-  network: "home_error_network_body",
-  server: "home_error_server_body",
-  unknown: "home_error_unknown_body",
-};
-
 /**
  * Classifies a thrown error into a presentation-ready view. Reads the
  * server-shipped `code` from `HomeApiError.body` when available and falls back
  * to status-based inference (401/403 → auth, 5xx → server, network → offline).
+ * Title / body copy is resolved from `variant` via the keyed `home_error_title`
+ * / `home_error_body` ICU variants at render time.
  */
 // fallow-ignore-next-line complexity
 export function classifyHomeError(error: Error): HomeErrorView {
@@ -81,8 +64,6 @@ export function classifyHomeError(error: Error): HomeErrorView {
   const variant = pickVariant(error, status, code);
   return {
     variant,
-    titleKey: TITLE_BY_VARIANT[variant],
-    bodyKey: BODY_BY_VARIANT[variant],
     code,
     status,
     devMessage,
