@@ -44,6 +44,7 @@ import { toSourceContext } from "./sources/context";
 export type { WatchlistContext } from "./internal/context";
 export type { AddItemResult, SeedResult };
 export { getItems, listAvailable, hasAny, type GetItemsOptions } from "./internal/reads";
+export { watchlistMediaSources } from "./internal/media-sources";
 
 const COUNTS_CACHE_TTL_MS = 30_000;
 const COUNTS_CACHE_MAX_ENTRIES = 5000;

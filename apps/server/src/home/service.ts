@@ -9,6 +9,7 @@ import type { RowContext } from "./internal/types";
 export { composeSeasonAvailability } from "./internal/season-availability";
 export { composeDetailsResponse as composeDetails } from "./internal/details";
 export { composeRowPage as composeRow } from "./internal/row";
+export { homeMediaSources } from "./internal/media-sources";
 
 const DEFAULT_DEADLINE_MS = 8000;
 

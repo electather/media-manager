@@ -11,6 +11,7 @@ export {
   composeLayout,
   composeRow,
   composeSeasonAvailability,
+  homeMediaSources,
   type ComposeOptions,
 } from "./service";
 export { HOME_EVENTS } from "./events";
