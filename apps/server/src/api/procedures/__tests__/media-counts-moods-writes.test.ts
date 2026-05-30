@@ -1,0 +1,271 @@
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { Hono } from "hono";
+import type { WatchlistCounts, WatchlistMoodSummary } from "@ent-mcp/shared/watchlist";
+import { errorHandler, requestContextMiddleware } from "../../../diagnostics/middleware";
+import { HttpError } from "../../../diagnostics/http-errors";
+
+vi.mock("../../../env", () => ({
+  env: { CACHE_PROVIDER: "memory", ENCRYPTION_KEY: "test-key" },
+}));
+
+let mockUserId: string | null = "u1";
+
+vi.mock("../../../auth", async () => {
+  const { unauthorized } = await import("../../../diagnostics/http-errors");
+  return {
+    requireSession: async (
+      c: { set: (k: string, v: unknown) => void },
+      next: () => Promise<void>,
+    ) => {
+      if (!mockUserId) throw unauthorized();
+      c.set("session", { user: { id: mockUserId } });
+      await next();
+    },
+    sessionUserId: (c: { get: (k: string) => unknown }) => {
+      const session = c.get("session") as { user: { id: string } } | undefined;
+      if (!session) throw unauthorized();
+      return session.user.id;
+    },
+  };
+});
+
+vi.mock("../../../catalog", () => ({ getCatalogService: () => ({}), toCanonicalRow: vi.fn() }));
+vi.mock("../../../artwork", () => ({
+  ArtworkService: vi.fn(function ArtworkService() {
+    return { getArtwork: vi.fn(async () => ({ results: {} })) };
+  }),
+}));
+
+// Writes bridge to the media-owned writes barrel (design §A6); stub `addItem` /
+// `removeItem` so the bridge + status codes are asserted without the db. The
+// other media exports only need to exist for module load.
+vi.mock("../../../media", async () => {
+  const shared = await import("@ent-mcp/shared/media");
+  return {
+    addItem: vi.fn(),
+    removeItem: vi.fn(),
+    decode: shared.decode,
+    listRows: vi.fn(),
+    loadProgressMap: vi.fn(),
+    MediaService: vi.fn(function MediaService() {
+      return {};
+    }),
+    StatusBatchMemo: vi.fn(function StatusBatchMemo() {
+      return {};
+    }),
+  };
+});
+
+// `homeMediaSources` only needs to exist for the resolver's module-load REGISTRY
+// spread; the composers are unused here.
+vi.mock("../../../home", () => ({
+  homeMediaSources: {},
+  buildContext: vi.fn((userId: string) => ({ userId })),
+  composeDetails: vi.fn(),
+  composeSeasonAvailability: vi.fn(),
+}));
+
+// Counts / moods bridge to the watchlist service (design §A6). The OLD
+// `watchlistApp` is mounted alongside `mediaApp` for the parity cases, so this
+// mock also supplies the section/list reads the old procedure loads (unused —
+// only `/counts` + `/moods` are driven).
+vi.mock("../../../watchlist", () => ({
+  watchlistMediaSources: {},
+  getCounts: vi.fn(),
+  getMoodSummary: vi.fn(),
+  addItem: vi.fn(),
+  removeItem: vi.fn(),
+  listItems: vi.fn(),
+  listMoodItems: vi.fn(),
+  getTonightSection: vi.fn(),
+  getRecentlyAdded: vi.fn(),
+}));
+
+vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
+
+const media = await import("../../../media");
+const watchlist = await import("../../../watchlist");
+const { rateLimitOrNull } = await import("../../rate-limit");
+const { watchlistReadLimiter, watchlistWriteLimiter } = await import("../watchlist");
+const { mediaApp } = await import("../media");
+const { watchlistApp } = await import("../watchlist");
+
+function buildApp() {
+  return new Hono()
+    .use("*", requestContextMiddleware())
+    .route("/media", mediaApp)
+    .route("/watchlist", watchlistApp)
+    .notFound(() => {
+      throw new HttpError(404, "http.not_found", "route not found");
+    })
+    .onError(errorHandler);
+}
+
+const COUNTS_FIXTURE: WatchlistCounts = {
+  ready: 3,
+  inProgress: 1,
+  awaiting: 0,
+  unavailable: 2,
+  upcoming: 4,
+  total: 10,
+};
+
+const MOODS_FIXTURE: WatchlistMoodSummary = {
+  clusters: [
+    { moodId: "cozy", count: 5 },
+    { moodId: "epic", count: 2 },
+  ],
+};
+
+const ADD_ITEM = {
+  id: "movie:550",
+  tmdbId: "550",
+  mediaType: "movie" as const,
+  title: "Fight Club",
+  addedAt: 123,
+  addedSource: "manual" as const,
+};
+
+beforeEach(() => {
+  mockUserId = "u1";
+  vi.mocked(media.addItem).mockReset();
+  vi.mocked(media.removeItem).mockReset();
+  vi.mocked(watchlist.getCounts).mockReset();
+  vi.mocked(watchlist.getMoodSummary).mockReset();
+  vi.mocked(rateLimitOrNull).mockReset().mockReturnValue(null);
+});
+
+describe("media counts / moods / writes (US-005, design §A6/§A7)", () => {
+  it("requires a session", async () => {
+    mockUserId = null;
+    const res = await buildApp().request("/media/counts");
+    expect(res.status).toBe(401);
+  });
+
+  it("bridges GET /counts to watchlist.getCounts", async () => {
+    vi.mocked(watchlist.getCounts).mockResolvedValueOnce(COUNTS_FIXTURE);
+    const res = await buildApp().request("/media/counts");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(COUNTS_FIXTURE);
+    expect(watchlist.getCounts).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(watchlist.getCounts).mock.calls[0]![0]).toMatchObject({ userId: "u1" });
+  });
+
+  it("bridges GET /moods to watchlist.getMoodSummary", async () => {
+    vi.mocked(watchlist.getMoodSummary).mockResolvedValueOnce(MOODS_FIXTURE);
+    const res = await buildApp().request("/media/moods");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(MOODS_FIXTURE);
+    expect(watchlist.getMoodSummary).toHaveBeenCalledTimes(1);
+  });
+
+  it("POST /watchlist bridges to the media writes barrel and 201s a fresh insert", async () => {
+    vi.mocked(media.addItem).mockResolvedValueOnce({ item: ADD_ITEM, wasActive: false });
+    const res = await buildApp().request("/media/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdbId: "550", mediaType: "movie", source: "manual" }),
+    });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ item: ADD_ITEM, wasActive: false });
+    expect(media.addItem).toHaveBeenCalledTimes(1);
+    const [key, source, ctx] = vi.mocked(media.addItem).mock.calls[0]!;
+    expect(key).toEqual({ tmdbId: "550", mediaType: "movie" });
+    expect(source).toBe("manual");
+    expect(ctx).toMatchObject({ userId: "u1" });
+  });
+
+  it("POST /watchlist 200s when the row was already active", async () => {
+    vi.mocked(media.addItem).mockResolvedValueOnce({ item: ADD_ITEM, wasActive: true });
+    const res = await buildApp().request("/media/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdbId: "550", mediaType: "movie" }),
+    });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { wasActive: boolean }).wasActive).toBe(true);
+  });
+
+  it("DELETE /watchlist/:type/:tmdbId bridges to removeItem and 204s", async () => {
+    vi.mocked(media.removeItem).mockResolvedValueOnce({ removed: true });
+    const res = await buildApp().request("/media/watchlist/tv/1396", { method: "DELETE" });
+    expect(res.status).toBe(204);
+    expect(media.removeItem).toHaveBeenCalledTimes(1);
+    const [key, ctx] = vi.mocked(media.removeItem).mock.calls[0]!;
+    expect(key).toEqual({ tmdbId: "1396", mediaType: "tv" });
+    expect(ctx).toMatchObject({ userId: "u1" });
+  });
+
+  it("DELETE rejects an unknown :type with 400 http.invalid_input", async () => {
+    const res = await buildApp().request("/media/watchlist/anime/550", { method: "DELETE" });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { code: string }).code).toBe("http.invalid_input");
+    expect(media.removeItem).not.toHaveBeenCalled();
+  });
+
+  it("DELETE rejects a non-numeric :tmdbId with 400 (validation parity)", async () => {
+    const res = await buildApp().request("/media/watchlist/movie/not-a-number", {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(400);
+    expect(media.removeItem).not.toHaveBeenCalled();
+  });
+
+  // Rate-limit policy (§A7): reads (counts/moods) use the read limiter, writes
+  // use the write limiter — the same buckets the old routes used.
+  it("applies watchlistReadLimiter to counts and moods", async () => {
+    vi.mocked(watchlist.getCounts).mockResolvedValueOnce(COUNTS_FIXTURE);
+    vi.mocked(watchlist.getMoodSummary).mockResolvedValueOnce(MOODS_FIXTURE);
+    const app = buildApp();
+    await app.request("/media/counts");
+    await app.request("/media/moods");
+    const limiters = vi.mocked(rateLimitOrNull).mock.calls.map((call) => call[0]);
+    expect(limiters).toEqual([watchlistReadLimiter, watchlistReadLimiter]);
+  });
+
+  it("applies watchlistWriteLimiter to add and remove", async () => {
+    vi.mocked(media.addItem).mockResolvedValueOnce({ item: ADD_ITEM, wasActive: false });
+    vi.mocked(media.removeItem).mockResolvedValueOnce({ removed: true });
+    const app = buildApp();
+    await app.request("/media/watchlist", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdbId: "550", mediaType: "movie" }),
+    });
+    await app.request("/media/watchlist/movie/550", { method: "DELETE" });
+    const limiters = vi.mocked(rateLimitOrNull).mock.calls.map((call) => call[0]);
+    expect(limiters).toEqual([watchlistWriteLimiter, watchlistWriteLimiter]);
+  });
+
+  it("short-circuits with the limiter's 429 before touching the service", async () => {
+    vi.mocked(rateLimitOrNull).mockReturnValueOnce(
+      new Response("rate limited", { status: 429 }) as never,
+    );
+    const res = await buildApp().request("/media/counts");
+    expect(res.status).toBe(429);
+    expect(watchlist.getCounts).not.toHaveBeenCalled();
+  });
+
+  // Parity (§A6): the new media URL and the old watchlist URL bridge to the SAME
+  // service fn, so they return byte-identical payloads. Driving both surfaces
+  // against one mocked service pins that only the URL moved.
+  it("counts parity: /media/counts === /watchlist/counts", async () => {
+    vi.mocked(watchlist.getCounts).mockResolvedValue(COUNTS_FIXTURE);
+    const app = buildApp();
+    const mediaRes = await app.request("/media/counts");
+    const watchlistRes = await app.request("/watchlist/counts");
+    expect(mediaRes.status).toBe(watchlistRes.status);
+    expect(await mediaRes.json()).toEqual(await watchlistRes.json());
+    expect(watchlist.getCounts).toHaveBeenCalledTimes(2);
+  });
+
+  it("moods parity: /media/moods === /watchlist/moods", async () => {
+    vi.mocked(watchlist.getMoodSummary).mockResolvedValue(MOODS_FIXTURE);
+    const app = buildApp();
+    const mediaRes = await app.request("/media/moods");
+    const watchlistRes = await app.request("/watchlist/moods");
+    expect(mediaRes.status).toBe(watchlistRes.status);
+    expect(await mediaRes.json()).toEqual(await watchlistRes.json());
+    expect(watchlist.getMoodSummary).toHaveBeenCalledTimes(2);
+  });
+});

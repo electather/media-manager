@@ -2,16 +2,26 @@ import { Hono } from "hono";
 import { consola } from "consola";
 import { z } from "zod";
 import { mediaTypeSchema } from "@ent-mcp/shared/media";
+import {
+  addWatchlistRequestSchema,
+  type AddWatchlistResponse,
+  type WatchlistCounts,
+  type WatchlistMoodSummary,
+} from "@ent-mcp/shared/watchlist";
 import { requireSession, sessionUserId } from "../../auth";
 import { ArtworkService } from "../../artwork";
 import { getCatalogService, toCanonicalRow } from "../../catalog";
 import {
+  addItem,
   decode,
   listRows,
+  loadProgressMap,
   MediaService,
+  removeItem,
   StatusBatchMemo,
   type AnyMediaSourceRegistration,
   type Cursor,
+  type GetArtworkFn,
   type SourceContext,
 } from "../../media";
 import {
@@ -20,7 +30,7 @@ import {
   composeSeasonAvailability,
   homeMediaSources,
 } from "../../home";
-import { watchlistMediaSources } from "../../watchlist";
+import { getCounts, getMoodSummary, watchlistMediaSources } from "../../watchlist";
 import { badRequest, notFound } from "../../diagnostics/http-errors";
 import { zValidator } from "../../diagnostics/validator";
 import { rateLimitOrNull } from "../rate-limit";
@@ -54,8 +64,29 @@ const titleParamSchema = z
   })
   .strict();
 
+/**
+ * Path params for the watchlist `DELETE` write (design §A6). `:type/:tmdbId` lift
+ * the old `DELETE /watchlist/:tmdbId/:mediaType` route's params; `tmdbId` keeps
+ * the old numeric-string validation so a non-numeric id still 400s rather than
+ * silently no-opping (parity with `watchlistParamSchema`).
+ */
+const watchlistWriteParamSchema = z
+  .object({
+    type: mediaTypeSchema,
+    tmdbId: z.string().regex(/^\d+$/u, "tmdbId must be a numeric string"),
+  })
+  .strict();
+
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
+
+/**
+ * Per-request plugin-call deadline for the watchlist counts / moods / writes
+ * bridges. Matches the old `watchlist.ts` procedure's `buildContext` constant
+ * exactly (5000) so those endpoints stay byte-identical through the relocation
+ * (parity, §A6). It is deliberately NOT the resolver's `REQUEST_DEADLINE_MS`.
+ */
+const WATCHLIST_REQUEST_DEADLINE_MS = 5000;
 
 /**
  * Build the single media `SourceContext` the resolver hands every source plus
@@ -77,6 +108,37 @@ function buildSourceContext(userId: string): SourceContext {
     logger: consola,
     deadlineMs: Date.now() + REQUEST_DEADLINE_MS,
     getArtwork: (requests) => new ArtworkService(userId, catalog).getArtwork(requests),
+    toCanonicalRow,
+  };
+}
+
+/**
+ * Per-request context for the watchlist counts / moods / writes bridges
+ * (design §A6). It reproduces the old `watchlist.ts` procedure's `buildContext`
+ * (`deadlineMs: 5000`, `log: consola`) PLUS the `asWatchlistContext` resolution
+ * (`loadProgressMap` + the `getArtwork` / `toCanonicalRow` cycle-breakers), so a
+ * single object serves both the read aggregates — `getCounts` / `getMoodSummary`
+ * take the loose `MaybeRowContext` — and the media writes barrel — `addItem` /
+ * `removeItem` take the resolved `MediaEnrichContext`. The aggregates re-resolve
+ * their own enrich handles, so the extra fields are inert for them: the bridge
+ * stays behaviorally identical to the old endpoints.
+ *
+ * This is the watchlist analogue of `buildHomeContext` for the title routes —
+ * a dedicated ctor per bridge target keeps each relocated endpoint byte-identical
+ * to the one it replaces, rather than reusing the resolver's `SourceContext`.
+ */
+function buildWatchlistContext(userId: string) {
+  const catalog = getCatalogService();
+  const getArtwork: GetArtworkFn = (requests) =>
+    new ArtworkService(userId, catalog).getArtwork(requests);
+  return {
+    userId,
+    mediaService: new MediaService(userId),
+    catalog,
+    loadProgressMap,
+    deadlineMs: WATCHLIST_REQUEST_DEADLINE_MS,
+    log: consola,
+    getArtwork,
     toCanonicalRow,
   };
 }
@@ -154,6 +216,51 @@ export const mediaApp = new Hono()
     const ctx = buildHomeContext(userId);
     const availability = await composeSeasonAvailability(ctx, tmdbId);
     return c.json(availability);
+  })
+  /**
+   * Watchlist aggregates (design §A6): the counts pips + the mood summary. Pure
+   * URL relocation of `/watchlist/counts` + `/watchlist/moods` — each bridge is
+   * one line to the existing watchlist service, so derivation / tally ownership
+   * is unchanged (§G consolidation). `watchlistReadLimiter` is preserved per §A7
+   * (the same bucket the old routes used — keys unchanged).
+   */
+  .get("/counts", async (c) => {
+    const userId = sessionUserId(c);
+    const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);
+    if (limited) return limited;
+    const counts: WatchlistCounts = await getCounts(buildWatchlistContext(userId));
+    return c.json(counts);
+  })
+  .get("/moods", async (c) => {
+    const userId = sessionUserId(c);
+    const limited = rateLimitOrNull(watchlistReadLimiter, c, userId);
+    if (limited) return limited;
+    const summary: WatchlistMoodSummary = await getMoodSummary(buildWatchlistContext(userId));
+    return c.json(summary);
+  })
+  /**
+   * Watchlist writes (design §A6): add / remove ride the media-owned writes
+   * barrel (`addItem` / `removeItem`; media-owned since consolidation Phase 2).
+   * `POST` returns `AddWatchlistResponse` (201 on a fresh insert, 200 when the
+   * row was already active); `DELETE` is 204. `:type/:tmdbId` are path params.
+   * `watchlistWriteLimiter` is preserved per §A7.
+   */
+  .post("/watchlist", zValidator("json", addWatchlistRequestSchema), async (c) => {
+    const userId = sessionUserId(c);
+    const limited = rateLimitOrNull(watchlistWriteLimiter, c, userId);
+    if (limited) return limited;
+    const { tmdbId, mediaType, source } = c.req.valid("json");
+    const result = await addItem({ tmdbId, mediaType }, source, buildWatchlistContext(userId));
+    const body: AddWatchlistResponse = { item: result.item, wasActive: result.wasActive };
+    return c.json(body, result.wasActive ? 200 : 201);
+  })
+  .delete("/watchlist/:type/:tmdbId", zValidator("param", watchlistWriteParamSchema), async (c) => {
+    const userId = sessionUserId(c);
+    const limited = rateLimitOrNull(watchlistWriteLimiter, c, userId);
+    if (limited) return limited;
+    const { type, tmdbId } = c.req.valid("param");
+    await removeItem({ tmdbId, mediaType: type }, buildWatchlistContext(userId));
+    return c.body(null, 204);
   });
 
 /**
