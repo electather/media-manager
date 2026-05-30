@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { mediaTypeSchema, type MediaType } from "@ent-mcp/shared";
-import { encode, type Cursor, type MediaSource } from "../../media";
+import { mediaTypeSchema } from "@ent-mcp/shared";
+import type { Cursor, MediaSource } from "../../media";
 import { resolveSimilarCandidates, ROW_PAGE_SIZE, type MediaKey } from "../rows/_shared";
+
+/**
+ * `encodeSeedCursor` is the relocated shared codec helper (design §A5). It is
+ * re-exported here so `because-you-watched.ts` keeps importing it from this
+ * source module unchanged; `decodeSeedToken` / `SeedToken` below stay
+ * home-source-private (they would drag home paging across the boundary).
+ */
+export { encodeSeedCursor } from "../../media";
 
 /**
  * The seed + page offset a similar-feed row threads through its cursor. It
@@ -17,11 +25,6 @@ export const seedTokenSchema = z.object({
 });
 
 export type SeedToken = z.infer<typeof seedTokenSchema>;
-
-/** Mints the initial keyset cursor for a similar-feed row from its seed. */
-export function encodeSeedCursor(seed: { seedId: string; seedType: MediaType }): string {
-  return encode({ mode: "keyset", k: JSON.stringify({ ...seed, offset: 0 }) });
-}
 
 /** Parses + validates the seed-token JSON; `null` on bad JSON or shape. */
 function parseSeedJson(k: string): SeedToken | null {

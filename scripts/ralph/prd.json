@@ -1,377 +1,259 @@
 {
   "project": "media-manager",
-  "branchName": "ralph/media-pipeline-consolidation",
-  "description": "Media Pipeline Consolidation (epic #491) - make media own one read pipeline (listRows), one wire shape (extended CompactMediaItem), one cursor codec, and the watchlist_items writes; home and watchlist become thin product shells. Backend only. SOURCE OF TRUTH: docs/2026-05-26-media-pipeline-consolidation-design.md - read it before each story; the design wins on any conflict. Use Vite+ only: `vp check`, `vp test`, `vp install` (never pnpm/npm/yarn/vitest/oxlint directly). Parity is the success bar: no behavior change except the #502 bucket fix.",
+  "branchName": "ralph/media-resource-unification",
+  "description": "Media Resource Unification (epic #491, frontend half) - unify the media HTTP surface and its client mirror. Server: one /api/media/* adapter (a generic registry-dispatched source resolver GET /api/media/sources/:sourceId plus title/counts/moods/writes endpoints) composing the EXISTING home/watchlist/media module barrels. Wire: extend @ent-mcp/shared/media with the MEDIA_SOURCE_IDS as-const tuple, the relocated cursor codec, per-source param schemas, and the canonical Page shape. Client: one shared/media/ layer (one list-hook core, one query-key root, one MediaApiError, shared card/skeleton primitives); home and watchlist become thin shells. Plus adjacent tracks: watchlist route loaders (#513), Paraglide ICU variants (#511/#512), all-items virtual scroll (#519), correctness nits (#514/#515/#516). SOURCE OF TRUTH: docs/2026-05-30-media-resource-unification-design.md - read it before each story; the design wins on any conflict. Section refs (A1, B2, ...) and invariant/risk tags (V.RG1, V.A1, V.CU1, RISK-205, ...) point into that design. Extends the shipped docs/2026-05-26-media-pipeline-consolidation-design.md (commit dacd3825) which unified the internal read path; this work unifies the HTTP surface and its client mirror. NO server module re-org: no composition logic moves between home/watchlist/media (invariant V.A1); media never imports concrete sources (invariant V.RG1) - the source registry lives in the api/ adapter, composed from consumer barrels. The URL reflects the resource; the owning module reflects the logic; the adapter bridges them. Additive-first/subtractive-last: Part A (US-001..US-005) adds /api/media/* WITHOUT removing the old endpoints; Part B (US-006..US-012) migrates the client; the old surface is deleted ONLY in the cutover (US-013) - this is sequencing, NOT a compat shim (no translation layer, no dual maintenance). Use Vite+ only: `vp check`, `vp test`, `vp install` (never pnpm/npm/yarn/vitest/oxlint directly); `vp dlx` for one-off binaries. CHANGESET RULE: @ent-mcp/shared is internal-only and is NEVER listed in a changeset - its changes ride the consumer bump. User-facing minor bumps land at US-010 (@ent-mcp/client), US-012 (@ent-mcp/client), and US-013 (@ent-mcp/client + @ent-mcp/server); every other story uses an empty-frontmatter changeset (---\\n---). Parity is the success bar: capture fixtures from the LIVE old endpoints BEFORE US-003/US-004/US-005 and assert the new surface matches item ids/order/cursor - no user-visible behavior change except what the adjacent tracks (#511-#519) explicitly specify. Every Part B story edits apps/client/ React: invoke the relevant frontend skill before editing (frontend-feature-architecture, vercel-react-best-practices, vercel-composition-patterns, paraglide-js, vercel-react-view-transitions). Compact context at each phase boundary.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Extend CompactMediaItem in shared with addedAt and addedSource",
-      "description": "As a developer, I want one wire item shape so that home and watchlist stop maintaining two divergent types.",
+      "title": "Extend @ent-mcp/shared/media with the wire contract",
+      "description": "As a developer, I want one shared media wire contract - source-id set, cursor codec, param schemas, and page shape - so that client and server agree on exactly one definition of each (A5).",
       "acceptanceCriteria": [
-        "Add `addedAt?: number | null` (epoch ms) and `addedSource?: WatchlistSource | null` to the EXISTING CompactMediaItem in @ent-mcp/shared (design \u00a7D)",
-        "Do NOT touch the recommendation-engine MediaItem at packages/shared/src/media/types.ts",
-        "Internal private fields (`__*`) remain excluded from the serialized wire shape (invariant V.MI1)",
-        "Add a minor changeset for @ent-mcp/shared and @ent-mcp/server (new public surface + CompactMediaItem fields)",
-        "`vp check` passes"
+        "@ent-mcp/shared/media (existing subpath at packages/shared/src/media/) gains a MEDIA_SOURCE_IDS as-const tuple plus the derived MediaSourceId type. Values lift the existing slugs: recommendedForYou-tv, recommendedForYou-movies, continueWatching-active, continueWatching-next, becauseYouWatched, similarTo, yourWatchlist, upcomingForYou, trendingNow, newReleases, watchlist-items, watchlist-mood-items, watchlist-tonight, watchlist-recently. Watchlist buckets ride watchlist-items via a `bucket` param, NOT per-bucket ids.",
+        "New exports land alongside the existing recommendation-engine MediaItem / ActiveRow / RowSort / RowFilter - names do NOT collide and MediaItem is NOT touched (consolidation D: MediaItem is already taken, do not reuse it).",
+        "The cursor codec is MOVED here: the Cursor type, encode, decode(raw, expectedMode?), and the encodeSeedCursor helper. decode returns Cursor | null and never throws (invariant V.CU1).",
+        "decodeSeedToken and SeedToken (home's similar-feed offset paging) STAY home-source-private - they are NOT relocated (they would drag home paging across the boundary).",
+        "The server media barrel re-exports the relocated codec so server-internal consumers that import encode / Cursor from the media barrel today (e.g. home/sources/similar-paged.ts) keep their barrel import unchanged (invariant V.RG1 untouched). media/cursor.ts becomes a thin re-export of the shared codec.",
+        "Per-source param zod schemas exist (discriminated per source): watchlist-items ({ bucket?, sort, mood?, limit, cursor? }), watchlist-mood-items ({ moodId, limit, cursor? }), seeded home ({ seedId, seedType } for similarTo), bounded ({ limit }), and void. Reuse the shapes of today's itemsQuerySchema / moodItemsQuerySchema.",
+        "Page = { items: CompactMediaItem[]; cursor: string | null; partial: boolean } is exported as the canonical page shape.",
+        "CompactMediaItem is re-exported from @ent-mcp/shared/media (its definition stays in @ent-mcp/shared/home to avoid a churn cascade); MediaDetailsResponse, SeasonAvailabilityResponse, WatchlistCounts, and WatchlistMoodSummary are likewise re-exported via the media subpath for one coherent client import surface.",
+        "The shared module stays isomorphic and zod-only (no drizzle-orm / hono / framework deps - shared-package rule).",
+        "Codec unit tests assert decode -> null on bad / foreign / mode-mismatched input for BOTH modes, and that encodeSeedCursor / decodeSeedToken round-trip.",
+        "Changeset: empty frontmatter (@ent-mcp/shared is internal-only and never listed; no server behavior changes yet).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Extended CompactMediaItem (home/types.ts) + compactMediaItemSchema (home/schemas.ts) with addedAt?: number|null and addedSource?: WatchlistSource|null (z.nullish). Did NOT touch recommendation MediaItem. Changeset lists @ent-mcp/shared + @ent-mcp/server minor (config privatePackages.version:true allows private @ent-mcp/shared despite global 'never list shared' note; PRD/design \u00a7J win). Side effect: widened add-to-watchlist seed type Partial<WatchlistItem> -> Partial<CompactMediaItem> in use-add-to-watchlist.ts + build-optimistic.ts so MediaDetailItem (nullable addedAt) stays assignable; WatchlistItem redeclares addedAt as non-null number so Partial<WatchlistItem> rejected null."
+      "notes": "Done. packages/shared/src/media/: MEDIA_SOURCE_IDS tuple + MediaSourceId (enums.ts); isomorphic cursor codec Cursor/encode/decode/encodeSeedCursor (cursor.ts, btoa/atob - no Buffer); per-source param schemas reusing itemsQuerySchema/moodItemsQuerySchema (source-params.ts); canonical Page + CompactMediaItem re-export (page.ts); MediaDetailsResponse/SeasonAvailabilityResponse/WatchlistCounts/WatchlistMoodSummary re-exports (index.ts). Server: media/cursor.ts now a thin re-export of shared; media/types.ts re-exports Page; media barrel exports encodeSeedCursor; similar-paged.ts re-exports encodeSeedCursor (decodeSeedToken/SeedToken stay home-private). 17 shared codec tests + full vp test (2454) green; vp check 0 errors. CONFLICT noted: design A1 says 'minor @ent-mcp/shared' but PRD AC + project CLAUDE.md say shared is internal-only never listed -> empty-frontmatter changeset used."
     },
     {
       "id": "US-002",
-      "title": "Add unified cursor codec in media/cursor.ts",
-      "description": "As a developer, I want one cursor codec so that the three forked codecs collapse into a single opaque format.",
+      "title": "Consumer source-registration maps via barrels",
+      "description": "As a backend developer, I want each consumer to surface its sources as a registration map through its barrel so that the adapter can build one registry without media ever importing concrete sources (A4, invariant V.RG1).",
       "acceptanceCriteria": [
-        "Create media/cursor.ts with `Cursor = { mode: \"keyset\"; k: string } | { mode: \"offset\"; n: number }` (design \u00a7E)",
-        "base64url-JSON, zod-validated; `encode(c) -> string`, `decode(s) -> Cursor | null`",
-        "`decode` NEVER throws: bad, foreign, or mode-mismatched input returns null (invariant V.CU1)",
-        "Export the codec and Cursor type via the media/index.ts barrel",
-        "Unit tests assert decode -> null on bad/foreign input for BOTH modes and on mode-mismatch",
-        "`vp check` passes",
-        "`vp test` passes"
+        "A MediaSourceRegistration<P> interface exists (adapter-visible) with fields: sourceId: MediaSourceId, rateLimit: 'read' | 'write' | undefined, paramSchema: ZodType<P>, cursorMode: 'keyset' | 'offset', cursorOnNull: '400' | 'firstPage', requiresInitialCursor?: boolean, eligibility?(ctx): Promise<boolean>, and build(ctx, params, cursor): { source; cfg; enrichRows? }.",
+        "home/index.ts exports homeMediaSources - a THIN lift wrapping the existing ROW_PROVIDERS (which already carries public eligibility / initialCursor / load / cursorMode / requiresInitialCursor per home/internal/types.ts); the build thunk wraps today's row-page load. No home composition logic moves (invariant V.A1).",
+        "watchlist/index.ts exports watchlistMediaSources - a NEW barrel export re-packaging the per-section source + cfg wiring (itemsSource / moodItemsSource / tonightSource / recentlySource and their toItemsParams / itemsCfg / moodItemsCfg / recentlyCfg) currently PRIVATE to watchlist/service.ts. The wiring stays in watchlist (invariant V.A1) - it is only surfaced via the barrel.",
+        "cursorOnNull is set per consumer to preserve V.CU1 exactly: home sources '400', watchlist sources 'firstPage'.",
+        "eligibility is carried on home registrations (mirrors today's composeRowPage 404-on-ineligible).",
+        "No HTTP endpoint is added in this phase. A unit test asserts the registry builds and every MEDIA_SOURCE_IDS entry resolves to a registration whose build wires listRows with the right stages.",
+        "Changeset: empty frontmatter (server-internal barrel additions; no public wire change yet).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Created apps/server/src/media/cursor.ts: Cursor discriminated union ({mode:keyset,k:string}|{mode:offset,n:number}), base64url-JSON via Buffer.toString('base64url'), zod z.discriminatedUnion('mode',...). encode(c)->string, decode(raw, expectedMode?)->Cursor|null. decode NEVER throws (try/catch around JSON.parse, safeParse, returns null). Added optional expectedMode param so mode-mismatch->null (V.CU1) while bare decode(s) still returns any valid cursor. Exported encode/decode/Cursor/CursorMode via media/index.ts barrel (distinct from existing encodeCursor/decodeCursor from ./service - no name clash). 12 unit tests in __tests__/cursor.test.ts cover round-trip both modes, null on garbage/non-JSON/foreign-shape/unknown-mode/missing-field/wrong-type for BOTH modes, and mode-mismatch both directions. Empty (internal-only) changeset - no wire/API change. vp check: 0 errors, 1 pre-existing warning. vp test: 12 pass."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Add MediaSource contract and pipeline types in media",
-      "description": "As a developer, I want a minimal source contract so that consumers supply only a raw-row fetch plus stage flags.",
+      "title": "Generic source resolver endpoint",
+      "description": "As a client developer, I want one paginated read endpoint dispatched by source id so that every media list reads through a single path (A3).",
       "acceptanceCriteria": [
-        "Create media/source.ts defining `MediaSource<P = void>` with `sourceId`, `fetchRawSet(ctx, params, cursor) -> { rows: ActiveRow[]; partial: boolean; nextRaw?: RawPageToken }`, and `stages: { classify?; filter?: FilterKind; sort: RowSort; cursorMode: \"keyset\" | \"offset\" }` (design \u00a7B)",
-        "The interface carries NO enrich/sort/slice/cursor logic; eligibility is NOT on the source (invariant V.MC1)",
-        "Add supporting types to media/types.ts: FilterKind (`\"bucket\" | \"mood\" | undefined`), RawPageToken, SourceContext (RowContext union WatchlistContext), PipelineConfig, Page (`{ items: CompactMediaItem[]; cursor: string | null; partial: boolean }`)",
-        "Export MediaSource and the new types via the media/index.ts barrel",
-        "`vp check` passes"
+        "api/procedures/media.ts defines a REGISTRY: Record<MediaSourceId, MediaSourceRegistration> composed as { ...homeMediaSources, ...watchlistMediaSources }, and mounts GET /api/media/sources/:sourceId ADDITIVELY (old endpoints stay).",
+        "The resolver is dumb dispatch (invariant V.MC1/V.PG1 - no enrich / sort / cursor logic in the resolver): look up the registration (unknown -> 404 media.source_unknown), apply reg.rateLimit, build the source context, run reg.eligibility if present (ineligible -> 404 media.source_ineligible), parse reg.paramSchema (invalid -> 400 http.invalid_input), decode the cursor, map null per reg.cursorOnNull (home '400' -> 400 media.cursor_invalid; watchlist 'firstPage' -> null), enforce requiresInitialCursor (missing -> 400 media.cursor_required), then build -> listRows(source, cfg, ctx, enrichRows) -> return the Page.",
+        "Two-level cursor decode holds: the resolver decodes only the opaque OUTER Cursor; the source still parses its seed/keyset payload out of Cursor.k (decodeSeedToken in similar-paged, keyset decode in watchlist items) - inner-token parsing stays source-side, unchanged.",
+        "Bounded sources (tonight / recently) return Page with cursor: null; today's WatchlistSectionResponse ({ items, partial }) gains the cursor field (pre-stable additive).",
+        "requireSession is applied .use('*') on the /api/media router; sessionUserId(c) is read per handler.",
+        "Resolver unit tests cover: unknown sourceId -> 404, ineligible -> 404, bad params -> 400, cursor-null mapping per cursorOnNull (home 400 / watchlist first-page), requiresInitialCursor -> 400, and rate-limit applied per registration.",
+        "Read parity: for every list source, the resolver returns the same item ids / order / cursor as the corresponding old endpoint (/home/row, /watchlist/items, /watchlist/sections/*, /watchlist/moods/:moodId/items). Fixtures are captured from the LIVE old endpoints BEFORE this phase and asserted against the resolver (RISK-202).",
+        "Changeset: empty frontmatter (additive surface not yet consumed; the user-facing bump lands at cutover US-013).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Created apps/server/src/media/source.ts: MediaSource<P=void> interface = sourceId + fetchRawSet(ctx,params,cursor)->{rows:ActiveRow[];partial:boolean;nextRaw?:RawPageToken} + stages{classify?:boolean;filter?:FilterKind;sort:RowSort;cursorMode:'keyset'|'offset'}. Contract is tiny (V.MC1): no enrich/sort/slice/cursor logic, eligibility NOT on source. Added 5 supporting types to media/types.ts: FilterKind='bucket'|'mood'|undefined; RawPageToken=string (opaque keyset hop token, rides in next cursor's k; undefined for offset sources); SourceContext={userId,mediaService:MediaService,catalog:CatalogService,deadlineMs?,statusBatch:StatusBatchMemo,logger:ConsolaInstance} (RowContext\u222aWatchlistContext per design \u00a7B Pin, dropped the WatchlistContext `log` alias); PipelineConfig<P=void>={params:P;sort?:RowSort;filter?:FilterKind;cursor:Cursor|null;limit:number} (cursor already DECODED by consumer per V.CU1); Page={items:CompactMediaItem[];cursor:string|null;partial:boolean} (encoded cursor string, public items only per V.MI1). Exported MediaSource via barrel + the 5 types from ./types. SourceContext references concrete MediaService(./service)+StatusBatchMemo(./service)+CatalogService(../catalog) via import type \u2014 creates type-only cycles types.ts<->service & types.ts<->status-batch but fallow circular-deps reports ZERO (type-only edges not counted; verified `vp exec fallow audit`). Empty internal-only changeset (CompactMediaItem wire change already covered by US-001 minor changeset). vp check: 0 errors / 1 pre-existing warning. vp test media: 245 pass."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Add single batchLoad fan-out in media/pipeline",
-      "description": "As a developer, I want one batch-load helper so that the four duplicated status+metadata+progress fan-outs collapse to one.",
+      "title": "Title resource endpoints",
+      "description": "As a client developer, I want a media title's details and availability under the media URL namespace so that the detail view reads from one resource surface (A2, A6).",
       "acceptanceCriteria": [
-        "Create media/pipeline/batch-load.ts with the single fan-out (status batch + metadata batch + progress map), warn-and-fallback on partial failure (design \u00a7C/\u00a7F)",
-        "Export batchLoad via the media/index.ts barrel",
-        "Unit test asserts warn+fallback behavior when a sub-load partially fails (asserts WHY per Rule 9)",
-        "Do NOT yet delete the duplicate fan-outs in consumers (later phase)",
-        "`vp check` passes",
-        "`vp test` passes"
+        "GET /api/media/:type/:tmdbId/details is mounted and bridges to home.composeDetails(ctx, tmdbId, type) (the existing composer - its payload already carries seasons metadata inside MediaDetailsExtra). Response type is the unchanged MediaDetailsResponse.",
+        "GET /api/media/:type/:tmdbId/availability is mounted and bridges to home.composeSeasonAvailability(ctx, tmdbId). Response type is the unchanged SeasonAvailabilityResponse.",
+        ":type in {movie, tv} is a PATH param (today's /home/details?tmdbId&mediaType becomes /api/media/:type/:tmdbId/details).",
+        "There is NO separate /seasons endpoint - seasons metadata rides inside details (no new composer; preserves invariant V.A1).",
+        "The composition logic does NOT move out of home - the adapter is a one-line bridge per endpoint (RISK-203).",
+        "Read parity: details and availability outputs match the old /home/details and /home/season-availability for the same inputs (fixtures captured before this phase).",
+        "Changeset: empty frontmatter (additive; not yet consumed).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Created apps/server/src/media/pipeline/batch-load.ts (NEW pipeline/ subdir per design \u00a7A): batchLoad(rows, ctx) = the single status-batch + metadata-batch + progress-map fan-out (design \u00a7C/\u00a7F), collapsing the 4 watchlist Promise.all copies (getCounts ~:187, listItemsOffset ~:707, tonight/section ~:53, filterByMood meta ~:676) + enrich's internal call. Each sub-load is warn+fallback: rejection -> ctx.log.warn + empty result + partial=true; one failed leg never sinks the siblings. loadProgressMap(ctx) reused as-is (already warns+falls-back internally; its partial folded up). Returns {statuses:Record<string,string>; metadata:Record<string,CanonicalMetadata>; progress:ProgressMap(bare map, not {map,partial}); partial:boolean}. Short-circuits rows.length===0 (no fan-out, skips rows-independent CW fetch). Context = minimal structural BatchLoadContext{mediaService:MediaEnrichService&MediaProgressService; catalog:Pick<CatalogService,'getMetadataBatch'>; log:ConsolaInstance; deadlineMs?} using `log` (matches loadProgressMap + all 4 consumer sites; listRows/US-007 bridges SourceContext.logger->log). Did NOT delete the 4 consumer fan-outs (later phase). Added `// fallow-ignore-next-line code-duplication` on the Promise.all (mirrors the 4 sites; transient until US-024 V.SH1 removes all markers) -> batch-load drops out of the dupe report. Exported batchLoad/BatchLoadContext/BatchLoadResult via media/index.ts barrel. 5 unit tests (__tests__/batch-load.test.ts): clean->partial:false+no warn; status reject->warn+statuses{}+partial+metadata SURVIVES; metadata reject->mirror; CW-feed reject->progress empty+partial (via loadProgressMap); empty rows->no sub-load calls. vp check: 0 errors / 1 pre-existing warning. vp test media: 250 pass (+5). fallow: ZERO circular-deps/boundary/unused (only Duplication+Complexity sections, both warn); hard-gate exit=1 is PRE-EXISTING on this branch (same exit on clean HEAD). Empty internal-only changeset (server-internal plumbing, no wire change)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Establish canonical shared domain utils in media",
-      "description": "As a developer, I want one definition of the shared utils so that later phases can delete the duplicates.",
+      "title": "Counts, moods, and writes endpoints",
+      "description": "As a client developer, I want watchlist counts, mood summary, and add/remove writes under the media namespace so that aggregates and mutations share the one surface (A6).",
       "acceptanceCriteria": [
-        "Ensure `extractTmdbId` has its single canonical definition in media/progress.ts, exported via barrel (design \u00a7F)",
-        "Ensure `FINISHING_THRESHOLD = 0.85` and `isFinishing(progress)` have their single canonical definition in media, exported via barrel",
-        "Do NOT yet delete the consumer copies/literals (Phase 6 cleanup) \u2014 just establish the canonical exports",
-        "`vp check` passes"
+        "GET /api/media/counts bridges to watchlist.getCounts(ctx) (returns the unchanged WatchlistCounts).",
+        "GET /api/media/moods bridges to watchlist.getMoodSummary(ctx) (returns the unchanged WatchlistMoodSummary).",
+        "POST /api/media/watchlist bridges to the media writes barrel addItem; returns AddWatchlistResponse (201 on insert, 200 when already active).",
+        "DELETE /api/media/watchlist/:type/:tmdbId bridges to the media writes barrel removeItem; returns 204. :type / :tmdbId are path params.",
+        "Rate limits are preserved per registration / endpoint policy: counts / moods -> watchlistReadLimiter; writes -> watchlistWriteLimiter; limiter instances move with the router, keys unchanged (A7).",
+        "Derivation / tally ownership is unchanged - counts and mood summary stay computed where they are today; writes stay media-owned (since consolidation Phase 2).",
+        "Parity: counts and mood-summary outputs match the old /counts and /moods for the same fixtures.",
+        "Changeset: empty frontmatter (additive; not yet consumed).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Established the 3 canonical shared-util exports in media (design \u00a7F) WITHOUT deleting any consumer copies (US-024 does that). (1) extractTmdbId: WIDENED its param from the narrow {ids?;tmdbId?} to `unknown` + added the object guard so it is byte-identical to the home (internal/adapters.ts:70) + watchlist (service.ts:481) copies and can serve all 3 callers; kept `// fallow-ignore-next-line complexity`; internal caller projectProgressMapEntry(entry.item) still type-checks (entry.item is an object -> guard passes, probes unchanged). (2) FINISHING_THRESHOLD: just added `export` to the existing const (0.85). (3) isFinishing(progress: ProgressEntry): NEW; `progress.total<=0 -> false` else `watched/total >= FINISHING_THRESHOLD`. Matches BOTH consumer shapes: home match-reason `progressFraction(item) >= 0.85` (Site A) and the projectContinueWatchingProgress exclusion `watched/total >= FINISHING_THRESHOLD` (Site B). NOTE: isActiveContinueWatchingEntry stays separate \u2014 it works on the RAW entry (progressMs/durationSec, unrounded) not a {watched,total} ProgressEntry. All 3 exported via media/index.ts barrel (./progress block). Codebase already consolidated the hero.ts + continue-watching-active.ts literals onto isActiveContinueWatchingEntry, so only 2 named 0.85 literals remain (FINISHING_THRESHOLD canonical + match-reason FINISHING_SOON_THRESHOLD) \u2014 US-024 deletes the latter. Added a 'canonical shared domain utils' describe block (6 tests) to media/__tests__/progress.test.ts importing all 3 from ../progress \u2014 gives the new source exports an external importer so fallow unused-exports (error severity) does NOT flag them (same pattern as US-004's batchLoad test). Empty internal-only changeset (server-internal exports, no wire/API change). vp check: 0 errors / 1 pre-existing warning. vp test media: 256 pass (+6). fallow vs origin/main: zero new error-severity (only pre-existing warn-level Duplication + the 1 pre-existing cursor.ts decode complexity from US-002); new exports NOT flagged unused."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Add paginate with keyset and offset modes",
-      "description": "As a developer, I want one paginate stage so that no source re-implements pagination.",
+      "title": "Shared client media layer",
+      "description": "As a frontend developer, I want one client media layer - source descriptor, list-hook core, query-key root, error class, cursor codec - so that home and watchlist stop maintaining two of each (B1, #504/#505/#509, invariant V.CL1).",
       "acceptanceCriteria": [
-        "Add paginate to media/pipeline supporting both modes: keyset (raw-query hop via nextRaw), offset (in-memory slice of the sorted set) (design \u00a7C/\u00a7E)",
-        "keyset mode preserves #500 (empty-streak -> cursor:null), #501 (single-pass sparse bucket+sort), and the RISK-005 OFFSET_FULL_LOAD_WARN_ROWS ceiling (invariant V.PG1)",
-        "Unit tests assert the empty-streak cursor:null invariant and the sparse-page invariant (asserts WHY per Rule 9)",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the frontend skill before editing apps/client/ (frontend-feature-architecture for layer structure; vercel-react-best-practices for hooks/data-fetch).",
+        "apps/client/src/shared/media/source.ts defines ClientMediaSource<P> mirroring the server registration: { sourceId: MediaSourceId; params: P; mode: 'infinite' | 'section'; cursorOnNull: 'throw' | 'firstPage'; initialCursor?: string | null }, with fetchPage(params, cursor) binding the ONE endpoint api.media.sources[':sourceId'].$get({ param, query }) -> Page. No per-feature fetcher.",
+        "apps/client/src/shared/media/use-media-rows.ts defines one core mediaRowsQueryOptions(source) (infinite query options: getNextPageParam: p => p.cursor ?? undefined, flatten pages -> items, OR-reduce partial) plus two THIN wrappers: useMediaRows (useSuspenseInfiniteQuery) and useMediaRowsLazy (useInfiniteQuery). The cursor / flatten / partial logic is defined exactly once.",
+        "apps/client/src/shared/media/query-keys.ts defines a mediaKeys root and factory: mediaKeys.source(sourceId, params), mediaKeys.title(type, tmdbId), mediaKeys.counts(), mediaKeys.moods().",
+        "apps/client/src/shared/media/error.ts defines one MediaApiError and one throwOnError.",
+        "apps/client/src/shared/media/cursor.ts re-exports the @ent-mcp/shared/media codec; similarTo builds its initial cursor via encodeSeedCursor (closing the consolidation H client gap).",
+        "Unit tests cover: mediaRowsQueryOptions flatten + getNextPageParam + partial OR-reduce; suspense vs lazy wrappers; the similarTo client-built cursor is accepted by the resolver.",
+        "Changeset: empty frontmatter (new internal client layer; not yet wired into a visible surface).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Created apps/server/src/media/pipeline/paginate.ts: the single paginate STAGE (design \u00a7C/\u00a7E) replacing the 3 forked paginators. Pure function `paginate({items, cursorMode, cursor, nextRaw, limit, log?}) -> {items, cursor}` (encoded next-page string). KEYSET mode: slice items to limit; next cursor = nextRaw===undefined ? null : encode({mode:keyset,k:nextRaw}). The SOURCE (US-014/015 fetchRawSet) owns the resume position \u2014 it threads the hop token into nextRaw and signals exhaustion (incl. #500 empty-streak give-up) by OMITTING nextRaw, so paginate emits cursor:null then (no phantom load-more, V.PG1/#500). OFFSET mode: start = incoming cursor.mode==='offset' ? cursor.n : 0; slice(start, start+limit); next = (start+page.length) < items.length ? encode({mode:offset,n}) : null. #501 preserved structurally: filter is now its own upstream pipeline stage over the FULL set, so paginate slices the whole filtered+sorted tail in one pass \u2014 no bounded overshoot window can strand sparse bucket+sort matches (verified by the home _shared.ts offset model: slice(off,off+size), hasMore = len > off+size). RISK-005 OFFSET_FULL_LOAD_WARN_ROWS=1000 (moved from watchlist listItemsOffset) advisory warn on the offset path; extracted to warnIfOverCeiling helper to keep paginateOffset under fallow's complexity threshold (cyclo 6->4; cursor.ts decode at cyclo 5 remains the only pre-existing complexity warn). Logger optional \u2014 missing log never throws. Exported paginate/OFFSET_FULL_LOAD_WARN_ROWS/PaginateInput/PaginateResult via media/index.ts barrel; test imports from ../pipeline/paginate (source) so fallow unused-exports (error) doesn't flag the value exports. 9 unit tests (__tests__/paginate.test.ts): keyset slice+mint, keyset #500 empty-streak cursor:null, keyset exhausted-with-items, offset first/resume/final pages, offset #501 sparse-tail single-pass, offset past-end, RISK-005 inclusive-ceiling warn boundary (1000 silent / 1001 warns), no-logger no-throw. vp check 0 errors / 1 pre-existing warning; vp test media 265 pass (+9); fallow vs origin/main: only Duplication+Complexity (both warn), no Circular/Boundaries/Unused (error) sections. Empty internal-only changeset."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Add listRows pipeline orchestration in media/service",
-      "description": "As a developer, I want the single read path so that consumers list media through one call.",
+      "title": "Shared media primitives and optimistic mutation",
+      "description": "As a frontend developer, I want one card, one skeleton, and one optimistic-mutation path so that both features render and mutate through shared primitives (B2, #504/#505/#514).",
       "acceptanceCriteria": [
-        "Create media/service/list-rows.ts (NEW file, NOT appended to the 1073-LOC service/index.ts) implementing `listRows(source, cfg)`: fetchRawSet -> batchLoad -> enrich -> optional classify -> optional filter -> sort -> paginate, returning Page (design \u00a7C)",
-        "Stages opt in via source.stages and cfg; soft failure propagates as partial:true (no throw)",
-        "Export listRows via the media/index.ts barrel",
-        "Unit/contract tests cover stage wiring and partial propagation; assert the source carries no sort/cursor logic (invariant V.MC1)",
-        "No consumer (home/watchlist) code changed in this story; media tested in isolation",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the frontend skill before editing apps/client/ (vercel-composition-patterns for the shared card/skeleton API; vercel-react-best-practices for the mutation hook).",
+        "apps/client/src/shared/components/media-row-card.tsx is the single card both features render - a variant prop selects rail (16/9) vs grid (2/3), with slots for the match-reason chip (home) and source/added metadata (watchlist). It composes the existing MediaCard* primitives.",
+        "apps/client/src/shared/components/grid-skeleton.tsx is the single Suspense grid fallback (shape varies by prop). The existing shared/components/empty-state/ is composed by per-feature wrappers (e.g. WatchlistEmpty) as SIBLING components - no nested sub-folders (repo convention).",
+        "Shared optimistic add/remove (over use-optimistic-array-mutation) invalidates mediaKeys.root ONCE (not per feature, #505). useWatchlistIdSet / useIsInWatchlist snapshots are scoped to the watchlist sub-key, not the whole cache (#514).",
+        "Tests assert the one-shot mediaKeys.root invalidation on add/remove and that the id-set snapshot is scoped to the watchlist sub-key.",
+        "Verify in browser using dev-browser skill: the shared card renders correctly in both the home rail (16/9) and the watchlist grid (2/3) variants, and the skeleton matches each.",
+        "Changeset: empty frontmatter (shared primitives; behavior-neutral until features migrate).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Created apps/server/src/media/service/list-rows.ts (NEW file, NOT appended to service/index.ts per design \u00a7A): `listRows<P>(source, cfg, ctx)` \u2014 the single read path (design \u00a7C). Signature takes ctx (SourceContext) separately from cfg (PipelineConfig) since fetchRawSet is (ctx, params, cursor). Stages: fetchRawSet -> batchLoad(US-004) -> enrich(prefetchedBatch) -> applyBucketFilter -> sortItems -> paginate(US-006) -> Page. partial = raw.partial || batch.partial || enriched.partial (no throw on soft failure). DECISION (batchLoad+enrich wiring): added an OPTIONAL `prefetchedBatch?: {statuses, metadata, progress}` to EnrichOptions (enrich.ts) so the existing heavyweight `enrich` (which produces the WatchlistItem[]/CompactMediaItem[] wire shape + cold-fill + matching-servers + artwork) CONSUMES batchLoad's result instead of re-issuing its own status/metadata/progress fan-out. Faithful to design \u00a7C `enrich(rows, batch)`, single fan-out (test asserts getStatusBatch+getMetadataBatch each called ONCE), additive+non-breaking (existing callers omit prefetchedBatch -> byte-identical). US-024 removes enrich's standalone fan-out branch once consumers route through listRows. DECISION (SourceContext): added OPTIONAL `getArtwork?: GetArtworkFn` + `toCanonicalRow?: ToCanonicalRowFn` to SourceContext (types.ts) \u2014 enrich needs these consumer-injected callbacks (artwork\u2194media + catalog\u2194media cycle breakers; both consumers already build them in asWatchlistContext / home media-enrichment). SourceContext is the per-request context, the natural home; optional keeps US-007 isolation tests simple, consumers populate in US-014+/US-020+. DECISION (filter): bucket is a MEDIA concept (MediaRowBucket = WatchlistBucket), so added OPTIONAL `bucket?: MediaRowBucket` to PipelineConfig; the filter stage reads cfg.bucket (not opaque cfg.params) and keeps items where classifyBucket(item) === target. MOOD filtering stays SOURCE-SIDE (fetchRawSet) \u2014 media must not import watchlist deriveMoods (boundary) \u2014 so `filter: \"mood\"` falls straight through the pipeline (no-op). classify+filter:bucket together gate the bucket predicate. SORT: sortItems orders CompactMediaItem[] by addedAt per RowSort (recentDesc/recentAsc); items without addedAt (discovery feeds) compare equal -> stable sort preserves fetch order. Mapped nothing \u2014 ActiveRow is structurally a MediaEnrichRow (superset) so raw.rows pass straight to enrich (Row=ActiveRow). Exported listRows via media/index.ts barrel (direct `export {listRows} from \"./service/list-rows\"`, matching the pipeline-direct-export pattern of batchLoad/paginate). COMPLEXITY: initial listRows hit fallow HIGH (cyclo 9) \u2014 refactored into named stage helpers (applyBucketFilter, bucketTarget, sortItems, toPaginateInput, toBatchContext, toEnrichContext); listRows now cyclo 4, all helpers <=4 (threshold is >=5; fallow no longer flags list-rows at all). 8 unit tests (__tests__/list-rows.test.ts, env+plugin-runtime mocked like enrich-compact.test, __resetAvailabilityCache per ctx): full pipeline+offset-slice+single-fan-out assertion; keyset cursor minted from nextRaw; #500 keyset exhaustion -> cursor:null; source partial propagates; batch sub-load failure -> partial+still-returns-items; V.MC1 (unsorted+oversize source -> pipeline sorts+windows); classify+filter:bucket (future-year=upcoming kept, past-year=unavailable dropped); mood source not re-filtered. No consumer (home/watchlist) changed. vp check 0 errors / 1 pre-existing warn; vp test media 273 pass (+8); fallow vs origin/main: no Circular/Boundaries/Unused (error) sections, only inherited Duplication/Complexity (warn). Empty internal-only changeset (server-internal orchestration; CompactMediaItem wire change already in US-001 minor changeset)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Move addItem and removeItem writes into media",
-      "description": "As a developer, I want watchlist_items writes owned by the table owner so that mutation logic lives with the data.",
+      "title": "Migrate watchlist to the shared layer",
+      "description": "As a frontend developer, I want watchlist reading through the shared media layer and api.media.* so that its bespoke fetcher / error / key code is deleted while product chrome is preserved (B3, #506/#508/#509/#515/#516).",
       "acceptanceCriteria": [
-        "Move addItem and removeItem to media/service/writes.ts, exported via the media barrel (design \u00a7M.2)",
-        "watchlist calls addItem/removeItem through the media barrel; the originals are deleted from watchlist",
-        "Mutation semantics are unchanged (move, not rewrite)",
-        "Existing addItem/removeItem tests are repointed and stay green",
-        "media does not import home/watchlist; circular-deps boundary holds",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the frontend skill before editing apps/client/ (frontend-feature-architecture for the shell migration).",
+        "Watchlist registers ClientMediaSources: watchlist-items (with bucket param), watchlist-mood-items, watchlist-tonight, watchlist-recently - all reading via api.media.sources[':sourceId'].",
+        "Deleted from watchlist: lib/fetchers.ts, the standalone query-key factory (now derived from mediaKeys), the WatchlistItem re-export (import CompactMediaItem directly, #508), and WatchlistApiError (use MediaApiError).",
+        "Product chrome is preserved: bucket chips, sort select, mood mosaic/cluster, section headers, the peek modal, and the tonight hero/alternate split.",
+        "Nits: an unknown moodId route param triggers throw notFound() (#515); the watchlist card guards clearLogo (#516).",
+        "Section parity holds: items / mood-items / tonight / recently render the same item ids and order as before the migration (asserted against the pre-migration fixtures from US-003).",
+        "Verify in browser using dev-browser skill: each watchlist section (items by bucket, mood cluster, tonight, recently) loads, paginates via load more, and the peek modal opens - visually identical to before.",
+        "Changeset: empty frontmatter (parity migration; no user-visible change).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Moved addItem/removeItem to media/service/writes.ts (design \u00a7M.2) as a faithful MOVE: bodies byte-identical except resolved ctx lifted into the watchlist wrapper. media's addItem takes an already-resolved MediaEnrichContext (removeItem: Pick<...,'userId'|'log'>) so media never imports watchlist; watchlist keeps THIN wrappers `mediaAddItem(key,source,asWatchlistContext(ctx))` (asWatchlistContext STAYS \u2014 used by ~10 read fns). Moved the private safeEmit helper too. EVENTS moved with the writes: media owns the watchlist_items write events, so WATCHLIST_EVENTS + watchlistItemAdded/RemovedSchema (+payload types) now live in writes.ts and are barrel-exported (NOT media/events.ts \u2014 boot.test.ts handler-coverage scans that file + fixed handler dirs, and watchlist's handler in watchlist/jobs would fail it; writes.ts is outside the scan). Deleted watchlist/events.ts; on-watchlist-mutation imports events from ../../media now; dropped the dead ./events block from the watchlist barrel (no external consumer). on-watchlist-mutation.test.ts mocks ../../media (importing the heavy media barrel would drag db/client->env into the isolated unit test). Existing watchlist service.test.ts addItem/removeItem tests UNCHANGED and green (wrappers route through media; emit mock is path-based on ../../jobs/events). vp check 0 errors/1 pre-existing warn; vp test watchlist+media+boot 338 pass; fallow vs origin/main = only Duplication+Complexity (warn), ZERO Circular/Boundaries/Unused (error) \u2014 media->watchlist boundary holds. Empty internal-only changeset."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Move seedFromPlugins and syncFromPlugins into media",
-      "description": "As a developer, I want the seed/sync writes owned by media so that all watchlist_items writes share one owner.",
+      "title": "Migrate home to the shared layer",
+      "description": "As a frontend developer, I want the home rows reading through the shared media layer so that home's bespoke fetcher / key code is deleted while hero / match-reason / layout are preserved (B3, #507).",
       "acceptanceCriteria": [
-        "Move seedFromPlugins and syncFromPlugins to media/service/writes.ts, exported via the media barrel",
-        "The sync-plugin-watchlist job calls media.syncFromPlugins (not the old service.syncFromPlugins)",
-        "Originals deleted from watchlist; seed/sync/event semantics unchanged",
-        "Existing seed/sync tests repointed and stay green",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the frontend skill before editing apps/client/ (frontend-feature-architecture for the shell migration).",
+        "Each /home/layout row stub (already carrying sourceId = rowId + initialCursor) feeds a useMediaRowsLazy source; rails render the shared media-row-card + grid-skeleton.",
+        "Deleted from home: the lib/fetchers.ts row fetcher and the home query-key root (derived from mediaKeys).",
+        "useHomeDetails reads via api.media[':type'][':tmdbId'].details.",
+        "Preserved unchanged: the hero / top-zone, the match-reason copy map, layout ordering, and ambient treatment.",
+        "Layout parity holds: rails render identical item ids / order, and there are NO extra fetches beyond the layout call + per-row lazy loads (assert against the home-layout fixtures).",
+        "Verify in browser using dev-browser skill: the home feed renders all rows with per-row skeletons, hero and match-reason copy are intact, and the network panel shows one layout call plus one lazy fetch per visible row (no duplicate fetches).",
+        "Changeset: empty frontmatter (parity migration; no user-visible change).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Moved seedFromPlugins/syncFromPlugins to media/service/writes.ts (design \u00a7M.2) as a faithful MOVE: bodies byte-identical except the watchlist wrapper's `const c = asWatchlistContext(ctx)` is gone (the resolved ctx is now the param). Both take a new minimal resolved context SeedSyncContext{userId; mediaService: WatchlistFeedService (just getWatchlistFeed -> {items:unknown[];partial}); log; deadlineMs?} \u2014 NOT MediaEnrichContext, whose mediaService (MediaEnrichService&MediaProgressService) lacks getWatchlistFeed. MediaService.getWatchlistFeed returns HomeAggregate<unknown[]> = {items,partial} so the full service is structurally assignable to WatchlistFeedService (covariant return). MOVED toWatchlistKey with them (its only callers were seed/sync) \u2014 kept its `// fallow-ignore-next-line complexity`; it now uses media's CANONICAL extractTmdbId (../progress, US-005) instead of the watchlist copy, so the watchlist extractTmdbId lost its only caller and was DELETED here (this is one of US-024's extractTmdbId copies; the home copy still remains for US-024). SeedResult moved to media writes.ts + barrel-exported (mirrors AddItemResult); watchlist imports `type SeedResult` from ../media and re-exports it. watchlist keeps THIN wrappers seedFromPlugins/syncFromPlugins(ctx:MaybeRowContext) = `mediaSeedFromPlugins(asWatchlistContext(ctx))` so internal callers (getItems:121, listAvailable) + barrel surface + service.test.ts seed/sync tests stay green UNCHANGED (they route through media transitively). Removed now-unused allKnownKeys/bulkInsertActiveRows/trySeedLock/clearSeedLock from watchlist service's ../media import (still re-exported by media barrel; hasUserSeeded/keyToId stay \u2014 used elsewhere). JOB: sync-plugin-watchlist.ts now imports syncFromPlugins from ../../media (AC) and DROPPED the dead catalog pass-through (getCatalogService import + `catalog` field) \u2014 seed/sync never used catalog, and an object-literal excess-property check would reject `catalog` against SeedSyncContext. sync-plugin-watchlist.test.ts repointed: added syncFromPlugins to the ../../media mock, deleted the dead ../service + ../../catalog mocks + `service` import, assertion now checks mediaModule.syncFromPlugins. No WATCHLIST_EVENTS work (seed/sync don't emit). media->watchlist boundary holds (writes.ts imports only @ent-mcp/shared/watchlist + media-internal + ../../jobs/events). vp check 0 errors/1 pre-existing warn; vp test watchlist+media 334 pass + boot.test.ts 4 pass; fallow vs origin/main: only Duplication+Complexity (warn), ZERO Circular/Boundaries/Unused (error). seedFromPlugins complexity warn (cyclo 5) just RELOCATED from watchlist/service.ts to media/service/writes.ts \u2014 net-neutral, body unchanged, matches its prior unsuppressed state. Empty internal-only changeset (server-internal write/type relocation, no wire change)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Fix #502 - classify isInfoOnly as unavailable",
-      "description": "As a user, I want info-only titles shown as unavailable so that the buckets are correct.",
+      "title": "Watchlist route loaders",
+      "description": "As a user, I want watchlist routes to prefetch their first page so that navigation shows content immediately instead of a spinner (B4, #513).",
       "acceptanceCriteria": [
-        "classify.ts classifyBucket routes isInfoOnly items (released + no server + not on a request path) to \"unavailable\", NOT \"upcoming\" (design \u00a7K)",
-        "\"upcoming\" remains reserved for unreleased titles only",
-        "Regression test asserts isInfoOnly -> \"unavailable\"",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the frontend skill before editing apps/client/ (frontend-feature-architecture for route loaders).",
+        "Each of the watchlist routes gains a loader that calls ensureInfiniteQueryData(mediaRowsQueryOptions(source)) to prefetch the first page, plus an errorComponent (TanStack Router convention).",
+        "Home is unchanged here - it already loader-prefetches its layout; rows stay in-component lazy.",
+        "Tests assert the loader prefetches the first page (cache is warm on mount) and the errorComponent renders on a failed loader.",
+        "Verify in browser using dev-browser skill: navigating to a watchlist section route shows content on first paint (no full-section spinner), and a forced fetch error renders the route's errorComponent.",
+        "Changeset: minor @ent-mcp/client - user-facing (faster navigation; one short past-tense end-user sentence).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "#502 fix in apps/server/src/media/classify.ts (design \u00a7K). classifyBucket dropped the `|| isInfoOnly(item)` clause from the upcoming branch \u2014 now `if (item.facets?.releaseDate) return \"upcoming\"` (unreleased only) and info-only rows fall through to the catch-all `return \"unavailable\"`. Behaviorally identical to an explicit `if (isInfoOnly) return \"unavailable\"` branch (the catch-all already returns unavailable), so removed the now-unused private `isInfoOnly` helper (would trip oxlint no-unused-vars) and relocated/extended its doc comment onto classifyBucket with the #502 rationale. KEPT the `// fallow-ignore-next-line complexity` marker on classifyBucket (surgical \u2014 the `if`+optional-chain may still sit at the cyclo-5 threshold; fallow no longer LISTS classifyBucket so it's suppressed-or-under, removing risked a new warn). Docs already in intended final state (Rule 13): sections-design \u00a7S.5 (rev 9 / #502 fixed) lines 359/368-370 + media-service.md:73 already document isInfoOnly->unavailable \u2014 no doc edit needed; their pseudo is 'shape only, \u22a5 literal' so the catch-all is faithful. Regression test in media/__tests__/classify.test.ts asserts info-only row (status:unknown, hasAnyServerCopy:false, requestEligible:false, no releaseDate) -> 'unavailable' AND not 'upcoming' (Rule 9 WHY: upcoming reserved for unreleased). SURFACED CONFLICT (Rule 7/12): the CLIENT mirror apps/client/src/features/watchlist/lib/classify.ts:24 classifyStatus STILL routes isInfoOnly->upcoming \u2014 NOT fixed (epic is 'Backend only'; PRD AC + design \u00a7K name the server classify.ts; server is source of truth for /counts + ?bucket). Client local bucketize now diverges from server; flag for a follow-up client fix outside this epic. patch changeset for @ent-mcp/server (user-visible bucket correction, not internal-only). vp check 0 errors / 1 pre-existing warn; vp test media 274 pass (+1); fallow vs origin/main: no Circular/Boundaries/Unused (error) sections, only inherited Duplication/Complexity (warn)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Add countBuckets count-mode and route getCounts through it",
-      "description": "As a developer, I want one count-mode helper so that the 3x classify-count loop collapses to one.",
+      "title": "Paraglide ICU variants",
+      "description": "As a maintainer, I want the watchlist and home labels expressed as keyed ICU variants so that the message count drops and translations stay consistent (B4, #511/#512).",
       "acceptanceCriteria": [
-        "Add countBuckets(rows) to media: batchLoad -> classify -> tally 5 buckets + total, skipping enrich/sort/paginate (design \u00a7G)",
-        "watchlist getCounts becomes a thin wrapper over media.countBuckets; its duplicated classify-count loop is deleted",
-        "Remove the fallow-ignore code-duplication marker on the deleted getCounts loop",
-        "WatchlistCounts wire shape (5 buckets + total) unchanged",
-        "Counts parity test asserts the same tallies as pre-refactor fixtures",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the paraglide-js skill before converting messages.",
+        "Bucket / empty / chip-ARIA labels and section / cluster / mood / sort labels are converted to ICU variants keyed on {bucket} / {moodId} / {sortKey}.",
+        "The message count on the watchlist + home surface drops by >= 30% versus before.",
+        "No user-visible copy changes - each variant renders the same string as the message it replaced (assert a representative set).",
+        "Verify in browser using dev-browser skill: bucket chips, empty states, and section/mood/sort labels render identical copy to before the variant conversion.",
+        "Changeset: empty frontmatter (i18n refactor; no user-visible copy change).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Added countBuckets count-mode aggregate (design \u00a7G) in NEW apps/server/src/media/service/count.ts (per media-service.md:72 / design \u00a7A 'count-mode helpers' live in service/): countBuckets(rows, ctx) = batchLoad(US-004) -> per-row previewForClassify -> classifyBucket -> tally, skipping enrich/sort/paginate. Returns pure-domain BucketCounts = Record<MediaRowBucket, number> ({ready,'in-progress',awaiting,unavailable,upcoming}); the hyphenated 'in-progress' bucket key stays media-domain. The matching-server probe fan-out (Promise.allSettled over getMatchingServersCached) moved INTO countBuckets too \u2014 it's a media-internal util (availability-cache.ts) and classify needs servers; batchLoad does NOT cover probes so the helper does them. Short-circuits rows.length===0 BEFORE batchLoad+probes (preserves the getCounts empty-watchlist 'no plugin work' assertion). Context = CountBucketsContext extends BatchLoadContext + userId; WatchlistContext satisfies it structurally. Discards batchLoad's partial (WatchlistCounts has no partial field \u2014 parity with old getCounts which never tracked partial). Barrel-exported countBuckets/BucketCounts/CountBucketsContext via media/index.ts. watchlist getCounts thinned to a wrapper: cache check -> listAllActiveRows -> countBuckets(rows,c) -> map BucketCounts to WatchlistCounts wire shape ('in-progress'->inProgress, total=rows.length) -> cache set. DELETED the empty short-circuit special case (countBuckets returns all-zeros + total=rows.length=0 naturally \u2014 behavior-identical), the 4-way Promise.all fan-out + its `fallow-ignore code-duplication` marker, the classify-count for-loop + its `fallow-ignore code-duplication` marker, AND the `fallow-ignore complexity` marker on getCounts (now trivial straight-line, well under threshold; fallow still reports 6 complexity findings \u2014 getCounts not among them). Removed now-orphaned watchlist imports classifyBucket/previewForClassify/MatchingServer (sole-use was the deleted loop); KEPT getMatchingServersCached (listAvailable:317) + loadProgressMap (asWatchlistContext injects it into ResolvedWatchlistContext) + keyToId (5 other callers) + CanonicalMetadata (section sort helpers). Parity test in media/__tests__/count.test.ts (3 tests) mirrors the getCounts fixtures: 900 ready / 901 upcoming / 902 unavailable; CW-active 920 -> in-progress (not double-counted ready) + 921 ready; empty rows -> all zeros + probe/status NOT called (Rule 9 WHY pinned). Existing watchlist service.test.ts getCounts tests UNCHANGED + green (route through the thin wrapper). vp check 0 errors / 1 pre-existing warn; vp test media 277 pass (+3) + watchlist 61 pass; fallow vs origin/main: only Duplication (26 clone groups, DOWN from 27 \u2014 the getCounts loop dupe is gone) + Complexity (6, unchanged), ZERO Circular/Boundaries/Unused (error). Empty internal-only changeset (server-internal refactor; WatchlistCounts wire shape + getCounts behavior unchanged)."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-012",
-      "title": "Route moodSummary through media.batchLoad",
-      "description": "As a developer, I want mood summary to reuse the shared fan-out so that watchlist drops its own duplicate.",
+      "title": "All-items virtual scroll",
+      "description": "As a user, I want the all-items watchlist views virtualized so that long lists stay smooth (B4, #519).",
       "acceptanceCriteria": [
-        "moodSummary stays in watchlist/moods but calls media.batchLoad (and media metadata) instead of its own Promise.all fan-out (design \u00a7G)",
-        "Mood-derivation logic stays watchlist-owned; WatchlistMoodSummary wire shape unchanged",
-        "Remove the duplicated fan-out and its fallow-ignore code-duplication marker at this site",
-        "`vp check` passes",
-        "`vp test` passes"
+        "Invoke the frontend skill before editing apps/client/ (vercel-react-best-practices for the virtualized list).",
+        "The all-items load more lists (every bucket + mood route) render through useVirtualizer over useMediaRows, fetching the next page near the window end.",
+        "Only the visible window (plus overscan) is in the DOM for a long list.",
+        "Tests assert a page fetch fires when the scroll position nears the window end.",
+        "Verify in browser using dev-browser skill: scrolling a long bucket / mood list keeps the DOM node count bounded and fetches the next page near the end, with no visual jank.",
+        "Changeset: minor @ent-mcp/client - user-facing (smoother long lists; one short past-tense end-user sentence).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 12,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-013",
-      "title": "Capture watchlist section parity fixtures",
-      "description": "As a developer, I want pre-refactor output fixtures so that the source migration can be proven behavior-neutral.",
+      "title": "Delete the old surface and dead client code",
+      "description": "As a maintainer, I want the old per-product endpoints and client shims removed so that api.media.* and the shared layer are the only media surface (A8, D cutover Z).",
       "acceptanceCriteria": [
-        "Capture fixtures of current output (item ids + order) for items, mood-items, tonight, and recently sections (RISK-103)",
-        "Fixtures committed and loadable by tests for use in US-014..US-017",
-        "No production code changed in this story",
-        "`vp check` passes"
+        "Deleted (pre-stable, no shim): the /home/row route from api/procedures/home.ts, the /home/details and /home/season-availability routes, and ALL of api/procedures/watchlist.ts. /home/layout is KEPT (the home procedure is now layout-only).",
+        "api/router.ts is re-pointed: mount mediaApp at /media; the home group keeps only /layout; the /watchlist mount is dropped. AppType regenerates so api.media.* is canonical and api.watchlist.* + api.home.{row,details,season-availability} no longer exist.",
+        "Client dead code is deleted: any remaining home/watchlist fetcher / hook / type shims superseded by shared/media/.",
+        "The .fallow/dead-code-baseline.json baseline does NOT grow (Rule 14); any intentional exception carries an inline // fallow-ignore-* with a one-line reason.",
+        "A grep gate confirms no caller references the deleted endpoints, WatchlistItem, HomeApiError, or WatchlistApiError.",
+        "Verify in browser using dev-browser skill: a full smoke pass - home feed, every watchlist section, the peek/detail view, and add/remove - works end-to-end against api.media.* only (network panel shows no /home/row, /watchlist/*, /home/details, or /home/season-availability calls).",
+        "Changeset: minor @ent-mcp/client and @ent-mcp/server - user-facing (media data now served from one unified API; one short past-tense end-user sentence). Note cursor invalidation on deploy (RISK-206).",
+        "`vp check` passes.",
+        "`vp test` passes."
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "Captured pre-refactor parity fixtures for all 4 watchlist sections (RISK-103 / design §T) BEFORE the US-014..017 MediaSource reimplementations. NO production code changed — only new test/fixture files. Section→fn map (confirmed via api/procedures/watchlist.ts): items=listItems, mood-items=listMoodItems, tonight=getTonightSection, recently=getRecentlyAdded (getItems is a separate basic keyset read, NOT one of the 4 sections). Created apps/server/src/watchlist/__tests__/fixtures/section-parity-scenario.ts: a FRAMEWORK-AGNOSTIC scenario (8 movie rows m01..m08 + pure stub builders + installIncrementingClock + seedParityRows) so US-014..017's listRows-based harness can reuse the SAME seed data + golden fixture. section-parity.json holds the captured ids+order per section; section-parity.test.ts seeds the scenario, runs the current section fns, asserts equality (Rule 9 WHY pinned: a subtle sort/classify/ranking change must fail here). DETERMINISM: installIncrementingClock replaces Date.now with a +1ms-per-call counter so each addItem records a distinct, strictly-increasing addedAt (the keyset sort key) and the cuid id-DESC tie-break never decides order; span stays far under tonight's 7-day recency window so that score weight is uniform and never reorders. new Date().getUTCFullYear() (used by enrich/classify for releaseDate) reads the REAL year (NOT Date.now), so future-year rows use 2035 / past rows <=2022 for a wide stable margin. Scenario exercises: keyset DESC (items=[m08..m01], recently=[m08,m07,m06]); dark mood genre filter (mood-items=[m07,m05,m02]); tonight ranking (candidates m03/m04/m05/m06 by ready/in-progress bucket — m04 in-progress hero via CW feed, m08 upcoming + m01/m02/m07 unavailable excluded — ranked [m04,m03,m05,m06]). Hand-computed fixture matched ACTUAL output on first run (strong validation). Reset tonight cache via __resetTonightCache from ../tonight/section (NOT on the watchlist barrel). Empty internal-only changeset (test-only, no wire/API change). vp check 0 errors / 1 pre-existing warn; vp test watchlist+media 343 pass (+4); fallow vs origin/main only inherited Duplication(26)+Complexity(6) warn — ZERO Circular/Boundaries/Unused (error); test/fixture files under __tests__/ add no findings."
-    },
-    {
-      "id": "US-014",
-      "title": "Reimplement watchlist items section as a MediaSource",
-      "description": "As a developer, I want the items section expressed as a source so that it reads via the shared pipeline.",
-      "acceptanceCriteria": [
-        "Implement the items MediaSource in watchlist/sources/ providing only fetchRawSet + stages (no sort/slice/cursor in the source) (design \u00a7H/\u00a7M.4)",
-        "The section reads via media.listRows; cursor null decode maps to first-page (invariant V.CU1)",
-        "Items use the extended CompactMediaItem; no WatchlistItem construction",
-        "Parity test: items section produces the same ids/order as the US-013 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Reimplemented the items section as a per-request `itemsSource` factory in NEW apps/server/src/watchlist/sources/items.ts (design §S.1 / consolidation §B/§H); listItems is now a thin envelope over `media.listRows`. CURSOR-MODE ROUTING (the §S.1 cornerstone): keyset ONLY for `recent` + no bucket + no mood; everything else (recent+bucket/mood, alpha/runtime/status) rides OFFSET. WHY (surfaced design conflict, Rule 7 — doc updated): §S.1 line 244 originally said `cursorMode = sort===\"recent\" ? keyset : offset`, but the IMPLEMENTED `paginateKeyset` (US-006) is a pure slice with NO overshoot helper — the #501 single-pass sparse-bucket fix lives ONLY on `paginateOffset` (per paginate.ts's own comment). So a *filtered* recent read MUST use offset (full-load → classify → bucket/mood filter over the whole set → recentDesc → slice) or #501 regresses. Updated docs/2026-05-23-watchlist-sections-design.md §S.1 to the corrected rule. ARCHITECTURAL GAP RESOLVED: RowSort is recency-only and `sortItems` (US-007) is addedAt-only, so alpha/runtime/status can't ride the pipeline sort. Added a media-internal `PipelineSort = RowSort | \"none\"` (types.ts; source.ts stages.sort; list-rows.ts sortItems returns items unchanged on \"none\"; barrel-exported) — NOT a shared RowSort change (no repo ripple). The offset source pre-sorts alpha/runtime/status by catalog metadata (moved compareForSort/compareAlpha/compareRuntime/statusRank into items.ts) and declares sort:\"none\" so the pipeline preserves order. MOOD is source-side (media must not derive moods — items.ts imports watchlist deriveMoods); BUCKET is the pipeline filter stage. Added watchlist/sources/context.ts `toSourceContext(c)` bridge (ResolvedWatchlistContext → media SourceContext: log→logger, mints StatusBatchMemo) — reused by US-015..017. KEYSET path is byte-parity with old getItems/listItems-recent (no over-fetch; nextRaw=last row when window full; #500 preserved via omitted nextRaw → cursor:null). ITEM TYPE: listRows yields CompactMediaItem[] (no WatchlistItem construction in the envelope, AC#3); cast `page.items as WatchlistItem[]` bridges to WatchlistResponse (DID NOT widen WatchlistResponse to CompactMediaItem[] — would break client `use-is-in-watchlist.ts` callback contravariance; epic is backend-only; US-024 removes the cast). DELETED from service.ts: listItemsOffset, selectOffsetTail, scannedRowCount, encodeOffsetCursor, decodeOffsetCursor, OFFSET_FULL_LOAD_WARN_ROWS, STATUS_PRIORITY, compareForSort family. KEPT (US-015 still uses): filterByMood, MAX_EMPTY_HOPS, MAX_MOOD_HOPS, OVERSHOOT_FACTOR, encodeCursor/decodeCursor/PageCursor. PARITY: the existing section-parity.test.ts (items via listItems→listRows→fixture) + the 6 service.test.ts `sort=alpha`+bucket offset tests pass UNCHANGED (offset paginate reproduces the old listItemsOffset model exactly — same item ids/order). Added sources/__tests__/items.test.ts (9 tests): stages routing per params (V.MC1/§S.1) + fetchRawSet returns RAW rows + keyset nextRaw-on-full-window + #500 short-window + V.CU1 foreign-cursor→first-page + alpha pre-sort. SIDE FIX (pre-existing branch debt): __tests__/boundaries.test.ts `media/ re-exports only from approved sibling files` was RED since US-002 (its APPROVED_RE_EXPORT_SOURCES never learned the consolidation's barrel re-exports ./source ./cursor ./pipeline/* ./service/*; prior iterations ran only watchlist+media paths, not __tests__/). Added those design-sanctioned patterns (repo/** + internal/** stay private). vp check 0 errors / 1 pre-existing warn; vp test apps/server 1323 pass (full suite green incl. the un-redded boundaries test); fallow vs origin/main: complexity 6 (back to baseline — items.ts read-shaping fns carry the same complexity markers their deleted equivalents had) + duplication 26 (unchanged), ZERO Circular/Boundaries/Unused (error). Empty internal-only changeset (WatchlistResponse wire shape unchanged; opaque cursor reformat is a sanctioned pre-stable invalidation per §I; PipelineSort is a server-internal pipeline type like US-003's additions)."
-    },
-    {
-      "id": "US-015",
-      "title": "Reimplement watchlist mood-items section as a MediaSource",
-      "description": "As a developer, I want the mood-items section expressed as a source so that it reads via the shared pipeline.",
-      "acceptanceCriteria": [
-        "Implement the mood-items MediaSource in watchlist/sources/ (fetchRawSet + stages only), filter kind \"mood\" driven by params",
-        "Reads via media.listRows; cursor null decode maps to first-page",
-        "Parity test: mood-items section produces the same ids/order as the US-013 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Reimplemented the mood-items section (`/moods/:moodId/items`) as a static `moodItemsSource: MediaSource<MoodParams>` in NEW apps/server/src/watchlist/sources/mood-items.ts (design §S.3); `listMoodItems` is now a thin envelope over `media.listRows`. KEYSET source (stages `{filter:\"mood\", sort:\"recentDesc\", cursorMode:\"keyset\"}`): the multi-hop keyset accumulation + MAX_MOOD_HOPS(20)/OVERSHOOT_FACTOR(3)/MAX_EMPTY_HOPS(2) budget moved OUT of service.ts INTO fetchRawSet. MOOD IS SOURCE-SIDE (V.RG1 — media must not derive moods): fetchRawSet scans keyset windows of limit*overshoot, applies the `deriveMoods` predicate per window (its own getMetadataBatch), accumulates up to `limit` MATCHED raw rows across windows, and returns them + `nextRaw` (last matched row's `addedAt:id` hop token, OMITTED on exhaustion / empty-streak-give-up → pipeline mints cursor:null, #500/V.PG1). `filter:\"mood\"` is declarative — the pipeline filter stage no-ops on it. Then listRows runs batchLoad→enrich→sort(recentDesc, preserves the keyset DESC accumulation order)→paginate(keyset slice). PARITY: accumulating MATCHED raw rows (not per-hop enriched items) is equivalent because enrich is 1:1 order-preserving; verified against US-013 fixture (section-parity.test.ts moodItems=[m07,m05,m02]/cursor null, UNCHANGED) + the 3 service.test.ts multi-hop regression tests (sparse accumulate across hops, scan past empty-hop budget while progressing, empty-streak→cursor null) all stay GREEN unchanged. ITEM TYPE (AC): listRows yields CompactMediaItem[] (no WatchlistItem construction); envelope casts `page.items as WatchlistItem[]` (US-024 removes). DELETED from service.ts: listMoodItems multi-hop body, filterByMood, MAX_EMPTY_HOPS/OVERSHOOT_FACTOR/MAX_MOOD_HOPS; now-unused imports CanonicalMetadata/PageCursor/deriveMoods/keyToId removed. CURSOR (§I pre-stable): old PageCursor codec → unified `decode`/keyset RawPageToken; fixture cursor is null so no parity break. DEDUP CLEANUP (Rule 3 — my own mess): making mood-items a thin envelope + a sibling source created TWO new warn-level clone groups vs baseline 26 — (1) items.ts↔mood-items.ts `getMetadataBatch().catch()` and (2) listItems↔listMoodItems convergent envelopes. Extracted shared helpers to remove BOTH without markers: NEW sources/keyset.ts (`decodeKeyset`/`rawToken`, the `addedAt:id` token codec, shared with items.ts — moved its local copies), NEW sources/metadata.ts (`loadRowMetadata(ctx,rows,logTag)` — both sources' source-side metadata load), and a service-internal `readSection(c, source, toCfg, rawCursor)` envelope (listItems + listMoodItems both call it). Back to duplication 26 / complexity 6 (baseline). NEW sources/__tests__/mood-items.test.ts (6 tests, mock listActiveRowsKeyset): stages declaration, RAW matched rows + nextRaw on full window, cross-window sparse accumulation, #500 empty-streak no-nextRaw, V.CU1 foreign-cursor→first-page, keyset cursor decode. Corrected design §S.3 pseudo (Rule 13): mood predicate runs source-side in fetchRawSet (not a pipeline filter stage as the old comment claimed) + the accumulation/empty-streak/nextRaw model. vp check 0 errors / 1 pre-existing warn; vp test apps/server 1329 pass (+6); fallow vs origin/main: ZERO Circular/Boundaries/Unused (error), duplication 26 + complexity 6 (both at baseline, no growth). Empty internal-only changeset."
-    },
-    {
-      "id": "US-016",
-      "title": "Reimplement watchlist tonight section as a MediaSource",
-      "description": "As a developer, I want tonight expressed as a source with envelope-side hero split so that ranking stays in the source and shaping stays in the envelope.",
-      "acceptanceCriteria": [
-        "Implement the tonight MediaSource: score+pick ranking runs INSIDE fetchRawSet over the active set, returning rows already ranked + partial (design \u00a7H/RISK-105)",
-        "Page.items stays flat; hero-vs-alternates split (items[0] hero, <=4 alternates) happens in the section envelope, not the pipeline (invariant V.TN1)",
-        "No cursor (bounded page)",
-        "Parity test: tonight produces the same ranked ids/order (and hero/alternates split) as the US-013 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "Reimplemented tonight as `tonightSource: MediaSource<void>` (NEW apps/server/src/watchlist/sources/tonight.ts); `getSection` (tonight/section.ts) is now a thin envelope over `media.listRows` + `pick` + the 5-min cache. SURFACED DESIGN CONFLICT (Rule 7, doc updated §S.2 rev 9.1): the AC + design pseudo said score+pick ranking runs INSIDE fetchRawSet returning 'rows already ranked'. But `score` reads ENRICHED fields (status/availability/runtimeMin/genres/progress) that only exist AFTER the pipeline enriches — the source has raw rows, so ranking raw rows would need a redundant double-enrich AND risk parity (the old `pick` ranks ENRICHED items). So RANKING STAYS ENVELOPE-SIDE via the unchanged `pick` (which does score-sort + hero/≤4-alternate split + INELIGIBLE_CUTOFF + accumulating-diversity), and fetchRawSet does ONLY the classify PRE-FILTER (keep ready/in-progress). This preserves the EXACT pre-refactor flow (pre-filter → enrich → pick) — V.TN1 holds (Page.items flat, split envelope-side), RISK-105 holds (ranking watchlist-owned, same enriched candidate set, pick byte-unchanged). DECISION (limit): the candidate set is the bounded 'page' and `pick` needs the FULL set to score, so cfg.limit = TONIGHT_PAGE_LIMIT (Number.MAX_SAFE_INTEGER) — paginate keyset slices all candidates, mints cursor:null (no nextRaw); no truncation before pick (parity — old getSection enriched ALL candidates). stages:{sort:'none', cursorMode:'keyset'(unused/bounded)}; no classify/filter stage (the pipeline's bucket filter is single-bucket, can't express ready∨in-progress — so the 2-bucket pre-filter is source-side, like the old getSection). DEDUP (DUPE-FLAT discipline, extract>mark): the classify pre-filter loop is one of the design §28/§31 tracked 3× dupes (getCounts/tonight/enrich). Moving it into fetchRawSet first created TWO new clone groups vs baseline 26 (count↔tonight loop + items↔tonight fetch boilerplate → 27). FIXED by EXTRACTING the shared classify pass into NEW media/service/classify-rows.ts `classifyRows(rows, ctx) -> {classified:{row,bucket}[]; partial}` (batchLoad + probes + previewForClassify+classifyBucket loop, short-circuits empty), barrel-exported (classifyRows + type ClassifyRowsContext). REPOINTED count.ts `countBuckets` onto it (countBuckets now = classifyRows + tally; byte-parity, US-011 tests green; the count↔section baseline clone is GONE). tonight fetchRawSet = listAllActiveRows + classifyRows + filter(TONIGHT_BUCKETS) — short enough that the items boilerplate clone dissolved too. classifyRows uses batchLoad (the canonical fan-out) → removes the old getSection inline Promise.all (one of the 4 §31 fan-outs) early. Net dupes back to 26, complexity 6 (baseline). PARITY: section-parity.test.ts tonight = [m04,m03,m05,m06] (m04 in-progress hero) UNCHANGED — the strongest gate. fetchRawSet returns candidates in active-row order; `pick` re-sorts deterministically so source order is parity-irrelevant. context: getSection takes WatchlistSourceCtx + uses the shared toSourceContext bridge (US-014 pattern). TESTS: NEW sources/__tests__/tonight.test.ts (5 — stages decl, tonightCfg bounded/no-cursor, empty→no classify, filter keeps only ready/in-progress raw rows in order, swallows classifyRows partial); existing tonight/__tests__/section.test.ts kept (integration: real classifyRows+classify through getSection) — retargeted the loadProgressMap mock from the barrel to ../../../media/progress (classifyRows→batchLoad reads loadProgressMap from ../progress, NOT the barrel — GOTCHA) + added getArtwork/toCanonicalRow to makeCtx (the new WatchlistSourceCtx param). vp check 0 errors / 1 pre-existing warn; vp test apps/server 1334 pass (+5); fallow vs origin/main: ZERO Circular/Boundaries/Unused (error), duplication 26 + complexity 6 (baseline). Empty internal-only changeset (TonightSection wire shape + ranking behavior unchanged; tonight has no cursor so no §I cursor-reformat)."
-    },
-    {
-      "id": "US-017",
-      "title": "Reimplement watchlist recently section as a MediaSource",
-      "description": "As a developer, I want the recently section expressed as a source so that it reads via the shared pipeline.",
-      "acceptanceCriteria": [
-        "Implement the recently MediaSource in watchlist/sources/ (fetchRawSet + stages only)",
-        "Reads via media.listRows; cursor null decode maps to first-page",
-        "Parity test: recently section produces the same ids/order as the US-013 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "Reimplemented the watchlist `recently` section as a `MediaSource` reading through `media.listRows` (design §S.4 / consolidation §H, Phase 4); `getRecentlyAdded` is now a thin envelope. NEW apps/server/src/watchlist/sources/recently.ts: STATIC `recentlySource: MediaSource<RecentlyParams>` (RecentlyParams={limit}) — not a factory (stages fixed `{sort:\"recentDesc\", cursorMode:\"keyset\"}`, matching design §S source table line 190 `MediaSource<RecentlyParams> stages:{sort:\"recent\",cursorMode:\"keyset\"}; ⊥ cursor`; `recentDesc` is the concrete RowSort for the design's shape-only `\"recent\"` literal). fetchRawSet = `listActiveRowsKeyset(ctx.userId, {limit: params.limit})` (the FIRST keyset window only, NO cursor threaded) returning `{rows, partial:false}` — byte-faithful to the pre-refactor `getRecentlyAdded` (`listActiveRowsKeyset(userId,{limit})` + enrich). BOUNDED PREVIEW (like tonight, NOT like listItems): it NEVER mints `nextRaw` (no pagination), so paginate emits `cursor:null` and the envelope discards it — the wire shape is `WatchlistSectionResponse {items, partial}` (no cursor field). `recentlyCfg(params) = {params, cursor:null, limit:params.limit}`. No classify/filter stage (recently shows last-added regardless of bucket). PARITY: `sortItems(\"recentDesc\")` over the already-`addedAt`-DESC keyset window is a stable no-op — result === enriched keyset rows in the same order; with installIncrementingClock all addedAt distinct so no tie-break ambiguity. The existing section-parity.test.ts `recently` case (`getRecentlyAdded(ctx, PARITY_RECENTLY_LIMIT=3)` -> [m08,m07,m06]) passes UNCHANGED — the strongest gate. ENVELOPE (service.ts:341 `getRecentlyAdded`): `listRows(recentlySource, recentlyCfg({limit}), toSourceContext(c))` then `{items: page.items as WatchlistItem[], partial: page.partial}` (the shared `toSourceContext` bridge from US-014 supplies getArtwork/toCanonicalRow so enrich hydrates artwork; cast `CompactMediaItem[] as WatchlistItem[]` per the don't-widen-WatchlistResponse pattern — active rows always carry addedAt/addedSource; US-024 deletes the cast with WatchlistItem). `listActiveRowsKeyset` import in service.ts STAYS (still used by getItems:127); `enrich` import STAYS (still used by getItems:133, listAvailable:273). NEW sources/__tests__/recently.test.ts (6 tests, mock only `listActiveRowsKeyset` from the media barrel to stay env/db-free): stages declaration, recentlyCfg shape, fetchRawSet returns RAW rows + NO nextRaw (bounded), requests exactly `limit` with no over-fetch, ignores any incoming cursor (always first page, V.CU1), empty -> empty rows. DOCS: no edit — design §S source table line 190 + line 193-194 ALREADY describe this intended state (Rule 13); my impl matches. vp check 0 errors / 1 pre-existing warn (virtualizer-test-env unbound-method); vp test apps/server 1340 pass (+6, full suite incl. boundaries/boot/section-parity); fallow vs origin/main: ZERO Circular/Boundaries/Unused (error), duplication 26 + complexity 6 (BOTH at baseline — recently.ts is small/distinct enough that it added no new clone group). Empty internal-only changeset (WatchlistSectionResponse wire shape + getRecentlyAdded behavior unchanged; recently has no cursor so no §I cursor-reformat)."
-    },
-    {
-      "id": "US-018",
-      "title": "Thin watchlist/service.ts to envelope and aggregates",
-      "description": "As a developer, I want service.ts reduced to a thin shell so that #496 (too-big monolith) is resolved.",
-      "acceptanceCriteria": [
-        "watchlist/service.ts holds only the section envelope (wrap listRows results) + aggregates (counts, mood-summary); remaining logic moves to sources/ and internal/ (design \u00a7M.4)",
-        "service.ts byte size drops by >= 40% versus pre-refactor (record before/after byte counts in notes)",
-        "All watchlist section/aggregate tests stay green",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "Thinned watchlist/service.ts to the section-envelope + aggregates + writes shell (design §A/§M.4, Phase 4). Created NEW apps/server/src/watchlist/internal/ (mirrors home/internal/): (1) context.ts = the per-request context machinery moved verbatim out of service.ts — WatchlistContext/ResolvedWatchlistContext/MaybeRowContext interfaces + asWatchlistContext + clampLimit; (2) reads.ts = the two NON-section, NON-aggregate, NON-write reads moved verbatim — getItems (basic keyset list + seed-on-first-page) + listAvailable (matching-server probe + enrich) + hasAny. service.ts now holds ONLY: counts aggregate (getCounts + cache + invalidateCounts + __resetCountsCache), the thin write wrappers (addItem/removeItem/seedFromPlugins/syncFromPlugins — design §A keeps 'writes via media barrel' IN service.ts, so these stay; surfaced the AC's 'only envelope+aggregates' vs design's explicit writes-line, design wins per Rule 7), and the section envelopes (readSection + listItems/getTonightSection/getRecentlyAdded/getMoodSummary/listMoodItems). BYTE DROP: service.ts 30636 -> 9277 bytes = 69.7% (873 -> 233 lines), far over the ≥40% AC bar (pre-refactor = origin/main; US-014..017 already did ~54%, this story's split took it to 69.7%). FAITHFUL MOVE (parity): function bodies byte-identical except getItems/listAvailable now call mediaSeedFromPlugins(c) directly (media barrel) instead of the watchlist seedFromPlugins wrapper — c is already a ResolvedWatchlistContext (satisfies SeedSyncContext) so it's behavior-identical AND breaks the would-be service<->reads import cycle (service re-exports getItems/listAvailable/hasAny/GetItemsOptions from ./internal/reads; reads importing the wrapper back would cycle). PUBLIC SURFACE UNCHANGED: service.ts re-exports getItems/listAvailable/hasAny/GetItemsOptions (from ./internal/reads) + WatchlistContext (from ./internal/context); the barrel still imports all from ./service; api/procedures/watchlist.ts (the only external WatchlistContext consumer) + service.test.ts (dynamic import('../service') destructure) untouched + green. BOUNDARIES: watchlist/internal/** falls under fallow zone server-mod-watchlist-internal (glob apps/server/src/watchlist/**, SAME layer as service.ts/sources/) so the new intra-module imports are same-layer (allowed); watchlist is NOT in __tests__/boundaries.test.ts ENABLED/ALL_MODULES so its barrel-re-export-source allow-list doesn't gate watchlist anyway. DOCS (Rule 13): design §A watchlist tree omitted internal/ (only §M.4 named it) — added the internal/ line. vp check 0 errors / 1 pre-existing warn (virtualizer-test-env unbound-method); vp test apps/server 1340 pass (full suite incl. boundaries/boot/section-parity — same count as US-017, no test added: pure relocation, existing service.test.ts + section-parity.test.ts already cover getItems/listAvailable/sections); fallow vs origin/main: ZERO Circular/Boundaries/Unused (error), duplication 26 + complexity 6 (BOTH at baseline — the re-export added no clone group; getItems/listAvailable complexity+dup markers moved verbatim with their bodies). Empty internal-only changeset (server-internal file relocation, no wire/API/behavior change)."
-    },
-    {
-      "id": "US-019",
-      "title": "Capture home layout parity fixtures",
-      "description": "As a developer, I want pre-refactor home output fixtures so that the row migration can be proven behavior-neutral.",
-      "acceptanceCriteria": [
-        "Capture fixtures of current home layout output (row order + item ids/order per row) (RISK-103)",
-        "Fixtures committed and loadable by tests for use in US-020..US-022",
-        "No production code changed in this story",
-        "`vp check` passes"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": "Captured pre-refactor home-layout parity fixtures (RISK-103 / design §T) BEFORE the US-020..022 MediaSource reimplementations. NO production code changed — only new test/fixture files (mirrors US-013's watchlist approach). Home layout output = ROW ORDER (composeLayoutLive→HomeLayoutResponse.rows[].rowId stubs) + ITEMS PER ROW (composeRowPage(ctx,rowId,stub.initialCursor)→RowContentResponse.items) + HERO slides (pickHero). The row STUB carries no items — items are fetched separately per row, so the parity test drives BOTH composeLayoutLive (order+hero) AND composeRowPage per stub (per-row ids). Created apps/server/src/home/__tests__/fixtures/home-layout-scenario.ts: FRAMEWORK-AGNOSTIC scenario (pure feed data for all 9 ROW_ORDER rows + buildScenarioMetadata/buildSeedMetadata; no vi) injected at the lowest seam BOTH old+new impls share — the mediaService/catalog aggregate methods every row fetches through (getContinueWatchingFeed, getDiscoverFeed, getRecommendations, getSimilarFeed, getUpcomingFeed, getMetadataBatch, getUserHistory). yourWatchlist reads via the ../../watchlist boundary so the test mocks that module (hasAny→true, listAvailable→fixed items, same seam as the existing your-watchlist.test.ts). home-layout-parity.json holds captured row order + ids/order per row + hero ids+sources; home-layout-parity.test.ts wires the mocks + asserts. KEY MOCK: enrichCompactItems passthrough (vi.importActual on ../../media, override only enrich) — enrich is media-owned, 1:1 + order-preserving, and UNCHANGED by US-020..022, so a passthrough pins the fixture to the row-FETCH behavior (which ids reach the wire, in what order) — exactly what the migration changes — without standing up artwork/status/matching-server fan-out. composeLayoutLive imported directly from ../internal/layout (bypasses the layout cache; no forceFresh/skipWriteback dance). DETERMINISM: no ROW_ORDER row sorts by wall clock (continue-watching→fixed lastPlayedAt strings; becauseYouWatched→fixed history watchedAt; discovery/rec feeds preserve insertion order) so NO clock stub needed (unlike US-013's keyset addedAt); cleared the _shared.ts similar-feed cache (__clearSimilarFeedCacheForTests) in beforeEach. SCENARIO covers every row+hero pool: 9 rows all eligible+non-empty so all appear in ROW_ORDER; CW feed serves active(cwa1>cwa2 by lastPlayedAt) + next(cwn1 nextUp / cwn2 no-progress) — cwn1 sits past the 0.85 finishing ratio so it's in next NOT active; hero quota-mix [cwa1,rm1,tr1,nr1,rm2,tr2] (CW1+rec2+trend2+new1, lead=CW then interleave [rec,trend,new] over the rotation). Hand-computed golden matched ACTUAL output on FIRST run (strong validation). vp check 0 errors / 1 pre-existing warn (virtualizer-test-env unbound-method); vp test apps/server 1343 pass (+3); fallow vs origin/main: ZERO Circular/Boundaries/Unused (error), duplication 26 + complexity 6 (both at branch baseline — __tests__/ files add no findings). Empty internal-only changeset (test-only, no wire/API change)."
-    },
-    {
-      "id": "US-020",
-      "title": "Reimplement home catalog/discovery rows as MediaSources",
-      "description": "As a developer, I want the discovery rows expressed as sources so that each stops re-implementing pagination.",
-      "acceptanceCriteria": [
-        "Convert the catalog/discovery rows (e.g. trending, popular, similar, becauseYouWatched) to MediaSource in home/sources/, providing only fetchRawSet (raw rows); delete per-row sort/slice/cursor (design \u00a7H/\u00a7M.5)",
-        "home/_shared.ts helpers (fetchSimilarPage, loadCanonicalItems, probeMediaEntry) stay home-side",
-        "Converted rows still appear with the same item ids/order as the US-019 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": "Reimplemented the 4 catalog/discovery rows as MediaSources in NEW apps/server/src/home/sources/ (mirrors watchlist/sources/). discover-snapshot.ts: discoverSnapshotSource({sourceId,feedKind,sort}) factory -> trendingNowSource + newReleasesSource; fetchRawSet returns the FULL day-bucketed getDiscoverFeed snapshot as raw MediaKey ({tmdbId,type}) rows, never partials. similar.ts: similarSource serves BOTH becauseYouWatched + similarTo (they differ only in consumer-side seed derivation); fetchRawSet = getSimilarFeed + toSimilarHit probe -> candidate keys, propagates feed partial. Both stages {sort:'none',cursorMode:'offset'} (raw fetch only, V.MC1). GENERALIZED MediaSource<P=void> -> MediaSource<P=void,Row=ActiveRow> so home sources emit MediaKey rows instead of faking a 9-field ActiveRow; default Row=ActiveRow keeps watchlist sources + listRows<P> byte-unchanged. KEY DESIGN CONFLICT surfaced (Rule 7): home CANNOT route through the shared listRows because its enrich (enrich<MediaEnrichRow>) lacks match-reason + uses compactFromMetadata, but home MUST keep enrichCompactItems (match-reason + fromCanonicalMetadata) — the US-019 harness pins this by mocking enrichCompactItems; routing home through the shared enrich would silently drop match-reason (Rule 12). So US-020 wires each row's raw-set FETCH through the source (source.fetchRawSet) while keeping the EXISTING offset slice/cursor (discover) + cache/seedTitle/slice (_shared.fetchSimilarPage now delegates candidate fetch to similarSource) IN PLACE = parity-EXACT. Wiring was REQUIRED (not deferred) because fallow unused-files is ERROR-severity and CANNOT be suppressed in-file (reachability rule) — create-but-dead source files fail the gate. toSimilarHit moved from rows/_shared.ts into sources/similar.ts (source owns the probe) to break the _shared<->source value cycle (the source's MediaKey import back is type-only, ignored by fallow circular-deps). Inlined discover's fetchPage into the provider method to kill a new clone vs recommended-for-you (dupes stay 26). The shared-listRows wiring + seed-bearing-cursor redesign for becauseYouWatched/similarTo + compositeId->keyToId is US-022/US-023. Files: media/source.ts, home/sources/{discover-snapshot,similar}.ts + __tests__ (8 tests), home/rows/{_shared,discover-snapshot,trending-now,new-releases}.ts, .changeset/home-discovery-sources.md (empty internal-only). Checks: vp check 0 errors / 1 pre-existing warn; vp test apps/server 1351 pass (+8, full suite incl. home-layout-parity UNCHANGED + the 4 row tests green); fallow vs origin/main ZERO Circular/Boundaries/Unused/Dead-code (error), duplication 26 + complexity 6 (branch baseline)."
-    },
-    {
-      "id": "US-021",
-      "title": "Reimplement home watchlist/continue/personal rows as MediaSources",
-      "description": "As a developer, I want the personal rows expressed as sources and your-watchlist to stop stripping fields.",
-      "acceptanceCriteria": [
-        "Convert the remaining home rows (e.g. your-watchlist, continue-watching-active) to MediaSource (fetchRawSet only)",
-        "your-watchlist row stops stripping addedAt/addedSource (delete the strip step) (design \u00a7D)",
-        "Converted rows still appear with the same item ids/order as the US-019 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": "Reimplemented the remaining 6 home rows as MediaSources in NEW apps/server/src/home/sources/ (mirrors US-020 + watchlist/sources/), following the US-020 pattern EXACTLY: each row routes only its raw-set FETCH through source.fetchRawSet (fetchRawSet only, V.MC1); the slice/cursor/projection/cache stay home-side; NOT yet routed through the shared listRows (that + compositeId→keyToId + the feed-cursor 400 is US-022). 4 NEW source files: (1) continue-watching.ts: makeContinueWatchingSource({sourceId,select}) factory → continueWatchingActiveSource (select = filter isActiveContinueWatchingEntry + orderBy lastPlayedAt desc) + continueWatchingNextSource (select = filter nextUp!=null||progressMs==null); both MediaSource<void,ContinueWatchingEntry>, fetch getContinueWatchingFeed once, select is the per-row content-defining selection (the discover feedKind analog). (2) recommended-for-you.ts: recommendedForYouSource: MediaSource<MediaType,RecommendedKey> (one source, mediaType in PARAMS, serves tv+movies); fetchRawSet = getRecommendations + filter(mediaType) + statusBatch.get + drop 'available' → RecommendedKey{tmdbId,type,topContributors} keys. (3) upcoming.ts: upcomingForYouSource: MediaSource<void,UpcomingHit>; MOVED toUpcomingHit + parseEpisodePayload here (the source owns the entry-shape probe, like US-020 moved toSimilarHit into similar.ts); fetchRawSet = getUpcomingFeed + map + uniqBy(per-show collapse, content-defining) → UpcomingHit[]. (4) your-watchlist.ts: yourWatchlistSource: MediaSource<void,WatchlistItem>; fetchRawSet = listAvailable(12, ctx) through the ../../watchlist boundary. All 4 declare stages {sort:'none',cursorMode:'offset'} (raw fetch, pre-ordered upstream, V.MC1). YOUR-WATCHLIST STRIP DELETED (AC#2 / §D): the row used to `items.map(({addedAt,addedSource,...rest})=>rest)`; now returns items AS-IS — WatchlistItem[] is structurally assignable to InternalCompactMediaItem[] (CompactMediaItem carries addedAt?/addedSource? since US-001, WatchlistItem redeclares them non-null), no cast/strip needed; home now exposes the unified shape (wire schema already accepts the fields per US-001's minor changeset). Flipped your-watchlist.test.ts's `.not.toHaveProperty` assertion to `.toMatchObject({addedAt,addedSource})` (Rule 9 WHY pinned to §D). DUPE-FLAT (Rule 3, the one real cleanup): making the rows thin converged continue-watching-next ↔ upcoming-for-you on the bounded-row provider boilerplate (eligibility hasCapabilityProvider + initialCursor null + the now-identical `await X.fetchRawSet(ctx,undefined,null)` fetchPage open) — a NEW clone group (dupes 26→27). FIXED by extracting `makeBoundedRow({rowId,kind,titleKey,eyebrowKey?,capability,source,project})` into rows/_shared.ts (the bounded/cursor-less/capability-gated provider factory, mirrors makeDiscoverSnapshotRow/makeRecommendedForYou); both rows became config-only (like trending-now.ts) so no boilerplate clones — back to dupes 26. GOTCHA: continue-watching-next.test.ts needed a NEW env mock — the next row now transitively imports the media barrel (media→db→env) via the shared continue-watching source's `isActiveContinueWatchingEntry` value import (the active source's sibling). recommended/upcoming sources import ONLY types from media (env-free unit tests); your-watchlist source mocks ../../watchlist. SourceContext.mediaService is the CONCRETE MediaService class (media/types.ts imports it from ./service), so getContinueWatchingFeed returns {items:ContinueWatchingEntry[]} (not the interface's unknown[]) — sources get typed feed rows. ContinueWatchingEntry.item.ids is OPTIONAL (libraryItemSchema) — access via `item.ids?.tmdb`. Added 4 source __tests__ (16 tests: V.MC1 stages + raw-set parity vs the US-019 home-layout-parity.json fixture). The US-019 home-layout-parity.test.ts (row order + per-row ids + hero) stays GREEN UNCHANGED — the strongest parity gate. Files: home/rows/{_shared,continue-watching-active,continue-watching-next,recommended-for-you,upcoming-for-you,your-watchlist}.ts + the 2 row tests; home/sources/{continue-watching,recommended-for-you,upcoming,your-watchlist}.ts + 4 source tests; .changeset/home-personal-row-sources.md (empty internal-only — source migration; the §D field exposure is the realization of US-001's already-changeset'd unified shape). vp check 0 errors / 1 pre-existing warn; vp test apps/server 1367 pass (+16, full suite); fallow vs origin/main: ZERO Circular/Boundaries/Unused/Dead-code (error), duplication 26 + complexity 6 (branch baseline)."
-    },
-    {
-      "id": "US-022",
-      "title": "Wire home composeLayoutLive to listRows and finish home migration",
-      "description": "As a developer, I want home composing via listRows so that the row pipeline boilerplate is gone.",
-      "acceptanceCriteria": [
-        "composeLayoutLive runs consumer-side eligibility(ctx) then media.listRows(source, cfg), building each row stub (include iff items.length > 0 || partial); hero/match-reason/layout-cache/detail/season composition unchanged (design \u00a7H)",
-        "Home feed cursor null decode maps to HttpError 400 (invariant V.CU1)",
-        "Replace home compositeId with shared keyToId",
-        "Home layout parity test: same row order + item ids/order as the US-019 fixture",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 22,
-      "passes": true,
-      "notes": "Wired home composeLayoutLive + composeRowPage through media.listRows (design §H/§C, Phase 5). KEY DECISION (enrich override): home CANNOT use media's enrich (it lacks match-reason + uses compactFromMetadata not home's fromCanonicalMetadata, projecting catalog FEEDS not ActiveRows). So generalized `listRows<P, Row=ActiveRow>` with an OPTIONAL 4th arg `enrichRows?: (rows: Row[]) => {items: CompactMediaItem[]; partial}` (barrel-exported type EnrichRowsFn): when supplied, the default batchLoad+enrich is SKIPPED; home injects `(rows) => enrichHomeItems(project(rows), ctx, {rowId})` = its catalog projection + enrichCompactItems(matchReason). Watchlist callers (3-arg) unchanged. RowProvider REDEFINED (home/internal/types.ts): dropped per-row `fetchPage`/`RowPage`; now `{rowId, kind, titleKey, eyebrowKey?, cursorMode, requiresInitialCursor?, eligibility, initialCursor, load(ctx, cursor: Cursor|null): Promise<Page>}`. `load` runs the source+projection+enrich through listRows; the pipeline owns sort/filter/slice/cursor (V.MC1). Centralized the provider scaffold + the listRows wiring in NEW home/internal/pipeline.ts (`loadRowPage` + `makePipelineRow` + `makeBoundedRow`) so all 12 rows share one `load` (kills the row-scaffold dupes); makeDiscoverSnapshotRow/makeRecommendedForYou delegate to makePipelineRow. CONTEXT bridge: home passes its RowContext STRAIGHT THROUGH as the media SourceContext (structural superset) - no bridge needed; added OPTIONAL `seedTitle?: string` to SourceContext (media/types.ts) completing the RowContext∪ unification so the seed source can set ctx.seedTitle on the SAME object the match-reason callback reads (media never reads it). CURSOR (AC2, V.CU1): row.ts decodeRowCursor maps null (absent)→first page (or 400 cursor_required if requiresInitialCursor), bad/foreign/mode-mismatch (unified `decode`→null)→HttpError 400 cursor_invalid. SEED ROWS (becauseYouWatched/similarTo) → KEYSET via NEW home/sources/similar-paged.ts `similarPagedSource`: seed {seedId,seedType,offset} rides in cursor.k as JSON (design §E); fetchRawSet decodes k, resolveSimilarCandidates (cached, refactored from fetchSimilarPage in _shared.ts), windows by offset, sets ctx.seedTitle, returns window + nextRaw (omitted on exhaustion→cursor:null, #500). becauseYouWatched.initialCursor mints the seed cursor (encodeSeedCursor); similarTo gets it from the client (its cursor field-names normalized tmdbId/mediaType→seedId/seedType + unified format = pre-stable client-follow break per §I/§O, surfaced). compositeId→keyToId (AC3) in adapters.ts (fromCanonicalMetadata + fromContinueWatchingEntry). OFFSET rows (discover/recommended/continue-active) project the FULL set, paginate slices [n:n+12]; BOUNDED rows (continue-next/upcoming/your-watchlist) project a single page (slice in project) so paginate mints cursor:null. DELETED home/internal/cursor.ts + cursor.test.ts (superseded by unified codec; unused-files is an ERROR gate so couldn't leave it dead - US-023's '3 old codecs' is now 2: watchlist keyset+offset). PARITY: US-019 home-layout-parity.test.ts (row order + per-row ids + hero) GREEN UNCHANGED - the strongest gate. Rewrote all 10 row tests (provider.fetchPage→load; mock env + enrichCompactItems passthrough like the parity harness; decode next cursor via media `decode`); your-watchlist 'empty on non-null cursor' test changed (the row no longer short-circuits on cursor - the pipeline slices an offset-past-end to empty; listAvailable IS now called). service.test.ts stubs fetchPage→load + cursorMode. RIPPLE FIX: adding listRows/enrichHomeItems (media-VALUE imports) to _shared.ts broke the env-free source-test invariant (upcoming.test value-imports probeMediaEntry from _shared) - moved the media-bridge (loadRowPage/makeBoundedRow) to home/internal/pipeline.ts so _shared stays env-free (pattern 60). vp check 0 errors / 1 pre-existing warn; vp test apps/server 1361 pass (170 files; -6 vs US-021 = deleted cursor.test.ts's 6 tests). fallow vs origin/main: ZERO Circular/Boundaries/Unused/Dead (error), complexity 6 (baseline - extracted helpers in similar-paged + row.ts kept new fns under threshold), duplication 29 (+3 vs 26: extracted makePipelineRow killed the row-scaffold clones + marked buildFacets; residual +3 = the AC3 keyToId swap aligning home fromCanonicalMetadata with media compactFromMetadata/ent-details projection [cross-function clone boundary, can't cleanly mark applyOptionalFields which already carries a complexity marker - fallow allows ONE rule per marker; converges in cleanup] + a suffix-array interface-token false-positive home/internal/types.ts↔preferences/types.ts). Empty internal-only changeset (server-internal orchestration; cursor reformat is a sanctioned pre-stable invalidation §I; addedAt/addedSource exposure already in US-001's minor changeset)."
-    },
-    {
-      "id": "US-023",
-      "title": "Delete RowProvider and the old cursor codecs",
-      "description": "As a developer, I want the superseded contracts removed so that only the new pipeline remains.",
-      "acceptanceCriteria": [
-        "Delete the old RowProvider type and the old ROW_PROVIDERS registry naming (design \u00a7M.6)",
-        "Delete the three old cursor codecs (home feed offset, watchlist keyset, watchlist offset-snapshot)",
-        "No code references the deleted symbols",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 23,
-      "passes": true,
-      "notes": "Phase 6 cleanup part 1 (design §M.6). UNIFIED CODEC NOW SOLE (V.SH1): the last old cursor codec — the repo keyset base64 `addedAt:id` codec (`media/repo/cursor.ts` `encodeCursor`/`decodeCursor`), kept alive ONLY by `watchlist/internal/reads.ts` `getItems` (the basic keyset list, never migrated to a MediaSource) — was retired. Migrated `getItems` onto `media.cursor`'s `encode`/`decode` via the existing `watchlist/sources/keyset.ts` helpers: `decodeKeyset(decode(opts.cursor, \"keyset\"))` → `{addedAt,id}|undefined` (bad/foreign/absent → undefined → first page, watchlist V.CU1) and `encode({mode:\"keyset\", k: rawToken(last)})` for nextCursor. Deleted `encodeCursor`/`decodeCursor` (codec FUNCTIONS) from repo/cursor.ts; KEPT the `PageCursor` interface — it is the keyset RESUME POSITION `listActiveRowsKeyset` queries on (NOT a codec; `repo/reads.ts` imports it directly from `./cursor`, so the file stays reachable for unused-files). Dropped the now-dead `encodeCursor`/`decodeCursor`/`PageCursor` barrel re-exports from all 3 levels (media/index.ts, media/service/index.ts, media/repo/index.ts). Deleted the obsolete \"cursor encode / decode\" describe block (4 tests) from media/__tests__/active-rows.test.ts (the unified codec has its own tests, US-002). The OTHER 2 old codecs were already gone: home offset-into-feed (home/internal/cursor.ts, US-022) + watchlist offset-snapshot (encodeOffsetCursor/decodeOffsetCursor, US-014) — verified via grep. ROWPROVIDER (Rule 7/12, surfaced): the AC's \"delete old RowProvider type + ROW_PROVIDERS naming\" was satisfied by US-022, which REDEFINED RowProvider (home/internal/types.ts) from the old fetchPage/RowPage shape to the design-§H `{rowId,kind,titleKey,eyebrowKey?,cursorMode,requiresInitialCursor?,eligibility,initialCursor,load}` shape. The CURRENT RowProvider+ROW_PROVIDERS are design-§H-MANDATED (§H line 198 literally: \"the `RowProvider` shape becomes `{...load}`\") and a MediaSource (V.MC1: only fetchRawSet+stages) CANNOT carry their home-product concerns — so they MUST stay; no dead \"old\" RowProvider remained to delete, and renaming would contradict §H + be speculative churn (Rule 2/3). §B's \"MediaSource replaces RowProvider\" + §M.6 refer to the OLD shape (gone); §H (more specific, kept the name) wins. No dead `RowPage` type survives (only a lineage doc-note in media/types.ts:199). Files: watchlist/internal/reads.ts, media/repo/cursor.ts, media/repo/index.ts, media/service/index.ts, media/index.ts, media/__tests__/active-rows.test.ts, .changeset/media-retire-old-cursor-codec.md (empty internal-only — getItems wire shape unchanged, only the opaque cursor string reformatted = §I pre-stable invalidation, matches US-014/US-022 precedent). Checks: vp check 0 errors / 1 pre-existing warn; vp test apps/server 1357 pass (170 files; −4 vs US-022 = deleted codec tests). fallow vs origin/main: ZERO Circular/Boundaries/Unused/Dead (error); complexity 6 (baseline); duplication 29→31 (net +2: REMOVED the real media/index.ts↔service/index.ts repo-re-export clone, then DE-SUPPRESSED 3 pre-existing MediaService dispatchPrimary/dispatchAggregate boilerplate self-clones — NOT authored duplication, line ranges nowhere near the edit). The EXACT CI hard-gate command (--dead-code-baseline … --health-baseline … --dupes-baseline … --fail-on-issues --quiet) EXITS 0."
-    },
-    {
-      "id": "US-024",
-      "title": "Delete WatchlistItem and remaining duplicate utils; verify single-def",
-      "description": "As a developer, I want exactly one definition of each shared concept so that the consolidation is complete.",
-      "acceptanceCriteria": [
-        "grep-gate then delete the WatchlistItem superset type; no non-test caller references it",
-        "Delete the remaining duplicate extractTmdbId copies, the four 0.85 finishing literals, compositeId, and the duplicate batchLoad fan-outs; callers import from the media barrel",
-        "Exactly one definition remains of extractTmdbId, FINISHING_THRESHOLD/isFinishing, batchLoad, the bucket classify loop, and the cursor codec (invariant V.SH1); no stale fallow-ignore code-duplication markers remain on retired sites",
-        "The .fallow/dead-code-baseline.json baseline does not grow (Rule 14)",
-        "`vp check` passes",
-        "`vp test` passes"
-      ],
-      "priority": 24,
-      "passes": true,
+      "passes": false,
       "notes": ""
     }
   ]

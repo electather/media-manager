@@ -88,7 +88,7 @@ export {
   type InvocationOutcome,
 } from "./errors";
 export { registerJobs } from "./jobs";
-export { encode, decode, type Cursor, type CursorMode } from "./cursor";
+export { encode, decode, encodeSeedCursor, type Cursor, type CursorMode } from "./cursor";
 export { batchLoad, type BatchLoadContext, type BatchLoadResult } from "./pipeline/batch-load";
 export {
   paginate,
