@@ -35,7 +35,7 @@ const media = await import("../../../media");
 const { listItems, listMoodItems, getRecentlyAdded } = await import("../../../watchlist");
 const { homeMediaSources } = await import("../../../home");
 const { ROW_PROVIDERS } = await import("../../../home/rows");
-const { watchlistReadLimiter } = await import("../watchlist");
+const { watchlistReadLimiter } = await import("../media");
 const { mediaApp } = await import("../media");
 
 function buildApp() {

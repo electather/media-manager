@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { classifyHomeError } from "../lib/error-classification";
-import { HomeApiError } from "../lib/types";
+import { MediaApiError } from "@/shared/media/error";
 
 function withOffline(value: boolean, fn: () => void) {
   const original = Object.getOwnPropertyDescriptor(navigator, "onLine");
@@ -20,7 +20,7 @@ afterEach(() => {
 
 describe("classifyHomeError", () => {
   it("classifies 401 + http.unauthorized as auth", () => {
-    const view = classifyHomeError(new HomeApiError(401, { code: "http.unauthorized" }));
+    const view = classifyHomeError(new MediaApiError(401, { code: "http.unauthorized" }));
     expect(view.variant).toBe("auth");
     expect(view.needsRelogin).toBe(true);
     expect(view.code).toBe("http.unauthorized");
@@ -28,7 +28,7 @@ describe("classifyHomeError", () => {
   });
 
   it("classifies plugin.token_expired as auth even on 200 envelopes", () => {
-    const view = classifyHomeError(new HomeApiError(200, { code: "plugin.token_expired" }));
+    const view = classifyHomeError(new MediaApiError(200, { code: "plugin.token_expired" }));
     expect(view.variant).toBe("auth");
   });
 
@@ -40,12 +40,12 @@ describe("classifyHomeError", () => {
   });
 
   it("classifies plugin.timeout as network", () => {
-    const view = classifyHomeError(new HomeApiError(504, { code: "plugin.timeout" }));
+    const view = classifyHomeError(new MediaApiError(504, { code: "plugin.timeout" }));
     expect(view.variant).toBe("network");
   });
 
   it("classifies 5xx as server", () => {
-    const view = classifyHomeError(new HomeApiError(503, { code: "home.internal" }));
+    const view = classifyHomeError(new MediaApiError(503, { code: "home.internal" }));
     expect(view.variant).toBe("server");
   });
 
@@ -57,14 +57,14 @@ describe("classifyHomeError", () => {
 
   it("prefers body.message over body.devMessage for the surfaced detail", () => {
     const view = classifyHomeError(
-      new HomeApiError(500, { code: "home.internal", message: "user", devMessage: "dev" }),
+      new MediaApiError(500, { code: "home.internal", message: "user", devMessage: "dev" }),
     );
     expect(view.devMessage).toBe("user");
   });
 
   it("falls back to body.devMessage when message is empty", () => {
     const view = classifyHomeError(
-      new HomeApiError(500, { code: "home.internal", devMessage: "dev only" }),
+      new MediaApiError(500, { code: "home.internal", devMessage: "dev only" }),
     );
     expect(view.devMessage).toBe("dev only");
   });
@@ -73,7 +73,7 @@ describe("classifyHomeError", () => {
     // Reachability is the user's first blocker — fix connectivity first, then
     // re-attempt to see the real auth state.
     withOffline(false, () => {
-      const view = classifyHomeError(new HomeApiError(401, { code: "http.unauthorized" }));
+      const view = classifyHomeError(new MediaApiError(401, { code: "http.unauthorized" }));
       expect(view.variant).toBe("offline");
       expect(view.needsRelogin).toBe(false);
     });

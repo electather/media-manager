@@ -49,17 +49,14 @@ vi.mock("../../../media", async () => {
 });
 
 // The title endpoints bridge to the home composers (design §A6). Mock them so
-// the bridge is asserted without the catalog/plugin read graph; `buildContext`
-// is the SAME function the old `/home/*` procedure uses, so both surfaces build
-// an identical context for the parity comparison. `homeMediaSources` only needs
-// to exist for the resolver's module-load REGISTRY spread.
+// the bridge is asserted without the catalog/plugin read graph. `buildContext`
+// is the home context ctor the bridge uses; `homeMediaSources` only needs to
+// exist for the resolver's module-load REGISTRY spread.
 vi.mock("../../../home", () => ({
   homeMediaSources: {},
   buildContext: vi.fn((userId: string) => ({ userId })),
   composeDetails: vi.fn(),
   composeSeasonAvailability: vi.fn(),
-  composeLayout: vi.fn(),
-  composeRow: vi.fn(),
 }));
 
 vi.mock("../../../watchlist", () => ({ watchlistMediaSources: {} }));
@@ -67,13 +64,11 @@ vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
 
 const home = await import("../../../home");
 const { mediaApp } = await import("../media");
-const { homeApp } = await import("../home");
 
 function buildApp() {
   return new Hono()
     .use("*", requestContextMiddleware())
     .route("/media", mediaApp)
-    .route("/home", homeApp)
     .notFound(() => {
       throw new HttpError(404, "http.not_found", "route not found");
     })
@@ -141,33 +136,5 @@ describe("media title resource (US-004, design §A2/§A6)", () => {
     const res = await buildApp().request("/media/movie/999999/details");
     expect(res.status).toBe(404);
     expect(((await res.json()) as { code: string }).code).toBe("http.not_found");
-  });
-
-  // Read parity (RISK-203): the new media title URL and the old /home URL bridge
-  // to the SAME composer with the SAME args and therefore return byte-identical
-  // payloads. Driving both surfaces against one mocked composer pins that the
-  // relocation changed only the URL, not the composition.
-  it("details parity: /media/:type/:tmdbId/details === /home/details for the same title", async () => {
-    vi.mocked(home.composeDetails).mockResolvedValue(DETAILS_FIXTURE);
-    const app = buildApp();
-    const mediaRes = await app.request("/media/movie/550/details");
-    const homeRes = await app.request("/home/details?tmdbId=550&mediaType=movie");
-    expect(mediaRes.status).toBe(homeRes.status);
-    expect(await mediaRes.json()).toEqual(await homeRes.json());
-    const [first, second] = vi.mocked(home.composeDetails).mock.calls;
-    expect(first).toEqual(second);
-    expect(first).toEqual([{ userId: "u1" }, "550", "movie"]);
-  });
-
-  it("availability parity: /media/:type/:tmdbId/availability === /home/season-availability", async () => {
-    vi.mocked(home.composeSeasonAvailability).mockResolvedValue(AVAILABILITY_FIXTURE);
-    const app = buildApp();
-    const mediaRes = await app.request("/media/tv/1396/availability");
-    const homeRes = await app.request("/home/season-availability?tmdbId=1396");
-    expect(mediaRes.status).toBe(homeRes.status);
-    expect(await mediaRes.json()).toEqual(await homeRes.json());
-    const [first, second] = vi.mocked(home.composeSeasonAvailability).mock.calls;
-    expect(first).toEqual(second);
-    expect(first).toEqual([{ userId: "u1" }, "1396"]);
   });
 });

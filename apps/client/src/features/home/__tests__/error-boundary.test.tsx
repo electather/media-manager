@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { HomeErrorBoundary } from "../lib/error-boundary";
-import { HomeApiError } from "../lib/types";
+import { MediaApiError } from "@/shared/media/error";
 import { homeKeys } from "../lib/query-keys";
 
 const { reportSpy } = vi.hoisted(() => ({
@@ -35,7 +35,7 @@ describe("HomeErrorBoundary", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const Wrapper = wrap(client);
-    const err = new HomeApiError(401, {
+    const err = new MediaApiError(401, {
       code: "http.unauthorized",
       devMessage: "session expired",
     });
@@ -56,7 +56,7 @@ describe("HomeErrorBoundary", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const Wrapper = wrap(client);
-    const err = new HomeApiError(503, { code: "home.internal", devMessage: "outage" });
+    const err = new MediaApiError(503, { code: "home.internal", devMessage: "outage" });
     render(
       <Wrapper>
         <HomeErrorBoundary>
@@ -96,7 +96,7 @@ describe("HomeErrorBoundary", () => {
     render(
       <Wrapper>
         <HomeErrorBoundary>
-          <Boom error={new HomeApiError(500, { code: "home.internal" })} />
+          <Boom error={new MediaApiError(500, { code: "home.internal" })} />
         </HomeErrorBoundary>
       </Wrapper>,
     );
@@ -120,7 +120,7 @@ describe("HomeErrorBoundary", () => {
     render(
       <Wrapper>
         <HomeErrorBoundary>
-          <Boom error={new HomeApiError(500, { code: "home.internal" })} />
+          <Boom error={new MediaApiError(500, { code: "home.internal" })} />
         </HomeErrorBoundary>
       </Wrapper>,
     );

@@ -137,7 +137,7 @@ const media = await import("../../../media");
 const home = await import("../../../home");
 const watchlist = await import("../../../watchlist");
 const { rateLimitOrNull } = await import("../../rate-limit");
-const { watchlistReadLimiter } = await import("../watchlist");
+const { watchlistReadLimiter } = await import("../media");
 const { mediaApp } = await import("../media");
 
 function buildApp() {

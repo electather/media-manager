@@ -1,13 +1,6 @@
 import type { HomeLayoutResponse, MediaDetailsResponse } from "@ent-mcp/shared/home";
 import { api } from "@/shared/lib/api";
-import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
-import { safeJson } from "@/shared/lib/diagnostics/safe-json";
-import { HomeApiError } from "./types";
-
-async function throwOnError(res: Response): Promise<never> {
-  const body = (await safeJson(res)) as ApiErrorBody | null;
-  throw new HomeApiError(res.status, body);
-}
+import { throwOnError } from "@/shared/media/error";
 
 export async function fetchHomeLayout(): Promise<HomeLayoutResponse> {
   const res = await api.home.layout.$get({ query: {} });

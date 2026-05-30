@@ -1,5 +1,5 @@
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
-import { HomeApiError } from "./types";
+import { MediaApiError } from "@/shared/media/error";
 
 /**
  * UI-facing taxonomy of home boundary failures. Each variant maps to a
@@ -18,7 +18,7 @@ export interface HomeErrorView {
    * Server-shipped technical detail surfaced under the variant body. Resolved
    * as `body.message ?? body.devMessage` — so this may carry the user-facing
    * `message` when present, falling back to the dev diagnostic when only that
-   * is shipped. Name is kept for compatibility with the `HomeApiError` field.
+   * is shipped. Name is kept for compatibility with the `MediaApiError` field.
    */
   devMessage: string | null;
   /** When `true`, the fallback should offer a "re-login" affordance. */
@@ -37,7 +37,7 @@ const OFFLINE_NAMES = new Set<string>(["TypeError", "NetworkError"]);
 function isOffline(error: Error): boolean {
   if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
   // `fetch()` rejects with a `TypeError` when the network is unreachable.
-  return !(error instanceof HomeApiError) && OFFLINE_NAMES.has(error.name);
+  return !(error instanceof MediaApiError) && OFFLINE_NAMES.has(error.name);
 }
 
 function nonEmptyString(value: unknown): string | null {
@@ -50,14 +50,14 @@ function readDevMessage(body: ApiErrorBody | null): string | null {
 
 /**
  * Classifies a thrown error into a presentation-ready view. Reads the
- * server-shipped `code` from `HomeApiError.body` when available and falls back
+ * server-shipped `code` from `MediaApiError.body` when available and falls back
  * to status-based inference (401/403 → auth, 5xx → server, network → offline).
  * Title / body copy is resolved from `variant` via the keyed `home_error_title`
  * / `home_error_body` ICU variants at render time.
  */
 // fallow-ignore-next-line complexity
 export function classifyHomeError(error: Error): HomeErrorView {
-  const apiError = error instanceof HomeApiError ? error : null;
+  const apiError = error instanceof MediaApiError ? error : null;
   const status = apiError?.status ?? null;
   const code = apiError?.code ?? "client.unknown";
   const devMessage = apiError ? readDevMessage(apiError.body) : nonEmptyString(error.message);

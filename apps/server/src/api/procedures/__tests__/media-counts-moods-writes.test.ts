@@ -65,20 +65,13 @@ vi.mock("../../../home", () => ({
   composeSeasonAvailability: vi.fn(),
 }));
 
-// Counts / moods bridge to the watchlist service (design §A6). The OLD
-// `watchlistApp` is mounted alongside `mediaApp` for the parity cases, so this
-// mock also supplies the section/list reads the old procedure loads (unused —
-// only `/counts` + `/moods` are driven).
+// Counts / moods bridge to the watchlist service (design §A6).
 vi.mock("../../../watchlist", () => ({
   watchlistMediaSources: {},
   getCounts: vi.fn(),
   getMoodSummary: vi.fn(),
   addItem: vi.fn(),
   removeItem: vi.fn(),
-  listItems: vi.fn(),
-  listMoodItems: vi.fn(),
-  getTonightSection: vi.fn(),
-  getRecentlyAdded: vi.fn(),
 }));
 
 vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
@@ -86,15 +79,13 @@ vi.mock("../../rate-limit", () => ({ rateLimitOrNull: vi.fn(() => null) }));
 const media = await import("../../../media");
 const watchlist = await import("../../../watchlist");
 const { rateLimitOrNull } = await import("../../rate-limit");
-const { watchlistReadLimiter, watchlistWriteLimiter } = await import("../watchlist");
+const { watchlistReadLimiter, watchlistWriteLimiter } = await import("../media");
 const { mediaApp } = await import("../media");
-const { watchlistApp } = await import("../watchlist");
 
 function buildApp() {
   return new Hono()
     .use("*", requestContextMiddleware())
     .route("/media", mediaApp)
-    .route("/watchlist", watchlistApp)
     .notFound(() => {
       throw new HttpError(404, "http.not_found", "route not found");
     })
@@ -244,28 +235,5 @@ describe("media counts / moods / writes (US-005, design §A6/§A7)", () => {
     const res = await buildApp().request("/media/counts");
     expect(res.status).toBe(429);
     expect(watchlist.getCounts).not.toHaveBeenCalled();
-  });
-
-  // Parity (§A6): the new media URL and the old watchlist URL bridge to the SAME
-  // service fn, so they return byte-identical payloads. Driving both surfaces
-  // against one mocked service pins that only the URL moved.
-  it("counts parity: /media/counts === /watchlist/counts", async () => {
-    vi.mocked(watchlist.getCounts).mockResolvedValue(COUNTS_FIXTURE);
-    const app = buildApp();
-    const mediaRes = await app.request("/media/counts");
-    const watchlistRes = await app.request("/watchlist/counts");
-    expect(mediaRes.status).toBe(watchlistRes.status);
-    expect(await mediaRes.json()).toEqual(await watchlistRes.json());
-    expect(watchlist.getCounts).toHaveBeenCalledTimes(2);
-  });
-
-  it("moods parity: /media/moods === /watchlist/moods", async () => {
-    vi.mocked(watchlist.getMoodSummary).mockResolvedValue(MOODS_FIXTURE);
-    const app = buildApp();
-    const mediaRes = await app.request("/media/moods");
-    const watchlistRes = await app.request("/watchlist/moods");
-    expect(mediaRes.status).toBe(watchlistRes.status);
-    expect(await mediaRes.json()).toEqual(await watchlistRes.json());
-    expect(watchlist.getMoodSummary).toHaveBeenCalledTimes(2);
   });
 });

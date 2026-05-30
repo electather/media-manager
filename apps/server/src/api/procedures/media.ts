@@ -34,7 +34,15 @@ import { getCounts, getMoodSummary, watchlistMediaSources } from "../../watchlis
 import { badRequest, notFound } from "../../diagnostics/http-errors";
 import { zValidator } from "../../diagnostics/validator";
 import { rateLimitOrNull } from "../rate-limit";
-import { watchlistReadLimiter, watchlistWriteLimiter } from "./watchlist";
+import { TokenBucketLimiter } from "../../mcp/rate-limit";
+
+/** ~30 add/remove ops per minute per user (burst=30, refill=0.5/s). Relocated from the
+ *  deleted `watchlist` procedure at the §A8 cutover (the media surface owns the bucket now). */
+export const watchlistWriteLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 0.5 });
+
+/** Per-user read limiter for the watchlist route family. 30 burst; refill at 10/min to stop
+ *  runaway poll loops while allowing the ~9-read landing-page fan-out. */
+export const watchlistReadLimiter = new TokenBucketLimiter({ capacity: 30, refillPerSec: 10 / 60 });
 
 /**
  * The one media source registry (design §A4). It is composed adapter-side from
