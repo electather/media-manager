@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties, type ReactNode } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { useEndReached } from "./use-end-reached";
 import { useGridColumns } from "./use-grid-columns";
 import { useScrollMargin } from "./use-scroll-margin";
 
@@ -14,6 +15,13 @@ interface VirtualGridProps<T> {
   className?: string;
   cellClassName?: string;
   style?: CSSProperties;
+  /**
+   * Fired when the last (overscanned) row enters the rendered window — i.e.
+   * the scroll position nears the end of the list. Infinite lists wire this to
+   * `fetchNextPage`; the callback itself must guard `hasNextPage` /
+   * `isFetchingNextPage` (this only signals proximity, it does not dedupe).
+   */
+  onEndReached?: () => void;
 }
 
 /**
@@ -33,6 +41,7 @@ export function VirtualGrid<T>({
   className,
   cellClassName,
   style,
+  onEndReached,
 }: VirtualGridProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollMargin = useScrollMargin(parentRef);
@@ -49,6 +58,7 @@ export function VirtualGrid<T>({
   });
 
   const virtualRows = virtualizer.getVirtualItems();
+  useEndReached(virtualRows, rowCount, onEndReached);
 
   return (
     <div ref={parentRef} className={className} style={{ display: "block", ...style }}>

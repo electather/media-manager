@@ -57,6 +57,9 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
     },
     [navigate],
   );
+  const onEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
   return (
     <>
       <VirtualGrid
@@ -65,6 +68,7 @@ function MoodGrid({ moodId }: { moodId: MoodId }) {
         minColumnWidthPx={180}
         estimateRowHeight={() => 336}
         renderItem={(it) => <WatchlistCard item={it} forceAspect="2/3" onPeek={onPeek} />}
+        onEndReached={onEndReached}
       />
       {hasNextPage ? (
         <div className="mt-8 flex justify-center">
