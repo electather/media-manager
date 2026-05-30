@@ -14,6 +14,7 @@ import { preferencesApp } from "./procedures/preferences";
 import { notificationsApp, adminNotificationsApp } from "./procedures/notifications";
 import { artworkApp } from "./procedures/artwork";
 import { homeApp } from "./procedures/home";
+import { mediaApp } from "./procedures/media";
 import { searchApp } from "./procedures/search";
 import { watchlistApp } from "./procedures/watchlist";
 import {
@@ -50,6 +51,7 @@ export const appRouter = new Hono()
   .route("/admin/notifications", adminNotificationsApp)
   .route("/artwork", artworkApp)
   .route("/home", homeApp)
+  .route("/media", mediaApp)
   .route("/search", searchApp)
   .route("/watchlist", watchlistApp)
   .onError(errorHandler);
