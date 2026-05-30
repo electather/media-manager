@@ -671,6 +671,7 @@
           "client-feat-watchlist",
           "client-shared-ui",
           "client-shared-components",
+          "client-shared-media",
           "client-shared-virtualized",
           "client-shared-hooks",
           "client-shared-lib",

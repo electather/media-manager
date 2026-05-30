@@ -52,7 +52,7 @@ function mockRowFetch(items: CompactMediaItem[], opts: Partial<RowContentRespons
 }
 
 describe("Row", () => {
-  it("renders items returned from /api/home/row", async () => {
+  it("renders items returned from /api/media/sources/:sourceId", async () => {
     env = setupVirtualizerEnv({ width: 1024, height: 800, elementWidth: 200, elementHeight: 300 });
     mockRowFetch([item("x"), item("y"), item("z")]);
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

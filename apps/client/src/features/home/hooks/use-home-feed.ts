@@ -3,8 +3,8 @@ import type { HomeLayoutResponse } from "@ent-mcp/shared/home";
 import { homeLayoutQueryOptions } from "../lib/queries";
 
 /**
- * Live `home.getLayout` query. Rows ship as stubs and per-row `useHomeRow`
- * fills in the items on demand.
+ * Live `home.getLayout` query. Rows ship as stubs and each row's
+ * `useMediaRowsLazy` source fills in the items on demand.
  *
  * Suspense read — the route loader prefetches via `homeLayoutQueryOptions`
  * (`ensureQueryData`), so the hook is cache-warm at component mount in the

@@ -1,6 +1,5 @@
-// fallow-ignore-file unused-file
-// Reason: this card lands before its consumers — it replaces the home `Card` and `WatchlistCard` assemblies, wired into both shells in US-008 / US-009.
 import { memo, type ReactNode } from "react";
+import { clamp } from "es-toolkit";
 import { Film, Tv } from "lucide-react";
 import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import {
@@ -31,6 +30,12 @@ export interface MediaRowCardProps {
   /** Localized Film/Tv kind label for the badge. */
   kindLabel: string;
   onOpen?: () => void;
+  /**
+   * Build the progress overlay's aria-label from the watched percent. Defaults
+   * to a bare `${percent}%`; home passes a localized "X% watched" string so
+   * the migration keeps the existing screen-reader copy.
+   */
+  progressLabel?: (percent: number) => string;
   /** The add/remove quick-action button slot. */
   action?: ReactNode;
   /**
@@ -46,10 +51,10 @@ function pickArtwork(item: MediaRowCardItem, isWide: boolean): string | undefine
   return isWide ? (item.backdrop ?? item.poster) : (item.poster ?? item.backdrop);
 }
 
-/** Within-content watched percentage, or null when there is nothing to show. */
+/** Within-content watched percentage clamped to 0–100, or null when there is nothing to show. */
 function watchedPercent(progress: CompactMediaItem["progress"]): number | null {
   if (!progress || progress.total <= 0) return null;
-  return Math.round((progress.watched / progress.total) * 100);
+  return clamp(Math.round((progress.watched / progress.total) * 100), 0, 100);
 }
 
 /**
@@ -65,7 +70,13 @@ export const MediaRowCard = memo(function MediaRowCard(props: MediaRowCardProps)
   const { item, variant, href, openLabel, onOpen, meta } = props;
   return (
     <MediaCardRoot aspect={variant === "rail" ? "16/9" : "2/3"} data-testid="media-row-card">
-      <CardArt item={item} variant={variant} kindLabel={props.kindLabel} action={props.action} />
+      <CardArt
+        item={item}
+        variant={variant}
+        kindLabel={props.kindLabel}
+        progressLabel={props.progressLabel}
+        action={props.action}
+      />
       {meta ?? defaultFooter(variant, item)}
       <MediaCardLink href={href} aria-label={openLabel} onPress={onOpen} />
     </MediaCardRoot>
@@ -76,13 +87,14 @@ interface CardArtProps {
   item: MediaRowCardItem;
   variant: "rail" | "grid";
   kindLabel: string;
+  progressLabel?: (percent: number) => string;
   action?: ReactNode;
 }
 
 /** The framed artwork + overlays: image, clear-logo, availability, kind badge, progress, action. */
 // The branch count is the irreducible per-overlay presentational fan-out the shared card consolidates.
 // fallow-ignore-next-line complexity
-function CardArt({ item, variant, kindLabel, action }: CardArtProps) {
+function CardArt({ item, variant, kindLabel, progressLabel, action }: CardArtProps) {
   const isWide = variant === "rail";
   const aspect = isWide ? "16/9" : "2/3";
   // #516: only render the clear-logo wordmark when the item actually carries one.
@@ -106,7 +118,12 @@ function CardArt({ item, variant, kindLabel, action }: CardArtProps) {
       <MediaCardBadge position="top-end" title={kindLabel} aria-label={kindLabel}>
         <KindIcon aria-hidden="true" className="size-3.5" />
       </MediaCardBadge>
-      {percent != null ? <MediaCardProgress percent={percent} ariaLabel={`${percent}%`} /> : null}
+      {percent != null ? (
+        <MediaCardProgress
+          percent={percent}
+          ariaLabel={progressLabel ? progressLabel(percent) : `${percent}%`}
+        />
+      ) : null}
       {action}
     </MediaCardFrame>
   );

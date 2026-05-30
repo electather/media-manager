@@ -84,7 +84,7 @@ export type HeroSlideUI = HomeMediaItem & {
 };
 
 export type RowData = {
-  /** Stable wire slug — feeds `/api/home/row?rowId=…`. */
+  /** Stable wire slug (a `MediaSourceId`) — the `sourceId` for `/api/media/sources/:sourceId`. */
   id: string;
   kind: RowKind;
   seedTitle?: string;

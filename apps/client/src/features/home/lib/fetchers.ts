@@ -1,8 +1,4 @@
-import type {
-  HomeLayoutResponse,
-  MediaDetailsResponse,
-  RowContentResponse,
-} from "@ent-mcp/shared/home";
+import type { HomeLayoutResponse, MediaDetailsResponse } from "@ent-mcp/shared/home";
 import { api } from "@/shared/lib/api";
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { safeJson } from "@/shared/lib/diagnostics/safe-json";
@@ -19,22 +15,19 @@ export async function fetchHomeLayout(): Promise<HomeLayoutResponse> {
   return (await res.json()) as HomeLayoutResponse;
 }
 
-export async function fetchHomeRow(
-  rowId: string,
-  cursor: string | null,
-): Promise<RowContentResponse> {
-  const res = await api.home.row.$get({
-    query: { rowId, ...(cursor ? { cursor } : {}) },
-  });
-  if (!res.ok) await throwOnError(res);
-  return (await res.json()) as RowContentResponse;
-}
-
+/**
+ * Detail-modal read. Routes through the shared media title resource
+ * (`GET /api/media/:type/:tmdbId/details`, design §A2/§B3) — a one-line bridge
+ * to the same `home.composeDetails` the old `/home/details` endpoint called, so
+ * the payload (`{ summary, details }`) is byte-identical.
+ */
 export async function fetchHomeDetails(
   tmdbId: string,
   mediaType: "movie" | "tv",
 ): Promise<MediaDetailsResponse> {
-  const res = await api.home.details.$get({ query: { tmdbId, mediaType } });
+  const res = await api.media[":type"][":tmdbId"].details.$get({
+    param: { type: mediaType, tmdbId },
+  });
   if (!res.ok) await throwOnError(res);
   return (await res.json()) as MediaDetailsResponse;
 }
