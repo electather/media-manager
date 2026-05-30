@@ -1,5 +1,3 @@
-// fallow-ignore-file unused-file
-// Reason: this layer lands before its consumers — the source descriptor is wired into the home / watchlist shells in US-008 / US-009.
 import type { MediaSourceId, Page } from "@ent-mcp/shared/media";
 import { api } from "@/shared/lib/api";
 import { throwOnError } from "./error";

@@ -1,5 +1,3 @@
-// fallow-ignore-file unused-file
-// Reason: this layer lands before its consumers — the write fetchers are wired into the watchlist / home shells in US-008 / US-009.
 import type { MediaType } from "@ent-mcp/shared/media";
 import type { AddWatchlistRequest, AddWatchlistResponse } from "@ent-mcp/shared/watchlist";
 import { api } from "@/shared/lib/api";

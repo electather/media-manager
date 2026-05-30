@@ -1,6 +1,3 @@
-// fallow-ignore-file unused-file
-// fallow-ignore-file code-duplication
-// Reason: this layer lands before its consumers — the membership hooks supersede the watchlist-feature `use-watchlist-id-set` / `use-is-in-watchlist`, wired into the shells in US-008 / US-009 and deleted at the US-013 cutover.
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useMemo, useSyncExternalStore } from "react";
 import type { CompactMediaItem, Page } from "@ent-mcp/shared/media";

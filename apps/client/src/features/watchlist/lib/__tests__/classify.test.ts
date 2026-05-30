@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { bucketize, classifyStatus, splitRuntime, totalRuntimeMinutes } from "../classify";
-import type { WatchlistItem } from "../types";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 
-function makeItem(overrides: Partial<WatchlistItem> = {}): WatchlistItem {
+function makeItem(overrides: Partial<CompactMediaItem> = {}): CompactMediaItem {
   return {
     id: "movie:1",
     tmdbId: "1",
     mediaType: "movie",
     title: "Test",
     ...overrides,
-  } as WatchlistItem;
+  } as CompactMediaItem;
 }
 
 describe("classifyStatus", () => {
@@ -50,7 +50,7 @@ describe("classifyStatus", () => {
 
 describe("bucketize", () => {
   it("splits items into the right buckets and drops unknown", () => {
-    const items: WatchlistItem[] = [
+    const items: CompactMediaItem[] = [
       makeItem({ id: "movie:1", status: "available" }),
       makeItem({ id: "movie:2", progress: { watched: 1, total: 10 } }),
       makeItem({ id: "movie:3", status: "requested" }),
@@ -69,7 +69,7 @@ describe("bucketize", () => {
 
 describe("totalRuntimeMinutes", () => {
   it("uses runtimeMin for movies and falls back to 110 minutes", () => {
-    const items: WatchlistItem[] = [
+    const items: CompactMediaItem[] = [
       makeItem({ id: "movie:1", facets: { runtimeMin: 100 } }),
       makeItem({ id: "movie:2" }),
     ];
@@ -77,7 +77,7 @@ describe("totalRuntimeMinutes", () => {
   });
 
   it("multiplies runtime by episode count for TV with fallbacks for missing values", () => {
-    const items: WatchlistItem[] = [
+    const items: CompactMediaItem[] = [
       makeItem({
         id: "tv:1",
         mediaType: "tv",

@@ -16,13 +16,13 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import { WatchlistCard } from "../watchlist-card";
 import { shortRuntimeLabel } from "../../lib/format";
-import type { WatchlistItem } from "../../lib/types";
 import { useTonight } from "../../hooks/use-tonight";
 
 export function TonightPick() {
-  const { data } = useTonight();
+  const { items } = useTonight();
   const navigate = useNavigate();
   const onPeek = useCallback(
     (id: string) => {
@@ -35,7 +35,7 @@ export function TonightPick() {
     },
     [navigate],
   );
-  const [hero, ...alternates] = data.items;
+  const [hero, ...alternates] = items;
   if (!hero) return null;
 
   return (
@@ -74,7 +74,7 @@ export function TonightPick() {
 }
 
 interface AlternateRowProps {
-  item: WatchlistItem;
+  item: CompactMediaItem;
   index: number;
   onPeek: (id: string) => void;
 }

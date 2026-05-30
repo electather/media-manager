@@ -1,9 +1,6 @@
-import { useMemo } from "react";
-import { useSuspenseInfiniteQuery } from "@tanstack/react-query";
+import { useMediaRows } from "@/shared/media/use-media-rows";
 import type { MoodId, WatchlistBucket, WatchlistSort } from "@ent-mcp/shared/watchlist";
-import { fetchItems } from "../lib/fetchers";
-import { watchlistKeys } from "../lib/query-keys";
-import type { WatchlistItem } from "../lib/types";
+import { watchlistItemsSource } from "../lib/sources";
 
 const STALE_TIME_MS = 60_000;
 
@@ -14,43 +11,11 @@ export interface UseAllItemsArgs {
 }
 
 /**
- * Paginated reader for `/api/watchlist/items`. Backs the flat
- * `/watchlist/all` view; sort/bucket/mood ride the query key so each
- * combination has its own cache.
+ * Paginated reader for the `watchlist-items` media source. Backs the flat
+ * `/watchlist/all` view; sort/bucket/mood ride the source params so each
+ * combination has its own cache. Reads through the shared media layer
+ * (`api.media.sources/watchlist-items`) — no bespoke fetcher (design §B3).
  */
 export function useAllItems(args: UseAllItemsArgs = {}) {
-  const sort = args.sort ?? "recent";
-  const bucket = args.bucket;
-  const mood = args.mood;
-  const opts: UseAllItemsArgs = { sort };
-  if (bucket) opts.bucket = bucket;
-  if (mood) opts.mood = mood;
-  const query = useSuspenseInfiniteQuery({
-    queryKey: watchlistKeys.items(opts),
-    queryFn: ({ pageParam }) =>
-      fetchItems({
-        ...(pageParam ? { cursor: pageParam } : {}),
-        sort,
-        // fallow-ignore-next-line code-duplication
-        ...(bucket ? { bucket } : {}),
-        ...(mood ? { mood } : {}),
-      }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.cursor ?? undefined,
-    staleTime: STALE_TIME_MS,
-  });
-
-  const items = useMemo<WatchlistItem[]>(
-    () => query.data.pages.flatMap((p) => p.items),
-    [query.data.pages],
-  );
-  const partial = useMemo(() => query.data.pages.some((p) => p.partial), [query.data.pages]);
-
-  return {
-    items,
-    partial,
-    hasNextPage: query.hasNextPage,
-    isFetchingNextPage: query.isFetchingNextPage,
-    fetchNextPage: query.fetchNextPage,
-  };
+  return useMediaRows(watchlistItemsSource(args), { staleTime: STALE_TIME_MS });
 }

@@ -1,9 +1,10 @@
 // fallow-ignore-file unused-file
 // Utility kept per 2026-05-23-watchlist-sections-design §C.4 — components
 // consuming totalRuntimeMinutes / splitRuntime land in Phase 2-3 of that design.
-import type { WatchlistBuckets, WatchlistItem, WatchlistStatus } from "./types";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import type { WatchlistBuckets, WatchlistStatus } from "./types";
 
-const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistStatus | undefined> = {
+const STATUS_MAP: Record<NonNullable<CompactMediaItem["status"]>, WatchlistStatus | undefined> = {
   available: "available",
   requested: "requested",
   unavailable: "unavailable",
@@ -11,13 +12,13 @@ const STATUS_MAP: Record<NonNullable<WatchlistItem["status"]>, WatchlistStatus |
   unknown: undefined,
 };
 
-function isInfoOnly(item: WatchlistItem): boolean {
+function isInfoOnly(item: CompactMediaItem): boolean {
   const a = item.availability;
   return Boolean(a && !a.hasAnyServerCopy && !a.requestEligible);
 }
 
 // fallow-ignore-next-line complexity
-export function classifyStatus(item: WatchlistItem): WatchlistStatus {
+export function classifyStatus(item: CompactMediaItem): WatchlistStatus {
   if (item.progress) return "in-progress";
   const fromStatus = item.status ? STATUS_MAP[item.status] : undefined;
   if (fromStatus) return fromStatus;
@@ -41,7 +42,7 @@ const STATUS_TO_BUCKET: Partial<Record<WatchlistStatus, keyof WatchlistBuckets>>
   upcoming: "upcoming",
 };
 
-export function bucketize(items: readonly WatchlistItem[]): WatchlistBuckets {
+export function bucketize(items: readonly CompactMediaItem[]): WatchlistBuckets {
   const out: WatchlistBuckets = {
     available: [],
     inProgress: [],
@@ -61,7 +62,7 @@ const TV_FALLBACK_EPISODE_COUNT = 8;
 const MOVIE_FALLBACK_RUNTIME = 110;
 
 // fallow-ignore-next-line complexity
-function itemRuntimeMinutes(item: WatchlistItem): number {
+function itemRuntimeMinutes(item: CompactMediaItem): number {
   const min = item.facets?.runtimeMin;
   if (item.mediaType === "tv") {
     const eps = item.facets?.episodeCount ?? TV_FALLBACK_EPISODE_COUNT;
@@ -70,7 +71,7 @@ function itemRuntimeMinutes(item: WatchlistItem): number {
   return min ?? MOVIE_FALLBACK_RUNTIME;
 }
 
-export function totalRuntimeMinutes(items: readonly WatchlistItem[]): number {
+export function totalRuntimeMinutes(items: readonly CompactMediaItem[]): number {
   let total = 0;
   for (const it of items) total += itemRuntimeMinutes(it);
   return total;

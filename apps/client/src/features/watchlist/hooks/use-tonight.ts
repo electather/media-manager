@@ -1,17 +1,18 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { fetchTonight } from "../lib/fetchers";
-import { watchlistKeys } from "../lib/query-keys";
+import { useMemo } from "react";
+import { useMediaRows } from "@/shared/media/use-media-rows";
+import { watchlistTonightSource } from "../lib/sources";
+import { pickTonight } from "../lib/tonight-pick";
 
 const STALE_TIME_MS = 60_000;
 
 /**
- * Suspense-driven read of `/api/watchlist/sections/tonight`. Returns the
- * server-picked hero + ≤4 alternates. Cached per-user 5 min on the server.
+ * Reader for tonight's watchable pool via the `watchlist-tonight` media source.
+ * The resolver returns the FLAT enriched candidate page; the hero/alternate
+ * ranking + split that used to run server-side now runs here (`pickTonight`),
+ * so `items[0]` is the hero and the rest are the ≤4 alternates (design §B3).
  */
 export function useTonight() {
-  return useSuspenseQuery({
-    queryKey: watchlistKeys.tonight(),
-    queryFn: fetchTonight,
-    staleTime: STALE_TIME_MS,
-  });
+  const { items, partial } = useMediaRows(watchlistTonightSource(), { staleTime: STALE_TIME_MS });
+  const picked = useMemo(() => pickTonight(items), [items]);
+  return { items: picked, partial };
 }

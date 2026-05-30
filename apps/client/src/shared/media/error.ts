@@ -1,8 +1,5 @@
-// fallow-ignore-file unused-file
 // fallow-ignore-file code-duplication
-// Reason: this layer lands before its consumers — it is wired into the home /
-// watchlist shells in US-008 / US-009 — and supersedes HomeApiError /
-// WatchlistApiError, which are deleted at the US-013 cutover.
+// Reason: mirrors the still-present HomeApiError until the US-013 cutover deletes it.
 import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import { throwOnApiError } from "@/shared/lib/api/throw-on-error";
 

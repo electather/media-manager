@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-import { fetchCounts } from "@/features/watchlist/lib/fetchers";
+import { fetchCounts } from "@/shared/media/aggregates";
 import { watchlistKeys } from "@/features/watchlist/lib/query-keys";
 import { WatchlistLayout } from "@/features/watchlist/components/watchlist-layout";
 import { ErrorBoundary } from "@/shared/components/error-boundary";

@@ -16,11 +16,11 @@ import {
   deriveMediaCardAvailability,
 } from "@/shared/components/media-card";
 import { buildMediaHref } from "@/shared/lib/media-id";
-import type { WatchlistItem } from "../lib/types";
-import { useToggleWatchlist } from "../hooks/use-toggle-watchlist";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import { useToggleWatchlist } from "../hooks";
 
 interface WatchlistCardProps {
-  item: WatchlistItem;
+  item: CompactMediaItem;
   forceAspect?: "16/9" | "2/3";
   onPeek: (id: string) => void;
 }
@@ -31,6 +31,8 @@ interface WatchlistCardProps {
  * always reads as "in watchlist" and a click removes the row via the
  * optimistic mutation.
  */
+// The branch count is the irreducible per-overlay presentational fan-out (image, clear-logo, availability, badge, progress, action); behaviorally exercised via the section render tests.
+// fallow-ignore-next-line complexity
 export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCardProps) {
   const toggle = useToggleWatchlist();
   const aspect = forceAspect;
@@ -49,8 +51,11 @@ export function WatchlistCard({ item, forceAspect = "2/3", onPeek }: WatchlistCa
     <MediaCardRoot aspect={aspect}>
       <MediaCardFrame>
         <MediaCardImage src={imageSrc} alt={item.title} aspect={aspect} />
-        {isWide ? (
-          <MediaCardClearLogo src={item.clearLogo} text={item.title} alt={item.title} />
+        {/* #516: only render the clear-logo wordmark when the item actually
+            carries a logo — a logo-less row no longer shows its title as a
+            faux wordmark (the old `text={item.title}` fallback). */}
+        {isWide && item.clearLogo ? (
+          <MediaCardClearLogo src={item.clearLogo} alt={item.title} />
         ) : null}
         <MediaCardAvailability
           state={deriveMediaCardAvailability(item)}

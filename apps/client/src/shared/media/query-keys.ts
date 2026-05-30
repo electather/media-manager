@@ -1,5 +1,3 @@
-// fallow-ignore-file unused-file
-// Reason: this layer lands before its consumers — the query-key root is wired into the home / watchlist shells in US-008 / US-009.
 import type { MediaSourceId, MediaType } from "@ent-mcp/shared/media";
 
 /**

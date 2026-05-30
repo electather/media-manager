@@ -7,8 +7,12 @@ export { useAllItems, type UseAllItemsArgs } from "./use-all-items";
 export { useReadyRow } from "./use-ready-row";
 export { useComingUp } from "./use-coming-up";
 export { useAwaiting } from "./use-awaiting";
-export { useIsInWatchlist } from "./use-is-in-watchlist";
-export { useWatchlistIdSet } from "./use-watchlist-id-set";
-export { useToggleWatchlist } from "./use-toggle-watchlist";
-export { useAddToWatchlist } from "./use-add-to-watchlist";
-export { useRemoveFromWatchlist } from "./use-remove-from-watchlist";
+// Membership + mutation hooks now live in the shared media layer (design §B3).
+// The feature barrel re-exports them so cross-feature consumers (home cards,
+// media-detail, search rows) keep their `@/features/watchlist` import.
+export { useIsInWatchlist, useWatchlistIdSet } from "@/shared/media/use-watchlist-membership";
+export {
+  useAddToWatchlist,
+  useRemoveFromWatchlist,
+  useToggleWatchlist,
+} from "@/shared/media/use-watchlist-mutations";

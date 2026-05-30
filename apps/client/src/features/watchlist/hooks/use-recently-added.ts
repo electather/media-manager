@@ -1,18 +1,14 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { fetchRecently } from "../lib/fetchers";
-import { watchlistKeys } from "../lib/query-keys";
+import { useMediaRows } from "@/shared/media/use-media-rows";
+import { watchlistRecentlySource } from "../lib/sources";
 
 const STALE_TIME_MS = 60_000;
 const DEFAULT_LIMIT = 5;
 
 /**
- * Suspense-driven read of `/api/watchlist/sections/recently`. Capped at
- * five rows by default so the strip stays a strip — no pagination needed.
+ * Reader for the recently-added strip via the `watchlist-recently` media
+ * source. Capped at five rows by default so the strip stays a strip — the
+ * source returns a bounded page with no cursor.
  */
 export function useRecentlyAdded(limit: number = DEFAULT_LIMIT) {
-  return useSuspenseQuery({
-    queryKey: [...watchlistKeys.recently(), limit] as const,
-    queryFn: () => fetchRecently({ limit }),
-    staleTime: STALE_TIME_MS,
-  });
+  return useMediaRows(watchlistRecentlySource(limit), { staleTime: STALE_TIME_MS });
 }

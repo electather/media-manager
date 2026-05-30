@@ -9,7 +9,8 @@ import {
   SectionHeadHeading,
   SectionHeadTitle,
 } from "@/shared/components/section-head";
-import { sourceLabel, type WatchlistItem } from "../../lib/types";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
+import { sourceLabel } from "../../lib/types";
 import { cn } from "@/shared/lib/utils";
 import { useRecentlyAdded } from "../../hooks/use-recently-added";
 
@@ -36,7 +37,7 @@ function relativeLabel(addedAt: number, now: number = Date.now()): string {
 }
 
 export function RecentlyAdded() {
-  const { data } = useRecentlyAdded();
+  const { items } = useRecentlyAdded();
   const navigate = useNavigate();
   const onPeek = useCallback(
     (id: string) => {
@@ -49,7 +50,7 @@ export function RecentlyAdded() {
     },
     [navigate],
   );
-  const top = data.items;
+  const top = items;
   if (top.length === 0) return null;
   return (
     <section className="mb-14">
@@ -77,7 +78,7 @@ function RecentRow({
   isFirst,
   onPeek,
 }: {
-  item: WatchlistItem;
+  item: CompactMediaItem;
   isFirst: boolean;
   onPeek: (id: string) => void;
 }) {

@@ -1,6 +1,7 @@
-// fallow-ignore-file unused-file
 // fallow-ignore-file code-duplication
-// Reason: this layer lands before its consumers — these hooks supersede the watchlist-feature add/remove/toggle, wired into the shells in US-008 / US-009 and deleted there.
+// Reason: buildToggleSeed mirrors the per-optional-field seed projection the
+// server enrich/adapter/compact paths use; the shapes are independent surfaces
+// that happen to converge, not a shared abstraction.
 import {
   useMutation,
   useQueryClient,

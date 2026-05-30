@@ -1,5 +1,3 @@
-// fallow-ignore-file unused-file
-// Reason: this layer lands before its consumers — the list hooks are wired into the home / watchlist shells in US-008 / US-009.
 import {
   type InfiniteData,
   infiniteQueryOptions,
@@ -32,18 +30,31 @@ const selectMediaRows = (data: InfiniteData<Page>): MediaRows => ({
 });
 
 /**
+ * Caller-tunable query options. Kept narrow on purpose: a feature picks its own
+ * `staleTime` (watchlist sections cache 60s like the old per-feature hooks did)
+ * without being able to clobber the cursor / flatten / key wiring the core owns.
+ */
+export interface MediaRowsOptions {
+  staleTime?: number;
+}
+
+/**
  * The one infinite-query core for every media list (design §B1, invariant
  * V.CL1). Both wrappers below share this single definition of the cursor
  * threading (`getNextPageParam`), the flatten, and the `partial` OR-reduce, so
  * home rows and watchlist sections no longer maintain two near-identical hooks.
  */
-export function mediaRowsQueryOptions<P extends object>(source: ClientMediaSource<P>) {
+export function mediaRowsQueryOptions<P extends object>(
+  source: ClientMediaSource<P>,
+  options: MediaRowsOptions = {},
+) {
   return infiniteQueryOptions({
     queryKey: mediaKeys.source(source.sourceId, source.params as Record<string, unknown>),
     queryFn: ({ pageParam }) => source.fetchPage(source.params, pageParam ?? null),
     initialPageParam: (source.initialCursor ?? undefined) as string | undefined,
     getNextPageParam: (last) => last.cursor ?? undefined,
     select: selectMediaRows,
+    ...(options.staleTime !== undefined ? { staleTime: options.staleTime } : {}),
   });
 }
 
@@ -53,8 +64,11 @@ export function mediaRowsQueryOptions<P extends object>(source: ClientMediaSourc
  * with data on first paint. Mirrors today's `useAllItems` / `useMoodCluster`
  * surface.
  */
-export function useMediaRows<P extends object>(source: ClientMediaSource<P>) {
-  const query = useSuspenseInfiniteQuery(mediaRowsQueryOptions(source));
+export function useMediaRows<P extends object>(
+  source: ClientMediaSource<P>,
+  options?: MediaRowsOptions,
+) {
+  const query = useSuspenseInfiniteQuery(mediaRowsQueryOptions(source, options));
   return {
     items: query.data.items,
     partial: query.data.partial,
@@ -70,8 +84,11 @@ export function useMediaRows<P extends object>(source: ClientMediaSource<P>) {
  * row shows a per-row skeleton without blocking the rest. Mirrors today's
  * `useHomeRow` surface (adds `isLoading` / `isRefetching` / `error` / `refetch`).
  */
-export function useMediaRowsLazy<P extends object>(source: ClientMediaSource<P>) {
-  const query = useInfiniteQuery(mediaRowsQueryOptions(source));
+export function useMediaRowsLazy<P extends object>(
+  source: ClientMediaSource<P>,
+  options?: MediaRowsOptions,
+) {
+  const query = useInfiniteQuery(mediaRowsQueryOptions(source, options));
   // `data` is undefined until the first page lands; fall back to an empty list.
   const rows = query.data ?? { items: [], partial: false };
   return {

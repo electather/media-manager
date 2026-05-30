@@ -1,31 +1,6 @@
-import type { CompactMediaItem } from "@ent-mcp/shared/home";
+import type { CompactMediaItem } from "@ent-mcp/shared/media";
 import type { WatchlistSource } from "@ent-mcp/shared/watchlist";
-import type { ApiErrorBody } from "@/shared/lib/diagnostics/api-error-body";
 import * as m from "@/paraglide/messages";
-
-/**
- * Watchlist card shape. The server unified its wire item on `CompactMediaItem`
- * (the shared `WatchlistItem` superset was deleted in the media-pipeline
- * consolidation), so the client follows: `addedAt`/`addedSource` are now
- * optional/nullable on the wire. Components that need them guard for absence.
- */
-export type WatchlistItem = CompactMediaItem;
-
-// fallow-ignore-next-line code-duplication
-export class WatchlistApiError extends Error {
-  readonly status: number;
-  readonly body: ApiErrorBody | null;
-  readonly code: string | undefined;
-
-  // fallow-ignore-next-line complexity
-  constructor(status: number, body: ApiErrorBody | null) {
-    super(body?.message ?? body?.devMessage ?? `watchlist request failed (${status})`);
-    this.name = "WatchlistApiError";
-    this.status = status;
-    this.body = body;
-    this.code = typeof body?.code === "string" ? body.code : undefined;
-  }
-}
 
 /** Localized label for an item's `addedSource` field. */
 // fallow-ignore-next-line complexity
@@ -60,9 +35,9 @@ export type WatchlistStatus =
   | "unknown";
 
 export interface WatchlistBuckets {
-  available: WatchlistItem[];
-  inProgress: WatchlistItem[];
-  requested: WatchlistItem[];
-  unavailable: WatchlistItem[];
-  upcoming: WatchlistItem[];
+  available: CompactMediaItem[];
+  inProgress: CompactMediaItem[];
+  requested: CompactMediaItem[];
+  unavailable: CompactMediaItem[];
+  upcoming: CompactMediaItem[];
 }
