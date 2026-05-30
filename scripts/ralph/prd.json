@@ -81,8 +81,8 @@
         "`vp test` passes."
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Done. api/procedures/media.ts: chained two title routes onto mediaApp AFTER /sources/:sourceId (distinct 3-segment vs 2-segment paths, no Hono route conflict). GET /:type/:tmdbId/details -> home.composeDetails(ctx, tmdbId, type) (MediaDetailsResponse, seasons ride inside MediaDetailsExtra so NO /seasons endpoint); GET /:type/:tmdbId/availability -> home.composeSeasonAvailability(ctx, tmdbId) (SeasonAvailabilityResponse). Bridge is one line each; ctx is home.buildContext(userId) imported as buildHomeContext - the SAME ctor the old /home/details used, so behavior is byte-identical (NOT buildSourceContext, which is resolver-only). :type validated via titleParamSchema (z.object({type: mediaTypeSchema, tmdbId: z.string().min(1)}).strict()) with zValidator('param',...) -> invalid type 400 http.invalid_input (mirrors old query validation); composer 404 (unknown title) forwards unchanged. requireSession inherited from .use('*') on mediaApp. No composition logic moved out of home (V.A1/RISK-203). Test: media-title.test.ts (7 - 401/details-bridge-args/availability-bridge-args/invalid-type-400/composer-404-forward + 2 parity: mounts BOTH old homeApp and new mediaApp against ONE mocked composer, asserts identical status+payload AND identical composer call args from both URLs). vp check 0 errors (1 pre-existing virtualizer warning), vp test 334 files/2490 tests green, fallow baseline unchanged. Changeset empty-frontmatter (additive, not consumed until cutover US-013)."
     },
     {
       "id": "US-005",

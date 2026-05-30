@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { consola } from "consola";
+import { z } from "zod";
+import { mediaTypeSchema } from "@ent-mcp/shared/media";
 import { requireSession, sessionUserId } from "../../auth";
 import { ArtworkService } from "../../artwork";
 import { getCatalogService, toCanonicalRow } from "../../catalog";
@@ -12,9 +14,15 @@ import {
   type Cursor,
   type SourceContext,
 } from "../../media";
-import { homeMediaSources } from "../../home";
+import {
+  buildContext as buildHomeContext,
+  composeDetails,
+  composeSeasonAvailability,
+  homeMediaSources,
+} from "../../home";
 import { watchlistMediaSources } from "../../watchlist";
 import { badRequest, notFound } from "../../diagnostics/http-errors";
+import { zValidator } from "../../diagnostics/validator";
 import { rateLimitOrNull } from "../rate-limit";
 import { watchlistReadLimiter, watchlistWriteLimiter } from "./watchlist";
 
@@ -32,6 +40,19 @@ const REGISTRY: Record<string, AnyMediaSourceRegistration | undefined> = {
 
 /** Per-request plugin-call deadline budget, matching the home feed's `buildContext`. */
 const REQUEST_DEADLINE_MS = 8000;
+
+/**
+ * Path params for the title resource endpoints (design §A6). `:type` is the
+ * media type (`movie`/`tv`) lifted out of today's `/home/details?mediaType=…`
+ * query; `:tmdbId` is the catalog id. Invalid values fail the same
+ * `http.invalid_input` 400 the old query validation raised.
+ */
+const titleParamSchema = z
+  .object({
+    type: mediaTypeSchema,
+    tmdbId: z.string().min(1),
+  })
+  .strict();
 
 /** Maps a registration's declared `rateLimit` to the limiter instance (design §A7). */
 const limiterFor = { read: watchlistReadLimiter, write: watchlistWriteLimiter } as const;
@@ -72,44 +93,68 @@ function buildSourceContext(userId: string): SourceContext {
  * handler. Mounted additively (design §A8 / D) — the old per-product endpoints
  * stay live until the cutover.
  */
-export const mediaApp = new Hono().use("*", requireSession).get("/sources/:sourceId", async (c) => {
-  const sourceId = c.req.param("sourceId");
-  const reg = REGISTRY[sourceId];
-  if (!reg) {
-    throw notFound("media.source_unknown", `unknown media source: ${sourceId}`);
-  }
-
-  const userId = sessionUserId(c);
-  if (reg.rateLimit) {
-    const limited = rateLimitOrNull(limiterFor[reg.rateLimit], c, userId);
-    if (limited) return limited;
-  }
-
-  const ctx = buildSourceContext(userId);
-
-  // Eligibility is a home-row concern (defense-in-depth for direct hits;
-  // mirrors today's `composeRowPage` 404-on-ineligible, including its
-  // catch → treat-as-ineligible). Watchlist registrations carry none.
-  if (reg.eligibility) {
-    const eligible = await reg.eligibility(ctx).catch(() => false);
-    if (!eligible) {
-      throw notFound("media.source_ineligible", `media source ineligible: ${sourceId}`);
+export const mediaApp = new Hono()
+  .use("*", requireSession)
+  .get("/sources/:sourceId", async (c) => {
+    const sourceId = c.req.param("sourceId");
+    const reg = REGISTRY[sourceId];
+    if (!reg) {
+      throw notFound("media.source_unknown", `unknown media source: ${sourceId}`);
     }
-  }
 
-  const parsed = reg.paramSchema.safeParse(c.req.query());
-  if (!parsed.success) {
-    throw badRequest("http.invalid_input", parsed.error.message, { target: "query" });
-  }
+    const userId = sessionUserId(c);
+    if (reg.rateLimit) {
+      const limited = rateLimitOrNull(limiterFor[reg.rateLimit], c, userId);
+      if (limited) return limited;
+    }
 
-  const cursor = resolveCursor(c.req.query("cursor"), reg, sourceId);
+    const ctx = buildSourceContext(userId);
 
-  const { source, cfg, enrichRows } = reg.build(ctx, parsed.data, cursor);
-  const page = enrichRows
-    ? await listRows(source, cfg, ctx, enrichRows)
-    : await listRows(source, cfg, ctx);
-  return c.json(page);
-});
+    // Eligibility is a home-row concern (defense-in-depth for direct hits;
+    // mirrors today's `composeRowPage` 404-on-ineligible, including its
+    // catch → treat-as-ineligible). Watchlist registrations carry none.
+    if (reg.eligibility) {
+      const eligible = await reg.eligibility(ctx).catch(() => false);
+      if (!eligible) {
+        throw notFound("media.source_ineligible", `media source ineligible: ${sourceId}`);
+      }
+    }
+
+    const parsed = reg.paramSchema.safeParse(c.req.query());
+    if (!parsed.success) {
+      throw badRequest("http.invalid_input", parsed.error.message, { target: "query" });
+    }
+
+    const cursor = resolveCursor(c.req.query("cursor"), reg, sourceId);
+
+    const { source, cfg, enrichRows } = reg.build(ctx, parsed.data, cursor);
+    const page = enrichRows
+      ? await listRows(source, cfg, ctx, enrichRows)
+      : await listRows(source, cfg, ctx);
+    return c.json(page);
+  })
+  /**
+   * Title resource (design §A2/§A6): a media title's details and per-server
+   * availability under the media URL namespace. Pure URL relocation — `:type`
+   * was the `/home/details?mediaType=…` query; the bridge is one line to the
+   * existing home composer, so no composition logic moves out of `home`
+   * (invariant V.A1, RISK-203). `details` already carries seasons metadata
+   * inside `MediaDetailsExtra`, so there is no separate `/seasons` endpoint.
+   */
+  .get("/:type/:tmdbId/details", zValidator("param", titleParamSchema), async (c) => {
+    const userId = sessionUserId(c);
+    const { type, tmdbId } = c.req.valid("param");
+    const ctx = buildHomeContext(userId);
+    const details = await composeDetails(ctx, tmdbId, type);
+    return c.json(details);
+  })
+  .get("/:type/:tmdbId/availability", zValidator("param", titleParamSchema), async (c) => {
+    const userId = sessionUserId(c);
+    const { tmdbId } = c.req.valid("param");
+    const ctx = buildHomeContext(userId);
+    const availability = await composeSeasonAvailability(ctx, tmdbId);
+    return c.json(availability);
+  });
 
 /**
  * Decode the opaque outer cursor for one read, reproducing each consumer's V.CU1
