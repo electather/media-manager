@@ -1,10 +1,10 @@
 import { consola } from "consola";
 import { pluginRuntime, capabilityRegistry } from "../../plugin-runtime";
 import { harvestIds } from "./id-resolver";
-import { type InvocationOutcome, normalizeError } from "../errors";
+import { type InvocationOutcome, normalizeError, TRANSIENT_PLUGIN_CODES } from "../errors";
 import type { ResolvedConnection } from "../internal/resolve-connection";
 import {
-  persistRefreshedCredentials,
+  refreshConnectionCredentials,
   markConnectionStatus,
   emitAuthExpired,
 } from "./connection-lifecycle";
@@ -189,16 +189,26 @@ async function handleRefresh<T>(
   const userConn = conn as Extract<ResolvedConnection, { kind: "user" }>;
   state.triedRefresh = true;
   try {
-    const refreshed = await pluginRuntime.refreshAuth(
-      req.pluginId,
-      req.userId,
-      activeConn.credentials,
-    );
-    await persistRefreshedCredentials(userConn.connectionId, refreshed);
+    const refreshed = await refreshConnectionCredentials({
+      connectionId: userConn.connectionId,
+      pluginId: req.pluginId,
+      userId: req.userId,
+      attemptedCredentials: activeConn.credentials,
+    });
     return { refreshed: { ...activeConn, credentials: refreshed } };
   } catch (refreshErr) {
-    const refreshMsg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
-    await markConnectionStatus(userConn.connectionId, "expired", refreshMsg);
+    const normalized = normalizeError(refreshErr);
+    // Only a failure that reflects the refresh token's validity is terminal.
+    // A transient refresh failure (Trakt rate-limiting `/oauth/token`, an
+    // upstream 5xx, a timeout) says nothing about the token: marking the
+    // connection expired and emitting an auth-expired notification there would
+    // push the user to reconnect for no reason and re-fire on every retry.
+    // Surface the real transient code and leave the connection intact so a
+    // later call refreshes successfully once the condition clears.
+    if (TRANSIENT_PLUGIN_CODES.has(normalized.code)) {
+      return errorOutcome(req, conn, normalized);
+    }
+    await markConnectionStatus(userConn.connectionId, "expired", normalized.devMessage);
     await emitAuthExpired({
       connectionId: userConn.connectionId,
       pluginId: req.pluginId,
@@ -208,7 +218,7 @@ async function handleRefresh<T>(
       pluginId: req.pluginId,
       connectionId: userConn.connectionId,
       shared: false,
-      error: { code: "plugin.token_expired", devMessage: refreshMsg },
+      error: { code: "plugin.token_expired", devMessage: normalized.devMessage },
     };
   }
 }

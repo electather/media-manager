@@ -125,6 +125,17 @@ function RowImpl({ row, onWatchlistToggle, onCardClick }: RowProps) {
     );
   }
 
+  // A row that resolved with no items renders nothing — no heading, no
+  // reserved track height. Covers both a transient source outage (the feed
+  // soft-degrades to an empty `partial` page rather than erroring) and a
+  // genuinely empty feed; an empty carousel communicates nothing useful
+  // either way. Guarded on `!isLoading` so the skeleton still shows on first
+  // load. `handleRange` already bails on an empty set, so there is no pending
+  // page to wait for here.
+  if (error === null && !isLoading && items.length === 0) {
+    return null;
+  }
+
   return (
     <ScrollRow revalidationKey={renderItems.length} className="mb-8">
       <SectionHead>

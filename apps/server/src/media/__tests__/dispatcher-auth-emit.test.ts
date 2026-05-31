@@ -60,6 +60,10 @@ vi.mock("../../plugin-runtime/internal/registry", () => ({
 vi.mock("../../db/client", () => ({
   getDb: () => ({
     update: () => ({ set: () => ({ where: async () => undefined }) }),
+    // readConnectionCredentials lookup — no stored row, so the refresh path
+    // proceeds straight to refreshAuth (matching the pre-coalescing behavior
+    // these cases assert).
+    select: () => ({ from: () => ({ where: () => ({ get: async () => undefined }) }) }),
   }),
 }));
 
@@ -109,11 +113,11 @@ beforeEach(() => {
 });
 
 describe("dispatcher auth-expired emit", () => {
-  it("emits connection.auth.expired when refresh fails", async () => {
+  it("emits connection.auth.expired when refresh fails terminally", async () => {
     listProvidersMock.mockReturnValue(["seerr"]);
     resolveConnectionsMock.mockResolvedValue([userConn("seerr", "conn-99")]);
     invokeMock.mockRejectedValueOnce(new PluginError("plugin.token_expired", "stale"));
-    refreshAuthMock.mockRejectedValueOnce(new Error("upstream 401"));
+    refreshAuthMock.mockRejectedValueOnce(new PluginError("plugin.token_expired", "refresh 401"));
 
     await expect(
       dispatchSingle({
@@ -154,11 +158,37 @@ describe("dispatcher auth-expired emit", () => {
     expect(emitMock).not.toHaveBeenCalled();
   });
 
+  it("does not emit or expire the connection when refresh is rate-limited", async () => {
+    // Ground truth from the "coming up" 503: the token was stale and the Trakt
+    // `/oauth/token` refresh came back 429 (plugin.rate_limited). That is
+    // transient and says nothing about the refresh token, so it must NOT fire
+    // an auth-expired notification (which would push the user to reconnect and
+    // re-fire on every retry). The dispatch still surfaces the rate-limit code.
+    listProvidersMock.mockReturnValue(["trakt"]);
+    resolveConnectionsMock.mockResolvedValue([userConn("trakt", "conn-1")]);
+    invokeMock.mockRejectedValueOnce(new PluginError("plugin.token_expired", "stale"));
+    refreshAuthMock.mockRejectedValueOnce(
+      new PluginError("plugin.rate_limited", "Trakt refresh 429"),
+    );
+
+    await expect(
+      dispatchSingle({
+        userId: "user-1",
+        capability: "mediaRequest",
+        version: "v1",
+        method: "listRequests",
+        input: {},
+      }),
+    ).rejects.toMatchObject({ code: "plugin.rate_limited" });
+
+    expect(emitMock).not.toHaveBeenCalled();
+  });
+
   it("emit failure does not propagate to host operation", async () => {
     listProvidersMock.mockReturnValue(["seerr"]);
     resolveConnectionsMock.mockResolvedValue([userConn("seerr")]);
     invokeMock.mockRejectedValueOnce(new PluginError("plugin.token_expired", "stale"));
-    refreshAuthMock.mockRejectedValueOnce(new Error("upstream 401"));
+    refreshAuthMock.mockRejectedValueOnce(new PluginError("plugin.token_expired", "refresh 401"));
     emitMock.mockRejectedValueOnce(new Error("emit boom"));
 
     await expect(

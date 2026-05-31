@@ -48,7 +48,8 @@ export function scopeForRequest(
 export async function pickSingleConnection(
   userId: string,
   pluginId: string,
+  scope: ResolvedCapabilityScope,
 ): Promise<ResolvedConnection | null> {
-  const all = await resolveConnections(userId, pluginId);
+  const all = await resolveConnections(userId, pluginId, scope);
   return head(all) ?? null;
 }

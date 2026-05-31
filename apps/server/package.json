@@ -40,10 +40,10 @@
     "@ent-mcp/plugin-trakt": "workspace:*",
     "@ent-mcp/plugin-tvdb": "workspace:*",
     "@ent-mcp/shared": "workspace:*",
-    "@hono/zod-validator": "^0.7.6",
-    "@libsql/client": "^0.17.2",
+    "@hono/zod-validator": "^0.8.0",
+    "@libsql/client": "^0.17.3",
     "@t3-oss/env-core": "^0.13.11",
-    "ajv": "^8.18.0",
+    "ajv": "^8.20.0",
     "better-auth": "catalog:",
     "consola": "^3.4.2",
     "croner": "^10.0.1",
@@ -53,7 +53,7 @@
     "hono": "catalog:",
     "ioredis": "^5.10.1",
     "jszip": "catalog:",
-    "lru-cache": "^11.3.5",
+    "lru-cache": "^11.5.1",
     "zod": "catalog:"
   },
   "devDependencies": {

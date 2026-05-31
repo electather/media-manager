@@ -15,7 +15,12 @@ import {
 import { z } from "zod";
 import type { ContinueWatchingEntry } from "@ent-mcp/plugin-sdk";
 import { capabilityRegistry } from "../../plugin-runtime";
-import { AllPluginsFailedError, mapRequestPluginError, PluginCallError } from "../errors";
+import {
+  AllPluginsFailedError,
+  mapRequestPluginError,
+  PluginCallError,
+  TRANSIENT_PLUGIN_CODES,
+} from "../errors";
 import { HttpError, badRequest } from "../../diagnostics/http-errors";
 import type { RawCanonicalSource } from "../../catalog";
 import { resolveConnections } from "../internal/resolve-connection";
@@ -723,7 +728,7 @@ export class MediaService {
   ): Promise<boolean> {
     const providers = capabilityRegistry.listProviders(capability, version, scope);
     for (const pluginId of providers) {
-      const conns = await resolveConnections(this.userId, pluginId);
+      const conns = await resolveConnections(this.userId, pluginId, scope);
       if (conns.length > 0) return true;
     }
     return false;
@@ -839,7 +844,8 @@ export class MediaService {
     capability: ReturnType<typeof requireCapability>,
     deadlineMs: number | undefined,
   ): Promise<MatchingServer | null> {
-    const conns = await resolveConnections(this.userId, pluginId);
+    // libraryAvailability@v1 is user-scoped: never borrow admin shared creds.
+    const conns = await resolveConnections(this.userId, pluginId, "user");
     if (conns.length === 0) return null;
     const entry = capabilityRegistry.get(pluginId);
     const label = entry?.module.manifest.name ?? pluginId;
@@ -907,7 +913,8 @@ export class MediaService {
     capability: ReturnType<typeof requireCapability>,
     deadlineMs: number | undefined,
   ): Promise<LibraryIndex | null> {
-    const conns = await resolveConnections(this.userId, pluginId);
+    // libraryAvailability@v1 is user-scoped: never borrow admin shared creds.
+    const conns = await resolveConnections(this.userId, pluginId, "user");
     if (conns.length === 0) return null;
     const entry = capabilityRegistry.get(pluginId);
     const label = entry?.module.manifest.name ?? pluginId;
@@ -952,14 +959,20 @@ export interface HomeAggregate<T extends unknown[]> {
  * Translates a raw `AggregateResult` into the home-feed `HomeAggregate`
  * envelope and decides whether the row should be flagged `all_failed`.
  *
- * Three distinct outcomes share the surface:
+ * Four distinct outcomes share the surface:
  *   - `attempted === 0` — no providers installed. Returns empty, partial=false;
  *     row drops normally (no `partial: true` because there is no error to
  *     surface).
- *   - `errors.length === attempted && attempted > 0` — every provider errored.
- *     Throws `AllPluginsFailedError` so the orchestrator marks the row
- *     `all_failed` rather than letting `upcomingForYou`'s ok_empty exemption
- *     fire on a calendar plugin outage.
+ *   - every provider errored, but ALL failures are transient
+ *     (`TRANSIENT_PLUGIN_CODES`: rate-limit, upstream 5xx, timeout) — the data
+ *     is temporarily unavailable, not gone. Soft-degrades to empty +
+ *     `partial: true` so the row renders empty and self-heals on a later
+ *     fetch, instead of hard-failing on a transient blip (e.g. a rate-limited
+ *     Trakt token refresh on the `calendar@v1` "coming up" row).
+ *   - every provider errored and at least one failure is terminal (auth, bad
+ *     input, …) — throws `AllPluginsFailedError` so the orchestrator marks the
+ *     row `all_failed` and the surface can prompt the user to act, rather than
+ *     letting `upcomingForYou`'s ok_empty exemption fire on a real outage.
  *   - else — at least one provider succeeded. Returns whatever data was
  *     collected, with `partial: true` when at least one peer errored.
  */
@@ -972,10 +985,14 @@ export function interpretAggregate<T>(
   const errors = result.errors ?? [];
   const attempted = result.attempted ?? 0;
   if (attempted > 0 && errors.length === attempted) {
-    throw new AllPluginsFailedError(
-      capabilityKey,
-      errors.map((e) => ({ pluginId: e.pluginId, code: e.code, devMessage: e.devMessage })),
-    );
+    const allTransient = errors.every((e) => TRANSIENT_PLUGIN_CODES.has(e.code));
+    if (!allTransient) {
+      throw new AllPluginsFailedError(
+        capabilityKey,
+        errors.map((e) => ({ pluginId: e.pluginId, code: e.code, devMessage: e.devMessage })),
+      );
+    }
+    return { items: data, partial: true };
   }
   return { items: data, partial: errors.length > 0 };
 }

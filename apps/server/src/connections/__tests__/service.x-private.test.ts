@@ -345,6 +345,27 @@ describe("connectionsService — x-private stripping", () => {
     });
   });
 
+  it("clears a broken connection's error and flips it back to connected on a successful update", async () => {
+    // The form-reconnect path: a user re-enters credentials on a connection
+    // that had gone to `error`. A successful re-verify must reset the status
+    // and clear the error message, otherwise the card keeps rendering as broken
+    // (and keeps offering Reconnect) even though the credentials now work.
+    installPlugin();
+    seedConnection({ externalUrl: "https://plex.example.com", apiKey: "old" });
+    state.connections[0]!.status = "error";
+    state.connections[0]!.errorMessage = "401 Unauthorized";
+    runAuthMock.mockResolvedValue({ status: "completed", credentials: { token: "fresh" } });
+
+    await connectionsService.updateUserConfig({
+      userId: "user-1",
+      connectionId: "conn-1",
+      userConfig: { externalUrl: "https://plex.example.com", apiKey: "new" },
+    });
+
+    expect(state.connections[0]!.status).toBe("connected");
+    expect(state.connections[0]!.errorMessage).toBeNull();
+  });
+
   it("allows updating an x-private field when the client sends a new value", async () => {
     installPlugin();
     seedConnection({

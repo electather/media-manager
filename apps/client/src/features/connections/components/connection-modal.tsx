@@ -45,13 +45,30 @@ interface Props {
   open: boolean;
   plugin: PluginSummary | null;
   existing?: ExistingConnection | null;
+  /**
+   * Reconnect mode for a broken OAuth connection: re-runs the auth ceremony
+   * (device-code / redirect) rather than the display-name-only OAuth edit form.
+   * The server rebinds the fresh credentials to the existing connection, so no
+   * id needs to be threaded through — the OAuth start call carries only
+   * `pluginId`, and a non-poolable plugin's single row is updated in place.
+   */
+  reconnect?: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
 
 // fallow-ignore-next-line complexity
-export function ConnectionModal({ open, plugin, existing, onOpenChange, onSuccess }: Props) {
-  const isEdit = Boolean(existing);
+export function ConnectionModal({
+  open,
+  plugin,
+  existing,
+  reconnect = false,
+  onOpenChange,
+  onSuccess,
+}: Props) {
+  // Reconnect drives the create-style auth surface (auth step + stepper), not
+  // the edit surface, even though it targets an existing connection.
+  const isEdit = Boolean(existing) && !reconnect;
   const authKind = plugin?.authKind ?? "none";
   const userConfigSchema = (plugin?.userConfigSchema ?? null) as JSONSchema | null;
   const hasUserConfigFields =
@@ -411,6 +428,7 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
       <ConnectionModalHeader
         plugin={plugin}
         isEdit={isEdit}
+        reconnect={reconnect}
         canClose={canInteract}
         onClose={() => onOpenChange(false)}
         Title={shellTitle}
@@ -439,20 +457,25 @@ export function ConnectionModal({ open, plugin, existing, onOpenChange, onSucces
           <ConnectionModalDone plugin={plugin} />
         ) : (
           <>
-            <Field>
-              <FieldTitle>
-                {m.settings_connections_modal_display_name()}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {m.settings_connections_modal_optional()}
-                </span>
-              </FieldTitle>
-              <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder={plugin.name}
-                disabled={!canInteract}
-              />
-            </Field>
+            {/* Reconnect rebinds credentials to the existing row and never
+                touches its display name, so the field would be misleading —
+                hide it and show only the auth ceremony. */}
+            {reconnect ? null : (
+              <Field>
+                <FieldTitle>
+                  {m.settings_connections_modal_display_name()}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {m.settings_connections_modal_optional()}
+                  </span>
+                </FieldTitle>
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder={plugin.name}
+                  disabled={!canInteract}
+                />
+              </Field>
+            )}
 
             <ConnectionModalBody
               authKind={authKind}

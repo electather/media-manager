@@ -18,7 +18,7 @@ import { AllPluginsFailedError } from "../errors";
 import type { AggregateResult } from "../service";
 
 /**
- * Direct unit tests for the three-branch decision matrix in
+ * Direct unit tests for the four-branch decision matrix in
  * `interpretAggregate`. The function consumes only `(data, errors, attempted)`
  * — covering it in isolation here pins each branch independently of the
  * fetcher stubs used in the higher-level home-feed integration tests.
@@ -88,7 +88,48 @@ describe("interpretAggregate", () => {
     expect(result.partial).toBe(true);
   });
 
-  it("throws AllPluginsFailedError when every attempted provider errored", () => {
+  it("soft-degrades to empty + partial when every provider errored but all failures are transient", () => {
+    // The "coming up" regression: the sole calendar provider (Trakt) failed
+    // because its token refresh was rate-limited (429 → plugin.rate_limited).
+    // That is transient — the data is temporarily unavailable, not gone — so
+    // the row must render empty and self-heal, never hard-fail to a 503.
+    const result = interpretAggregate(
+      "calendar@v1",
+      build<unknown>({
+        attempted: 1,
+        data: [],
+        errors: [
+          {
+            pluginId: "trakt",
+            connectionId: "c1",
+            code: "plugin.rate_limited",
+            devMessage: "Trakt refresh 429",
+          },
+        ],
+      }),
+    );
+    expect(result.items).toEqual([]);
+    expect(result.partial).toBe(true);
+  });
+
+  it("throws AllPluginsFailedError when every provider errored with a terminal failure", () => {
+    expect(() =>
+      interpretAggregate(
+        "watchHistory@v1",
+        build<unknown>({
+          attempted: 1,
+          data: [],
+          errors: [
+            { pluginId: "a", connectionId: null, code: "plugin.token_expired", devMessage: "x" },
+          ],
+        }),
+      ),
+    ).toThrow(AllPluginsFailedError);
+  });
+
+  it("throws AllPluginsFailedError when a terminal failure is mixed with transient ones", () => {
+    // Not ALL transient — a genuine auth failure is present, so the surface
+    // must hard-fail and prompt the user to act rather than silently empty out.
     expect(() =>
       interpretAggregate(
         "watchHistory@v1",
@@ -97,7 +138,7 @@ describe("interpretAggregate", () => {
           data: [],
           errors: [
             { pluginId: "a", connectionId: null, code: "plugin.upstream_error", devMessage: "x" },
-            { pluginId: "b", connectionId: null, code: "plugin.timeout", devMessage: "y" },
+            { pluginId: "b", connectionId: null, code: "plugin.bad_credentials", devMessage: "y" },
           ],
         }),
       ),

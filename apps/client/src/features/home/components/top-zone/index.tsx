@@ -67,15 +67,18 @@ function HeroFrame({
 function HeroAlternates({
   candidates,
   activeIndex,
-  onSelect,
 }: {
   candidates: readonly HeroSlideUI[];
   activeIndex: number;
-  onSelect: (index: number) => void;
 }) {
   if (candidates.length <= 1) return null;
+  // Position indicator only — not interactive. Slides advance on their own
+  // (auto-cycle) and via dismiss; the dots report which slide is showing, they
+  // are not jump targets. A `role="group"` (not a `nav` landmark) with the
+  // active dot marked `aria-current` conveys that to assistive tech.
   return (
-    <nav
+    <div
+      role="group"
       aria-label={m.home_hero_alternates_label()}
       className="absolute inset-e-4 bottom-4 z-20 flex flex-wrap gap-1.5"
       data-testid="top-zone-alternates"
@@ -86,22 +89,18 @@ function HeroAlternates({
         // mixer surfaces a partially-watched movie that is also recommended,
         // so React needs the source prefix to keep dot identity stable.
         return (
-          <button
+          <span
             key={`${item.source}:${item.id}`}
-            type="button"
             aria-current={isActive ? "true" : undefined}
             aria-label={item.title}
-            onClick={() => onSelect(index)}
             className={cn(
               "size-2 rounded-full",
-              isActive
-                ? "size-2 rounded-full bg-primary"
-                : "size-2 rounded-full bg-muted-foreground/40 transition-colors hover:bg-muted-foreground",
+              isActive ? "bg-primary" : "bg-muted-foreground/40",
             )}
           />
         );
       })}
-    </nav>
+    </div>
   );
 }
 
@@ -141,16 +140,11 @@ function TopZoneCarousel({ slides, onPeek }: Props) {
   const ambientSrc = useDeferredValue(ambientSrcFor(active));
   const percent = progressPercent(active.progress);
 
-  // Warm the next slide's ambient image so dot-clicks don't wait on a fetch.
-  // `preload` is render-safe and deduped by React DOM per href.
+  // Warm the next slide's ambient image so the auto-advance doesn't wait on a
+  // fetch. `preload` is render-safe and deduped by React DOM per href.
   const nextSrc = ambientSrcFor(candidates[(activeIndex + 1) % candidates.length] ?? active);
   if (nextSrc) preload(nextSrc, { as: "image", fetchPriority: "low" });
 
-  const selectIndex = useCallback((index: number) => {
-    startTransition(() => {
-      setActiveIndex(index);
-    });
-  }, []);
   const cycleAlternate = useCallback(() => {
     startTransition(() => {
       setActiveIndex((idx) => (idx + 1) % candidates.length);
@@ -178,7 +172,7 @@ function TopZoneCarousel({ slides, onPeek }: Props) {
           />
         </div>
       </HeroFrame>
-      <HeroAlternates candidates={candidates} activeIndex={activeIndex} onSelect={selectIndex} />
+      <HeroAlternates candidates={candidates} activeIndex={activeIndex} />
     </section>
   );
 }

@@ -220,6 +220,31 @@ describe("ConnectionModal — typed errors and scoped capabilities", () => {
     });
   });
 
+  it("renders the OAuth auth ceremony (not the edit-only form) in reconnect mode", () => {
+    // Regression: Reconnect on a broken OAuth connection used to open the
+    // display-name-only edit modal, leaving the user unable to re-authorise.
+    // Reconnect mode must surface the create-style auth step instead.
+    render(
+      <ConnectionModal
+        open
+        plugin={traktPlugin}
+        existing={null}
+        reconnect
+        onOpenChange={() => {}}
+        onSuccess={() => {}}
+      />,
+    );
+
+    // Title reflects the reconnect intent, not "Add" or "Edit".
+    expect(screen.getByText(/Reconnect Trakt/i)).toBeTruthy();
+    // The auth ceremony's primary action is present...
+    expect(screen.getByRole("button", { name: /^connect$/i })).toBeTruthy();
+    // ...and the edit-only "Save changes" affordance is absent.
+    expect(screen.queryByRole("button", { name: /save changes/i })).toBeNull();
+    // The display-name field is hidden — reconnect never renames the row.
+    expect(screen.queryByPlaceholderText("Trakt")).toBeNull();
+  });
+
   it("posts auth-none schema values through the create connection path", async () => {
     const posts: unknown[] = [];
     stubFetch(async (input, init) => {

@@ -22,7 +22,7 @@ export async function dispatchSingle<T>(req: DispatchRequest): Promise<T | null>
     );
   }
   const pluginId = req.pluginId && providers.includes(req.pluginId) ? req.pluginId : providers[0]!;
-  const conn = await pickSingleConnection(req.userId, pluginId);
+  const conn = await pickSingleConnection(req.userId, pluginId, scope);
   if (!conn) {
     throw new PluginCallError(
       "media.no_connection",

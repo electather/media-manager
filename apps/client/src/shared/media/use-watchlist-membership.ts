@@ -1,30 +1,47 @@
-import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { useMemo, useSyncExternalStore } from "react";
-import type { CompactMediaItem, Page } from "@ent-mcp/shared/media";
+import type { CompactMediaItem, MediaSourceId, Page } from "@ent-mcp/shared/media";
 import { mediaKeys } from "./query-keys";
 
 /** The source id of the canonical watchlist user-list (the unfiltered all-items feed). */
 export const WATCHLIST_ITEMS_SOURCE_ID = "watchlist-items" as const;
 
 /**
- * The watchlist membership sub-key (#514). Scopes the id snapshot to the
- * `watchlist-items` source caches ONLY — NOT all of `mediaKeys.root`, which now
- * also spans home rows (recommendations, trending, …) whose items are not on the
- * watchlist. Prefix-matching covers every `sort` / `bucket` / `mood` / `limit`
- * combination of the list.
+ * Source ids whose every item is, by construction, on the user's watchlist
+ * (#514). Membership reads scope to THESE caches — NOT all of `mediaKeys.root`,
+ * which also spans home rows (recommendations, trending, continue-watching, …)
+ * whose items are NOT on the watchlist. Beyond the canonical all-items list this
+ * also covers the watchlist page's sibling feeds (mood / tonight / recently) and
+ * the home `yourWatchlist` row — all of which read through the same watchlist
+ * source, so an item loaded via any of them is genuinely saved. Without them an
+ * item paged in only by, say, a mood cluster read as "not on the watchlist" in
+ * the peek modal even though it was. Add new watchlist-origin sources here.
  */
-const WATCHLIST_ITEMS_PREFIX = [...mediaKeys.root, "source", WATCHLIST_ITEMS_SOURCE_ID] as const;
+const WATCHLIST_ORIGIN_SOURCE_IDS: readonly MediaSourceId[] = [
+  WATCHLIST_ITEMS_SOURCE_ID,
+  "watchlist-mood-items",
+  "watchlist-tonight",
+  "watchlist-recently",
+  "yourWatchlist",
+];
+
+/** Every loaded query sitting under a watchlist-origin source prefix. */
+function watchlistOriginQueries(qc: QueryClient) {
+  return WATCHLIST_ORIGIN_SOURCE_IDS.flatMap((sourceId) =>
+    qc.getQueryCache().findAll({ queryKey: [...mediaKeys.root, "source", sourceId] }),
+  );
+}
 
 type MediaPages = InfiniteData<Page, string | undefined>;
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
 /**
- * Composite-id snapshot for cross-feature consumers, scoped to the watchlist
- * user-list (#514). Walks every loaded `watchlist-items` sub-cache and unions
- * the ids the user has seen. Best-effort: surfaces that read this set before any
- * page loads get an empty set and rely on the server's idempotent `addItem` to
- * absorb add-when-already-saved.
+ * Composite-id snapshot for cross-feature consumers, scoped to the watchlist-
+ * origin sources (#514). Walks every loaded watchlist-origin sub-cache and
+ * unions the ids the user has seen. Best-effort: surfaces that read this set
+ * before any page loads get an empty set and rely on the server's idempotent
+ * `addItem` to absorb add-when-already-saved.
  */
 export function useWatchlistIdSet(): ReadonlySet<string> {
   const qc = useQueryClient();
@@ -38,7 +55,7 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
   );
   return useMemo(() => {
     void version;
-    const queries = qc.getQueryCache().findAll({ queryKey: WATCHLIST_ITEMS_PREFIX });
+    const queries = watchlistOriginQueries(qc);
     if (queries.length === 0) return EMPTY_SET;
     const out = new Set<string>();
     for (const q of queries) collectIds(q.state.data, out);
@@ -47,7 +64,7 @@ export function useWatchlistIdSet(): ReadonlySet<string> {
 }
 
 /**
- * Reactive membership check across every loaded `watchlist-items` sub-cache
+ * Reactive membership check across every loaded watchlist-origin sub-cache
  * (#514). The snapshot derives from `dataUpdatedAt` so mutation events
  * (setQueryData, refetch, invalidate-refresh) advance the value even when the
  * cache size is unchanged.
@@ -61,16 +78,14 @@ export function useIsInWatchlist(id: string): boolean {
     },
     () => {
       let v = 0;
-      for (const q of qc.getQueryCache().findAll({ queryKey: WATCHLIST_ITEMS_PREFIX })) {
-        v += q.state.dataUpdatedAt;
-      }
+      for (const q of watchlistOriginQueries(qc)) v += q.state.dataUpdatedAt;
       return v;
     },
     () => 0,
   );
   if (!id) return false;
   void snapshotVersion;
-  for (const q of qc.getQueryCache().findAll({ queryKey: WATCHLIST_ITEMS_PREFIX })) {
+  for (const q of watchlistOriginQueries(qc)) {
     if (matchesId(q.state.data, id)) return true;
   }
   return false;

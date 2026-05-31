@@ -110,8 +110,9 @@ async function invokeProvider(
   req: DispatchRequest,
   provider: PerKindProvider,
   timeoutMs: number,
+  scope: ResolvedCapabilityScope,
 ): Promise<InvocationOutcome<Record<string, unknown[]>>> {
-  const conn = await pickSingleConnection(req.userId, provider.pluginId);
+  const conn = await pickSingleConnection(req.userId, provider.pluginId, scope);
   if (!conn) {
     throw new PluginCallError(
       "media.no_connection",
@@ -225,7 +226,7 @@ export async function dispatchAggregatePerKind<T = Record<string, unknown[]>>(
   const providers = sortByPriority(eligible);
 
   const settled = await Promise.allSettled(
-    providers.map((p) => invokeProvider(req, p, capability.defaultTimeoutMs)),
+    providers.map((p) => invokeProvider(req, p, capability.defaultTimeoutMs, scope)),
   );
 
   const { successful, allFailed } = collectSuccessful(settled, providers, req);

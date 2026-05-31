@@ -49,7 +49,8 @@ export async function composeSeasonAvailability(
 
   const connectionsByPlugin = await Promise.all(
     providers.map(async (pluginId) => {
-      const conns = await resolveConnections(ctx.userId, pluginId);
+      // libraryAvailability@v1 is user-scoped: never borrow admin shared creds.
+      const conns = await resolveConnections(ctx.userId, pluginId, "user");
       return conns.map((conn) => ({ pluginId, conn }));
     }),
   );

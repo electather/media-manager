@@ -53,17 +53,37 @@ describe("MediaService.getContinueWatchingFeed", () => {
     expect(res.partial).toBe(true);
   });
 
-  it("throws AllPluginsFailedError when every attempted provider errored", async () => {
+  it("throws AllPluginsFailedError when every attempted provider errored terminally", async () => {
     dispatchAggregateMock.mockResolvedValue({
       data: [],
       errors: [
-        { pluginId: "plex", connectionId: null, code: "plugin.upstream_error", devMessage: "x" },
-        { pluginId: "jellyfin", connectionId: null, code: "plugin.timeout", devMessage: "y" },
+        { pluginId: "plex", connectionId: null, code: "plugin.token_expired", devMessage: "x" },
+        {
+          pluginId: "jellyfin",
+          connectionId: null,
+          code: "plugin.bad_credentials",
+          devMessage: "y",
+        },
       ],
       attempted: 2,
     });
     const svc = new MediaService("u1");
     await expect(svc.getContinueWatchingFeed()).rejects.toBeInstanceOf(AllPluginsFailedError);
+  });
+
+  it("soft-degrades to empty + partial when every provider errored transiently", async () => {
+    dispatchAggregateMock.mockResolvedValue({
+      data: [],
+      errors: [
+        { pluginId: "plex", connectionId: null, code: "plugin.rate_limited", devMessage: "x" },
+        { pluginId: "jellyfin", connectionId: null, code: "plugin.timeout", devMessage: "y" },
+      ],
+      attempted: 2,
+    });
+    const svc = new MediaService("u1");
+    const res = await svc.getContinueWatchingFeed();
+    expect(res.items).toEqual([]);
+    expect(res.partial).toBe(true);
   });
 
   it("forwards the deadline option to the dispatcher", async () => {

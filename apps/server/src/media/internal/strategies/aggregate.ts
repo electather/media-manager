@@ -20,7 +20,7 @@ export async function dispatchAggregate<T>(req: DispatchRequest): Promise<Aggreg
   const providers = capabilityRegistry.listProviders(req.capability, req.version, scope);
   const perPlugin = await Promise.all(
     providers.map(async (pluginId) => {
-      const connections = await resolveConnections(req.userId, pluginId);
+      const connections = await resolveConnections(req.userId, pluginId, scope);
       return connections.map((conn) => ({ pluginId, conn }));
     }),
   );

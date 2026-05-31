@@ -49,6 +49,9 @@ vi.mock("../../plugin-runtime/internal/registry", () => ({
 // which don't affect the assertions in these tests.
 const dbStub = {
   update: () => ({ set: () => ({ where: async () => undefined }) }),
+  // readConnectionCredentials lookup — no stored row, so the refresh path runs
+  // refreshAuth directly (these tests assert the pre-coalescing behavior).
+  select: () => ({ from: () => ({ where: () => ({ get: async () => undefined }) }) }),
 };
 vi.mock("../../db/client", () => ({
   getDb: () => dbStub,

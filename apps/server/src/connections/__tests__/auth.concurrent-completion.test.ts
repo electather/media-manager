@@ -74,8 +74,13 @@ describe("consumeAndWritePendingAuth — concurrent nonce consumption", () => {
   beforeEach(() => {
     runAuth.mockReset();
     writeConnection.mockReset();
+    getModule.mockReset();
     mockDelete.mockReset();
     selectWhere.mockReset();
+    // These tests assert the nonce-race INSERT path. A poolable manifest skips
+    // the reconnect (update-existing) branch in `persistConnectionFromAuth` so
+    // completion always routes through the mocked `writeConnection`.
+    getModule.mockResolvedValue({ manifest: { poolable: true } });
   });
 
   describe("completeRedirectAuth", () => {
