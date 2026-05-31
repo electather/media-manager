@@ -73,20 +73,27 @@ export function setupVirtualizerEnv({
   }
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
 
-  const originalGetRect = Element.prototype.getBoundingClientRect;
-  Element.prototype.getBoundingClientRect = function (this: void) {
-    return {
-      x: 0,
-      y: 0,
-      top: 0,
-      left: 0,
-      bottom: state.elementHeight,
-      right: state.elementWidth,
-      width: state.elementWidth,
-      height: state.elementHeight,
-      toJSON: () => ({}),
-    } as DOMRect;
-  };
+  const originalGetRect = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "getBoundingClientRect",
+  );
+  Object.defineProperty(Element.prototype, "getBoundingClientRect", {
+    configurable: true,
+    writable: true,
+    value: function (this: void) {
+      return {
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        bottom: state.elementHeight,
+        right: state.elementWidth,
+        width: state.elementWidth,
+        height: state.elementHeight,
+        toJSON: () => ({}),
+      } as DOMRect;
+    },
+  });
 
   const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
   const originalClientHeight = Object.getOwnPropertyDescriptor(
@@ -142,7 +149,8 @@ export function setupVirtualizerEnv({
 
   function cleanup() {
     callbacks.clear();
-    Element.prototype.getBoundingClientRect = originalGetRect;
+    if (originalGetRect)
+      Object.defineProperty(Element.prototype, "getBoundingClientRect", originalGetRect);
     if (originalClientWidth)
       Object.defineProperty(HTMLElement.prototype, "clientWidth", originalClientWidth);
     if (originalClientHeight)
