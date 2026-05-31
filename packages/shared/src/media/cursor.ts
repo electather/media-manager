@@ -42,7 +42,10 @@ const cursorSchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("offset"), n: z.number().int().nonnegative() }),
 ]);
 
-function utf8ToBase64Url(input: string): string {
+// Exported (not in the package barrel) so the legacy `@ent-mcp/shared/home`
+// cursor encoder consumes this one copy instead of duplicating it — the codec
+// move consolidates the helper rather than forking it.
+export function utf8ToBase64Url(input: string): string {
   const bytes = new TextEncoder().encode(input);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
