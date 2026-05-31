@@ -196,6 +196,7 @@ Mirrors Part A on the client: a shared media layer = the "thin pipeline"; home/w
 - **V.WIRE1** — exactly one media item shape (`CompactMediaItem`), one page shape (`Page`), one cursor codec (`@ent-mcp/shared/media`), one source-id set (`MEDIA_SOURCE_IDS`). Client + server import the same contract module.
 - **V.MC1/V.PG1** — unchanged from consolidation: resolver/source carry no enrich/sort/cursor logic; pipeline preserves #500 empty-streak `cursor:null` + #501 sparse page + RISK-005 ceiling.
 - **V.CL1** — one client list hook core (`mediaRowsQueryOptions`); suspense/lazy are thin wrappers. One `MediaApiError`. home/watchlist key factories derive from `mediaKeys.root`.
+- **V.TN1** — `/api/media/sources/watchlist-tonight` returns the flat, unranked enriched candidate page (`listRows` result); the hero/alternate ranking (`pickTonight`) runs client-side. The old `/watchlist/sections/tonight` endpoint ran the pick server-side and is deleted at cutover (§A8). Until then, `tonight-pick.ts` is a byte-mirror of the server's `tonight/{pick,score}.ts`. (Inherited from the consolidation design [2026-05-26 §C](./2026-05-26-media-pipeline-consolidation-design.md); restated here since this PR's code cites it.)
 
 ## §D — Phases
 
